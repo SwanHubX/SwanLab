@@ -14,6 +14,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+wandb
 build/
 develop-eggs/
 dist/

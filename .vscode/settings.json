@@ -3,7 +3,8 @@
   "workbench.iconTheme": "material-icon-theme",
   /* 自定义图标关联 */
   "material-icon-theme.folders.associations": {
-    "swanlab": "api"
+    "swanlab": "api",
+    "wandb": "database"
   },
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
@@ -37,5 +38,15 @@
   },
 
   /** tailwind */
-  "css.customData": [".vscode/tailwind.json"]
+  "css.customData": [".vscode/tailwind.json"],
+  // 不显示__pycache__文件夹
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/__pycache__": true
+  }
 }

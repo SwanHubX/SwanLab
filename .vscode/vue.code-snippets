@@ -10,7 +10,7 @@
       "@File: $RELATIVE_FILEPATH",
       "@IDE: vscode",
       "@Description:",
-      "\t\t$1",
+      "\t$1",
       "\"\"\""
     ]
   },

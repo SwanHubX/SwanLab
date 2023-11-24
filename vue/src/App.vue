@@ -1,18 +1,21 @@
-<script setup>
-import HelloWorld from '@swanlab-vue/components/HelloWorld.vue'
-</script>
-
 <template>
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="./assets/swanlab.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
-  </div>
-  <HelloWorld msg="Vite + Vue" />
+  <EChartsTest :data="data" />
 </template>
+
+<script setup>
+import EChartsTest from './components/EChartsTest.vue'
+import http from './api/http'
+import { ref } from 'vue'
+// 折线图集合
+const data = ref([5, 20, 36])
+// 每隔1秒钟，将data中随机的一项改变，增加+5
+setInterval(() => {
+  http.get('http://localhost:10101/api/test').then((res) => {
+    data.value = [...data.value, res.data]
+    console.log(data.value)
+  })
+}, 2000)
+</script>
 
 <style scoped>
 .logo {

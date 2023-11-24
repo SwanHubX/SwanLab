@@ -1,18 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2023-11-24 17:53:52
+@DATE: 2023-11-24 21:12:52
 @File: test/start_server.py
 @IDE: vscode
 @Description:
-        开启vue中编译后的后端服务，用于测试
+    开启后端测试服务，访问端口
 """
-
-import time
 from swanlab import SwanWeb
 
 if __name__ == "__main__":
-    sw = SwanWeb()
+    sw = SwanWeb(share=True)
     print("start server")
     sw.run()
     # while True:
