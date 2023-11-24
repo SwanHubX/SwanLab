@@ -1,0 +1,43 @@
+{
+  "python": {
+    "prefix": "pyt",
+    "description": "python header",
+    "body": [
+      "#!/usr/bin/env python",
+      "# -*- coding: utf-8 -*-",
+      "r\"\"\"",
+      "@DATE: $CURRENT_YEAR-$CURRENT_MONTH-$CURRENT_DATE $CURRENT_HOUR:$CURRENT_MINUTE:$CURRENT_SECOND",
+      "@File: $RELATIVE_FILEPATH",
+      "@IDE: vscode",
+      "@Description:",
+      "\t\t$1",
+      "\"\"\""
+    ]
+  },
+  "comment": {
+    "prefix": ["comment", "comm"],
+    "description": "comment",
+    "scope": "vue, javascript,typescript",
+    "body": ["", "// ---------------------------------- $1 ----------------------------------", "", "$2"]
+  },
+  "vue": {
+    "scope": "vue",
+    "prefix": "vue",
+    "body": [
+        "<template> </template>",
+        "",
+        "<script setup>"
+        "/**",
+        " * @description: $1",
+        " * @file: ${TM_FILENAME} ",
+        " * @since: ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND} ",
+        "**/"
+        "$2"
+        "</script>",
+        "",
+        "<style lang=\"scss\" scoped></style>",
+        ""
+      ],
+    "description": "vue"
+},
+}

@@ -1,0 +1,21 @@
+root = true
+
+[*]
+indent_style = space
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+# 配置前端文件缩进
+[*.{ts,js,cjs,vue,css}]
+indent_style = space
+indent_size = 2
+
+# 配置python文件缩进
+[*.py]
+indent_style = space
+indent_size = 4

@@ -1,0 +1,25 @@
+{
+    "recommendations": [
+        /**
+         * 前端相关插件
+         */
+        "Vue.volar",
+        "Vue.vscode-typescript-vue-plugin",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        /**
+         * 代码协作、标记
+         */
+        // 代码风格统一
+        "editorconfig.editorconfig",
+        // 代码标记,TODO FIXME等
+        "gruntfuggly.todo-tree",
+        // 代码协作，git协作
+        "eamodio.gitlens",
+        // 其他
+        "PKief.material-icon-theme",
+    ]
+  }
+  

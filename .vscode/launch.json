@@ -1,0 +1,38 @@
+{
+  // 使用 IntelliSense 了解相关属性。
+  // 悬停以查看现有属性的描述。
+  // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    // 启动前端开发服务
+    {
+      "name": "Npm开启前端服务",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "type": "node",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"]
+    },
+    // 启动前端编译服务
+    {
+      "name": "Npm编译前端项目",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "type": "node",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "build"]
+    },
+    // 启动后端测试服务
+    {
+      "name": "Python开启模版测试服务",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/start_server.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      //sys.path 会加入顶层目录，影响模块导入查询路径
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    }
+  ]
+}
