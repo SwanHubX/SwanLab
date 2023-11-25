@@ -8,11 +8,12 @@ r"""
     开启后端测试服务，访问端口
 """
 from swanlab import SwanWeb
+import time
 
 if __name__ == "__main__":
-    sw = SwanWeb(share=True)
+    sw = SwanWeb()
     print("start server")
     sw.run()
-    # while True:
-    #     print("running")
-    #     time.sleep(2)
+    while True:
+        print("running")
+        time.sleep(2)

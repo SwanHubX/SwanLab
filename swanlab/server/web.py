@@ -29,16 +29,10 @@ async def _():
 
 
 # 响应logo内容
+# TODO 后续可以考虑将logo.ico放在assets中，这样就不需要单独响应了
 @_app.get("/logo.ico")
 async def _():
     return FileResponse(os.path.join(TEMPLATE_PATH, "logo.ico"))
-
-
-# 响应其他assets文件，FileResponse会自动根据文件类型设置响应头
-@_app.get("/assets/{file_name}")
-async def _(file_name: str):
-    path = os.path.join(ASSETS, file_name)
-    return FileResponse(path)
 
 
 import random
@@ -75,7 +69,6 @@ class SwanWeb(object):
         self.logs = {}  # 初始化为一个字典，存放日志
         self.server_thread = None  # 服务线程
         self.share = share  # 是否开启当前服务网络共享，默认为False，代表当前服务跑在127.0.0.1上，只能本机访问
-
         self.port = 10101
 
     def run(self):
@@ -83,10 +76,12 @@ class SwanWeb(object):
         由于用到了子线程，因此服务实际上启动在子线程中，主线程将继续执行
         """
         static = StaticFiles(directory=ASSETS)
-        _app.mount(ASSETS, static, name="assert")
+        # 将assets文件夹注册为静态文件路径，这样不再需要单独响应每个文件
+        _app.mount("/assets", static, name="assets")
         host = "127.0.0.1" if not self.share else "0.0.0.0"
         self.server_thread = threading.Thread(target=run_server, args=(host, self.port))
         self.server_thread.start()
+        # 日志打印
         print("SwanLab server is running on http://{}:{}".format(host, self.port))
         if not self.share:
             print("You can share this server by setting share=True")
