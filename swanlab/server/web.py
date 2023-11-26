@@ -6,6 +6,11 @@ import uvicorn
 import threading
 import os
 from ..database import SwanDataBase
+import mimetypes
+
+
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
