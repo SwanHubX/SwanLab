@@ -8,15 +8,14 @@ import os
 from ..database import SwanDataBase
 import mimetypes
 
-
-mimetypes.add_type("application/javascript", ".js")
-mimetypes.add_type("text/css", ".css")
-
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
 入口文件为index.html，网页图标为logo.ico，其他文件为assets文件夹中的文件
 因此，需要指定文件路径与文件名，用于后端服务的响应（这在下面的路由配置中也有说明）
 """
+# 注册静态文件路径
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
 FILEPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_PATH = os.path.join(FILEPATH, "template")
 INDEX = os.path.join(TEMPLATE_PATH, "index.html")
