@@ -4,9 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from typing import Union
 import uvicorn
 import threading
+import mimetypes
 import os
 from ..database import SwanDataBase
-import mimetypes
+from ..utils import color
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -91,7 +92,7 @@ class SwanWeb(object):
         self.server_thread = threading.Thread(target=run_server, args=(host, self.port))
         self.server_thread.start()
         # 日志打印
-        print("SwanLab server is running on http://{}:{}".format(host, self.port))
+        print("SwanLab server is running on " + color.green("http://{}:{}").format(host, self.port))
         if not self.share:
             print("You can share this server by setting share=True")
 
@@ -111,20 +112,3 @@ class SwanWeb(object):
         self.port = port
         self.info_level = info_level
         self.__run()
-
-    # 生成log
-    def log(self, tag: str, index: int, data: Union[int, float], namspace: str = "default"):
-        """生成日志，用于在前端显示
-
-        Parameters
-        ----------
-        tag : str
-            添加数据的标签，用于区分不同的数据
-        index : int
-            数据的索引，用于区分不同的数据
-        data : Union[int, float]
-            添加的数据，暂时只支持int和float类型
-        namspace : str, optional
-            命名空间，用于区分不同的数据，system用于存储系统信息， by default "default"
-        """
-        self.database.add(tag, index, data, namspace)
