@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from typing import Union
 import uvicorn
 import threading
 import os
+from ..database import SwanDataBase
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -46,39 +48,42 @@ async def _():
     return JSONResponse({"data": random_number}, status_code=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
-# 开启服务
-def run_server(host, port, log_level="warning"):
-    """开启服务
-    此函数将在子线程中运行
-    """
-    log_level = "info"
-    uvicorn.run(_app, host=host, port=port, log_level=log_level)
-
-
 class SwanWeb(object):
     """SwanWeb类用于启动函数，用于连接前端与interface层，实现服务的开启和数据的传输
     此类将被SwanLab继承
     """
 
     # 是否正在运行
-    def __init__(self, share=False):
+    def __init__(self):
         """
         初始化服务，原则上这里的参数不应该被使用本库的人所修改，因为这里是配置一些底层参数的，与用户无关
         有额外的init方法给用户配置相关所需参数
         """
-        self.logs = {}  # 初始化为一个字典，存放日志
         self.server_thread = None  # 服务线程
-        self.share = share  # 是否开启当前服务网络共享，默认为False，代表当前服务跑在127.0.0.1上，只能本机访问
-        self.port = 10101
+        self.database: SwanDataBase = SwanDataBase()  # 数据库对象
 
-    def run(self):
+        # 可配置内容
+        self.share = False  # 是否开启当前服务网络共享，默认为False，代表当前服务跑在127.0.0.1上，只能本机访问
+        self.port = 10101
+        self.info_level = "info"
+
+    def __run(self):
         """启动服务，执行此函数，将web服务开启
         由于用到了子线程，因此服务实际上启动在子线程中，主线程将继续执行
         """
+
+        # 开启服务的函数
+        def run_server(host, port, log_level="warning"):
+            """开启服务
+            此函数将在子线程中运行
+            """
+            uvicorn.run(_app, host=host, port=port, log_level=log_level)
+
+        # 注册静态文件
         static = StaticFiles(directory=ASSETS)
         # 将assets文件夹注册为静态文件路径，这样不再需要单独响应每个文件
         _app.mount("/assets", static, name="assets")
-        host = "127.0.0.1" if not self.share else "0.0.0.0"
+        host = "127.0.0.1" if not self.share else "localhost"
         self.server_thread = threading.Thread(target=run_server, args=(host, self.port))
         self.server_thread.start()
         # 日志打印
@@ -86,6 +91,36 @@ class SwanWeb(object):
         if not self.share:
             print("You can share this server by setting share=True")
 
+    def init(self, port: int = 10101, share: bool = False, info_level: str = "info"):
+        """初始化服务，用于配置服务参数以及启动服务
+
+        Parameters
+        ----------
+        port : int, optional
+            服务开启的端口, by default 10101
+        share : bool, optional
+            是否需要开启局域网共享，这意味着将跑在localhost上, by default False
+        info_level : str, optional
+            日志等级，可选参数为：debug,info,warning,error,critical, by default "info"
+        """
+        self.share = share
+        self.port = port
+        self.info_level = info_level
+        self.__run()
+
     # 生成log
-    def log(self, log):
-        self.logs.setdefault(log["name"], []).append(log["data"])
+    def log(self, tag: str, index: int, data: Union[int, float], namspace: str = "default"):
+        """生成日志，用于在前端显示
+
+        Parameters
+        ----------
+        tag : str
+            添加数据的标签，用于区分不同的数据
+        index : int
+            数据的索引，用于区分不同的数据
+        data : Union[int, float]
+            添加的数据，暂时只支持int和float类型
+        namspace : str, optional
+            命名空间，用于区分不同的数据，system用于存储系统信息， by default "default"
+        """
+        self.database.add(tag, index, data, namspace)

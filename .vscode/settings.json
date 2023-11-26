@@ -39,7 +39,7 @@
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],
-  // 不显示__pycache__文件夹
+  /** 不显示__pycache__文件夹 */
   "files.exclude": {
     "**/.git": true,
     "**/.svn": true,
@@ -48,5 +48,7 @@
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
     "**/__pycache__": true
-  }
+  },
+  /** python代码注释 */
+  "autoDocstring.docstringFormat": "numpy"
 }

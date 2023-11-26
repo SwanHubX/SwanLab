@@ -14,6 +14,7 @@
      */
     "ms-python.black-formatter",
     "donjayamanne.python-extension-pack",
+    "njpwerner.autodocstring",
     /**
      * 代码协作、标记
      */

@@ -7,13 +7,15 @@ r"""
 @Description:
     开启后端测试服务，访问端口
 """
-from swanlab import SwanWeb
+
+from swanlab import swanweb as sw
 import time
 
+sw.init()
+
+
 if __name__ == "__main__":
-    sw = SwanWeb()
     print("start server")
-    sw.run()
     while True:
         print("running")
         time.sleep(2)
