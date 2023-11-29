@@ -9,6 +9,9 @@ r"""
 """
 
 from swanlab import swanweb as sw
+import sys
+
+print(sys.path)
 import time
 
 sw.init()

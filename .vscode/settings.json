@@ -4,7 +4,8 @@
   /* 自定义图标关联 */
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
-    "wandb": "database"
+    "wandb": "database",
+    ".config": "config"
   },
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
