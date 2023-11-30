@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2023-11-30 21:37:26
-@File: swanlab\server\router.py
+@DATE: 2023-11-30 20:47:18
+@File: swanlab\server\route.py
 @IDE: vscode
 @Description:
-    服务路由模块，用于实现服务的路由功能
+    综合服务 api
 """
 
 from fastapi import FastAPI
