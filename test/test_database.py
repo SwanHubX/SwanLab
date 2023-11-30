@@ -10,10 +10,12 @@ r"""
 import random
 
 # TODO 在此处导入swanlab中的数据库模块
+from swanlab import swanweb as sw
+db = sw.database
 
 
 # 一百万次迭代
-epochs = 100000
+epochs = 100
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -27,3 +29,7 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     data = {"accuracy": acc, "loss": loss}
     # TODO 在此处将数据写入数据库
+    db.add("test", "test", acc, loss)
+
+
+db.query("test", "test", 0)
