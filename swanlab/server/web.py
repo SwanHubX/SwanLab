@@ -1,13 +1,11 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from typing import Union
 import uvicorn
 import threading
 import mimetypes
 import os
 from ..database import SwanDataBase
 from ..utils import color
+from .route import app as _app
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -19,38 +17,7 @@ mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
 FILEPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_PATH = os.path.join(FILEPATH, "template")
-INDEX = os.path.join(TEMPLATE_PATH, "index.html")
 ASSETS = os.path.join(TEMPLATE_PATH, "assets")
-
-# 服务全局对象
-_app = FastAPI()
-
-
-# 响应首页
-@_app.get("/", response_class=HTMLResponse)
-async def _():
-    # 读取 HTML 文件内容并返回
-    with open(INDEX, "r", encoding="utf-8") as file:
-        html_content = file.read()
-    return HTMLResponse(content=html_content, status_code=200)
-
-
-# 响应logo内容
-# TODO 后续可以考虑将logo.ico放在assets中，这样就不需要单独响应了
-@_app.get("/logo.ico")
-async def _():
-    return FileResponse(os.path.join(TEMPLATE_PATH, "logo.ico"))
-
-
-import random
-
-
-# 测试路由，每次请求返回一个0到30的随机数
-@_app.get("/api/test")
-async def _():
-    # 生成一个 0 到 30 之间的随机整数
-    random_number = random.randint(0, 30)
-    return JSONResponse({"data": random_number}, status_code=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
 class SwanWeb(object):
