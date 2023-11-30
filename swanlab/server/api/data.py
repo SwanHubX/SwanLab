@@ -11,11 +11,11 @@ import random
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter
 
-date_router = APIRouter()
+router = APIRouter()
 
 
 # 测试路由，每次请求返回一个0到30的随机数
-@date_router.get("/api/test")
+@router.get("/api/test")
 async def _():
     # 生成一个 0 到 30 之间的随机整数
     random_number = random.randint(0, 30)
