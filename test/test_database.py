@@ -9,7 +9,10 @@ r"""
 """
 import random
 
-# TODO 在此处导入swanlab中的数据库模块
+# 导入数据库模块
+from swanlab.database.server import SwanDataBase
+
+swan_db = SwanDataBase()
 
 
 # 一百万次迭代
@@ -27,3 +30,4 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     data = {"accuracy": acc, "loss": loss}
     # TODO 在此处将数据写入数据库
+    swan_db.add()
