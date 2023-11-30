@@ -63,17 +63,19 @@ class SwanWeb(object):
         if not self.share:
             print("You can share this server by setting share=True")
 
-    def init(self, port: int = 10101, share: bool = False, info_level: str = "info"):
-        """初始化服务，用于配置服务参数以及启动服务
+    def init(self, log_path: str, port: int = 10101, share: bool = False, info_level: str = "info"):
+        """初始化服务，用于配置服务参数以及启动服务，加载数据库
 
         Parameters
         ----------
+        log_path : str
+            日志文件夹路径，运行的日志将会保存在此文件夹中
         port : int, optional
             服务开启的端口, by default 10101
         share : bool, optional
             是否需要开启局域网共享，这意味着将跑在localhost上, by default False
         info_level : str, optional
-            日志等级，可选参数为：debug,info,warning,error,critical, by default "info"
+            日志等级，可选参数为: debug,info,warning,error,critical, by default "info"
         """
         self.share = share
         self.port = port

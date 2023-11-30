@@ -4,7 +4,7 @@ import random  # for demo script
 
 wandb.login()
 
-epochs = 10
+epochs = 100000
 lr = 0.01
 
 run = wandb.init(
