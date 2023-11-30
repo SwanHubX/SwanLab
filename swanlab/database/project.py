@@ -35,7 +35,7 @@ class SwanProject(object):
         # 在此处连接数据库，作为一个属性，接下来
         self.__con = sqlite3.connect(db_path)
         # FIXME 如果$expriments数据表单不存在，则创建
-        print("db initialized")
+        print("swanlab database initialized")
 
     @property
     def experiments(self) -> List[str]:
@@ -68,6 +68,8 @@ class SwanProject(object):
         # 保证实验名称唯一
         expriment_name = make_expriment_name_unique(expriment_name, self.experiments)
         # FIXME 在已经创建的实验表单中添加一条记录
+
+        # FIXME 如果是浮点数，保留4位小数
 
         return
 

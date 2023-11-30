@@ -8,6 +8,7 @@ r"""
     开发和测试本地数据库的读写能力，并且建立表单
 """
 import random
+import time
 
 # TODO 在此处导入swanlab中的数据库模块
 from swanlab.database.project import SwanProject
@@ -16,7 +17,7 @@ from swanlab.database.project import SwanProject
 sw = SwanProject()
 
 # 迭代次数
-epochs = 100
+epochs = 20
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -40,3 +41,4 @@ for epoch in range(2, epochs):
     sw.add(tag="loss", data=loss)
     # FIXME 在此处将数据写入数据库
     sw.add(tag="accuracy", data=acc, namespace="train")
+    time.sleep(0.1)
