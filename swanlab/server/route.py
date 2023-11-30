@@ -1,3 +1,10 @@
+r"""
+@DATE: 2023-11-30 20:47:18
+@File: swanlab\server\route.py
+@IDE: vscode
+@Description:
+    综合服务 api
+"""
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 import os
