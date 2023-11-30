@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from ..database import SwanDataBase
 from ..utils import color
 import uvicorn
 import threading
@@ -63,8 +62,7 @@ class SwanWeb(object):
         初始化服务，原则上这里的参数不应该被使用本库的人所修改，因为这里是配置一些底层参数的，与用户无关
         有额外的init方法给用户配置相关所需参数
         """
-        self.server_thread = None  # 服务线程
-        self.database: SwanDataBase = SwanDataBase()  # 数据库对象
+        self.server_thread = None  # 服务线程数据库对象
 
         # 可配置内容
         self.share = False  # 是否开启当前服务网络共享，默认为False，代表当前服务跑在127.0.0.1上，只能本机访问
