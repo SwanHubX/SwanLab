@@ -10,6 +10,9 @@ r"""
 
 from swanlab import swanweb as sw
 import sys
+import os
+
+print(os.getcwd())
 
 print(sys.path)
 import time
