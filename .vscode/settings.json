@@ -5,7 +5,8 @@
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
     "wandb": "database",
-    ".swanlab": "admin"
+    ".swanlab": "admin",
+    ".config": "config"
   },
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
