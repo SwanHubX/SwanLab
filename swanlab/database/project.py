@@ -11,7 +11,7 @@ from typing import Union, List
 import os
 from ..env import SWANLAB_FOLDER
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
-import json
+import ujson
 from datetime import datetime
 
 PROJECT_CONFIG = "experiments.json"
@@ -53,7 +53,7 @@ class SwanProject(object):
         if not os.path.exists(expriments_path) or os.path.getsize(expriments_path) == 0:
             # 创建 experiments.json 文件
             with open(expriments_path, "w") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=4)
+                ujson.dump(DEFAULT_CONFIG, f, indent=4)
 
         print("swanlab database initialized")
 
@@ -63,7 +63,7 @@ class SwanProject(object):
         experiments = []
         # 此处应该返回一个列表，包含所有的实验名称
         with open(os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)) as f:
-            experiments = json.load(f)["experiments"]
+            experiments = ujson.load(f)["experiments"]
         return [item["name"] for item in experiments]
 
     def init(
@@ -98,7 +98,7 @@ class SwanProject(object):
         expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
         # 获取之前的实验记录
         with open(expriments_path, "r") as f:
-            expriments_json = json.load(f)
+            expriments_json = ujson.load(f)
         # 写入新的实验
         with open(expriments_path, "w") as f:
             expriments_json["__index"] += 1
@@ -114,7 +114,7 @@ class SwanProject(object):
             )
             # 保存实验id
             self.experiment_id = expriments_json["experiments"][-1]["expriment_id"]
-            json.dump(expriments_json, f, indent=4)
+            ujson.dump(expriments_json, f, indent=4)
         # 创建实验专属目录
         if not os.path.exists(os.path.join(SWANLAB_FOLDER, experiment_name)):
             os.makedirs(os.path.join(SWANLAB_FOLDER, experiment_name))
@@ -129,10 +129,10 @@ class SwanProject(object):
         chart_path = os.path.join(SWANLAB_FOLDER, experiment_name, EXPERIMENT_CHART)
         if os.path.exists(chart_path):
             with open(chart_path, "r") as f:
-                chart_json = json.load(f)
+                chart_json = ujson.load(f)
         else:
             with open(chart_path, "w") as f:
-                json.dump(chart_json, f, indent=4)
+                ujson.dump(chart_json, f, indent=4)
         # FIXME 如果是浮点数，保留4位小数
         return
 
@@ -162,7 +162,7 @@ class SwanProject(object):
             }
         else:
             with open(database, "r") as f:
-                previous_data = json.load(f)
+                previous_data = ujson.load(f)
         # 添加记录
         previous_data["data"].append(
             {
@@ -173,4 +173,4 @@ class SwanProject(object):
             }
         )
         with open(database, "w") as f:
-            json.dump(previous_data, f, indent=4)
+            ujson.dump(previous_data, f, indent=4)

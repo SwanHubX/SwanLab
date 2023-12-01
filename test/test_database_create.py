@@ -43,4 +43,4 @@ for epoch in range(2, epochs):
     sw.add(tag="loss", data=loss)
     # FIXME 在此处将数据写入数据库
     sw.add(tag="accuracy", data=acc, namespace="train")
-    time.sleep(0.1)
+    # time.sleep(0.1)
