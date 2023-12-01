@@ -9,10 +9,11 @@ r"""
 """
 from collections.abc import MutableMapping
 from typing import Any
-from datetime import datetime
 import portalocker  # 文件锁
 from io import TextIOWrapper
 import ujson
+import os
+from ..utils import create_time
 
 
 class ProjectTablePoxy(MutableMapping):
@@ -22,7 +23,7 @@ class ProjectTablePoxy(MutableMapping):
         # 为data添加一些默认信息，如创建时间等
         # 判断create_time和update_time是否存在，都不存在，则添加，都存在，跳过，否则抛出异常
         if "create_time" not in data and "update_time" not in data:
-            time = datetime.utcnow().isoformat()
+            time = create_time()
             data["create_time"] = time
             data["update_time"] = time
         elif "create_time" in data and "update_time" in data:
@@ -61,16 +62,19 @@ class ProjectTablePoxy(MutableMapping):
     def __dict__(self):
         return self._target_dict
 
-    def save(self, f: TextIOWrapper = None):
+    def save(self, f: TextIOWrapper = None, data: dict = None):
         """将数据保存到文件中"""
+        data = data if data is not None else self._target_dict
         if f is None:
+            # FIXME 检测文件是否被锁住
             f = open(self._dict_path, "w")
             portalocker.lock(f, portalocker.LOCK_EX)
-            ujson.dump(self._target_dict, f, indent=4)
+            ujson.dump(data, f, indent=4)
             f.close()
         else:
+            f.truncate()
             f.seek(0)
-            ujson.dump(self._target_dict, f, indent=4)
+            ujson.dump(data, f, indent=4)
 
 
 class ExperimentPoxy(object):
@@ -89,6 +93,57 @@ class ExperimentPoxy(object):
         path : str
         """
         self.path = path
-        time = datetime.utcnow().isoformat()
+        time = create_time()
         self.create_time = time
         self.update_time = time
+
+    def new_tag_data(self) -> dict:
+        """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""
+        return {
+            "create_time": create_time(),
+        }
+
+    def new_tag(self) -> dict:
+        """创建一个新的tag data数据集合
+
+        Returns
+        -------
+        dict
+            返回一个新的data数据集合
+        """
+        time = create_time()
+        return {
+            "create_time": time,
+            "update_time": time,
+            "data": [],
+        }
+
+    def save_tag(self, tag: str, data: Any, experiment_id: int):
+        """保存一个tag的数据
+
+        Parameters
+        ----------
+        tag : str
+            tag名称
+        data : _type_
+            tag数据
+        path : str
+            文件路径
+        """
+        # 创建一个新的tag数据
+        new_tag_data = self.new_tag_data()
+        new_tag_data["experiment_id"] = experiment_id
+        new_tag_data["data"] = data
+        # 存储路径
+        path = os.path.join(self.path, f"{tag}.json")
+        # 拿到原本的数据
+        if not os.path.exists(path):
+            ujson.dump(self.new_tag(), open(path, "w"))
+        # 读取数据
+        with open(path, "r") as f:
+            tag_data = ujson.load(f)
+            tag_data["data"].append(new_tag_data)
+            tag_data["update_time"] = new_tag_data["create_time"]
+        # 保存数据
+        with open(path, "w") as f:
+            ujson.dump(tag_data, f)

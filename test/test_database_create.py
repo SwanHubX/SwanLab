@@ -8,17 +8,10 @@ r"""
     开发和测试本地数据库的读写能力，并且建立表单
 """
 import random
-import time
-import json
-
-# TODO 在此处导入swanlab中的数据库模块
-from swanlab.database import SwanDatabase
-
-# 连接此项目的数据库
-sw = SwanDatabase()
+import swanlab as sw
 
 # 迭代次数
-epochs = 5000
+epochs = 50
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -39,7 +32,7 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # FIXME 在此处将数据写入数据库
-    sw.add(tag="loss", data=loss)
+    sw.log(tag="loss", data=loss)
     # FIXME 在此处将数据写入数据库
-    sw.add(tag="accuracy", data=acc, namespace="train")
+    sw.log(tag="accuracy", data=acc, namespace="train")
     # time.sleep(0.1)

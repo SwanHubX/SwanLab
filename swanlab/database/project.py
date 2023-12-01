@@ -10,9 +10,10 @@ r"""
 import os
 from ..env import SWANLAB_LOGS_FOLDER
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
-from datetime import datetime
 from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
+import portalocker
+import ujson
 
 
 class ProjectTable(ProjectTablePoxy):
@@ -31,7 +32,7 @@ class ProjectTable(ProjectTablePoxy):
         # 保存表单信息
         super().__init__(data, self.path)
         # 当前项目运行的实验
-        self._experiment: ExperimentTable = None
+        self.__experiment: ExperimentTable = None
 
     @property
     def sum(self) -> int:
@@ -42,6 +43,11 @@ class ProjectTable(ProjectTablePoxy):
     def sum(self, value):
         """设置实验总数"""
         self["_sum"] = value
+
+    @property
+    def experiment(self) -> ExperimentTable:
+        """返回当前实验"""
+        return self.__experiment
 
     def add_experiment(self, name: str = None, description: str = None, config: dict = None):
         """添加一个实验
@@ -69,7 +75,22 @@ class ProjectTable(ProjectTablePoxy):
         name = make_experiment_name_unique(name, experiments)
         # 创建实验信息
         self.sum = self.sum + 1
-        self._experiment = ExperimentTable(self.sum, name, description, config, len(experiments) + 1)
+        self.__experiment = ExperimentTable(self.sum, name, description, config, len(experiments) + 1)
         # 添加一个实验到self["experiments"]中
-        self["experiments"].append(self._experiment.__dict__())
+        self["experiments"].append(self.__experiment.__dict__())
         print("add experiment")
+
+    def success(self):
+        """实验成功完成，更新实验状态，再次保存实验信息"""
+        # 锁上文件，更新实验状态
+        f = open(self.path, "r+")
+        portalocker.lock(f, portalocker.LOCK_EX)
+        project = ujson.load(f)
+        self.__experiment.success()
+        for index, experiment in enumerate(project["experiments"]):
+            if experiment["experiment_id"] == self.__experiment.experiment_id:
+                project["experiments"][index] = self.__experiment.__dict__()
+                print("success experiment ", project["experiments"][index])
+                break
+        self.save(f, project)
+        f.close()

@@ -8,9 +8,9 @@ r"""
     数据库模块，连接project表单对象
 """
 import os
-from ..env import SWANLAB_LOGS_FOLDER, SWANLAB_FOLDER
+from ..env import SWANLAB_LOGS_FOLDER
 from .project import ProjectTable
-from .chart import ChartTable
+from .expriment import ExperimentTable
 import portalocker
 from typing import Union
 import ujson
@@ -34,9 +34,7 @@ class SwanDatabase(object):
         if not os.path.exists(SWANLAB_LOGS_FOLDER):
             os.mkdir(SWANLAB_LOGS_FOLDER)
         # 项目基础表单
-        self._project: ProjectTable = None
-        # 图表基础表单
-        self._chart: ChartTable = None
+        self.__project: ProjectTable = None
         # 表单会在init中创建，所有的创建会在一个文件读取周期内完成，以防止多进程写入同一个文件带来的问题
 
     def init(
@@ -63,18 +61,24 @@ class SwanDatabase(object):
         # 锁定文件
         portalocker.lock(f, portalocker.LOCK_EX)
         # 初始化项目对象
-        self._project = ProjectTable(data=ujson.load(f) if project_exist else ProjectTable.default_data)
+        self.__project = ProjectTable(data=ujson.load(f) if project_exist else ProjectTable.default_data)
         # 创建实验
-        self._project.add_experiment(experiment_name, description, config)
+        self.__project.add_experiment(experiment_name, description, config)
         # 保存项目表单，释放文件锁
-        self._project.save(f)
+        self.__project.save(f)
         f.close()
+
+    @property
+    def experiment(self) -> ExperimentTable:
+        """获取当前实验对象"""
+        return self.__project.experiment
 
     def add(self, tag: str, data: Union[str, float], namespace: str = "charts"):
         """添加数据到数据库，保存数据，完成几件事情：
         1. 如果{experiment_name}_{tag}表单不存在，则创建
         2. 添加记录到{experiment_name}_{tag}表单中，包括create_time等
-        3. {experiment_name}$chart表单中是否存在此字段，不存在则添加
+        3. chart表单中是否存在此字段，不存在则添加
+        当然这些工作并不由本函数完成，而是由表单对象完成
 
         Parameters
         ----------
@@ -85,26 +89,8 @@ class SwanDatabase(object):
         namespace : str, optional
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）, by default "charts"
         """
-        database = os.path.join(SWANLAB_FOLDER, self.experiment_name, f"{self.experiment_name}_{tag}.json")
-        previous_data = {}
-        # 如果对应的database文件不存在，则创建
-        if not os.path.exists(database) or os.path.getsize(database) == 0:
-            previous_data = {
-                "data": [],
-                "create_time": datetime.now().isoformat(),
-                "update_time": datetime.now().isoformat(),
-            }
-        else:
-            with open(database, "r") as f:
-                previous_data = ujson.load(f)
-        # 添加记录
-        previous_data["data"].append(
-            {
-                "create_time": datetime.now().isoformat(),
-                "data": data,
-                "tag_id": len(previous_data["data"]),
-                "expriment_id": self.experiment_id,
-            }
-        )
-        with open(database, "w") as f:
-            ujson.dump(previous_data, f)
+        self.__project.experiment.add(tag, data, namespace)
+
+    def success(self):
+        """标记实验成功"""
+        self.__project.success()
