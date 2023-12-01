@@ -11,7 +11,7 @@ import os
 import mimetypes
 
 # 默认存放数据的目录为用户执行python命令时的目录
-SWANLAB_FOLDER = os.path.join(os.getcwd(), ".swanlab", "logs")
+SWANLAB_FOLDER = os.path.join(os.getcwd(), ".swanlab")
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
 入口文件为index.html，网页图标为logo.ico，其他文件为assets文件夹中的文件

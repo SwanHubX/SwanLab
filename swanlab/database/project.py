@@ -7,21 +7,17 @@ r"""
 @Description:
     项目模块，创建项目级别数据库库，接下来针对实验级别的数据在此基础上进行操作
 """
-from typing import Union, List
+from typing import Union
 import os
 from ..env import SWANLAB_FOLDER
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 import ujson
 from datetime import datetime
+from .table import ProjectTablePoxy
+from .expriment import ExperimentTable
 
-PROJECT_CONFIG = "experiments.json"
-EXPERIMENT_CHART = "chart.json"
-DEFAULT_CONFIG = {
-    "__index": 0,
-    "experiments": [],
-    "create_time": datetime.now().isoformat(),
-    "update_time": datetime.now().isoformat(),
-}
+SWANLAB_LOGS_FOLDER = os.path.join(SWANLAB_FOLDER, "logs")
+
 DEFAULT_CHART = {
     "chart_id": 0,
     "tag": "default",
@@ -30,6 +26,83 @@ DEFAULT_CHART = {
     "config": {},
     "created_time": datetime.now().isoformat(),
 }
+
+
+class ProjectTable(ProjectTablePoxy):
+    """实验管理类，用于管理实验，包括创建实验，删除实验，修改实验配置等操作
+
+    # Attributes
+    data: dict，实验管理类的数据，json格式
+    """
+
+    path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
+
+    def __init__(self):
+        """初始化实验管理类"""
+        project_exist = os.path.exists(self.path)
+        # 判断path是否存在，如果存在，则加载数据，否则创建
+        if project_exist:
+            with open(self.path, "r") as f:
+                data = ujson.load(f)
+        else:
+            data = {"_sum": 0, "experiments": []}
+        # 保存表单信息
+        super().__init__(data, self.path)
+        # 保存表单信息
+        if not project_exist:
+            self.save()
+        self._experiment: ExperimentTable = None
+
+    @property
+    def sum(self):
+        """返回实验总数"""
+        return self["_sum"]
+
+    @property
+    def expriments(self):
+        """列出当前数据库中的所有实验"""
+        experiments = self["experiments"]
+        # 此处应该返回一个列表，包含所有的实验名称
+        return [item["name"] for item in experiments]
+
+    @property
+    def add_expriment(self, name: str = None, description: str = None, config: dict = None):
+        """添加一个实验"""
+        if name is None:
+            name = generate_random_tree_name()
+        else:
+            check_experiment_name(name)
+        if description is None:
+            description = ""
+        if config is None:
+            config = {}
+        # 获取当前已经存在的实验名称集合
+        experiments = [item["name"] for item in self.data["experiments"]]
+        # 保证实验名称唯一
+        name = make_experiment_name_unique(name, experiments)
+        # 创建实验信息
+        self._experiment = ExperimentTable(name, description, config, self.sum)
+
+
+class ChartTable(ProjectTablePoxy):
+    """图表管理类，用于管理图表，包括创建图表，删除图表，修改图表配置等操作"""
+
+    path = os.path.join(SWANLAB_LOGS_FOLDER, "chart.json")
+
+    def __init__(self):
+        """初始化图表管理类"""
+        # 判断path是否存在，如果存在，则加载数据，否则创建
+        if os.path.exists(self.path):
+            with open(self.path, "r") as f:
+                data = ujson.load(f)
+        else:
+            data = {
+                "charts": [],
+            }
+        # 保存表单信息
+        super().__init__(data, self.path)
+        # 保存表单信息
+        self.save()
 
 
 class SwanProject(object):
@@ -45,26 +118,22 @@ class SwanProject(object):
         name : str
             实验名称
         """
-        # 此时必须保证swanlab文件夹存在
-        if not os.path.exists(SWANLAB_FOLDER):
-            os.makedirs(SWANLAB_FOLDER)
-        # 检查项目的基础配置
-        expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
-        if not os.path.exists(expriments_path) or os.path.getsize(expriments_path) == 0:
-            # 创建 experiments.json 文件
-            with open(expriments_path, "w") as f:
-                ujson.dump(DEFAULT_CONFIG, f)
-
-        print("swanlab database initialized")
-
-    @property
-    def experiments(self) -> List[str]:
-        """列出当前数据库中的所有实验"""
-        experiments = []
-        # 此处应该返回一个列表，包含所有的实验名称
-        with open(os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)) as f:
-            experiments = ujson.load(f)["experiments"]
-        return [item["name"] for item in experiments]
+        # 此时必须保证.swanlab文件夹存在，但是这并不是本类的指责，所以不检查
+        # 需要检查logs文件夹是否存在，不存在则创建
+        if not os.path.exists(SWANLAB_LOGS_FOLDER):
+            os.mkdir(SWANLAB_LOGS_FOLDER)
+        # 如果ProjectTable.path都不存在或者都存在则不报错
+        project_exist = os.path.exists(ProjectTable.path)
+        chart_exist = os.path.exists(ChartTable.path)
+        if not project_exist and not chart_exist or project_exist and chart_exist:
+            pass
+        else:
+            # 如果只存在一个，则报错，这是不可能的
+            raise FileExistsError("invalid project logs")
+        # 项目基础表单
+        self._project: ProjectTable = ProjectTable()
+        # 图表基础表单
+        self._chart: ChartTable = ChartTable()
 
     def init(
         self,
@@ -83,19 +152,6 @@ class SwanProject(object):
         config : dict, optional
             实验配置, by default {}
         """
-        if experiment_name is None:
-            experiment_name = generate_random_tree_name()
-        # TODO 检查名称是否合法
-        check_experiment_name(experiment_name)
-        # 获取当前已经存在的实验表单集合
-        # 保证实验名称唯一
-        experiment_name = make_experiment_name_unique(experiment_name, self.experiments)
-        # 给实例绑定实验名
-        self.experiment_name = experiment_name
-
-        # 创建实验目录及实验配置
-        expriments_json = {}
-        expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
         # 获取之前的实验记录
         with open(expriments_path, "r") as f:
             expriments_json = ujson.load(f)
@@ -153,7 +209,7 @@ class SwanProject(object):
         """
         database = os.path.join(SWANLAB_FOLDER, self.experiment_name, f"{self.experiment_name}_{tag}.json")
         previous_data = {}
-        # 如果json不存在或者为空
+        # 如果对应的database文件不存在，则创建
         if not os.path.exists(database) or os.path.getsize(database) == 0:
             previous_data = {
                 "data": [],

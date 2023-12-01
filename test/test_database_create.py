@@ -14,7 +14,6 @@ import json
 # TODO 在此处导入swanlab中的数据库模块
 from swanlab.database.project import SwanProject
 
-
 # 连接此项目的数据库
 sw = SwanProject()
 
