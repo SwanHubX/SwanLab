@@ -11,6 +11,8 @@
   "dependencies": {
     "axios": "^1.6.2",
     "echarts": "^5.4.3",
+    "mockjs": "^1.1.0",
+    "vite-plugin-mock": "^2.9.6",
     "vue": "^3.3.8"
   },
   "devDependencies": {
