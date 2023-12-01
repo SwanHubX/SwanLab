@@ -53,7 +53,7 @@ class SwanProject(object):
         if not os.path.exists(expriments_path) or os.path.getsize(expriments_path) == 0:
             # 创建 experiments.json 文件
             with open(expriments_path, "w") as f:
-                ujson.dump(DEFAULT_CONFIG, f, indent=4)
+                ujson.dump(DEFAULT_CONFIG, f)
 
         print("swanlab database initialized")
 
@@ -114,7 +114,7 @@ class SwanProject(object):
             )
             # 保存实验id
             self.experiment_id = expriments_json["experiments"][-1]["expriment_id"]
-            ujson.dump(expriments_json, f, indent=4)
+            ujson.dump(expriments_json, f)
         # 创建实验专属目录
         if not os.path.exists(os.path.join(SWANLAB_FOLDER, experiment_name)):
             os.makedirs(os.path.join(SWANLAB_FOLDER, experiment_name))
@@ -132,7 +132,7 @@ class SwanProject(object):
                 chart_json = ujson.load(f)
         else:
             with open(chart_path, "w") as f:
-                ujson.dump(chart_json, f, indent=4)
+                ujson.dump(chart_json, f)
         # FIXME 如果是浮点数，保留4位小数
         return
 
@@ -173,4 +173,4 @@ class SwanProject(object):
             }
         )
         with open(database, "w") as f:
-            ujson.dump(previous_data, f, indent=4)
+            ujson.dump(previous_data, f)

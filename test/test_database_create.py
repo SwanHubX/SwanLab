@@ -19,7 +19,7 @@ from swanlab.database.project import SwanProject
 sw = SwanProject()
 
 # 迭代次数
-epochs = 500
+epochs = 5000
 # 学习率
 lr = 0.01
 # 随机偏移量
