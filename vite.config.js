@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd())
+  const env = loadEnv(mode, path.resolve(process.cwd(), 'vue'))
   return {
     plugins: [vue()],
     root: './vue',
@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:10101',
+          target: env.VITE_SERVER_PROXY,
           changeOrigin: true,
         },
       },
