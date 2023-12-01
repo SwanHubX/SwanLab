@@ -10,7 +10,7 @@ import { ref } from 'vue'
 const data = ref([5, 20, 36])
 // 每隔1秒钟，将data中随机的一项改变，增加+5
 setInterval(() => {
-  http.get('http://localhost:10101/api/test').then((res) => {
+  http.get('/api/test').then((res) => {
     data.value = [...data.value, res.data]
     console.log(data.value)
   })
