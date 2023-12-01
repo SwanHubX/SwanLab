@@ -26,5 +26,6 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     wandb.log({"accuracy": acc, "loss": loss})
+    wandb.log({"Network Traffic (bytes)": acc})
 
 # run.log_code()

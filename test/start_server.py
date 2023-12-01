@@ -6,6 +6,7 @@ r"""
 @IDE: vscode
 @Description:
     开启后端测试服务，访问端口
+    事实上在使用中并不是这样的，而是在命令行执行命令完成的，这里只是为了测试
 """
 
 from swanlab import swanweb as sw

@@ -1,13 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from typing import Union
+from ..utils import color
 import uvicorn
 import threading
 import mimetypes
 import os
-from ..database import SwanDataBase
-from ..utils import color
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -64,8 +62,7 @@ class SwanWeb(object):
         初始化服务，原则上这里的参数不应该被使用本库的人所修改，因为这里是配置一些底层参数的，与用户无关
         有额外的init方法给用户配置相关所需参数
         """
-        self.server_thread = None  # 服务线程
-        self.database: SwanDataBase = SwanDataBase()  # 数据库对象
+        self.server_thread = None  # 服务线程数据库对象
 
         # 可配置内容
         self.share = False  # 是否开启当前服务网络共享，默认为False，代表当前服务跑在127.0.0.1上，只能本机访问
@@ -96,17 +93,19 @@ class SwanWeb(object):
         if not self.share:
             print("You can share this server by setting share=True")
 
-    def init(self, port: int = 10101, share: bool = False, info_level: str = "info"):
-        """初始化服务，用于配置服务参数以及启动服务
+    def init(self, log_path: str, port: int = 10101, share: bool = False, info_level: str = "info"):
+        """初始化服务，用于配置服务参数以及启动服务，加载数据库
 
         Parameters
         ----------
+        log_path : str
+            日志文件夹路径，运行的日志将会保存在此文件夹中
         port : int, optional
             服务开启的端口, by default 10101
         share : bool, optional
             是否需要开启局域网共享，这意味着将跑在localhost上, by default False
         info_level : str, optional
-            日志等级，可选参数为：debug,info,warning,error,critical, by default "info"
+            日志等级，可选参数为: debug,info,warning,error,critical, by default "info"
         """
         self.share = share
         self.port = port
