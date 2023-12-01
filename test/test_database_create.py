@@ -25,12 +25,13 @@ offset = random.random() / 5
 
 # FIXME 创建一个实验
 sw.init(
+    "swanlab-test",
+    "this is a test experiment",
     config={
         "learning_rate": lr,
         "epochs": epochs,
-    }
+    },
 )
-
 
 # 模拟训练过程
 for epoch in range(2, epochs):

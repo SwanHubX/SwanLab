@@ -10,4 +10,4 @@ r"""
 import os
 
 # 默认存放数据的目录为用户执行python命令时的目录
-SWANLAB_FOLDER = os.path.join(os.getcwd(), ".swanlab")
+SWANLAB_FOLDER = os.path.join(os.getcwd(), ".swanlab", "logs")

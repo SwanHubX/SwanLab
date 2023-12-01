@@ -9,9 +9,17 @@ r"""
 """
 from typing import Union, List
 import os
-import sqlite3
 from ..env import SWANLAB_FOLDER
 from .expriments_name import generate_random_tree_name, check_expriment_name, make_expriment_name_unique
+import json
+from datetime import datetime
+
+PROJECT_CONFIG = "experiments.json"
+DEFAULT_CONFIG = {
+    "array": [],
+    "create_time": datetime.now().isoformat(),
+    "update_time": datetime.now().isoformat(),
+}
 
 
 class SwanProject(object):
@@ -28,20 +36,25 @@ class SwanProject(object):
             实验名称
         """
         # 此时必须保证swanlab文件夹存在
-        # 数据库名称，格式为{project}.sqlite3
-        db_name = "swanlab.sqlite3"
-        # 创建数据库文件，如果已经存在则不创建
-        db_path = os.path.join(SWANLAB_FOLDER, db_name)
-        # 在此处连接数据库，作为一个属性，接下来
-        self.__con = sqlite3.connect(db_path)
-        # FIXME 如果$expriments数据表单不存在，则创建
+        if not os.path.exists(SWANLAB_FOLDER):
+            os.makedirs(SWANLAB_FOLDER)
+        # 检查项目的基础配置
+        expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
+        if not os.path.exists(expriments_path) or os.path.getsize(expriments_path) == 0:
+            # 创建 experiments.json 文件
+            with open(expriments_path, "w") as f:
+                json.dump(DEFAULT_CONFIG, f, indent=4)
+
         print("swanlab database initialized")
 
     @property
     def experiments(self) -> List[str]:
         """列出当前数据库中的所有实验"""
-        # FIXME 此处应该返回一个列表，包含所有的实验名称
-        return []
+        experiments = []
+        # 此处应该返回一个列表，包含所有的实验名称
+        with open(os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)) as f:
+            experiments = json.load(f)["array"]
+        return [item["name"] for item in experiments]
 
     def init(
         self,
@@ -67,10 +80,32 @@ class SwanProject(object):
         # 获取当前已经存在的实验表单集合
         # 保证实验名称唯一
         expriment_name = make_expriment_name_unique(expriment_name, self.experiments)
-        # FIXME 在已经创建的实验表单中添加一条记录
-
+        # 给实例绑定实验名
+        self.experiment_name = expriment_name
+        expriments_json = {}
+        expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
+        # 获取之前的实验记录
+        with open(expriments_path, "r") as f:
+            expriments_json = json.load(f)
+        # 写入新的实验
+        with open(expriments_path, "w") as f:
+            expriments_json["array"].append(
+                {
+                    "expriment_id": len(expriments_json["array"]),
+                    "name": expriment_name,
+                    "index": 0,
+                    "description": description,
+                    "config": config,
+                    "create_time": datetime.now().isoformat(),
+                }
+            )
+            # 保存实验id
+            self.experiment_id = expriments_json["array"][-1]["expriment_id"]
+            json.dump(expriments_json, f, indent=4)
+        # 创建实验专属目录
+        if not os.path.exists(os.path.join(SWANLAB_FOLDER, expriment_name)):
+            os.makedirs(os.path.join(SWANLAB_FOLDER, expriment_name))
         # FIXME 如果是浮点数，保留4位小数
-
         return
 
     def add(self, tag: str, data: Union[str, float], namespace: str = "charts"):
@@ -88,4 +123,26 @@ class SwanProject(object):
         namespace : str, optional
             命名空间，用于区分不同的数据资源（对应{expriment_name}$chart中的tag）, by default "charts"
         """
-        pass
+        database = os.path.join(SWANLAB_FOLDER, self.experiment_name, f"{self.experiment_name}_{tag}.json")
+        previous_data = {}
+        # 如果json不存在或者为空
+        if not os.path.exists(database) or os.path.getsize(database) == 0:
+            previous_data = {
+                "data": [],
+                "create_time": datetime.now().isoformat(),
+                "update_time": datetime.now().isoformat(),
+            }
+        else:
+            with open(database, "r") as f:
+                previous_data = json.load(f)
+        # 添加记录
+        previous_data["data"].append(
+            {
+                "create_time": datetime.now().isoformat(),
+                "data": data,
+                "tag_id": len(previous_data["data"]),
+                "expriment_id": self.experiment_id,
+            }
+        )
+        with open(database, "w") as f:
+            json.dump(previous_data, f, indent=4)
