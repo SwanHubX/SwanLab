@@ -62,7 +62,7 @@ def generate_random_tree_name(exists_name: [str] = []) -> str:
     return generated_name
 
 
-def make_expriment_name_unique(name: str, exists_name: [str]) -> str:
+def make_experiment_name_unique(name: str, exists_name: [str]) -> str:
     """检查实验名称是否已经存在，如果存在，调用一个递归函数，后缀加1
 
     Parameters
@@ -89,11 +89,11 @@ def make_expriment_name_unique(name: str, exists_name: [str]) -> str:
             name_arr.append("1")
         # 重新拼接名称
         new_name = "-".join(name_arr)
-        return make_expriment_name_unique(new_name, exists_name)
+        return make_experiment_name_unique(new_name, exists_name)
     return name
 
 
-def check_expriment_name(name: str):
+def check_experiment_name(name: str):
     """检查实验名称是否符合规范，如果不符合规范，报错
 
     Parameters

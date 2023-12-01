@@ -10,7 +10,7 @@ r"""
 from typing import Union, List
 import os
 from ..env import SWANLAB_FOLDER
-from .expriments_name import generate_random_tree_name, check_expriment_name, make_expriment_name_unique
+from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 import json
 from datetime import datetime
 
@@ -58,7 +58,7 @@ class SwanProject(object):
 
     def init(
         self,
-        expriment_name: str = None,
+        experiment_name: str = None,
         description: str = "",
         config: dict = {},
     ):
@@ -66,22 +66,22 @@ class SwanProject(object):
 
         Parameters
         ----------
-        expriment_name : str, optional
+        experiment_name : str, optional
             实验名称，默认自己生成，在内部进行实验名称的排查, by default generate_random_tree_name
         description : str, optional
             实验描述, by default ""
         config : dict, optional
             实验配置, by default {}
         """
-        if expriment_name is None:
-            expriment_name = generate_random_tree_name()
+        if experiment_name is None:
+            experiment_name = generate_random_tree_name()
         # TODO 检查名称是否合法
-        check_expriment_name(expriment_name)
+        check_experiment_name(experiment_name)
         # 获取当前已经存在的实验表单集合
         # 保证实验名称唯一
-        expriment_name = make_expriment_name_unique(expriment_name, self.experiments)
+        experiment_name = make_experiment_name_unique(experiment_name, self.experiments)
         # 给实例绑定实验名
-        self.experiment_name = expriment_name
+        self.experiment_name = experiment_name
         expriments_json = {}
         expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
         # 获取之前的实验记录
@@ -92,7 +92,7 @@ class SwanProject(object):
             expriments_json["array"].append(
                 {
                     "expriment_id": len(expriments_json["array"]),
-                    "name": expriment_name,
+                    "name": experiment_name,
                     "index": 0,
                     "description": description,
                     "config": config,
@@ -103,16 +103,16 @@ class SwanProject(object):
             self.experiment_id = expriments_json["array"][-1]["expriment_id"]
             json.dump(expriments_json, f, indent=4)
         # 创建实验专属目录
-        if not os.path.exists(os.path.join(SWANLAB_FOLDER, expriment_name)):
-            os.makedirs(os.path.join(SWANLAB_FOLDER, expriment_name))
+        if not os.path.exists(os.path.join(SWANLAB_FOLDER, experiment_name)):
+            os.makedirs(os.path.join(SWANLAB_FOLDER, experiment_name))
         # FIXME 如果是浮点数，保留4位小数
         return
 
     def add(self, tag: str, data: Union[str, float], namespace: str = "charts"):
         """添加数据到数据库，保存数据，完成几件事情：
-        1. 如果{expriment_name}_{tag}表单不存在，则创建
-        2. 添加记录到{expriment_name}_{tag}表单中，包括create_time等
-        3. {expriment_name}$chart表单中是否存在此字段，不存在则添加
+        1. 如果{experiment_name}_{tag}表单不存在，则创建
+        2. 添加记录到{experiment_name}_{tag}表单中，包括create_time等
+        3. {experiment_name}$chart表单中是否存在此字段，不存在则添加
 
         Parameters
         ----------
@@ -121,7 +121,7 @@ class SwanProject(object):
         data : Union[str, float]
             定位到的数据，暂时只支持str和float类型（事实上目前只支持float类型）
         namespace : str, optional
-            命名空间，用于区分不同的数据资源（对应{expriment_name}$chart中的tag）, by default "charts"
+            命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）, by default "charts"
         """
         database = os.path.join(SWANLAB_FOLDER, self.experiment_name, f"{self.experiment_name}_{tag}.json")
         previous_data = {}
