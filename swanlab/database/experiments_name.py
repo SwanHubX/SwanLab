@@ -41,7 +41,7 @@ positive_adjectives = [
 
 
 def generate_random_tree_name(exists_name: [str] = []) -> str:
-    """随机生成树木名称, 以树木的名称命名实验，此函数会检查是否已经存在相同的名称
+    """随机生成树木名称, 以树木的名称命名实验
 
     Parameters
     ----------

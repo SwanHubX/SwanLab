@@ -12,10 +12,10 @@ import time
 import json
 
 # TODO 在此处导入swanlab中的数据库模块
-from swanlab.database.project import SwanProject
+from swanlab.database import SwanDatabase
 
 # 连接此项目的数据库
-sw = SwanProject()
+sw = SwanDatabase()
 
 # 迭代次数
 epochs = 5000

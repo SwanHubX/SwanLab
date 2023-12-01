@@ -10,6 +10,8 @@ r"""
 from collections.abc import MutableMapping
 from typing import Any
 from datetime import datetime
+import portalocker  # 文件锁
+from io import TextIOWrapper
 import ujson
 
 
@@ -45,7 +47,6 @@ class ProjectTablePoxy(MutableMapping):
             数据的值，期望是一个可以被序列化的对象，但是这里不做检查
         """
         self._target_dict[key] = value
-        self.save()
 
     def __delitem__(self, key):
         del self._target_dict[key]
@@ -57,10 +58,19 @@ class ProjectTablePoxy(MutableMapping):
     def __len__(self):
         return len(self._target_dict)
 
-    def save(self):
+    def __dict__(self):
+        return self._target_dict
+
+    def save(self, f: TextIOWrapper = None):
         """将数据保存到文件中"""
-        with open(self._dict_path, "w") as f:
-            ujson.dump(self._target_dict, f)
+        if f is None:
+            f = open(self._dict_path, "w")
+            portalocker.lock(f, portalocker.LOCK_EX)
+            ujson.dump(self._target_dict, f, indent=4)
+            f.close()
+        else:
+            f.seek(0)
+            ujson.dump(self._target_dict, f, indent=4)
 
 
 class ExperimentPoxy(object):
@@ -69,7 +79,7 @@ class ExperimentPoxy(object):
     本类的主要作用是派生出其他的表单
     """
 
-    def __init__(self, name: str, path: str):
+    def __init__(self, path: str):
         """初始化一个实验，保存实验信息和实验派生的文件路径
 
         Parameters
@@ -78,7 +88,7 @@ class ExperimentPoxy(object):
             实验名称
         path : str
         """
-        self.folder_path = path
+        self.path = path
         time = datetime.utcnow().isoformat()
         self.create_time = time
         self.update_time = time
