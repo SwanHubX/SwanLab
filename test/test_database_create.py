@@ -14,20 +14,12 @@ import json
 # TODO 在此处导入swanlab中的数据库模块
 from swanlab.database.project import SwanProject
 
-s = time.time()
-data = json.load(open("./.swanlab/logs/lush-beech-1/lush-beech-1_accuracy.json", "r", encoding="utf8"))
-print(f"load time: {time.time() - s}")
-# 写入
-s = time.time()
-json.dump(data, open("./.swanlab/logs/lush-beech-1/lush-beech-1_accuracy.json", "w", encoding="utf8"))
-print(f"dump time: {time.time() - s}")
-
 
 # 连接此项目的数据库
 sw = SwanProject()
 
 # 迭代次数
-epochs = 20000
+epochs = 500
 # 学习率
 lr = 0.01
 # 随机偏移量

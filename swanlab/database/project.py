@@ -15,10 +15,20 @@ import json
 from datetime import datetime
 
 PROJECT_CONFIG = "experiments.json"
+EXPERIMENT_CHART = "chart.json"
 DEFAULT_CONFIG = {
+    "__index": 0,
     "array": [],
     "create_time": datetime.now().isoformat(),
     "update_time": datetime.now().isoformat(),
+}
+DEFAULT_CHART = {
+    "chart_id": 0,
+    "tag": "default",
+    "source": [],
+    "type": "default",
+    "config": {},
+    "created_time": datetime.now().isoformat(),
 }
 
 
@@ -82,6 +92,8 @@ class SwanProject(object):
         experiment_name = make_experiment_name_unique(experiment_name, self.experiments)
         # 给实例绑定实验名
         self.experiment_name = experiment_name
+
+        # 创建实验目录及实验配置
         expriments_json = {}
         expriments_path = os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)
         # 获取之前的实验记录
@@ -89,9 +101,10 @@ class SwanProject(object):
             expriments_json = json.load(f)
         # 写入新的实验
         with open(expriments_path, "w") as f:
+            expriments_json["__index"] += 1
             expriments_json["array"].append(
                 {
-                    "expriment_id": len(expriments_json["array"]),
+                    "expriment_id": expriments_json["__index"],
                     "name": experiment_name,
                     "index": 0,
                     "description": description,
@@ -105,6 +118,21 @@ class SwanProject(object):
         # 创建实验专属目录
         if not os.path.exists(os.path.join(SWANLAB_FOLDER, experiment_name)):
             os.makedirs(os.path.join(SWANLAB_FOLDER, experiment_name))
+        # 实验表格配置
+        chart_json = {
+            "__index": 1,
+            "array": [DEFAULT_CHART],
+            "create_time": datetime.now().isoformat(),
+            "update_time": datetime.now().isoformat(),
+            "experiment_id": self.experiment_id,
+        }
+        chart_path = os.path.join(SWANLAB_FOLDER, experiment_name, EXPERIMENT_CHART)
+        if os.path.exists(chart_path):
+            with open(chart_path, "r") as f:
+                chart_json = json.load(f)
+        else:
+            with open(chart_path, "w") as f:
+                json.dump(chart_json, f, indent=4)
         # FIXME 如果是浮点数，保留4位小数
         return
 
