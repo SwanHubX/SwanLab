@@ -18,7 +18,7 @@ PROJECT_CONFIG = "experiments.json"
 EXPERIMENT_CHART = "chart.json"
 DEFAULT_CONFIG = {
     "__index": 0,
-    "array": [],
+    "experiments": [],
     "create_time": datetime.now().isoformat(),
     "update_time": datetime.now().isoformat(),
 }
@@ -63,7 +63,7 @@ class SwanProject(object):
         experiments = []
         # 此处应该返回一个列表，包含所有的实验名称
         with open(os.path.join(SWANLAB_FOLDER, PROJECT_CONFIG)) as f:
-            experiments = json.load(f)["array"]
+            experiments = json.load(f)["experiments"]
         return [item["name"] for item in experiments]
 
     def init(
@@ -102,7 +102,7 @@ class SwanProject(object):
         # 写入新的实验
         with open(expriments_path, "w") as f:
             expriments_json["__index"] += 1
-            expriments_json["array"].append(
+            expriments_json["experiments"].append(
                 {
                     "expriment_id": expriments_json["__index"],
                     "name": experiment_name,
@@ -113,15 +113,15 @@ class SwanProject(object):
                 }
             )
             # 保存实验id
-            self.experiment_id = expriments_json["array"][-1]["expriment_id"]
+            self.experiment_id = expriments_json["experiments"][-1]["expriment_id"]
             json.dump(expriments_json, f, indent=4)
         # 创建实验专属目录
         if not os.path.exists(os.path.join(SWANLAB_FOLDER, experiment_name)):
             os.makedirs(os.path.join(SWANLAB_FOLDER, experiment_name))
         # 实验表格配置
         chart_json = {
-            "__index": 1,
-            "array": [DEFAULT_CHART],
+            "__index": 0,
+            "charts": [DEFAULT_CHART],
             "create_time": datetime.now().isoformat(),
             "update_time": datetime.now().isoformat(),
             "experiment_id": self.experiment_id,
