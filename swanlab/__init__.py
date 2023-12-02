@@ -1,4 +1,4 @@
-from .server import SwanWeb
+# from .server import SwanWeb
 from .database import SwanDatabase
 import atexit
 

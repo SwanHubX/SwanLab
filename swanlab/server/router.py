@@ -8,18 +8,53 @@ r"""
     综合服务 api
 """
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, status
+from fastapi.responses import HTMLResponse, FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+import ujson
+import time
 
 # 响应路径
-from ..env import INDEX, LOGO
-
-# 导入数据相关的路由
-from .api.data import router as data_router
+from ..env import INDEX, LOGO, ASSETS
 
 
 # 服务全局对象
 app = FastAPI()
+
+# 注册静态文件路径
+static_path = "/assets"
+static = StaticFiles(directory=ASSETS)
+app.mount(static_path, static)
+
+
+# ---------------------------------- 在此处注册中间件 ----------------------------------
+
+
+@app.middleware("http")
+async def _(request, call_next):
+    """基础中间件，调整响应结果，添加处理时间等信息"""
+    # 如果请求路径不以'/api'开头，说明并不是后端服务的请求，直接返回
+    if not request.url.path.startswith("/api"):
+        return await call_next(request)
+    # 记录请求开始时间
+    start_time = time.time()
+    # 调用下一个中间件或者最终的路由处理函数
+    # 我们约定路由处理函数最终返回三个参数，一个是错误码，一个是错误信息，一个是响应内容
+    response = await call_next(request)
+    # 记录请求结束时间
+    end_time = time.time()
+    # 计算处理时间，添加到响应头中
+    process_time = round(end_time - start_time, 4)
+    response.headers["X-Process-Time"] = str(process_time)
+    # 返回响应
+    return response
+
+
+# ---------------------------------- 在此处注册相关路由 ----------------------------------
+
+
+# 导入数据相关的路由
+from .api.test import router as test
 
 
 # 响应首页
@@ -38,4 +73,4 @@ async def _():
     return FileResponse(LOGO)
 
 
-app.include_router(data_router)
+app.include_router(test, prefix="/api/v1")

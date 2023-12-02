@@ -15,6 +15,15 @@
       "\"\"\""
     ]
   },
+  "python-comment": {
+    "prefix": "comm",
+    "scope": "python",
+    "description": "python文件块注释",
+    "body": [
+      "# ---------------------------------- $1 ----------------------------------",
+      "$2"
+    ]
+  },
   "frontend-comment": {
     "prefix": ["comment", "comm"],
     "description": "前端文件块注释",

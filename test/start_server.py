@@ -6,23 +6,11 @@ r"""
 @IDE: vscode
 @Description:
     开启后端测试服务，访问端口
-    事实上在使用中并不是这样的，而是在命令行执行命令完成的，这里只是为了测试
+    事实上在使用中并不是这样的，而是在命令行执行命令完成的，这里只是为了测试和开发
+    增加了实际开发中不会用到的热启动功能
 """
-
-from swanlab import swanweb as sw
-import sys
-import os
-
-print(os.getcwd())
-
-print(sys.path)
-import time
-
-sw.init()
-
+from swanlab.server.router import app
+import uvicorn
 
 if __name__ == "__main__":
-    print("start server")
-    while True:
-        print("running")
-        time.sleep(2)
+    uvicorn.run("start_server:app", host="127.0.0.1", port=6092, reload=True)
