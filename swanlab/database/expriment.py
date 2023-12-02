@@ -70,7 +70,7 @@ class ExperimentTable(ExperimentPoxy):
         bool
             如果存在，返回True，否则返回False
         """
-        return tag in self.tags
+        return any(item["tag"] == tag for item in self.tags)
 
     def add(self, tag: str, data: Union[float, str], namespace: str):
         """记录一条新的tag数据

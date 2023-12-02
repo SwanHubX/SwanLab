@@ -8,6 +8,7 @@ r"""
     数据库表单类，用于操作和记录数据库表单相关的信息，实际上是一个MutableMapping，可以像字典一样操作，但是对字典数据设置的时候进行一些特殊行为
 """
 from collections.abc import MutableMapping
+import math
 from typing import Any
 import portalocker  # 文件锁
 from io import TextIOWrapper
@@ -97,7 +98,7 @@ class ExperimentPoxy(object):
     """
 
     # 每__slice_size个tag数据保存为一个文件
-    __slice_size = 1000
+    __slice_size = 100
 
     def __init__(self, path: str):
         """初始化一个实验，保存实验信息和实验派生的文件路径
@@ -156,10 +157,22 @@ class ExperimentPoxy(object):
         save_folder = os.path.join(self.path, tag)
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
-        path = os.path.join(save_folder, str(index) + ".json")
-        # TODO 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
-        # 假设__slice_size为1000，index为1001，则应该保存到第二个文件中，第二个文件名称为1001.json
-        # 如果index为1003，则覆盖原本的的第二个文件，第二个文件改名为1003.json
-        # 通过self.new_tag()来创建一个新的文件结构，将new_tag_data保存到data中
-        # 写数据
-        ujson.dump(new_tag_data, open(path, "x"))
+
+        # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
+        need_slice = (index - 1) % self.__slice_size == 0 or index == 1
+        # 如果需要新增分片存储
+        if need_slice:  # 达到分片条件，需要在新文件中添加新的tag数据
+            file_path = os.path.join(save_folder, str(index) + ".json")
+            data = self.new_tag()
+            data["data"].append(new_tag_data)
+            ujson.dump(data, open(file_path, "x"))
+            return
+
+        # 如果不需要新增分片存储
+        previous_path = os.path.join(save_folder, str(index - 1) + ".json")
+        data = ujson.load(open(previous_path, "r"))
+        # 向列表中添加新tag数据
+        data["data"].append(new_tag_data)
+        ujson.dump(data, open(previous_path, "w"))
+        current_path = os.path.join(save_folder, str(index) + ".json")
+        os.rename(previous_path, current_path)
