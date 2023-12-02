@@ -10,7 +10,6 @@ r"""
 from collections.abc import MutableMapping
 import math
 from typing import Any
-import portalocker  # 文件锁
 from io import TextIOWrapper
 import ujson
 import os
