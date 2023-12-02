@@ -98,7 +98,7 @@ class ExperimentPoxy(object):
     """
 
     # 每__slice_size个tag数据保存为一个文件
-    __slice_size = 100
+    __slice_size = 1000
 
     def __init__(self, path: str):
         """初始化一个实验，保存实验信息和实验派生的文件路径
@@ -173,6 +173,7 @@ class ExperimentPoxy(object):
         data = ujson.load(open(previous_path, "r"))
         # 向列表中添加新tag数据
         data["data"].append(new_tag_data)
+        data["update_time"] = create_time()
         ujson.dump(data, open(previous_path, "w"))
         current_path = os.path.join(save_folder, str(index) + ".json")
         os.rename(previous_path, current_path)
