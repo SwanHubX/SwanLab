@@ -96,6 +96,9 @@ class ExperimentPoxy(object):
     本类的主要作用是派生出其他的表单
     """
 
+    # 每__slice_size个tag数据保存为一个文件
+    __slice_size = 1000
+
     def __init__(self, path: str):
         """初始化一个实验，保存实验信息和实验派生的文件路径
 
@@ -154,6 +157,9 @@ class ExperimentPoxy(object):
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
         path = os.path.join(save_folder, str(index) + ".json")
-        # TODO 优化文件分片
+        # TODO 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
+        # 假设__slice_size为1000，index为1001，则应该保存到第二个文件中，第二个文件名称为1001.json
+        # 如果index为1003，则覆盖原本的的第二个文件，第二个文件改名为1003.json
+        # 通过self.new_tag()来创建一个新的文件结构，将new_tag_data保存到data中
         # 写数据
         ujson.dump(new_tag_data, open(path, "x"))
