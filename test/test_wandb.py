@@ -4,7 +4,7 @@ import random  # for demo script
 
 wandb.login()
 
-epochs = 10
+epochs = 100000
 lr = 0.01
 
 run = wandb.init(
@@ -26,5 +26,6 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     wandb.log({"accuracy": acc, "loss": loss})
+    wandb.log({"Network Traffic (bytes)": acc})
 
 # run.log_code()

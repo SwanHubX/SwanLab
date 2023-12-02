@@ -1,0 +1,9 @@
+# web server
+fastapi
+uvicorn>=0.14.0
+
+
+# database
+ujson
+portalocker
+
