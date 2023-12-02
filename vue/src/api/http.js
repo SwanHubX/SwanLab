@@ -9,7 +9,6 @@ const http = axios.create({
 
 http.interceptors.request.use(
   async (req) => {
-    // TODO 判断token过期时间
     console.log('[request] ', req.method, req.url, req.data || req.params || '')
     return req
   },
