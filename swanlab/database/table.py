@@ -8,14 +8,12 @@ r"""
     数据库表单类，用于操作和记录数据库表单相关的信息，实际上是一个MutableMapping，可以像字典一样操作，但是对字典数据设置的时候进行一些特殊行为
 """
 from collections.abc import MutableMapping
-import math
 from typing import Any
 from io import TextIOWrapper
 import ujson
 import os
 from ..utils import create_time
-from ..utils import lock_file, get_a_lock
-import sys
+from ..utils import get_a_lock
 
 
 class ProjectTablePoxy(MutableMapping):

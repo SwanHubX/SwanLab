@@ -14,7 +14,6 @@ from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
 from ..utils import lock_file
 from io import TextIOWrapper
-import portalocker
 import ujson
 
 
