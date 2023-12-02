@@ -1,0 +1,91 @@
+/**
+ * 这部分是颜色变量的定义
+ * 一般情况下颜色命名方式为：[颜色类型]-[颜色深度]
+ * high、strong相关为颜色更亮
+ * dimmed相关为颜色更暗
+ */
+
+ @mixin dark {
+  /********************************************
+   * 背景色
+   *******************************************/
+  --background-default: #0f1524;
+  --background-dimmer: #29334f;
+  /********************************************
+   * 边框色
+   *******************************************/
+  --outline-default: #2d3242;
+  /********************************************
+   * 前景色（一般指页面文字）
+   *******************************************/
+  --foreground-default: #f5f9fc;
+  --foreground-dimmer: #c2c8cc;
+  --foreground-dimmest: #9da2a6;
+  /********************************************
+   * 引导色
+   *******************************************/
+  // 成功颜色
+  --positive-highest: #d5e4d9;
+  --positive-higher: #cff1d8;
+  --positive-default: #4e9553;
+  --positive-dimmer: #37733c;
+  // 标准颜色
+  --primary-default: #1c74dd;
+  --primary-dimmest: #d6e8ff;
+  // 危险颜色
+  --negative-default: #bb4c51;
+  --negative-dimmest: #eddcdc;
+}
+
+@mixin light {
+  /********************************************
+   * 背景色
+   *******************************************/
+   --background-default: #ffffff;
+   --background-dimmer: #f6f8fa;
+  /********************************************
+   * 边框色
+   *******************************************/
+  --outline-default: #d1d7dd;
+  /********************************************
+   * 前景色（一般指页面文字）
+   *******************************************/
+  --foreground-default: #000000;
+  --foreground-dimmer: #555555;
+  --foreground-dimmest: #858585;
+  /********************************************
+   * 引导色
+   *******************************************/
+  // 成功颜色
+  --positive-highest: #d5e4d9;
+  --positive-higher: #cff1d8;
+  --positive-default: #4e9553;
+  --positive-dimmer: #37733c;
+  // 标准颜色
+  --primary-default: #1c74dd;
+  --primary-dimmest: #d6e8ff;
+  // 危险颜色
+  --negative-default: #bb4c51;
+  --nagative-dimmest: #eddcdc;
+}
+
+:root {
+  // 外面使用的应该是通过var()获取的，媒体监听过后的变量，也就是说在此处处理深色、浅色模式
+  @media (prefers-color-scheme: dark) {
+    @include dark;
+  }
+  // 浅色模式
+  @media (prefers-color-scheme: light) {
+    @include light;
+  }
+
+  // 通过body的data-theme属性来切换深色、浅色模式，用于用户主动切换
+  body[data-theme='dark'] {
+    @include dark;
+    color-scheme: dark;
+  }
+  body[data-theme='light'] {
+    @include light;
+    color-scheme: light;
+  }
+}
