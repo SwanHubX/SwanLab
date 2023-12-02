@@ -34,7 +34,7 @@ class ExperimentTable(ExperimentPoxy):
         self.argv = sys.argv
         self.index = index
         self.status = 0  # 0: 正在运行，1: 运行成功，-1: 运行失败
-        self.__chart = ChartTable(base_path=path)
+        self.__chart = ChartTable(base_path=path, experiment_id=experiment_id)
 
     def __dict__(self) -> dict:
         """序列化此对象
@@ -86,7 +86,7 @@ class ExperimentTable(ExperimentPoxy):
         """
         if not self.is_tag_exist(tag):
             # 在chart中记录此tag
-            # self.__chart.add(tag=tag)
+            self.__chart.add(tag=tag)
             # 在实验中记录此tag
             self.tags.append({"tag": tag, "num": 0})
         # 更新tag的数量，并拿到tag的索引
