@@ -10,6 +10,7 @@ r"""
 import portalocker
 from functools import wraps
 from io import TextIOWrapper
+import os
 
 
 # 锁定文件，防止多进程写入同一个文件

@@ -131,7 +131,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Any, experiment_id: int):
+    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int):
         """保存一个tag的数据
 
         Parameters
@@ -140,23 +140,20 @@ class ExperimentPoxy(object):
             tag名称
         data : _type_
             tag数据
-        path : str
-            文件路径
+        experiment_id : int
+            实验id
+        index : int
+            tag索引
         """
         # 创建一个新的tag数据
         new_tag_data = self.new_tag_data()
         new_tag_data["experiment_id"] = experiment_id
         new_tag_data["data"] = data
         # 存储路径
-        path = os.path.join(self.path, f"{tag}.json")
-        # 拿到原本的数据
-        if not os.path.exists(path):
-            ujson.dump(self.new_tag(), open(path, "w"))
-        # 读取数据
-        with open(path, "r") as f:
-            tag_data = ujson.load(f)
-            tag_data["data"].append(new_tag_data)
-            tag_data["update_time"] = new_tag_data["create_time"]
-        # 保存数据
-        with open(path, "w") as f:
-            ujson.dump(tag_data, f)
+        save_folder = os.path.join(self.path, tag)
+        if not os.path.exists(save_folder):
+            os.mkdir(save_folder)
+        path = os.path.join(save_folder, str(index) + ".json")
+        # TODO 优化文件分片
+        # 写数据
+        ujson.dump(new_tag_data, open(path, "x"))

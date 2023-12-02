@@ -88,9 +88,18 @@ class ExperimentTable(ExperimentPoxy):
             # 在chart中记录此tag
             # self.__chart.add(tag=tag)
             # 在实验中记录此tag
-            self.tags.append(tag)
+            self.tags.append({"tag": tag, "num": 0})
+        # 更新tag的数量，并拿到tag的索引
+        tag_index = self.update_tag_num(tag)
         # 往本地添加新的数据
-        self.save_tag(tag, data, self.experiment_id)
+        self.save_tag(tag, data, self.experiment_id, tag_index)
+
+    def update_tag_num(self, tag: str) -> int:
+        for index, item in enumerate(self.tags):
+            if item["tag"] == tag:
+                item["num"] += 1
+                return item["num"]
+        raise ValueError(f"tag={tag} not exist in experiment={self.name}")
 
     def success(self):
         """实验成功完成，更新实验状态"""
