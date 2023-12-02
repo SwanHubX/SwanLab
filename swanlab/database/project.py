@@ -12,6 +12,8 @@ from ..env import SWANLAB_LOGS_FOLDER
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
+from ..utils import lock_file
+from io import TextIOWrapper
 import portalocker
 import ujson
 
@@ -80,17 +82,15 @@ class ProjectTable(ProjectTablePoxy):
         self["experiments"].append(self.__experiment.__dict__())
         print("add experiment")
 
-    def success(self):
+    @lock_file(file_path=path, mode="r+")
+    def success(self, file: TextIOWrapper):
         """实验成功完成，更新实验状态，再次保存实验信息"""
         # 锁上文件，更新实验状态
-        f = open(self.path, "r+")
-        portalocker.lock(f, portalocker.LOCK_EX)
-        project = ujson.load(f)
+        project = ujson.load(file)
         self.__experiment.success()
         for index, experiment in enumerate(project["experiments"]):
             if experiment["experiment_id"] == self.__experiment.experiment_id:
                 project["experiments"][index] = self.__experiment.__dict__()
                 print("success experiment ", project["experiments"][index])
                 break
-        self.save(f, project)
-        f.close()
+        self.save(file, project)

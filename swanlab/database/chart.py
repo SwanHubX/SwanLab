@@ -28,4 +28,4 @@ class ChartTable(ProjectTablePoxy):
         # 保存表单信息，创建时间等内容在父类中完成
         super().__init__(data, path)
         # 保存表单信息
-        self.save()
+        self.save_no_lock()

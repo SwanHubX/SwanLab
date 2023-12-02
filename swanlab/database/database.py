@@ -11,8 +11,9 @@ import os
 from ..env import SWANLAB_LOGS_FOLDER
 from .project import ProjectTable
 from .expriment import ExperimentTable
-import portalocker
+from ..utils import lock_file
 from typing import Union
+from io import TextIOWrapper
 import ujson
 
 
@@ -37,8 +38,10 @@ class SwanDatabase(object):
         self.__project: ProjectTable = None
         # 表单会在init中创建，所有的创建会在一个文件读取周期内完成，以防止多进程写入同一个文件带来的问题
 
+    @lock_file(file_path=ProjectTable.path, mode="r+")
     def init(
         self,
+        file: TextIOWrapper,
         experiment_name: str = None,
         description: str = "",
         config: dict = {},
@@ -53,20 +56,18 @@ class SwanDatabase(object):
             实验描述, by default ""
         config : dict, optional
             实验配置, by default {}
+        file : TextIOWrapper, optional
+            文件对象，用于文件锁定, by default None
         """
         # 检查实验名称是否存在
         project_exist = os.path.exists(ProjectTable.path) and os.path.getsize(ProjectTable.path) != 0
-        # 项目表单
-        f = open(ProjectTable.path, "r+") if project_exist else open(ProjectTable.path, "w+")
-        # 锁定文件
-        portalocker.lock(f, portalocker.LOCK_EX)
         # 初始化项目对象
-        self.__project = ProjectTable(data=ujson.load(f) if project_exist else ProjectTable.default_data)
+        self.__project = ProjectTable(data=ujson.load(file) if project_exist else ProjectTable.default_data)
         # 创建实验
         self.__project.add_experiment(experiment_name, description, config)
-        # 保存项目表单，释放文件锁
-        self.__project.save(f)
-        f.close()
+        # 保存项目表单
+        self.__project.save(file)
+        # 在修饰器中自动解锁
 
     @property
     def experiment(self) -> ExperimentTable:

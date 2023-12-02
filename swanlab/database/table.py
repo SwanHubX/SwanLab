@@ -14,6 +14,8 @@ from io import TextIOWrapper
 import ujson
 import os
 from ..utils import create_time
+from ..utils import lock_file, get_a_lock
+import sys
 
 
 class ProjectTablePoxy(MutableMapping):
@@ -31,11 +33,11 @@ class ProjectTablePoxy(MutableMapping):
         else:
             raise ValueError("invalid table data")
         # 保存表单信息
-        self._target_dict = data
-        self._dict_path = path
+        self.__target_dict = data
+        self.__dict_path = path
 
     def __getitem__(self, key):
-        return self._target_dict[key]
+        return self.__target_dict[key]
 
     def __setitem__(self, key: str, value: Any):
         """当字典数据发生变化时，需要将数据写入到文件中
@@ -47,34 +49,45 @@ class ProjectTablePoxy(MutableMapping):
         value :
             数据的值，期望是一个可以被序列化的对象，但是这里不做检查
         """
-        self._target_dict[key] = value
+        self.__target_dict[key] = value
 
     def __delitem__(self, key):
-        del self._target_dict[key]
-        self.save()
+        del self.__target_dict[key]
 
     def __iter__(self):
-        return iter(self._target_dict)
+        return iter(self.__target_dict)
 
     def __len__(self):
-        return len(self._target_dict)
+        return len(self.__target_dict)
 
     def __dict__(self):
-        return self._target_dict
+        return self.__target_dict
 
-    def save(self, f: TextIOWrapper = None, data: dict = None):
-        """将数据保存到文件中"""
-        data = data if data is not None else self._target_dict
-        if f is None:
-            # FIXME 检测文件是否被锁住
-            f = open(self._dict_path, "w")
-            portalocker.lock(f, portalocker.LOCK_EX)
-            ujson.dump(data, f, indent=4)
-            f.close()
-        else:
-            f.truncate()
-            f.seek(0)
-            ujson.dump(data, f, indent=4)
+    def save(self, f: TextIOWrapper, data: dict = None):
+        """将数据保存到文件中
+        是否加锁取决于传入的文件对象是否加锁，这里不做要求
+        可以选择将data传入，此时会将data保存到文件中，并且更新对象信息为data信息
+        """
+        if data is not None:
+            self.__target_dict = data
+        # 此处不要添加断点，断点会导致一系列文件操作出现问题
+        f.truncate()
+        f.seek(0)
+        ujson.dump(self.__target_dict, f, indent=4)
+
+    def save_with_lock(self, data: dict = None):
+        """将数据保存到文件中，并加锁
+        可以选择将data传入，此时会将data保存到文件中，并且更新对象信息为data信息
+        """
+        with get_a_lock(self.__dict_path, mode="a+") as f:
+            self.save(f, data)
+
+    def save_no_lock(self, data: dict = None):
+        """将数据保存到文件中，并加锁
+        可以选择将data传入，此时会将data保存到文件中，并且更新对象信息为data信息
+        """
+        with open(self.__dict_path, "w") as f:
+            self.save(f, data)
 
 
 class ExperimentPoxy(object):
