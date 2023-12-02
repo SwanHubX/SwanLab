@@ -91,6 +91,6 @@ class ProjectTable(ProjectTablePoxy):
         for index, experiment in enumerate(project["experiments"]):
             if experiment["experiment_id"] == self.__experiment.experiment_id:
                 project["experiments"][index] = self.__experiment.__dict__()
-                print("success experiment ", project["experiments"][index])
+                # print("success experiment ", project["experiments"][index])
                 break
         self.save(file, project)

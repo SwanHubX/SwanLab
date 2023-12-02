@@ -5,4 +5,5 @@ uvicorn>=0.14.0
 
 # database
 ujson
+portalocker
 
