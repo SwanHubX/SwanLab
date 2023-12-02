@@ -32,32 +32,32 @@ export default {
       },
       // 背景颜色
       backgroundColor: {
-        default: 'var(--background-default)',
-        dimmer: 'var(--background-dimmer)'
+        default: 'var(--background-default, #fff)',
+        dimmer: 'var(--background-dimmer, #f6f8fA)'
       },
       // 边框颜色
       borderColor: {
-        default: 'var(--outline-default)'
+        default: 'var(--outline-default, #d1d7dd)'
       },
       // 文字颜色
       textColor: {
-        default: 'var(--foreground-default)',
-        dimmer: 'var(--foreground-dimmer)',
-        dimmest: 'var(--foreground-dimmest)',
+        default: 'var(--foreground-default, #000)',
+        dimmer: 'var(--foreground-dimmer, #555)',
+        dimmest: 'var(--foreground-dimmest, #b5b5b5)'
       },
       // 基础颜色
       colors: {
         // 危险颜色
-        'negative-dimmest': 'var(--nagative-dimmest)',
-        'negative-default': 'var(--negative-default)',
+        'negative-dimmest': 'var(--nagative-dimmest, #eddcdc)',
+        'negative-default': 'var(--negative-default, #bb4c51)',
         // 成功颜色
-        'positive-dimmer': 'var(--positive-dimmer)',
-        'positive-default': 'var(--positive-default)',
-        'positive-higher': 'var(--positive-higher)',
-        'positive-highest': 'var(--positive-highest)',
+        'positive-dimmer': 'var(--positive-dimmer, #37733c)',
+        'positive-default': 'var(--positive-default, #4e9553)',
+        'positive-higher': 'var(--positive-higher, #cff1d8)',
+        'positive-highest': 'var(--positive-highest, #d5e4d9)',
         // 标准颜色
-        'primary-dimmest': 'var(--primary-dimmest)',
-        'primary-default': 'var(--primary-default)',
+        'primary-dimmest': 'var(--primary-dimmest, #d6e8ff)',
+        'primary-default': 'var(--primary-default, #1c74dd)'
       }
     }
   },
