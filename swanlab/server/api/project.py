@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 # 列出当前项目下的所有实验
-@router.get("/project/experiments")
+@router.get("/experiments")
 async def _():
     config_path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
     experiments = ujson.load(open(config_path, "r"))
