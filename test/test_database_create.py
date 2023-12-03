@@ -11,7 +11,7 @@ import random
 import swanlab as sw
 
 # 迭代次数
-epochs = 2000
+epochs = 10000
 # 学习率
 lr = 0.01
 # 随机偏移量

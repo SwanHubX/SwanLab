@@ -10,6 +10,7 @@ r"""
 from collections.abc import MutableMapping
 from typing import Any
 from io import TextIOWrapper
+import math
 import ujson
 import os
 from ..utils import create_time
@@ -157,20 +158,23 @@ class ExperimentPoxy(object):
 
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
         need_slice = (index - 1) % self.__slice_size == 0 or index == 1
+        mu = math.ceil(index / self.__slice_size)
+        # 存储路径
+        file_path = os.path.join(save_folder, str(mu * self.__slice_size) + ".json")
         # 如果需要新增分片存储
         if need_slice:  # 达到分片条件，需要在新文件中添加新的tag数据
-            file_path = os.path.join(save_folder, str(index) + ".json")
+            file = get_a_lock(file_path, mode="w+")  # 加锁
             data = self.new_tag()
             data["data"].append(new_tag_data)
-            ujson.dump(data, open(file_path, "x", encoding="utf-8"), ensure_ascii=False)
-            return
-
-        # 如果不需要新增分片存储
-        previous_path = os.path.join(save_folder, str(index - 1) + ".json")
-        data = ujson.load(open(previous_path, "r", encoding="utf-8"))
-        # 向列表中添加新tag数据
-        data["data"].append(new_tag_data)
-        data["update_time"] = create_time()
-        ujson.dump(data, open(previous_path, "w", encoding="utf-8"), ensure_ascii=False)
-        current_path = os.path.join(save_folder, str(index) + ".json")
-        os.rename(previous_path, current_path)
+            ujson.dump(data, file, ensure_ascii=False)
+        else:
+            # 如果不需要新增分片存储
+            file = get_a_lock(file_path, mode="r+")  # 加锁
+            data = ujson.load(file)
+            file.truncate()
+            file.seek(0)
+            # 向列表中添加新tag数据
+            data["data"].append(new_tag_data)
+            data["update_time"] = create_time()
+            ujson.dump(data, file, ensure_ascii=False)
+        file.close()

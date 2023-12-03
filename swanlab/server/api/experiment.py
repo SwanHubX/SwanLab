@@ -10,13 +10,17 @@ r"""
 from fastapi import APIRouter
 from ..utils import ResponseBody
 from ...env import SWANLAB_LOGS_FOLDER
+from ...database.project import ProjectTable
 import os
 import ujson
 from ...utils import create_time
 from urllib.parse import unquote  # 转码路径参数
+from typing import List, Dict
+from ...utils import get_a_lock
 
 router = APIRouter()
-CONFIG_PATH = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
+
+CONFIG_PATH = ProjectTable.path
 
 
 # 获取当前实验信息
@@ -86,6 +90,87 @@ async def _(experiment_id: int, new_info: dict):
     return ResponseBody(500, message="experiment not found")
 
 
+def find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
+    """读取path中所有的tag数据
+
+    Parameters
+    ----------
+    base_path : str
+        实验tag的存储路径
+    paths : list
+        tag的存储路径列表
+    """
+    tag_data_list: List[List[Dict]] = []
+    for path in paths:
+        # 读取tag数据
+        with open(os.path.join(base_path, path), "r") as f:
+            tag_data_list.append(ujson.load(f)["data"])
+    return tag_data_list
+
+
+def find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
+    """找到对应实验的对应标签的数据
+
+    Parameters
+    ----------
+    experiment_name : str
+        实验名称
+    tag : str
+        tag的名称
+
+    Returns
+    -------
+    List[Dict]
+        tag的数据，内部是dict，包含每条tag的数据
+        如果没有找到，返回空列表
+
+    Raises
+    ------
+    KeyError
+        如果tag不存在，抛出异常：'tag "{tag}" not found'
+    """
+    # 阈值，如果数据量大于阈值，只返回阈值条数据
+    threshold = 5000
+    # 获取tag对应的存储目录
+    tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, experiment_name, tag)
+    if not os.path.exists(tag_path):
+        raise KeyError(f'tag "{tag}" not found')
+    # 获取目录下存储的所有数据
+    # 降序排列，最新的数据在最前面
+    files: list = os.listdir(tag_path)
+    if len(files) == 0:
+        return []
+    files.sort()
+    tag_data: list = []
+    # 最后一个文件代表当前数据量
+    last_file = files[-1]
+    tag_json = None
+    # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
+    with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
+        # 读取数据
+        tag_json = ujson.load(f)
+        # 倒数第二个文件+当前文件的数据量等于总数据量
+        # 倒数第二个文件可能不存在
+        count = files[-2].split(".")[0] if len(files) > 1 else 0
+        count = int(count) + len(tag_json["data"])
+        print(f"count={count}")
+    # with生命周期结束，文件解锁
+    # 此时count代表总数据量，接下来按量倒叙读取数据
+    if count <= threshold:
+        # 读取所有数据
+        # tag_json是最后一个文件的数据
+        # 按顺序读取其他文件的数据
+        tag_data_list = find_all_tag_data(tag_path, files[:-1])
+        # 将数据合并
+        for data in tag_data_list:
+            tag_data.extend(data)
+        tag_data.extend(tag_json["data"])
+        return tag_data
+    else:
+        # TODO 采样读取数据
+        raise NotImplementedError("采样读取数据")
+
+
 # 获取表单数据
 @router.get("/{experiment_id}/{tag}")
 async def _(experiment_id: int, tag: str):
@@ -98,30 +183,17 @@ async def _(experiment_id: int, tag: str):
     tag: str
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
+    tag = unquote(tag)
     # 读取实验信息内容
     experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
     # 在experiments列表中查找对应实验的信息
-    tag_info: dict = {}
-    for index, experiment in enumerate(experiments):
+    experiment_name = None
+    for _, experiment in enumerate(experiments):
         if experiment["experiment_id"] == experiment_id:
-            # 看看tag是否存在
-            indices = [index for index, item in enumerate(experiment["tags"]) if item.get("tag") == unquote(tag)]
-            if len(indices) == 1:
-                # 存在，保存一下tag的基础信息后退出循环
-                tag_info: dict = experiment["tags"][indices[0]]
-                tag_info["experiment"]: dict = experiment
-                break
-            else:
-                return ResponseBody(500, message="tag not found")
-        # 找到最后一个还不存在，报错
-        if index == len(experiments) - 1:
-            return ResponseBody(500, message="experiment not found")
-    # 获取tag对应的存储目录
-    tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, tag_info.get("experiment").get("name"), tag)
-    # 获取目录下存储的所有数据
-    files: list = os.listdir(tag_path)
-    tag_data: list = []
-    for file in files:
-        tag_data.extend(ujson.load(open(os.path.join(tag_path, file), "r", encoding="utf-8"))["data"])
+            experiment_name = experiment["name"]
+    # 找到最后一个还不存在，报错
+    if experiment_name is None:
+        raise KeyError(f'experiment id "{experiment_id}" not found')
+    tag_data = find_tag_data(experiment_name, tag)
     # 返回数据
-    return ResponseBody(0, data={"sum": tag_info.get("num"), "list": tag_data})
+    return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
