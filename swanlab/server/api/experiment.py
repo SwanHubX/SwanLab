@@ -60,11 +60,15 @@ async def _(experiment_id: int, new_info: dict):
             continue
         if experiment["status"] == 0:
             return ResponseBody(500, message="experiment not finished")
-        if "name" in new_info:
+        if new_info.get("name") is not None:
             # 如果名字和之前一样
             if new_info["name"] == experiment["name"]:
                 return ResponseBody(500, message="experiment name is the same")
-            # TODO 检查名字是否重复
+            # 检查名字是否重复
+            if any(item["name"] == new_info["name"] for item in experiments):
+                return ResponseBody(500, message="experiment name already exists")
+            # TODO 检查名字是否和规
+            # TODO 检查名字的步骤应该封装出来
             # 修改实验目录的名字
             os.rename(
                 os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"]),
@@ -72,10 +76,51 @@ async def _(experiment_id: int, new_info: dict):
             )
             # 在配置中修改
             experiments[index]["name"] = new_info["name"]
-        if "description" in new_info:
+        if new_info.get("description") is not None:
             experiment["description"] = new_info["description"]
         project["experiments"] = experiments
         project["update_time"] = create_time()
         ujson.dump(project, open(CONFIG_PATH, "w"))
-        return ResponseBody(0, message="experiment updated")
+        return ResponseBody(0)
     return ResponseBody(500, message="experiment not found")
+
+
+# 获取表单数据
+@router.get("/{experiment_id}/{tag}")
+async def _(experiment_id: int, tag: str):
+    """获取表单数据
+
+    parameter
+    ----------
+    experiment_id: int
+        实验唯一id，路径传参
+    tag: str
+        表单标签，路径传参
+    """
+    # 读取实验信息内容
+    experiments: list = ujson.load(open(CONFIG_PATH, "r"))["experiments"]
+    # 在experiments列表中查找对应实验的信息
+    tag_info: dict = {}
+    for index, experiment in enumerate(experiments):
+        if experiment["experiment_id"] == experiment_id:
+            # 看看tag是否存在
+            indices = [index for index, item in enumerate(experiment["tags"]) if item.get("tag") == tag]
+            if len(indices) == 1:
+                # 存在，保存一下tag的基础信息后退出循环
+                tag_info: dict = experiment["tags"][indices[0]]
+                tag_info["experiment"]: dict = experiment
+                break
+            else:
+                return ResponseBody(500, message="tag not found")
+        # 找到最后一个还不存在，报错
+        if index == len(experiments) - 1:
+            return ResponseBody(500, message="experiment not found")
+    # 获取tag对应的存储目录
+    tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, tag_info.get("experiment").get("name"), tag)
+    # 获取目录下存储的所有数据
+    files: list = os.listdir(tag_path)
+    tag_data: list = []
+    for file in files:
+        tag_data.extend(ujson.load(open(os.path.join(tag_path, file), "r"))["data"])
+    # 返回数据
+    return ResponseBody(0, data={"sum": tag_info.get("sum"), "list": tag_data})
