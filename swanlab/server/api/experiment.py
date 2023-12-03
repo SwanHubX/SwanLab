@@ -131,7 +131,7 @@ def __find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
     """
     tag_data_list: List[List[Dict]] = []
     for path in paths:
-        # 读取tag数据
+        # 读取tag数据，由于目前在设计上这些文件不会再被修改，所以不需要加锁
         with open(os.path.join(base_path, path), "r") as f:
             tag_data_list.append(ujson.load(f)["data"])
     return tag_data_list
@@ -183,7 +183,7 @@ def __find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
         count = files[-2].split(".")[0] if len(files) > 1 else 0
         count = int(count) + len(tag_json["data"])
         print(f"count={count}")
-    # with生命周期结束，文件解锁
+    # with生命周期结束，文件解锁，后续也不会再读取里面的数据了
     # 此时count代表总数据量，接下来按量倒叙读取数据
     if count <= threshold:
         # 读取所有数据
