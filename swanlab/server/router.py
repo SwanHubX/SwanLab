@@ -55,6 +55,7 @@ async def _(request, call_next):
 
 # 导入数据相关的路由
 from .api.test import router as test
+from .api.project import router as project
 
 
 # 响应首页
@@ -74,3 +75,4 @@ async def _():
 
 
 app.include_router(test, prefix="/api/v1")
+app.include_router(project, prefix="/api/v1")
