@@ -124,4 +124,4 @@ async def _(experiment_id: int, tag: str):
     for file in files:
         tag_data.extend(ujson.load(open(os.path.join(tag_path, file), "r", encoding="utf-8"))["data"])
     # 返回数据
-    return ResponseBody(0, data={"sum": tag_info.get("sum"), "list": tag_data})
+    return ResponseBody(0, data={"sum": tag_info.get("num"), "list": tag_data})
