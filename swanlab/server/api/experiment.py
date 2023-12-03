@@ -25,7 +25,7 @@ CONFIG_PATH = ProjectTable.path
 
 # 获取当前实验信息
 @router.get("/{experiment_id}")
-async def _(experiment_id: int):
+async def get_experiment(experiment_id: int):
     """获取当前实验的信息
 
     parameter
@@ -44,7 +44,7 @@ async def _(experiment_id: int):
 
 # 修改实验的信息：名称/描述
 @router.patch("/{experiment_id}")
-async def _(experiment_id: int, new_info: dict):
+async def patch_expriment(experiment_id: int, new_info: dict):
     """修改当前实验的信息
 
     parameter
@@ -90,7 +90,36 @@ async def _(experiment_id: int, new_info: dict):
     return ResponseBody(500, message="experiment not found")
 
 
-def find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
+# 获取表单数据
+@router.get("/{experiment_id}/{tag}")
+async def get_tag_data(experiment_id: int, tag: str):
+    """获取表单数据
+
+    parameter
+    ----------
+    experiment_id: int
+        实验唯一id，路径传参
+    tag: str
+        表单标签，路径传参，使用时需要 URIComponent 解码
+    """
+    tag = unquote(tag)
+    # 读取实验信息内容
+    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
+    # 在experiments列表中查找对应实验的信息
+    experiment_name = None
+    for _, experiment in enumerate(experiments):
+        if experiment["experiment_id"] == experiment_id:
+            experiment_name = experiment["name"]
+    # 找到最后一个还不存在，报错
+    if experiment_name is None:
+        # TODO 后续需要改成错误码
+        raise KeyError(f'experiment id "{experiment_id}" not found')
+    tag_data = __find_tag_data(experiment_name, tag)
+    # 返回数据
+    return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
+
+
+def __find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
     """读取path中所有的tag数据
 
     Parameters
@@ -108,7 +137,7 @@ def find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
     return tag_data_list
 
 
-def find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
+def __find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
     """找到对应实验的对应标签的数据
 
     Parameters
@@ -160,7 +189,7 @@ def find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
         # 读取所有数据
         # tag_json是最后一个文件的数据
         # 按顺序读取其他文件的数据
-        tag_data_list = find_all_tag_data(tag_path, files[:-1])
+        tag_data_list = __find_all_tag_data(tag_path, files[:-1])
         # 将数据合并
         for data in tag_data_list:
             tag_data.extend(data)
@@ -169,31 +198,3 @@ def find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
     else:
         # TODO 采样读取数据
         raise NotImplementedError("采样读取数据")
-
-
-# 获取表单数据
-@router.get("/{experiment_id}/{tag}")
-async def _(experiment_id: int, tag: str):
-    """获取表单数据
-
-    parameter
-    ----------
-    experiment_id: int
-        实验唯一id，路径传参
-    tag: str
-        表单标签，路径传参，使用时需要 URIComponent 解码
-    """
-    tag = unquote(tag)
-    # 读取实验信息内容
-    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
-    # 在experiments列表中查找对应实验的信息
-    experiment_name = None
-    for _, experiment in enumerate(experiments):
-        if experiment["experiment_id"] == experiment_id:
-            experiment_name = experiment["name"]
-    # 找到最后一个还不存在，报错
-    if experiment_name is None:
-        raise KeyError(f'experiment id "{experiment_id}" not found')
-    tag_data = find_tag_data(experiment_name, tag)
-    # 返回数据
-    return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
