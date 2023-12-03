@@ -13,6 +13,7 @@ from ...env import SWANLAB_LOGS_FOLDER
 import os
 import ujson
 from ...utils import create_time
+from urllib.parse import unquote  # 转码路径参数
 
 router = APIRouter()
 CONFIG_PATH = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
@@ -29,7 +30,7 @@ async def _(experiment_id: int):
         实验唯一id，路径传参
     """
     # 读取 project.json 文件内容
-    experiments: list = ujson.load(open(CONFIG_PATH, "r"))["experiments"]
+    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
     # 在experiments列表中查找对应实验的信息
     for experiment in experiments:
         if experiment["experiment_id"] == experiment_id:
@@ -52,7 +53,7 @@ async def _(experiment_id: int, new_info: dict):
         description: str
     """
     # 读取 project.json 文件内容
-    project: dict = ujson.load(open(CONFIG_PATH, "r"))
+    project: dict = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))
     experiments: list = project["experiments"]
     # 在experiments列表中查找对应实验的信息
     for index, experiment in enumerate(experiments):
@@ -67,7 +68,7 @@ async def _(experiment_id: int, new_info: dict):
             # 检查名字是否重复
             if any(item["name"] == new_info["name"] for item in experiments):
                 return ResponseBody(500, message="experiment name already exists")
-            # TODO 检查名字是否和规
+            # TODO 检查名字是否违规
             # TODO 检查名字的步骤应该封装出来
             # 修改实验目录的名字
             os.rename(
@@ -80,7 +81,7 @@ async def _(experiment_id: int, new_info: dict):
             experiment["description"] = new_info["description"]
         project["experiments"] = experiments
         project["update_time"] = create_time()
-        ujson.dump(project, open(CONFIG_PATH, "w"))
+        ujson.dump(project, open(CONFIG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
         return ResponseBody(0)
     return ResponseBody(500, message="experiment not found")
 
@@ -95,16 +96,18 @@ async def _(experiment_id: int, tag: str):
     experiment_id: int
         实验唯一id，路径传参
     tag: str
-        表单标签，路径传参
+        表单标签，路径传参，使用时需要 URIComponent 解码
     """
+    # URIComponent 解码 tag
+    print(unquote(tag))
     # 读取实验信息内容
-    experiments: list = ujson.load(open(CONFIG_PATH, "r"))["experiments"]
+    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
     # 在experiments列表中查找对应实验的信息
     tag_info: dict = {}
     for index, experiment in enumerate(experiments):
         if experiment["experiment_id"] == experiment_id:
             # 看看tag是否存在
-            indices = [index for index, item in enumerate(experiment["tags"]) if item.get("tag") == tag]
+            indices = [index for index, item in enumerate(experiment["tags"]) if item.get("tag") == unquote(tag)]
             if len(indices) == 1:
                 # 存在，保存一下tag的基础信息后退出循环
                 tag_info: dict = experiment["tags"][indices[0]]
@@ -121,6 +124,6 @@ async def _(experiment_id: int, tag: str):
     files: list = os.listdir(tag_path)
     tag_data: list = []
     for file in files:
-        tag_data.extend(ujson.load(open(os.path.join(tag_path, file), "r"))["data"])
+        tag_data.extend(ujson.load(open(os.path.join(tag_path, file), "r", encoding="utf-8"))["data"])
     # 返回数据
     return ResponseBody(0, data={"sum": tag_info.get("sum"), "list": tag_data})

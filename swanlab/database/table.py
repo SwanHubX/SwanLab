@@ -71,7 +71,7 @@ class ProjectTablePoxy(MutableMapping):
         # 此处不要添加断点，断点会导致一系列文件操作出现问题
         f.truncate()
         f.seek(0)
-        ujson.dump(self.__target_dict, f, indent=4)
+        ujson.dump(self.__target_dict, f, indent=4, ensure_ascii=False)
 
     def save_with_lock(self, data: dict = None):
         """将数据保存到文件中，并加锁
@@ -84,7 +84,7 @@ class ProjectTablePoxy(MutableMapping):
         """将数据保存到文件中，并加锁
         可以选择将data传入，此时会将data保存到文件中，并且更新对象信息为data信息
         """
-        with open(self.__dict_path, "w") as f:
+        with open(self.__dict_path, "w", encoding="utf-8") as f:
             self.save(f, data)
 
 
@@ -162,15 +162,15 @@ class ExperimentPoxy(object):
             file_path = os.path.join(save_folder, str(index) + ".json")
             data = self.new_tag()
             data["data"].append(new_tag_data)
-            ujson.dump(data, open(file_path, "x"))
+            ujson.dump(data, open(file_path, "x", encoding="utf-8"), ensure_ascii=False)
             return
 
         # 如果不需要新增分片存储
         previous_path = os.path.join(save_folder, str(index - 1) + ".json")
-        data = ujson.load(open(previous_path, "r"))
+        data = ujson.load(open(previous_path, "r", encoding="utf-8"))
         # 向列表中添加新tag数据
         data["data"].append(new_tag_data)
         data["update_time"] = create_time()
-        ujson.dump(data, open(previous_path, "w"))
+        ujson.dump(data, open(previous_path, "w", encoding="utf-8"), ensure_ascii=False)
         current_path = os.path.join(save_folder, str(index) + ".json")
         os.rename(previous_path, current_path)

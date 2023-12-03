@@ -37,7 +37,7 @@ class SwanDatabase(object):
         # 项目基础表单
         self.__project: ProjectTable = None
         # 如果项目配置文件不存在，创建
-        open(ProjectTable.path, "a").close()
+        open(ProjectTable.path, "a", encoding="utf-8").close()
         # 表单会在init中创建，所有的创建会在一个文件读取周期内完成，以防止多进程写入同一个文件带来的问题
 
     @lock_file(file_path=ProjectTable.path, mode="r+")

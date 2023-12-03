@@ -20,5 +20,5 @@ router = APIRouter()
 @router.get("/experiments")
 async def _():
     config_path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
-    experiments = ujson.load(open(config_path, "r"))
+    experiments = ujson.load(open(config_path, "r", encoding="utf-8"))
     return ResponseBody(0, data=experiments)

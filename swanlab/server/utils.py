@@ -66,7 +66,7 @@ async def get_response_body(response: Response, callback: Callable[[dict], dict]
     if callback is not None:
         body = callback(body)
     return Response(
-        content=ujson.dumps(body).encode("utf-8"),
+        content=ujson.dumps(body, ensure_ascii=False),
         status_code=response.status_code,
         headers=dict(response.headers),
         media_type=response.media_type,

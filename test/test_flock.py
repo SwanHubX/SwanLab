@@ -19,7 +19,7 @@ id = random.randint(0, 1000)
 def flock_test():
     print("open file")
     # 具有读写权限
-    with open("test.txt", "r+") as f:
+    with open("test.txt", "r+", encoding="utf-8") as f:
         print("try to write")
         portalocker.lock(f, portalocker.LOCK_EX)  # 加锁
         content = f.read()

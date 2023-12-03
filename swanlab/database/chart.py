@@ -15,7 +15,7 @@ class ChartTable(ProjectTablePoxy):
         self.experiment_id = experiment_id
         self.path = os.path.join(base_path, "charts.json")
         if os.path.exists(self.path):
-            with open(self.path, "r") as f:
+            with open(self.path, "r", encoding="utf-8") as f:
                 data = ujson.load(f)
         else:
             data = self.default_data
@@ -43,13 +43,12 @@ class ChartTable(ProjectTablePoxy):
     def add(self, tag: str, namespace: str = None, reference: str = None, chart_type: str = None, config: dict = None):
         """添加一个图标"""
         data = {}
-        with open(self.path, "r") as f:
+        with open(self.path, "r", encoding="utf-8") as f:
             data = ujson.load(f)
             # 记录数据
             data["_sum"] += 1
             chart = self.new_chart(chart_id=data["_sum"])
             chart["source"].append(tag)
             data["charts"].append(chart)
-        with open(self.path, "w") as f:
-            ujson.dump(data, f)
+        ujson.dump(data, open(self.path, "w", encoding="utf-8"), ensure_ascii=False)
         pass
