@@ -75,6 +75,10 @@ async def _():
     return FileResponse(LOGO)
 
 
+# ---------------------------------- 加载动态路由 ----------------------------------
+
+
+# TODO 使用配置列表，统一导入
 app.include_router(test, prefix="/api/v1")
 app.include_router(project, prefix="/api/v1/project")
 app.include_router(experiment, prefix="/api/v1/experiments")

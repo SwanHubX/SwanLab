@@ -98,8 +98,6 @@ async def _(experiment_id: int, tag: str):
     tag: str
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
-    # URIComponent 解码 tag
-    print(unquote(tag))
     # 读取实验信息内容
     experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
     # 在experiments列表中查找对应实验的信息
