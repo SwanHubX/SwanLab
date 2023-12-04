@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "概览",
+    "search": "搜索实验...",
     "experiment": "实验",
     "help": "帮助"
   }

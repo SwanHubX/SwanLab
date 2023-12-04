@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full">
+  <div class="w-full h-full flex flex-col">
     <!-- 头部卡片 -->
     <div class="pt-4 pb-2 flex justify-between items-center px-4">
       <!-- 项目信息 -->
@@ -22,24 +22,45 @@
       <span>{{ $t('sider.version.version', { version: '1.0.0' }) }}</span>
       <a href="https://swanhub.co" class="hover:underline">{{ $t('sider.version.updates') }}</a>
     </div>
-    <!-- 概览 -->
-    <RouterLink to="/" class="router-link my-4 mx-4" active-class="active-router">
-      <SlabIcon icon="home" class="w-4 h-4 mr-2 text-positive-default" />
-      <span>{{ $t('sider.nav.home') }}</span>
-    </RouterLink>
-    <!-- 实验路由 -->
-    <div class="px-4 flex flex-col pt-4 border-t border-default">
-      <input type="text" />
-      <RouterLink
-        v-for="experiment in display_experiments"
-        :key="experiment.experiment_id"
-        :to="`/experiment/${experiment.experiment_id}`"
-        class="router-link"
-        activeClass="active-router"
-      >
-        <SlabIcon icon="experiment" class="w-4 h-4 mr-3" />
-        <span>{{ experiment.name }}</span>
-      </RouterLink>
+    <div class="h-full flex flex-col justify-between">
+      <div>
+        <!-- 概览 -->
+        <RouterLink to="/" class="router-link my-4 mx-4" active-class="active-router">
+          <SlabIcon icon="home" class="w-4 h-4 mr-2 text-positive-default" />
+          <span>{{ $t('sider.nav.home') }}</span>
+        </RouterLink>
+        <!-- 实验路由 -->
+        <div class="px-4 flex flex-col pt-4 border-t border-default">
+          <!-- 搜索实验 -->
+          <div
+            class="flex items-center bg-default border-[1.2px] border-default p-3 mb-3 rounded-lg hover:border-primary-default"
+          >
+            <SlabIcon icon="home" class="w-4 h-4 mr-2" />
+            <input
+              type="text"
+              class="bg-none w-full outline-none truncate text-xs"
+              :placeholder="$t('sider.nav.search')"
+            />
+          </div>
+          <!-- 实验列表 -->
+          <RouterLink
+            v-for="experiment in display_experiments"
+            :key="experiment.experiment_id"
+            :to="`/experiment/${experiment.experiment_id}`"
+            class="router-link"
+            activeClass="active-router"
+          >
+            <SlabIcon icon="experiment" class="w-4 h-4 mr-3" />
+            <span>{{ experiment.name }}</span>
+          </RouterLink>
+        </div>
+      </div>
+      <div class="border-t border-default min-h-[172px]">
+        <RouterLink to="/help" class="router-link my-4 mx-4" active-class="active-router">
+          <SlabIcon icon="help" class="w-4 h-4 mr-2 text-positive-default" />
+          <span>{{ $t('sider.nav.help') }}</span>
+        </RouterLink>
+      </div>
     </div>
   </div>
 </template>
@@ -79,10 +100,10 @@ http
 }
 
 .router-link {
-  @apply flex items-center px-4 py-3 text-default;
+  @apply flex items-center px-4 py-3 text-default hover:bg-positive-highest rounded-lg;
 }
 
 .active-router {
-  @apply bg-positive-highest text-positive-default font-semibold rounded-lg;
+  @apply bg-positive-highest text-positive-dimmer;
 }
 </style>

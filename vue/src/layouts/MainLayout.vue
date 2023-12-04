@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen w-screen flex justify-between">
+  <div class="h-screen w-full flex justify-between">
     <!-- 左侧导航 -->
     <div class="min-w-[320px] bg-dimmer border-r border-default">
       <slot name="left"></slot>
