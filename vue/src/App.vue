@@ -6,12 +6,16 @@
     hello world
   </div>
   <div v-for="color in colors" :class="color">{{ color }}</div>
+  <div>{{ chartsStore.charts }}</div>
+  <p>{{ $t('sider.title') }}</p>
 </template>
 
 <script setup>
 import EChartsTest from './components/EChartsTest.vue'
 import http from './api/http'
 import { ref } from 'vue'
+import { useChartsStore } from './store'
+const chartsStore = useChartsStore()
 // 折线图集合
 const data = ref([5, 20, 36])
 // 每隔1秒钟，将data中随机的一项改变，增加+5

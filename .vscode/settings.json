@@ -38,6 +38,20 @@
       "iconColour": "#ff0000"
     }
   },
+  /** i18n */
+  "i18n-ally.sortKeys": true,
+  "i18n-ally.keepFulfilled": true,
+  "i18n-ally.localeCountryMap": {
+    "en": "br", // show UK's flag instead of US's
+    "zh": "cn", // show Chinese flag for 'zh'
+    "ko": "ko" // show Korean flag for 'ko'
+  },
+  "i18n-ally.localesPaths": ["vue/src/i18n"],
+  "i18n-ally.keystyle": "nested", // 翻译路径格式,
+  "i18n-ally.namespace": true,
+  "i18n-ally.enabledParsers": ["json", "js"],
+  "i18n-ally.sourceLanguage": "zh-CN", // 翻译源语言 是你翻译文件的名字
+  "i18n-ally.displayLanguage": "zh-CN", //显示语言
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],
@@ -52,5 +66,5 @@
     "**/__pycache__": true
   },
   /** python代码注释 */
-  "autoDocstring.docstringFormat": "numpy"
+  "autoDocstring.docstringFormat": "numpy",
 }
