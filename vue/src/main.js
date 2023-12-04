@@ -4,11 +4,12 @@ import App from './App.vue'
 import './theme/color.min.css'
 import { createPinia } from 'pinia'
 import { i18n } from './i18n'
+import router from './router'
 
 /********************************************
  * 颜色主题，从localStorage中读取用户设置的深浅主题偏好，如果没有设置，则默认
  *******************************************/
-const theme = localStorage.getItem('theme') || 'dark'
+const theme = localStorage.getItem('theme') || 'light'
 if (theme) {
   // 给body添加data-theme属性
   document.body.setAttribute('data-theme', theme)
@@ -23,4 +24,5 @@ const app = createApp(App)
 
 app.use(pinia)
 app.use(i18n)
+app.use(router)
 app.mount('#app')
