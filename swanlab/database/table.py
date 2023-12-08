@@ -69,6 +69,7 @@ class ProjectTablePoxy(MutableMapping):
         """
         if data is not None:
             self.__target_dict = data
+        self.__target_dict["update_time"] = create_time()
         # 此处不要添加断点，断点会导致一系列文件操作出现问题
         f.truncate()
         f.seek(0)
