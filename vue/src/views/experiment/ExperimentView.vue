@@ -13,13 +13,17 @@
  **/
 import PlotlyChart from '@swanlab-vue/components/PlotlyChart.vue'
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 
 const route = useRoute()
 
 const experimentId = computed(() => route.params.experimentId)
 // ---------------------------------- 在此处完成路由监听和页面重新渲染 ----------------------------------
+onBeforeRouteUpdate((to, from, next) => {
+  console.log('刷新实验视图')
+  next()
+})
 
 // ---------------------------------- 获取当前实验的颜色配置 ----------------------------------
 
