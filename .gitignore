@@ -2,6 +2,7 @@
 node_modules
 template
 package-lock.json
+pnpm-lock.yaml
 
 
 # Byte-compiled / optimized / DLL files
@@ -128,7 +129,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/

@@ -4,16 +4,16 @@
     <div class="pt-4 pb-2 flex justify-between items-center px-4">
       <!-- 项目信息 -->
       <div class="flex items-end">
-        <SlabIcon icon="logo" class="w-6 h-6 mr-1" />
+        <SLIcon icon="logo" class="w-6 h-6 mr-1" />
         <span class="font-bold text-2xl leading-6 pr-0.5">Swanlab</span>
       </div>
       <!-- 友链 -->
       <div class="flex">
         <a href="https://github" class="link">
-          <SlabIcon icon="github" class="w-5 h-5" />
+          <SLIcon icon="github" class="w-5 h-5" />
         </a>
         <a href="https://swanhub.co" class="link">
-          <SlabIcon icon="logo" class="w-5 h-5" />
+          <SLIcon icon="logo" class="w-5 h-5" />
         </a>
       </div>
     </div>
@@ -26,7 +26,7 @@
       <div>
         <!-- 概览 -->
         <RouterLink to="/" class="router-link my-4 mx-4" active-class="active-router">
-          <SlabIcon icon="home" class="w-4 h-4 mr-2 text-positive-default" />
+          <SLIcon icon="home" class="w-4 h-4 mr-2 text-positive-default" />
           <span>{{ $t('sider.nav.home') }}</span>
         </RouterLink>
         <!-- 实验路由 -->
@@ -35,7 +35,7 @@
           <div
             class="flex items-center bg-default border-[1.2px] border-default p-3 mb-3 rounded-lg hover:border-primary-default"
           >
-            <SlabIcon icon="home" class="w-4 h-4 mr-2" />
+            <SLIcon icon="home" class="w-4 h-4 mr-2" />
             <input
               type="text"
               class="bg-none w-full outline-none truncate text-xs"
@@ -50,14 +50,14 @@
             class="router-link"
             activeClass="active-router"
           >
-            <SlabIcon icon="experiment" class="w-4 h-4 mr-3" />
+            <SLIcon icon="experiment" class="w-4 h-4 mr-3" />
             <span>{{ experiment.name }}</span>
           </RouterLink>
         </div>
       </div>
       <div class="border-t border-default min-h-[172px]">
         <RouterLink to="/help" class="router-link my-4 mx-4" active-class="active-router">
-          <SlabIcon icon="help" class="w-4 h-4 mr-2 text-positive-default" />
+          <SLIcon icon="help" class="w-4 h-4 mr-2 text-positive-default" />
           <span>{{ $t('sider.nav.help') }}</span>
         </RouterLink>
       </div>
@@ -71,7 +71,7 @@
  * @file: HomeSiderBar.vue
  * @since: 2023-12-04 18:20:02
  **/
-import SlabIcon from './SlabIcon.vue'
+import SLIcon from './SLIcon.vue'
 import { ref } from 'vue'
 import http from '@swanlab-vue/api/http'
 
@@ -81,7 +81,7 @@ const experiments = ref([])
 // 需要展示的实验信息——默认展示全部，但在搜索过后，更新为搜索结果
 const display_experiments = ref([])
 http
-  .get('/mock/api/project/experiments')
+  .get('/project/experiments')
   .then((res) => {
     console.log(res.data)
     experiments.value = res.data.experiments

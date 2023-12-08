@@ -8,6 +8,10 @@
     ".swanlab": "admin",
     ".config": "config"
   },
+  "material-icon-theme.files.associations": {
+    ".env.mock": "Tune"
+  },
+
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
@@ -17,6 +21,19 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "eslint.format.enable": true,
   "eslint.validate": ["javascript", "javascriptreact", "vue", "typescript", "typescriptreact"],
+
+  // sass编译
+  "easysass.excludeRegex": "style.scss", // 提供文件名正则表达式，匹配到的文件会被排除，不会编译为css，默认为空，则功能关闭
+  "easysass.formats": [
+    // {
+    //   "format": "expanded",
+    //   "extension": ".css"
+    // },
+    {
+      "format": "compressed",
+      "extension": ".min.css"
+    }
+  ],
 
   /** 后端代码格式化部分，python格式化 */
   "[python]": {
@@ -66,5 +83,5 @@
     "**/__pycache__": true
   },
   /** python代码注释 */
-  "autoDocstring.docstringFormat": "numpy",
+  "autoDocstring.docstringFormat": "numpy"
 }

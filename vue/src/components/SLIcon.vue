@@ -7,7 +7,7 @@
 <script setup>
 /**
  * @description: 对iconfont图标的使用进行封装
- * @file: SlabIcon.vue
+ * @file: SLIcon.vue
  * @since: 2023-12-04 16:07:51
  **/
 import '@swanlab-vue/assets/iconfont.js'
