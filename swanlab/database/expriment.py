@@ -12,7 +12,7 @@ from .chart import ChartTable
 import os
 from ..env import SWANLAB_LOGS_FOLDER
 from typing import Union
-from ..utils import create_time
+from ..utils import create_time, generate_color
 import sys
 
 
@@ -35,6 +35,7 @@ class ExperimentTable(ExperimentPoxy):
         self.index = index
         self.status = 0  # 0: 正在运行，1: 运行成功，-1: 运行失败
         self.__chart = ChartTable(base_path=path, experiment_id=experiment_id)
+        self.color = generate_color()
 
     def __dict__(self) -> dict:
         """序列化此对象
@@ -50,6 +51,7 @@ class ExperimentTable(ExperimentPoxy):
             "status": self.status,
             "description": self.description,
             "config": self.config,
+            "color": self.color,
             "argv": self.argv,
             "index": self.index,
             "tags": self.tags,

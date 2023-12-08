@@ -10,6 +10,15 @@ export default defineConfig(({ mode }) => {
   // console.log('当前模式：', mode)
   // console.log('当前环境：', env)
   const useMock = mode === 'mock'
+  // 如果使用mock模式，不使用代理
+  const proxy = useMock
+    ? undefined
+    : {
+        '/api': {
+          target: env.VITE_SERVER_PROXY,
+          changeOrigin: true
+        }
+      }
   return {
     // 服务插件
     plugins: [
@@ -44,14 +53,7 @@ export default defineConfig(({ mode }) => {
     },
     // 服务配置
     server: {
-      proxy: useMock
-        ? undefined
-        : {
-            '/api': {
-              target: env.VITE_SERVER_PROXY,
-              changeOrigin: true
-            }
-          },
+      proxy,
       host: '0.0.0.0',
       port: 5175,
       open: '.'

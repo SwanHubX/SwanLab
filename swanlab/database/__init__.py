@@ -8,3 +8,4 @@ r"""
     数据库模块，用于创建数据库连接并执行一些数据库操作，也封装数据搜集函数
 """
 from .database import SwanDatabase
+from .project import PT

@@ -9,7 +9,9 @@ r"""
 """
 from fastapi import APIRouter
 from ..utils import ResponseBody
-from ...env import SWANLAB_LOGS_FOLDER
+from ...database import PT
+
+# from ...database import
 import os
 import ujson
 
@@ -17,8 +19,10 @@ router = APIRouter()
 
 
 # 列出当前项目下的所有实验
-@router.get("/experiments")
+@router.get("")
 async def _():
-    config_path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
-    experiments = ujson.load(open(config_path, "r", encoding="utf-8"))
-    return ResponseBody(0, data=experiments)
+    """
+    获取项目信息，列出当前项目下的所有实验
+    """
+    pt = PT()
+    return ResponseBody(0, data=pt.get())

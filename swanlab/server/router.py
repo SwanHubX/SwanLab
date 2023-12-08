@@ -79,6 +79,7 @@ async def _():
 
 
 # TODO 使用配置列表，统一导入
-app.include_router(test, prefix="/api/v1")
-app.include_router(project, prefix="/api/v1/project")
-app.include_router(experiment, prefix="/api/v1/experiments")
+prefix = "/api/v1"
+app.include_router(test, prefix=prefix)
+app.include_router(project, prefix=prefix + "/project")
+app.include_router(experiment, prefix=prefix + "/experiments")
