@@ -1,11 +1,11 @@
 <template>
   <div class="h-screen w-full flex justify-between">
     <!-- 左侧导航 -->
-    <div class="min-w-[320px] bg-dimmer border-r border-default">
+    <div class="w-80 bg-dimmer border-r flex-shrink-0 h-full flex flex-col">
       <slot name="left"></slot>
     </div>
     <!-- 右侧主体区域 -->
-    <div class="w-full h-full">
+    <div class="w-full h-full overflow-auto">
       <slot></slot>
     </div>
   </div>

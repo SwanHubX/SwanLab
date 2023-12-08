@@ -3,7 +3,8 @@ node_modules
 template
 package-lock.json
 pnpm-lock.yaml
-
+vue/components.d.ts
+vue/auto-imports.d.ts
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

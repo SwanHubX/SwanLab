@@ -1,0 +1,17 @@
+{
+  "overview": {
+    "create": "创建时间",
+    "latest": "最近运行时间",
+    "total": "总实验数"
+  },
+  "list": {
+    "title": "实验列表",
+    "table": {
+      "header": {
+        "name": "实验名",
+        "status": "状态",
+        "create": "创建时间"
+      }
+    }
+  }
+}

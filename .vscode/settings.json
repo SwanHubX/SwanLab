@@ -6,7 +6,10 @@
     "swanlab": "api",
     "wandb": "database",
     ".swanlab": "admin",
-    ".config": "config"
+    ".config": "config",
+    "store": "database",
+    "help": "java",
+    "experiment": "benchMark"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
@@ -14,7 +17,7 @@
 
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+    "source.fixAll.eslint": "explicit"
   },
   // 每次保存的时候自动格式化
   "editor.formatOnSave": true,

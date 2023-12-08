@@ -10,7 +10,7 @@ const http = axios.create({
 http.interceptors.request.use(
   async (req) => {
     console.log('[request] ', req.method, req.url, req.data || req.params || '')
-    console.log(import.meta.env)
+
     return req
   },
   (error) => {

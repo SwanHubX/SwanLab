@@ -1,5 +1,4 @@
-import { useChartsStore } from "./modules/chart";
+import { useChartsStore } from './modules/chart'
+import { useProjectStore } from './modules/project'
 
-export {
-  useChartsStore
-}
+export { useChartsStore, useProjectStore }
