@@ -6,12 +6,20 @@
   "configurations": [
     // 启动前端开发服务
     {
-      "name": "前端开发",
+      "name": "前端开发:dev",
       "request": "launch",
       "cwd": "${workspaceRoot}",
       "type": "node",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"]
+    },
+    {
+      "name": "前端开发:mock",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "type": "node",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:mock"]
     },
     // 启动前端编译服务
     {
