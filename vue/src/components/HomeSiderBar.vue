@@ -42,7 +42,7 @@
     </div>
     <div class="border-t border-default h-20">
       <RouterLink to="/help" class="my-4 mx-4" active-class="active-router">
-        <SLIcon icon="help" class="w-4 h-4 mr-2 text-positive-default" />
+        <SLIcon icon="help" class="w-4 h-4 mr-2" />
         <span>{{ $t('sider.nav.help') }}</span>
       </RouterLink>
     </div>
