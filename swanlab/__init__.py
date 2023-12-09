@@ -1,18 +1,8 @@
-from .database import SwanDatabase
-import atexit
+from .database import sd
 
-swandatabase = SwanDatabase()
-
-init = swandatabase.init
-
-log = swandatabase.add
+# 初始化函数
+init = sd.init
 
 
-# 注册退出函数
-def exit_handler():
-    """退出时执行一些清理操作"""
-    swandatabase.success()
-    pass
-
-
-atexit.register(exit_handler)
+# 记录方法
+log = sd.add
