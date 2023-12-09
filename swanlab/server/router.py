@@ -9,12 +9,12 @@ r"""
 """
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import time
 
 # 响应路径
-from ..env import INDEX, LOGO, ASSETS
+from ..env import INDEX, ASSETS
 
 
 # 服务全局对象
@@ -30,7 +30,7 @@ app.mount(static_path, static)
 
 
 @app.middleware("http")
-async def _(request, call_next):
+async def resp_api(request, call_next):
     """基础中间件，调整响应结果，添加处理时间等信息"""
     # 如果请求路径不以'/api'开头，说明并不是后端服务的请求，直接返回
     if not request.url.path.startswith("/api"):
@@ -49,6 +49,19 @@ async def _(request, call_next):
     return response
 
 
+@app.middleware("http")
+async def resp_static(request, call_next):
+    """资源中间件，此时所有与api相关的内容不会传入此中间件"""
+    if request.url.path.startswith(static_path):
+        # 如果是请求静态资源，直接返回
+        return await call_next(request)
+    if request.url.path == "/":
+        return await call_next(request)
+    if request.url.path.startswith("/api"):
+        return await call_next(request)
+    return RedirectResponse(url="/")
+
+
 # ---------------------------------- 在此处注册相关路由 ----------------------------------
 
 
@@ -58,20 +71,13 @@ from .api.project import router as project
 from .api.experiment import router as experiment
 
 
-# 响应首页
+# 响应app文件
 @app.get("/", response_class=HTMLResponse)
 async def _():
     # 读取 HTML 文件内容并返回
     with open(INDEX, "r", encoding="utf-8") as file:
         html_content = file.read()
     return HTMLResponse(content=html_content, status_code=200)
-
-
-# 响应logo内容
-# TODO 后续可以考虑将logo.ico放在assets中，这样就不需要单独响应了
-@app.get("/logo.ico")
-async def _():
-    return FileResponse(LOGO)
 
 
 # ---------------------------------- 加载动态路由 ----------------------------------

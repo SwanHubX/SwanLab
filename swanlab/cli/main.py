@@ -23,20 +23,20 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--share/--no-share",
+    "--share",
     default=False,
     help="When shared, swanlab web will run on localhost",
 )
 @click.option(
-    "--debug/--no-debug",
-    default=False,
+    "--debug",
+    is_flag=False,
     help="Show more logs when use debug mode",
 )
 def watch(share, debug):
     """运行此命令开启swanlab服务"""
-    host = "127.0.0.1" if share else "localhost"
+    host = "localhost" if share else "127.0.0.1"
     log_level = "info" if debug else "warning"
-    click.echo(f"swanlab running on http://{host}:{port}")
+    click.echo(f"swanlab running on \033[1mhttp://{host}:{port}\033[0m")
 
     # 使用 uvicorn 启动 FastAPI 应用
     uvicorn.run(app, host=host, port=port, log_level=log_level)

@@ -34,9 +34,13 @@ def lock_file(file_path: str, mode: str = "r+"):
         def wrapper(*args, **kwargs):
             f = open(file_path, mode=mode, encoding="utf-8")
             portalocker.lock(f, portalocker.LOCK_EX)
-            res = func(file=f, *args, **kwargs)
-            portalocker.unlock(f)
-            f.close()
+            try:
+                res = func(file=f, *args, **kwargs)
+            except Exception as e:
+                raise e
+            finally:
+                portalocker.unlock(f)
+                f.close()
             return res
 
         return wrapper

@@ -69,7 +69,7 @@ const startPolling = () => {
     }
     const data = await getTag(props.sources[0])
     Plotly.react(gd.value, [{ y: data, line: { color: experimentColor.value } }])
-  }, 10000)
+  }, 5000)
 }
 
 onUnmounted(() => {
