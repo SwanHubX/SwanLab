@@ -36,18 +36,22 @@ async def get_experiment(experiment_id: int):
     """
     # 读取 project.json 文件内容
     f = get_a_lock(CONFIG_PATH, "r")
-    experiments: list = ujson.load(f)["experiments"]
-    f.close()
-    # 在experiments列表中查找对应实验的信息
-    experiment = None
-    for ex in experiments:
-        if ex["experiment_id"] == experiment_id:
-            experiment = ex
-            break
-    # 生成实验存储路径
-    path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
-    experiment["tags"] = __list_subdirectories(path)
-    return ResponseBody(0, data=experiment)
+    try:
+        experiments: list = ujson.load(f)["experiments"]
+        f.close()
+        # 在experiments列表中查找对应实验的信息
+        experiment = None
+        for ex in experiments:
+            if ex["experiment_id"] == experiment_id:
+                experiment = ex
+                break
+        # 生成实验存储路径
+        path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
+        experiment["tags"] = __list_subdirectories(path)
+        return ResponseBody(0, data=experiment)
+    except Exception as e:
+        f.close()
+        raise e
 
 
 # # 修改实验的信息：名称/描述
@@ -190,7 +194,7 @@ def __find_tag_data(experiment_name: str, tag: str) -> (List[Dict], int):
         # 倒数第二个文件可能不存在
         count = files[-2].split(".")[0] if len(files) > 1 else 0
         count = int(count) + len(tag_json["data"])
-        print(f"count={count}")
+        # print(f"count={count}")
     # with生命周期结束，文件解锁，后续也不会再读取里面的数据了
     # 此时count代表总数据量，接下来按量倒叙读取数据
     if count <= threshold:

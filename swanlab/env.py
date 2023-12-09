@@ -26,5 +26,3 @@ FILEPATH = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH = os.path.join(FILEPATH, "template")
 ASSETS = os.path.join(TEMPLATE_PATH, "assets")
 INDEX = os.path.join(TEMPLATE_PATH, "index.html")
-# TODO 后续可以考虑将logo.ico放在assets中，这样就不需要单独响应了
-LOGO = os.path.join(TEMPLATE_PATH, "logo.ico")
