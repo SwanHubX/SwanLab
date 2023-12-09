@@ -8,10 +8,9 @@ r"""
     综合服务 api
 """
 
-from fastapi import FastAPI, status
-from fastapi.responses import HTMLResponse, FileResponse, Response
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-import ujson
 import time
 
 # 响应路径
@@ -78,8 +77,8 @@ async def _():
 # ---------------------------------- 加载动态路由 ----------------------------------
 
 
-# TODO 使用配置列表，统一导入
+# 使用配置列表，统一导入
 prefix = "/api/v1"
 app.include_router(test, prefix=prefix)
 app.include_router(project, prefix=prefix + "/project")
-app.include_router(experiment, prefix=prefix + "/experiments")
+app.include_router(experiment, prefix=prefix + "/experiment")
