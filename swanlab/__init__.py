@@ -1,9 +1,7 @@
-# from .server import SwanWeb
 from .database import SwanDatabase
 import atexit
 
 swandatabase = SwanDatabase()
-
 
 init = swandatabase.init
 

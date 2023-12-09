@@ -63,6 +63,10 @@ let timer = undefined
 
 const startPolling = () => {
   timer = setInterval(async () => {
+    if (experimentStatus.value !== 0) {
+      clearInterval(timer)
+      return
+    }
     const data = await getTag(props.sources[0])
     Plotly.react(gd.value, [{ y: data, line: { color: experimentColor.value } }])
   }, 10000)
