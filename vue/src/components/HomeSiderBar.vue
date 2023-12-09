@@ -73,7 +73,10 @@ const query = ref([])
 
 <style lang="scss" scoped>
 .link {
-  @apply p-1.5 bg-default rounded border border-default;
+  @apply p-1.5 bg-default rounded border border-default h-7;
+  &:hover {
+    background: var(--background-default) !important;
+  }
 }
 
 a {

@@ -5,6 +5,8 @@ export const useProjectStore = defineStore('project', () => {
   /** state */
   const project = ref()
   /** getter */
+  const name = computed(() => '实验名称没有配置')
+  const description = computed(() => '实验描述也没有配置')
   const experiments = computed(() => project.value?.experiments)
   const sum = computed(() => project.value?._sum)
   const createTime = computed(() => project.value?.create_time)
@@ -17,6 +19,8 @@ export const useProjectStore = defineStore('project', () => {
 
   return {
     sum,
+    name,
+    description,
     experiments,
     createTime,
     updateTime,

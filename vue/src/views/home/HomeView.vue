@@ -1,7 +1,7 @@
 <template>
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b">
-    <h1 class="text-2xl font-semibold text-default">项目名称还没有设置</h1>
-    <p>项目描述也没有设置</p>
+    <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
+    <p>{{ projectStore.description }}</p>
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
     <div class="w-80 flex flex-col gap-4">
       <div class="flex justify-between">
@@ -52,7 +52,7 @@
 import { useProjectStore } from '@swanlab-vue/store'
 import { formatTime } from '@swanlab-vue/utils/common'
 import { computed } from 'vue'
-import StatusLabel from './components/StatusLabel.vue'
+import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 
