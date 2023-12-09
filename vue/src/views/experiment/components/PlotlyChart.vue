@@ -14,7 +14,7 @@
 
 import Plotly from 'plotly.js-dist-min'
 import http from '@swanlab-vue/api/http'
-import { onMounted, ref, inject, computed } from 'vue'
+import { ref, inject, computed, onUnmounted } from 'vue'
 
 const props = defineProps({
   sources: {
@@ -26,6 +26,8 @@ const props = defineProps({
 const experimentId = inject('experimentId')
 // 拿到项目的颜色（响应式
 const experimentColor = inject('experimentColor')
+// 拿到项目的状态（响应式
+const experimentStatus = inject('experimentStatus')
 
 // 根据sources，生成title
 const title = computed(() => props.sources.join(' & '))
@@ -52,7 +54,23 @@ const getTag = async (tag) => {
     { showlegend: false },
     { displayModeBar: false, responsive: true }
   )
+  // 启动轮询函数，
+  startPolling()
 })()
+
+// ---------------------------------- 轮询 ----------------------------------
+let timer = undefined
+
+const startPolling = () => {
+  timer = setInterval(async () => {
+    const data = await getTag(props.sources[0])
+    Plotly.react(gd.value, [{ y: data, line: { color: experimentColor.value } }])
+  }, 10000)
+}
+
+onUnmounted(() => {
+  clearInterval(timer)
+})
 </script>
 
 <style lang="scss" scoped>
