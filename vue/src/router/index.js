@@ -9,7 +9,25 @@ const routes = [
   {
     path: '/experiment/:experimentId',
     name: 'experiment',
-    component: () => import('@swanlab-vue/views/experiment/ExperimentView.vue')
+    component: () => import('@swanlab-vue/views/experiment/ExperimentView.vue'),
+    redirect: { name: 'experiment_index' },
+    children: [
+      {
+        path: 'index',
+        name: 'experiment_index',
+        component: () => import('@swanlab-vue/views/experiment/pages/IndexPage.vue')
+      },
+      {
+        path: 'chart',
+        name: 'experiment_chart',
+        component: () => import('@swanlab-vue/views/experiment/pages/chart/ChartPage.vue')
+      },
+      {
+        path: 'log',
+        name: 'experiment_log',
+        component: () => import('@swanlab-vue/views/experiment/pages/LogPage.vue')
+      }
+    ]
   },
   {
     path: '/help',

@@ -27,7 +27,7 @@ const experimentId = inject('experimentId')
 // 拿到项目的颜色（响应式
 const experimentColor = inject('experimentColor')
 // 拿到项目的状态（响应式
-const experimentStatus = inject('experimentStatus')
+// const experimentStatus = inject('experimentStatus')
 
 // 根据sources，生成title
 const title = computed(() => props.sources.join(' & '))
