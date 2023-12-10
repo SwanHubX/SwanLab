@@ -1,23 +1,38 @@
 {
   "name": "swanlab-ui",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.6.2",
-    "echarts": "^5.4.3",
-    "vue": "^3.3.8"
+    "moment": "^2.29.4",
+    "pinia": "^2.1.7",
+    "plotly.js-dist-min": "^2.27.1",
+    "sass": "^1.69.5",
+    "vue": "^3.3.8",
+    "vue-i18n": "^9.8.0",
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.0",
     "autoprefixer": "^10.4.16",
+    "eslint": "^8.36.0",
+    "eslint-config-prettier": "^8.7.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-vue": "^9.9.0",
+    "mockjs": "^1.1.0",
     "postcss": "^8.4.31",
+    "prettier": "^2.8.5",
     "tailwindcss": "^3.3.5",
-    "vite": "^5.0.0"
+    "unplugin-auto-import": "^0.15.2",
+    "unplugin-vue-components": "^0.24.1",
+    "vite": "^5.0.0",
+    "vite-plugin-mock": "^2.9.8"
   }
 }

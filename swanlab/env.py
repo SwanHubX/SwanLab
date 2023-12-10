@@ -22,9 +22,7 @@ SWANLAB_LOGS_FOLDER = os.path.join(SWANLAB_FOLDER, "logs")
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
 # 静态文件路径
-FILEPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FILEPATH = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH = os.path.join(FILEPATH, "template")
 ASSETS = os.path.join(TEMPLATE_PATH, "assets")
 INDEX = os.path.join(TEMPLATE_PATH, "index.html")
-# TODO 后续可以考虑将logo.ico放在assets中，这样就不需要单独响应了
-LOGO = os.path.join(TEMPLATE_PATH, "logo.ico")

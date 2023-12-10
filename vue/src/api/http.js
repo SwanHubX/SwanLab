@@ -3,13 +3,14 @@ import axios from 'axios'
 // axios对象实例
 const http = axios.create({
   // baseURL不设置，会自动使用当前域名
-  // baseURL: '',
+  baseURL: import.meta.env.VITE_BASE_URL,
   timeout: 10000
 })
 
 http.interceptors.request.use(
   async (req) => {
     console.log('[request] ', req.method, req.url, req.data || req.params || '')
+
     return req
   },
   (error) => {

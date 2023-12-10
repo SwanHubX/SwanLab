@@ -6,25 +6,33 @@
   "configurations": [
     // 启动前端开发服务
     {
-      "name": "Npm开启前端服务",
+      "name": "前端开发:dev",
       "request": "launch",
       "cwd": "${workspaceRoot}",
       "type": "node",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"]
     },
+    {
+      "name": "前端开发:mock",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "type": "node",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:mock"]
+    },
     // 启动前端编译服务
     {
-      "name": "Npm编译前端项目",
+      "name": "编译前端项目",
       "request": "launch",
       "cwd": "${workspaceRoot}",
       "type": "node",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "build"]
     },
-    // 启动后端测试服务
+    // 启动后端开发服务
     {
-      "name": "Python开启模版测试服务",
+      "name": "后端开发",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/test/start_server.py",

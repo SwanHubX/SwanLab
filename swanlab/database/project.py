@@ -14,7 +14,6 @@ from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
 from ..utils import lock_file
 from io import TextIOWrapper
-import portalocker
 import ujson
 
 
@@ -30,7 +29,7 @@ class ProjectTable(ProjectTablePoxy):
 
     def __init__(self, data: dict):
         """初始化实验管理类"""
-        print("project init")
+        # print("project init")
         # 保存表单信息
         super().__init__(data, self.path)
         # 当前项目运行的实验
@@ -94,3 +93,14 @@ class ProjectTable(ProjectTablePoxy):
                 # print("success experiment ", project["experiments"][index])
                 break
         self.save(file, project)
+
+
+class PT(object):
+    """后端层面上的项目管理类，适配后端的项目管理接口，提供项目管理的相关功能"""
+
+    path = ProjectTable.path
+
+    @lock_file(file_path=path, mode="r")
+    def get(self, file: TextIOWrapper):
+        """获取实验信息"""
+        return ujson.load(file)

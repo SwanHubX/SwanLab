@@ -6,17 +6,37 @@
     "swanlab": "api",
     "wandb": "database",
     ".swanlab": "admin",
-    ".config": "config"
+    ".config": "config",
+    "store": "database",
+    "help": "java",
+    "experiment": "benchMark"
   },
+  "material-icon-theme.files.associations": {
+    ".env.mock": "Tune"
+  },
+
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+    "source.fixAll.eslint": "explicit"
   },
   // 每次保存的时候自动格式化
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "eslint.format.enable": true,
   "eslint.validate": ["javascript", "javascriptreact", "vue", "typescript", "typescriptreact"],
+
+  // sass编译
+  "easysass.excludeRegex": "style.scss", // 提供文件名正则表达式，匹配到的文件会被排除，不会编译为css，默认为空，则功能关闭
+  "easysass.formats": [
+    // {
+    //   "format": "expanded",
+    //   "extension": ".css"
+    // },
+    {
+      "format": "compressed",
+      "extension": ".min.css"
+    }
+  ],
 
   /** 后端代码格式化部分，python格式化 */
   "[python]": {
@@ -38,6 +58,20 @@
       "iconColour": "#ff0000"
     }
   },
+  /** i18n */
+  "i18n-ally.sortKeys": true,
+  "i18n-ally.keepFulfilled": true,
+  "i18n-ally.localeCountryMap": {
+    "en": "br", // show UK's flag instead of US's
+    "zh": "cn", // show Chinese flag for 'zh'
+    "ko": "ko" // show Korean flag for 'ko'
+  },
+  "i18n-ally.localesPaths": ["vue/src/i18n"],
+  "i18n-ally.keystyle": "nested", // 翻译路径格式,
+  "i18n-ally.namespace": true,
+  "i18n-ally.enabledParsers": ["json", "js"],
+  "i18n-ally.sourceLanguage": "zh-CN", // 翻译源语言 是你翻译文件的名字
+  "i18n-ally.displayLanguage": "zh-CN", //显示语言
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],

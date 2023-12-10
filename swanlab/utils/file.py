@@ -32,11 +32,15 @@ def lock_file(file_path: str, mode: str = "r+"):
         # 保证函数签名不变
         @wraps(func)
         def wrapper(*args, **kwargs):
-            f = open(file_path, mode=mode)
+            f = open(file_path, mode=mode, encoding="utf-8")
             portalocker.lock(f, portalocker.LOCK_EX)
-            res = func(file=f, *args, **kwargs)
-            portalocker.unlock(f)
-            f.close()
+            try:
+                res = func(file=f, *args, **kwargs)
+            except Exception as e:
+                raise e
+            finally:
+                portalocker.unlock(f)
+                f.close()
             return res
 
         return wrapper
@@ -44,10 +48,10 @@ def lock_file(file_path: str, mode: str = "r+"):
     return decorator
 
 
-def get_a_lock(file_path: str, mode: str = "r+") -> TextIOWrapper:
+def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIOWrapper:
     """获取一个文件锁,
     返回文件对象，你需要手动关闭文件
     """
-    f = open(file_path, mode=mode)
+    f = open(file_path, mode=mode, encoding=encoding)
     portalocker.lock(f, portalocker.LOCK_EX)
     return f

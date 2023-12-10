@@ -8,14 +8,13 @@ r"""
     数据库表单类，用于操作和记录数据库表单相关的信息，实际上是一个MutableMapping，可以像字典一样操作，但是对字典数据设置的时候进行一些特殊行为
 """
 from collections.abc import MutableMapping
-import math
 from typing import Any
 from io import TextIOWrapper
+import math
 import ujson
 import os
 from ..utils import create_time
-from ..utils import lock_file, get_a_lock
-import sys
+from ..utils import get_a_lock
 
 
 class ProjectTablePoxy(MutableMapping):
@@ -70,10 +69,11 @@ class ProjectTablePoxy(MutableMapping):
         """
         if data is not None:
             self.__target_dict = data
+        self.__target_dict["update_time"] = create_time()
         # 此处不要添加断点，断点会导致一系列文件操作出现问题
         f.truncate()
         f.seek(0)
-        ujson.dump(self.__target_dict, f, indent=4)
+        ujson.dump(self.__target_dict, f, indent=4, ensure_ascii=False)
 
     def save_with_lock(self, data: dict = None):
         """将数据保存到文件中，并加锁
@@ -86,7 +86,7 @@ class ProjectTablePoxy(MutableMapping):
         """将数据保存到文件中，并加锁
         可以选择将data传入，此时会将data保存到文件中，并且更新对象信息为data信息
         """
-        with open(self.__dict_path, "w") as f:
+        with open(self.__dict_path, "w", encoding="utf-8") as f:
             self.save(f, data)
 
 
@@ -159,20 +159,23 @@ class ExperimentPoxy(object):
 
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
         need_slice = (index - 1) % self.__slice_size == 0 or index == 1
+        mu = math.ceil(index / self.__slice_size)
+        # 存储路径
+        file_path = os.path.join(save_folder, str(mu * self.__slice_size) + ".json")
         # 如果需要新增分片存储
         if need_slice:  # 达到分片条件，需要在新文件中添加新的tag数据
-            file_path = os.path.join(save_folder, str(index) + ".json")
+            file = get_a_lock(file_path, mode="w+")  # 加锁
             data = self.new_tag()
             data["data"].append(new_tag_data)
-            ujson.dump(data, open(file_path, "x"))
-            return
-
-        # 如果不需要新增分片存储
-        previous_path = os.path.join(save_folder, str(index - 1) + ".json")
-        data = ujson.load(open(previous_path, "r"))
-        # 向列表中添加新tag数据
-        data["data"].append(new_tag_data)
-        data["update_time"] = create_time()
-        ujson.dump(data, open(previous_path, "w"))
-        current_path = os.path.join(save_folder, str(index) + ".json")
-        os.rename(previous_path, current_path)
+            ujson.dump(data, file, ensure_ascii=False)
+        else:
+            # 如果不需要新增分片存储
+            file = get_a_lock(file_path, mode="r+")  # 加锁
+            data = ujson.load(file)
+            file.truncate()
+            file.seek(0)
+            # 向列表中添加新tag数据
+            data["data"].append(new_tag_data)
+            data["update_time"] = create_time()
+            ujson.dump(data, file, ensure_ascii=False)
+        file.close()

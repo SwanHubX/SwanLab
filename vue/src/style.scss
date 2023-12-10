@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: PingFang SC, DFPKingGothicGB-Medium, sans-serif;
+  // 设置任何元素的默认边框颜色、文字颜色
+  @apply text-default;
+  * {
+    @apply border-default;
+  }
+  // svg的默认颜色为当前颜色
+  svg {
+    fill: currentColor;
+  }
+}

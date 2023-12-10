@@ -9,6 +9,7 @@ r"""
 """
 import random
 import swanlab as sw
+import time
 
 # 迭代次数
 epochs = 2000
@@ -35,4 +36,4 @@ for epoch in range(2, epochs):
     sw.log(tag="loss", data=loss)
     # 在此处将数据写入数据库
     sw.log(tag="accuracy", data=acc, namespace="train")
-    # time.sleep(0.1)
+    time.sleep(0.1)
