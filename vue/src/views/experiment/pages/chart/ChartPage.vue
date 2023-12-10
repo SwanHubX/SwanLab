@@ -22,19 +22,19 @@
  * @file: ChartPage.vue
  * @since: 2023-12-09 20:39:41
  **/
-import { computed, provide, ref } from 'vue'
-import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { inject, ref } from 'vue'
+import { onBeforeRouteUpdate } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import PlotlyChart from './components/PlotlyChart.vue'
 import http from '@swanlab-vue/api/http'
-const route = useRoute()
 
 const projectStore = useProjectStore()
 
-const experimentId = computed(() => Number(route.params.experimentId))
+const experiment = inject('experiment')
+const experimentId = inject('experimentId')
 
 // ---------------------------------- 在此处完成路由监听和页面重新渲染 ----------------------------------
 onBeforeRouteUpdate((to, from, next) => {
@@ -42,16 +42,7 @@ onBeforeRouteUpdate((to, from, next) => {
   next()
   // 先关闭轮询，然后重新开启一个
   clearInterval(timer)
-  getExperiment(to.params.experimentId)
-})
-
-// ---------------------------------- 获取当前实验的配置 ----------------------------------
-const experiment = computed(() => {
-  return projectStore.experiments?.find((item) => item.experiment_id === experimentId.value)
-})
-
-const experimentColor = computed(() => {
-  return experiment.value.color
+  if (to.name === from.name) getExperiment(to.params.experimentId)
 })
 
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
@@ -86,12 +77,6 @@ const getExperiment = (id = experimentId.value) => {
 }
 // 立即执行
 getExperiment()
-
-// ---------------------------------- 依赖注入 ----------------------------------
-
-provide('experimentId', experimentId)
-provide('experimentColor', experimentColor)
-provide('experimentStatus', experimentStatus)
 </script>
 
 <style lang="scss" scoped></style>
