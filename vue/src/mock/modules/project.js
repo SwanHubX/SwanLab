@@ -1,6 +1,10 @@
 import { uuid } from '@swanlab-vue/utils/common'
 const prefix = '/api/v1/project'
 
+/**
+ * 生成随机的RGB值
+ * @returns "#RRGGBB" 的形式的字符串
+ */
 function getRandomHexColor() {
   // 生成随机的 RGB 值
   var r = Math.floor(Math.random() * 256)
