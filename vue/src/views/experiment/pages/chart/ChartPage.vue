@@ -22,7 +22,7 @@
  * @file: ChartPage.vue
  * @since: 2023-12-09 20:39:41
  **/
-import { inject, ref } from 'vue'
+import { inject, ref, provide } from 'vue'
 import { onBeforeRouteUpdate } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
@@ -48,6 +48,7 @@ onBeforeRouteUpdate((to, from, next) => {
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
 const tags = ref()
 const experimentStatus = ref(undefined)
+provide('experimentStatus', experimentStatus)
 // 用于设置轮询
 let timer = undefined
 
