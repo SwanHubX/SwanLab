@@ -1,7 +1,7 @@
 {
   "name": "swanlab-ui",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.1beta2",
   "type": "module",
   "scripts": {
     "dev": "vite",
