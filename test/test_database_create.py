@@ -32,8 +32,5 @@ for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    # 在此处将数据写入数据库
-    sw.log(tag="loss", data=loss)
-    # 在此处将数据写入数据库
-    sw.log(tag="accuracy", data=acc, namespace="train")
+    sw.log({"loss": loss, "accuracy": acc})
     time.sleep(0.1)

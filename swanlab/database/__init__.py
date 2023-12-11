@@ -9,3 +9,6 @@ r"""
 """
 from .database import sd
 from .project import PT
+
+
+print("swanlab.database init")
