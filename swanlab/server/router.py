@@ -9,7 +9,7 @@ r"""
 """
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 import time
 
@@ -55,11 +55,13 @@ async def resp_static(request, call_next):
     if request.url.path.startswith(static_path):
         # 如果是请求静态资源，直接返回
         return await call_next(request)
-    if request.url.path == "/":
-        return await call_next(request)
     if request.url.path.startswith("/api"):
+        # 如果是请求api，直接返回
         return await call_next(request)
-    return RedirectResponse(url="/")
+    # 剩余情况返回index.html，交由前端路由处理
+    with open(INDEX, "r", encoding="utf-8") as file:
+        html_content = file.read()
+    return HTMLResponse(content=html_content, status_code=200)
 
 
 # ---------------------------------- 在此处注册相关路由 ----------------------------------
@@ -71,18 +73,7 @@ from .api.project import router as project
 from .api.experiment import router as experiment
 
 
-# 响应app文件
-@app.get("/", response_class=HTMLResponse)
-async def _():
-    # 读取 HTML 文件内容并返回
-    with open(INDEX, "r", encoding="utf-8") as file:
-        html_content = file.read()
-    return HTMLResponse(content=html_content, status_code=200)
-
-
 # ---------------------------------- 加载动态路由 ----------------------------------
-
-
 # 使用配置列表，统一导入
 prefix = "/api/v1"
 app.include_router(test, prefix=prefix)
