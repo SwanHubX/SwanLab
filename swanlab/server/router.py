@@ -72,8 +72,6 @@ from .api.test import router as test
 from .api.project import router as project
 from .api.experiment import router as experiment
 
-
-# ---------------------------------- 加载动态路由 ----------------------------------
 # 使用配置列表，统一导入
 prefix = "/api/v1"
 app.include_router(test, prefix=prefix)
