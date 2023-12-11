@@ -9,10 +9,10 @@
     </div>
     <!-- 友链 -->
     <div class="flex gap-2">
-      <a href="https://github" class="link">
+      <a href="https://github.com" class="link" target="_blank">
         <SLIcon icon="github" class="w-4 h-4" />
       </a>
-      <a href="https://swanhub.co" class="link">
+      <a href="https://swanhub.co" class="link" target="_blank">
         <SLIcon icon="logo" class="w-4 h-4" />
       </a>
     </div>

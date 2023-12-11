@@ -10,7 +10,8 @@
     "store": "database",
     "help": "java",
     "experiment": "benchMark",
-    "chart": "app"
+    "chart": "app",
+    "index": "home"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
