@@ -3,7 +3,7 @@
   <div class="flex items-center gap-2 py-5 px-8 border-b">
     <SLIcon icon="experiment" class="w-5 h-5" />
     <h1 class="text-lg font-semibold">{{ experiment.name }}</h1>
-    <StatusLabel
+    <SLStatusLabel
       :id="experimentId"
       :status="experimentStatus"
       :name="experiment.name"
@@ -25,7 +25,7 @@
 import { inject, ref, provide } from 'vue'
 import { onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import StatusLabel from '@swanlab-vue/views/experiment/components/StatusLabel.vue'
+import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import G2Chart from './components/G2Chart.vue'
 import http from '@swanlab-vue/api/http'

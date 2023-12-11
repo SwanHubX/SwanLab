@@ -34,7 +34,7 @@
         </td>
         <!-- 实验状态 -->
         <td>
-          <StatusLabel :name="experiment.name" :id="experiment.experiment_id" :status="experiment.status" />
+          <SLStatusLabel :name="experiment.name" :id="experiment.experiment_id" :status="experiment.status" />
         </td>
         <!-- 创建时间 -->
         <td>{{ transTime(convertUtcToLocal(experiment.create_time)) }}</td>
@@ -52,7 +52,7 @@
 import { useProjectStore } from '@swanlab-vue/store'
 import { formatTime } from '@swanlab-vue/utils/common'
 import { computed } from 'vue'
-import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
+import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 
