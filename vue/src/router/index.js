@@ -15,7 +15,7 @@ const routes = [
       {
         path: 'index',
         name: 'experiment_index',
-        component: () => import('@swanlab-vue/views/experiment/pages/IndexPage.vue')
+        component: () => import('@swanlab-vue/views/experiment/pages/index/IndexPage.vue')
       },
       {
         path: 'chart',

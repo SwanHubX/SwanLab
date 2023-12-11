@@ -8,5 +8,17 @@
     "-1": "停止",
     "0": "正在进行",
     "1": "完成"
+  },
+  "header": {
+    "experiment_infos": {
+      "start_time": "开始时间",
+      "last_time": "持续时间",
+      "tags": "Tag"
+    },
+    "experiment_device": {
+      "hostname": "Hostname",
+      "os": "操作系统",
+      "python": "Python版本"
+    }
   }
 }

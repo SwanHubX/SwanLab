@@ -1,5 +1,5 @@
 <template>
-  {{ experiment }}
+  <ExperimentHeader />
 </template>
 
 <script setup>
@@ -8,9 +8,7 @@
  * @file: ExperimentIndex.vue
  * @since: 2023-12-09 20:37:45
  **/
-import { inject } from 'vue'
-
-const experiment = inject('experiment')
+import ExperimentHeader from './components/ExperimentHeader.vue'
 </script>
 
 <style lang="scss" scoped></style>
