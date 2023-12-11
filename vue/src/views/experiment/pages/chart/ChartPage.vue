@@ -12,7 +12,7 @@
   </div>
   <!-- 图表容器 -->
   <ChartsContainer label="default" :key="experimentId">
-    <PlotlyChart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
+    <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
 </template>
 
@@ -28,7 +28,7 @@ import { useProjectStore } from '@swanlab-vue/store'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
-import PlotlyChart from './components/PlotlyChart.vue'
+import G2Chart from './components/G2Chart.vue'
 import http from '@swanlab-vue/api/http'
 
 const projectStore = useProjectStore()
