@@ -1,8 +1,14 @@
 <template>
-  <ExtendBlock class="py-6" icon="experiment" title="配置信息">
-    <div class="pl-6 w-full">
-      <p class="font-semibold py-4">配置</p>
-      <div class="w-full border">111</div>
+  <ExtendBlock class="py-6" icon="experiment" :title="$t('experiment.index.config.title')">
+    <div class="pl-6 w-full flex justify-between">
+      <div class="w-1/2">
+        <p class="font-semibold py-4">{{ $t('experiment.index.config.detail') }}</p>
+        <div class="w-full">1</div>
+      </div>
+      <div class="w-1/2">
+        <p class="font-semibold py-4">{{ $t('experiment.index.config.summarize') }}</p>
+        <div class="w-full">2</div>
+      </div>
     </div>
   </ExtendBlock>
 </template>

@@ -18,14 +18,14 @@
       <!-- 实验相关 -->
       <div class="w-1/2 min-w-[400px]">
         <div v-for="item in experiment_infos" :key="item.title" class="flex pb-4">
-          <div class="min-w-[150px]">{{ $t(`experiment.header.experiment_infos.${item.title}`) }}</div>
+          <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
           <div class="">{{ item.value }}</div>
         </div>
       </div>
       <!-- 系统相关 -->
       <div class="w-1/2 min-w-[400px]">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
-          <div class="min-w-[180px]">{{ $t(`experiment.header.experiment_device.${item.title}`) }}</div>
+          <div class="min-w-[180px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
           <div class="">{{ item.value }}</div>
         </div>
       </div>
