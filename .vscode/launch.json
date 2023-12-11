@@ -46,12 +46,21 @@
       "name": "开启一个实验",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/test/test_database_create.py",
+      "program": "${workspaceFolder}/test/create_experiment.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "构建项目",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_pypi.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
     },
     // python运行当前文件
     {
