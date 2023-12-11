@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2023-11-26 19:26:22
+@DATE: 2023-12-11 21:41:08
 @File: swanlab/utils/color.py
 @IDE: vscode
 @Description:
@@ -10,7 +10,7 @@ r"""
 import random
 
 
-def rgb_to_hex(rgb_color:tuple):
+def rgb_to_hex(rgb_color: tuple):
     """将RGB转为十六进制颜色字符串
 
     Returns
@@ -27,7 +27,7 @@ def rgb_to_hex(rgb_color:tuple):
     return hex_color
 
 
-def hex_to_rgb(hex_color:str):
+def hex_to_rgb(hex_color: str):
     """将十六进制颜色字符串转为RGB
 
     Returns
@@ -37,15 +37,14 @@ def hex_to_rgb(hex_color:str):
     """
 
     # 去除可能包含的 '#' 符号
-    hex_color = hex_color.lstrip('#')
-    
+    hex_color = hex_color.lstrip("#")
+
     # 将十六进制颜色代码分成红、绿和蓝部分
     r = int(hex_color[0:2], 16)
     g = int(hex_color[2:4], 16)
     b = int(hex_color[4:6], 16)
-    
-    return (r, g, b)
 
+    return (r, g, b)
 
 
 def generate_color() -> str:
@@ -66,8 +65,24 @@ def generate_color() -> str:
     # 生成随机数, 用于在颜色列表中选择一个随机颜色
     random_number = random.randint(0, 15)
 
-    color_list = ['#528d59', '#9cbe5d', '#dfb142', '#d0703c', '#e3b292', '#c24d46', '#892d58', '#d47694', '#8cc5b7',
-    '#40877c', '#6ebad3', '#587ad2', '#6d4ba4', '#b15fbb', '#905f4a', '#989fa3']
+    color_list = [
+        "#528d59",
+        "#9cbe5d",
+        "#dfb142",
+        "#d0703c",
+        "#e3b292",
+        "#c24d46",
+        "#892d58",
+        "#d47694",
+        "#8cc5b7",
+        "#40877c",
+        "#6ebad3",
+        "#587ad2",
+        "#6d4ba4",
+        "#b15fbb",
+        "#905f4a",
+        "#989fa3",
+    ]
 
     # 将随机选择的十六进制字符串转为RGB
     r, g, b = hex_to_rgb(color_list[random_number])
