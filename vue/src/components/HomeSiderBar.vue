@@ -41,10 +41,14 @@
       </RouterLink>
     </div>
     <div class="border-t border-default h-20">
-      <RouterLink to="/help" class="my-4 mx-4" active-class="active-router">
+      <!-- <RouterLink to="/help" class="my-4 mx-4" active-class="active-router">
         <SLIcon icon="help" class="w-4 h-4 mr-2" />
         <span>{{ $t('sider.nav.help') }}</span>
-      </RouterLink>
+      </RouterLink> -->
+      <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc" class="my-4 mx-4" target="_blank">
+        <SLIcon icon="help" class="w-4 h-4 mr-2" />
+        <span>{{ $t('sider.nav.help') }}</span>
+      </a>
     </div>
   </div>
 </template>
