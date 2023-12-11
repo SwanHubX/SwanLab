@@ -9,7 +9,8 @@
     ".config": "config",
     "store": "database",
     "help": "java",
-    "experiment": "benchMark"
+    "experiment": "benchMark",
+    "chart": "app"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
