@@ -62,13 +62,17 @@ let chart
       // type: 'timeCat',
       tickCount: 5 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
+    yAxis: {},
     // 大小相关
     height: 200,
     autoFit: true,
+    // 开启一些交互
+    interactions: [{ type: 'brush-x' }],
     // 样式相关
-    smooth: true, // 平滑曲线
+    // smooth: true, // 平滑曲线
     color: experimentColor.value
   })
+
   chart.render()
   // 启动轮询函数，
   startPolling()
