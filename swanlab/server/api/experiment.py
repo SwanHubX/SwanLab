@@ -54,56 +54,8 @@ async def get_experiment(experiment_id: int):
         raise e
 
 
-# # 修改实验的信息：名称/描述
-# @router.patch("/{experiment_id}")
-# async def patch_expriment(experiment_id: int, new_info: dict):
-#     """修改当前实验的信息
-
-#     parameter
-#     ----------
-#     experiment_id: int
-#         实验唯一id，路径传参
-#     new_info: dict
-#         需要修改的内容
-#         name: str
-#         description: str
-#     """
-#     # 读取 project.json 文件内容
-#     project: dict = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))
-#     experiments: list = project["experiments"]
-#     # 在experiments列表中查找对应实验的信息
-#     for index, experiment in enumerate(experiments):
-#         if not experiment["experiment_id"] == experiment_id:
-#             continue
-#         if experiment["status"] == 0:
-#             return ResponseBody(500, message="experiment not finished")
-#         if new_info.get("name") is not None:
-#             # 如果名字和之前一样
-#             if new_info["name"] == experiment["name"]:
-#                 return ResponseBody(500, message="experiment name is the same")
-#             # 检查名字是否重复
-#             if any(item["name"] == new_info["name"] for item in experiments):
-#                 return ResponseBody(500, message="experiment name already exists")
-#             # TODO 检查名字是否违规
-#             # TODO 检查名字的步骤应该封装出来
-#             # 修改实验目录的名字
-#             os.rename(
-#                 os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"]),
-#                 os.path.join(SWANLAB_LOGS_FOLDER, new_info["name"]),
-#             )
-#             # 在配置中修改
-#             experiments[index]["name"] = new_info["name"]
-#         if new_info.get("description") is not None:
-#             experiment["description"] = new_info["description"]
-#         project["experiments"] = experiments
-#         project["update_time"] = create_time()
-#         ujson.dump(project, open(CONFIG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
-#         return ResponseBody(0)
-#     return ResponseBody(500, message="experiment not found")
-
-
-# 获取表单数据
-@router.get("/{experiment_id}/{tag}")
+# 获取某个实验的表单数据
+@router.get("/{experiment_id}/tag/{tag}")
 async def get_tag_data(experiment_id: int, tag: str):
     """获取表单数据
 
@@ -115,20 +67,46 @@ async def get_tag_data(experiment_id: int, tag: str):
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
     tag = unquote(tag)
-    # 读取实验信息内容
-    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
     # 在experiments列表中查找对应实验的信息
-    experiment_name = None
-    for _, experiment in enumerate(experiments):
-        if experiment["experiment_id"] == experiment_id:
-            experiment_name = experiment["name"]
-    # 找到最后一个还不存在，报错
-    if experiment_name is None:
-        # TODO 后续需要改成错误码
-        raise KeyError(f'experiment id "{experiment_id}" not found')
+    experiment_name = __find_experiment(experiment_id)["name"]
     tag_data = __find_tag_data(experiment_name, tag)
     # 返回数据
     return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
+
+
+@router.get("/{experiment_id}/status")
+async def get_experiment_status(experiment_id: int):
+    """获取实验状态
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id，路径传参
+    """
+    status = __find_experiment(experiment_id)["status"]
+    return ResponseBody(0, data={"status": status})
+
+
+def __find_experiment(experiment_id: int) -> dict:
+    """在实验列表中查找对应id的实验
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+
+    Returns
+    -------
+    dict
+        实验信息
+    """
+    with get_a_lock(CONFIG_PATH, "r") as f:
+        experiments: list = ujson.load(f)["experiments"]
+    for experiment in experiments:
+        if experiment["experiment_id"] == experiment_id:
+            return experiment
+    # 还不存在就报错
+    raise KeyError(f'experiment id "{experiment_id}" not found')
 
 
 def __find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
