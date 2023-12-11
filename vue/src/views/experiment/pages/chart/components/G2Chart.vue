@@ -54,7 +54,6 @@ let chart
   const data = await getTag(props.sources[0])
   chart = new Line(g2.value, {
     data,
-    padding: 'auto',
     xField: 'step',
     yField: 'data',
     // 坐标轴相关
