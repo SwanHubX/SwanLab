@@ -1,18 +1,17 @@
 <template>
   <div class="chart-container">
-    <h1 class="plotly-title absolute z-10">{{ title }}</h1>
-    <div class="plotly-chart absolute z-0" ref="gd"></div>
+    <p class="text-center">{{ title }}</p>
+    <div ref="g2"></div>
   </div>
 </template>
 
 <script setup>
 /**
- * @description: 基于 Plotly.js 的图表组件，在此组件中封装
- * @file: PlotlyChart.vue
- * @since: 2023-12-09 00:13:00
+ * @description: 基于@antv/g2plot的图表组件
+ * @file: G2Chart.vue
+ * @since: 2023-12-11 10:45:40
  **/
-
-import Plotly from 'plotly.js-dist-min'
+import { Line } from '@antv/g2plot'
 import http from '@swanlab-vue/api/http'
 import { ref, inject, computed, onUnmounted } from 'vue'
 
@@ -27,12 +26,12 @@ const experimentId = inject('experimentId')
 // 拿到项目的颜色（响应式
 const experimentColor = inject('experimentColor')
 // 拿到项目的状态（响应式
-// const experimentStatus = inject('experimentStatus')
+const experimentStatus = inject('experimentStatus')
 
 // 根据sources，生成title
 const title = computed(() => props.sources.join(' & '))
 
-const gd = ref()
+const g2 = ref()
 
 // ---------------------------------- 请求的工具函数 ----------------------------------
 
@@ -42,18 +41,39 @@ const gd = ref()
  */
 const getTag = async (tag) => {
   const { data } = await http.get(`/experiment/${experimentId.value}/` + encodeURIComponent(tag))
-  return data.list.map((item) => item.data)
+  // FIXME 为data添加一个step字段
+  data.list.forEach((item, index) => {
+    item.step = index
+  })
+  return data.list
 }
 
 // ---------------------------------- 在此处根据sources请求数据 ----------------------------------
+let chart
 ;(async function () {
   const data = await getTag(props.sources[0])
-  Plotly.newPlot(
-    gd.value,
-    [{ y: data, line: { color: experimentColor.value } }],
-    { showlegend: false },
-    { displayModeBar: false, responsive: true }
-  )
+  chart = new Line(g2.value, {
+    data,
+    padding: 'auto',
+    xField: 'step',
+    yField: 'data',
+    // 坐标轴相关
+    xAxis: {
+      // type: 'timeCat',
+      tickCount: 5 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+    },
+    yAxis: {},
+    // 大小相关
+    height: 200,
+    autoFit: true,
+    // 开启一些交互
+    interactions: [{ type: 'brush-x' }],
+    // 样式相关
+    // smooth: true, // 平滑曲线
+    color: experimentColor.value
+  })
+
+  chart.render()
   // 启动轮询函数，
   startPolling()
 })()
@@ -63,13 +83,10 @@ let timer = undefined
 
 const startPolling = () => {
   timer = setInterval(async () => {
-    if (experimentStatus.value !== 0) {
-      clearInterval(timer)
-      return
-    }
+    if (experimentStatus.value !== 0) return clearInterval(timer)
     const data = await getTag(props.sources[0])
-    Plotly.react(gd.value, [{ y: data, line: { color: experimentColor.value } }])
-  }, 5000)
+    chart.changeData(data)
+  }, 1000)
 }
 
 onUnmounted(() => {
@@ -78,21 +95,10 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.plotly-chart {
-  height: calc(100% + 100px);
-  width: calc(100% + 100px);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-.plotly-title {
-  top: 10%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
 .chart-container {
   @apply w-full h-72 border rounded relative overflow-hidden;
+  @apply px-3 py-4;
+  @apply flex-col flex justify-between;
   flex: 1 0 400px;
 }
 </style>

@@ -10,33 +10,46 @@ r"""
 
 import click
 import uvicorn
-from ..server import app
-
-port = 5092
 
 
 @click.group()
 def cli():
-    """入口函数"""
     pass
 
 
 @cli.command()
 @click.option(
     "--share",
-    default=False,
+    is_flag=True,
     help="When shared, swanlab web will run on localhost",
 )
 @click.option(
     "--debug",
-    is_flag=False,
+    is_flag=True,
     help="Show more logs when use debug mode",
 )
-def watch(share, debug):
-    """运行此命令开启swanlab服务"""
+@click.option(
+    "--port",
+    "-p",
+    default=5092,
+    help="The port of swanlab web, default by 5092",
+)
+def watch(share, debug, port):
+    """Run this command to turn on the swanlab service."""
+    # print("share", share)
+    # print("debug", debug)
+    # print("port", port)
+    from ..server import app
+
+    # 服务地址
     host = "localhost" if share else "127.0.0.1"
+    # 日志等级
     log_level = "info" if debug else "warning"
     click.echo(f"swanlab running on \033[1mhttp://{host}:{port}\033[0m")
 
     # 使用 uvicorn 启动 FastAPI 应用
     uvicorn.run(app, host=host, port=port, log_level=log_level)
+
+
+if __name__ == "__main__":
+    cli()

@@ -1,7 +1,7 @@
 {
   "name": "swanlab-ui",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.1beta4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,10 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@antv/g2plot": "^2.4.31",
     "axios": "^1.6.2",
     "moment": "^2.29.4",
     "pinia": "^2.1.7",
-    "plotly.js-dist-min": "^2.27.1",
     "sass": "^1.69.5",
     "vue": "^3.3.8",
     "vue-i18n": "^9.8.0",

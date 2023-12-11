@@ -2,8 +2,8 @@
   <!-- 标题 -->
   <div class="flex items-center gap-2 py-5 px-8 border-b">
     <SLIcon icon="experiment" class="w-5 h-5" />
-    <h1 class="text-lg font-semibold">{{ projectStore.name + '/' + experiment.name }}</h1>
-    <StatusLabel
+    <h1 class="text-lg font-semibold">{{ experiment.name }}</h1>
+    <SLStatusLabel
       :id="experimentId"
       :status="experimentStatus"
       :name="experiment.name"
@@ -11,8 +11,8 @@
     />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer label="default" :key="experimentId">
-    <PlotlyChart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
+  <ChartsContainer label="default" :key="experimentId" v-if="showContainer(tags)">
+    <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
 </template>
 
@@ -22,16 +22,13 @@
  * @file: ChartPage.vue
  * @since: 2023-12-09 20:39:41
  **/
-import { inject, ref } from 'vue'
-import { onBeforeRouteUpdate } from 'vue-router'
-import { useProjectStore } from '@swanlab-vue/store'
+import { inject, ref, provide } from 'vue'
+import { onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
+import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
-import PlotlyChart from './components/PlotlyChart.vue'
+import G2Chart from './components/G2Chart.vue'
 import http from '@swanlab-vue/api/http'
-
-const projectStore = useProjectStore()
 
 const experiment = inject('experiment')
 const experimentId = inject('experimentId')
@@ -45,9 +42,17 @@ onBeforeRouteUpdate((to, from, next) => {
   if (to.name === from.name) getExperiment(to.params.experimentId)
 })
 
+onBeforeRouteLeave((to, from, next) => {
+  console.log('离开实验视图')
+  next()
+  // 离开页面时，关闭轮询
+  clearInterval(timer)
+})
+
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
 const tags = ref()
 const experimentStatus = ref(undefined)
+provide('experimentStatus', experimentStatus)
 // 用于设置轮询
 let timer = undefined
 
@@ -60,7 +65,7 @@ const getExperiment = (id = experimentId.value) => {
   http.get('/experiment/' + id).then(({ data }) => {
     // 判断data.tags和tags是否相同，如果不同，重新渲染
     if (data.tags.join('') !== tags.value?.join('')) {
-      console.log('不同，重新渲染', data.tags, tags.value)
+      // console.log('不同，重新渲染', data.tags, tags.value)
       tags.value = data.tags
     }
     // 如果status为0，且timer为undefined，开启轮询
@@ -77,6 +82,11 @@ const getExperiment = (id = experimentId.value) => {
 }
 // 立即执行
 getExperiment()
+
+// ---------------------------------- 判断某个namespcace下是否存在图表 ----------------------------------
+const showContainer = (sources) => {
+  return !!sources?.length
+}
 </script>
 
 <style lang="scss" scoped></style>

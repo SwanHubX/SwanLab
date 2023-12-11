@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2023-11-30 15:54:55
-@File: test/test_database_create.py
+@File: test/create_experiment.py
 @IDE: vscode
 @Description:
-    开发和测试本地数据库的读写能力，并且建立表单
+    开启一个实验
 """
 import random
 import swanlab as sw
