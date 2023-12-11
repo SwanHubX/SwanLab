@@ -7,7 +7,10 @@
       <span class="text-lg font-semibold">{{ title }}</span>
     </button>
     <!-- 内容 -->
-    <div class="transition-all duration-200 overflow-hidden max-h-[1000px]" :class="isExtend ? '' : 'max-h-0'">
+    <div
+      class="transition-all duration-200"
+      :class="isExtend ? 'max-h-[500px] overflow-auto' : 'max-h-0 overflow-hidden'"
+    >
       <slot></slot>
     </div>
   </div>
