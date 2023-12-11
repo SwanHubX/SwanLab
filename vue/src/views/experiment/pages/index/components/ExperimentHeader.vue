@@ -3,7 +3,7 @@
     <!-- 实验标题 -->
     <div class="flex items-center">
       <span class="text-2xl font-semibold text-default">{{ experiment.name }}</span>
-      <StatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" class="mx-4" />
+      <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" class="mx-4" />
       <SLIcon icon="copy" class="icon mr-3" @click="copyTextToClipboard(experiment.name)" />
       <SLIcon icon="setting" class="icon" />
     </div>
@@ -43,7 +43,7 @@ import { inject } from 'vue'
  **/
 import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
+import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed } from 'vue'
 const experiment = inject('experiment')
 console.log(experiment.value)
