@@ -7,7 +7,7 @@
       <span class="text-lg font-semibold">{{ title }}</span>
     </button>
     <!-- 内容 -->
-    <div class="transition-all duration-300 overflow-hidden max-h-[1000px]" :class="isExtend ? '' : 'max-h-0'">
+    <div class="transition-all duration-200 overflow-hidden max-h-[1000px]" :class="isExtend ? '' : 'max-h-0'">
       <slot></slot>
     </div>
   </div>
@@ -56,10 +56,10 @@ const isExtend = ref(true)
 }
 
 .rotate-hidden {
-  animation: hidden 0.3s linear forwards;
+  animation: hidden 0.2s linear forwards;
 }
 
 .rotate-show {
-  animation: show 0.3s linear forwards;
+  animation: show 0.2s linear forwards;
 }
 </style>
