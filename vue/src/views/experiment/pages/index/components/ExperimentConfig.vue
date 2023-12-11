@@ -3,7 +3,7 @@
     <div class="pl-6 w-full flex justify-between">
       <div class="w-1/2">
         <p class="font-semibold py-4">{{ $t('experiment.index.config.detail') }}</p>
-        <div class="w-full">1</div>
+        <TableExample />
       </div>
       <div class="w-1/2">
         <p class="font-semibold py-4">{{ $t('experiment.index.config.summarize') }}</p>
@@ -20,6 +20,7 @@
  * @since: 2023-12-11 17:07:31
  **/
 import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
+import TableExample from './TableExample.vue'
 </script>
 
 <style lang="scss" scoped></style>

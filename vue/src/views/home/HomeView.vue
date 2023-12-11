@@ -34,7 +34,7 @@
         </td>
         <!-- 实验状态 -->
         <td>
-          <SLStatusLabel :name="experiment.name" :id="experiment.experiment_id" :status="experiment.status" />
+          <SLStatusLabel :id="experiment.experiment_id" :status="experiment.status" />
         </td>
         <!-- 创建时间 -->
         <td>{{ transTime(convertUtcToLocal(experiment.create_time)) }}</td>
