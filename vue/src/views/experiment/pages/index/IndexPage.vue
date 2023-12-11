@@ -1,5 +1,8 @@
 <template>
   <ExperimentHeader />
+  <hr />
+  <ExperimentConfig />
+  <hr />
 </template>
 
 <script setup>
@@ -9,6 +12,7 @@
  * @since: 2023-12-09 20:37:45
  **/
 import ExperimentHeader from './components/ExperimentHeader.vue'
+import ExperimentConfig from './components/ExperimentConfig.vue'
 </script>
 
 <style lang="scss" scoped></style>
