@@ -11,8 +11,6 @@ r"""
 import click
 import uvicorn
 
-port = 5092
-
 
 @click.group()
 def cli():
@@ -30,11 +28,22 @@ def cli():
     is_flag=True,
     help="Show more logs when use debug mode",
 )
-def watch(share, debug):
+@click.option(
+    "--port",
+    "-p",
+    default=5092,
+    help="The port of swanlab web, default by 5092",
+)
+def watch(share, debug, port):
     """Run this command to turn on the swanlab service."""
+    # print("share", share)
+    # print("debug", debug)
+    # print("port", port)
     from ..server import app
 
+    # 服务地址
     host = "localhost" if share else "127.0.0.1"
+    # 日志等级
     log_level = "info" if debug else "warning"
     click.echo(f"swanlab running on \033[1mhttp://{host}:{port}\033[0m")
 
