@@ -3,7 +3,7 @@
   <div class="flex items-center gap-2 py-5 px-8 border-b">
     <SLIcon icon="experiment" class="w-5 h-5" />
     <h1 class="text-lg font-semibold">{{ experiment.name }}</h1>
-    <SLStatusLabel :status="experimentStatus" />
+    <SLStatusLabel :status="experimentStatus" v-if="experimentStatus !== undefined" />
   </div>
   <!-- 图表容器 -->
   <ChartsContainer label="default" :key="experimentId" v-if="showContainer(tags)">

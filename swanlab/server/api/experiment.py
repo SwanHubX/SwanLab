@@ -54,56 +54,8 @@ async def get_experiment(experiment_id: int):
         raise e
 
 
-# # 修改实验的信息：名称/描述
-# @router.patch("/{experiment_id}")
-# async def patch_expriment(experiment_id: int, new_info: dict):
-#     """修改当前实验的信息
-
-#     parameter
-#     ----------
-#     experiment_id: int
-#         实验唯一id，路径传参
-#     new_info: dict
-#         需要修改的内容
-#         name: str
-#         description: str
-#     """
-#     # 读取 project.json 文件内容
-#     project: dict = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))
-#     experiments: list = project["experiments"]
-#     # 在experiments列表中查找对应实验的信息
-#     for index, experiment in enumerate(experiments):
-#         if not experiment["experiment_id"] == experiment_id:
-#             continue
-#         if experiment["status"] == 0:
-#             return ResponseBody(500, message="experiment not finished")
-#         if new_info.get("name") is not None:
-#             # 如果名字和之前一样
-#             if new_info["name"] == experiment["name"]:
-#                 return ResponseBody(500, message="experiment name is the same")
-#             # 检查名字是否重复
-#             if any(item["name"] == new_info["name"] for item in experiments):
-#                 return ResponseBody(500, message="experiment name already exists")
-#             # TODO 检查名字是否违规
-#             # TODO 检查名字的步骤应该封装出来
-#             # 修改实验目录的名字
-#             os.rename(
-#                 os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"]),
-#                 os.path.join(SWANLAB_LOGS_FOLDER, new_info["name"]),
-#             )
-#             # 在配置中修改
-#             experiments[index]["name"] = new_info["name"]
-#         if new_info.get("description") is not None:
-#             experiment["description"] = new_info["description"]
-#         project["experiments"] = experiments
-#         project["update_time"] = create_time()
-#         ujson.dump(project, open(CONFIG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
-#         return ResponseBody(0)
-#     return ResponseBody(500, message="experiment not found")
-
-
-# 获取表单数据
-@router.get("/{experiment_id}/{tag}")
+# 获取某个实验的表单数据
+@router.get("/{experiment_id}/tag/{tag}")
 async def get_tag_data(experiment_id: int, tag: str):
     """获取表单数据
 
@@ -116,7 +68,8 @@ async def get_tag_data(experiment_id: int, tag: str):
     """
     tag = unquote(tag)
     # 读取实验信息内容
-    experiments: list = ujson.load(open(CONFIG_PATH, "r", encoding="utf-8"))["experiments"]
+    with get_a_lock(CONFIG_PATH, "r") as f:
+        experiments: list = ujson.load(f)["experiments"]
     # 在experiments列表中查找对应实验的信息
     experiment_name = None
     for _, experiment in enumerate(experiments):

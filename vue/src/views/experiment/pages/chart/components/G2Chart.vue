@@ -40,7 +40,7 @@ const g2 = ref()
  * @param { string } tag 数据源
  */
 const getTag = async (tag) => {
-  const { data } = await http.get(`/experiment/${experimentId.value}/` + encodeURIComponent(tag))
+  const { data } = await http.get(`/experiment/${experimentId.value}/tag/` + encodeURIComponent(tag))
   // FIXME 为data添加一个step字段
   data.list.forEach((item, index) => {
     item.step = index

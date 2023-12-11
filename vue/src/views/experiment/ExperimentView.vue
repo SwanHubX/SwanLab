@@ -30,6 +30,11 @@ const experimentColor = computed(() => {
   return experiment.value.color
 })
 
+// TODO 后续改为从这完成依赖注入
+const experimentStatus = computed(() => {
+  return experiment.value.status
+})
+
 const experimentId = computed(() => Number(route.params.experimentId))
 
 provide('experiment', experiment)
