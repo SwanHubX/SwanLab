@@ -77,6 +77,10 @@ const shouldBeComponent = (o) => {
     }
   }
 
+  th {
+    text-align: inherit;
+  }
+
   th,
   td {
     @apply px-5 py-2.5;
