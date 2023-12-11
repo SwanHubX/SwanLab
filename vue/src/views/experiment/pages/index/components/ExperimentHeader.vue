@@ -43,8 +43,9 @@ import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed } from 'vue'
-import { convertUtcToLocal, transTime } from '@swanlab-vue/utils/time'
+import { formatTime } from '@swanlab-vue/utils/time'
 import { inject } from 'vue'
+import { t } from '@swanlab-vue/i18n'
 
 const experiment = inject('experiment')
 console.log(experiment.value)
@@ -53,11 +54,11 @@ const experiment_infos = computed(() => {
   return [
     {
       title: 'start_time',
-      value: transTime(convertUtcToLocal(experiment.value.create_time))
+      value: formatTime(experiment.value.create_time)
     },
     {
       title: 'last_time',
-      value: experiment.value.update_time - experiment.value.create_time
+      value: duration()
     }
   ]
 })
@@ -78,6 +79,46 @@ const experiment_device = computed(() => {
     }
   ]
 })
+
+/**
+ * 计算实验的持续时间
+ */
+const duration = () => {
+  const time1 = new Date(experiment.value.create_time)
+  const time2 = experiment.value.status === 0 ? new Date() : new Date(experiment.value.update_time)
+
+  if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
+    // 处理无效日期的情况
+    return 'Invalid date'
+  }
+
+  const timeDifference = Math.abs(time2 - time1)
+
+  const seconds = Math.floor(timeDifference / 1000) % 60
+  const minutes = Math.floor(timeDifference / (1000 * 60)) % 60
+  const hours = Math.floor(timeDifference / (1000 * 60 * 60)) % 24
+  const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+
+  const formattedTime = []
+
+  if (days > 0) {
+    formattedTime.push(`${days}${t('experiment.index.header.experiment_infos.time.day')}`)
+  }
+
+  if (hours > 0) {
+    formattedTime.push(`${hours}${t('experiment.index.header.experiment_infos.time.hour')}`)
+  }
+
+  if (minutes > 0) {
+    formattedTime.push(`${minutes}${t('experiment.index.header.experiment_infos.time.minute')}`)
+  }
+
+  if (seconds > 0) {
+    formattedTime.push(`${seconds}${t('experiment.index.header.experiment_infos.time.second')}`)
+  }
+
+  return formattedTime.join('')
+}
 </script>
 
 <style lang="scss" scoped>

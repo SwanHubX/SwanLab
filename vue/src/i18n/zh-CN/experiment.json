@@ -14,7 +14,13 @@
       "experiment_infos": {
         "start_time": "开始时间",
         "last_time": "持续时间",
-        "tags": "Tag"
+        "tags": "Tag",
+        "time": {
+          "day": "天",
+          "hour": "小时",
+          "minute": "分钟",
+          "second": "秒"
+        }
       },
       "experiment_device": {
         "hostname": "Hostname",

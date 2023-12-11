@@ -26,23 +26,3 @@ export function debounce(func, delay) {
 export const uuid = (now = Math.round(new Date() / 1000)) => {
   return now.toString(36) + Math.random().toString(36).slice(-4)
 }
-
-/**
- * 格式化时间，接收一个时间戳，转化当前浏览器当前时区下的时间，输入时间为UTC时间
- * 例如：上海时区下，2023-12-04T04:44:33.026550转换为"2023/12/04 12:44:33"
- */
-
-export const formatTime = (time) => {
-  const date = new Date(time)
-  const timezoneOffset = new Date().getTimezoneOffset()
-  // console.log(timezoneOffset)
-  const localTime = date.getTime() - timezoneOffset * 60 * 1000
-  const localDate = new Date(localTime)
-  const year = localDate.getFullYear()
-  const month = localDate.getMonth() + 1
-  const day = localDate.getDate()
-  const hour = localDate.getHours()
-  const minute = localDate.getMinutes()
-  const second = localDate.getSeconds()
-  return `${year}/${month}/${day} ${hour}:${minute}:${second}`
-}

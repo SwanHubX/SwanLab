@@ -50,7 +50,7 @@
  * @since: 2023-12-04 19:36:21
  **/
 import { useProjectStore } from '@swanlab-vue/store'
-import { formatTime } from '@swanlab-vue/utils/common'
+import { formatTime } from '@swanlab-vue/utils/time'
 import { computed } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
