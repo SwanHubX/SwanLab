@@ -67,21 +67,46 @@ async def get_tag_data(experiment_id: int, tag: str):
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
     tag = unquote(tag)
-    # 读取实验信息内容
-    with get_a_lock(CONFIG_PATH, "r") as f:
-        experiments: list = ujson.load(f)["experiments"]
     # 在experiments列表中查找对应实验的信息
-    experiment_name = None
-    for _, experiment in enumerate(experiments):
-        if experiment["experiment_id"] == experiment_id:
-            experiment_name = experiment["name"]
-    # 找到最后一个还不存在，报错
-    if experiment_name is None:
-        # TODO 后续需要改成错误码
-        raise KeyError(f'experiment id "{experiment_id}" not found')
+    experiment_name = __find_experiment(experiment_id)["name"]
     tag_data = __find_tag_data(experiment_name, tag)
     # 返回数据
     return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
+
+
+@router.get("/{experiment_id}/status")
+async def get_experiment_status(experiment_id: int):
+    """获取实验状态
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id，路径传参
+    """
+    status = __find_experiment(experiment_id)["status"]
+    return ResponseBody(0, data={"status": status})
+
+
+def __find_experiment(experiment_id: int) -> dict:
+    """在实验列表中查找对应id的实验
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+
+    Returns
+    -------
+    dict
+        实验信息
+    """
+    with get_a_lock(CONFIG_PATH, "r") as f:
+        experiments: list = ujson.load(f)["experiments"]
+    for experiment in experiments:
+        if experiment["experiment_id"] == experiment_id:
+            return experiment
+    # 还不存在就报错
+    raise KeyError(f'experiment id "{experiment_id}" not found')
 
 
 def __find_all_tag_data(base_path: str, paths: list) -> List[List[Dict]]:
