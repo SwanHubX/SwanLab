@@ -23,7 +23,7 @@
  * @since: 2023-12-09 20:39:41
  **/
 import { inject, ref, provide } from 'vue'
-import { onBeforeRouteUpdate } from 'vue-router'
+import { onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import StatusLabel from '@swanlab-vue/components/StatusLabel.vue'
@@ -43,6 +43,13 @@ onBeforeRouteUpdate((to, from, next) => {
   // 先关闭轮询，然后重新开启一个
   clearInterval(timer)
   if (to.name === from.name) getExperiment(to.params.experimentId)
+})
+
+onBeforeRouteLeave((to, from, next) => {
+  console.log('离开实验视图')
+  next()
+  // 离开页面时，关闭轮询
+  clearInterval(timer)
 })
 
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
