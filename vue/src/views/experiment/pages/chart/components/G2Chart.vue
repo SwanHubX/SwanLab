@@ -57,14 +57,17 @@ let chart
     padding: 'auto',
     xField: 'step',
     yField: 'data',
+    // 坐标轴相关
     xAxis: {
       // type: 'timeCat',
-      tickCount: 5
+      tickCount: 5 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
+    // 大小相关
     height: 200,
     autoFit: true,
-    color: experimentColor.value,
-    smooth: true
+    // 样式相关
+    smooth: true, // 平滑曲线
+    color: experimentColor.value
   })
   chart.render()
   // 启动轮询函数，
