@@ -17,7 +17,7 @@ const tabs = ['index', 'chart']
 
 <style lang="scss" scoped>
 .link {
-  @apply block py-4 px-8 mx-1 rounded-t-lg border-t border-x border-transparent;
+  @apply block py-4 px-8 mx-1 rounded-t-lg border-t border-x border-transparent truncate;
   margin-bottom: -1px;
   z-index: 1;
   position: relative;

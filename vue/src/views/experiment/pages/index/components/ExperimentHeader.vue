@@ -25,8 +25,8 @@
       <!-- 系统相关 -->
       <div class="w-1/2 min-w-[400px]">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
-          <div class="min-w-[180px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
-          <div class="">{{ item.value }}</div>
+          <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
+          <div class="">{{ item.value === '' ? '未知' : item.value }}</div>
         </div>
       </div>
     </div>
@@ -67,15 +67,15 @@ const experiment_device = computed(() => {
   return [
     {
       title: 'hostname',
-      value: experiment.value.hostname || '未知'
+      value: experiment.value.system.hostname || ''
     },
     {
       title: 'os',
-      value: experiment.value.os || '未知'
+      value: experiment.value.system.os || ''
     },
     {
       title: 'python',
-      value: experiment.value.python || '未知'
+      value: experiment.value.system.python || ''
     }
   ]
 })

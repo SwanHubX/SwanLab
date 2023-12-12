@@ -74,6 +74,7 @@
   "i18n-ally.enabledParsers": ["json", "js"],
   "i18n-ally.sourceLanguage": "zh-CN", // 翻译源语言 是你翻译文件的名字
   "i18n-ally.displayLanguage": "zh-CN", //显示语言
+  "vue-i18n.i18nPaths": "vue/src/i18n",
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],
