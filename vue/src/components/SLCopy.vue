@@ -16,7 +16,6 @@
 import { Tippy } from 'vue-tippy'
 import SLIcon from './SLIcon.vue'
 import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
-import 'tippy.js/dist/tippy.css'
 
 const props = defineProps({
   text: {

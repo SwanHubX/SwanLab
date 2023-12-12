@@ -14,6 +14,16 @@ const app = createApp(App)
 app.use(pinia)
 app.use(i18n)
 app.use(router)
+
+// ---------------------------------- 设置指令 ----------------------------------
+// v-tippy
+import { directive } from 'vue-tippy'
+import 'tippy.js/dist/tippy.css'
+
+app.directive('tippy', directive)
+
+// ---------------------------------- 挂载 ----------------------------------
+
 app.mount('#app')
 
 /********************************************

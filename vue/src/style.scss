@@ -14,3 +14,33 @@ body {
     fill: currentColor;
   }
 }
+
+// 弹跳进入动画
+.animate-bounce-in {
+  animation: bounceIn 200ms;
+  @keyframes bounceIn {
+    0%,
+    50%,
+    100% {
+      -webkit-animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+      animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    0% {
+      opacity: 0.9;
+      -webkit-transform: scale3d(0.98, 0.98, 0.98);
+      transform: scale3d(0.98, 0.98, 0.98);
+    }
+
+    70% {
+      opacity: 1;
+      -webkit-transform: scale3d(1.03, 1.03, 1.03);
+      transform: scale3d(1.03, 1.03, 1.03);
+    }
+
+    100% {
+      -webkit-transform: scale3d(1, 1, 1);
+      transform: scale3d(1, 1, 1);
+    }
+  }
+}

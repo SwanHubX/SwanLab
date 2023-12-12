@@ -1,7 +1,7 @@
 <template>
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <p class="text-center">{{ title }}</p>
-    <div class="absolute top-1 right-2" v-if="hover">
+    <div class="chart-pannel" v-if="hover">
       <slot name="pannel" />
     </div>
     <slot :hover="hover" />
@@ -33,5 +33,10 @@ const handleMouseLeave = () => (hover.value = false)
   @apply w-full h-72 border rounded relative overflow-hidden;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
+}
+
+.chart-pannel {
+  @apply absolute top-1 right-2   h-4;
+  @apply flex justify-end gap-2;
 }
 </style>
