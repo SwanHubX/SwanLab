@@ -222,7 +222,7 @@ async def get_experiment_summary(experiment_id: int):
     summaries = []
     for tag in tags:
         tag_path = os.path.join(experiment_path, tag)
-        logs = os.listdir(tag_path)
+        logs = sorted(os.listdir(tag_path))
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
