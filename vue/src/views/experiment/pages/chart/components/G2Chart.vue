@@ -1,8 +1,7 @@
 <template>
-  <div class="chart-container">
-    <p class="text-center">{{ title }}</p>
+  <ChartContainer :title="title">
     <div ref="g2"></div>
-  </div>
+  </ChartContainer>
 </template>
 
 <script setup>
@@ -13,6 +12,7 @@
  **/
 import { Line } from '@antv/g2plot'
 import http from '@swanlab-vue/api/http'
+import ChartContainer from './ChartContainer.vue';
 import { ref, inject, computed, onUnmounted } from 'vue'
 
 const props = defineProps({
@@ -66,7 +66,7 @@ let chart
     height: 200,
     autoFit: true,
     // 开启一些交互
-    interactions: [{ type: 'brush-x' }],
+    // interactions: [{ type: 'brush-x' }],
     // 样式相关
     // smooth: true, // 平滑曲线
     color: experimentColor.value
@@ -94,10 +94,4 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.chart-container {
-  @apply w-full h-72 border rounded relative overflow-hidden;
-  @apply px-3 py-4;
-  @apply flex-col flex justify-between;
-  flex: 1 0 400px;
-}
 </style>
