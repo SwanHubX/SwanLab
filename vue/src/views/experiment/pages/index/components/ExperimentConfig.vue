@@ -1,19 +1,19 @@
 <template>
-  <ExtendBlock class="pt-2 pr-10" icon="experiment" :title="$t('experiment.index.config.title')">
+  <ExtendBlock class="pt-2 pr-10" icon="config" :title="$t('experiment.index.config.title')">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
       <div class="pt-2">
         <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
           <SLHelp>这是初始化实验时的初始化配置</SLHelp>
         </div>
-        <SLTable :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
+        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
       </div>
       <div class="pt-2" v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
           <SLHelp>这是每个tag中最后一个step的数据</SLHelp>
         </div>
-        <SLTable :header="['Key', 'Value']" :data="summaries" />
+        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="summaries" />
       </div>
       <div class="w-full min-h-30 flex justify-center items-center" v-else>
         <SLLoading />

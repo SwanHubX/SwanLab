@@ -2,8 +2,7 @@
   <div class="w-full px-6 pt-6 text-dimmer">
     <!-- 实验标题 -->
     <div class="flex items-center">
-      <span class="text-2xl font-semibold text-default">{{ experiment.name }}</span>
-      <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" class="mx-4" />
+      <span class="text-2xl font-semibold text-default pr-4">{{ experiment.name }}</span>
       <SLCopy :text="experiment.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
@@ -20,6 +19,10 @@
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
       <!-- 实验相关 -->
       <div class="w-1/2 min-w-[400px]">
+        <div class="flex pb-4">
+          <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
+          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+        </div>
         <div v-for="item in experiment_infos" :key="item.title" class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
           <div class="">{{ item.value }}</div>

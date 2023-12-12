@@ -12,6 +12,7 @@
   "index": {
     "header": {
       "experiment_infos": {
+        "status": "状态",
         "start_time": "开始时间",
         "last_time": "持续时间",
         "tags": "Tag",
