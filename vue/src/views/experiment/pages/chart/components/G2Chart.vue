@@ -1,5 +1,7 @@
 <template>
   <ChartContainer :title="title">
+    <!-- x轴坐标单位 -->
+    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
     <div ref="g2"></div>
   </ChartContainer>
 </template>
@@ -12,7 +14,7 @@
  **/
 import { Line } from '@antv/g2plot'
 import http from '@swanlab-vue/api/http'
-import ChartContainer from './ChartContainer.vue';
+import ChartContainer from './ChartContainer.vue'
 import { ref, inject, computed, onUnmounted } from 'vue'
 
 const props = defineProps({
@@ -59,9 +61,12 @@ let chart
     // 坐标轴相关
     xAxis: {
       // type: 'timeCat',
-      tickCount: 5 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+      text: 'x 轴标题',
+      tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
-    yAxis: {},
+    yAxis: {
+      tickCount: 7
+    },
     // 大小相关
     height: 200,
     autoFit: true,
@@ -93,5 +98,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
-</style>
+<style lang="scss" scoped></style>
