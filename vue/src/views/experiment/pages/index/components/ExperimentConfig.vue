@@ -2,11 +2,17 @@
   <ExtendBlock class="pt-2 pr-10" icon="experiment" :title="$t('experiment.index.config.title')">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
       <div class="pt-2">
-        <p class="font-semibold pb-4">{{ $t('experiment.index.config.detail') }}</p>
+        <div class="flex items-center pb-4">
+          <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
+          <SLHelp>这是初始化实验时的初始化配置</SLHelp>
+        </div>
         <SLTable :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
       </div>
       <div class="pt-2" v-if="summaries?.length !== 0">
-        <p class="font-semibold pb-4">{{ $t('experiment.index.config.summarize') }}</p>
+        <div class="flex items-center pb-4">
+          <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
+          <SLHelp>这是每个tag中最后一个step的数据</SLHelp>
+        </div>
         <SLTable :header="['Key', 'Value']" :data="summaries" />
       </div>
       <div class="w-full min-h-30 flex justify-center items-center" v-else>
@@ -25,6 +31,7 @@
  **/
 import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
 import SLTable from '@swanlab-vue/components/SLTable.vue'
+import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import { inject } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
