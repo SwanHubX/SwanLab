@@ -64,14 +64,7 @@ const getTag = async (tag) => {
 
 // ---------------------------------- 在此处根据sources请求数据 ----------------------------------
 let chart
-const createChart = (
-  dom,
-  data,
-  interactions = [{ type: 'brush-x' }],
-  height = 200,
-  width = undefined,
-  autoFit = true
-) => {
+const createChart = (dom, data, interactions = undefined, height = 200, width = undefined, autoFit = true) => {
   const c = new Line(dom, {
     data,
     xField: 'step',
