@@ -97,10 +97,6 @@ const duration = () => {
       ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000)
       : new Date(experiment.value.update_time)
 
-  console.log(new Date())
-  console.log(new Date(time1))
-  console.log(time2 - time1)
-
   if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
     // 处理无效日期的情况
     return 'Invalid date'
