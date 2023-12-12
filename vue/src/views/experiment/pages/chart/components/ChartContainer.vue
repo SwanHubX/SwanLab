@@ -1,8 +1,10 @@
 <template>
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <p class="text-center">{{ title }}</p>
-    <div class="top-0 absolute" v-if="hover">dsadasdas</div>
-    <slot />
+    <div class="absolute top-1 right-2" v-if="hover">
+      <slot name="pannel" />
+    </div>
+    <slot :hover="hover" />
   </section>
 </template>
 
@@ -12,6 +14,7 @@
  * @file: ChartContainer.vue
  * @since: 2023-12-12 21:01:26
  **/
+import { ref } from 'vue'
 defineProps({
   title: {
     type: String,
@@ -30,6 +33,5 @@ const handleMouseLeave = () => (hover.value = false)
   @apply w-full h-72 border rounded relative overflow-hidden;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
-  flex: 1 0 400px;
 }
 </style>
