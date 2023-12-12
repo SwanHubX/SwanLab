@@ -5,7 +5,7 @@
       <span class="text-2xl font-semibold text-default">{{ experiment.name }}</span>
       <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" class="mx-4" />
       <SLCopy :text="experiment.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
-      <SLIcon icon="setting" class="icon" />
+      <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验描述 -->
     <div class="flex items-center pt-5">
@@ -14,7 +14,7 @@
         :text="experiment.description"
         icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer ml-4 mr-3"
       />
-      <SLIcon icon="setting" class="icon" />
+      <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验信息 -->
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
