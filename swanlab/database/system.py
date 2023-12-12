@@ -7,3 +7,14 @@ r"""
 @Description:
     采集系统数据，包括内存、CPU、GPU、硬盘、网络等
 """
+import platform
+import socket
+
+
+def get_system_info():
+    """获取系统信息"""
+    info = {}
+    info["hostname"] = socket.gethostname()
+    info["os"] = platform.platform()
+    info["python"] = platform.python_version()
+    return info
