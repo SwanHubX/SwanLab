@@ -1,7 +1,7 @@
 <template>
   <div class="w-full">
     <!-- 展开按钮和标题 -->
-    <button class="flex items-center" @click="() => (isExtend = !isExtend)">
+    <button class="flex items-center py-4" @click="() => (isExtend = !isExtend)">
       <SLIcon icon="down" class="w-5 h-5 mx-1 text-dimmest" :class="isExtend ? 'rotate-show' : 'rotate-hidden'" />
       <SLIcon :icon="icon" class="w-6 h-6 mr-2" />
       <span class="text-lg font-semibold">{{ title }}</span>

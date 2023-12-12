@@ -201,3 +201,29 @@ async def get_experiment_status(experiment_id: int):
     """
     status = __find_experiment(experiment_id)["status"]
     return ResponseBody(0, data={"status": status})
+
+
+@router.get("/{experiment_id}/summary")
+async def get_experiment_summary(experiment_id: int):
+    """获取实验的总结数据——每个tag的最后一个setp的data
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+
+    Returns
+    -------
+    array
+        每个tag的最后一个数据
+    """
+    experiment_path: str = os.path.join(SWANLAB_LOGS_FOLDER, __find_experiment(experiment_id)["name"])
+    tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
+    summaries = []
+    for tag in tags:
+        tag_path = os.path.join(experiment_path, tag)
+        logs = os.listdir(tag_path)
+        with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
+            data = ujson.load(f)
+            summaries.append([tag, data["data"][-1]["data"]])
+    return ResponseBody(0, data={"summaries": summaries})

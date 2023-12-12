@@ -1,5 +1,5 @@
 <template>
-  <div class="border rounded overflow-hidden">
+  <div class="border rounded overflow-x-auto">
     <table class="sl-table" :class="[alignClass]">
       <tr>
         <th v-for="item in header" :key="item">
@@ -89,5 +89,14 @@ const shouldBeComponent = (o) => {
       @apply border-r;
     }
   }
+}
+
+::-webkit-scrollbar {
+  height: 4px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #d1d7dd;
 }
 </style>
