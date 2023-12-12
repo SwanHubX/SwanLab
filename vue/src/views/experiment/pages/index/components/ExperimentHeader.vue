@@ -7,7 +7,7 @@
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验描述 -->
-    <div class="flex items-center pt-5">
+    <div class="flex items-center pt-5" v-if="experiment?.description">
       <span>{{ experiment.description }}</span>
       <SLCopy
         :text="experiment.description"
@@ -54,6 +54,7 @@ import { inject } from 'vue'
 import { t } from '@swanlab-vue/i18n'
 
 const experiment = inject('experiment')
+console.log(experiment.value.update_time)
 
 const experiment_infos = computed(() => {
   return [
@@ -90,7 +91,11 @@ const experiment_device = computed(() => {
  */
 const duration = () => {
   const time1 = new Date(experiment.value.create_time)
-  const time2 = experiment.value.status === 0 ? new Date() : new Date(experiment.value.update_time)
+  const currentTime = new Date()
+  const time2 =
+    experiment.value.status === 0
+      ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000)
+      : new Date(experiment.value.update_time)
 
   if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
     // 处理无效日期的情况

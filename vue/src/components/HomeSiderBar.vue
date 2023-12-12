@@ -66,7 +66,7 @@ import { useProjectStore } from '@swanlab-vue/store'
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
 const getExperimentRouter = (experiment) => {
-  return `/experiment/${experiment.experiment_id}`
+  return `/experiment/${experiment.experiment_id}/chart`
 }
 
 // ---------------------------------- 搜索实验 ----------------------------------
