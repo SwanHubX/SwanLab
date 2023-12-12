@@ -4,13 +4,16 @@
     <div class="flex items-center">
       <span class="text-2xl font-semibold text-default">{{ experiment.name }}</span>
       <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" class="mx-4" />
-      <SLIcon icon="copy" class="icon mr-3" @click="copyTextToClipboard(experiment.name)" />
+      <SLCopy :text="experiment.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
       <SLIcon icon="setting" class="icon" />
     </div>
     <!-- 实验描述 -->
     <div class="flex items-center pt-5">
       <span>{{ experiment.description }}</span>
-      <SLIcon icon="copy" class="icon ml-4 mr-3" @click="copyTextToClipboard(experiment.description)" />
+      <SLCopy
+        :text="experiment.description"
+        icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer ml-4 mr-3"
+      />
       <SLIcon icon="setting" class="icon" />
     </div>
     <!-- 实验信息 -->
@@ -39,8 +42,8 @@
  * @file: ExperimentHeader.vue
  * @since: 2023-12-11 14:43:51
  **/
-import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
+import SLCopy from '@swanlab-vue/components/SLCopy.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
@@ -48,7 +51,6 @@ import { inject } from 'vue'
 import { t } from '@swanlab-vue/i18n'
 
 const experiment = inject('experiment')
-console.log(experiment.value)
 
 const experiment_infos = computed(() => {
   return [
