@@ -99,9 +99,6 @@ class SwanDatabase(object):
         namespace : str, optional
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）, by default "charts"
         """
-        global inited
-        if not inited:
-            raise RuntimeError("Swanlab must be inited first!")
         self.__project.experiment.add(tag, data, namespace)
 
     def success(self):
