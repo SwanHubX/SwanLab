@@ -10,12 +10,12 @@ const routes = [
     path: '/experiment/:experimentId',
     name: 'experiment',
     component: () => import('@swanlab-vue/views/experiment/ExperimentView.vue'),
-    redirect: { name: 'experiment_index' },
+    redirect: { name: 'experiment_chart' },
     children: [
       {
         path: 'index',
         name: 'experiment_index',
-        component: () => import('@swanlab-vue/views/experiment/pages/IndexPage.vue')
+        component: () => import('@swanlab-vue/views/experiment/pages/index/IndexPage.vue')
       },
       {
         path: 'chart',

@@ -13,6 +13,7 @@ import os
 from ..env import SWANLAB_LOGS_FOLDER
 from typing import Union
 from ..utils import create_time, generate_color
+from .system import get_system_info
 import sys
 
 
@@ -28,7 +29,9 @@ class ExperimentTable(ExperimentPoxy):
         super().__init__(path)
         self.experiment_id = experiment_id
         self.name = name
+        # tags数据不会被序列化
         self.tags = []
+        self.system = get_system_info()
         self.description = description
         self.config = config
         self.argv = sys.argv
@@ -52,9 +55,9 @@ class ExperimentTable(ExperimentPoxy):
             "description": self.description,
             "config": self.config,
             "color": self.color,
+            "system": self.system,
             "argv": self.argv,
             "index": self.index,
-            "tags": self.tags,
             "create_time": self.create_time,
             "update_time": self.update_time,
         }

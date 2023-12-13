@@ -8,5 +8,35 @@
     "-1": "停止",
     "0": "正在进行",
     "1": "完成"
+  },
+  "index": {
+    "header": {
+      "experiment_infos": {
+        "status": "状态",
+        "start_time": "开始时间",
+        "last_time": "持续时间",
+        "tags": "Tag",
+        "time": {
+          "day": "天",
+          "hour": "小时",
+          "minute": "分钟",
+          "second": "秒"
+        }
+      },
+      "experiment_device": {
+        "hostname": "Hostname",
+        "os": "操作系统",
+        "python": "Python版本"
+      }
+    },
+    "config": {
+      "title": "配置信息",
+      "detail": "配置",
+      "summarize": "总结"
+    }
+  },
+
+  "chart": {
+    "zoom": "放大展示"
   }
 }
