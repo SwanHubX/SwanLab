@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2023-12-02 00:38:37
-@File: swanlab\database\database.py
+@File: swanlab\database\main.py
 @IDE: vscode
 @Description:
     数据库模块，连接project表单对象
@@ -123,6 +123,3 @@ class SwanDatabase(object):
     def success(self):
         """标记实验成功"""
         self.__project.success()
-
-
-sd = SwanDatabase()
