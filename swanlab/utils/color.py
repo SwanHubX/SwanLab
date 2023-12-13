@@ -92,9 +92,13 @@ def generate_color(number: int = 0) -> str:
     # g = min(g + g_random, 255)
     # b = min(b + b_random, 255)
 
-    # 输入
-    return color_list[number]
+    if number % 16 == 0:
+        number = 16
+    else:
+        number = number % 16
+
+    return color_list[number - 1]
 
 
 if __name__ == "__main__":
-    print(generate_color(2))
+    print(generate_color(1))
