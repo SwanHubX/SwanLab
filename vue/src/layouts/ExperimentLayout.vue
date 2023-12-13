@@ -3,7 +3,7 @@
     <div class="w-full bg-dimmer">
       <slot name="tabs"></slot>
     </div>
-    <div class="px-6">
+    <div class="w-full">
       <slot></slot>
     </div>
   </div>

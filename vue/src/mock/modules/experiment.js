@@ -66,6 +66,11 @@ export default [
             learning_rate: 0.01,
             epochs: 10000
           },
+          system: {
+            hostname: 'caizirui-Pro.local',
+            os: 'macOS-14.2-arm64-arm-64bit',
+            python: '3.11.5'
+          },
           argv: ['E:\\BlackSwan\\swanlab\\test\\test_database_create.py'],
           index: 0,
           tags: ['loss'],

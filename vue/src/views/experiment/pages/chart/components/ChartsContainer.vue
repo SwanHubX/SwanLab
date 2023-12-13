@@ -13,7 +13,7 @@
       <!-- 添加图表的按钮 -->
     </div>
     <!-- 图表插槽 -->
-    <div class="flex flex-wrap gap-6 mt-4.5" v-show="isExpand">
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mt-4.5" v-show="isExpand">
       <slot :isExpand="isExpand"></slot>
     </div>
   </div>
