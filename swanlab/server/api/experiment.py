@@ -89,7 +89,6 @@ def __list_subdirectories(folder_path: str) -> List[str]:
 # ---------------------------------- 业务路由 ----------------------------------
 
 
-# 获取当前实验信息
 @router.get("/{experiment_id}")
 async def get_experiment(experiment_id: int):
     """获取当前实验的信息
@@ -114,7 +113,6 @@ async def get_experiment(experiment_id: int):
     return SUCCESS_200(experiment)
 
 
-# 获取某个实验的表单数据
 @router.get("/{experiment_id}/tag/{tag}")
 async def get_tag_data(experiment_id: int, tag: str):
     """获取表单数据
