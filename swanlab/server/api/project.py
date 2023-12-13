@@ -8,12 +8,8 @@ r"""
     项目相关的api，前缀：/project
 """
 from fastapi import APIRouter
-from ..utils import ResponseBody
+from ..module.resp import SUCCESS_200
 from ...database import PT
-
-# from ...database import
-import os
-import ujson
 
 router = APIRouter()
 
@@ -25,4 +21,4 @@ async def _():
     获取项目信息，列出当前项目下的所有实验
     """
     pt = PT()
-    return ResponseBody(0, data=pt.get())
+    return SUCCESS_200(data=pt.get())

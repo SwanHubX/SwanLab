@@ -8,7 +8,7 @@ r"""
     实验相关api，前缀：/experiment
 """
 from fastapi import APIRouter
-from ..utils import ResponseBody
+from ..module.resp import SUCCESS_200, PARAMS_ERROR_422, NOT_FOUND_404
 from ...env import SWANLAB_LOGS_FOLDER
 from ...database.project import ProjectTable
 import os
@@ -112,7 +112,7 @@ async def get_experiment(experiment_id: int):
         # 生成实验存储路径
         path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
         experiment["tags"] = __list_subdirectories(path)
-        return ResponseBody(0, data=experiment)
+        return SUCCESS_200(experiment)
 
 
 # 获取某个实验的表单数据
@@ -184,7 +184,7 @@ async def get_tag_data(experiment_id: int, tag: str):
             tag_data.extend(data)
         tag_data.extend(tag_json["data"])
         # 返回数据
-        return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
+        return SUCCESS_200(data={"sum": len(tag_data), "list": tag_data})
     else:
         # TODO 采样读取数据
         raise NotImplementedError("采样读取数据")
@@ -200,7 +200,7 @@ async def get_experiment_status(experiment_id: int):
         实验唯一id，路径传参
     """
     status = __find_experiment(experiment_id)["status"]
-    return ResponseBody(0, data={"status": status})
+    return SUCCESS_200(data={"status": status})
 
 
 @router.get("/{experiment_id}/summary")
@@ -226,4 +226,4 @@ async def get_experiment_summary(experiment_id: int):
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
-    return ResponseBody(0, data={"summaries": summaries})
+    return SUCCESS_200(0, data={"summaries": summaries})
