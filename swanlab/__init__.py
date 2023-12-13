@@ -22,6 +22,12 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     # 挂载到全局变量
     _sd = SwanDatabase()
 
+    # 注册成功后的清理函数
+    import atexit
+
+    atexit.register(_sd.success)
+
+    # 初始化数据库
     _sd.init(
         experiment_name=experiment_name,
         description=description,

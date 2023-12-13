@@ -15,10 +15,6 @@ from ..utils import lock_file
 from typing import Union
 from io import TextIOWrapper
 import ujson
-import atexit
-
-# flag，代表已经执行了inited函数
-inited = False
 
 
 class SwanDatabase(object):
@@ -72,18 +68,6 @@ class SwanDatabase(object):
         file : TextIOWrapper, optional
             文件对象，用于文件锁定, by default None
         """
-        # 同一运行时不允许运行两次此函数，通过flag来实现
-        global inited
-        if inited:
-            raise RuntimeError("Swanlab has already been inited!")
-        inited = True
-
-        # 创建回调函数函数
-        def callback():
-            sd.success()
-
-        # 注册此函数
-        atexit.register(callback)
         # 检查实验名称是否存在
         project_exist = os.path.exists(ProjectTable.path) and os.path.getsize(ProjectTable.path) != 0
         # 初始化项目对象
