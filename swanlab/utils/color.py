@@ -100,5 +100,11 @@ def generate_color(number: int = 0) -> str:
     return color_list[number - 1]
 
 
+def get_default_color():
+    DEFAULT_COLOR = 1
+    return generate_color(DEFAULT_COLOR)
+
+
 if __name__ == "__main__":
     print(generate_color(1))
+    print(get_default_color())
