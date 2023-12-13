@@ -22,7 +22,6 @@
  * 只用content传入提示不好改样式，要想自定义样式最好用插槽
  **/
 import { Tippy } from 'vue-tippy'
-import 'tippy.js/dist/tippy.css'
 
 defineProps({
   iconClass: {
