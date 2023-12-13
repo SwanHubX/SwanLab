@@ -7,7 +7,6 @@ r"""
 @Description:
     颜色处理工具
 """
-import random
 
 
 def rgb_to_hex(rgb_color: tuple):
@@ -100,11 +99,10 @@ def generate_color(number: int = 0) -> str:
     return color_list[number - 1]
 
 
-def get_default_color():
-    DEFAULT_COLOR = 1
-    return generate_color(DEFAULT_COLOR)
+# 默认颜色，也就是前端单实验内容显示的颜色
+DEFAULT_COLOR = generate_color(1)
 
 
 if __name__ == "__main__":
     print(generate_color(1))
-    print(get_default_color())
+    print(DEFAULT_COLOR)
