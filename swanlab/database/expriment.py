@@ -35,7 +35,7 @@ class ExperimentTable(ExperimentPoxy):
         self.index = index
         self.status = 0  # 0: 正在运行，1: 运行成功，-1: 运行失败
         self.__chart = ChartTable(base_path=path, experiment_id=experiment_id)
-        self.color = generate_color()
+        self.color = generate_color(experiment_id)
 
     def __dict__(self) -> dict:
         """序列化此对象
