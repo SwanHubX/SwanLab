@@ -15,13 +15,16 @@ from fastapi.responses import JSONResponse as _JSONResponse
 
 
 _SUCCESS_200 = 0
-"""成功，期望的HTTP状态码为200"""
+"""一切正常，成功，期望的HTTP状态码为200"""
 
 _PARAMS_ERROR_422 = 3422
-"""参数错误，期望的HTTP状态码为422"""
+"""参数错误，通常对应着前端传输的参数无法通过校验，这在中间件中处理，期望的HTTP状态码为422"""
 
 _NOT_FOUND_404 = 3404
-"""资源不存在，期望的HTTP状态码为404"""
+"""资源不存在，通常对应着路径不存在，期望的HTTP状态码为404"""
+
+_DATA_ERROR_500 = 3500
+"""服务端存储的数据格式错误，这通常意味着指定资源无法解析为期望格式，期望的HTTP状态码为500"""
 
 # ---------------------------------- 定义响应结构体 ----------------------------------
 
@@ -79,4 +82,12 @@ def NOT_FOUND_404(message: str = "NotFound"):
     return _JSONResponse(
         status_code=404,
         content=_ResponseBody(_NOT_FOUND_404, message=message),
+    )
+
+
+def DATA_ERROR_500(message: str = "data error"):
+    """服务端存储的数据格式错误"""
+    return _JSONResponse(
+        status_code=500,
+        content=_ResponseBody(_DATA_ERROR_500, message=message),
     )

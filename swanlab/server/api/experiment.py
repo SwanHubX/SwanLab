@@ -102,17 +102,16 @@ async def get_experiment(experiment_id: int):
     # 读取 project.json 文件内容
     with get_a_lock(CONFIG_PATH, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
-        f.close()
-        # 在experiments列表中查找对应实验的信息
-        experiment = None
-        for ex in experiments:
-            if ex["experiment_id"] == experiment_id:
-                experiment = ex
-                break
-        # 生成实验存储路径
-        path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
-        experiment["tags"] = __list_subdirectories(path)
-        return SUCCESS_200(experiment)
+    # 在experiments列表中查找对应实验的信息
+    experiment = None
+    for ex in experiments:
+        if ex["experiment_id"] == experiment_id:
+            experiment = ex
+            break
+    # 生成实验存储路径
+    path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
+    experiment["tags"] = __list_subdirectories(path)
+    return SUCCESS_200(experiment)
 
 
 # 获取某个实验的表单数据
