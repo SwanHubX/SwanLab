@@ -28,7 +28,7 @@ http
   })
   .catch(({ response }) => {
     console.error(response)
-    error_code.value = response.data.code
+    error_code.value = response.data?.code || 3000 // 3000 时，后端启动失败
   })
 
 // ---------------------------------- 错误处理 ----------------------------------

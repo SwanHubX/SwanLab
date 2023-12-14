@@ -1,6 +1,6 @@
 <template>
   <ErrorLayout>
-    <component :is="InitError"></component>
+    <component :is="Error"></component>
   </ErrorLayout>
 </template>
 
@@ -12,11 +12,21 @@
  **/
 import ErrorLayout from '@swanlab-vue/layouts/ErrorLayout.vue'
 import InitError from './pages/InitError.vue'
+import { computed } from 'vue'
 
-defineProps({
+const props = defineProps({
   code: {
     type: Number,
     default: 404
+  }
+})
+
+const Error = computed(() => {
+  switch (props.code) {
+    case 404:
+      return InitError
+    default:
+      return InitError
   }
 })
 </script>
