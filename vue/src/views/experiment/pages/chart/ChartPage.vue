@@ -2,11 +2,11 @@
   <!-- 标题 -->
   <div class="flex items-center gap-2 py-5 px-8 border-b">
     <SLIcon icon="experiment" class="w-5 h-5" />
-    <h1 class="text-lg font-semibold">{{ experiment.name }}</h1>
-    <SLStatusLabel :status="experimentStatus" v-if="experimentStatus !== undefined" />
+    <h1 class="text-lg font-semibold">{{ experimentStore.name }}</h1>
+    <SLStatusLabel :status="experimentStore.status" />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer label="default" :key="experimentId" v-if="showContainer(tags)">
+  <ChartsContainer label="default" v-if="showContainer(tags)">
     <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
     <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
@@ -18,16 +18,15 @@
  * @file: ChartPage.vue
  * @since: 2023-12-09 20:39:41
  **/
-import { inject, ref } from 'vue'
+import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import G2Chart from './components/G2Chart.vue'
 import http from '@swanlab-vue/api/http'
+import { onUnmounted } from 'vue'
 const experimentStore = useExperimentStroe()
-
-const experiment = inject('experiment')
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
 const tags = ref()
 // 用于设置轮询
@@ -59,6 +58,10 @@ const getExperiment = (id = experimentStore.id) => {
 }
 // 立即执行
 getExperiment()
+
+onUnmounted(() => {
+  clearInterval(timer)
+})
 
 // ---------------------------------- 判断某个namespcace下是否存在图表 ----------------------------------
 const showContainer = (sources) => {
