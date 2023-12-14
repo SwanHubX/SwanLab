@@ -7,7 +7,7 @@
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
     <div ref="g2Ref"></div>
     <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0" max-w="-1" v-model="zoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div ref="g2ZoomRef"></div>
     </SLModal>
@@ -23,23 +23,24 @@
 import { Line } from '@antv/g2plot'
 import http from '@swanlab-vue/api/http'
 import ChartContainer from './ChartContainer.vue'
-import { ref, inject, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import PannelButton from './PannelButton.vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-
+import { useExperimentStroe } from '@swanlab-vue/store'
+const experimentStore = useExperimentStroe()
 const props = defineProps({
   sources: {
     type: Array,
     required: true
   }
 })
-// 根据注入的信息，拿到项目id（响应式
-const experimentId = inject('experimentId')
-// 拿到项目的颜色（响应式
-const experimentColor = inject('experimentColor')
+// 项目id
+const id = computed(() => experimentStore.id)
+// 拿到图表颜色
+const color = experimentStore.defaultColor
 // 拿到项目的状态（响应式
-const experimentStatus = inject('experimentStatus')
+const status = computed(() => experimentStore.status)
 
 // 根据sources，生成title
 const title = computed(() => props.sources.join(' & '))
@@ -53,7 +54,7 @@ const tagData = ref()
  * @param { string } tag 数据源
  */
 const getTag = async (tag) => {
-  const { data } = await http.get(`/experiment/${experimentId.value}/tag/` + encodeURIComponent(tag))
+  const { data } = await http.get(`/experiment/${id.value}/tag/` + encodeURIComponent(tag))
   // FIXME 为data添加一个step字段
   data.list.forEach((item, index) => {
     item.step = index
@@ -86,7 +87,7 @@ const createChart = (dom, data, interactions = undefined, height = 200, width = 
     interactions,
     // 样式相关
     // smooth: true, // 平滑曲线
-    color: experimentColor.value
+    color
   })
   c.render()
   return c
@@ -103,7 +104,7 @@ let timer = undefined
 
 const startPolling = () => {
   timer = setInterval(async () => {
-    if (experimentStatus.value !== 0) return clearInterval(timer)
+    if (status.value !== 0) return clearInterval(timer)
     const data = await getTag(props.sources[0])
     chart.changeData(data)
   }, 1000)

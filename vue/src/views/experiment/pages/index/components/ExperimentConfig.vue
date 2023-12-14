@@ -1,5 +1,5 @@
 <template>
-  <ExtendBlock class="pt-2 pr-10" icon="config" :title="$t('experiment.index.config.title')">
+  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
       <div class="pt-2">
         <div class="flex items-center pb-4">
@@ -32,12 +32,13 @@
 import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
 import SLTable from '@swanlab-vue/components/SLTable.vue'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
-import { inject } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import SLLoading from '@swanlab-vue/components/SLLoading.vue'
+import { useExperimentStroe } from '@swanlab-vue/store'
+import { inject } from 'vue'
 
-const experiment = inject('experiment')
+const experiment = ref(useExperimentStroe().experiment)
 
 // ---------------------------------- 转化实验配置为表格数据 ----------------------------------
 
@@ -52,11 +53,18 @@ const getConfigs = (config) => {
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
 
 const summaries = ref([])
-const experimentId = inject('experimentId')
-http.get(`/experiment/${experimentId.value}/summary`).then((res) => {
-  summaries.value = res.data.summaries
-  console.log(summaries.value)
-})
+const experimentId = ref(useExperimentStroe().id)
+const show_error = inject('show_error')
+http
+  .get(`/experiment/${experimentId.value}/summary`)
+  .then((res) => {
+    summaries.value = res.data.summaries
+    console.log(summaries.value)
+  })
+  .catch((error) => {
+    console.error(error)
+    show_error(error.data?.code || 500)
+  })
 </script>
 
 <style lang="scss" scoped></style>

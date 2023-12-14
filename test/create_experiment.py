@@ -12,7 +12,7 @@ import swanlab as sw
 import time
 
 # 迭代次数
-epochs = 2000
+epochs = 200
 # 学习率
 lr = 0.01
 # 随机偏移量

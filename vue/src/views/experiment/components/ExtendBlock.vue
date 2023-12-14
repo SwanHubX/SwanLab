@@ -8,7 +8,7 @@
     </button>
     <!-- 内容 -->
     <div
-      class="transition-all duration-200"
+      class="transition-all duration-200 pr-5"
       :class="isExtend ? 'max-h-[500px] overflow-auto' : 'max-h-0 overflow-hidden'"
     >
       <slot></slot>

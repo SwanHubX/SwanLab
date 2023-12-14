@@ -33,7 +33,8 @@ const routes = [
     path: '/help',
     name: 'help',
     component: () => import('@swanlab-vue/views/help/HelpView.vue')
-  }
+  },
+  {}
 ]
 
 const router = createRouter({
