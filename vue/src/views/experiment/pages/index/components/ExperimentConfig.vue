@@ -32,12 +32,12 @@
 import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
 import SLTable from '@swanlab-vue/components/SLTable.vue'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
-import { inject } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import SLLoading from '@swanlab-vue/components/SLLoading.vue'
+import { useExperimentStroe } from '@swanlab-vue/store'
 
-const experiment = inject('experiment')
+const experiment = ref(useExperimentStroe().experiment)
 
 // ---------------------------------- 转化实验配置为表格数据 ----------------------------------
 
@@ -52,7 +52,7 @@ const getConfigs = (config) => {
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
 
 const summaries = ref([])
-const experimentId = inject('experimentId')
+const experimentId = ref(useExperimentStroe().id)
 http.get(`/experiment/${experimentId.value}/summary`).then((res) => {
   summaries.value = res.data.summaries
   console.log(summaries.value)
