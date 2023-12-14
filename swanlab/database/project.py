@@ -93,14 +93,3 @@ class ProjectTable(ProjectTablePoxy):
                 # print("success experiment ", project["experiments"][index])
                 break
         self.save(file, project)
-
-
-class PT(object):
-    """后端层面上的项目管理类，适配后端的项目管理接口，提供项目管理的相关功能"""
-
-    path = ProjectTable.path
-
-    @lock_file(file_path=path, mode="r")
-    def get(self, file: TextIOWrapper):
-        """获取实验信息"""
-        return ujson.load(file)

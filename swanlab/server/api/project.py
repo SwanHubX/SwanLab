@@ -8,8 +8,8 @@ r"""
     项目相关的api，前缀：/project
 """
 from fastapi import APIRouter
-from ..module.resp import SUCCESS_200
-from ...database import PT
+from ..module.resp import SUCCESS_200, DATA_ERROR_500
+from ..module import PT
 
 router = APIRouter()
 
@@ -20,5 +20,8 @@ async def _():
     """
     获取项目信息，列出当前项目下的所有实验
     """
-    pt = PT()
-    return SUCCESS_200(data=pt.get())
+    try:
+        pt = PT()
+        return SUCCESS_200(data=pt.get())
+    except Exception:
+        return DATA_ERROR_500("project data error")
