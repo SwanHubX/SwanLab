@@ -225,4 +225,4 @@ async def get_experiment_summary(experiment_id: int):
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
-    return SUCCESS_200(0, data={"summaries": summaries})
+    return SUCCESS_200(data={"summaries": summaries})

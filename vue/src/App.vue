@@ -17,6 +17,8 @@ import { useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { ref } from 'vue'
 import { provide } from 'vue'
+import { useRoute } from 'vue-router'
+import { watch } from 'vue'
 const projectStore = useProjectStore()
 const ready = computed(() => !!projectStore.experiments || error_code.value)
 
@@ -36,7 +38,17 @@ const error_code = ref(0)
 const show_error = (code) => {
   error_code.value = code
 }
+const clear_error = () => {
+  error_code.value = 0
+}
 provide('show_error', show_error)
+provide('clear_error', clear_error)
+
+const route = useRoute()
+watch(
+  computed(() => route.fullPath),
+  () => clear_error()
+)
 </script>
 
 <style scoped></style>

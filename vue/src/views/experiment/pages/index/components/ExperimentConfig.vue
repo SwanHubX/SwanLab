@@ -36,6 +36,7 @@ import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
+import { inject } from 'vue'
 
 const experiment = ref(useExperimentStroe().experiment)
 
@@ -53,10 +54,17 @@ const getConfigs = (config) => {
 
 const summaries = ref([])
 const experimentId = ref(useExperimentStroe().id)
-http.get(`/experiment/${experimentId.value}/summary`).then((res) => {
-  summaries.value = res.data.summaries
-  console.log(summaries.value)
-})
+const show_error = inject('show_error')
+http
+  .get(`/experiment/${experimentId.value}/summary`)
+  .then((res) => {
+    summaries.value = res.data.summaries
+    console.log(summaries.value)
+  })
+  .catch((error) => {
+    console.error(error)
+    show_error(error.data?.code || 500)
+  })
 </script>
 
 <style lang="scss" scoped></style>
