@@ -27,6 +27,8 @@ sw.init(
     },
 )
 
+print("test logs")
+
 # 模拟训练过程
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
