@@ -7,7 +7,7 @@
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
     <div ref="g2Ref"></div>
     <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0" max-w="-1" v-model="zoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div ref="g2ZoomRef"></div>
     </SLModal>
@@ -23,7 +23,7 @@
 import { Line } from '@antv/g2plot'
 import http from '@swanlab-vue/api/http'
 import ChartContainer from './ChartContainer.vue'
-import { ref, inject, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import PannelButton from './PannelButton.vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'

@@ -1,5 +1,5 @@
 <template>
-  <ExperimentLayout>
+  <ExperimentLayout v-if="ready" :key="experimentStore.id">
     <template #tabs>
       <TabsHeader />
     </template>
@@ -15,36 +15,30 @@
  **/
 import TabsHeader from './components/TabsHeader.vue'
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
-import { computed, provide } from 'vue'
-import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
-import { useRoute } from 'vue-router'
+import { useExperimentStroe } from '@swanlab-vue/store'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
+import { computed } from 'vue'
 const route = useRoute()
-const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
-
 // ---------------------------------- 请求实验信息 ----------------------------------
-
-;(async (id = route.params.experimentId) => {
+const ready = computed(() => {
+  return experimentStore.id !== undefined
+})
+const init = async (id = route.params.experimentId) => {
   http.get(`/experiment/${id}`).then(({ data }) => {
     experimentStore.experiment = data
   })
-})()
+}
 
-// ---------------------------------- 获取当前实验的配置 ----------------------------------
-const experiment = computed(() => {
-  return projectStore.experiments?.find((item) => item.experiment_id === experimentId.value)
+init()
+
+onBeforeRouteUpdate((to, from) => {
+  console.log('leave')
+  if (to.params.experimentId !== from.params.experimentId) {
+    init(to.params.experimentId)
+  }
 })
-
-const experimentColor = computed(() => {
-  return experiment.value.color
-})
-
-const experimentId = computed(() => Number(route.params.experimentId))
-
-provide('experiment', experiment)
-provide('experimentId', experimentId)
-provide('experimentColor', experimentColor)
 </script>
 
 <style lang="scss" scoped></style>
