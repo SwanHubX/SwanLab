@@ -3,24 +3,40 @@
     <template #left>
       <HomeSiderBar />
     </template>
-    <router-view />
+    <router-view v-if="!error_code" />
+    <ErrorView :code="error_code" v-else />
   </MainLayout>
 </template>
 
 <script setup>
 import MainLayout from './layouts/MainLayout.vue'
 import HomeSiderBar from './components/HomeSiderBar.vue'
+import ErrorView from './views/error/ErrorView.vue'
 import http from './api/http'
 import { useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
+import { ref } from 'vue'
+import { provide } from 'vue'
 const projectStore = useProjectStore()
-const ready = computed(() => !!projectStore.experiments)
+const ready = computed(() => !!projectStore.experiments || error_code.value)
 
 // ---------------------------------- 在此处请求项目信息 ----------------------------------
-;(async () => {
-  const { data } = await http.get('/project')
-  projectStore.setProject(data)
-})()
+http
+  .get('/project')
+  .then(({ data }) => {
+    projectStore.setProject(data)
+  })
+  .catch(({ response }) => {
+    console.error(response)
+    error_code.value = response.data.code
+  })
+
+// ---------------------------------- 错误处理 ----------------------------------
+const error_code = ref(0)
+const show_error = (code) => {
+  error_code.value = code
+}
+provide('show_error', show_error)
 </script>
 
 <style scoped></style>
