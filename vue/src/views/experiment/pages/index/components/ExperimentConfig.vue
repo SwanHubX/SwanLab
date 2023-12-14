@@ -13,7 +13,11 @@
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
           <SLHelp>这是每个tag中最后一个step的数据</SLHelp>
         </div>
-        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="summaries" />
+        <SLTable
+          class="max-w-[600px]"
+          :header="['Key', 'Value']"
+          :data="summaries.map((item) => [item[0], item[1].toFixed(4)])"
+        />
       </div>
       <div class="w-full min-h-30 flex justify-center items-center" v-else>
         <SLLoading />
