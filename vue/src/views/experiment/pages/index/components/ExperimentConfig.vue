@@ -1,5 +1,5 @@
 <template>
-  <ExtendBlock class="pt-2 pr-10" icon="config" :title="$t('experiment.index.config.title')">
+  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
       <div class="pt-2">
         <div class="flex items-center pb-4">
