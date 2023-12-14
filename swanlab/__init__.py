@@ -1,4 +1,4 @@
-from .utils import init_logger
+from .utils import init_consoler
 
 # swandatabase对象，使用动态导入的方式有助于环境隔离，比如cli不需要此对象，就不需要导入
 _sd = None
@@ -16,7 +16,7 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     config : dict, optional
         实验可选配置，在此处可以记录一些实验的超参数等信息
     """
-    init_logger()
+    init_consoler()
     global _sd
     if _sd is not None:
         raise RuntimeError("swanlab has been initialized")
