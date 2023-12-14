@@ -108,6 +108,9 @@ async def get_experiment(experiment_id: int):
         if ex["experiment_id"] == experiment_id:
             experiment = ex
             break
+    # 如果没有找到，即实验不存在
+    if experiment is None:
+        return NOT_FOUND_404()
     # 生成实验存储路径
     path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
     experiment["tags"] = __list_subdirectories(path)
@@ -131,12 +134,15 @@ async def get_tag_data(experiment_id: int, tag: str):
     # num=None: 返回所有数据, num=10: 返回最新的10条数据, num=-1: 返回最后一条数据
     num = None
     # 在experiments列表中查找对应实验的信息
-    experiment_name = __find_experiment(experiment_id)["name"]
+    try:
+        experiment_name = __find_experiment(experiment_id)["name"]
+    except KeyError as e:
+        return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
     tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, experiment_name, tag)
     if not os.path.exists(tag_path):
-        raise KeyError(f'tag "{tag}" not found')
+        return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
     # 降序排列，最新的数据在最前面
     files: list = os.listdir(tag_path)
