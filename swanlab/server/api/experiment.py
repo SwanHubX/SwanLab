@@ -13,6 +13,7 @@ from ...env import SWANLAB_LOGS_FOLDER
 from ...database.project import ProjectTable
 import os
 import ujson
+from ...utils import DEFAULT_COLOR
 
 # from ...utils import create_time
 from urllib.parse import unquote  # 转码路径参数
@@ -110,6 +111,7 @@ async def get_experiment(experiment_id: int):
     # 生成实验存储路径
     path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
     experiment["tags"] = __list_subdirectories(path)
+    experiment["default_color"] = DEFAULT_COLOR
     return SUCCESS_200(experiment)
 
 

@@ -16,10 +16,20 @@
 import TabsHeader from './components/TabsHeader.vue'
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
 import { computed, provide } from 'vue'
-import { useProjectStore } from '@swanlab-vue/store'
+import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { useRoute } from 'vue-router'
+import http from '@swanlab-vue/api/http'
 const route = useRoute()
 const projectStore = useProjectStore()
+const experimentStore = useExperimentStroe()
+
+// ---------------------------------- 请求实验信息 ----------------------------------
+
+;(async (id = route.params.experimentId) => {
+  http.get(`/experiment/${id}`).then(({ data }) => {
+    experimentStore.experiment = data
+  })
+})()
 
 // ---------------------------------- 获取当前实验的配置 ----------------------------------
 const experiment = computed(() => {
@@ -28,11 +38,6 @@ const experiment = computed(() => {
 
 const experimentColor = computed(() => {
   return experiment.value.color
-})
-
-// TODO 后续改为从这完成依赖注入
-const experimentStatus = computed(() => {
-  return experiment.value.status
 })
 
 const experimentId = computed(() => Number(route.params.experimentId))
