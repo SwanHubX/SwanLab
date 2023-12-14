@@ -64,10 +64,13 @@ class ProjectTable(ProjectTablePoxy):
         """
         # 获取当前已经存在的实验名称集合
         experiments = [item["name"] for item in self["experiments"]]
+
+        # 获取实验名称
         if name is None:
             name = generate_random_tree_name(experiments)
         else:
             check_experiment_name(name)
+        # 获取实验描述和配置
         if description is None:
             description = ""
         if config is None:
