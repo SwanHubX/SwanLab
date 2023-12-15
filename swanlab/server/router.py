@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 import time
+from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
 
 # 响应路径
 from ..env import INDEX, ASSETS
@@ -65,10 +66,22 @@ async def resp_static(request, call_next):
 
 
 @app.middleware("http")
+async def catch_error(request: Request, call_next):
+    """异常中间件，捕获异常，重构异常信息"""
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        return await call_next(request)
+    try:
+        return await call_next(request)
+    except Exception as e:
+        return UNEXPECTED_ERROR_500(str(e))
+
+
+@app.middleware("http")
 async def resp_params(request: Request, call_next):
     """参数中间件，处理api请求中的参数校验问题，重新结构化校验错误结果"""
     if not request.url.path.startswith("/api"):
-        # 如果不是是请求api，直接返回
+        # 如果不是请求api，直接返回
         return await call_next(request)
     # print("请求api")
     resp = await call_next(request)

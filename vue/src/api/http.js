@@ -30,10 +30,8 @@ http.interceptors.response.use(
     // 判断连接是否超时
     if (error.code === 'ECONNABORTED' && error.message.indexOf('timeout') !== -1) {
       console.log('[response error] ', 'timeout')
-      return Promise.reject(error)
-    }
-    console.log('[response error] ', error.response?.status, error.response?.data, error)
-    return Promise.reject(error)
+    } else console.log('[response error] ', error.response?.status, error.response?.data, error)
+    return Promise.reject(error.response)
   }
 )
 

@@ -8,7 +8,7 @@ r"""
     实验相关api，前缀：/experiment
 """
 from fastapi import APIRouter
-from ..module.resp import SUCCESS_200, PARAMS_ERROR_422, NOT_FOUND_404
+from ..module.resp import SUCCESS_200, NOT_FOUND_404
 from ...env import SWANLAB_LOGS_FOLDER
 from ...database.project import ProjectTable
 import os
