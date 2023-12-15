@@ -49,7 +49,16 @@ export default defineConfig(({ mode }) => {
     // 标明编译后存放的位置
     build: {
       outDir: path.resolve(__dirname, 'swanlab/template'),
-      emptyOutDir: true
+      emptyOutDir: true,
+      minify: 'terser',
+      // 根据模式应用不同的 terser 配置
+      terserOptions: {
+        // 生产环境移除console
+        compress: {
+          drop_console: mode === 'release',
+          drop_debugger: mode === 'release'
+        }
+      }
     },
     // 服务配置
     server: {
