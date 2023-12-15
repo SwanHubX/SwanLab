@@ -28,7 +28,7 @@ def cli():
 @click.option(
     "--host",
     default="0.0.0.0",
-    help="When shared, swanlab web will run on localhost",
+    help="The host of swanlab web, default by 127.0.0.1",
 )
 # 控制服务发布的端口，默认5092
 @click.option(
