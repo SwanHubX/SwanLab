@@ -7,6 +7,7 @@
       <button class="text-xl flex items-center gap-1 relative" @click="handleExpand">
         <SLIcon icon="down" class="w-6 h-6 absolute -left-6" :class="{ '-rotate-90': !isExpand }" />
         {{ label }}
+        <span class="px-3 bg-positive-highest text-sm rounded-full ml-2">{{ count }}</span>
       </button>
       <!-- 中间其他操作区 -->
       <div class="grow"></div>
@@ -31,6 +32,9 @@ defineProps({
   label: {
     type: String,
     required: true
+  },
+  count: {
+    type: Number
   }
 })
 

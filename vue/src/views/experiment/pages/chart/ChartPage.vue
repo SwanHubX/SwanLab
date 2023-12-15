@@ -6,7 +6,7 @@
     <SLStatusLabel :status="experimentStore.status" />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer label="default" v-if="showContainer(tags)">
+  <ChartsContainer :label="t('experiment.chart.default-label')" :count="tags?.length" v-if="showContainer(tags)">
     <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
     <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
@@ -26,6 +26,7 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import G2Chart from './components/G2Chart.vue'
 import http from '@swanlab-vue/api/http'
 import { onUnmounted } from 'vue'
+import { t } from '@swanlab-vue/i18n'
 const experimentStore = useExperimentStroe()
 // ---------------------------------- 初始化：获取图表配置 ----------------------------------
 const tags = ref()

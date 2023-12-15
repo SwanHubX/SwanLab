@@ -41,6 +41,7 @@
   },
 
   "chart": {
+    "default-label": "图表",
     "zoom": "放大展示"
   }
 }
