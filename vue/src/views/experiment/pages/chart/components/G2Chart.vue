@@ -3,14 +3,17 @@
     <template #pannel>
       <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="handleOpen" />
     </template>
-    <!-- x轴坐标单位 -->
-    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
-    <div ref="g2Ref"></div>
-    <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
-      <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div ref="g2ZoomRef"></div>
-    </SLModal>
+    <template v-if="code === 0">
+      <!-- x轴坐标单位 -->
+      <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
+      <div ref="g2Ref"></div>
+      <!-- 放大效果 -->
+      <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
+        <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+        <div ref="g2ZoomRef"></div>
+      </SLModal>
+    </template>
+    <template v-else-if="code"> </template>
   </ChartContainer>
 </template>
 
@@ -49,12 +52,20 @@ const g2Ref = ref()
 
 // ---------------------------------- 请求的工具函数 ----------------------------------
 const tagData = ref()
+// 错误码
+const code = ref()
 /**
  * 根据tag获取到数据
  * @param { string } tag 数据源
  */
 const getTag = async (tag) => {
-  const { data } = await http.get(`/experiment/${id.value}/tag/` + encodeURIComponent(tag))
+  const { code: c, data } = await http
+    .get(`/experiment/${id.value}/tag/` + encodeURIComponent(tag))
+    .catch(({ code: c, message }) => {
+      code.value = c
+      throw new Error(message)
+    })
+  code.value = c
   // FIXME 为data添加一个step字段
   data.list.forEach((item, index) => {
     item.step = index
