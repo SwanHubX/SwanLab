@@ -1,52 +1,64 @@
-import logging, os
-import ctypes
-
-FOREGROUND_WHITE = 0x0007
-FOREGROUND_BLUE = 0x01  # text color contains blue.
-FOREGROUND_GREEN = 0x02  # text color contains green.
-FOREGROUND_RED = 0x04  # text color contains red.
-FOREGROUND_YELLOW = FOREGROUND_RED | FOREGROUND_GREEN
-
-STD_OUTPUT_HANDLE = -11
-std_out_handle = ctypes.windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
-
-
-def set_color(color, handle=std_out_handle):
-    bool = ctypes.windll.kernel32.SetConsoleTextAttribute(handle, color)
-    return bool
+import logging
+from .config import LOGGING_CONFIG
+import logging.config
 
 
 class Swanlog:
-    def __init__(self, path, clevel=logging.DEBUG, Flevel=logging.DEBUG):
-        self.logger = logging.getLogger(path)
-        self.logger.setLevel(logging.DEBUG)
-        fmt = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-        # 设置CMD日志
-        sh = logging.StreamHandler()
-        sh.setFormatter(fmt)
-        sh.setLevel(clevel)
-        # 设置文件日志
-        fh = logging.FileHandler(path)
-        fh.setFormatter(fmt)
-        fh.setLevel(Flevel)
-        self.logger.addHandler(sh)
-        self.logger.addHandler(fh)
+    color_mapping = {
+        logging.DEBUG: "\033[36m",  # Cyan
+        logging.INFO: "\033[32m",  # Green
+        logging.WARNING: "\033[33m",  # Yellow
+        logging.ERROR: "\033[91m",  # Red
+        logging.CRITICAL: "\033[1;31m",  # Bold Red
+    }
+
+    _levels = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+    }
+
+    def __init__(self, name=__name__, log_file="app.log", log_level=logging.DEBUG):
+        logging.config.dictConfig(LOGGING_CONFIG)
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(log_level)
+
+    def _get_console_color(self, level):
+        # 定义ANSI转义序列
+        return self.color_mapping.get(level, "\033[0m")  # Default: Reset color
+
+    def _reset_console_color(self):
+        # 重置ANSI转义序列
+        return "\033[0m"
+
+    def _format_message(self, message, level):
+        # 格式化日志消息并添加颜色
+        color = self._get_console_color(level)
+        reset_color = self._reset_console_color()
+        return f"{color}{message}{reset_color}"
+
+    # 设置打印级别
+    def setLevel(self, level):
+        self.logger.setLevel(level)
 
     def debug(self, message):
-        self.logger.debug(message)
+        formatted_message = self._format_message(message, logging.DEBUG)
+        self.logger.debug(formatted_message)
 
     def info(self, message):
-        self.logger.info(message)
+        formatted_message = self._format_message(message, logging.INFO)
+        self.logger.info(formatted_message)
 
-    def war(self, message, color=FOREGROUND_YELLOW):
-        set_color(color)
-        self.logger.warn(message)
-        set_color(FOREGROUND_WHITE)
+    def warning(self, message):
+        formatted_message = self._format_message(message, logging.WARNING)
+        self.logger.warning(formatted_message)
 
-    def error(self, message, color=FOREGROUND_RED):
-        set_color(color)
-        self.logger.error(message)
-        set_color(FOREGROUND_WHITE)
+    def error(self, message):
+        formatted_message = self._format_message(message, logging.ERROR)
+        self.logger.error(formatted_message)
 
-    def cri(self, message):
-        self.logger.critical(message)
+    def critical(self, message):
+        formatted_message = self._format_message(message, logging.CRITICAL)
+        self.logger.critical(formatted_message)

@@ -1,11 +1,13 @@
+from swanlab.log import Swanlog
 import logging
 
-logging.basicConfig(format="%(asctime)s %(module)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
-logger = logging.getLogger(__name__)
+sl = Swanlog(__name__, log_level=logging.WARNING)
+test_string = "test1"
 
 
-def test_fun1():
-    logger.warning("Test1")
-
-
-test_fun1()
+def test1():
+    sl.debug(test_string)
+    sl.info(test_string)
+    sl.warning(test_string)
+    sl.error(test_string)
+    sl.critical(test_string)

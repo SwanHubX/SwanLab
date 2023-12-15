@@ -1,11 +1,13 @@
 import logging
-import logging.config
 
 LOGGING_CONFIG = {
     "version": 1,
     "formatters": {
         "default": {
-            "format": "%(asctime)s %(filename)s %(lineno)s %(levelname)s %(message)s",
+            "format": "[%(asctime)s] - [%(filename)s] - %(levelname)s %(message)s",
+        },
+        "detail": {
+            "format": "[%(asctime)s]-[%(filename)s]-[%(lineno)s] - %(levelname)s: %(message)s",
         },
     },
     "handlers": {
@@ -17,7 +19,7 @@ LOGGING_CONFIG = {
         "file": {
             "class": "logging.FileHandler",
             "level": "INFO",  # 输出 INFO 及以上级别的日志到文件
-            "filename": "./log.txt",
+            "filename": "app.log",
             "formatter": "default",
         },
     },
@@ -29,11 +31,3 @@ LOGGING_CONFIG = {
     },
     "disable_existing_loggers": False,  # 不禁用现有的记录器
 }
-
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger("root")
-logger.debug("debug message")
-logger.info("info message")
-logger.warning("warning message")
-logger.error("error message")
-logger.critical("critical message")
