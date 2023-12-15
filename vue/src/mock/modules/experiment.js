@@ -83,7 +83,7 @@ export default [
   },
   {
     // 拿到指定实验的指定tag的信息
-    url: prefix + '/:experiment_id/:tag', //请求地址
+    url: prefix + '/:experiment_id/tag/:tag', //请求地址
     method: 'get', //请求方式
     response: () => {
       return {
@@ -91,6 +91,24 @@ export default [
         message: 'success',
         data: {
           list: generateDecreasingLossData(1000, 1.0, 0.1)
+        }
+      }
+    }
+  },
+  {
+    // 获取实验摘要总结信息
+    url: prefix + '/:experiment_id/summary',
+    method: 'get',
+    response: () => {
+      return {
+        code: 0,
+        message: 'success',
+        data: {
+          summaries: [
+            ['loss', 1.23123123],
+            ['hello', 332.321312],
+            ['world', 3.232323]
+          ]
         }
       }
     }

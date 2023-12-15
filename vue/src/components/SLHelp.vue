@@ -1,7 +1,7 @@
 <template>
-  <Tippy trigger="mouseenter" placement="right">
+  <Tippy trigger="mouseenter" placement="right" :class="document ? 'cursor-pointer' : ''" @click="learn_more">
     <div
-      class="w-5 h-5 flex items-center justify-center text-sm rounded-full cursor-default pointer-events-none bg-slate-400 text-white font-semibold"
+      class="w-5 h-5 flex items-center justify-center text-sm rounded-full pointer-events-none bg-slate-400 text-white font-semibold"
       :class="iconClass"
     >
       ?
@@ -23,7 +23,7 @@
  **/
 import { Tippy } from 'vue-tippy'
 
-defineProps({
+const props = defineProps({
   iconClass: {
     type: String,
     default: ''
@@ -35,8 +35,15 @@ defineProps({
   contentClass: {
     type: String,
     default: ''
+  },
+  document: {
+    type: String
   }
 })
+
+const learn_more = () => {
+  props.document ? window.open(props.document, '_blank') : ''
+}
 </script>
 
 <style lang="scss" scoped></style>

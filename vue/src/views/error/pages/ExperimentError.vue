@@ -1,11 +1,11 @@
 <template>
   <ErrorWrap>
     <template #title>
-      {{ $t(`error.init-error.title`) }}
+      {{ $t(`error.experiment-error.title`) }}
     </template>
     <ul>
       <li v-for="index in [0, 1]" :key="index">
-        {{ $t(`error.init-error.reasons[${index}]`) }}
+        {{ $t(`error.experiment-error.reasons[${index}]`) }}
       </li>
     </ul>
   </ErrorWrap>
@@ -13,9 +13,9 @@
 
 <script setup>
 /**
- * @description:
- * @file: InitError.vue
- * @since: 2023-12-14 14:49:52
+ * @description: 实验加载失败
+ * @file: ExperimentError.vue
+ * @since: 2023-12-15 15:18:59
  **/
 import ErrorWrap from '../components/ErrorWrap.vue'
 </script>

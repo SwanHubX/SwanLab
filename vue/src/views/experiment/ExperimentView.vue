@@ -19,16 +19,24 @@ import { useExperimentStroe } from '@swanlab-vue/store'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 import { computed } from 'vue'
+import { inject } from 'vue'
 const route = useRoute()
 const experimentStore = useExperimentStroe()
 // ---------------------------------- 请求实验信息 ----------------------------------
 const ready = computed(() => {
   return experimentStore.id !== undefined
 })
+const show_error = inject('show_error')
 const init = async (id = route.params.experimentId) => {
-  http.get(`/experiment/${id}`).then(({ data }) => {
-    experimentStore.experiment = data
-  })
+  http
+    .get(`/experiment/${id}`)
+    .then(({ data }) => {
+      experimentStore.experiment = data
+    })
+    .catch(({ response }) => {
+      console.error(response)
+      show_error(response.data.code)
+    })
 }
 
 init()

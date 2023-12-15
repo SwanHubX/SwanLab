@@ -4,23 +4,29 @@
       <div class="pt-2">
         <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
-          <SLHelp>这是初始化实验时的初始化配置</SLHelp>
+          <SLHelp document="https://geektechstudio.feishu.cn/wiki/EFi3wuACGiEWlLki5aDcQiSpngg">{{
+            $t('experiment.index.config.help.config')
+          }}</SLHelp>
         </div>
         <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
       </div>
-      <div class="pt-2" v-if="summaries?.length !== 0">
-        <div class="flex items-center pb-4">
-          <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
-          <SLHelp>这是每个tag中最后一个step的数据</SLHelp>
+      <div v-if="summaries">
+        <div class="pt-2" v-if="summaries?.length !== 0">
+          <div class="flex items-center pb-4">
+            <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
+            <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf">{{
+              $t('experiment.index.config.help.summary')
+            }}</SLHelp>
+          </div>
+          <SLTable
+            class="max-w-[600px]"
+            :header="['Key', 'Value']"
+            :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
+          />
         </div>
-        <SLTable
-          class="max-w-[600px]"
-          :header="['Key', 'Value']"
-          :data="summaries.map((item) => [item[0], item[1].toFixed(4)])"
-        />
-      </div>
-      <div class="w-full min-h-30 flex justify-center items-center" v-else>
-        <SLLoading />
+        <div class="w-full min-h-30 flex justify-center items-center" v-else>
+          <SLLoading />
+        </div>
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -62,8 +68,7 @@ const show_error = inject('show_error')
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then((res) => {
-    summaries.value = res.data.summaries
-    console.log(summaries.value)
+    summaries.value = res.data.summaries || null
   })
   .catch((error) => {
     console.error(error)
