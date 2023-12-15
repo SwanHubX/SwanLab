@@ -12,6 +12,7 @@
       <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
         <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
         <div ref="g2ZoomRef"></div>
+        <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">step</p>
       </SLModal>
     </template>
     <!-- 有错误 -->
