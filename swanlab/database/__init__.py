@@ -1,4 +1,4 @@
 from ..env import swc
 
 
-swc.init(swc.getcwd(), "server")
+swc.init(swc.getcwd(), "train")

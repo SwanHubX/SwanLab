@@ -33,8 +33,8 @@ const init = async (id = route.params.experimentId) => {
     .then(({ data }) => {
       experimentStore.experiment = data
     })
-    .catch(({ response }) => {
-      console.error(response)
+    .catch((response) => {
+      // console.error(response)
       show_error(response.data.code)
     })
 }
