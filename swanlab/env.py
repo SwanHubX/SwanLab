@@ -122,9 +122,8 @@ class SwanlabConfig(object):
 
     @property
     @__should_initialized
-    @__should_server_mode
     def output(self) -> str:
-        """服务日志输出文件夹"""
+        """服务日志输出文件路径"""
         return os.path.join(self.root, "output.log")
 
     @property
