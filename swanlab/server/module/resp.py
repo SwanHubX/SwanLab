@@ -26,6 +26,9 @@ _NOT_FOUND_404 = 3404
 _DATA_ERROR_500 = 3500
 """服务端存储的数据格式错误，这通常意味着指定资源无法解析为期望格式，期望的HTTP状态码为500"""
 
+_UNEXCEPTED_ERROR_500 = 3555
+"""未知错误，通常对应着未知的异常，期望的HTTP状态码为500"""
+
 # ---------------------------------- 定义响应结构体 ----------------------------------
 
 
@@ -90,4 +93,12 @@ def DATA_ERROR_500(message: str = "data error"):
     return _JSONResponse(
         status_code=500,
         content=_ResponseBody(_DATA_ERROR_500, message=message),
+    )
+
+
+def UNEXPECTED_ERROR_500(message: str = "unexpected error"):
+    """未知错误"""
+    return _JSONResponse(
+        status_code=500,
+        content=_ResponseBody(_UNEXCEPTED_ERROR_500, message=message),
     )
