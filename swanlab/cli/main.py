@@ -11,6 +11,7 @@ r"""
 import click
 import uvicorn
 from .utils import is_vaild_ip, get_all_ip
+from ..env import swc
 
 
 @click.group()
@@ -60,6 +61,7 @@ def watch(host, debug, port):
     else:
         raise ValueError(f'ip address "{host}" is not available, please use one of {ipv4}')
     # ---------------------------------- 启动服务 ----------------------------------
+    swc.init(swc.getcwd(), "server")
     from ..server import app
 
     # 使用 uvicorn 启动 FastAPI 应用

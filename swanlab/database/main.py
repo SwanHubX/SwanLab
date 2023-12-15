@@ -8,7 +8,7 @@ r"""
     数据库模块，连接project表单对象
 """
 import os
-from ..env import SWANLAB_LOGS_FOLDER
+from ..env import swc, SwanlabConfig
 from .project import ProjectTable
 from .expriment import ExperimentTable
 from ..utils import lock_file
@@ -32,15 +32,10 @@ class SwanDatabase(object):
         """
         # 此时必须保证.swanlab文件夹存在，但是这并不是本类的职责，所以不检查
 
-        # TODO 但是目前还是先在这里创建
-        from ..env import SWANLAB_FOLDER
+        swc.init(SwanlabConfig.getcwd(), "train")
+        if not os.path.exists(swc.root):
+            os.mkdir(swc.root)
 
-        if not os.path.exists(SWANLAB_FOLDER):
-            os.mkdir(SWANLAB_FOLDER)
-
-        # 需要检查logs文件夹是否存在，不存在则创建
-        if not os.path.exists(SWANLAB_LOGS_FOLDER):
-            os.mkdir(SWANLAB_LOGS_FOLDER)
         # 项目基础表单
         self.__project: ProjectTable = None
         # 如果项目配置文件不存在，创建
