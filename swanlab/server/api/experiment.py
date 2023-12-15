@@ -138,7 +138,6 @@ async def get_tag_data(experiment_id: int, tag: str):
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
     tag_path: str = os.path.join(swc.root, experiment_name, "logs", tag)
-    print(tag_path)
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
@@ -161,7 +160,6 @@ async def get_tag_data(experiment_id: int, tag: str):
         # 倒数第二个文件可能不存在
         count = files[-2].split(".")[0] if len(files) > 1 else 0
         count = int(count) + len(tag_json["data"])
-        # print(f"count={count}")
     # 读取完毕，文件解锁
 
     # ---------------------------------- tag=-1的情况：返回最后一条数据 ----------------------------------

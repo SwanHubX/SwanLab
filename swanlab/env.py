@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python# -*- coding: utf-8 -*-
 r"""
 @DATE: 2023-11-30 21:20:13
 @File: swanlab\env.py
@@ -41,7 +40,6 @@ class SwanlabConfig(object):
 
     def __should_initialized(func):
         """装饰器：必须在初始化完毕以后才能执行"""
-        wraps(func)
 
         def wrapper(cls, *args, **kwargs):
             if cls.__init is False:
@@ -53,7 +51,6 @@ class SwanlabConfig(object):
 
     def __should_added_exp(func):
         """装饰器：比如已经添加了实验"""
-        wraps(func)
 
         def wrapper(cls, *args, **kwargs):
             if cls.__exp_name is None:
@@ -65,7 +62,6 @@ class SwanlabConfig(object):
 
     def __should_server_mode(func):
         """装饰器：必须是server mode"""
-        wraps(func)
 
         def wrapper(cls, *args, **kwargs):
             if cls.__mode != "server":
@@ -77,7 +73,6 @@ class SwanlabConfig(object):
 
     def __should_train_mode(func):
         """装饰器：必须是train mode"""
-        wraps(func)
 
         def wrapper(cls, *args, **kwargs):
             if cls.__mode != "train":

@@ -28,8 +28,8 @@ http
   .then(({ data }) => {
     projectStore.setProject(data)
   })
-  .catch(({ response }) => {
-    console.error(response)
+  .catch((response) => {
+    // console.error(response)
     error_code.value = response.data?.code || 3000 // 3000 时，后端启动失败
   })
 
