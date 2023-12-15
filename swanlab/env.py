@@ -129,6 +129,7 @@ class SwanlabConfig(object):
 
     @property
     @__should_initialized
+    @__should_train_mode
     @__should_added_exp
     def exp_folder(self) -> str:
         """实验存储路径"""

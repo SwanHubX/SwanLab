@@ -109,7 +109,7 @@ async def get_experiment(experiment_id: int):
     if experiment is None:
         return NOT_FOUND_404()
     # 生成实验存储路径
-    path = os.path.join(swc.root, experiment["name"])
+    path = os.path.join(swc.root, experiment["name"], "logs")
     experiment["tags"] = __list_subdirectories(path)
     experiment["default_color"] = DEFAULT_COLOR
     return SUCCESS_200(experiment)
@@ -137,7 +137,8 @@ async def get_tag_data(experiment_id: int, tag: str):
         return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
-    tag_path: str = os.path.join(swc.root, experiment_name, tag)
+    tag_path: str = os.path.join(swc.root, experiment_name, "logs", tag)
+    print(tag_path)
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
@@ -219,7 +220,7 @@ async def get_experiment_summary(experiment_id: int):
     array
         每个tag的最后一个数据
     """
-    experiment_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"])
+    experiment_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "logs")
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
     for tag in tags:
