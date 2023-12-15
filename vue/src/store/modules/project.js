@@ -14,6 +14,7 @@ export const useProjectStore = defineStore('project', () => {
 
   /** action */
   const setProject = (p) => {
+    p.experiments.reverse()
     project.value = p
   }
 

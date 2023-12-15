@@ -64,10 +64,13 @@ class ProjectTable(ProjectTablePoxy):
         """
         # 获取当前已经存在的实验名称集合
         experiments = [item["name"] for item in self["experiments"]]
+
+        # 获取实验名称
         if name is None:
             name = generate_random_tree_name(experiments)
         else:
             check_experiment_name(name)
+        # 获取实验描述和配置
         if description is None:
             description = ""
         if config is None:
@@ -93,14 +96,3 @@ class ProjectTable(ProjectTablePoxy):
                 # print("success experiment ", project["experiments"][index])
                 break
         self.save(file, project)
-
-
-class PT(object):
-    """后端层面上的项目管理类，适配后端的项目管理接口，提供项目管理的相关功能"""
-
-    path = ProjectTable.path
-
-    @lock_file(file_path=path, mode="r")
-    def get(self, file: TextIOWrapper):
-        """获取实验信息"""
-        return ujson.load(file)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2023-12-02 00:38:37
-@File: swanlab\database\database.py
+@File: swanlab\database\main.py
 @IDE: vscode
 @Description:
     数据库模块，连接project表单对象
@@ -15,10 +15,6 @@ from ..utils import lock_file
 from typing import Union
 from io import TextIOWrapper
 import ujson
-import atexit
-
-# flag，代表已经执行了inited函数
-inited = False
 
 
 class SwanDatabase(object):
@@ -72,18 +68,6 @@ class SwanDatabase(object):
         file : TextIOWrapper, optional
             文件对象，用于文件锁定, by default None
         """
-        # 同一运行时不允许运行两次此函数，通过flag来实现
-        global inited
-        if inited:
-            raise RuntimeError("Swanlab has already been inited!")
-        inited = True
-
-        # 创建回调函数函数
-        def callback():
-            sd.success()
-
-        # 注册此函数
-        atexit.register(callback)
         # 检查实验名称是否存在
         project_exist = os.path.exists(ProjectTable.path) and os.path.getsize(ProjectTable.path) != 0
         # 初始化项目对象
@@ -115,14 +99,8 @@ class SwanDatabase(object):
         namespace : str, optional
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）, by default "charts"
         """
-        global inited
-        if not inited:
-            raise RuntimeError("Swanlab must be inited first!")
         self.__project.experiment.add(tag, data, namespace)
 
     def success(self):
         """标记实验成功"""
         self.__project.success()
-
-
-sd = SwanDatabase()

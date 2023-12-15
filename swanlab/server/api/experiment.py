@@ -8,11 +8,12 @@ r"""
     实验相关api，前缀：/experiment
 """
 from fastapi import APIRouter
-from ..utils import ResponseBody
+from ..module.resp import SUCCESS_200, NOT_FOUND_404
 from ...env import SWANLAB_LOGS_FOLDER
 from ...database.project import ProjectTable
 import os
 import ujson
+from ...utils import DEFAULT_COLOR
 
 # from ...utils import create_time
 from urllib.parse import unquote  # 转码路径参数
@@ -89,7 +90,6 @@ def __list_subdirectories(folder_path: str) -> List[str]:
 # ---------------------------------- 业务路由 ----------------------------------
 
 
-# 获取当前实验信息
 @router.get("/{experiment_id}")
 async def get_experiment(experiment_id: int):
     """获取当前实验的信息
@@ -102,20 +102,22 @@ async def get_experiment(experiment_id: int):
     # 读取 project.json 文件内容
     with get_a_lock(CONFIG_PATH, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
-        f.close()
-        # 在experiments列表中查找对应实验的信息
-        experiment = None
-        for ex in experiments:
-            if ex["experiment_id"] == experiment_id:
-                experiment = ex
-                break
-        # 生成实验存储路径
-        path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
-        experiment["tags"] = __list_subdirectories(path)
-        return ResponseBody(0, data=experiment)
+    # 在experiments列表中查找对应实验的信息
+    experiment = None
+    for ex in experiments:
+        if ex["experiment_id"] == experiment_id:
+            experiment = ex
+            break
+    # 如果没有找到，即实验不存在
+    if experiment is None:
+        return NOT_FOUND_404()
+    # 生成实验存储路径
+    path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
+    experiment["tags"] = __list_subdirectories(path)
+    experiment["default_color"] = DEFAULT_COLOR
+    return SUCCESS_200(experiment)
 
 
-# 获取某个实验的表单数据
 @router.get("/{experiment_id}/tag/{tag}")
 async def get_tag_data(experiment_id: int, tag: str):
     """获取表单数据
@@ -132,12 +134,15 @@ async def get_tag_data(experiment_id: int, tag: str):
     # num=None: 返回所有数据, num=10: 返回最新的10条数据, num=-1: 返回最后一条数据
     num = None
     # 在experiments列表中查找对应实验的信息
-    experiment_name = __find_experiment(experiment_id)["name"]
+    try:
+        experiment_name = __find_experiment(experiment_id)["name"]
+    except KeyError as e:
+        return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
     tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, experiment_name, tag)
     if not os.path.exists(tag_path):
-        raise KeyError(f'tag "{tag}" not found')
+        return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
     # 降序排列，最新的数据在最前面
     files: list = os.listdir(tag_path)
@@ -184,7 +189,7 @@ async def get_tag_data(experiment_id: int, tag: str):
             tag_data.extend(data)
         tag_data.extend(tag_json["data"])
         # 返回数据
-        return ResponseBody(0, data={"sum": len(tag_data), "list": tag_data})
+        return SUCCESS_200(data={"sum": len(tag_data), "list": tag_data})
     else:
         # TODO 采样读取数据
         raise NotImplementedError("采样读取数据")
@@ -200,7 +205,7 @@ async def get_experiment_status(experiment_id: int):
         实验唯一id，路径传参
     """
     status = __find_experiment(experiment_id)["status"]
-    return ResponseBody(0, data={"status": status})
+    return SUCCESS_200(data={"status": status})
 
 
 @router.get("/{experiment_id}/summary")
@@ -226,4 +231,4 @@ async def get_experiment_summary(experiment_id: int):
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
-    return ResponseBody(0, data={"summaries": summaries})
+    return SUCCESS_200(data={"summaries": summaries})

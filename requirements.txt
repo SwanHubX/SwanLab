@@ -8,3 +8,6 @@ click
 ujson
 portalocker
 
+# Information collection
+psutil
+
