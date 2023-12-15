@@ -6,7 +6,7 @@
     <SLStatusLabel :status="experimentStore.status" />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer :label="t('experiment.chart.default-label')" :count="tags?.length" v-if="showContainer(tags)">
+  <ChartsContainer :label="t('experiment.chart.label.default')" :count="tags?.length" v-if="showContainer(tags)">
     <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
     <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
