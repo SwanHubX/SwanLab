@@ -36,7 +36,7 @@
         class="flex-shrink-0"
         active-class="active-router"
       >
-        <SLIcon icon="experiment" class="w-4 h-4 mr-3" />
+        <div class="w-4 h-4 rounded-full mr-3" :style="{ backgroundColor: experiment.color }"></div>
         {{ experiment.name }}
       </RouterLink>
     </div>
@@ -84,7 +84,7 @@ const query = ref([])
 }
 
 a {
-  @apply flex items-center px-4 h-11 text-default hover:bg-positive-highest rounded-lg;
+  @apply flex items-center px-4 h-11 text-sm text-default hover:bg-positive-highest rounded-lg;
 }
 
 .active-router {
