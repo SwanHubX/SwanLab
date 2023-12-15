@@ -9,8 +9,7 @@ r"""
 """
 from fastapi import APIRouter
 from ..module.resp import SUCCESS_200, NOT_FOUND_404
-from ...env import SWANLAB_LOGS_FOLDER
-from ...database.project import ProjectTable
+from ...env import swc
 import os
 import ujson
 from ...utils import DEFAULT_COLOR
@@ -21,8 +20,6 @@ from typing import List, Dict
 from ...utils import get_a_lock
 
 router = APIRouter()
-
-CONFIG_PATH = ProjectTable.path
 
 
 # ---------------------------------- 工具函数 ----------------------------------
@@ -39,7 +36,7 @@ def __find_experiment(experiment_id: int) -> dict:
     dict
         实验信息
     """
-    with get_a_lock(CONFIG_PATH, "r") as f:
+    with get_a_lock(swc.project, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
     for experiment in experiments:
         if experiment["experiment_id"] == experiment_id:
@@ -100,7 +97,7 @@ async def get_experiment(experiment_id: int):
         实验唯一id，路径传参
     """
     # 读取 project.json 文件内容
-    with get_a_lock(CONFIG_PATH, "r") as f:
+    with get_a_lock(swc.project, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
     # 在experiments列表中查找对应实验的信息
     experiment = None
@@ -112,7 +109,7 @@ async def get_experiment(experiment_id: int):
     if experiment is None:
         return NOT_FOUND_404()
     # 生成实验存储路径
-    path = os.path.join(SWANLAB_LOGS_FOLDER, experiment["name"])
+    path = os.path.join(swc.root, experiment["name"])
     experiment["tags"] = __list_subdirectories(path)
     experiment["default_color"] = DEFAULT_COLOR
     return SUCCESS_200(experiment)
@@ -140,7 +137,7 @@ async def get_tag_data(experiment_id: int, tag: str):
         return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
-    tag_path: str = os.path.join(SWANLAB_LOGS_FOLDER, experiment_name, tag)
+    tag_path: str = os.path.join(swc.root, experiment_name, tag)
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
@@ -222,7 +219,7 @@ async def get_experiment_summary(experiment_id: int):
     array
         每个tag的最后一个数据
     """
-    experiment_path: str = os.path.join(SWANLAB_LOGS_FOLDER, __find_experiment(experiment_id)["name"])
+    experiment_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"])
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
     for tag in tags:

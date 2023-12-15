@@ -29,10 +29,9 @@ INDEX = os.path.join(TEMPLATE_PATH, "index.html")
 class SwanlabConfig(object):
     """Swanlab全局配置对象"""
 
-    # 标志位，用于判断是否已经初始化
-    __init = False
-
     def __init__(self) -> None:
+        # 标志位，用于判断是否已经初始化
+        self.__init = False
         # 根目录，这将决定日志输出的位置以及服务读取的位置
         self.__folder = None
         # 当前实验名称
@@ -91,7 +90,8 @@ class SwanlabConfig(object):
     def init(self, root: str, mode: str):
         """初始化配置对象"""
         if self.__init:
-            raise ValueError("config has been initialized")
+            # TODO debug输出一下，已经初始化了
+            return
         self.__folder = root
         if mode not in ["train", "server"]:
             raise ValueError("mode must be train or server")
@@ -99,6 +99,8 @@ class SwanlabConfig(object):
         self.__init = True
 
     def add_exp(self, exp_name: str):
+        if self.__exp_name is not None and self.__mode == "train":
+            raise ValueError("config has been added experiment in train mode")
         self.__exp_name = exp_name
 
     @staticmethod

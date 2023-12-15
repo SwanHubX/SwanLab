@@ -1,6 +1,7 @@
 from .table import ProjectTablePoxy
 import ujson
 import os
+from ..env import swc
 from ..utils import create_time, get_a_lock
 from typing import List, Union
 
@@ -10,12 +11,12 @@ class ChartTable(ProjectTablePoxy):
 
     default_data = {"_sum": 0, "charts": []}
 
-    def __init__(self, base_path: str, experiment_id: int):
+    def __init__(self, experiment_id: int):
         """初始化图表管理类"""
         # 判断path是否存在，如果存在，则加载数据，否则创建
         self.experiment_id = experiment_id
         # 文件保存路径
-        self.path = os.path.join(base_path, "charts.json")
+        self.path = swc.chart
         if os.path.exists(self.path):
             with open(self.path, "r", encoding="utf-8") as f:
                 data = ujson.load(f)

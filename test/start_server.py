@@ -9,7 +9,11 @@ r"""
     事实上在使用中并不是这样的，而是在命令行执行命令完成的，这里只是为了测试和开发
     增加了实际开发中不会用到的热启动功能
 """
+from swanlab.env import swc
+
+swc.init(swc.getcwd(), "server")
 from swanlab.server.router import app
+
 import uvicorn
 
 if __name__ == "__main__":

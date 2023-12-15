@@ -9,7 +9,7 @@ r"""
 """
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time
 from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
@@ -91,7 +91,6 @@ async def resp_params(request: Request, call_next):
         # 参数校验错误，重构错误信息
         # 拿到响应体
         import json
-        from .module.resp import PARAMS_ERROR_422
 
         body = [chunk async for chunk in resp.body_iterator][0].decode()
         body = json.loads(body)

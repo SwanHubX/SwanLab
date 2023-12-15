@@ -8,7 +8,7 @@ r"""
     项目模块，创建项目级别数据库库，接下来针对实验级别的数据在此基础上进行操作
 """
 import os
-from ..env import SWANLAB_LOGS_FOLDER
+from ..env import swc
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
@@ -24,7 +24,7 @@ class ProjectTable(ProjectTablePoxy):
     data: dict，实验管理类的数据，json格式
     """
 
-    path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
+    path = swc.project
     default_data = {"_sum": 0, "experiments": []}
 
     def __init__(self, data: dict):
