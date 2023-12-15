@@ -4,7 +4,7 @@ import logging.config
 
 
 class Swanlog:
-    color_mapping = {
+    _color_mapping = {
         logging.DEBUG: "\033[36m",  # Cyan
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
@@ -20,28 +20,24 @@ class Swanlog:
         "critical": logging.CRITICAL,
     }
 
-    def __init__(self, name=__name__, log_file="app.log", log_level=logging.DEBUG):
+    def __init__(self, name=__name__, log_file="app.log", log_level="debug"):
         logging.config.dictConfig(LOGGING_CONFIG)
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(log_level)
+        print(self.logger.handlers)
 
-    def _get_console_color(self, level):
+    def _get_color(self, level):
         # 定义ANSI转义序列
-        return self.color_mapping.get(level, "\033[0m")  # Default: Reset color
+        return self._color_mapping.get(level, "\033[0m")  # Default: Reset color
 
-    def _reset_console_color(self):
+    def _reset_color(self):
         # 重置ANSI转义序列
         return "\033[0m"
 
     def _format_message(self, message, level):
         # 格式化日志消息并添加颜色
-        color = self._get_console_color(level)
-        reset_color = self._reset_console_color()
+        color = self._get_color(level)
+        reset_color = self._reset_color()
         return f"{color}{message}{reset_color}"
-
-    # 设置打印级别
-    def setLevel(self, level):
-        self.logger.setLevel(level)
 
     def debug(self, message):
         formatted_message = self._format_message(message, logging.DEBUG)

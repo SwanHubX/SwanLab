@@ -1,13 +1,20 @@
 import logging
+from ..env import SWANLAB_CONSOLE_FOLDER
+import os
+from datetime import datetime
+
+# SWANLAB_CONSOLE_FOLDER 是否存在？如果不存在创建目录
+if not os.path.exists(SWANLAB_CONSOLE_FOLDER):
+    os.makedirs(SWANLAB_CONSOLE_FOLDER)
 
 LOGGING_CONFIG = {
     "version": 1,
     "formatters": {
         "default": {
-            "format": "[%(asctime)s] - [%(filename)s] - %(levelname)s %(message)s",
+            "format": "[%(asctime)s] - [%(filename)s] [%(lineno)s] - [%(name)s] - %(levelname)s %(message)s",
         },
         "detail": {
-            "format": "[%(asctime)s]-[%(filename)s]-[%(lineno)s] - %(levelname)s: %(message)s",
+            "format": "[%(asctime)s]-[%(filename)s]-[%(lineno)s]-[%(name)s] - %(levelname)s: %(message)s",
         },
     },
     "handlers": {
@@ -19,8 +26,8 @@ LOGGING_CONFIG = {
         "file": {
             "class": "logging.FileHandler",
             "level": "INFO",  # 输出 INFO 及以上级别的日志到文件
-            "filename": "app.log",
-            "formatter": "default",
+            "filename": os.path.join(SWANLAB_CONSOLE_FOLDER, datetime.now().strftime("%Y-%m-%d") + ".log"),
+            "formatter": "detail",
         },
     },
     "loggers": {

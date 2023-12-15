@@ -4,8 +4,6 @@ import logging
 
 sl = Swanlog(__name__)
 
-sl.setLevel(logging.DEBUG)
-
 
 sl.debug("Watch out!")
 sl.info("I told you so")

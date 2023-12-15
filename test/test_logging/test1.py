@@ -6,6 +6,7 @@ test_string = "test1"
 
 
 def test1():
+    # sl.setConsoleLogLevel("warning")
     sl.debug(test_string)
     sl.info(test_string)
     sl.warning(test_string)
