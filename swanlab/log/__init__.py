@@ -7,3 +7,4 @@ r"""
 @Description:
     日志记录模块
 """
+from .log import Swanlog
