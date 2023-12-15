@@ -1,7 +1,7 @@
 <template>
   <!-- 标题 -->
   <div class="flex items-center gap-2 py-5 px-8 border-b">
-    <SLIcon icon="experiment" class="w-5 h-5" />
+    <div class="w-5 h-5 rounded-full" :style="{ backgroundColor: experimentStore.color }"></div>
     <h1 class="text-lg font-semibold">{{ experimentStore.name }}</h1>
     <SLStatusLabel :status="experimentStore.status" />
   </div>

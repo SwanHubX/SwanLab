@@ -1,15 +1,24 @@
 <template>
   <div class="w-full">
     <!-- 展开按钮和标题 -->
-    <button class="flex items-center py-4" @click="() => (isExtend = !isExtend)">
-      <SLIcon icon="down" class="w-5 h-5 mx-1 text-dimmest" :class="isExtend ? 'rotate-show' : 'rotate-hidden'" />
+    <button
+      class="flex items-center py-4"
+      :class="retract ? '' : 'pl-6 cursor-default'"
+      @click="() => retract && (isExtend = !isExtend)"
+    >
+      <SLIcon
+        icon="down"
+        class="w-5 h-5 mx-1 text-dimmest"
+        :class="isExtend ? 'rotate-show' : 'rotate-hidden'"
+        v-if="retract"
+      />
       <SLIcon :icon="icon" class="w-6 h-6 mr-2" />
       <span class="text-lg font-semibold">{{ title }}</span>
     </button>
     <!-- 内容 -->
     <div
       class="transition-all duration-200 pr-5"
-      :class="isExtend ? 'max-h-[500px] overflow-auto' : 'max-h-0 overflow-hidden'"
+      :class="retract ? (isExtend ? 'max-h-[500px] overflow-auto' : 'max-h-0 overflow-hidden') : ''"
     >
       <slot></slot>
     </div>
@@ -33,6 +42,10 @@ defineProps({
   icon: {
     type: String,
     required: true
+  },
+  retract: {
+    type: Boolean,
+    default: true
   }
 })
 

@@ -1,7 +1,7 @@
 <template>
-  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')">
+  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
-      <div class="pt-2">
+      <div>
         <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
           <SLHelp document="https://geektechstudio.feishu.cn/wiki/EFi3wuACGiEWlLki5aDcQiSpngg">{{
@@ -11,7 +11,7 @@
         <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
       </div>
       <div v-if="summaries">
-        <div class="pt-2" v-if="summaries?.length !== 0">
+        <div v-if="summaries?.length !== 0">
           <div class="flex items-center pb-4">
             <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
             <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf">{{

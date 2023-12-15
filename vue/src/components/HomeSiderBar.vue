@@ -36,7 +36,7 @@
         class="flex-shrink-0"
         active-class="active-router"
       >
-        <SLIcon icon="experiment" class="w-4 h-4 mr-3" />
+        <div class="w-4 h-4 rounded-full mr-3" :style="{ backgroundColor: experiment.color }"></div>
         {{ experiment.name }}
       </RouterLink>
     </div>
