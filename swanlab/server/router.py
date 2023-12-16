@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time
 from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
+from ..log import swanlog as swl
 
 # 响应路径
 from ..env import INDEX, ASSETS
@@ -75,6 +76,25 @@ async def catch_error(request: Request, call_next):
         return await call_next(request)
     except Exception as e:
         return UNEXPECTED_ERROR_500(str(e))
+
+
+@app.middleware("http")
+async def log_print(request: Request, call_next):
+    """日志打印中间件"""
+    resp = await call_next(request)
+    status = str(resp.status_code)
+    print(status)
+
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
+    else:
+        content = "[" + str(resp.status_code) + "] " + request.method + " api: " + request.url.path
+        if status.startswith("2"):
+            swl.info(content)
+        else:
+            swl.error(content)
+    return resp
 
 
 @app.middleware("http")
