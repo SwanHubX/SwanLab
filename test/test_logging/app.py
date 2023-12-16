@@ -1,6 +1,8 @@
 from test1 import test1
 from swanlab.log import swanlog as sl
-import logging
+from swanlab.env import swc
+
+sl.init("output.log", "debug")
 
 # sl.setLevel("error")
 # sl.setOutput()

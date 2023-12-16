@@ -14,13 +14,13 @@ class Logsys:
         if self.isRunning:
             self.__status = "success"
         else:
-            raise KeyError("%s is not running" % self.__status)
+            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
 
     def setError(self):
         if self.isRunning:
             self.__status = "error"
         else:
-            raise KeyError("%s is not running" % self.__status)
+            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
 
     @property
     def isSuccess(self) -> bool:
@@ -35,16 +35,24 @@ class Logsys:
         return self.__status == "running"
 
 
-class Swanlog(Logsys):
-    # 转义之后的颜色系统
-    __color_mapping = {
-        logging.DEBUG: "\033[36m",  # Cyan
+# 新增的带颜色的格式化类
+class ColoredFormatter(logging.Formatter):
+    _color_mapping = {
+        logging.DEBUG: "\033[32m",  # Green
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
         logging.ERROR: "\033[91m",  # Red
         logging.CRITICAL: "\033[1;31m",  # Bold Red
     }
 
+    def format(self, record):
+        log_message = super().format(record)
+        color = self._color_mapping.get(record.levelno, "\033[0m")  # Default: Reset color
+        reset_color = "\033[0m"
+        return f"{color}{log_message}{reset_color}"
+
+
+class Swanlog(Logsys):
     # 日志系统支持的输出等级
     __levels = {
         "debug": logging.DEBUG,
@@ -54,23 +62,29 @@ class Swanlog(Logsys):
         "critical": logging.CRITICAL,
     }
 
-    def __init__(self, name=__name__, log_file="output.log", level="debug"):
+    def __init__(self, name=__name__, level="debug"):
         super()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
 
-    def init(self, path):
+    def init(self, path, level=None, console_level=None, file_level=None):
         # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
         # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
         self._create_console_handler()
         self._create_file_handler(path)
+        if level:
+            self.logger.setLevel(self._getLevel(level))
+        if console_level:
+            self.setConsoleLevel(console_level)
+        if file_level:
+            self.setFileLevel(file_level)
 
     # 创建控制台记录器
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(self.__levels[level.lower()])
+        colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")  # 添加颜色格式化
+        console_handler.setFormatter(colored_formatter)
+        console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
@@ -78,7 +92,7 @@ class Swanlog(Logsys):
         file_handler = logging.FileHandler(log_path)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(self.__levels[level.lower()])
+        file_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(file_handler)
 
     def setOutput(self, log_path=None, level="debug"):
@@ -100,9 +114,8 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            console_handler = self.logger.handlers[0]
-            console_handler.setLevel(self.__levels[level.lower()])
+        console_handler = self.logger.handlers[0]
+        console_handler.setLevel(self._getLevel(level))
 
     def setFileLevel(self, level):
         """
@@ -111,9 +124,8 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            file_handler = self.logger.handlers[1]
-            file_handler.setLevel(self.__levels[level.lower()])
+        file_handler = self.logger.handlers[1]
+        file_handler.setLevel(self._getLevel(level))
 
     def setLevel(self, level):
         """
@@ -122,51 +134,33 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            self.logger.setLevel(self.__levels[level.lower()])
+        self.logger.setLevel(self._getLevel(level))
 
     # 获取对应等级的logging对象
     def _getLevel(self, level):
         if level.lower() in self.__levels:
             return self.__levels.get(level.lower())
         else:
-            raise KeyError("Invalid log level: %s" % level)
-
-    def _get_color(self, level):
-        # 定义ANSI转义序列
-        return self.__color_mapping.get(level, "\033[0m")  # Default: Reset color
-
-    def _reset_color(self):
-        # 重置ANSI转义序列
-        return "\033[0m"
-
-    def _format_message(self, message, level):
-        # 格式化日志消息并添加颜色
-        color = self._get_color(level)
-        reset_color = self._reset_color()
-        return f"{color}{message}{reset_color}"
+            raise KeyError(
+                "Invalid log level: %s, level must be one of ['debug', 'info', 'warning', 'error', 'critical']" % level
+            )
 
     # 发送调试消息
     def debug(self, message):
-        formatted_message = self._format_message(message, logging.DEBUG)
-        self.logger.debug(formatted_message)
+        self.logger.debug(message)
 
     # 发送通知
     def info(self, message):
-        formatted_message = self._format_message(message, logging.INFO)
-        self.logger.info(formatted_message)
+        self.logger.info(message)
 
     # 发生警告
     def warning(self, message):
-        formatted_message = self._format_message(message, logging.WARNING)
-        self.logger.warning(formatted_message)
+        self.logger.warning(message)
 
     # 发生错误
     def error(self, message):
-        formatted_message = self._format_message(message, logging.ERROR)
-        self.logger.error(formatted_message)
+        self.logger.error(message)
 
     # 致命错误
     def critical(self, message):
-        formatted_message = self._format_message(message, logging.CRITICAL)
-        self.logger.critical(formatted_message)
+        self.logger.critical(message)
