@@ -21,15 +21,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:mock"]
     },
-    // 启动前端编译服务
-    {
-      "name": "编译前端项目",
-      "request": "launch",
-      "cwd": "${workspaceRoot}",
-      "type": "node",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "build"]
-    },
     // 启动后端开发服务
     {
       "name": "后端开发",
@@ -42,6 +33,17 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
+    // 打包命令
+    {
+      "name": "构建项目",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_pypi.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
+    // 模拟实验开启
     {
       "name": "开启一个实验",
       "type": "python",
@@ -52,15 +54,6 @@
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
-    {
-      "name": "构建项目",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/build_pypi.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}"
     },
     // python运行当前文件
     {

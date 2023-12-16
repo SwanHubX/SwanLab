@@ -96,3 +96,16 @@ class ProjectTable(ProjectTablePoxy):
                 # print("success experiment ", project["experiments"][index])
                 break
         self.save(file, project)
+
+    @lock_file(file_path=path, mode="r+")
+    def fail(self, file: TextIOWrapper):
+        """实验失败，更新实验状态，再次保存实验信息"""
+        # 锁上文件，更新实验状态
+        project = ujson.load(file)
+        self.__experiment.fail()
+        for index, experiment in enumerate(project["experiments"]):
+            if experiment["experiment_id"] == self.__experiment.experiment_id:
+                project["experiments"][index] = self.__experiment.__dict__()
+                # print("success experiment ", project["experiments"][index])
+                break
+        self.save(file, project)

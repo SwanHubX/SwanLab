@@ -1,5 +1,9 @@
-# swandatabase对象，使用动态导入的方式有助于环境隔离，比如cli不需要此对象，就不需要导入
 _sd = None
+"""
+swandatabase对象
+使用动态导入的方式有助于环境隔离
+比如cli不需要此对象，就不需要导入
+"""
 
 
 def init(experiment_name: str = None, description: str = "", config: dict = {}):
@@ -17,15 +21,10 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     global _sd
     if _sd is not None:
         raise RuntimeError("swanlab has been initialized")
-    from .database.main import SwanDatabase
+    from .database import swandatabase as sd
 
-    # 挂载到全局变量
-    _sd = SwanDatabase()
-
-    # 注册成功后的清理函数
-    import atexit
-
-    atexit.register(_sd.success)
+    # 挂载对象
+    _sd = sd
 
     # 初始化数据库
     _sd.init(
