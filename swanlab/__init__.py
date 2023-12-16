@@ -1,3 +1,6 @@
+from .log import swanlog as swl
+from .env import swc
+
 _sd = None
 """
 swandatabase对象
@@ -21,17 +24,21 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     global _sd
     if _sd is not None:
         raise RuntimeError("swanlab has been initialized")
+    # 注册环境变量，需要在初始化数据库之前注册
+    swc.init(swc.getcwd(), "train")
     from .database import swandatabase as sd
 
     # 挂载对象
     _sd = sd
-
     # 初始化数据库
     _sd.init(
         experiment_name=experiment_name,
         description=description,
         config=config,
     )
+
+    swl.init(swc.output)
+    swl.info("Started training")
 
 
 def log(data: dict):

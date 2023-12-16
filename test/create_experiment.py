@@ -34,3 +34,5 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     sw.log({"loss": loss, "accuracy": acc})
     time.sleep(0.1)
+    if epoch % 100 == 0:
+        raise Exception("error")

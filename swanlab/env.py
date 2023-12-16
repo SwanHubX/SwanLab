@@ -118,8 +118,12 @@ class SwanlabConfig(object):
     @property
     @__should_initialized
     def output(self) -> str:
-        """服务日志输出文件路径"""
-        return os.path.join(self.root, "output.log")
+        """服务日志输出文件路径或者训练时swanlab的日志输出文件路径"""
+        if self.__mode == "train":
+            return os.path.join(self.exp_folder, "output.log")
+        else:
+            #
+            return os.path.join(self.root, "output.log")
 
     @property
     @__should_initialized
@@ -152,14 +156,6 @@ class SwanlabConfig(object):
     def console_folder(self) -> str:
         """终端监听文件根目录，必须是训练模式"""
         return os.path.join(self.root, self.__exp_name, "console")
-
-    @property
-    @__should_initialized
-    @__should_train_mode
-    @__should_added_exp
-    def output_folder(self) -> str:
-        """项目日志输出位置文件夹"""
-        return os.path.join(self.root, self.__exp_name, "output")
 
 
 swc = SwanlabConfig()
