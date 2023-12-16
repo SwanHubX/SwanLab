@@ -36,9 +36,11 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
         description=description,
         config=config,
     )
-
+    # 初始化日志对象
     swl.init(swc.output)
-    swl.info("Started training")
+    swl.info("Run data will be saved locally in " + swc.exp_folder)
+    swl.info("Experiment_name: " + _sd.experiment.name)
+    swl.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
 
 
 def log(data: dict):

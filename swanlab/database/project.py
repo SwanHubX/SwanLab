@@ -82,7 +82,6 @@ class ProjectTable(ProjectTablePoxy):
         self.__experiment = ExperimentTable(self.sum, name, description, config, len(experiments) + 1)
         # 添加一个实验到self["experiments"]中
         self["experiments"].append(self.__experiment.__dict__())
-        print("add experiment")
 
     @lock_file(file_path=path, mode="r+")
     def success(self, file: TextIOWrapper):
