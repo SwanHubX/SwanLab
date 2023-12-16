@@ -7,7 +7,40 @@ from ..env import swc
 swc.init(swc.getcwd(), "train")
 
 
-class Swanlog:
+class Logsys:
+    # 日志系统状态：running / success / error
+    __status = "running"
+
+    def __init__(self):
+        self.__status = "running"
+
+    def setSuccess(self):
+        if self.isRunning:
+            self.__status = "success"
+        else:
+            raise KeyError("%s is not running" % self.__status)
+
+    def setError(self):
+        if self.isRunning:
+            self.__status = "error"
+        else:
+            raise KeyError("%s is not running" % self.__status)
+
+    @property
+    def isSuccess(self) -> bool:
+        return self.__status == "success"
+
+    @property
+    def isError(self) -> bool:
+        return self.__status == "error"
+
+    @property
+    def isRunning(self) -> bool:
+        return self.__status == "running"
+
+
+class Swanlog(Logsys):
+    # 转义之后的颜色系统
     __color_mapping = {
         logging.DEBUG: "\033[36m",  # Cyan
         logging.INFO: "\033[32m",  # Green
@@ -16,6 +49,7 @@ class Swanlog:
         logging.CRITICAL: "\033[1;31m",  # Bold Red
     }
 
+    # 日志系统支持的输出等级
     __levels = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -24,11 +58,12 @@ class Swanlog:
         "critical": logging.CRITICAL,
     }
 
-    __status = "running"
-
     def __init__(self, name=__name__, log_file="output.log", log_level="debug"):
+        super()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self.__levels[log_level])
+        # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
+        # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
         self._create_console_handler()
         self._create_file_handler()
 
@@ -105,22 +140,37 @@ class Swanlog:
         reset_color = self._reset_color()
         return f"{color}{message}{reset_color}"
 
+    # 发送调试消息
     def debug(self, message):
         formatted_message = self._format_message(message, logging.DEBUG)
         self.logger.debug(formatted_message)
 
+    # 发送通知
     def info(self, message):
         formatted_message = self._format_message(message, logging.INFO)
         self.logger.info(formatted_message)
 
+    # 发生警告
     def warning(self, message):
         formatted_message = self._format_message(message, logging.WARNING)
         self.logger.warning(formatted_message)
 
+    # 发生错误
     def error(self, message):
         formatted_message = self._format_message(message, logging.ERROR)
         self.logger.error(formatted_message)
 
+    # 致命错误
     def critical(self, message):
         formatted_message = self._format_message(message, logging.CRITICAL)
         self.logger.critical(formatted_message)
+
+    # 实验成功
+    def setSuccess(self):
+        self.info("Success")
+        return super().setSuccess()
+
+    # 实验失败
+    def setError(self):
+        self.error("Error")
+        return super().setError()

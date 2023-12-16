@@ -4,9 +4,12 @@ import logging
 
 # sl.setLevel("error")
 # sl.setOutput()
+print(sl.isRunning)
 sl.debug("Watch out!")
 sl.info("I told you so")
 sl.warning("I told you so")
 sl.error("I told you so")
 sl.critical("I told you so")
 test1()
+
+sl.setSuccess()
