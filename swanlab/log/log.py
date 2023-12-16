@@ -70,7 +70,7 @@ class Swanlog(Logsys):
         console_handler = logging.StreamHandler()
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         console_handler.setFormatter(formatter)
-        console_handler.setLevel(self.__levels[level.lower()])
+        console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
@@ -78,7 +78,7 @@ class Swanlog(Logsys):
         file_handler = logging.FileHandler(log_path)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(self.__levels[level.lower()])
+        file_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(file_handler)
 
     def setOutput(self, log_path=None, level="debug"):
@@ -100,9 +100,8 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            console_handler = self.logger.handlers[0]
-            console_handler.setLevel(self.__levels[level.lower()])
+        console_handler = self.logger.handlers[0]
+        console_handler.setLevel(self._getLevel(level))
 
     def setFileLevel(self, level):
         """
@@ -111,9 +110,8 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            file_handler = self.logger.handlers[1]
-            file_handler.setLevel(self.__levels[level.lower()])
+        file_handler = self.logger.handlers[1]
+        file_handler.setLevel(self._getLevel(level))
 
     def setLevel(self, level):
         """
@@ -122,15 +120,16 @@ class Swanlog(Logsys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        if level.lower() in self.__levels:
-            self.logger.setLevel(self.__levels[level.lower()])
+        self.logger.setLevel(self._getLevel(level))
 
     # 获取对应等级的logging对象
     def _getLevel(self, level):
         if level.lower() in self.__levels:
             return self.__levels.get(level.lower())
         else:
-            raise KeyError("Invalid log level: %s" % level)
+            raise KeyError(
+                "Invalid log level: %s, level must be one of ['debug', 'info', 'warning', 'error', 'critical']" % level
+            )
 
     def _get_color(self, level):
         # 定义ANSI转义序列

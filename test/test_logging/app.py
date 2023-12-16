@@ -1,9 +1,12 @@
 from test1 import test1
 from swanlab.log import swanlog as sl
-import logging
+from swanlab.env import swc
+
+sl.init("output.log")
 
 # sl.setLevel("error")
 # sl.setOutput()
+sl.setConsoleLevel("info")
 print(sl.isRunning)
 sl.debug("Watch out!")
 sl.info("I told you so")
