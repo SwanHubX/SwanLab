@@ -8,3 +8,5 @@ r"""
     日志记录模块
 """
 from .log import Swanlog
+
+swanlog = Swanlog("swanlab")

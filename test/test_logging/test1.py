@@ -1,12 +1,11 @@
-from swanlab.log import Swanlog
+from swanlab.log import swanlog as sl
 import logging
 
-sl = Swanlog(__name__, log_level=logging.WARNING)
 test_string = "test1"
 
 
 def test1():
-    # sl.setConsoleLogLevel("warning")
+    sl.set_console_level("error")
     sl.debug(test_string)
     sl.info(test_string)
     sl.warning(test_string)

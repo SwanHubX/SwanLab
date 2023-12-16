@@ -1,8 +1,6 @@
 from test1 import test1
-from swanlab.log import Swanlog
+from swanlab.log import swanlog as sl
 import logging
-
-sl = Swanlog(__name__)
 
 
 sl.debug("Watch out!")

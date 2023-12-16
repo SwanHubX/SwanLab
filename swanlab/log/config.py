@@ -1,11 +1,10 @@
 import logging
-from ..env import SWANLAB_CONSOLE_FOLDER
+from ..env import swc
 import os
 from datetime import datetime
 
-# SWANLAB_CONSOLE_FOLDER 是否存在？如果不存在创建目录
-if not os.path.exists(SWANLAB_CONSOLE_FOLDER):
-    os.makedirs(SWANLAB_CONSOLE_FOLDER)
+swc.init(swc.getcwd(), "server")
+
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -26,7 +25,7 @@ LOGGING_CONFIG = {
         "file": {
             "class": "logging.FileHandler",
             "level": "INFO",  # 输出 INFO 及以上级别的日志到文件
-            "filename": os.path.join(SWANLAB_CONSOLE_FOLDER, datetime.now().strftime("%Y-%m-%d") + ".log"),
+            "filename": swc.output,
             "formatter": "detail",
         },
     },

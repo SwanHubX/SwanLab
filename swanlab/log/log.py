@@ -1,6 +1,7 @@
 import logging
 from .config import LOGGING_CONFIG
 import logging.config
+import logging.handlers
 
 
 class Swanlog:
@@ -20,10 +21,49 @@ class Swanlog:
         "critical": logging.CRITICAL,
     }
 
-    def __init__(self, name=__name__, log_file="app.log", log_level="debug"):
-        logging.config.dictConfig(LOGGING_CONFIG)
+    def __init__(self, name=__name__, log_file="output.log", log_level="debug"):
         self.logger = logging.getLogger(name)
-        print(self.logger.handlers)
+        self.logger.setLevel(self._levels[log_level])
+        self.create_console_handler()
+        self.create_file_handler(log_file)
+
+    # 创建控制台记录器
+    def create_console_handler(self, level="debug"):
+        console_handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(self._levels[level.lower()])
+        self.logger.addHandler(console_handler)
+
+    # 创建日志文件记录器
+    def create_file_handler(self, log_path="output.log", level="debug"):
+        file_handler = logging.FileHandler(log_path)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(self._levels[level.lower()])
+        self.logger.addHandler(file_handler)
+
+    def set_console_level(self, level):
+        """
+        设置控制台输出的日志级别。
+
+        Parameters:
+            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
+        """
+        if level.lower() in self._levels:
+            console_handler = self.logger.handlers[0]  # Assuming console handler is the first handler
+            console_handler.setLevel(self._levels[level.lower()])
+
+    def set_file_level(self, level):
+        """
+        设置写入日志文件的日志级别。
+
+        Parameters:
+            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
+        """
+        if level.lower() in self._levels:
+            file_handler = self.logger.handlers[1]  # Assuming file handler is the second handler
+            file_handler.setLevel(self._levels[level.lower()])
 
     def _get_color(self, level):
         # 定义ANSI转义序列
