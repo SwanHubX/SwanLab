@@ -1,10 +1,6 @@
 import logging
-from .config import LOGGING_CONFIG
 import logging.config
 import logging.handlers
-from ..env import swc
-
-swc.init(swc.getcwd(), "train")
 
 
 class Logsys:
@@ -58,14 +54,16 @@ class Swanlog(Logsys):
         "critical": logging.CRITICAL,
     }
 
-    def __init__(self, name=__name__, log_file="output.log", log_level="debug"):
+    def __init__(self, name=__name__, log_file="output.log", level="debug"):
         super()
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(self.__levels[log_level])
+        self.logger.setLevel(self._getLevel(level))
+
+    def init(self, path):
         # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
         # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
         self._create_console_handler()
-        self._create_file_handler()
+        self._create_file_handler(path)
 
     # 创建控制台记录器
     def _create_console_handler(self, level="debug"):
@@ -76,8 +74,8 @@ class Swanlog(Logsys):
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
-    def _create_file_handler(self, log_path=None, level="debug"):
-        file_handler = logging.FileHandler(swc.output if log_path is None else log_path)
+    def _create_file_handler(self, log_path, level="debug"):
+        file_handler = logging.FileHandler(log_path)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self.__levels[level.lower()])
@@ -88,7 +86,8 @@ class Swanlog(Logsys):
         设置日志文件的存储位置。
 
         Parameters:
-            new_log_path (str): 新的日志文件路径。
+            log_path (str): 日志文件路径。
+            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
         file_handler = self.logger.handlers[1]  # Assuming file handler is the second handler
         self.logger.removeHandler(file_handler)
@@ -125,6 +124,13 @@ class Swanlog(Logsys):
         """
         if level.lower() in self.__levels:
             self.logger.setLevel(self.__levels[level.lower()])
+
+    # 获取对应等级的logging对象
+    def _getLevel(self, level):
+        if level.lower() in self.__levels:
+            return self.__levels.get(level.lower())
+        else:
+            raise KeyError("Invalid log level: %s" % level)
 
     def _get_color(self, level):
         # 定义ANSI转义序列
@@ -164,13 +170,3 @@ class Swanlog(Logsys):
     def critical(self, message):
         formatted_message = self._format_message(message, logging.CRITICAL)
         self.logger.critical(formatted_message)
-
-    # 实验成功
-    def setSuccess(self):
-        self.info("Success")
-        return super().setSuccess()
-
-    # 实验失败
-    def setError(self):
-        self.error("Error")
-        return super().setError()

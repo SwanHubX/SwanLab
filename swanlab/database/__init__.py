@@ -1,34 +1,27 @@
-from ..env import swc
 import atexit
 import sys
-
-# 注册环境变量，需要在初始化数据库之前注册
-swc.init(swc.getcwd(), "train")
+from ..log import swanlog as swl
 
 # 初始化数据库
 from .main import SwanDatabase
 
 swandatabase = SwanDatabase()
 
-# TODO 后续会放到日志对象里
-failed = False
-
 
 # 定义清理函数
 def clean_handler():
-    print("cleaning...")
-    global failed
-    if not failed:
-        print("success")
+    if not swl.isError:
+        swl.info("train successfully")
         swandatabase.success()
+        swl.setSuccess()
 
 
 # 定义异常处理函数
 def except_handler(tp, val, tb):
-    print("error happened")
-    global failed
-    failed = True
+    swl.error("error happended while training!")
+    # 标记实验失败
     swandatabase.fail()
+    swl.setError()
 
 
 # 注册异常处理函数
