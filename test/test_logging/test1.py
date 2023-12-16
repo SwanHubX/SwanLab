@@ -5,7 +5,7 @@ test_string = "test1"
 
 
 def test1():
-    sl.set_console_level("error")
+    # sl.setLevel("error")
     sl.debug(test_string)
     sl.info(test_string)
     sl.warning(test_string)
