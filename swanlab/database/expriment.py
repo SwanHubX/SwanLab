@@ -110,3 +110,8 @@ class ExperimentTable(ExperimentPoxy):
         """实验成功完成，更新实验状态"""
         self.update_time = create_time()
         self.status = 1
+
+    def fail(self):
+        """实验失败，更新状态"""
+        self.update_time = create_time()
+        self.status = -1

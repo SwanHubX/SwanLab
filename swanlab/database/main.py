@@ -99,3 +99,7 @@ class SwanDatabase(object):
     def success(self):
         """标记实验成功"""
         self.__project.success()
+
+    def fail(self):
+        """标记实验失败"""
+        self.__project.fail()
