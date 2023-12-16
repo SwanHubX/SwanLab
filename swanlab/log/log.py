@@ -14,13 +14,13 @@ class Logsys:
         if self.isRunning:
             self.__status = "success"
         else:
-            raise KeyError("%s is not running" % self.__status)
+            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
 
     def setError(self):
         if self.isRunning:
             self.__status = "error"
         else:
-            raise KeyError("%s is not running" % self.__status)
+            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
 
     @property
     def isSuccess(self) -> bool:
