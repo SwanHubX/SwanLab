@@ -14,16 +14,14 @@ from swanlab.log import swanlog as swl
 
 swc.init(swc.getcwd(), "server")
 swl.init(swc.output, level="debug")
+swl.init(swc.output, level="debug")
 
 from swanlab.server.router import app
 
 
 import uvicorn
 
-import logging
-
-uvicorn_logger = logging.getLogger("uvicorn")
-uvicorn_logger.disabled = True
 
 if __name__ == "__main__":
     uvicorn.run("start_server:app", host="0.0.0.0", port=6092, reload=True)
+    # swl.info("hello")

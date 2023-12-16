@@ -79,7 +79,20 @@ class Swanlog(Logsys):
         if file_level:
             self.setFileLevel(file_level)
 
+    # 检测日志处理器是否重复注册
+    def _check_init(func):
+        """装饰器，防止多次注册处理器"""
+
+        def wrapper(self, *args, **kwargs):
+            if len(self.logger.handlers) == 2:
+                return self.debug("init more than once")
+            result = func(self, *args, **kwargs)
+            return result
+
+        return wrapper
+
     # 创建控制台记录器
+    @_check_init
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler()
         colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")  # 添加颜色格式化
@@ -88,6 +101,7 @@ class Swanlog(Logsys):
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
+    @_check_init
     def _create_file_handler(self, log_path, level="debug"):
         file_handler = logging.FileHandler(log_path)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
