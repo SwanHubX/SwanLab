@@ -12,7 +12,7 @@ import shutil
 import os
 
 # 构建node项目
-subprocess.run("npm run build", shell=True)
+subprocess.run("npm run build.release", shell=True)
 # 如果dist文件夹存在则删除
 if os.path.exists("dist"):
     shutil.rmtree("dist")

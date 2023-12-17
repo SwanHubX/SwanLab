@@ -10,7 +10,7 @@ r"""
 from .table import ExperimentPoxy
 from .chart import ChartTable
 import os
-from ..env import SWANLAB_LOGS_FOLDER
+from ..env import swc
 from typing import Union
 from ..utils import create_time, generate_color
 from .system import get_system_info
@@ -23,10 +23,10 @@ class ExperimentTable(ExperimentPoxy):
     def __init__(self, experiment_id: int, name: str, description: str, config: dict, index: int):
         # 初始化一个实验配置，name必须保证唯一，但是不在此处检查，而是在创建实验的时候检查
         # 创建name对应的文件夹
-        path = os.path.join(SWANLAB_LOGS_FOLDER, name)
-        if not os.path.exists(path):
-            os.mkdir(path)
-        super().__init__(path)
+        swc.add_exp(name)
+        if not os.path.exists(swc.logs_folder):
+            os.makedirs(swc.logs_folder)
+        super().__init__(swc.logs_folder)
         self.experiment_id = experiment_id
         self.name = name
         # tags数据不会被序列化
@@ -37,8 +37,8 @@ class ExperimentTable(ExperimentPoxy):
         self.argv = sys.argv
         self.index = index
         self.status = 0  # 0: 正在运行，1: 运行成功，-1: 运行失败
-        self.__chart = ChartTable(base_path=path, experiment_id=experiment_id)
-        self.color = generate_color()
+        self.__chart = ChartTable(experiment_id=experiment_id)
+        self.color = generate_color(experiment_id)
 
     def __dict__(self) -> dict:
         """序列化此对象
@@ -110,3 +110,8 @@ class ExperimentTable(ExperimentPoxy):
         """实验成功完成，更新实验状态"""
         self.update_time = create_time()
         self.status = 1
+
+    def fail(self):
+        """实验失败，更新状态"""
+        self.update_time = create_time()
+        self.status = -1

@@ -8,10 +8,12 @@ r"""
     综合服务 api
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time
+from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
+from ..log import swanlog as swl
 
 # 响应路径
 from ..env import INDEX, ASSETS
@@ -25,12 +27,21 @@ static_path = "/assets"
 static = StaticFiles(directory=ASSETS)
 app.mount(static_path, static)
 
+# 将uvicorn的日志输出handler删除
+import logging
+
+# 删除 uvicorn logger
+uvicorn_error = logging.getLogger("uvicorn.error")
+uvicorn_error.disabled = True
+uvicorn_access = logging.getLogger("uvicorn.access")
+uvicorn_access.disabled = True
+
 
 # ---------------------------------- 在此处注册中间件 ----------------------------------
 
 
 @app.middleware("http")
-async def resp_api(request, call_next):
+async def resp_base(request, call_next):
     """基础中间件，调整响应结果，添加处理时间等信息"""
     # 如果请求路径不以'/api'开头，说明并不是后端服务的请求，直接返回
     if not request.url.path.startswith("/api"):
@@ -51,7 +62,7 @@ async def resp_api(request, call_next):
 
 @app.middleware("http")
 async def resp_static(request, call_next):
-    """资源中间件，此时所有与api相关的内容不会传入此中间件"""
+    """资源中间件，此时所有与api相关的内容不会在此中间件中处理"""
     if request.url.path.startswith(static_path):
         # 如果是请求静态资源，直接返回
         return await call_next(request)
@@ -64,16 +75,76 @@ async def resp_static(request, call_next):
     return HTMLResponse(content=html_content, status_code=200)
 
 
+@app.middleware("http")
+async def catch_error(request: Request, call_next):
+    """异常中间件，捕获异常，重构异常信息"""
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        return await call_next(request)
+    try:
+        return await call_next(request)
+    except Exception as e:
+        return UNEXPECTED_ERROR_500(str(e))
+
+
+@app.middleware("http")
+async def log_print(request: Request, call_next):
+    """日志打印中间件"""
+    swl.debug("[" + request.method + "] from " + request.base_url._url)
+    resp = await call_next(request)
+    # 拿到状态码
+    status = str(resp.status_code)
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
+    else:
+        content = "[" + str(resp.status_code) + "] " + request.method + " api: " + request.url.path
+        if status.startswith("2"):
+            swl.info(content)
+        else:
+            swl.error(content)
+    return resp
+
+
+@app.middleware("http")
+async def resp_params(request: Request, call_next):
+    """参数中间件，处理api请求中的参数校验问题，重新结构化校验错误结果"""
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        return await call_next(request)
+    # print("请求api")
+    resp = await call_next(request)
+    # 拿到状态码
+    status = resp.status_code
+    if status == 422:
+        # 参数校验错误，重构错误信息
+        # 拿到响应体
+        import json
+
+        body = [chunk async for chunk in resp.body_iterator][0].decode()
+        body = json.loads(body)
+        detail = body["detail"][0]
+        msg = detail["msg"].split(" ")[1:]
+        loc = detail["loc"][1]
+        msg.insert(0, loc)
+        msg = " ".join(msg)
+        return PARAMS_ERROR_422(msg)
+    """
+    参数校验错误并不会影响其他情况的响应结果
+    此外由于参数校验错误在绝大多数情况应该是开发时的错误
+    所以不会影响正式版本的性能
+    """
+    return resp
+
+
 # ---------------------------------- 在此处注册相关路由 ----------------------------------
 
 
 # 导入数据相关的路由
-from .api.test import router as test
 from .api.project import router as project
 from .api.experiment import router as experiment
 
 # 使用配置列表，统一导入
 prefix = "/api/v1"
-app.include_router(test, prefix=prefix)
 app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")

@@ -8,7 +8,7 @@ r"""
     项目模块，创建项目级别数据库库，接下来针对实验级别的数据在此基础上进行操作
 """
 import os
-from ..env import SWANLAB_LOGS_FOLDER
+from ..env import swc
 from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from .table import ProjectTablePoxy
 from .expriment import ExperimentTable
@@ -24,7 +24,7 @@ class ProjectTable(ProjectTablePoxy):
     data: dict，实验管理类的数据，json格式
     """
 
-    path = os.path.join(SWANLAB_LOGS_FOLDER, "project.json")
+    path = swc.project
     default_data = {"_sum": 0, "experiments": []}
 
     def __init__(self, data: dict):
@@ -64,10 +64,13 @@ class ProjectTable(ProjectTablePoxy):
         """
         # 获取当前已经存在的实验名称集合
         experiments = [item["name"] for item in self["experiments"]]
+
+        # 获取实验名称
         if name is None:
             name = generate_random_tree_name(experiments)
         else:
             check_experiment_name(name)
+        # 获取实验描述和配置
         if description is None:
             description = ""
         if config is None:
@@ -79,7 +82,6 @@ class ProjectTable(ProjectTablePoxy):
         self.__experiment = ExperimentTable(self.sum, name, description, config, len(experiments) + 1)
         # 添加一个实验到self["experiments"]中
         self["experiments"].append(self.__experiment.__dict__())
-        print("add experiment")
 
     @lock_file(file_path=path, mode="r+")
     def success(self, file: TextIOWrapper):
@@ -94,13 +96,15 @@ class ProjectTable(ProjectTablePoxy):
                 break
         self.save(file, project)
 
-
-class PT(object):
-    """后端层面上的项目管理类，适配后端的项目管理接口，提供项目管理的相关功能"""
-
-    path = ProjectTable.path
-
-    @lock_file(file_path=path, mode="r")
-    def get(self, file: TextIOWrapper):
-        """获取实验信息"""
-        return ujson.load(file)
+    @lock_file(file_path=path, mode="r+")
+    def fail(self, file: TextIOWrapper):
+        """实验失败，更新实验状态，再次保存实验信息"""
+        # 锁上文件，更新实验状态
+        project = ujson.load(file)
+        self.__experiment.fail()
+        for index, experiment in enumerate(project["experiments"]):
+            if experiment["experiment_id"] == self.__experiment.experiment_id:
+                project["experiments"][index] = self.__experiment.__dict__()
+                # print("success experiment ", project["experiments"][index])
+                break
+        self.save(file, project)

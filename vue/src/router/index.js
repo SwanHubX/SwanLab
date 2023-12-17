@@ -33,7 +33,13 @@ const routes = [
     path: '/help',
     name: 'help',
     component: () => import('@swanlab-vue/views/help/HelpView.vue')
-  }
+  },
+  {
+    path: '/404',
+    name: 'not-found',
+    component: () => import('@swanlab-vue/views/error/pages/404.vue')
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/404' }
 ]
 
 const router = createRouter({

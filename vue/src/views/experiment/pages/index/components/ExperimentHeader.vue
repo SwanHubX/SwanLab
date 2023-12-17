@@ -50,11 +50,11 @@ import SLCopy from '@swanlab-vue/components/SLCopy.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
-import { inject } from 'vue'
 import { t } from '@swanlab-vue/i18n'
+import { useExperimentStroe } from '@swanlab-vue/store'
+import { ref } from 'vue'
 
-const experiment = inject('experiment')
-console.log(experiment.value.update_time)
+const experiment = ref(useExperimentStroe().experiment)
 
 const experiment_infos = computed(() => {
   return [

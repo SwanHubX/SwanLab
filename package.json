@@ -1,12 +1,13 @@
 {
   "name": "swanlab-ui",
   "private": true,
-  "version": "0.0.1beta6",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:mock": "vite --mode mock",
     "build": "vite build",
+    "build.release": "vite build --mode release",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "moment": "^2.29.4",
     "pinia": "^2.1.7",
     "sass": "^1.69.5",
+    "terser": "^5.26.0",
     "vue": "^3.3.8",
     "vue-i18n": "^9.8.0",
     "vue-router": "^4.2.5",

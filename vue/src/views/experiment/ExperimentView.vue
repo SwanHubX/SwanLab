@@ -1,5 +1,5 @@
 <template>
-  <ExperimentLayout>
+  <ExperimentLayout v-if="ready" :key="experimentStore.id">
     <template #tabs>
       <TabsHeader />
     </template>
@@ -15,31 +15,38 @@
  **/
 import TabsHeader from './components/TabsHeader.vue'
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
-import { computed, provide } from 'vue'
-import { useProjectStore } from '@swanlab-vue/store'
-import { useRoute } from 'vue-router'
+import { useExperimentStroe } from '@swanlab-vue/store'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import http from '@swanlab-vue/api/http'
+import { computed } from 'vue'
+import { inject } from 'vue'
 const route = useRoute()
-const projectStore = useProjectStore()
-
-// ---------------------------------- 获取当前实验的配置 ----------------------------------
-const experiment = computed(() => {
-  return projectStore.experiments?.find((item) => item.experiment_id === experimentId.value)
+const experimentStore = useExperimentStroe()
+// ---------------------------------- 请求实验信息 ----------------------------------
+const ready = computed(() => {
+  return experimentStore.id !== undefined
 })
+const show_error = inject('show_error')
+const init = async (id = route.params.experimentId) => {
+  http
+    .get(`/experiment/${id}`)
+    .then(({ data }) => {
+      experimentStore.experiment = data
+    })
+    .catch((response) => {
+      // console.error(response)
+      show_error(response.data.code)
+    })
+}
 
-const experimentColor = computed(() => {
-  return experiment.value.color
+init()
+
+onBeforeRouteUpdate((to, from) => {
+  console.log('leave')
+  if (to.params.experimentId !== from.params.experimentId) {
+    init(to.params.experimentId)
+  }
 })
-
-// TODO 后续改为从这完成依赖注入
-const experimentStatus = computed(() => {
-  return experiment.value.status
-})
-
-const experimentId = computed(() => Number(route.params.experimentId))
-
-provide('experiment', experiment)
-provide('experimentId', experimentId)
-provide('experimentColor', experimentColor)
 </script>
 
 <style lang="scss" scoped></style>

@@ -5,7 +5,7 @@
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
     "wandb": "database",
-    ".swanlab": "admin",
+    "swanlog": "log",
     ".config": "config",
     "store": "database",
     "help": "java",
