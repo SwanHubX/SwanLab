@@ -157,6 +157,14 @@ class SwanlabConfig(object):
         """终端监听文件根目录，必须是训练模式"""
         return os.path.join(self.root, self.__exp_name, "console")
 
+    @property
+    @__should_initialized
+    @__should_train_mode
+    @__should_added_exp
+    def error(self) -> str:
+        """终端错误日志打印路径"""
+        return os.path.join(self.root, self.__exp_name, "console", "error.log")
+
 
 swc = SwanlabConfig()
 
