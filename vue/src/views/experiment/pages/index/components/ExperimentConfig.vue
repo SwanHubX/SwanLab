@@ -14,18 +14,15 @@
         <div v-if="summaries?.length !== 0">
           <div class="flex items-center pb-4">
             <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
-            <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf">{{
-              $t('experiment.index.config.help.summary')
-            }}</SLHelp>
+            <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
+              >{{ $t('experiment.index.config.help.summary') }}
+            </SLHelp>
           </div>
           <SLTable
             class="max-w-[600px]"
             :header="['Key', 'Value']"
             :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
           />
-        </div>
-        <div class="w-full min-h-30 flex justify-center items-center" v-else>
-          <SLLoading />
         </div>
       </div>
     </div>
@@ -44,9 +41,7 @@ import SLTable from '@swanlab-vue/components/SLTable.vue'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
-import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
-import { inject } from 'vue'
 
 const experiment = ref(useExperimentStroe().experiment)
 
@@ -64,7 +59,6 @@ const getConfigs = (config) => {
 
 const summaries = ref([])
 const experimentId = ref(useExperimentStroe().id)
-const show_error = inject('show_error')
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then((res) => {
@@ -72,7 +66,6 @@ http
   })
   .catch((error) => {
     console.error(error)
-    show_error(error.data?.code || 500)
   })
 </script>
 
