@@ -17,7 +17,6 @@ epochs = 200
 lr = 0.01
 # 随机偏移量
 offset = random.random() / 5
-
 # 创建一个实验
 sw.init(
     description="this is a test experiment",
@@ -26,6 +25,8 @@ sw.init(
         "epochs": epochs,
     },
 )
+
+print("start training")
 
 # 模拟训练过程
 for epoch in range(2, epochs):

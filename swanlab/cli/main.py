@@ -9,7 +9,7 @@ r"""
 """
 
 import click
-from .utils import is_vaild_ip
+from .utils import is_vaild_ip, is_available_port
 
 
 @click.group()
@@ -42,13 +42,7 @@ def cli():
     type=click.Choice(["debug", "info", "warning", "error", "critical"]),
     help="The level of log, default by info; You can choose one of [debug, info, warning, error, critical]",
 )
-@click.option(
-    "--workers",
-    default=2,
-    type=int,
-    help="The number of web  workers, default by 2",
-)
-def watch(log_level: str, host: tuple, port: int, workers: int):
+def watch(log_level: str, host: tuple, port: int):
     """Run this command to turn on the swanlab service."""
     # 导入必要的模块
     from ..log import swanlog as swl

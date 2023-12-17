@@ -113,7 +113,10 @@ class SwanlabConfig(object):
     @_should_initialized
     def root(self) -> str:
         """项目输出根目录，必须先被初始化"""
-        return os.path.join(self.__folder, "swanlog")
+        r = os.path.join(self.__folder, "swanlog")
+        if not os.path.exists(r):
+            os.mkdir(r)
+        return r
 
     @property
     @_should_initialized
