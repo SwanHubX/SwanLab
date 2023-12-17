@@ -10,20 +10,18 @@
         </div>
         <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
       </div>
-      <div v-if="summaries">
-        <div v-if="summaries?.length !== 0">
-          <div class="flex items-center pb-4">
-            <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
-            <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
-              >{{ $t('experiment.index.config.help.summary') }}
-            </SLHelp>
-          </div>
-          <SLTable
-            class="max-w-[600px]"
-            :header="['Key', 'Value']"
-            :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
-          />
+      <div v-if="summaries?.length !== 0">
+        <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
+          <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
+          <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
+            >{{ $t('experiment.index.config.help.summary') }}
+          </SLHelp>
         </div>
+        <SLTable
+          class="max-w-[600px]"
+          :header="['Key', 'Value']"
+          :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
+        />
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -62,7 +60,7 @@ const experimentId = ref(useExperimentStroe().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then((res) => {
-    summaries.value = res.data.summaries || null
+    summaries.value = res.data.summaries || []
   })
   .catch((error) => {
     console.error(error)
