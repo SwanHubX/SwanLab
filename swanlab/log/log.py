@@ -1,6 +1,8 @@
 import logging
 import logging.config
 import logging.handlers
+from .console import SwanConsoler
+from ..env import swc
 
 
 class Logsys:
@@ -37,6 +39,10 @@ class Logsys:
 
 # 新增的带颜色的格式化类
 class ColoredFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
+        super().__init__(fmt, datefmt, style)
+        self.__handle = handle
+
     _color_mapping = {
         logging.DEBUG: "\033[32m",  # Green
         logging.INFO: "\033[32m",  # Green
@@ -47,6 +53,7 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         log_message = super().format(record)
+        self.__handle(log_message + "\n") if self.__handle else None
         color = self._color_mapping.get(record.levelno, "\033[0m")  # Default: Reset color
         reset_color = "\033[0m"
         return f"{color}{log_message}{reset_color}"
@@ -66,10 +73,18 @@ class Swanlog(Logsys):
         super()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
+        self.__consoler: SwanConsoler = None
 
     def init(self, path, level=None, console_level=None, file_level=None):
         # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
         # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
+
+        # 初始化控制台记录器
+        if self.__consoler is None and swc.isTrain:
+            self.debug("init consoler")
+            self.__consoler = SwanConsoler()
+            self.__consoler.init(swc.console_folder)
+
         self._create_console_handler()
         self._create_file_handler(path)
         if level:
@@ -95,7 +110,9 @@ class Swanlog(Logsys):
     @_check_init
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler()
-        colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")  # 添加颜色格式化
+        handle = None if self.__consoler is None else self.__consoler.add
+        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
+        colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", handle=handle)
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
@@ -178,3 +195,8 @@ class Swanlog(Logsys):
     # 致命错误
     def critical(self, message):
         self.logger.critical(message)
+
+    def reset_console(self):
+        """重置控制台记录器"""
+        self.__consoler.reset()
+        self.__consoler = None

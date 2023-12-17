@@ -24,8 +24,6 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     global _sd
     if _sd is not None:
         raise RuntimeError("swanlab has been initialized")
-    # 注册环境变量，需要在初始化数据库之前注册
-    swc.init(swc.getcwd(), "train")
     from .database import swandatabase as sd
 
     # 挂载对象

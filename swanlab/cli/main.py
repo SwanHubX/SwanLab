@@ -9,7 +9,7 @@ r"""
 """
 
 import click
-from .utils import is_vaild_ip, is_available_port
+from .utils import is_vaild_ip
 
 
 @click.group()
