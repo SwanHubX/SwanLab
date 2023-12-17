@@ -17,11 +17,12 @@ def clean_handler():
         swl.info("train successfully")
         swandatabase.success()
         swl.setSuccess()
+        swl.reset_console()
 
 
 # 定义异常处理函数
 def except_handler(tp, val, tb):
-    swl.error("error happended while training!")
+    swl.error("Error happended while training, SwanLab will throw it")
     # 标记实验失败
     swandatabase.fail()
     swl.setError()
@@ -34,10 +35,14 @@ def except_handler(tp, val, tb):
         html += line + "\n"
 
     if os.path.exists(swc.error):
-        swl.warning("error log file already exists, append error log to it")
+        swl.warning("Error log file already exists, append error log to it")
+    # 写入日志文件
     with open(swc.error, "a") as fError:
         print(datetime.now(), file=fError)
         print(html, file=fError)
+    # 重置控制台记录器
+    swl.reset_console()
+    raise tp(val)
 
 
 # 注册异常处理函数

@@ -58,8 +58,13 @@ class Consoler(sys.stdout.__class__):
 
 class SwanConsoler:
     def __init__(self):
-        self.consoler = Consoler()
+        self.consoler: Consoler = Consoler()
+        self.add: function = self.consoler.add
 
     def init(self, path):
         self.consoler.init(path)
         sys.stdout = self.consoler
+
+    def reset(self):
+        """重置输出为原本的样子"""
+        sys.stdout = self.consoler.original_stdout
