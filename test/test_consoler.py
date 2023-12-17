@@ -1,4 +1,4 @@
-from swanlab.log import init_consoler
+from swanlab.log import swan_consoler as swcl
 from swanlab.env import swc
 import swanlab as sw
 
@@ -6,8 +6,6 @@ import swanlab as sw
 epochs = 200
 # 学习率
 lr = 0.01
-# 随机偏移量
-offset = 0.5
 
 # 创建一个实验
 sw.init(
@@ -20,7 +18,8 @@ sw.init(
 
 swc.init(swc.getcwd(), "train")
 
-init_consoler(swc.console_folder)
+# init_consoler(swc.console_folder)
+swcl.init(swc.console_folder)
 
 print("test myconsoler")
 print("nihao swanlab")

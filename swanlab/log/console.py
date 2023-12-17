@@ -3,14 +3,13 @@ import os
 from datetime import datetime
 
 
-class SwanConsoler(sys.stdout.__class__):
+class Consoler(sys.stdout.__class__):
     def __init__(self):
         super().__init__(sys.stdout.buffer)
 
     def init(self, path):
         # 通过当前日期生成日志文件名
-        # self.now = datetime.now().strftime("%Y-%m-%d")
-        self.now = "2023-12-16"
+        self.now = datetime.now().strftime("%Y-%m-%d")
         self.console_folder = path
         # path 是否存在
         if not os.path.exists(path):
@@ -28,10 +27,11 @@ class SwanConsoler(sys.stdout.__class__):
             now = datetime.now().strftime("%Y-%m-%d")
             # 检测now是否和self.now一致
             if now != self.now:
-                print("console recoder path changed")
                 self.now = now
-                self.console = open(os.path.join(self.console_folder, self.now), "a")
-            return func(*args, **kwargs)
+                if hasattr(self, "console") and not self.console.closed:
+                    self.console.close()
+                self.console = open(os.path.join(self.console_folder, self.now + ".log"), "a")
+            return func(self, *args, **kwargs)
 
         return wrapper
 
@@ -42,9 +42,10 @@ class SwanConsoler(sys.stdout.__class__):
         super().write(message)
 
 
-def init_consoler(path):
-    # 创建Logger实例，指定保存日志的文件名
-    consoler = SwanConsoler()
-    consoler.init(path)
-    # 将sys.stdout重定向到Logger实例
-    sys.stdout = consoler
+class SwanConsoler:
+    def __init__(self):
+        self.consoler = Consoler()
+
+    def init(self, path):
+        self.consoler.init(path)
+        sys.stdout = self.consoler
