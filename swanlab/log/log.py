@@ -44,7 +44,7 @@ class ColoredFormatter(logging.Formatter):
         self.__handle = handle
 
     _color_mapping = {
-        logging.DEBUG: "\033[32m",  # Green
+        logging.DEBUG: "\033[37m",  # White
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
         logging.ERROR: "\033[91m",  # Red
@@ -56,7 +56,11 @@ class ColoredFormatter(logging.Formatter):
         self.__handle(log_message + "\n") if self.__handle else None
         color = self._color_mapping.get(record.levelno, "\033[0m")  # Default: Reset color
         reset_color = "\033[0m"
-        return f"{color}{log_message}{reset_color}"
+        # 分割消息，分别处理头尾
+        messages: list = log_message.split(":", 1)
+        target_length = 20
+        message_header = messages[0] + ":" + " " * max(0, target_length - len(messages[0]))
+        return f"{color}{message_header}{reset_color} {messages[1]}"
 
 
 class Swanlog(Logsys):
@@ -112,7 +116,7 @@ class Swanlog(Logsys):
         console_handler = logging.StreamHandler()
         handle = None if self.__consoler is None else self.__consoler.add
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", handle=handle)
+        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s", handle=handle)
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
@@ -121,7 +125,7 @@ class Swanlog(Logsys):
     @_check_init
     def _create_file_handler(self, log_path, level="debug"):
         file_handler = logging.FileHandler(log_path)
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(file_handler)
