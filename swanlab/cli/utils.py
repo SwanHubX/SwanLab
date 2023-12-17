@@ -40,3 +40,20 @@ def is_vaild_ip(ctx, param, ip: str) -> tuple:
     if ip not in ipv4 and ip != "0.0.0.0":
         raise click.BadParameter("IP address '" + ip + "' should be one of " + str(ipv4) + ".")
     return ip, ipv4
+
+
+def is_available_port(host, port):
+    """检测端口是否可用
+
+    Parameters
+    ----------
+    host : str
+        ip地址
+    port : int
+        端口号
+    """
+    try:
+        with socket.create_server((host, port), reuse_port=True):
+            pass
+    except:
+        raise OSError("Port '" + str(port) + "' is not available on " + host + ".")

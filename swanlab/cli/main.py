@@ -62,10 +62,8 @@ def watch(log_level: str, host: tuple, port: int, workers: int):
     ip, ipv4 = host
     ips = [f"http://{ip}:{port}" for ip in ipv4]
     # 判断ip:port是否被占用
-    import socket
-
-    with socket.create_server((ip, port), reuse_port=True):
-        pass
+    is_available_port(ip, port)
+    # ---------------------------------- 日志打印 ----------------------------------
     if ip == "0.0.0.0":
         # 检查每个ip地址的端口占用情况
         swl.info(f"SwanLab Experiment Dashboard running...")
