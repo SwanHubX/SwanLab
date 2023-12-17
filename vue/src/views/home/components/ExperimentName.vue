@@ -1,7 +1,7 @@
 <template>
   <RouterLink class="flex gap-2 items-center" :to="`/experiment/${id}`">
     <circle class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: $props.color }" />
-    <p class="truncate w-32">{{ name }}</p>
+    <p class="truncate w-80">{{ name }}</p>
   </RouterLink>
 </template>
 

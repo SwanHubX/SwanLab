@@ -23,7 +23,7 @@
     <!-- 实验表格 -->
     <table class="experiments-table">
       <tr>
-        <th class="w-52">{{ $t('home.list.table.header.name') }}</th>
+        <th class="w-96">{{ $t('home.list.table.header.name') }}</th>
         <th class="w-36">{{ $t('home.list.table.header.status') }}</th>
         <th class="w-36">{{ $t('home.list.table.header.create') }}</th>
       </tr>

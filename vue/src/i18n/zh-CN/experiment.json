@@ -34,8 +34,8 @@
       "detail": "配置",
       "summarize": "摘要",
       "help": {
-        "config": "配置（Config）参数描述你的模型的输入项，在swanlab.init的config参数中配置，点击了解更多。",
-        "summary": "摘要（Summary）参数描述你记录的指标的最终结果，点击了解更多。"
+        "config": "配置（Config）参数描述你的模型的输入项，在swanlab.init的config参数中配置，点击图标了解更多。",
+        "summary": "摘要（Summary）参数描述你记录的指标的最终结果，点击图标了解更多。"
       }
     }
   },
