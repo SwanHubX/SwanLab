@@ -9,19 +9,12 @@ r"""
     事实上在使用中并不是这样的，而是在命令行执行命令完成的，这里只是为了测试和开发
     增加了实际开发中不会用到的热启动功能
 """
-from swanlab.env import swc
-from swanlab.log import swanlog as swl
-
-swc.init(swc.getcwd(), "server")
-swl.init(swc.output, level="debug")
-swl.init(swc.output, level="debug")
-
 from swanlab.server.router import app
-
-
 import uvicorn
+from swanlab.server import swl
 
 
 if __name__ == "__main__":
-    uvicorn.run("start_server:app", host="0.0.0.0", port=6092, reload=True)
+    swl.info("start server")
+    uvicorn.run("start_server:app", host="0.0.0.0", port=6092, reload=True, log_level="critical")
     # swl.info("hello")

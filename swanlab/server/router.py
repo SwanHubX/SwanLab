@@ -27,6 +27,15 @@ static_path = "/assets"
 static = StaticFiles(directory=ASSETS)
 app.mount(static_path, static)
 
+# 将uvicorn的日志输出handler删除
+import logging
+
+# remove uvicorn logger
+uvicorn_error = logging.getLogger("uvicorn.error")
+uvicorn_error.disabled = True
+uvicorn_access = logging.getLogger("uvicorn.access")
+uvicorn_access.disabled = True
+
 
 # ---------------------------------- 在此处注册中间件 ----------------------------------
 
@@ -83,8 +92,6 @@ async def log_print(request: Request, call_next):
     """日志打印中间件"""
     resp = await call_next(request)
     status = str(resp.status_code)
-    print(status)
-
     if not request.url.path.startswith("/api"):
         # 如果不是请求api，直接返回
         swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
