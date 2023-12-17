@@ -9,4 +9,4 @@ r"""
 """
 from .log import Swanlog
 
-swanlog = Swanlog("swanlab")
+swanlog = Swanlog("SwanLab")

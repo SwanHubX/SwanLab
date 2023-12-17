@@ -24,8 +24,6 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     global _sd
     if _sd is not None:
         raise RuntimeError("swanlab has been initialized")
-    # 注册环境变量，需要在初始化数据库之前注册
-    swc.init(swc.getcwd(), "train")
     from .database import swandatabase as sd
 
     # 挂载对象
@@ -36,9 +34,11 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
         description=description,
         config=config,
     )
-
+    # 初始化日志对象
     swl.init(swc.output)
-    swl.info("Started training")
+    swl.info("Run data will be saved locally in " + swc.exp_folder)
+    swl.info("Experiment_name: " + _sd.experiment.name)
+    swl.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
 
 
 def log(data: dict):

@@ -38,7 +38,7 @@ class SwanlabConfig(object):
         # 当前模式，可选值: train, server; 前者代表日志记录模式，后者代表服务模式
         self.__mode = None
 
-    def __should_initialized(func):
+    def _should_initialized(func):
         """装饰器：必须在初始化完毕以后才能执行"""
 
         def wrapper(cls, *args, **kwargs):
@@ -49,7 +49,7 @@ class SwanlabConfig(object):
 
         return wrapper
 
-    def __should_added_exp(func):
+    def _should_added_exp(func):
         """装饰器：比如已经添加了实验"""
 
         def wrapper(cls, *args, **kwargs):
@@ -60,7 +60,7 @@ class SwanlabConfig(object):
 
         return wrapper
 
-    def __should_server_mode(func):
+    def _should_server_mode(func):
         """装饰器：必须是server mode"""
 
         def wrapper(cls, *args, **kwargs):
@@ -71,7 +71,7 @@ class SwanlabConfig(object):
 
         return wrapper
 
-    def __should_train_mode(func):
+    def _should_train_mode(func):
         """装饰器：必须是train mode"""
 
         def wrapper(cls, *args, **kwargs):
@@ -98,25 +98,34 @@ class SwanlabConfig(object):
             raise ValueError("config has been added experiment in train mode")
         self.__exp_name = exp_name
 
+    @property
+    @_should_initialized
+    def isTrain(self) -> str:
+        """当前模式是否为训练模式"""
+        return self.__mode == "train"
+
     @staticmethod
     def getcwd() -> str:
         """当前程序运行路径，不包括文件名"""
         return os.getcwd()
 
     @property
-    @__should_initialized
+    @_should_initialized
     def root(self) -> str:
         """项目输出根目录，必须先被初始化"""
-        return os.path.join(self.__folder, "swanlog")
+        r = os.path.join(self.__folder, "swanlog")
+        if not os.path.exists(r):
+            os.mkdir(r)
+        return r
 
     @property
-    @__should_initialized
+    @_should_initialized
     def project(self) -> str:
         """项目配置文件路径，必须是训练模式"""
         return os.path.join(self.root, "project.json")
 
     @property
-    @__should_initialized
+    @_should_initialized
     def output(self) -> str:
         """服务日志输出文件路径或者训练时swanlab的日志输出文件路径"""
         if self.__mode == "train":
@@ -126,36 +135,44 @@ class SwanlabConfig(object):
             return os.path.join(self.root, "output.log")
 
     @property
-    @__should_initialized
-    @__should_train_mode
-    @__should_added_exp
+    @_should_initialized
+    @_should_train_mode
+    @_should_added_exp
     def exp_folder(self) -> str:
         """实验存储路径"""
         return os.path.join(self.root, self.__exp_name)
 
     @property
-    @__should_initialized
-    @__should_train_mode
-    @__should_added_exp
+    @_should_initialized
+    @_should_train_mode
+    @_should_added_exp
     def logs_folder(self) -> str:
         """日志输出根目录，必须是训练模式"""
         return os.path.join(self.root, self.__exp_name, "logs")
 
     @property
-    @__should_initialized
-    @__should_train_mode
-    @__should_added_exp
+    @_should_initialized
+    @_should_train_mode
+    @_should_added_exp
     def chart(self) -> str:
         """表格路径"""
         return os.path.join(self.root, self.__exp_name, "chart.json")
 
     @property
-    @__should_initialized
-    @__should_train_mode
-    @__should_added_exp
+    @_should_initialized
+    @_should_train_mode
+    @_should_added_exp
     def console_folder(self) -> str:
         """终端监听文件根目录，必须是训练模式"""
         return os.path.join(self.root, self.__exp_name, "console")
+
+    @property
+    @_should_initialized
+    @_should_train_mode
+    @_should_added_exp
+    def error(self) -> str:
+        """终端错误日志打印路径"""
+        return os.path.join(self.root, self.__exp_name, "console", "error.log")
 
 
 swc = SwanlabConfig()

@@ -9,9 +9,7 @@ r"""
 """
 
 import click
-import uvicorn
-from .utils import is_vaild_ip, get_all_ip
-from ..env import swc
+from .utils import is_vaild_ip, is_available_port
 
 
 @click.group()
@@ -20,52 +18,56 @@ def cli():
 
 
 @cli.command()
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Show more logs when use debug mode",
-)
 # 控制服务发布的ip地址
 @click.option(
     "--host",
-    default="0.0.0.0",
+    "-h",
+    default="127.0.0.1",
+    type=str,
     help="The host of swanlab web, default by 127.0.0.1",
+    callback=is_vaild_ip,
 )
 # 控制服务发布的端口，默认5092
 @click.option(
     "--port",
     "-p",
     default=5092,
+    type=int,
     help="The port of swanlab web, default by 5092",
 )
-def watch(host, debug, port):
+# 日志等级
+@click.option(
+    "--log-level",
+    default="info",
+    type=click.Choice(["debug", "info", "warning", "error", "critical"]),
+    help="The level of log, default by info; You can choose one of [debug, info, warning, error, critical]",
+)
+def watch(log_level: str, host: tuple, port: int):
     """Run this command to turn on the swanlab service."""
-    # ---------------------------------- 日志等级处理 ----------------------------------
-
-    log_level = "info" if debug else "warning"
-
-    # ---------------------------------- 服务地址处理 ----------------------------------
-
-    # 检查地址是否合法
-    if not is_vaild_ip(host):
-        raise ValueError(f'ip address "{host}" is not vaild')
-    # 拿到当前本机可用的所有ip地址
-    ipv4 = get_all_ip()
-    if host == "0.0.0.0":
-        click.echo(f"swanlab is running...")
-        click.echo(f"Available on:")
-        for ip in ipv4:
-            click.echo(f"  - \033[1mhttp://{ip}:{port}\033[0m")
-    elif host in ipv4:
-        click.echo(f"swanlab running on \033[1mhttp://{host}:{port}\033[0m")
-    else:
-        raise ValueError(f'ip address "{host}" is not available, please use one of {ipv4}')
-    # ---------------------------------- 启动服务 ----------------------------------
-    swc.init(swc.getcwd(), "server")
+    # 导入必要的模块
+    from ..log import swanlog as swl
     from ..server import app
+    import uvicorn
 
-    # 使用 uvicorn 启动 FastAPI 应用
-    uvicorn.run(app, host=host, port=port, log_level=log_level)
+    # ---------------------------------- 日志等级处理 ----------------------------------
+    swl.setLevel(log_level)
+    # ---------------------------------- 服务地址处理 ----------------------------------
+    # 拿到当前本机可用的所有ip地址
+    ip, ipv4 = host
+    ips = [f"http://{ip}:{port}" for ip in ipv4]
+    # 判断ip:port是否被占用
+    is_available_port(ip, port)
+    # ---------------------------------- 日志打印 ----------------------------------
+    if ip == "0.0.0.0":
+        # 检查每个ip地址的端口占用情况
+        swl.info(f"SwanLab Experiment Dashboard running...")
+        swl.info(f"Available on: \n" + "\n".join(ips))
+    else:
+        swl.info(f"SwanLab Experiment Dashboard running on \033[1mhttp://{ip}:{port}\033[0m")
+    # ---------------------------------- 启动服务 ----------------------------------
+
+    # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
+    uvicorn.run(app, host=ip, port=port, log_level="critical")
 
 
 if __name__ == "__main__":

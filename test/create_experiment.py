@@ -17,7 +17,6 @@ epochs = 200
 lr = 0.01
 # 随机偏移量
 offset = random.random() / 5
-
 # 创建一个实验
 sw.init(
     description="this is a test experiment",
@@ -27,6 +26,8 @@ sw.init(
     },
 )
 
+print("start training")
+
 # 模拟训练过程
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
@@ -34,5 +35,5 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     sw.log({"loss": loss, "accuracy": acc})
     time.sleep(0.1)
-    if epoch % 100 == 0:
+    if epoch % 10 == 0:
         raise Exception("error")

@@ -1,6 +1,8 @@
 import logging
 import logging.config
 import logging.handlers
+from .console import SwanConsoler
+from ..env import swc
 
 
 class Logsys:
@@ -37,8 +39,12 @@ class Logsys:
 
 # 新增的带颜色的格式化类
 class ColoredFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
+        super().__init__(fmt, datefmt, style)
+        self.__handle = handle
+
     _color_mapping = {
-        logging.DEBUG: "\033[32m",  # Green
+        logging.DEBUG: "\033[37m",  # White
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
         logging.ERROR: "\033[91m",  # Red
@@ -47,9 +53,14 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         log_message = super().format(record)
+        self.__handle(log_message + "\n") if self.__handle else None
         color = self._color_mapping.get(record.levelno, "\033[0m")  # Default: Reset color
         reset_color = "\033[0m"
-        return f"{color}{log_message}{reset_color}"
+        # 分割消息，分别处理头尾
+        messages: list = log_message.split(":", 1)
+        target_length = 20
+        message_header = messages[0] + ":" + " " * max(0, target_length - len(messages[0]))
+        return f"{color}{message_header}{reset_color} {messages[1]}"
 
 
 class Swanlog(Logsys):
@@ -66,10 +77,18 @@ class Swanlog(Logsys):
         super()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
+        self.__consoler: SwanConsoler = None
 
     def init(self, path, level=None, console_level=None, file_level=None):
         # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
         # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
+
+        # 初始化控制台记录器
+        if self.__consoler is None and swc.isTrain:
+            self.debug("init consoler")
+            self.__consoler = SwanConsoler()
+            self.__consoler.init(swc.console_folder)
+
         self._create_console_handler()
         self._create_file_handler(path)
         if level:
@@ -79,18 +98,34 @@ class Swanlog(Logsys):
         if file_level:
             self.setFileLevel(file_level)
 
+    # 检测日志处理器是否重复注册
+    def _check_init(func):
+        """装饰器，防止多次注册处理器"""
+
+        def wrapper(self, *args, **kwargs):
+            if len(self.logger.handlers) == 2:
+                return self.debug("init more than once")
+            result = func(self, *args, **kwargs)
+            return result
+
+        return wrapper
+
     # 创建控制台记录器
+    @_check_init
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler()
-        colored_formatter = ColoredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")  # 添加颜色格式化
+        handle = None if self.__consoler is None else self.__consoler.add
+        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
+        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s", handle=handle)
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
+    @_check_init
     def _create_file_handler(self, log_path, level="debug"):
         file_handler = logging.FileHandler(log_path)
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(file_handler)
@@ -164,3 +199,8 @@ class Swanlog(Logsys):
     # 致命错误
     def critical(self, message):
         self.logger.critical(message)
+
+    def reset_console(self):
+        """重置控制台记录器"""
+        self.__consoler.reset()
+        self.__consoler = None

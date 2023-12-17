@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time
 from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
+from ..log import swanlog as swl
 
 # 响应路径
 from ..env import INDEX, ASSETS
@@ -25,6 +26,15 @@ app = FastAPI()
 static_path = "/assets"
 static = StaticFiles(directory=ASSETS)
 app.mount(static_path, static)
+
+# 将uvicorn的日志输出handler删除
+import logging
+
+# 删除 uvicorn logger
+uvicorn_error = logging.getLogger("uvicorn.error")
+uvicorn_error.disabled = True
+uvicorn_access = logging.getLogger("uvicorn.access")
+uvicorn_access.disabled = True
 
 
 # ---------------------------------- 在此处注册中间件 ----------------------------------
@@ -75,6 +85,25 @@ async def catch_error(request: Request, call_next):
         return await call_next(request)
     except Exception as e:
         return UNEXPECTED_ERROR_500(str(e))
+
+
+@app.middleware("http")
+async def log_print(request: Request, call_next):
+    """日志打印中间件"""
+    swl.debug("[" + request.method + "] from " + request.base_url._url)
+    resp = await call_next(request)
+    # 拿到状态码
+    status = str(resp.status_code)
+    if not request.url.path.startswith("/api"):
+        # 如果不是请求api，直接返回
+        swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
+    else:
+        content = "[" + str(resp.status_code) + "] " + request.method + " api: " + request.url.path
+        if status.startswith("2"):
+            swl.info(content)
+        else:
+            swl.error(content)
+    return resp
 
 
 @app.middleware("http")
