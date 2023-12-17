@@ -1,7 +1,23 @@
 from test1 import test1
 from swanlab.log import swanlog as sl
 from swanlab.env import swc
+import swanlab as sw
 
+swc.init(swc.getcwd(), "train")
+
+# 迭代次数
+epochs = 200
+# 学习率
+lr = 0.01
+
+# 创建一个实验
+sw.init(
+    description="this is a test experiment",
+    config={
+        "learning_rate": lr,
+        "epochs": epochs,
+    },
+)
 sl.init("output.log", "debug")
 
 # sl.setLevel("error")
@@ -14,4 +30,4 @@ sl.error("I told you so")
 sl.critical("I told you so")
 test1()
 
-sl.setSuccess()
+# sl.setSuccess()
