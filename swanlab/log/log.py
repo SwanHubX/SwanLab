@@ -1,6 +1,8 @@
 import logging
 import logging.config
 import logging.handlers
+from .console import SwanConsoler
+from ..env import swc
 
 
 class Logsys:
@@ -66,10 +68,18 @@ class Swanlog(Logsys):
         super()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
+        self.__consoler = None
 
     def init(self, path, level=None, console_level=None, file_level=None):
         # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
         # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
+
+        # 初始化控制台记录器
+        if self.__consoler is None and swc.isTrain:
+            self.debug("init consoler")
+            self.__consoler = SwanConsoler()
+            self.__consoler.init(swc.console_folder)
+
         self._create_console_handler()
         self._create_file_handler(path)
         if level:

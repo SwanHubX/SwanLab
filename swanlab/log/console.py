@@ -6,6 +6,7 @@ from datetime import datetime
 class Consoler(sys.stdout.__class__):
     def __init__(self):
         super().__init__(sys.stdout.buffer)
+        self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
 
     def init(self, path):
         # 通过当前日期生成日志文件名
@@ -39,7 +40,20 @@ class Consoler(sys.stdout.__class__):
     def write(self, message):
         self.console.write(message)
         self.console.flush()
-        super().write(message)
+        self.original_stdout.write(message)  # 同时写入原始 sys.stdout
+        self.original_stdout.flush()
+
+    @_check_file_name
+    def add(self, message: str):
+        """此接口用于写入额外的信息到日志文件中，但是不会写入到控制台
+
+        Parameters
+        ----------
+        message : str
+            写入的信息
+        """
+        self.console.write(message)
+        self.console.flush()
 
 
 class SwanConsoler:

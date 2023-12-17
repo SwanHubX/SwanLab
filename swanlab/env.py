@@ -98,6 +98,12 @@ class SwanlabConfig(object):
             raise ValueError("config has been added experiment in train mode")
         self.__exp_name = exp_name
 
+    @property
+    @__should_initialized
+    def isTrain(self) -> str:
+        """当前模式是否为训练模式"""
+        return self.__mode == "train"
+
     @staticmethod
     def getcwd() -> str:
         """当前程序运行路径，不包括文件名"""

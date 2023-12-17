@@ -8,7 +8,5 @@ r"""
     日志记录模块
 """
 from .log import Swanlog
-from .console import SwanConsoler
 
-swanlog = Swanlog("swanlab")
-swan_consoler = SwanConsoler()
+swanlog = Swanlog("SwanLab")
