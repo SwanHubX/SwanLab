@@ -44,7 +44,7 @@ class ColoredFormatter(logging.Formatter):
         self.__handle = handle
 
     _color_mapping = {
-        logging.DEBUG: "\033[34m",  # Blue
+        logging.DEBUG: "\033[90m",  # Grey
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
         logging.ERROR: "\033[91m",  # Red
