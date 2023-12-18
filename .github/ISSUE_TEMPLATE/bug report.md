@@ -22,7 +22,7 @@ Describe the main elements of the bug
 
 ## 👾 Expected result
 
-
+Write down the results you expect
 
 ## 🚑 Any additional [like screenshots]
 
