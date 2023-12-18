@@ -44,7 +44,7 @@ class ColoredFormatter(logging.Formatter):
         self.__handle = handle
 
     _color_mapping = {
-        logging.DEBUG: "\033[37m",  # White
+        logging.DEBUG: "\033[34m",  # Blue
         logging.INFO: "\033[32m",  # Green
         logging.WARNING: "\033[33m",  # Yellow
         logging.ERROR: "\033[91m",  # Red
@@ -173,6 +173,23 @@ class Swanlog(Logsys):
 
     # 获取对应等级的logging对象
     def _getLevel(self, level):
+        """私有属性，获取等级对应的 logging 对象
+
+        Parameters
+        ----------
+        level : string
+            日志级别，可以是 "debug", "info", "warning", "error", 或 "critical"
+
+        Returns
+        -------
+        logging.level : object
+            logging 模块中的日志等级
+
+        Raises
+        ------
+        KeyError
+            无效的日志级别
+        """
         if level.lower() in self.__levels:
             return self.__levels.get(level.lower())
         else:
