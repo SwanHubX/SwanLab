@@ -55,6 +55,17 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
+    {
+      "name": "模拟命令行watch",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/cli_test.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      //sys.path 会加入顶层目录，影响模块导入查询路径
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
     // python运行当前文件
     {
       "name": "Python运行当前文件",
