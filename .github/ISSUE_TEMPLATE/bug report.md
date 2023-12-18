@@ -22,6 +22,8 @@ Describe the main elements of the bug
 
 ## 👾 Expected result
 
+
+
 ## 🚑 Any additional [like screenshots]
 
 - **SwanLab Version**:
