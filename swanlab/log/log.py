@@ -124,7 +124,7 @@ class Swanlog(Logsys):
     # 创建日志文件记录器
     @_check_init
     def _create_file_handler(self, log_path, level="debug"):
-        file_handler = logging.FileHandler(log_path)
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
         formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self._getLevel(level))

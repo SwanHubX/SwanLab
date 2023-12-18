@@ -18,7 +18,7 @@ class Consoler(sys.stdout.__class__):
         # 日志文件路径
         console_path = os.path.join(path, f"{self.now}.log")
         # 日志文件
-        self.console = open(console_path, "a")
+        self.console = open(console_path, "a", encoding="utf-8")
 
     # 检查当前日期是否和控制台日志文件名一致
     def _check_file_name(func):
@@ -31,7 +31,7 @@ class Consoler(sys.stdout.__class__):
                 self.now = now
                 if hasattr(self, "console") and not self.console.closed:
                     self.console.close()
-                self.console = open(os.path.join(self.console_folder, self.now + ".log"), "a")
+                self.console = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
             return func(self, *args, **kwargs)
 
         return wrapper
