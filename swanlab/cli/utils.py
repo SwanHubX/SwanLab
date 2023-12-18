@@ -32,10 +32,16 @@ def is_vaild_ip(ctx, param, ip: str) -> tuple:
     # 没有问题，获取当前机器的所有ip地址
     interfaces = psutil.net_if_addrs()
     ipv4 = []
+    # APIPA 地址范围
+    apipa_range = range(169, 255)
     for _, addresses in interfaces.items():
         for address in addresses:
-            # 如果是ipv4地址
+            # 如果是ipv4地址，且可以被访问到
             if address.family == socket.AddressFamily.AF_INET:
+                # 排除 APIPA 地址范围
+                octets = list(map(int, address.address.split(".")))
+                if octets[0] == 169 and octets[1] in apipa_range:
+                    continue
                 ipv4.append(address.address)
     if ip not in ipv4 and ip != "0.0.0.0":
         raise click.BadParameter("IP address '" + ip + "' should be one of " + str(ipv4) + ".")
@@ -53,7 +59,7 @@ def is_available_port(host, port):
         端口号
     """
     try:
-        with socket.create_server((host, port), reuse_port=True):
-            pass
+        with socket.create_server((host, port)):
+            return True
     except:
-        raise OSError("Port '" + str(port) + "' is not available on " + host + ".")
+        return False
