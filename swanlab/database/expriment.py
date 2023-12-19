@@ -78,7 +78,7 @@ class ExperimentTable(ExperimentPoxy):
         """
         return any(item["tag"] == tag for item in self.tags)
 
-    def add(self, tag: str, data: Union[float, str], namespace: str):
+    def add(self, tag: str, data: Union[float, str], step: int = None):
         """记录一条新的tag数据
 
         Parameters
@@ -89,6 +89,8 @@ class ExperimentTable(ExperimentPoxy):
             tag数据，可以是浮点型，也可以是字符串，但不可以是其他类型
         namespace : str
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）
+        step : int
+            步数，用于区分同一tag下的不同数据，如果为None，则自动加1
         """
         if not self.is_tag_exist(tag):
             # 在chart中记录此tag
@@ -98,7 +100,8 @@ class ExperimentTable(ExperimentPoxy):
         # 更新tag的数量，并拿到tag的索引
         tag_index = self.update_tag_num(tag)
         # 往本地添加新的数据
-        self.save_tag(tag, data, self.experiment_id, tag_index)
+        # TODO 指定step支持 #9
+        self.save_tag(tag, data, self.experiment_id, tag_index, step=step)
 
     def update_tag_num(self, tag: str) -> int:
         for index, item in enumerate(self.tags):

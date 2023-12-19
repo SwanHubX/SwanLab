@@ -101,6 +101,7 @@ def log(data: dict):
         raise TypeError("log data must be a dict")
     for key in data:
         # 遍历字典的key，记录到本地文件中
+        # TODO 检查数据类型
         sd.add(key, data[key])
 
 
