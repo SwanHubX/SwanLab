@@ -11,6 +11,8 @@ import random
 import swanlab as sw
 import time
 
+print("swanlab version: ", sw.__version__)
+
 # 迭代次数
 epochs = 200
 # 学习率

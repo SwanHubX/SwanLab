@@ -63,6 +63,8 @@ class SwanDatabase(object):
         file : TextIOWrapper, optional
             文件对象，用于文件锁定, by default None
         """
+        if self.__project is not None:
+            raise RuntimeError("swanlab has been initialized")
         # 检查实验名称是否存在
         project_exist = os.path.exists(ProjectTable.path) and os.path.getsize(ProjectTable.path) != 0
         # 初始化项目对象
@@ -94,6 +96,8 @@ class SwanDatabase(object):
         namespace : str, optional
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）, by default "charts"
         """
+        if self.__project is None:
+            raise RuntimeError("swanlab has not been initialized")
         self.__project.experiment.add(tag, data, namespace)
 
     def success(self):
