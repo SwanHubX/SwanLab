@@ -66,6 +66,42 @@ def generate_color(number: int = 0) -> str:
 DEFAULT_COLOR = generate_color(1)
 
 
+class FONT:
+    @staticmethod
+    def bold(s: str) -> str:
+        """在终端中加粗字符串
+
+        Parameters
+        ----------
+        s : str
+            需要加粗的字符串
+
+        Returns
+        -------
+        str
+            加粗后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[1m{s}\033[0m"
+
+    @staticmethod
+    def green(s: str) -> str:
+        """在终端中将字符串着色为绿色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[32m{s}\033[0m"
+
+
 if __name__ == "__main__":
     print(generate_color(1))
     print(DEFAULT_COLOR)
