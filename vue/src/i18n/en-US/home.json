@@ -1,0 +1,17 @@
+{
+    "overview": {
+    "create": "Creation Time",
+    "latest": "Latest Run Time",
+    "total": "Total Experiments"
+    },
+    "list": {
+    "title": "Experiment List",
+    "table": {
+    "header": {
+    "name": "Experiment Name",
+    "status": "Status",
+    "create": "Creation Time"
+      }
+     }
+   }
+}
