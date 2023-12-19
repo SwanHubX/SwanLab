@@ -13,8 +13,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-from swanlab.cli import cli
+from swanlab.cli.main import watch
 
 
 if __name__ == "__main__":
-    cli()
+    watch()

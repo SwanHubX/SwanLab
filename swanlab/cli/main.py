@@ -9,7 +9,9 @@ r"""
 """
 
 import click
-from .utils import is_vaild_ip, is_available_port
+from .utils import is_vaild_ip, is_available_port, URL
+from ..utils import FONT
+import time
 
 
 @click.group()
@@ -44,6 +46,7 @@ def cli():
 )
 def watch(log_level: str, host: tuple, port: int):
     """Run this command to turn on the swanlab service."""
+    start = time.time()
     # 导入必要的模块
     from ..log import swanlog as swl
     from ..server import app
@@ -54,16 +57,19 @@ def watch(log_level: str, host: tuple, port: int):
     # ---------------------------------- 服务地址处理 ----------------------------------
     # 拿到当前本机可用的所有ip地址
     ip, ipv4 = host
-    ips = [f"http://{ip}:{port}" for ip in ipv4]
     # 判断ip:port是否被占用
     is_available_port(ip, port)
     # ---------------------------------- 日志打印 ----------------------------------
-    if ip == "0.0.0.0":
-        # 检查每个ip地址的端口占用情况
-        swl.info(f"SwanLab Experiment Dashboard running...")
-        swl.info(f"Available on: \n" + "\n".join(ips))
+    # 耗时
+    take_time = int((time.time() - start) * 1000).__str__() + "ms\n\n"
+    # 可用URL
+    if URL.is_zero_ip(ip):
+        tip = "\n".join([URL(i, port).__str__() for i in ipv4])
     else:
-        swl.info(f"SwanLab Experiment Dashboard running on \033[1mhttp://{ip}:{port}\033[0m")
+        tip = URL(ip, port).__str__()
+    tip = tip + "\n"
+    swl.info(f"SwanLab Experiment Dashboard ready in " + FONT.bold(take_time) + tip)
+
     # ---------------------------------- 启动服务 ----------------------------------
 
     # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
@@ -71,4 +77,4 @@ def watch(log_level: str, host: tuple, port: int):
 
 
 if __name__ == "__main__":
-    watch()
+    cli()
