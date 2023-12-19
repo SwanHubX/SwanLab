@@ -85,6 +85,23 @@ class FONT:
         return f"\033[1m{s}\033[0m"
 
     @staticmethod
+    def grey(s: str) -> str:
+        """在终端中将字符串着色为灰色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[90m{s}\033[0m"
+
+    @staticmethod
     def green(s: str) -> str:
         """在终端中将字符串着色为绿色
 
@@ -100,6 +117,57 @@ class FONT:
         """
         # ANSI 转义码用于在终端中改变文本样式
         return f"\033[32m{s}\033[0m"
+
+    @staticmethod
+    def yellow(s: str) -> str:
+        """在终端中将字符串着色为黄色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[33m{s}\033[0m"
+
+    @staticmethod
+    def red(s: str) -> str:
+        """在终端中将字符串着色为红色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[31m{s}\033[0m"
+
+    @staticmethod
+    def bold_red(s: str) -> str:
+        """在终端中加粗的红色字符串
+
+        Parameters
+        ----------
+        s : str
+            需要加粗的字符串
+
+        Returns
+        -------
+        str
+            加粗后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[1;31m{s}\033[0m"
 
 
 if __name__ == "__main__":
