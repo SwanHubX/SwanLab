@@ -40,7 +40,7 @@ def except_handler(tp, val, tb):
     raise tp(val)
 
 
-def init(experiment_name: str = None, description: str = "", config: dict = {}):
+def init(experiment_name: str = None, description: str = "", config: dict = {}, *args, **kwargs):
     """初始化swanlab的配置
 
     Parameters
@@ -51,6 +51,8 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
         实验描述, 如果不指定默认为空
     config : dict, optional
         实验可选配置，在此处可以记录一些实验的超参数等信息
+    kwargs : dict, optional
+        其他额外的非必要设置项目
     """
     global sd
     # 注册环境变量，需要在初始化数据库之前注册
@@ -73,7 +75,10 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
         config=config,
     )
     # 初始化日志对象
-    swl.init(swc.output)
+
+    swl.init(swc.output, level=kwargs.get("log_level", "info"))
+    swl.debug("SwanLab database initialized")
+    swl.debug("Swanlab will take over all the print information of the terminal from now on")
     swl.info("Run data will be saved locally in " + swc.exp_folder)
     swl.info("Experiment_name: " + sd.experiment.name)
     swl.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")

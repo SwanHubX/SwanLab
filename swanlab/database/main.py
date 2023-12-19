@@ -15,6 +15,7 @@ from ..utils import lock_file
 from typing import Union
 from io import TextIOWrapper
 import ujson
+from .utils import Image
 
 
 class SwanDatabase(object):
@@ -80,7 +81,7 @@ class SwanDatabase(object):
         """获取当前实验对象"""
         return self.__project.experiment
 
-    def add(self, tag: str, data: Union[str, float], namespace: str = "charts"):
+    def add(self, tag: str, data: Union[Image, float], namespace: str = "charts"):
         """添加数据到数据库，保存数据，完成几件事情：
         1. 如果{experiment_name}_{tag}表单不存在，则创建
         2. 添加记录到{experiment_name}_{tag}表单中，包括create_time等
@@ -98,6 +99,12 @@ class SwanDatabase(object):
         """
         if self.__project is None:
             raise RuntimeError("swanlab has not been initialized")
+
+        if isinstance(data, float):
+            # 如果是float类型，保留六位小数
+            data = round(data, 6)
+        # TODO 如果是Image类型，执行其他逻辑
+
         self.__project.experiment.add(tag, data, namespace)
 
     def success(self):

@@ -11,10 +11,8 @@ import random
 import swanlab as sw
 import time
 
-print("swanlab version: ", sw.__version__)
-
 # 迭代次数
-epochs = 200
+epochs = 50
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -26,6 +24,7 @@ sw.init(
         "learning_rate": lr,
         "epochs": epochs,
     },
+    log_level="debug",
 )
 
 print("start training")
@@ -37,5 +36,5 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     sw.log({"loss": loss, "accuracy": acc})
     time.sleep(0.1)
-    if epoch % 10 == 0:
+    if epoch % 40 == 0:
         raise Exception("error")
