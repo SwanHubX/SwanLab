@@ -1,4 +1,8 @@
-from .database import init, log
+# 导出初始化函数和log函数
+from .database import (
+    init,
+    log,
+)
 from .utils import get_package_version
 
 
