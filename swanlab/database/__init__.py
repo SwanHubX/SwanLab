@@ -3,19 +3,14 @@ from datetime import datetime
 from ..env import swc
 from ..log import swanlog as swl
 
-# 注册环境变量，需要在初始化数据库之前注册
-swc.init(swc.getcwd(), "train")
-# 初始化数据库
-from .main import SwanDatabase
-
-swandatabase = SwanDatabase()
+sd = None
 
 
 # 定义清理函数
 def clean_handler():
     if not swl.isError:
         swl.info("train successfully")
-        swandatabase.success()
+        sd.success()
         swl.setSuccess()
         swl.reset_console()
 
@@ -24,7 +19,7 @@ def clean_handler():
 def except_handler(tp, val, tb):
     swl.error("Error happended while training, SwanLab will throw it")
     # 标记实验失败
-    swandatabase.fail()
+    sd.fail()
     swl.setError()
     # 记录异常信息
     # 追踪信息
@@ -45,14 +40,6 @@ def except_handler(tp, val, tb):
     raise tp(val)
 
 
-# 注册异常处理函数
-sys.excepthook = except_handler
-
-
-# 注册清理函数
-atexit.register(clean_handler)
-
-
 def init(experiment_name: str = None, description: str = "", config: dict = {}):
     """初始化swanlab的配置
 
@@ -65,8 +52,22 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     config : dict, optional
         实验可选配置，在此处可以记录一些实验的超参数等信息
     """
+    global sd
+    # 注册环境变量，需要在初始化数据库之前注册
+    swc.init(swc.getcwd(), "train")
     # 初始化数据库
-    swandatabase.init(
+    from .main import SwanDatabase
+
+    sd = SwanDatabase()
+
+    # 注册异常处理函数
+    sys.excepthook = except_handler
+
+    # 注册清理函数
+    atexit.register(clean_handler)
+
+    # 初始化数据库
+    sd.init(
         experiment_name=experiment_name,
         description=description,
         config=config,
@@ -74,7 +75,7 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}):
     # 初始化日志对象
     swl.init(swc.output)
     swl.info("Run data will be saved locally in " + swc.exp_folder)
-    swl.info("Experiment_name: " + swandatabase.experiment.name)
+    swl.info("Experiment_name: " + sd.experiment.name)
     swl.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
 
 
@@ -89,12 +90,13 @@ def log(data: dict):
     data : dict
         此处填写需要记录的数据
     """
-
+    if sd is None:
+        raise RuntimeError("swanlab is not initialized")
     if not isinstance(data, dict):
         raise TypeError("log data must be a dict")
     for key in data:
         # 遍历字典的key，记录到本地文件中
-        swandatabase.add(key, data[key])
+        sd.add(key, data[key])
 
 
 __all__ = ["log", "init"]
