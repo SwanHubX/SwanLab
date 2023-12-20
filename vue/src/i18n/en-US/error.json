@@ -1,0 +1,23 @@
+{
+  "wrap": {
+    "message": [
+      "If you are a beginner with SwanLab and want to learn how to view training logs using SwanLab, you can refer to our ",
+      "official documentation"
+    ],
+    "time": "Dashboard loading time: {time}",
+    "reason-title": "Possible reasons:",
+    "error-code": "Error code:"
+  },
+  "init-error": {
+    "title": "No available experiment dashboard in the current directory",
+    "reasons": ["1. You haven't written any data to the log file yet", "2. SwanLab couldn't find your log file"]
+  },
+  "experiment-error": {
+    "title": "This experiment cannot be viewed",
+    "reasons": ["1. Corresponding log file not found", "2. Corresponding log file is damaged or cannot be opened"]
+  },
+  "404": {
+    "message": "Page not found",
+    "return": "Return to homepage"
+  }
+}

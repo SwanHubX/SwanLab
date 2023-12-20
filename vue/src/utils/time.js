@@ -81,7 +81,11 @@ export const formatTime = (time) => {
   const month = localDate.getMonth() + 1
   const day = localDate.getDate()
   const hour = localDate.getHours()
-  const minute = localDate.getMinutes()
+  let minute = localDate.getMinutes()
   const second = localDate.getSeconds()
+  // 如果minute是个位数，转换成两位数
+  if (minute < 10) {
+    minute = '0' + minute
+  }
   return `${year}/${month}/${day} ${hour}:${minute}:${second}`
 }

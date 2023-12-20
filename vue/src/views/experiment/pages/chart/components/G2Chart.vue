@@ -6,13 +6,13 @@
     <!-- 一切正常 -->
     <template v-if="code === 0">
       <!-- x轴坐标单位 -->
-      <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">step</p>
+      <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ tagData.xTitle }}</p>
       <div ref="g2Ref"></div>
       <!-- 放大效果 -->
       <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="zoom">
         <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
         <div ref="g2ZoomRef"></div>
-        <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">step</p>
+        <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ tagData.xTitle }}</p>
       </SLModal>
     </template>
     <!-- 有错误 -->
@@ -72,40 +72,50 @@ const getTag = async (tag) => {
     throw new Error(message)
   })
   code.value = c
-  // FIXME 为data添加一个step字段
+  // [旧版本适配]  如果第一个数据没有index，就循环每个数据，加上index
   data.list.forEach((item, index) => {
-    item.step = index
+    item.index = index
   })
-  tagData.value = data
-  return data.list
+  tagData.value = {
+    data: data.list,
+    xField: 'index',
+    xTitle: 'step'
+  }
+  return {
+    data: data.list,
+    xField: 'index',
+    xTitle: 'step'
+  }
 }
 
 // ---------------------------------- 设置图表的函数 ----------------------------------
-
 let chart
-const createChart = (dom, data, interactions = undefined, height = 200, width = undefined, autoFit = true) => {
+const createChart = (
+  dom,
+  data,
+  config = { interactions: undefined, height: 200, width: undefined, autoFit: true, xField: 'step' }
+) => {
   const c = new Line(dom, {
     data,
     xField: 'step',
     yField: 'data',
     // 坐标轴相关
     xAxis: {
-      // type: 'timeCat',
-      text: 'x 轴标题',
       tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
     yAxis: {
       tickCount: 7
     },
     // 大小相关
-    height,
-    width,
-    autoFit,
+    height: 200,
+    width: undefined,
+    autoFit: true,
     // 开启一些交互
-    interactions,
+    interactions: undefined,
     // 样式相关
     // smooth: true, // 平滑曲线
-    color
+    color,
+    ...config
   })
   c.render()
   return c
@@ -113,8 +123,8 @@ const createChart = (dom, data, interactions = undefined, height = 200, width = 
 
 // ---------------------------------- 在此处根据sources请求数据 ----------------------------------
 ;(async function () {
-  const data = await getTag(props.sources[0])
-  chart = createChart(g2Ref.value, data, undefined)
+  const { data, xField } = await getTag(props.sources[0])
+  chart = createChart(g2Ref.value, data, { xField })
   // 启动轮询函数，
   startPolling()
 })()
@@ -125,7 +135,7 @@ let timer = undefined
 const startPolling = () => {
   timer = setInterval(async () => {
     if (status.value !== 0) return clearInterval(timer)
-    const data = await getTag(props.sources[0])
+    const { data } = await getTag(props.sources[0])
     chart.changeData(data)
   }, 1000)
 }
@@ -143,14 +153,11 @@ const handleOpen = () => {
   // 当前window的高度
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
-    createChart(
-      g2ZoomRef.value,
-      tagData.value.list,
-      [{ type: 'view-zoom' }, { type: 'drag-move' }],
+    createChart(g2ZoomRef.value, tagData.value.data, {
+      interactions: [{ type: 'view-zoom' }, { type: 'drag-move' }],
       height,
-      undefined,
-      true
-    )
+      xField: tagData.value.xField
+    })
   })
 }
 </script>

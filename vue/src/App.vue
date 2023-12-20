@@ -1,7 +1,7 @@
 <template>
   <MainLayout v-if="ready">
     <template #left>
-      <HomeSiderBar />
+      <HomeSiderBar :version="version" />
     </template>
     <router-view v-if="!error_code" />
     <ErrorView :code="error_code" v-else />
@@ -23,14 +23,17 @@ const projectStore = useProjectStore()
 const ready = computed(() => !!projectStore.experiments || error_code.value)
 
 // ---------------------------------- 在此处请求项目信息 ----------------------------------
+const version = ref()
 http
   .get('/project')
-  .then(({ data }) => {
+  .then(({ data, _header }) => {
     projectStore.setProject(data)
+    version.value = _header['swanlab-version']
   })
   .catch((response) => {
     // console.error(response)
     error_code.value = response.data?.code || 3000 // 3000 时，后端启动失败
+    version.value = response.headers['swanlab-version']
   })
 
 // ---------------------------------- 错误处理 ----------------------------------
