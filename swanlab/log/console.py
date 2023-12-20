@@ -1,14 +1,126 @@
+import re
 import sys
 import os
 from datetime import datetime
 
 
-class Consoler(sys.stdout.__class__):
+class LeverCtl(object):
+    # swanlog 的记录权重
+    __level_weight = {
+        "debug": 10,
+        "info": 20,
+        "warning": 30,
+        "error": 40,
+        "critical": 50,
+    }
+
+    # 当前记录等级
+    __level = "debug"
+
+    def __init__(self, level="debug"):
+        """默认收集全部等级的"""
+
+        self.__level = level
+
+    def setLevel(self, level):
+        """设置记录等级
+
+        Parameters
+        ----------
+        level : str, optional
+            需要设置的等级，["debug", "info", "warning", "error", "critical"] 其中之一
+        """
+        self.__level = level
+
+    def __get_weight(self, level):
+        """获取记录权重
+
+        Parameters
+        ----------
+        level : str, optional
+            需要获取的等级，["debug", "info", "warning", "error", "critical"] 其中之一
+
+        Returns
+        -------
+        int
+            等级对应权重
+        """
+        if level in self.__level_weight:
+            return self.__level_weight[level]
+        else:
+            return 0
+
+    def __is_swanlog(self, message):
+        """判断信息是否是 swanlog 类的行为
+
+        Parameters
+        ----------
+        message : string
+            打印的信息
+        """
+        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+")
+        match = pattern.match(message)
+
+        if match:
+            # 返回符合要求的部分的小写形式
+            return match.group(1).lower()
+        else:
+            # 不符合要求时返回 None
+            return False
+
+    def checkLevel(self, message):
+        """检查当前记录等级是否大于等于指定等级
+
+        Parameters
+        ----------
+        message : string
+            打印的信息
+        level : str, optional
+            需要判断的等级，["debug", "info", "warning", "error", "critical"] 其中之一
+
+        Returns
+        -------
+        bool
+            当前记录等级是否大于等于指定等级
+        """
+        result = self.__is_swanlog(message)
+
+        if result:
+            # 如果匹配到了，进行等级的判断决定是否写入
+            return self.__get_weight(result) >= self.__get_weight(self.__level)
+        else:
+            # 没有匹配到，说明是用户自定义打印，需要记录
+            return True
+
+    def removeColor(self, message):
+        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+" r"\033\[0m(.+)$", re.DOTALL)
+        match = pattern.search(message)
+
+        if match:
+            message_header = f"[SwanLab-{match.group(1)}]:"
+            content = match.group(2)
+            target_length = 20
+            return message_header + " " * max(0, target_length - len(message_header)) + content
+        else:
+            return message
+
+    def getLevel(self):
+        """获取当前记录等级
+
+        Returns
+        -------
+        str
+            当前记录等级
+        """
+        return self.__level
+
+
+class Consoler(sys.stdout.__class__, LeverCtl):
     def __init__(self):
         super().__init__(sys.stdout.buffer)
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
 
-    def init(self, path):
+    def init(self, path, swanlog_level="debug"):
         # 通过当前日期生成日志文件名
         self.now = datetime.now().strftime("%Y-%m-%d")
         self.console_folder = path
@@ -21,7 +133,7 @@ class Consoler(sys.stdout.__class__):
         self.console = open(console_path, "a", encoding="utf-8")
 
     # 检查当前日期是否和控制台日志文件名一致
-    def _check_file_name(func):
+    def __check_file_name(func):
         """装饰器，判断是否需要根据日期对控制台输出进行分片存储"""
 
         def wrapper(self, *args, **kwargs):
@@ -36,30 +148,21 @@ class Consoler(sys.stdout.__class__):
 
         return wrapper
 
-    @_check_file_name
+    @__check_file_name
     def write(self, message):
-        self.console.write(message)
-        self.console.flush()
+        if self.checkLevel(message):
+            self.console.write(self.removeColor(message))
+            self.console.flush()
         self.original_stdout.write(message)  # 同时写入原始 sys.stdout
         self.original_stdout.flush()
 
-    @_check_file_name
-    def add(self, message: str):
-        """此接口用于写入额外的信息到日志文件中，但是不会写入到控制台
-
-        Parameters
-        ----------
-        message : str
-            写入的信息
-        """
-        self.console.write(message)
-        self.console.flush()
+    def setLevel(self, level):
+        return super().setLevel(level)
 
 
 class SwanConsoler:
     def __init__(self):
         self.consoler: Consoler = Consoler()
-        self.add: function = self.consoler.add
 
     def init(self, path):
         self.consoler.init(path)
@@ -68,3 +171,19 @@ class SwanConsoler:
     def reset(self):
         """重置输出为原本的样子"""
         sys.stdout = self.consoler.original_stdout
+
+    def setLevel(self, level):
+        """设置控制台打印时，对 swanlog 的收集等级
+
+        Parameters
+        ----------
+        level : string, optional
+            需要设置的等级，["debug", "info", "warning", "error", "critical"] 其中之一
+        """
+        return self.consoler.setLevel(level)
+
+    def getLevel(self):
+        return self.consoler.getLevel()
+
+
+# if __name__ == "__main__":
