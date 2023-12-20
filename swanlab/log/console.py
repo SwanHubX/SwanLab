@@ -2,6 +2,7 @@ import re
 import sys
 import os
 from datetime import datetime
+from ..utils import FONT
 
 
 class LeverCtl(object):
@@ -92,18 +93,6 @@ class LeverCtl(object):
             # 没有匹配到，说明是用户自定义打印，需要记录
             return True
 
-    def removeColor(self, message):
-        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+" r"\033\[0m(.+)$", re.DOTALL)
-        match = pattern.search(message)
-
-        if match:
-            message_header = f"[SwanLab-{match.group(1)}]:"
-            content = match.group(2)
-            target_length = 20
-            return message_header + " " * max(0, target_length - len(message_header)) + content
-        else:
-            return message
-
     def getLevel(self):
         """获取当前记录等级
 
@@ -151,7 +140,7 @@ class Consoler(sys.stdout.__class__, LeverCtl):
     @__check_file_name
     def write(self, message):
         if self.checkLevel(message):
-            self.console.write(self.removeColor(message))
+            self.console.write(FONT.clear(message))
             self.console.flush()
         self.original_stdout.write(message)  # 同时写入原始 sys.stdout
         self.original_stdout.flush()
