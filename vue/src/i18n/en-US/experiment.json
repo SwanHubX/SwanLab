@@ -17,10 +17,10 @@
         "last_time": "Duration",
         "tags": "Tags",
         "time": {
-          "day": "days",
-          "hour": "hours",
-          "minute": "minutes",
-          "second": "seconds"
+          "day": " days",
+          "hour": " hours",
+          "minute": " minutes",
+          "second": " seconds"
         }
       },
       "experiment_device": {
