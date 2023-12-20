@@ -25,7 +25,7 @@
       <tr>
         <th class="w-96">{{ $t('home.list.table.header.name') }}</th>
         <th class="w-36">{{ $t('home.list.table.header.status') }}</th>
-        <th class="w-36">{{ $t('home.list.table.header.create') }}</th>
+        <th class="w-48">{{ $t('home.list.table.header.create') }}</th>
       </tr>
       <tr v-for="experiment in projectStore.experiments" :key="experiment.experiment_id">
         <!-- 实验名称 -->

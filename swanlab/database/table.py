@@ -113,9 +113,10 @@ class ExperimentPoxy(object):
         self.create_time = time
         self.update_time = time
 
-    def new_tag_data(self) -> dict:
+    def new_tag_data(self, index) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""
         return {
+            "index": index,
             "create_time": create_time(),
         }
 
@@ -134,7 +135,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int):
+    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int, **kwargs):
         """保存一个tag的数据
 
         Parameters
@@ -149,9 +150,13 @@ class ExperimentPoxy(object):
             tag索引
         """
         # 创建一个新的tag数据
-        new_tag_data = self.new_tag_data()
+        new_tag_data = self.new_tag_data(index)
         new_tag_data["experiment_id"] = experiment_id
         new_tag_data["data"] = data
+        # 对于kwargs中的数据，剔除其中value为None的数据
+        for key, value in kwargs.items():
+            if value is not None:
+                new_tag_data[key] = value
         # 存储路径
         save_folder = os.path.join(self.path, tag)
         if not os.path.exists(save_folder):
