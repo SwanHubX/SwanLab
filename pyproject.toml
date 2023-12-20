@@ -86,6 +86,9 @@ include = [
   "/package.json",  # 包含前端的package.json文件
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["swanlab"]  # 指定项目包名
+
 [tool.pyright]  # 静态类型检查
 include = ["swanlab/**/*.py"]  # 检查的文件
 exclude = []  # 排除的文件
