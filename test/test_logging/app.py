@@ -22,7 +22,7 @@ sl.init("output.log", "debug")
 
 
 print(sl.isRunning)
-sl.setCollectionLevel("error")
+sl.setCollectionLevel("info")
 print(sl.getCollectionLevel())
 sl.debug("Watch out!")
 sl.info("I told you so")

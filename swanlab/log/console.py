@@ -58,15 +58,15 @@ class LeverCtl(object):
         message : string
             打印的信息
         """
-        pattern = re.compile(r"\[SwanLab-(.*?)\]", re.IGNORECASE)
-        match = pattern.match(message[:20])
+        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+")
+        match = pattern.match(message)
 
         if match:
             # 返回符合要求的部分的小写形式
             return match.group(1).lower()
         else:
             # 不符合要求时返回 None
-            return None
+            return False
 
     def checkLevel(self, message):
         """检查当前记录等级是否大于等于指定等级
@@ -92,6 +92,18 @@ class LeverCtl(object):
             # 没有匹配到，说明是用户自定义打印，需要记录
             return True
 
+    def removeColor(self, message):
+        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+" r"\033\[0m(.+)$", re.DOTALL)
+        match = pattern.search(message)
+
+        if match:
+            message_header = f"[SwanLab-{match.group(1)}]:"
+            content = match.group(2)
+            target_length = 20
+            return message_header + " " * max(0, target_length - len(message_header)) + content
+        else:
+            return message
+
     def getLevel(self):
         """获取当前记录等级
 
@@ -101,9 +113,6 @@ class LeverCtl(object):
             当前记录等级
         """
         return self.__level
-
-    def test(self, message):
-        return self.checkLevel(message)
 
 
 class Consoler(sys.stdout.__class__, LeverCtl):
@@ -142,7 +151,7 @@ class Consoler(sys.stdout.__class__, LeverCtl):
     @__check_file_name
     def write(self, message):
         if self.checkLevel(message):
-            self.console.write(message)
+            self.console.write(self.removeColor(message))
             self.console.flush()
         self.original_stdout.write(message)  # 同时写入原始 sys.stdout
         self.original_stdout.flush()
@@ -177,13 +186,4 @@ class SwanConsoler:
         return self.consoler.getLevel()
 
 
-if __name__ == "__main__":
-    test = SwanConsoler()
-    test.init("./log")
-    test.setLevel("info")
-    print("[SwanLab-INFO]:  1")
-    print("[SwanLab-DEBUG]:  1")
-    print("[SwanLab-DEBUG]:  1")
-    print("[SwanLab-DEBUG]:  1")
-    print("[SwanLab-ERROR]:  error")
-    print("2222[SwanLab-DEBUG]:  2")
+# if __name__ == "__main__":
