@@ -93,6 +93,16 @@ class ColoredFormatter(logging.Formatter, FONT):
         return f"{self.__get_colored_str(record.levelno, message_header)} {messages[1]}"
 
 
+# 日志文件格式化类
+class CustomFileHandler(logging.FileHandler):
+    def emit(self, record):
+        # 在写入日志之前把颜色剔除
+        processed_message = FONT.clear(record.getMessage())
+        record.msg = processed_message
+        # 调用父类的 emit 方法写入日志
+        super().emit(record)
+
+
 class Swanlog(Logsys):
     # 日志系统支持的输出等级
     __levels = {
@@ -166,7 +176,7 @@ class Swanlog(Logsys):
     # 创建日志文件记录器
     @_check_init
     def _create_file_handler(self, log_path, level="debug"):
-        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        file_handler = CustomFileHandler(log_path, encoding="utf-8")
         formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self._getLevel(level))
