@@ -1,6 +1,7 @@
 import logging
 import logging.config
 import logging.handlers
+import sys
 from .console import SwanConsoler
 from ..env import swc
 from ..utils import FONT
@@ -155,10 +156,9 @@ class Swanlog(Logsys):
     # 创建控制台记录器
     @_check_init
     def _create_console_handler(self, level="debug"):
-        console_handler = logging.StreamHandler()
-        handle = None if self.__consoler is None else self.__consoler.add
+        console_handler = logging.StreamHandler(sys.stdout)
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s", handle=handle)
+        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s")
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
@@ -212,6 +212,24 @@ class Swanlog(Logsys):
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
         self.logger.setLevel(self._getLevel(level))
+
+    def setCollectionLevel(self, level):
+        """
+        设置日志收集级别。
+
+        Parameters:
+            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
+        """
+        self.__consoler.setLevel(level)
+
+    def getCollectionLevel(self):
+        """
+        获取日志收集级别。
+
+        Returns:
+            str: 日志收集级别。
+        """
+        return self.__consoler.getLevel()
 
     # 获取对应等级的logging对象
     def _getLevel(self, level):

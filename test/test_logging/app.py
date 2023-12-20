@@ -20,14 +20,15 @@ sw.init(
 )
 sl.init("output.log", "debug")
 
-# sl.setLevel("error")
-# sl.setOutput()
+
 print(sl.isRunning)
+sl.setCollectionLevel("error")
+print(sl.getCollectionLevel())
 sl.debug("Watch out!")
 sl.info("I told you so")
 sl.warning("I told you so")
 sl.error("I told you so")
 sl.critical("I told you so")
-test1()
+# test1()
 
 # sl.setSuccess()
