@@ -7,6 +7,7 @@ const http = axios.create({
   timeout: 10000
 })
 
+// 请求拦截器
 http.interceptors.request.use(
   async (req) => {
     console.log('[request] ', req.method, req.url, req.data || req.params || '')
@@ -21,11 +22,16 @@ http.interceptors.request.use(
 
 // 响应拦截器
 http.interceptors.response.use(
+  // 成功拦截
   (resp) => {
     // 打印响应信息
     console.log('[response] ', resp.config.url, resp.data)
-    return resp.data
+    const data = resp.data
+    // 为data添加_header，这里面包含了响应头信息
+    data._header = resp.headers
+    return data
   },
+  // 失败拦截
   (error) => {
     // 判断连接是否超时
     if (error.code === 'ECONNABORTED' && error.message.indexOf('timeout') !== -1) {

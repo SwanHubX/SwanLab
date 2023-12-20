@@ -1,48 +1,48 @@
 {
-    "tabs": {
+  "tabs": {
     "index": "Overview",
     "chart": "Experiment Charts",
     "log": "Log"
-    },
-    "status": {
-    "-1": "Stopped",
+  },
+  "status": {
+    "-1": "Crashed",
     "0": "In Progress",
     "1": "Completed"
-    },
-    "index": {
+  },
+  "index": {
     "header": {
-    "experiment_infos": {
-    "status": "Status",
-    "start_time": "Start Time",
-    "last_time": "Duration",
-    "tags": "Tags",
-    "time": {
-    "day": "days",
-    "hour": "hours",
-    "minute": "minutes",
-    "second": "seconds"
-    }
-    },
-    "experiment_device": {
-    "hostname": "Hostname",
-    "os": "Operating System",
-    "python": "Python Version"
-    }
+      "experiment_infos": {
+        "status": "Status",
+        "start_time": "Start Time",
+        "last_time": "Duration",
+        "tags": "Tags",
+        "time": {
+          "day": "days",
+          "hour": "hours",
+          "minute": "minutes",
+          "second": "seconds"
+        }
+      },
+      "experiment_device": {
+        "hostname": "Hostname",
+        "os": "Operating System",
+        "python": "Python Version"
+      }
     },
     "config": {
-    "title": "Configuration Information",
-    "detail": "Configuration",
-    "summarize": "Summary",
-    "help": {
-    "config": "The Configuration parameter describes the input options of your model. Configure it in the 'config' parameter of swanlab.init. Click the icon to learn more.",
-    "summary": "The Summary parameter describes the final results of the metrics you record. Click the icon to learn more."
+      "title": "Configuration Information",
+      "detail": "Configuration",
+      "summarize": "Summary",
+      "help": {
+        "config": "The Configuration parameter describes the input options of your model. Configure it in the 'config' parameter of swanlab.init. Click the icon to learn more.",
+        "summary": "The Summary parameter describes the final results of the metrics you record. Click the icon to learn more."
+      }
     }
-   }
   },
-    "chart": {
+  "chart": {
     "label": {
-    "default": "Charts"
+      "default": "Charts"
     },
     "zoom": "Zoom In"
-    }
+  }
 }
