@@ -156,24 +156,19 @@ class FONT:
         return f"\033[31m{s}\033[0m"
 
     @staticmethod
-    def bold_red(s: str) -> str:
-        """在终端中加粗的红色字符串
+    def clear(s: str) -> str:
+        """清除终端中的颜色
 
         Parameters
         ----------
         s : str
-            需要加粗的字符串
+            需要清除颜色的字符串
 
         Returns
         -------
         str
-            加粗后的字符串
+            清除颜色后的字符串
         """
-        # ANSI 转义码用于在终端中改变文本样式
-        return f"\033[1;31m{s}\033[0m"
-
-    @staticmethod
-    def clear(s: str) -> str:
         ansi_escape_pattern = re.compile(r"\033\[[0-9;]+m")
         return ansi_escape_pattern.sub("", s)
 

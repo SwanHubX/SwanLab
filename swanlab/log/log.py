@@ -44,15 +44,30 @@ class ColoredFormatter(logging.Formatter, FONT):
     def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
         super().__init__(fmt, datefmt, style)
         self.__handle = handle
+        # 打印等级对应的颜色装载器
+        self.__color_map = {
+            logging.DEBUG: self.grey,
+            logging.INFO: self.green,
+            logging.WARNING: self.yellow,
+            logging.ERROR: self.red,
+            logging.CRITICAL: self.bold_red,
+        }
 
-    # 打印等级对应的颜色装载器
-    __color_map = {
-        logging.DEBUG: FONT.grey,
-        logging.INFO: FONT.green,
-        logging.WARNING: FONT.yellow,
-        logging.ERROR: FONT.red,
-        logging.CRITICAL: FONT.bold_red,
-    }
+    def bold_red(self, s: str) -> str:
+        """在终端中加粗的红色字符串
+
+        Parameters
+        ----------
+        s : str
+            需要加粗的字符串
+
+        Returns
+        -------
+        str
+            加粗后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return self.bold(self.red(s))
 
     def __get_colored_str(self, levelno, message):
         """获取使用打印等级对应的颜色装载的字符串
