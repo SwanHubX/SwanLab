@@ -5,7 +5,7 @@
     <div class="flex items-end">
       <SLIcon icon="logo" class="w-6 h-6 mr-1 mb-0.5" />
       <span class="font-semibold text-2xl leading-6 mr-0.5">Swanlab</span>
-      <span class="whitespace-nowrap text-xs">社区版</span>
+      <span class="whitespace-nowrap text-xs">{{ version }}</span>
     </div>
     <!-- 友链 -->
     <div class="flex gap-2">
@@ -63,6 +63,14 @@ import SLIcon from './SLIcon.vue'
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
+
+defineProps({
+  version: {
+    type: String,
+    default: 'unknown'
+  }
+})
+
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
 const getExperimentRouter = (experiment) => {
