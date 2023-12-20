@@ -9,9 +9,8 @@ r"""
 """
 import os
 from ..env import swc
-from .experiments_name import generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from .table import ProjectTablePoxy
-from .expriment import ExperimentTable
+from .expriment import ExperimentTable, generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from ..utils import lock_file
 from io import TextIOWrapper
 import ujson

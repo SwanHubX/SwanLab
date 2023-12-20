@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 import time
 from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
 from ..log import swanlog as swl
+from ..utils import get_package_version
 
 # 响应路径
 from ..env import INDEX, ASSETS
@@ -21,6 +22,7 @@ from ..env import INDEX, ASSETS
 
 # 服务全局对象
 app = FastAPI()
+version = get_package_version()
 
 # 注册静态文件路径
 static_path = "/assets"
@@ -55,7 +57,9 @@ async def resp_base(request, call_next):
     end_time = time.time()
     # 计算处理时间，添加到响应头中
     process_time = round(end_time - start_time, 4)
-    response.headers["X-Process-Time"] = str(process_time)
+    response.headers["SwanLab-Process-Time"] = str(process_time)
+    # 添加版本信息
+    response.headers["SwanLab-Version"] = version
     # 返回响应
     return response
 
