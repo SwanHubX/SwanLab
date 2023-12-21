@@ -232,7 +232,7 @@ async def get_experiment_summary(experiment_id: int):
 
 
 @router.get("/{experiment_id}/log")
-async def get_experiment_log(experiment_id: int, page: int):
+async def get_experiment_log(experiment_id: int, page: int = 1):
     """获取收集到的控制台打印
 
     Parameters
@@ -252,6 +252,47 @@ async def get_experiment_log(experiment_id: int, page: int):
     # 排序
     consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
     file_name = consoles[page - 1]
-    with get_a_lock(os.path.join(console_path, file_name), mode="r") as f:
+    with open(os.path.join(console_path, file_name), mode="r") as f:
         data = f.read()
-    return SUCCESS_200(data={"total": total, "logs": data})
+    return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
+
+
+@router.get("/{experiment_id}/recent_log")
+async def get_recent_experiment_log(experiment_id: int, max: int):
+    """一下返回最多 max 条打印记录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    max : int
+        最多返回这么多条
+    """
+
+    console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
+    consoles: list = [f for f in os.listdir(console_path)]
+    # 含有error.log，在返回值中带上其中的错误信息
+    error = None
+    if "error.log" in consoles:
+        with open(os.path.join(console_path, "error.log"), mode="r") as f:
+            error = f.read().split("\n")
+        # 在consoles里删除error.log
+        consoles.remove("error.log")
+    total: int = len(consoles)
+    # 如果 total 大于 1, 按照时间排序
+    if total > 1:
+        consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    logs = []
+    current_page = total
+    for index, f in enumerate(consoles, start=1):
+        with open(os.path.join(console_path, f), mode="r") as f:
+            logs.extend(f.read().split("\n"))
+            # 如果当前收集到的数据超过限制，退出循环
+            if len(logs) >= max:
+                current_page = index
+                break
+    data = {"total": total, "logs": logs[:max], "current": current_page}
+    if error is not None:
+        data["error"] = error
+    # 返回最新的 max 条记录
+    return SUCCESS_200(data)

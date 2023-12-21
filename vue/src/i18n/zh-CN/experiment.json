@@ -41,6 +41,7 @@
   },
 
   "chart": {
+    "empty": "缺少实验数据",
     "label": {
       "default": "图表"
     },

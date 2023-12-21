@@ -13,6 +13,13 @@ body {
   svg {
     fill: currentColor;
   }
+  // 添加一种字体
+  @font-face {
+    font-family: 'JetBrains Mono';
+    src: url('@swanlab-vue/assets/font/JetBrainsMono-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
 }
 
 // 弹跳进入动画
