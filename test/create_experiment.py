@@ -36,5 +36,5 @@ for epoch in range(2, epochs):
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     sw.log({"loss": loss, "accuracy": acc, "loss2": loss, "accuracy2": acc, "loss3": loss, "accuracy3": acc})
     time.sleep(0.1)
-    # if epoch % 40 == 0:
-    #     raise Exception("error")
+    if epoch % 40 == 0:
+        epoch / 0
