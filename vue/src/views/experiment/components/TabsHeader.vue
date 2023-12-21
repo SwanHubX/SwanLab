@@ -12,7 +12,7 @@
  * @file: TabsHeader.vue
  * @since: 2023-12-09 21:44:40
  **/
-const tabs = ['index', 'chart']
+const tabs = ['index', 'chart', 'log']
 </script>
 
 <style lang="scss" scoped>

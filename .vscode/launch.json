@@ -13,14 +13,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"]
     },
-    {
-      "name": "前端开发:mock",
-      "request": "launch",
-      "cwd": "${workspaceRoot}",
-      "type": "node",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:mock"]
-    },
     // 启动后端开发服务
     {
       "name": "后端开发",

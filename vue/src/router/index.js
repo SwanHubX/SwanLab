@@ -25,7 +25,7 @@ const routes = [
       {
         path: 'log',
         name: 'experiment_log',
-        component: () => import('@swanlab-vue/views/experiment/pages/LogPage.vue')
+        component: () => import('@swanlab-vue/views/experiment/pages/log/LogPage.vue')
       }
     ]
   },
