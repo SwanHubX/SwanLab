@@ -10,6 +10,7 @@
     <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
     <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
+  <EmptyExperiment v-else />
 </template>
 
 <script setup>
@@ -23,6 +24,7 @@ import { useExperimentStroe } from '@swanlab-vue/store'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import G2Chart from './components/G2Chart.vue'
+import EmptyExperiment from './components/EmptyExperiment.vue'
 import http from '@swanlab-vue/api/http'
 import { onUnmounted } from 'vue'
 import { t } from '@swanlab-vue/i18n'
