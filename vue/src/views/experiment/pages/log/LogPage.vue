@@ -1,5 +1,65 @@
 <template>
-  <div class="w-full h-full">experiment logs</div>
+  <div class="w-full h-full px-7 py-6">
+    <section class="bg-dimmer w-full h-full overflow-auto rounded p-4">
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+      <div>dsadsadasdsadsa</div>
+    </section>
+  </div>
 </template>
 
 <script setup>

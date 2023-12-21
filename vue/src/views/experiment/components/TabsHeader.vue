@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full pt-2 pl-6 bg-dimmer flex border-b">
+  <div class="w-full pt-2 pl-6 bg-dimmer flex border-b h-full">
     <router-link :to="tab" v-for="tab in tabs" :key="tab" class="link" active-class="link-active">
       {{ $t(`experiment.tabs.${tab}`) }}
     </router-link>
