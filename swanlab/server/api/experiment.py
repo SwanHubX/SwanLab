@@ -7,6 +7,7 @@ r"""
 @Description:
     实验相关api，前缀：/experiment
 """
+from datetime import datetime
 from fastapi import APIRouter
 from ..module.resp import SUCCESS_200, NOT_FOUND_404
 from ...env import swc
@@ -228,3 +229,29 @@ async def get_experiment_summary(experiment_id: int):
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
     return SUCCESS_200(data={"summaries": summaries})
+
+
+@router.get("/{experiment_id}/log")
+async def get_experiment_log(experiment_id: int, page: int):
+    """获取收集到的控制台打印
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    page : int
+        分页页码
+    """
+    # 获取收集到的日志列表
+    console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
+    consoles = [f for f in os.listdir(console_path)]
+    total = len(consoles)
+    # 如果 page 超出范围
+    if not 1 <= page <= total:
+        return NOT_FOUND_404("page index out of range")
+    # 排序
+    consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    file_name = consoles[page - 1]
+    with get_a_lock(os.path.join(console_path, file_name), mode="r") as f:
+        data = f.read()
+    return SUCCESS_200(data={"total": total, "logs": data})
