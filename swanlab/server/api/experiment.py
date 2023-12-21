@@ -273,20 +273,23 @@ async def get_recent_experiment_log(experiment_id: int, max: int):
     consoles: list = [f for f in os.listdir(console_path)]
     total: int = len(consoles)
     # 如果 total 为1, 并且含有error.log，直接返回 error.log 的内容
-    if total == 1 and "error.log" in consoles:
+    error = None
+    if "error.log" in consoles:
         with open(os.path.join(console_path, "error.log"), mode="r") as f:
-            data = f.read()
-        return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
+            error = f.read().split("\n")
+        # 在consoles里删除error.log
+        consoles.remove("error.log")
     # 如果 total 大于 1, 按照时间排序
-    consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
-    data = []
+    if total > 1:
+        consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    logs = []
     current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r") as f:
-            data.extend(f.read().split("\n"))
-            # 如果当前收集到的数据超过限制t退出循环
-            if len(data) >= max:
+            logs.extend(f.read().split("\n"))
+            # 如果当前收集到的数据超过限制，退出循环
+            if len(logs) >= max:
                 current_page = index
                 break
     # 返回最新的 max 条记录
-    return SUCCESS_200(data={"total": total, "logs": data, "current": current_page})
+    return SUCCESS_200(data={"total": total, "logs": logs, "current": current_page, "error": error})

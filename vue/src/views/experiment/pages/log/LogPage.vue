@@ -46,6 +46,7 @@ const errorLogs = ref([])
   const { data } = await http.get(`/experiment/${id}/recent_log`, { params: { max: 6000 } })
   // 设置日志
   logs.value = data.logs
+  if (data.error) errorLogs.value = data.error
   addTaskToBrowserMainThread(() => {
     // 滚动到底部
     logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
