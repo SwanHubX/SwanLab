@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full px-7 py-6">
-    <section class="log-area" ref="logAreaRef">
-      <div class="overflow-auto h-full">
+    <section class="log-area">
+      <div class="overflow-auto h-full" ref="logAreaRef">
         <div class="log-line" v-for="(line, index) in logs" :key="line">
           <!-- 行数 -->
           <span class="select-none">{{ index + 1 }}</span>
