@@ -255,3 +255,38 @@ async def get_experiment_log(experiment_id: int, page: int = 1):
     with open(os.path.join(console_path, file_name), mode="r") as f:
         data = f.read()
     return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
+
+
+@router.get("/{experiment_id}/recent_log")
+async def get_recent_experiment_log(experiment_id: int, max: int):
+    """一下返回最多 max 条打印记录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    max : int
+        最多返回这么多条
+    """
+
+    console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
+    consoles: list = [f for f in os.listdir(console_path)]
+    total: int = len(consoles)
+    # 如果 total 为1, 并且含有error.log，直接返回 error.log 的内容
+    if total == 1 and "error.log" in consoles:
+        with open(os.path.join(console_path, "error.log"), mode="r") as f:
+            data = f.read()
+        return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
+    # 如果 total 大于 1, 按照时间排序
+    consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    data = []
+    current_page = total
+    for index, f in enumerate(consoles, start=1):
+        with open(os.path.join(console_path, f), mode="r") as f:
+            data.extend(f.read().split("\n"))
+            # 如果当前收集到的数据超过限制t退出循环
+            if len(data) >= max:
+                current_page = index
+                break
+    # 返回最新的 max 条记录
+    return SUCCESS_200(data={"total": total, "logs": data, "current": current_page})
