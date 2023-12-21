@@ -1,21 +1,23 @@
 <template>
   <div class="w-full h-full px-7 py-6">
-    <section class="log-area">
-      <div class="overflow-auto h-full" ref="logAreaRef" v-if="logs">
+    <section class="log-container">
+      <div class="log-area" ref="logAreaRef" v-if="logs">
         <div class="log-line" v-for="(line, index) in logs" :key="line">
           <!-- 行数 -->
-          <span class="select-none">{{ index + 1 }}</span>
+          <span>{{ index + 1 }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span class="select-none">{{ logs.length + index + 1 }}</span>
+          <span>{{ logs.length + index + 1 }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
       </div>
-      <div class="w-full flex justify-center pt-10" v-else><SLLoding /></div>
+      <div class="flex h-full items-center justify-center" v-else>
+        <SLLoding />
+      </div>
     </section>
   </div>
 </template>
@@ -57,7 +59,7 @@ const errorLogs = ref([])
 </script>
 
 <style lang="scss" scoped>
-.log-area {
+.log-container {
   @apply bg-dimmer w-full h-full rounded p-4;
   font-size: 13px;
   line-height: 16px;
@@ -65,13 +67,20 @@ const errorLogs = ref([])
   letter-spacing: 0.1px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  .log-area {
+    @apply overflow-auto h-full;
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  }
+
   .log-line {
     @apply flex gap-2;
     span {
       @apply block;
     }
     span:first-child {
-      @apply w-8 text-right text-gray-400;
+      @apply w-8 text-right flex-shrink-0 text-dimmest select-none;
     }
   }
 }
