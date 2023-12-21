@@ -47,7 +47,7 @@ swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 Homepage = "https://swabhub.co"
 
 [tool.hatch.version] # 动态设置项目版本
-path = "package.json"  # TODO 选择前端package.json文件，从中获取版本号
+path = "swanlab/package.json"  # TODO 选择前端package.json文件，从中获取版本号
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
 [tool.hatch.metadata.hooks.requirements_txt] # 动态设置依赖
@@ -62,8 +62,8 @@ fragments = [{ path = "README.md" }]
 
 
 # [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
-# pattern = "(website/homepage|readme_files)/"
-# replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
+# pattern = "./swanlab-test-imgs/ikun.gif"
+# replacement = ''
 
 [tool.hatch.build]
 artifacts = [  # 将一些非python文件打包到项目中
