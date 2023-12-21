@@ -291,7 +291,7 @@ async def get_recent_experiment_log(experiment_id: int, max: int):
             if len(logs) >= max:
                 current_page = index
                 break
-    data = {"total": total, "logs": logs}
+    data = {"total": total, "logs": logs[:max], "current": current_page}
     if error is not None:
         data["error"] = error
     # 返回最新的 max 条记录
