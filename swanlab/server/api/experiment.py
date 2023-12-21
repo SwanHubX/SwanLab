@@ -232,7 +232,7 @@ async def get_experiment_summary(experiment_id: int):
 
 
 @router.get("/{experiment_id}/log")
-async def get_experiment_log(experiment_id: int, page: int):
+async def get_experiment_log(experiment_id: int, page: int = 1):
     """获取收集到的控制台打印
 
     Parameters
