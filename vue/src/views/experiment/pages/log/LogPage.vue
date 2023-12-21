@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full px-7 py-6">
     <section class="log-area">
-      <div class="overflow-auto h-full" ref="logAreaRef">
+      <div class="overflow-auto h-full" ref="logAreaRef" v-if="logs">
         <div class="log-line" v-for="(line, index) in logs" :key="line">
           <!-- 行数 -->
           <span class="select-none">{{ index + 1 }}</span>
@@ -15,6 +15,7 @@
           <span>{{ line }}</span>
         </div>
       </div>
+      <div class="w-full flex justify-center pt-10" v-else><SLLoding /></div>
     </section>
   </div>
 </template>
@@ -30,6 +31,7 @@ import { ref } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 const logAreaRef = ref()
 // ---------------------------------- 系统相关 ----------------------------------
 
@@ -38,7 +40,7 @@ const id = experimentStore.id
 
 // ---------------------------------- 获取日志和日志相关数据 ----------------------------------
 // 所有日志
-const logs = ref([])
+const logs = ref()
 // 错误日志
 const errorLogs = ref([])
 ;(async function () {
