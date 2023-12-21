@@ -252,6 +252,6 @@ async def get_experiment_log(experiment_id: int, page: int):
     # 排序
     consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
     file_name = consoles[page - 1]
-    with get_a_lock(os.path.join(console_path, file_name), mode="r") as f:
+    with open(os.path.join(console_path, file_name), mode="r") as f:
         data = f.read()
-    return SUCCESS_200(data={"total": total, "logs": data})
+    return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
