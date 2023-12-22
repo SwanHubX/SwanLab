@@ -5,14 +5,22 @@
 </p>
 <p align="center">
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab" /></a>
+  <a href="https://pypi.org/project/swanlab/"><img alt="pypi Download" src="  https://img.shields.io/pypi/dm/SwanLab"></a>
+  <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg"></a>
   <a href="https://github.com/SwanHubX/SwanLab/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg"></a>
 </p>
+
+
+
+
+
 <h4 align="center">
   <p>
     <b>English</b> |<a href="https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md">简体中文</a>
   </p>
 </h4>
+
 
 
 
@@ -64,7 +72,7 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
-    print(f"accuracy={acc}, loss={loss}")
+		print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     
     # Track key metrics
     swanlab.log({"loss": loss, "accuracy": acc})
@@ -98,4 +106,8 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
 
 
+
+# Contributors
+
+[![swanlab contributors](https://contrib.rocks/image?repo=SwanHubX/SwanLab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
 
