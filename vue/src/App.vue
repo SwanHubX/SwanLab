@@ -20,7 +20,7 @@ import { provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { watch } from 'vue'
 const projectStore = useProjectStore()
-const ready = computed(() => !!projectStore.experiments || error_code.value)
+const ready = ref()
 
 // ---------------------------------- 在此处请求项目信息 ----------------------------------
 const version = ref()
@@ -34,6 +34,9 @@ http
     // console.error(response)
     error_code.value = response.data?.code || 3000 // 3000 时，后端启动失败
     version.value = response.headers['swanlab-version']
+  })
+  .finally(() => {
+    ready.value = true
   })
 
 // ---------------------------------- 错误处理 ----------------------------------
