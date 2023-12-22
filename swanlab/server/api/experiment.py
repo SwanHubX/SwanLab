@@ -283,15 +283,16 @@ async def get_recent_experiment_log(experiment_id: int, max: int):
     if total > 1:
         consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
     logs = []
-    current_page = total
+    # current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r") as f:
             logs.extend(f.read().split("\n"))
             # 如果当前收集到的数据超过限制，退出循环
             if len(logs) >= max:
-                current_page = index
+                # current_page = index
                 break
-    data = {"total": total, "logs": logs[:max], "current": current_page}
+    logs = logs[:max]
+    data = {"recent": [logs[0].split(" ")[0], logs[-1].split(" ")[0]], "logs": logs}
     if error is not None:
         data["error"] = error
     # 返回最新的 max 条记录
