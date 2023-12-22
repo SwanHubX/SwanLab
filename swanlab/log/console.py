@@ -141,14 +141,14 @@ class Consoler(sys.stdout.__class__, LeverCtl):
 
     @__check_file_name
     def write(self, message):
+        self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
+        self.original_stdout.flush()
         if self.checkLevel(message):
             if not message == "\n":
                 self.__sum += 1
                 message = str(self.__sum) + " " + FONT.clear(message)
             self.console.write(message)
             self.console.flush()
-        self.original_stdout.write(message)  # 同时写入原始 sys.stdout
-        self.original_stdout.flush()
 
     def setLevel(self, level):
         return super().setLevel(level)

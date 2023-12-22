@@ -2,15 +2,13 @@
   <div class="w-full h-full px-7 py-6">
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
-        <div class="log-line" v-for="(line, index) in logs" :key="line">
-          <!-- 行数 -->
-          <span>{{ index + 1 }}</span>
+        <div class="log-line" v-for="line in logs" :key="line">
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span>{{ logs.length + index + 1 }}</span>
+          <span>{{ logs.length + index }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
@@ -79,9 +77,9 @@ const errorLogs = ref([])
     span {
       @apply block;
     }
-    span:first-child {
-      @apply w-8 text-right flex-shrink-0 text-dimmest select-none;
-    }
+    // span:first-child {
+    //   @apply w-8 text-right flex-shrink-0 text-dimmest select-none;
+    // }
   }
 }
 </style>
