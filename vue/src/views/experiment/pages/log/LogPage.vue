@@ -47,7 +47,7 @@ const logs = ref()
 const errorLogs = ref([])
 ;(async function () {
   // 获取日志
-  const { data } = await http.get(`/experiment/${id}/recent_log`, { params: { max: 6000 } })
+  const { data } = await http.get(`/experiment/${id}/recent_log`)
   // 设置日志
   logs.value = data.logs
   if (data.error) errorLogs.value = data.error
