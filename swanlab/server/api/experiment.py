@@ -292,7 +292,11 @@ async def get_recent_experiment_log(experiment_id: int, max: int):
                 # current_page = index
                 break
     logs = logs[:max]
-    data = {"recent": [logs[0].split(" ")[0], logs[-1].split(" ")[0]], "logs": logs}
+    end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
+    data = {
+        "recent": [logs[0].split(" ")[0], end],
+        "logs": logs,
+    }
     if error is not None:
         data["error"] = error
     # 返回最新的 max 条记录
