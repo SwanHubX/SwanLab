@@ -61,13 +61,14 @@ content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
 
-# [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
-# pattern = "./swanlab-test-imgs/ikun.gif"
-# replacement = ''
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
+pattern = "(website/homepage|readme_files)/"
+replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
 
 [tool.hatch.build]
 artifacts = [  # 将一些非python文件打包到项目中
   "/swanlab/template",
+  "*.json",
   "*.pyi",  # 类型提示文件
 ]
 
