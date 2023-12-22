@@ -64,9 +64,11 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
+    print(f"accuracy={acc}, loss={loss}")
+    
     # Track key metrics
     swanlab.log({"loss": loss, "accuracy": acc})
-    time.sleep(0.1)
+    time.sleep(1)
 ```
 
 During the program running, a `swanlog` folder will be generated in the directory to record your training data.

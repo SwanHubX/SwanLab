@@ -66,9 +66,11 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
+    print(f"accuracy={acc}, loss={loss}")
+    
     # Track key metrics
     swanlab.log({"loss": loss, "accuracy": acc})
-    time.sleep(0.1)
+    time.sleep(1)
 ```
 
 在程序运行过程中，目录下会生成一个`swanlog`文件夹，记录了你的训练数据。
