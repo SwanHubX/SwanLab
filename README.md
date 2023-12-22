@@ -49,6 +49,7 @@ import random
 
 lr = 0.01
 epochs = 20
+offset = random.random() / 5
 
 # Initialize the experiment and record configuration information
 swanlab.init(
