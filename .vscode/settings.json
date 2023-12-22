@@ -11,7 +11,8 @@
     "help": "java",
     "experiment": "benchMark",
     "chart": "app",
-    "index": "home"
+    "index": "home",
+    "readme_files": "custom"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
