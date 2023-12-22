@@ -16,9 +16,9 @@ license = "Apache-2.0" # 项目许可证
 requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
 authors = [  # 项目作者
   { name = "Cunyue", email = "team@swanhub.co" },
-  { name = "Ink", email = "team@swanhub.co" },
-  { name = "KaiKai", email = "team@swanhub.co" },
-  { name = "Feudalman", email = "team@swanhub.co" }
+  { name = "Feudalman", email = "team@swanhub.co" },
+  {name="ZeYi Lin", email = "team@swanhub.co"},
+  {name="KashiwaByte", email="team@swanhub.co"}
 ]
 keywords = [  # 项目关键词
     "machine learning",
@@ -47,7 +47,7 @@ swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 Homepage = "https://swabhub.co"
 
 [tool.hatch.version] # 动态设置项目版本
-path = "swanlab/package.json"  # TODO 选择前端package.json文件，从中获取版本号
+path = "swanlab/package.json"  # package.json文件，从中获取版本号
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
 [tool.hatch.metadata.hooks.requirements_txt] # 动态设置依赖
