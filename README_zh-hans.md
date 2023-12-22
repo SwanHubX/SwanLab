@@ -87,7 +87,7 @@ swanlab watch
                         ➜  Local:   http://127.0.0.1:5092
 ```
 
-此时访问http://127.0.0.1:5092，即可进入实验看板以浏览你的实验结果：
+此时访问http://127.0.0.1:5092 ，即可进入实验看板以浏览你的实验结果：
 
 <img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
 
