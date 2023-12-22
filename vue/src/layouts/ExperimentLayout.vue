@@ -1,9 +1,9 @@
 <template>
   <div class="w-full h-full">
-    <div class="w-full bg-dimmer">
+    <div class="w-full bg-dimmer h-16">
       <slot name="tabs"></slot>
     </div>
-    <div class="w-full">
+    <div class="experiment-content">
       <slot></slot>
     </div>
   </div>
@@ -16,3 +16,10 @@
  * @since: 2023-12-09 20:22:32
  **/
 </script>
+
+<style scoped lang="scss">
+.experiment-content {
+  @apply w-full overflow-y-auto;
+  height: calc(100vh - 4rem);
+}
+</style>

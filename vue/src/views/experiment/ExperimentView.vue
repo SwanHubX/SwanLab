@@ -1,5 +1,5 @@
 <template>
-  <ExperimentLayout v-if="ready" :key="experimentStore.id">
+  <ExperimentLayout :key="experimentStore.id" v-if="ready">
     <template #tabs>
       <TabsHeader />
     </template>
@@ -41,8 +41,10 @@ const init = async (id = route.params.experimentId) => {
 
 init()
 
+// ---------------------------------- 控制页面切换，组件刷新 ----------------------------------
+
 onBeforeRouteUpdate((to, from) => {
-  console.log('leave')
+  // console.log('leave')
   if (to.params.experimentId !== from.params.experimentId) {
     init(to.params.experimentId)
   }

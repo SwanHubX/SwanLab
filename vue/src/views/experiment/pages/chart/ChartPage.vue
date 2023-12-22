@@ -10,6 +10,7 @@
     <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
     <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
   </ChartsContainer>
+  <EmptyExperiment v-else-if="ready" />
 </template>
 
 <script setup>
@@ -23,6 +24,7 @@ import { useExperimentStroe } from '@swanlab-vue/store'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import G2Chart from './components/G2Chart.vue'
+import EmptyExperiment from './components/EmptyExperiment.vue'
 import http from '@swanlab-vue/api/http'
 import { onUnmounted } from 'vue'
 import { t } from '@swanlab-vue/i18n'
@@ -37,24 +39,32 @@ let timer = undefined
  * 如果实验正在进行，开启轮询
  * @param { string } id 实验id
  */
+const ready = ref(false)
 const getExperiment = (id = experimentStore.id) => {
-  http.get('/experiment/' + id).then(({ data }) => {
-    // 判断data.tags和tags是否相同，如果不同，重新渲染
-    if (data.tags.join('') !== tags.value?.join('')) {
-      // console.log('不同，重新渲染', data.tags, tags.value)
-      tags.value = data.tags
-    }
-    // 如果status为0，且timer为undefined，开启轮询
-    // 如果不为0且timer不为undefined，关闭轮询
-    experimentStore.setStatus(data.status)
-    if (data.status === 0 && !timer) {
-      timer = setInterval(() => {
-        getExperiment(id)
-      }, 5000)
-    } else if (data.status !== 0 && timer) {
-      clearInterval(timer)
-    }
-  })
+  http
+    .get('/experiment/' + id)
+    .then(({ data }) => {
+      // 判断data.tags和tags是否相同，如果不同，重新渲染
+      if (data.tags.join('') !== tags.value?.join('')) {
+        // console.log('不同，重新渲染', data.tags, tags.value)
+        tags.value = data.tags
+      }
+      // 如果status为0，且timer为undefined，开启轮询
+      // 如果不为0且timer不为undefined，关闭轮询
+      if (data.experiment_id == id) {
+        experimentStore.setStatus(data.status)
+        if (data.status === 0 && !timer) {
+          timer = setInterval(() => {
+            getExperiment(id)
+          }, 5000)
+        } else if (data.status !== 0 && timer) {
+          clearInterval(timer)
+        }
+      }
+    })
+    .finally(() => {
+      ready.value = true
+    })
 }
 // 立即执行
 getExperiment()
@@ -64,8 +74,8 @@ onUnmounted(() => {
 })
 
 // ---------------------------------- 判断某个namespcace下是否存在图表 ----------------------------------
-const showContainer = (sources) => {
-  return !!sources?.length
+const showContainer = (tags) => {
+  return !!tags?.length
 }
 </script>
 

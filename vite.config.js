@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import { viteMockServe } from 'vite-plugin-mock'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import vue from '@vitejs/plugin-vue'
@@ -23,10 +22,6 @@ export default defineConfig(({ mode }) => {
     // 服务插件
     plugins: [
       vue(),
-      viteMockServe({
-        mockPath: 'vue/src/mock',
-        localEnabled: useMock
-      }),
       // 自动化导入
       AutoImport({ imports: ['vue', 'vue-router'], dts: 'auto-imports.d.ts' }),
       // 自动导入组件，自定义组件库

@@ -7,6 +7,7 @@ r"""
 @Description:
     实验相关api，前缀：/experiment
 """
+from datetime import datetime
 from fastapi import APIRouter
 from ..module.resp import SUCCESS_200, NOT_FOUND_404
 from ...env import swc
@@ -228,3 +229,51 @@ async def get_experiment_summary(experiment_id: int):
             data = ujson.load(f)
             summaries.append([tag, data["data"][-1]["data"]])
     return SUCCESS_200(data={"summaries": summaries})
+
+
+MAX_NUM = 6000
+
+
+@router.get("/{experiment_id}/recent_log")
+async def get_recent_experiment_log(experiment_id: int):
+    """一下返回最多 MAX_NUM 条打印记录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    MAX_NUM : int
+        最多返回这么多条
+    """
+    console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
+    consoles: list = [f for f in os.listdir(console_path)]
+    # 含有error.log，在返回值中带上其中的错误信息
+    error = None
+    if "error.log" in consoles:
+        with open(os.path.join(console_path, "error.log"), mode="r") as f:
+            error = f.read().split("\n")
+        # 在consoles里删除error.log
+        consoles.remove("error.log")
+    total: int = len(consoles)
+    # 如果 total 大于 1, 按照时间排序
+    if total > 1:
+        consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    logs = []
+    # current_page = total
+    for index, f in enumerate(consoles, start=1):
+        with open(os.path.join(console_path, f), mode="r") as f:
+            logs.extend(f.read().split("\n"))
+            # 如果当前收集到的数据超过限制，退出循环
+            if len(logs) >= MAX_NUM:
+                # current_page = index
+                break
+    logs = logs[:MAX_NUM]
+    end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
+    data = {
+        "recent": [logs[0].split(" ")[0], end],
+        "logs": logs,
+    }
+    if error is not None:
+        data["error"] = error
+    # 返回最新的 MAX_NUM 条记录
+    return SUCCESS_200(data)
