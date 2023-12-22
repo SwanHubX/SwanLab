@@ -231,6 +231,9 @@ async def get_experiment_summary(experiment_id: int):
     return SUCCESS_200(data={"summaries": summaries})
 
 
+MAX_NUM = 6000
+
+
 @router.get("/{experiment_id}/recent_log")
 async def get_recent_experiment_log(experiment_id: int):
     """一下返回最多 MAX_NUM 条打印记录
@@ -242,7 +245,6 @@ async def get_recent_experiment_log(experiment_id: int):
     MAX_NUM : int
         最多返回这么多条
     """
-    MAX_NUM = 6000
     console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
     consoles: list = [f for f in os.listdir(console_path)]
     # 含有error.log，在返回值中带上其中的错误信息
