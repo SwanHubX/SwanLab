@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="SwanLab Library" src="./readme_files/swanlab-logo.svg" width="352" height="59">
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="352" height="59">
   <br/>
   <br/>
 </p>
@@ -86,7 +86,7 @@ If you see the following output, it means that the experimental board is running
 
 Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and browse your experimental results：
 
-<img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
+<img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
 
 
