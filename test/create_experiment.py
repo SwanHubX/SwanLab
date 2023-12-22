@@ -29,6 +29,8 @@ sw.init(
 
 print("start training")
 
+print("")
+
 # 模拟训练过程
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
@@ -38,3 +40,7 @@ for epoch in range(2, epochs):
     time.sleep(0.1)
     # if epoch % 40 == 0:
     #     epoch / 0
+
+print("")
+print("")
+print("finish training")

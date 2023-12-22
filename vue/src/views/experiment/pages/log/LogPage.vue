@@ -3,8 +3,10 @@
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <div class="log-line" v-for="line in logs" :key="line">
+          <!-- 行号 -->
+          <span>{{ line.substring(0, line.indexOf(' ')) }}</span>
           <!-- 日志内容 -->
-          <span>{{ line }}</span>
+          <span>{{ line.substring(line.indexOf(' ')) }}</span>
         </div>
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
@@ -77,9 +79,9 @@ const errorLogs = ref([])
     span {
       @apply block;
     }
-    // span:first-child {
-    //   @apply w-8 text-right flex-shrink-0 text-dimmest select-none;
-    // }
+    span:first-child {
+      @apply w-8 text-right flex-shrink-0 text-dimmest select-none;
+    }
   }
 }
 </style>
