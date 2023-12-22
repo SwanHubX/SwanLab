@@ -2,15 +2,15 @@
   <div class="w-full h-full px-7 py-6">
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
-        <div class="log-line" v-for="(line, index) in logs" :key="line">
-          <!-- 行数 -->
-          <span>{{ index + 1 }}</span>
+        <div class="log-line" v-for="line in logs" :key="line">
+          <!-- 行号 -->
+          <span>{{ line.substring(0, line.indexOf(' ')) }}</span>
           <!-- 日志内容 -->
-          <span>{{ line }}</span>
+          <span>{{ line.substring(line.indexOf(' ')) }}</span>
         </div>
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span>{{ logs.length + index + 1 }}</span>
+          <span>{{ logs.length + index }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
@@ -47,7 +47,7 @@ const logs = ref()
 const errorLogs = ref([])
 ;(async function () {
   // 获取日志
-  const { data } = await http.get(`/experiment/${id}/recent_log`, { params: { max: 6000 } })
+  const { data } = await http.get(`/experiment/${id}/recent_log`)
   // 设置日志
   logs.value = data.logs
   if (data.error) errorLogs.value = data.error

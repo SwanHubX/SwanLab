@@ -51,13 +51,15 @@ const getExperiment = (id = experimentStore.id) => {
       }
       // 如果status为0，且timer为undefined，开启轮询
       // 如果不为0且timer不为undefined，关闭轮询
-      experimentStore.setStatus(data.status)
-      if (data.status === 0 && !timer) {
-        timer = setInterval(() => {
-          getExperiment(id)
-        }, 5000)
-      } else if (data.status !== 0 && timer) {
-        clearInterval(timer)
+      if (data.experiment_id == id) {
+        experimentStore.setStatus(data.status)
+        if (data.status === 0 && !timer) {
+          timer = setInterval(() => {
+            getExperiment(id)
+          }, 5000)
+        } else if (data.status !== 0 && timer) {
+          clearInterval(timer)
+        }
       }
     })
     .finally(() => {

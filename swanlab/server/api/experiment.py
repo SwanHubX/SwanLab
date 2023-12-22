@@ -231,44 +231,20 @@ async def get_experiment_summary(experiment_id: int):
     return SUCCESS_200(data={"summaries": summaries})
 
 
-@router.get("/{experiment_id}/log")
-async def get_experiment_log(experiment_id: int, page: int = 1):
-    """获取收集到的控制台打印
-
-    Parameters
-    ----------
-    experiment_id : int
-        实验唯一ID
-    page : int
-        分页页码
-    """
-    # 获取收集到的日志列表
-    console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
-    consoles = [f for f in os.listdir(console_path)]
-    total = len(consoles)
-    # 如果 page 超出范围
-    if not 1 <= page <= total:
-        return NOT_FOUND_404("page index out of range")
-    # 排序
-    consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
-    file_name = consoles[page - 1]
-    with open(os.path.join(console_path, file_name), mode="r") as f:
-        data = f.read()
-    return SUCCESS_200(data={"total": total, "logs": data.split("\n")})
+MAX_NUM = 6000
 
 
 @router.get("/{experiment_id}/recent_log")
-async def get_recent_experiment_log(experiment_id: int, max: int):
-    """一下返回最多 max 条打印记录
+async def get_recent_experiment_log(experiment_id: int):
+    """一下返回最多 MAX_NUM 条打印记录
 
     Parameters
     ----------
     experiment_id : int
         实验唯一ID
-    max : int
+    MAX_NUM : int
         最多返回这么多条
     """
-
     console_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "console")
     consoles: list = [f for f in os.listdir(console_path)]
     # 含有error.log，在返回值中带上其中的错误信息
@@ -283,16 +259,21 @@ async def get_recent_experiment_log(experiment_id: int, max: int):
     if total > 1:
         consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
     logs = []
-    current_page = total
+    # current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r") as f:
             logs.extend(f.read().split("\n"))
             # 如果当前收集到的数据超过限制，退出循环
-            if len(logs) >= max:
-                current_page = index
+            if len(logs) >= MAX_NUM:
+                # current_page = index
                 break
-    data = {"total": total, "logs": logs[:max], "current": current_page}
+    logs = logs[:MAX_NUM]
+    end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
+    data = {
+        "recent": [logs[0].split(" ")[0], end],
+        "logs": logs,
+    }
     if error is not None:
         data["error"] = error
-    # 返回最新的 max 条记录
+    # 返回最新的 MAX_NUM 条记录
     return SUCCESS_200(data)
