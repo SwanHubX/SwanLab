@@ -12,7 +12,7 @@ from .chart import ChartTable
 import os
 from ..env import swc
 from typing import Union
-from ..utils import create_time, generate_color
+from ..utils import create_time, generate_color, get_package_version
 from .system import get_system_info
 import sys
 import random
@@ -52,6 +52,7 @@ class ExperimentTable(ExperimentPoxy):
         return {
             "experiment_id": self.experiment_id,
             "name": self.name,
+            "version": get_package_version(),
             "status": self.status,
             "description": self.description,
             "config": self.config,

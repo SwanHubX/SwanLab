@@ -7,11 +7,11 @@ r"""
 @Description:
     项目模块，创建项目级别数据库库，接下来针对实验级别的数据在此基础上进行操作
 """
-import os
+# import os
 from ..env import swc
 from .table import ProjectTablePoxy
 from .expriment import ExperimentTable, generate_random_tree_name, check_experiment_name, make_experiment_name_unique
-from ..utils import lock_file
+from ..utils import lock_file, get_package_version
 from io import TextIOWrapper
 import ujson
 
@@ -24,7 +24,7 @@ class ProjectTable(ProjectTablePoxy):
     """
 
     path = swc.project
-    default_data = {"_sum": 0, "experiments": []}
+    default_data = {"_sum": 0, "experiments": [], "version": get_package_version()}
 
     def __init__(self, data: dict):
         """初始化实验管理类"""
