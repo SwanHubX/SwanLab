@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="SwanLab Library" src="./readme_files/swanlab-logo.svg" width="352" height="59">
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="352" height="59">
   <br/>
   <br/>
 </p>
@@ -12,7 +12,6 @@
     <img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg">
   </a>
 </p>
-
 
 <h4 align="center">
   <p>
@@ -89,7 +88,7 @@ swanlab watch
 
 此时访问http://127.0.0.1:5092，即可进入实验看板以浏览你的实验结果：
 
-<img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
+<img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
 # License
 
