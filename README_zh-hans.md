@@ -1,7 +1,5 @@
 <p align="center">
-  <picture>
-    <img alt="SwanLab Library" src="./readme_files/swanlab-logo.svg" width="352" height="59" style="max-width: 100%;">
-  </picture>
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="352" height="59">
   <br/>
   <br/>
 </p>
@@ -21,7 +19,8 @@
   </p>
 </h4>
 
-SwanLab 是[SwanHub](swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
+SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起
+来。
 
 SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
 分析和对比**你的训练。
@@ -89,8 +88,8 @@ swanlab watch
 
 此时访问http://127.0.0.1:5092，即可进入实验看板以浏览你的实验结果：
 
-<img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
+<img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
 # License
 
-[Apache 2.0 License](https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=blue)
+[Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)

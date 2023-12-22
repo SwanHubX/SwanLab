@@ -1,7 +1,5 @@
 <p align="center">
-  <picture>
-    <img alt="SwanLab Library" src="./readme_files/swanlab-logo.svg" width="352" height="59" style="max-width: 100%;">
-  </picture>
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="352" height="59">
   <br/>
   <br/>
 </p>
@@ -17,7 +15,8 @@
 </h4>
 
 
-SwanLab is the next-generation machine learning experiment management and visualization tool released by the [SwanHub](swanhub.co), designed to facilitate effective collaboration in machine learning training.
+
+SwanLab is the next-generation machine learning experiment management and visualization tool released by the [SwanHub](https://swanhub.co), designed to facilitate effective collaboration in machine learning training.
 
 SwanLab provides streamlined APIs that make it easy to track machine learning metrics and record configurations. Additionally, SwanLab provides a visual dashboard for the most intuitive way to **monitor**, **analyze**, and **compare** your training.
 
@@ -87,13 +86,13 @@ If you see the following output, it means that the experimental board is running
 
 Access http://127.0.0.1:5092 at this time to enter the experiment dashboard and browse your experimental results：
 
-<img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
+<img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
 
 
 # License
 
-[Apache 2.0 License](https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=blue)
+[Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
 
 
 
