@@ -8,14 +8,14 @@
       <span class="whitespace-nowrap text-xs">{{ version }}</span>
     </div>
     <!-- 友链 -->
-    <div class="flex gap-2">
+    <!-- <div class="flex gap-2">
       <a href="https://github.com" class="link" target="_blank">
         <SLIcon icon="github" class="w-4 h-4" />
       </a>
       <a href="https://swanhub.co" class="link" target="_blank">
         <SLIcon icon="logo" class="w-4 h-4" />
       </a>
-    </div>
+    </div> -->
   </div>
   <!-- 剩余区域 -->
   <div class="flex flex-col grow max-h-[calc(100%-4rem)]">
