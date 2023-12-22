@@ -15,38 +15,35 @@
   </a>
 </p>
 
-
 <h4 align="center">
   <p>
     <a href="https://github.com/SwanHubX/SwanLab/blob/main/README.md">English</a> |<b>简体中文</b>
   </p>
 </h4>
 
-SwanLab是[SwanHub](swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
+SwanLab 是[SwanHub](swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
 
-SwanLab提供简洁的API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab还提供了一个可视化看板，以最直观的方式**监看、分析和对比**你的训练。 
+SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
+分析和对比**你的训练。
 
-有关SwanLab功能的具体指南，请参阅[用户指南](https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc)。
+有关 SwanLab 功能的具体指南，请参阅[用户指南](https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc)。
 
-目前，SwanLab正在快速迭代，并将持续添加新功能。
-
-
+目前，SwanLab 正在快速迭代，并将持续添加新功能。
 
 ## Installation
 
-此存储库在Python 3.8+上进行了测试。
+此存储库在 Python 3.8+上进行了测试。
 
-SwanLab可以使用pip安装，如下所示:
+SwanLab 可以使用 pip 安装，如下所示:
 
 ```bash
 pip install swanlab
 ```
 
-
-
 ## Quick tour
 
-让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在这个例子中是 `loss` 和 `acc`）：
+让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在
+这个例子中是 `loss` 和 `acc`）：
 
 ```python
 import swanlab
@@ -92,13 +89,8 @@ swanlab watch
 
 此时访问http://127.0.0.1:5092，即可进入实验看板以浏览你的实验结果：
 
-<img alt="swanlab-dashboard-1" src="/Users/zeyilin/Documents/GitHub/swanlab/readme_files/swanlab-dashborad-1.png" width="800">
-
-
+<img alt="swanlab-dashboard-1" src="./readme_files/swanlab-dashborad-1.png" width="800">
 
 # License
 
 [Apache 2.0 License](https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=blue)
-
-
-
