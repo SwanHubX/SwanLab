@@ -9,6 +9,7 @@
     "bradlc.vscode-tailwindcss",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+    "lokalise.i18n-ally",
     /**
      * python插件
      */
@@ -25,6 +26,9 @@
     // 代码协作，git协作
     "eamodio.gitlens",
     // 其他
-    "PKief.material-icon-theme"
+    "PKief.material-icon-theme",
+    "davidanson.vscode-markdownlint",
+    "usernamehw.errorlens",
+    "tamasfe.even-better-toml"
   ]
 }
