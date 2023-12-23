@@ -47,6 +47,11 @@
     "editor.formatOnSave": true
   },
   /** TODO tree 配置 */
+  "todo-tree.general.tags": [
+    "TODO", // 待办
+    "FIXME", // 待修复
+    "COMPAT" // 兼容性问题
+  ],
   "todo-tree.highlights.customHighlight": {
     "TODO": {
       "icon": "check",
@@ -59,6 +64,12 @@
       "type": "tag",
       "foreground": "#ff0000",
       "iconColour": "#ff0000"
+    },
+    "COMPAT": {
+      "icon": "flame",
+      "type": "tag",
+      "foreground": "#00ff00",
+      "iconColour": "#ffff"
     }
   },
   /** i18n */

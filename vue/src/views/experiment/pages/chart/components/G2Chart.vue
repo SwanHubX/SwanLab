@@ -72,10 +72,11 @@ const getTag = async (tag) => {
     throw new Error(message)
   })
   code.value = c
-  // [旧版本适配]  如果第一个数据没有index，就循环每个数据，加上index
+  // COMPAT 如果第一个数据没有index，就循环每个数据，加上index
   data.list.forEach((item, index) => {
     item.index = index
   })
+  // 整合数据
   tagData.value = {
     data: data.list,
     xField: 'index',
@@ -97,7 +98,9 @@ const createChart = (
 ) => {
   const c = new Line(dom, {
     data,
+    // 默认的x轴依据key为step
     xField: 'step',
+    // 默认的y轴依据key为data
     yField: 'data',
     // 坐标轴相关
     xAxis: {
