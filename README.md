@@ -61,7 +61,7 @@ offset = random.random() / 5
 
 # Initialize the experiment and record configuration information
 swanlab.init(
-	  description="This is a sample experiment for machine learning training.",
+    description="This is a sample experiment for machine learning training.",
     config={
         "learning_rate": lr,
         "epochs": epochs,
@@ -72,8 +72,7 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
-		print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    
+	  print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # Track key metrics
     swanlab.log({"loss": loss, "accuracy": acc})
     time.sleep(1)
