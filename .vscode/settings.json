@@ -101,5 +101,13 @@
     "**/__pycache__": true
   },
   /** python代码注释 */
-  "autoDocstring.docstringFormat": "numpy"
+  "autoDocstring.docstringFormat": "numpy",
+
+  /** markdown格式检查 */
+  "markdownlint.config": {
+    // 允许使用html标签
+    "MD033": false,
+    // 允许首行不是level1标题
+    "MD041": false
+  }
 }

@@ -59,7 +59,8 @@ components/style/color/*.less
 
 .huskyrc
 
-README.md
+!README.md
+!README_zh-hans.md
 
 doc/**
 
@@ -68,3 +69,4 @@ doc/**
 .github/**
 
 swanlab/
+
