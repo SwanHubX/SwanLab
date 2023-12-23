@@ -78,18 +78,25 @@ export const formatTime = (time) => {
   const localTime = date.getTime() - timezoneOffset * 60 * 1000
   const localDate = new Date(localTime)
   const year = localDate.getFullYear()
-  const month = localDate.getMonth() + 1
-  const day = localDate.getDate()
-  const hour = localDate.getHours()
+  let month = localDate.getMonth() + 1
+  let day = localDate.getDate()
+  let hour = localDate.getHours()
   let minute = localDate.getMinutes()
-  const second = localDate.getSeconds()
+  let second = localDate.getSeconds()
   /**
    * TO Little SHI:
    * 你需要在这解决时间的bug
    */
   // 如果minute是个位数，转换成两位数
-  if (minute < 10) {
-    minute = '0' + minute
-  }
+  if (month < 10) month = '0' + month
+
+  if (day < 10) day = '0' + day
+
+  if (hour < 10) hour = '0' + hour
+
+  if (minute < 10) minute = '0' + minute
+
+  if (second < 10) second = '0' + second
+
   return `${year}/${month}/${day} ${hour}:${minute}:${second}`
 }
