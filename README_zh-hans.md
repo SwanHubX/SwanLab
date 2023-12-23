@@ -1,5 +1,6 @@
 <p align="center">
-  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="352" height="59">
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo-light.svg#gh-light-mode-only" width="352" height="59">
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo-dark.svg#gh-dark-mode-only" width="352" height="59">
   <br/>
   <br/>
 </p>
