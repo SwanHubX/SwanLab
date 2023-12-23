@@ -13,13 +13,13 @@
 
 
 
+
 <h4 align="center">
   <p>
     <a href="https://github.com/SwanHubX/SwanLab/blob/main/README.md">English</a> |<b>简体中文</b>
   </p>
 </h4>
-SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起
-来。
+SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
 
 SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
 分析和对比**你的训练。
@@ -44,8 +44,7 @@ pip install swanlab
 
 ## 快速开始
 
-让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在
-这个例子中是 `loss` 和 `acc`）：
+让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在这个例子中是 `loss` 和 `acc`）：
 
 ```python
 import swanlab
