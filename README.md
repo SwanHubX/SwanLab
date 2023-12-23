@@ -28,7 +28,7 @@ SwanLab is the next-generation machine learning experiment management and visual
 
 SwanLab provides streamlined APIs that make it easy to track machine learning metrics and record configurations. Additionally, SwanLab provides a visual dashboard for the most intuitive way to **monitor**, **analyze**, and **compare** your training.
 
-For specific guidance on SwanLab's features, please refer to the [User Guide](https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc).
+For specific guidance on SwanLab's features, please refer to the [User Guide](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home).
 
 Currently, SwanLab is undergoing rapid iterations and will continue to add new features.
 

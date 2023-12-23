@@ -24,7 +24,7 @@ SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学�
 SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
 分析和对比**你的训练。
 
-有关 SwanLab 功能的具体指南，请参阅[用户指南](https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc)。
+有关 SwanLab 功能的具体指南，请参阅[用户指南](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home)。
 
 目前，SwanLab 正在快速迭代，并将持续添加新功能。
 
