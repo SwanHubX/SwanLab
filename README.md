@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab" /></a>
   <a href="https://pypi.org/project/swanlab/"><img alt="pypi Download" src="https://img.shields.io/pypi/dm/SwanLab"></a>
-  <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
+  <a href="https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg"></a>
   <a href="https://github.com/SwanHubX/SwanLab/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg"></a>
 </p>
@@ -100,6 +100,14 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 
 
 
+# Learn more
+
+| Section                                                      | Details                               |
+| ------------------------------------------------------------ | :------------------------------------ |
+| [Documentation](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | Full APl documentation and tutorials. |
+
+
+
 # License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
@@ -108,5 +116,5 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 
 # Contributors
 
-[![swanlab contributors](https://contrib.rocks/image?repo=SwanHubX/SwanLab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
+[![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
 

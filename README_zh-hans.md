@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab" /></a>
   <a href="https://pypi.org/project/swanlab/"><img alt="pypi Download" src="https://img.shields.io/pypi/dm/SwanLab"></a>
-  <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
+  <a href="https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg"></a>
   <a href="https://github.com/SwanHubX/SwanLab/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg"></a>
 </p>
@@ -19,6 +19,8 @@
     <a href="https://github.com/SwanHubX/SwanLab/blob/main/README.md">English</a> |<b>简体中文</b>
   </p>
 </h4>
+
+
 SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
 
 SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
@@ -96,6 +98,14 @@ swanlab watch
 
 
 
+# 了解更多
+
+| Section                                                      | Details               |
+| ------------------------------------------------------------ | :-------------------- |
+| [文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | 完整的APl文档与教程。 |
+
+
+
 # License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
@@ -104,5 +114,5 @@ swanlab watch
 
 # 贡献者
 
-[![swanlab contributors](https://contrib.rocks/image?repo=SwanHubX/SwanLab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
+[![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
 
