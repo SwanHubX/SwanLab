@@ -91,16 +91,16 @@ swanlab watch
 
 <img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
-# 了解更多
+## 了解更多
 
 | Section                                                                                                                           | Details                 |
 | --------------------------------------------------------------------------------------------------------------------------------- | :---------------------- |
 | [文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | 完整的 APl 文档与教程。 |
 
-# License
+## License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
 
-# 贡献者
+## 贡献者
 
 [![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
