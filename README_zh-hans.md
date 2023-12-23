@@ -5,22 +5,21 @@
 </p>
 <p align="center">
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab" /></a>
-  <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg">
-  </a>
-  <a href="https://github.com/SwanHubX/SwanLab/releases">
-    <img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg">
-  </a>
+  <a href="https://pypi.org/project/swanlab/"><img alt="pypi Download" src="https://img.shields.io/pypi/dm/SwanLab"></a>
+  <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg"></a>
 </p>
+
+
+
 
 <h4 align="center">
   <p>
     <a href="https://github.com/SwanHubX/SwanLab/blob/main/README.md">English</a> |<b>简体中文</b>
   </p>
 </h4>
-
-SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起
-来。
+SwanLab 是[SwanHub](https://swanhub.co)开源社区发布的新一代机器学习实验管理与可视化工具，旨在让机器学习训练有效地协作起来。
 
 SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记录。同时，SwanLab 还提供了一个可视化看板，以最直观的方式**监看、
 分析和对比**你的训练。
@@ -29,7 +28,9 @@ SwanLab 提供简洁的 API，轻松实现机器学习指标跟踪与配置记�
 
 目前，SwanLab 正在快速迭代，并将持续添加新功能。
 
-## Installation
+
+
+## 安装
 
 此存储库在 Python 3.8+上进行了测试。
 
@@ -39,10 +40,11 @@ SwanLab 可以使用 pip 安装，如下所示:
 pip install swanlab
 ```
 
-## Quick tour
 
-让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在
-这个例子中是 `loss` 和 `acc`）：
+
+## 快速开始
+
+让我们模拟一个简单的机器学习训练过程，使用`swanlab.init`来初始化实验并记录配置信息，并使用`swanlab.log`跟踪关键指标（在这个例子中是 `loss` 和 `acc`）：
 
 ```python
 import swanlab
@@ -55,7 +57,7 @@ offset = random.random() / 5
 
 # Initialize the experiment and record configuration information
 swanlab.init(
-	  description="This is a sample experiment for machine learning training.",
+    description="This is a sample experiment for machine learning training.",
     config={
         "learning_rate": lr,
         "epochs": epochs,
@@ -66,9 +68,10 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
+    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # Track key metrics
     swanlab.log({"loss": loss, "accuracy": acc})
-    time.sleep(0.1)
+    time.sleep(1)
 ```
 
 在程序运行过程中，目录下会生成一个`swanlog`文件夹，记录了你的训练数据。
@@ -91,6 +94,15 @@ swanlab watch
 
 <img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
+
+
 # License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
+
+
+
+# 贡献者
+
+[![swanlab contributors](https://contrib.rocks/image?repo=SwanHubX/SwanLab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
+
