@@ -83,6 +83,10 @@ export const formatTime = (time) => {
   const hour = localDate.getHours()
   let minute = localDate.getMinutes()
   const second = localDate.getSeconds()
+  /**
+   * TO Little SHI:
+   * 你需要在这解决时间的bug
+   */
   // 如果minute是个位数，转换成两位数
   if (minute < 10) {
     minute = '0' + minute
