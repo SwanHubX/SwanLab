@@ -12,10 +12,6 @@
 </p>
 
 
-
-
-
-
 <h4 align="center">
   <p>
     <b>English</b> |<a href="https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md">简体中文</a>
@@ -116,6 +112,7 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 
 
 # Contributors
+
 
 [![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
 
