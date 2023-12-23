@@ -12,9 +12,6 @@
 </p>
 
 
-
-
-
 <h4 align="center">
   <p>
     <a href="https://github.com/SwanHubX/SwanLab/blob/main/README.md">English</a> |<b>简体中文</b>
@@ -98,13 +95,11 @@ swanlab watch
 <img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
 
-
 # 了解更多
 
 | Section                                                      | Details               |
 | ------------------------------------------------------------ | :-------------------- |
 | [文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | 完整的APl文档与教程。 |
-
 
 
 # License
