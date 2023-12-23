@@ -93,16 +93,16 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 
 <img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
 
-# Learn more
+## Learn more
 
 | Section                                                                                                                                    | Details                               |
 | ------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------ |
 | [Documentation](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | Full APl documentation and tutorials. |
 
-# License
+## License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
 
-# Contributors
+## Contributors
 
 [![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
