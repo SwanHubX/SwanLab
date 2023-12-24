@@ -41,7 +41,7 @@
       </tr>
     </table>
     <br />
-    <div class="max-w-[1200px]"><SLTable :column="column" /></div>
+    <div class="max-w-[1200px]"><SLTable :column="column" :data="projectStore.experiments" /></div>
   </div>
 </template>
 
@@ -60,7 +60,7 @@ import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 import SLTable from '@swanlab-vue/components/SLTable.vue'
 
 const projectStore = useProjectStore()
-
+console.log(projectStore.experiments)
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
 const createTime = computed(() => formatTime(projectStore.createTime))
 const updateTime = computed(() => formatTime(projectStore.updateTime))
@@ -69,21 +69,15 @@ const updateTime = computed(() => formatTime(projectStore.updateTime))
 const column = [
   {
     title: 'Name',
-    key: 'name',
-    align: 'center',
-    width: 20
+    key: 'name'
   },
   {
     title: 'Status',
-    key: 'status',
-    align: 'center',
-    width: '10'
+    key: 'status'
   },
   {
     title: 'Create Time',
-    key: 'create_time',
-    align: 'center',
-    width: '20'
+    key: 'create_time'
   }
 ]
 </script>
