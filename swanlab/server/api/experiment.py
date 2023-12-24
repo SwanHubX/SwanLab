@@ -19,6 +19,7 @@ from ...utils import DEFAULT_COLOR
 from urllib.parse import unquote  # 转码路径参数
 from typing import List, Dict
 from ...utils import get_a_lock
+from ...log import swanlog as swl
 
 router = APIRouter()
 
@@ -277,3 +278,26 @@ async def get_recent_experiment_log(experiment_id: int):
         data["error"] = error
     # 返回最新的 MAX_NUM 条记录
     return SUCCESS_200(data)
+
+
+@router.get("/{experiment_id}/chart")
+async def get_experimet_charts(experiment_id: int):
+    chart_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "chart.json")
+    with get_a_lock(chart_path, "r+") as f:
+        chart: dict = ujson.load(f)
+        # COMPAT 如果chart不存在namespaces且charts有东西，生成它
+        compat = not chart.get("namespaces") and len(chart["charts"])
+        if compat:
+            # 提示用户，配置将更新
+            swl.warning(
+                "The configuration of the chart is somewhat outdated. SwanLab will automatically make some updates to this configuration."
+            )
+            # 遍历chart[charts],写入chart_id
+            charts = [c["chart_id"] for c in chart["charts"]]
+            ns = {"namespace": "default", "charts": charts}
+            chart["namespaces"] = [ns]
+            # 写入文件
+            f.truncate(0)
+            f.seek(0)
+            ujson.dump(chart, f, ensure_ascii=False)
+        return SUCCESS_200(chart)
