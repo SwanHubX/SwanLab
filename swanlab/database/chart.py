@@ -4,12 +4,13 @@ import os
 from ..env import swc
 from ..utils import create_time, get_a_lock
 from typing import List, Union
+from ..log import swanlog as swl
 
 
 class ChartTable(ProjectTablePoxy):
     """图表管理类，用于管理图表，包括创建图表，删除图表，修改图表配置等操作"""
 
-    default_data = {"_sum": 0, "charts": []}
+    default_data = {"_sum": 0, "charts": [], "namespaces": []}
 
     def __init__(self, experiment_id: int):
         """初始化图表管理类"""
@@ -41,6 +42,38 @@ class ChartTable(ProjectTablePoxy):
             "create_time": create_time(),
         }
 
+    def add_chart(self, data, chart):
+        """添加图表到配置，同时更新组
+
+        Parameters
+        ----------
+        data : dict
+            配置
+        chart : dict
+            添加的图表
+        """
+        namespace: str = chart["namespace"]
+        namespaces: list = data["namespaces"]
+        data["charts"].append(chart)
+        # 遍历data["namespaces"]
+        ns: dict = None
+        for ns in namespaces:
+            if ns["namespace"] == namespace:
+                break
+        # 如果命名空间不存在，添加
+        if ns is None:
+            swl.debug(f"Namespace {namespace} not found, add.")
+            ns = {"namespace": "default", "charts": []}
+            if ns["namespace"] == "default":
+                swl.debug(f"Namespace {namespace} Add to the beginning")
+                namespaces.insert(0, ns)
+            else:
+                swl.debug(f"Namespace {namespace} Add to the end.")
+                namespaces.append(ns)
+        # 添加当前的chart_id到结尾
+        ns["charts"].append(chart["chart_id"])
+        swl.debug(f"Chart {chart['chart_id']} add, now charts: " + str(ns["charts"]))
+
     def add(
         self,
         tag: Union[str, List[str]],
@@ -62,14 +95,15 @@ class ChartTable(ProjectTablePoxy):
         chart_type : str, optional
             图表类型，用于区分不同的图表的显示方式，如折线图，柱状图等
         """
-        f = get_a_lock(self.path)
-        data = ujson.load(f)
-        # 记录数据
-        data["_sum"] += 1
-        chart = self.new_chart(data["_sum"], namespace, reference, chart_type)
-        chart["source"].append(tag)
-        data["charts"].append(chart)
-        f.truncate(0)
-        f.seek(0)
-        ujson.dump(data, f, ensure_ascii=False)
-        f.close()
+        with get_a_lock(self.path) as f:
+            data = ujson.load(f)
+            # 记录数据
+            data["_sum"] += 1
+            chart = self.new_chart(data["_sum"], namespace, reference, chart_type)
+            chart["source"].append(tag)
+            # 添加图表
+            self.add_chart(data, chart)
+            f.truncate(0)
+            f.seek(0)
+            ujson.dump(data, f, ensure_ascii=False)
+            f.close()

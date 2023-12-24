@@ -82,11 +82,7 @@ const getTag = async (tag) => {
     xField: 'index',
     xTitle: 'step'
   }
-  return {
-    data: data.list,
-    xField: 'index',
-    xTitle: 'step'
-  }
+  return tagData.value
 }
 
 // ---------------------------------- 设置图表的函数 ----------------------------------
