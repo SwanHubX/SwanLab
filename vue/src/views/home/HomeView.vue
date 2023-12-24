@@ -40,6 +40,8 @@
         <td>{{ transTime(convertUtcToLocal(experiment.create_time)) }}</td>
       </tr>
     </table>
+    <br />
+    <div class="max-w-[1200px]"><SLTable :column="column" /></div>
   </div>
 </template>
 
@@ -55,12 +57,35 @@ import { computed } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
+import SLTable from '@swanlab-vue/components/SLTable.vue'
 
 const projectStore = useProjectStore()
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
 const createTime = computed(() => formatTime(projectStore.createTime))
 const updateTime = computed(() => formatTime(projectStore.updateTime))
+
+// 表格配置
+const column = [
+  {
+    title: 'Name',
+    key: 'name',
+    align: 'center',
+    width: 20
+  },
+  {
+    title: 'Status',
+    key: 'status',
+    align: 'center',
+    width: '10'
+  },
+  {
+    title: 'Create Time',
+    key: 'create_time',
+    align: 'center',
+    width: '20'
+  }
+]
 </script>
 
 <style lang="scss" scoped>

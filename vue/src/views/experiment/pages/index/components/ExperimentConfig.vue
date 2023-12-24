@@ -8,7 +8,7 @@
             $t('experiment.index.config.help.config')
           }}</SLHelp>
         </div>
-        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
+        <!-- <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" /> -->
       </div>
       <div v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
@@ -17,11 +17,11 @@
             >{{ $t('experiment.index.config.help.summary') }}
           </SLHelp>
         </div>
-        <SLTable
+        <!-- <SLTable
           class="max-w-[600px]"
           :header="['Key', 'Value']"
           :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
-        />
+        /> -->
       </div>
     </div>
     <div class="w-full h-6"></div>
