@@ -26,11 +26,11 @@
           <!-- 表体 -->
           <tbody v-if="data.length">
             <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
-              <td v-for="(item, index) in column" :key="index" :class="`text-${item.fixed} ${item.padding}`">
-                <div v-if="item.slot">
+              <td v-for="(item, index) in column" :key="index">
+                <div :class="`text-${item.fixed} ${item.padding}`" v-if="item.slot">
                   <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
                 </div>
-                <div v-else>
+                <div :class="`text-${item.fixed} ${item.padding}`" v-else>
                   {{ dataColumn[item.key] || '-' }}
                 </div>
               </td>
