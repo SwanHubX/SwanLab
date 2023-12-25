@@ -1,6 +1,6 @@
 <template>
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
-    <p class="text-center">{{ title }}</p>
+    <p class="text-center">{{ chart.source[0] }}</p>
     <div class="chart-pannel" v-if="hover">
       <slot name="pannel" />
     </div>
@@ -10,17 +10,19 @@
 
 <script setup>
 /**
- * @description: 图表容器，用于包裹图表组件，并且提供一些通用接口配置
+ * @description: 图表容器，用于包裹并渲染图表组件
  * @file: ChartContainer.vue
  * @since: 2023-12-12 21:01:26
  **/
 import { ref } from 'vue'
-defineProps({
-  title: {
-    type: String,
+const props = defineProps({
+  chart: {
+    type: Object,
     required: true
   }
 })
+
+console.log(props.chart)
 
 // ---------------------------------- 判断是否处于hover状态 ----------------------------------
 const hover = ref(false)

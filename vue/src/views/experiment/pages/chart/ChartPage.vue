@@ -6,76 +6,88 @@
     <SLStatusLabel :status="experimentStore.status" />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer :label="t('experiment.chart.label.default')" :count="tags?.length" v-if="showContainer(tags)">
-    <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
-    <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
-  </ChartsContainer>
-  <EmptyExperiment v-else-if="ready" />
+  <template v-if="status === 'success'">
+    <ChartsContainer
+      v-for="group in groups"
+      :key="group.namespace"
+      :label="getGroupName(group.namespace)"
+      :count="group.charts.length"
+    >
+      <ChartContainer :chart="charts[cnMap.get(chartID)]" v-for="chartID in group.charts" :key="chartID" />
+    </ChartsContainer>
+  </template>
+  <EmptyExperiment v-once v-else-if="status !== 'initing'" />
 </template>
 
 <script setup>
 /**
- * @description: 实验-图表页
+ * @description: 实验图表页，在本处将完成图表布局的初始化，注入订阅依赖等内容
  * @file: ChartPage.vue
- * @since: 2023-12-09 20:39:41
+ * @since: 2023-12-25 15:34:51
  **/
-import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
-import ChartsContainer from './components/ChartsContainer.vue'
-import G2Chart from './components/G2Chart.vue'
-import EmptyExperiment from './components/EmptyExperiment.vue'
+import { useExperimentStroe } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { onUnmounted } from 'vue'
+import { ref } from 'vue'
+import ChartsContainer from './components/ChartsContainer.vue'
+import ChartContainer from './components/ChartContainer.vue'
+import EmptyExperiment from './components/EmptyExperiment.vue'
 import { t } from '@swanlab-vue/i18n'
 const experimentStore = useExperimentStroe()
-// ---------------------------------- 初始化：获取图表配置 ----------------------------------
-const tags = ref()
-// 用于设置轮询
-let timer = undefined
 
-/**
- * 根据id获取实验，如果id不传，默认使用experimentId
- * 如果实验正在进行，开启轮询
- * @param { string } id 实验id
- */
-const ready = ref(false)
-const getExperiment = (id = experimentStore.id) => {
-  http
-    .get('/experiment/' + id)
-    .then(({ data }) => {
-      // 判断data.tags和tags是否相同，如果不同，重新渲染
-      if (data.tags.join('') !== tags.value?.join('')) {
-        // console.log('不同，重新渲染', data.tags, tags.value)
-        tags.value = data.tags
-      }
-      // 如果status为0，且timer为undefined，开启轮询
-      // 如果不为0且timer不为undefined，关闭轮询
-      if (data.experiment_id == id) {
-        experimentStore.setStatus(data.status)
-        if (data.status === 0 && !timer) {
-          timer = setInterval(() => {
-            getExperiment(id)
-          }, 5000)
-        } else if (data.status !== 0 && timer) {
-          clearInterval(timer)
+// ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
+// 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
+// key是chart_id, value是chart_id在charts中的索引
+let cnMap = new Map()
+let charts, groups
+const status = ref('initing')
+;(async function () {
+  const { data } = await http.get(`/experiment/${experimentStore.id}/chart`)
+  charts = data.charts || []
+  groups = data.namespaces || []
+  // 添加一个临时array，用于减少遍历次数
+  const chartsIdArray = charts.map((chart) => chart.chart_id)
+  // 标志，判断groups是否找到对应的chart
+  let found = false
+  // 遍历groups
+  groups.forEach((group) => {
+    found = false
+    group.charts.forEach((id) => {
+      // 遍历charts，如果id和charts.charts_id相同，cnMap添加一个key
+      for (let i = 0; i < chartsIdArray.length; i++) {
+        const chartId = chartsIdArray[i]
+        if (chartId === id) {
+          found = true
+          cnMap.set(chartId, i)
+          break
         }
       }
+      if (!found) {
+        console.error('charts: ', charts)
+        console.error('ngroups: ', groups)
+        throw new Error('Charts and groups cannot correspond.')
+      }
     })
-    .finally(() => {
-      ready.value = true
-    })
-}
-// 立即执行
-getExperiment()
-
-onUnmounted(() => {
-  clearInterval(timer)
+  })
+  // 遍历完了，此时cnMap拿到了,模版部分可以依据这些东西渲染了
+  // 但是还需要完成订阅模型的初始化
+  // console.log(cnMap)
+})().then(() => {
+  status.value = 'success'
 })
 
-// ---------------------------------- 判断某个namespcace下是否存在图表 ----------------------------------
-const showContainer = (tags) => {
-  return !!tags?.length
+// ---------------------------------- 发布、订阅模型 ----------------------------------
+
+// ---------------------------------- 工具函数：辅助渲染 ----------------------------------
+
+/**
+ * 将组名进行一些翻译
+ * @param { string } namespace 组名
+ */
+const getGroupName = (namespace) => {
+  console.log(namespace)
+  if (namespace === 'default') return t('experiment.chart.label.default')
+  else return namespace
 }
 </script>
 
