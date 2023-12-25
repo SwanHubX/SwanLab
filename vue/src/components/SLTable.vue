@@ -12,7 +12,7 @@
             <tr>
               <th v-for="(item, index) in column" :key="index" class="gnip-th">
                 <span
-                  class="block w-full truncate text-left"
+                  class="block w-full whitespace-nowrap text-left"
                   :class="`${item.style || 'px-2'} ${item.fixed ? fixedTableWidth : ''}`"
                   :style="{
                     width: dragedRecord[index]
@@ -36,15 +36,33 @@
           <!-- 表体 -->
           <tbody v-if="data.length">
             <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
-              <td v-for="(item, index) in column" :key="index" class="truncate">
+              <td v-for="(item, index) in column" :key="index" class="whitespace-nowrap">
                 <div
-                  class="text-left"
+                  class="text-left overflow-hidden"
                   :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`"
+                  :style="{
+                    width: dragedRecord[index]
+                      ? dragedRecord[index][0]
+                        ? dragedRecord[index][1].toFixed(0) + 'px'
+                        : ''
+                      : columnDefault + 'px'
+                  }"
                   v-if="item.slot"
                 >
                   <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
                 </div>
-                <div class="text-left" :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`" v-else>
+                <div
+                  class="text-left"
+                  :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`"
+                  :style="{
+                    width: dragedRecord[index]
+                      ? dragedRecord[index][0]
+                        ? dragedRecord[index][1].toFixed(0) + 'px'
+                        : ''
+                      : columnDefault + 'px'
+                  }"
+                  v-else
+                >
                   {{ dataColumn[item.key] || '-' }}
                 </div>
               </td>
@@ -232,7 +250,7 @@ export default {
         //  原来的宽度
         let { width } = this.$refs.colgroupItems[this.activeDragIndex].getBoundingClientRect()
         // 设置一个最小的宽度取值为30px，避免出现负值
-        const computedWidth = addWidth + width < 30 ? 30 : addWidth + width
+        const computedWidth = addWidth + width < 70 ? 70 : addWidth + width
         // 动态设置表格宽度
         this.dynamicTableWidth =
           this.dynamicTableWidth + addWidth > this.initTableWidth
