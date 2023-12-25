@@ -36,7 +36,14 @@
           <!-- 表体 -->
           <tbody v-if="data.length">
             <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
-              <td v-for="(item, index) in column" :key="index" class="whitespace-nowrap">
+              <td
+                v-for="(item, index) in column"
+                :key="index"
+                class="whitespace-nowrap"
+                :class="highlightColumnIndex === index ? 'bg-[#ebf7ff]' : ''"
+                @mouseover="highlightColumn(index)"
+                @mouseout="resetHighlight"
+              >
                 <div
                   class="text-left overflow-hidden"
                   :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`"
@@ -133,7 +140,9 @@ export default {
       // 动态计算表格宽度
       dynamicTableWidth: 0,
       // 固定列样式
-      fixedTableWidth: 'fixed  z-[2] bg-default'
+      fixedTableWidth: 'fixed  z-[2] bg-default',
+      // 高亮行号
+      highlightColumnIndex: -1
     }
   },
   computed: {
@@ -285,6 +294,14 @@ export default {
         // 重置拖拽数据
         // this.dragLineLeft = 0
       })
+    },
+    // 设置行高亮
+    highlightColumn(index) {
+      this.highlightColumnIndex = index
+    },
+    // 删除高亮
+    resetHighlight() {
+      this.highlightColumnIndex = -1
     }
   }
 }
@@ -501,6 +518,9 @@ onMounted(() => {
       position: relative;
       background-color: #f6f8fa;
       padding: 8px 0;
+      &:hover span:last-child {
+        @apply bg-positive-highest;
+      }
       .drag-line {
         position: absolute;
         width: 5px;
