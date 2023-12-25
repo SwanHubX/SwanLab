@@ -13,7 +13,7 @@
               <th v-for="(item, index) in column" :key="index" class="gnip-th">
                 <span
                   class="block w-full truncate text-left"
-                  :class="`${item.style || 'px-2'}`"
+                  :class="`${item.style || 'px-2'} ${item.fixed ? fixedTableWidth : ''}`"
                   :style="{
                     width: dragedRecord[index]
                       ? dragedRecord[index][0]
@@ -37,10 +37,14 @@
           <tbody v-if="data.length">
             <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
               <td v-for="(item, index) in column" :key="index" class="truncate">
-                <div class="text-left" :class="item.style || 'px-2'" v-if="item.slot">
+                <div
+                  class="text-left"
+                  :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`"
+                  v-if="item.slot"
+                >
                   <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
                 </div>
-                <div class="text-left" :class="item.style || 'px-2'" v-else>
+                <div class="text-left" :class="`${item.style || 'px-2'}  ${item.fixed ? fixedTableWidth : ''}`" v-else>
                   {{ dataColumn[item.key] || '-' }}
                 </div>
               </td>
@@ -109,7 +113,9 @@ export default {
       // 表格宽度，初始的时候固定宽度，超出滚动条，兼容多列数据放不下问题
       initTableWidth: 0,
       // 动态计算表格宽度
-      dynamicTableWidth: 0
+      dynamicTableWidth: 0,
+      // 固定列样式
+      fixedTableWidth: 'fixed  z-[2] bg-default'
     }
   },
   computed: {
@@ -234,20 +240,20 @@ export default {
         // 标记记录当前列为拖拽过了
         this.dragedRecord[this.activeDragIndex] = [true, computedWidth]
         // 自定义宽度的列数(没被拖拽的重新计算列宽)
-        const autoWidthColumnCount = this.dragedRecord.filter((item) => !item[0]).length
+        // const autoWidthColumnCount = this.dragedRecord.filter((item) => !item[0]).length
         // 计算需要减去的宽度
-        const subtractWidth = this.dragedRecord
-          .filter((item) => item[0])
-          .reduce((prev, now) => {
-            return now[1] + prev
-          }, 0)
+        // const subtractWidth = this.dragedRecord
+        //   .filter((item) => item[0])
+        //   .reduce((prev, now) => {
+        //     return now[1] + prev
+        //   }, 0)
         for (let i = 0; i < this.$refs.colgroupItems.length; i++) {
           // 设置当前拖拽列的宽度
           if (i == this.activeDragIndex) {
             this.$refs.colgroupItems[this.activeDragIndex].setAttribute('width', computedWidth)
           } else {
             // 设置其它的列的宽度（排除配置项设置过的列)
-            const isComputed = (this.dragedRecord.find((item, index) => index == i) || [])[0]
+            // const isComputed = (this.dragedRecord.find((item, index) => index == i) || [])[0]
             // !isComputed &&
             //   this.$refs.colgroupItems[i].setAttribute(
             //     'width',
@@ -474,7 +480,7 @@ onMounted(() => {
     }
     .gnip-th {
       position: relative;
-      background-color: #f8f8f9;
+      background-color: #f6f8fa;
       padding: 8px 0;
       .drag-line {
         position: absolute;
