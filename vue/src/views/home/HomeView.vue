@@ -106,8 +106,8 @@ const experiments_table = computed(() => {
   return projectStore.experiments.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
-    Object.keys(summary).forEach((key) => {
-      expr[hashString(key)] = summary[key]
+    Object.keys(summary).forEach(async (key) => {
+      expr[await hashString(key)] = summary[key]
     })
     return expr
   })
@@ -129,12 +129,16 @@ http
       })()
     }
   })
-  .then(({ data }) => {
+  .then(async ({ data }) => {
     // 增加tag对应的表头
-    tags.value = data.tags.map((tag) => {
-      return { key: hashString(tag), title: tag }
-    })
+    tags.value = await Promise.all(
+      data.tags.map(async (tag) => {
+        const key = await hashString(tag)
+        return { key, title: tag }
+      })
+    )
     column.value.push(...tags.value)
+    console.log(column.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })
