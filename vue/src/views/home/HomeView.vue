@@ -32,7 +32,7 @@
         {{ transTime(convertUtcToLocal(row.create_time)) }}
       </template>
       <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-        {{ row.config[item.key] }}
+        {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
   </div>
@@ -66,8 +66,8 @@ const column = ref([
   {
     title: t('home.list.table.header.name'),
     slot: 'name',
-    fixed: 'left',
-    padding: 'px-4'
+    style: 'px-4 w-[300px]',
+    fixed: true
   },
   {
     title: t('home.list.table.header.status'),
@@ -140,7 +140,6 @@ http
       })
     )
     column.value.push(...tags.value)
-    console.log(column.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })
