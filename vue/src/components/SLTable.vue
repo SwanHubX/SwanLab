@@ -24,7 +24,7 @@
                   >{{ item.title }}</span
                 >
                 <span
-                  class="drag-line"
+                  class="drag-line hover:bg-positive-highest"
                   :class="`${activeDragIndex === index ? ' bg-primary-dimmest' : ''} ${
                     index + 1 === column.length ? 'pointer-events-none' : ''
                   }`"
@@ -513,6 +513,7 @@ onMounted(() => {
     position: absolute;
     left: 0;
     top: 0;
+    z-index: 100;
   }
   tbody {
     tr {
