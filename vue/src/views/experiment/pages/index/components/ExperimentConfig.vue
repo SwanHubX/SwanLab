@@ -44,15 +44,11 @@ const experiment = ref(useExperimentStroe().experiment)
 const column = [
   {
     title: 'key',
-    key: 'key',
-    fixed: 'left',
-    padding: 'px-4'
+    key: 'key'
   },
   {
     title: 'value',
-    key: 'value',
-    fixed: 'left',
-    padding: 'px-4'
+    key: 'value'
   }
 ]
 

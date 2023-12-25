@@ -32,7 +32,7 @@
         {{ transTime(convertUtcToLocal(row.create_time)) }}
       </template>
       <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-        {{ row.config[item.key] }}
+        {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
   </div>
@@ -66,8 +66,9 @@ const column = ref([
   {
     title: t('home.list.table.header.name'),
     slot: 'name',
-    fixed: 'left',
-    padding: 'px-4'
+    style: 'px-4',
+    width: '300'
+    // fixed: true
   },
   {
     title: t('home.list.table.header.status'),
@@ -106,9 +107,11 @@ const experiments_table = computed(() => {
   return projectStore.experiments.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
-    Object.keys(summary).forEach(async (key) => {
-      expr[await hashString(key)] = summary[key]
-    })
+    Promise.all(
+      Object.keys(summary).map(async (key) => {
+        expr[await hashString(key)] = summary[key]
+      })
+    )
     return expr
   })
 })
@@ -138,7 +141,6 @@ http
       })
     )
     column.value.push(...tags.value)
-    console.log(column.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })
