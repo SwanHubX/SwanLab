@@ -34,7 +34,6 @@ import ChartContainer from './components/ChartContainer.vue'
 import EmptyExperiment from './components/EmptyExperiment.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
-import { debounce } from '@swanlab-vue/utils/common'
 import { onUnmounted } from 'vue'
 const experimentStore = useExperimentStroe()
 const route = useRoute()
@@ -115,8 +114,9 @@ class EventEmitter {
     if (callbacks) {
       callbacks.forEach((callback) => {
         // 如果存在error，data设置为null
-        if (error) callback(null, error)
-        else callback(data)
+        // console.log('执行回调')
+        if (error) callback(key, null, error)
+        else callback(key, data, null)
       })
     }
   }
@@ -147,7 +147,7 @@ class EventEmitter {
         // 如果实验状态不是0，停止轮询
         if (experimentStore.status !== 0) {
           clearInterval(this.timer)
-          return console.log('stop, experiment status is not 0')
+          console.log('stop, experiment status is not 0')
         }
         // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
         this._getSoureceData(tag)
@@ -177,6 +177,7 @@ class EventEmitter {
    * @param { array } tags 源列表，对应chart的source，可以是一个或多个
    * @param { string } cid 订阅者id，对应chart的_cid
    * @param { Function } callback 回调函数，当数据更新时执行订阅者的回调函数，这应该是一个Promise
+   * 回调函数接收三个参数，分别是tag、data和err
    */
   $on(tags, cid, callback) {
     tags = tags || []
@@ -184,8 +185,6 @@ class EventEmitter {
       // 拿到已经订阅的回调函数
       const callbacks = this._distributeMap.get(tag)
       // 如果已订阅存在，直接添加
-      // 为callback添加一个debounce，防止频繁更新
-      callback = debounce(callback, 100)
       if (callbacks) callbacks.set(cid, callback)
       // 否则，创建一个新的map，添加
       else this._distributeMap.set(tag, new Map([[cid, callback]]))
@@ -198,6 +197,7 @@ class EventEmitter {
    * @param { string } cid 订阅者id，对应chart的_cid
    */
   $off(tags, cid) {
+    if (!this?._distributeMap) return
     tags = tags || []
     tags.map((tag) => {
       // 拿到已经订阅的回调函数
@@ -222,8 +222,8 @@ class EventEmitter {
 const eventEmitter = new EventEmitter()
 
 // 依赖注入，注入订阅函数和取消订阅函数
-provide('$on', eventEmitter.$on)
-provide('$off', eventEmitter.$off)
+provide('$on', (tags, cid, callback) => eventEmitter.$on(tags, cid, callback))
+provide('$off', (tags, cid) => eventEmitter.$off(tags, cid))
 
 // 当前组件销毁时，取消相关行为
 onUnmounted(() => {
