@@ -106,9 +106,11 @@ const experiments_table = computed(() => {
   return projectStore.experiments.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
-    Object.keys(summary).forEach(async (key) => {
-      expr[await hashString(key)] = summary[key]
-    })
+    Promise.all(
+      Object.keys(summary).map(async (key) => {
+        expr[await hashString(key)] = summary[key]
+      })
+    )
     return expr
   })
 })
