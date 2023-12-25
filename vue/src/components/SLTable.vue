@@ -5,12 +5,7 @@
         <table class="w-full">
           <!--  标签用于对表格中的列进行组合，以便对其进行格式化。 -->
           <colgroup>
-            <col
-              :width="item.width || columnDefault"
-              v-for="(item, index) in column"
-              :key="index"
-              ref="colgroupItems"
-            />
+            <col v-for="(item, index) in column" :key="index" ref="colgroupItems" />
           </colgroup>
           <!-- 表头 -->
           <thead>
@@ -18,9 +13,14 @@
               <th v-for="(item, index) in column" :key="index" class="gnip-th">
                 <span
                   class="block w-full truncate text-left"
-                  :class="`${item.style || 'px-2'} ${
-                    dragedRecord[index] ? (dragedRecord[index][0] ? 'w-auto' : '') : ''
-                  }`"
+                  :class="`${item.style || 'px-2'}`"
+                  :style="{
+                    width: dragedRecord[index]
+                      ? dragedRecord[index][0]
+                        ? dragedRecord[index][1].toFixed(0) + 'px'
+                        : ''
+                      : columnDefault + 'px'
+                  }"
                   >{{ item.title }}</span
                 >
                 <span
@@ -37,22 +37,10 @@
           <tbody v-if="data.length">
             <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
               <td v-for="(item, index) in column" :key="index" class="truncate">
-                <div
-                  class="text-left"
-                  :class="`${item.style || 'px-2'} ${
-                    dragedRecord[index] ? (dragedRecord[index][0] ? 'w-auto' : '') : ''
-                  }`"
-                  v-if="item.slot"
-                >
+                <div class="text-left" :class="item.style || 'px-2'" v-if="item.slot">
                   <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
                 </div>
-                <div
-                  class="text-left"
-                  :class="`${item.style || 'px-2'} ${
-                    dragedRecord[index] ? (dragedRecord[index][0] ? 'w-auto' : '') : ''
-                  }`"
-                  v-else
-                >
+                <div class="text-left" :class="item.style || 'px-2'" v-else>
                   {{ dataColumn[item.key] || '-' }}
                 </div>
               </td>
@@ -260,11 +248,11 @@ export default {
           } else {
             // 设置其它的列的宽度（排除配置项设置过的列)
             const isComputed = (this.dragedRecord.find((item, index) => index == i) || [])[0]
-            !isComputed &&
-              this.$refs.colgroupItems[i].setAttribute(
-                'width',
-                (this.dynamicTableWidth - subtractWidth) / autoWidthColumnCount
-              )
+            // !isComputed &&
+            //   this.$refs.colgroupItems[i].setAttribute(
+            //     'width',
+            //     (this.dynamicTableWidth - subtractWidth) / autoWidthColumnCount
+            //   )
           }
         }
         // 重置表头索引
