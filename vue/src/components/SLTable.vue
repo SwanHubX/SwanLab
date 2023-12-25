@@ -127,6 +127,7 @@ export default {
   },
   mounted() {
     this.init()
+    window.addEventListener('resize', this.initTableScrollWidth)
   },
   methods: {
     // 初始化
