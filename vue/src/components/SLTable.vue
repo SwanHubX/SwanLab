@@ -39,7 +39,7 @@
           <tfoot v-if="!data.length">
             <tr>
               <td :colspan="column.length">
-                <div class="data-empty">暂无数据</div>
+                <div class="data-empty">{{ $t('common.table.empty') }}</div>
               </td>
             </tr>
           </tfoot>

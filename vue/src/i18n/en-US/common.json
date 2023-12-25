@@ -1,3 +1,6 @@
 {
-    "copy": "Copy successful!"
+  "copy": "Copy successful!",
+  "table": {
+    "empty": "Empty Table"
+  }
 }
