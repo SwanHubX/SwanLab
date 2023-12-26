@@ -32,7 +32,7 @@
                   class="drag-line hover:bg-positive-highest"
                   :class="`${activeDragIndex === index ? ' bg-primary-dimmest' : ''} ${
                     index + 1 === column.length ? 'pointer-events-none' : ''
-                  }`"
+                  } ${highlightColumnIndex === index ? 'bg-positive-highest' : ''}`"
                   @mousedown="handleMouseDown(index, $event)"
                 ></span>
               </th>
