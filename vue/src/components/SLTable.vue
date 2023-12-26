@@ -10,7 +10,12 @@
           <!-- 表头 -->
           <thead>
             <tr>
-              <th v-for="(item, index) in column" :key="index" class="gnip-th">
+              <th
+                v-for="(item, index) in column"
+                :key="index"
+                class="gnip-th"
+                :class="highlightColumnIndex === index ? ' bg-slate-200' : 'bg-[#f6f8fa]'"
+              >
                 <span
                   class="block w-full whitespace-nowrap text-left"
                   :class="`${item.style || 'px-2'} ${item.fixed ? fixedTableWidth : ''}`"
@@ -40,8 +45,8 @@
                 v-for="(item, index) in column"
                 :key="index"
                 class="whitespace-nowrap"
-                :class="highlightColumnIndex === index ? 'bg-[#ebf7ff]' : ''"
-                @mouseover="highlightColumn(index)"
+                :class="highlightColumnIndex === index ? 'hover:bg-primary-dimmest bg-[#ebf7ff]' : ''"
+                @mouseover="highlightColumn(highLight ? index : -1)"
                 @mouseout="resetHighlight"
               >
                 <div
@@ -117,6 +122,11 @@ export default {
     // 最大宽度
     maxW: {
       type: String
+    },
+    // 是否高亮预览
+    highLight: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -516,7 +526,7 @@ onMounted(() => {
     }
     .gnip-th {
       position: relative;
-      background-color: #f6f8fa;
+      // background-color: #f6f8fa;
       padding: 8px 0;
       &:hover span:last-child {
         @apply bg-positive-highest;
