@@ -8,7 +8,7 @@
             $t('experiment.index.config.help.config')
           }}</SLHelp>
         </div>
-        <SLTable :column="column" :data="configs" />
+        <SLTable :column="column" :data="configs" high-light />
       </div>
       <div v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
@@ -17,7 +17,7 @@
             >{{ $t('experiment.index.config.help.summary') }}
           </SLHelp>
         </div>
-        <SLTable :column="column" :data="summaries" />
+        <SLTable :column="column" :data="summaries" high-light />
       </div>
     </div>
     <div class="w-full h-6"></div>
