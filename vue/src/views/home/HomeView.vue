@@ -21,7 +21,7 @@
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
-    <SLTable :column="column" :data="experiments_table" v-if="tags">
+    <SLTable :column="column" :data="experiments_table" high-light v-if="tags">
       <template v-slot:name="{ row }">
         <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
       </template>
@@ -67,7 +67,7 @@ const column = ref([
     title: t('home.list.table.header.name'),
     slot: 'name',
     style: 'px-4',
-    width: '300'
+    width: '200'
     // fixed: true
   },
   {
