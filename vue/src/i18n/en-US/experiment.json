@@ -31,8 +31,8 @@
         "python": "Python Version",
         "executable": "Python executable",
         "hardware": "System Hardware",
-        "cpu": "CPU Cores: {value}",
-        "gpu": "GPU Cores: {value}",
+        "cpu": "CPU Count: {value}",
+        "gpu": "GPU Count: {value}",
         "type": "GPU Type: {value}"
       }
     },

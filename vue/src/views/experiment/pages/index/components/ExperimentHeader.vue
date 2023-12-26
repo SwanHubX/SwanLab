@@ -18,22 +18,25 @@
     <!-- 实验信息 -->
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
       <!-- 实验相关 -->
-      <div class="w-1/2 min-w-[400px]">
+      <div class="min-w-[400px] max-w-[50%] pr-4">
+        <!-- 实验状态 -->
         <div class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
         </div>
-        <div v-for="item in experiment_infos" :key="item.title" class="flex pb-4">
-          <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
-          <div v-if="!item.isLink" :title="item.value">{{ item.value }}</div>
-          <a :href="item.value" target="_blank" class="hover:underline" v-else>{{ item.value }}</a>
+        <div v-for="item in experiment_infos" :key="item.title">
+          <div class="flex pb-4" v-if="item.value">
+            <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
+            <div v-if="!item.isLink" :title="item.value">{{ item.value }}</div>
+            <a :href="item.value" target="_blank" class="hover:underline break-all" v-else>{{ item.value }}</a>
+          </div>
         </div>
       </div>
       <!-- 系统相关 -->
       <div class="w-1/2 min-w-[400px]" v-if="experiment.system">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
-          <div class="truncate" :title="item.value">{{ item.value === '' ? 'Unkown' : item.value }}</div>
+          <div :title="item.value">{{ item.value === '' ? 'Unkown' : item.value }}</div>
         </div>
       </div>
     </div>
@@ -57,6 +60,8 @@ import { ref } from 'vue'
 
 const experiment = ref(useExperimentStroe().experiment)
 
+// ---------------------------------- 实验信息 ----------------------------------
+
 const experiment_infos = computed(() => {
   return [
     {
@@ -79,7 +84,17 @@ const experiment_infos = computed(() => {
   ]
 })
 
-const prePath = 'experiment.index.header.experiment_device'
+// ---------------------------------- 设备信息 ----------------------------------
+
+const hardware = computed(() => {
+  const prePath = 'experiment.index.header.experiment_device'
+  const list = [
+    experiment.value.system.cpu ? t(`${prePath}.cpu`, { value: experiment.value.system.cpu }) : '',
+    experiment.value.system.gpu?.cores ? t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }) : '',
+    experiment.value.system.gpu?.type ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
+  ]
+  return list.filter((item) => item !== '').join(' | ')
+})
 const experiment_device = computed(() => {
   return [
     {
@@ -100,11 +115,7 @@ const experiment_device = computed(() => {
     },
     {
       title: 'hardware',
-      value: [
-        t(`${prePath}.cpu`, { value: experiment.value.system.cpu }),
-        t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }),
-        t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] })
-      ].join(' | ')
+      value: hardware.value
     }
   ]
 })
