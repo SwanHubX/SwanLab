@@ -53,8 +53,11 @@ def __get_remote_url():
 
 def __get_gpu_info():
     """获取 GPU 信息"""
-    pynvml.nvmlInit()
     info = {"cores": None, "type": []}
+    try:
+        pynvml.nvmlInit()
+    except:
+        return info
     try:
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
