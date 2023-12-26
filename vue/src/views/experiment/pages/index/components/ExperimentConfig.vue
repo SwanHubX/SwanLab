@@ -8,7 +8,7 @@
             $t('experiment.index.config.help.config')
           }}</SLHelp>
         </div>
-        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
+        <SLTable :column="column" :data="configs" />
       </div>
       <div v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
@@ -17,11 +17,7 @@
             >{{ $t('experiment.index.config.help.summary') }}
           </SLHelp>
         </div>
-        <SLTable
-          class="max-w-[600px]"
-          :header="['Key', 'Value']"
-          :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
-        />
+        <SLTable :column="column" :data="summaries" />
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -40,18 +36,34 @@ import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
+import { computed } from 'vue'
 
 const experiment = ref(useExperimentStroe().experiment)
 
+// 通用表头
+const column = [
+  {
+    title: 'key',
+    key: 'key'
+  },
+  {
+    title: 'value',
+    key: 'value'
+  }
+]
+
 // ---------------------------------- 转化实验配置为表格数据 ----------------------------------
 
-const getConfigs = (config) => {
+const configs = computed(() => {
   const configs = []
-  for (const key in config) {
-    configs.push([key, config[key]])
+  for (const key in experiment.value.config) {
+    configs.push({
+      key,
+      value: experiment.value.config[key]
+    })
   }
   return configs
-}
+})
 
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
 
@@ -59,8 +71,9 @@ const summaries = ref([])
 const experimentId = ref(useExperimentStroe().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
-  .then((res) => {
-    summaries.value = res.data.summaries || []
+  .then(({ data }) => {
+    console.log(data)
+    summaries.value = data.summaries || []
   })
   .catch((error) => {
     console.error(error)
