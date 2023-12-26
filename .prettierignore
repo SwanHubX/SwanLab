@@ -59,12 +59,12 @@ components/style/color/*.less
 
 .huskyrc
 
-!README.md
-!README_zh-hans.md
-
 doc/**
 
 **.md
+
+!README.md
+!README_zh-hans.md
 
 .github/**
 

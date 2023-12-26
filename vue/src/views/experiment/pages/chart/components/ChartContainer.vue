@@ -1,11 +1,11 @@
 <template>
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <template v-if="status === 'success'">
-      <!-- 图表标题 -->
-      <p class="text-center font-semibold">{{ title(chart.source[0]) }}</p>
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover"></div>
-      <component />
+      <div class="chart-pannel" v-if="hover">
+        <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
+      </div>
+      <component ref="chartRef" :is="chartComponent(chart.type)" :title="title(chart.source[0])" :chart="chart" />
     </template>
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-else-if="status === 'error'">
@@ -31,6 +31,9 @@ import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import LineChart from './package/LineChart.vue'
+import PannelButton from './PannelButton.vue'
+import { debounce } from '@swanlab-vue/utils/common'
 const props = defineProps({
   chart: {
     type: Object,
@@ -49,22 +52,35 @@ const handleMouseLeave = () => (hover.value = false)
 // ---------------------------------- 控制chart显示状态 ----------------------------------
 const status = ref('loading')
 
-const chartComponent = (type) => {}
+const chartComponent = (type) => {
+  switch (type) {
+    case 'default':
+      return LineChart
+  }
+}
 
 // ---------------------------------- 订阅 ----------------------------------
+let data = {}
+// 是否已经渲染
+let init = false
 const $off = inject('$off')
-inject('$on')(source, cid, (tag, data, error) => {
+inject('$on')(source, cid, (tag, _tagData, error) => {
   return new Promise((resolve, reject) => {
     if (error) {
       status.value = 'error'
       reject(error)
     } else {
       status.value = 'success'
-      // console.log(tag, data)
-      // 完成渲染
-      addTaskToBrowserMainThread(() => {
-        console.log('渲染图表: ', props.chart)
-      })
+      data[tag] = _tagData
+      // 判断data的key数量是否和source长度相同
+      if (Object.keys(data).length === source.length) {
+        // 渲染
+        addTaskToBrowserMainThread(() => {
+          if (!init) render(data)
+          else change(data)
+          init = true
+        })
+      }
       resolve(data)
     }
   })
@@ -79,6 +95,22 @@ onUnmounted(() => {
 const title = (t) => {
   // TODO 多数据时可能有不同的显示方式
   return t
+}
+
+// ---------------------------------- 图表对象控制 ----------------------------------
+const chartRef = ref(null)
+// 渲染功能
+const render = debounce(() => {
+  chartRef.value.render(data)
+}, 100)
+// 重渲染功能
+const change = debounce(() => {
+  chartRef.value.change(data)
+}, 100)
+
+// 放大功能
+const zoom = () => {
+  chartRef.value.zoom(data)
 }
 </script>
 

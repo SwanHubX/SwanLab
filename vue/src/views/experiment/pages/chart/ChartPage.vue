@@ -108,6 +108,11 @@ class EventEmitter {
    * @param { Object } error 错误信息，如果存在，data将被设置为null
    */
   setSourceData(key, data, error) {
+    // COMPAT 如果第一个数据没有index，就循环每个数据，加上index
+    if (Object.prototype.hasOwnProperty.call(data.list[0], 'index'))
+      data.list.forEach((item, index) => {
+        item.index = index
+      })
     this._sourceMap.set(key, data)
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)
@@ -136,23 +141,37 @@ class EventEmitter {
    *
    */
   start() {
-    this.timer = setInterval(() => {
+    // 第一次延时1秒执行，后面每隔n秒执行一次
+    const n = 3
+    setTimeout(() => {
       // 遍历源列表，请求数据
       this._sources.forEach((tag) => {
         // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
         if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-          clearInterval(this.timer)
-          return console.log('stop, experiment id is not equal to route id')
-        }
-        // 如果实验状态不是0，停止轮询
-        if (experimentStore.status !== 0) {
-          clearInterval(this.timer)
-          console.log('stop, experiment status is not 0')
+          return
         }
         // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
         this._getSoureceData(tag)
       })
     }, 1000)
+
+    this.timer = setInterval(() => {
+      // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+      if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+        clearInterval(this.timer)
+        return console.log('stop, experiment id is not equal to route id')
+      }
+      // 如果实验状态不是0，停止轮询
+      if (experimentStore.status !== 0) {
+        clearInterval(this.timer)
+        return console.log('stop, experiment status is not 0')
+      }
+      // 遍历源列表，请求数据
+      this._sources.forEach((tag) => {
+        // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+        this._getSoureceData(tag)
+      })
+    }, n * 1000)
   }
 
   /**
