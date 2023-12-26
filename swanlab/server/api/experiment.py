@@ -187,6 +187,14 @@ async def get_tag_data(experiment_id: int, tag: str):
             tag_data.extend(data)
         tag_data.extend(tag_json["data"])
         # 返回数据
+        # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
+        if tag_data[0].get("index") is None:
+            for index, data in enumerate(tag_data):
+                data["index"] = str(index + 1)
+        # COMPAT 如果第一个数据的index不是string，改为string
+        if not isinstance(tag_data[0]["index"], str):
+            for data in tag_data:
+                data["index"] = str(data["index"])
         return SUCCESS_200(data={"sum": len(tag_data), "list": tag_data})
     else:
         # TODO 采样读取数据

@@ -108,28 +108,18 @@ class EventEmitter {
    * @param { Object } error 错误信息，如果存在，data将被设置为null
    */
   setSourceData(key, data, error) {
-    // COMPAT 如果第一个数据没有index，就循环每个数据，加上index
-    if (!Object.prototype.hasOwnProperty.call(data.list[0], 'index')) {
-      data.list.forEach((item, index) => {
-        item.index = index.toString()
-      })
+    if (data) {
+      // 依据index排序
+      data.list.sort((a, b) => a.index - b.index)
+      this._sourceMap.set(key, data)
     }
-    // COMPAT 如果第一个数据的index不是string，改为string
-    if (typeof data.list[0].index !== 'string') {
-      data.list.forEach((item) => {
-        item.index = item.index.toString()
-      })
-    }
-    // 依据index排序
-    data.list.sort((a, b) => a.index - b.index)
-    this._sourceMap.set(key, data)
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)
     if (callbacks) {
       callbacks.forEach((callback) => {
         // 如果存在error，data设置为null
         // console.log('执行回调')
-        if (error) callback(key, null, error)
+        if (error) callback(key, data, error)
         else callback(key, data, null)
       })
     }
@@ -152,17 +142,11 @@ class EventEmitter {
   start() {
     // 第一次延时1秒执行，后面每隔n秒执行一次
     const n = 3
-    setTimeout(() => {
-      // 遍历源列表，请求数据
-      this._sources.forEach((tag) => {
-        // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
-        if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-          return
-        }
-        // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
-        this._getSoureceData(tag)
-      })
-    }, 1000)
+    // 遍历源列表，请求数据
+    this._sources.forEach((tag) => {
+      // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+      this._getSoureceData(tag)
+    })
 
     this.timer = setInterval(() => {
       // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询

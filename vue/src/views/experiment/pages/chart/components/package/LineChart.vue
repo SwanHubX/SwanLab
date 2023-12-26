@@ -1,6 +1,8 @@
 <template>
   <!-- 图表标题 -->
   <p class="text-center font-semibold">{{ title }}</p>
+  <!-- x轴坐标单位 -->
+  <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
   <!-- 图表主体 -->
   <div ref="g2Ref"></div>
   <!-- 放大效果 -->
@@ -18,11 +20,12 @@
  * @since: 2023-12-25 20:17:19
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
-import { Line } from '@antv/g2plot'
+import { G2, Line } from '@antv/g2plot'
 import * as UTILS from './utils'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { onMounted } from 'vue'
 // ---------------------------------- 配置 ----------------------------------
 const experimentStore = useExperimentStroe()
 const props = defineProps({
@@ -57,7 +60,7 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     yField: 'data',
     // 坐标轴相关
     xAxis: {
-      // tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+      tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
     yAxis: {
       tickCount: 7
@@ -83,10 +86,106 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // smooth: true, // 平滑曲线
     color: defaultColor,
     ...config
+    // TODO 末尾添加一个圆圈
+    // point: {
+    //   shape: 'end-point'
+    // }
   })
   c.render()
   return c
 }
+// // TODO 末尾添加一个圆圈
+// G2.registerShape('point', 'end-point', {
+//   draw(cfg, container) {
+//     const data = cfg.data
+//     const point = { x: cfg.x, y: cfg.y }
+//     console.log(cfg, point)
+//     const group = container.addGroup()
+//     if (data.time === '14.20' && data.date === 'today') {
+//       const decorator1 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       const decorator2 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       const decorator3 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       decorator1.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true
+//         }
+//       )
+//       decorator2.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true,
+//           delay: 600
+//         }
+//       )
+//       decorator3.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true,
+//           delay: 1200
+//         }
+//       )
+//       group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 6,
+//           fill: cfg.color,
+//           opacity: 0.7
+//         }
+//       })
+//       group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 1.5,
+//           fill: cfg.color
+//         }
+//       })
+//     }
+
+//     return group
+//   }
+// })
 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
@@ -104,7 +203,7 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   data = format(data)
-  console.log('data', data)
+  // console.log('data', data)
   chartObj = createChart(g2Ref.value, data)
 }
 // 重渲染

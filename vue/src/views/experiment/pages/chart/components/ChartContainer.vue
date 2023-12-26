@@ -10,12 +10,12 @@
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-else-if="status === 'error'">
       <SLIcon class="mx-auto h-5 w-5" icon="error" />
-      <p class="text-center text-xs">此图表无法被正确显示</p>
+      <p class="text-center text-xs">{{ $t('experiment.chart.error') }}</p>
     </div>
-    <!-- 加载中 -->
-    <div class="h-full flex items-center justify-center" v-else>
+    <!-- 加载中，暂无加载动画 -->
+    <!-- <div class="h-full flex items-center justify-center" v-else>
       <SLLoading />
-    </div>
+    </div> -->
   </section>
 </template>
 
@@ -29,7 +29,7 @@ import { inject } from 'vue'
 import { onUnmounted } from 'vue'
 import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import SLLoading from '@swanlab-vue/components/SLLoading.vue'
+// import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import LineChart from './package/LineChart.vue'
 import PannelButton from './PannelButton.vue'
