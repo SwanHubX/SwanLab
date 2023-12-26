@@ -15,6 +15,8 @@
                 :key="index"
                 class="gnip-th"
                 :class="highlightColumnIndex === index ? ' bg-slate-200' : 'bg-[#f6f8fa]'"
+                @mouseover="highlightColumn(highLight ? index : -1)"
+                @mouseout="resetHighlight"
               >
                 <span
                   class="block w-full whitespace-nowrap text-left"
@@ -29,10 +31,11 @@
                   >{{ item.title }}</span
                 >
                 <span
-                  class="drag-line hover:bg-positive-highest"
-                  :class="`${activeDragIndex === index ? ' bg-primary-dimmest' : ''} ${
-                    index + 1 === column.length ? 'pointer-events-none' : ''
-                  } ${highlightColumnIndex === index ? 'bg-positive-highest' : ''}`"
+                  class="drag-line hover:!bg-positive-dimmer hover:opacity-20"
+                  :class="`${activeDragIndex === index ? ' !bg-primary-dimmest' : ''} ${
+                    highlightColumnIndex === index ? 'bg-positive-highest' : ''
+                  } ${index + 1 === column.length ? 'pointer-events-none' : ''}`"
+                  :style="{ background: index + 1 === column.length ? 'none' : '' }"
                   @mousedown="handleMouseDown(index, $event)"
                 ></span>
               </th>
@@ -44,7 +47,7 @@
               <td
                 v-for="(item, index) in column"
                 :key="index"
-                class="whitespace-nowrap"
+                class="whitespace-nowrap overflow-hidden"
                 :class="highlightColumnIndex === index ? 'hover:bg-primary-dimmest bg-[#ebf7ff]' : ''"
                 @mouseover="highlightColumn(highLight ? index : -1)"
                 @mouseout="resetHighlight"
