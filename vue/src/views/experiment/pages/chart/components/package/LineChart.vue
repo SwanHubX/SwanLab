@@ -62,17 +62,17 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     yAxis: {
       tickCount: 7
     },
-    // tooltip: {
-    //   formatter: (data) => {
-    //     // console.log(data)
-    //     // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
-    //     return { name: source[0], value: data.data }
-    //   }
-    //   // customContent: (title, data) => {
-    //   //   console.log(title, data)
-    //   //   return `<div>${title}</div>`
-    //   // }
-    // },
+    tooltip: {
+      formatter: (data) => {
+        // console.log(data)
+        // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+        return { name: source[0], value: data.data }
+      }
+      // customContent: (title, data) => {
+      //   console.log(title, data)
+      //   return `<div>${title}</div>`
+      // }
+    },
     // 大小相关
     height: 200,
     width: undefined,
