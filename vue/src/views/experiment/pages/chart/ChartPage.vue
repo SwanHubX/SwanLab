@@ -109,10 +109,19 @@ class EventEmitter {
    */
   setSourceData(key, data, error) {
     // COMPAT 如果第一个数据没有index，就循环每个数据，加上index
-    if (Object.prototype.hasOwnProperty.call(data.list[0], 'index'))
+    if (!Object.prototype.hasOwnProperty.call(data.list[0], 'index')) {
       data.list.forEach((item, index) => {
-        item.index = index
+        item.index = index.toString()
       })
+    }
+    // COMPAT 如果第一个数据的index不是string，改为string
+    if (typeof data.list[0].index !== 'string') {
+      data.list.forEach((item) => {
+        item.index = item.index.toString()
+      })
+    }
+    // 依据index排序
+    data.list.sort((a, b) => a.index - b.index)
     this._sourceMap.set(key, data)
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)

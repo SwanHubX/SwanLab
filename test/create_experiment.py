@@ -36,7 +36,10 @@ for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    sw.log({"loss": loss, "accuracy": acc, "loss2": loss, "accuracy2": acc, "loss3": loss, "accuracy3": acc})
+    sw.log({"loss": loss, "accuracy": acc})
+    sw.log({"loss2": loss, "accuracy2": acc}, step=epochs - epoch)
+    sw.log({"loss3": loss, "accuracy3": acc}, step=epoch * 2)
+
     time.sleep(0.5)
     # if epoch % 40 == 0:
     #     epoch / 0

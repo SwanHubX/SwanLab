@@ -57,23 +57,22 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     yField: 'data',
     // 坐标轴相关
     xAxis: {
-      tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+      // tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
     yAxis: {
       tickCount: 7
     },
-    // 元数据
-    tooltip: {
-      formatter: (data) => {
-        // console.log(data)
-        // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
-        return { name: source[0], value: data.data }
-      }
-      // customContent: (title, data) => {
-      //   console.log(title, data)
-      //   return `<div>${title}</div>`
-      // }
-    },
+    // tooltip: {
+    //   formatter: (data) => {
+    //     // console.log(data)
+    //     // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+    //     return { name: source[0], value: data.data }
+    //   }
+    //   // customContent: (title, data) => {
+    //   //   console.log(title, data)
+    //   //   return `<div>${title}</div>`
+    //   // }
+    // },
     // 大小相关
     height: 200,
     width: undefined,
@@ -105,6 +104,7 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   data = format(data)
+  console.log('data', data)
   chartObj = createChart(g2Ref.value, data)
 }
 // 重渲染

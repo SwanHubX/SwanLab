@@ -116,7 +116,7 @@ class ExperimentPoxy(object):
     def new_tag_data(self, index) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""
         return {
-            "index": index,
+            "index": str(index),
             "create_time": create_time(),
         }
 
@@ -135,7 +135,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int, **kwargs):
+    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int, sum: int, **kwargs):
         """保存一个tag的数据
 
         Parameters
@@ -148,6 +148,8 @@ class ExperimentPoxy(object):
             实验id
         index : int
             tag索引
+        sum : int
+            当前tag总数
         """
         # 创建一个新的tag数据
         new_tag_data = self.new_tag_data(index)
@@ -162,9 +164,9 @@ class ExperimentPoxy(object):
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
 
-        # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过index来判断
-        need_slice = (index - 1) % self.__slice_size == 0 or index == 1
-        mu = math.ceil(index / self.__slice_size)
+        # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
+        need_slice = (sum - 1) % self.__slice_size == 0 or sum == 1
+        mu = math.ceil(sum / self.__slice_size)
         # 存储路径
         file_path = os.path.join(save_folder, str(mu * self.__slice_size) + ".json")
         # 如果需要新增分片存储
