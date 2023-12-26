@@ -72,7 +72,6 @@ const experimentId = ref(useExperimentStroe().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then(({ data }) => {
-    console.log(data)
     summaries.value = data.summaries || []
   })
   .catch((error) => {

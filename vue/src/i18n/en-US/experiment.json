@@ -15,6 +15,8 @@
         "status": "Status",
         "start_time": "Start Time",
         "last_time": "Duration",
+        "version": "SwanLab Version",
+        "git": "Git Repository",
         "tags": "Tags",
         "time": {
           "day": "d ",
@@ -26,7 +28,12 @@
       "experiment_device": {
         "hostname": "Hostname",
         "os": "Operating System",
-        "python": "Python Version"
+        "python": "Python Version",
+        "executable": "Python executable",
+        "hardware": "System Hardware",
+        "cpu": "CPU Cores: {value}",
+        "gpu": "GPU Cores: {value}",
+        "type": "GPU Type: {value}"
       }
     },
     "config": {

@@ -25,14 +25,15 @@
         </div>
         <div v-for="item in experiment_infos" :key="item.title" class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
-          <div class="">{{ item.value }}</div>
+          <div v-if="!item.isLink" :title="item.value">{{ item.value }}</div>
+          <a :href="item.value" target="_blank" class="hover:underline" v-else>{{ item.value }}</a>
         </div>
       </div>
       <!-- 系统相关 -->
       <div class="w-1/2 min-w-[400px]" v-if="experiment.system">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
-          <div class="">{{ item.value === '' ? '未知' : item.value }}</div>
+          <div class="truncate" :title="item.value">{{ item.value === '' ? 'Unkown' : item.value }}</div>
         </div>
       </div>
     </div>
@@ -65,10 +66,20 @@ const experiment_infos = computed(() => {
     {
       title: 'last_time',
       value: duration()
+    },
+    {
+      title: 'version',
+      value: `v${experiment.value.version}`
+    },
+    {
+      title: 'git',
+      value: experiment.value.system.git_remote,
+      isLink: true
     }
   ]
 })
 
+const prePath = 'experiment.index.header.experiment_device'
 const experiment_device = computed(() => {
   return [
     {
@@ -82,6 +93,18 @@ const experiment_device = computed(() => {
     {
       title: 'python',
       value: experiment.value.system.python || ''
+    },
+    {
+      title: 'executable',
+      value: experiment.value.system.executable || ''
+    },
+    {
+      title: 'hardware',
+      value: [
+        t(`${prePath}.cpu`, { value: experiment.value.system.cpu }),
+        t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }),
+        t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] })
+      ].join(' | ')
     }
   ]
 })
