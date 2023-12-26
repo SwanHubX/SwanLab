@@ -45,7 +45,7 @@
         <SLIcon icon="help" class="w-4 h-4 mr-2" />
         <span>{{ $t('sider.nav.help') }}</span>
       </RouterLink> -->
-      <a href="https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc" class="my-4 mx-4" target="_blank">
+      <a :href="help_url" class="my-4 mx-4" target="_blank">
         <SLIcon icon="help" class="w-4 h-4 mr-2" />
         <span>{{ $t('sider.nav.help') }}</span>
       </a>
@@ -70,6 +70,9 @@ defineProps({
     default: 'unknown'
   }
 })
+
+const help_url =
+  'https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home'
 
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------

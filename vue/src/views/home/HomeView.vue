@@ -147,14 +147,15 @@ http
 
 // 哈希处理 key 避免和关键字重复
 async function hashString(inputString) {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(inputString)
+  // const encoder = new TextEncoder()
+  // const data = encoder.encode(inputString)
 
-  const buffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(buffer))
-  const hashHex = hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  // const buffer = await crypto.subtle.digest('SHA-256', data)
+  // const hashArray = Array.from(new Uint8Array(buffer))
+  // const hashHex = hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('')
 
-  return hashHex
+  // return hashHex
+  return 'swanlab-overview-table-key' + inputString
 }
 </script>
 
