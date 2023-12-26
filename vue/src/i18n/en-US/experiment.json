@@ -48,6 +48,7 @@
   },
   "chart": {
     "empty": "Empty Experiment with No Charts",
+    "error": "This chart is not displayed correctly.",
     "label": {
       "default": "Charts"
     },

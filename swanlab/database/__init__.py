@@ -84,7 +84,7 @@ def init(experiment_name: str = None, description: str = "", config: dict = {}, 
     swl.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
 
 
-def log(data: dict):
+def log(data: dict, step: int = None):
     """以字典的形式记录数据，字典的key将作为列名，value将作为记录的值
     例如:
     ```python
@@ -94,15 +94,19 @@ def log(data: dict):
     ----------
     data : dict
         此处填写需要记录的数据
+    step: int
+        当前记录的步数，如果不传则默认当前步数为'已添加数据数量+1'
     """
     if sd is None:
         raise RuntimeError("swanlab is not initialized")
     if not isinstance(data, dict):
         raise TypeError("log data must be a dict")
+    if step is not None and (not isinstance(step, int) or step < 0):
+        raise TypeError("'step' must be an integer not less than zero.")
     for key in data:
         # 遍历字典的key，记录到本地文件中
         # TODO 检查数据类型
-        sd.add(key, data[key])
+        sd.add(key, data[key], step=step)
 
 
 __all__ = ["log", "init"]

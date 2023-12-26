@@ -1,0 +1,240 @@
+<template>
+  <!-- 图表标题 -->
+  <p class="text-center font-semibold">{{ title }}</p>
+  <!-- x轴坐标单位 -->
+  <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+  <!-- 图表主体 -->
+  <div ref="g2Ref"></div>
+  <!-- 放大效果 -->
+  <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+    <div ref="g2ZoomRef"></div>
+    <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+  </SLModal>
+</template>
+
+<script setup>
+/**
+ * @description: 折线图表
+ * @file: LineChart.vue
+ * @since: 2023-12-25 20:17:19
+ **/
+import SLModal from '@swanlab-vue/components/SLModal.vue'
+import { G2, Line } from '@antv/g2plot'
+import * as UTILS from './utils'
+import { ref } from 'vue'
+import { useExperimentStroe } from '@swanlab-vue/store'
+import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { onMounted } from 'vue'
+// ---------------------------------- 配置 ----------------------------------
+const experimentStore = useExperimentStroe()
+const props = defineProps({
+  title: {
+    type: String,
+    required: true
+  },
+  chart: {
+    type: Object,
+    required: true
+  }
+})
+// 组件对象
+const g2Ref = ref()
+const g2ZoomRef = ref()
+// 数据源 arrya
+const source = props.chart.source
+// 参考字段和显示名称
+const reference = props.chart.reference
+// 图表默认颜色
+const defaultColor = experimentStore.defaultColor
+// 拿到参考系
+const { xField, xTitle } = UTILS.refrence2XField[reference]
+// 创建图表的函数
+// TODO 兼容多数据情况
+const createChart = (dom, data, config = { interactions: undefined, height: 200, width: undefined, autoFit: true }) => {
+  const c = new Line(dom, {
+    data,
+    // 默认的x轴依据key为step
+    xField,
+    // 默认的y轴依据key为data
+    yField: 'data',
+    // 坐标轴相关
+    xAxis: {
+      tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+    },
+    yAxis: {
+      tickCount: 7
+    },
+    tooltip: {
+      formatter: (data) => {
+        // console.log(data)
+        // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+        return { name: source[0], value: data.data }
+      }
+      // customContent: (title, data) => {
+      //   console.log(title, data)
+      //   return `<div>${title}</div>`
+      // }
+    },
+    // 大小相关
+    height: 200,
+    width: undefined,
+    autoFit: true,
+    // 开启一些交互
+    interactions: undefined,
+    // 样式相关
+    // smooth: true, // 平滑曲线
+    color: defaultColor,
+    ...config
+    // TODO 末尾添加一个圆圈
+    // point: {
+    //   shape: 'end-point'
+    // }
+  })
+  c.render()
+  return c
+}
+// // TODO 末尾添加一个圆圈
+// G2.registerShape('point', 'end-point', {
+//   draw(cfg, container) {
+//     const data = cfg.data
+//     const point = { x: cfg.x, y: cfg.y }
+//     console.log(cfg, point)
+//     const group = container.addGroup()
+//     if (data.time === '14.20' && data.date === 'today') {
+//       const decorator1 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       const decorator2 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       const decorator3 = group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 10,
+//           fill: cfg.color,
+//           opacity: 0.5
+//         }
+//       })
+//       decorator1.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true
+//         }
+//       )
+//       decorator2.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true,
+//           delay: 600
+//         }
+//       )
+//       decorator3.animate(
+//         {
+//           r: 20,
+//           opacity: 0
+//         },
+//         {
+//           duration: 1800,
+//           easing: 'easeLinear',
+//           repeat: true,
+//           delay: 1200
+//         }
+//       )
+//       group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 6,
+//           fill: cfg.color,
+//           opacity: 0.7
+//         }
+//       })
+//       group.addShape('circle', {
+//         attrs: {
+//           x: point.x,
+//           y: point.y,
+//           r: 1.5,
+//           fill: cfg.color
+//         }
+//       })
+//     }
+
+//     return group
+//   }
+// })
+
+// ---------------------------------- 数据格式化 ----------------------------------
+/**
+ * 为了将数据格式化为图表可用的格式，需要将数据源中的数据进行格式化
+ * @param { Object } data 待格式化的数据
+ */
+const format = (data) => {
+  data = data[source[0]]
+  return data.list
+}
+
+// ---------------------------------- 渲染、重渲染功能 ----------------------------------
+let chartObj = null
+// 渲染
+const render = (data) => {
+  // console.log('渲染折线图')
+  data = format(data)
+  // console.log('data', data)
+  chartObj = createChart(g2Ref.value, data)
+}
+// 重渲染
+const change = (data) => {
+  data = format(data)
+  chartObj.changeData(data)
+}
+
+// ---------------------------------- 放大功能 ----------------------------------
+// 是否放大
+const isZoom = ref(false)
+// 放大数据
+const zoom = (data) => {
+  isZoom.value = true
+  // 当前window的高度
+  data = format(data)
+  const height = window.innerHeight * 0.6
+  addTaskToBrowserMainThread(() => {
+    createChart(g2ZoomRef.value, data, {
+      interactions: [{ type: 'view-zoom' }, { type: 'drag-move' }],
+      height
+    })
+  })
+}
+
+// ---------------------------------- 暴露api ----------------------------------
+defineExpose({
+  render,
+  change,
+  zoom
+})
+</script>
+
+<style lang="scss" scoped></style>

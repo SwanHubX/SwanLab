@@ -81,7 +81,7 @@ class SwanDatabase(object):
         """获取当前实验对象"""
         return self.__project.experiment
 
-    def add(self, tag: str, data: Union[Image, float]):
+    def add(self, tag: str, data: Union[Image, float], step: int = None):
         """添加数据到数据库，保存数据，完成几件事情：
         1. 如果{experiment_name}_{tag}表单不存在，则创建
         2. 添加记录到{experiment_name}_{tag}表单中，包括create_time等
@@ -94,15 +94,16 @@ class SwanDatabase(object):
             数据标签，用于区分同一资源下不同的数据
         data : Union[str, float]
             定位到的数据，暂时只支持str和float类型（事实上目前只支持float类型）
+        step: int
+            当前的步数，用于记录数据的顺序, 必须在传入之前进行类型检查，必须是一个不小于0的整数
         """
         if self.__project is None:
             raise RuntimeError("swanlab has not been initialized")
-
         if isinstance(data, float):
             # 如果是float类型，保留六位小数
             data = round(data, 6)
         # TODO 如果是Image类型，执行其他逻辑
-        self.__project.experiment.add(tag, data)
+        self.__project.experiment.add(tag, data, step=step)
 
     def success(self):
         """标记实验成功"""

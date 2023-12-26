@@ -36,7 +36,7 @@
       <div class="w-1/2 min-w-[400px]" v-if="experiment.system">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
-          <div :title="item.value">{{ item.value === '' ? 'Unkown' : item.value }}</div>
+          <div :title="item.value">{{ item.value || 'Unkown' }}</div>
         </div>
       </div>
     </div>
@@ -49,7 +49,6 @@
  * @file: ExperimentHeader.vue
  * @since: 2023-12-11 14:43:51
  **/
-import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SLCopy from '@swanlab-vue/components/SLCopy.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed } from 'vue'
@@ -91,7 +90,7 @@ const hardware = computed(() => {
   const list = [
     experiment.value.system.cpu ? t(`${prePath}.cpu`, { value: experiment.value.system.cpu }) : '',
     experiment.value.system.gpu?.cores ? t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }) : '',
-    experiment.value.system.gpu?.type ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
+    experiment.value.system.gpu?.type[0] ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
   ]
   return list.filter((item) => item !== '').join(' | ')
 })

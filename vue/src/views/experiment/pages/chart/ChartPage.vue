@@ -6,76 +6,260 @@
     <SLStatusLabel :status="experimentStore.status" />
   </div>
   <!-- 图表容器 -->
-  <ChartsContainer :label="t('experiment.chart.label.default')" :count="tags?.length" v-if="showContainer(tags)">
-    <!-- TODO 后续多数据源的时候，这里需要改变sources的保存逻辑 -->
-    <G2Chart v-for="(tag, index) in tags" :key="index" :sources="[tag]" />
-  </ChartsContainer>
-  <EmptyExperiment v-else-if="ready" />
+  <template v-if="status === 'success'">
+    <ChartsContainer
+      v-for="group in groups"
+      :key="group.namespace"
+      :label="getGroupName(group.namespace)"
+      :count="group.charts.length"
+    >
+      <ChartContainer :chart="charts[cnMap.get(chartID)]" v-for="chartID in group.charts" :key="chartID" />
+    </ChartsContainer>
+  </template>
+  <EmptyExperiment v-once v-else-if="status !== 'initing'" />
 </template>
 
 <script setup>
 /**
- * @description: 实验-图表页
+ * @description: 实验图表页，在本处将完成图表布局的初始化，注入订阅依赖等内容
  * @file: ChartPage.vue
- * @since: 2023-12-09 20:39:41
+ * @since: 2023-12-25 15:34:51
  **/
-import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
-import ChartsContainer from './components/ChartsContainer.vue'
-import G2Chart from './components/G2Chart.vue'
-import EmptyExperiment from './components/EmptyExperiment.vue'
+import { useExperimentStroe } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { onUnmounted } from 'vue'
+import { ref, provide } from 'vue'
+import ChartsContainer from './components/ChartsContainer.vue'
+import ChartContainer from './components/ChartContainer.vue'
+import EmptyExperiment from './components/EmptyExperiment.vue'
 import { t } from '@swanlab-vue/i18n'
+import { useRoute } from 'vue-router'
+import { onUnmounted } from 'vue'
 const experimentStore = useExperimentStroe()
-// ---------------------------------- 初始化：获取图表配置 ----------------------------------
-const tags = ref()
-// 用于设置轮询
-let timer = undefined
+const route = useRoute()
 
-/**
- * 根据id获取实验，如果id不传，默认使用experimentId
- * 如果实验正在进行，开启轮询
- * @param { string } id 实验id
- */
-const ready = ref(false)
-const getExperiment = (id = experimentStore.id) => {
-  http
-    .get('/experiment/' + id)
-    .then(({ data }) => {
-      // 判断data.tags和tags是否相同，如果不同，重新渲染
-      if (data.tags.join('') !== tags.value?.join('')) {
-        // console.log('不同，重新渲染', data.tags, tags.value)
-        tags.value = data.tags
-      }
-      // 如果status为0，且timer为undefined，开启轮询
-      // 如果不为0且timer不为undefined，关闭轮询
-      if (data.experiment_id == id) {
-        experimentStore.setStatus(data.status)
-        if (data.status === 0 && !timer) {
-          timer = setInterval(() => {
-            getExperiment(id)
-          }, 5000)
-        } else if (data.status !== 0 && timer) {
-          clearInterval(timer)
+// ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
+// 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
+// key是chart_id, value是chart_id在charts中的索引
+let cnMap = new Map()
+let charts, groups
+const status = ref('initing')
+;(async function () {
+  const { data } = await http.get(`/experiment/${experimentStore.id}/chart`)
+  charts = data.charts || []
+  groups = data.namespaces || []
+  // 添加一个临时array，用于减少遍历次数
+  const chartsIdArray = charts.map((chart) => {
+    // 为每一个chart生成一个cid
+    chart._cid = cid(chart.chart_id)
+    eventEmitter.addSource(chart.source)
+    // 返回id
+    return chart.chart_id
+  })
+  // 标志，判断groups是否找到对应的chart
+  let found = false
+  // 遍历groups
+  groups.forEach((group) => {
+    found = false
+    group.charts.forEach((id) => {
+      // 遍历charts，如果id和charts.charts_id相同，cnMap添加一个key
+      for (let i = 0; i < chartsIdArray.length; i++) {
+        const chartId = chartsIdArray[i]
+        if (chartId === id) {
+          found = true
+          cnMap.set(chartId, i)
+          break
         }
       }
+      if (!found) {
+        console.error('charts: ', charts)
+        console.error('ngroups: ', groups)
+        throw new Error('Charts and groups cannot correspond.')
+      }
     })
-    .finally(() => {
-      ready.value = true
-    })
-}
-// 立即执行
-getExperiment()
-
-onUnmounted(() => {
-  clearInterval(timer)
+  })
+  // 遍历完了，此时cnMap拿到了,模版部分可以依据这些东西渲染了
+  // console.log(cnMap)
+})().then(() => {
+  status.value = 'success'
+  // 在完成以后，开始请求数据
+  // console.log(eventEmitter)
+  eventEmitter.start()
 })
 
-// ---------------------------------- 判断某个namespcace下是否存在图表 ----------------------------------
-const showContainer = (tags) => {
-  return !!tags?.length
+// ---------------------------------- 发布、订阅模型 ----------------------------------
+class EventEmitter {
+  constructor() {
+    // 源列表，用于完成数据请求，去重
+    this._sources = new Set()
+    // 基于源列表形成的源对象，key为源列表的元素，value为请求到的数据
+    this._sourceMap = new Map()
+    // 订阅缓存，当_sourceMap的状态改变时更新相关内容，它与_sourceMap的key相同
+    this._distributeMap = new Map()
+    // 实验id
+    this._experiment_id = experimentStore.id
+    this.timer = null
+  }
+
+  /**
+   * 更新_sourceMap中的内容，并且完成key的分发
+   * @param { string } key 源名称，对应_sourceMap的key
+   * @param { Object } data 源数据，会将旧的数据覆盖
+   * @param { Object } error 错误信息，如果存在，data将被设置为null
+   */
+  setSourceData(key, data, error) {
+    if (data) {
+      // 依据index排序
+      data.list.sort((a, b) => a.index - b.index)
+      this._sourceMap.set(key, data)
+    }
+    // 遍历对应key的_distributeMap，执行回调函数
+    const callbacks = this._distributeMap.get(key)
+    if (callbacks) {
+      callbacks.forEach((callback) => {
+        // 如果存在error，data设置为null
+        // console.log('执行回调')
+        if (error) callback(key, data, error)
+        else callback(key, data, null)
+      })
+    }
+  }
+
+  /**
+   * 将source添加到模型的源列表中
+   * @param { Array } source 源列表，对应每个chart的source
+   */
+  addSource(source) {
+    source = source || []
+    source.map((s) => this._sources.add(s))
+  }
+
+  /**
+   * 启动事件发射器
+   * 执行此函数，前端开始获取tag数据，并且依据实验状态判断是否关闭轮询等
+   *
+   */
+  start() {
+    // 第一次延时1秒执行，后面每隔n秒执行一次
+    const n = 3
+    // 遍历源列表，请求数据
+    this._sources.forEach((tag) => {
+      // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+      this._getSoureceData(tag)
+    })
+
+    this.timer = setInterval(() => {
+      // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+      if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+        clearInterval(this.timer)
+        return console.log('stop, experiment id is not equal to route id')
+      }
+      // 如果实验状态不是0，停止轮询
+      if (experimentStore.status !== 0) {
+        clearInterval(this.timer)
+        return console.log('stop, experiment status is not 0')
+      }
+      // 遍历源列表，请求数据
+      this._sources.forEach((tag) => {
+        // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+        this._getSoureceData(tag)
+      })
+    }, n * 1000)
+  }
+
+  /**
+   * 根据source获取数据，此时source又被称为tag
+   * @param { string } source 源名称
+   */
+  _getSoureceData(tag) {
+    http
+      .get(`/experiment/${this._experiment_id}/tag/${tag}`)
+      .then((res) => {
+        // 更新_sourceMap
+        this.setSourceData(tag, res.data)
+      })
+      .catch((err) => {
+        // 更新_sourceMap
+        this.setSourceData(tag, null, err)
+      })
+  }
+
+  /**
+   * 订阅数据，当数据更新时，执行回调函数
+   * @param { array } tags 源列表，对应chart的source，可以是一个或多个
+   * @param { string } cid 订阅者id，对应chart的_cid
+   * @param { Function } callback 回调函数，当数据更新时执行订阅者的回调函数，这应该是一个Promise
+   * 回调函数接收三个参数，分别是tag、data和err
+   */
+  $on(tags, cid, callback) {
+    tags = tags || []
+    tags.map((tag) => {
+      // 拿到已经订阅的回调函数
+      const callbacks = this._distributeMap.get(tag)
+      // 如果已订阅存在，直接添加
+      if (callbacks) callbacks.set(cid, callback)
+      // 否则，创建一个新的map，添加
+      else this._distributeMap.set(tag, new Map([[cid, callback]]))
+    })
+  }
+
+  /**
+   * 取消订阅，当chart被销毁时，需要手动取消订阅
+   * @param { string } tags 源列表，对应chart的source，可以是一个或多个
+   * @param { string } cid 订阅者id，对应chart的_cid
+   */
+  $off(tags, cid) {
+    if (!this?._distributeMap) return
+    tags = tags || []
+    tags.map((tag) => {
+      // 拿到已经订阅的回调函数
+      const callbacks = this._distributeMap.get(tag)
+      // 如果已订阅存在，直接添加
+      if (callbacks) callbacks.delete(cid)
+    })
+  }
+
+  /**
+   * 销毁订阅模型
+   */
+  delete() {
+    clearInterval(this.timer)
+    // this._sources = null
+    // this._sourceMap = null
+    // this._distributeMap = null
+  }
+}
+
+// 初始化订阅模型
+const eventEmitter = new EventEmitter()
+
+// 依赖注入，注入订阅函数和取消订阅函数
+provide('$on', (tags, cid, callback) => eventEmitter.$on(tags, cid, callback))
+provide('$off', (tags, cid) => eventEmitter.$off(tags, cid))
+
+// 当前组件销毁时，取消相关行为
+onUnmounted(() => {
+  eventEmitter.delete()
+})
+
+// ---------------------------------- 工具函数：辅助渲染 ----------------------------------
+
+/**
+ * 将组名进行一些翻译
+ * @param { string } namespace 组名
+ */
+const getGroupName = (namespace) => {
+  // console.log(namespace)
+  if (namespace === 'default') return t('experiment.chart.label.default')
+  else return namespace
+}
+
+/**
+ * 依据chart_id生成cid，这是一个唯一id，用于eventEmitter中的订阅id，也是dom对象的id
+ * @param { string } chart_id
+ */
+const cid = (chart_id) => {
+  return chart_id
 }
 </script>
 
