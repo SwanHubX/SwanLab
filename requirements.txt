@@ -10,4 +10,4 @@ portalocker
 
 # Information collection
 psutil
-
+pynvml
