@@ -4,7 +4,7 @@ import axios from 'axios'
 const http = axios.create({
   // baseURL不设置，会自动使用当前域名
   baseURL: import.meta.env.VITE_BASE_URL,
-  timeout: 10000
+  timeout: 60000
 })
 
 // 请求拦截器
