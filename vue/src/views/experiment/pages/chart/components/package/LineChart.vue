@@ -20,7 +20,7 @@
  * @since: 2023-12-25 20:17:19
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
-import { G2, Line } from '@antv/g2plot'
+import { Line } from '@antv/g2plot'
 import * as UTILS from './utils'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
