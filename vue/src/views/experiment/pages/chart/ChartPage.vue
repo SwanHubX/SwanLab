@@ -88,6 +88,48 @@ const status = ref('initing')
 })
 
 // ---------------------------------- 发布、订阅模型 ----------------------------------
+// 请求映射表，反映映射状态
+class RequestMap {
+  constructor() {
+    // 映射表，key:tag ; value:'pending' 'success' 'error'
+    this._map = new Map()
+  }
+  /**
+   * 判断是否可以发起请求,只有第一次请求和上一次请求为success的时候能发起请求
+   */
+  canRequest(key) {
+    // 如果key不存在或者key对应的value不为pending，返回true
+    // console.log(!this._map.has(key) || this._map.get(key) === 'success')
+    // console.log(this._map)
+    return !this._map.has(key) || this._map.get(key) === 'success'
+  }
+
+  /**
+   * 将某个key的状态设置为等待中
+   * @param { string } key 对应tag
+   */
+  setPending(key) {
+    this._map.set(key, 'pending')
+  }
+
+  /**
+   * 将某个key的状态设置为成功
+   * @param { string } key 对应tag
+   */
+  setSuccess(key) {
+    this._map.set(key, 'success')
+  }
+
+  /**
+   * 将某个key的状态设置为失败
+   * @param { string } key 对应tag
+   */
+  setError(key) {
+    this._map.set(key, 'error')
+  }
+}
+
+// 事件发射器
 class EventEmitter {
   constructor() {
     // 源列表，用于完成数据请求，去重
@@ -98,7 +140,10 @@ class EventEmitter {
     this._distributeMap = new Map()
     // 实验id
     this._experiment_id = experimentStore.id
+    // 轮询id
     this.timer = null
+    // 请求状态映射
+    this._request = new RequestMap()
   }
 
   /**
@@ -141,7 +186,7 @@ class EventEmitter {
    */
   start() {
     // 第一次延时1秒执行，后面每隔n秒执行一次
-    const n = 3
+    const n = 1
     // 遍历源列表，请求数据
     this._sources.forEach((tag) => {
       // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
@@ -172,15 +217,21 @@ class EventEmitter {
    * @param { string } source 源名称
    */
   _getSoureceData(tag) {
+    // 如果无法请求，直接返回
+    if (!this._request.canRequest(tag)) return console.log('abandon')
+    // 在请求之前将_request设置为pending
+    this._request.setPending(tag)
     http
       .get(`/experiment/${this._experiment_id}/tag/${tag}`)
       .then((res) => {
         // 更新_sourceMap
         this.setSourceData(tag, res.data)
+        this._request.setSuccess(tag)
       })
       .catch((err) => {
         // 更新_sourceMap
         this.setSourceData(tag, null, err)
+        this._request.setError(tag)
       })
   }
 
