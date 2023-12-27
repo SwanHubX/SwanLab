@@ -86,6 +86,34 @@ def __list_subdirectories(folder_path: str) -> List[str]:
     return subdirectories
 
 
+def __get_charts(chart_path: str):
+    """获取实验图表配置，并且向下兼容，如果配置不完整，自动补全
+
+    Parameters
+    ----------
+    chart_path : str
+        实验图表配置文件路径
+    """
+    with get_a_lock(chart_path, "r+") as f:
+        chart: dict = ujson.load(f)
+        # COMPAT 如果chart不存在namespaces且charts有东西，生成它
+        compat = not chart.get("namespaces") and len(chart["charts"])
+        if compat:
+            # 提示用户，配置将更新
+            swl.warning(
+                "The configuration of the chart is somewhat outdated. SwanLab will automatically make some updates to this configuration."
+            )
+            # 遍历chart[charts],写入chart_id
+            charts = [c["chart_id"] for c in chart["charts"]]
+            ns = {"namespace": "default", "charts": charts}
+            chart["namespaces"] = [ns]
+            # 写入文件
+            f.truncate(0)
+            f.seek(0)
+            ujson.dump(chart, f, ensure_ascii=False)
+    return chart
+
+
 # ---------------------------------- 业务路由 ----------------------------------
 
 
@@ -186,7 +214,6 @@ async def get_tag_data(experiment_id: int, tag: str):
         for data in tag_data_list:
             tag_data.extend(data)
         tag_data.extend(tag_json["data"])
-        # 返回数据
         # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
         if tag_data[0].get("index") is None:
             for index, data in enumerate(tag_data):
@@ -195,6 +222,10 @@ async def get_tag_data(experiment_id: int, tag: str):
         if not isinstance(tag_data[0]["index"], str):
             for data in tag_data:
                 data["index"] = str(data["index"])
+        # 根据index升序排序
+        tag_data.sort(key=lambda x: int(x["index"]))
+        # tag_data 的 最后一个数据增加一个字段_last = True
+        tag_data[-1]["_last"] = True
         return SUCCESS_200(data={"sum": len(tag_data), "list": tag_data})
     else:
         # TODO 采样读取数据
@@ -203,15 +234,18 @@ async def get_tag_data(experiment_id: int, tag: str):
 
 @router.get("/{experiment_id}/status")
 async def get_experiment_status(experiment_id: int):
-    """获取实验状态
+    """获取实验状态以及实验图表配置，用于实时更新实验状态
 
     Parameters
     ----------
     experiment_id : int
         实验唯一id，路径传参
     """
-    status = __find_experiment(experiment_id)["status"]
-    return SUCCESS_200(data={"status": status})
+    exp = __find_experiment(experiment_id)
+    status = exp["status"]
+    chart_path: str = os.path.join(swc.root, exp["name"], "chart.json")
+    charts = __get_charts(chart_path)
+    return SUCCESS_200(data={"status": status, "charts": charts})
 
 
 @router.get("/{experiment_id}/summary")
@@ -291,21 +325,5 @@ async def get_recent_experiment_log(experiment_id: int):
 @router.get("/{experiment_id}/chart")
 async def get_experimet_charts(experiment_id: int):
     chart_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "chart.json")
-    with get_a_lock(chart_path, "r+") as f:
-        chart: dict = ujson.load(f)
-        # COMPAT 如果chart不存在namespaces且charts有东西，生成它
-        compat = not chart.get("namespaces") and len(chart["charts"])
-        if compat:
-            # 提示用户，配置将更新
-            swl.warning(
-                "The configuration of the chart is somewhat outdated. SwanLab will automatically make some updates to this configuration."
-            )
-            # 遍历chart[charts],写入chart_id
-            charts = [c["chart_id"] for c in chart["charts"]]
-            ns = {"namespace": "default", "charts": charts}
-            chart["namespaces"] = [ns]
-            # 写入文件
-            f.truncate(0)
-            f.seek(0)
-            ujson.dump(chart, f, ensure_ascii=False)
-        return SUCCESS_200(chart)
+    chart = __get_charts(chart_path)
+    return SUCCESS_200(chart)

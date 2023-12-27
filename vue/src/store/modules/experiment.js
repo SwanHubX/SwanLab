@@ -5,6 +5,8 @@ export const useExperimentStroe = defineStore('charts', () => {
   /** state */
   // 当前实验
   const experiment = ref()
+  // 当前实验的charts
+  const charts = ref()
   /** getter */
   // 当前实验id
   const id = computed(() => experiment.value?.experiment_id)
@@ -16,6 +18,8 @@ export const useExperimentStroe = defineStore('charts', () => {
   const color = computed(() => experiment.value?.color)
   // 默认颜色
   const defaultColor = computed(() => experiment.value?.default_color)
+  // 是否running
+  const isRunning = computed(() => status.value === 0)
 
   /** action */
   // 设置当前实验状态
@@ -26,12 +30,14 @@ export const useExperimentStroe = defineStore('charts', () => {
   return {
     // state
     experiment,
-    defaultColor,
+    charts,
     // getter
     id,
     name,
     status,
     color,
+    defaultColor,
+    isRunning,
     // action
     setStatus
   }

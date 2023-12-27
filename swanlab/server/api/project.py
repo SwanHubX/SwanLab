@@ -59,7 +59,11 @@ async def summaries(experiment_names: str):
             tag_path = os.path.join(experiment_path, tag)
             logs = sorted(os.listdir(tag_path))
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
-                tag_data = ujson.load(f)
+                try:
+                    tag_data = ujson.load(f)
+                except Exception as e:
+                    print(f"[expr: {name} - {tag}] --- {e}")
+                    continue
                 experiment_summaries[tag] = tag_data["data"][-1]["data"]
         data[name] = experiment_summaries
     return SUCCESS_200(data={"tags": column, "summaries": data})
