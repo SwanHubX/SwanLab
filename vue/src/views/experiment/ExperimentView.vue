@@ -28,10 +28,15 @@ const ready = computed(() => {
 })
 const show_error = inject('show_error')
 const init = async (id = route.params.experimentId) => {
+  experimentStore.experiment = undefined
+  // 清空charts
+  experimentStore.charts = undefined
   http
     .get(`/experiment/${id}`)
     .then(({ data }) => {
       experimentStore.experiment = data
+      // 如果实验状态还在running，就轮询
+      if (experimentStore.isRunning) polling()
     })
     .catch((response) => {
       // console.error(response)
@@ -47,8 +52,30 @@ onBeforeRouteUpdate((to, from) => {
   // console.log('leave')
   if (to.params.experimentId !== from.params.experimentId) {
     init(to.params.experimentId)
+    clearInterval(timer)
   }
 })
+
+// ---------------------------------- 轮询函数，获取实验状态 ----------------------------------
+let timer = null
+const polling = () => {
+  timer = setInterval(() => {
+    http.get(`/experiment/${experimentStore.id}/status`).then(({ data }) => {
+      if (Number(experimentStore.id) !== Number(route.params.experimentId)) {
+        clearInterval(timer)
+        return console.log('stop, experiment id is not equal to route id')
+      }
+      // 设置实验状态
+      experimentStore.setStatus(data.status)
+      experimentStore.charts = data.charts
+
+      if (!experimentStore.isRunning) {
+        clearInterval(timer)
+        return console.log('stop, experiment status is not 0')
+      }
+    })
+  }, 1000)
+}
 </script>
 
 <style lang="scss" scoped></style>

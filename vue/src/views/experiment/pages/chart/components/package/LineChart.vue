@@ -25,7 +25,6 @@ import * as UTILS from './utils'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import { onMounted } from 'vue'
 // ---------------------------------- 配置 ----------------------------------
 const experimentStore = useExperimentStroe()
 const props = defineProps({
@@ -50,7 +49,7 @@ const defaultColor = experimentStore.defaultColor
 // 拿到参考系
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 创建图表的函数
-// TODO 兼容多数据情况
+// FIXME 兼容多数据情况
 const createChart = (dom, data, config = { interactions: undefined, height: 200, width: undefined, autoFit: true }) => {
   const c = new Line(dom, {
     data,
@@ -85,107 +84,36 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // 样式相关
     // smooth: true, // 平滑曲线
     color: defaultColor,
-    ...config
-    // TODO 末尾添加一个圆圈
-    // point: {
-    //   shape: 'end-point'
-    // }
+    ...config,
+    // 末尾添加一个圆圈
+    point: {
+      shape: 'end-point'
+    }
   })
   c.render()
   return c
 }
-// // TODO 末尾添加一个圆圈
-// G2.registerShape('point', 'end-point', {
-//   draw(cfg, container) {
-//     const data = cfg.data
-//     const point = { x: cfg.x, y: cfg.y }
-//     console.log(cfg, point)
-//     const group = container.addGroup()
-//     if (data.time === '14.20' && data.date === 'today') {
-//       const decorator1 = group.addShape('circle', {
-//         attrs: {
-//           x: point.x,
-//           y: point.y,
-//           r: 10,
-//           fill: cfg.color,
-//           opacity: 0.5
-//         }
-//       })
-//       const decorator2 = group.addShape('circle', {
-//         attrs: {
-//           x: point.x,
-//           y: point.y,
-//           r: 10,
-//           fill: cfg.color,
-//           opacity: 0.5
-//         }
-//       })
-//       const decorator3 = group.addShape('circle', {
-//         attrs: {
-//           x: point.x,
-//           y: point.y,
-//           r: 10,
-//           fill: cfg.color,
-//           opacity: 0.5
-//         }
-//       })
-//       decorator1.animate(
-//         {
-//           r: 20,
-//           opacity: 0
-//         },
-//         {
-//           duration: 1800,
-//           easing: 'easeLinear',
-//           repeat: true
-//         }
-//       )
-//       decorator2.animate(
-//         {
-//           r: 20,
-//           opacity: 0
-//         },
-//         {
-//           duration: 1800,
-//           easing: 'easeLinear',
-//           repeat: true,
-//           delay: 600
-//         }
-//       )
-//       decorator3.animate(
-//         {
-//           r: 20,
-//           opacity: 0
-//         },
-//         {
-//           duration: 1800,
-//           easing: 'easeLinear',
-//           repeat: true,
-//           delay: 1200
-//         }
-//       )
-//       group.addShape('circle', {
-//         attrs: {
-//           x: point.x,
-//           y: point.y,
-//           r: 6,
-//           fill: cfg.color,
-//           opacity: 0.7
-//         }
-//       })
-//       group.addShape('circle', {
-//         attrs: {
-//           x: point.x,
-//           y: point.y,
-//           r: 1.5,
-//           fill: cfg.color
-//         }
-//       })
-//     }
-
-//     return group
-//   }
-// })
+// 末尾添加一个圆圈
+G2.registerShape('point', 'end-point', {
+  draw(cfg, container) {
+    const data = cfg.data
+    const point = { x: cfg.x, y: cfg.y }
+    // console.log(cfg, point)
+    const group = container.addGroup()
+    // 判断是否是最后一个数据
+    if (data._last) {
+      group.addShape('circle', {
+        attrs: {
+          x: point.x,
+          y: point.y,
+          r: 3,
+          fill: experimentStore.defaultColor
+        }
+      })
+    }
+    return group
+  }
+})
 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
@@ -193,10 +121,15 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
  * @param { Object } data 待格式化的数据
  */
 const format = (data) => {
-  data = data[source[0]]
-  return data.list
+  // FIXME 暂时只支持单数据
+  const d = data[source[0]].list
+  // 获取最后一个数据
+  const last = []
+  source.forEach((key) => {
+    last.push(data[key].list[data[key].list.length - 1])
+  })
+  return d
 }
-
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
 // 渲染

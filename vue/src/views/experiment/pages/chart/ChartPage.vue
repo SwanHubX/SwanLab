@@ -42,12 +42,26 @@ const route = useRoute()
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
 // key是chart_id, value是chart_id在charts中的索引
 let cnMap = new Map()
-let charts, groups
+let charts = []
+const groups = ref([])
 const status = ref('initing')
 ;(async function () {
   const { data } = await http.get(`/experiment/${experimentStore.id}/chart`)
+  // 遍历完了，此时cnMap拿到了,模版部分可以依据这些东西渲染了
+  parseCharts(data)
+  // console.log(cnMap)
+})().then(() => {
+  status.value = 'success'
+  // 在完成以后，开始请求数据
+  // console.log(eventEmitter)
+  eventEmitter.start()
+})
+
+// ---------------------------------- 根据charts生成对应配置 ----------------------------------
+
+const parseCharts = (data) => {
   charts = data.charts || []
-  groups = data.namespaces || []
+  groups.value = data.namespaces || []
   // 添加一个临时array，用于减少遍历次数
   const chartsIdArray = charts.map((chart) => {
     // 为每一个chart生成一个cid
@@ -59,7 +73,8 @@ const status = ref('initing')
   // 标志，判断groups是否找到对应的chart
   let found = false
   // 遍历groups
-  groups.forEach((group) => {
+  const temp = groups.value
+  groups.value.forEach((group) => {
     found = false
     group.charts.forEach((id) => {
       // 遍历charts，如果id和charts.charts_id相同，cnMap添加一个key
@@ -73,19 +88,13 @@ const status = ref('initing')
       }
       if (!found) {
         console.error('charts: ', charts)
-        console.error('ngroups: ', groups)
+        console.error('groups: ', groups)
         throw new Error('Charts and groups cannot correspond.')
       }
     })
   })
-  // 遍历完了，此时cnMap拿到了,模版部分可以依据这些东西渲染了
-  // console.log(cnMap)
-})().then(() => {
-  status.value = 'success'
-  // 在完成以后，开始请求数据
-  // console.log(eventEmitter)
-  eventEmitter.start()
-})
+  groups.value = temp
+}
 
 // ---------------------------------- 发布、订阅模型 ----------------------------------
 // 请求映射表，反映映射状态
@@ -154,8 +163,6 @@ class EventEmitter {
    */
   setSourceData(key, data, error) {
     if (data) {
-      // 依据index排序
-      data.list.sort((a, b) => a.index - b.index)
       this._sourceMap.set(key, data)
     }
     // 遍历对应key的_distributeMap，执行回调函数
@@ -194,6 +201,8 @@ class EventEmitter {
     })
 
     this.timer = setInterval(() => {
+      // 在此处取出pinia中的charts配置，重新设置
+      experimentStore.charts && parseCharts(experimentStore.charts)
       // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
       if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
         clearInterval(this.timer)
@@ -251,6 +260,8 @@ class EventEmitter {
       if (callbacks) callbacks.set(cid, callback)
       // 否则，创建一个新的map，添加
       else this._distributeMap.set(tag, new Map([[cid, callback]]))
+      // 如果这个tag的请求并不存在，发起请求
+      if (this._request.canRequest(tag)) return this._getSoureceData(tag)
     })
   }
 
