@@ -208,16 +208,16 @@ class EventEmitter {
         clearInterval(this.timer)
         return console.log('stop, experiment id is not equal to route id')
       }
-      // 如果实验状态不是0，停止轮询
-      if (experimentStore.status !== 0) {
-        clearInterval(this.timer)
-        return console.log('stop, experiment status is not 0')
-      }
       // 遍历源列表，请求数据
       this._sources.forEach((tag) => {
         // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
         this._getSoureceData(tag)
       })
+      // 如果实验状态不是0，停止轮询
+      if (experimentStore.status !== 0) {
+        clearInterval(this.timer)
+        return console.log('stop, experiment status is not 0')
+      }
     }, n * 1000)
   }
 

@@ -84,36 +84,12 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // 样式相关
     // smooth: true, // 平滑曲线
     color: defaultColor,
-    ...config,
+    ...config
     // 末尾添加一个圆圈
-    point: {
-      shape: 'end-point'
-    }
   })
   c.render()
   return c
 }
-// 末尾添加一个圆圈
-G2.registerShape('point', 'end-point', {
-  draw(cfg, container) {
-    const data = cfg.data
-    const point = { x: cfg.x, y: cfg.y }
-    // console.log(cfg, point)
-    const group = container.addGroup()
-    // 判断是否是最后一个数据
-    if (data._last) {
-      group.addShape('circle', {
-        attrs: {
-          x: point.x,
-          y: point.y,
-          r: 3,
-          fill: experimentStore.defaultColor
-        }
-      })
-    }
-    return group
-  }
-})
 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
@@ -123,11 +99,6 @@ G2.registerShape('point', 'end-point', {
 const format = (data) => {
   // FIXME 暂时只支持单数据
   const d = data[source[0]].list
-  // 获取最后一个数据
-  const last = []
-  source.forEach((key) => {
-    last.push(data[key].list[data[key].list.length - 1])
-  })
   return d
 }
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
