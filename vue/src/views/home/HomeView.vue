@@ -1,5 +1,6 @@
 <template>
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b">
+    <SwanLabTable :data="experiments_table" :column="column" v-if="tags" />
     <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
     <!-- <p>{{ projectStore.description }}</p> -->
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
@@ -53,6 +54,7 @@ import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 import SLTable from '@swanlab-vue/components/SLTable.vue'
 import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
+import SwanLabTable from '@swanlab-vue/components/table'
 
 const projectStore = useProjectStore()
 
