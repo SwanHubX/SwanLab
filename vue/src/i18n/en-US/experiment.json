@@ -2,7 +2,7 @@
   "tabs": {
     "index": "Overview",
     "chart": "Charts",
-    "log": "Log"
+    "log": "Logs"
   },
   "status": {
     "-1": "Crashed",
@@ -12,7 +12,7 @@
   "index": {
     "header": {
       "experiment_infos": {
-        "status": "Status",
+        "status": "State",
         "start_time": "Start Time",
         "last_time": "Duration",
         "version": "SwanLab Version",
