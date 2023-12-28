@@ -96,10 +96,15 @@ swanlab watch
 | Section                                                                                                                           | Details                 |
 | --------------------------------------------------------------------------------------------------------------------------------- | :---------------------- |
 | [文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | 完整的 APl 文档与教程。 |
+| [案例](https://github.com/SwanHubX/SwanLab-examples)                                                                              | 官方代码案例            |
 
 ## License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=swanhubx/swanlab&type=Date)](https://star-history.com/#swanhubx/swanlab&Date)
 
 ## 贡献者
 

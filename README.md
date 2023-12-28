@@ -98,10 +98,15 @@ Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and
 | Section                                                                                                                                    | Details                               |
 | ------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------ |
 | [Documentation](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | Full APl documentation and tutorials. |
+| [Example](https://github.com/SwanHubX/SwanLab-examples)                                                                                    | Official code examples                |
 
 ## License
 
 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=swanhubx/swanlab&type=Date)](https://star-history.com/#swanhubx/swanlab&Date)
 
 ## Contributors
 
