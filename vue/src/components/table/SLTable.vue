@@ -4,30 +4,74 @@
       <table class="w-full border-collapse table-auto border">
         <!-- 标签用于对表格中的列进行组合，以便对其进行格式化 -->
         <colgroup>
-          <col v-for="(item, index) in column" :key="item.key + item.slot" />
+          <col
+            v-for="(item, index) in column"
+            :key="item.key + item.slot + index"
+            :class="`${hoverColumn === index ? activeColumnBackground : ''} ${'swanlab-table-column-' + index}`"
+            ref="columns"
+          />
         </colgroup>
         <!-- 表头 -->
-        <thead>
+        <thead class="border-bottom">
           <tr>
-            <th v-for="(item, index) in column" :key="index" class="py-2">
-              <span>{{ item.title }}</span>
-              <!-- 拖拽点 -->
-              <span></span>
+            <th
+              v-for="(item, index) in column"
+              :key="item.key"
+              class="relative overflow-hidden"
+              :class="hoverColumn === index ? 'bg-slate-200' : 'bg-slate-50'"
+              @mouseover="() => (hoverColumn = index)"
+              @mouseout="() => (hoverColumn = -1)"
+            >
+              <div class="overflow-hidden" :class="item.style ? item.style : 'px-2 py-3'">
+                {{ item.title }}
+                <span
+                  class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-dimmer hover:opacity-20 cursor-col-resize"
+                  :class="hoverColumn === index ? 'bg-positive-highest' : ''"
+                ></span>
+              </div>
             </th>
           </tr>
         </thead>
-        <tbody></tbody>
+        <!-- 表体 -->
+        <tbody>
+          <!-- 每一行 -->
+          <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn" class="hover:bg-blue-50">
+            <!-- 单元格 -->
+            <td
+              v-for="(item, index) in column"
+              :key="item.key"
+              class="hover:bg-blue-100 overflow-hidden"
+              @mouseover="() => (hoverColumn = index)"
+              @mouseout="() => (hoverColumn = -1)"
+            >
+              <div class="overflow-hidden" :class="item.style ? item.style : 'px-2 py-3'">
+                <div v-if="item.slot">
+                  <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
+                </div>
+                <!-- 文本格式 -->
+                <div v-else>
+                  {{ dataColumn[item.key] || '-' }}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
       </table>
     </div>
   </div>
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+import { ref } from 'vue'
+
 /**
  * @description: 表格 —— 二次重构版
  * @file: SLTable.vue
  * @since: 2023-12-28 22:37:21
  **/
+
+const columns = ref(null)
 
 // ---------------------------------- 组件接口 ----------------------------------
 
@@ -57,75 +101,25 @@ const props = defineProps({
     default: true
   }
 })
+
+// ---------------------------------- 样式相关 ----------------------------------
+
+const activeColumnBackground = 'bg-blue-50'
+const hoverColumn = ref(-1) // 被hover得列的索引
+onMounted(() => {
+  // 遍历列的设置
+  props.column.forEach((column, index) => {
+    if (!column.width) return
+    columns.value[index].setAttribute('width', column.width)
+  })
+})
+
+// ---------------------------------- resize 相关 ----------------------------------
 </script>
 
 <style lang="scss" scoped>
-.gnip-table {
-  position: relative;
-  // .table-wrap {
-  //   overflow: auto;
-  // }
-  .overflow-wrap {
-    position: relative;
-    overflow: auto;
-  }
-  table {
-    border-collapse: collapse;
-    table-layout: auto;
-    border: 1px solid #e8eaec;
-    .data-empty {
-      text-align: center;
-    }
-    .gnip-th {
-      position: relative;
-      // background-color: #f6f8fa;
-      padding: 8px 0;
-      &:hover span:last-child {
-        @apply bg-positive-highest;
-      }
-      .drag-line {
-        position: absolute;
-        width: 5px;
-        height: 100%;
-        right: 0;
-        top: 0;
-        cursor: col-resize;
-        user-select: none;
-        z-index: 1;
-      }
-    }
-  }
-  table,
-  th,
-  td {
-    border: 1px solid #e8eaec;
-    text-align: center;
-    word-break: break-all;
-  }
-  thead {
-    .th {
-      background-color: #f8f8f9;
-    }
-  }
-  .drag-resize-line {
-    height: 100%;
-    width: 1px;
-    border-right: 1px dashed green;
-    position: absolute;
-    left: 0;
-    top: 0;
-    z-index: 100;
-  }
-  tbody {
-    tr {
-      &:hover {
-        background: #ebf7ff;
-      }
-    }
-    td {
-      height: 48px;
-      box-sizing: border-box;
-    }
-  }
+td,
+th {
+  @apply p-0 text-left whitespace-nowrap overflow-hidden;
 }
 </style>

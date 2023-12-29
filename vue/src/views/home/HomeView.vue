@@ -1,6 +1,19 @@
 <template>
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b">
-    <SwanLabTable :data="experiments_table" :column="column" v-if="tags" />
+    <SwanLabTable :data="experiments_table" :column="column" v-if="tags">
+      <template v-slot:name="{ row }">
+        <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+      </template>
+      <template v-slot:status="{ row }">
+        <SLStatusLabel :id="row.experiment_id" :status="row.status" />
+      </template>
+      <template v-slot:create="{ row }">
+        {{ transTime(convertUtcToLocal(row.create_time)) }}
+      </template>
+      <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
+        {{ row.config[item.key] || '-' }}
+      </template>
+    </SwanLabTable>
     <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
     <!-- <p>{{ projectStore.description }}</p> -->
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
@@ -69,7 +82,7 @@ const column = ref([
     title: t('home.list.table.header.name'),
     slot: 'name',
     style: 'px-4',
-    width: '200'
+    width: 100
     // fixed: true
   },
   {
