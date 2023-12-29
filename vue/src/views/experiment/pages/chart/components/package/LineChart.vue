@@ -104,6 +104,9 @@ const format = (data) => {
     min = 0
     // 向上取整，大于1
     max = Math.ceil(max)
+  } else {
+    max = max + (max - min) * 0.1
+    min = min - (max - min) * 0.1
   }
 
   const yAxis = {
@@ -158,7 +161,7 @@ const zoom = (data) => {
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
     createChart(g2ZoomRef.value, d, {
-      interactions: [{ type: 'view-zoom' }, { type: 'drag-move' }],
+      interactions: [{ type: 'brush-x' }],
       height,
       yAxis
     })
