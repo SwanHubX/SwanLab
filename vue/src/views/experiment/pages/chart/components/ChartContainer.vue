@@ -56,6 +56,8 @@ const chartComponent = (type) => {
   switch (type) {
     case 'default':
       return LineChart
+    case 'line':
+      return LineChart
   }
 }
 

@@ -19,12 +19,15 @@ class Enlarge1000Type(sw.BaseType):
     def get_chart_type(self) -> str:
         return self.chart.line
 
+    def get_namespace(self) -> str:
+        return "custom"
+
     def get_config(self) -> dict:
         return {"color": "#000000"}
 
 
 # 迭代次数
-epochs = 100
+epochs = 5
 # 学习率
 lr = 0.01
 # 随机偏移量

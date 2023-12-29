@@ -65,13 +65,15 @@ class ChartTable(ProjectTablePoxy):
         charts["charts"].append(chart)
         # 遍历data["namespaces"]
         ns: dict = None
+        exists: bool = False
         for ns in namespaces:
             if ns["namespace"] == namespace:
+                exists = True
                 break
         # 如果命名空间不存在，添加
-        if ns is None:
+        if not exists:
             swl.debug(f"Namespace {namespace} not found, add.")
-            ns = {"namespace": "default", "charts": []}
+            ns = {"namespace": namespace, "charts": []}
             if ns["namespace"] == "default":
                 swl.debug(f"Namespace {namespace} Add to the beginning")
                 namespaces.insert(0, ns)
@@ -104,7 +106,7 @@ class ChartTable(ProjectTablePoxy):
             chart = self.new_chart(charts["_sum"])
             # 如果data是BaseType类型，解构，并且修改一些必要参数
             if issubclass(type(data), BaseType):
-                chart["type"], chart["namespace"], chart["reference"], chart["config"] = data.__next__()
+                chart["namespace"], chart["type"], chart["reference"], chart["config"] = data.__next__()
 
             chart["source"].append(tag)
             # 添加图表

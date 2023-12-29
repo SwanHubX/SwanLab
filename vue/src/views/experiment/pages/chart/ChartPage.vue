@@ -311,7 +311,7 @@ onUnmounted(() => {
  * @param { string } namespace 组名
  */
 const getGroupName = (namespace) => {
-  // console.log(namespace)
+  console.log(namespace)
   if (namespace === 'default') return t('experiment.chart.label.default')
   else return namespace
 }
