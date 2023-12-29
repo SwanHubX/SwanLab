@@ -99,8 +99,8 @@ class SwanDatabase(object):
         """
         if self.__project is None:
             raise RuntimeError("swanlab has not been initialized")
+        # 如果是float类型，保留六位小数
         if isinstance(data, float):
-            # 如果是float类型，保留六位小数
             data = round(data, 6)
         # TODO 如果是Image类型，执行其他逻辑
         self.__project.experiment.add(tag, data, step=step)

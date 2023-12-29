@@ -3,6 +3,9 @@ from datetime import datetime
 from ..env import swc
 from ..log import swanlog as swl
 
+from .modules import BaseType
+
+
 sd = None
 
 
@@ -105,8 +108,19 @@ def log(data: dict, step: int = None):
         raise TypeError("'step' must be an integer not less than zero.")
     for key in data:
         # 遍历字典的key，记录到本地文件中
-        # TODO 检查数据类型
-        sd.add(key, data[key], step=step)
+        d = data[key]
+        # TODO 检查数据类型，key必须是0-9a-zA-Z _-和/组成的字符串，并且开头必须是0-9a-zA-Z
+        if not isinstance(key, str):
+            raise TypeError("log data key must be a string")
+
+        # 检查数据类型，data[key]必须是int，float或者可以被float化的类型，或者swanlab.BaseType的子类
+        if not isinstance(data[key], (int, float, BaseType)):
+            try:
+                d = float(data[key])
+            except:
+                raise TypeError("log data must be int, float, swanlab.BaseType or can be converted to float")
+        # 添加数据
+        sd.add(key, d, step=step)
 
 
-__all__ = ["log", "init"]
+__all__ = ["log", "init", "BaseType"]

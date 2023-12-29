@@ -5,6 +5,7 @@ from ..env import swc
 from ..utils import create_time, get_a_lock
 from typing import List, Union
 from ..log import swanlog as swl
+from .modules import BaseType
 
 
 class ChartTable(ProjectTablePoxy):
@@ -28,7 +29,14 @@ class ChartTable(ProjectTablePoxy):
         # 保存表单信息
         self.save_no_lock()
 
-    def new_chart(self, chart_id: int, namespace: str, reference: str, chart_type: str) -> dict:
+    def new_chart(
+        self,
+        chart_id: int,
+        namespace: str = "default",
+        reference: str = "step",
+        chart_type: str = "default",
+        config: dict = {},
+    ) -> dict:
         """创建一个新chart的配置选项"""
         return {
             "chart_id": chart_id,
@@ -36,7 +44,7 @@ class ChartTable(ProjectTablePoxy):
             "source": [],
             "reference": reference,
             "type": chart_type,
-            "config": {},
+            "config": config,
             "experiment_id": self.experiment_id,
             "update_time": create_time(),
             "create_time": create_time(),
@@ -77,9 +85,7 @@ class ChartTable(ProjectTablePoxy):
     def add(
         self,
         tag: Union[str, List[str]],
-        namespace: str = "default",
-        reference: str = "step",
-        chart_type: str = "default",
+        data: Union[float, int, BaseType],
     ):
         """添加一张图表
 
@@ -88,18 +94,21 @@ class ChartTable(ProjectTablePoxy):
         tag : Union[str, List[str]]
             图表标签，可以是一个标签，也可以是多个标签，但必须是字符串或者字符串列表
             单标签代表创建的图表只包含一个数据源，多标签代表创建的图表包含多个数据源
-        namespace : str, optional
-            命名空间，用于区分不同的图表在前端的显示位置
-        reference : str, optional
-            参考系，用于区分不同的图表表格的组织方式
-        chart_type : str, optional
-            图表类型，用于区分不同的图表的显示方式，如折线图，柱状图等
+        data: Union[float, int, BaseType]
+            数据源，可以是一个数字，也可以是一个swanlab.BaseType的子类
         """
         with get_a_lock(self.path) as f:
             data = ujson.load(f)
-            # 记录数据
+            # 记录图表数量，+1
             data["_sum"] += 1
-            chart = self.new_chart(data["_sum"], namespace, reference, chart_type)
+            chart = self.new_chart(data["_sum"])
+            # 如果data是BaseType类型，解构，并且修改一些必要参数
+            if isinstance(data, BaseType):
+                data.tag = tag
+                data.step = data.step
+                data.create_time = chart["create_time"]
+                chart["type"], chart["namespace"], chart["reference"], chart["config"] = data.__next__()
+
             chart["source"].append(tag)
             # 添加图表
             self.add_chart(data, chart)

@@ -16,6 +16,7 @@ from ..utils import create_time, generate_color, get_package_version
 from .system import get_system_info
 import sys
 import random
+from .modules import BaseType
 
 
 class ExperimentTable(ExperimentPoxy):
@@ -79,7 +80,7 @@ class ExperimentTable(ExperimentPoxy):
         """
         return any(item["tag"] == tag for item in self.tags)
 
-    def add(self, tag: str, data: Union[float, str], step: int = None):
+    def add(self, tag: str, data: Union[float, int, BaseType], step: int = None):
         """记录一条新的tag数据
 
         Parameters
@@ -94,15 +95,14 @@ class ExperimentTable(ExperimentPoxy):
             步数，用于区分同一tag下的不同数据，如果为None，则自动加1
         """
         if not self.is_tag_exist(tag):
-            # 在chart中记录此tag
-            self.__chart.add(tag=tag)
+            # 在chart中记录此tag，将data传入
+            self.__chart.add(tag=tag, data=data)
             # 在实验中记录此tag
             self.tags.append({"tag": tag, "num": 0})
         # 更新tag的数量，并拿到tag的索引
         tag_num = self.update_tag_num(tag)
         index = tag_num if step is None else step
         # 往本地添加新的数据
-        # TODO 指定step支持 #9
         self.save_tag(tag, data, self.experiment_id, index, tag_num)
 
     def update_tag_num(self, tag: str) -> int:

@@ -13,8 +13,8 @@ from io import TextIOWrapper
 import math
 import ujson
 import os
-from ..utils import create_time
-from ..utils import get_a_lock
+from ..utils import create_time, get_a_lock
+from urllib.parse import quote
 
 
 class ProjectTablePoxy(MutableMapping):
@@ -160,7 +160,8 @@ class ExperimentPoxy(object):
             if value is not None:
                 new_tag_data[key] = value
         # 存储路径
-        save_folder = os.path.join(self.path, tag)
+        # tag需要转译，/会导致路径错误，需转译为%2F
+        save_folder = os.path.join(self.path, quote(tag, safe=""))
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
 

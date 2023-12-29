@@ -2,6 +2,7 @@
 from .database import (
     init,
     log,
+    BaseType,
 )
 from .utils import get_package_version
 
