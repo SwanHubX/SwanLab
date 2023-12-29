@@ -120,12 +120,6 @@ const format = (data) => {
     min = 0
     // 向上取整，大于1
     max = Math.ceil(max)
-  } else {
-    max = max + (max - min) * 0.1
-    // 如果min大于0但是min - (max - min) * 0.1小于零，将min置0
-    // 否则取min - (max - min) * 0.1
-    if (min > 0 && min - (max - min) * 0.1 < 0) min = 0
-    else min = min - (max - min) * 0.1
   }
   // max和min都保留四位小数，防止出现0.9999999999999999的情况
   // 最后再转换为数字
