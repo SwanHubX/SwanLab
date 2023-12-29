@@ -138,12 +138,12 @@ const format = (data) => {
   const yAxis = {
     tickCount: 7,
     // max,
-    min: null,
-    label: {
-      formatter: (v) => {
-        return Number(v).toFixed(2)
-      }
-    }
+    min: null
+    // label: {
+    //   formatter: (v) => {
+    //     return Number(v).toFixed(2)
+    //   }
+    // }
   }
   return { d, yAxis }
 }
