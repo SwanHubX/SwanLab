@@ -104,6 +104,9 @@ const format = (data) => {
     min = 0
     // 向上取整，大于1
     max = Math.ceil(max)
+  } else {
+    max = max + (max - min) * 0.1
+    min = min - (max - min) * 0.1
   }
 
   const yAxis = {
