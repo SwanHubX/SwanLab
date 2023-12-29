@@ -198,26 +198,26 @@ class EventEmitter {
       // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
       this._getSoureceData(tag)
     })
-
-    this.timer = setInterval(async () => {
-      // 在此处取出pinia中的charts配置，重新设置
-      experimentStore.charts && parseCharts(experimentStore.charts)
-      // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
-      if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-        clearInterval(this.timer)
-        return console.log('stop, experiment id is not equal to route id')
-      }
-      // 遍历源列表，请求数据
-      this._sources.forEach((tag) => {
-        // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
-        this._getSoureceData(tag)
-      })
-      // 如果实验状态不是0，停止轮询
-      if (experimentStore.status !== 0) {
-        clearInterval(this.timer)
-        return console.log('stop, experiment status is not 0')
-      }
-    }, n * 1000)
+    if (experimentStore.isRunning)
+      this.timer = setInterval(async () => {
+        // 在此处取出pinia中的charts配置，重新设置
+        experimentStore.charts && parseCharts(experimentStore.charts)
+        // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+        if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+          clearInterval(this.timer)
+          return console.log('stop, experiment id is not equal to route id')
+        }
+        // 遍历源列表，请求数据
+        this._sources.forEach((tag) => {
+          // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+          this._getSoureceData(tag)
+        })
+        // 如果实验状态不是0，停止轮询
+        if (experimentStore.status !== 0) {
+          clearInterval(this.timer)
+          return console.log('stop, experiment status is not 0')
+        }
+      }, n * 1000)
   }
 
   /**

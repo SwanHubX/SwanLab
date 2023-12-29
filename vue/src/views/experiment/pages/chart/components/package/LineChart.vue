@@ -85,7 +85,6 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // smooth: true, // 平滑曲线
     color: defaultColor,
     ...config
-    // 末尾添加一个圆圈
   })
   c.render()
   return c
@@ -99,21 +98,51 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
 const format = (data) => {
   // FIXME 暂时只支持单数据
   const d = data[source[0]].list
-  return d
+  // 找到最大值和最小值
+  let max = -Infinity
+  let min = Infinity
+  d.forEach((item) => {
+    if (item.data > max) max = item.data
+    if (item.data < min) min = item.data
+  })
+  // max再加上10%的空间，转换为int
+  max = max + (max - min) * 0.1
+  // min再减去10%的空间，转换为int
+  min = min - (max - min) * 0.1
+  const yAxis = {
+    tickCount: 7,
+    max,
+    min
+  }
+  return { d, yAxis }
 }
+
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
 // 渲染
 const render = (data) => {
   // console.log('渲染折线图')
-  data = format(data)
+  const { d, yAxis } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, data)
+  chartObj = createChart(g2Ref.value, d, { yAxis })
 }
 // 重渲染
 const change = (data) => {
-  data = format(data)
-  chartObj.changeData(data)
+  const { d, yAxis } = format(data)
+  // console.log('更新...')
+  // console.log(chartObj)
+  updateYAxis(yAxis)
+  chartObj.changeData(d)
+}
+
+// 在重渲染时判断是否需要update y轴配置，拿到y轴的最大值和最小值和chartObj.options.yAxis中的最大值和最小值进行比较
+// 只比较前四位小数，如果不相等则更新y轴配置
+const updateYAxis = (yAxis) => {
+  const { max, min } = yAxis
+  const { max: _max, min: _min } = chartObj.options.yAxis
+  if (max.toFixed(4) !== _max.toFixed(4) || min.toFixed(4) !== _min.toFixed(4)) {
+    chartObj.update({ yAxis })
+  }
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -123,12 +152,13 @@ const isZoom = ref(false)
 const zoom = (data) => {
   isZoom.value = true
   // 当前window的高度
-  data = format(data)
+  const { d, yAxis } = format(data)
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
-    createChart(g2ZoomRef.value, data, {
+    createChart(g2ZoomRef.value, d, {
       interactions: [{ type: 'view-zoom' }, { type: 'drag-move' }],
-      height
+      height,
+      yAxis
     })
   })
 }
