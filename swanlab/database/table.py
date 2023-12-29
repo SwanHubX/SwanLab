@@ -14,7 +14,6 @@ import math
 import ujson
 import os
 from ..utils import create_time, get_a_lock
-from urllib.parse import quote
 from typing import Union
 from .modules import BaseType
 
@@ -137,7 +136,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Union[float, int, BaseType], experiment_id: int, index: int, sum: int, **kwargs):
+    def save_tag(self, tag: str, data: Union[float, int, BaseType], index: int, sum: int, **kwargs):
         """保存一个tag的数据
 
         Parameters
@@ -153,9 +152,6 @@ class ExperimentPoxy(object):
         sum : int
             当前tag总数
         """
-        if isinstance(data, BaseType):
-            data.tag = quote(tag, safe="")
-            data = data.get_data()
         # 创建一个新的tag数据
         new_tag_data = self.new_tag_data(index)
         # new_tag_data["experiment_id"] = experiment_id
@@ -166,7 +162,7 @@ class ExperimentPoxy(object):
                 new_tag_data[key] = value
         # 存储路径
         # tag需要转译，/会导致路径错误，需转译为%2F
-        save_folder = os.path.join(self.path, quote(tag, safe=""))
+        save_folder = os.path.join(self.path, tag)
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
 

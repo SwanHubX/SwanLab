@@ -65,6 +65,7 @@ let data = {}
 let init = false
 const $off = inject('$off')
 inject('$on')(source, cid, (tag, _tagData, error) => {
+  // 异步回调
   return new Promise((resolve, reject) => {
     if (error) {
       status.value = 'error'

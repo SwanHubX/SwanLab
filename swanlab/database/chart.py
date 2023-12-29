@@ -50,7 +50,7 @@ class ChartTable(ProjectTablePoxy):
             "create_time": create_time(),
         }
 
-    def add_chart(self, data, chart):
+    def add_chart(self, charts, chart):
         """添加图表到配置，同时更新组
 
         Parameters
@@ -61,8 +61,8 @@ class ChartTable(ProjectTablePoxy):
             添加的图表
         """
         namespace: str = chart["namespace"]
-        namespaces: list = data["namespaces"]
-        data["charts"].append(chart)
+        namespaces: list = charts["namespaces"]
+        charts["charts"].append(chart)
         # 遍历data["namespaces"]
         ns: dict = None
         for ns in namespaces:
@@ -98,21 +98,18 @@ class ChartTable(ProjectTablePoxy):
             数据源，可以是一个数字，也可以是一个swanlab.BaseType的子类
         """
         with get_a_lock(self.path) as f:
-            data = ujson.load(f)
+            charts = ujson.load(f)
             # 记录图表数量，+1
-            data["_sum"] += 1
-            chart = self.new_chart(data["_sum"])
+            charts["_sum"] += 1
+            chart = self.new_chart(charts["_sum"])
             # 如果data是BaseType类型，解构，并且修改一些必要参数
-            if isinstance(data, BaseType):
-                data.tag = tag
-                data.step = data.step
-                data.create_time = chart["create_time"]
+            if issubclass(type(data), BaseType):
                 chart["type"], chart["namespace"], chart["reference"], chart["config"] = data.__next__()
 
             chart["source"].append(tag)
             # 添加图表
-            self.add_chart(data, chart)
+            self.add_chart(charts, chart)
             f.truncate(0)
             f.seek(0)
-            ujson.dump(data, f, ensure_ascii=False)
+            ujson.dump(charts, f, ensure_ascii=False)
             f.close()

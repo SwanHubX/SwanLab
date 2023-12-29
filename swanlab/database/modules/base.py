@@ -20,8 +20,6 @@ class BaseType(ABC):
         self.__tag: str = None
         # 保存的step
         self.__step: int = None
-        # 保存时的时间
-        self.__create_time: str = None
         # 受支持的图表类型
         self.chart: Chart = Chart()
         # 保存的原始值
@@ -75,10 +73,6 @@ class BaseType(ABC):
     def step(self):
         return self.__step
 
-    @property
-    def create_time(self):
-        return self.__create_time
-
     @tag.setter
     def tag(self, value):
         if self.__tag is None:
@@ -92,13 +86,6 @@ class BaseType(ABC):
             self.__step = value
         else:
             raise AttributeError("step can only be set once")
-
-    @create_time.setter
-    def create_time(self, value):
-        if self.__create_time is None:
-            self.__create_time = value
-        else:
-            raise AttributeError("create_time can only be set once")
 
     # ---------------------------------- 一些工具属性 ----------------------------------
     @property

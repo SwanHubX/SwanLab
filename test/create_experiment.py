@@ -20,7 +20,7 @@ class Enlarge1000Type(sw.BaseType):
         return self.chart.line
 
     def get_config(self) -> dict:
-        return {}
+        return {"color": "#000000"}
 
 
 # 迭代次数

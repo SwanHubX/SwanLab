@@ -113,7 +113,7 @@ def log(data: dict, step: int = None):
         # 检查key的类型
         check_key_format(key)
         # 检查数据类型，data[key]必须是int，float或者可以被float化的类型，或者swanlab.BaseType的子类
-        if not isinstance(data[key], (int, float, BaseType)):
+        if not isinstance(d, (int, float, BaseType)):
             try:
                 d = float(data[key])
             except:

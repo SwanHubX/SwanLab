@@ -45,7 +45,7 @@ const source = props.chart.source
 // 参考字段和显示名称
 const reference = props.chart.reference
 // 图表默认颜色
-const defaultColor = experimentStore.defaultColor
+const defaultColor = props.chart.config?.color || experimentStore.defaultColor
 // 拿到参考系
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 创建图表的函数

@@ -17,6 +17,7 @@ from .system import get_system_info
 import sys
 import random
 from .modules import BaseType
+from urllib.parse import quote
 
 
 class ExperimentTable(ExperimentPoxy):
@@ -95,14 +96,23 @@ class ExperimentTable(ExperimentPoxy):
             步数，用于区分同一tag下的不同数据，如果为None，则自动加1
         """
         if not self.is_tag_exist(tag):
-            # 在chart中记录此tag，将data传入
-            self.__chart.add(tag=tag, data=data)
             # 在实验中记录此tag
             self.tags.append({"tag": tag, "num": 0})
+            # 在chart中记录此tag，将data传入
+            if isinstance(data, BaseType):
+                data.tag = tag
+                data.step = 1 if step is None else step
+            self.__chart.add(tag=tag, data=data)
         # 更新tag的数量，并拿到tag的索引
         tag_num = self.update_tag_num(tag)
         index = tag_num if step is None else step
-        self.save_tag(tag, data, self.experiment_id, index, tag_num)
+        if isinstance(data, BaseType) and data.tag is None:
+            data.tag = tag
+            data.step = index
+        data = data.get_data() if isinstance(data, BaseType) else data
+        # 只有保存时的tag是被编码后的tag
+        tag = quote(tag, safe="")
+        self.save_tag(tag, data, index, tag_num)
 
     def update_tag_num(self, tag: str) -> int:
         for index, item in enumerate(self.tags):
