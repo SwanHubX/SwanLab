@@ -100,6 +100,13 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // 样式相关
     // smooth: true, // 平滑曲线
     color: defaultColor,
+    // meta: {
+    //   data: {
+    //     formatter: (v) => {
+    //       return v.toFixed(2)
+    //     }
+    //   }
+    // },
     ...config
   })
   c.render()
@@ -114,22 +121,29 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
 const format = (data) => {
   // FIXME 暂时只支持单数据
   const d = data[source[0]].list
-  let max = data[source[0]].max
-  let min = data[source[0]].min
-  if (isSame(max, min)) {
-    min = 0
-    // 向上取整，大于1
-    max = Math.ceil(max)
-  }
-  // max和min都保留四位小数，防止出现0.9999999999999999的情况
-  // 最后再转换为数字
-  max = Number(max.toFixed(4))
-  min = Number(min.toFixed(4))
+  // let max = data[source[0]].max
+  // let min = data[source[0]].min
+  // if (isSame(max, min)) {
+  //   min = 0
+  //   // 向上取整，大于1
+  //   max = Math.ceil(max)
+  // }
+  // // max和min都保留四位小数，防止出现0.9999999999999999的情况
+  // // 最后再转换为数字
+  // max = Number(max.toFixed(4))
+  // min = Number(min.toFixed(4))
+  // // console.log('max', max)
+  // // console.log('min', min)
 
   const yAxis = {
     tickCount: 7,
-    max,
-    min
+    // max,
+    min: null,
+    label: {
+      formatter: (v) => {
+        return Number(v).toFixed(2)
+      }
+    }
   }
   return { d, yAxis }
 }
@@ -148,7 +162,7 @@ const change = (data) => {
   const { d, yAxis } = format(data)
   // console.log('更新...')
   // console.log(chartObj)
-  updateYAxis(yAxis)
+  // updateYAxis(yAxis)
   chartObj.changeData(d)
 }
 
