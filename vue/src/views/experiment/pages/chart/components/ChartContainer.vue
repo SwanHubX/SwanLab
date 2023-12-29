@@ -2,7 +2,7 @@
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <template v-if="status === 'success'">
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover && !unknown">
+      <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
         <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
       </div>
       <component ref="chartRef" :is="chartComponent(chart.type)" :title="title(chart.source[0])" :chart="chart" />
