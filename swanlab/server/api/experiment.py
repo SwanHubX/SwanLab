@@ -16,7 +16,7 @@ import ujson
 from ...utils import DEFAULT_COLOR
 
 # from ...utils import create_time
-from urllib.parse import unquote  # 转码路径参数
+from urllib.parse import quote  # 转码路径参数
 from typing import List, Dict
 from ...utils import get_a_lock
 from ...log import swanlog as swl
@@ -145,7 +145,8 @@ async def get_experiment(experiment_id: int):
     return SUCCESS_200(experiment)
 
 
-@router.get("/{experiment_id}/tag/{tag}")
+# COMPAT 由于fastapi不支持%2F的路径转换，所以采用通配符:path，并且在下面将path进行quote
+@router.get("/{experiment_id}/tag/{tag:path}")
 async def get_tag_data(experiment_id: int, tag: str):
     """获取表单数据
 
@@ -156,7 +157,7 @@ async def get_tag_data(experiment_id: int, tag: str):
     tag: str
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
-    tag = unquote(tag)
+    tag = quote(tag, safe="")
     # FIXME: 在此处完成num字段的解析
     # num=None: 返回所有数据, num=10: 返回最新的10条数据, num=-1: 返回最后一条数据
     num = None

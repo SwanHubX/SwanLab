@@ -102,7 +102,6 @@ class ExperimentTable(ExperimentPoxy):
         # 更新tag的数量，并拿到tag的索引
         tag_num = self.update_tag_num(tag)
         index = tag_num if step is None else step
-        # 往本地添加新的数据
         self.save_tag(tag, data, self.experiment_id, index, tag_num)
 
     def update_tag_num(self, tag: str) -> int:
