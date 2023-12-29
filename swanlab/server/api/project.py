@@ -57,7 +57,7 @@ async def summaries(experiment_names: str):
             if not tag in column:
                 column.append(tag)
             tag_path = os.path.join(experiment_path, tag)
-            logs = sorted(os.listdir(tag_path))
+            logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
                 try:
                     tag_data = ujson.load(f)
