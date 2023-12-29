@@ -2,6 +2,7 @@ import atexit, sys, traceback, os
 from datetime import datetime
 from ..env import swc
 from ..log import swanlog as swl
+from ..utils.file import check_key_format
 
 from .modules import BaseType
 
@@ -109,10 +110,8 @@ def log(data: dict, step: int = None):
     for key in data:
         # 遍历字典的key，记录到本地文件中
         d = data[key]
-        # TODO 检查数据类型，key必须是0-9a-zA-Z _-和/组成的字符串，并且开头必须是0-9a-zA-Z
-        if not isinstance(key, str):
-            raise TypeError("log data key must be a string")
-
+        # 检查key的类型
+        check_key_format(key)
         # 检查数据类型，data[key]必须是int，float或者可以被float化的类型，或者swanlab.BaseType的子类
         if not isinstance(data[key], (int, float, BaseType)):
             try:
