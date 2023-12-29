@@ -161,7 +161,7 @@ const zoom = (data) => {
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
     createChart(g2ZoomRef.value, d, {
-      interactions: [{ type: 'view-zoom' }, { type: 'drag-move' }],
+      interactions: [{ type: 'brush-x' }],
       height,
       yAxis
     })
