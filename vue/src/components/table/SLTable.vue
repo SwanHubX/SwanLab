@@ -24,9 +24,11 @@
             >
               <div class="overflow-hidden" :class="item.style ? item.style : 'px-2 py-3'">
                 {{ item.title }}
+                <!-- 拖拽点 -->
                 <span
                   class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-dimmer hover:opacity-20 cursor-col-resize"
                   :class="hoverColumn === index ? 'bg-positive-highest' : ''"
+                  @mousedown="(e) => resize(e, index)"
                 ></span>
               </div>
             </th>
@@ -41,6 +43,7 @@
               v-for="(item, index) in column"
               :key="item.key"
               class="hover:bg-blue-100 overflow-hidden"
+              :class="'swanlab-table-column-' + index"
               @mouseover="() => (hoverColumn = index)"
               @mouseout="() => (hoverColumn = -1)"
             >
@@ -115,6 +118,39 @@ onMounted(() => {
 })
 
 // ---------------------------------- resize 相关 ----------------------------------
+
+const resize_index = ref(-1)
+const startX = ref(0)
+const startWidth = ref(0)
+const resize = (event, index) => {
+  console.log(`准备重置第${index}的宽度`)
+  // 设置选取时不可以选中文本
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+  // 记录被改变大小的列的索引
+  resize_index.value = index
+  // 记录初始化数据
+  console.log(columns.value[index])
+  startX.value = event.clientX
+  startWidth.value = columns.value[index].offsetWidth
+  // 绑定全局事件
+  document.addEventListener('mousemove', handleMousemove)
+  document.addEventListener('mouseup', handleMouseup)
+}
+
+// 鼠标移动
+const handleMousemove = (e) => {
+  let newWidth = startWidth.value + (e.clientX - startX.value)
+  columns.value[resize_index.value].width = newWidth
+}
+
+// 鼠标抬起，结束resize
+const handleMouseup = () => {
+  document.removeEventListener('mousemove', handleMousemove)
+  document.removeEventListener('mouseup', handleMouseup)
+  document.body.style.userSelect = 'auto'
+  document.body.style.cursor = ''
+}
 </script>
 
 <style lang="scss" scoped>
