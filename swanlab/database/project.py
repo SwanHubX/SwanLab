@@ -10,7 +10,7 @@ r"""
 # import os
 from ..env import swc
 from .table import ProjectTablePoxy
-from .expriment import ExperimentTable, generate_random_tree_name, check_experiment_name, make_experiment_name_unique
+from .experiment import ExperimentTable, generate_random_tree_name, check_experiment_name, make_experiment_name_unique
 from ..utils import lock_file, get_package_version
 from io import TextIOWrapper
 import ujson

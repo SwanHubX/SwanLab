@@ -158,9 +158,6 @@ async def get_tag_data(experiment_id: int, tag: str):
         表单标签，路径传参，使用时需要 URIComponent 解码
     """
     tag = quote(tag, safe="")
-    # FIXME: 在此处完成num字段的解析
-    # num=None: 返回所有数据, num=10: 返回最新的10条数据, num=-1: 返回最后一条数据
-    num = None
     # 在experiments列表中查找对应实验的信息
     try:
         experiment_name = __find_experiment(experiment_id)["name"]
@@ -174,6 +171,8 @@ async def get_tag_data(experiment_id: int, tag: str):
     # 获取目录下存储的所有数据
     # 降序排列，最新的数据在最前面
     files: list = os.listdir(tag_path)
+    # files中去除_summary.json文件
+    files = [f for f in files if not f.endswith("_summary.json")]
     if len(files) == 0:
         return []
     files.sort()
@@ -192,45 +191,46 @@ async def get_tag_data(experiment_id: int, tag: str):
         count = files[-2].split(".")[0] if len(files) > 1 else 0
         count = int(count) + len(tag_json["data"])
     # 读取完毕，文件解锁
-
-    # ---------------------------------- tag=-1的情况：返回最后一条数据 ----------------------------------
-
-    # FIXME: 如果tag=-1，返回最后一条数据
-    if num == -1:
-        pass
-
-    # ---------------------------------- tag=其他正数的情况: 返回最新的num条数据 ----------------------------------
-
-    # ---------------------------------- tag=None的情况：返回所有数据 ----------------------------------
-
-    # 阈值，如果数据量大于阈值，只返回阈值条数据
-    threshold = 5000
-    # 此时count代表总数据量，接下来按量倒叙读取数据
-    if count <= threshold:
-        # 读取所有数据
-        # tag_json是最后一个文件的数据
-        # 按顺序读取其他文件的数据
-        tag_data_list = __get_immutable_tags(tag_path, files[:-1])
-        # 将数据合并
-        for data in tag_data_list:
-            tag_data.extend(data)
-        tag_data.extend(tag_json["data"])
-        # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
-        if tag_data[0].get("index") is None:
-            for index, data in enumerate(tag_data):
-                data["index"] = str(index + 1)
-        # COMPAT 如果第一个数据的index不是string，改为string
-        if not isinstance(tag_data[0]["index"], str):
-            for data in tag_data:
-                data["index"] = str(data["index"])
-        # 根据index升序排序
-        tag_data.sort(key=lambda x: int(x["index"]))
-        # tag_data 的 最后一个数据增加一个字段_last = True
-        tag_data[-1]["_last"] = True
-        return SUCCESS_200(data={"sum": len(tag_data), "list": tag_data})
+    # ---------------------------------- 返回所有数据 ----------------------------------
+    # FIXME: 性能问题
+    # 读取所有数据
+    # tag_json是最后一个文件的数据
+    # 按顺序读取其他文件的数据
+    tag_data_list = __get_immutable_tags(tag_path, files[:-1])
+    # 将数据合并
+    for data in tag_data_list:
+        tag_data.extend(data)
+    tag_data.extend(tag_json["data"])
+    # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
+    if tag_data[0].get("index") is None:
+        for index, data in enumerate(tag_data):
+            data["index"] = str(index + 1)
+    # COMPAT 如果第一个数据的index不是string，改为string
+    if not isinstance(tag_data[0]["index"], str):
+        for data in tag_data:
+            data["index"] = str(data["index"])
+    # 根据index升序排序
+    tag_data.sort(key=lambda x: int(x["index"]))
+    # tag_data 的 最后一个数据增加一个字段_last = True
+    tag_data[-1]["_last"] = True
+    # 获取_summary文件
+    summary_path = os.path.join(tag_path, "_summary.json")
+    if os.path.exists(summary_path):
+        with get_a_lock(summary_path, "r") as f:
+            summary = ujson.load(f)
+            max_value = summary["max"]
+            min_value = summary["min"]
     else:
-        # TODO 采样读取数据
-        raise NotImplementedError("采样读取数据")
+        # COMPAT 如果_summary文件不存在，手动获取最大值和最小值
+        warn = f"Summary file of tag '{tag}' not found, SwanLab will automatically get the maximum and minimum values."
+        swl.warning(warn)
+        # 遍历tag_data，获取最大值和最小值
+        # 提取 data 字段的值
+        data_values = [entry["data"] for entry in tag_data]
+        # 获取最大值和最小值
+        max_value = max(data_values)
+        min_value = min(data_values)
+    return SUCCESS_200(data={"sum": len(tag_data), "max": max_value, "min": min_value, "list": tag_data})
 
 
 @router.get("/{experiment_id}/status")

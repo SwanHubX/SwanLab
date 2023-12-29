@@ -18,6 +18,7 @@ import sys
 import random
 from .modules import BaseType
 from urllib.parse import quote
+from ..log import swanlog as swl
 
 
 class ExperimentTable(ExperimentPoxy):
@@ -33,7 +34,7 @@ class ExperimentTable(ExperimentPoxy):
         self.experiment_id = experiment_id
         self.name = name
         # tags数据不会被序列化
-        self.tags = []
+        self.tags = {}
         self.system = get_system_info()
         self.description = description
         self.config = config
@@ -79,7 +80,7 @@ class ExperimentTable(ExperimentPoxy):
         bool
             如果存在，返回True，否则返回False
         """
-        return any(item["tag"] == tag for item in self.tags)
+        return tag in self.tags
 
     def add(self, tag: str, data: Union[float, int, BaseType], step: int = None):
         """记录一条新的tag数据
@@ -96,30 +97,41 @@ class ExperimentTable(ExperimentPoxy):
             步数，用于区分同一tag下的不同数据，如果为None，则自动加1
         """
         if not self.is_tag_exist(tag):
-            # 在实验中记录此tag
-            self.tags.append({"tag": tag, "num": 0})
+            # 在实验中记录此tag,初始化一些临时数据
+            self.tags[tag] = {"num": 0, "max": None, "min": None, "indexs": []}
             # 在chart中记录此tag，将data传入
             if isinstance(data, BaseType):
                 data.tag = tag
                 data.step = 1 if step is None else step
             self.__chart.add(tag=tag, data=data)
         # 更新tag的数量，并拿到tag的索引
+        # 通过self.tags寻找到对应的tag配置
+        summary = self.tags[tag]
+        # 更新tag的数量，并拿到tag的索引
         tag_num = self.update_tag_num(tag)
         index = tag_num if step is None else step
+        # 如果step已经存在，那么就warning
+        if index in summary["indexs"]:
+            swl.warning(f"The step '{index}' of tag: {tag} already exists and is no longer updated.")
+            return
+        # 更新tag的索引
         if isinstance(data, BaseType) and data.tag is None:
             data.tag = tag
             data.step = index
         data = data.get_data() if isinstance(data, BaseType) else data
+        # 记录最大、最小值
+        summary["max"] = data if summary["max"] is None else max(summary["max"], data)
+        summary["min"] = data if summary["min"] is None else min(summary["min"], data)
+        summary["indexs"].append(index)
+        # 新的summary是被保存的数据
+        summary = {"num": summary["num"], "max": summary["max"], "min": summary["min"]}
         # 只有保存时的tag是被编码后的tag
         tag = quote(tag, safe="")
-        self.save_tag(tag, data, index, tag_num)
+        self.save_tag(tag, data, index, tag_num, summary)
 
     def update_tag_num(self, tag: str) -> int:
-        for index, item in enumerate(self.tags):
-            if item["tag"] == tag:
-                item["num"] += 1
-                return item["num"]
-        raise ValueError(f"tag={tag} not exist in experiment={self.name}")
+        self.tags[tag]["num"] += 1
+        return self.tags[tag]["num"]
 
     def success(self):
         """实验成功完成，更新实验状态"""

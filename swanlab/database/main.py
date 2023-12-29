@@ -10,7 +10,7 @@ r"""
 import os
 from ..env import swc, SwanlabConfig
 from .project import ProjectTable
-from .expriment import ExperimentTable
+from .experiment import ExperimentTable
 from ..utils import lock_file
 from typing import Union
 from io import TextIOWrapper

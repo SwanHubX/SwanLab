@@ -136,7 +136,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Union[float, int, BaseType], index: int, sum: int, **kwargs):
+    def save_tag(self, tag: str, data: Union[float, int, BaseType], index: int, sum: int, summary: dict, **kwargs):
         """保存一个tag的数据
 
         Parameters
@@ -151,6 +151,8 @@ class ExperimentPoxy(object):
             tag索引
         sum : int
             当前tag总数
+        summary : dict
+            tag总结信息
         """
         # 创建一个新的tag数据
         new_tag_data = self.new_tag_data(index)
@@ -188,3 +190,6 @@ class ExperimentPoxy(object):
             data["update_time"] = create_time()
             ujson.dump(data, file, ensure_ascii=False)
         file.close()
+        # 更新实验信息总结
+        with get_a_lock(os.path.join(save_folder, "_summary.json"), "w+") as f:
+            ujson.dump(summary, f, ensure_ascii=False)

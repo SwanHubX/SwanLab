@@ -98,17 +98,14 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
 const format = (data) => {
   // FIXME 暂时只支持单数据
   const d = data[source[0]].list
-  // 找到最大值和最小值
-  let max = -Infinity
-  let min = Infinity
-  d.forEach((item) => {
-    if (item.data > max) max = item.data
-    if (item.data < min) min = item.data
-  })
-  // max再加上10%的空间，转换为int
-  max = max + (max - min) * 0.1
-  // min再减去10%的空间，转换为int
-  min = min - (max - min) * 0.1
+  let max = data[source[0]].max
+  let min = data[source[0]].min
+  if (isSame(max, min)) {
+    min = 0
+    // 向上取整，大于1
+    max = Math.ceil(max)
+  }
+
   const yAxis = {
     tickCount: 7,
     max,
@@ -140,9 +137,14 @@ const change = (data) => {
 const updateYAxis = (yAxis) => {
   const { max, min } = yAxis
   const { max: _max, min: _min } = chartObj.options.yAxis
-  if (max.toFixed(4) !== _max.toFixed(4) || min.toFixed(4) !== _min.toFixed(4)) {
+  if (!isSame(max, _max) || !isSame(min, _min)) {
     chartObj.update({ yAxis })
   }
+}
+
+// 判断两个浮点数的前四位是否相同
+const isSame = (a, b) => {
+  return a.toFixed(4) === b.toFixed(4)
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
