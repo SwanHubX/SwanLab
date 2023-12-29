@@ -1,4 +1,6 @@
 <template>
+  <!-- 图表标题 -->
+  <p class="text-center font-semibold">{{ title }}</p>
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
@@ -6,8 +8,6 @@
     </p>
   </div>
   <template v-else>
-    <!-- 图表标题 -->
-    <p class="text-center font-semibold">{{ title }}</p>
     <!-- x轴坐标单位 -->
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
     <!-- 图表主体 -->
