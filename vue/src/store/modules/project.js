@@ -17,6 +17,16 @@ export const useProjectStore = defineStore('project', () => {
     p.experiments.reverse()
     project.value = p
   }
+  /**
+   * 设置指定实验的状态
+   * @param { number } id 实验id
+   * @param { string } status 实验状态
+   */
+  const setExperimentStatus = (id, status) => {
+    // 不需要绝对等于
+    const experiment = experiments.value.find((e) => e.experiment_id == id)
+    experiment.status = status
+  }
 
   return {
     sum,
@@ -25,6 +35,7 @@ export const useProjectStore = defineStore('project', () => {
     experiments,
     createTime,
     updateTime,
-    setProject
+    setProject,
+    setExperimentStatus
   }
 })

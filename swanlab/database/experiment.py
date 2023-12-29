@@ -82,6 +82,23 @@ class ExperimentTable(ExperimentPoxy):
         """
         return tag in self.tags
 
+    def check_data_type(self, data: Union[float, int, BaseType]):
+        """检查data的数据类型，如果不是期望的数据类型，尝试转换为float
+        如果转换出错，返回None
+
+        Parameters
+        ----------
+        data : Union[float, int, BaseType]
+            数据
+        """
+        # 检查数据类型，data必须是int，float或者可以被float化的类型，或者swanlab.BaseType的子类
+        if not isinstance(data, (int, float, BaseType)):
+            try:
+                return float(data)
+            except:
+                return None
+        return data
+
     def add(self, tag: str, data: Union[float, int, BaseType], step: int = None):
         """记录一条新的tag数据
 
@@ -90,12 +107,13 @@ class ExperimentTable(ExperimentPoxy):
         tag : str
             tag名称
         data : Union[float, str]
-            tag数据，可以是浮点型，也可以是字符串，但不可以是其他类型
+            tag数据，可以是浮点型，也可以是字符串，具体与添加的图表类型有关系
         namespace : str
             命名空间，用于区分不同的数据资源（对应{experiment_name}$chart中的tag）
         step : int
             步数，用于区分同一tag下的不同数据，如果为None，则自动加1
         """
+        # 如果是第一次添加
         if not self.is_tag_exist(tag):
             # 在实验中记录此tag,初始化一些临时数据
             self.tags[tag] = {"num": 0, "max": None, "min": None, "indexs": []}
@@ -104,6 +122,8 @@ class ExperimentTable(ExperimentPoxy):
                 data.tag = tag
                 data.step = 1 if step is None else step
             self.__chart.add(tag=tag, data=data)
+        if self.__chart.is_chart_error(tag):
+            return swl.warning(f"Chart {tag} has been marked as error, ignored.")
         # 更新tag的数量，并拿到tag的索引
         # 通过self.tags寻找到对应的tag配置
         summary = self.tags[tag]
@@ -119,6 +139,7 @@ class ExperimentTable(ExperimentPoxy):
             data.tag = tag
             data.step = index
         data = data.get_data() if isinstance(data, BaseType) else data
+        data = self.__chart.try_convert_data(data, tag)
         # 记录最大、最小值
         summary["max"] = data if summary["max"] is None else max(summary["max"], data)
         summary["min"] = data if summary["min"] is None else min(summary["min"], data)

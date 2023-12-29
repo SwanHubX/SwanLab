@@ -11,4 +11,4 @@ r"""
 
 class Chart:
     # 折线图
-    line: str = "line"
+    line = "line", [float, int]

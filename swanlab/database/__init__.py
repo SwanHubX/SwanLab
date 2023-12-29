@@ -112,13 +112,7 @@ def log(data: dict, step: int = None):
         d = data[key]
         # 检查key的类型
         check_key_format(key)
-        # 检查数据类型，data[key]必须是int，float或者可以被float化的类型，或者swanlab.BaseType的子类
-        if not isinstance(d, (int, float, BaseType)):
-            try:
-                d = float(data[key])
-            except:
-                raise TypeError("log data must be int, float, swanlab.BaseType or can be converted to float")
-        # 添加数据
+        # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
         sd.add(key, d, step=step)
 
 

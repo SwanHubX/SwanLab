@@ -74,7 +74,6 @@ class SwanDatabase(object):
         self.__project.add_experiment(experiment_name, description, config)
         # 保存项目表单
         self.__project.save(file)
-        # 在修饰器中自动解锁
 
     @property
     def experiment(self) -> ExperimentTable:
@@ -102,7 +101,7 @@ class SwanDatabase(object):
         # 如果是float类型，保留六位小数
         if isinstance(data, float):
             data = round(data, 6)
-        # TODO 如果是Image类型，执行其他逻辑
+        # 如果是Image类型，执行其他逻辑
         self.__project.experiment.add(tag, data, step=step)
 
     def success(self):

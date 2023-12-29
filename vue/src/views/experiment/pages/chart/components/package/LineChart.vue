@@ -1,16 +1,24 @@
 <template>
-  <!-- 图表标题 -->
-  <p class="text-center font-semibold">{{ title }}</p>
-  <!-- x轴坐标单位 -->
-  <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
-  <!-- 图表主体 -->
-  <div ref="g2Ref"></div>
-  <!-- 放大效果 -->
-  <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
-    <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-    <div ref="g2ZoomRef"></div>
-    <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ xTitle }}</p>
-  </SLModal>
+  <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
+    <SLIcon class="mx-auto h-5 w-5" icon="error" />
+    <p class="text-center text-xs">
+      {{ $t('experiment.chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
+    </p>
+  </div>
+  <template v-else>
+    <!-- 图表标题 -->
+    <p class="text-center font-semibold">{{ title }}</p>
+    <!-- x轴坐标单位 -->
+    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+    <!-- 图表主体 -->
+    <div ref="g2Ref"></div>
+    <!-- 放大效果 -->
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+      <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+      <div ref="g2ZoomRef"></div>
+      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+    </SLModal>
+  </template>
 </template>
 
 <script setup>
@@ -25,6 +33,7 @@ import * as UTILS from './utils'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+
 // ---------------------------------- 配置 ----------------------------------
 const experimentStore = useExperimentStroe()
 const props = defineProps({
@@ -37,6 +46,13 @@ const props = defineProps({
     required: true
   }
 })
+
+// ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
+
+const error = ref(props.chart.error)
+
+// ---------------------------------- 组件渲染逻辑 ----------------------------------
+
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
@@ -106,8 +122,15 @@ const format = (data) => {
     max = Math.ceil(max)
   } else {
     max = max + (max - min) * 0.1
-    min = min - (max - min) * 0.1
+    // 如果min大于0但是min - (max - min) * 0.1小于零，将min置0
+    // 否则取min - (max - min) * 0.1
+    if (min > 0 && min - (max - min) * 0.1 < 0) min = 0
+    else min = min - (max - min) * 0.1
   }
+  // max和min都保留四位小数，防止出现0.9999999999999999的情况
+  // 最后再转换为数字
+  max = Number(max.toFixed(4))
+  min = Number(min.toFixed(4))
 
   const yAxis = {
     tickCount: 7,

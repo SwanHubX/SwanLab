@@ -66,6 +66,9 @@ const parseCharts = (data) => {
   const chartsIdArray = charts.map((chart) => {
     // 为每一个chart生成一个cid
     chart._cid = cid(chart.chart_id)
+    // 事实上这块需要注意的是，如果chart.error存在，那么chart.source将不会被渲染
+    // 但是为了保持代码平衡，这里还是需要将chart.source添加到eventEmitter中
+    // 这将在下面第一次请求数据的时候因为错误被停止
     eventEmitter.addSource(chart.source)
     // 返回id
     return chart.chart_id
