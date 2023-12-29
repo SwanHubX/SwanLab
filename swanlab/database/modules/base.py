@@ -9,6 +9,7 @@ r"""
 """
 from abc import ABC, abstractmethod
 from .chart import Chart
+from ...env import swc
 
 
 class BaseType(ABC):
@@ -27,6 +28,15 @@ class BaseType(ABC):
         self.value = value
         # 标志是否已经被解构
         self.__extracted: bool = False
+        # 依赖于环境变量的一些参数
+        try:
+            self.__exp_name = swc.exp_name
+            self.__exp_folder = swc.exp_folder
+            self.__swanlog_folder = swc.root
+        except ValueError:
+            self.__exp_name = None
+            self.__exp_folder = None
+            self.__swanlog_folder = None
 
     def __iter__(self):
         # 返回一个迭代器，通常是自身
@@ -89,3 +99,16 @@ class BaseType(ABC):
             self.__create_time = value
         else:
             raise AttributeError("create_time can only be set once")
+
+    # ---------------------------------- 一些工具属性 ----------------------------------
+    @property
+    def exp_name(self):
+        return self.__exp_name
+
+    @property
+    def exp_folder(self):
+        return self.__exp_folder
+
+    @property
+    def swanlog_folder(self):
+        return self.__swanlog_folder
