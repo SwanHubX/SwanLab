@@ -167,14 +167,13 @@ class EventEmitter {
     }
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)
-    if (callbacks) {
-      callbacks.forEach((callback) => {
-        // 如果存在error，data设置为null
-        // console.log('执行回调')
-        if (error) callback(key, data, error)
-        else callback(key, data, null)
-      })
-    }
+    // 回调函数必须全部执行完毕后，才能将请求状态设置为success或者error
+    if (!callbacks) return this.setRequestStatus(key, error)
+    // callbacks存在，则是一个list，每个元素是一个回调函数，回调函数返回一个promise，当所有promise执行完毕后，设置请求状态
+    Promise.all(Array.from(callbacks.values()).map((callback) => callback(key, data, error))).then(() => {
+      console.log('all callbacks are executed')
+      this.setRequestStatus(key, error)
+    })
   }
 
   /**
@@ -200,7 +199,7 @@ class EventEmitter {
       this._getSoureceData(tag)
     })
 
-    this.timer = setInterval(() => {
+    this.timer = setInterval(async () => {
       // 在此处取出pinia中的charts配置，重新设置
       experimentStore.charts && parseCharts(experimentStore.charts)
       // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
@@ -234,14 +233,22 @@ class EventEmitter {
       .get(`/experiment/${this._experiment_id}/tag/${tag}`)
       .then((res) => {
         // 更新_sourceMap
-        this.setSourceData(tag, res.data)
-        this._request.setSuccess(tag)
+        this.setSourceData(tag, res.data, null)
       })
       .catch((err) => {
         // 更新_sourceMap
         this.setSourceData(tag, null, err)
-        this._request.setError(tag)
       })
+  }
+
+  /**
+   * 设置请求状态
+   * @param { string } tag  源名称
+   * @param { object } error 错误信息，如果存在，设置为error，否则设置为success
+   */
+  setRequestStatus(tag, error) {
+    if (error) this._request.setError(tag)
+    else this._request.setSuccess(tag)
   }
 
   /**
