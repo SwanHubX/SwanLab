@@ -13,6 +13,7 @@ from ..module.resp import SUCCESS_200, DATA_ERROR_500
 from ..module import PT
 from swanlab.env import swc
 import ujson
+from urllib.parse import unquote
 
 router = APIRouter()
 
@@ -55,7 +56,7 @@ async def summaries(experiment_names: str):
         experiment_summaries = {}
         for tag in tags:
             if not tag in column:
-                column.append(tag)
+                column.append(unquote(tag))
             tag_path = os.path.join(experiment_path, tag)
             logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
@@ -64,6 +65,6 @@ async def summaries(experiment_names: str):
                 except Exception as e:
                     print(f"[expr: {name} - {tag}] --- {e}")
                     continue
-                experiment_summaries[tag] = tag_data["data"][-1]["data"]
+                experiment_summaries[unquote(tag)] = tag_data["data"][-1]["data"]
         data[name] = experiment_summaries
     return SUCCESS_200(data={"tags": column, "summaries": data})

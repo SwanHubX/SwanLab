@@ -16,7 +16,7 @@ import ujson
 from ...utils import DEFAULT_COLOR
 
 # from ...utils import create_time
-from urllib.parse import quote  # 转码路径参数
+from urllib.parse import quote, unquote  # 转码路径参数
 from typing import List, Dict
 from ...utils import get_a_lock
 from ...log import swanlog as swl
@@ -272,7 +272,7 @@ async def get_experiment_summary(experiment_id: int):
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
-            summaries.append({"key": tag, "value": data["data"][-1]["data"]})
+            summaries.append({"key": unquote(tag), "value": data["data"][-1]["data"]})
     return SUCCESS_200(data={"summaries": summaries})
 
 
