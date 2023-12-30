@@ -1,8 +1,8 @@
 <template>
   <div class="w-full relative">
-    <div class="relative overflow-auto" :class="maxW">
-      <div class="w-full">
-        <table class="w-full border-collapse table-auto border overflow-auto">
+    <div class="relative w-full" :class="maxW">
+      <div class="w-full overflow-auto border">
+        <table class="w-full">
           <!-- 标签用于对表格中的列进行组合，以便对其进行格式化 -->
           <colgroup>
             <col
@@ -27,6 +27,7 @@
                   class="overflow-hidden"
                   :class="item.style ? item.style : 'px-2 py-3'"
                   :style="{ width: widths[index] + 'px' }"
+                  :title="item.title"
                 >
                   {{ item.title }}
                   <!-- 拖拽点 -->
@@ -34,6 +35,7 @@
                     class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-dimmer hover:opacity-20 cursor-col-resize"
                     :class="activeColumnIndex === index ? 'bg-positive-highest' : ''"
                     @mousedown="(e) => resize(e, index)"
+                    v-if="!column.unresizeable"
                   ></span>
                 </div>
               </th>
@@ -51,6 +53,7 @@
               <td
                 v-for="(item, index) in column"
                 :key="item.key"
+                :title="dataColumn[item.key]"
                 class="overflow-hidden"
                 :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-blue-100' : ''}`"
                 @mouseover="() => (hoverColumnIndex = index)"
