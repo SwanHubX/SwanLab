@@ -23,6 +23,8 @@
         <div class="flex pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+          <!-- 停止按钮 -->
+          <StopButton />
         </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value">
@@ -56,6 +58,7 @@ import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
+import StopButton from './StopButton.vue'
 
 const experiment = ref(useExperimentStroe().experiment)
 
