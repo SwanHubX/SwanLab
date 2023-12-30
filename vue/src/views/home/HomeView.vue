@@ -21,7 +21,7 @@
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
-    <SwanLabTable :column="column" :data="experiments_table" high-light v-if="tags">
+    <SLTable :column="column" :data="experiments_table" high-light v-if="tags">
       <template v-slot:name="{ row }">
         <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
       </template>
@@ -34,7 +34,7 @@
       <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
         {{ row.config[item.key] || '-' }}
       </template>
-    </SwanLabTable>
+    </SLTable>
   </div>
 </template>
 
@@ -50,10 +50,9 @@ import { computed, ref } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
-import SLTable from '@swanlab-vue/components/SLTable.vue'
 import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
-import SwanLabTable from '@swanlab-vue/components/table'
+import SLTable from '@swanlab-vue/components/table'
 
 const projectStore = useProjectStore()
 
