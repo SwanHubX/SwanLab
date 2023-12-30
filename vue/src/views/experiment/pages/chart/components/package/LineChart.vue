@@ -28,6 +28,7 @@
  * @since: 2023-12-25 20:17:19
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
+import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line } from '@antv/g2plot'
 import * as UTILS from './utils'
 import { ref } from 'vue'
@@ -78,7 +79,8 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
       tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
     },
     yAxis: {
-      tickCount: 7
+      tickCount: 7,
+      min: null
     },
     tooltip: {
       formatter: (data) => {
@@ -100,13 +102,6 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     // 样式相关
     // smooth: true, // 平滑曲线
     color: defaultColor,
-    // meta: {
-    //   data: {
-    //     formatter: (v) => {
-    //       return v.toFixed(2)
-    //     }
-    //   }
-    // },
     ...config
   })
   c.render()
@@ -121,31 +116,7 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
 const format = (data) => {
   // FIXME 暂时只支持单数据
   const d = data[source[0]].list
-  // let max = data[source[0]].max
-  // let min = data[source[0]].min
-  // if (isSame(max, min)) {
-  //   min = 0
-  //   // 向上取整，大于1
-  //   max = Math.ceil(max)
-  // }
-  // // max和min都保留四位小数，防止出现0.9999999999999999的情况
-  // // 最后再转换为数字
-  // max = Number(max.toFixed(4))
-  // min = Number(min.toFixed(4))
-  // // console.log('max', max)
-  // // console.log('min', min)
-
-  const yAxis = {
-    tickCount: 7,
-    // max,
-    min: null
-    // label: {
-    //   formatter: (v) => {
-    //     return Number(v).toFixed(2)
-    //   }
-    // }
-  }
-  return { d, yAxis }
+  return { d }
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
@@ -153,32 +124,17 @@ let chartObj = null
 // 渲染
 const render = (data) => {
   // console.log('渲染折线图')
-  const { d, yAxis } = format(data)
+  const { d } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, d, { yAxis })
+  chartObj = createChart(g2Ref.value, d)
 }
 // 重渲染
 const change = (data) => {
-  const { d, yAxis } = format(data)
+  const { d } = format(data)
   // console.log('更新...')
   // console.log(chartObj)
   // updateYAxis(yAxis)
   chartObj.changeData(d)
-}
-
-// 在重渲染时判断是否需要update y轴配置，拿到y轴的最大值和最小值和chartObj.options.yAxis中的最大值和最小值进行比较
-// 只比较前四位小数，如果不相等则更新y轴配置
-const updateYAxis = (yAxis) => {
-  const { max, min } = yAxis
-  const { max: _max, min: _min } = chartObj.options.yAxis
-  if (!isSame(max, _max) || !isSame(min, _min)) {
-    chartObj.update({ yAxis })
-  }
-}
-
-// 判断两个浮点数的前四位是否相同
-const isSame = (a, b) => {
-  return a.toFixed(4) === b.toFixed(4)
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -188,13 +144,12 @@ const isZoom = ref(false)
 const zoom = (data) => {
   isZoom.value = true
   // 当前window的高度
-  const { d, yAxis } = format(data)
+  const { d } = format(data)
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
     createChart(g2ZoomRef.value, d, {
       interactions: [{ type: 'brush-x' }],
-      height,
-      yAxis
+      height
     })
   })
 }

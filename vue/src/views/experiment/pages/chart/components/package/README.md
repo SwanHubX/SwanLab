@@ -24,7 +24,7 @@
 > 我们约定上述 api 有一个统一的传入参数 data，data 的数据结构为`{tag: tagData, ...}`  
 > 具体的处理逻辑由各个图表组件自行决定和实现
 
-大致的组件模版如下(js 部分):
+大致的组件模版如下(js 部分), 可以输入`vue-chart`代码片段生成此模版:
 
 ```js
 import SLModal from '@swanlab-vue/components/SLModal.vue'
