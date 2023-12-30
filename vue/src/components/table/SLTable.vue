@@ -14,7 +14,7 @@
           </colgroup>
           <!-- 表头 -->
           <thead class="border-bottom">
-            <tr>
+            <tr class="border-b">
               <th
                 v-for="(item, index) in column"
                 :key="item.key"
@@ -59,7 +59,9 @@
                 :key="item.key"
                 :title="dataColumn[item.key]"
                 class="overflow-hidden"
-                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-blue-100' : ''}`"
+                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-blue-100' : ''} ${
+                  item.border ? 'border-r' : ''
+                }`"
                 @mouseover="() => (hoverColumnIndex = index)"
                 @mouseout="() => (hoverColumnIndex = -1)"
               >
