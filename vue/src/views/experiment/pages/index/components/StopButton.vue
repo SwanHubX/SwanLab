@@ -1,20 +1,20 @@
 <template>
   <button
     class="p-2 rounded-full border-2 transition-all duration-200 ml-2"
-    :class="showColor ? 'border-red-500' : ' cursor-not-allowed'"
+    :class="showColor ? 'border-red-500' : 'cursor-not-allowed'"
     @mouseover="() => (hover = true)"
     @mouseout="() => (hover = false)"
-    @click="() => (showWarning = true)"
+    @click="() => (showWarning = status === 0 && true)"
   >
     <div class="w-4 h-4 bg-gray-200 transition-all duration-200" :class="showColor ? 'bg-red-500' : ''"></div>
   </button>
   <SLModal class="px-10 pt-10 pb-5 overflow-hidden" maxW="500" v-model="showWarning">
     <div class="w-full">
-      <h1 class="text-lg font-semibold text-negative-default">注意!</h1>
-      <p class="py-4">停止后不可恢复，且可能导致不可预知的后果，是否停止该实验？</p>
+      <h1 class="text-lg font-semibold text-negative-default">{{ $t('experiment.index.header.stop.modal.title') }}</h1>
+      <p class="py-4">{{ $t('experiment.index.header.stop.modal.text') }}</p>
       <div class="flex justify-end">
         <button class="px-2 py-1 border transition-all rounded-lg hover:bg-red-500 hover:text-white" @click="confirm">
-          Confirm
+          {{ $t('experiment.index.header.stop.button') }}
         </button>
       </div>
     </div>
@@ -27,15 +27,17 @@
  * @file: StopButton.vue
  * @since: 2023-12-30 20:30:30
  **/
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { ref } from 'vue'
 import { computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
+import http from '@swanlab-vue/api/http'
 
 // ---------------------------------- 弹窗相关 ----------------------------------
 
-const experiment = useExperimentStroe().experiment
-const status = useExperimentStroe().status
+const experiment = useExperimentStroe()
+const id = experiment.id
+const status = experiment.status
 
 const hover = ref(false) // 是否hover
 // 展示hover时可点击样式
@@ -47,8 +49,9 @@ const showWarning = ref(false) // 弹窗状态
 
 // ---------------------------------- 确认删除 ----------------------------------
 
-const confirm = () => {
-  console.log(experiment)
+const confirm = async () => {
+  await http.get(`/experiment/${id}/stop`)
+  useProjectStore().setExperimentStatus(id, -1)
   showWarning.value = false
 }
 </script>

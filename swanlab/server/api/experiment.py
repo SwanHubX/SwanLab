@@ -329,3 +329,27 @@ async def get_experimet_charts(experiment_id: int):
     chart_path: str = os.path.join(swc.root, __find_experiment(experiment_id)["name"], "chart.json")
     chart = __get_charts(chart_path)
     return SUCCESS_200(chart)
+
+
+@router.get("/{experiment_id}/stop")
+async def get_stop_charts(experiment_id: int):
+    """停止实验
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    """
+    config_path: str = os.path.join(swc.root, "project.json")
+    with open(config_path, mode="r", encoding="utf-8") as f:
+        config = ujson.load(f)
+    # 获取需要停止的实验在配置中的索引
+    index = next((index for index, d in enumerate(config["experiments"]) if d["experiment_id"] == experiment_id), None)
+    # 修改对应实验的状态
+    if not config["experiments"][index]["status"] == 0:
+        # 不在运行中的状态不予修改
+        return Exception("Experiment status is not running")
+    config["experiments"][index]["status"] = -1
+    with get_a_lock(config_path, "w") as f:
+        ujson.dump(config, f, ensure_ascii=False, indent=4)
+    return SUCCESS_200({"message": config["experiments"][index]})
