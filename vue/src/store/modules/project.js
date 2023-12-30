@@ -6,7 +6,7 @@ export const useProjectStore = defineStore('project', () => {
   const project = ref()
   /** getter */
   const name = computed(() => 'my-machine-learning-project')
-  const description = computed(() => '实验描述也没有配置')
+  const description = computed(() => '')
   const experiments = computed(() => project.value?.experiments)
   const sum = computed(() => project.value?._sum)
   const createTime = computed(() => project.value?.create_time)
