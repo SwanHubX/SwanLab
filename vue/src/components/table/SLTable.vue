@@ -1,6 +1,5 @@
 <template>
   <div class="w-full relative">
-    {{ widthInit }}
     <div class="relative w-full" :class="maxW">
       <div class="w-full overflow-auto border">
         <table class="w-full">
