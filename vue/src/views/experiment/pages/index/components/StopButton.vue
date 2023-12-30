@@ -14,7 +14,7 @@
       <p class="py-4">{{ $t('experiment.index.header.stop.modal.text') }}</p>
       <div class="flex justify-end">
         <button class="px-2 py-1 border transition-all rounded-lg hover:bg-red-500 hover:text-white" @click="confirm">
-          {{ $t('experiment.index.header.stop.button') }}df3187f (feat: stop button ui)
+          {{ $t('experiment.index.header.stop.button') }}
         </button>
       </div>
     </div>
