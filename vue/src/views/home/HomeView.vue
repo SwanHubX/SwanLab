@@ -67,8 +67,8 @@ const column = ref([
     title: t('home.list.table.header.name'),
     slot: 'name',
     style: 'px-4',
-    width: 200
-    // fixed: true
+    width: 200,
+    border: true
   },
   {
     title: t('home.list.table.header.status'),

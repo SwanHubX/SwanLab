@@ -1,5 +1,6 @@
 <template>
   <div class="w-full relative">
+    {{ widthInit }}
     <div class="relative w-full" :class="maxW">
       <div class="w-full overflow-auto border">
         <table class="w-full">
@@ -19,7 +20,9 @@
                 v-for="(item, index) in column"
                 :key="item.key"
                 class="relative overflow-hidden"
-                :class="activeColumnIndex === index ? 'bg-slate-200' : 'bg-slate-50'"
+                :class="`${activeColumnIndex === index ? 'bg-slate-200' : 'bg-slate-50'} ${
+                  item.border ? 'border-r' : ''
+                }`"
                 @mouseover="() => (hoverColumnIndex = index)"
                 @mouseout="() => (hoverColumnIndex = -1)"
               >
@@ -33,7 +36,9 @@
                   <!-- 拖拽点 -->
                   <span
                     class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-dimmer hover:opacity-20 cursor-col-resize"
-                    :class="activeColumnIndex === index ? 'bg-positive-highest' : ''"
+                    :class="`${activeColumnIndex === index ? 'bg-positive-highest' : ''} ${
+                      resize_index === index ? '!bg-primary-default' : ''
+                    }`"
                     @mousedown="(e) => resize(e, index)"
                     v-if="!column.unresizeable"
                   ></span>
@@ -121,6 +126,9 @@ const props = defineProps({
   highLight: {
     type: Boolean,
     default: true
+  },
+  widthInit: {
+    type: Boolean
   }
 })
 
@@ -132,16 +140,17 @@ const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
 })
 
-const minInitWidth = 100
+// const minInitWidth = 100
 
 onMounted(() => {
+  console.log(columns.value)
   // 遍历列的设置
   props.column.forEach((column, index) => {
     // 获取所有的列宽
-    const autoWidth = columns.value[index].offsetWidth
-    // widths.value[index] = autoWidth
-    // 设置初始化的最小值
-    widths.value[index] = autoWidth >= minInitWidth ? autoWidth : minInitWidth
+    if (props.widthInit) {
+      const autoWidth = columns.value[index].offsetWidth
+      widths.value[index] = autoWidth
+    }
     if (!column.width) return
     widths.value[index] = column.width
   })
@@ -165,6 +174,9 @@ const resize = (event, index) => {
 
   // 记录初始化数据
   startX.value = event.clientX
+  if (!widths.value[index]) {
+    widths.value[index] = columns.value[index].offsetWidth
+  }
   startWidth.value = widths.value[index]
 
   // 绑定全局事件
