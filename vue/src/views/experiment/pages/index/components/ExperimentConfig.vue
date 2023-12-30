@@ -8,7 +8,7 @@
             $t('experiment.index.config.help.config')
           }}</SLHelp>
         </div>
-        <SLTable :column="column" :data="configs" high-light />
+        <SLTable :column="column" :data="configs" widthInit />
       </div>
       <div v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
@@ -17,7 +17,7 @@
             >{{ $t('experiment.index.config.help.summary') }}
           </SLHelp>
         </div>
-        <SLTable :column="column" :data="summaries" high-light />
+        <SLTable :column="column" :data="summaries" widthInit />
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -31,7 +31,7 @@
  * @since: 2023-12-11 17:07:31
  **/
 import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
-import SLTable from '@swanlab-vue/components/SLTable.vue'
+import SLTable from '@swanlab-vue/components/table'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'

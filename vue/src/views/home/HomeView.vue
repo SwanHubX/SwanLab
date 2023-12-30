@@ -23,7 +23,7 @@
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
-    <SLTable :column="column" :data="experiments_table" high-light v-if="tags">
+    <SLTable :column="column" :data="experiments_table" v-if="tags">
       <template v-slot:name="{ row }">
         <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
       </template>
@@ -52,10 +52,10 @@ import { computed, ref } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
-import SLTable from '@swanlab-vue/components/SLTable.vue'
 import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
+import SLTable from '@swanlab-vue/components/table'
 
 const projectStore = useProjectStore()
 
@@ -70,8 +70,8 @@ const column = ref([
     title: t('home.list.table.header.name'),
     slot: 'name',
     style: 'px-4',
-    width: '200'
-    // fixed: true
+    width: 200,
+    border: true
   },
   {
     title: t('home.list.table.header.status'),
