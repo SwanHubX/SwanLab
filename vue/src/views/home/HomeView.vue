@@ -1,19 +1,5 @@
 <template>
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b">
-    <SwanLabTable :data="experiments_table" :column="column" v-if="tags">
-      <template v-slot:name="{ row }">
-        <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
-      </template>
-      <template v-slot:status="{ row }">
-        <SLStatusLabel :id="row.experiment_id" :status="row.status" />
-      </template>
-      <template v-slot:create="{ row }">
-        {{ transTime(convertUtcToLocal(row.create_time)) }}
-      </template>
-      <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-        {{ row.config[item.key] || '-' }}
-      </template>
-    </SwanLabTable>
     <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
     <!-- <p>{{ projectStore.description }}</p> -->
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
@@ -35,7 +21,7 @@
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
-    <SLTable :column="column" :data="experiments_table" high-light v-if="tags">
+    <SwanLabTable :column="column" :data="experiments_table" high-light v-if="tags">
       <template v-slot:name="{ row }">
         <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
       </template>
@@ -48,7 +34,7 @@
       <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
         {{ row.config[item.key] || '-' }}
       </template>
-    </SLTable>
+    </SwanLabTable>
   </div>
 </template>
 

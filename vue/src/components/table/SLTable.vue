@@ -8,7 +8,7 @@
             <col
               v-for="(item, index) in column"
               :key="item.key + item.slot + index"
-              :class="`${activeColumnIndex === index ? activeColumnBackground : ''} ${'swanlab-table-column-' + index}`"
+              :class="`${activeColumnIndex === index ? activeBackground : ''} ${'swanlab-table-column-' + index}`"
               ref="columns"
             />
           </colgroup>
@@ -42,13 +42,17 @@
           <!-- 表体 -->
           <tbody>
             <!-- 每一行 -->
-            <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn" class="hover:bg-blue-50">
+            <tr
+              v-for="(dataColumn, dataIndex) in data"
+              :key="dataColumn"
+              :class="resize_index === -1 ? 'hover:bg-blue-50' : ''"
+            >
               <!-- 单元格 -->
               <td
                 v-for="(item, index) in column"
                 :key="item.key"
-                class="hover:bg-blue-100 overflow-hidden"
-                :class="'swanlab-table-column-' + index"
+                class="overflow-hidden"
+                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-blue-100' : ''}`"
                 @mouseover="() => (hoverColumnIndex = index)"
                 @mouseout="() => (hoverColumnIndex = -1)"
               >
@@ -119,7 +123,7 @@ const props = defineProps({
 
 // ---------------------------------- 样式相关 ----------------------------------
 
-const activeColumnBackground = 'bg-blue-50'
+const activeBackground = 'bg-blue-50'
 const hoverColumnIndex = ref(-1) // 被hover得列的索引
 const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
