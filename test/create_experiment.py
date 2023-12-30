@@ -12,7 +12,7 @@ import swanlab as sw
 import time
 
 # 迭代次数
-epochs = 100
+epochs = 50
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -37,8 +37,8 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     sw.log({"loss": loss, "accuracy": acc})
-    sw.log({"loss2": loss, "accuracy2": acc}, step=epochs - epoch)
-    sw.log({"loss3": loss, "accuracy3": acc}, step=epoch * 2)
+    sw.log({"accuracy2": f"{acc}", "test/loss2": f"{loss}"}, step=epochs - epoch)
+    # sw.log({"loss3": loss, "accuracy3": acc}, step=1)
 
     time.sleep(0.5)
     # if epoch % 40 == 0:

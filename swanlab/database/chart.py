@@ -5,6 +5,7 @@ from ..env import swc
 from ..utils import create_time, get_a_lock
 from typing import List, Union
 from ..log import swanlog as swl
+from .modules import BaseType
 
 
 class ChartTable(ProjectTablePoxy):
@@ -27,8 +28,17 @@ class ChartTable(ProjectTablePoxy):
         super().__init__(data, self.path)
         # 保存表单信息
         self.save_no_lock()
+        # 当前正在使用的图表
+        self.now_charts = []
 
-    def new_chart(self, chart_id: int, namespace: str, reference: str, chart_type: str) -> dict:
+    def new_chart(
+        self,
+        chart_id: int,
+        namespace: str = "default",
+        reference: str = "step",
+        chart_type: str = "default",
+        config: dict = {},
+    ) -> dict:
         """创建一个新chart的配置选项"""
         return {
             "chart_id": chart_id,
@@ -36,13 +46,13 @@ class ChartTable(ProjectTablePoxy):
             "source": [],
             "reference": reference,
             "type": chart_type,
-            "config": {},
+            "config": config,
             "experiment_id": self.experiment_id,
             "update_time": create_time(),
             "create_time": create_time(),
         }
 
-    def add_chart(self, data, chart):
+    def add_chart(self, charts, chart):
         """添加图表到配置，同时更新组
 
         Parameters
@@ -53,17 +63,19 @@ class ChartTable(ProjectTablePoxy):
             添加的图表
         """
         namespace: str = chart["namespace"]
-        namespaces: list = data["namespaces"]
-        data["charts"].append(chart)
+        namespaces: list = charts["namespaces"]
+        charts["charts"].append(chart)
         # 遍历data["namespaces"]
         ns: dict = None
+        exists: bool = False
         for ns in namespaces:
             if ns["namespace"] == namespace:
+                exists = True
                 break
         # 如果命名空间不存在，添加
-        if ns is None:
+        if not exists:
             swl.debug(f"Namespace {namespace} not found, add.")
-            ns = {"namespace": "default", "charts": []}
+            ns = {"namespace": namespace, "charts": []}
             if ns["namespace"] == "default":
                 swl.debug(f"Namespace {namespace} Add to the beginning")
                 namespaces.insert(0, ns)
@@ -74,36 +86,91 @@ class ChartTable(ProjectTablePoxy):
         ns["charts"].append(chart["chart_id"])
         swl.debug(f"Chart {chart['chart_id']} add, now charts: " + str(ns["charts"]))
 
-    def add(
-        self,
-        tag: Union[str, List[str]],
-        namespace: str = "default",
-        reference: str = "step",
-        chart_type: str = "default",
-    ):
+    def add(self, tag: str, data: Union[float, int, BaseType]):
         """添加一张图表
 
         Parameters
         ----------
-        tag : Union[str, List[str]]
-            图表标签，可以是一个标签，也可以是多个标签，但必须是字符串或者字符串列表
-            单标签代表创建的图表只包含一个数据源，多标签代表创建的图表包含多个数据源
-        namespace : str, optional
-            命名空间，用于区分不同的图表在前端的显示位置
-        reference : str, optional
-            参考系，用于区分不同的图表表格的组织方式
-        chart_type : str, optional
-            图表类型，用于区分不同的图表的显示方式，如折线图，柱状图等
+        tag : str
+            图表标签
+        data: Union[float, int, BaseType]
+            数据源，可以是一个数字，也可以是一个swanlab.BaseType的子类
         """
         with get_a_lock(self.path) as f:
-            data = ujson.load(f)
-            # 记录数据
-            data["_sum"] += 1
-            chart = self.new_chart(data["_sum"], namespace, reference, chart_type)
+            charts = ujson.load(f)
+            # 记录图表数量，+1
+            charts["_sum"] += 1
+            chart = self.new_chart(charts["_sum"])
+            # 如果data是BaseType类型，解构，并且修改一些必要参数
+            if issubclass(type(data), BaseType):
+                chart["namespace"], (chart["type"], data_types), chart["reference"], chart["config"] = data.__next__()
+            else:
+                data_types = [float, int]
+            # 如果data不是data_types中的类型，尝试转换为这两个类型中的一个（优先转换为float）
+            if not isinstance(data, tuple(data_types)):
+                try:
+                    data = self.try_convert(data, data_types)
+                except:
+                    # 此时代表数据异常，拿到data的__class__.__name__，记录到chart.error中并保存
+                    class_name = data.__class__.__name__
+                    excepted = [i.__name__ for i in data_types]
+                    swl.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+                    chart["error"] = {"data_class": class_name, "excepted": excepted}
             chart["source"].append(tag)
             # 添加图表
-            self.add_chart(data, chart)
+            self.add_chart(charts, chart)
             f.truncate(0)
             f.seek(0)
-            ujson.dump(data, f, ensure_ascii=False)
+            ujson.dump(charts, f, ensure_ascii=False)
+            # 记录当前chart期望的数据类型，这个字段不会被保存到文件中
+            chart["excepted"] = data_types
+            self.now_charts.append(chart)
             f.close()
+
+    def is_chart_error(self, tag):
+        """遍历所有自动创建的chart，检查对应的tag的chart是否存在error字段
+
+        Parameters
+        ----------
+        tag : str
+            tag名称
+        """
+        for chart in self.now_charts:
+            if tag in chart["source"] and "error" in chart:
+                return chart["error"]
+        return False
+
+    def try_convert(self, value, data_types):
+        # 如果当前data已经是data_types中的类型，直接返回
+        if isinstance(value, tuple(data_types)):
+            return value
+        for data_type in data_types:
+            try:
+                converted_value = data_type(value)
+                return converted_value
+            except (ValueError, TypeError):
+                # 如果转换失败，继续尝试下一种类型
+                continue
+
+        # 如果所有类型都尝试过仍然失败，则抛出异常
+        raise ValueError(f"Unable to convert {value} to any of the specified types.")
+
+    def try_convert_data(self, data, tag):
+        """尝试将data转换为data_types中的类型，如果转换失败，返回None
+        如果所有类型都尝试过仍然失败，则抛出异常
+        调用这个函数代表用户的图表已经创建并且传入了与之前不同的数据类型
+        """
+        # 首先寻找tag对应的chart
+        for chart in self.now_charts:
+            if tag in chart["source"]:
+                data_types = chart["excepted"]
+                break
+        # 如果当前data已经是data_types中的类型，直接返回
+        if isinstance(data, tuple(data_types)):
+            return data
+        try:
+            return self.try_convert(data, data_types)
+        except:
+            raise ValueError(
+                f"Unable to convert {data} to any of the specified types. This Error means that you have changed the data type of the chart, please check the data type of the chart."
+            )

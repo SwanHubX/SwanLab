@@ -66,6 +66,9 @@ const parseCharts = (data) => {
   const chartsIdArray = charts.map((chart) => {
     // 为每一个chart生成一个cid
     chart._cid = cid(chart.chart_id)
+    // 事实上这块需要注意的是，如果chart.error存在，那么chart.source将不会被渲染
+    // 但是为了保持代码平衡，这里还是需要将chart.source添加到eventEmitter中
+    // 这将在下面第一次请求数据的时候因为错误被停止
     eventEmitter.addSource(chart.source)
     // 返回id
     return chart.chart_id
@@ -167,14 +170,13 @@ class EventEmitter {
     }
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)
-    if (callbacks) {
-      callbacks.forEach((callback) => {
-        // 如果存在error，data设置为null
-        // console.log('执行回调')
-        if (error) callback(key, data, error)
-        else callback(key, data, null)
-      })
-    }
+    // 回调函数必须全部执行完毕后，才能将请求状态设置为success或者error
+    if (!callbacks) return this.setRequestStatus(key, error)
+    // callbacks存在，则是一个list，每个元素是一个回调函数，回调函数返回一个promise，当所有promise执行完毕后，设置请求状态
+    Promise.all(Array.from(callbacks.values()).map((callback) => callback(key, data, error))).then(() => {
+      console.log('all callbacks are executed')
+      this.setRequestStatus(key, error)
+    })
   }
 
   /**
@@ -199,26 +201,26 @@ class EventEmitter {
       // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
       this._getSoureceData(tag)
     })
-
-    this.timer = setInterval(() => {
-      // 在此处取出pinia中的charts配置，重新设置
-      experimentStore.charts && parseCharts(experimentStore.charts)
-      // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
-      if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-        clearInterval(this.timer)
-        return console.log('stop, experiment id is not equal to route id')
-      }
-      // 遍历源列表，请求数据
-      this._sources.forEach((tag) => {
-        // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
-        this._getSoureceData(tag)
-      })
-      // 如果实验状态不是0，停止轮询
-      if (experimentStore.status !== 0) {
-        clearInterval(this.timer)
-        return console.log('stop, experiment status is not 0')
-      }
-    }, n * 1000)
+    if (experimentStore.isRunning)
+      this.timer = setInterval(async () => {
+        // 在此处取出pinia中的charts配置，重新设置
+        experimentStore.charts && parseCharts(experimentStore.charts)
+        // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+        if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+          clearInterval(this.timer)
+          return console.log('stop, experiment id is not equal to route id')
+        }
+        // 遍历源列表，请求数据
+        this._sources.forEach((tag) => {
+          // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+          this._getSoureceData(tag)
+        })
+        // 如果实验状态不是0，停止轮询
+        if (experimentStore.status !== 0) {
+          clearInterval(this.timer)
+          return console.log('stop, experiment status is not 0')
+        }
+      }, n * 1000)
   }
 
   /**
@@ -234,14 +236,22 @@ class EventEmitter {
       .get(`/experiment/${this._experiment_id}/tag/${tag}`)
       .then((res) => {
         // 更新_sourceMap
-        this.setSourceData(tag, res.data)
-        this._request.setSuccess(tag)
+        this.setSourceData(tag, res.data, null)
       })
       .catch((err) => {
         // 更新_sourceMap
         this.setSourceData(tag, null, err)
-        this._request.setError(tag)
       })
+  }
+
+  /**
+   * 设置请求状态
+   * @param { string } tag  源名称
+   * @param { object } error 错误信息，如果存在，设置为error，否则设置为success
+   */
+  setRequestStatus(tag, error) {
+    if (error) this._request.setError(tag)
+    else this._request.setSuccess(tag)
   }
 
   /**
@@ -311,7 +321,7 @@ onUnmounted(() => {
  * @param { string } namespace 组名
  */
 const getGroupName = (namespace) => {
-  // console.log(namespace)
+  console.log(namespace)
   if (namespace === 'default') return t('experiment.chart.label.default')
   else return namespace
 }

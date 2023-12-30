@@ -2,7 +2,7 @@
   <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <template v-if="status === 'success'">
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover">
+      <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
         <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
       </div>
       <component ref="chartRef" :is="chartComponent(chart.type)" :title="title(chart.source[0])" :chart="chart" />
@@ -34,6 +34,7 @@ import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import LineChart from './package/LineChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
+import UnknownChart from './package/UnknownChart.vue'
 const props = defineProps({
   chart: {
     type: Object,
@@ -50,46 +51,56 @@ const handleMouseEnter = () => (hover.value = true)
 const handleMouseLeave = () => (hover.value = false)
 
 // ---------------------------------- 控制chart显示状态 ----------------------------------
-const status = ref('loading')
-
+const status = ref(props.chart.error ? 'success' : 'loading')
+const unknown = ref(false)
 const chartComponent = (type) => {
   switch (type) {
     case 'default':
       return LineChart
+    case 'line':
+      return LineChart
+    default:
+      // 未知图表
+      unknown.value = true
+      return UnknownChart
   }
 }
 
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
-// 是否已经渲染
+// 是否已经渲染，用于控制执行render方法还是change方法
 let init = false
 const $off = inject('$off')
-inject('$on')(source, cid, (tag, _tagData, error) => {
-  return new Promise((resolve, reject) => {
-    if (error) {
-      status.value = 'error'
-      reject(error)
-    } else {
-      status.value = 'success'
-      data[tag] = _tagData
-      // 判断data的key数量是否和source长度相同
-      if (Object.keys(data).length === source.length) {
-        // 渲染
-        addTaskToBrowserMainThread(() => {
-          if (!init) render(data)
-          else change(data)
-          init = true
-        })
+// 如果props.chart.error存在，则不订阅
+props.chart.error ||
+  inject('$on')(source, cid, (tag, _tagData, error) => {
+    // 异步回调
+    return new Promise((resolve, reject) => {
+      if (error) {
+        status.value = 'error'
+        reject(error)
+      } else {
+        status.value = 'success'
+        data[tag] = _tagData
+        // 判断data的key数量是否和source长度相同
+        if (Object.keys(data).length === source.length) {
+          // 渲染
+          addTaskToBrowserMainThread(() => {
+            if (!init) render(data)
+            else change(data)
+            init = true
+            resolve()
+          })
+        }
       }
-      resolve(data)
-    }
+    })
   })
-})
 
 // 卸载时取消订阅
-onUnmounted(() => {
-  $off(source, cid)
-})
+props.chart.error ||
+  onUnmounted(() => {
+    $off(source, cid)
+  })
 
 // ---------------------------------- 图表标题控制 ----------------------------------
 const title = (t) => {

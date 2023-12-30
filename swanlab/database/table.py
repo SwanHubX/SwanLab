@@ -13,8 +13,9 @@ from io import TextIOWrapper
 import math
 import ujson
 import os
-from ..utils import create_time
-from ..utils import get_a_lock
+from ..utils import create_time, get_a_lock
+from typing import Union
+from .modules import BaseType
 
 
 class ProjectTablePoxy(MutableMapping):
@@ -135,7 +136,7 @@ class ExperimentPoxy(object):
             "data": [],
         }
 
-    def save_tag(self, tag: str, data: Any, experiment_id: int, index: int, sum: int, **kwargs):
+    def save_tag(self, tag: str, data: Union[float, int, BaseType], index: int, sum: int, summary: dict, **kwargs):
         """保存一个tag的数据
 
         Parameters
@@ -150,16 +151,19 @@ class ExperimentPoxy(object):
             tag索引
         sum : int
             当前tag总数
+        summary : dict
+            tag总结信息
         """
         # 创建一个新的tag数据
         new_tag_data = self.new_tag_data(index)
-        new_tag_data["experiment_id"] = experiment_id
+        # new_tag_data["experiment_id"] = experiment_id
         new_tag_data["data"] = data
         # 对于kwargs中的数据，剔除其中value为None的数据
         for key, value in kwargs.items():
             if value is not None:
                 new_tag_data[key] = value
         # 存储路径
+        # tag需要转译，/会导致路径错误，需转译为%2F
         save_folder = os.path.join(self.path, tag)
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
@@ -186,3 +190,6 @@ class ExperimentPoxy(object):
             data["update_time"] = create_time()
             ujson.dump(data, file, ensure_ascii=False)
         file.close()
+        # 更新实验信息总结
+        with get_a_lock(os.path.join(save_folder, "_summary.json"), "w+") as f:
+            ujson.dump(summary, f, ensure_ascii=False)

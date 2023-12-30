@@ -15,13 +15,14 @@
  **/
 import TabsHeader from './components/TabsHeader.vue'
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 import { computed } from 'vue'
 import { inject } from 'vue'
 const route = useRoute()
 const experimentStore = useExperimentStroe()
+const projectStore = useProjectStore()
 // ---------------------------------- 请求实验信息 ----------------------------------
 const ready = computed(() => {
   return experimentStore.id !== undefined
@@ -35,6 +36,8 @@ const init = async (id = route.params.experimentId) => {
     .get(`/experiment/${id}`)
     .then(({ data }) => {
       experimentStore.experiment = data
+      // 设置实验状态
+      projectStore.setExperimentStatus(data.experiment_id, data.status)
       // 如果实验状态还在running，就轮询
       if (experimentStore.isRunning) polling()
     })
@@ -67,6 +70,7 @@ const polling = () => {
       }
       // 设置实验状态
       experimentStore.setStatus(data.status)
+      projectStore.setExperimentStatus(experimentStore.id, data.status)
       experimentStore.charts = data.charts
 
       if (!experimentStore.isRunning) {

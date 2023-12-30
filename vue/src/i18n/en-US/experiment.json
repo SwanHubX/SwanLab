@@ -49,9 +49,15 @@
   "chart": {
     "empty": "Empty Experiment with No Charts",
     "error": "This chart is not displayed correctly.",
+    "unkonwn": "Unknown chart type: {type}",
     "label": {
       "default": "Charts"
     },
-    "zoom": "Zoom In"
+    "zoom": "Zoom In",
+    "charts": {
+      "line": {
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
+      }
+    }
   }
 }

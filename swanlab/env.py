@@ -8,7 +8,6 @@ r"""
 """
 import os
 import mimetypes
-from functools import wraps
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -85,7 +84,7 @@ class SwanlabConfig(object):
     def init(self, root: str, mode: str):
         """初始化配置对象"""
         if self.__init:
-            # TODO debug输出一下，已经初始化了
+            # FIXME 可能需要输出一下，说当前已经初始化过了
             return
         self.__folder = root
         if mode not in ["train", "server"]:
@@ -108,6 +107,12 @@ class SwanlabConfig(object):
     def getcwd() -> str:
         """当前程序运行路径，不包括文件名"""
         return os.getcwd()
+
+    @property
+    @_should_initialized
+    @_should_added_exp
+    def exp_name(self):
+        return self.__exp_name
 
     @property
     @_should_initialized

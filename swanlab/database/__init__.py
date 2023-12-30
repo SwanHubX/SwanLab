@@ -2,6 +2,10 @@ import atexit, sys, traceback, os
 from datetime import datetime
 from ..env import swc
 from ..log import swanlog as swl
+from ..utils.file import check_key_format
+
+from .modules import BaseType
+
 
 sd = None
 
@@ -105,8 +109,11 @@ def log(data: dict, step: int = None):
         raise TypeError("'step' must be an integer not less than zero.")
     for key in data:
         # 遍历字典的key，记录到本地文件中
-        # TODO 检查数据类型
-        sd.add(key, data[key], step=step)
+        d = data[key]
+        # 检查key的类型
+        check_key_format(key)
+        # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
+        sd.add(key, d, step=step)
 
 
-__all__ = ["log", "init"]
+__all__ = ["log", "init", "BaseType"]
