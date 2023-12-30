@@ -9,7 +9,7 @@
     "table": {
       "header": {
         "name": "Experiment Name",
-        "status": "Status",
+        "status": "State",
         "create": "Start Time"
       }
     }

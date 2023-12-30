@@ -43,7 +43,7 @@
           </thead>
           <!-- 表体 -->
           <tbody v-if="data.length">
-            <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn.id">
+            <tr v-for="(dataColumn, dataIndex) in data" :key="dataColumn">
               <td
                 v-for="(item, index) in column"
                 :key="index"
