@@ -18,7 +18,7 @@ from ...utils import DEFAULT_COLOR
 # from ...utils import create_time
 from urllib.parse import quote, unquote  # 转码路径参数
 from typing import List, Dict
-from ...utils import get_a_lock
+from ...utils import get_a_lock, create_time
 from ...log import swanlog as swl
 
 router = APIRouter()
@@ -350,6 +350,7 @@ async def get_stop_charts(experiment_id: int):
         # 不在运行中的状态不予修改
         return Exception("Experiment status is not running")
     config["experiments"][index]["status"] = -1
+    config["experiments"][index]["update_time"] = create_time()
     with get_a_lock(config_path, "w") as f:
         ujson.dump(config, f, ensure_ascii=False, indent=4)
-    return SUCCESS_200({"message": config["experiments"][index]})
+    return SUCCESS_200({"update_time": create_time()})

@@ -72,7 +72,7 @@ const experiment_infos = computed(() => {
     },
     {
       title: 'last_time',
-      value: duration()
+      value: duration.value
     },
     {
       title: 'version',
@@ -125,7 +125,7 @@ const experiment_device = computed(() => {
 /**
  * 计算实验的持续时间
  */
-const duration = () => {
+const duration = computed(() => {
   const time1 = new Date(experiment.value.create_time)
   const currentTime = new Date()
   const time2 =
@@ -164,7 +164,7 @@ const duration = () => {
   }
 
   return formattedTime.join('')
-}
+})
 </script>
 
 <style lang="scss" scoped>

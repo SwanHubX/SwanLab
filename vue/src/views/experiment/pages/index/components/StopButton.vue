@@ -50,7 +50,9 @@ const showWarning = ref(false) // 弹窗状态
 // ---------------------------------- 确认删除 ----------------------------------
 
 const confirm = async () => {
-  await http.get(`/experiment/${id}/stop`)
+  const { data } = await http.get(`/experiment/${id}/stop`)
+  if (!data) return
+  experiment.setUpateTIme(data.update_time)
   useProjectStore().setExperimentStatus(id, -1)
   showWarning.value = false
 }
