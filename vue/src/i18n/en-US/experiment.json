@@ -34,6 +34,13 @@
         "cpu": "CPU Count: {value}",
         "gpu": "GPU Count: {value}",
         "type": "GPU Type: {value}"
+      },
+      "stop": {
+        "button": "Confirm",
+        "modal": {
+          "title": "Attention!",
+          "text": "Should the experiment be stopped as it is irreversible and may result in unpredictable consequences?"
+        }
       }
     },
     "config": {
