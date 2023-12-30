@@ -75,6 +75,16 @@ def __get_gpu_info():
         return info
 
 
+def __get_command():
+    """获取执行训练时的完整命令行信息
+    比如在运行`python main.py -i 123`时，full_command为`main.py -i 123`
+    """
+    import sys
+
+    full_command = " ".join(sys.argv)
+    return full_command
+
+
 def get_system_info():
     """获取系统信息"""
     return {
