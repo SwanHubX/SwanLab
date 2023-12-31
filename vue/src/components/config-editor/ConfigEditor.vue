@@ -2,7 +2,7 @@
   <button class="px-2 py-1 border rounded-lg" @click="() => (showModal = true)">Edit</button>
   <SLModal class="px-10 py-6" max-w="550" v-model="showModal">
     <!-- 如果后续项目和实验的可修改内容发生改变，这样容易重构一些 -->
-    <EditorWrap :type="type"></EditorWrap>
+    <EditorWrap :type="type" @hideModal="hideModal"></EditorWrap>
   </SLModal>
 </template>
 
@@ -26,6 +26,10 @@ defineProps({
     }
   }
 })
+
+const hideModal = () => {
+  showModal.value = false
+}
 </script>
 
 <style lang="scss" scoped></style>
