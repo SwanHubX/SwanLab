@@ -55,7 +55,6 @@ async def summaries(experiment_names: str):
         tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
         experiment_summaries = {}
         for tag in tags:
-            print(tag)
             if not unquote(tag) in column:
                 column.append(unquote(tag))
             tag_path = os.path.join(experiment_path, tag)
