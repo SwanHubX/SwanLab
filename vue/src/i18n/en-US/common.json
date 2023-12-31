@@ -2,5 +2,22 @@
   "copy": "Copy successful!",
   "table": {
     "empty": "Empty Table"
+  },
+  "config-editor": {
+    "title": {
+      "project": "Modify Project Information",
+      "experiment": "Modify Experiment Information"
+    },
+    "sub-title": {
+      "project": {
+        "name": "Project name",
+        "desc": "description"
+      },
+      "experiment": {
+        "name": "Experiment name",
+        "desc": "description"
+      }
+    },
+    "save": "save changes"
   }
 }
