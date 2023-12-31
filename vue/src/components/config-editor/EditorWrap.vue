@@ -1,9 +1,16 @@
 <template>
-  <div class="w-full">
+  <form class="w-full" @submit.prevent="save">
     <h1 class="text-xl font-semibold">{{ $t(`common.config-editor.title.${type}`) }}</h1>
     <div class="relative pt-4">
       <h2 class="font-semibold pb-3">{{ $t(`common.config-editor.sub-title.${type}.name`) }}</h2>
-      <input type="text" class="input" v-model="info.name" :placeholder="`edit your ${type} name here`" />
+      <input
+        type="text"
+        class="input"
+        v-model="info.name"
+        :placeholder="`edit your ${type} name here`"
+        pattern="[a-zA-Z0-9_\-\u4e00-\u9fa5]*"
+        required
+      />
       <!-- 提示信息 -->
       <span class="absolute bottom-[-20px] left-0 text-xs text-negative-default">{{ errors.name }}</span>
     </div>
@@ -20,14 +27,14 @@
     </div>
     <div class="flex justify-end pt-10">
       <button
+        type="submit"
         class="p-2 rounded bg-primary-default text-white transition-all"
         :class="handling ? 'pointer-events-none cursor-not-allowed' : 'hover:rounded-lg active:opacity-70'"
-        @click="save"
       >
         {{ $t('common.config-editor.save') }}
       </button>
     </div>
-  </div>
+  </form>
 </template>
 
 <script setup>
@@ -69,6 +76,18 @@ const save = async () => {
     return (errors.value.name = 'nothing changed in experiment config')
   }
 
+  // 实验模式中，校验实验名是否重复
+  let duplicated = false
+  if (props.type === 'experiment') {
+    projectStore.experiments.forEach((expr) => {
+      // 如果重复，提示错误信息，但是注意实验名称可以和原来的一样
+      if (info.value.name === expr.name && info.value.name !== experimentStore.name) {
+        duplicated = true
+        errors.value.name = 'The experiment name is duplicated'
+      }
+    })
+  }
+  if (duplicated) return
   handling.value = true
   await (props.type === 'project' ? handleProject : handleExperiment)()
   emits('hideModal')
