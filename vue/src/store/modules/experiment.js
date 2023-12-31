@@ -31,6 +31,11 @@ export const useExperimentStroe = defineStore('charts', () => {
     experiment.value.update_time = time
   }
 
+  // 修改实验信息
+  const setExperiment = (info) => {
+    experiment.value = info
+  }
+
   return {
     // state
     experiment,
@@ -44,6 +49,7 @@ export const useExperimentStroe = defineStore('charts', () => {
     isRunning,
     // action
     setStatus,
-    setUpateTIme
+    setUpateTIme,
+    setExperiment
   }
 })

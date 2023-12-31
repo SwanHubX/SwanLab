@@ -11,11 +11,11 @@
     "sub-title": {
       "project": {
         "name": "Project name",
-        "desc": "description"
+        "desc": "Description"
       },
       "experiment": {
         "name": "Experiment name",
-        "desc": "description"
+        "desc": "Description"
       }
     },
     "save": "save changes"
