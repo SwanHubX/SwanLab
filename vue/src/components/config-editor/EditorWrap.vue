@@ -51,7 +51,7 @@ const emits = defineEmits(['hideModal'])
 
 const info = ref({
   name: props.type === 'project' ? projectStore.name : experimentStore.name,
-  description: props.type === 'project' ? projectStore.description : experimentStore.experiment.description
+  description: props.type === 'project' ? projectStore.description : experimentStore.description
 })
 const errors = ref({
   name: '',
@@ -64,7 +64,9 @@ const handling = ref(false)
 
 const save = async () => {
   if (info.value.name === projectStore.name && info.value.description === projectStore.description) {
-    return (errors.value.name = 'nothing changed')
+    return (errors.value.name = 'nothing changed in project config')
+  } else if (info.value.name === experimentStore.name && info.value.description === experimentStore.description) {
+    return (errors.value.name = 'nothing changed in experiment config')
   }
 
   handling.value = true
