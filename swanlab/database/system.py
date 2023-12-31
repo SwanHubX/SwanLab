@@ -35,7 +35,9 @@ def __get_remote_url():
     """
     try:
         # 运行git命令获取远程仓库URL
-        result = subprocess.run(["git", "config", "--get", "remote.origin.url"], stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         # 检查命令是否成功运行
         if result.returncode == 0:
