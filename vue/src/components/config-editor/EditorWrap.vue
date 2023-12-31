@@ -37,10 +37,11 @@
  * @since: 2023-12-31 10:30:01
  **/
 import http from '@swanlab-vue/api/http'
-import { useProjectStore } from '@swanlab-vue/store'
+import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
 
 const projectStore = useProjectStore()
+const experiment = useExperimentStroe()
 
 const props = defineProps({
   type: String
@@ -49,8 +50,8 @@ const props = defineProps({
 const emits = defineEmits(['hideModal'])
 
 const info = ref({
-  name: projectStore.name,
-  description: projectStore.description
+  name: props.type === 'project' ? projectStore.name : experiment.name,
+  description: props.type === 'project' ? projectStore.description : experiment.experiment.description
 })
 const errors = ref({
   name: '',
