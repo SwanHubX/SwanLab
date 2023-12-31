@@ -17,9 +17,10 @@ from ...utils import DEFAULT_COLOR
 
 # from ...utils import create_time
 from urllib.parse import quote, unquote  # 转码路径参数
-from typing import List, Dict
+from typing import List, Dict, Optional
 from ...utils import get_a_lock, create_time
 from ...log import swanlog as swl
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -356,4 +357,36 @@ async def get_stop_charts(experiment_id: int):
     return SUCCESS_200({"update_time": create_time()})
 
 
-# @router.patch("/{experiment_id}/")
+class Body(BaseModel):
+    name: str
+    description: str = ""
+
+@router.put("/{experiment_id}/")
+def update(experiment_id: int, body: Body):
+    """修改实验的元信息
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    body : Body
+        name: str
+            实验名称
+        description: str
+            实验描述
+
+    Returns
+    -------
+    object
+    """
+    file_path = os.path.join(swc.root, "project.json")
+    with open(file_path, "rw") as f:
+        project = ujson.load(f)
+        for item in project['experiments']:
+            if item['experiment_id'] == experiment_id:
+                item.update({
+                    'name': body.name,
+                    'description': body.description
+                })
+        ujson.dump(project, f, indent=4, ensure_ascii=False)
+    return SUCCESS_200({})
