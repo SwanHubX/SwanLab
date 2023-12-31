@@ -12,7 +12,6 @@
     <div class="flex items-center pt-5" v-if="experiment?.description">
       <span>{{ experiment.description }}</span>
       <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
-      <SLCopy :text="experimentStore.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验描述 -->
