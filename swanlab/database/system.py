@@ -35,7 +35,9 @@ def __get_remote_url():
     """
     try:
         # 运行git命令获取远程仓库URL
-        result = subprocess.run(["git", "config", "--get", "remote.origin.url"], stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         # 检查命令是否成功运行
         if result.returncode == 0:
@@ -73,6 +75,33 @@ def __get_gpu_info():
         # 结束 NVML
         pynvml.nvmlShutdown()
         return info
+
+
+def __get_command():
+    """获取执行训练时的完整命令行信息
+    比如在运行`python main.py -i 123`时，full_command为`main.py -i 123`
+    """
+    import sys
+
+    full_command = " ".join(sys.argv)
+    return full_command
+
+
+def __get_pip_requirement():
+    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            print(f"Error: {result.stderr}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 
 def get_system_info():
