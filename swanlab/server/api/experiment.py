@@ -354,3 +354,6 @@ async def get_stop_charts(experiment_id: int):
     with get_a_lock(config_path, "w") as f:
         ujson.dump(config, f, ensure_ascii=False, indent=4)
     return SUCCESS_200({"update_time": create_time()})
+
+
+# @router.patch("/{experiment_id}/")
