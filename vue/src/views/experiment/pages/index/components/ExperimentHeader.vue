@@ -22,11 +22,11 @@
       <!-- 实验相关 -->
       <div class="min-w-[400px] max-w-[50%] pr-4">
         <!-- 实验状态 -->
-        <div class="flex pb-4">
+        <div class="flex items-center pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
           <!-- 停止按钮 -->
-          <StopButton />
+          <StopButton v-if="experimentStore.isRunning" />
         </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value">
