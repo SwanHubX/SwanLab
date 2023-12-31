@@ -5,16 +5,11 @@
     <!-- 实验标题 -->
     <div class="flex items-center">
       <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
-      <SLCopy :text="experimentStore.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验描述 -->
     <div class="flex items-center pt-5" v-if="experimentStore.description">
       <span>{{ experimentStore.description }}</span>
-      <SLCopy
-        :text="experiment.description"
-        icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer ml-4 mr-3"
-      />
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验信息 -->
@@ -26,7 +21,7 @@
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
           <!-- 停止按钮 -->
-          <StopButton v-if="experimentStore.isRunning" />
+          <!-- <StopButton v-if="experimentStore.isRunning" /> -->
         </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value">
