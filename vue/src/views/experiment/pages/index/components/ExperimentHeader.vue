@@ -4,13 +4,13 @@
     <div class="absolute top-5 right-5"><ConfigEditor type="experiment" /></div>
     <!-- 实验标题 -->
     <div class="flex items-center">
-      <span class="text-2xl font-semibold text-default pr-4">{{ experiment.name }}</span>
-      <SLCopy :text="experiment.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
+      <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
+      <SLCopy :text="experimentStore.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" />
       <!-- <SLIcon icon="setting" class="icon" /> -->
     </div>
     <!-- 实验描述 -->
-    <div class="flex items-center pt-5" v-if="experiment?.description">
-      <span>{{ experiment.description }}</span>
+    <div class="flex items-center pt-5" v-if="experimentStore.description">
+      <span>{{ experimentStore.description }}</span>
       <SLCopy
         :text="experiment.description"
         icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer ml-4 mr-3"
@@ -55,14 +55,14 @@
  **/
 import SLCopy from '@swanlab-vue/components/SLCopy.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import { useExperimentStroe } from '@swanlab-vue/store'
-import { ref } from 'vue'
 import StopButton from './StopButton.vue'
 
-const experiment = ref(useExperimentStroe().experiment)
+const experimentStore = useExperimentStroe()
+const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 实验信息 ----------------------------------
 
