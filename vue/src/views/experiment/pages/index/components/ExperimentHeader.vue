@@ -1,5 +1,7 @@
 <template>
-  <div class="w-full px-6 pt-6 text-dimmer">
+  <div class="w-full px-6 pt-6 text-dimmer relative">
+    <!-- 修改实验内容 -->
+    <div class="absolute top-5 right-5"><ConfigEditor type="experiment" /></div>
     <!-- 实验标题 -->
     <div class="flex items-center">
       <span class="text-2xl font-semibold text-default pr-4">{{ experiment.name }}</span>
