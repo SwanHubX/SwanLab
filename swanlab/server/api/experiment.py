@@ -8,7 +8,7 @@ r"""
     实验相关api，前缀：/experiment
 """
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from ..module.resp import SUCCESS_200, NOT_FOUND_404
 from ...env import swc
 import os
@@ -333,7 +333,7 @@ async def get_experimet_charts(experiment_id: int):
 
 
 @router.get("/{experiment_id}/stop")
-async def get_stop_charts(experiment_id: int):
+async def stop_experiment(experiment_id: int):
     """停止实验
 
     Parameters
@@ -357,12 +357,8 @@ async def get_stop_charts(experiment_id: int):
     return SUCCESS_200({"update_time": create_time()})
 
 
-class Body(BaseModel):
-    name: str
-    description: str = ""
-
-@router.put("/{experiment_id}/")
-def update(experiment_id: int, body: Body):
+@router.patch("/{experiment_id}/update")
+async def update_experiment_config(experiment_id: int, request: Request):
     """修改实验的元信息
 
     Parameters
@@ -379,14 +375,22 @@ def update(experiment_id: int, body: Body):
     -------
     object
     """
-    file_path = os.path.join(swc.root, "project.json")
-    with open(file_path, "rw") as f:
+    body: dict = await request.json()
+    project_config_path = os.path.join(swc.root, "project.json")
+    with open(project_config_path, "r") as f:
         project = ujson.load(f)
-        for item in project['experiments']:
-            if item['experiment_id'] == experiment_id:
-                item.update({
-                    'name': body.name,
-                    'description': body.description
-                })
+    experiment = __find_experiment(experiment_id)
+    experiment_index = experiment["index"] - 1
+    # 修改实验名称
+    if not experiment["name"] == body["name"]:
+        project["experiments"][experiment_index]["name"] = body["name"]
+        # 修改实验目录名
+        old_path = os.path.join(swc.root, experiment["name"])
+        new_path = os.path.join(swc.root, body["name"])
+        os.rename(old_path, new_path)
+    # 修改实验描述
+    if not experiment["description"] == body["description"]:
+        project["experiments"][experiment_index]["description"] = body["description"]
+    with get_a_lock(project_config_path, "w") as f:
         ujson.dump(project, f, indent=4, ensure_ascii=False)
-    return SUCCESS_200({})
+    return SUCCESS_200({"experiment": project["experiments"][experiment_index]})

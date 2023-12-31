@@ -41,7 +41,7 @@ import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
 
 const projectStore = useProjectStore()
-const experiment = useExperimentStroe()
+const experimentStore = useExperimentStroe()
 
 const props = defineProps({
   type: String
@@ -50,8 +50,8 @@ const props = defineProps({
 const emits = defineEmits(['hideModal'])
 
 const info = ref({
-  name: props.type === 'project' ? projectStore.name : experiment.name,
-  description: props.type === 'project' ? projectStore.description : experiment.experiment.description
+  name: props.type === 'project' ? projectStore.name : experimentStore.name,
+  description: props.type === 'project' ? projectStore.description : experimentStore.experiment.description
 })
 const errors = ref({
   name: '',
@@ -76,13 +76,13 @@ const save = async () => {
 // 设置项目信息
 const handleProject = async () => {
   const { data } = await http.patch('/project/update', info.value)
-  console.log(data)
   projectStore.setProject(data.project)
 }
 
 // 设置实验信息
 const handleExperiment = async () => {
-  console.log(2)
+  const { data } = await http.patch(`/experiment/${experimentStore.id}/update`, info.value)
+  experimentStore.setExperiment(data.experiment)
 }
 </script>
 
