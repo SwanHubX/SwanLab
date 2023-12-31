@@ -85,6 +85,23 @@ def __get_command():
     return full_command
 
 
+def __get_pip_requirement():
+    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            print(f"Error: {result.stderr}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
 def get_system_info():
     """获取系统信息"""
     return {
