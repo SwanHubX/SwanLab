@@ -4,7 +4,7 @@ r"""
 @File: swanlab\env.py
 @IDE: vscode
 @Description:
-    环境变量配置，用于配置一些全局变量，如存储路径等内容
+    swanlab全局共用环境变量
 """
 import os
 import mimetypes

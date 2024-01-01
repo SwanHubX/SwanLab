@@ -1,5 +1,5 @@
 # 导出初始化函数和log函数
-from .database import (
+from .data import (
     init,
     log,
     BaseType,
