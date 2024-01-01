@@ -10,13 +10,12 @@ r"""
 from datetime import datetime
 from fastapi import APIRouter
 from ..module.resp import SUCCESS_200, NOT_FOUND_404
-from ...env import get_swanlog_dir, get_runtime_project
 import os
 import ujson
-from ...utils import DEFAULT_COLOR
 from urllib.parse import quote, unquote  # 转码路径参数
 from typing import List, Dict
-from ...utils import get_a_lock, create_time
+from ..settings import PROJECT_PATH, SWANLOG_DIR
+from ...utils import get_a_lock, create_time, DEFAULT_COLOR
 from ...log import swanlog as swl
 
 router = APIRouter()
@@ -36,7 +35,7 @@ def __find_experiment(experiment_id: int) -> dict:
     dict
         实验信息
     """
-    with get_a_lock(get_runtime_project(), "r") as f:
+    with get_a_lock(PROJECT_PATH, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
     for experiment in experiments:
         if experiment["experiment_id"] == experiment_id:
@@ -125,7 +124,7 @@ async def get_experiment(experiment_id: int):
         实验唯一id，路径传参
     """
     # 读取 project.json 文件内容
-    with get_a_lock(get_runtime_project(), "r") as f:
+    with get_a_lock(PROJECT_PATH, "r") as f:
         experiments: list = ujson.load(f)["experiments"]
     # 在experiments列表中查找对应实验的信息
     experiment = None
@@ -137,7 +136,7 @@ async def get_experiment(experiment_id: int):
     if experiment is None:
         return NOT_FOUND_404()
     # 生成实验存储路径
-    path = os.path.join(get_swanlog_dir(), experiment["name"], "logs")
+    path = os.path.join(SWANLOG_DIR, experiment["name"], "logs")
     experiment["tags"] = __list_subdirectories(path)
     experiment["default_color"] = DEFAULT_COLOR
     return SUCCESS_200(experiment)
@@ -163,7 +162,7 @@ async def get_tag_data(experiment_id: int, tag: str):
         return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
-    tag_path: str = os.path.join(get_swanlog_dir(), experiment_name, "logs", tag)
+    tag_path: str = os.path.join(SWANLOG_DIR, experiment_name, "logs", tag)
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
@@ -242,7 +241,7 @@ async def get_experiment_status(experiment_id: int):
     """
     exp = __find_experiment(experiment_id)
     status = exp["status"]
-    chart_path: str = os.path.join(get_swanlog_dir(), exp["name"], "chart.json")
+    chart_path: str = os.path.join(SWANLOG_DIR, exp["name"], "chart.json")
     charts = __get_charts(chart_path)
     return SUCCESS_200(data={"status": status, "charts": charts})
 
@@ -261,7 +260,7 @@ async def get_experiment_summary(experiment_id: int):
     array
         每个tag的最后一个数据
     """
-    experiment_path: str = os.path.join(get_swanlog_dir(), __find_experiment(experiment_id)["name"], "logs")
+    experiment_path: str = os.path.join(SWANLOG_DIR, __find_experiment(experiment_id)["name"], "logs")
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     tags = [item for item in tags if item != "_summary.json"]
     summaries = []
@@ -288,7 +287,7 @@ async def get_recent_experiment_log(experiment_id: int):
     MAX_NUM : int
         最多返回这么多条
     """
-    console_path: str = os.path.join(get_swanlog_dir(), __find_experiment(experiment_id)["name"], "console")
+    console_path: str = os.path.join(SWANLOG_DIR, __find_experiment(experiment_id)["name"], "console")
     consoles: list = [f for f in os.listdir(console_path)]
     # 含有error.log，在返回值中带上其中的错误信息
     error = None
@@ -324,7 +323,7 @@ async def get_recent_experiment_log(experiment_id: int):
 
 @router.get("/{experiment_id}/chart")
 async def get_experimet_charts(experiment_id: int):
-    chart_path: str = os.path.join(get_swanlog_dir(), __find_experiment(experiment_id)["name"], "chart.json")
+    chart_path: str = os.path.join(SWANLOG_DIR, __find_experiment(experiment_id)["name"], "chart.json")
     chart = __get_charts(chart_path)
     return SUCCESS_200(chart)
 
@@ -338,8 +337,7 @@ async def get_stop_charts(experiment_id: int):
     experiment_id : int
         实验唯一ID
     """
-    config_path: str = get_runtime_project()
-    with open(config_path, mode="r", encoding="utf-8") as f:
+    with open(PROJECT_PATH, mode="r", encoding="utf-8") as f:
         config = ujson.load(f)
     # 获取需要停止的实验在配置中的索引
     index = next((index for index, d in enumerate(config["experiments"]) if d["experiment_id"] == experiment_id), None)
@@ -349,6 +347,6 @@ async def get_stop_charts(experiment_id: int):
         return Exception("Experiment status is not running")
     config["experiments"][index]["status"] = -1
     config["experiments"][index]["update_time"] = create_time()
-    with get_a_lock(config_path, "w") as f:
+    with get_a_lock(PROJECT_PATH, "w") as f:
         ujson.dump(config, f, ensure_ascii=False, indent=4)
     return SUCCESS_200({"update_time": create_time()})
