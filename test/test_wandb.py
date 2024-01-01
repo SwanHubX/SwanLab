@@ -7,6 +7,8 @@ wandb.login()
 epochs = 100000
 lr = 0.01
 
+wandb.run._settings
+
 run = wandb.init(
     # Set the project where this run will be logged
     project="my-awesome-project",

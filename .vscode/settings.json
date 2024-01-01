@@ -12,7 +12,8 @@
     "experiment": "benchMark",
     "chart": "app",
     "index": "home",
-    "readme_files": "custom"
+    "readme_files": "custom",
+    "run": "core"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"

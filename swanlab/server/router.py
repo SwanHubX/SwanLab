@@ -17,7 +17,7 @@ from ..log import swanlog as swl
 from ..utils import get_package_version
 
 # 响应路径
-from ..env import INDEX, ASSETS
+from .settings import ASSETS, INDEX
 
 
 # 服务全局对象

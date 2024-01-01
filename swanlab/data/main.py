@@ -15,7 +15,6 @@ from ..utils import lock_file
 from typing import Union
 from io import TextIOWrapper
 import ujson
-from .utils import Image
 
 
 class SwanDatabase(object):
@@ -80,7 +79,7 @@ class SwanDatabase(object):
         """获取当前实验对象"""
         return self.__project.experiment
 
-    def add(self, tag: str, data: Union[Image, float], step: int = None):
+    def add(self, tag: str, data, step: int = None):
         """添加数据到数据库，保存数据，完成几件事情：
         1. 如果{experiment_name}_{tag}表单不存在，则创建
         2. 添加记录到{experiment_name}_{tag}表单中，包括create_time等

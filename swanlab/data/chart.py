@@ -3,7 +3,7 @@ import ujson
 import os
 from ..env import swc
 from ..utils import create_time, get_a_lock
-from typing import List, Union
+from typing import Union
 from ..log import swanlog as swl
 from .modules import BaseType
 

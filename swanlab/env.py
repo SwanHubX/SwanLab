@@ -4,24 +4,18 @@ r"""
 @File: swanlab\env.py
 @IDE: vscode
 @Description:
-    swanlab全局共用环境变量
+    swanlab全局共用环境变量(运行时环境变量)
 """
 import os
-import mimetypes
+from typing import List, MutableMapping, Optional, Union
 
-"""
-在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
-入口文件为index.html，网页图标为logo.ico，其他文件为assets文件夹中的文件
-因此，需要指定文件路径与文件名，用于后端服务的响应（这在下面的路由配置中也有说明）
-"""
-# 注册静态文件路径
-mimetypes.add_type("application/javascript", ".js")
-mimetypes.add_type("text/css", ".css")
-# 静态文件路径
-FILEPATH = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_PATH = os.path.join(FILEPATH, "template")
-ASSETS = os.path.join(TEMPLATE_PATH, "assets")
-INDEX = os.path.join(TEMPLATE_PATH, "index.html")
+Env = Optional[MutableMapping]
+
+# '描述' = "key"
+# ---------------------------------- 基础环境变量 ----------------------------------
+
+ROOT = "SWANLAB_ROOT"
+"""命令执行目录SWANLAB_ROOT，在这个目录下寻找swanlog文件夹"""
 
 
 class SwanlabConfig(object):
@@ -183,8 +177,49 @@ class SwanlabConfig(object):
 swc = SwanlabConfig()
 
 
-if __name__ == "__main__":
-    swc.init("test", "server")
-    print(swc.root)
-    print(swc.output)
-    print(swc.console_folder)
+# ---------------------------------- 定义变量访问方法 ----------------------------------
+
+
+def get_runtime_root(env: Optional[Env] = None) -> Optional[str]:
+    """获取运行时根路径
+
+    Parameters
+    ----------
+    env : Optional[Env], optional
+        环境变量map, by default None
+
+    Returns
+    -------
+    Optional[str]
+        根路径
+    """
+    default: Optional[str] = os.getcwd()
+    if env is None:
+        env = os.environ
+    # ROOT拿到的应该是一个绝对路径
+    return env.get(ROOT, default=default)
+
+
+def get_swanlog_dir() -> Optional[str]:
+    """获取swanlog路径，这是一个计算变量，
+    通过`get_runtime_root()`返回值得到
+
+    Returns
+    -------
+    Optional[str]
+        swanlog目录路径
+    """
+    return os.path.join(get_runtime_root(), "swanlog")
+
+
+# TODO 后续改为数据库路径
+def get_runtime_project() -> Optional[str]:
+    """获取运行时项目配置，这是一个计算变量，
+    通过`get_swanlog_dir()`返回值得到
+
+    Returns
+    -------
+    Optional[str]
+        项目配置文件路径
+    """
+    return os.path.join(get_swanlog_dir(), "project.json")

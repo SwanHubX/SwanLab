@@ -11,7 +11,7 @@ import os
 from fastapi import APIRouter
 from ..module.resp import SUCCESS_200, DATA_ERROR_500
 from ..module import PT
-from swanlab.env import swc
+from swanlab.env import get_swanlog_dir
 import ujson
 from urllib.parse import unquote
 
@@ -51,7 +51,7 @@ async def summaries(experiment_names: str):
     # 转为列表
     name_list = experiment_names.split(",")
     for name in name_list:
-        experiment_path = os.path.join(swc.root, name, "logs")
+        experiment_path = os.path.join(get_swanlog_dir(), name, "logs")
         tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
         experiment_summaries = {}
         for tag in tags:
