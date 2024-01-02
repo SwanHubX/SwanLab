@@ -50,7 +50,7 @@ Hey, whether you're a developer or an everyday user, this quick-start guide will
 
 
 
-#### 🎯 Step1：Installation
+### 🎯 Step1：Installation
 
 ```bash
 $ pip install -U swanlab
@@ -58,7 +58,7 @@ $ pip install -U swanlab
 
 
 
-#### 👋 Step2：Hello World
+### 👋 Step2：Hello World
 
 If we break down the training process in machine learning, it's basically all about **tweaking settings**, **looping**, and keeping an eye on the **metrics** we care about.
 
@@ -100,7 +100,7 @@ And there will be  **`swanlog`** folder in the root directory, which contains fi
 
 
 
-#### 🧪 Step3：Run Dashboard
+### 🧪 Step3：Run Dashboard
 
 Now let's check the status of the instructions recorded by SwanLab in each loop step.
 
@@ -119,7 +119,7 @@ Visit http://127.0.0.1:5092, open the experiment dashboard, and access the exper
 
 
 
-#### 🚀 Level up a bit
+### 🚀 Level up a bit
 
 In this section, let's write an advanced training script to simulate real machine learning training.
 

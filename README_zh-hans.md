@@ -9,8 +9,6 @@
 <p align="center">
   <b><a href="README.md">English</a> | 简体中文</b>
 </p>
-
-
 <p align="center">
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=blue" alt= /></a>
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
@@ -45,13 +43,13 @@ Hi，无论你是开发人员还是日常用户，这篇快速上手教程都将
 - 记录关键指标
 - 可视化实验
 
-#### 🎯 第 1 步：安装 SwanLab
+### 🎯 第 1 步：安装 SwanLab
 
 ```bash
 $ pip install -U swanlab
 ```
 
-#### 👋 第 2 步：Hello World
+### 👋 第 2 步：Hello World
 
 如果我们抽象机器学习的训练过程，其本质就是**配置参数**、再**循环**的过程，而我们关注的是中间的**指标**。
 
@@ -89,9 +87,9 @@ epoch 9
 [SwanLab-INFO]:        train successfully
 ```
 
-并且根目录下会出现 1 个**`swanlog`**文件夹，里面是 SwanLab 自动生成的文件，记录了一系列实验数据。
+并且根目录下会出现 1 个`swanlog`文件夹，里面是 SwanLab 自动生成的文件，记录了一系列实验数据。
 
-#### 🧪 第 3 步：开启实验看板
+### 🧪 第 3 步：开启实验看板
 
 现在来查看我们使用 SwanLab 记录的指在每个循环步骤中的情况。运行命令`swanlab watch`：
 
@@ -102,11 +100,11 @@ $ swanlab watch
                        ➜  Local:   http://127.0.0.1:5092
 ```
 
-访问http://127.0.0.1:5092，打开实验看板，访问刚刚运行的实验：
+访问http://127.0.0.1:5092 ，打开实验看板，访问刚刚运行的实验：
 
 <img src="readme_files/hello_world_main1.gif" width=1535>
 
-#### 🚀 进阶一下
+### 🚀 进阶一下
 
 在这一节，让我们写 1 个进阶的训练脚本来模拟真实的机器学习训练。
 
