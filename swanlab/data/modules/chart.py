@@ -12,3 +12,5 @@ r"""
 class Chart:
     # 折线图
     line = "line", [float, int]
+    # 默认图表
+    default = line

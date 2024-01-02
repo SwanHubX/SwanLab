@@ -11,7 +11,7 @@ import os
 from ..env import get_swanlog_dir
 from ..log import register
 
-register(os.path.join(get_swanlog_dir(), "output.log"), False)
+register(os.path.join(get_swanlog_dir(), "output.log"))
 
 # 导出app对象
 from .router import app

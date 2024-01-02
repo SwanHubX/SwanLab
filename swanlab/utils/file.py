@@ -57,8 +57,8 @@ def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIOWrap
     return f
 
 
-def check_key_format(key: str):
-    """检查字符串格式，必须是0-9a-zA-Z _-和/组成的字符串，并且开头必须是0-9a-zA-Z
+def check_key_format(key: str) -> str:
+    """检查key字符串格式，必须是0-9a-zA-Z _-和/组成的字符串，并且开头必须是0-9a-zA-Z
 
     Parameters
     ----------
@@ -75,3 +75,33 @@ def check_key_format(key: str):
         raise ValueError(
             f"key: {key} is not a valid string, which must be composed of 0-9a-zA-Z _- and /, and the first character must be 0-9a-zA-Z"
         )
+    return key
+
+
+def check_name_format(name: str, max_len: int = 20) -> str:
+    """检查name字符串格式，必须是0-9a-zA-Z _-和/或者中文字符组成的字符串，并且开头必须是0-9a-zA-Z或者中文字符
+    最大长度为max_len个字符，一个中文字符算一个字符，如果超出长度，将被截断
+
+    Parameters
+    ----------
+    name : str
+        待检查的字符串
+
+    Returns
+    -------
+    str
+        检查后的字符串
+    """
+    if not isinstance(name, str):
+        raise TypeError(f"name: {name} is not a string")
+    # 定义正则表达式
+    pattern = re.compile("^[0-9a-zA-Z\u4e00-\u9fa5][0-9a-zA-Z\u4e00-\u9fa5_/-]*$")
+    # 检查 name 是否符合规定格式
+    if not pattern.match(name):
+        raise ValueError(
+            f"name: {name} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
+        )
+    # 检查长度
+    if len(name) > max_len:
+        name = name[:max_len]
+    return name

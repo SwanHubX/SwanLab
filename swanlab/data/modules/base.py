@@ -8,8 +8,8 @@ r"""
     SwanLab数据基类
 """
 from abc import ABC, abstractmethod
+from ..settings import SwanDataSettings
 from .chart import Chart
-from ...env import swc
 
 
 class BaseType(ABC):
@@ -21,20 +21,13 @@ class BaseType(ABC):
         # 保存的step
         self.__step: int = None
         # 受支持的图表类型
-        self.chart: Chart = Chart()
+        self.__chart: Chart = Chart()
+        # 当前运行时配置
+        self.__settings: SwanDataSettings = None
         # 保存的原始值
         self.value = value
         # 标志是否已经被解构
         self.__extracted: bool = False
-        # 依赖于环境变量的一些参数
-        try:
-            self.__exp_name = swc.exp_name
-            self.__exp_folder = swc.exp_folder
-            self.__swanlog_folder = swc.root
-        except ValueError:
-            self.__exp_name = None
-            self.__exp_folder = None
-            self.__swanlog_folder = None
 
     def __iter__(self):
         # 返回一个迭代器，通常是自身
@@ -73,6 +66,17 @@ class BaseType(ABC):
     def step(self):
         return self.__step
 
+    @property
+    def settings(self):
+        return self.__settings
+
+    @settings.setter
+    def settings(self, value):
+        if self.__settings is None:
+            self.__settings = value
+        else:
+            raise AttributeError("settings can only be set once")
+
     @tag.setter
     def tag(self, value):
         if self.__tag is None:
@@ -86,16 +90,3 @@ class BaseType(ABC):
             self.__step = value
         else:
             raise AttributeError("step can only be set once")
-
-    # ---------------------------------- 一些工具属性 ----------------------------------
-    @property
-    def exp_name(self):
-        return self.__exp_name
-
-    @property
-    def exp_folder(self):
-        return self.__exp_folder
-
-    @property
-    def swanlog_folder(self):
-        return self.__swanlog_folder

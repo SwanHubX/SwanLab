@@ -7,15 +7,10 @@ r"""
 @Description:
     在此处导出SwanLabRun类，一次实验运行应该只有一个SwanLabRun实例
 """
-from typing import Optional
 from .main import SwanLabRun
 
 
-run: Optional["SwanLabRun"] = None
-
-
-def register() -> SwanLabRun:
+def register(*args, **kwargs) -> SwanLabRun:
     """注册并实例化SwanLabRun类"""
-    global run
-    run = SwanLabRun()
+    run = SwanLabRun(*args, **kwargs)
     return run

@@ -3,7 +3,6 @@ import logging.config
 import logging.handlers
 import sys
 from .console import SwanConsoler
-from ..env import swc
 from ..utils import FONT
 
 
@@ -140,7 +139,7 @@ class SwanLog(Logsys):
         level=None,
         console_level=None,
         file_level=None,
-        isTrain=False,
+        console_path=None,
     ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
@@ -156,15 +155,15 @@ class SwanLog(Logsys):
             控制台日志级别，仅影响控制台
         file_level : string, optional
             文件日志级别，高于或等于该级别即记录到文件
-        isTrain: boole, optional
-            训练模式，是否开启控制台记录
+        console_path: str, optional
+            控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
         """
 
         # 初始化控制台记录器
-        if self.__consoler is None and isTrain:
+        if self.__consoler is None and console_path:
             self.debug("init consoler")
             self.__consoler = SwanConsoler()
-            self.__consoler.init(swc.console_folder)
+            self.__consoler.init(console_path)
 
         self._create_console_handler()
         self._create_file_handler(path)
