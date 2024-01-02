@@ -19,6 +19,8 @@
 
 <img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
+<br>
+
 ## ✨ 特色功能
 
 1. ⚽ **实时指标记录：** 几行代码，即可实时记录你的训练指标
@@ -26,6 +28,8 @@
 3. 🤖 **机器学习支持：** 支持 PyTorch、TensorFlow、Transformers、mmdetection 等主流训练框架
 4. 📝 **环境记录**：支持自动记录 Logging、报错、系统硬件、Python 环境等等一系列环境信息
 5. 🖥 **端云均支持：** 即支持本地管理训练，也支持同步到公有云（即将）
+
+<br>
 
 ## 🔥 使用案例
 
@@ -35,6 +39,8 @@
 - [MNIST 手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/plain_net_mnist)
 - [ResNet50 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/tree/main/resnet50_cats_vs_dogs)
 
+<br>
+
 ## ⚡️ 快速上手
 
 Hi，无论你是开发人员还是日常用户，这篇快速上手教程都将帮助你入门并且向你展示如何使用 SwanLab：
@@ -43,11 +49,15 @@ Hi，无论你是开发人员还是日常用户，这篇快速上手教程都将
 - 记录关键指标
 - 可视化实验
 
+<br>
+
 ### 🎯 第 1 步：安装 SwanLab
 
 ```bash
 $ pip install -U swanlab
 ```
+
+<br>
 
 ### 👋 第 2 步：Hello World
 
@@ -89,6 +99,8 @@ epoch 9
 
 并且根目录下会出现 1 个`swanlog`文件夹，里面是 SwanLab 自动生成的文件，记录了一系列实验数据。
 
+<br>
+
 ### 🧪 第 3 步：开启实验看板
 
 现在来查看我们使用 SwanLab 记录的指在每个循环步骤中的情况。运行命令`swanlab watch`：
@@ -103,6 +115,8 @@ $ swanlab watch
 访问http://127.0.0.1:5092 ，打开实验看板，访问刚刚运行的实验：
 
 <img src="readme_files/hello_world_main1.gif" width=1535>
+
+<br>
 
 ### 🚀 进阶一下
 
@@ -161,10 +175,14 @@ for epoch in range(2, epochs):
 
 <img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
+<br>
+
 ## 🌱 了解更多
 
 - [官方文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home)：完整的 APl 文档与引导。
 - [案例仓库](https://github.com/SwanHubX/SwanLab-examples)：官方代码案例
+
+<br>
 
 ## 💬 社区
 
@@ -173,6 +191,8 @@ for epoch in range(2, epochs):
 WeChat 与 Github 社区入口：
 
 [![PyPI - Downloads](https://img.shields.io/badge/wechat-online-green)](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)[![Discuss on GitHub](https://img.shields.io/badge/discussions-GitHub-333333?logo=github)](https://github.com/SwanHubX/SwanLab/discussions)
+
+<br>
 
 ## 版权说明
 
