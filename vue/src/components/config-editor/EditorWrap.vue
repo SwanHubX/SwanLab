@@ -1,8 +1,10 @@
 <template>
   <form class="w-full" @submit.prevent="save">
     <h1 class="text-xl font-semibold">{{ $t(`common.config-editor.title.${type}`) }}</h1>
+    <!-- 修改名称 -->
     <div class="relative pt-4">
       <h2 class="font-semibold pb-3">{{ $t(`common.config-editor.sub-title.${type}.name`) }}</h2>
+      <!-- 名称不可为空，且只能是英文字符、数字、下划线、中划线 -->
       <input
         type="text"
         class="input"
@@ -14,6 +16,7 @@
       <!-- 提示信息 -->
       <span class="absolute bottom-[-20px] left-0 text-xs text-negative-default">{{ errors.name }}</span>
     </div>
+    <!-- 修改描述信息 -->
     <div class="relative">
       <h2 class="font-semibold pt-5 pb-3">{{ $t(`common.config-editor.sub-title.${type}.desc`) }}</h2>
       <textarea
@@ -25,6 +28,7 @@
       <!-- 提示信息 -->
       <span class="absolute bottom-[-20px] left-0 text-xs text-negative-default">{{ errors.description }}</span>
     </div>
+    <!-- 确认按钮 -->
     <div class="flex justify-end pt-10">
       <button
         type="submit"
@@ -59,10 +63,15 @@ const props = defineProps({
 
 const emits = defineEmits(['confirm'])
 
+// ---------------------------------- 系统参数 ----------------------------------
+
+// v-model 绑定到两个输入栏
 const info = ref({
   name: props.type === 'project' ? projectStore.name : experimentStore.name,
   description: props.type === 'project' ? projectStore.description : experimentStore.description
 })
+
+// 错误信息
 const errors = ref({
   name: '',
   description: ''
@@ -70,8 +79,17 @@ const errors = ref({
 
 // ---------------------------------- 重新设置 ----------------------------------
 
+// 是否在处理中
 const handling = ref(false)
 
+/**
+ * 保存修改
+ *
+ * 1. 清除错误信息
+ * 2. 判断是否一点东西没改
+ * 3. 实验模式时，实验名是不能重复的
+ * 4. 触发确认函数并显示处理中
+ */
 const save = async () => {
   errors.value = {
     name: '',
@@ -96,6 +114,7 @@ const save = async () => {
     })
   }
   if (duplicated) return
+
   handling.value = true
   emits('confirm', info.value, () => (handling.value = false))
 }
