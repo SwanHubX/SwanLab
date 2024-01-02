@@ -27,6 +27,27 @@ export const useProjectStore = defineStore('project', () => {
     const experiment = experiments.value.find((e) => e.experiment_id == id)
     experiment.status = status
   }
+  /**
+   * 重置实验列表中某一个实验的信息
+   * @param {number} id 燕燕唯一id
+   * @param {object} newInfo 涵盖字段为experiment中字段的子集，不需要修改的不必传
+   * @param {boolean} overwirte 设置true后，newInfo直接覆盖experiment，请保证newInfo的完整性
+   * @returns
+   */
+  const setExperimentInfo = (id, newInfo, overwirte) => {
+    let experiment = experiments.value.find((e) => e.experiment_id == id)
+    if (overwirte) {
+      experiment = newInfo
+      return
+    }
+    // 遍历 newInfo 中的 key
+    for (const key in newInfo) {
+      // 如果experiment中没有这个key，说明key不合法
+      if (!experiment[key]) continue
+      // key 合法，更新该字段
+      experiment[key] = newInfo[key]
+    }
+  }
 
   return {
     sum,
@@ -36,6 +57,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
-    setExperimentStatus
+    setExperimentStatus,
+    setExperimentInfo
   }
 })

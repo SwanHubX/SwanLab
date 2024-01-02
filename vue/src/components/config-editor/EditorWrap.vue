@@ -102,8 +102,10 @@ const handleProject = async () => {
 
 // 设置实验信息
 const handleExperiment = async () => {
-  const { data } = await http.patch(`/experiment/${experimentStore.id}/update`, info.value)
+  const id = experimentStore.id
+  const { data } = await http.patch(`/experiment/${id}/update`, info.value)
   experimentStore.setExperiment(data.experiment)
+  projectStore.setExperimentInfo(id, info.value)
 }
 </script>
 
