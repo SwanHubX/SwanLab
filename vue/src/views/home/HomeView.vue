@@ -56,7 +56,6 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
-import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 
 const projectStore = useProjectStore()
 
