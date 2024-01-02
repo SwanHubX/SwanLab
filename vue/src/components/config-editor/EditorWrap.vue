@@ -28,10 +28,13 @@
     <div class="flex justify-end pt-10">
       <button
         type="submit"
-        class="p-2 rounded bg-primary-default text-white transition-all"
-        :class="handling ? 'pointer-events-none cursor-not-allowed' : 'hover:rounded-lg active:opacity-70'"
+        class="p-2 rounded bg-primary-default text-white transition-all flex items-center"
+        :class="
+          handling ? 'pointer-events-none cursor-not-allowed opacity-50 gap-2' : 'hover:rounded-lg active:opacity-70'
+        "
       >
-        {{ $t('common.config-editor.save') }}
+        <SLLoading size="4" v-if="handling" />
+        <span>{{ $t(`common.config-editor.save.${handling ? 'savimg' : 'default'}`) }}</span>
       </button>
     </div>
   </form>
@@ -43,9 +46,9 @@
  * @file: EditorWrap.vue
  * @since: 2023-12-31 10:30:01
  **/
-import http from '@swanlab-vue/api/http'
 import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
+import SLLoading from '../SLLoading.vue'
 
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
@@ -54,7 +57,7 @@ const props = defineProps({
   type: String
 })
 
-const emits = defineEmits(['hideModal'])
+const emits = defineEmits(['confirm'])
 
 const info = ref({
   name: props.type === 'project' ? projectStore.name : experimentStore.name,
@@ -89,23 +92,7 @@ const save = async () => {
   }
   if (duplicated) return
   handling.value = true
-  await (props.type === 'project' ? handleProject : handleExperiment)()
-  emits('hideModal')
-  handling.value = false
-}
-
-// 设置项目信息
-const handleProject = async () => {
-  const { data } = await http.patch('/project/update', info.value)
-  projectStore.setProject(data.project)
-}
-
-// 设置实验信息
-const handleExperiment = async () => {
-  const id = experimentStore.id
-  const { data } = await http.patch(`/experiment/${id}/update`, info.value)
-  experimentStore.setExperiment(data.experiment)
-  projectStore.setExperimentInfo(id, info.value)
+  emits('confirm', info.value, () => (handling.value = false))
 }
 </script>
 

@@ -19,6 +19,9 @@
         "desc": "Description"
       }
     },
-    "save": "save changes"
+    "save": {
+      "default": "save changes",
+      "savimg": "saving"
+    }
   }
 }

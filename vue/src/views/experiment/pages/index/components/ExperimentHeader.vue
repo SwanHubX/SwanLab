@@ -1,7 +1,9 @@
 <template>
   <div class="w-full px-6 pt-6 text-dimmer relative">
     <!-- 修改实验内容 -->
-    <div class="absolute top-5 right-5" v-if="!experimentStore.isRunning"><ConfigEditor type="experiment" /></div>
+    <div class="absolute top-5 right-5" v-if="!experimentStore.isRunning">
+      <ConfigEditor type="experiment" @modify="modifyExperiment" />
+    </div>
     <!-- 实验标题 -->
     <div class="flex items-center">
       <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
@@ -50,7 +52,8 @@ import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
+import http from '@swanlab-vue/api/http'
 // import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
@@ -159,6 +162,17 @@ const duration = computed(() => {
 
   return formattedTime.join('')
 })
+
+// ---------------------------------- 修改实验信息 ----------------------------------
+
+const modifyExperiment = async (newV, hideModal) => {
+  const id = experimentStore.id
+  const { data } = await http.patch(`/experiment/${id}/update`, newV)
+  experimentStore.setExperiment(data.experiment)
+  const projectStore = useProjectStore()
+  projectStore.setExperimentInfo(id, newV)
+  hideModal()
+}
 </script>
 
 <style lang="scss" scoped>

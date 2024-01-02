@@ -8,7 +8,7 @@
   </button>
   <SLModal class="px-10 py-6" max-w="550" v-model="showModal">
     <!-- 如果后续项目和实验的可修改内容发生改变，这样容易重构一些 -->
-    <EditorWrap :type="type" @hideModal="hideModal"></EditorWrap>
+    <EditorWrap :type="type" @confirm="confirm"></EditorWrap>
   </SLModal>
 </template>
 
@@ -34,8 +34,15 @@ defineProps({
   }
 })
 
-const hideModal = () => {
-  showModal.value = false
+const emits = defineEmits(['modify'])
+
+const confirm = async (newV) => {
+  new Promise((resolve) => {
+    emits('modify', newV, () => {
+      showModal.value = false
+      resolve()
+    })
+  })
 }
 </script>
 

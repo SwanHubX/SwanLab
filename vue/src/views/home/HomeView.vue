@@ -18,7 +18,7 @@
         <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
       </div>
     </div>
-    <div class="absolute top-5 right-5"><ConfigEditor type="project" /></div>
+    <div class="absolute top-5 right-5"><ConfigEditor type="project" @modify="modifyProject" /></div>
   </div>
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
@@ -159,6 +159,14 @@ async function hashString(inputString) {
 
   // return hashHex
   return 'swanlab-overview-table-key' + inputString
+}
+
+// ---------------------------------- 修改项目信息 ----------------------------------
+
+const modifyProject = async (newV, hideModal) => {
+  const { data } = await http.patch('/project/update', newV)
+  projectStore.setProject(data.project)
+  hideModal()
 }
 </script>
 
