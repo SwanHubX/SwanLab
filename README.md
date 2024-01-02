@@ -1,7 +1,6 @@
 <p align="center">
   <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="120" height="120">
 </p>
-
 <h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
 
 <p align="center">SwanLab is a robust open-source machine-learning training management tool for researchers. By using SwanLab, researchers can accumulate training experience and discover new ideas.</p>
