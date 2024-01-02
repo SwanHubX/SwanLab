@@ -18,15 +18,15 @@
 </p>
 
 
-<img alt="hello_world_main2" src="/Users/zeyilin/Documents/GitHub/swanlab/readme_files/hello_world_main2.gif" width=1535>
+<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
 ## ✨ Features
 
-1. ⚽ **Real-time Indicator Record: ** A few lines of code can record your training metrics in real time.
-2. 🧪 **Multiple Experimental Comparisons: **Support multiple experimental metric comparisons.
-3. 🤖 **ML Support: ** Support mainstream training frameworks such as PyTorch, TensorFlow, Transformers, mmdetection.
-4. 📝 **Environmental Record: **Support automatic logging, error reporting, system hardware, Python environment and other environmental information.
-5. 🖥 **Local and Public Cloud Support:** Supports both local and public cloud (coming soon).
+1. ⚽ **Real-time Indicator Record: **  A few lines of code can record your training metrics in real time.
+2. 🧪 **Multiple Experimental Comparisons: ** Support multiple experimental metric comparisons.
+3. 🤖 **ML Support: **  Support mainstream training frameworks such as PyTorch, TensorFlow, Transformers, mmdetection. 
+4. 📝 **Environmental Record: ** Support automatic logging, error reporting, system hardware, Python environment and other environmental information.
+5. 🖥 **Local and Public Cloud Support:**  Supports both local and public cloud (coming soon).
 
 ## 🔥 Examples
 
@@ -105,7 +105,7 @@ $ swanlab watch
 
 Visit http://127.0.0.1:5092, open the experiment dashboard, and access the experiment that was just run.
 
-<img src="/Users/zeyilin/Documents/GitHub/swanlab/readme_files/hello_world_main1.gif" width=1535>
+<img src="readme_files/hello_world_main1.gif" width=1535>
 
 #### 🚀 Level up a bit
 
@@ -162,7 +162,7 @@ for epoch in range(2, epochs):
 
 Similarly, run `swanlab watch` to start the experiment dashboard:
 
-<img alt="hello_world_main2" src="/Users/zeyilin/Documents/GitHub/swanlab/readme_files/hello_world_main2.gif" width=1535>
+<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
 ## 🌱 Learn More
 
