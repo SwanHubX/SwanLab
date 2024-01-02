@@ -73,6 +73,11 @@ const errors = ref({
 const handling = ref(false)
 
 const save = async () => {
+  errors.value = {
+    name: '',
+    description: ''
+  }
+
   if (info.value.name === projectStore.name && info.value.description === projectStore.description) {
     return (errors.value.name = 'nothing changed in project config')
   } else if (info.value.name === experimentStore.name && info.value.description === experimentStore.description) {
