@@ -154,6 +154,7 @@ class Consoler(sys.stdout.__class__, LeverCtl):
         if self.__previous_message is None:
             self.__sum += 1
             message = str(self.__sum) + " " + FONT.clear(message)
+            self.__previous_message = ""
         # 如果直接就是换行，什么都不做
         elif message == "\n":
             pass
