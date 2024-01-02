@@ -18,7 +18,7 @@
 </p>
 <img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
-
+<br>
 
 ## ✨ Features
 
@@ -28,7 +28,7 @@
 4. 📝 **Environmental Record**: Support automatic logging, error reporting, system hardware, Python environment and other environmental information.
 5. 🖥 **Local and Public Cloud Support**: Supports both local and public cloud (coming soon).
 
-
+<br>
 
 ## 🔥 Examples
 
@@ -38,7 +38,7 @@ We've got some example code and articles to help you get a better grip on SwanLa
 - [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/plain_net_mnist)
 - [ResNet50-cats_vs_dogs](https://github.com/SwanHubX/SwanLab-examples/tree/main/resnet50_cats_vs_dogs)
 
-
+<br>
 
 ## ⚡️ Quick Start
 
