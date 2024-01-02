@@ -108,6 +108,8 @@ class Consoler(sys.stdout.__class__, LeverCtl):
     # 记录日志行数
     __sum = 0
 
+    # 上一次输入到标准输出流的消息，用于判断前一个是否换行，即当前行是否为新一行的开头
+    # 只有第一次输入时为None
     __previous_message = None
 
     def __init__(self):
