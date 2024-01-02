@@ -158,9 +158,12 @@ class Consoler(sys.stdout.__class__, LeverCtl):
         if message == "\n":
             pass
         # 如果以换行符结尾，那么是一个正常的 print 打印，正常处理和输出，单独占一行
-        elif message.endswith("\n") and (not self.__previous_message.endswith("\n")):
-            self.__sum += 1
-            message = str(self.__sum) + " " + FONT.clear(message)
+        elif message.endswith("\n"):
+            if self.__previous_message.endswith("\n"):
+                self.__sum += 1
+                message = str(self.__sum) + " " + FONT.clear(message)
+            else:
+                message = FONT.clear(message)
         # 如果是一个不带换行的字符串，需要判断一下前一个message是否带有换行
         else:
             if self.__previous_message.endswith("\n"):
