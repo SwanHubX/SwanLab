@@ -9,9 +9,11 @@ r"""
 """
 
 import click
-from .utils import is_vaild_ip, is_available_port, URL
+from .utils import is_vaild_ip, URL
 from ..utils import FONT
 import time
+import sys
+import atexit
 
 
 @click.group()
@@ -57,8 +59,6 @@ def watch(log_level: str, host: tuple, port: int):
     # ---------------------------------- 服务地址处理 ----------------------------------
     # 拿到当前本机可用的所有ip地址
     ip, ipv4 = host
-    # 判断ip:port是否被占用
-    is_available_port(ip, port)
     # ---------------------------------- 日志打印 ----------------------------------
     # 耗时
     take_time = int((time.time() - start) * 1000).__str__() + "ms\n\n"
@@ -71,9 +71,16 @@ def watch(log_level: str, host: tuple, port: int):
     swl.info(f"SwanLab Experiment Dashboard ready in " + FONT.bold(take_time) + tip)
 
     # ---------------------------------- 启动服务 ----------------------------------
-
     # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
-    uvicorn.run(app, host=ip, port=port, log_level="critical")
+    # 使用try expcept捕获退出，涉及端口占用等
+    try:
+        uvicorn.run(app, host=ip, port=port, log_level="critical")
+    except SystemExit as e:
+        code = e.code
+        if code == 1:
+            swl.critical("Error while attempting to bind on address ({}, {}): address already in use".format(ip, port))
+        else:
+            swl.critical("Unhandled Exit Code: {}".format(code))
 
 
 if __name__ == "__main__":
