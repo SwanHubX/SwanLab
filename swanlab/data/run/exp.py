@@ -49,8 +49,16 @@ class SwanLabExp:
         tag_obj = self.tags.get(tag)
         if tag_obj is None:
             # 添加tag,同时添加图表
-            self.tags[tag] = SwanLabTag(self.id, tag, self.settings.log_dir, self.settings.chart_path)
-            tag_obj = self.tags[tag]
+            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir, self.settings.chart_path)
+            self.tags[tag] = tag_obj
+            """
+            由于添加图表的同时会尝试转换data的类型，但这在注入step之前
+            所以此处需要手动注入依赖
+            关于step，如果step格式不正确，会在add的时候被拦截，此处如果格式不正确直接设置为1即可
+            """
+            if isinstance(data, BaseType):
+                data.step = 1 if step is None or not isinstance(step, int) else step
+                data.tag = tag_obj.tag
             tag_obj.create_chart(tag, data)
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
@@ -285,8 +293,10 @@ class SwanLabTag:
         try:
             if isinstance(data, BaseType):
                 # 注入内容
-                data.step = step
-                data.tag = self.tag
+                if data.step is None:
+                    data.step = step
+                if data.tag is None:
+                    data.tag = self.tag
             return self.try_convert(data)
         except ValueError:
             raise ValueError(

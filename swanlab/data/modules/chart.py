@@ -10,7 +10,9 @@ r"""
 
 
 class Chart:
+    # 默认图表
+    default = "line", [float, int]
     # 折线图
     line = "line", [float, int]
-    # 默认图表
-    default = line
+    # 图片类型
+    image = "image", [str]
