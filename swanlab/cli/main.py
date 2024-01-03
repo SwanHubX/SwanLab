@@ -79,6 +79,8 @@ def watch(log_level: str, host: tuple, port: int):
         code = e.code
         if code == 1:
             swl.critical("Error while attempting to bind on address ({}, {}): address already in use".format(ip, port))
+        else:
+            swl.critical("Unhandled Exit Code: {}".format(code))
 
 
 if __name__ == "__main__":
