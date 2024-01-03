@@ -54,7 +54,8 @@ import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
 import SLLoading from '../SLLoading.vue'
 import { message } from '@swanlab-vue/components/message'
-message.success('123')
+import { t } from '@swanlab-vue/i18n'
+
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
 
@@ -117,7 +118,11 @@ const save = async () => {
   if (duplicated) return
 
   handling.value = true
-  emits('confirm', info.value, () => (handling.value = false))
+
+  emits('confirm', info.value, () => {
+    handling.value = false
+    message.success(t('common.config-editor.save.success'))
+  })
 }
 </script>
 

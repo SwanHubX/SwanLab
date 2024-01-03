@@ -52,15 +52,11 @@ const emits = defineEmits(['modify'])
  * 2. 弹窗并不立即消失
  * 可以看到，触发 modify 的时候会传递两个参数，一个是修改后的值，一个是回调函数
  * 只有在外部的处理函数调用回调的同时，才会结束缓冲操作
- *
- * 这里为什么要用promise，是因为confirm也接受了一个回调函数，这个回调函数是子组件中传递的，负责取消按钮的处理状态
  */
-const confirm = async (newV) => {
-  new Promise((resolve) => {
-    emits('modify', newV, () => {
-      showModal.value = false
-      resolve()
-    })
+const confirm = async (newV, callback) => {
+  emits('modify', newV, () => {
+    showModal.value = false
+    callback()
   })
 }
 </script>
