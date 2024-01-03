@@ -3,7 +3,6 @@ import logging.config
 import logging.handlers
 import sys
 from .console import SwanConsoler
-from ..env import swc
 from ..utils import FONT
 
 
@@ -118,7 +117,7 @@ class CustomFileHandler(logging.FileHandler):
         super().emit(record)
 
 
-class Swanlog(Logsys):
+class SwanLog(Logsys):
     # 日志系统支持的输出等级
     __levels = {
         "debug": logging.DEBUG,
@@ -134,7 +133,14 @@ class Swanlog(Logsys):
         self.logger.setLevel(self._getLevel(level))
         self.__consoler: SwanConsoler = None
 
-    def init(self, path, level=None, console_level=None, file_level=None):
+    def init(
+        self,
+        path,
+        level=None,
+        console_level=None,
+        file_level=None,
+        console_path=None,
+    ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
             所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
@@ -147,15 +153,17 @@ class Swanlog(Logsys):
             全局日志级别，设置该等级会同时影响控制台和文件, by default None
         console_level : string, optional
             控制台日志级别，仅影响控制台
-        file_level : _type_, optional
+        file_level : string, optional
             文件日志级别，高于或等于该级别即记录到文件
+        console_path: str, optional
+            控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
         """
 
         # 初始化控制台记录器
-        if self.__consoler is None and swc.isTrain:
+        if self.__consoler is None and console_path:
             self.debug("init consoler")
             self.__consoler = SwanConsoler()
-            self.__consoler.init(swc.console_folder)
+            self.__consoler.init(console_path)
 
         self._create_console_handler()
         self._create_file_handler(path)

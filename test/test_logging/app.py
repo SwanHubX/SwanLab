@@ -1,9 +1,6 @@
 from test1 import test1
 from swanlab.log import swanlog as sl
-from swanlab.env import swc
 import swanlab as sw
-
-swc.init(swc.getcwd(), "train")
 
 # 迭代次数
 epochs = 200

@@ -11,10 +11,8 @@ r"""
 """
 from swanlab.server.router import app
 import uvicorn
-from swanlab.server import swl
 
 
 if __name__ == "__main__":
-    swl.info("start server")
     uvicorn.run("start_server:app", host="0.0.0.0", port=6092, reload=True, log_level="critical")
     # swl.info("hello")

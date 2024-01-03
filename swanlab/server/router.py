@@ -17,7 +17,7 @@ from ..log import swanlog as swl
 from ..utils import get_package_version
 
 # 响应路径
-from ..env import INDEX, ASSETS
+from .settings import ASSETS, INDEX
 
 
 # 服务全局对象
@@ -103,10 +103,7 @@ async def log_print(request: Request, call_next):
         swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
     else:
         content = "[" + str(resp.status_code) + "] " + request.method + " api: " + request.url.path
-        if status.startswith("2"):
-            swl.info(content)
-        else:
-            swl.error(content)
+        swl.debug(content)
     return resp
 
 
