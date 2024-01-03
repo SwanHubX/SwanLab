@@ -1,50 +1,146 @@
 <p align="center">
-  <img alt="SwanLab Library" src="readme_files/swanlab-logo-light.svg#gh-light-mode-only" width="352" height="59">
-  <img alt="SwanLab Library" src="readme_files/swanlab-logo-dark.svg#gh-dark-mode-only" width="352" height="59">
-  <br/>
-  <br/>
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="120" height="120">
 </p>
+<h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
+
+<p align="center">SwanLab is a robust open-source machine-learning training management tool for researchers. By using SwanLab, researchers can accumulate training experience and discover new ideas.</p>
 
 <p align="center">
-  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab" alt="pypi" /></a>
+  <b>English | <a href="README_zh-hans.md">简体中文</a></b>
+</p>
+<p align="center">
+  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=blue" alt= /></a>
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
-  <a href="https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"><img alt="Website" src="https://img.shields.io/badge/website-online-blue"></a>
-  <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg" alt="license"></a>
-  <a href="https://github.com/SwanHubX/SwanLab/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/SwanHubX/SwanLab.svg"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a> 
+  <a href="https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"><img alt="Website" src="https://img.shields.io/badge/website-online-green"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
 </p>
+<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
-<p align="center">
-    <b>English | <a href="https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md">简体中文</a></b>
-</p>
+<br>
 
-SwanLab is the next-generation machine learning experiment management and visualization tool released by the
-[SwanHub](https://swanhub.co), designed to facilitate effective collaboration in machine learning training.
+## ✨ Features
 
-SwanLab provides streamlined APIs that make it easy to track machine learning metrics and record configurations.
-Additionally, SwanLab provides a visual dashboard for the most intuitive way to **monitor**, **analyze**, and
-**compare** your training.
+1. ⚽ **Real-time Indicator Record**: A few lines of code can record your training metrics in real time.
+2. 🧪 **Multiple Experimental Comparisons**: Support multiple experimental metric comparisons.
+3. 🤖 **ML Support:**:  Support mainstream training frameworks such as PyTorch, TensorFlow, Transformers, mmdetection. 
+4. 📝 **Environmental Record**: Support automatic logging, error reporting, system hardware, Python environment and other environmental information.
+5. 🖥 **Local and Public Cloud Support**: Supports both local and public cloud (coming soon).
 
-For specific guidance on SwanLab's features, please refer to the
-[User Guide](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home).
+<br>
 
-Currently, SwanLab is undergoing rapid iterations and will continue to add new features.
+## 🔥 Examples
 
-## Installation
+We've got some example code and articles to help you get a better grip on SwanLab:
 
-This repository is tested on Python 3.8+.
+- [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
+- [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/plain_net_mnist)
+- [ResNet50-cats_vs_dogs](https://github.com/SwanHubX/SwanLab-examples/tree/main/resnet50_cats_vs_dogs)
 
-SwanLab can be installed using pip as follows:
+<br>
+
+## ⚡️ Quick Start
+
+Hey, whether you're a developer or an everyday user, this quick-start guide will get you started and show you how to use SwanLab:
+
+- Record training settings
+- Keep track of key metrics
+- Visualize experiments
+
+
+
+### 🎯 Step1：Installation
 
 ```bash
-pip install swanlab
+$ pip install -U swanlab
 ```
 
-## Quick tour
+<br>
 
-Let's simulate a simple machine learning training process, using `swanlab.init` to initialize the experiment and record
-configuration information, and using `swanlab.log` to track key metrics (in this example, it's `loss` and `acc`):
+### 👋 Step2：Hello World
 
-```python
+If we break down the training process in machine learning, it's basically all about **tweaking settings**, **looping**, and keeping an eye on the **metrics** we care about.
+
+The following Python code simulates this:
+
+```Python
+import swanlab
+
+# Initialization
+swanlab.init()
+
+for epoch in range(1, 20):
+    print("epoch", epoch)
+    # Tracking index: `epoch`
+    swanlab.log({"epoch": epoch})
+```
+
+Among them, `swanlab.init` is necessary, which is used to initialize the instance and configure parameters; The function of `swanlab.log` is responsible for recording data, and the received data type is a dictionary (dict).
+
+When running the above code, you will see the following output result:
+
+```Bash
+[SwanLab-INFO]:        Run data will be saved locally in path/swanlog/majestic-hemlock-1
+[SwanLab-INFO]:        Experiment_name: majestic-hemlock-1
+[SwanLab-INFO]:        Run `swanlab watch` to view SwanLab Experiment Dashboard
+epoch 1
+epoch 2
+epoch 3
+epoch 4
+epoch 5
+epoch 6
+epoch 7
+epoch 8
+epoch 9
+[SwanLab-INFO]:        train successfully
+```
+
+And there will be  **`swanlog`** folder in the root directory, which contains files automatically generated by SwanLab, recording a series of experimental data.
+
+<br>
+
+### 🧪 Step3：Run Dashboard
+
+Now let's check the status of the instructions recorded by SwanLab in each loop step.
+
+Run the command `swanlab watch`:
+
+```Bash
+$ swanlab watch
+
+[SwanLab-INFO]:        SwanLab Experiment Dashboard ready in 375ms
+                       ➜  Local:   http://127.0.0.1:5092
+```
+
+Visit http://127.0.0.1:5092, open the experiment dashboard, and access the experiment that was just run.
+
+<img src="readme_files/hello_world_main1.gif" width=1535>
+
+<br>
+
+### 🚀 Level up a bit
+
+In this section, let's write an advanced training script to simulate real machine learning training.
+
+First, initialize swanlab and set the **experiment name**, **description**, and **configuration**:
+
+```Python
+swanlab.init(
+    # Set experiment name
+    experiment_name="sample_experiment",
+    # Set description
+    description="This is a sample experiment for machine learning training.",
+    # Record tracked hyperparameters and run metadata.
+    config={
+        "learning_rate": lr,
+        "epochs": epochs,
+    },
+)
+```
+
+Combine into 1 complete training script, use `swanlab.log` API to track the loss value `loss` and accuracy `accuracy`:
+
+```Python
 import swanlab
 import time
 import random
@@ -53,61 +149,51 @@ lr = 0.01
 epochs = 20
 offset = random.random() / 5
 
-# Initialize the experiment and record configuration information
 swanlab.init(
+    # Set experiment name
+    experiment_name="sample_experiment",
+    # Set description
     description="This is a sample experiment for machine learning training.",
+    # Record tracked hyperparameters and run metadata.
     config={
         "learning_rate": lr,
         "epochs": epochs,
     },
 )
 
-# Simulate a machine learning training process
+# Simulated machine learning training process
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    # Track key metrics
+    # Tracking index: 'loss' and 'accuracy'
     swanlab.log({"loss": loss, "accuracy": acc})
     time.sleep(1)
 ```
 
-During the program running, a `swanlog` folder will be generated in the directory to record your training data.
+Similarly, run `swanlab watch` to start the experiment dashboard:
 
-If you want to visualize your experiment, open the terminal and enter the root directory (no need to enter the `swanlog`
-folder), and run the following command:
+<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
 
-```bash
-swanlab watch
-```
+<br>
 
-If you see the following output, it means that the experimental board is running successfully:
+## 🌱 Learn More
 
-```console
-[SwanLab-INFO]:        SwanLab Experiment Dashboard ready in 375ms
+- [Document](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home)：Complete API documentation and guides.
+- [SwanLab-examples](https://github.com/SwanHubX/SwanLab-examples)：Official code examples.
 
-                        ➜  Local:   http://127.0.0.1:5092
-```
+<br>
 
-Access`http://127.0.0.1:5092` at this time to enter the experiment dashboard and browse your experimental results：
+## 💬 Community
 
-<img alt="swanlab-dashboard-1" src="readme_files/swanlab-dashborad-1.png" width="800">
+Join SwanLab Community to share your ideas, suggestions, or questions and connect with other users and contributors.
 
-## Learn more
+WeChat or Github Discussions：
 
-| Section                                                                                                                                    | Details                               |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------ |
-| [Documentation](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home) | Full APl documentation and tutorials. |
-| [Example](https://github.com/SwanHubX/SwanLab-examples)                                                                                    | Official code examples                |
+[![PyPI - Downloads](https://img.shields.io/badge/wechat-online-green)](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)[![Discuss on GitHub](https://img.shields.io/badge/discussions-GitHub-333333?logo=github)](https://github.com/SwanHubX/SwanLab/discussions)
 
-## License
+<br>
 
-[Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)
+## LICENSE
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=swanhubx/swanlab&type=Date)](https://star-history.com/#swanhubx/swanlab&Date)
-
-## Contributors
-
-[![swanlab contributors](https://contrib.rocks/image?repo=swanhubx/swanlab&max=2000)](https://github.com/SwanHubX/SwanLab/graphs/contributors)
+This project is currently licensed under [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)。
