@@ -1,30 +1,27 @@
 <template>
-  <div class="w-full px-6 pt-6 text-dimmer">
+  <div class="w-full px-6 pt-6 text-dimmer relative">
+    <!-- 修改实验内容 -->
+    <div class="absolute top-5 right-5" v-if="!experimentStore.isRunning">
+      <ConfigEditor type="experiment" @modify="modifyExperiment" />
+    </div>
     <!-- 实验标题 -->
     <div class="flex items-center">
-      <span class="text-2xl font-semibold text-default pr-4">{{ experiment.name }}</span>
-      <!-- <SLCopy :text="experiment.name" icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer mr-3" /> -->
-      <!-- <SLIcon icon="setting" class="icon" /> -->
+      <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
     </div>
     <!-- 实验描述 -->
-    <div class="flex items-center pt-5" v-if="experiment?.description">
-      <span>{{ experiment.description }}</span>
-      <!-- <SLCopy
-        :text="experiment.description"
-        icon-class="w-5 h-5 text-dimmest cursor-pointer hover:text-dimmer ml-4 mr-3"
-      /> -->
-      <!-- <SLIcon icon="setting" class="icon" /> -->
+    <div class="flex items-center pt-5" v-if="experimentStore.description">
+      <span>{{ experimentStore.description }}</span>
     </div>
     <!-- 实验信息 -->
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
       <!-- 实验相关 -->
       <div class="min-w-[400px] max-w-[50%] pr-4">
         <!-- 实验状态 -->
-        <div class="flex pb-4">
+        <div class="flex items-center pb-4">
           <div class="min-w-[150px]">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
           <!-- 停止按钮 -->
-          <!-- <StopButton /> -->
+          <!-- <StopButton v-if="experimentStore.isRunning" /> -->
         </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value">
@@ -51,16 +48,16 @@
  * @file: ExperimentHeader.vue
  * @since: 2023-12-11 14:43:51
  **/
-import SLCopy from '@swanlab-vue/components/SLCopy.vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
-import { useExperimentStroe } from '@swanlab-vue/store'
-import { ref } from 'vue'
-import StopButton from './StopButton.vue'
+import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
+import http from '@swanlab-vue/api/http'
+// import StopButton from './StopButton.vue'
 
-const experiment = ref(useExperimentStroe().experiment)
+const experimentStore = useExperimentStroe()
+const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 实验信息 ----------------------------------
 
@@ -165,6 +162,17 @@ const duration = computed(() => {
 
   return formattedTime.join('')
 })
+
+// ---------------------------------- 修改实验信息 ----------------------------------
+
+const modifyExperiment = async (newV, hideModal) => {
+  const id = experimentStore.id
+  const { data } = await http.patch(`/experiment/${id}/update`, newV)
+  experimentStore.setExperiment(data.experiment)
+  const projectStore = useProjectStore()
+  projectStore.setExperimentInfo(id, newV)
+  hideModal()
+}
 </script>
 
 <style lang="scss" scoped>

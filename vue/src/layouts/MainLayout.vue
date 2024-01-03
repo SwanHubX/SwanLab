@@ -5,7 +5,7 @@
       <slot name="left"></slot>
     </div>
     <!-- 右侧主体区域 -->
-    <div class="w-full h-full overflow-hidden">
+    <div class="w-full h-full overflow-y-auto">
       <slot></slot>
     </div>
   </div>

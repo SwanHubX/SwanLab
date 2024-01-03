@@ -141,7 +141,19 @@ const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
 })
 
-// const minInitWidth = 100
+// onMounted(() => {
+//   // 遍历列的设置
+//   props.column.forEach((column, index) => {
+//     const auto_width = columns.value[index].offsetWidth
+//     // 获取所有的列宽
+//     if (column.width) {
+//       const target_width = column.width > auto_width ? column.width : auto_width
+//       widths.value[index] = column.border ? target_width - 2 : target_width
+//       return
+//     }
+//     widths.value[index] = auto_width
+//   })
+// })
 
 onMounted(() => {
   console.log(columns.value)

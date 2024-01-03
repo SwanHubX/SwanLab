@@ -12,6 +12,8 @@ export const useExperimentStroe = defineStore('charts', () => {
   const id = computed(() => experiment.value?.experiment_id)
   // 实验名称
   const name = computed(() => experiment.value?.name)
+  // 实验描述
+  const description = computed(() => experiment.value?.description)
   // 当前实验状态
   const status = computed(() => experiment.value?.status)
   // 当前实验颜色
@@ -31,6 +33,11 @@ export const useExperimentStroe = defineStore('charts', () => {
     experiment.value.update_time = time
   }
 
+  // 修改实验信息
+  const setExperiment = (x) => {
+    experiment.value = x
+  }
+
   return {
     // state
     experiment,
@@ -38,12 +45,14 @@ export const useExperimentStroe = defineStore('charts', () => {
     // getter
     id,
     name,
+    description,
     status,
     color,
     defaultColor,
     isRunning,
     // action
     setStatus,
-    setUpateTIme
+    setUpateTIme,
+    setExperiment
   }
 })

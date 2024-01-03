@@ -105,7 +105,12 @@ class LeverCtl(object):
 
 
 class Consoler(sys.stdout.__class__, LeverCtl):
+    # 记录日志行数
     __sum = 0
+
+    # 上一次输入到标准输出流的消息，用于判断前一个是否换行，即当前行是否为新一行的开头
+    # 只有第一次输入时为None
+    __previous_message = None
 
     def __init__(self):
         super().__init__(sys.stdout.buffer)
@@ -143,12 +148,35 @@ class Consoler(sys.stdout.__class__, LeverCtl):
     def write(self, message):
         self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
         self.original_stdout.flush()
-        if self.checkLevel(message):
-            if not message == "\n":
+
+        # 检查记录等级，高于或等于写入等级即可写入日志文件
+        if not self.checkLevel(message):
+            return
+
+        if self.__previous_message is None:
+            self.__sum += 1
+            message = str(self.__sum) + " " + FONT.clear(message)
+            self.__previous_message = ""
+        # 如果直接就是换行，什么都不做
+        elif message == "\n":
+            pass
+        # 如果以换行符结尾，那么是一个正常的 print 打印，正常处理和输出，单独占一行
+        elif message.endswith("\n"):
+            if self.__previous_message.endswith("\n"):
                 self.__sum += 1
                 message = str(self.__sum) + " " + FONT.clear(message)
-            self.console.write(message)
-            self.console.flush()
+            else:
+                message = FONT.clear(message)
+        # 如果是一个不带换行的字符串，需要判断一下前一个message是否带有换行
+        else:
+            if self.__previous_message.endswith("\n"):
+                self.__sum += 1
+                message = str(self.__sum) + " " + FONT.clear(message)
+            else:
+                message = FONT.clear(message)
+        self.__previous_message = FONT.clear(message)
+        self.console.write(message)
+        self.console.flush()
 
     def setLevel(self, level):
         return super().setLevel(level)

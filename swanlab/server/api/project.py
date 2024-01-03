@@ -8,7 +8,9 @@ r"""
     项目相关的api，前缀：/project
 """
 import os
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from ...utils import get_a_lock, create_time
 from ..module.resp import SUCCESS_200, DATA_ERROR_500
 from ..module import PT
 from swanlab.env import get_swanlog_dir
@@ -68,3 +70,26 @@ async def summaries(experiment_names: str):
                 experiment_summaries[unquote(tag)] = tag_data["data"][-1]["data"]
         data[name] = experiment_summaries
     return SUCCESS_200(data={"tags": column, "summaries": data})
+
+
+@router.patch("/update")
+async def update(request: Request):
+    body = await request.json()
+    file_path = os.path.join(swc.root, "project.json")
+    with open(file_path, "r") as f:
+        project = ujson.load(f)
+    # 检查名字
+    if "name" in project and project["name"] == body["name"]:
+        pass
+    else:
+        project.update({"name": body["name"]})
+    # 检查描述
+    if "description" in project and project["description"] == body["description"]:
+        pass
+    else:
+        project.update({"description": body["description"]})
+    # project["update_time"] = create_time()
+    # 写入文件
+    with get_a_lock(file_path, "w") as f:
+        ujson.dump(project, f, indent=4, ensure_ascii=False)
+    return SUCCESS_200({"project": project})
