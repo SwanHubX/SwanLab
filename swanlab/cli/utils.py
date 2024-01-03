@@ -53,23 +53,6 @@ def is_vaild_ip(ctx, param, ip: str) -> tuple:
     return ip, ipv4
 
 
-def is_available_port(host, port):
-    """检测端口是否可用
-
-    Parameters
-    ----------
-    host : str
-        ip地址
-    port : int
-        端口号
-    """
-    try:
-        with socket.create_server((host, port)):
-            return True
-    except:
-        return False
-
-
 class URL(object):
     # 生成链接提示,先生成各个组件
     arrow = FONT.green("\t\t\t➜")
