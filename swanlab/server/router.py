@@ -103,10 +103,7 @@ async def log_print(request: Request, call_next):
         swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
     else:
         content = "[" + str(resp.status_code) + "] " + request.method + " api: " + request.url.path
-        if status.startswith("2"):
-            swl.info(content)
-        else:
-            swl.error(content)
+        swl.debug(content)
     return resp
 
 
