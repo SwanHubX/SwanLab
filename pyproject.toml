@@ -44,7 +44,8 @@ classifiers = [  # 项目分类
 swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 
 [project.urls] # 项目链接
-Homepage = "https://swabhub.co"
+Homepage = "https://github.com/SwanHubX/SwanLab"
+SwanHub = "https://swanhub.co"
 
 [tool.hatch.version] # 动态设置项目版本
 path = "swanlab/package.json"  # package.json文件，从中获取版本号
