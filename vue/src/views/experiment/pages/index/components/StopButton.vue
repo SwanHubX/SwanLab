@@ -1,12 +1,12 @@
 <template>
   <button
-    class="p-2 rounded-full border-2 transition-all duration-200 ml-2"
+    class="p-1.5 rounded-full border-2 transition-all duration-200 ml-2"
     :class="showColor ? 'border-red-500' : 'cursor-not-allowed'"
     @mouseover="() => (hover = true)"
     @mouseout="() => (hover = false)"
     @click="() => (showWarning = status === 0 && true)"
   >
-    <div class="w-4 h-4 bg-gray-200 transition-all duration-200" :class="showColor ? 'bg-red-500' : ''"></div>
+    <div class="w-2.5 h-2.5 bg-gray-200 transition-all duration-200" :class="showColor ? 'bg-red-500' : ''"></div>
   </button>
   <SLModal class="px-10 pt-10 pb-5 overflow-hidden" maxW="500" v-model="showWarning">
     <div class="w-full">

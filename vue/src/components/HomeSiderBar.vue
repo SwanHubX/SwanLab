@@ -33,11 +33,12 @@
         v-for="experiment in projectStore.experiments"
         :key="experiment.experiment_id"
         :to="getExperimentRouter(experiment)"
+        :title="experiment.name"
         class="flex-shrink-0"
         active-class="active-router"
       >
         <div class="w-4 h-4 rounded-full mr-3" :style="{ backgroundColor: experiment.color }"></div>
-        {{ experiment.name }}
+        <span class="truncate">{{ experiment.name }}</span>
       </RouterLink>
     </div>
     <div class="border-t border-default h-20">
