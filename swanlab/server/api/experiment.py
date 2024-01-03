@@ -385,8 +385,8 @@ async def update_experiment_config(experiment_id: int, request: Request):
                     return DATA_ERROR_500("Experiment's target name already exists")
         project["experiments"][experiment_index]["name"] = body["name"]
         # 修改实验目录名
-        old_path = os.path.join(PROJECT_PATH, experiment["name"])
-        new_path = os.path.join(PROJECT_PATH, body["name"])
+        old_path = os.path.join(SWANLOG_DIR, experiment["name"])
+        new_path = os.path.join(SWANLOG_DIR, body["name"])
         os.rename(old_path, new_path)
     # 修改实验描述
     if not experiment["description"] == body["description"]:

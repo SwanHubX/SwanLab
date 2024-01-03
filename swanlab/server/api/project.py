@@ -16,6 +16,7 @@ from ..module import PT
 from swanlab.env import get_swanlog_dir
 import ujson
 from urllib.parse import unquote
+from ..settings import PROJECT_PATH
 
 router = APIRouter()
 
@@ -75,8 +76,7 @@ async def summaries(experiment_names: str):
 @router.patch("/update")
 async def update(request: Request):
     body = await request.json()
-    file_path = os.path.join(swc.root, "project.json")
-    with open(file_path, "r") as f:
+    with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
     # 检查名字
     if "name" in project and project["name"] == body["name"]:
@@ -90,6 +90,6 @@ async def update(request: Request):
         project.update({"description": body["description"]})
     # project["update_time"] = create_time()
     # 写入文件
-    with get_a_lock(file_path, "w") as f:
+    with get_a_lock(PROJECT_PATH, "w") as f:
         ujson.dump(project, f, indent=4, ensure_ascii=False)
     return SUCCESS_200({"project": project})
