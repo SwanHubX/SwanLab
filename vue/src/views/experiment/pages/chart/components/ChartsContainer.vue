@@ -7,7 +7,7 @@
       <button class="flex items-center gap-1 relative" @click="handleExpand">
         <SLIcon icon="down" class="w-6 h-6 absolute -left-6" :class="{ '-rotate-90': !isExpand }" />
         {{ label }}
-        <span class="px-3 bg-positive-highest text-sm rounded-full ml-2 text-positive-dimmer">{{ count || 0 }}</span>
+        <span class="px-3 bg-positive-dimmest text-sm rounded-full ml-2 text-positive-higher">{{ count || 0 }}</span>
       </button>
       <!-- 中间其他操作区 -->
       <div class="grow"></div>

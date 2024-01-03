@@ -31,9 +31,9 @@
                   >{{ item.title }}</span
                 >
                 <span
-                  class="drag-line hover:!bg-positive-dimmer hover:opacity-20"
+                  class="drag-line hover:!bg-positive-higher hover:opacity-20"
                   :class="`${activeDragIndex === index ? ' !bg-primary-dimmest' : ''} ${
-                    highlightColumnIndex === index ? 'bg-positive-highest' : ''
+                    highlightColumnIndex === index ? 'bg-positive-dimmest' : ''
                   } ${index + 1 === column.length ? 'pointer-events-none' : ''}`"
                   :style="{ background: index + 1 === column.length ? 'none' : '' }"
                   @mousedown="handleMouseDown(index, $event)"
@@ -532,7 +532,7 @@ onMounted(() => {
       // background-color: #f6f8fa;
       padding: 8px 0;
       &:hover span:last-child {
-        @apply bg-positive-highest;
+        @apply bg-positive-dimmest;
       }
       .drag-line {
         position: absolute;

@@ -1,17 +1,1 @@
-:root {
-  --background-overlay: rgba(15, 21, 36, 0.8);
-  --background-default: #ffffff;
-  --background-dimmer: #f6f8fa;
-  --outline-default: #d1d7dd;
-  --foreground-default: #000000;
-  --foreground-dimmer: #555555;
-  --foreground-dimmest: #858585;
-  --positive-highest: #d5e4d9;
-  --positive-higher: #cff1d8;
-  --positive-default: #4e9553;
-  --positive-dimmer: #37733c;
-  --primary-default: #1c74dd;
-  --primary-dimmest: #d6e8ff;
-  --negative-default: #bb4c51;
-  --nagative-dimmest: #eddcdc;
-}
+:root{--background-overlay:rgba(15,21,36,0.8);--background-default:#ffffff;--background-dimmer:#f6f8fa;--outline-default:#d1d7dd;--foreground-default:#000000;--foreground-dimmer:#555555;--foreground-dimmest:#858585;--positive-highest:#004d0d;--positive-higher:#036e15;--positive-default:#00a11b;--positive-dimmer:#3cc954;--positive-dimmest:#97e896;--primary-highest:#004182;--primary-higher:#005cb8;--primary-default:#0f87ff;--primary-dimmer:#74b9ff;--primary-dimmest:#b2d9ff;--warning-dimmer:#ff9933;--warning-dimmest:#ffad5a;--negative-highest:#8a0000;--negative-higher:#c20a0a;--negative-default:#fa4b4b;--negative-dimmest:#ff9494;--negative-dimmer:#ffc7c7}

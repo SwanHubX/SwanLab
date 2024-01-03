@@ -20,6 +20,7 @@
     </div>
     <div class="absolute top-5 right-5"><ConfigEditor type="project" @modify="modifyProject" /></div>
   </div>
+  <SLButton text="default" />
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
@@ -56,7 +57,6 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
-
 const projectStore = useProjectStore()
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------

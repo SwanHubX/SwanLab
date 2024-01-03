@@ -27,6 +27,6 @@ defineProps({
 
 <style lang="scss" scoped>
 .pannel-button {
-  @apply text-dimmer h-full p-0.5 rounded hover:bg-positive-higher hover:text-positive-default;
+  @apply text-dimmer h-full p-0.5 rounded hover:bg-positive-dimmest hover:text-positive-highest;
 }
 </style>
