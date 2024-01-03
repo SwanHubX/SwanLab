@@ -1,7 +1,7 @@
 <template>
   <div class="w-full relative">
     <div class="relative w-full" :class="maxW">
-      <div class="w-full overflow-auto border">
+      <div class="w-full overflow-auto border" :class="data.length ? '' : 'overflow-hidden'">
         <table class="w-full">
           <!-- 标签用于对表格中的列进行组合，以便对其进行格式化 -->
           <colgroup>
@@ -82,6 +82,10 @@
             </tr>
           </tbody>
         </table>
+        <!-- 没有数据时，空占位 -->
+        <div v-if="!data.length" class="flex justify-center py-3">
+          <div class="data-empty">{{ $t('common.table.empty') }}</div>
+        </div>
       </div>
     </div>
   </div>

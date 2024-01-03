@@ -61,3 +61,12 @@ export const copyTextToClipboard = async (text, callback) => {
 export const addTaskToBrowserMainThread = (task) => {
   setTimeout(task, 0)
 }
+
+/**
+ * 生成一个uuid，用于标识一个唯一的id
+ * @param { Number } now 传入一个时间戳，用于生成uuid，如果不传入，默认为当前时间戳
+ * @returns { String } 生成的uuid
+ */
+export const uuid = (now = Math.round(new Date() / 1000)) => {
+  return now.toString(36) + Math.random().toString(36).slice(-4)
+}

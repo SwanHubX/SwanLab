@@ -21,7 +21,8 @@
     },
     "save": {
       "default": "save changes",
-      "savimg": "saving"
+      "savimg": "saving",
+      "success": "Save Successfully"
     }
   }
 }

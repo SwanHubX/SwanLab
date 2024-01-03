@@ -54,6 +54,7 @@ import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
+import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 // import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
