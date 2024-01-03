@@ -12,11 +12,12 @@ from datetime import datetime
 from .run import SwanLabRun, register
 from typing import Optional
 from ..log import swanlog
-from .modules import BaseType
+from .modules import DataType
 from typing import Dict
 
 
 run: Optional["SwanLabRun"] = None
+inited: bool = False
 
 
 def init(
@@ -48,8 +49,8 @@ def init(
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
     """
-    global run
-    if run is not None:
+    global run, inited
+    if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
     else:
         run = register(
@@ -68,25 +69,28 @@ def init(
         swanlog.info("Run data will be saved locally in " + run.settings.exp_dir)
         swanlog.info("Experiment_name: " + run.settings.exp_name)
         swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
+        inited = True
     return run
 
 
-def log(data: dict, step: int = None):
+def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
 
     Parameters
     ----------
-    data : dict
+    data : Dict[str, DataType]
         Data must be a dict.
         The key must be a string with 0-9, a-z, A-Z, " ", "_", "-", "/".
-        The value must be a float, int or swanlab.data.BaseType.
+        The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
     """
-    if run is None:
+    if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using log()")
+    if inited and run is None:
+        return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
     return run.log(data, step)
 
 
@@ -98,18 +102,26 @@ def finish():
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
     """
     global run
-    if run is None:
+    if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
+    if run is None:
+        return swanlog.error("After calling finish(), you can no longer close the current experiment")
     run.success()
+    swanlog.setSuccess()
+    swanlog.reset_console()
     run = None
 
 
 # 定义清理函数
 def __clean_handler():
     if run is None:
-        return
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     if not swanlog.isError:
-        swanlog.info("train successfully")
+        swanlog.info(
+            "The current experiment {} has been completed, SwanLab will close it automatically".format(
+                run.settings.exp_name
+            )
+        )
         run.success()
         swanlog.setSuccess()
         swanlog.reset_console()
@@ -118,7 +130,7 @@ def __clean_handler():
 # 定义异常处理函数
 def __except_handler(tp, val, tb):
     if run is None:
-        return
+        return swanlog.warning("SwanLab Runtime has been cleaned manually, the exception will be ignored")
     swanlog.error("Error happended while training, SwanLab will throw it")
     # 标记实验失败
     run.fail()

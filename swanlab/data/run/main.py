@@ -82,7 +82,7 @@ class SwanLabRun:
         # ---------------------------------- 其余配置 ----------------------------------
         # 注册实验
         self.exp = self.__register_exp(
-            experiment_name,
+            exp_name,
             self.__check_description(description),
             self.__check_config(config),
         )
@@ -113,11 +113,30 @@ class SwanLabRun:
 
     def success(self):
         """标记实验成功"""
-        pass
+        # 锁上文件，更新实验状态
+        with get_a_lock(self.settings.project_path, "r+") as file:
+            project = ujson.load(file)
+            for index, experiment in enumerate(project["experiments"]):
+                if experiment["experiment_id"] == self.exp.id:
+                    project["experiments"][index]["status"] = 1
+                    break
+            file.truncate(0)
+            file.seek(0)
+            ujson.dump(project, file)
 
     def fail(self):
         """标记实验失败"""
-        pass
+        # 锁上文件，更新实验状态
+        with get_a_lock(self.settings.project_path, "r+") as file:
+            project = ujson.load(file)
+            for index, experiment in enumerate(project["experiments"]):
+                if experiment["experiment_id"] == self.exp.id:
+                    project["experiments"][index]["status"] = 1
+                    project["update_time"] = create_time()
+                    break
+            file.truncate(0)
+            file.seek(0)
+            ujson.dump(project, file)
 
     def __get_exp_name(self, experiment_name: str = None, project_path: str = None, suffix: str = None) -> tuple:
         """拿到实验名称
@@ -126,6 +145,8 @@ class SwanLabRun:
         ----------
         experiment_name : str
             实验名称
+        cut : bool
+            是否被截断
         """
         max_len = 20
         cut = experiment_name is not None and len(experiment_name) > max_len
@@ -143,7 +164,7 @@ class SwanLabRun:
             # 如果project.json文件为空，创建一个新的project.json文件
             project_exist = os.path.exists(project_path) and os.path.getsize(project_path) != 0
             if not project_exist:
-                return experiment_name
+                return experiment_name, cut
             project = ujson.load(f)
             # 检查实验名称是否存在
             while True:
@@ -167,7 +188,7 @@ class SwanLabRun:
                 swanlog.warning(
                     f"The experiment name you provided is not unique, it has been set to {experiment_name}, check again."
                 )
-        return (experiment_name, cut)
+        return experiment_name, cut
 
     def __register_exp(
         self,
@@ -183,16 +204,17 @@ class SwanLabRun:
         with get_a_lock(project_path, "r+") as f:
             # 如果project.json文件为空，创建一个新的project.json文件
             project_exist = os.path.exists(project_path) and os.path.getsize(project_path) != 0
-            project = ujson.load(f) if project_exist else self.__new_projecy()
+            project = ujson.load(f) if project_exist else self.__new_project()
             # 创建新的实验配置
-            experiment = self.__new_experiment(project["_sum"] + 1, experiment_name, description, config)
+            project["_sum"] = project["_sum"] + 1
+            experiment = self.__new_experiment(project["_sum"], experiment_name, description, config)
             # 添加实验配置到project.json文件中
             project["experiments"].append(experiment)
             f.truncate(0)
             f.seek(0)
             ujson.dump(project, f)
         swanlog.info(f"Experiment {experiment_name} has been registered.")
-        return SwanLabExp(self.settings)
+        return SwanLabExp(self.settings, experiment["experiment_id"])
 
     def __check_log_level(self, log_level: str) -> str:
         """检查日志等级是否合法"""
@@ -226,9 +248,16 @@ class SwanLabRun:
         return config
 
     @staticmethod
-    def __new_projecy():
+    def __new_project():
         """创建一个新的project.json文件"""
-        return {"_sum": 0, "experiments": [], "version": get_package_version()}
+        time = create_time()
+        return {
+            "_sum": 0,
+            "experiments": [],
+            "version": get_package_version(),
+            "create_time": time,
+            "update_time": time,
+        }
 
     @staticmethod
     def __new_experiment(sum: int, name: str, description: str, config: dict):

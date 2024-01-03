@@ -2,6 +2,7 @@
 from .data import (
     init,
     log,
+    finish,
 )
 from .utils import get_package_version
 

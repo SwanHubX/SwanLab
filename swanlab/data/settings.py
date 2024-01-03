@@ -40,6 +40,11 @@ class SwanDataSettings:
         return os.path.join(self.exp_dir, "output.log")
 
     @property
+    def chart_path(self) -> str:
+        """图表配置路径"""
+        return os.path.join(self.exp_dir, "chart.json")
+
+    @property
     def error_path(self) -> str:
         """错误文件路径"""
         return os.path.join(self.console_dir, "error.log")
@@ -52,7 +57,7 @@ class SwanDataSettings:
     @property
     def log_dir(self) -> str:
         """记录用户日志文件夹路径"""
-        return os.path.join(self.exp_dir, "log")
+        return os.path.join(self.exp_dir, "logs")
 
     @property
     def console_dir(self) -> str:
