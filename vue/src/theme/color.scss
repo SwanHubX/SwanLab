@@ -58,16 +58,26 @@
    * 引导色
    *******************************************/
   // 成功颜色
-  --positive-highest: #d5e4d9;
-  --positive-higher: #cff1d8;
-  --positive-default: #4e9553;
-  --positive-dimmer: #37733c;
+  --positive-highest: #004d0d;
+  --positive-higher: #036e15;
+  --positive-default: #00a11b;
+  --positive-dimmer: #3cc954;
+  --positive-dimmest: #97e896;
   // 标准颜色
-  --primary-default: #1c74dd;
-  --primary-dimmest: #d6e8ff;
+  --primary-highest: #004182;
+  --primary-higher: #005cb8;
+  --primary-default: #0f87ff;
+  --primary-dimmer: #74b9ff;
+  --primary-dimmest: #b2d9ff;
+  // 警告颜色
+  --warning-dimmer: #ff9933;
+  --warning-dimmest: #ffad5a;
   // 危险颜色
-  --negative-default: #bb4c51;
-  --nagative-dimmest: #eddcdc;
+  --negative-highest: #8a0000;
+  --negative-higher: #c20a0a;
+  --negative-default: #fa4b4b;
+  --negative-dimmest: #ff9494;
+  --negative-dimmer: #ffc7c7;
 }
 
 :root {
