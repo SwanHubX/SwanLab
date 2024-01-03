@@ -23,7 +23,8 @@
     <div class="p-4 flex flex-col border-b">
       <RouterLink to="/" active-class="active-router">
         <SLIcon icon="home" class="w-4 h-4 mr-2" />
-        <span>{{ $t('sider.nav.home') }}</span>
+        <!-- <span>{{ $t('sider.nav.home') }}</span> -->
+        <span>Project Dashboard</span>
       </RouterLink>
     </div>
     <!-- 实验路由 -->
