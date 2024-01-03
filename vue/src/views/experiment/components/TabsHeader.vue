@@ -46,7 +46,7 @@ const tabs = ['index', 'chart', 'log']
 
 .link-active {
   transition: none;
-  @apply bg-default pointer-events-none text-positive-dimmer;
+  @apply bg-default pointer-events-none text-positive-higher;
   border-color: inherit !important;
 }
 </style>

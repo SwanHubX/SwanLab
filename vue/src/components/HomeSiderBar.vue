@@ -96,11 +96,11 @@ const query = ref([])
 }
 
 a {
-  @apply flex items-center px-4 h-11 text-sm text-default hover:bg-positive-highest rounded-lg;
+  @apply flex items-center px-4 h-11 text-sm text-default hover:bg-positive-dimmest rounded-lg;
 }
 
 .active-router {
-  @apply bg-positive-highest text-positive-dimmer;
+  @apply bg-positive-dimmest text-positive-higher;
 }
 
 .experiments-container {
