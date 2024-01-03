@@ -25,7 +25,7 @@ class Enlarge1000(sw.data.BaseType):
         return "custom"
 
     def get_chart_type(self) -> str:
-        return self.chart.line
+        return self.chart.image
 
 
 # 迭代次数

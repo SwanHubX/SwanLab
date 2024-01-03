@@ -67,4 +67,7 @@ class SwanDataSettings:
     @property
     def static_dir(self) -> str:
         """静态资源路径"""
-        return os.path.join(self.exp_dir, "static")
+        path = os.path.join(self.exp_dir, "static")
+        if not os.path.exists(path):
+            os.mkdir(path)
+        return path
