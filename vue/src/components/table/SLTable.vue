@@ -34,8 +34,8 @@
                   {{ item.title }}
                   <!-- 拖拽点 -->
                   <span
-                    class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-dimmer hover:opacity-20 cursor-col-resize"
-                    :class="`${activeColumnIndex === index ? 'bg-positive-highest' : ''} ${
+                    class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize"
+                    :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
                       resize_index === index ? '!bg-primary-default' : ''
                     }`"
                     @mousedown="(e) => resize(e, index)"
