@@ -15,12 +15,12 @@ from .chart import Chart
 class BaseType(ABC):
     """SwanLab数据基类，完成数据解析，拿到图表类型、namespace和解析后的数据"""
 
-    def __init__(self, value, **kwargs):
+    def __init__(self, value, *args, **kwargs):
         # 保存的key
         self.__tag: str = None
         # 保存的step
         self.__step: int = None
-        # 受支持的图表类型
+        # 受支持的图表类型，不可修改
         self.__chart: Chart = Chart()
         # 当前运行时配置
         self.__settings: SwanDataSettings = None
@@ -28,6 +28,10 @@ class BaseType(ABC):
         self.value = value
         # 标志是否已经被解构
         self.__extracted: bool = False
+        # get_data方法是否被执行
+        self.__is_get_data: bool = False
+        # get_data的返回值
+        self.__data = None
 
     def __iter__(self):
         # 返回一个迭代器，通常是自身
@@ -38,6 +42,16 @@ class BaseType(ABC):
     def __next__(self):
         """解构对象，用法是 namespace, chart_type, config = object"""
         return self.get_namespace(), self.get_chart_type(), "step", self.get_config()
+
+    @property
+    def chart(self) -> Chart:
+        return self.__chart
+
+    @property
+    def convert(self):
+        if self.__is_get_data is False:
+            self.__data = self.get_data()
+        return self.__data
 
     @abstractmethod
     def get_data(self, *args, **kwargs):

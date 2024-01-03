@@ -43,6 +43,9 @@ class SwanLabExp:
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
         check_key_format(tag)
+        if isinstance(data, BaseType):
+            # 注入一些内容
+            data.settings = self.settings
         tag_obj = self.tags.get(tag)
         if tag_obj is None:
             # 添加tag,同时添加图表
@@ -105,7 +108,6 @@ class SwanLabTag:
         data : DataType
             待添加的数据
         """
-        data = self.try_convert_data(data)
         # 如果step不是None也不是int，设置为None且打印警告
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
@@ -117,6 +119,7 @@ class SwanLabTag:
         if step in self.__steps:
             return swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
         # 添加数据，首先比较数据，如果数据比之前的数据大，则更新最大值，否则不更新
+        data = self.try_convert_data(data, step)
         # 如果数据比之前的数据小，则更新最小值，否则不更新
         self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
         self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
@@ -258,13 +261,12 @@ class SwanLabTag:
             "data": [],
         }
 
-    def try_convert(self, value):
-        pass
+    def try_convert(self, value: DataType):
         # 如果当前data已经是data_types中的类型，直接返回
         if isinstance(value, tuple(self.data_types)):
             return value
         if isinstance(value, BaseType):
-            value = value.get_data()
+            value = value.convert
         for data_type in self.data_types:
             try:
                 converted_value = data_type(value)
@@ -275,12 +277,16 @@ class SwanLabTag:
         # 如果所有类型都尝试过仍然失败，则抛出异常
         raise ValueError(f"Unable to convert {value} to any of the specified types.")
 
-    def try_convert_data(self, data):
+    def try_convert_data(self, data, step):
         """尝试将data转换为data_types中的类型，如果转换失败，返回None
         如果所有类型都尝试过仍然失败，则抛出异常
         调用这个函数代表用户的图表已经创建并且传入了与之前不同的数据类型
         """
         try:
+            if isinstance(data, BaseType):
+                # 注入内容
+                data.step = step
+                data.tag = self.tag
             return self.try_convert(data)
         except ValueError:
             raise ValueError(
