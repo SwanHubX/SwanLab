@@ -33,7 +33,8 @@ export default {
       // 背景颜色
       backgroundColor: {
         default: 'var(--background-default, #fff)',
-        dimmer: 'var(--background-dimmer, #f6f8fA)'
+        higher: 'var(--background-higher, #f6f8fA)',
+        highest: 'var(--background-highest, #ebebec)'
       },
       // 边框颜色
       borderColor: {
@@ -43,7 +44,9 @@ export default {
       textColor: {
         default: 'var(--foreground-default, #000)',
         dimmer: 'var(--foreground-dimmer, #555)',
-        dimmest: 'var(--foreground-dimmest, #b5b5b5)'
+        dimmest: 'var(--foreground-dimmest, #b5b5b5)',
+        // 复杂文字高亮
+        'white-default': 'var(--accent-white-default, #fff)'
       },
       // 基础颜色
       colors: {

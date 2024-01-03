@@ -3,7 +3,7 @@
     <h1 class="text-xl font-semibold">{{ text.title }}</h1>
     <p class="mt-4 text-dimmer text-base">{{ text.content }}</p>
     <div class="mt-auto text-sm flex gap-3 justify-end">
-      <SLButton :text="text.cancel" />
+      <SLButton :text="text.cancel" @click="cancel" />
       <SLButton :text="text.confirm" theme="negative" @click="confirm" />
     </div>
   </SLModal>

@@ -8,7 +8,7 @@
 <script setup>
 /**
  * SaButton - 封装一些常用的按钮样式，只对背景、字体颜色和边框颜色做了封装，其他样式需要自己写
- * @prop {string} theme - 按钮主题，可选值: primary、positive、negative、default、reverse，默认值: default
+ * @prop {string} theme - 按钮主题，可选值: primary、positive、negative、default等，默认值: default
  * @prop {string} text - 按钮文本，可不填，以插槽形式填入
  *
  *
@@ -57,28 +57,23 @@ button {
 
 // 默认样式
 .sa-button-default {
-  background-color: var(--background-higher);
-  border-color: var(--outline-default);
-  color: var(--foreground-default);
+  @apply bg-higher border-default text-default;
 
   &:hover {
-    background-color: var(--background-hightest);
+    @apply bg-highest;
   }
 
   &:active {
-    border-color: var(--primary-default);
+    @apply border-primary-default;
   }
 }
 
 // primary样式
 .sa-button-primary {
-  background-color: var(--primary-dimmer);
-  border-color: var(--primary-dimmer);
-  color: var(--accent-white-default);
+  @apply bg-primary-higher border-primary-higher text-white-default;
 
   &:hover {
-    background-color: var(--primary-default);
-    border-color: var(--primary-default);
+    @apply bg-primary-default border-primary-default;
   }
 
   &:active {
@@ -88,46 +83,27 @@ button {
 
 // positive样式
 .sa-button-positive {
-  color: var(--foreground-default);
-  border-color: var(--positive-dimmest);
-  background-color: var(--positive-dimmest);
+  @apply text-white-default border-positive-higher bg-positive-higher;
 
   &:hover {
-    background-color: var(--positive-dimmer);
+    @apply border-positive-default bg-positive-default;
   }
 
   &:active {
-    border-color: var(--primary-default);
+    @apply border-primary-default;
   }
 }
 
 // negative样式
 .sa-button-negative {
-  color: var(--foreground-default);
-  border-color: var(--negative-dimmer);
-  background: var(--negative-dimmer);
+  @apply text-white-default border-negative-higher bg-negative-higher;
 
   &:hover {
-    background-color: var(--negative-default);
+    @apply border-negative-default bg-negative-default;
   }
 
   &:active {
-    border-color: var(--primary-default);
-  }
-}
-
-// warning样式
-.sa-button-warning {
-  color: var(--foreground-default);
-  border-color: var(--warning-dimmer);
-  background: var(--warning-dimmer);
-
-  &:hover {
-    background-color: var(--warning-dimmest);
-  }
-
-  &:active {
-    border-color: var(--primary-default);
+    @apply border-primary-default;
   }
 }
 </style>

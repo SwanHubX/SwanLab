@@ -20,7 +20,6 @@
     </div>
     <div class="absolute top-5 right-5"><ConfigEditor type="project" @modify="modifyProject" /></div>
   </div>
-  <SLButton text="default" />
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
     <!-- 实验表格 -->
@@ -175,7 +174,7 @@ const modifyProject = async (newV, hideModal) => {
   @apply border;
   tr {
     &:first-child {
-      @apply bg-dimmer;
+      @apply bg-higher;
     }
     &:not(:first-child) {
       @apply border-t;

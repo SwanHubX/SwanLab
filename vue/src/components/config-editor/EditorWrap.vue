@@ -128,6 +128,6 @@ const save = async () => {
 
 <style lang="scss" scoped>
 .input {
-  @apply w-full p-2 text-sm outline-none border rounded-lg bg-dimmer;
+  @apply w-full p-2 text-sm outline-none border rounded-lg bg-higher;
 }
 </style>

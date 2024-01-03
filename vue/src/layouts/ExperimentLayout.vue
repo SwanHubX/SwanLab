@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full">
-    <div class="w-full bg-dimmer h-16">
+    <div class="w-full bg-higher h-16">
       <slot name="tabs"></slot>
     </div>
     <div class="experiment-content">

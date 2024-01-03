@@ -60,7 +60,7 @@ const errorLogs = ref([])
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-dimmer w-full h-full rounded p-4;
+  @apply bg-higher w-full h-full rounded p-4;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
