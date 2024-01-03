@@ -9,7 +9,7 @@ r"""
 """
 from datetime import datetime
 from fastapi import APIRouter, Request
-from ..module.resp import SUCCESS_200, NOT_FOUND_404
+from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422
 import os
 import ujson
 from urllib.parse import quote, unquote  # 转码路径参数
@@ -377,10 +377,16 @@ async def update_experiment_config(experiment_id: int, request: Request):
     experiment_index = experiment["index"] - 1
     # 修改实验名称
     if not experiment["name"] == body["name"]:
+        # 修改实验名称
+        if not experiment["name"] == body["name"]:
+            # 检测实验名是否重复
+            for expr in project["experiments"]:
+                if expr["name"] == body["name"]:
+                    return PARAMS_ERROR_422("Experiment's target name already exists")
         project["experiments"][experiment_index]["name"] = body["name"]
         # 修改实验目录名
-        old_path = os.path.join(PROJECT_PATH, experiment["name"])
-        new_path = os.path.join(PROJECT_PATH, body["name"])
+        old_path = os.path.join(SWANLOG_DIR, experiment["name"])
+        new_path = os.path.join(SWANLOG_DIR, body["name"])
         os.rename(old_path, new_path)
     # 修改实验描述
     if not experiment["description"] == body["description"]:
