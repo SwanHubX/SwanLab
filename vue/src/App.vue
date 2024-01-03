@@ -6,6 +6,7 @@
     <router-view v-if="!error_code" />
     <ErrorView :code="error_code" v-else />
   </MainLayout>
+  <SLMessages ref="messages" />
 </template>
 
 <script setup>
@@ -19,6 +20,9 @@ import { ref } from 'vue'
 import { provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { watch } from 'vue'
+import { installMessage, SLMessages, message } from '@swanlab-vue/components/message'
+import { onMounted } from 'vue'
+
 const projectStore = useProjectStore()
 const ready = ref()
 
@@ -51,10 +55,26 @@ provide('show_error', show_error)
 provide('clear_error', clear_error)
 
 const route = useRoute()
+
+// 监测路由修改
 watch(
   computed(() => route.fullPath),
-  () => clear_error()
+  () => {
+    // 清除错误，恢复正常页面
+    clear_error()
+    // 清除消息弹窗
+    message.clear()
+  }
 )
+
+// ---------------------------------- 项目配置 ----------------------------------
+
+const messages = ref(null)
+
+onMounted(() => {
+  // 注册全局顶部提醒
+  installMessage(messages)
+})
 </script>
 
 <style scoped></style>

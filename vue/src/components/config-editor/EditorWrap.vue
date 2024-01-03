@@ -53,7 +53,8 @@
 import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
 import { ref } from 'vue'
 import SLLoading from '../SLLoading.vue'
-
+import { message } from '@swanlab-vue/components/message'
+message.success('123')
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
 
