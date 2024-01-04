@@ -426,7 +426,7 @@ async def delete_experiment(experiment_id: int):
         project: dict
         with open(PROJECT_PATH, "r") as file_read:
             project = ujson.load(file_read)
-            project["_sum"] = project["_sum"] - 1
+            # project["_sum"] = project["_sum"] - 1
             project["experiments"].remove(experiment)
 
         with open(PROJECT_PATH, "w") as file_write:
