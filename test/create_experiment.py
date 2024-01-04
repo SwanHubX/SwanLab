@@ -12,6 +12,7 @@ import swanlab as sw
 import time
 import numpy as np
 from PIL import Image as PILImage
+import os
 
 
 class Enlarge1000(sw.data.BaseType):
@@ -56,7 +57,10 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
 
-    test_string = "path/to/file"  # 测试图像的路径
+    current_file_path = os.path.dirname(os.path.abspath(__file__))
+    print("current_file_path:", current_file_path)
+    test_path = os.path.join(current_file_path, "assets/test_image.png")
+
     test_pil = PILImage.new("RGB", (100, 100), color="red")
     test_nparray = np.random.randint(255, size=(300, 300, 3), dtype=np.uint8)
 
@@ -67,7 +71,7 @@ for epoch in range(2, epochs):
 
     sw.log(
         {
-            "String": sw.Image(test_string),
+            "String": sw.Image(test_path),
             "PILImage": sw.Image(test_pil),
             "nparray": sw.Image(test_nparray),
             "accuracy": acc,
