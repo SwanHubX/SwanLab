@@ -1,7 +1,10 @@
 <template>
   <!-- 实验信息 -->
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b relative">
-    <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
+    <div class="flex gap-3">
+      <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
+      <ConfigEditor type="project" @modify="modifyProject" />
+    </div>
     <p v-if="projectStore.description">{{ projectStore.description }}</p>
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
     <div class="w-80 flex flex-col gap-4">
@@ -18,7 +21,6 @@
         <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
       </div>
     </div>
-    <div class="absolute top-5 right-5"><ConfigEditor type="project" @modify="modifyProject" /></div>
   </div>
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>

@@ -1,12 +1,10 @@
 <template>
   <div class="w-full px-6 pt-6 text-dimmer relative">
-    <!-- 修改实验内容 -->
-    <div class="absolute top-5 right-5" v-if="!experimentStore.isRunning">
-      <ConfigEditor type="experiment" @modify="modifyExperiment" />
-    </div>
     <!-- 实验标题 -->
-    <div class="flex items-center">
-      <span class="text-2xl font-semibold text-default pr-4">{{ experimentStore.name }}</span>
+    <div class="flex items-center gap-3">
+      <span class="text-2xl font-semibold text-default">{{ experimentStore.name }}</span>
+      <!-- 修改实验内容 -->
+      <ConfigEditor type="experiment" @modify="modifyExperiment" />
     </div>
     <!-- 实验描述 -->
     <div class="flex items-center pt-5" v-if="experimentStore.description">
