@@ -1,5 +1,12 @@
 <template>
   <div class="w-full px-6 pt-6 text-dimmer relative">
+    <!-- 删除项目 -->
+    <SLDelete
+      class="absolute top-5 right-4"
+      type="experiment"
+      @confirm="deleteExperiment"
+      v-if="!experimentStore.isRunning"
+    />
     <!-- 实验标题 -->
     <div class="flex items-center gap-3">
       <span class="text-2xl font-semibold text-default">{{ experimentStore.name }}</span>
@@ -53,10 +60,18 @@ import { t } from '@swanlab-vue/i18n'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
+import { useRouter } from 'vue-router'
+import { inject } from 'vue'
 // import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
 const experiment = ref(experimentStore.experiment)
+
+const projectStore = useProjectStore()
+
+const show_error = inject('show_error')
+
+const router = useRouter()
 
 // ---------------------------------- 实验信息 ----------------------------------
 
@@ -168,9 +183,26 @@ const modifyExperiment = async (newV, hideModal) => {
   const id = experimentStore.id
   const { data } = await http.patch(`/experiment/${id}/update`, newV)
   experimentStore.setExperiment(data.experiment)
-  const projectStore = useProjectStore()
   projectStore.setExperimentInfo(id, newV)
   hideModal()
+}
+
+// ---------------------------------- 删除实验 ----------------------------------
+
+/**
+ * 删除实验
+ */
+const deleteExperiment = () => {
+  http
+    .delete(`/experiment/${experimentStore.id}/delete`)
+    .then(({ data }) => {
+      console.log(data)
+      projectStore.setProject(data.project)
+      router.replace('/')
+    })
+    .catch(({ data }) => {
+      show_error(data.code, data.message)
+    })
 }
 </script>
 
