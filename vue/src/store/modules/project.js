@@ -8,7 +8,7 @@ export const useProjectStore = defineStore('project', () => {
   const name = computed(() => (project.value?.name ? project.value.name : 'my-machine-learning-project'))
   const description = computed(() => (project.value?.description ? project.value.description : ''))
   const experiments = computed(() => project.value?.experiments)
-  const sum = computed(() => project.value?._sum)
+  const sum = computed(() => project.value?.experiments.length)
   const createTime = computed(() => project.value?.create_time)
   const updateTime = computed(() => project.value?.update_time)
 
