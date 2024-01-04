@@ -41,7 +41,7 @@
         {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
-    <EmptyTable v-else />
+    <EmptyTable v-else-if="tags?.length === 0" />
   </div>
 </template>
 
