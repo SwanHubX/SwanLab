@@ -18,6 +18,12 @@ export const useProjectStore = defineStore('project', () => {
     project.value = p
   }
   /**
+   * 清空 project
+   */
+  const clearProject = () => {
+    project.value = null
+  }
+  /**
    * 设置指定实验的状态
    * @param { number } id 实验id
    * @param { string } status 实验状态
@@ -57,6 +63,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
+    clearProject,
     setExperimentStatus,
     setExperimentInfo
   }

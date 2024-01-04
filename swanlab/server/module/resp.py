@@ -23,6 +23,9 @@ _PARAMS_ERROR_422 = 3422
 _NOT_FOUND_404 = 3404
 """资源不存在，通常对应着路径不存在，期望的HTTP状态码为404"""
 
+_Conflict_409 = 3409
+"""可能造成冲突，通常意味着试图对资源进行不合理的操作，期望的HTTP状态码为409"""
+
 _DATA_ERROR_500 = 3500
 """服务端存储的数据格式错误，这通常意味着指定资源无法解析为期望格式，期望的HTTP状态码为500"""
 
@@ -85,6 +88,14 @@ def NOT_FOUND_404(message: str = "NotFound"):
     return _JSONResponse(
         status_code=404,
         content=_ResponseBody(_NOT_FOUND_404, message=message),
+    )
+
+
+def Conflict_409(message: str = "Conflict"):
+    """请求会造成资源冲突"""
+    return _JSONResponse(
+        status_code=409,
+        content=_ResponseBody(_Conflict_409, message=message),
     )
 
 
