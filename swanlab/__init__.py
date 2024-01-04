@@ -3,6 +3,7 @@ from .data import (
     init,
     log,
     finish,
+    Image,
 )
 from .utils import get_package_version
 

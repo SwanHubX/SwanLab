@@ -1,4 +1,5 @@
 from .base import BaseType
+from .image import Image
 from typing import Protocol, Union
 
 

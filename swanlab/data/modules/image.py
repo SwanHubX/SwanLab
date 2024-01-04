@@ -8,6 +8,7 @@ class Image(BaseType):
     def get_data(self):
         print("step {}, 获取data".format(self.step))
         print(self.step, self.tag, self.settings.static_dir)
+        print("root_dir", self.settings.root_dir)
 
         self.image = self.preprocess(self.value)
         save_path = str(os.path.join(self.settings.static_dir, f"image-{self.tag}-{self.step}.png"))
@@ -17,7 +18,7 @@ class Image(BaseType):
         print("save_path:", save_path)
 
         # 获得目录的相对路径
-        save_relative_path = self.extract_path_layers(save_path)
+        save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
         print("save_relative_path", save_relative_path)
 
         return save_relative_path
@@ -77,13 +78,6 @@ class Image(BaseType):
             self.image.save(save_path)
         except Exception as e:
             raise ValueError(f"Could not save the image to the path: {save_path}") from e
-
-    def extract_path_layers(self, absolute_path: str) -> str:
-        """获取绝对路径的最后三个层级的部分"""
-        parts = absolute_path.split("/")
-        last_three_layers = "/".join(parts[-3:])
-
-        return last_three_layers
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
