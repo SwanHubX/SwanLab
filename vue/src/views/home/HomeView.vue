@@ -1,6 +1,8 @@
 <template>
-  <!-- 实验信息 -->
+  <!-- 项目信息 -->
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b relative">
+    <!-- 删除项目 -->
+    <SLDelete class="absolute top-5 right-4" type="project" @confirm="deleteProject" />
     <div class="flex gap-3">
       <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
       <ConfigEditor type="project" @modify="modifyProject" />
@@ -58,6 +60,7 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
+import SLDelete from '@swanlab-vue/components/SLDelete.vue'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {
@@ -180,6 +183,12 @@ const modifyProject = async (newV, hideModal) => {
   const { data } = await http.patch('/project/update', newV)
   projectStore.setProject(data.project)
   hideModal()
+}
+
+// ---------------------------------- 删除项目 ----------------------------------
+
+const deleteProject = () => {
+  console.log('???')
 }
 </script>
 
