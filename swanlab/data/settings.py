@@ -8,7 +8,7 @@ r"""
     数据收集部分配置，此为运行时生成的配置，
 """
 import os
-from ..env import get_runtime_project, get_swanlog_dir
+from ..env import get_runtime_project, get_swanlog_dir, get_runtime_root
 
 
 class SwanDataSettings:

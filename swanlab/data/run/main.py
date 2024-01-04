@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from ..settings import SwanDataSettings, get_runtime_project
+from ..settings import SwanDataSettings, get_runtime_project, get_runtime_root
 from ...log import register, swanlog
 from ..system import get_system_info
 from .utils import get_a_lock, check_name_format, get_package_version, create_time, generate_color
@@ -252,6 +252,7 @@ class SwanLabRun:
         """创建一个新的project.json文件"""
         time = create_time()
         return {
+            "name": os.path.basename(get_runtime_root()),
             "_sum": 0,
             "experiments": [],
             "version": get_package_version(),
