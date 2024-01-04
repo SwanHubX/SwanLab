@@ -64,6 +64,9 @@
     "charts": {
       "line": {
         "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
+      },
+      "image": {
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Image Chart do not support displaying type {type}."
       }
     }
   }

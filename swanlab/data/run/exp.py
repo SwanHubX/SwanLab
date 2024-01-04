@@ -187,7 +187,10 @@ class SwanLabTag:
                     data = self.try_convert(data)
                 except:
                     # 此时代表数据异常，拿到data的__class__.__name__，记录到chart.error中并保存
-                    class_name = data.__class__.__name__
+                    if isinstance(data, BaseType):
+                        class_name = data.value.__class__.__name__
+                    else:
+                        class_name = data.__class__.__name__
                     excepted = [i.__name__ for i in self.data_types]
                     swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                     chart["error"] = {"data_class": class_name, "excepted": excepted}
