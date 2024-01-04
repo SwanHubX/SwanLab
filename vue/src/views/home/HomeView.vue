@@ -56,7 +56,6 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
-
 const projectStore = useProjectStore()
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
@@ -175,7 +174,7 @@ const modifyProject = async (newV, hideModal) => {
   @apply border;
   tr {
     &:first-child {
-      @apply bg-dimmer;
+      @apply bg-higher;
     }
     &:not(:first-child) {
       @apply border-t;

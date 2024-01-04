@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full pt-2 pl-6 bg-dimmer flex border-b h-full">
+  <div class="w-full pt-2 pl-6 bg-higher flex border-b h-full">
     <router-link :to="tab" v-for="tab in tabs" :key="tab" class="link" active-class="link-active">
       {{ $t(`experiment.tabs.${tab}`) }}
     </router-link>
@@ -46,7 +46,7 @@ const tabs = ['index', 'chart', 'log']
 
 .link-active {
   transition: none;
-  @apply bg-default pointer-events-none text-positive-dimmer;
+  @apply bg-default pointer-events-none text-positive-higher;
   border-color: inherit !important;
 }
 </style>

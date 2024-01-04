@@ -74,10 +74,10 @@ const handleClick = () => {
 }
 
 .finished {
-  @apply bg-positive-higher text-positive-dimmer;
+  @apply bg-positive-dimmest text-positive-higher;
 }
 
 .running {
-  @apply bg-primary-dimmest text-primary-default;
+  @apply bg-primary-dimmest text-primary-higher;
 }
 </style>
