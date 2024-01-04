@@ -41,6 +41,7 @@
         {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
+    <EmptyTable v-else />
   </div>
 </template>
 
@@ -62,7 +63,7 @@ import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue
 import SLTable from '@swanlab-vue/components/table'
 import SLDelete from '@swanlab-vue/components/SLDelete.vue'
 import { message } from '@swanlab-vue/components/message'
-import { inject } from 'vue'
+import EmptyTable from './components/EmptyTable.vue'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {

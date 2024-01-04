@@ -422,12 +422,15 @@ async def delete_experiment(experiment_id: int):
 
     # 可以删除
     # 1. 删除 project.json 中的实验记录
-    with open(PROJECT_PATH, "r") as f:
-        project: dict = ujson.load(f)
-    project["experiments"].remove(experiment)
-    project["_sum"] -= project["_sum"]
     with get_a_lock(PROJECT_PATH) as f:
-        ujson.dump(project, f, indent=4, ensure_ascii=False)
+        project: dict
+        with open(PROJECT_PATH, "r") as file_read:
+            project = ujson.load(file_read)
+            project["_sum"] = project["_sum"] - 1
+            project["experiments"].remove(experiment)
+
+        with open(PROJECT_PATH, "w") as file_write:
+            ujson.dump(project, file_write, indent=4, ensure_ascii=False)
     # 2. 删除实验目录
     shutil.rmtree(os.path.join(SWANLOG_DIR, experiment["name"]))
 
