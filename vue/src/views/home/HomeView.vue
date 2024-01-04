@@ -2,7 +2,7 @@
   <!-- 项目信息 -->
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b relative">
     <!-- 删除项目 -->
-    <SLDelete class="absolute top-5 right-4" type="project" @confirm="deleteProject" />
+    <SLDelete class="absolute top-5 right-4" type="project" @confirm="deleteProject" v-if="deleteAble" />
     <div class="flex gap-3">
       <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
       <ConfigEditor type="project" @modify="modifyProject" />
@@ -191,6 +191,24 @@ const modifyProject = async (newV, hideModal) => {
 
 const show_error = inject('show_error')
 
+/**
+ * 是否可以删除项目
+ * 如果有实验正在进行中，直接不显示删除按钮
+ */
+const deleteAble = computed(() => {
+  for (const experiment of projectStore.experiments) {
+    if (experiment.status === 0) return false
+  }
+  return true
+})
+
+/**
+ * 删除项目
+ *
+ * success：显示成功，清空状态，并显示空项目错误页
+ *
+ * fail：在有实验正在进行的时候删除项目
+ */
 const deleteProject = () => {
   http
     .delete('/project/delete')
