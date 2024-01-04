@@ -8,7 +8,7 @@
             <col
               v-for="(item, index) in column"
               :key="item.key + item.slot + index"
-              :class="`${activeColumnIndex === index ? 'bg-primary-dimmest' : ''} ${'swanlab-table-column-' + index}`"
+              :class="`${activeColumnIndex === index ? 'bg-higher' : ''} ${'swanlab-table-column-' + index}`"
               ref="columns"
             />
           </colgroup>
@@ -49,7 +49,7 @@
             <tr
               v-for="(dataColumn, dataIndex) in data"
               :key="dataColumn"
-              :class="resize_index === -1 ? 'hover:bg-primary-dimmest' : ''"
+              :class="resize_index === -1 ? 'hover:bg-higher' : ''"
             >
               <!-- 单元格 -->
               <td
@@ -57,7 +57,7 @@
                 :key="item.key"
                 :title="dataColumn[item.key]"
                 class="overflow-hidden"
-                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmer' : ''} ${
+                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
                   item.border ? 'border-r' : ''
                 }`"
                 @mouseover="() => (hoverColumnIndex = index)"

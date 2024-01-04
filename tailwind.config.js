@@ -32,6 +32,7 @@ export default {
       },
       // 背景颜色
       backgroundColor: {
+        overlay: `var(--background-overlay, rgba(15, 21, 36, 0.8))`,
         default: 'var(--background-default, #fff)',
         higher: 'var(--background-higher, #f6f8fA)',
         highest: 'var(--background-highest, #ebebec)'
