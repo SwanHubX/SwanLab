@@ -1,7 +1,7 @@
 <template>
   <Tippy trigger="mouseenter" placement="right" :class="document ? 'cursor-pointer' : ''" @click="learn_more">
     <div
-      class="w-5 h-5 flex items-center justify-center text-sm rounded-full pointer-events-none bg-slate-400 text-white font-semibold"
+      class="w-5 h-5 flex items-center justify-center text-sm rounded-full pointer-events-none bg-overlay text-white-default font-semibold"
       :class="iconClass"
     >
       ?

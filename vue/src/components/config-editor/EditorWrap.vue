@@ -32,7 +32,7 @@
     <div class="flex justify-end pt-10">
       <button
         type="submit"
-        class="p-2 rounded bg-primary-default text-white transition-all flex items-center"
+        class="p-2 rounded bg-primary-default text-white-default transition-all flex items-center"
         :class="
           handling ? 'pointer-events-none cursor-not-allowed opacity-50 gap-2' : 'hover:rounded-lg active:opacity-70'
         "
@@ -128,6 +128,6 @@ const save = async () => {
 
 <style lang="scss" scoped>
 .input {
-  @apply w-full p-2 text-sm outline-none border rounded-lg bg-dimmer;
+  @apply w-full p-2 text-sm outline-none border rounded-lg bg-higher;
 }
 </style>

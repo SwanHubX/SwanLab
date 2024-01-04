@@ -40,6 +40,6 @@ const props = defineProps({
 
 <style lang="scss" scoped>
 .drag {
-  @apply w-1 h-full absolute right-0 top-0 hover:bg-positive-dimmer cursor-col-resize;
+  @apply w-1 h-full absolute right-0 top-0 hover:bg-positive-higher cursor-col-resize;
 }
 </style>

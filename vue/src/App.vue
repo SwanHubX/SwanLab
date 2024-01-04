@@ -6,7 +6,10 @@
     <router-view v-if="!error_code" />
     <ErrorView :code="error_code" v-else />
   </MainLayout>
-  <SLMessages ref="messages" />
+  <!-- 全局气泡提示 -->
+  <SLMessages ref="messagesRef" />
+  <!-- 全局确认弹窗 -->
+  <SLComfirm ref="confirmRef" />
 </template>
 
 <script setup>
@@ -21,6 +24,7 @@ import { provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { watch } from 'vue'
 import { installMessage, SLMessages, message } from '@swanlab-vue/components/message'
+import { installConfirm, SLComfirm } from './components/comfirm'
 import { onMounted } from 'vue'
 
 const projectStore = useProjectStore()
@@ -66,14 +70,15 @@ watch(
     message.clear()
   }
 )
-
 // ---------------------------------- 项目配置 ----------------------------------
 
-const messages = ref(null)
+const messagesRef = ref(null)
+const confirmRef = ref(null)
 
 onMounted(() => {
   // 注册全局顶部提醒
-  installMessage(messages)
+  installMessage(messagesRef)
+  installConfirm(confirmRef)
 })
 </script>
 
