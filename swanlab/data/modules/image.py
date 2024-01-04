@@ -10,7 +10,7 @@ class Image(BaseType):
         print(self.step, self.tag, self.settings.static_dir)
 
         self.image = self.preprocess(self.value)
-        save_path = str(os.path.join(self.settings.static_dir, f"image-{self.step}.png"))
+        save_path = str(os.path.join(self.settings.static_dir, f"image-{self.tag}-{self.step}.png"))
 
         # 保存图像到指定目录
         self.save(save_path)
