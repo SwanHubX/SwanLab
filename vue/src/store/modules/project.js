@@ -5,8 +5,8 @@ export const useProjectStore = defineStore('project', () => {
   /** state */
   const project = ref()
   /** getter */
-  const name = computed(() => (project.value.name ? project.value.name : 'my-machine-learning-project'))
-  const description = computed(() => (project.value.description ? project.value.description : ''))
+  const name = computed(() => (project.value?.name ? project.value.name : 'my-machine-learning-project'))
+  const description = computed(() => (project.value?.description ? project.value.description : ''))
   const experiments = computed(() => project.value?.experiments)
   const sum = computed(() => project.value?._sum)
   const createTime = computed(() => project.value?.create_time)
@@ -16,6 +16,12 @@ export const useProjectStore = defineStore('project', () => {
   const setProject = (p) => {
     p.experiments.reverse()
     project.value = p
+  }
+  /**
+   * 清空 project
+   */
+  const clearProject = () => {
+    project.value = null
   }
   /**
    * 设置指定实验的状态
@@ -57,6 +63,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
+    clearProject,
     setExperimentStatus,
     setExperimentInfo
   }

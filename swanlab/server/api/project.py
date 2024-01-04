@@ -8,15 +8,16 @@ r"""
     项目相关的api，前缀：/project
 """
 import os
+import shutil
 from fastapi import APIRouter, Request
 
 from ...utils import get_a_lock, create_time
-from ..module.resp import SUCCESS_200, DATA_ERROR_500
+from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
 from ..module import PT
 from swanlab.env import get_swanlog_dir
 import ujson
 from urllib.parse import unquote
-from ..settings import PROJECT_PATH
+from ..settings import PROJECT_PATH, SWANLOG_DIR
 
 router = APIRouter()
 
@@ -75,6 +76,18 @@ async def summaries(experiment_names: str):
 
 @router.patch("/update")
 async def update(request: Request):
+    """更新项目配置信息
+
+    Parameters
+    ----------
+    request : Request
+        fastapi中请求对象，可以通过上面的 json 方法将请求体解析成 dict 格式
+
+    Returns
+    -------
+    project：Obj
+        返回 project.json 的所有内容，目的是方便前端在修改信息后重置 pinia 的状态
+    """
     body = await request.json()
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
@@ -93,3 +106,35 @@ async def update(request: Request):
     with get_a_lock(PROJECT_PATH, "w") as f:
         ujson.dump(project, f, indent=4, ensure_ascii=False)
     return SUCCESS_200({"project": project})
+
+
+@router.delete("/delete")
+async def delete():
+    """删除项目
+    这里有个注意的地方：如果项目中还有实验正在运行，应不予删除，并报错提示
+    """
+
+    # 检测是否有正在运行的实验
+    with open(PROJECT_PATH, "r") as f:
+        project = ujson.load(f)
+    for item in project["experiments"]:
+        if item["status"] == 0:
+            return Conflict_409("Can't delete project since there is experiment running")
+
+    # 清空除了日志以外的项目文件
+    # 列出目录中的所有文件和子目录
+    files_and_dirs = os.listdir(SWANLOG_DIR)
+
+    # 遍历每个文件和子目录
+    for file_or_dir in files_and_dirs:
+        file_or_dir_path = os.path.join(SWANLOG_DIR, file_or_dir)
+
+        # 判断是否为文件，且不是 output.log
+        if os.path.isfile(file_or_dir_path) and file_or_dir != "output.log":
+            # 删除文件
+            os.remove(file_or_dir_path)
+        elif os.path.isdir(file_or_dir_path):
+            # 递归删除子目录
+            shutil.rmtree(file_or_dir_path)
+
+    return SUCCESS_200({})

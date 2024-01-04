@@ -61,6 +61,8 @@ import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
 import SLDelete from '@swanlab-vue/components/SLDelete.vue'
+import { message } from '@swanlab-vue/components/message'
+import { inject } from 'vue'
 
 const projectStore = useProjectStore()
 
@@ -176,8 +178,19 @@ const modifyProject = async (newV, hideModal) => {
 
 // ---------------------------------- 删除项目 ----------------------------------
 
+const show_error = inject('show_error')
+
 const deleteProject = () => {
-  console.log('???')
+  http
+    .delete('/project/delete')
+    .then(() => {
+      message.success('Delete Successfully')
+      projectStore.clearProject()
+      show_error(3500)
+    })
+    .catch((e) => {
+      console.log(e)
+    })
 }
 </script>
 
