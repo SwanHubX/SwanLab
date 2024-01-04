@@ -32,8 +32,6 @@ class Enlarge1000(sw.data.BaseType):
 
 
 class Image(sw.data.BaseType):
-    MAX_DIMENSION = 600  # 图像最长边的最大长度
-
     def get_data(self):
         print("step {}, 获取data".format(self.step))
         print(self.step, self.tag, self.settings.static_dir)
@@ -44,7 +42,7 @@ class Image(sw.data.BaseType):
         self.save(save_path)
         print("save_path:", save_path)
 
-        save_relative_path = self.extract_last_three_levels(save_path)
+        save_relative_path = self.extract_path_layers(save_path)
         print("save_relative_path", save_relative_path)
 
         return save_relative_path
@@ -92,10 +90,10 @@ class Image(sw.data.BaseType):
             return image.convert("RGB")
         return image
 
-    def resize(self):
+    def resize(self, MAX_DIMENSION=600):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
-        if max(self.image.size) > Image.MAX_DIMENSION:
-            self.image.thumbnail((Image.MAX_DIMENSION, Image.MAX_DIMENSION))
+        if max(self.image.size) > MAX_DIMENSION:
+            self.image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
 
     def save(self, save_path):
         """将图像保存到指定路径"""
@@ -105,12 +103,12 @@ class Image(sw.data.BaseType):
         except Exception as e:
             raise ValueError(f"Could not save the image to the path: {save_path}") from e
 
-    def extract_last_three_levels(input_path):
-        """使用os.path.split()函数分割路径，获取最后三个层级的部分"""
-        levels = input_path.split(os.path.sep)[-3:]
-        # 将这三个层级拼接成新路径
-        desired_path = os.path.join(*levels)
-        return desired_path
+    def extract_path_layers(absolute_path: str) -> str:
+        """获取绝对路径的最后三个层级的部分"""
+        parts = absolute_path.split("/")
+        last_three_layers = "/".join(parts[-3:])
+
+        return last_three_layers
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
@@ -151,7 +149,7 @@ for epoch in range(2, epochs):
     # else:
     # sw.log({"loss": sw.data.Image("./test_image.jpg"), "accuracy": acc})
 
-    sw.log({"loss": Image("./test_image.jpg"), "accuracy": acc})
+    sw.log({"loss": Image(loss), "accuracy": acc})
     # sw.log({"loss": Enlarge1000(loss), "accuracy": acc})
 
     # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)

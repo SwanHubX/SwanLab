@@ -17,7 +17,7 @@ class Image(BaseType):
         self.save(save_path)
         print("save_path:", save_path)
 
-        save_relative_path = self.extract_last_three_levels(save_path)
+        save_relative_path = self.extract_path_layers(save_path)
         print("save_relative_path", save_relative_path)
 
         return save_relative_path
@@ -78,12 +78,10 @@ class Image(BaseType):
         except Exception as e:
             raise ValueError(f"Could not save the image to the path: {save_path}") from e
 
-    def extract_last_three_levels(input_path):
-        """使用os.path.split()函数分割路径，获取最后三个层级的部分"""
-        levels = input_path.split(os.path.sep)[-3:]
-        # 将这三个层级拼接成新路径
-        desired_path = os.path.join(*levels)
-        return desired_path
+    def extract_path_layers(absolute_path: str) -> str:
+        """获取绝对路径的最后三个层级的部分"""
+        parts = absolute_path.split("/")
+        last_three_layers = "/".join(parts[-3:])
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
