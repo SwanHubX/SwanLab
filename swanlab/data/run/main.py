@@ -247,11 +247,11 @@ class SwanLabRun:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
         return config
 
-    @staticmethod
-    def __new_project():
+    def __new_project(self):
         """创建一个新的project.json文件"""
         time = create_time()
         return {
+            "name": os.path.basename(self.settings.root_dir),
             "_sum": 0,
             "experiments": [],
             "version": get_package_version(),
