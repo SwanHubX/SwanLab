@@ -8,7 +8,7 @@
             <col
               v-for="(item, index) in column"
               :key="item.key + item.slot + index"
-              :class="`${activeColumnIndex === index ? activeBackground : ''} ${'swanlab-table-column-' + index}`"
+              :class="`${activeColumnIndex === index ? 'bg-primary-dimmest' : ''} ${'swanlab-table-column-' + index}`"
               ref="columns"
             />
           </colgroup>
@@ -19,9 +19,7 @@
                 v-for="(item, index) in column"
                 :key="item.key"
                 class="relative overflow-hidden"
-                :class="`${activeColumnIndex === index ? 'bg-slate-200' : 'bg-slate-50'} ${
-                  item.border ? 'border-r' : ''
-                }`"
+                :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
                 @mouseover="() => (hoverColumnIndex = index)"
                 @mouseout="() => (hoverColumnIndex = -1)"
               >
@@ -51,7 +49,7 @@
             <tr
               v-for="(dataColumn, dataIndex) in data"
               :key="dataColumn"
-              :class="resize_index === -1 ? 'hover:bg-blue-50' : ''"
+              :class="resize_index === -1 ? 'hover:bg-primary-dimmest' : ''"
             >
               <!-- 单元格 -->
               <td
@@ -59,7 +57,7 @@
                 :key="item.key"
                 :title="dataColumn[item.key]"
                 class="overflow-hidden"
-                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-blue-100' : ''} ${
+                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmer' : ''} ${
                   item.border ? 'border-r' : ''
                 }`"
                 @mouseover="() => (hoverColumnIndex = index)"
@@ -139,7 +137,6 @@ const props = defineProps({
 
 // ---------------------------------- 样式相关 ----------------------------------
 
-const activeBackground = 'bg-blue-50'
 const hoverColumnIndex = ref(-1) // 被hover得列的索引
 const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value

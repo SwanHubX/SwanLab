@@ -1,6 +1,6 @@
 <template>
   <button
-    class="flex gap-2 items-center px-2 py-1 border rounded-lg transition-all hover:bg-primary-default hover:text-white"
+    class="flex gap-2 items-center px-2 py-1 border rounded-lg transition-all hover:bg-primary-default hover:text-white-default"
     @click="() => (showModal = true)"
   >
     <SLIcon icon="modify" class="w-4 h-5" />
