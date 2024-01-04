@@ -37,11 +37,13 @@ class Image(sw.data.BaseType):
         print(self.step, self.tag, self.settings.static_dir)
 
         self.image = self.preprocess(self.value)
-        save_path = os.path.join(self.settings.static_dir, f"image-{self.step}.png")
+        save_path = str(os.path.join(self.settings.static_dir, f"image-{self.tag}-{self.step}.png"))
 
+        # 保存图像到指定目录
         self.save(save_path)
         print("save_path:", save_path)
 
+        # 获得目录的相对路径
         save_relative_path = self.extract_path_layers(save_path)
         print("save_relative_path", save_relative_path)
 
@@ -51,19 +53,20 @@ class Image(sw.data.BaseType):
         """将不同类型的输入转换为PIL图像"""
         if isinstance(data, str):
             # 如果输入为字符串
-            image = self._load_image_from_path(data)
+            image = self.load_image_from_path(data)
         elif isinstance(data, np.ndarray):
             # 如果输入为numpy array
-            image = self._convert_numpy_array_to_image(data)
+            image = self.convert_numpy_array_to_image(data)
         elif isinstance(data, PILImage.Image):
             # 如果输入为PIL.Image
             image = data
         else:
+            print("self.value类型为:", type(data))
             # 以上都不是，则报错
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
 
         # 对数据做通道转换
-        image = self._convert_channels(image)
+        image = self.convert_channels(image)
         image = self.resize(image)
 
         return image
@@ -90,20 +93,20 @@ class Image(sw.data.BaseType):
             return image.convert("RGB")
         return image
 
-    def resize(self, MAX_DIMENSION=600):
+    def resize(self, image, MAX_DIMENSION=600):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
-        if max(self.image.size) > MAX_DIMENSION:
-            self.image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
+        if max(image.size) > MAX_DIMENSION:
+            image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
+        return image
 
     def save(self, save_path):
         """将图像保存到指定路径"""
         try:
             self.image.save(save_path)
-            return save_path
         except Exception as e:
             raise ValueError(f"Could not save the image to the path: {save_path}") from e
 
-    def extract_path_layers(absolute_path: str) -> str:
+    def extract_path_layers(self, absolute_path: str) -> str:
         """获取绝对路径的最后三个层级的部分"""
         parts = absolute_path.split("/")
         last_three_layers = "/".join(parts[-3:])
@@ -144,12 +147,24 @@ for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
+
+    test_string = "/Users/zeyilin/Documents/GitHub/swanlab/test/test_image.jpg"
+    test_pil = PILImage.new("RGB", (100, 100), color="red")
+    test_nparray = np.random.randint(255, size=(300, 300, 3), dtype=np.uint8)
+
     # if epoch < 10:
     #     sw.log({"loss": Enlarge1000(loss), "accuracy": acc}, step=1)
     # else:
     # sw.log({"loss": sw.data.Image("./test_image.jpg"), "accuracy": acc})
 
-    sw.log({"loss": Image(loss), "accuracy": acc})
+    sw.log(
+        {
+            "String": Image(test_string),
+            "PILImage": Image(test_pil),
+            "nparray": Image(test_nparray),
+            "accuracy": acc,
+        }
+    )
     # sw.log({"loss": Enlarge1000(loss), "accuracy": acc})
 
     # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)

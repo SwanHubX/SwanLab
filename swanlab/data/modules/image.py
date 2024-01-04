@@ -5,18 +5,18 @@ import os
 
 
 class Image(BaseType):
-    MAX_DIMENSION = 600  # 图像最长边的最大长度
-
     def get_data(self):
         print("step {}, 获取data".format(self.step))
         print(self.step, self.tag, self.settings.static_dir)
 
         self.image = self.preprocess(self.value)
-        save_path = os.path.join(self.settings.static_dir, f"image-{self.step}.png")
+        save_path = str(os.path.join(self.settings.static_dir, f"image-{self.step}.png"))
 
+        # 保存图像到指定目录
         self.save(save_path)
         print("save_path:", save_path)
 
+        # 获得目录的相对路径
         save_relative_path = self.extract_path_layers(save_path)
         print("save_relative_path", save_relative_path)
 
@@ -26,19 +26,20 @@ class Image(BaseType):
         """将不同类型的输入转换为PIL图像"""
         if isinstance(data, str):
             # 如果输入为字符串
-            image = self._load_image_from_path(data)
+            image = self.load_image_from_path(data)
         elif isinstance(data, np.ndarray):
             # 如果输入为numpy array
-            image = self._convert_numpy_array_to_image(data)
+            image = self.convert_numpy_array_to_image(data)
         elif isinstance(data, PILImage.Image):
             # 如果输入为PIL.Image
             image = data
         else:
+            print("self.value类型为:", type(data))
             # 以上都不是，则报错
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
 
         # 对数据做通道转换
-        image = self._convert_channels(image)
+        image = self.convert_channels(image)
         image = self.resize(image)
 
         return image
@@ -65,23 +66,25 @@ class Image(BaseType):
             return image.convert("RGB")
         return image
 
-    def resize(self):
+    def resize(self, image, MAX_DIMENSION=600):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
-        if max(self.image.size) > Image.MAX_DIMENSION:
-            self.image.thumbnail((Image.MAX_DIMENSION, Image.MAX_DIMENSION))
+        if max(image.size) > MAX_DIMENSION:
+            image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
+        return image
 
     def save(self, save_path):
         """将图像保存到指定路径"""
         try:
             self.image.save(save_path)
-            return save_path
         except Exception as e:
             raise ValueError(f"Could not save the image to the path: {save_path}") from e
 
-    def extract_path_layers(absolute_path: str) -> str:
+    def extract_path_layers(self, absolute_path: str) -> str:
         """获取绝对路径的最后三个层级的部分"""
         parts = absolute_path.split("/")
         last_three_layers = "/".join(parts[-3:])
+
+        return last_three_layers
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
