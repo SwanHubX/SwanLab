@@ -36,7 +36,7 @@ const props = defineProps({
 })
 
 const themeClass = computed(() => {
-  const theme = `sa-button-${props.theme}`
+  const theme = `sa-button-${props.theme}${props.hollow ? '-hollow' : ''}`
   return theme
 })
 const buttonRef = ref(null)
@@ -100,6 +100,19 @@ button {
 
   &:hover {
     @apply border-negative-default bg-negative-default;
+  }
+
+  &:active {
+    @apply border-primary-default;
+  }
+}
+
+// ----------------------- hollow 样式 -----------------------
+.sa-button-negative-hollow {
+  @apply text-negative-default bg-default transition-all;
+
+  &:hover {
+    @apply text-white-default border-negative-higher bg-negative-higher;
   }
 
   &:active {

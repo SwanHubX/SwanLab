@@ -2,5 +2,38 @@
   "copy": "复制成功！",
   "table": {
     "empty": "暂无数据"
+  },
+  "config-editor": {
+    "button": "Edit",
+    "title": {
+      "project": "Modify Project Information",
+      "experiment": "Modify Experiment Information"
+    },
+    "sub-title": {
+      "project": {
+        "name": "Project name",
+        "desc": "Description"
+      },
+      "experiment": {
+        "name": "Experiment name",
+        "desc": "Description"
+      }
+    },
+    "save": {
+      "default": "save changes",
+      "savimg": "saving",
+      "success": "Save Successfully"
+    }
+  },
+  "delete": {
+    "button-text": "Delete",
+    "title": {
+      "project": "",
+      "experiment": ""
+    },
+    "content": {
+      "project": "",
+      "experiment": ""
+    }
   }
 }

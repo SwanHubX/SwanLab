@@ -24,5 +24,16 @@
       "savimg": "saving",
       "success": "Save Successfully"
     }
+  },
+  "delete": {
+    "button": "Delete",
+    "title": {
+      "project": "Confirm eletion of this project？",
+      "experiment": "Confirm eletion of this experiment？"
+    },
+    "content": {
+      "project": "Once confirmed, it cannot be recovered.",
+      "experiment": "Once confirmed, it cannot be recovered."
+    }
   }
 }
