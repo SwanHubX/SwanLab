@@ -61,7 +61,6 @@ class Image(sw.data.BaseType):
             # 如果输入为PIL.Image
             image = data
         else:
-            print("self.value类型为:", type(data))
             # 以上都不是，则报错
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
 
