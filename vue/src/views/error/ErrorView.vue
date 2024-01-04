@@ -13,6 +13,7 @@
 import ErrorLayout from '@swanlab-vue/layouts/ErrorLayout.vue'
 import InitError from './pages/InitError.vue'
 import ExperimentError from './pages/ExperimentError.vue'
+import CustomError from './pages/CustomError.vue'
 import { computed } from 'vue'
 import { provide } from 'vue'
 
@@ -20,10 +21,15 @@ const props = defineProps({
   code: {
     type: Number,
     default: 404
+  },
+  message: {
+    type: String,
+    default: ''
   }
 })
 
 provide('error_code', props.code)
+provide('error_message', props.message)
 
 const Error = computed(() => {
   console.log(props.code)
@@ -33,7 +39,7 @@ const Error = computed(() => {
     case 3404:
       return ExperimentError
     default:
-      return InitError
+      return CustomError
   }
 })
 </script>
