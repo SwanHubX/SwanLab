@@ -188,8 +188,8 @@ const deleteProject = () => {
       projectStore.clearProject()
       show_error(3500)
     })
-    .catch((e) => {
-      console.log(e)
+    .catch(({ data }) => {
+      show_error(data.code, data.message)
     })
 }
 </script>
