@@ -4,6 +4,9 @@
     @click="() => (showModal = true)"
     theme="primary"
     hollow
+    :class="disabled ? 'cursor-not-allowed' : ''"
+    :disabled="disabled"
+    :disabled-tip="$t('common.config-editor.not-allowed')"
   >
     <SLIcon icon="modify" class="w-3.5 h-3.5" />
     {{ $t('common.config-editor.button') }}
@@ -38,6 +41,10 @@ defineProps({
       // 目前type只适配了project和experiment两种模式
       return ['project', 'experiment'].includes(value)
     }
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 })
 

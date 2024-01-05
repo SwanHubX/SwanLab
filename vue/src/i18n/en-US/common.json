@@ -5,6 +5,7 @@
   },
   "config-editor": {
     "button": "Edit",
+    "not-allowed": "Not Allowed Since Is Running",
     "title": {
       "project": "Modify Project Information",
       "experiment": "Modify Experiment Information"
@@ -27,6 +28,7 @@
   },
   "delete": {
     "button": "Delete",
+    "not-allowed": "Not Allowed Since Is Running",
     "title": {
       "project": "Delete this project",
       "experiment": "Delete this experiment"
