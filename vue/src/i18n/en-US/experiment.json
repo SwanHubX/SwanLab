@@ -27,7 +27,7 @@
       },
       "experiment_device": {
         "hostname": "Hostname",
-        "os": "Operating System",
+        "os": "OS",
         "python": "Python Version",
         "executable": "Python executable",
         "hardware": "System Hardware",
