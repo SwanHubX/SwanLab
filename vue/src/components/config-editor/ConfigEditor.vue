@@ -1,11 +1,13 @@
 <template>
-  <button
-    class="flex gap-2 items-center px-2 py-1 border rounded-lg transition-all hover:bg-primary-default hover:text-white-default"
+  <SLButton
+    class="flex gap-2 items-center px-3 py-1.5 border rounded-lg text-sm"
     @click="() => (showModal = true)"
+    theme="primary"
+    hollow
   >
-    <SLIcon icon="modify" class="w-4 h-5" />
+    <SLIcon icon="modify" class="w-3.5 h-3.5" />
     {{ $t('common.config-editor.button') }}
-  </button>
+  </SLButton>
   <SLModal class="px-10 py-6" max-w="550" v-model="showModal">
     <!-- 如果后续项目和实验的可修改内容发生改变，这样容易重构一些 -->
     <EditorWrap :type="type" @confirm="confirm"></EditorWrap>
@@ -24,6 +26,7 @@ import { ref } from 'vue'
 import SLModal from '../SLModal.vue'
 import EditorWrap from './EditorWrap.vue'
 import SLIcon from '../SLIcon.vue'
+import SLButton from '../SLButton.vue'
 
 // 是否展示弹窗
 const showModal = ref(false)

@@ -119,4 +119,16 @@ button {
     @apply border-primary-default;
   }
 }
+
+.sa-button-primary-hollow {
+  @apply text-default bg-default transition-all;
+
+  &:hover {
+    @apply text-white-default bg-primary-default border-primary-default;
+  }
+
+  &:active {
+    @apply opacity-70;
+  }
+}
 </style>
