@@ -27,6 +27,15 @@ export const message = {
     message._ref.add(text, 'success', delay, onClose)
   },
   /**
+   * @description 显示警告消息
+   * @param {String} text 消息文本
+   * @param {Number} delay 延迟关闭时间
+   * @param {Function} onClose 关闭时的回调函数
+   */
+  warning: (text, delay, onClose) => {
+    message._ref.add(text, 'warning', delay, onClose)
+  },
+  /**
    * 清空所有消息
    */
   clear: () => {
