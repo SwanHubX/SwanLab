@@ -8,8 +8,9 @@ r"""
     实验相关api，前缀：/experiment
 """
 from datetime import datetime
+import shutil
 from fastapi import APIRouter, Request
-from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422
+from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409
 import os
 import ujson
 from urllib.parse import quote, unquote  # 转码路径参数
@@ -374,7 +375,8 @@ async def update_experiment_config(experiment_id: int, request: Request):
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
     experiment = __find_experiment(experiment_id)
-    experiment_index = experiment["index"] - 1
+    # 寻找实验在列表中对应的 index
+    experiment_index = project["experiments"].index(experiment)
     # 修改实验名称
     if not experiment["name"] == body["name"]:
         # 修改实验名称
@@ -394,3 +396,42 @@ async def update_experiment_config(experiment_id: int, request: Request):
     with get_a_lock(PROJECT_PATH, "w") as f:
         ujson.dump(project, f, indent=4, ensure_ascii=False)
     return SUCCESS_200({"experiment": project["experiments"][experiment_index]})
+
+
+@router.delete("/{experiment_id}/delete")
+async def delete_experiment(experiment_id: int):
+    """删除实验
+
+    注意，需要先判断当前实验是否正在运行中，不可删除运行中的实验
+
+    Parameters
+    ----------
+    experiment_id : Int
+        实验唯一ID
+
+    Returns
+    -------
+    project : Dictionary
+        删除实验后的项目信息，提供给前端更新界面
+    """
+    experiment: dict = __find_experiment(experiment_id)
+
+    # 判断状态，运行中则不可删除
+    if experiment["status"] == 0:
+        return Conflict_409("Can't delete experiment since experiment is running")
+
+    # 可以删除
+    # 1. 删除 project.json 中的实验记录
+    with get_a_lock(PROJECT_PATH) as f:
+        project: dict
+        with open(PROJECT_PATH, "r") as file_read:
+            project = ujson.load(file_read)
+            # project["_sum"] = project["_sum"] - 1
+            project["experiments"].remove(experiment)
+
+        with open(PROJECT_PATH, "w") as file_write:
+            ujson.dump(project, file_write, indent=4, ensure_ascii=False)
+    # 2. 删除实验目录
+    shutil.rmtree(os.path.join(SWANLOG_DIR, experiment["name"]))
+
+    return SUCCESS_200({"project": project})

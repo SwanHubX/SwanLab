@@ -2,5 +2,40 @@
   "copy": "复制成功！",
   "table": {
     "empty": "暂无数据"
+  },
+  "config-editor": {
+    "button": "Edit",
+    "not-allowed": "Not Allowed Since Is Running",
+    "title": {
+      "project": "Modify Project Information",
+      "experiment": "Modify Experiment Information"
+    },
+    "sub-title": {
+      "project": {
+        "name": "Project name",
+        "desc": "Description"
+      },
+      "experiment": {
+        "name": "Experiment name",
+        "desc": "Description"
+      }
+    },
+    "save": {
+      "default": "save changes",
+      "savimg": "saving",
+      "success": "Save Successfully"
+    }
+  },
+  "delete": {
+    "button": "Delete",
+    "not-allowed": "Not Allowed Since Is Running",
+    "title": {
+      "project": "",
+      "experiment": ""
+    },
+    "content": {
+      "project": "",
+      "experiment": ""
+    }
   }
 }

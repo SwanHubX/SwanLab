@@ -5,6 +5,7 @@
   },
   "config-editor": {
     "button": "Edit",
+    "not-allowed": "Not Allowed Since Is Running",
     "title": {
       "project": "Modify Project Information",
       "experiment": "Modify Experiment Information"
@@ -23,6 +24,18 @@
       "default": "save changes",
       "savimg": "saving",
       "success": "Save Successfully"
+    }
+  },
+  "delete": {
+    "button": "Delete",
+    "not-allowed": "Not Allowed Since Is Running",
+    "title": {
+      "project": "Delete this project",
+      "experiment": "Delete this experiment"
+    },
+    "content": {
+      "project": "Once you delete a repository, there is no going back. Please be certain.",
+      "experiment": "Once you delete a experiment, there is no going back. Please be certain."
     }
   }
 }

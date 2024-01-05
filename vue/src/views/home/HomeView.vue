@@ -1,7 +1,12 @@
 <template>
-  <!-- 实验信息 -->
+  <!-- 项目信息 -->
   <div class="p-6 flex flex-col gap-5 text-dimmer border-b relative">
-    <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
+    <!-- 删除项目 -->
+    <SLDelete class="absolute top-5 right-4" type="project" @confirm="deleteProject" :disabled="hasRunning" />
+    <div class="flex gap-3">
+      <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
+      <ConfigEditor type="project" @modify="modifyProject" />
+    </div>
     <p v-if="projectStore.description">{{ projectStore.description }}</p>
     <!-- 项目创建时间、最近运行的时间、总实验数量 -->
     <div class="w-80 flex flex-col gap-4">
@@ -18,7 +23,6 @@
         <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
       </div>
     </div>
-    <div class="absolute top-5 right-5"><ConfigEditor type="project" @modify="modifyProject" /></div>
   </div>
   <div class="p-6">
     <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
@@ -37,6 +41,7 @@
         {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
+    <EmptyTable v-else-if="experiments.length === 0" />
   </div>
 </template>
 
@@ -56,6 +61,9 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
+import SLDelete from '@swanlab-vue/components/SLDelete.vue'
+import { message } from '@swanlab-vue/components/message'
+import EmptyTable from './components/EmptyTable.vue'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {
@@ -178,6 +186,40 @@ const modifyProject = async (newV, hideModal) => {
   const { data } = await http.patch('/project/update', newV)
   projectStore.setProject(data.project)
   hideModal()
+}
+
+// ---------------------------------- 删除项目 ----------------------------------
+
+/**
+ * 是否可以删除项目
+ * 如果有实验正在进行中，直接不显示删除按钮
+ */
+const hasRunning = computed(() => {
+  for (const experiment of experiments.value) {
+    if (experiment.status === 0) return true
+  }
+  return false
+})
+
+/**
+ * 删除项目
+ *
+ * success：显示成功，清空状态，并显示空项目错误页
+ *
+ * fail：在有实验正在进行的时候删除项目
+ */
+const deleteProject = () => {
+  http
+    .delete('/project/delete')
+    .then(() => {
+      message.success('Delete Successfully')
+      projectStore.clearProject()
+      show_error(3500)
+    })
+    .catch(({ data }) => {
+      message.error('Error deleting project')
+      show_error(data.code, data.message)
+    })
 }
 </script>
 

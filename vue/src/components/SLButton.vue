@@ -1,5 +1,5 @@
 <template>
-  <button :class="themeClass" ref="buttonRef">
+  <button :class="themeClass" :disabled="disabled" :title="disabled ? disabledTip : ''" ref="buttonRef">
     <slot></slot>
     {{ text }}
   </button>
@@ -32,12 +32,20 @@ const props = defineProps({
   text: {
     type: String,
     default: ''
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  disabledTip: {
+    type: String,
+    default: 'Not Allowed'
   }
 })
 
 const themeClass = computed(() => {
-  const theme = `sa-button-${props.theme}`
-  return theme
+  const theme = `sa-button-${props.theme}${props.hollow ? '-hollow' : ''}`
+  return props.disabled ? '' : theme
 })
 const buttonRef = ref(null)
 defineExpose({
@@ -49,8 +57,8 @@ defineExpose({
 button {
   @apply border select-none box-border;
   &:disabled {
-    pointer-events: none;
-    cursor: not-allowed;
+    pointer-events: auto !important;
+    cursor: not-allowed !important;
     opacity: 0.5;
   }
 }
@@ -104,6 +112,31 @@ button {
 
   &:active {
     @apply border-primary-default;
+  }
+}
+
+// ----------------------- hollow 样式 -----------------------
+.sa-button-negative-hollow {
+  @apply text-negative-default bg-default transition-all;
+
+  &:hover {
+    @apply text-white-default border-negative-higher bg-negative-higher;
+  }
+
+  &:active {
+    @apply border-primary-default;
+  }
+}
+
+.sa-button-primary-hollow {
+  @apply text-default bg-default transition-all;
+
+  &:hover {
+    @apply text-white-default bg-primary-default border-primary-default;
+  }
+
+  &:active {
+    @apply opacity-70;
   }
 }
 </style>
