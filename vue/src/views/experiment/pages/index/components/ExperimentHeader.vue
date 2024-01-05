@@ -176,7 +176,7 @@ const duration = computed(() => {
     formattedTime.push(`${seconds}${t('experiment.index.header.experiment_infos.time.second')}`)
   }
 
-  return formattedTime.join('')
+  return formattedTime.join('') || 'less than 1s'
 })
 
 // ---------------------------------- 修改实验信息 ----------------------------------
