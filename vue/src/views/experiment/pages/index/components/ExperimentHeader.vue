@@ -3,15 +3,15 @@
     <!-- 删除项目 -->
     <SLDelete
       class="absolute top-5 right-4"
+      :disabled="experimentStore.isRunning"
       type="experiment"
       @confirm="deleteExperiment"
-      v-if="!experimentStore.isRunning"
     />
     <!-- 实验标题 -->
     <div class="flex items-center gap-3">
       <span class="text-2xl font-semibold text-default">{{ experimentStore.name }}</span>
       <!-- 修改实验内容 -->
-      <ConfigEditor type="experiment" @modify="modifyExperiment" />
+      <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
     </div>
     <!-- 实验描述 -->
     <div class="flex items-center pt-5" v-if="experimentStore.description">

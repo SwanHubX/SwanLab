@@ -1,5 +1,11 @@
 <template>
-  <SLButton @click="click" theme="negative" hollow class="px-3 py-1.5 rounded-lg">
+  <SLButton
+    @click="click"
+    theme="negative"
+    hollow
+    class="px-3 py-1.5 rounded-lg"
+    :disabled-tip="$t('common.delete.not-allowed')"
+  >
     <div class="text-sm font-semibold flex items-center gap-2">
       <SLIcon icon="trash" class="w-4 h-4" />
       {{ $t('common.delete.button') }}
