@@ -41,7 +41,7 @@
         {{ row.config[item.key] || '-' }}
       </template>
     </SLTable>
-    <EmptyTable v-else-if="projectStore.experiments?.length === 0" />
+    <EmptyTable v-else-if="experiments.length === 0" />
   </div>
 </template>
 
@@ -190,14 +190,12 @@ const modifyProject = async (newV, hideModal) => {
 
 // ---------------------------------- 删除项目 ----------------------------------
 
-const show_error = inject('show_error')
-
 /**
  * 是否可以删除项目
  * 如果有实验正在进行中，直接不显示删除按钮
  */
 const hasRunning = computed(() => {
-  for (const experiment of projectStore.experiments) {
+  for (const experiment of experiments.value) {
     if (experiment.status === 0) return true
   }
   return false
