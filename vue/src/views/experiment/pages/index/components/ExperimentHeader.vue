@@ -62,6 +62,7 @@ import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import { useRouter } from 'vue-router'
 import { inject } from 'vue'
+import { message } from '@swanlab-vue/components/message'
 // import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
@@ -196,9 +197,10 @@ const deleteExperiment = () => {
   http
     .delete(`/experiment/${experimentStore.id}/delete`)
     .then(({ data }) => {
-      console.log(data)
       projectStore.setProject(data.project)
-      router.replace('/')
+      router.replace('/').then(() => {
+        message.success('Delete Successfully')
+      })
     })
     .catch(({ data }) => {
       show_error(data.code, data.message)
