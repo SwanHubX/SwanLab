@@ -28,12 +28,12 @@
   "delete": {
     "button": "Delete",
     "title": {
-      "project": "Confirm eletion of this project？",
-      "experiment": "Confirm eletion of this experiment？"
+      "project": "Delete this project",
+      "experiment": "Delete this experiment"
     },
     "content": {
-      "project": "Once confirmed, it cannot be recovered.",
-      "experiment": "Once confirmed, it cannot be recovered."
+      "project": "Once you delete a repository, there is no going back. Please be certain.",
+      "experiment": "Once you delete a experiment, there is no going back. Please be certain."
     }
   }
 }

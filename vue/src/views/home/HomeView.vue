@@ -219,6 +219,7 @@ const deleteProject = () => {
       show_error(3500)
     })
     .catch(({ data }) => {
+      message.error('Error deleting project')
       show_error(data.code, data.message)
     })
 }
