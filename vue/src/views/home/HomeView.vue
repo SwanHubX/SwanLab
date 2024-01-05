@@ -48,7 +48,7 @@
  **/
 import { useProjectStore } from '@swanlab-vue/store'
 import { formatTime } from '@swanlab-vue/utils/time'
-import { computed, ref } from 'vue'
+import { computed, ref, inject } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
@@ -56,9 +56,21 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
+
 const projectStore = useProjectStore()
+const experiments = computed(() => {
+  // 在最前面判断项目信息是否存在，不存在则是后端未开启/没有项目
+  if (typeof projectStore.experiments === 'undefined') {
+    show_error(3500)
+    return []
+  }
+  return projectStore.experiments
+})
+
+const show_error = inject('show_error')
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
+
 const createTime = computed(() => formatTime(projectStore.createTime))
 const updateTime = computed(() => formatTime(projectStore.updateTime))
 
@@ -82,11 +94,11 @@ const column = ref([
   }
 ])
 
-// 遍历 projectStore.experiments，添加配置
+// 遍历 experiments，添加配置
 const configs = []
 ;(() => {
   // 寻找需要增加的表头
-  projectStore.experiments.map((item) => {
+  experiments.value.map((item) => {
     Object.entries(item.config).forEach(([key]) => {
       // 如果这个key已经存在configs中，跳过
       if (configs.some((config) => config.title === key)) {
@@ -106,7 +118,7 @@ const configs = []
 
 // 表格体数据
 const experiments_table = computed(() => {
-  return projectStore.experiments.map((expr) => {
+  return experiments.value.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
     Promise.all(
@@ -127,7 +139,7 @@ http
       // 传递前端显示的所有实验名称，使用字符串格式，每个实验名称之间使用逗号连接
       experiment_names: (() => {
         let experiment_names = []
-        projectStore.experiments.forEach((experiment) => {
+        experiments.value.forEach((experiment) => {
           experiment_names.push(experiment.name)
         })
         return experiment_names.join(',')

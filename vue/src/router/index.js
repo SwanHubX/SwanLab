@@ -37,7 +37,7 @@ const routes = [
   {
     path: '/404',
     name: 'not-found',
-    component: () => import('@swanlab-vue/views/error/pages/404.vue')
+    component: () => import('@swanlab-vue/views/error/pages/NotFound.vue')
   },
   { path: '/:pathMatch(.*)*', redirect: '/404' }
 ]
