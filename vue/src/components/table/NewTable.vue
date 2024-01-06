@@ -1,15 +1,15 @@
 <template>
-  <div class="overflow-auto border">
+  <div class="w-full overflow-auto">
     <!-- 表格 -->
-    <div class="w-full">
+    <div class="border" ref="table" :style="{ width: table_width }">
       <!-- 表头 -->
-      <div class="border-b flex bg-higher">
+      <div class="border-b flex bg-higher table-header">
         <!-- 表头项 -->
         <div
           v-for="(item, index) in column"
           :key="item.key"
           class="relative w-full cell shrink-0"
-          :class="`${activeColumnIndex === index ? ' bg-highest' : ''} ${item.border ? 'border-r' : ''}`"
+          :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
           @mouseover="() => (hoverColumnIndex = index)"
           @mouseout="() => (hoverColumnIndex = -1)"
           :style="{ width: element_widths[index] }"
@@ -23,7 +23,6 @@
             {{ item.title }}
             <!-- 拖拽点 -->
             <span
-              class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize"
               :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
                 resize_index === index ? '!bg-primary-default' : ''
               }`"
@@ -65,7 +64,6 @@
       </div>
     </div>
   </div>
-  {{ element_widths }}
 </template>
 
 <script setup>
@@ -117,6 +115,21 @@ const props = defineProps({
 
 const columns = ref(null)
 const widths = ref([])
+const table = ref(null)
+
+/**
+ * 动态计算表格宽度
+ * 需要动态计算表格宽度的原因是，overflow 出现滚动条之后，子元素的 100% 将不会计算超出部分
+ * 这会导致一些样式问题，而动态计算之后，只需要将表格元素的父元素设置 overflow 即可
+ */
+const table_width = computed(() => {
+  if (props.flexable) return '100%'
+  let temp = 0
+  widths.value.forEach(({ value }) => {
+    temp += value
+  })
+  return temp + 2 + 'px'
+})
 
 // 宽度转化，直接控制每列宽度
 const element_widths = computed(() => {
@@ -219,5 +232,9 @@ const handleMouseup = () => {
 <style lang="scss" scoped>
 .cell {
   @apply overflow-hidden text-left whitespace-nowrap shrink-0;
+}
+
+.table-header span {
+  @apply w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize;
 }
 </style>
