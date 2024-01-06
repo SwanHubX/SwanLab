@@ -12,6 +12,7 @@ import shutil
 from fastapi import APIRouter, Request
 
 from ...utils import get_a_lock, create_time
+from ...utils.file import check_description
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
 from ..module import PT
 from swanlab.env import get_swanlog_dir
@@ -89,6 +90,9 @@ async def update(request: Request):
         返回 project.json 的所有内容，目的是方便前端在修改信息后重置 pinia 的状态
     """
     body = await request.json()
+    # 检查格式
+    check_description(body["description"], False)
+
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
     # 检查名字

@@ -122,6 +122,30 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     return name
 
 
+def check_description(description: str, auto_cut: bool):
+    """检查实验描述
+    不能超过255个字符，可以包含任何字符
+
+    Parameters
+    ----------
+    description : str
+        _description_
+    auto_cut : bool
+        _description_
+    """
+    max_length = 255
+
+    if len(description) > max_length:
+        if auto_cut:
+            result_str = description[:max_length]
+            print(f"String exceeds {max_length} characters. Automatically trimmed to:\n{result_str}")
+            return result_str
+        else:
+            print(f"String exceeds {max_length} characters.")
+            raise IndexError(f"description too long that exceeds {max_length} characters.")
+    return description
+
+
 def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """检查项目名格式，必须是0-9a-zA-Z和中文以及连字符(_-)，并且不能以连字符(_-)开头或结尾
     最大长度为100个字符，一个中文字符算一个字符
