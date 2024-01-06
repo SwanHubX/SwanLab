@@ -78,30 +78,89 @@ def check_key_format(key: str) -> str:
     return key
 
 
-def check_name_format(name: str, max_len: int = 20) -> str:
-    """检查name字符串格式，必须是0-9a-zA-Z _-和/或者中文字符组成的字符串，并且开头必须是0-9a-zA-Z或者中文字符
-    最大长度为max_len个字符，一个中文字符算一个字符，如果超出长度，将被截断
+def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
+    """检查实验名格式，必须是0-9a-zA-Z和连字符(_-)，并且不能以连字符(_-)开头或结尾
+    最大长度为100个字符，一个中文字符算一个字符
 
     Parameters
     ----------
     name : str
         待检查的字符串
+    auto_cut : bool, optional
+        如果超出长度，是否自动截断，默认为True
+        如果为False，则超出长度会抛出异常
 
     Returns
     -------
     str
         检查后的字符串
+
+    Raises
+    ------
+    TypeError
+        name不是字符串，或者name为空字符串
+    ValueError
+        name不符合规定格式
+    IndexError
+        name超出长度
     """
-    if not isinstance(name, str):
+    max_len = 100
+    if not isinstance(name, str) or name == "":
         raise TypeError(f"name: {name} is not a string")
     # 定义正则表达式
-    pattern = re.compile("^[0-9a-zA-Z\u4e00-\u9fa5][0-9a-zA-Z\u4e00-\u9fa5_/-]*$")
+    pattern = re.compile(r"^[0-9a-zA-Z][0-9a-zA-Z_-]*[0-9a-zA-Z]$")
     # 检查 name 是否符合规定格式
     if not pattern.match(name):
         raise ValueError(
             f"name: {name} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
         )
     # 检查长度
-    if len(name) > max_len:
+    if auto_cut and len(name) > max_len:
         name = name[:max_len]
+    elif not auto_cut and len(name) > max_len:
+        raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
+    return name
+
+
+def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
+    """检查项目名格式，必须是0-9a-zA-Z和中文以及连字符(_-)，并且不能以连字符(_-)开头或结尾
+    最大长度为100个字符，一个中文字符算一个字符
+
+    Parameters
+    ----------
+    name : str
+        待检查的字符串
+    auto_cut : bool, optional
+        如果超出长度，是否自动截断，默认为True
+        如果为False，则超出长度会抛出异常
+
+    Returns
+    -------
+    str
+        检查后的字符串
+
+    Raises
+    ------
+    TypeError
+        name不是字符串，或者name为空字符串
+    ValueError
+        name不符合规定格式
+    IndexError
+        name超出长度
+    """
+    max_len = 100
+    if not isinstance(name, str) or name == "":
+        raise TypeError(f"name: {name} is not a string")
+    # 定义正则表达式
+    pattern = re.compile(r"^[0-9a-zA-Z\u4e00-\u9fa5]+[0-9a-zA-Z\u4e00-\u9fa5_-]*[0-9a-zA-Z\u4e00-\u9fa5]$")
+    # 检查 name 是否符合规定格式
+    if not pattern.match(name):
+        raise ValueError(
+            f"name: {name} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
+        )
+    # 检查长度
+    if auto_cut and len(name) > max_len:
+        name = name[:max_len]
+    elif not auto_cut and len(name) > max_len:
+        raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
     return name

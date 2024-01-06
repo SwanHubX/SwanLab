@@ -10,7 +10,7 @@ r"""
 from ..settings import SwanDataSettings, get_runtime_project
 from ...log import register, swanlog
 from ..system import get_system_info
-from .utils import get_a_lock, check_name_format, get_package_version, create_time, generate_color
+from .utils import get_a_lock, check_exp_name_format, get_package_version, create_time, generate_color
 from datetime import datetime
 import sys, os
 import random
@@ -150,7 +150,7 @@ class SwanLabRun:
         """
         max_len = 20
         cut = experiment_name is not None and len(experiment_name) > max_len
-        experiment_name = "exp" if experiment_name is None else check_name_format(experiment_name)
+        experiment_name = "exp" if experiment_name is None else check_exp_name_format(experiment_name)
         # 为实验名称添加后缀，格式为yyyy-mm-dd_HH-MM-SS
         if suffix is not None and suffix.lower() != "timestamp":
             suffix = "timestamp"
