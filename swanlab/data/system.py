@@ -53,6 +53,39 @@ def __get_remote_url():
         return None
 
 
+def __get_git_branch_and_commit():
+    """获取项目git的分支名和该分支下最新提交的hash"""
+    try:
+        # 获取当前分支名称
+        branch_process = subprocess.Popen(
+            ["git", "branch", "--show-current"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        branch_name, branch_err = branch_process.communicate()
+        if branch_process.returncode != 0:
+            print("Error getting branch name:", branch_err)
+            return None, None
+
+        branch_name = branch_name.strip().decode("utf-8")
+
+        # 获取当前分支的最新提交hash
+        commit_process = subprocess.Popen(
+            ["git", "rev-parse", branch_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        commit_hash, commit_err = commit_process.communicate()
+
+        # 如果无法获取最新提交hash, 那么就返回branch_name和None
+        if commit_process.returncode != 0:
+            print("Error getting commit hash:", commit_err)
+            return branch_name, None
+
+        commit_hash = commit_hash.strip().decode("utf-8")
+        return branch_name, commit_hash
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None, None
+
+
 def __get_gpu_info():
     """获取 GPU 信息"""
     info = {"cores": None, "type": []}
@@ -85,6 +118,23 @@ def __get_command():
 
     full_command = " ".join(sys.argv)
     return full_command
+
+
+def __get_pip_requirement():
+    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            print(f"Error: {result.stderr}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 
 def __get_pip_requirement():
