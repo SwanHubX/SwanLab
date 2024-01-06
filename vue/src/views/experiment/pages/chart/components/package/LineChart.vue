@@ -83,9 +83,11 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
       min: null
     },
     tooltip: {
+      // 如果data为float，则保留4位小数
       formatter: (data) => {
         // console.log(data)
         // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+        if (data.data % 1 !== 0) return { name: source[0], value: data.data.toFixed(4) }
         return { name: source[0], value: data.data }
       }
       // customContent: (title, data) => {
