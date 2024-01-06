@@ -2,8 +2,6 @@
  * 导出表格组件
  */
 // import SLTable from './SLTable.vue'
-import NewTableVue from './NewTable.vue'
-
-const SLTable = NewTableVue
+import SLTable from './SLTable.vue'
 
 export default SLTable
