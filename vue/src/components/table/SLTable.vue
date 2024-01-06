@@ -26,8 +26,8 @@
                 <div
                   class="overflow-hidden"
                   :class="item.style ? item.style : 'px-2 py-3'"
-                  :style="{ width: widths[index] + 'px' }"
                   :title="item.title"
+                  :style="{ width: widths[index]?.value + 'px' }"
                 >
                   {{ item.title }}
                   <!-- 拖拽点 -->
@@ -63,12 +63,8 @@
                 @mouseover="() => (hoverColumnIndex = index)"
                 @mouseout="() => (hoverColumnIndex = -1)"
               >
-                <div
-                  class="overflow-hidden"
-                  :class="item.style ? item.style : 'px-2 py-3'"
-                  :style="{ width: widths[index] + 'px' }"
-                >
-                  <div v-if="item.slot">
+                <div :class="item.style ? item.style : 'px-2 py-3'" :style="{ width: widths[index]?.value + 'px' }">
+                  <div v-if="item.slot" :style="{ width: widths[index]?.value + 'px' }">
                     <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
                   </div>
                   <!-- 文本格式 -->
@@ -87,6 +83,7 @@
       </div>
     </div>
   </div>
+  {{ widths }}
 </template>
 
 <script setup>
@@ -129,9 +126,6 @@ const props = defineProps({
   highLight: {
     type: Boolean,
     default: true
-  },
-  widthInit: {
-    type: Boolean
   }
 })
 
@@ -142,41 +136,42 @@ const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
 })
 
-// onMounted(() => {
-//   // 遍历列的设置
-//   props.column.forEach((column, index) => {
-//     const auto_width = columns.value[index].offsetWidth
-//     // 获取所有的列宽
-//     if (column.width) {
-//       const target_width = column.width > auto_width ? column.width : auto_width
-//       widths.value[index] = column.border ? target_width - 2 : target_width
-//       return
-//     }
-//     widths.value[index] = auto_width
-//   })
-// })
-
 onMounted(() => {
-  console.log(columns.value)
   // 遍历列的设置
   props.column.forEach((column, index) => {
-    // 获取所有的列宽
-    if (props.widthInit) {
-      const autoWidth = columns.value[index].offsetWidth
-      widths.value[index] = autoWidth
+    const auto_width = columns.value[index].offsetWidth
+    widths.value[index] = {
+      value: 0,
+      extended: false
     }
-    if (!column.width) return
-    widths.value[index] = column.width
+    // 获取所有的列宽
+    // 如果自己设置了宽度
+    if (column.width) {
+      const target_width = column.width > auto_width ? column.width : auto_width
+      widths.value[index].value = column.border ? target_width - 2 : target_width
+      return
+    }
+    // 没自己设宽度，使用自然宽度
+    widths.value[index].value = auto_width
   })
 })
 
 // ---------------------------------- resize 相关 ----------------------------------
 
+// 正在被重置宽度的列的索引
 const resize_index = ref(-1)
+// 开始时鼠标位置
 const startX = ref(0)
+// 开始时，目标列的宽度
 const startWidth = ref(0)
-const maxCellWidth = ref(70)
+// 最小的列宽
+const minCellWidth = ref(70)
 
+/**
+ * 准备重置宽度
+ * @param {object} event 点击事件对象
+ * @param {number} index 目标列的索引
+ */
 const resize = (event, index) => {
   console.log(`准备重置第${index}的宽度`)
   // 设置选取时不可以选中文本
@@ -188,10 +183,10 @@ const resize = (event, index) => {
 
   // 记录初始化数据
   startX.value = event.clientX
-  if (!widths.value[index]) {
-    widths.value[index] = columns.value[index].offsetWidth
+  if (!widths.value[index].value) {
+    widths.value[index].value = columns.value[index].offsetWidth
   }
-  startWidth.value = widths.value[index]
+  startWidth.value = widths.value[index].value
 
   // 绑定全局事件
   document.addEventListener('mousemove', handleMousemove)
@@ -203,13 +198,13 @@ const handleMousemove = (e) => {
   // 计算新宽度
   let newWidth = startWidth.value + (e.clientX - startX.value)
   // 对新宽度设置最小值
-  newWidth = newWidth < maxCellWidth.value ? maxCellWidth.value : newWidth
+  newWidth = newWidth < minCellWidth.value ? minCellWidth.value : newWidth
   // 重置宽度
-  widths.value[resize_index.value] = newWidth
+  widths.value[resize_index.value].value = newWidth
   columns.value[resize_index.value] = newWidth
 }
 
-// 鼠标抬起，结束resize
+// 鼠标抬起，结束resize，清空状态，接触多余的事件绑定
 const handleMouseup = () => {
   document.removeEventListener('mousemove', handleMousemove)
   document.removeEventListener('mouseup', handleMouseup)
