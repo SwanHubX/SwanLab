@@ -69,7 +69,8 @@ async def summaries(experiment_names: str):
                 except Exception as e:
                     print(f"[expr: {name} - {tag}] --- {e}")
                     continue
-                experiment_summaries[unquote(tag)] = tag_data["data"][-1]["data"]
+                # 保留4位小数
+                experiment_summaries[unquote(tag)] = round(tag_data["data"][-1]["data"], 4)
         data[name] = experiment_summaries
     return SUCCESS_200(data={"tags": column, "summaries": data})
 
