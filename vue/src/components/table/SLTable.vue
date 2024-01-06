@@ -1,107 +1,85 @@
 <template>
-  <div class="w-full relative">
-    <div class="relative w-full" :class="maxW">
-      <div class="w-full overflow-auto border" :class="data.length ? '' : 'overflow-hidden'">
-        <table class="w-full">
-          <!-- 标签用于对表格中的列进行组合，以便对其进行格式化 -->
-          <colgroup>
-            <col
-              v-for="(item, index) in column"
-              :key="item.key + item.slot + index"
-              :class="`${activeColumnIndex === index ? 'bg-higher' : ''} ${'swanlab-table-column-' + index}`"
-              ref="columns"
-            />
-          </colgroup>
-          <!-- 表头 -->
-          <thead class="border-bottom">
-            <tr class="border-b">
-              <th
-                v-for="(item, index) in column"
-                :key="item.key"
-                class="relative overflow-hidden"
-                :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
-                @mouseover="() => (hoverColumnIndex = index)"
-                @mouseout="() => (hoverColumnIndex = -1)"
-              >
-                <div
-                  class="overflow-hidden"
-                  :class="item.style ? item.style : 'px-2 py-3'"
-                  :style="{ width: widths[index] + 'px' }"
-                  :title="item.title"
-                >
-                  {{ item.title }}
-                  <!-- 拖拽点 -->
-                  <span
-                    class="w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize"
-                    :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
-                      resize_index === index ? '!bg-primary-default' : ''
-                    }`"
-                    @mousedown="(e) => resize(e, index)"
-                    v-if="!column.unresizeable"
-                  ></span>
-                </div>
-              </th>
-            </tr>
-          </thead>
-          <!-- 表体 -->
-          <tbody>
-            <!-- 每一行 -->
-            <tr
-              v-for="(dataColumn, dataIndex) in data"
-              :key="dataColumn"
-              :class="resize_index === -1 ? 'hover:bg-higher' : ''"
-            >
-              <!-- 单元格 -->
-              <td
-                v-for="(item, index) in column"
-                :key="item.key"
-                :title="dataColumn[item.key]"
-                class="overflow-hidden"
-                :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
-                  item.border ? 'border-r' : ''
-                }`"
-                @mouseover="() => (hoverColumnIndex = index)"
-                @mouseout="() => (hoverColumnIndex = -1)"
-              >
-                <div
-                  class="overflow-hidden"
-                  :class="item.style ? item.style : 'px-2 py-3'"
-                  :style="{ width: widths[index] + 'px' }"
-                >
-                  <div v-if="item.slot">
-                    <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
-                  </div>
-                  <!-- 文本格式 -->
-                  <div v-else>
-                    {{ dataColumn[item.key] || '-' }}
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 没有数据时，空占位 -->
-        <div v-if="!data.length" class="flex justify-center py-3">
-          <div class="data-empty">{{ $t('common.table.empty') }}</div>
+  <div class="w-full overflow-auto">
+    <!-- 表格 -->
+    <div class="border" ref="table" :style="{ width: table_width }">
+      <!-- 表头 -->
+      <div class="border-b flex bg-higher table-header">
+        <!-- 表头项 -->
+        <div
+          v-for="(item, index) in column"
+          :key="item.key"
+          class="relative w-full cell shrink-0"
+          :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
+          @mouseover="() => (hoverColumnIndex = index)"
+          @mouseout="() => (hoverColumnIndex = -1)"
+          :style="{ width: element_widths[index] }"
+          ref="columns"
+        >
+          <div
+            class="overflow-hidden w-full h-full flex items-center"
+            :class="item.style ? item.style : 'px-2 py-3'"
+            :title="item.title"
+          >
+            {{ item.title }}
+            <!-- 拖拽点 -->
+            <span
+              :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
+                resize_index === index ? '!bg-primary-default' : ''
+              }`"
+              @mousedown="(e) => resize(e, index)"
+              v-if="!column.unresizeable && !flexable"
+            ></span>
+          </div>
         </div>
+      </div>
+      <!-- 表体 -->
+      <!-- 按一行一行来渲染 -->
+      <div
+        v-for="(dataColumn, dataIndex) in data"
+        :key="dataColumn"
+        :class="resize_index === -1 ? 'hover:bg-higher' : ''"
+        class="flex items-center"
+      >
+        <!-- 单元格 -->
+        <div
+          v-for="(item, index) in column"
+          :key="item.key"
+          :title="dataColumn[item.key]"
+          class="cell shrink-0 px-2 py-3"
+          :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
+            item.border ? 'border-r ' : ''
+          } ${item.style} ${activeColumnIndex === index ? 'bg-higher' : ''}`"
+          @mouseover="() => (hoverColumnIndex = index)"
+          @mouseout="() => (hoverColumnIndex = -1)"
+          :style="{ width: element_widths[index] }"
+        >
+          <div v-if="item.slot">
+            <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
+          </div>
+          <!-- 文本格式 -->
+          <div v-else>
+            {{ dataColumn[item.key] || '-' }}
+          </div>
+        </div>
+      </div>
+      <!-- 没有数据时，空占位 -->
+      <div v-if="!data.length" class="flex justify-center py-3">
+        <div class="data-empty">{{ $t('common.table.empty') }}</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { onMounted } from 'vue'
-import { ref } from 'vue'
-
 /**
  * @description: 表格 —— 二次重构版
  * @file: SLTable.vue
  * @since: 2023-12-28 22:37:21
  **/
 
-const columns = ref(null)
-const widths = ref([])
+import { computed } from 'vue'
+import { onMounted } from 'vue'
+import { ref } from 'vue'
 
 // ---------------------------------- 组件接口 ----------------------------------
 
@@ -130,9 +108,42 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
-  widthInit: {
-    type: Boolean
+  // 是否自动填充
+  flexable: {
+    type: Boolean,
+    default: false
   }
+})
+
+// ---------------------------------- 全局信息 ----------------------------------
+
+const columns = ref(null)
+const widths = ref([])
+const table = ref(null)
+
+/**
+ * 动态计算表格宽度
+ * 需要动态计算表格宽度的原因是，overflow 出现滚动条之后，子元素的 100% 将不会计算超出部分
+ * 这会导致一些样式问题，而动态计算之后，只需要将表格元素的父元素设置 overflow 即可
+ */
+const table_width = computed(() => {
+  if (props.flexable) return '100%'
+  let temp = 0
+  widths.value.forEach(({ value }) => {
+    temp += value
+  })
+  return temp + 2 + 'px'
+})
+
+// 宽度转化，直接控制每列宽度
+const element_widths = computed(() => {
+  if (props.flexable) {
+    const len = props.column.length
+    return new Array(len).fill((1 / len) * 100 + '%')
+  }
+  return widths.value.map((item) => {
+    return item?.value ? item?.value + 'px' : ''
+  })
 })
 
 // ---------------------------------- 样式相关 ----------------------------------
@@ -142,41 +153,42 @@ const activeColumnIndex = computed(() => {
   return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
 })
 
-// onMounted(() => {
-//   // 遍历列的设置
-//   props.column.forEach((column, index) => {
-//     const auto_width = columns.value[index].offsetWidth
-//     // 获取所有的列宽
-//     if (column.width) {
-//       const target_width = column.width > auto_width ? column.width : auto_width
-//       widths.value[index] = column.border ? target_width - 2 : target_width
-//       return
-//     }
-//     widths.value[index] = auto_width
-//   })
-// })
-
 onMounted(() => {
-  console.log(columns.value)
   // 遍历列的设置
   props.column.forEach((column, index) => {
-    // 获取所有的列宽
-    if (props.widthInit) {
-      const autoWidth = columns.value[index].offsetWidth
-      widths.value[index] = autoWidth
+    const default_width = 150
+    widths.value[index] = {
+      value: 0,
+      extended: false
     }
-    if (!column.width) return
-    widths.value[index] = column.width
+    // 获取所有的列宽
+    // 如果自己设置了宽度
+    if (column.width) {
+      const target_width = column.width > default_width ? column.width : default_width
+      widths.value[index].value = column.border ? target_width - 2 : target_width
+      return
+    }
+    // 没自己设宽度，使用自然宽度
+    widths.value[index].value = default_width
   })
 })
 
 // ---------------------------------- resize 相关 ----------------------------------
 
+// 正在被重置宽度的列的索引
 const resize_index = ref(-1)
+// 开始时鼠标位置
 const startX = ref(0)
+// 开始时，目标列的宽度
 const startWidth = ref(0)
-const maxCellWidth = ref(70)
+// 最小的列宽
+const minCellWidth = ref(70)
 
+/**
+ * 准备重置宽度
+ * @param {object} event 点击事件对象
+ * @param {number} index 目标列的索引
+ */
 const resize = (event, index) => {
   console.log(`准备重置第${index}的宽度`)
   // 设置选取时不可以选中文本
@@ -188,10 +200,10 @@ const resize = (event, index) => {
 
   // 记录初始化数据
   startX.value = event.clientX
-  if (!widths.value[index]) {
-    widths.value[index] = columns.value[index].offsetWidth
+  if (element_widths.value[index].endsWith('%')) {
+    widths.value[index].value = columns.value[index].offsetWidth
   }
-  startWidth.value = widths.value[index]
+  startWidth.value = widths.value[index].value
 
   // 绑定全局事件
   document.addEventListener('mousemove', handleMousemove)
@@ -203,13 +215,13 @@ const handleMousemove = (e) => {
   // 计算新宽度
   let newWidth = startWidth.value + (e.clientX - startX.value)
   // 对新宽度设置最小值
-  newWidth = newWidth < maxCellWidth.value ? maxCellWidth.value : newWidth
+  newWidth = newWidth < minCellWidth.value ? minCellWidth.value : newWidth
   // 重置宽度
-  widths.value[resize_index.value] = newWidth
+  widths.value[resize_index.value].value = newWidth
   columns.value[resize_index.value] = newWidth
 }
 
-// 鼠标抬起，结束resize
+// 鼠标抬起，结束resize，清空状态，接触多余的事件绑定
 const handleMouseup = () => {
   document.removeEventListener('mousemove', handleMousemove)
   document.removeEventListener('mouseup', handleMouseup)
@@ -222,8 +234,11 @@ const handleMouseup = () => {
 </script>
 
 <style lang="scss" scoped>
-td,
-th {
-  @apply p-0 text-left whitespace-nowrap overflow-hidden;
+.cell {
+  @apply overflow-hidden text-left whitespace-nowrap shrink-0;
+}
+
+.table-header span {
+  @apply w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize;
 }
 </style>
