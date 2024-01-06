@@ -113,25 +113,23 @@ class SwanLabRun:
 
     def success(self):
         """标记实验成功"""
-        # 锁上文件，更新实验状态
-        with get_a_lock(self.settings.project_path, "r+") as file:
-            project = ujson.load(file)
-            for index, experiment in enumerate(project["experiments"]):
-                if experiment["experiment_id"] == self.exp.id:
-                    project["experiments"][index]["status"] = 1
-                    break
-            file.truncate(0)
-            file.seek(0)
-            ujson.dump(project, file)
+        self.__set_exp_status(1)
 
     def fail(self):
         """标记实验失败"""
+        self.__set_exp_status(-1)
+
+    def __set_exp_status(self, status: int):
+        if status not in [1, -1, 0]:
+            swanlog.warning("Invalid status when set, status must be 1, -1 or 0, but got {}".format(status))
+            swanlog.warning("SwanLab will set status to -1")
+            status = -1
         # 锁上文件，更新实验状态
         with get_a_lock(self.settings.project_path, "r+") as file:
             project = ujson.load(file)
             for index, experiment in enumerate(project["experiments"]):
                 if experiment["experiment_id"] == self.exp.id:
-                    project["experiments"][index]["status"] = 1
+                    project["experiments"][index]["status"] = status
                     project["update_time"] = create_time()
                     break
             file.truncate(0)
