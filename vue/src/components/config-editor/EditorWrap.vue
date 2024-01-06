@@ -37,11 +37,7 @@
       <!-- 数量限制 -->
       <p
         class="absolute bottom-[-20px] text-xs right-0"
-        :class="
-          info.description?.length === 0 || info.description?.length === max_description_len
-            ? 'text-negative-default'
-            : ''
-        "
+        :class="info.description?.length === max_description_len ? 'text-negative-default' : ''"
       >
         {{ `${info.description ? info.description.length : 0} / ${max_description_len}` }}
       </p>
