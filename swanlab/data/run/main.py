@@ -77,7 +77,7 @@ class SwanLabRun:
         if cut:
             swanlog.warning(f"The experiment name you provided is too long, it has been truncated to {exp_name}.")
         # 并判断一下log_level是否合法，如果不合法，warning一下
-        if log_level != level:
+        if log_level != level and log_level is not None:
             swanlog.warning(f"The log level you provided is not valid, it has been set to {level}.")
         # ---------------------------------- 其余配置 ----------------------------------
         # 注册实验
