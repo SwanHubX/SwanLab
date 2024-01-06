@@ -1,4 +1,5 @@
 <template>
+  <!-- 主体部分 -->
   <MainLayout v-if="ready">
     <template #left>
       <HomeSiderBar :version="version" />

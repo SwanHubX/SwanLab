@@ -28,7 +28,10 @@ export default {
         ...length
       },
       zIndex: {
-        full: '9999'
+        // 最顶层，给message用
+        message: '9999',
+        // 其余最顶层
+        full: '9998'
       },
       // 背景颜色
       backgroundColor: {
