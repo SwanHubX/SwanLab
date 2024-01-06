@@ -183,7 +183,7 @@ const duration = computed(() => {
 
 const modifyExperiment = async (newV, hideModal) => {
   const id = experimentStore.id
-  const { data } = await http.patch(`/experiment/${id}/update`, newV)
+  const { data } = await http.patch(`/experiment/${id}`, newV)
   experimentStore.setExperiment(data.experiment)
   projectStore.setExperimentInfo(id, newV)
   hideModal()
@@ -196,7 +196,7 @@ const modifyExperiment = async (newV, hideModal) => {
  */
 const deleteExperiment = () => {
   http
-    .delete(`/experiment/${experimentStore.id}/delete`)
+    .delete(`/experiment/${experimentStore.id}`)
     .then(({ data }) => {
       projectStore.setProject(data.project)
       router.replace('/').then(() => {

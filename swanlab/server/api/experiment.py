@@ -353,7 +353,7 @@ async def stop_experiment(experiment_id: int):
     return SUCCESS_200({"update_time": create_time()})
 
 
-@router.patch("/{experiment_id}/update")
+@router.patch("/{experiment_id}")
 async def update_experiment_config(experiment_id: int, request: Request):
     """修改实验的元信息
 
@@ -398,7 +398,7 @@ async def update_experiment_config(experiment_id: int, request: Request):
     return SUCCESS_200({"experiment": project["experiments"][experiment_index]})
 
 
-@router.delete("/{experiment_id}/delete")
+@router.delete("/{experiment_id}")
 async def delete_experiment(experiment_id: int):
     """删除实验
 
