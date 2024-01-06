@@ -81,7 +81,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .messages-container {
-  @apply fixed top-10 left-1/2 -translate-x-1/2 z-full;
+  @apply fixed top-10 left-1/2 -translate-x-1/2 z-message;
   @apply inline-block;
   @apply flex flex-col gap-2;
 }
