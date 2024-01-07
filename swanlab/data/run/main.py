@@ -10,7 +10,14 @@ r"""
 from ..settings import SwanDataSettings, get_runtime_project
 from ...log import register, swanlog
 from ..system import get_system_info
-from .utils import get_a_lock, check_exp_name_format, get_package_version, create_time, generate_color
+from .utils import (
+    get_a_lock,
+    check_exp_name_format,
+    check_desc_format,
+    get_package_version,
+    create_time,
+    generate_color,
+)
 from datetime import datetime
 import sys, os
 import random
@@ -226,15 +233,14 @@ class SwanLabRun:
         else:
             return "info"
 
-    def __check_description(self, description: str, max_len: int = 120) -> str:
+    def __check_description(self, description: str) -> str:
         """检查实验描述是否合法"""
         if description is None:
             return ""
-        if not isinstance(description, str):
-            raise TypeError(f"description: {description} is not a string")
-        if len(description) > max_len:
-            swanlog.warning(f"The description you provided is too long, it has been truncated to {max_len} characters.")
-            return description[:max_len]
+        desc = check_desc_format(description)
+        if desc != description:
+            swanlog.warning("The description has been truncated automatically.")
+        return desc
 
     def __check_config(self, config: dict) -> dict:
         """检查实验配置是否合法"""

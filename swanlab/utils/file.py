@@ -122,7 +122,7 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     return name
 
 
-def check_desc_format(description: str, auto_cut: bool):
+def check_desc_format(description: str, auto_cut: bool = True):
     """检查实验描述
     不能超过255个字符，可以包含任何字符
 

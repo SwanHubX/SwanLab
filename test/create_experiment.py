@@ -36,7 +36,7 @@ lr = 0.01
 offset = random.random() / 5
 # 创建一个实验
 sw.init(
-    description="this is a test experiment",
+    description=" this is a test experiment",
     config={
         "learning_rate": lr,
         "epochs": epochs,
