@@ -31,8 +31,8 @@
       "stop": {
         "button": "Confirm",
         "modal": {
-          "title": "Attention!",
-          "text": "Should the experiment be stopped as it is irreversible and may result in unpredictable consequences?"
+          "title": "Has this experiment been stopped?",
+          "text": "Once confirmed, the state will be set to 'Crashed', and stop receiving data."
         }
       }
     },
