@@ -59,7 +59,7 @@ button {
   &:disabled {
     pointer-events: auto !important;
     cursor: not-allowed !important;
-    opacity: 0.5;
+    opacity: 0.3;
   }
 }
 
@@ -120,7 +120,7 @@ button {
   @apply text-negative-default bg-default transition-all;
 
   &:hover {
-    @apply text-white-default border-negative-higher bg-negative-higher;
+    @apply bg-higher;
   }
 
   &:active {
@@ -132,11 +132,11 @@ button {
   @apply text-default bg-default transition-all;
 
   &:hover {
-    @apply text-white-default bg-primary-default border-primary-default;
+    @apply bg-higher;
   }
 
   &:active {
-    @apply opacity-70;
+    @apply border-primary-default;
   }
 }
 </style>

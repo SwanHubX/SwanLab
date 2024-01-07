@@ -65,7 +65,8 @@ def __get_git_branch_and_commit():
             print("Error getting branch name:", branch_err)
             return None, None
 
-        branch_name = branch_name.strip().decode("utf-8")
+        print(branch_name)
+        branch_name = branch_name.strip()
 
         # 获取当前分支的最新提交hash
         commit_process = subprocess.Popen(
@@ -78,7 +79,7 @@ def __get_git_branch_and_commit():
             print("Error getting commit hash:", commit_err)
             return branch_name, None
 
-        commit_hash = commit_hash.strip().decode("utf-8")
+        commit_hash = commit_hash.strip()
         return branch_name, commit_hash
 
     except Exception as e:
@@ -118,23 +119,6 @@ def __get_command():
 
     full_command = " ".join(sys.argv)
     return full_command
-
-
-def __get_pip_requirement():
-    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
-    try:
-        # 运行pip命令获取当前环境下的环境目录
-        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
-
-        # 检查命令是否成功运行
-        if result.returncode == 0:
-            return result.stdout
-        else:
-            print(f"Error: {result.stderr}")
-            return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
 
 
 def __get_pip_requirement():
