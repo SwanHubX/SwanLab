@@ -12,7 +12,7 @@ import shutil
 from fastapi import APIRouter, Request
 
 from ...utils import get_a_lock, create_time
-from ...utils.file import check_description_format
+from ...utils.file import check_desc_format
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
 from ..module import PT
 from swanlab.env import get_swanlog_dir
@@ -91,7 +91,7 @@ async def update(request: Request):
     """
     body = await request.json()
     # 检查格式
-    check_description_format(body["description"], False)
+    body["description"] = check_desc_format(body["description"], False)
 
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)

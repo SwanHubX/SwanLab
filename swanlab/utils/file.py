@@ -122,18 +122,19 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     return name
 
 
-def check_description_format(description: str, auto_cut: bool):
+def check_desc_format(description: str, auto_cut: bool):
     """检查实验描述
     不能超过255个字符，可以包含任何字符
 
     Parameters
     ----------
     description : str
-        _description_
+        需要检查和处理的描述信息
     auto_cut : bool
-        _description_
+        如果超出长度，是否裁剪并抛弃多余部分
     """
     max_length = 255
+    description = description.strip()
 
     if len(description) > max_length:
         if auto_cut:

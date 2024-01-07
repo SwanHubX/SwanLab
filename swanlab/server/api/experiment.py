@@ -11,7 +11,7 @@ from datetime import datetime
 import shutil
 from fastapi import APIRouter, Request
 
-from ...utils.file import check_exp_name_format, check_description_format
+from ...utils.file import check_exp_name_format, check_desc_format
 from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409
 import os
 import ujson
@@ -376,7 +376,7 @@ async def update_experiment_config(experiment_id: int, request: Request):
     body: dict = await request.json()
     # 校验参数
     check_exp_name_format(body["name"], False)
-    check_description_format(body["description"], False)
+    body["description"] = check_desc_format(body["description"], False)
 
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
