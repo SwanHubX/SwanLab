@@ -35,6 +35,7 @@ export const useExperimentStroe = defineStore('charts', () => {
 
   // 修改实验信息
   const setExperiment = (x) => {
+    x.default_color = defaultColor.value
     experiment.value = x
   }
 
