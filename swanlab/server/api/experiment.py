@@ -10,6 +10,8 @@ r"""
 from datetime import datetime
 import shutil
 from fastapi import APIRouter, Request
+
+from ...utils.file import check_exp_name_format, check_desc_format
 from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409
 import os
 import ujson
@@ -355,7 +357,7 @@ async def stop_experiment(experiment_id: int):
     return SUCCESS_200({"update_time": create_time()})
 
 
-@router.patch("/{experiment_id}/update")
+@router.patch("/{experiment_id}")
 async def update_experiment_config(experiment_id: int, request: Request):
     """修改实验的元信息
 
@@ -374,11 +376,16 @@ async def update_experiment_config(experiment_id: int, request: Request):
     object
     """
     body: dict = await request.json()
+    # 校验参数
+    check_exp_name_format(body["name"], False)
+    body["description"] = check_desc_format(body["description"], False)
+
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
     experiment = __find_experiment(experiment_id)
     # 寻找实验在列表中对应的 index
     experiment_index = project["experiments"].index(experiment)
+
     # 修改实验名称
     if not experiment["name"] == body["name"]:
         # 修改实验名称
@@ -392,15 +399,17 @@ async def update_experiment_config(experiment_id: int, request: Request):
         old_path = os.path.join(SWANLOG_DIR, experiment["name"])
         new_path = os.path.join(SWANLOG_DIR, body["name"])
         os.rename(old_path, new_path)
+
     # 修改实验描述
     if not experiment["description"] == body["description"]:
         project["experiments"][experiment_index]["description"] = body["description"]
     with get_a_lock(PROJECT_PATH, "w") as f:
         ujson.dump(project, f, indent=4, ensure_ascii=False)
+
     return SUCCESS_200({"experiment": project["experiments"][experiment_index]})
 
 
-@router.delete("/{experiment_id}/delete")
+@router.delete("/{experiment_id}")
 async def delete_experiment(experiment_id: int):
     """删除实验
 

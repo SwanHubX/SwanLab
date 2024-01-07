@@ -7,8 +7,8 @@
     "button": "Edit",
     "not-allowed": "Not Allowed Since Is Running",
     "title": {
-      "project": "Modify Project Information",
-      "experiment": "Modify Experiment Information"
+      "project": "Project Information",
+      "experiment": "Experiment Information"
     },
     "sub-title": {
       "project": {

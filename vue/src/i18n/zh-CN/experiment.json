@@ -27,6 +27,13 @@
         "hostname": "Hostname",
         "os": "操作系统",
         "python": "Python版本"
+      },
+      "stop": {
+        "button": "Confirm",
+        "modal": {
+          "title": "Attention!",
+          "text": "Should the experiment be stopped as it is irreversible and may result in unpredictable consequences?"
+        }
       }
     },
     "config": {

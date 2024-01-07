@@ -14,8 +14,8 @@
       <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
     </div>
     <!-- 实验描述 -->
-    <div class="flex items-center pt-5" v-if="experimentStore.description">
-      <span>{{ experimentStore.description }}</span>
+    <div class="flex items-center pt-5 w-full overflow-hidden" v-if="experimentStore.description">
+      <p class="break-words">{{ experimentStore.description }}</p>
     </div>
     <!-- 实验信息 -->
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
@@ -26,7 +26,7 @@
           <div class="title">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
           <!-- 停止按钮 -->
-          <!-- <StopButton v-if="experimentStore.isRunning" /> -->
+          <StopButton v-if="experimentStore.isRunning" />
         </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value || item.title === 'git'">
@@ -64,7 +64,7 @@ import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue
 import { useRouter } from 'vue-router'
 import { inject } from 'vue'
 import { message } from '@swanlab-vue/components/message'
-// import StopButton from './StopButton.vue'
+import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
 const experiment = ref(experimentStore.experiment)
@@ -183,7 +183,7 @@ const duration = computed(() => {
 
 const modifyExperiment = async (newV, hideModal) => {
   const id = experimentStore.id
-  const { data } = await http.patch(`/experiment/${id}/update`, newV)
+  const { data } = await http.patch(`/experiment/${id}`, newV)
   experimentStore.setExperiment(data.experiment)
   projectStore.setExperimentInfo(id, newV)
   hideModal()
@@ -196,7 +196,7 @@ const modifyExperiment = async (newV, hideModal) => {
  */
 const deleteExperiment = () => {
   http
-    .delete(`/experiment/${experimentStore.id}/delete`)
+    .delete(`/experiment/${experimentStore.id}`)
     .then(({ data }) => {
       projectStore.setProject(data.project)
       router.replace('/').then(() => {

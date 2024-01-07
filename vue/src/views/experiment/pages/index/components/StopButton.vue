@@ -1,24 +1,16 @@
 <template>
   <button
     class="p-1.5 rounded-full border-2 transition-all duration-200 ml-2"
-    :class="showColor ? 'border-red-500' : 'cursor-not-allowed'"
+    :class="showColor ? 'border-negative-default' : 'cursor-not-allowed'"
     @mouseover="() => (hover = true)"
     @mouseout="() => (hover = false)"
-    @click="() => (showWarning = status === 0 && true)"
+    @click="stop"
   >
-    <div class="w-2.5 h-2.5 bg-gray-200 transition-all duration-200" :class="showColor ? 'bg-red-500' : ''"></div>
+    <div
+      class="w-2.5 h-2.5 transition-all duration-200"
+      :class="showColor ? 'bg-negative-default' : 'bg-overlay opacity-50'"
+    ></div>
   </button>
-  <SLModal class="px-10 pt-10 pb-5 overflow-hidden" maxW="500" v-model="showWarning">
-    <div class="w-full">
-      <h1 class="text-lg font-semibold text-negative-default">{{ $t('experiment.index.header.stop.modal.title') }}</h1>
-      <p class="py-4">{{ $t('experiment.index.header.stop.modal.text') }}</p>
-      <div class="flex justify-end">
-        <button class="px-2 py-1 border transition-all rounded-lg hover:bg-red-500 hover:text-white" @click="confirm">
-          {{ $t('experiment.index.header.stop.button') }}
-        </button>
-      </div>
-    </div>
-  </SLModal>
 </template>
 
 <script setup>
@@ -30,8 +22,9 @@
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { ref } from 'vue'
 import { computed } from 'vue'
-import SLModal from '@swanlab-vue/components/SLModal.vue'
+import { confirm } from '@swanlab-vue/components/comfirm'
 import http from '@swanlab-vue/api/http'
+import { t } from '@swanlab-vue/i18n'
 
 // ---------------------------------- 弹窗相关 ----------------------------------
 
@@ -45,16 +38,21 @@ const showColor = computed(() => {
   return status === 0 && hover.value
 })
 
-const showWarning = ref(false) // 弹窗状态
-
 // ---------------------------------- 确认删除 ----------------------------------
 
-const confirm = async () => {
+const stop = () => {
+  confirm(
+    t('experiment.index.header.stop.modal.title'),
+    t('experiment.index.header.stop.modal.text'),
+    t('experiment.index.header.stop.button')
+  ).then(stop_experiment)
+}
+
+const stop_experiment = async () => {
   const { data } = await http.get(`/experiment/${id}/stop`)
   if (!data) return
   experiment.setUpateTIme(data.update_time)
   useProjectStore().setExperimentStatus(id, -1)
-  showWarning.value = false
 }
 </script>
 

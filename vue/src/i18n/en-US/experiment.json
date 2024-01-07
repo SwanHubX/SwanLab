@@ -6,7 +6,7 @@
   },
   "status": {
     "-1": "Crashed",
-    "0": "In Progress",
+    "0": "Running",
     "1": "Completed"
   },
   "index": {
