@@ -132,17 +132,24 @@ def check_desc_format(description: str, auto_cut: bool):
         需要检查和处理的描述信息
     auto_cut : bool
         如果超出长度，是否裁剪并抛弃多余部分
+
+    Returns
+    -------
+    str
+        检查后的字符串，同时会去除字符串头尾的空格
+
+    Raises
+    ------
+    IndexError
+        name超出长度
     """
     max_length = 255
     description = description.strip()
 
     if len(description) > max_length:
         if auto_cut:
-            result_str = description[:max_length]
-            print(f"String exceeds {max_length} characters. Automatically trimmed to:\n{result_str}")
-            return result_str
+            return description[:max_length]
         else:
-            print(f"String exceeds {max_length} characters.")
             raise IndexError(f"description too long that exceeds {max_length} characters.")
     return description
 
