@@ -138,6 +138,19 @@ def __get_pip_requirement():
         return None
 
 
+def __get_memory_size():
+    """获取内存大小"""
+    import psutil
+
+    try:
+        # 获取系统总内存大小
+        mem = psutil.virtual_memory()
+        total_memory = mem.total / (1024 * 1024 * 1024)  # 单位为GB
+        return total_memory
+    except Exception as e:
+        return None
+
+
 def get_system_info():
     """获取系统信息"""
     return {
