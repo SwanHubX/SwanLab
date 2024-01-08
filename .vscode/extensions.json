@@ -29,6 +29,8 @@
     "PKief.material-icon-theme",
     "davidanson.vscode-markdownlint",
     "usernamehw.errorlens",
-    "tamasfe.even-better-toml"
+    "tamasfe.even-better-toml",
+    // 单元测试
+    "ZixuanChen.vitest-explorer"
   ]
 }

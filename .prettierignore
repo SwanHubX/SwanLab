@@ -61,11 +61,7 @@ components/style/color/*.less
 
 doc/**
 
-**.md
-
-!README.md
-!README_zh-hans.md
-
+*.md
 .github/**
 
 swanlab/
