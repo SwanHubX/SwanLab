@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full px-7 py-6">
+  <div class="w-full h-full px-7 py-6 relative overflow-hidden">
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <div class="log-line" v-for="line in logs" :key="line">
@@ -19,6 +19,10 @@
         <SLLoding />
       </div>
     </section>
+    <SLOperation class="absolute top-10 right-10">
+      <span>...</span>
+      <template #main> nihao </template>
+    </SLOperation>
   </div>
 </template>
 
@@ -34,6 +38,9 @@ import http from '@swanlab-vue/api/http'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
+import SLOperation from '@swanlab-vue/components/SLOperation.vue'
+import SLButton from '@swanlab-vue/components/SLButton.vue'
+
 const logAreaRef = ref()
 // ---------------------------------- 系统相关 ----------------------------------
 
