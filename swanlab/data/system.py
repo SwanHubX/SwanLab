@@ -13,6 +13,7 @@ import sys
 import subprocess
 import multiprocessing
 import pynvml
+from ..log import swanlog
 
 
 def __replace_second_colon(input_string, replacement):
@@ -46,10 +47,10 @@ def __get_remote_url():
                 url = url[:-4]
             return __replace_second_colon(url, "/")
         else:
-            print(f"Error: {result.stderr}")
+            swanlog.error(f"An error occurred: {result.stderr}")
             return None
     except Exception as e:
-        print(f"An error occurred: {e}")
+        swanlog.error(f"An error occurred: {e}")
         return None
 
 
@@ -62,10 +63,9 @@ def __get_git_branch_and_commit():
         )
         branch_name, branch_err = branch_process.communicate()
         if branch_process.returncode != 0:
-            print("Error getting branch name:", branch_err)
+            swanlog.error("Error getting branch name:", branch_err)
             return None, None
 
-        print(branch_name)
         branch_name = branch_name.strip()
 
         # 获取当前分支的最新提交hash
@@ -76,14 +76,14 @@ def __get_git_branch_and_commit():
 
         # 如果无法获取最新提交hash, 那么就返回branch_name和None
         if commit_process.returncode != 0:
-            print("Error getting commit hash:", commit_err)
+            swanlog.error("Error getting commit hash:", commit_err)
             return branch_name, None
 
         commit_hash = commit_hash.strip()
         return branch_name, commit_hash
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        swanlog.error(f"An error occurred: {e}")
         return None, None
 
 
@@ -104,7 +104,7 @@ def __get_gpu_info():
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
 
     except pynvml.NVMLError as e:
-        print(f"Error: {e}")
+        swanlog.error(f"An error occurred: {e}")
     finally:
         # 结束 NVML
         pynvml.nvmlShutdown()
@@ -131,10 +131,10 @@ def __get_pip_requirement():
         if result.returncode == 0:
             return result.stdout
         else:
-            print(f"Error: {result.stderr}")
+            swanlog.error(f"An error occurred:{result.stderr}")
             return None
     except Exception as e:
-        print(f"An error occurred: {e}")
+        swanlog.error(f"An error occurred: {e}")
         return None
 
 
@@ -148,6 +148,7 @@ def __get_memory_size():
         total_memory = mem.total / (1024 * 1024 * 1024)  # 单位为GB
         return total_memory
     except Exception as e:
+        swanlog.error(f"An error occurred: {e}")
         return None
 
 
