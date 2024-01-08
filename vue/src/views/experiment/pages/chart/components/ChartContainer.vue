@@ -31,10 +31,11 @@ import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 // import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import LineChart from './package/LineChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import UnknownChart from './package/UnknownChart.vue'
+import LineChart from './package/LineChart.vue'
+import ImageChart from './package/ImageChart.vue'
 const props = defineProps({
   chart: {
     type: Object,
@@ -59,6 +60,8 @@ const chartComponent = (type) => {
       return LineChart
     case 'line':
       return LineChart
+    case 'image':
+      return ImageChart
     default:
       // 未知图表
       unknown.value = true

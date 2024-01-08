@@ -10,6 +10,9 @@ r"""
 import random
 import swanlab as sw
 import time
+import numpy as np
+from PIL import Image as PILImage
+import os
 
 
 class Enlarge1000(sw.data.BaseType):
@@ -25,11 +28,11 @@ class Enlarge1000(sw.data.BaseType):
         return "custom"
 
     def get_chart_type(self) -> str:
-        return self.chart.line
+        return self.chart.image
 
 
 # 迭代次数
-epochs = 50
+epochs = 3
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -53,10 +56,29 @@ for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    if epoch < 10:
-        sw.log({"loss": Enlarge1000(loss), "accuracy": acc}, step=1)
-    else:
-        sw.log({"loss": Enlarge1000(loss), "accuracy": acc}, step=epoch)
+
+    current_file_path = os.path.dirname(os.path.abspath(__file__))
+    print("current_file_path:", current_file_path)
+    test_path = os.path.join(current_file_path, "assets/test_image.png")
+
+    test_pil = PILImage.new("RGB", (100, 100), color="red")
+    test_nparray = np.random.randint(255, size=(300, 300, 3), dtype=np.uint8)
+
+    # if epoch < 10:
+    #     sw.log({"loss": Enlarge1000(loss), "accuracy": acc}, step=1)
+    # else:
+    # sw.log({"loss": sw.data.Image("./test_image.jpg"), "accuracy": acc})
+
+    sw.log(
+        {
+            "String": sw.Image(test_path),
+            "PILImage": sw.Image(test_pil),
+            "nparray": sw.Image(test_nparray),
+            "accuracy": acc,
+        }
+    )
+    # sw.log({"loss": Enlarge1000(loss), "accuracy": acc})
+
     # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)
     # sw.log({"loss3": loss, "accuracy3": acc}, step=1)
     # sw.log({"loss4": loss, "accuracy4": acc}, step=epoch * 2)

@@ -9,6 +9,7 @@ r"""
 """
 from .modules import (
     BaseType,
+    Image,
 )
 from .sdk import (
     init,
