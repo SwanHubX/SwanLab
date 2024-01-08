@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full px-7 py-6 relative overflow-hidden">
-    <SLSearch class="max-w-[400px]" @input="search" dealy="300" />
+    <SLSearch class="max-w-[400px] mb-5" @input="search" dealy="300" />
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <!-- 运行日志 -->
@@ -14,7 +14,7 @@
           <p class="flex" v-show="searchValue && line.lower.includes(searchValue)">
             <span>{{ line.value.substring(0, line.lower.indexOf(searchValue)) }}</span>
             <!-- 高亮展示 -->
-            <span class="bg-negative-default text-white-default">{{
+            <span class="bg-[#F6FFA6]">{{
               line.value.substring(
                 line.lower.indexOf(searchValue),
                 line.lower.indexOf(searchValue) + searchValue.length
@@ -35,10 +35,6 @@
         <SLLoding />
       </div>
     </section>
-    <SLOperation class="absolute top-10 right-10">
-      <span>...</span>
-      <template #main> nihao </template>
-    </SLOperation>
   </div>
 </template>
 
@@ -54,7 +50,6 @@ import http from '@swanlab-vue/api/http'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
-import SLOperation from '@swanlab-vue/components/SLOperation.vue'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
 import { computed } from 'vue'
 
@@ -106,7 +101,7 @@ const search = (value) => {
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full h-full rounded p-4;
+  @apply bg-higher w-full h-[calc(100vh-180px)] rounded p-4;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
