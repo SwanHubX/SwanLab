@@ -51,6 +51,9 @@ defineProps({
   }
 })
 
+// 初始按钮top位置，单位px
+const initialTop = 26 + 'px'
+
 // ---------------------------------- 开启/关闭sidebar ----------------------------------
 
 const cbRef = ref(null)
@@ -105,24 +108,12 @@ onMounted(() => {
       if (val) {
         sidebarRef.value.style = 'width: 320px;'
         cbRef.value.style.transform = ''
-        cbRef.value.style.top = '26px'
-        // 如果不是小屏幕，为container设置属性
-        // if (!isSmallScreen.value) {
-        //   containerRef.value.style = ''
-        // }
+        cbRef.value.style.top = initialTop
       } else {
         sidebarRef.value.style = 'width: 0;border: none;'
         // cb添加transform动画，向左移动233px，旋转180度，向下移动60px
         cbRef.value.style.transform = 'translateX(-260px) rotateY(180deg)'
-        // 获取滚动距离
-        const scrollTop = Math.max(containerRef.value.scrollTop, 0)
-        // 按钮top位置为其class中的top值-滚动距离
-        cbRef.value.style.top = `calc(26px - ${scrollTop}px)`
-
-        // 如果不是小屏幕，为container设置属性
-        // if (!isSmallScreen.value) {
-        //   containerRef.value.style = 'width: 100vw;'
-        // }
+        handleContainerScroll(false)
       }
     },
     {
@@ -152,13 +143,13 @@ onMounted(() => {
   })
 })
 
-const handleContainerScroll = () => {
+const handleContainerScroll = (removeAnimation = true) => {
   if (isSideBarShow.value) return
   // 获取滚动距离
   const scrollTop = containerRef.value.scrollTop
   // 按钮top位置为其class中的top值-滚动距离
   cbRef.value.style.top = `calc(26px - ${scrollTop}px)`
-  cbRef.value.classList.remove('close-animation')
+  removeAnimation && cbRef.value.classList.remove('close-animation')
 }
 
 // ---------------------------------- 暴露对象 ----------------------------------

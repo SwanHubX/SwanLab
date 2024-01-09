@@ -21,7 +21,7 @@
         class="flex-shrink-0"
         active-class="active-router"
       >
-        <div class="w-4 h-4 rounded-full mr-3" :style="{ backgroundColor: experiment.color }"></div>
+        <div class="w-4 h-4 rounded-full mr-3 flex-shrink-0" :style="{ backgroundColor: experiment.color }"></div>
         <span class="truncate">{{ experiment.name }}</span>
       </RouterLink>
     </div>
