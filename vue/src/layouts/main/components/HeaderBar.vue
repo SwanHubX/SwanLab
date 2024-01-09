@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full bg-higher flex justify-between items-center px-6">
+  <div class="w-full h-full bg-higher border-b flex justify-between items-center px-6">
     <!-- logo and version -->
     <div class="flex">
       <SLIcon class="w-8 h-8" icon="logo" />
@@ -32,7 +32,7 @@
 
 <script setup>
 /**
- * @description:
+ * @description: 顶部页头
  * @file: PageHeader.vue
  * @since: 2024-01-09 11:13:20
  **/
