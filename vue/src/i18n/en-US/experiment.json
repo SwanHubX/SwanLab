@@ -67,5 +67,11 @@
         "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
       }
     }
+  },
+  "env": {
+    "navs": {
+      "index": "overview",
+      "dependances": "requrements"
+    }
   }
 }
