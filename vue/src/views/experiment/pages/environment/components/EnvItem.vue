@@ -2,7 +2,10 @@
   <div class="w-full flex" v-if="envValue">
     <!-- key -->
     <span class="text-dimmer w-44 shrink-0">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
-    <span class="break-all" :class="highLight ? 'text-dimmer bg-higher px-2' : ''">{{ envValue }}</span>
+    <span class="break-all" :class="highLight ? 'text-dimmer bg-higher px-2' : ''">
+      <span v-if="!link">{{ envValue }}</span>
+      <a :href="envValue" target="_blank" class="hover:underline underline-offset-2" v-else>{{ envValue }}</a>
+    </span>
   </div>
 </template>
 
@@ -23,6 +26,10 @@ defineProps({
     default: ''
   },
   highLight: {
+    type: Boolean,
+    default: false
+  },
+  link: {
     type: Boolean,
     default: false
   }

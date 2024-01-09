@@ -77,7 +77,8 @@ const gits = computed(() => {
     {
       key: 'git_remote',
       value: system.git_remote,
-      highLight: true
+      highLight: true,
+      link: true
     },
     {
       key: 'git_branch',
