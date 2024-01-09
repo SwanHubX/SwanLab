@@ -108,7 +108,7 @@ const navs = [
   },
   {
     label: t('experiment.navs.env'),
-    to: 'enviroment'
+    to: 'env'
   }
 ]
 </script>

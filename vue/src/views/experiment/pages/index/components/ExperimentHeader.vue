@@ -1,22 +1,5 @@
 <template>
-  <div class="w-full px-6 pt-6 text-default relative">
-    <!-- 删除项目 -->
-    <SLDelete
-      class="absolute top-5 right-4"
-      :disabled="experimentStore.isRunning"
-      type="experiment"
-      @confirm="deleteExperiment"
-    />
-    <!-- 实验标题 -->
-    <div class="flex items-center gap-3">
-      <span class="text-2xl font-semibold text-default">{{ experimentStore.name }}</span>
-      <!-- 修改实验内容 -->
-      <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
-    </div>
-    <!-- 实验描述 -->
-    <div class="flex items-center pt-5 w-full overflow-hidden" v-if="experimentStore.description">
-      <p class="break-words">{{ experimentStore.description }}</p>
-    </div>
+  <div class="w-full px-6 pb-2 text-default relative">
     <!-- 实验信息 -->
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
       <!-- 实验相关 -->
@@ -43,6 +26,9 @@
           <div class="title">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
           <div :title="item.value">{{ item.value || 'Unkown' }}</div>
         </div>
+        <SLButton theme="primary" hollow class="rounded-lg">
+          <router-link to="env" class="block px-3 py-1">All Details</router-link>
+        </SLButton>
       </div>
     </div>
   </div>
@@ -60,7 +46,6 @@ import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import { useRouter } from 'vue-router'
 import { inject } from 'vue'
 import { message } from '@swanlab-vue/components/message'
@@ -90,26 +75,22 @@ const experiment_infos = computed(() => {
     {
       title: 'version',
       value: `v${experiment.value.version}`
-    },
-    {
-      title: 'git',
-      value: experiment.value.system.git_remote,
-      isLink: true
     }
   ]
 })
 
 // ---------------------------------- 设备信息 ----------------------------------
 
-const hardware = computed(() => {
-  const prePath = 'experiment.index.header.experiment_device'
-  const list = [
-    experiment.value.system.cpu ? t(`${prePath}.cpu`, { value: experiment.value.system.cpu }) : '',
-    experiment.value.system.gpu?.cores ? t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }) : '',
-    experiment.value.system.gpu?.type[0] ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
-  ]
-  return list.filter((item) => item !== '').join(' | ')
-})
+// const hardware = computed(() => {
+//   const prePath = 'experiment.index.header.experiment_device'
+//   const list = [
+//     experiment.value.system.cpu ? t(`${prePath}.cpu`, { value: experiment.value.system.cpu }) : '',
+//     experiment.value.system.gpu?.cores ? t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }) : '',
+//     experiment.value.system.gpu?.type[0] ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
+//   ]
+//   return list.filter((item) => item !== '').join(' | ')
+// })
+
 const experiment_device = computed(() => {
   return [
     {
@@ -123,14 +104,6 @@ const experiment_device = computed(() => {
     {
       title: 'python',
       value: experiment.value.system.python || ''
-    },
-    {
-      title: 'executable',
-      value: experiment.value.system.executable || ''
-    },
-    {
-      title: 'hardware',
-      value: hardware.value
     }
   ]
 })

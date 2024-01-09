@@ -26,6 +26,11 @@ const routes = [
         path: 'log',
         name: 'experiment_log',
         component: () => import('@swanlab-vue/views/experiment/pages/log/LogPage.vue')
+      },
+      {
+        path: 'env',
+        name: 'experiment_env',
+        component: () => import('@swanlab-vue/views/experiment/pages/environment/EnvironmentPage.vue')
       }
     ]
   },

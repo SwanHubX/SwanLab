@@ -8,7 +8,7 @@
   "status": {
     "-1": "Crashed",
     "0": "Running",
-    "1": "Completed"
+    "1": "Finished"
   },
   "index": {
     "header": {
