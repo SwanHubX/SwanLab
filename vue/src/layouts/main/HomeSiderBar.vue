@@ -1,14 +1,14 @@
 <template>
   <!-- 头部信息卡片 -->
-  <div class="flex justify-between items-center p-4 border-b h-16">
-    <!-- 项目信息 -->
-    <div class="flex items-end">
+  <!-- <div class="flex justify-between items-center p-4 border-b h-16"> -->
+  <!-- 项目信息 -->
+  <!-- <div class="flex items-end">
       <SLIcon icon="logo" class="w-6 h-6 mr-1 mb-0.5" />
       <span class="font-semibold text-2xl leading-6 mr-0.5">Swanlab</span>
       <span class="whitespace-nowrap text-xs">{{ version }}</span>
-    </div>
-    <!-- 友链 -->
-    <!-- <div class="flex gap-2">
+    </div> -->
+  <!-- 友链 -->
+  <!-- <div class="flex gap-2">
       <a href="https://github.com" class="link" target="_blank">
         <SLIcon icon="github" class="w-4 h-4" />
       </a>
@@ -16,7 +16,7 @@
         <SLIcon icon="logo" class="w-4 h-4" />
       </a>
     </div> -->
-  </div>
+  <!-- </div> -->
   <!-- 剩余区域 -->
   <div class="flex flex-col grow max-h-[calc(100%-4rem)]">
     <!-- 概览区域 -->
@@ -61,17 +61,10 @@
  * @file: HomeSiderBar.vue
  * @since: 2023-12-04 18:20:02
  **/
-import SLIcon from './SLIcon.vue'
-import { ref } from 'vue'
+import SLIcon from '@swanlab-vue/components/SLIcon.vue'
+// import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
-
-defineProps({
-  version: {
-    type: String,
-    default: 'unknown'
-  }
-})
 
 const help_url =
   'https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home'
@@ -84,7 +77,7 @@ const getExperimentRouter = (experiment) => {
 
 // ---------------------------------- 搜索实验 ----------------------------------
 // 需要展示的实验信息——默认展示全部，但在搜索过后，更新为搜索结果
-const query = ref([])
+// const query = ref([])
 // TODO 暂时没有实现
 </script>
 

@@ -1,9 +1,9 @@
 <template>
   <!-- 主体部分 -->
-  <MainLayout v-if="ready">
-    <template #left>
+  <MainLayout :version="version" v-if="ready">
+    <!-- <template #left>
       <HomeSiderBar :version="version" />
-    </template>
+    </template> -->
     <router-view v-if="!error_code" />
     <ErrorView :code="error_code" :message="error_message" v-else />
   </MainLayout>
@@ -14,8 +14,8 @@
 </template>
 
 <script setup>
-import MainLayout from './layouts/MainLayout.vue'
-import HomeSiderBar from './components/HomeSiderBar.vue'
+import MainLayout from './layouts/main'
+// import HomeSiderBar from './components/HomeSiderBar.vue'
 import ErrorView from './views/error/ErrorView.vue'
 import http from './api/http'
 import { useProjectStore } from '@swanlab-vue/store'
