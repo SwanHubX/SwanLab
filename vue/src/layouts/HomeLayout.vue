@@ -13,7 +13,7 @@
           <ConfigEditor type="project" @modify="modifyProject" />
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow pr-6 ml-1">
+        <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
           <DeleteButton type="project" @confirm="deleteProject" :disabled="hasRunning" />
         </div>
       </div>
