@@ -129,7 +129,7 @@ def __get_pip_requirement():
 
         # 检查命令是否成功运行
         if result.returncode == 0:
-            return result.stdout
+            return result.stdout.split("\n")
         else:
             swanlog.error(f"An error occurred:{result.stderr}")
             return None

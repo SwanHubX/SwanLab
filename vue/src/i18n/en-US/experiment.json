@@ -70,8 +70,8 @@
   },
   "env": {
     "navs": {
-      "index": "overview",
-      "dependances": "requrements"
+      "index": "Overview",
+      "dependances": "Requirements"
     },
     "title": {
       "exp_env_index": "Overview",
@@ -93,6 +93,9 @@
       "gpu_cores": "GPU count",
       "gpu_type": "GPU type",
       "swanlab": "SwanLab Version"
+    },
+    "empty": {
+      "requirements": "There are no dependencies"
     }
   }
 }

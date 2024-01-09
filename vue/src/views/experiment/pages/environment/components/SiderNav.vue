@@ -1,6 +1,6 @@
 <template>
   <div class="w-48">
-    <router-link v-for="item in navs" :key="item.key" :to="item.to" active-class="active-router" exact>
+    <router-link v-for="item in navs" :key="item.key" :to="item.to" active-class="active-router">
       {{ $t(`experiment.env.navs.${item.key}`) }}
     </router-link>
   </div>
