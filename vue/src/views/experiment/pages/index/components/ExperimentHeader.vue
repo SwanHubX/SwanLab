@@ -70,7 +70,7 @@ const experiment_infos = computed(() => {
     },
     {
       title: 'last_time',
-      value: duration.value
+      value: experimentStore.duration
     },
     {
       title: 'version',
@@ -107,79 +107,6 @@ const experiment_device = computed(() => {
     }
   ]
 })
-
-/**
- * 计算实验的持续时间
- */
-const duration = computed(() => {
-  const time1 = new Date(experiment.value.create_time)
-  const currentTime = new Date()
-  const time2 =
-    experiment.value.status === 0
-      ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000)
-      : new Date(experiment.value.update_time)
-
-  if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
-    // 处理无效日期的情况
-    return 'Invalid date'
-  }
-
-  const timeDifference = Math.abs(time2 - time1)
-
-  const seconds = Math.floor(timeDifference / 1000) % 60
-  const minutes = Math.floor(timeDifference / (1000 * 60)) % 60
-  const hours = Math.floor(timeDifference / (1000 * 60 * 60)) % 24
-  const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24))
-
-  const formattedTime = []
-
-  if (days > 0) {
-    formattedTime.push(`${days}${t('experiment.index.header.experiment_infos.time.day')}`)
-  }
-
-  if (hours > 0) {
-    formattedTime.push(`${hours}${t('experiment.index.header.experiment_infos.time.hour')}`)
-  }
-
-  if (minutes > 0) {
-    formattedTime.push(`${minutes}${t('experiment.index.header.experiment_infos.time.minute')}`)
-  }
-
-  if (seconds > 0) {
-    formattedTime.push(`${seconds}${t('experiment.index.header.experiment_infos.time.second')}`)
-  }
-
-  return formattedTime.join('') || 'less than 1s'
-})
-
-// ---------------------------------- 修改实验信息 ----------------------------------
-
-const modifyExperiment = async (newV, hideModal) => {
-  const id = experimentStore.id
-  const { data } = await http.patch(`/experiment/${id}`, newV)
-  experimentStore.setExperiment(data.experiment)
-  projectStore.setExperimentInfo(id, newV)
-  hideModal()
-}
-
-// ---------------------------------- 删除实验 ----------------------------------
-
-/**
- * 删除实验
- */
-const deleteExperiment = () => {
-  http
-    .delete(`/experiment/${experimentStore.id}`)
-    .then(({ data }) => {
-      projectStore.setProject(data.project)
-      router.replace('/').then(() => {
-        message.success('Delete Successfully')
-      })
-    })
-    .catch(({ data }) => {
-      showErrorView(data.code, data.message)
-    })
-}
 </script>
 
 <style lang="scss" scoped>

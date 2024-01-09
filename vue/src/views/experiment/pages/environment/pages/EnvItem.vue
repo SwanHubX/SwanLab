@@ -1,0 +1,28 @@
+<template>
+  <div class="w-full flex" v-if="envValue">
+    <!-- key -->
+    <span class="text-dimmer w-44">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
+    <span>{{ envValue }}</span>
+  </div>
+</template>
+
+<script setup>
+/**
+ * @description: 一行分为两部分：env 和 value，主要是展示作用
+ * @file: EnvItem.vue
+ * @since: 2024-01-09 19:44:16
+ **/
+
+defineProps({
+  envKey: {
+    type: String,
+    default: ''
+  },
+  envValue: {
+    type: String,
+    default: ''
+  }
+})
+</script>
+
+<style lang="scss" scoped></style>

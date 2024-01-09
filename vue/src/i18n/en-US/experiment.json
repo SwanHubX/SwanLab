@@ -72,6 +72,16 @@
     "navs": {
       "index": "overview",
       "dependances": "requrements"
+    },
+    "title": {
+      "exp_env_index": "Overview",
+      "exp_env_dependencies": "Requirements"
+    },
+    "keys": {
+      "start_time": "Start Time",
+      "duration": "Duration",
+      "python": "Python Version",
+      "executable": "Python executable"
     }
   }
 }
