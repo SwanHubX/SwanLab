@@ -106,7 +106,7 @@ onMounted(() => {
       } else {
         sidebarRef.value.style = 'width: 0;border: none;'
         // cb添加transform动画，向左移动233px，旋转180度，向下移动60px
-        cbRef.value.style = 'transform: translateX(-270px) rotate(180deg)'
+        cbRef.value.style = 'transform: translateX(-260px) rotateY(180deg)'
         // 如果不是小屏幕，为container设置属性
         if (!isSmallScreen.value) {
           containerRef.value.style = 'width: 100vw;'

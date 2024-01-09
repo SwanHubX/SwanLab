@@ -2,8 +2,8 @@
   <!-- 项目信息 -->
   <div class="p-6 pt-5 flex flex-col gap-5 text-dimmer border-b relative">
     <!-- 删除项目按钮，因为在右边所以需要absolute -->
-    <SLDelete class="absolute top-5 right-4" type="project" @confirm="deleteProject" :disabled="hasRunning" />
-    <div class="flex gap-3 transition-transform duration-300" :class="{ 'translate-x-6': !isSideBarShow }">
+    <DeleteButton class="absolute top-5 right-4" type="project" @confirm="deleteProject" :disabled="hasRunning" />
+    <div class="flex gap-3 transition-transform duration-300" :class="{ 'translate-x-8': !isSideBarShow }">
       <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
       <ConfigEditor type="project" @modify="modifyProject" />
     </div>
@@ -61,9 +61,9 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
-import SLDelete from '@swanlab-vue/components/SLDelete.vue'
 import { message } from '@swanlab-vue/components/message'
 import EmptyTable from './components/EmptyTable.vue'
+import DeleteButton from '@swanlab-vue/components/config-editor/DeleteButton.vue'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {

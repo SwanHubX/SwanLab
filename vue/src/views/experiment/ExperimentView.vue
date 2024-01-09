@@ -1,8 +1,5 @@
 <template>
   <ExperimentLayout :key="experimentStore.id" v-if="ready">
-    <template #tabs>
-      <TabsHeader />
-    </template>
     <router-view />
   </ExperimentLayout>
 </template>

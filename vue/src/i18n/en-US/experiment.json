@@ -1,8 +1,9 @@
 {
-  "tabs": {
-    "index": "Overview",
+  "navs": {
+    "index": "Experiment Card",
     "chart": "Charts",
-    "log": "Logs"
+    "log": "Logs",
+    "env": "Environment"
   },
   "status": {
     "-1": "Crashed",

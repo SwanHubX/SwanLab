@@ -1,8 +1,9 @@
 {
-  "tabs": {
+  "navs": {
     "index": "概览",
     "chart": "实验图表",
-    "log": "日志Log"
+    "log": "日志Log",
+    "env": "实验环境"
   },
   "status": {
     "-1": "中断",
