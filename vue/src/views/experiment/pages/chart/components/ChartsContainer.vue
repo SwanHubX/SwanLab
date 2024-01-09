@@ -49,6 +49,9 @@ const handleExpand = () => {
 
 <style lang="scss" scoped>
 .charts-container {
-  @apply border-b py-6 px-8;
+  @apply py-6 px-8;
+  &:not(:last-child) {
+    @apply border-b;
+  }
 }
 </style>
