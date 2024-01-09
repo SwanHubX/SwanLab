@@ -54,7 +54,7 @@ Hi，无论你是开发人员还是日常用户，这篇快速上手教程都将
 ### 🎯 第 1 步：安装 SwanLab
 
 ```bash
-$ pip install -U swanlab
+pip install -U swanlab
 ```
 
 <br>
@@ -112,9 +112,9 @@ $ swanlab watch
                        ➜  Local:   http://127.0.0.1:5092
 ```
 
-访问http://127.0.0.1:5092 ，打开实验看板，访问刚刚运行的实验：
+访问 `http://127.0.0.1:5092` ，打开实验看板，访问刚刚运行的实验：
 
-<img src="readme_files/hello_world_main1.gif" width=1535>
+<img src="readme_files/hello_world_main1.gif" width=1535 alt="hello_world_main1">
 
 <br>
 
