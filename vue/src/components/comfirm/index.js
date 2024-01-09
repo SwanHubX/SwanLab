@@ -28,7 +28,6 @@ export const confirm = (text, content, config = {}) => {
 }
 
 export const installConfirm = (ref) => {
-  console.log(ref)
   confirmObj._r = ref
 }
 
