@@ -1,26 +1,8 @@
 <template>
-  <!-- 头部信息卡片 -->
-  <!-- <div class="flex justify-between items-center p-4 border-b h-16"> -->
-  <!-- 项目信息 -->
-  <!-- <div class="flex items-end">
-      <SLIcon icon="logo" class="w-6 h-6 mr-1 mb-0.5" />
-      <span class="font-semibold text-2xl leading-6 mr-0.5">Swanlab</span>
-      <span class="whitespace-nowrap text-xs">{{ version }}</span>
-    </div> -->
-  <!-- 友链 -->
-  <!-- <div class="flex gap-2">
-      <a href="https://github.com" class="link" target="_blank">
-        <SLIcon icon="github" class="w-4 h-4" />
-      </a>
-      <a href="https://swanhub.co" class="link" target="_blank">
-        <SLIcon icon="logo" class="w-4 h-4" />
-      </a>
-    </div> -->
-  <!-- </div> -->
   <!-- 剩余区域 -->
-  <div class="flex flex-col grow max-h-[calc(100%-4rem)]">
+  <div class="flex flex-col grow h-full">
     <!-- 概览区域 -->
-    <div class="p-4 flex flex-col border-b">
+    <div class="p-4 flex flex-col border-b pr-11">
       <RouterLink to="/" active-class="active-router">
         <SLIcon icon="dashboard" class="w-4 h-4 mr-2" />
         <!-- <span>{{ $t('sider.nav.home') }}</span> -->

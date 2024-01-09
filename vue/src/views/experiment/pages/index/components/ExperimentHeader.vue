@@ -71,7 +71,7 @@ const experiment = ref(experimentStore.experiment)
 
 const projectStore = useProjectStore()
 
-const show_error = inject('show_error')
+const showErrorView = inject('showErrorView')
 
 const router = useRouter()
 
@@ -204,7 +204,7 @@ const deleteExperiment = () => {
       })
     })
     .catch(({ data }) => {
-      show_error(data.code, data.message)
+      showErrorView(data.code, data.message)
     })
 }
 </script>

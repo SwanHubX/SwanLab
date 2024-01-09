@@ -27,7 +27,7 @@ const projectStore = useProjectStore()
 const ready = computed(() => {
   return experimentStore.id !== undefined
 })
-const show_error = inject('show_error')
+const showErrorView = inject('showErrorView')
 const init = async (id = route.params.experimentId) => {
   experimentStore.experiment = undefined
   // 清空charts
@@ -43,7 +43,7 @@ const init = async (id = route.params.experimentId) => {
     })
     .catch((response) => {
       // console.error(response)
-      show_error(response.data.code)
+      showErrorView(response.data.code)
     })
 }
 

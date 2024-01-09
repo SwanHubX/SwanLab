@@ -69,13 +69,13 @@ const projectStore = useProjectStore()
 const experiments = computed(() => {
   // 在最前面判断项目信息是否存在，不存在则是后端未开启/没有项目
   if (typeof projectStore.experiments === 'undefined') {
-    show_error(3500)
+    showErrorView(3500)
     return []
   }
   return projectStore.experiments
 })
 
-const show_error = inject('show_error')
+const showErrorView = inject('showErrorView')
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
 
@@ -214,11 +214,11 @@ const deleteProject = () => {
     .then(() => {
       message.success('Delete Successfully')
       projectStore.clearProject()
-      show_error(3500)
+      showErrorView(3500)
     })
     .catch(({ data }) => {
       message.error('Error deleting project')
-      show_error(data.code, data.message)
+      showErrorView(data.code, data.message)
     })
 }
 </script>
