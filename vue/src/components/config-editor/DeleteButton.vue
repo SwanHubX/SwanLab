@@ -1,14 +1,10 @@
 <template>
-  <SLButton
-    @click="click"
-    theme="negative"
-    hollow
-    class="px-3 py-1.5 rounded-lg"
-    :disabled-tip="$t('common.delete.not-allowed')"
-  >
+  <SLButton @click="click" theme="negative" hollow :disabled-tip="$t('common.delete.not-allowed')">
     <div class="text-sm flex items-center gap-2">
       <SLIcon icon="trash" class="w-4 h-4" />
-      {{ $t('common.delete.button') }}
+      <span class="md:block hidden">
+        {{ $t('common.delete.button') }}
+      </span>
     </div>
   </SLButton>
 </template>
@@ -47,4 +43,11 @@ const click = () => {
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+button {
+  @apply px-3 py-1.5 rounded-lg border-none;
+  @media (min-width: 768px) {
+    border-style: solid;
+  }
+}
+</style>

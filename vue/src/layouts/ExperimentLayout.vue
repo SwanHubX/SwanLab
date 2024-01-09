@@ -1,32 +1,30 @@
 <template>
-  <div class="w-full h-full py-5">
+  <div class="w-full h-full py-5 relative">
     <!-- 导航栏 -->
-    <div class="px-6 border-b relative">
+    <div class="px-6 border-b">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-      <div
-        class="flex items-center gap-3 transition-transform duration-300"
-        :class="{ 'translate-x-8': !isSideBarShow }"
-      >
-        <!-- 项目标题/实验标题 -->
-        <h1 class="text-2xl">
-          <RouterLink class="hover:underline underline-offset-2" to="/">{{ projectStore.name }}</RouterLink>
-          /
-          <span class="font-semibold">{{ experimentStore.name }}</span>
-        </h1>
-        <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
-        <DeleteButton
-          class="absolute right-6"
-          type="experiment"
-          :disabled="experimentStore.isRunning"
-          @confirm="deleteExperiment"
-        />
+      <div class="experiment-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
+        <div class="flex items-center gap-3">
+          <!-- 项目标题/实验标题 -->
+          <h1 class="text-2xl flex items-center gap-1">
+            <RouterLink class="hover:underline underline-offset-2" to="/">{{ projectStore.name }}</RouterLink>
+            /
+            <span class="font-semibold truncate inline-block max-w-sm">{{ experimentStore.name }}</span>
+          </h1>
+          <!-- 编辑按钮 -->
+          <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
+        </div>
+        <!-- 删除按钮 -->
+        <div class="flex justify-end grow pr-6">
+          <DeleteButton type="experiment" :disabled="experimentStore.isRunning" @confirm="deleteExperiment" />
+        </div>
       </div>
       <!-- 第二行内容，实验描述 -->
       <p class="experiment-description" v-if="experimentStore.description">
         {{ experimentStore.description }}
       </p>
       <!-- 第三行内容，导航标签 -->
-      <nav class="flex items-center gap-8">
+      <nav class="experiment-navs">
         <RouterLink
           class="nav-item"
           active-class="nav-active"
@@ -39,7 +37,7 @@
         </RouterLink>
       </nav>
     </div>
-    <div class="experiment-content">
+    <div class="w-full overflow-y-auto">
       <slot></slot>
     </div>
   </div>
@@ -114,32 +112,42 @@ const navs = [
 </script>
 
 <style scoped lang="scss">
-.experiment-content {
-  @apply w-full overflow-y-auto;
+.experiment-title {
+  @apply flex items-center w-full overflow-x-auto;
+  // 隐藏滚动条
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
-
 .experiment-description {
-  @apply mt-3.5 w-full break-words text-sm h-10;
+  @apply mt-3.5 w-full break-words text-sm;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
   -webkit-line-clamp: 2; /* 设置为希望显示的最大行数 */
 }
 
-.nav-item {
-  @apply px-2.5 py-2 relative text-lg text-dimmer;
-}
-.nav-active {
-  @apply text-positive-higher;
-  &:after {
-    @apply w-full h-0.5 bg-positive-higher absolute -bottom-[1px] left-1/2 -translate-x-1/2;
-    content: '';
+.experiment-navs {
+  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-hidden;
+  // 隐藏滚动条
+  &::-webkit-scrollbar {
+    display: none;
   }
-  // 字体加粗
-  // &::before {
-  //   @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold whitespace-nowrap;
-  //   content: attr(data-text);
-  //   color: var(--positive-higher);
-  // }
+  .nav-item {
+    @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap;
+  }
+  .nav-active {
+    @apply text-positive-higher;
+    &:after {
+      @apply w-full h-0.5 bg-positive-higher absolute -bottom-[1px] left-1/2 -translate-x-1/2;
+      content: '';
+    }
+    // 字体加粗
+    // &::before {
+    //   @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold whitespace-nowrap;
+    //   content: attr(data-text);
+    //   color: var(--positive-higher);
+    // }
+  }
 }
 </style>
