@@ -25,6 +25,21 @@ import ujson
 from .exp import SwanLabExp
 
 
+class SwanConfig:
+    """
+    The SwanConfig class is used for realize the invocation method of `run.config.lr`.
+    """
+
+    def __init__(self, config):
+        self._config = config
+
+    def __getattr__(self, name):
+        try:
+            return self._config[name]
+        except KeyError:
+            raise AttributeError(f"'SwanConfig' object has no attribute '{name}'")
+
+
 class SwanLabRun:
     """
     The SwanLabRun class is used for logging during a single experiment.
@@ -93,6 +108,9 @@ class SwanLabRun:
             self.__check_description(description),
             self.__check_config(config),
         )
+
+        # 给外部1个config
+        self.config = SwanConfig(self.__check_config(config))
 
     def __str__(self) -> str:
         """此类的字符串表示"""
