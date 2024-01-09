@@ -14,12 +14,12 @@
         <!-- 侧边栏 -->
         <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
           <!-- 侧边栏规定宽度 -->
-          <div class="w-80 h-full border-r">
+          <div class="w-80 h-full">
             <SideBar />
           </div>
         </div>
         <!-- 右侧主要内容 -->
-        <div class="main-content" ref="containerRef">
+        <div class="main-content border-l" ref="containerRef">
           <!-- 侧边栏关闭/开启按钮 -->
           <button class="close-button" ref="cbRef" @click="handleClose" v-if="showSideBar">
             <SLIcon icon="sidebar" class="w-full h-full" />
@@ -111,7 +111,7 @@ onMounted(() => {
         cbRef.value.style.transform = ''
         cbRef.value.style.top = initialTop
       } else {
-        sidebarRef.value.style = 'width: 0;border: none;'
+        sidebarRef.value.style = 'width: 0;'
         // cb添加transform动画，向左移动233px，旋转180度，向下移动60px
         cbRef.value.style.transform = 'translateX(-260px) rotateY(180deg)'
         handleContainerScroll(false)
