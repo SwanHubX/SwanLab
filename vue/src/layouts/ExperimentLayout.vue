@@ -134,7 +134,7 @@ const navs = [
     display: none;
   }
   .nav-item {
-    @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap;
+    @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
   }
   .nav-active {
     @apply text-positive-higher;

@@ -43,6 +43,7 @@ import { ref, watch, onMounted, provide, computed } from 'vue'
 import HeaderBar from './components/HeaderBar.vue'
 import SideBar from './components/SideBar.vue'
 import { useRoute } from 'vue-router'
+import { onUnmounted } from 'vue'
 defineProps({
   version: {
     type: String,
@@ -145,14 +146,19 @@ watch(
 // ---------------------------------- 按钮位置修改，监听下滑距离 ----------------------------------
 
 onMounted(() => {
-  containerRef.value.addEventListener('scroll', () => {
-    // 获取滚动距离
-    const scrollTop = Math.max(containerRef.value.scrollTop, 0)
-    // 按钮top位置为其class中的top值-滚动距离
-    cbRef.value.style.top = `calc(30px - ${scrollTop}px)`
-    cbRef.value.classList.remove('close-animation')
+  containerRef.value.addEventListener('scroll', handleContainerScroll)
+  onUnmounted(() => {
+    containerRef.value.removeEventListener('scroll', handleContainerScroll)
   })
 })
+
+const handleContainerScroll = () => {
+  // 获取滚动距离
+  const scrollTop = containerRef.value.scrollTop
+  // 按钮top位置为其class中的top值-滚动距离
+  cbRef.value.style.top = `calc(30px - ${scrollTop}px)`
+  cbRef.value.classList.remove('close-animation')
+}
 
 // ---------------------------------- 暴露对象 ----------------------------------
 
