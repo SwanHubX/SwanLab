@@ -9,10 +9,8 @@
       </div>
     </div>
     <!-- links -->
-    <div class="w-full h-full px-8 flex items-center font-semibold">
-      <a class="hover:pb-1 transition-all" :href="item.link" target="_blank" v-for="item in links" :key="item.link">{{
-        item.title
-      }}</a>
+    <div class="w-full h-full px-8 flex items-center pt-2 font-semibold">
+      <a :href="item.link" target="_blank" v-for="item in links" :key="item.link">{{ item.title }}</a>
     </div>
     <!-- fixeds -->
     <div class="flex items-center font-semibold">
