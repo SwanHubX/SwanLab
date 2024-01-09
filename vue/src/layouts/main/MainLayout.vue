@@ -26,7 +26,7 @@
         </div>
       </div>
       <!-- 右侧主要内容 -->
-      <div class="main-content" ref="containerRef">
+      <div class="main-content overflow-auto" ref="containerRef">
         <!-- 如果header存在，content的高度为100vh-60px -->
         <slot></slot>
       </div>
