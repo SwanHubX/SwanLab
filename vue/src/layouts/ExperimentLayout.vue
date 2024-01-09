@@ -74,7 +74,9 @@ const deleteExperiment = () => {
         message.success('Delete Successfully')
       })
     })
-    .catch(({ data }) => {})
+    .catch(({ data }) => {
+      message.error(data.message)
+    })
 }
 
 // ---------------------------------- 修改实验信息 ----------------------------------

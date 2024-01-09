@@ -1,8 +1,8 @@
 <template>
   <MainLayout :show-side-bar="!errorCode" :version="version" v-if="ready">
     <router-view v-if="!errorCode" />
+    <ErrorView :code="errorCode" :message="errorMessage" v-else />
   </MainLayout>
-  <ErrorView :code="errorCode" :message="errorMessage" v-if="!ready && errorCode" />
   <!-- 全局气泡提示 -->
   <SLMessages ref="messagesRef" />
   <!-- 全局确认弹窗 -->
@@ -32,12 +32,14 @@ http
   .then(({ data, _header }) => {
     projectStore.setProject(data)
     version.value = _header['swanlab-version']
-    ready.value = true
   })
   .catch((response) => {
     // console.error(response)
     errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
     version.value = response.headers['swanlab-version']
+  })
+  .finally(() => {
+    ready.value = true
   })
 
 // ---------------------------------- 错误处理 ----------------------------------
