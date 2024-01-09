@@ -15,7 +15,7 @@
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow pr-6">
+        <div class="flex justify-end grow transition-padding duration-300" :class="{ 'pr-8': !isSideBarShow }">
           <DeleteButton type="experiment" :disabled="experimentStore.isRunning" @confirm="deleteExperiment" />
         </div>
       </div>
@@ -135,11 +135,18 @@ const navs = [
   }
   .nav-item {
     @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
+    @apply mb-1 rounded;
+    &:hover {
+      @apply bg-highest;
+    }
   }
   .nav-active {
     @apply text-positive-higher;
+    &:hover {
+      background-color: transparent !important;
+    }
     &:after {
-      @apply w-full h-0.5 bg-positive-higher absolute -bottom-0 left-1/2 -translate-x-1/2 z-10;
+      @apply w-full h-0.5 bg-positive-higher absolute -bottom-1 left-1/2 -translate-x-1/2 z-10;
       content: '';
     }
     // 字体加粗

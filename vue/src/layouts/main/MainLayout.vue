@@ -105,7 +105,7 @@ onMounted(() => {
       if (val) {
         sidebarRef.value.style = 'width: 320px;'
         cbRef.value.style.transform = ''
-        cbRef.value.style.top = '30px'
+        cbRef.value.style.top = '26px'
         // 如果不是小屏幕，为container设置属性
         // if (!isSmallScreen.value) {
         //   containerRef.value.style = ''
@@ -117,7 +117,7 @@ onMounted(() => {
         // 获取滚动距离
         const scrollTop = Math.max(containerRef.value.scrollTop, 0)
         // 按钮top位置为其class中的top值-滚动距离
-        cbRef.value.style.top = `calc(30px - ${scrollTop}px)`
+        cbRef.value.style.top = `calc(26px - ${scrollTop}px)`
 
         // 如果不是小屏幕，为container设置属性
         // if (!isSmallScreen.value) {
@@ -153,10 +153,11 @@ onMounted(() => {
 })
 
 const handleContainerScroll = () => {
+  if (isSideBarShow.value) return
   // 获取滚动距离
   const scrollTop = containerRef.value.scrollTop
   // 按钮top位置为其class中的top值-滚动距离
-  cbRef.value.style.top = `calc(30px - ${scrollTop}px)`
+  cbRef.value.style.top = `calc(26px - ${scrollTop}px)`
   cbRef.value.classList.remove('close-animation')
 }
 
@@ -172,7 +173,7 @@ defineExpose({
 $duration: 400ms;
 
 // 关闭按钮
-$close-button-size: 16px;
+$close-button-size: 24px;
 
 // 侧边栏宽度，需要与上面js中设置的宽度一致
 $sidebar-width: 320px;
@@ -196,13 +197,13 @@ $main-content-height: calc(100vh - 56px);
 }
 
 .close-button {
-  @apply absolute z-full outline-none border-none;
+  @apply absolute z-full outline-none border-none rounded p-1;
   width: $close-button-size;
   height: $close-button-size;
-  &:hover {
-    background: transparent !important;
-  }
   left: calc($sidebar-width - $close-button-size - 16px);
+  &:hover {
+    @apply bg-highest;
+  }
 }
 .close-animation {
   transition-property: translateX translateY;
