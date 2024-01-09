@@ -15,7 +15,7 @@
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow transition-padding duration-300" :class="{ 'pr-8': !isSideBarShow }">
+        <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
           <DeleteButton type="experiment" :disabled="experimentStore.isRunning" @confirm="deleteExperiment" />
         </div>
       </div>
@@ -37,7 +37,7 @@
         </RouterLink>
       </nav>
     </div>
-    <div class="w-full overflow-y-auto">
+    <div class="w-full overflow-y-auto pb-10">
       <slot></slot>
     </div>
   </div>
@@ -120,7 +120,7 @@ const navs = [
   }
 }
 .experiment-description {
-  @apply mt-3.5 w-full break-words text-sm;
+  @apply mt-3.5 w-full break-words text-sm text-dimmer;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;

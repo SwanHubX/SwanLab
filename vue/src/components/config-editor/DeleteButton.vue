@@ -1,5 +1,5 @@
 <template>
-  <SLButton @click="click" hollow :disabled-tip="$t('common.delete.not-allowed')">
+  <SLButton @click="click" theme="negative" hollow :disabled-tip="$t('common.delete.not-allowed')">
     <div class="text-sm flex items-center gap-2">
       <SLIcon icon="trash" class="w-4 h-4" />
       <span class="md:block hidden">
@@ -45,7 +45,8 @@ const click = () => {
 
 <style lang="scss" scoped>
 button {
-  @apply px-3  flex items-center rounded-lg border-none text-negative-default h-8;
+  @apply px-3  flex items-center rounded-lg border-none h-8;
+  border-color: var(--outline-default) !important;
   @media (min-width: 768px) {
     border-style: solid;
   }

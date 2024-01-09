@@ -188,7 +188,7 @@ $main-content-height: calc(100vh - 56px);
 }
 
 .close-button {
-  @apply absolute z-full outline-none border-none rounded p-1;
+  @apply absolute z-full outline-none border-none rounded p-1 bg-transparent;
   width: $close-button-size;
   height: $close-button-size;
   left: calc($sidebar-width - $close-button-size - 16px);

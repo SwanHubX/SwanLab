@@ -13,7 +13,7 @@
           <ConfigEditor type="project" @modify="modifyProject" />
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow pr-6">
+        <div class="flex justify-end grow pr-6 ml-1">
           <DeleteButton type="project" @confirm="deleteProject" :disabled="hasRunning" />
         </div>
       </div>
@@ -98,7 +98,7 @@ const deleteProject = () => {
 }
 
 .project-description {
-  @apply mt-3.5 w-full break-words text-sm;
+  @apply mt-3.5 w-full break-words text-sm text-dimmer;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
