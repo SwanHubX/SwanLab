@@ -1,6 +1,12 @@
 <template>
-  <div class="w-full border-b py-5 flex-col space-y-5">
-    <EnvItem :env-key="item.key" :env-value="item.value" v-for="item in data" :key="item.key" />
+  <div class="w-full border-b py-5 flex-col space-y-5" v-if="data?.length !== 0">
+    <EnvItem
+      :env-key="item.key"
+      :env-value="item.value"
+      v-for="item in data"
+      :key="item.key"
+      :highLight="item.highLight"
+    />
   </div>
 </template>
 

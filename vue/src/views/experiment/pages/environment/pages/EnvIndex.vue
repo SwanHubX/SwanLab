@@ -24,8 +24,9 @@ const system = experiment.system
 
 // ---------------------------------- 配置信息 ----------------------------------
 
+// 环境配置汇总
 const environments = computed(() => {
-  return [times.value, systems.value]
+  return [times.value, systems.value, gits.value, hardware.value, swanlab.value]
 })
 
 // 时间相关
@@ -42,7 +43,7 @@ const times = computed(() => {
   ]
 })
 
-// 运行环境相关
+// 系统环境相关
 const systems = computed(() => {
   return [
     {
@@ -51,7 +52,72 @@ const systems = computed(() => {
     },
     {
       key: 'executable',
-      value: system.executable
+      value: system.executable,
+      highLight: true
+    },
+    {
+      key: 'command',
+      value: system.command,
+      highLight: true
+    },
+    {
+      key: 'hostname',
+      value: system.hostname
+    },
+    {
+      key: 'OS',
+      value: system.os
+    }
+  ]
+})
+
+// git 相关
+const gits = computed(() => {
+  return [
+    {
+      key: 'git_remote',
+      value: system.git_remote,
+      highLight: true
+    },
+    {
+      key: 'git_branch',
+      value: system.git_info ? system.git_info[0] : ''
+    },
+    {
+      key: 'git_commit',
+      value: system.git_info ? system.git_info[1] : ''
+    }
+  ]
+})
+
+// 硬件相关
+const hardware = computed(() => {
+  return [
+    {
+      key: 'cpu',
+      value: system.cpu
+    },
+    {
+      key: 'memory',
+      value: system.memory.toFixed(2) + 'GB'
+    },
+    {
+      key: 'gpu_cores',
+      value: system.gpu?.cores
+    },
+    {
+      key: 'gpu_type',
+      value: system.gpu?.type[0]
+    }
+  ]
+})
+
+// swanlab 相关
+const swanlab = computed(() => {
+  return [
+    {
+      key: 'swanlab',
+      value: `v${experiment.version}`
     }
   ]
 })

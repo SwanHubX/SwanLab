@@ -1,8 +1,8 @@
 <template>
   <div class="w-full flex" v-if="envValue">
     <!-- key -->
-    <span class="text-dimmer w-44">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
-    <span>{{ envValue }}</span>
+    <span class="text-dimmer w-44 shrink-0">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
+    <span class="break-all" :class="highLight ? 'text-dimmer bg-higher px-2' : ''">{{ envValue }}</span>
   </div>
 </template>
 
@@ -21,6 +21,10 @@ defineProps({
   envValue: {
     type: String,
     default: ''
+  },
+  highLight: {
+    type: Boolean,
+    default: false
   }
 })
 </script>
