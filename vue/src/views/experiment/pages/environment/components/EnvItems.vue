@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full border-b py-5 flex-col space-y-5" v-if="data?.length !== 0">
+  <div class="env-items" v-if="data?.length !== 0">
     <EnvItem
       :env-key="item.key"
       :env-value="item.value"
@@ -30,4 +30,12 @@ defineProps({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.env-items {
+  @apply w-full py-5 flex-col space-y-5;
+
+  &:not(:last-child) {
+    @apply border-b;
+  }
+}
+</style>
