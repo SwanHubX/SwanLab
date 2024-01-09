@@ -31,6 +31,7 @@ const routes = [
         path: 'env',
         name: 'experiment_env',
         component: () => import('@swanlab-vue/views/experiment/pages/environment/EnvironmentPage.vue'),
+        redirect: { name: 'exp_env_index' },
         children: [
           {
             path: 'index',

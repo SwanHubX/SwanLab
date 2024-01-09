@@ -72,6 +72,27 @@
     "navs": {
       "index": "overview",
       "dependances": "requrements"
+    },
+    "title": {
+      "exp_env_index": "Overview",
+      "exp_env_dependencies": "Requirements"
+    },
+    "keys": {
+      "start_time": "Start Time",
+      "duration": "Duration",
+      "python": "Python Version",
+      "executable": "Python executable",
+      "command": "Command",
+      "hostname": "Hostname",
+      "OS": "OS",
+      "git_remote": "Git Repository",
+      "git_branch": "Git Branch",
+      "git_commit": "Git Commit",
+      "cpu": "CPU count",
+      "memory": "Memory",
+      "gpu_cores": "GPU count",
+      "gpu_type": "GPU type",
+      "swanlab": "SwanLab Version"
     }
   }
 }
