@@ -1,10 +1,4 @@
 <template>
-  <!-- 标题 -->
-  <div class="flex items-center gap-2 py-5 px-8 border-b">
-    <div class="w-5 h-5 rounded-full" :style="{ backgroundColor: experimentStore.color }"></div>
-    <h1 class="text-lg font-semibold">{{ experimentStore.name }}</h1>
-    <SLStatusLabel :status="experimentStore.status" />
-  </div>
   <!-- 图表容器 -->
   <template v-if="status === 'success'">
     <ChartsContainer
@@ -25,7 +19,6 @@
  * @file: ChartPage.vue
  * @since: 2023-12-25 15:34:51
  **/
-import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'

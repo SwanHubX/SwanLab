@@ -15,7 +15,7 @@
 
 <script setup>
 /**
- * @description: 删除套件
+ * @description: 实验/项目删除套件
  * @file: SLDelete.vue
  * @since: 2024-01-04 14:27:27
  *
@@ -25,9 +25,9 @@
  * 3. 取消/确认按钮的回调
  **/
 
-import SLButton from './SLButton.vue'
-import SLIcon from './SLIcon.vue'
-import { confirm } from './comfirm'
+import SLButton from '../SLButton.vue'
+import SLIcon from '../SLIcon.vue'
+import { confirm } from '../comfirm'
 import { t } from '@swanlab-vue/i18n'
 
 const props = defineProps({
