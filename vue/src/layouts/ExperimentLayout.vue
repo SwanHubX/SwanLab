@@ -96,19 +96,19 @@ const modifyExperiment = async (newV, hideModal) => {
 const navs = [
   {
     label: t('experiment.navs.index'),
-    to: 'index'
+    to: `/experiment/${experimentStore.id}/index`
   },
   {
     label: t('experiment.navs.chart'),
-    to: 'chart'
+    to: `/experiment/${experimentStore.id}/chart`
   },
   {
     label: t('experiment.navs.log'),
-    to: 'log'
+    to: `/experiment/${experimentStore.id}/log`
   },
   {
     label: t('experiment.navs.env'),
-    to: 'env'
+    to: `/experiment/${experimentStore.id}/env`
   }
 ]
 </script>

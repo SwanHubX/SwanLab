@@ -1,6 +1,6 @@
 <template>
   <div class="w-48">
-    <router-link v-for="item in navs" :key="item.key" :to="item.to">
+    <router-link v-for="item in navs" :key="item.key" :to="item.to" active-class="active-router" exact>
       {{ $t(`experiment.env.navs.${item.key}`) }}
     </router-link>
   </div>
@@ -13,14 +13,18 @@
  * @since: 2024-01-09 15:32:18
  **/
 
+import { useExperimentStroe } from '@swanlab-vue/store'
+
+const id = useExperimentStroe().id
+
 const navs = [
   {
     key: 'index',
-    to: 'index'
+    to: `/experiment/${id}/env/index`
   },
   {
     key: 'dependances',
-    to: 'dependencies'
+    to: `/experiment/${id}/env/dependencies`
   }
 ]
 </script>
