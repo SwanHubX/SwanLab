@@ -43,22 +43,11 @@
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
-import { t } from '@swanlab-vue/i18n'
-import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
-import http from '@swanlab-vue/api/http'
-import { useRouter } from 'vue-router'
-import { inject } from 'vue'
-import { message } from '@swanlab-vue/components/message'
+import { useExperimentStroe } from '@swanlab-vue/store'
 import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
 const experiment = ref(experimentStore.experiment)
-
-const projectStore = useProjectStore()
-
-const showErrorView = inject('showErrorView')
-
-const router = useRouter()
 
 // ---------------------------------- 实验信息 ----------------------------------
 
@@ -80,16 +69,6 @@ const experiment_infos = computed(() => {
 })
 
 // ---------------------------------- 设备信息 ----------------------------------
-
-// const hardware = computed(() => {
-//   const prePath = 'experiment.index.header.experiment_device'
-//   const list = [
-//     experiment.value.system.cpu ? t(`${prePath}.cpu`, { value: experiment.value.system.cpu }) : '',
-//     experiment.value.system.gpu?.cores ? t(`${prePath}.gpu`, { value: experiment.value.system.gpu.cores }) : '',
-//     experiment.value.system.gpu?.type[0] ? t(`${prePath}.type`, { value: experiment.value.system.gpu.type[0] }) : ''
-//   ]
-//   return list.filter((item) => item !== '').join(' | ')
-// })
 
 const experiment_device = computed(() => {
   return [
