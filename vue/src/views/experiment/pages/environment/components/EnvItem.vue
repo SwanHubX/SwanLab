@@ -19,7 +19,7 @@ defineProps({
     default: ''
   },
   envValue: {
-    type: String,
+    type: [String, Number],
     default: ''
   },
   highLight: {

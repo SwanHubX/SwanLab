@@ -63,8 +63,8 @@
   },
   "env": {
     "navs": {
-      "index": "overview",
-      "dependances": "requrements"
+      "index": "Overview",
+      "dependances": "Requrements"
     },
     "title": {
       "exp_env_index": "Overview",

@@ -16,7 +16,7 @@
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
-import EnvItems from './EnvItems.vue'
+import EnvItems from '../components/EnvItems.vue'
 
 const experimentStore = useExperimentStroe()
 const experiment = experimentStore.experiment
@@ -99,7 +99,7 @@ const hardware = computed(() => {
     },
     {
       key: 'memory',
-      value: system.memory.toFixed(2) + 'GB'
+      value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
     },
     {
       key: 'gpu_cores',
