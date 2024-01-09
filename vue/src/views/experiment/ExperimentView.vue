@@ -10,6 +10,7 @@
  * @file: ExperimentView.vue
  * @since: 2023-12-04 19:07:53
  **/
+
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'

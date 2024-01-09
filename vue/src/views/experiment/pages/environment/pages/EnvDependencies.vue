@@ -1,5 +1,5 @@
 <template>
-  <div>123</div>
+  <div>dependencies</div>
 </template>
 
 <script setup>
