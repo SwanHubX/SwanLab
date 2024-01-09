@@ -1,48 +1,42 @@
 <template>
-  <!-- 项目信息 -->
-  <div class="p-6 pt-5 flex flex-col gap-5 text-dimmer border-b relative">
-    <!-- 删除项目按钮，因为在右边所以需要absolute -->
-    <DeleteButton class="absolute top-5 right-4" type="project" @confirm="deleteProject" :disabled="hasRunning" />
-    <div class="flex gap-3 transition-transform duration-300" :class="{ 'translate-x-8': !isSideBarShow }">
-      <h1 class="text-2xl font-semibold text-default">{{ projectStore.name }}</h1>
-      <ConfigEditor type="project" @modify="modifyProject" />
+  <HomeLayout>
+    <template #top>
+      <!-- 项目创建时间、最近运行的时间、总实验数量 -->
+      <div class="w-80 flex flex-col gap-4 my-5 text-dimmer">
+        <div class="flex justify-between">
+          <div class="grow">{{ $t('home.overview.create') }}</div>
+          <p class="w-36 whitespace-nowrap">{{ createTime }}</p>
+        </div>
+        <div class="flex justify-between">
+          <div class="grow">{{ $t('home.overview.latest') }}</div>
+          <p class="w-36 whitespace-nowrap">{{ updateTime }}</p>
+        </div>
+        <div class="flex justify-between">
+          <div class="grow">{{ $t('home.overview.total') }}</div>
+          <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
+        </div>
+      </div>
+    </template>
+    <div class="px-6 py-5">
+      <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
+      <!-- 实验表格 -->
+      <SLTable :column="column" :data="experiments_table" v-if="tags">
+        <template v-slot:name="{ row }">
+          <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+        </template>
+        <template v-slot:status="{ row }">
+          <SLStatusLabel :id="row.experiment_id" :status="row.status" />
+        </template>
+        <template v-slot:create="{ row }">
+          {{ transTime(convertUtcToLocal(row.create_time)) }}
+        </template>
+        <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
+          {{ row.config[item.key] || '-' }}
+        </template>
+      </SLTable>
+      <EmptyTable v-else-if="experiments.length === 0" />
     </div>
-    <p v-if="projectStore.description">{{ projectStore.description }}</p>
-    <!-- 项目创建时间、最近运行的时间、总实验数量 -->
-    <div class="w-80 flex flex-col gap-4">
-      <div class="flex justify-between">
-        <div class="grow">{{ $t('home.overview.create') }}</div>
-        <p class="w-36 whitespace-nowrap">{{ createTime }}</p>
-      </div>
-      <div class="flex justify-between">
-        <div class="grow">{{ $t('home.overview.latest') }}</div>
-        <p class="w-36 whitespace-nowrap">{{ updateTime }}</p>
-      </div>
-      <div class="flex justify-between">
-        <div class="grow">{{ $t('home.overview.total') }}</div>
-        <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
-      </div>
-    </div>
-  </div>
-  <div class="p-6">
-    <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
-    <!-- 实验表格 -->
-    <SLTable :column="column" :data="experiments_table" v-if="tags">
-      <template v-slot:name="{ row }">
-        <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
-      </template>
-      <template v-slot:status="{ row }">
-        <SLStatusLabel :id="row.experiment_id" :status="row.status" />
-      </template>
-      <template v-slot:create="{ row }">
-        {{ transTime(convertUtcToLocal(row.create_time)) }}
-      </template>
-      <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-        {{ row.config[item.key] || '-' }}
-      </template>
-    </SLTable>
-    <EmptyTable v-else-if="experiments.length === 0" />
-  </div>
+  </HomeLayout>
 </template>
 
 <script setup>
@@ -59,11 +53,8 @@ import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
-import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import SLTable from '@swanlab-vue/components/table'
-import { message } from '@swanlab-vue/components/message'
 import EmptyTable from './components/EmptyTable.vue'
-import DeleteButton from '@swanlab-vue/components/config-editor/DeleteButton.vue'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {
@@ -179,52 +170,6 @@ async function hashString(inputString) {
   // return hashHex
   return 'swanlab-overview-table-key' + inputString
 }
-
-// ---------------------------------- 修改项目信息 ----------------------------------
-
-const modifyProject = async (newV, hideModal) => {
-  const { data } = await http.patch('/project/update', newV)
-  projectStore.setProject(data.project)
-  hideModal()
-}
-
-// ---------------------------------- 删除项目 ----------------------------------
-
-/**
- * 是否可以删除项目
- * 如果有实验正在进行中，直接不显示删除按钮
- */
-const hasRunning = computed(() => {
-  for (const experiment of experiments.value) {
-    if (experiment.status === 0) return true
-  }
-  return false
-})
-
-/**
- * 删除项目
- *
- * success：显示成功，清空状态，并显示空项目错误页
- *
- * fail：在有实验正在进行的时候删除项目
- */
-const deleteProject = () => {
-  http
-    .delete('/project/delete')
-    .then(() => {
-      message.success('Delete Successfully')
-      projectStore.clearProject()
-      showErrorView(3500)
-    })
-    .catch(({ data }) => {
-      message.error('Error deleting project')
-      showErrorView(data.code, data.message)
-    })
-}
-
-// ---------------------------------- 标题控制，如果侧边栏收起，需要留个空位 ----------------------------------
-
-const isSideBarShow = inject('isSideBarShow')
 </script>
 
 <style lang="scss" scoped>
