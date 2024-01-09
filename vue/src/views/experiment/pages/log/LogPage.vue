@@ -26,7 +26,7 @@
         <!-- 错误日志 -->
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span>{{ logs.length + index }}</span>
+          <span class="w-8 text-right flex-shrink-0 select-none">{{ logs.length + index }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
