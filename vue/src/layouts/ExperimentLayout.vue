@@ -137,7 +137,7 @@ const navs = [
     @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
     @apply mb-1 rounded;
     &:hover {
-      @apply bg-highest;
+      @apply bg-higher;
     }
   }
   .nav-active {
