@@ -109,7 +109,7 @@ const search = (value) => {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   .log-area {
-    @apply overflow-auto h-full;
+    @apply overflow-auto h-full break-all;
     &::-webkit-scrollbar-track {
       background: transparent;
     }
