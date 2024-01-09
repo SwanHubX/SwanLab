@@ -14,7 +14,7 @@
           <p class="flex" v-show="searchValue && line.lower.includes(searchValue)">
             <span>{{ line.value.substring(0, line.lower.indexOf(searchValue)) }}</span>
             <!-- 高亮展示 -->
-            <span class="bg-[#F6FFA6]">{{
+            <span class="bg-warning-dimmest">{{
               line.value.substring(
                 line.lower.indexOf(searchValue),
                 line.lower.indexOf(searchValue) + searchValue.length

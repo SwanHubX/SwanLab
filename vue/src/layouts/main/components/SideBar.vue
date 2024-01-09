@@ -11,9 +11,10 @@
     </div>
     <!-- 实验路由 -->
     <div class="experiments-container">
+      <SLSearch @input="search" />
       <!-- 实验列表 -->
       <RouterLink
-        v-for="experiment in projectStore.experiments"
+        v-for="experiment in experiments"
         :key="experiment.experiment_id"
         :to="getExperimentRouter(experiment)"
         :title="experiment.name"
@@ -34,7 +35,8 @@
  * @since: 2023-12-04 18:20:02
  **/
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-// import { ref } from 'vue'
+import SLSearch from '@swanlab-vue/components/SLSearch.vue'
+import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 
@@ -45,9 +47,18 @@ const getExperimentRouter = (experiment) => {
 }
 
 // ---------------------------------- 搜索实验 ----------------------------------
+
 // 需要展示的实验信息——默认展示全部，但在搜索过后，更新为搜索结果
-// const query = ref([])
-// TODO 暂时没有实现
+const experiments = computed(() => {
+  if (!searchValue.value) return projectStore.experiments
+  return projectStore.experiments.filter((expr) => expr.name.toLowerCase().includes(searchValue.value))
+})
+
+const searchValue = ref('')
+
+const search = (value) => {
+  searchValue.value = value.toLowerCase()
+}
 </script>
 
 <style lang="scss" scoped>

@@ -117,7 +117,7 @@ button {
 
 // ----------------------- hollow 样式 -----------------------
 .sa-button-negative-hollow {
-  @apply text-negative-default bg-default transition-all;
+  @apply text-negative-default border-negative-default bg-default transition-all;
 
   &:hover {
     @apply bg-higher;
@@ -129,7 +129,7 @@ button {
 }
 
 .sa-button-primary-hollow {
-  @apply text-default bg-default transition-all;
+  @apply text-primary-default border-primary-default bg-default transition-all;
 
   &:hover {
     @apply bg-higher;
