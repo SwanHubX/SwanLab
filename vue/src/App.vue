@@ -1,8 +1,8 @@
 <template>
-  <MainLayout :version="version" v-if="ready">
+  <MainLayout :show-side-bar="!errorCode" :version="version" v-if="ready">
     <router-view v-if="!errorCode" />
   </MainLayout>
-  <ErrorView :code="errorCode" :message="errorMessage" v-if="errorCode" />
+  <ErrorView :code="errorCode" :message="errorMessage" v-if="!ready && errorCode" />
   <!-- 全局气泡提示 -->
   <SLMessages ref="messagesRef" />
   <!-- 全局确认弹窗 -->
@@ -33,50 +33,26 @@ http
   .then(({ data, _header }) => {
     projectStore.setProject(data)
     version.value = _header['swanlab-version']
+    ready.value = true
   })
   .catch((response) => {
     // console.error(response)
     errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
     version.value = response.headers['swanlab-version']
   })
-  .finally(() => {
-    ready.value = true
-  })
 
 // ---------------------------------- 错误处理 ----------------------------------
 
 const errorCode = ref(0) // 错误码
 const errorMessage = ref('') // 错误信息
-
-/**
- * 跳转错误页
- * @param {number} code 错误码
- * @param {string} message 错误信息，可选，在没有自定义错误页的时候使用
- */
-const showErrorView = (code, message = '') => {
-  errorCode.value = code
-  errorMessage.value = message
-}
-
-/**
- * 清除错误缓存
- */
-const clearErrorView = () => {
-  errorCode.value = 0
-  errorMessage.value = ''
-}
-
-provide('showErrorView', showErrorView)
-// provide('clearErrorView', clearErrorView)
-
 const route = useRoute()
 
 // 监测路由修改
 watch(
   computed(() => route.fullPath),
-  () => {
-    // 清除错误，恢复正常页面
-    clearErrorView()
+  (oldVal) => {
+    // console.log('route change', newVal, oldVal)
+    if (oldVal === undefined) return
     // 清除消息弹窗
     message.clear()
   }

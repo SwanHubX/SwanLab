@@ -2,6 +2,7 @@
   <ExperimentLayout :key="experimentStore.id" v-if="ready">
     <router-view />
   </ExperimentLayout>
+  <ErrorView :code="errorCode" v-if="!ready && errorCode" />
 </template>
 
 <script setup>
@@ -12,11 +13,12 @@
  **/
 
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
+import ErrorView from '../error/ErrorView.vue'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 import { computed } from 'vue'
-import { inject } from 'vue'
+import { ref } from 'vue'
 const route = useRoute()
 const experimentStore = useExperimentStroe()
 const projectStore = useProjectStore()
@@ -24,7 +26,8 @@ const projectStore = useProjectStore()
 const ready = computed(() => {
   return experimentStore.id !== undefined
 })
-const showErrorView = inject('showErrorView')
+const errorCode = ref(0) // 错误码
+
 const init = async (id = route.params.experimentId) => {
   experimentStore.experiment = undefined
   // 清空charts
@@ -40,7 +43,7 @@ const init = async (id = route.params.experimentId) => {
     })
     .catch((response) => {
       // console.error(response)
-      showErrorView(response.data.code)
+      errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
     })
 }
 

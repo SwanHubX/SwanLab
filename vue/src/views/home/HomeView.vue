@@ -47,7 +47,7 @@
  **/
 import { useProjectStore } from '@swanlab-vue/store'
 import { formatTime } from '@swanlab-vue/utils/time'
-import { computed, ref, inject } from 'vue'
+import { computed, ref } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
@@ -60,13 +60,10 @@ const projectStore = useProjectStore()
 const experiments = computed(() => {
   // 在最前面判断项目信息是否存在，不存在则是后端未开启/没有项目
   if (typeof projectStore.experiments === 'undefined') {
-    showErrorView(3500)
     return []
   }
   return projectStore.experiments
 })
-
-const showErrorView = inject('showErrorView')
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
 

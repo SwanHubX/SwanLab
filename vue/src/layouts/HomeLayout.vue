@@ -40,7 +40,6 @@ import { useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { message } from '@swanlab-vue/components/message'
 const projectStore = useProjectStore()
-const showErrorView = inject('showErrorView')
 
 // ---------------------------------- 控制h1缩进 ----------------------------------
 const isSideBarShow = inject('isSideBarShow')
@@ -79,11 +78,9 @@ const deleteProject = () => {
     .then(() => {
       message.success('Delete Successfully')
       projectStore.clearProject()
-      showErrorView(3500)
     })
-    .catch(({ data }) => {
+    .catch(() => {
       message.error('Error deleting project')
-      showErrorView(data.code, data.message)
     })
 }
 </script>

@@ -8,11 +8,11 @@
     <div class="relative-container">
       <main class="main-container">
         <!-- 遮罩，淡入淡出 -->
-        <transition name="fade">
+        <transition name="fade" v-if="showSideBar">
           <div class="md:hidden sidebar-overlay" v-if="isSideBarShow" @click="handleClose"></div>
         </transition>
         <!-- 侧边栏 -->
-        <div class="sidebar-container bg-default" ref="sidebarRef">
+        <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
           <!-- 侧边栏规定宽度 -->
           <div class="w-80 h-full border-r">
             <SideBar />
@@ -21,7 +21,7 @@
         <!-- 右侧主要内容 -->
         <div class="main-content" ref="containerRef">
           <!-- 侧边栏关闭/开启按钮 -->
-          <button class="close-button" ref="cbRef" @click="handleClose">
+          <button class="close-button" ref="cbRef" @click="handleClose" v-if="showSideBar">
             <SLIcon icon="sidebar" class="w-full h-full" />
           </button>
           <slot></slot>
@@ -40,10 +40,14 @@ import HeaderBar from './components/HeaderBar.vue'
 import SideBar from './components/SideBar.vue'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
-defineProps({
+const props = defineProps({
   version: {
     type: String,
-    default: 'unknown'
+    default: undefined
+  },
+  showSideBar: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -100,6 +104,7 @@ onMounted(() => {
   watch(
     isSideBarShow,
     (val) => {
+      if (!props.showSideBar) return
       // 显示
       if (val) {
         sidebarRef.value.style = 'width: 320px;'

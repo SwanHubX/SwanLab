@@ -16,7 +16,7 @@
       </svg>
       <div class="flex items-end pb-0.5">
         <span class="font-semibold text-2xl leading-6 mr-0.5">Swanlab</span>
-        <span class="whitespace-nowrap text-xs pl-2 text-dimmer"> v{{ version }}</span>
+        <span class="whitespace-nowrap text-xs pl-2 text-dimmer"> {{ formatVersion(version) }}</span>
       </div>
     </div>
     <!-- links -->
@@ -55,6 +55,12 @@ defineProps({
     default: 'unknown'
   }
 })
+
+// ---------------------------------- 格式化版本号 ----------------------------------
+const formatVersion = (version) => {
+  if (version === 'unknown') return version
+  return 'v' + version
+}
 
 // ---------------------------------- 链接配置 ----------------------------------
 

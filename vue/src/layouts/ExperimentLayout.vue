@@ -60,7 +60,6 @@ import { t } from '@swanlab-vue/i18n'
 const router = useRouter()
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
-const showErrorView = inject('showErrorView')
 
 // ---------------------------------- 控制h1缩进 ----------------------------------
 const isSideBarShow = inject('isSideBarShow')
@@ -75,9 +74,7 @@ const deleteExperiment = () => {
         message.success('Delete Successfully')
       })
     })
-    .catch(({ data }) => {
-      showErrorView(data.code, data.message)
-    })
+    .catch(({ data }) => {})
 }
 
 // ---------------------------------- 修改实验信息 ----------------------------------
