@@ -45,7 +45,7 @@ const click = () => {
 
 <style lang="scss" scoped>
 button {
-  @apply px-3 py-1.5 rounded-lg border-none text-negative-default;
+  @apply px-3  flex items-center rounded-lg border-none text-negative-default h-8;
   @media (min-width: 768px) {
     border-style: solid;
   }

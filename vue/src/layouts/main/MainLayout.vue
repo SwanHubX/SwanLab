@@ -202,7 +202,6 @@ $main-content-height: calc(100vh - 56px);
   &:hover {
     background: transparent !important;
   }
-  top: 30px;
   left: calc($sidebar-width - $close-button-size - 16px);
 }
 .close-animation {

@@ -6,10 +6,10 @@
       <div class="experiment-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
-          <h1 class="text-2xl flex items-center gap-1">
+          <h1 class="text-2xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
             <RouterLink class="hover:underline underline-offset-2" to="/">{{ projectStore.name }}</RouterLink>
             /
-            <span class="font-semibold truncate inline-block max-w-sm">{{ experimentStore.name }}</span>
+            <span class="font-semibold">{{ experimentStore.name }}</span>
           </h1>
           <!-- 编辑按钮 -->
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
@@ -113,7 +113,7 @@ const navs = [
 
 <style scoped lang="scss">
 .experiment-title {
-  @apply flex items-center w-full overflow-x-auto;
+  @apply flex items-center w-full overflow-x-auto overflow-y-visible;
   // 隐藏滚动条
   &::-webkit-scrollbar {
     display: none;
@@ -128,7 +128,7 @@ const navs = [
 }
 
 .experiment-navs {
-  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-hidden -ml-3;
+  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-visible -ml-3;
   // 隐藏滚动条
   &::-webkit-scrollbar {
     display: none;
@@ -139,7 +139,7 @@ const navs = [
   .nav-active {
     @apply text-positive-higher;
     &:after {
-      @apply w-full h-0.5 bg-positive-higher absolute -bottom-[1px] left-1/2 -translate-x-1/2;
+      @apply w-full h-0.5 bg-positive-higher absolute -bottom-0 left-1/2 -translate-x-1/2 z-10;
       content: '';
     }
     // 字体加粗
