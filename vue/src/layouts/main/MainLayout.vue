@@ -1,5 +1,5 @@
 <template>
-  <section class="w-screen h-screen">
+  <section class="w-screen h-screen overflow-x-clip">
     <!-- 顶部header -->
     <header class="h-14 w-full">
       <HeaderBar :version="version" />
@@ -145,7 +145,8 @@ $sidebar-width: 320px;
 .main-content {
   @apply h-full md:w-[calc(100vw-320px)] w-full;
   // 宽度变化
-  transition: width $duration ease-in-out;
+  transition-duration: $duration;
+  transition-property: ease-in-out;
 }
 
 .close-button {
