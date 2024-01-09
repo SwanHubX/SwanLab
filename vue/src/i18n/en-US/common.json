@@ -37,5 +37,8 @@
       "project": "Once you delete a repository, there is no going back. Please be certain.",
       "experiment": "Once you delete a experiment, there is no going back. Please be certain."
     }
+  },
+  "search": {
+    "placeholder": "Search Lab..."
   }
 }
