@@ -14,7 +14,7 @@
           <p class="flex" v-show="searchValue && line.lower.includes(searchValue)">
             <span>{{ line.value.substring(0, line.lower.indexOf(searchValue)) }}</span>
             <!-- 高亮展示 -->
-            <span class="bg-[#F6FFA6]">{{
+            <span class="bg-warning-dimmest">{{
               line.value.substring(
                 line.lower.indexOf(searchValue),
                 line.lower.indexOf(searchValue) + searchValue.length
@@ -26,7 +26,7 @@
         <!-- 错误日志 -->
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span>{{ logs.length + index }}</span>
+          <span class="w-8 text-right flex-shrink-0 select-none">{{ logs.length + index }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
@@ -109,7 +109,7 @@ const search = (value) => {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   .log-area {
-    @apply overflow-auto h-full;
+    @apply overflow-auto h-full break-all;
     &::-webkit-scrollbar-track {
       background: transparent;
     }

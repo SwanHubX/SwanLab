@@ -10,7 +10,11 @@
   },
   "init-error": {
     "title": "No available experiment dashboard in the current directory",
-    "reasons": ["1. You haven't written any data to the log file yet", "2. SwanLab couldn't find your log file"]
+    "reasons": [
+      "1. You haven't written any data to the log file yet",
+      "2. SwanLab couldn't find your log file",
+      "3. Maybe this is an internal error of SwanLab"
+    ]
   },
   "experiment-error": {
     "title": "This experiment cannot be viewed",

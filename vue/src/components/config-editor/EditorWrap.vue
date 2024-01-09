@@ -46,16 +46,10 @@
     </div>
     <!-- 确认按钮 -->
     <div class="flex justify-end pt-10">
-      <button
-        type="submit"
-        class="p-2 rounded bg-primary-default text-white-default transition-all flex items-center"
-        :class="
-          handling ? 'pointer-events-none cursor-not-allowed opacity-50 gap-2' : 'hover:rounded-lg active:opacity-70'
-        "
-      >
+      <SLButton type="submit" theme="primary" class="p-2 rounded flex items-center" :disabled="handling">
         <SLLoading size="4" v-if="handling" />
         <span>{{ $t(`common.config-editor.save.${handling ? 'savimg' : 'default'}`) }}</span>
-      </button>
+      </SLButton>
     </div>
   </form>
 </template>
@@ -225,5 +219,11 @@ const save = async () => {
 
 .tip {
   @apply absolute bottom-[-20px] left-0 text-xs;
+}
+
+button[type='submit'] {
+  &:disabled {
+    @apply pointer-events-none cursor-not-allowed opacity-50 gap-2;
+  }
 }
 </style>

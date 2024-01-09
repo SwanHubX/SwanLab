@@ -1,5 +1,5 @@
 <template>
-  <button :class="themeClass" :disabled="disabled" :title="disabled ? disabledTip : ''" ref="buttonRef">
+  <button :class="themeClass" :disabled="disabled" :title="disabled ? disabledTip : tip">
     <slot></slot>
     {{ text }}
   </button>
@@ -15,7 +15,7 @@
  * @example
  * <SLButton text="你好" theme="primary" hollow />
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 const props = defineProps({
   theme: {
     type: String,
@@ -37,6 +37,10 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  tip: {
+    type: String,
+    default: ''
+  },
   disabledTip: {
     type: String,
     default: 'Not Allowed'
@@ -46,10 +50,6 @@ const props = defineProps({
 const themeClass = computed(() => {
   const theme = `sa-button-${props.theme}${props.hollow ? '-hollow' : ''}`
   return props.disabled ? '' : theme
-})
-const buttonRef = ref(null)
-defineExpose({
-  button: buttonRef
 })
 </script>
 
@@ -117,7 +117,7 @@ button {
 
 // ----------------------- hollow 样式 -----------------------
 .sa-button-negative-hollow {
-  @apply text-negative-default bg-default transition-all;
+  @apply text-negative-default border-negative-default bg-default transition-all;
 
   &:hover {
     @apply bg-higher;
@@ -129,7 +129,7 @@ button {
 }
 
 .sa-button-primary-hollow {
-  @apply text-default bg-default transition-all;
+  @apply text-primary-default border-primary-default bg-default transition-all;
 
   &:hover {
     @apply bg-higher;
