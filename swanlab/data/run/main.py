@@ -31,11 +31,11 @@ class SwanConfig:
     """
 
     def __init__(self, config):
-        self._config = config
+        self.__config = config
 
     def __getattr__(self, name):
         try:
-            return self._config[name]
+            return self.__config[name]
         except KeyError:
             raise AttributeError(f"'SwanConfig' object has no attribute '{name}'")
 
