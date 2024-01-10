@@ -1,6 +1,6 @@
 <template>
-  <div class="w-full">
-    <template v-if="requirements && requirements.length !== 0">
+  <div class="w-full" v-if="requirements">
+    <template v-if="requirements.length !== 0">
       <!-- 搜索、复制、下载 -->
       <FuncBar class="pb-6 py-4" @input="search" :content="requirements?.join('\n')" :filename="filename" />
       <!-- 如果有依赖项 -->
@@ -24,6 +24,9 @@
       {{ $t('experiment.env.empty.requirements') }}
     </div>
   </div>
+  <div class="w-full flex justify-center pt-10" v-else>
+    <SLLoading />
+  </div>
 </template>
 
 <script setup>
@@ -39,7 +42,7 @@ import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
 import http from '@swanlab-vue/api/http'
 
 const experimentStore = useExperimentStroe()
-const requirements = ref([])
+const requirements = ref()
 
 http.get(`/experiment/${experimentStore.id}/requirements`).then(({ data }) => {
   requirements.value = data.requirements
