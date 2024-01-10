@@ -13,18 +13,14 @@
  * @since: 2024-01-09 15:32:18
  **/
 
-import { useExperimentStroe } from '@swanlab-vue/store'
-
-const id = useExperimentStroe().id
-
 const navs = [
   {
     key: 'index',
-    to: `/experiment/${id}/env/index`
+    to: `index`
   },
   {
     key: 'dependances',
-    to: `/experiment/${id}/env/dependencies`
+    to: `requirements`
   }
 ]
 </script>

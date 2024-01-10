@@ -1,8 +1,8 @@
 <template>
-  <div class="w-full">
-    <template v-if="dependencies && dependencies.length !== 0">
+  <div class="w-full" v-if="requirements">
+    <template v-if="requirements.length !== 0">
       <!-- 搜索、复制、下载 -->
-      <FuncBar class="pb-6 py-4" @input="search" :content="dependencies?.join('\n')" :filename="filename" />
+      <FuncBar class="pb-6 py-4" @input="search" :content="requirements?.join('\n')" :filename="filename" />
       <!-- 如果有依赖项 -->
       <div class="px-6 py-4 bg-higher rounded">
         <p v-for="line in lines" :key="line">
@@ -20,8 +20,9 @@
       </div>
     </template>
     <!-- 没有依赖项时占位 -->
-    <div class="w-full text-center pt-10" v-else>
-      {{ $t('experiment.env.empty.requirements') }}
+    <div class="w-full flex flex-wrap justify-center pt-10" v-else>
+      <SLIcon class="magnifier" icon="search"></SLIcon>
+      <div class="font-semibold w-full text-center pt-10">{{ $t('experiment.env.empty.requirements') }}</div>
     </div>
   </div>
 </template>
@@ -36,9 +37,19 @@
 import { ref, computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
+import http from '@swanlab-vue/api/http'
 
 const experimentStore = useExperimentStroe()
-const dependencies = experimentStore.experiment.system?.dependencies
+const requirements = ref()
+
+http
+  .get(`/experiment/${experimentStore.id}/requirements`)
+  .then(({ data }) => {
+    requirements.value = data.requirements
+  })
+  .catch(() => {
+    requirements.value = []
+  })
 
 // ---------------------------------- 搜索 ----------------------------------
 
@@ -51,7 +62,7 @@ const search = (value) => {
 
 // 对依赖的每一行进行一些特殊处理
 const lines = computed(() => {
-  return dependencies.map((line) => {
+  return requirements.value.map((line) => {
     // 查找内容不为空，并且该行含有查找内容，说明是目标行
     const isTarget = searchValue.value !== '' && line.toLowerCase().includes(searchValue.value)
 
@@ -79,4 +90,29 @@ function splitStringBySearch(target, substring) {
 const filename = 'requirements.txt'
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+$duration: 3s;
+
+.magnifier {
+  @apply w-10 h-10;
+  animation: animloader $duration infinite;
+}
+
+@keyframes animloader {
+  0% {
+    transform: translate(-5px, -5px);
+  }
+  25% {
+    transform: translate(-5px, 5px);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+  75% {
+    transform: translate(5px, -5px);
+  }
+  100% {
+    transform: translate(-5px, -5px);
+  }
+}
+</style>
