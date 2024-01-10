@@ -17,7 +17,15 @@ import os
 import ujson
 from urllib.parse import quote, unquote  # 转码路径参数
 from typing import List, Dict
-from ..settings import PROJECT_PATH, SWANLOG_DIR
+from ..settings import (
+    PROJECT_PATH,
+    SWANLOG_DIR,
+    get_logs_dir,
+    get_files_dir,
+    get_meta_path,
+    get_requirements_path,
+    get_tag_dir,
+)
 from ...utils import get_a_lock, create_time, DEFAULT_COLOR
 from ...log import swanlog as swl
 
@@ -139,15 +147,14 @@ async def get_experiment(experiment_id: int):
     if experiment is None:
         return NOT_FOUND_404()
     # 生成实验存储路径
-    exp_path = os.path.join(SWANLOG_DIR, experiment["name"])
-    experiment["tags"] = __list_subdirectories(os.path.join(exp_path, "logs"))
+    experiment["tags"] = __list_subdirectories(get_logs_dir(experiment["name"]))
     experiment["default_color"] = DEFAULT_COLOR
     # COMPAT
     # experiment 中是否含有 system 字段，该字段原存与 package.json，先存于 {exp_name}/files/swanlab-metadata.json
     if "system" in experiment:
         return SUCCESS_200(experiment)
     # 不存在的时候，需要手动添加
-    with open(os.path.join(exp_path, "files", "swanlab-metadata.json")) as f:
+    with open(get_meta_path(experiment["name"])) as f:
         system = ujson.loads(f.read())
     experiment["system"] = system
     return SUCCESS_200(experiment)
@@ -173,7 +180,7 @@ async def get_tag_data(experiment_id: int, tag: str):
         return NOT_FOUND_404("experiment not found")
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
-    tag_path: str = os.path.join(SWANLOG_DIR, experiment_name, "logs", tag)
+    tag_path: str = get_tag_dir(experiment_name, tag)
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
@@ -271,7 +278,7 @@ async def get_experiment_summary(experiment_id: int):
     array
         每个tag的最后一个数据
     """
-    experiment_path: str = os.path.join(SWANLOG_DIR, __find_experiment(experiment_id)["name"], "logs")
+    experiment_path: str = get_logs_dir(__find_experiment(experiment_id)["name"])
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     tags = [item for item in tags if item != "_summary.json"]
     summaries = []
@@ -471,6 +478,6 @@ async def get_exp_requirements(experiment_id: int):
         每个依赖项为一行，以列表的形式返回
     """
     experiment = __find_experiment(experiment_id)
-    with open(os.path.join(SWANLOG_DIR, experiment["name"], "files", "requirements.txt")) as f:
+    with open(os.path.join(get_requirements_path(experiment["name"]))) as f:
         requirements = f.read()
     return SUCCESS_200({"requirements": requirements.split("\n")})

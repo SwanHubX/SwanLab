@@ -27,3 +27,40 @@ INDEX = os.path.join(TEMPLATE_PATH, "index.html")
 SWANLOG_DIR = get_swanlog_dir()
 # project.json文件路径
 PROJECT_PATH = get_runtime_project()
+
+
+# ---------------------------------- 实验目录下的各个路径 ----------------------------------
+
+# tags 存储目录
+LOGS = "logs"
+# files 实验环境目录
+FILES = "files"
+# 实验环境(元数据)
+META_DATA = "swanlab-metadata.json"
+# 实验依赖
+REQUIREMENTS = "requirements.txt"
+
+
+def get_logs_dir(name) -> str:
+    """logs 目录路径，存放 tag 数据"""
+    return os.path.join(SWANLOG_DIR, name, LOGS)
+
+
+def get_files_dir(name) -> str:
+    """files 目录路径"""
+    return os.path.join(SWANLOG_DIR, name, FILES)
+
+
+def get_meta_path(name) -> str:
+    """实验环境存储路径"""
+    return os.path.join(SWANLOG_DIR, name, FILES, META_DATA)
+
+
+def get_requirements_path(name) -> str:
+    """实验依赖存储路径"""
+    return os.path.join(SWANLOG_DIR, name, FILES, REQUIREMENTS)
+
+
+def get_tag_dir(name, tag) -> str:
+    """获取 tag 对应的目录路径"""
+    return os.path.join(SWANLOG_DIR, name, LOGS, tag)
