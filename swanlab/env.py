@@ -107,7 +107,7 @@ def get_server_host(env: Optional[Env] = None) -> Optional[str]:
     _env[HOST] = env.get(HOST, default=default)
     # 必须是一个ipv4地址
     if not is_ipv4(_env.get(HOST)):
-        raise ValueError('SWANLAB_SERVER_HOST must be an ipv4 address, now is "{host}"'.format(host=_env.get(PORT)))
+        raise ValueError('SWANLAB_SERVER_HOST must be an ipv4 address, now is "{host}"'.format(host=_env.get(HOST)))
     return _env.get(HOST)
 
 
