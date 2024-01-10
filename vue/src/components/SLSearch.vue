@@ -1,6 +1,6 @@
 <template>
   <div class="w-full border flex gap-2 justify-between items-center py-2 px-2 rounded-lg">
-    <SLIcon class="w-4 h-4" icon="search"></SLIcon>
+    <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
     <input
       type="text"
       v-model="value"

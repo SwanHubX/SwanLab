@@ -116,6 +116,18 @@ button {
 }
 
 // ----------------------- hollow 样式 -----------------------
+.sa-button-default-hollow {
+  @apply text-default border-default bg-default transition-all;
+
+  &:hover {
+    @apply border-primary-dimmer;
+  }
+
+  &:active {
+    @apply border-primary-default;
+  }
+}
+
 .sa-button-negative-hollow {
   @apply text-negative-default border-negative-default bg-default transition-all;
 

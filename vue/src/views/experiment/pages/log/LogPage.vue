@@ -76,6 +76,17 @@ const filteredLogs = computed(() => {
   })
 })
 
+function splitStringBySearch(target, substring) {
+  // 使用正则表达式进行大小写不敏感的分割，并保留分割点
+  let resultArray = target.split(new RegExp(`(${substring})`, 'i'))
+
+  // 去除数组中的空字符串
+  resultArray = resultArray.filter((item) => item !== '')
+
+  // 返回包含分割点的数组
+  return resultArray
+}
+
 // 错误日志
 const errorLogs = ref([])
 ;(async function () {
