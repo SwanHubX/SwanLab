@@ -20,12 +20,10 @@
       </div>
     </template>
     <!-- 没有依赖项时占位 -->
-    <div class="w-full text-center pt-10" v-else>
-      {{ $t('experiment.env.empty.requirements') }}
+    <div class="w-full flex flex-wrap justify-center pt-10" v-else>
+      <SLIcon class="magnifier" icon="search"></SLIcon>
+      <div class="font-semibold w-full text-center pt-10">{{ $t('experiment.env.empty.requirements') }}</div>
     </div>
-  </div>
-  <div class="w-full flex justify-center pt-10" v-else>
-    <SLLoading />
   </div>
 </template>
 
@@ -44,9 +42,14 @@ import http from '@swanlab-vue/api/http'
 const experimentStore = useExperimentStroe()
 const requirements = ref()
 
-http.get(`/experiment/${experimentStore.id}/requirements`).then(({ data }) => {
-  requirements.value = data.requirements
-})
+http
+  .get(`/experiment/${experimentStore.id}/requirements`)
+  .then(({ data }) => {
+    requirements.value = data.requirements
+  })
+  .catch(() => {
+    requirements.value = []
+  })
 
 // ---------------------------------- 搜索 ----------------------------------
 
@@ -87,4 +90,29 @@ function splitStringBySearch(target, substring) {
 const filename = 'requirements.txt'
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+$duration: 3s;
+
+.magnifier {
+  @apply w-10 h-10;
+  animation: animloader $duration infinite;
+}
+
+@keyframes animloader {
+  0% {
+    transform: translate(-5px, -5px);
+  }
+  25% {
+    transform: translate(-5px, 5px);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+  75% {
+    transform: translate(5px, -5px);
+  }
+  100% {
+    transform: translate(-5px, -5px);
+  }
+}
+</style>

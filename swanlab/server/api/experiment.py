@@ -12,7 +12,7 @@ import shutil
 from fastapi import APIRouter, Request
 
 from ...utils.file import check_exp_name_format, check_desc_format
-from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409
+from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409, DATA_ERROR_500
 import os
 import ujson
 from urllib.parse import quote, unquote  # 转码路径参数
@@ -477,7 +477,10 @@ async def get_exp_requirements(experiment_id: int):
     requirements: list
         每个依赖项为一行，以列表的形式返回
     """
-    experiment = __find_experiment(experiment_id)
-    with open(os.path.join(get_requirements_path(experiment["name"]))) as f:
+    name = __find_experiment(experiment_id)["name"]
+    path = get_requirements_path(name)
+    if not os.path.exists(path):
+        return DATA_ERROR_500("failed to find requirements")
+    with open(path) as f:
         requirements = f.read()
     return SUCCESS_200({"requirements": requirements.split("\n")})
