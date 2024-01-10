@@ -14,6 +14,7 @@ from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
+from ..env import init_env, is_abs_dir, ROOT
 
 
 run: Optional["SwanLabRun"] = None
@@ -25,6 +26,7 @@ def init(
     description: str = None,
     config: dict = None,
     log_level: str = None,
+    log_dir: str = None,
     suffix: str = "timestamp",
 ) -> SwanLabRun:
     """
@@ -44,15 +46,26 @@ def init(
         Some experiment parameter configurations that can be displayed on the web interface, such as learning rate, batch size, etc.
     log_level : str, optional
         The log level of the current experiment, the default is 'info', you can choose from 'debug', 'info', 'warning', 'error', 'critical'.
+    log_dir : str, optional
+        The directory where the log file is stored, the default is current working directory.
+        You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
         The suffix of the experiment name, used to distinguish experiments with the same name, the format is yyyy-mm-dd_HH-MM-SS.
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
     """
     global run, inited
+
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
     else:
+        # 注册环境变量
+        if log_dir is not None:
+            log_dir = os.path.abspath(log_dir)
+            if not is_abs_dir(log_dir):
+                raise ValueError('log_dir must be an absolute dir, and the dir must exist. Now is "' + log_dir + '"')
+            os.environ[ROOT] = log_dir
+        init_env()
         run = register(
             experiment_name=experiment_name,
             description=description,

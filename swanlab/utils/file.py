@@ -255,3 +255,27 @@ def is_int(string: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def is_abs_dir(path: str) -> bool:
+    """判断路径是否是一个绝对路径文件夹，并且这个路径必须存在
+
+    Parameters
+    ----------
+    path : str
+        待检查的路径
+
+    Returns
+    -------
+    bool
+        如果是绝对路径，返回True，否则返回False
+    """
+    if not isinstance(path, str):
+        return False
+    if not os.path.isabs(path):
+        return False
+    if not os.path.isdir(path):
+        return False
+    if not os.path.exists(path):
+        return False
+    return True

@@ -8,7 +8,7 @@ r"""
 """
 import os
 from typing import MutableMapping, Optional
-from .utils.file import is_port, is_ipv4
+from .utils.file import is_port, is_ipv4, is_abs_dir
 
 Env = Optional[MutableMapping]
 
@@ -51,7 +51,9 @@ def get_runtime_root(env: Optional[Env] = None) -> Optional[str]:
     path = env.get(ROOT, default=default)
     _env[ROOT] = path
     # 参数检查
-    if not os.path.isabs(path):
+    if not is_abs_dir(path):
+        if os.path.exists(path):
+            raise ValueError('SWANLAB_ROOT must be an absolute dir, now is "{path}"'.format(path=path))
         raise ValueError('SWANLAB_ROOT must be an absolute path, now is "{path}"'.format(path=path))
     return path
 
