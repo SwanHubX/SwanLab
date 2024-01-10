@@ -121,23 +121,6 @@ def __get_command():
     return full_command
 
 
-def __get_pip_requirement():
-    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
-    try:
-        # 运行pip命令获取当前环境下的环境目录
-        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
-
-        # 检查命令是否成功运行
-        if result.returncode == 0:
-            return result.stdout.split("\n")
-        else:
-            swanlog.error(f"An error occurred:{result.stderr}")
-            return None
-    except Exception as e:
-        swanlog.error(f"An error occurred: {e}")
-        return None
-
-
 def __get_memory_size():
     """获取内存大小"""
     import psutil
@@ -164,6 +147,22 @@ def get_system_info():
         "gpu": __get_gpu_info(),  # gpu 相关信息
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
         "command": __get_command(),  # 完整命令行信息
-        "dependencies": __get_pip_requirement(),  # 当前 python 下的依赖信息
         "memory": __get_memory_size(),  # 内存大小
     }
+
+
+def get_requirements() -> str:
+    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["pip", "list", "--format=freeze"], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            swanlog.error(f"An error occurred:{result.stderr}")
+            return None
+    except Exception as e:
+        swanlog.error(f"An error occurred: {e}")
+        return None
