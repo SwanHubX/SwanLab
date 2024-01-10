@@ -14,7 +14,7 @@ from ..log import register
 # 在此处完成环境变量的初始化
 init_env()
 # 日志注册
-register(os.path.join(get_swanlog_dir(), "output.log"))
+register()
 
 # 导出app对象
 from .router import app
