@@ -7,16 +7,16 @@ r"""
 @Description:
     命令行工具
 """
-import re
+import os
 import psutil
 import socket
 import click
-from ..utils import FONT
+from ..utils import FONT, file
+from ..env import PORT, HOST, ROOT
 
 
-def is_vaild_ip(ctx, param, ip: str) -> tuple:
-    """检测是否是合法的ip地址,最终会返回所有可访问的地址,并且排序
-    127.0.0.1在最前面,剩下按照从小到大排序
+def is_valid_ip(ctx, param, ip: str) -> tuple:
+    """检测输入的是否是合法的ip地址,完成环境变量的注入
 
     Parameters
     ----------
@@ -27,30 +27,52 @@ def is_vaild_ip(ctx, param, ip: str) -> tuple:
     ip : str
         带检测的字符串
     """
-    ip = str(ip)
-    pattern = re.compile(r"^((2[0-4]\d|25[0-5]|[01]?\d\d?)\.){3}(2[0-4]\d|25[0-5]|[01]?\d\d?)$")
-    if not pattern.match(ip):
-        raise click.BadParameter("Invalid IP address format: " + ip)
-    # 没有问题，获取当前机器的所有ip地址
-    interfaces = psutil.net_if_addrs()
-    ipv4: list = []
-    # APIPA 地址范围
-    apipa_range = range(169, 255)
-    for _, addresses in interfaces.items():
-        for address in addresses:
-            # 如果是ipv4地址，且可以被访问到
-            if address.family == socket.AddressFamily.AF_INET:
-                # 排除 APIPA 地址范围
-                octets = list(map(int, address.address.split(".")))
-                if octets[0] == 169 and octets[1] in apipa_range:
-                    continue
-                ipv4.append(address.address)
-    if ip not in ipv4 and ip != "0.0.0.0":
-        raise click.BadParameter("IP address '" + ip + "' should be one of " + str(ipv4) + ".")
-    # 对 IPv4 进行排序，"127.0.0.1" 在最前面，剩下按照从小到大排序
-    ipv4.sort(key=lambda x: (x != "127.0.0.1", x), reverse=True)
-    ipv4.reverse()
-    return ip, ipv4
+    if ip is None:
+        return
+    if not file.is_ipv4(ip):
+        raise click.BadParameter("Invalid ip address: " + ip)
+    os.environ[HOST] = ip
+
+
+def is_valid_port(ctx, param, port: int) -> int:
+    """检测是否是合法的端口号
+
+    Parameters
+    ----------
+    ctx : click.Context
+        上下文
+    param : click.Parameter
+        参数
+    port : int
+        带检测的端口号
+    """
+    if port is None:
+        return
+    if not file.is_port(port):
+        raise click.BadParameter("Invalid port number: " + str(port))
+    os.environ[PORT] = str(port)
+
+
+def is_valid_root_dir(ctx, param, log_dir: str) -> str:
+    """检测是否是合法的日志目录
+
+    Parameters
+    ----------
+    ctx : click.Context
+        上下文
+    param : click.Parameter
+        参数
+    log_dir : str
+        带检测的日志目录
+    """
+    if log_dir is None:
+        return
+    if not os.path.isdir(log_dir):
+        raise click.BadParameter("Invalid log dir: " + log_dir)
+    if not os.access(log_dir, os.R_OK):
+        raise click.BadParameter("Log dir is not readable: " + log_dir)
+    # 将日志目录注入环境变量，在这之前先转换为绝对路径
+    os.environ[ROOT] = os.path.abspath(log_dir)
 
 
 class URL(object):
@@ -77,3 +99,35 @@ class URL(object):
     @staticmethod
     def is_zero_ip(ip):
         return ip == "0.0.0.0"
+
+    @staticmethod
+    def get_all_ip() -> list:
+        """获取所有可用的ip地址
+
+        Parameters
+        ----------
+        ip : str
+            本机的ip地址
+
+        Returns
+        -------
+        tuple
+            所有可用的ip地址
+        """
+        interfaces = psutil.net_if_addrs()
+        ipv4: list = []
+        # APIPA 地址范围
+        apipa_range = range(169, 255)
+        for _, addresses in interfaces.items():
+            for address in addresses:
+                # 如果是ipv4地址，且可以被访问到
+                if address.family == socket.AddressFamily.AF_INET:
+                    # 排除 APIPA 地址范围
+                    octets = list(map(int, address.address.split(".")))
+                    if octets[0] == 169 and octets[1] in apipa_range:
+                        continue
+                    ipv4.append(address.address)
+        # 对 IPv4 进行排序，"127.0.0.1" 在最前面，剩下按照从小到大排序
+        ipv4.sort(key=lambda x: (x != "127.0.0.1", x), reverse=True)
+        ipv4.reverse()
+        return ipv4

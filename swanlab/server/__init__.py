@@ -8,9 +8,12 @@ r"""
         在此处引出swanlab的web服务器框架，名为SwanWeb以及一些神奇的路由配置，以完成在库最外层的函数式调用
 """
 import os
-from ..env import get_swanlog_dir
+from ..env import init_env, get_swanlog_dir
 from ..log import register
 
+# 在此处完成环境变量的初始化
+init_env()
+# 日志注册
 register(os.path.join(get_swanlog_dir(), "output.log"))
 
 # 导出app对象
