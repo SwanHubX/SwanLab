@@ -1,7 +1,7 @@
 <template>
   <div class="w-full">
     <!-- 搜索、复制、下载 -->
-    <FuncBar class="pb-6 py-4" @input="search" :content="dependencies.join('\n')" :filename="filename" />
+    <FuncBar class="pb-6 py-4" @input="search" :content="dependencies?.join('\n')" :filename="filename" />
     <!-- 如果有依赖项 -->
     <div class="px-6 py-4 bg-higher rounded" v-if="dependencies && dependencies.length !== 0">
       <p v-for="line in lines" :key="line">
