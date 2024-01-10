@@ -1,8 +1,8 @@
 <template>
   <div class="w-full">
-    <template v-if="dependencies && dependencies.length !== 0">
+    <template v-if="requirements && requirements.length !== 0">
       <!-- 搜索、复制、下载 -->
-      <FuncBar class="pb-6 py-4" @input="search" :content="dependencies?.join('\n')" :filename="filename" />
+      <FuncBar class="pb-6 py-4" @input="search" :content="requirements?.join('\n')" :filename="filename" />
       <!-- 如果有依赖项 -->
       <div class="px-6 py-4 bg-higher rounded">
         <p v-for="line in lines" :key="line">
@@ -36,9 +36,14 @@
 import { ref, computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
+import http from '@swanlab-vue/api/http'
 
 const experimentStore = useExperimentStroe()
-const dependencies = experimentStore.experiment.system?.dependencies
+const requirements = ref([])
+
+http.get(`/experiment/${experimentStore.id}/requirements`).then(({ data }) => {
+  requirements.value = data.requirements
+})
 
 // ---------------------------------- 搜索 ----------------------------------
 
@@ -51,7 +56,7 @@ const search = (value) => {
 
 // 对依赖的每一行进行一些特殊处理
 const lines = computed(() => {
-  return dependencies.map((line) => {
+  return requirements.value.map((line) => {
     // 查找内容不为空，并且该行含有查找内容，说明是目标行
     const isTarget = searchValue.value !== '' && line.toLowerCase().includes(searchValue.value)
 
