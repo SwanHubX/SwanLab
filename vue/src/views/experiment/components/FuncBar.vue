@@ -2,8 +2,14 @@
   <div class="w-full flex gap-5 justify-between">
     <SLSearch @input="input" class="max-w-[400px]" />
     <div class="flex gap-3">
-      <SLButton hollow @click="copy">{{ $t('experiment.func-bar.copy') }}</SLButton>
-      <SLButton hollow @click="download">{{ $t('experiment.func-bar.download') }}</SLButton>
+      <SLButton hollow @click="copy">
+        <SLIcon icon="copy" class="icon"></SLIcon>
+        {{ $t('experiment.func-bar.copy') }}
+      </SLButton>
+      <SLButton hollow @click="download">
+        <SLIcon icon="download" class="icon"></SLIcon>
+        {{ $t('experiment.func-bar.download') }}
+      </SLButton>
     </div>
   </div>
 </template>
@@ -54,6 +60,10 @@ const download = () => {
 
 <style lang="scss" scoped>
 button {
-  @apply rounded-lg px-3 py-1;
+  @apply rounded-lg px-3 py-1 flex items-center gap-2;
+}
+
+.icon {
+  @apply w-4 h-4;
 }
 </style>
