@@ -90,5 +90,10 @@
     "empty": {
       "requirements": "There are no dependencies"
     }
+  },
+  "func-bar": {
+    "copy": "Copy",
+    "download": "Download",
+    "copy-success": "Copied"
   }
 }

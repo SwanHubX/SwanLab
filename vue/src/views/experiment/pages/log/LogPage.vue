@@ -1,27 +1,25 @@
 <template>
   <div class="w-full h-full px-7 py-6 relative overflow-hidden">
-    <SLSearch class="max-w-[400px] mb-5" @input="search" dealy="300" />
+    <FuncBar class="pb-6" @input="search" :content="logs?.join('\n')" :filename="filename" v-if="logs" />
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <!-- 运行日志 -->
-        <div class="log-line" v-for="line in filteredLogs" :key="line">
+        <div class="log-line" v-for="line in lines" :key="line">
           <!-- 行号 -->
           <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
           <!-- 日志内容 -->
           <!-- 如果没有搜索内容/不含搜索内容 -->
-          <span v-show="!searchValue || !line.lower.includes(searchValue)">{{ line.value }} </span>
+          <span v-show="!line.isTarget">{{ line.value }} </span>
           <!-- 如果有搜索内容且含有搜索内容 -->
-          <p class="flex" v-show="searchValue && line.lower.includes(searchValue)">
-            <span>{{ line.value.substring(0, line.lower.indexOf(searchValue)) }}</span>
-            <!-- 高亮展示 -->
-            <span class="bg-warning-dimmest">{{
-              line.value.substring(
-                line.lower.indexOf(searchValue),
-                line.lower.indexOf(searchValue) + searchValue.length
-              )
-            }}</span>
-            <span>{{ line.value.substring(line.lower.indexOf(searchValue) + searchValue.length) }}</span>
-          </p>
+          <span v-show="line.isTarget">
+            <span
+              v-for="substring in line.value"
+              :key="substring"
+              :class="substring.toLowerCase() === searchValue ? ' bg-warning-dimmest' : ''"
+            >
+              {{ substring }}
+            </span>
+          </span>
         </div>
         <!-- 错误日志 -->
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
@@ -50,7 +48,7 @@ import http from '@swanlab-vue/api/http'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
-import SLSearch from '@swanlab-vue/components/SLSearch.vue'
+import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'
 
 const logAreaRef = ref()
@@ -66,15 +64,30 @@ const id = experimentStore.id
 const logs = ref()
 
 // 分开行号和内容之后的日志
-const filteredLogs = computed(() => {
+const lines = computed(() => {
   return logs.value.map((line) => {
+    const index = line.substring(0, line.indexOf(' '))
+    const content = line.substring(line.indexOf(' '))
+    const isTarget = searchValue.value !== '' && content.toLowerCase().includes(searchValue.value)
+
     return {
-      index: line.substring(0, line.indexOf(' ')),
-      value: line.substring(line.indexOf(' ')),
-      lower: line.substring(line.indexOf(' ')).toLowerCase()
+      isTarget,
+      index,
+      value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
 })
+
+function splitStringBySearch(target, substring) {
+  // 使用正则表达式进行大小写不敏感的分割，并保留分割点
+  let resultArray = target.split(new RegExp(`(${substring})`, 'i'))
+
+  // 去除数组中的空字符串
+  resultArray = resultArray.filter((item) => item !== '')
+
+  // 返回包含分割点的数组
+  return resultArray
+}
 
 // 错误日志
 const errorLogs = ref([])
@@ -97,6 +110,10 @@ const searchValue = ref('')
 const search = (value) => {
   searchValue.value = value.toLowerCase()
 }
+
+// ---------------------------------- 下载 ----------------------------------
+
+const filename = 'print.log'
 </script>
 
 <style lang="scss" scoped>
@@ -117,9 +134,6 @@ const search = (value) => {
 
   .log-line {
     @apply flex gap-2 whitespace-pre-wrap;
-    span {
-      @apply block;
-    }
   }
 }
 </style>
