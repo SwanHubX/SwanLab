@@ -142,6 +142,7 @@ async def get_experiment(experiment_id: int):
     path = os.path.join(SWANLOG_DIR, experiment["name"], "logs")
     experiment["tags"] = __list_subdirectories(path)
     experiment["default_color"] = DEFAULT_COLOR
+    # COMPAT
     return SUCCESS_200(experiment)
 
 

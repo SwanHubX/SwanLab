@@ -1,6 +1,6 @@
 <template>
   <div class="w-full">
-    <div v-if="dependencies && dependencies.length !== 0">
+    <template v-if="dependencies && dependencies.length !== 0">
       <!-- 搜索、复制、下载 -->
       <FuncBar class="pb-6 py-4" @input="search" :content="dependencies?.join('\n')" :filename="filename" />
       <!-- 如果有依赖项 -->
@@ -18,7 +18,7 @@
           </span>
         </p>
       </div>
-    </div>
+    </template>
     <!-- 没有依赖项时占位 -->
     <div class="w-full text-center pt-10" v-else>
       {{ $t('experiment.env.empty.requirements') }}
