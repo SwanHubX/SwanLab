@@ -3,7 +3,7 @@
     <SLSearch @input="input" class="max-w-[400px]" />
     <div class="flex gap-3">
       <SLButton hollow @click="copy">{{ $t('experiment.func-bar.copy') }}</SLButton>
-      <SLButton hollow>{{ $t('experiment.func-bar.download') }}</SLButton>
+      <SLButton hollow @click="download">{{ $t('experiment.func-bar.download') }}</SLButton>
     </div>
   </div>
 </template>
@@ -18,35 +18,38 @@
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
 import { message } from '@swanlab-vue/components/message'
 import { t } from '@swanlab-vue/i18n'
-import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
+import { copyTextToClipboard, downloadStringAsFile } from '@swanlab-vue/utils/browser'
 
 const props = defineProps({
-  copyText: {
+  // 复制、下载的内容
+  content: {
     type: String,
     default: ''
   },
-  downloadName: {
+  // 下载时使用的文件名
+  filename: {
     type: String,
     default: 'swanlab.file'
-  },
-  downloadContent: {
-    type: String,
-    default: 'SwanLab'
   }
 })
 
 const emits = defineEmits(['input', 'download'])
 
+// 输入触发
 const input = (value) => {
   emits('input', value)
 }
 
+// 复制
 const copy = () => {
-  copyTextToClipboard(props.copyText)
+  copyTextToClipboard(props.content)
   message.success(t('experiment.func-bar.copy-success'))
 }
 
-const download = () => {}
+// 下载
+const download = () => {
+  downloadStringAsFile(props.content, props.filename)
+}
 </script>
 
 <style lang="scss" scoped>
