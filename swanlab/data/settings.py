@@ -74,3 +74,18 @@ class SwanDataSettings:
     def static_dir(self) -> str:
         """静态资源路径"""
         return os.path.join(self.exp_dir, "static")
+
+    @property
+    def files_dir(self) -> str:
+        """实验配置信息路径"""
+        return os.path.join(self.exp_dir, "files")
+
+    @property
+    def requirements_path(self) -> str:
+        """实验依赖的存储文件"""
+        return os.path.join(self.files_dir, "requirements.txt")
+
+    @property
+    def config_path(self) -> str:
+        """实验环境存储文件"""
+        return os.path.join(self.files_dir, "swanlab-metadata.json")

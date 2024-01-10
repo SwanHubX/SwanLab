@@ -139,10 +139,17 @@ async def get_experiment(experiment_id: int):
     if experiment is None:
         return NOT_FOUND_404()
     # 生成实验存储路径
-    path = os.path.join(SWANLOG_DIR, experiment["name"], "logs")
-    experiment["tags"] = __list_subdirectories(path)
+    exp_path = os.path.join(SWANLOG_DIR, experiment["name"])
+    experiment["tags"] = __list_subdirectories(os.path.join(exp_path, "logs"))
     experiment["default_color"] = DEFAULT_COLOR
     # COMPAT
+    # experiment 中是否含有 system 字段，该字段原存与 package.json，先存于 {exp_name}/files/swanlab-metadata.json
+    if "system" in experiment:
+        return SUCCESS_200(experiment)
+    # 不存在的时候，需要手动添加
+    with open(os.path.join(exp_path, "files", "swanlab-metadata.json")) as f:
+        system = ujson.loads(f.read())
+    experiment["system"] = system
     return SUCCESS_200(experiment)
 
 
@@ -447,3 +454,23 @@ async def delete_experiment(experiment_id: int):
     shutil.rmtree(os.path.join(SWANLOG_DIR, experiment["name"]))
 
     return SUCCESS_200({"project": project})
+
+
+@router.get("/{experiment_id}/requirements")
+async def get_exp_requirements(experiment_id: int):
+    """获取实验依赖
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+
+    Returns
+    -------
+    requirements: list
+        每个依赖项为一行，以列表的形式返回
+    """
+    experiment = __find_experiment(experiment_id)
+    with open(os.path.join(SWANLOG_DIR, experiment["name"], "files", "requirements.txt")) as f:
+        requirements = f.read()
+    return SUCCESS_200({"requirements": requirements.split("\n")})

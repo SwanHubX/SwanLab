@@ -129,7 +129,7 @@ def __get_pip_requirement():
 
         # 检查命令是否成功运行
         if result.returncode == 0:
-            return result.stdout.split("\n")
+            return result.stdout
         else:
             swanlog.error(f"An error occurred:{result.stderr}")
             return None
@@ -164,6 +164,10 @@ def get_system_info():
         "gpu": __get_gpu_info(),  # gpu 相关信息
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
         "command": __get_command(),  # 完整命令行信息
-        "dependencies": __get_pip_requirement(),  # 当前 python 下的依赖信息
         "memory": __get_memory_size(),  # 内存大小
     }
+
+
+def get_requirements() -> str:
+    """当前 python 下的依赖信息"""
+    return __get_pip_requirement()
