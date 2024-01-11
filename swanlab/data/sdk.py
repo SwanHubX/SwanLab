@@ -61,10 +61,17 @@ def init(
     else:
         # 注册环境变量
         if log_dir is not None:
-            log_dir = os.path.abspath(log_dir)
-            if not is_abs_dir(log_dir):
-                raise ValueError('log_dir must be an absolute dir. Now is "' + log_dir + '"')
-            os.environ[ROOT] = log_dir
+            # 判断log_dir类型是否是字符串
+            if isinstance(log_dir, str):
+                log_dir = os.path.abspath(log_dir)  # 将路径转为1个绝对路径
+                if os.path.isabs(log_dir):  # 判断输入的log_dir字符串是否是1个dir
+                    if not os.path.exists(log_dir):
+                        os.makedirs(log_dir)
+                    os.environ[ROOT] = log_dir
+                else:
+                    raise ValueError('log_dir must be a path. Now is "' + log_dir + '"')
+            else:
+                raise ValueError("log_dir type must be string.")
         init_env()
         run = register(
             experiment_name=experiment_name,
