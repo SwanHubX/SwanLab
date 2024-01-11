@@ -74,7 +74,7 @@ const hasRunning = computed(() => {
  */
 const deleteProject = () => {
   http
-    .delete('/project/delete')
+    .delete('/project')
     .then(() => {
       message.success('Delete Successfully')
       projectStore.clearProject()
