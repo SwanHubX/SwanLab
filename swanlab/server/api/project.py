@@ -11,7 +11,7 @@ import os
 import shutil
 from fastapi import APIRouter, Request
 
-from ...utils import get_a_lock, create_time
+from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
 from ..module import PT

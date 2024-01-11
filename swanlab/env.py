@@ -18,8 +18,8 @@ _env = dict()
 # '描述' = "key"
 # ---------------------------------- 基础环境变量 ----------------------------------
 
-ROOT = "SWANLAB_ROOT"
-"""命令执行目录SWANLAB_ROOT，在这个目录下寻找swanlog文件夹"""
+ROOT = "SWANLAB_LOG_DIR"
+"""命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
 
 PORT = "SWANLAB_SERVER_PORT"
 """服务端口SWANLAB_SERVER_PORT，服务端口"""
@@ -28,33 +28,27 @@ HOST = "SWANLAB_SERVER_HOST"
 """服务端口SWANLAB_SERVER_PORT，服务地址"""
 
 
-def get_runtime_root(env: Optional[Env] = None) -> Optional[str]:
-    """获取运行时根路径
+def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
+    """获取swanlog路径
 
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
     Returns
     -------
     Optional[str]
-        根路径
+        swanlog目录路径
     """
-    default: Optional[str] = os.getcwd()
-    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
     if _env.get(ROOT) is not None:
         return _env.get(ROOT)
     # 否则从环境变量中提取
     if env is None:
         env = os.environ
-    # ROOT拿到的应该是一个绝对路径
+    default: Optional[str] = os.path.join(os.getcwd(), "swanlog")
     path = env.get(ROOT, default=default)
-    _env[ROOT] = path
-    # 参数检查
     if not is_abs_dir(path):
-        if os.path.exists(path):
-            raise ValueError('SWANLAB_ROOT must be an absolute dir, now is "{path}"'.format(path=path))
-        raise ValueError('SWANLAB_ROOT must be an absolute path, now is "{path}"'.format(path=path))
+        raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
+    # 如果路径不存在，则自动创建
+    if not os.path.exists(path):
+        os.makedirs(path)
+    _env[ROOT] = path
     return path
 
 
@@ -71,13 +65,13 @@ def get_server_port(env: Optional[Env] = None) -> Optional[int]:
     Optional[int]
         服务端口
     """
-    default: Optional[int] = 5092
     # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
     if _env.get(PORT) is not None:
         return _env.get(PORT)
     # 否则从环境变量中提取
     if env is None:
         env = os.environ
+    default: Optional[int] = 5092
     port = env.get(PORT, default=default)
     # 必须可以转换为整数，且在0-65535之间
     if not is_port(port):
@@ -117,7 +111,7 @@ def get_server_host(env: Optional[Env] = None) -> Optional[str]:
 
 # 所有的初始化函数
 function_list = [
-    get_runtime_root,
+    get_swanlog_dir,
     get_server_port,
     get_server_host,
 ]
@@ -137,31 +131,10 @@ def init_env(env: Optional[Env] = None):
 
 
 # ---------------------------------- 计算变量 ----------------------------------
-
-LOG_DIR = "SWANLAB_LOG_DIR"
 """日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
 PROJECT_PATH = "SWANLAB_PROJECT_PATH"
 
 # ---------------------------------- 定义变量访问方法 ----------------------------------
-
-
-def get_swanlog_dir() -> Optional[str]:
-    """获取swanlog路径，这是一个计算变量，
-    通过`get_runtime_root()`返回值得到
-
-    Returns
-    -------
-    Optional[str]
-        swanlog目录路径
-    """
-    if _env.get(LOG_DIR) is not None:
-        return _env.get(LOG_DIR)
-    # 否则从环境变量中提取
-    path = os.path.join(get_runtime_root(), "swanlog")
-    if not os.path.exists(path):
-        os.makedirs(path)
-    _env[LOG_DIR] = path
-    return path
 
 
 # TODO 后续改为数据库路径

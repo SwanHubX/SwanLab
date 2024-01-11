@@ -63,7 +63,7 @@ def init(
         if log_dir is not None:
             log_dir = os.path.abspath(log_dir)
             if not is_abs_dir(log_dir):
-                raise ValueError('log_dir must be an absolute dir, and the dir must exist. Now is "' + log_dir + '"')
+                raise ValueError('log_dir must be an absolute dir. Now is "' + log_dir + '"')
             os.environ[ROOT] = log_dir
         init_env()
         run = register(
