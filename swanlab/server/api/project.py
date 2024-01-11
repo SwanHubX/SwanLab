@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
+from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from ..module import PT
 from swanlab.env import get_swanlog_dir
 import ujson
@@ -126,7 +126,7 @@ async def delete():
         project = ujson.load(f)
     for item in project["experiments"]:
         if item["status"] == 0:
-            return Conflict_409("Can't delete project since there is experiment running")
+            return CONFLICT_409("Can't delete project since there is experiment running")
         else:
             folders.append(item["name"])
 
