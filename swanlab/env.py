@@ -45,9 +45,6 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     path = env.get(ROOT, default=default)
     if not is_abs_dir(path):
         raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
-    # 如果路径不存在，则自动创建
-    if not os.path.exists(path):
-        os.makedirs(path)
     _env[ROOT] = path
     return path
 

@@ -77,7 +77,7 @@ const deleteProject = () => {
     .delete('/project')
     .then(() => {
       message.success('Delete Successfully')
-      projectStore.clearProject()
+      window.location.href = '/'
     })
     .catch(() => {
       message.error('Error deleting project')

@@ -23,6 +23,9 @@ class SwanDataSettings:
         """
         self.__exp_name: str = exp_name
         self.__swanlog_dir: str = get_swanlog_dir()
+        if not os.path.exists(self.__swanlog_dir):
+            os.makedirs(self.__swanlog_dir)
+
         self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
         self.__proejct_path: str = get_runtime_project()
 
