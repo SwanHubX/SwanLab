@@ -15,7 +15,7 @@ from ..log import swanlog
 from .modules import DataType
 from typing import Dict
 from ..env import init_env, ROOT
-from .utils.file import check_dir_and_create
+from .utils.file import check_dir_and_create, formate_abs_path
 
 
 run: Optional["SwanLabRun"] = None
@@ -88,7 +88,7 @@ def init(
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-    swanlog.info("Run data will be saved locally in " + run.settings.exp_dir)
+    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.exp_dir))
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
     inited = True

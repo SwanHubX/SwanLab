@@ -8,8 +8,33 @@ r"""
     文件/格式检查和操作
 """
 import os
+import platform
 
-# ---------------------------------- 路径操作 ----------------------------------
+
+def formate_abs_path(path: str) -> str:
+    """这主要针对windows环境，输入的绝对路径可能不包含盘符，这里进行补充
+    主要是用于打印效果
+    如果不是windows环境，直接返回path，相当于没有调用这个函数
+
+    Parameters
+    ----------
+    path : str
+        待转换的路径
+
+    Returns
+    -------
+    str
+        增加了盘符的路径
+    """
+    if platform.system() != "Windows":
+        return path
+    if not os.path.isabs(path):
+        return path
+    need_add = len(path) < 3 or path[1] != ":"
+    # 处理反斜杠, 保证路径的正确性
+    path = path.replace("/", "\\")
+    if need_add:
+        return os.path.join(os.getcwd()[:2], path)
 
 
 def check_dir_and_create(path: str) -> str:

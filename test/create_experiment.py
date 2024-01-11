@@ -41,7 +41,7 @@ sw.init(
         "learning_rate": lr,
         "epochs": epochs,
     },
-    dir="test",
+    dir="/test",
     log_level="debug",
 )
 
