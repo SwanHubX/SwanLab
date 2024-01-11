@@ -1,5 +1,5 @@
 <template>
-  <div class="env-items" v-if="data?.length !== 0">
+  <div class="env-items" v-if="data?.length !== 0 && valid">
     <EnvItem
       :env-key="item.key"
       :env-value="item.value"
@@ -18,15 +18,21 @@
  * @since: 2024-01-09 20:03:21
  **/
 
+import { computed } from 'vue'
 import EnvItem from './EnvItem.vue'
 
-defineProps({
+const props = defineProps({
   data: {
     type: Array,
     default: () => {
       return []
     }
   }
+})
+
+// 数据全为空时不合法
+const valid = computed(() => {
+  return props.data.filter((item) => item.value).length > 0
 })
 </script>
 
