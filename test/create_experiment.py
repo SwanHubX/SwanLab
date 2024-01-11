@@ -41,8 +41,8 @@ sw.init(
         "learning_rate": lr,
         "epochs": epochs,
     },
+    dir="test",
     log_level="debug",
-    log_dir="./swanlog",
 )
 
 print("start training")

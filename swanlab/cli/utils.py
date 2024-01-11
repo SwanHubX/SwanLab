@@ -54,7 +54,7 @@ def is_valid_port(ctx, param, port: int) -> int:
 
 
 def is_valid_root_dir(ctx, param, log_dir: str) -> str:
-    """检测是否是合法的日志目录
+    """检测是否是合法的日志目录，保证其可读且存在
 
     Parameters
     ----------
@@ -67,8 +67,13 @@ def is_valid_root_dir(ctx, param, log_dir: str) -> str:
     """
     if log_dir is None:
         return
+    # 必须是一个绝对路径
+    if not os.path.isabs(log_dir):
+        raise click.BadParameter("Log dir must be an absolute path: " + log_dir)
+    # 路径必须存在
     if not os.path.isdir(log_dir):
-        raise click.BadParameter("Invalid log dir: " + log_dir)
+        raise click.BadParameter("Log dir is not a directory: " + log_dir)
+    # 路径必须可读
     if not os.access(log_dir, os.R_OK):
         raise click.BadParameter("Log dir is not readable: " + log_dir)
     # 将日志目录注入环境变量，在这之前先转换为绝对路径

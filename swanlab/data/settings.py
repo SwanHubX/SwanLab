@@ -22,11 +22,11 @@ class SwanDataSettings:
             但此处不做限制
         """
         self.__exp_name: str = exp_name
+        # 日志存放目录
         self.__swanlog_dir: str = get_swanlog_dir()
-        if not os.path.exists(self.__swanlog_dir):
-            os.makedirs(self.__swanlog_dir)
-
+        # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
         self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
+        # project.json文件路径
         self.__proejct_path: str = get_runtime_project()
 
     @property

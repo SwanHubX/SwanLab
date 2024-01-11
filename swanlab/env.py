@@ -8,7 +8,7 @@ r"""
 """
 import os
 from typing import MutableMapping, Optional
-from .utils.file import is_port, is_ipv4, is_abs_dir
+from .utils.file import is_port, is_ipv4
 
 Env = Optional[MutableMapping]
 
@@ -41,10 +41,18 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     # 否则从环境变量中提取
     if env is None:
         env = os.environ
+    # 默认为当前目录下的swanlog目录
     default: Optional[str] = os.path.join(os.getcwd(), "swanlog")
     path = env.get(ROOT, default=default)
-    if not is_abs_dir(path):
+    # 必须是一个绝对路径
+    if not os.path.isabs(path):
         raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
+    # 路径必须存在
+    if not os.path.exists(path):
+        raise ValueError('SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path))
+    # 路径必须是一个目录
+    if not os.path.isdir(path):
+        raise ValueError('SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path))
     _env[ROOT] = path
     return path
 
