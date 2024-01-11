@@ -65,19 +65,24 @@ def is_valid_root_dir(ctx, param, log_dir: str) -> str:
     log_dir : str
         带检测的日志目录
     """
+    # 将日志目录注入环境变量，在这之前先转换为绝对路径
+
     if log_dir is None:
         return
+
+    abs_log_dir = os.path.abspath(log_dir)
+
     # 必须是一个绝对路径
-    if not os.path.isabs(log_dir):
-        raise click.BadParameter("Log dir must be an absolute path: " + log_dir)
+    if not os.path.isabs(abs_log_dir):
+        raise click.BadParameter("Log dir must be an absolute path: " + abs_log_dir)
     # 路径必须存在
-    if not os.path.isdir(log_dir):
-        raise click.BadParameter("Log dir is not a directory: " + log_dir)
+    if not os.path.isdir(abs_log_dir):
+        raise click.BadParameter("Log dir is not a directory: " + abs_log_dir)
     # 路径必须可读
-    if not os.access(log_dir, os.R_OK):
-        raise click.BadParameter("Log dir is not readable: " + log_dir)
-    # 将日志目录注入环境变量，在这之前先转换为绝对路径
-    os.environ[ROOT] = os.path.abspath(log_dir)
+    if not os.access(abs_log_dir, os.R_OK):
+        raise click.BadParameter("Log dir is not readable: " + abs_log_dir)
+
+    os.environ[ROOT] = abs_log_dir
 
 
 class URL(object):

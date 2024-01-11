@@ -26,7 +26,7 @@ def init(
     experiment_name: str = None,
     description: str = None,
     config: dict = None,
-    dir: str = None,
+    log_dir: str = None,
     suffix: str = "timestamp",
     log_level: str = None,
 ) -> SwanLabRun:
@@ -60,16 +60,22 @@ def init(
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
-    # 如果传入了dir，则将dir设置为环境变量，代表日志文件存放的路径
-    # 如果没有传入dir，则使用默认的dir，这里不再做处理，这在环境变量中已经定义了
-    if dir is not None:
+    # 如果传入了log_dir，则将log_dir设置为环境变量，代表日志文件存放的路径
+    # 如果没有传入log_dir，则使用默认的log_dir,
+    if log_dir is not None:
         try:
-            log_dir = check_dir_and_create(dir)
+            log_dir = check_dir_and_create(log_dir)
         except ValueError:
             raise ValueError("log_dir must be a str.")
         except IOError:
-            raise IOError("log_dir must be a absolute path and have Write permission.")
+            raise IOError("log_dir must be a path and have Write permission.")
         os.environ[ROOT] = log_dir
+    else:
+        log_dir = os.path.abspath("swanlog")
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except IOError:
+            raise IOError("log_dir must have Write permission.")
 
     # 初始化环境变量
     init_env()
