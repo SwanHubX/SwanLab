@@ -12,7 +12,7 @@ import shutil
 from fastapi import APIRouter, Request
 
 from ...utils.file import check_exp_name_format, check_desc_format
-from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, Conflict_409, DATA_ERROR_500
+from ..module.resp import SUCCESS_200, NOT_FOUND_404, PARAMS_ERROR_422, CONFLICT_409, DATA_ERROR_500
 import os
 import ujson
 from urllib.parse import quote, unquote  # 转码路径参数
@@ -444,7 +444,7 @@ async def delete_experiment(experiment_id: int):
 
     # 判断状态，运行中则不可删除
     if experiment["status"] == 0:
-        return Conflict_409("Can't delete experiment since experiment is running")
+        return CONFLICT_409("Can't delete experiment since experiment is running")
 
     # 可以删除
     # 1. 删除 project.json 中的实验记录
