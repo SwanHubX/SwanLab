@@ -35,7 +35,7 @@ def check_dir_and_create(path: str) -> str:
     ValueError
         path不是一个字符串
     IOError
-        path没有读写权限
+        path没有写权限
     """
     if not isinstance(path, str):
         raise ValueError("path must be a string")
