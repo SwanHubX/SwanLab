@@ -42,7 +42,7 @@ sw.init(
         "epochs": epochs,
     },
     log_level="debug",
-    log_dir="/test",
+    log_dir="./test/test",
 )
 
 print("start training")

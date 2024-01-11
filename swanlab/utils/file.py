@@ -274,8 +274,6 @@ def is_abs_dir(path: str) -> bool:
         return False
     if not os.path.isabs(path):
         return False
-    if not os.path.isdir(path):
-        return False
-    if not os.path.exists(path):
+    if not os.path.isdir(path) and os.path.exists(path):
         return False
     return True

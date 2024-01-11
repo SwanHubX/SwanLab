@@ -11,7 +11,7 @@ r"""
 import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from ..utils import FONT
-from ..env import get_server_host, get_server_port, get_runtime_root
+from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
 
 
@@ -64,7 +64,7 @@ def watch(log_level: str, **kwargs):
     import uvicorn
 
     # debug一下当前日志文件夹的位置
-    swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(get_runtime_root()))
+    swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(get_swanlog_dir()))
 
     # ---------------------------------- 日志等级处理 ----------------------------------
     swl.setLevel(log_level)
