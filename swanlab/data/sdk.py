@@ -72,7 +72,15 @@ def init(
                     raise ValueError('log_dir must be a path. Now is "' + log_dir + '"')
             else:
                 raise ValueError("log_dir type must be string.")
+        # 如果没输出log_dir，则生成1个swanlog文件夹
+        else:
+            log_dir = os.path.abspath("./swanlog")
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            os.environ[ROOT] = log_dir
+
         init_env()
+
         run = register(
             experiment_name=experiment_name,
             description=description,
