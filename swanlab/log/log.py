@@ -166,7 +166,8 @@ class SwanLog(Logsys):
             self.__consoler.init(console_path)
 
         self._create_console_handler()
-        self._create_file_handler(path)
+        if path:
+            self._create_file_handler(path)
         if level:
             self.logger.setLevel(self._getLevel(level))
         if console_level:

@@ -13,7 +13,7 @@ from .log import SwanLog
 swanlog: Optional["SwanLog"] = SwanLog("SwanLab")
 
 
-def register(output_path: str, console_path: str = None, log_level: str = None) -> SwanLog:
+def register(output_path: str = None, console_path: str = None, log_level: str = None) -> SwanLog:
     """注册日志模块
 
     Parameters

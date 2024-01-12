@@ -74,10 +74,10 @@ const hasRunning = computed(() => {
  */
 const deleteProject = () => {
   http
-    .delete('/project/delete')
+    .delete('/project')
     .then(() => {
       message.success('Delete Successfully')
-      projectStore.clearProject()
+      location.reload()
     })
     .catch(() => {
       message.error('Error deleting project')

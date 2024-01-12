@@ -8,7 +8,7 @@ r"""
     数据收集部分配置，此为运行时生成的配置，
 """
 import os
-from ..env import get_runtime_project, get_swanlog_dir, get_runtime_root
+from ..env import get_runtime_project, get_swanlog_dir
 
 
 class SwanDataSettings:
@@ -22,7 +22,11 @@ class SwanDataSettings:
             但此处不做限制
         """
         self.__exp_name: str = exp_name
-        self.__root_dir: str = get_runtime_root()
+        # 日志存放目录
+        self.__swanlog_dir: str = get_swanlog_dir()
+        # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
+        self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
+        # project.json文件路径
         self.__proejct_path: str = get_runtime_project()
 
     @property
@@ -34,6 +38,11 @@ class SwanDataSettings:
     def root_dir(self) -> str:
         """根目录"""
         return self.__root_dir
+
+    @property
+    def swanlog_dir(self) -> str:
+        """swanlog目录"""
+        return self.__swanlog_dir
 
     @property
     def project_path(self) -> str:
