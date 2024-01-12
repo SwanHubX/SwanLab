@@ -35,6 +35,7 @@ def formate_abs_path(path: str) -> str:
     path = path.replace("/", "\\")
     if need_add:
         return os.path.join(os.getcwd()[:2], path)
+    return path
 
 
 def check_dir_and_create(path: str) -> str:
