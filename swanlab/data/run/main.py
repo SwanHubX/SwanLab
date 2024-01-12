@@ -23,9 +23,10 @@ import sys, os
 import random
 import ujson
 from .exp import SwanLabExp
+from collections.abc import Mapping
 
 
-class SwanConfig:
+class SwanConfig(Mapping):
     """
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
     """
@@ -33,11 +34,20 @@ class SwanConfig:
     def __init__(self, config):
         self.__config = config
 
+    def __iter__(self):
+        return iter(self.__config)
+
+    def __len__(self):
+        return len(self.__config)
+
     def __getattr__(self, name):
         try:
             return self.__config[name]
         except KeyError:
-            raise AttributeError(f"'SwanConfig' object has no attribute '{name}'")
+            raise AttributeError(f"You have not set {name} in the config of the current experiment")
+
+    def __getitem__(self, name):
+        return self.__config[name]
 
 
 class SwanLabRun:
@@ -91,10 +101,10 @@ class SwanLabRun:
         level = self.__check_log_level(log_level)
         # ---------------------------------- 初始化其他对象 ----------------------------------
         # 初始化配置
-        self.settings = SwanDataSettings(exp_name)
+        self.__settings = SwanDataSettings(exp_name)
         # 初始化日志记录器
         # FIXME 日志记录器的初始化强依赖于settings，这不行，等后续使用数据库后，在data部分的顶层完成日志记录器的初始化
-        register(self.settings.output_path, self.settings.console_dir, log_level=level)
+        register(self.__settings.output_path, self.__settings.console_dir, log_level=level)
         # 在此处判断是否被截断了，warning一下
         if cut:
             swanlog.warning(f"The experiment name you provided is too long, it has been truncated to {exp_name}.")
@@ -103,14 +113,31 @@ class SwanLabRun:
             swanlog.warning(f"The log level you provided is not valid, it has been set to {level}.")
         # ---------------------------------- 其余配置 ----------------------------------
         # 注册实验
-        self.exp = self.__register_exp(
+        config = self.__check_config(config)
+        description = self.__check_description(description)
+        self.__exp = self.__register_exp(
             exp_name,
-            self.__check_description(description),
-            self.__check_config(config),
+            description,
+            config,
         )
 
         # 给外部1个config
-        self.config = SwanConfig(self.__check_config(config))
+        self.__config = SwanConfig(config)
+
+    @property
+    def config(self):
+        """外部使用的config"""
+        return self.__config
+
+    @property
+    def exp(self):
+        """实验对象"""
+        return self.__exp
+
+    @property
+    def settings(self):
+        """运行时配置"""
+        return self.__settings
 
     def __str__(self) -> str:
         """此类的字符串表示"""
@@ -134,7 +161,7 @@ class SwanLabRun:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            self.exp.add(key, d, step=step)
+            self.__exp.add(key, d, step=step)
 
     def success(self):
         """标记实验成功"""
@@ -150,10 +177,10 @@ class SwanLabRun:
             swanlog.warning("SwanLab will set status to -1")
             status = -1
         # 锁上文件，更新实验状态
-        with get_a_lock(self.settings.project_path, "r+") as file:
+        with get_a_lock(self.__settings.project_path, "r+") as file:
             project = ujson.load(file)
             for index, experiment in enumerate(project["experiments"]):
-                if experiment["experiment_id"] == self.exp.id:
+                if experiment["experiment_id"] == self.__exp.id:
                     project["experiments"][index]["status"] = status
                     project["update_time"] = create_time()
                     break
@@ -224,7 +251,7 @@ class SwanLabRun:
         记录实验配置——依赖、硬件信息、仓库信息等等
         最终返回实验名称
         """
-        project_path = self.settings.project_path
+        project_path = self.__settings.project_path
         with get_a_lock(project_path, "r+") as f:
             # 如果project.json文件为空，创建一个新的project.json文件
             project_exist = os.path.exists(project_path) and os.path.getsize(project_path) != 0
@@ -240,7 +267,7 @@ class SwanLabRun:
         # 记录实验配置
         self.__record_exp_config()
         swanlog.info(f"Experiment {experiment_name} has been registered.")
-        return SwanLabExp(self.settings, experiment["experiment_id"])
+        return SwanLabExp(self.__settings, experiment["experiment_id"])
 
     def __check_log_level(self, log_level: str) -> str:
         """检查日志等级是否合法"""
@@ -276,7 +303,7 @@ class SwanLabRun:
         """创建一个新的project.json文件"""
         time = create_time()
         return {
-            "name": os.path.basename(self.settings.root_dir),
+            "name": os.path.basename(self.__settings.root_dir),
             "_sum": 0,
             "experiments": [],
             "version": get_package_version(),
@@ -307,9 +334,9 @@ class SwanLabRun:
         - 将实验环境写入 files/swanlab-metadata.json 中
         - 将实验依赖写入 files/requirements.txt 中
         """
-        files_dir = self.settings.files_dir
-        requirements_path = self.settings.requirements_path
-        config_path = self.settings.config_path
+        files_dir = self.__settings.files_dir
+        requirements_path = self.__settings.requirements_path
+        config_path = self.__settings.config_path
 
         # 在实验目录下创建 files 目录，用于存储实验配置信息
         if not os.path.exists(files_dir):
