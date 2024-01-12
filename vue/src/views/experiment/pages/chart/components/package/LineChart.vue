@@ -63,8 +63,10 @@ const source = props.chart.source
 const reference = props.chart.reference
 // 图表默认颜色
 const defaultColor = props.chart.config?.color || experimentStore.defaultColor
-// 拿到参考系
+// 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
 const { xField, xTitle } = UTILS.refrence2XField[reference]
+// 默认y轴的依据key是data
+const yField = 'data'
 // 创建图表的函数
 // FIXME 兼容多数据情况
 const createChart = (dom, data, config = { interactions: undefined, height: 200 }) => {
@@ -73,7 +75,7 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     // 默认的x轴依据key为step
     xField,
     // 默认的y轴依据key为data
-    yField: 'data',
+    yField,
     // 坐标轴相关
     xAxis: {
       tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
