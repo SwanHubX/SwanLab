@@ -67,7 +67,7 @@ const defaultColor = props.chart.config?.color || experimentStore.defaultColor
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 创建图表的函数
 // FIXME 兼容多数据情况
-const createChart = (dom, data, config = { interactions: undefined, height: 200, width: undefined, autoFit: true }) => {
+const createChart = (dom, data, config = { interactions: undefined, height: 200 }) => {
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
@@ -80,13 +80,19 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200,
     },
     yAxis: {
       tickCount: 7,
-      min: null
+      min: null,
+      label: {
+        // TODO 在此处完成Y轴数据的格式化
+        formatter: (data) => {
+          return data
+        }
+      }
     },
     tooltip: {
-      // 如果data为float，则保留4位小数
+      // TODO 在此处完成悬浮数据提示的格式化
+      // FIXME 当前tooltip只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
-        // FIXME 当前只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
         if (data.data % 1 !== 0) return { name: source[0], value: data.data.toFixed(4) }
         return { name: source[0], value: data.data }
       }
