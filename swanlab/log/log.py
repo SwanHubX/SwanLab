@@ -294,9 +294,9 @@ class SwanLog(Logsys):
     def __concat_messages(func):
         """装饰器，当传递打印信息有多个时，拼接为一个"""
 
-        def wrapper(*args):
+        def wrapper(self, *args):
             message = " ".join(args)
-            return func(message)
+            return func(self, message)
 
         return wrapper
 
