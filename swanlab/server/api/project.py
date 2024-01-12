@@ -139,8 +139,3 @@ async def delete():
     os.remove(PROJECT_PATH)
 
     return SUCCESS_200({})
-
-
-@router.get("/test")
-def test():
-    return SUCCESS_200({"test1": 1.32131231e20, "test2": "1.32131231e20", "test3": 1.23123123e-6})

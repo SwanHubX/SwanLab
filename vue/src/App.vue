@@ -69,10 +69,6 @@ onMounted(() => {
   installMessage(messagesRef)
   installConfirm(confirmRef)
 })
-
-http.get('project/test').then(({ data }) => {
-  console.log(data)
-})
 </script>
 
 <style scoped></style>
