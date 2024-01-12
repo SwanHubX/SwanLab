@@ -1,10 +1,11 @@
 <template>
-  <div class="w-full border flex gap-2 justify-between items-center py-1 px-2 rounded-lg">
-    <SLIcon class="w-4 h-4" icon="search"></SLIcon>
+  <div class="w-full border flex gap-2 justify-between items-center py-2 px-2 rounded-lg">
+    <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
     <input
       type="text"
       v-model="value"
-      class="w-full outline-none"
+      class="w-full outline-none text-xs text-dimmer"
+      :placeholder="placeholder"
       @input="input"
       @keydown.enter="$emit('search', value)"
     />
@@ -21,6 +22,7 @@
 import { ref } from 'vue'
 import SLIcon from './SLIcon.vue'
 import { debounce } from '@swanlab-vue/utils/common'
+import { t } from '@swanlab-vue/i18n'
 
 const emits = defineEmits(['input', 'search'])
 
@@ -28,6 +30,10 @@ const props = defineProps({
   dealy: {
     type: String,
     default: '500'
+  },
+  placeholder: {
+    type: String,
+    default: t('common.search.placeholder')
   }
 })
 

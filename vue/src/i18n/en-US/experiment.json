@@ -1,13 +1,14 @@
 {
-  "tabs": {
-    "index": "Overview",
+  "navs": {
+    "index": "Experiment Card",
     "chart": "Charts",
-    "log": "Logs"
+    "log": "Logs",
+    "env": "Environment"
   },
   "status": {
     "-1": "Crashed",
     "0": "Running",
-    "1": "Completed"
+    "1": "Finished"
   },
   "index": {
     "header": {
@@ -66,5 +67,40 @@
         "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
       }
     }
+  },
+  "env": {
+    "navs": {
+      "index": "Overview",
+      "dependances": "Requirements"
+    },
+    "title": {
+      "exp_env_index": "Overview",
+      "exp_env_dependencies": "Requirements"
+    },
+    "keys": {
+      "start_time": "Start Time",
+      "duration": "Duration",
+      "python": "Python Version",
+      "executable": "Python executable",
+      "command": "Command",
+      "hostname": "Hostname",
+      "OS": "OS",
+      "git_remote": "Git Repository",
+      "git_branch": "Git Branch",
+      "git_commit": "Git Commit",
+      "cpu": "CPU count",
+      "memory": "Memory",
+      "gpu_cores": "GPU count",
+      "gpu_type": "GPU type",
+      "swanlab": "SwanLab Version"
+    },
+    "empty": {
+      "requirements": "No requirements found"
+    }
+  },
+  "func-bar": {
+    "copy": "Copy",
+    "download": "Download",
+    "copy-success": "Copied"
   }
 }

@@ -11,9 +11,9 @@ import os
 import shutil
 from fastapi import APIRouter, Request
 
-from ...utils import get_a_lock, create_time
+from ...utils import get_a_lock
 from ...utils.file import check_desc_format
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, Conflict_409
+from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from ..module import PT
 from swanlab.env import get_swanlog_dir
 import ujson
@@ -113,33 +113,29 @@ async def update(request: Request):
     return SUCCESS_200({"project": project})
 
 
-@router.delete("/delete")
+@router.delete("")
 async def delete():
     """删除项目
-    这里有个注意的地方：如果项目中还有实验正在运行，应不予删除，并报错提示
+    1. 如果项目中还有实验正在运行，应不予删除，并报错提示
+    2. 仅删除 project.json 中记录的内容，即 swanlab 自己生产的东西
     """
 
+    folders = []
     # 检测是否有正在运行的实验
     with open(PROJECT_PATH, "r") as f:
         project = ujson.load(f)
     for item in project["experiments"]:
         if item["status"] == 0:
-            return Conflict_409("Can't delete project since there is experiment running")
+            return CONFLICT_409("Can't delete project since there is experiment running")
+        else:
+            folders.append(item["name"])
 
     # 清空除了日志以外的项目文件
-    # 列出目录中的所有文件和子目录
-    files_and_dirs = os.listdir(SWANLOG_DIR)
-
-    # 遍历每个文件和子目录
-    for file_or_dir in files_and_dirs:
-        file_or_dir_path = os.path.join(SWANLOG_DIR, file_or_dir)
-
-        # 判断是否为文件，且不是 output.log
-        if os.path.isfile(file_or_dir_path) and file_or_dir != "output.log":
-            # 删除文件
-            os.remove(file_or_dir_path)
-        elif os.path.isdir(file_or_dir_path):
-            # 递归删除子目录
-            shutil.rmtree(file_or_dir_path)
+    # 需要清除的有：1. 实验目录 2. project.json
+    for folder in folders:
+        folder_path = os.path.join(SWANLOG_DIR, folder)
+        if os.path.isdir(folder_path):
+            shutil.rmtree(folder_path)
+    os.remove(PROJECT_PATH)
 
     return SUCCESS_200({})

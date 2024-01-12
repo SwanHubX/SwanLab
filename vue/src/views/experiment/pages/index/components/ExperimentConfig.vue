@@ -1,7 +1,7 @@
 <template>
-  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
+  <div class="pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
-      <div>
+      <div class="pt-4">
         <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
           <SLHelp document="https://geektechstudio.feishu.cn/wiki/EFi3wuACGiEWlLki5aDcQiSpngg">{{
@@ -10,7 +10,7 @@
         </div>
         <SLTable :column="column" :data="configs" flexable />
       </div>
-      <div v-if="summaries?.length !== 0">
+      <div class="pt-4" v-if="summaries?.length !== 0">
         <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
           <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
@@ -21,7 +21,7 @@
       </div>
     </div>
     <div class="w-full h-6"></div>
-  </ExtendBlock>
+  </div>
 </template>
 
 <script setup>
@@ -30,7 +30,7 @@
  * @file: ExperimentConfig.vue
  * @since: 2023-12-11 17:07:31
  **/
-import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
+
 import SLTable from '@swanlab-vue/components/table'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import http from '@swanlab-vue/api/http'

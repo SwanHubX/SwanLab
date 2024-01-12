@@ -166,7 +166,8 @@ class SwanLog(Logsys):
             self.__consoler.init(console_path)
 
         self._create_console_handler()
-        self._create_file_handler(path)
+        if path:
+            self._create_file_handler(path)
         if level:
             self.logger.setLevel(self._getLevel(level))
         if console_level:
@@ -290,23 +291,37 @@ class SwanLog(Logsys):
                 "Invalid log level: %s, level must be one of ['debug', 'info', 'warning', 'error', 'critical']" % level
             )
 
+    def __concat_messages(func):
+        """装饰器，当传递打印信息有多个时，拼接为一个"""
+
+        def wrapper(*args):
+            message = " ".join(args)
+            return func(message)
+
+        return wrapper
+
     # 发送调试消息
+    @__concat_messages
     def debug(self, message):
         self.logger.debug(message)
 
     # 发送通知
+    @__concat_messages
     def info(self, message):
         self.logger.info(message)
 
     # 发生警告
+    @__concat_messages
     def warning(self, message):
         self.logger.warning(message)
 
     # 发生错误
+    @__concat_messages
     def error(self, message):
         self.logger.error(message)
 
     # 致命错误
+    @__concat_messages
     def critical(self, message):
         self.logger.critical(message)
 

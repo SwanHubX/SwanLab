@@ -1,21 +1,17 @@
 <template>
-  <SLButton
-    @click="click"
-    theme="negative"
-    hollow
-    class="px-3 py-1.5 rounded-lg"
-    :disabled-tip="$t('common.delete.not-allowed')"
-  >
+  <SLButton @click="click" theme="negative" hollow :disabled-tip="$t('common.delete.not-allowed')">
     <div class="text-sm flex items-center gap-2">
       <SLIcon icon="trash" class="w-4 h-4" />
-      {{ $t('common.delete.button') }}
+      <span class="md:block hidden">
+        {{ $t('common.delete.button') }}
+      </span>
     </div>
   </SLButton>
 </template>
 
 <script setup>
 /**
- * @description: 删除套件
+ * @description: 实验/项目删除套件
  * @file: SLDelete.vue
  * @since: 2024-01-04 14:27:27
  *
@@ -25,9 +21,9 @@
  * 3. 取消/确认按钮的回调
  **/
 
-import SLButton from './SLButton.vue'
-import SLIcon from './SLIcon.vue'
-import { confirm } from './comfirm'
+import SLButton from '../SLButton.vue'
+import SLIcon from '../SLIcon.vue'
+import { confirm } from '../comfirm'
 import { t } from '@swanlab-vue/i18n'
 
 const props = defineProps({
@@ -47,4 +43,12 @@ const click = () => {
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+button {
+  @apply px-3  flex items-center rounded-lg border-none h-8;
+  border-color: var(--outline-default) !important;
+  @media (min-width: 768px) {
+    border-style: solid;
+  }
+}
+</style>

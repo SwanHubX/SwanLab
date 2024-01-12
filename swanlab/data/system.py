@@ -6,6 +6,8 @@ r"""
 @IDE: vscode
 @Description:
     采集系统数据，包括内存、CPU、GPU、硬盘、网络等
+
+该模块中，多数应使用 warning 提出警告信息，某模块出错并不影响实验与日志记录
 """
 import platform
 import socket
@@ -47,10 +49,10 @@ def __get_remote_url():
                 url = url[:-4]
             return __replace_second_colon(url, "/")
         else:
-            swanlog.error(f"An error occurred: {result.stderr}")
+            swanlog.warning(f"An error occurred: {result.stderr}")
             return None
     except Exception as e:
-        swanlog.error(f"An error occurred: {e}")
+        swanlog.warning(f"An error occurred: {e}")
         return None
 
 
@@ -63,7 +65,7 @@ def __get_git_branch_and_commit():
         )
         branch_name, branch_err = branch_process.communicate()
         if branch_process.returncode != 0:
-            swanlog.error("Error getting branch name:", branch_err)
+            swanlog.warning("Error getting branch name:", branch_err)
             return None, None
 
         branch_name = branch_name.strip()
@@ -76,14 +78,14 @@ def __get_git_branch_and_commit():
 
         # 如果无法获取最新提交hash, 那么就返回branch_name和None
         if commit_process.returncode != 0:
-            swanlog.error("Error getting commit hash:", commit_err)
+            swanlog.warning("Error getting commit hash:", commit_err)
             return branch_name, None
 
         commit_hash = commit_hash.strip()
         return branch_name, commit_hash
 
     except Exception as e:
-        swanlog.error(f"An error occurred: {e}")
+        swanlog.warning(f"An error occurred: {e}")
         return None, None
 
 
@@ -104,7 +106,7 @@ def __get_gpu_info():
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
 
     except pynvml.NVMLError as e:
-        swanlog.error(f"An error occurred: {e}")
+        swanlog.warning(f"An error occurred when getting GPU info: {e}")
     finally:
         # 结束 NVML
         pynvml.nvmlShutdown()
@@ -121,23 +123,6 @@ def __get_command():
     return full_command
 
 
-def __get_pip_requirement():
-    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
-    try:
-        # 运行pip命令获取当前环境下的环境目录
-        result = subprocess.run(["pip", "freeze"], stdout=subprocess.PIPE, text=True)
-
-        # 检查命令是否成功运行
-        if result.returncode == 0:
-            return result.stdout
-        else:
-            swanlog.error(f"An error occurred:{result.stderr}")
-            return None
-    except Exception as e:
-        swanlog.error(f"An error occurred: {e}")
-        return None
-
-
 def __get_memory_size():
     """获取内存大小"""
     import psutil
@@ -148,7 +133,7 @@ def __get_memory_size():
         total_memory = mem.total / (1024 * 1024 * 1024)  # 单位为GB
         return total_memory
     except Exception as e:
-        swanlog.error(f"An error occurred: {e}")
+        swanlog.warning(f"An error occurred when getting memory size: {e}")
         return None
 
 
@@ -162,4 +147,24 @@ def get_system_info():
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
         "cpu": multiprocessing.cpu_count(),  # cpu 核心数
         "gpu": __get_gpu_info(),  # gpu 相关信息
+        "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
+        "command": __get_command(),  # 完整命令行信息
+        "memory": __get_memory_size(),  # 内存大小
     }
+
+
+def get_requirements() -> str:
+    """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["pip", "list", "--format=freeze"], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            swanlog.warning(f"An error occurred when getting requirements:{result.stderr}")
+            return None
+    except Exception as e:
+        swanlog.warning(f"An error occurred: {e}")
+        return None

@@ -23,7 +23,7 @@
 
 1. ⚽ **Real-time Indicator Record**: A few lines of code can record your training metrics in real time.
 2. 🧪 **Multiple Experimental Comparisons**: Support multiple experimental metric comparisons.
-3. 🤖 **ML Support:**:  Support mainstream training frameworks such as PyTorch, TensorFlow, Transformers, mmdetection. 
+3. 🤖 **ML Support:**:  Support mainstream training frameworks such as PyTorch, TensorFlow, Transformers, mmdetection.
 4. 📝 **Environmental Record**: Support automatic logging, error reporting, system hardware, Python environment and other environmental information.
 5. 🖥 **Local and Public Cloud Support**: Supports both local and public cloud (coming soon).
 
@@ -47,12 +47,10 @@ Hey, whether you're a developer or an everyday user, this quick-start guide will
 - Keep track of key metrics
 - Visualize experiments
 
-
-
 ### 🎯 Step1：Installation
 
 ```bash
-$ pip install -U swanlab
+pip install -U swanlab
 ```
 
 <br>
@@ -112,9 +110,9 @@ $ swanlab watch
                        ➜  Local:   http://127.0.0.1:5092
 ```
 
-Visit http://127.0.0.1:5092, open the experiment dashboard, and access the experiment that was just run.
+Visit `http://127.0.0.1:5092` , open the experiment dashboard, and access the experiment that was just run.
 
-<img src="readme_files/hello_world_main1.gif" width=1535>
+<img src="readme_files/hello_world_main1.gif" width=1535 alt="hello_world_main1">
 
 <br>
 

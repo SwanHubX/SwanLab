@@ -1,7 +1,10 @@
 <template>
   <Tippy trigger="click">
     <template v-slot="{ hide }">
-      <SLIcon icon="copy" :class="iconClass" @click="copy(hide)" />
+      <div class="flex gap-2 items-center">
+        <SLIcon icon="copy" :class="iconClass" @click="copy(hide)" />
+        <slot></slot>
+      </div>
     </template>
     <template #content> {{ $t('common.copy') }}</template>
   </Tippy>

@@ -38,6 +38,8 @@ const Error = computed(() => {
       return InitError
     case 3404:
       return ExperimentError
+    case 3000:
+      return InitError
     default:
       return CustomError
   }

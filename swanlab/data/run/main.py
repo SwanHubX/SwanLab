@@ -9,7 +9,7 @@ r"""
 """
 from ..settings import SwanDataSettings, get_runtime_project
 from ...log import register, swanlog
-from ..system import get_system_info
+from ..system import get_system_info, get_requirements
 from .utils import (
     get_a_lock,
     check_exp_name_format,
@@ -221,6 +221,7 @@ class SwanLabRun:
     ) -> SwanLabExp:
         """将此实验配置写入project.json文件中
         如果project.json文件不存在，则创建一个
+        记录实验配置——依赖、硬件信息、仓库信息等等
         最终返回实验名称
         """
         project_path = self.settings.project_path
@@ -236,6 +237,8 @@ class SwanLabRun:
             f.truncate(0)
             f.seek(0)
             ujson.dump(project, f)
+        # 记录实验配置
+        self.__record_exp_config()
         swanlog.info(f"Experiment {experiment_name} has been registered.")
         return SwanLabExp(self.settings, experiment["experiment_id"])
 
@@ -292,9 +295,28 @@ class SwanLabRun:
             "description": description,
             "config": config,
             "color": generate_color(sum),
-            "system": get_system_info(),
             "argv": sys.argv,
             "index": sum,
             "create_time": create_time(),
             "update_time": create_time(),
         }
+
+    def __record_exp_config(self):
+        """创建实验配置目录 files
+        - 创建 files 目录
+        - 将实验环境写入 files/swanlab-metadata.json 中
+        - 将实验依赖写入 files/requirements.txt 中
+        """
+        files_dir = self.settings.files_dir
+        requirements_path = self.settings.requirements_path
+        config_path = self.settings.config_path
+
+        # 在实验目录下创建 files 目录，用于存储实验配置信息
+        if not os.path.exists(files_dir):
+            os.makedirs(files_dir)
+        # 将实验依赖存入 requirements.txt
+        with open(requirements_path, "w") as f:
+            f.write(get_requirements())
+        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
+        with open(config_path, "w") as f:
+            ujson.dump(get_system_info(), f)

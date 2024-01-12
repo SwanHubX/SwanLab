@@ -14,6 +14,8 @@ from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
+from ..env import init_env, ROOT
+from .utils.file import check_dir_and_create, formate_abs_path
 
 
 run: Optional["SwanLabRun"] = None
@@ -24,8 +26,9 @@ def init(
     experiment_name: str = None,
     description: str = None,
     config: dict = None,
-    log_level: str = None,
+    logdir: str = None,
     suffix: str = "timestamp",
+    log_level: str = None,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -44,32 +47,59 @@ def init(
         Some experiment parameter configurations that can be displayed on the web interface, such as learning rate, batch size, etc.
     log_level : str, optional
         The log level of the current experiment, the default is 'info', you can choose from 'debug', 'info', 'warning', 'error', 'critical'.
+    dir : str, optional
+        The directory where the log file is stored, the default is current working directory.
+        You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
         The suffix of the experiment name, used to distinguish experiments with the same name, the format is yyyy-mm-dd_HH-MM-SS.
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
     """
     global run, inited
+
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
+        return run
+    # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+    if logdir is not None:
+        try:
+            logdir = check_dir_and_create(logdir)
+        except ValueError:
+            raise ValueError("logdir must be a str.")
+        except IOError:
+            raise IOError("logdir must be a path and have Write permission.")
+        os.environ[ROOT] = logdir
+    # 如果没有传入logdir，则使用默认的logdir,即当前工作目录，但是需要保证目录存在
     else:
-        run = register(
-            experiment_name=experiment_name,
-            description=description,
-            config=config,
-            log_level=log_level,
-            suffix=suffix,
-        )
-        # 注册异常处理函数
-        sys.excepthook = __except_handler
-        # 注册清理函数
-        atexit.register(__clean_handler)
-        swanlog.debug("SwanLab Runtime has initialized")
-        swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-        swanlog.info("Run data will be saved locally in " + run.settings.exp_dir)
-        swanlog.info("Experiment_name: " + run.settings.exp_name)
-        swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
-        inited = True
+        logdir = os.path.abspath("swanlog")
+        try:
+            os.makedirs(logdir, exist_ok=True)
+            if not os.access(logdir, os.W_OK):
+                raise IOError
+        except:
+            raise IOError("logdir must have Write permission.")
+
+    # 初始化环境变量
+    init_env()
+
+    # 注册实验
+    run = register(
+        experiment_name=experiment_name,
+        description=description,
+        config=config,
+        log_level=log_level,
+        suffix=suffix,
+    )
+    # 注册异常处理函数
+    sys.excepthook = __except_handler
+    # 注册清理函数
+    atexit.register(__clean_handler)
+    swanlog.debug("SwanLab Runtime has initialized")
+    swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
+    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.exp_dir))
+    swanlog.info("Experiment_name: " + run.settings.exp_name)
+    swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
+    inited = True
     return run
 
 
