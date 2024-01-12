@@ -26,7 +26,7 @@ def init(
     experiment_name: str = None,
     description: str = None,
     config: dict = None,
-    log_dir: str = None,
+    logdir: str = None,
     suffix: str = "timestamp",
     log_level: str = None,
 ) -> SwanLabRun:
@@ -60,22 +60,24 @@ def init(
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
-    # 如果传入了log_dir，则将log_dir设置为环境变量，代表日志文件存放的路径
-    # 如果没有传入log_dir，则使用默认的log_dir,
-    if log_dir is not None:
+    # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+    if logdir is not None:
         try:
-            log_dir = check_dir_and_create(log_dir)
+            logdir = check_dir_and_create(logdir)
         except ValueError:
-            raise ValueError("log_dir must be a str.")
+            raise ValueError("logdir must be a str.")
         except IOError:
-            raise IOError("log_dir must be a path and have Write permission.")
-        os.environ[ROOT] = log_dir
+            raise IOError("logdir must be a path and have Write permission.")
+        os.environ[ROOT] = logdir
+    # 如果没有传入logdir，则使用默认的logdir,即当前工作目录，但是需要保证目录存在
     else:
-        log_dir = os.path.abspath("swanlog")
+        logdir = os.path.abspath("swanlog")
         try:
-            os.makedirs(log_dir, exist_ok=True)
-        except IOError:
-            raise IOError("log_dir must have Write permission.")
+            os.makedirs(logdir, exist_ok=True)
+            if not os.access(logdir, os.W_OK):
+                raise IOError
+        except:
+            raise IOError("logdir must have Write permission.")
 
     # 初始化环境变量
     init_env()

@@ -42,6 +42,7 @@ def cli():
 # 实验文件夹
 @click.option(
     "--logdir",
+    "-l",
     default=None,
     type=str,
     help="Specify the folder to store Swanlog, which is by default the folder where Swanlab Watch is run.",
