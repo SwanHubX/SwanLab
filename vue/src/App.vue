@@ -22,6 +22,16 @@ import { installMessage, SLMessages, message } from '@swanlab-vue/components/mes
 import { installConfirm, SLComfirm } from './components/comfirm'
 import { onMounted } from 'vue'
 
+// ---------------------------------- test ----------------------------------
+
+import { formatNumber } from '@swanlab-vue/utils/common'
+
+const num = -0.000000132131231
+console.log(formatNumber(num))
+console.log(formatNumber(122000000000000000))
+
+// ---------------------------------- state ----------------------------------
+
 const projectStore = useProjectStore()
 const ready = ref()
 
