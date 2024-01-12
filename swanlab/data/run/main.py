@@ -7,6 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
+from typing import Any
 from ..settings import SwanDataSettings, get_runtime_project
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
@@ -31,7 +32,8 @@ class SwanConfig(Mapping):
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: dict):
+        # config就是外界传入的config，实际上外界访问的就是这个config中的内容
         self.__config = config
 
     def __iter__(self):
@@ -39,6 +41,15 @@ class SwanConfig(Mapping):
 
     def __len__(self):
         return len(self.__config)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # 只允许修改私有属性，也就是在__init__中定义的属性
+        if name.startswith("_" + self.__class__.__name__ + "__"):
+            # 如果是私有属性，允许修改
+            self.__dict__[name] = value
+        else:
+            # 如果不是私有属性，不允许修改
+            raise AttributeError("SwanConfig object is read-only, attributes cannot be modified")
 
     def __getattr__(self, name):
         try:
