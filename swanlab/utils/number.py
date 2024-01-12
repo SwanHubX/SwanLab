@@ -15,7 +15,7 @@ class ScientificNotation:
         self.__min_threshold = min_threshold
         self.__max_threshold = max_threshold
 
-    def format(self, value, digits=6) -> str:
+    def format(self, value, digits=6) -> float:
         """将超出阈值的数字转成科学计数法
         为了便于存储，在返回时使用字符串格式
 
@@ -28,10 +28,19 @@ class ScientificNotation:
 
         Returns
         -------
-        str
+        float
             转化后的数字
         """
         if self.__min_threshold <= value <= self.__max_threshold:
-            return str(value)
+            return value
         else:
             return format(value, f".{digits}e")
+
+
+if __name__ == "__main__":
+    num1 = "1.23e-10"
+    print(num1)
+    print(format(float(num1), ".10f"))
+
+    num2 = 123321312312.3123123123123
+    print(format(num2, ".12e"))
