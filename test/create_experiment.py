@@ -35,15 +35,18 @@ lr = 0.01
 # 随机偏移量
 offset = random.random() / 5
 # 创建一个实验
-sw.init(
+run = sw.init(
     description=" this is a test experiment",
     config={
         "learning_rate": lr,
         "epochs": epochs,
     },
-    logdir="/test",
+    logdir="swanlog",
     log_level="debug",
 )
+
+
+print(run.config.learning_rate)
 
 print("start training")
 
