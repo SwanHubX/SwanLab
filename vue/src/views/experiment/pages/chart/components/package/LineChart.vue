@@ -34,6 +34,7 @@ import * as UTILS from './utils'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
 const experimentStore = useExperimentStroe()
@@ -78,25 +79,30 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     yField,
     // 坐标轴相关
     xAxis: {
-      tickCount: 7 // 设置坐标轴刻度数量，防止数据过多导致刻度过密
+      // // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
+      // tickMethod: (category) => {
+      //   // category.values是一个数组，里面是所有的刻度，这已经经过排序了
+      //   const values = category.values
+      //   // 拿到最大值，平均显示4个刻度，并且这4个刻度都是5的倍数
+      //   const max = Number(values[values.length - 1])
+      // }
+      tickCount: 5
     },
     yAxis: {
-      tickCount: 7,
       min: null,
       label: {
-        // TODO 在此处完成Y轴数据的格式化
+        // 在此处完成Y轴数据的格式化
         formatter: (data) => {
-          return data
+          return formatNumber2SN(data)
         }
       }
     },
     tooltip: {
-      // TODO 在此处完成悬浮数据提示的格式化
+      // 在此处完成悬浮数据提示的格式化
       // FIXME 当前tooltip只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
-        if (data.data % 1 !== 0) return { name: source[0], value: data.data.toFixed(4) }
-        return { name: source[0], value: data.data }
+        return { name: source[0], value: formatNumber2SN(data.data) }
       }
       // customContent: (title, data) => {
       //   console.log(title, data)
