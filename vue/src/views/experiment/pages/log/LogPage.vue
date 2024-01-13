@@ -1,6 +1,13 @@
 <template>
   <div class="w-full h-full px-7 py-6 relative overflow-hidden">
-    <FuncBar class="pb-6" @input="search" :content="logs?.join('\n')" :filename="filename" v-if="logs" />
+    <FuncBar
+      class="pb-6"
+      @input="search"
+      :content="logs?.join('\n')"
+      :placeholder="$t('experiment.func-bar.placeholder.log')"
+      :filename="filename"
+      v-if="logs"
+    />
     <section class="log-container">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <!-- 运行日志 -->

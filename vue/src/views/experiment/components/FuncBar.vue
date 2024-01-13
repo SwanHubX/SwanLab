@@ -1,6 +1,6 @@
 <template>
   <div class="w-full flex gap-5 justify-between">
-    <SLSearch @input="input" class="max-w-[400px]" />
+    <SLSearch @input="input" :placeholder="placeholder" class="max-w-[400px]" />
     <div class="flex gap-3">
       <SLButton hollow @click="copy">
         <SLIcon icon="copy" class="icon"></SLIcon>
@@ -36,6 +36,11 @@ const props = defineProps({
   filename: {
     type: String,
     default: 'swanlab.file'
+  },
+  // 搜索栏的占位
+  placeholder: {
+    type: String,
+    default: 'Search...'
   }
 })
 

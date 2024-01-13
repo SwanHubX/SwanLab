@@ -2,7 +2,13 @@
   <div class="w-full" v-if="requirements">
     <template v-if="requirements.length !== 0">
       <!-- 搜索、复制、下载 -->
-      <FuncBar class="pb-6 py-4" @input="search" :content="requirements?.join('\n')" :filename="filename" />
+      <FuncBar
+        class="pb-6 py-4"
+        @input="search"
+        :content="requirements?.join('\n')"
+        :filename="filename"
+        :placeholder="$t('experiment.func-bar.placeholder.requirements')"
+      />
       <!-- 如果有依赖项 -->
       <div class="px-6 py-4 bg-higher rounded">
         <p v-for="line in lines" :key="line">
