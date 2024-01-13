@@ -259,9 +259,10 @@ async def get_experiment_status(experiment_id: int):
     """
     exp = __find_experiment(experiment_id)
     status = exp["status"]
+    update_time = exp["update_time"]
     chart_path: str = os.path.join(SWANLOG_DIR, exp["name"], "chart.json")
     charts = __get_charts(chart_path)
-    return SUCCESS_200(data={"status": status, "charts": charts})
+    return SUCCESS_200(data={"status": status, "update_time": update_time, "charts": charts})
 
 
 @router.get("/{experiment_id}/summary")

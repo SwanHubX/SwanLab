@@ -37,7 +37,7 @@ const init = async (id = route.params.experimentId) => {
     .then(({ data }) => {
       experimentStore.experiment = data
       // 设置实验状态
-      projectStore.setExperimentStatus(data.experiment_id, data.status)
+      projectStore.setExperimentStatus(data.experiment_id, data.status, data.update_time)
       // 如果实验状态还在running，就轮询
       if (experimentStore.isRunning) polling()
     })
@@ -70,7 +70,8 @@ const polling = () => {
       }
       // 设置实验状态
       experimentStore.setStatus(data.status)
-      projectStore.setExperimentStatus(experimentStore.id, data.status)
+      experimentStore.setUpateTime(data.update_time)
+      projectStore.setExperimentStatus(experimentStore.id, data.status, data.update_time)
       experimentStore.charts = data.charts
 
       if (!experimentStore.isRunning) {

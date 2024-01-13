@@ -101,6 +101,10 @@
   "func-bar": {
     "copy": "Copy",
     "download": "Download",
-    "copy-success": "Copied"
+    "copy-success": "Copied",
+    "placeholder": {
+      "requirements": "Search requirement...",
+      "log": "Search log..."
+    }
   }
 }

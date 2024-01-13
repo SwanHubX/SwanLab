@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { t } from '@swanlab-vue/i18n'
 
-export const useExperimentStroe = defineStore('charts', () => {
+export const useExperimentStroe = defineStore('experiment', () => {
   /** state */
   // 当前实验
   const experiment = ref()
@@ -71,7 +71,7 @@ export const useExperimentStroe = defineStore('charts', () => {
     experiment.value.status = status
   }
   // 修改更新时间
-  const setUpateTIme = (time) => {
+  const setUpateTime = (time) => {
     experiment.value.update_time = time
   }
 
@@ -96,7 +96,7 @@ export const useExperimentStroe = defineStore('charts', () => {
     duration,
     // action
     setStatus,
-    setUpateTIme,
+    setUpateTime,
     setExperiment
   }
 })

@@ -27,11 +27,13 @@ export const useProjectStore = defineStore('project', () => {
    * 设置指定实验的状态
    * @param { number } id 实验id
    * @param { string } status 实验状态
+   * @param { number } update_time 实验更新时间
    */
-  const setExperimentStatus = (id, status) => {
+  const setExperimentStatus = (id, status, update_time) => {
     // 不需要绝对等于
     const experiment = experiments.value.find((e) => e.experiment_id == id)
     experiment.status = status
+    if (update_time) experiment.update_time = update_time
   }
   /**
    * 重置实验列表中某一个实验的信息

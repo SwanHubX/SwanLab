@@ -41,7 +41,7 @@ const stop = () => {
 const stop_experiment = async () => {
   const { data } = await http.get(`/experiment/${id}/stop`)
   if (!data) return
-  experiment.setUpateTIme(data.update_time)
+  experiment.setUpateTime(data.update_time)
   useProjectStore().setExperimentStatus(id, -1)
   message.success('State changed')
 }
