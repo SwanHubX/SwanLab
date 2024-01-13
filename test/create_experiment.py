@@ -45,7 +45,7 @@ class Shrink100Billion(sw.data.BaseType):
 
 
 # 迭代次数
-epochs = 5000
+epochs = 50
 # 学习率
 lr = 0.01
 # 随机偏移量
@@ -93,7 +93,7 @@ for epoch in range(2, epochs):
     # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)
     # sw.log({"loss3": loss, "accuracy3": acc}, step=1)
     # sw.log({"loss4": loss, "accuracy4": acc}, step=epoch * 2)
-    time.sleep(0.05)
+    time.sleep(0.5)
 
 print("")
 print("")

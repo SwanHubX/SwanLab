@@ -160,6 +160,7 @@ class IntervalMap {
     if (!length) return
     // 如果callback不存在，且key对应的callback也不存在，直接返回
     if (!callback && !this._callbackMap.get(key)) return
+    // console.warn('setInterval', key, length)
     // 计算时间
     let interval = 1000
     if (length < 100) interval = 1000
@@ -174,7 +175,7 @@ class IntervalMap {
     // 此时重新设置轮询间隔，并且清除旧的轮询
     this.clear(key)
     // 重新设置轮询
-    console.warn('重新设置轮询', key, interval)
+    // console.warn('重新设置轮询', key, interval)
     // 拿到回调函数
     callback = callback || this._callbackMap.get(key)
     this._map.set(key, setInterval(callback, interval))
@@ -192,6 +193,7 @@ class IntervalMap {
     if (timer) clearInterval(timer)
     this._map.delete(key)
     this._intervalMap.delete(key)
+    this._callbackMap.delete(key)
   }
 
   /**
@@ -199,7 +201,10 @@ class IntervalMap {
    */
   clearAll() {
     console.log('清除所有轮询')
-    this._map.forEach((timer) => clearInterval(timer))
+    this._map.forEach((timer) => {
+      console.log('clear', timer)
+      clearInterval(timer)
+    })
     this._map.clear()
     this._intervalMap.clear()
   }
@@ -287,7 +292,7 @@ class EventEmitter {
           }
           this._getSoureceData(tag)
           // 如果实验状态不是0，停止轮询
-          if (experimentStore.status !== 0) {
+          if (!experimentStore.isRunning) {
             this._timerMap.clearAll()
             return console.log('stop, experiment status is not 0')
           }
