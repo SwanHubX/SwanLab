@@ -193,7 +193,9 @@ class SwanLabRun:
             for index, experiment in enumerate(project["experiments"]):
                 if experiment["experiment_id"] == self.__exp.id:
                     project["experiments"][index]["status"] = status
-                    project["update_time"] = create_time()
+                    time = create_time()
+                    project["experiments"][index]["update_time"] = time
+                    project["update_time"] = time
                     break
             file.truncate(0)
             file.seek(0)
