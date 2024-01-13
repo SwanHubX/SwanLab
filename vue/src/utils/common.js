@@ -28,9 +28,9 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
 }
 
 /**
- * 以合理的格式展示数据
- *
- * 常规数据区间为：[1e-7, 1e13)
+ * 科学记数法格式化数据，将普通数字转换为科学计数法，但是由于语言表示的限制，转换后的数据是字符串
+ * 格式化规则如下：
+ * 0. 定义区间：[min, max)，这两个值通过参数传入，默认为 [1e-7, 1e13)
  * 1. 区间内，返回非科学计数法格式的数据
  * 2. 超出区间，统一使用科学计数法表示
  * 3. 科学计数法底数最多保留 digits 位小数
@@ -39,21 +39,20 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
  *    - 非科学计数法时，小数点后多余的 0
  *    - 科学计数法时，保留位后多余的 0
  *
- * @param {number, string} value 需要格式化的数字
- * @param {boolean} pure 是否去除末尾无意义的0，默认去除
- * @returns
+ * @param {number, string} value 需要格式化的数字，可以是任何可以转换为数字的类型的值
+ * @param {number} max 区间最大值，绝对值大于等于这个区间的值，统一使用科学计数法
+ * @param {number} min 区间最小值，绝对值小于这个区间的值，统一使用科学计数法（不包括0）
+ * @returns {string} 格式化后的数据
  */
-const max = 1e13 // 不转化的最大值
-const min = 1e-7 // 不转化的最小值
-const digits = 4 // 保留位数
-// 小数位的第一个非零值超出位数后，忽略小数部分，注意，ignore_digits 的设置应该小于最小阈值
-const ignore_digits = 10
-export const formatNumber = (value, pure = true) => {
+export const formatNumber2SN = (value, max = 1e13, min = 1e-7, digits = 4) => {
+  // 如果一个传入的数字的小数点后ignore_digits位全为0，那么把这个数当作整数来处理
+  const ignore_digits = digits + 6
+  // 将传入的数据转换为Number
   value = Number(value)
-  // 检测负数
-  const negative = value >= 0 ? false : true
-  // 如果是负数，暂时取绝对值运算
-  if (negative) value = Math.abs(value)
+  // 检测符号
+  const sign = value >= 0 ? '' : '-'
+  // 取绝对值
+  value = Math.abs(value)
 
   // 如果在区间内，使用普通计数法，只需要保留一定精度即可
   if (value >= min && value < max) {
@@ -97,32 +96,24 @@ export const formatNumber = (value, pure = true) => {
      * 默认删除小数点后，无意义的 0
      * 例如：1.01300 => 1.013
      */
-    if (pure) {
-      if (value.indexOf('.') !== -1) {
-        value = value.replace(/(\.\d*?[1-9])?0+$/, '$1')
-      }
+    if (value.indexOf('.') !== -1) {
+      value = value.replace(/(\.\d*?[1-9])?0+$/, '$1')
     }
   }
   // 如果超出范围，统一使用科学计数法
   else {
     value = value.toExponential(digits) // 注意 toExponential 的返回值是 string
-    // 清除无意义的 0
-    if (pure) {
-      // 判断小数部分是否全为 0
-      const point_index = value.indexOf('.')
-      const e_index = value.indexOf('e')
-      const fraction_part = value.substring(point_index + 1, e_index)
-      // 小数部分是否全为 0
-      if (/^0+$/.test(fraction_part)) {
-        value = value.substring(0, point_index) + value.substring(e_index)
-      } else {
-        // 小数部分不全为0，则清除无意义的0
-        value = value.replace(/(\.\d*?[1-9])0+e/, '$1e')
-      }
+    // 判断小数部分是否全为 0
+    const point_index = value.indexOf('.')
+    const e_index = value.indexOf('e')
+    const fraction_part = value.substring(point_index + 1, e_index)
+    if (/^0+$/.test(fraction_part)) {
+      value = value.substring(0, point_index) + value.substring(e_index)
+    } else {
+      value = value.replace(/(\.\d*?[1-9])0+e/, '$1e')
     }
   }
 
   // 最后处理和返回的时候需要保证是字符串格式，不然，如果符合js自动转化的条件，会自动变成科学计数法
-  if (negative) value = '-' + value
-  return value
+  return sign + value
 }
