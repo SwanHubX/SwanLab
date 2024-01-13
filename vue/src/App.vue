@@ -29,7 +29,7 @@ import { formatNumber } from '@swanlab-vue/utils/common'
 // const num = -0.000000132131231
 // const num = 312.00021002333
 // console.log(formatNumber(num))
-console.log(formatNumber(1001.0100001000002))
+console.log(formatNumber('10120000000000002'))
 
 // ---------------------------------- state ----------------------------------
 

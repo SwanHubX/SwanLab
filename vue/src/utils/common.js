@@ -39,14 +39,17 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
  *    - 非科学计数法时，小数点后多余的 0
  *    - 科学计数法时，保留位后多余的 0
  *
- * @param {*} value
- * @param {*} pure
+ * @param {number, string} value 需要格式化的数字
+ * @param {boolean} pure 是否去除末尾无意义的0，默认去除
  * @returns
  */
-const max = 1e13
-const min = 1e-7
-const digits = 4
+const max = 1e13 // 不转化的最大值
+const min = 1e-7 // 不转化的最小值
+const digits = 4 // 保留位数
+// 小数位的第一个非零值超出位数后，忽略小数部分，注意，ignore_digits 的设置应该小于最小阈值
+const ignore_digits = 10
 export const formatNumber = (value, pure = true) => {
+  value = Number(value)
   // 检测负数
   const negative = value >= 0 ? false : true
   // 如果是负数，暂时取绝对值运算
@@ -77,11 +80,17 @@ export const formatNumber = (value, pure = true) => {
       const index = match[0].length - 1
       /**
        * 计算符合展示规则的长度
+       * 如果非零值在小数点 ignore_digits 之后，小数部分当 0 算
        * 整数部分长度：value.substring(0, value.indexOf('.')).length
        * 小数部分长度：index + digits
        */
-      const length = value.substring(0, value.indexOf('.')).length + index + digits
-      value = value.substring(0, length)
+      const point_index = value.indexOf('.')
+      if (index > ignore_digits) {
+        value = value.substring(0, point_index)
+      } else {
+        const length = value.substring(0, point_index).length + index + digits
+        value = value.substring(0, length)
+      }
     } // 没有匹配上说明没有小数部分，直接略过
 
     /**
@@ -97,7 +106,18 @@ export const formatNumber = (value, pure = true) => {
   // 如果超出范围，统一使用科学计数法
   else {
     value = value.toExponential(digits) // 注意 toExponential 的返回值是 string
-    if (pure) value = value.replace(/(\.\d*?[1-9])0+e/, '$1e') // 清除无意义的 0
+    // 清除无意义的 0
+    if (pure) {
+      // 判断小数部分是否全为 0
+      const point_index = value.indexOf('.')
+      const e_index = value.indexOf('e')
+      const fraction_part = value.substring(point_index + 1, e_index)
+      if (/^0+$/.test(fraction_part)) {
+        value = value.substring(0, point_index) + value.substring(e_index)
+      } else {
+        value = value.replace(/(\.\d*?[1-9])0+e/, '$1e')
+      }
+    }
   }
 
   // 最后处理和返回的时候需要保证是字符串格式，不然，如果符合js自动转化的条件，会自动变成科学计数法
