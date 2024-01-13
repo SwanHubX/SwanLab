@@ -134,6 +134,77 @@ class RequestMap {
   }
 }
 
+// 轮询映射表，提供轮询间隔的设置、依据id清除轮询等功能
+class IntervalMap {
+  constructor() {
+    // 映射表，key:tag ; value:timer
+    this._map = new Map()
+    // 轮询间隔，key:tag ; value:interval
+    this._intervalMap = new Map()
+    // 回调函数，key:tag ; value:callback
+    this._callbackMap = new Map()
+  }
+  /**
+   * 输入长度，设置轮询间隔，如果轮询间隔没有变化，不会重新设置
+   * 1. 数据量小于100，每1秒请求一次
+   * 2. 数据量大于100，小于500，每1秒请求一次
+   * 3. 数据量大于500，小于1000，每2秒请求一次
+   * 4. 之后每增加500个数据，延时增加1秒，最大延时为8秒
+   *
+   * @param { string } key 对应tag
+   * @param { number } length 数据量，依据数据长度设置轮询间隔
+   * @param { Function } callback 回调函数，当轮询间隔发生变化时执行
+   */
+  setInterval(key, length, callback = undefined) {
+    // 如果length不存在，直接返回
+    if (!length) return
+    // 如果callback不存在，且key对应的callback也不存在，直接返回
+    if (!callback && !this._callbackMap.get(key)) return
+    // 计算时间
+    let interval = 1000
+    if (length < 100) interval = 1000
+    else if (length < 500) interval = 1000
+    else if (length < 1000) interval = 2000
+    else {
+      const n = Math.floor((length - 1000) / 500)
+      interval = Math.min(8000, 2000 + n * 1000)
+    }
+    // console.log('setInterval', key, interval)
+    if (this._intervalMap.get(key) === interval) return // 如果轮询间隔没有变化，不会重新设置
+    // 此时重新设置轮询间隔，并且清除旧的轮询
+    this.clear(key)
+    // 重新设置轮询
+    console.warn('重新设置轮询', key, interval)
+    // 拿到回调函数
+    callback = callback || this._callbackMap.get(key)
+    this._map.set(key, setInterval(callback, interval))
+    this._callbackMap.set(key, callback)
+    // 设置轮询间隔
+    this._intervalMap.set(key, interval)
+  }
+
+  /**
+   * 清除轮询
+   * @param { string } key 对应tag
+   */
+  clear(key) {
+    const timer = this._map.get(key)
+    if (timer) clearInterval(timer)
+    this._map.delete(key)
+    this._intervalMap.delete(key)
+  }
+
+  /**
+   * 清除所有轮询
+   */
+  clearAll() {
+    console.log('清除所有轮询')
+    this._map.forEach((timer) => clearInterval(timer))
+    this._map.clear()
+    this._intervalMap.clear()
+  }
+}
+
 // 事件发射器
 class EventEmitter {
   constructor() {
@@ -147,6 +218,10 @@ class EventEmitter {
     this._experiment_id = experimentStore.id
     // 轮询id
     this.timer = null
+    // 轮询id的映射表，key为tag，value为timer
+    this._timerMap = new IntervalMap()
+    // 请求间隔映射表，当此表中的数据发生变化时，重新设置轮询函数
+    this._intervalMap = new Map()
     // 请求状态映射
     this._request = new RequestMap()
   }
@@ -161,6 +236,7 @@ class EventEmitter {
     if (data) {
       this._sourceMap.set(key, data)
     }
+    console.log('setSourceData', key, data, error)
     // 遍历对应key的_distributeMap，执行回调函数
     const callbacks = this._distributeMap.get(key)
     // 回调函数必须全部执行完毕后，才能将请求状态设置为success或者error
@@ -169,6 +245,7 @@ class EventEmitter {
     Promise.all(Array.from(callbacks.values()).map((callback) => callback(key, data, error))).then(() => {
       console.log('all callbacks are executed')
       this.setRequestStatus(key, error)
+      this._timerMap.setInterval(key, data?.list?.length)
     })
   }
 
@@ -188,32 +265,35 @@ class EventEmitter {
    */
   start() {
     // 第一次延时1秒执行，后面每隔n秒执行一次
-    const n = 1
     // 遍历源列表，请求数据
+    const promises = []
     this._sources.forEach((tag) => {
       // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
-      this._getSoureceData(tag)
+      promises.push(this._getSoureceData(tag))
     })
-    if (experimentStore.isRunning)
-      this.timer = setInterval(async () => {
-        // 在此处取出pinia中的charts配置，重新设置
-        experimentStore.charts && parseCharts(experimentStore.charts)
-        // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
-        if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-          clearInterval(this.timer)
-          return console.log('stop, experiment id is not equal to route id')
-        }
-        // 遍历源列表，请求数据
-        this._sources.forEach((tag) => {
-          // promise all如果出现错误，会直接reject，不会执行后面的，所以这里不用它,使用for of
+    // 等待第一次请求完成，然后设置轮询
+    Promise.all(promises).then(() => {
+      // 如果实验状态不是0，停止轮询
+      if (!experimentStore.isRunning) return
+      // 遍历源列表，请求数据
+      this._sources.forEach((tag) => {
+        this._timerMap.setInterval(tag, this._sourceMap.get(tag).list.length, () => {
+          // 在此处取出pinia中的charts配置，重新设置
+          experimentStore.charts && parseCharts(experimentStore.charts)
+          // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+          if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+            this._timerMap.clearAll()
+            return console.log('stop, experiment id is not equal to route id')
+          }
           this._getSoureceData(tag)
+          // 如果实验状态不是0，停止轮询
+          if (experimentStore.status !== 0) {
+            this._timerMap.clearAll()
+            return console.log('stop, experiment status is not 0')
+          }
         })
-        // 如果实验状态不是0，停止轮询
-        if (experimentStore.status !== 0) {
-          clearInterval(this.timer)
-          return console.log('stop, experiment status is not 0')
-        }
-      }, n * 1000)
+      })
+    })
   }
 
   /**
@@ -225,10 +305,11 @@ class EventEmitter {
     if (!this._request.canRequest(tag)) return console.log('abandon')
     // 在请求之前将_request设置为pending
     this._request.setPending(tag)
-    http
+    return http
       .get(`/experiment/${this._experiment_id}/tag/${tag}`)
       .then((res) => {
         // 更新_sourceMap
+        console.log('更新')
         this.setSourceData(tag, res.data, null)
       })
       .catch((err) => {
@@ -288,7 +369,7 @@ class EventEmitter {
    * 销毁订阅模型
    */
   delete() {
-    clearInterval(this.timer)
+    this._timerMap.clearAll()
     // this._sources = null
     // this._sourceMap = null
     // this._distributeMap = null
