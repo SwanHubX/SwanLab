@@ -31,13 +31,11 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
  * 科学记数法格式化数据，将普通数字转换为科学计数法，但是由于语言表示的限制，转换后的数据是字符串
  * 格式化规则如下：
  * 0. 定义区间：[min, max)，这两个值通过参数传入，默认为 [1e-7, 1e13)
- * 1. 区间内，返回非科学计数法格式的数据
- * 2. 超出区间，统一使用科学计数法表示
+ * 1. 区间内或者value为0，输入的值以非科学记数法表示
+ * 2. 超出区间，统一使用科学计数法表示（不包括0）
  * 3. 科学计数法底数最多保留 digits 位小数
  * 4. 非科学计数法格式的数据，小数点后，保留到第一个有效数字及其后三位
- * 5. 可选参数 pure 若设置为 true，则在上面四条的基础上，删除无意义的0
- *    - 非科学计数法时，小数点后多余的 0
- *    - 科学计数法时，保留位后多余的 0
+ * 5. 在上述规则下，删除不必要的0，即删除小数点后，最后一个非零数后面的0
  *
  * @param {number, string} value 需要格式化的数字，可以是任何可以转换为数字的类型的值
  * @param {number} max 区间最大值，绝对值大于等于这个区间的值，统一使用科学计数法
@@ -55,12 +53,13 @@ export const formatNumber2SN = (value, max = 1e13, min = 1e-7, digits = 4) => {
   value = Math.abs(value)
 
   // 如果在区间内，使用普通计数法，只需要保留一定精度即可
-  if (value >= min && value < max) {
+  if ((value >= min && value < max) || value === 0) {
     /**
      * 这里使用 toFixed 的目的是，js 自动转化科学计数法的最小阈值是 e-6，而我们需要 e-7 才转化
      * 为了将 e-7 ~ e-6 之间的数从科学计数法转为十进制，需要转化一下
      * 要求保留小数点后第一个有效数字和其后三位，那么最多需要保留10位精度，例：0.000000123424
      */
+    // 如果js自动转化为科学计数法
     if (value.toString().includes('e')) {
       // 获取最小的精度位
       const min_str = min.toString()
@@ -90,7 +89,8 @@ export const formatNumber2SN = (value, max = 1e13, min = 1e-7, digits = 4) => {
         const length = value.substring(0, point_index).length + index + digits
         value = value.substring(0, length)
       }
-    } // 没有匹配上说明没有小数部分，直接略过
+    }
+    // 没有匹配上说明没有小数部分，直接略过
 
     /**
      * 默认删除小数点后，无意义的 0
@@ -113,7 +113,6 @@ export const formatNumber2SN = (value, max = 1e13, min = 1e-7, digits = 4) => {
       value = value.replace(/(\.\d*?[1-9])0+e/, '$1e')
     }
   }
-
   // 最后处理和返回的时候需要保证是字符串格式，不然，如果符合js自动转化的条件，会自动变成科学计数法
   return sign + value
 }
