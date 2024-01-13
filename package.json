@@ -10,7 +10,8 @@
     "build.release": "vite build --mode release",
     "preview": "vite preview",
     "fmt": "npx prettier --write .",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "test": "vitest"
   },
   "dependencies": {
     "@antv/g2plot": "^2.4.31",

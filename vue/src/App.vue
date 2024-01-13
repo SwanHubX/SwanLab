@@ -22,6 +22,8 @@ import { installMessage, SLMessages, message } from '@swanlab-vue/components/mes
 import { installConfirm, SLComfirm } from './components/comfirm'
 import { onMounted } from 'vue'
 
+// ---------------------------------- state ----------------------------------
+
 const projectStore = useProjectStore()
 const ready = ref()
 

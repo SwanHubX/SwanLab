@@ -127,7 +127,13 @@ class SwanLabTag:
         if step in self.__steps:
             return swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
         # 添加数据，首先比较数据，如果数据比之前的数据大，则更新最大值，否则不更新
-        data = self.try_convert_data(data, step)
+        """
+        python环境下data可能是列表、字符串、整型、浮点型等
+        因此下面的summary还需要在未来做好兼容
+        对于整型和浮点型，还存在极大和极小值的问题
+        目前的策略是让python解释器自己处理，在前端完成数据的格式化展示
+        """
+        data = self.try_convert_after_add_chart(data, step)
         # 如果数据比之前的数据小，则更新最小值，否则不更新
         self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
         self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
@@ -285,7 +291,7 @@ class SwanLabTag:
         # 如果所有类型都尝试过仍然失败，则抛出异常
         raise ValueError(f"Unable to convert {value} to any of the specified types.")
 
-    def try_convert_data(self, data, step):
+    def try_convert_after_add_chart(self, data, step):
         """尝试将data转换为data_types中的类型，如果转换失败，返回None
         如果所有类型都尝试过仍然失败，则抛出异常
         调用这个函数代表用户的图表已经创建并且传入了与之前不同的数据类型

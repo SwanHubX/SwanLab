@@ -37,6 +37,7 @@ import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import { computed } from 'vue'
+import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 const experiment = ref(useExperimentStroe().experiment)
 
@@ -72,7 +73,12 @@ const experimentId = ref(useExperimentStroe().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then(({ data }) => {
-    summaries.value = data.summaries || {}
+    summaries.value = (data.summaries || []).map((item) => {
+      return {
+        key: item.key,
+        value: formatNumber2SN(item.value)
+      }
+    })
   })
   .catch((error) => {
     console.error(error)
