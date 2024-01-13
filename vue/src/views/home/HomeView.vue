@@ -55,6 +55,7 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import SLTable from '@swanlab-vue/components/table'
 import EmptyTable from './components/EmptyTable.vue'
+import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 const projectStore = useProjectStore()
 const experiments = computed(() => {
@@ -114,12 +115,13 @@ const configs = []
 
 // 表格体数据
 const experiments_table = computed(() => {
+  console.log(summaries.value)
   return experiments.value.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
     Promise.all(
       Object.keys(summary).map(async (key) => {
-        expr[await hashString(key)] = summary[key]
+        expr[await hashString(key)] = formatNumber2SN(summary[key])
       })
     )
     return expr
