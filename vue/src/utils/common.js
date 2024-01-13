@@ -112,9 +112,11 @@ export const formatNumber = (value, pure = true) => {
       const point_index = value.indexOf('.')
       const e_index = value.indexOf('e')
       const fraction_part = value.substring(point_index + 1, e_index)
+      // 小数部分是否全为 0
       if (/^0+$/.test(fraction_part)) {
         value = value.substring(0, point_index) + value.substring(e_index)
       } else {
+        // 小数部分不全为0，则清除无意义的0
         value = value.replace(/(\.\d*?[1-9])0+e/, '$1e')
       }
     }
