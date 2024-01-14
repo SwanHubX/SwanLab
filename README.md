@@ -38,13 +38,14 @@ Code:
 - [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
 - [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST)
 
-- [ResNet50: Cat and dog classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | [Zhihu](https://zhuanlan.zhihu.com/p/677224865)
+- [ResNet50: Cat and dog classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)
 - [Word_language_model (RNN/LSTM/GRU/Transformer)](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model)
 
 Tips：
 
 - [Remotely Watch SwanLab Dashboard](https://zhuanlan.zhihu.com/p/677224865)
 - [Use Argparse init SwanLab's config ](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
+- [PyTorch+SwanLab+Gradio: Resnet50_cats_vs dogs](https://zhuanlan.zhihu.com/p/676430630)
 
 <br>
 

@@ -40,13 +40,14 @@
 - [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
 - [MNIST手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST)
 
-- [ResNet50: 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)|[知乎](https://zhuanlan.zhihu.com/p/677224865)
+- [ResNet50: 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)
 - [语言模型 (RNN/LSTM/GRU/Transformer)](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model)
 
 技巧：
 
 - [远程使用SwanLab实验看板](https://zhuanlan.zhihu.com/p/677224865)
 - [使用Argparse初始化SwanLab的config ](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
+- [PyTorch+SwanLab+Gradio: Resnet50猫狗分类实战](https://zhuanlan.zhihu.com/p/676430630)
 
 <br>
 
