@@ -35,9 +35,18 @@
 
 我们提供了一些案例代码和文章，来帮助你更好地理解与掌握 SwanLab：
 
+代码: 
+
 - [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
-- [MNIST 手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/plain_net_mnist)
-- [ResNet50 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/tree/main/resnet50_cats_vs_dogs)
+- [MNIST手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST)
+
+- [ResNet50: 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)
+- [语言模型 (RNN/LSTM/GRU/Transformer)](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model)
+
+技巧：
+
+- [远程使用SwanLab实验看板](https://zhuanlan.zhihu.com/p/677224865)
+- [使用Argparse初始化SwanLab的config ](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
 
 <br>
 
