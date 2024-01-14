@@ -38,7 +38,7 @@ Code:
 - [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
 - [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST)
 
-- [ResNet50: Cat and dog classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)
+- [ResNet50: Cat and dog classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | [Zhihu](https://zhuanlan.zhihu.com/p/677224865)
 - [Word_language_model (RNN/LSTM/GRU/Transformer)](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model)
 
 Tips：

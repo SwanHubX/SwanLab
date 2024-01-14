@@ -40,7 +40,7 @@
 - [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
 - [MNIST手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST)
 
-- [ResNet50: 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)
+- [ResNet50: 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50)|[知乎](https://zhuanlan.zhihu.com/p/677224865)
 - [语言模型 (RNN/LSTM/GRU/Transformer)](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model)
 
 技巧：
