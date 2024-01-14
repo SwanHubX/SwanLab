@@ -1,9 +1,9 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - '*'
 
 jobs:
   publish:
@@ -39,3 +39,12 @@ jobs:
           npm run build.release
           python -m build
           python -m twine upload dist/*
+
+      - run: cp dist/*.whl .
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: ${{ github.event.head_commit.message }}
+          files: |
+            *.whl
