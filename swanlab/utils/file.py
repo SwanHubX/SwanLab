@@ -57,8 +57,8 @@ def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIOWrap
     return f
 
 
-def check_key_format(key: str) -> str:
-    """检查key字符串格式，必须是0-9a-zA-Z _-和/组成的字符串，并且开头必须是0-9a-zA-Z
+def check_tag_format(key: str) -> str:
+    """检查tag字符串格式，必须是0-9a-zA-Z _-和/组成的字符串(包含空格)，并且开头必须是0-9a-zA-Z
 
     Parameters
     ----------
@@ -66,14 +66,14 @@ def check_key_format(key: str) -> str:
         待检查的字符串
     """
     if not isinstance(key, str):
-        raise TypeError(f"key: {key} is not a string")
+        raise TypeError(f"tag: {key} is not a string")
     # 定义正则表达式
-    pattern = re.compile("^[0-9a-zA-Z][0-9a-zA-Z_/-]*$")
+    pattern = re.compile("^[0-9a-zA-Z][0-9a-zA-Z _/-]*$")
 
     # 检查 key 是否符合规定格式
     if not pattern.match(key):
         raise ValueError(
-            f"key: {key} is not a valid string, which must be composed of 0-9a-zA-Z _- and /, and the first character must be 0-9a-zA-Z"
+            f"tag: {key} is not a valid string, which must be composed of 0-9a-zA-Z _- and /, and the first character must be 0-9a-zA-Z"
         )
     return key
 
