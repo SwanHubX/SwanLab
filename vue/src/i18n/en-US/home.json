@@ -5,10 +5,10 @@
     "total": "Total Experiments"
   },
   "list": {
-    "title": "Experiment List",
+    "title": "Experiments",
     "table": {
       "header": {
-        "name": "Experiment Name",
+        "name": "Name",
         "status": "State",
         "create": "Start Time"
       }
