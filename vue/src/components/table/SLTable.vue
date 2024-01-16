@@ -1,68 +1,70 @@
 <template>
-  <!-- 表格 -->
-  <div class="border" :class="{ 'gradient-last-line': lastRowGradient }" ref="table">
-    <!-- 表头 -->
-    <div class="border-b flex bg-higher table-header">
-      <!-- 表头项 -->
-      <div
-        v-for="(item, index) in column"
-        :key="item.key"
-        class="cell table-header-item"
-        :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
-        @mouseover="handleMouseOver(index)"
-        @mouseout="handleMouseOver(-1)"
-        :style="{ width: elementWidths[index] }"
-        ref="columnsRef"
-      >
-        <p
-          class="overflow-hidden w-full h-full flex items-center"
-          :class="item.style || 'px-2 py-3'"
-          :title="item.title"
+  <div class="w-full" ref="wrapper">
+    <!-- 表格 -->
+    <div class="border-t" :class="{ 'gradient-last-line': lastRowGradient }" :style="{ width: tableWidth }" ref="table">
+      <!-- 表头 -->
+      <div class="border-b flex bg-higher table-header">
+        <!-- 表头项 -->
+        <div
+          v-for="(item, index) in column"
+          :key="item.key"
+          class="cell table-header-item"
+          :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
+          @mouseover="handleMouseOver(index)"
+          @mouseout="handleMouseOver(-1)"
+          :style="{ width: elementWidths[index] }"
+          ref="columnsRef"
         >
-          {{ item.title }}
-        </p>
-        <!-- 拖拽点 -->
-        <button
-          @mousedown="(e) => resize(e, index)"
-          :class="{ 'button-hover-tip': hoverColumnIndex === index }"
-          v-if="!column.unresizeable && !flexable"
-        />
+          <p
+            class="overflow-hidden w-full h-full flex items-center"
+            :class="item.style || 'px-2 py-3'"
+            :title="item.title"
+          >
+            {{ item.title }}
+          </p>
+          <!-- 拖拽点 -->
+          <button
+            @mousedown="(e) => resize(e, index)"
+            :class="{ 'button-hover-tip': hoverColumnIndex === index }"
+            v-if="!column.unresizeable && !flexable"
+          />
+        </div>
       </div>
-    </div>
-    <!-- 表体, 按一行一行来渲染 -->
-    <div
-      v-for="(dataColumn, dataIndex) in data"
-      :key="dataColumn"
-      :class="{ 'hover:bg-higher': resizeIndex === -1 }"
-      class="line"
-    >
-      <!-- 单元格 -->
+      <!-- 表体, 按一行一行来渲染 -->
       <div
-        v-for="(item, index) in column"
-        :key="item.key"
-        :title="dataColumn[item.key]"
-        class="cell flex items-center px-2 py-3"
-        :class="[
-          item.style,
-          { 'hover:bg-primary-dimmest': resizeIndex === -1 },
-          activeColumnIndex === index ? 'bg-higher' : 'bg-default'
-        ]"
-        @mouseover="handleMouseOver(index)"
-        @mouseout="handleMouseOver(-1)"
-        :style="{ width: elementWidths[index] }"
+        v-for="(dataColumn, dataIndex) in data"
+        :key="dataColumn"
+        :class="{ 'hover:bg-higher': resizeIndex === -1 }"
+        class="line"
       >
-        <div v-if="item.slot">
-          <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
-        </div>
-        <!-- 文本格式 -->
-        <div v-else>
-          {{ dataColumn[item.key] || '-' }}
+        <!-- 单元格 -->
+        <div
+          v-for="(item, index) in column"
+          :key="item.key"
+          :title="dataColumn[item.key]"
+          class="cell flex items-center px-2 py-3"
+          :class="[
+            item.style,
+            { 'hover:bg-primary-dimmest': resizeIndex === -1 },
+            activeColumnIndex === index ? 'bg-higher' : 'bg-default'
+          ]"
+          @mouseover="handleMouseOver(index)"
+          @mouseout="handleMouseOver(-1)"
+          :style="{ width: elementWidths[index] }"
+        >
+          <div v-if="item.slot">
+            <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
+          </div>
+          <!-- 文本格式 -->
+          <div v-else>
+            {{ dataColumn[item.key] || '-' }}
+          </div>
         </div>
       </div>
-    </div>
-    <!-- 没有数据时，空占位 -->
-    <div v-if="!data.length" class="flex justify-center py-3">
-      <div class="data-empty">{{ $t('common.table.empty') }}</div>
+      <!-- 没有数据时，空占位 -->
+      <div v-if="!data.length" class="flex justify-center py-3">
+        <div class="data-empty">{{ $t('common.table.empty') }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -122,6 +124,14 @@ const props = defineProps({
 const columnsRef = ref(null)
 const widths = ref([])
 const table = ref(null)
+const wrapper = ref(null)
+
+/**
+ * 动态计算表格宽度
+ * 需要动态计算表格宽度的原因是，overflow 出现滚动条之后，子元素的 100% 将不会计算超出部分
+ * 这会导致一些样式问题，而动态计算之后，只需要将表格元素的父元素设置 overflow 即可
+ */
+const tableWidth = ref('100%')
 
 // 宽度转化，直接控制每列宽度
 const elementWidths = computed(() => {
@@ -160,7 +170,26 @@ onMounted(() => {
     // 没自己设宽度，使用自然宽度
     widths.value[index].value = default_width
   })
+
+  // 监听视窗大小变化，以适配表格大小
+  handleTableWith()
+  window.addEventListener('resize', handleTableWith)
 })
+
+/**
+ * 动态计算表格宽度
+ */
+const handleTableWith = () => {
+  let width = 0
+  widths.value.forEach(({ value }) => {
+    width += value
+  })
+  if (wrapper.value.offsetWidth > width) {
+    tableWidth.value = wrapper.value.offsetWidth + 'px'
+  } else {
+    tableWidth.value = width + 'px'
+  }
+}
 
 // ---------------------------------- resize 相关 ----------------------------------
 
@@ -212,6 +241,7 @@ const handleMousemove = (e) => {
 
 // 鼠标抬起，结束resize，清空状态，接触多余的事件绑定
 const handleMouseup = () => {
+  handleTableWith()
   document.removeEventListener('mousemove', handleMousemove)
   document.removeEventListener('mouseup', handleMouseup)
   document.body.style.userSelect = 'auto'
