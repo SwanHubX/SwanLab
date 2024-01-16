@@ -33,6 +33,7 @@
           :key="nav.to"
           :to="nav.to"
         >
+          <SLIcon :icon="nav.icon" class="w-5 h-5" />
           {{ nav.label }}
         </RouterLink>
       </nav>
@@ -93,19 +94,23 @@ const modifyExperiment = async (newV, hideModal) => {
 const navs = [
   {
     label: t('experiment.navs.index'),
-    to: `/experiment/${experimentStore.id}/index`
+    to: `/experiment/${experimentStore.id}/index`,
+    icon: 'experiment'
   },
   {
     label: t('experiment.navs.chart'),
-    to: `/experiment/${experimentStore.id}/chart`
+    to: `/experiment/${experimentStore.id}/chart`,
+    icon: 'charts'
   },
   {
     label: t('experiment.navs.log'),
-    to: `/experiment/${experimentStore.id}/log`
+    to: `/experiment/${experimentStore.id}/log`,
+    icon: 'logs'
   },
   {
     label: t('experiment.navs.env'),
-    to: `/experiment/${experimentStore.id}/env`
+    to: `/experiment/${experimentStore.id}/env`,
+    icon: 'error'
   }
 ]
 </script>
@@ -133,8 +138,8 @@ const navs = [
     display: none;
   }
   .nav-item {
-    @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
-    @apply mb-1 rounded;
+    @apply px-2.5 pt-2 pb-1.5 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
+    @apply mb-1 rounded flex items-center gap-1.5;
     &:hover {
       @apply bg-higher;
     }
