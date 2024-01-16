@@ -37,7 +37,7 @@
       v-for="(dataColumn, dataIndex) in data"
       :key="dataColumn"
       :class="{ 'hover:bg-higher': resizeIndex === -1 }"
-      class="flex items-center"
+      class="line"
     >
       <!-- 单元格 -->
       <div
@@ -49,7 +49,7 @@
           'swanlab-table-column-' + index,
           item.style,
           { 'hover:bg-primary-dimmest': resizeIndex === -1 },
-          activeColumnIndex === index ? 'bg-higher' : { 'bg-default': index === 0 }
+          activeColumnIndex === index ? 'bg-higher' : 'bg-default'
         ]"
         @mouseover="handleMouseOver(index)"
         @mouseout="handleMouseOver(-1)"
@@ -253,6 +253,15 @@ const handleMouseOver = (index) => {
 
   &:not(:first-child) {
     @apply z-0 relative;
+  }
+}
+
+.line {
+  @apply flex items-center;
+  &:hover {
+    .cell:not(:hover) {
+      background-color: var(--background-higher);
+    }
   }
 }
 
