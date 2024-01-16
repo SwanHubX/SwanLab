@@ -77,11 +77,11 @@ const links = ref([
   },
   {
     title: 'Examples',
-    link: ''
+    link: 'https://github.com/SwanHubX/SwanLab-examples'
   },
   {
     title: 'Feedback',
-    link: ''
+    link: 'https://github.com/SwanHubX/SwanLab/issues'
   }
 ])
 
