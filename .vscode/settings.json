@@ -13,7 +13,8 @@
     "chart": "app",
     "index": "home",
     "readme_files": "custom",
-    "run": "core"
+    "run": "core",
+    "data": "guard"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
