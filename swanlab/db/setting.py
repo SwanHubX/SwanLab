@@ -11,7 +11,7 @@ import os
 from ..env import get_swanlog_dir
 from peewee import SqliteDatabase, Model
 
-# 连接到SQLite数据库，设置数据库文件名为swanlab.db
+# 连接到SQLite数据库，设置数据库文件名为runs.swanlab
 swandb = SqliteDatabase(os.path.join(get_swanlog_dir(), "runs.swanlab"))
 
 
