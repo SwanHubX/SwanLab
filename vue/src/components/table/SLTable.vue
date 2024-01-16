@@ -22,7 +22,11 @@
           {{ item.title }}
         </p>
         <!-- 拖拽点 -->
-        <button @mousedown="(e) => resize(e, index)" v-if="!column.unresizeable && !flexable" />
+        <button
+          @mousedown="(e) => resize(e, index)"
+          :class="{ 'button-hover-tip': hoverColumnIndex === index }"
+          v-if="!column.unresizeable && !flexable"
+        />
       </div>
     </div>
     <!-- 表体, 按一行一行来渲染 -->
@@ -272,5 +276,9 @@ const handleMouseOver = (index) => {
       @apply transition-all duration-300;
     }
   }
+}
+
+.button-hover-tip {
+  background-color: var(--foreground-dimmest);
 }
 </style>
