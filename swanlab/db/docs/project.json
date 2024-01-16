@@ -1,0 +1,45 @@
+{
+    "id": "primary key",
+    "name": {
+        "type": "string",
+        "max-length": "100",
+        "not-null": "true",
+        "explain": "project name"
+    },
+    "description": {
+        "type": "string",
+        "max-length": "255",
+        "explain": "project description"
+    },
+    "sum": {
+        "type": "integer",
+        "explain": "count of experiments"
+    },
+    "charts": {
+        "type": ["integer", "enum"],
+        "enum": [
+            {
+                "value": 0,
+                "explain": "no charts with multiple experiments"
+            },
+            {
+                "value": 1,
+                "explain": "chart with multiple experiments"
+            }
+        ]
+    },
+    "more": {
+        "type": "string",
+        "explain": "more info for further"
+    },
+    "create_time": {
+        "type": "string",
+        "explain": "create time",
+        "example": "2018-01-01T00:00:00."
+    },
+    "update_time": {
+        "type": "string",
+        "explain": "update time",
+        "example": "2018-01-01T00:00:00."
+    }
+}
