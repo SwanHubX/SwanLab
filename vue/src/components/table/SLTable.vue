@@ -263,7 +263,7 @@ const handleMouseOver = (index) => {
   .table-header-item {
     &:hover {
       button {
-        background-color: var(--foreground-dimmer);
+        background-color: var(--foreground-dimmest);
       }
     }
     button {
