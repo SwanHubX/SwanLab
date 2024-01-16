@@ -8,7 +8,7 @@
         v-for="(item, index) in column"
         :key="item.key"
         class="relative w-full cell shrink-0"
-        :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
+        :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
         @mouseover="() => (hoverColumnIndex = index)"
         @mouseout="() => (hoverColumnIndex = -1)"
         :style="{ width: element_widths[index] }"
@@ -16,15 +16,16 @@
       >
         <div
           class="overflow-hidden w-full h-full flex items-center"
-          :class="item.style ? item.style : 'px-2 py-3'"
+          :class="item.style || 'px-2 py-3'"
           :title="item.title"
         >
           {{ item.title }}
           <!-- 拖拽点 -->
           <span
-            :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
-              resize_index === index ? '!bg-primary-default' : ''
-            }`"
+            :class="[
+              { 'bg-primary-default': resize_index === index },
+              { 'bg-positive-dimmest': activeColumnIndex === index }
+            ]"
             @mousedown="(e) => resize(e, index)"
             v-if="!column.unresizeable && !flexable"
           ></span>
@@ -36,7 +37,7 @@
     <div
       v-for="(dataColumn, dataIndex) in data"
       :key="dataColumn"
-      :class="resize_index === -1 ? 'hover:bg-higher' : ''"
+      :class="{ 'hover:bg-higher': resize_index === -1 }"
       class="flex items-center"
       style="height: 54px"
     >
@@ -46,9 +47,12 @@
         :key="item.key"
         :title="dataColumn[item.key]"
         class="cell h-full flex items-center shrink-0 px-2 py-3"
-        :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
-          item.border ? 'border-r ' : ''
-        } ${item.style} ${activeColumnIndex === index ? 'bg-higher' : ''}`"
+        :class="[
+          'swanlab-table-column-' + index,
+          item.style,
+          { 'hover:bg-primary-dimmest': resize_index === -1 },
+          { 'bg-higher': activeColumnIndex === index }
+        ]"
         @mouseover="() => (hoverColumnIndex = index)"
         @mouseout="() => (hoverColumnIndex = -1)"
         :style="{ width: element_widths[index] }"
@@ -235,6 +239,9 @@ const handleMouseup = () => {
 <style lang="scss" scoped>
 .cell {
   @apply overflow-hidden text-left whitespace-nowrap shrink-0;
+  &:not(:last-child) {
+    @apply border-r;
+  }
 }
 
 .table-header span {

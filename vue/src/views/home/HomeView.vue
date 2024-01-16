@@ -25,7 +25,7 @@
       </div>
       <div class="w-full overflow-auto" v-if="tags">
         <!-- 实验表格 -->
-        <SLTable class="border-x-0" :column="column" :data="experiments_table">
+        <SLTable class="border-b-0 border-x-0" :column="column" :data="experiments_table">
           <template v-slot:name="{ row }">
             <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
           </template>
