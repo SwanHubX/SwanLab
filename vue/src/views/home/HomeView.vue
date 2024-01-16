@@ -24,7 +24,7 @@
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
       <TableBar class="py-4 px-5" :table-head="column" :table-body="experiments_table" />
-      <div class="w-full overflow-x-scroll overflow-visible" v-if="tags">
+      <div class="w-full overflow-auto pb-10" v-if="tags">
         <!-- 实验表格 -->
         <SLTable class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
           <template v-slot:name="{ row }">
