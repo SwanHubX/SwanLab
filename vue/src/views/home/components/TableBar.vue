@@ -1,6 +1,6 @@
 <template>
   <div class="w-full flex justify-between items-center">
-    <SLSearch class="max-w-96" :placeholder="$t('experiment.index.header.table-bar.summary')"></SLSearch>
+    <SLSearch class="max-w-96" :placeholder="$t('experiment.index.header.table-bar.placeholder')"></SLSearch>
     <div class="flex gap-5 items-center">
       <SLCheck :label="$t('experiment.index.header.table-bar.summary')" />
       <SLButton theme="default" class="px-3 py-2 rounded-lg flex items-center gap-2">

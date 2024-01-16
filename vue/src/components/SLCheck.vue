@@ -1,7 +1,7 @@
 <template>
-  <div class="flex items-center gap-2">
-    <input type="checkbox" class="border" :value="value" />
-    <span>{{ label }}</span>
+  <div class="flex items-center gap-2 cursor-pointer" @click="() => (checked = !checked)">
+    <input type="checkbox" class="border w-4 h-4" :checked="checked" />
+    <span class="select-none">{{ label }}</span>
   </div>
 </template>
 
@@ -13,14 +13,14 @@
  **/
 import { ref } from 'vue'
 
-const value = ref(false)
-
 defineProps({
   label: {
     type: String,
     default: ''
   }
 })
+
+const checked = ref(false)
 </script>
 
 <style lang="scss" scoped></style>
