@@ -26,7 +26,7 @@
       <div class="w-full overflow-auto" v-if="tags">
         <TableBar class="py-4 px-5" />
         <!-- 实验表格 -->
-        <SLTable class="border-b-0 border-x-0" :column="column" :data="experiments_table">
+        <SLTable class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
           <template v-slot:name="{ row }">
             <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
           </template>
@@ -181,28 +181,8 @@ async function hashString(inputString) {
 </script>
 
 <style lang="scss" scoped>
-.experiments-table {
-  @apply border;
-  tr {
-    &:first-child {
-      @apply bg-higher;
-    }
-    &:not(:first-child) {
-      @apply border-t;
-    }
-  }
-
-  th {
-    @apply text-left;
-  }
-
-  th,
-  td {
-    @apply px-5 py-2.5;
-
-    &:not(:last-child) {
-      @apply border-r;
-    }
-  }
+// 最后一行每一个单元格右边框添加伪元素
+.dashboard-table {
+  @apply border-x-0 border-b-0;
 }
 </style>

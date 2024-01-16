@@ -1,6 +1,6 @@
 <template>
   <!-- 表格 -->
-  <div class="border" ref="table">
+  <div class="border" :class="{ 'gradient-last-line': lastRowGradient }" ref="table">
     <!-- 表头 -->
     <div class="border-b flex bg-higher table-header">
       <!-- 表头项 -->
@@ -107,6 +107,11 @@ const props = defineProps({
   },
   // 是否自动填充
   flexable: {
+    type: Boolean,
+    default: false
+  },
+  // 最后一行渐变
+  lastRowGradient: {
     type: Boolean,
     default: false
   }
@@ -237,15 +242,28 @@ const handleMouseOver = (index) => {
 </script>
 
 <style lang="scss" scoped>
-.cell {
-  @apply overflow-hidden text-left whitespace-nowrap shrink-0;
-  height: 54px;
-  &:not(:last-child) {
-    @apply border-r;
+.gradient-last-line {
+  // 最后一行的cell添加伪元素渐变
+  .line:last-child .cell:first-child {
+    &:after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: 99%;
+      height: 40px;
+      width: 1px;
+      // 边框颜色从上到下渐变，从outline-default到transparent
+      background: linear-gradient(to bottom, var(--outline-default), transparent);
+    }
   }
+}
+
+.cell {
+  @apply text-left whitespace-nowrap shrink-0;
+  height: 54px;
 
   &:first-child {
-    @apply sticky left-0 z-10;
+    @apply sticky left-0 z-10 border-r;
   }
 
   &:not(:first-child) {
