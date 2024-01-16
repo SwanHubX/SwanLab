@@ -7,11 +7,11 @@
       <div
         v-for="(item, index) in column"
         :key="item.key"
-        class="relative w-full cell shrink-0"
+        class="relative w-full cell"
         :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
         @mouseover="() => (hoverColumnIndex = index)"
         @mouseout="() => (hoverColumnIndex = -1)"
-        :style="{ width: element_widths[index] }"
+        :style="{ width: elementWidths[index] }"
         ref="columns"
       >
         <div
@@ -39,14 +39,13 @@
       :key="dataColumn"
       :class="{ 'hover:bg-higher': resize_index === -1 }"
       class="flex items-center"
-      style="height: 54px"
     >
       <!-- 单元格 -->
       <div
         v-for="(item, index) in column"
         :key="item.key"
         :title="dataColumn[item.key]"
-        class="cell h-full flex items-center shrink-0 px-2 py-3"
+        class="cell flex items-center px-2 py-3 bg-default"
         :class="[
           'swanlab-table-column-' + index,
           item.style,
@@ -55,7 +54,7 @@
         ]"
         @mouseover="() => (hoverColumnIndex = index)"
         @mouseout="() => (hoverColumnIndex = -1)"
-        :style="{ width: element_widths[index] }"
+        :style="{ width: elementWidths[index] }"
       >
         <div v-if="item.slot">
           <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
@@ -139,7 +138,7 @@ const table_width = computed(() => {
 })
 
 // 宽度转化，直接控制每列宽度
-const element_widths = computed(() => {
+const elementWidths = computed(() => {
   if (props.flexable) {
     const len = props.column.length
     return new Array(len).fill((1 / len) * 100 + '%')
@@ -203,7 +202,7 @@ const resize = (event, index) => {
 
   // 记录初始化数据
   startX.value = event.clientX
-  if (element_widths.value[index].endsWith('%')) {
+  if (elementWidths.value[index].endsWith('%')) {
     widths.value[index].value = columns.value[index].offsetWidth
   }
   startWidth.value = widths.value[index].value
@@ -239,8 +238,17 @@ const handleMouseup = () => {
 <style lang="scss" scoped>
 .cell {
   @apply overflow-hidden text-left whitespace-nowrap shrink-0;
+  height: 54px;
   &:not(:last-child) {
     @apply border-r;
+  }
+
+  &:first-child {
+    @apply sticky left-0 z-10;
+  }
+
+  &:not(:first-child) {
+    @apply z-0 relative;
   }
 }
 
