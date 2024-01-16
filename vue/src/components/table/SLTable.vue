@@ -263,13 +263,16 @@ const handleMouseOver = (index) => {
   .line:last-child .cell:first-child {
     &:after {
       content: '';
+      box-sizing: content-box;
       position: absolute;
-      right: -1px;
-      top: 99%;
+      right: -0.5px;
+      top: 100%;
       height: 40px;
-      width: 1px;
+      border-right: 1px;
+      border-right: 1px;
+      border-style: solid;
       // 边框颜色从上到下渐变，从outline-default到transparent
-      background: linear-gradient(to bottom, var(--outline-default), transparent);
+      border-image: linear-gradient(to bottom, var(--outline-default), transparent) 1;
     }
   }
 }
