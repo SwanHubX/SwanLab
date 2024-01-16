@@ -7,12 +7,12 @@ r"""
 @Description:
     一些配置
 """
+import os
+from ..env import get_swanlog_dir
 from peewee import SqliteDatabase, Model
 
-database_name = "swanlab.db"
-
 # 连接到SQLite数据库，设置数据库文件名为swanlab.db
-swandb = SqliteDatabase(database_name)
+swandb = SqliteDatabase(os.path.join(get_swanlog_dir(), "runs.swanlab"))
 
 
 class SwanModel(Model):
