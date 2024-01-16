@@ -242,6 +242,7 @@ const handleMouseOver = (index) => {
   height: 54px;
   &:not(:last-child) {
     @apply border-r;
+    border-color: var(--foreground-dimmest);
   }
 
   &:first-child {

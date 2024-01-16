@@ -183,28 +183,7 @@ async function hashString(inputString) {
 </script>
 
 <style lang="scss" scoped>
-.experiments-table {
-  @apply border;
-  tr {
-    &:first-child {
-      @apply bg-higher;
-    }
-    &:not(:first-child) {
-      @apply border-t;
-    }
-  }
-
-  th {
-    @apply text-left;
-  }
-
-  th,
-  td {
-    @apply px-5 py-2.5;
-
-    &:not(:last-child) {
-      @apply border-r;
-    }
-  }
+.grow {
+  @apply text-dimmest;
 }
 </style>
