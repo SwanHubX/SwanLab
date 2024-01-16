@@ -9,8 +9,8 @@
         :key="item.key"
         class="relative w-full cell"
         :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
-        @mouseover="() => (hoverColumnIndex = index)"
-        @mouseout="() => (hoverColumnIndex = -1)"
+        @mouseover="handleMouseOver(index)"
+        @mouseout="handleMouseOver(-1)"
         :style="{ width: elementWidths[index] }"
         ref="columns"
       >
@@ -23,7 +23,7 @@
           <!-- 拖拽点 -->
           <span
             :class="[
-              { 'bg-primary-default': resize_index === index },
+              { 'bg-primary-default': resizeIndex === index },
               { 'bg-positive-dimmest': activeColumnIndex === index }
             ]"
             @mousedown="(e) => resize(e, index)"
@@ -32,12 +32,11 @@
         </div>
       </div>
     </div>
-    <!-- 表体 -->
-    <!-- 按一行一行来渲染 -->
+    <!-- 表体, 按一行一行来渲染 -->
     <div
       v-for="(dataColumn, dataIndex) in data"
       :key="dataColumn"
-      :class="{ 'hover:bg-higher': resize_index === -1 }"
+      :class="{ 'hover:bg-higher': resizeIndex === -1 }"
       class="flex items-center"
     >
       <!-- 单元格 -->
@@ -45,15 +44,15 @@
         v-for="(item, index) in column"
         :key="item.key"
         :title="dataColumn[item.key]"
-        class="cell flex items-center px-2 py-3 bg-default"
+        class="cell flex items-center px-2 py-3"
         :class="[
           'swanlab-table-column-' + index,
           item.style,
-          { 'hover:bg-primary-dimmest': resize_index === -1 },
-          { 'bg-higher': activeColumnIndex === index }
+          { 'hover:bg-primary-dimmest': resizeIndex === -1 },
+          activeColumnIndex === index ? 'bg-higher' : { 'bg-default': index === 0 }
         ]"
-        @mouseover="() => (hoverColumnIndex = index)"
-        @mouseout="() => (hoverColumnIndex = -1)"
+        @mouseover="handleMouseOver(index)"
+        @mouseout="handleMouseOver(-1)"
         :style="{ width: elementWidths[index] }"
       >
         <div v-if="item.slot">
@@ -152,7 +151,7 @@ const elementWidths = computed(() => {
 
 const hoverColumnIndex = ref(-1) // 被hover得列的索引
 const activeColumnIndex = computed(() => {
-  return resize_index.value === -1 ? hoverColumnIndex.value : resize_index.value
+  return resizeIndex.value === -1 ? hoverColumnIndex.value : resizeIndex.value
 })
 
 onMounted(() => {
@@ -178,7 +177,7 @@ onMounted(() => {
 // ---------------------------------- resize 相关 ----------------------------------
 
 // 正在被重置宽度的列的索引
-const resize_index = ref(-1)
+const resizeIndex = ref(-1)
 // 开始时鼠标位置
 const startX = ref(0)
 // 开始时，目标列的宽度
@@ -198,7 +197,7 @@ const resize = (event, index) => {
   document.body.style.cursor = 'col-resize'
 
   // 记录被改变大小的列的索引
-  resize_index.value = index
+  resizeIndex.value = index
 
   // 记录初始化数据
   startX.value = event.clientX
@@ -219,8 +218,8 @@ const handleMousemove = (e) => {
   // 对新宽度设置最小值
   newWidth = newWidth < minCellWidth.value ? minCellWidth.value : newWidth
   // 重置宽度
-  widths.value[resize_index.value].value = newWidth
-  columns.value[resize_index.value] = newWidth
+  widths.value[resizeIndex.value].value = newWidth
+  columns.value[resizeIndex.value] = newWidth
 }
 
 // 鼠标抬起，结束resize，清空状态，接触多余的事件绑定
@@ -231,7 +230,12 @@ const handleMouseup = () => {
   document.body.style.cursor = ''
   startX.value = 0
   startWidth.value = 0
-  resize_index.value = -1
+  resizeIndex.value = -1
+}
+
+// ---------------------------------- 处理鼠标移入移出事件，设置颜色 ----------------------------------
+const handleMouseOver = (index) => {
+  hoverColumnIndex.value = index
 }
 </script>
 
