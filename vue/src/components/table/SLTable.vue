@@ -7,29 +7,22 @@
       <div
         v-for="(item, index) in column"
         :key="item.key"
-        class="relative w-full cell"
+        class="cell table-header-item"
         :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
         @mouseover="handleMouseOver(index)"
         @mouseout="handleMouseOver(-1)"
         :style="{ width: elementWidths[index] }"
-        ref="columns"
+        ref="columnsRef"
       >
-        <div
+        <p
           class="overflow-hidden w-full h-full flex items-center"
           :class="item.style || 'px-2 py-3'"
           :title="item.title"
         >
           {{ item.title }}
-          <!-- 拖拽点 -->
-          <span
-            :class="[
-              { 'bg-primary-default': resizeIndex === index },
-              { 'bg-positive-dimmest': activeColumnIndex === index }
-            ]"
-            @mousedown="(e) => resize(e, index)"
-            v-if="!column.unresizeable && !flexable"
-          ></span>
-        </div>
+        </p>
+        <!-- 拖拽点 -->
+        <button @mousedown="(e) => resize(e, index)" v-if="!column.unresizeable && !flexable" />
       </div>
     </div>
     <!-- 表体, 按一行一行来渲染 -->
@@ -46,7 +39,6 @@
         :title="dataColumn[item.key]"
         class="cell flex items-center px-2 py-3"
         :class="[
-          'swanlab-table-column-' + index,
           item.style,
           { 'hover:bg-primary-dimmest': resizeIndex === -1 },
           activeColumnIndex === index ? 'bg-higher' : 'bg-default'
@@ -118,7 +110,7 @@ const props = defineProps({
 
 // ---------------------------------- 全局信息 ----------------------------------
 
-const columns = ref(null)
+const columnsRef = ref(null)
 const widths = ref([])
 const table = ref(null)
 
@@ -150,6 +142,7 @@ const elementWidths = computed(() => {
 // ---------------------------------- 样式相关 ----------------------------------
 
 const hoverColumnIndex = ref(-1) // 被hover得列的索引
+// 当前被选中的列的索引
 const activeColumnIndex = computed(() => {
   return resizeIndex.value === -1 ? hoverColumnIndex.value : resizeIndex.value
 })
@@ -202,7 +195,7 @@ const resize = (event, index) => {
   // 记录初始化数据
   startX.value = event.clientX
   if (elementWidths.value[index].endsWith('%')) {
-    widths.value[index].value = columns.value[index].offsetWidth
+    widths.value[index].value = columnsRef.value[index].offsetWidth
   }
   startWidth.value = widths.value[index].value
 
@@ -219,7 +212,7 @@ const handleMousemove = (e) => {
   newWidth = newWidth < minCellWidth.value ? minCellWidth.value : newWidth
   // 重置宽度
   widths.value[resizeIndex.value].value = newWidth
-  columns.value[resizeIndex.value] = newWidth
+  columnsRef.value[resizeIndex.value] = newWidth
 }
 
 // 鼠标抬起，结束resize，清空状态，接触多余的事件绑定
@@ -265,7 +258,19 @@ const handleMouseOver = (index) => {
   }
 }
 
-.table-header span {
-  @apply w-1.5 h-full absolute right-0 top-0 hover:bg-positive-higher hover:opacity-20 cursor-col-resize;
+.table-header {
+  @apply relative;
+  .table-header-item {
+    &:hover {
+      button {
+        background-color: var(--foreground-dimmer);
+      }
+    }
+    button {
+      @apply w-1 h-full absolute right-0 top-0 cursor-col-resize;
+      @apply hover:w-2 hover:bg-primary-dimmer active:bg-primary-dimmer;
+      @apply transition-all duration-300;
+    }
+  }
 }
 </style>
