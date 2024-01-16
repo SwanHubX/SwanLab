@@ -1,6 +1,6 @@
 <template>
   <!-- 表格 -->
-  <div class="border" ref="table" :style="{ width: table_width }">
+  <div class="border" ref="table">
     <!-- 表头 -->
     <div class="border-b flex bg-higher table-header">
       <!-- 表头项 -->
