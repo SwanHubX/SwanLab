@@ -24,6 +24,7 @@
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
       <div class="w-full overflow-auto" v-if="tags">
+        <TableBar class="py-4 px-5" />
         <!-- 实验表格 -->
         <SLTable class="border-b-0 border-x-0" :column="column" :data="experiments_table">
           <template v-slot:name="{ row }">
@@ -61,6 +62,7 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import SLTable from '@swanlab-vue/components/table'
 import EmptyTable from './components/EmptyTable.vue'
+import TableBar from './components/TableBar.vue'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 const projectStore = useProjectStore()

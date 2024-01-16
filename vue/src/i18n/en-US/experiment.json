@@ -12,6 +12,11 @@
   },
   "index": {
     "header": {
+      "table-bar": {
+        "placeholder": "Search experiments",
+        "summary": "Only summary",
+        "export": "Export"
+      },
       "experiment_infos": {
         "status": "State",
         "start_time": "Start Time",
