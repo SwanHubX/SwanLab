@@ -110,7 +110,7 @@ const navs = [
   {
     label: t('experiment.navs.env'),
     to: `/experiment/${experimentStore.id}/env`,
-    icon: 'error'
+    icon: 'info'
   }
 ]
 </script>
