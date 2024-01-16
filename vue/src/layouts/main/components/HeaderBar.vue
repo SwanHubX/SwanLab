@@ -19,8 +19,9 @@
       </div>
       <!-- version -->
       <div class="flex items-end">
-        <span class="font-semibold text-2xl leading-6 mr-0.5">Swanlab</span>
-        <span class="whitespace-nowrap text-xs pl-2 text-dimmer"> {{ formatVersion(version) }}</span>
+        <span class="font-semibold leading-6 mr-0.5">SwanLab</span>
+        <!-- 被注释了 -->
+        <!-- <span class="whitespace-nowrap text-xs pl-2 text-dimmer"> {{ formatVersion(version) }}</span> -->
       </div>
     </div>
     <!-- links -->
@@ -38,8 +39,8 @@
         v-for="item in fixeds"
         :key="item.icon"
       >
-        <SLIcon :icon="item.icon" class="h-6 w-6" />
-        {{ item.title }}
+        <SLIcon :icon="item.icon" class="h-8 w-8" />
+        <!-- {{ item.title }} -->
       </a>
     </div>
   </div>
