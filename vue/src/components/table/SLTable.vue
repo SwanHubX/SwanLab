@@ -1,71 +1,70 @@
 <template>
-  <div class="w-full overflow-auto">
-    <!-- 表格 -->
-    <div class="border" ref="table" :style="{ width: table_width }">
-      <!-- 表头 -->
-      <div class="border-b flex bg-higher table-header">
-        <!-- 表头项 -->
-        <div
-          v-for="(item, index) in column"
-          :key="item.key"
-          class="relative w-full cell shrink-0"
-          :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
-          @mouseover="() => (hoverColumnIndex = index)"
-          @mouseout="() => (hoverColumnIndex = -1)"
-          :style="{ width: element_widths[index] }"
-          ref="columns"
-        >
-          <div
-            class="overflow-hidden w-full h-full flex items-center"
-            :class="item.style ? item.style : 'px-2 py-3'"
-            :title="item.title"
-          >
-            {{ item.title }}
-            <!-- 拖拽点 -->
-            <span
-              :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
-                resize_index === index ? '!bg-primary-default' : ''
-              }`"
-              @mousedown="(e) => resize(e, index)"
-              v-if="!column.unresizeable && !flexable"
-            ></span>
-          </div>
-        </div>
-      </div>
-      <!-- 表体 -->
-      <!-- 按一行一行来渲染 -->
+  <!-- 表格 -->
+  <div class="border" ref="table" :style="{ width: table_width }">
+    <!-- 表头 -->
+    <div class="border-b flex bg-higher table-header">
+      <!-- 表头项 -->
       <div
-        v-for="(dataColumn, dataIndex) in data"
-        :key="dataColumn"
-        :class="resize_index === -1 ? 'hover:bg-higher' : ''"
-        class="flex items-center"
+        v-for="(item, index) in column"
+        :key="item.key"
+        class="relative w-full cell shrink-0"
+        :class="`${activeColumnIndex === index ? ' bg-highest' : 'bg-higher'} ${item.border ? 'border-r' : ''}`"
+        @mouseover="() => (hoverColumnIndex = index)"
+        @mouseout="() => (hoverColumnIndex = -1)"
+        :style="{ width: element_widths[index] }"
+        ref="columns"
       >
-        <!-- 单元格 -->
         <div
-          v-for="(item, index) in column"
-          :key="item.key"
-          :title="dataColumn[item.key]"
-          class="cell shrink-0 px-2 py-3"
-          :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
-            item.border ? 'border-r ' : ''
-          } ${item.style} ${activeColumnIndex === index ? 'bg-higher' : ''}`"
-          @mouseover="() => (hoverColumnIndex = index)"
-          @mouseout="() => (hoverColumnIndex = -1)"
-          :style="{ width: element_widths[index] }"
+          class="overflow-hidden w-full h-full flex items-center"
+          :class="item.style ? item.style : 'px-2 py-3'"
+          :title="item.title"
         >
-          <div v-if="item.slot">
-            <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
-          </div>
-          <!-- 文本格式 -->
-          <div v-else>
-            {{ dataColumn[item.key] || '-' }}
-          </div>
+          {{ item.title }}
+          <!-- 拖拽点 -->
+          <span
+            :class="`${activeColumnIndex === index ? 'bg-positive-dimmest' : ''} ${
+              resize_index === index ? '!bg-primary-default' : ''
+            }`"
+            @mousedown="(e) => resize(e, index)"
+            v-if="!column.unresizeable && !flexable"
+          ></span>
         </div>
       </div>
-      <!-- 没有数据时，空占位 -->
-      <div v-if="!data.length" class="flex justify-center py-3">
-        <div class="data-empty">{{ $t('common.table.empty') }}</div>
+    </div>
+    <!-- 表体 -->
+    <!-- 按一行一行来渲染 -->
+    <div
+      v-for="(dataColumn, dataIndex) in data"
+      :key="dataColumn"
+      :class="resize_index === -1 ? 'hover:bg-higher' : ''"
+      class="flex items-center"
+      style="height: 54px"
+    >
+      <!-- 单元格 -->
+      <div
+        v-for="(item, index) in column"
+        :key="item.key"
+        :title="dataColumn[item.key]"
+        class="cell h-full flex items-center shrink-0 px-2 py-3"
+        :class="`${'swanlab-table-column-' + index} ${resize_index === -1 ? 'hover:bg-primary-dimmest' : ''} ${
+          item.border ? 'border-r ' : ''
+        } ${item.style} ${activeColumnIndex === index ? 'bg-higher' : ''}`"
+        @mouseover="() => (hoverColumnIndex = index)"
+        @mouseout="() => (hoverColumnIndex = -1)"
+        :style="{ width: element_widths[index] }"
+      >
+        <div v-if="item.slot">
+          <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
+        </div>
+        <!-- 文本格式 -->
+        <div v-else>
+          {{ dataColumn[item.key] || '-' }}
+        </div>
       </div>
+    </div>
+    <!-- 没有数据时，空占位 -->
+    <div v-if="!data.length" class="flex justify-center py-3">
+      <div class="data-empty">{{ $t('common.table.empty') }}</div>
     </div>
   </div>
 </template>

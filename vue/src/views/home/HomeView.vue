@@ -17,23 +17,29 @@
         </div>
       </div>
     </template>
-    <div class="px-6 py-5">
-      <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
-      <!-- 实验表格 -->
-      <SLTable :column="column" :data="experiments_table" v-if="tags">
-        <template v-slot:name="{ row }">
-          <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
-        </template>
-        <template v-slot:status="{ row }">
-          <SLStatusLabel :id="row.experiment_id" :status="row.status" />
-        </template>
-        <template v-slot:create="{ row }">
-          {{ transTime(convertUtcToLocal(row.create_time)) }}
-        </template>
-        <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-          {{ row.config[item.key] || '-' }}
-        </template>
-      </SLTable>
+    <div class="py-5">
+      <!-- 实验列表+实验统计 -->
+      <div class="flex mx-6 mb-4 items-center gap-1.5">
+        <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
+        <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
+      </div>
+      <div class="w-full overflow-auto" v-if="tags">
+        <!-- 实验表格 -->
+        <SLTable class="border-x-0" :column="column" :data="experiments_table">
+          <template v-slot:name="{ row }">
+            <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+          </template>
+          <template v-slot:status="{ row }">
+            <SLStatusLabel :id="row.experiment_id" :status="row.status" />
+          </template>
+          <template v-slot:create="{ row }">
+            {{ transTime(convertUtcToLocal(row.create_time)) }}
+          </template>
+          <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
+            {{ row.config[item.key] || '-' }}
+          </template>
+        </SLTable>
+      </div>
       <EmptyTable v-else-if="experiments.length === 0" />
     </div>
   </HomeLayout>
@@ -70,6 +76,7 @@ const experiments = computed(() => {
 
 const createTime = computed(() => formatTime(projectStore.createTime))
 const updateTime = computed(() => formatTime(projectStore.updateTime))
+const total = computed(() => projectStore.experiments?.length || 0)
 
 // ---------------------------------- 表格配置 ----------------------------------
 
