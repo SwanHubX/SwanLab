@@ -13,7 +13,7 @@
   "index": {
     "header": {
       "table-bar": {
-        "placeholder": "Search experiment...",
+        "placeholder": "Search experiments",
         "summary": "Only summary",
         "export": "Export"
       },

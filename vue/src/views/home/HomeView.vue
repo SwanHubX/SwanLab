@@ -23,8 +23,8 @@
         <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
+      <TableBar class="py-4 px-5" :table-head="column" :table-body="experiments_table" />
       <div class="w-full overflow-auto" v-if="tags">
-        <TableBar class="py-4 px-5" />
         <!-- 实验表格 -->
         <SLTable class="border-b-0 border-x-0" :column="column" :data="experiments_table">
           <template v-slot:name="{ row }">
@@ -36,8 +36,8 @@
           <template v-slot:create="{ row }">
             {{ transTime(convertUtcToLocal(row.create_time)) }}
           </template>
-          <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-            {{ row.config[item.key] || '-' }}
+          <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
+            {{ row.config[item.slot] || '-' }}
           </template>
         </SLTable>
       </div>
@@ -92,11 +92,13 @@ const column = ref([
   },
   {
     title: t('home.list.table.header.status'),
-    slot: 'status'
+    slot: 'status',
+    type: 'status'
   },
   {
     title: t('home.list.table.header.create'),
-    slot: 'create'
+    slot: 'create',
+    type: 'create_time'
   }
 ])
 
@@ -111,7 +113,7 @@ const configs = []
         return
       }
       configs.push({
-        key,
+        type: 'config',
         slot: key,
         title: key
       })
