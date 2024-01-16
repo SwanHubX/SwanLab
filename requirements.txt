@@ -7,6 +7,8 @@ click
 # database
 ujson
 portalocker
+peewee
+
 
 # Information collection
 psutil
