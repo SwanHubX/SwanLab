@@ -1,7 +1,7 @@
 <template>
   <div class="flex items-center gap-2 cursor-pointer" @click="() => (checked = !checked)">
     <input type="checkbox" class="border w-4 h-4" :checked="checked" />
-    <span class="select-none">{{ label }}</span>
+    <span class="select-none truncate">{{ label }}</span>
   </div>
 </template>
 

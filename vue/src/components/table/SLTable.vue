@@ -123,20 +123,6 @@ const columnsRef = ref(null)
 const widths = ref([])
 const table = ref(null)
 
-/**
- * 动态计算表格宽度
- * 需要动态计算表格宽度的原因是，overflow 出现滚动条之后，子元素的 100% 将不会计算超出部分
- * 这会导致一些样式问题，而动态计算之后，只需要将表格元素的父元素设置 overflow 即可
- */
-const tableWidth = computed(() => {
-  if (props.flexable) return '100%'
-  let temp = 0
-  widths.value.forEach(({ value }) => {
-    temp += value
-  })
-  return temp + 2 + 'px'
-})
-
 // 宽度转化，直接控制每列宽度
 const elementWidths = computed(() => {
   if (props.flexable) {
