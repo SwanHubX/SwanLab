@@ -15,7 +15,7 @@
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
           <!-- 实验状态 -->
           <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
-          <slot name="stop-button"></slot>
+          <slot name="stop-button" v-if="experimentStore.isRunning"></slot>
         </div>
         <!-- 删除按钮 -->
         <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
