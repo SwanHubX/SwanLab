@@ -39,6 +39,7 @@ class Project(SwanModel):
         """初始化项目表，如果已经有项目存在，则不创建
         若不满足初始化条件，返回 None
         若初始化成功，返回项目实例，可以在项目实例上获取项目信息
+        TODO: 项目名等初始值的设置
 
         Parameters
         ----------
@@ -89,7 +90,7 @@ class Project(SwanModel):
             project.sum += 1
         else:
             if project.sum == 0:
-                return ValueError("Experiments number is 0")
+                raise ValueError("Experiments number is 0")
             project.sum -= 1
         return project.save()
 
@@ -99,3 +100,29 @@ class Project(SwanModel):
 
         project = cls.select()[0]
         return project.sum
+
+    @classmethod
+    def set_info(cls, name: str, description: str = ""):
+        """设置实验名、实验描述
+
+        Parameters
+        ----------
+        name : str
+            实验名，不为空
+        description : str
+            实验描述，可为空
+        """
+        if name is None or name == "":
+            raise ValueError("Invalid project name")
+        project = cls.select()[0]
+        project.name = name
+        project.description = description
+        return project.save()
+
+    @classmethod
+    def refresh_time(cls):
+        """更新项目更新时间"""
+
+        project = cls.select()[0]
+        project.update_time = create_time()
+        return project.save()
