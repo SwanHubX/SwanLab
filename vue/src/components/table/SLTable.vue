@@ -1,9 +1,13 @@
 <template>
   <div class="w-full" ref="wrapper">
     <!-- 表格 -->
-    <div :class="{ 'gradient-last-line': lastRowGradient }" :style="{ width: tableWidth }" ref="table">
+    <div
+      :class="{ 'gradient-last-line': lastRowGradient, 'table-border': tableBorder }"
+      :style="{ width: tableWidth }"
+      ref="table"
+    >
       <!-- 表头 -->
-      <div class="sticky top-0 z-20">
+      <div :class="{ 'sticky top-0 z-20': stickyHeader }">
         <div class="border-y flex bg-higher table-header">
           <!-- 表头项 -->
           <div
@@ -116,6 +120,16 @@ const props = defineProps({
   },
   // 最后一行渐变
   lastRowGradient: {
+    type: Boolean,
+    default: false
+  },
+  // 表格边框,除了上方一直存在以外，其他边框都需要设置tableBorder时才出现
+  tableBorder: {
+    type: Boolean,
+    default: false
+  },
+  // 表头固定
+  stickyHeader: {
     type: Boolean,
     default: false
   }
@@ -276,6 +290,18 @@ const handleMouseOver = (index) => {
       // 边框颜色从上到下渐变，从outline-default到transparent
       border-image: linear-gradient(to bottom, var(--outline-default), transparent) 1;
     }
+  }
+}
+
+.table-border {
+  .table-header {
+    @apply border-x;
+  }
+  .line {
+    @apply border-x;
+  }
+  .line:last-child {
+    @apply border-b;
   }
 }
 

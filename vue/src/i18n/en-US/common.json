@@ -40,5 +40,8 @@
   },
   "search": {
     "placeholder": "Search Lab..."
+  },
+  "sidebar": {
+    "runs": "Runs"
   }
 }

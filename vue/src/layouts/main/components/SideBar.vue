@@ -6,7 +6,7 @@
       <RouterLink to="/" active-class="active-router">
         <SLIcon icon="dashboard" class="w-4 h-4 mr-2" />
         <!-- <span>{{ $t('sider.nav.home') }}</span> -->
-        <span>Project Dashboard</span>
+        <span>{{ $t('common.sidebar.runs') }}</span>
       </RouterLink>
     </div>
     <!-- 实验路由 -->
