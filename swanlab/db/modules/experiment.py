@@ -99,6 +99,13 @@ class Experiment(SwanModel):
         return cls.select().where(cls.name == name)
 
     @classmethod
+    @SwanModel.result_to_dict
+    def get_experiments(cls):
+        """获取所有的实验"""
+
+        return cls.select()
+
+    @classmethod
     def delete_experiment(cls, id):
         """删除实验"""
 
