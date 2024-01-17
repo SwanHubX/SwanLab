@@ -23,7 +23,7 @@
         <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
-      <TableBar class="py-4 px-5 flex-shrink-0" :table-head="column" :table-body="experiments_table" />
+      <!-- <TableBar class="py-4 px-5 flex-shrink-0" :table-head="column" :table-body="experiments_table" /> -->
       <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
         <!-- 实验表格 -->
         <SLTable class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
