@@ -4,7 +4,7 @@
     <!-- 概览区域 -->
     <div class="p-4 flex flex-col border-b pr-14">
       <RouterLink to="/" active-class="active-router">
-        <SLIcon icon="dashboard" class="w-4 h-4 mr-2" />
+        <SLIcon icon="runs" class="w-4 h-4 mr-2" />
         <!-- <span>{{ $t('sider.nav.home') }}</span> -->
         <span>{{ $t('common.sidebar.runs') }}</span>
       </RouterLink>
