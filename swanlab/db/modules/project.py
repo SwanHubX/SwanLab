@@ -23,8 +23,8 @@ class Project(SwanModel):
     sum = IntegerField(null=True)
     charts = IntegerField(default=0, choices=[0, 1], null=False)
     more = CharField(null=True)
-    create_time = CharField(max_length=30, null=False, default=create_time())
-    update_time = CharField(max_length=30, null=False, default=create_time())
+    create_time = CharField(max_length=30, null=False)
+    update_time = CharField(max_length=30, null=False)
 
     @classmethod
     def check_project(cls):
@@ -80,7 +80,7 @@ class Project(SwanModel):
         return cls.delete().execute()
 
     @classmethod
-    def set_sum(cls, type="increase"):
+    def update_sum(cls, type="increase"):
         """更新实验统计数量
         TODO: 等实验表建立后，可以从实验表中获取实验数量
         """
@@ -102,7 +102,7 @@ class Project(SwanModel):
         return project.sum
 
     @classmethod
-    def set_info(cls, name: str, description: str = ""):
+    def update_info(cls, name: str, description: str = ""):
         """设置实验名、实验描述
 
         Parameters
@@ -120,7 +120,7 @@ class Project(SwanModel):
         return project.save()
 
     @classmethod
-    def refresh_time(cls):
+    def update_updatetime(cls):
         """更新项目更新时间"""
 
         project = cls.select()[0]

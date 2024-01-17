@@ -9,7 +9,14 @@ r"""
 """
 from .setting import swandb
 from .modules.project import Project
+from .modules.experiment import Experiment
 
 
 swandb.connect()
-swandb.create_tables([Project], safe=True)
+swandb.create_tables(
+    [
+        Project,
+        Experiment,
+    ],
+    safe=True,
+)
