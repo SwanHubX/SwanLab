@@ -23,8 +23,8 @@ class Project(SwanModel):
     sum = IntegerField(null=True)
     charts = IntegerField(default=0, choices=[0, 1], null=False)
     more = CharField(null=True)
-    create_time = CharField(max_length=30, null=False)
-    update_time = CharField(max_length=30, null=False)
+    create_time = CharField(max_length=30, null=False, default=create_time())
+    update_time = CharField(max_length=30, null=False, default=create_time())
 
     @classmethod
     def check_project(cls):
