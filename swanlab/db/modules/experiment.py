@@ -16,7 +16,13 @@ from ...utils.time import create_time
 
 # 定义模型类
 class Experiment(SwanModel):
-    """实验表"""
+    """实验表
+
+    Attributes
+    ----------
+    tags: list of Tag
+        由 Tag 表中外键反链接生成的tag数据列表
+    """
 
     id = IntegerField(primary_key=True, unique=True)
     project_id = ForeignKeyField(Project, backref="experiments", default=1)
@@ -104,6 +110,24 @@ class Experiment(SwanModel):
         """获取所有的实验"""
 
         return cls.select()
+
+    @classmethod
+    @SwanModel.result_to_list
+    def get_tags(cls, id: int):
+        """获取实验下所有的标签数据
+
+        Parameters
+        ----------
+        id : int
+            实验的 id
+
+        Returns
+        -------
+        list
+            数据列表
+        """
+
+        return cls.select().where(cls.id == id).first().tags
 
     @classmethod
     def delete_experiment(cls, id):

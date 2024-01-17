@@ -32,6 +32,15 @@ class SwanModel(Model):
 
         return wrapper
 
+    def result_to_list(func):
+        """将结果转换为列表"""
+
+        def wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            return [model_to_dict(row) for row in result]
+
+        return wrapper
+
     class Meta:
         """设置元信息"""
 

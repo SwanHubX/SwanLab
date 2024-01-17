@@ -10,6 +10,7 @@ r"""
 from .setting import swandb
 from .modules.project import Project
 from .modules.experiment import Experiment
+from .modules.tag import Tag
 
 
 swandb.connect()
@@ -18,6 +19,7 @@ swandb.create_tables(
     [
         Project,
         Experiment,
+        Tag,
     ],
     safe=True,
 )
