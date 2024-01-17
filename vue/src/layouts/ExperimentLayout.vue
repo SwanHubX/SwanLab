@@ -7,8 +7,6 @@
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
           <h1 class="text-2xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
-            <RouterLink class="hover:underline underline-offset-2" to="/">{{ projectStore.name }}</RouterLink>
-            /
             <span class="font-semibold">{{ experimentStore.name }}</span>
           </h1>
           <!-- 编辑按钮 -->
