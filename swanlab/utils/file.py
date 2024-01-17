@@ -57,14 +57,16 @@ def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIOWrap
     return f
 
 
-def check_tag_format(key: str) -> str:
+def check_tag_format(key: str, auto_cut=True) -> str:
     """检查tag字符串格式，必须是0-9a-zA-Z _-和/组成的字符串(包含空格)，并且开头必须是0-9a-zA-Z
+    最大长度为255字符
 
     Parameters
     ----------
     key : str
         待检查的字符串
     """
+    max_len = 255
     if not isinstance(key, str):
         raise TypeError(f"tag: {key} is not a string")
     # 定义正则表达式
@@ -75,6 +77,12 @@ def check_tag_format(key: str) -> str:
         raise ValueError(
             f"tag: {key} is not a valid string, which must be composed of 0-9a-zA-Z _- and /, and the first character must be 0-9a-zA-Z"
         )
+
+    # 检查长度
+    if auto_cut and len(key) > max_len:
+        key = key[:max_len]
+    elif not auto_cut and len(key) > max_len:
+        raise IndexError(f"tag: {key} is too long, which must be less than {max_len} characters")
     return key
 
 
