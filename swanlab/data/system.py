@@ -91,7 +91,7 @@ def __get_git_branch_and_commit():
 
 def __get_gpu_info():
     """获取 GPU 信息"""
-    info = {"cores": None, "type": []}
+    info = {"cores": None, "type": [], "memory": []}
     try:
         pynvml.nvmlInit()
     except:
@@ -104,6 +104,8 @@ def __get_gpu_info():
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             # 获取 GPU 型号
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
+            # 获取 GPU 显存, 单位为GB
+            info["memory"].append(pynvml.nvmlDeviceGetMemoryInfo(handle) / (1024**3))
 
     except pynvml.NVMLError as e:
         swanlog.warning(f"An error occurred when getting GPU info: {e}")
@@ -130,7 +132,7 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = mem.total / (1024 * 1024 * 1024)  # 单位为GB
+        total_memory = mem.total / (1024**3)  # 单位为GB
         return total_memory
     except Exception as e:
         swanlog.warning(f"An error occurred when getting memory size: {e}")

@@ -2,11 +2,11 @@
   <!-- 剩余区域 -->
   <div class="flex flex-col grow h-full">
     <!-- 概览区域 -->
-    <div class="p-4 flex flex-col border-b pr-11">
+    <div class="p-4 flex flex-col border-b pr-14">
       <RouterLink to="/" active-class="active-router">
-        <SLIcon icon="dashboard" class="w-4 h-4 mr-2" />
+        <SLIcon icon="runs" class="w-4 h-4 mr-2" />
         <!-- <span>{{ $t('sider.nav.home') }}</span> -->
-        <span>Project Dashboard</span>
+        <span>{{ $t('common.sidebar.runs') }}</span>
       </RouterLink>
     </div>
     <!-- 实验路由 -->
