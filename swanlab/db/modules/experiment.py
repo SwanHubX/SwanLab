@@ -81,28 +81,28 @@ class Experiment(SwanModel):
     def check_run_id(cls, run_id):
         """检查run_id是否可用"""
 
-        return cls.select().where(cls.run_id == run_id).count() == 0
+        return cls.filter(cls.run_id == run_id).count() == 0
 
     @classmethod
     @SwanModel.result_to_dict
     def get_experiment(cls, id):
         """根据id获取实验"""
 
-        return cls.select().where(cls.id == id)
+        return cls.filter(cls.id == id)
 
     @classmethod
     @SwanModel.result_to_dict
     def get_experiment_by_runid(cls, run_id):
         """根据run_id获取实验"""
 
-        return cls.select().where(cls.run_id == run_id)
+        return cls.filter(cls.run_id == run_id)
 
     @classmethod
     @SwanModel.result_to_dict
     def get_experiment_by_name(cls, name):
         """根据name获取实验"""
 
-        return cls.select().where(cls.name == name)
+        return cls.filter(cls.name == name)
 
     @classmethod
     @SwanModel.result_to_dict
@@ -127,13 +127,13 @@ class Experiment(SwanModel):
             数据列表
         """
 
-        return cls.select().where(cls.id == id).first().tags
+        return cls.filter(cls.id == id).first().tags
 
     @classmethod
     def delete_experiment(cls, id):
         """删除实验"""
 
-        experiment = cls.select().where(cls.id == id).first()
+        experiment = cls.filter(cls.id == id).first()
         if experiment:
             experiment.delete_instance(recursive=True)
             Project.update_sum(type="decrease")
@@ -152,7 +152,7 @@ class Experiment(SwanModel):
         description : str, optional
         """
 
-        experiment = cls.select().where(cls.id == id).first()
+        experiment = cls.filter(cls.id == id).first()
         if experiment:
             experiment.name = name
             experiment.description = description
@@ -170,7 +170,7 @@ class Experiment(SwanModel):
         id : int
         """
 
-        experiment = cls.select().where(cls.id == id).first()
+        experiment = cls.filter(cls.id == id).first()
         if experiment:
             experiment.update_time = create_time()
             experiment.save()
@@ -185,13 +185,14 @@ class Experiment(SwanModel):
         Parameters
         ----------
         id : int
+            实验 id
         status : int
             * -1: crushed
             *  0: running
             *  1: finished
         """
 
-        experiment = cls.select().where(cls.id == id).first()
+        experiment = cls.filter(cls.id == id).first()
         if experiment:
             experiment.status = status
             experiment.save()
