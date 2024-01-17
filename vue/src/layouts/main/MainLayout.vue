@@ -14,7 +14,7 @@
         <!-- 侧边栏 -->
         <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
           <!-- 侧边栏规定宽度 -->
-          <div class="w-80 h-full">
+          <div class="sidebar-content">
             <SideBar />
           </div>
         </div>
@@ -107,13 +107,13 @@ onMounted(() => {
       if (!props.showSideBar) return
       // 显示
       if (val) {
-        sidebarRef.value.style = 'width: 320px;'
+        sidebarRef.value.style = 'width: 288px;'
         cbRef.value.style.transform = ''
         cbRef.value.style.top = initialTop
       } else {
         sidebarRef.value.style = 'width: 0;'
         // cb添加transform动画，向左移动233px，旋转180度，向下移动60px
-        cbRef.value.style.transform = 'translateX(-260px) rotateY(180deg)'
+        cbRef.value.style.transform = 'translateX(-228px) rotateY(180deg)'
         handleContainerScroll(false)
       }
     },
@@ -170,7 +170,7 @@ $duration: 400ms;
 $close-button-size: 24px;
 
 // 侧边栏宽度，需要与上面js中设置的宽度一致
-$sidebar-width: 320px;
+$sidebar-width: 288px;
 
 // 除去header的高度
 $main-content-height: calc(100vh - 56px);
@@ -239,6 +239,11 @@ $main-content-height: calc(100vh - 56px);
   // 将滚动条隐藏
   &::-webkit-scrollbar {
     display: none; /* 隐藏WebKit浏览器的滚动条 */
+  }
+
+  .sidebar-content {
+    @apply h-full;
+    width: $sidebar-width;
   }
 }
 

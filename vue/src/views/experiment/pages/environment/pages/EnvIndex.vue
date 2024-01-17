@@ -59,14 +59,6 @@ const systems = computed(() => {
       key: 'command',
       value: system.command,
       highLight: true
-    },
-    {
-      key: 'hostname',
-      value: system.hostname
-    },
-    {
-      key: 'OS',
-      value: system.os
     }
   ]
 })
@@ -95,12 +87,20 @@ const gits = computed(() => {
 const hardware = computed(() => {
   return [
     {
-      key: 'cpu',
-      value: system.cpu
+      key: 'hostname',
+      value: system.hostname
+    },
+    {
+      key: 'OS',
+      value: system.os
     },
     {
       key: 'memory',
       value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
+    },
+    {
+      key: 'cpu',
+      value: system.cpu
     },
     {
       key: 'gpu_cores',

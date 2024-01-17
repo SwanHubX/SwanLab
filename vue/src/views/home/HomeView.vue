@@ -17,23 +17,30 @@
         </div>
       </div>
     </template>
-    <div class="px-6 py-5">
-      <h2 class="text-xl font-semibold mb-4">{{ $t('home.list.title') }}</h2>
-      <!-- 实验表格 -->
-      <SLTable :column="column" :data="experiments_table" v-if="tags">
-        <template v-slot:name="{ row }">
-          <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
-        </template>
-        <template v-slot:status="{ row }">
-          <SLStatusLabel :id="row.experiment_id" :status="row.status" />
-        </template>
-        <template v-slot:create="{ row }">
-          {{ transTime(convertUtcToLocal(row.create_time)) }}
-        </template>
-        <template v-for="item in configs" :key="item.key" v-slot:[item.key]="{ row }">
-          {{ row.config[item.key] || '-' }}
-        </template>
-      </SLTable>
+    <div class="pt-5 flex flex-col flex-grow flex-shrink-0">
+      <!-- 实验列表+实验统计 -->
+      <div class="flex mx-6 mb-4 items-center gap-1.5 flex-shrink-0">
+        <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
+        <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
+      </div>
+      <!-- <TableBar class="py-4 px-5 flex-shrink-0" :table-head="column" :table-body="experiments_table" /> -->
+      <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
+        <!-- 实验表格 -->
+        <SLTable sticky-header class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
+          <template v-slot:name="{ row }">
+            <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+          </template>
+          <template v-slot:status="{ row }">
+            <SLStatusLabel :id="row.experiment_id" :status="row.status" />
+          </template>
+          <template v-slot:create="{ row }">
+            {{ transTime(convertUtcToLocal(row.create_time)) }}
+          </template>
+          <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
+            {{ row.config[item.slot] || '-' }}
+          </template>
+        </SLTable>
+      </div>
       <EmptyTable v-else-if="experiments.length === 0" />
     </div>
   </HomeLayout>
@@ -55,6 +62,7 @@ import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
 import SLTable from '@swanlab-vue/components/table'
 import EmptyTable from './components/EmptyTable.vue'
+import TableBar from './components/TableBar.vue'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 const projectStore = useProjectStore()
@@ -70,6 +78,7 @@ const experiments = computed(() => {
 
 const createTime = computed(() => formatTime(projectStore.createTime))
 const updateTime = computed(() => formatTime(projectStore.updateTime))
+const total = computed(() => projectStore.experiments?.length || 0)
 
 // ---------------------------------- 表格配置 ----------------------------------
 
@@ -77,17 +86,19 @@ const column = ref([
   {
     title: t('home.list.table.header.name'),
     slot: 'name',
-    style: 'px-4',
+    style: 'px-6',
     width: 300,
     border: true
   },
   {
     title: t('home.list.table.header.status'),
-    slot: 'status'
+    slot: 'status',
+    type: 'status'
   },
   {
     title: t('home.list.table.header.create'),
-    slot: 'create'
+    slot: 'create',
+    type: 'create_time'
   }
 ])
 
@@ -102,7 +113,7 @@ const configs = []
         return
       }
       configs.push({
-        key,
+        type: 'config',
         slot: key,
         title: key
       })
@@ -172,28 +183,11 @@ async function hashString(inputString) {
 </script>
 
 <style lang="scss" scoped>
-.experiments-table {
-  @apply border;
-  tr {
-    &:first-child {
-      @apply bg-higher;
-    }
-    &:not(:first-child) {
-      @apply border-t;
-    }
-  }
-
-  th {
-    @apply text-left;
-  }
-
-  th,
-  td {
-    @apply px-5 py-2.5;
-
-    &:not(:last-child) {
-      @apply border-r;
-    }
-  }
+// 最后一行每一个单元格右边框添加伪元素
+.dashboard-table {
+  @apply border-x-0 border-b-0;
+}
+.grow {
+  @apply text-dimmest;
 }
 </style>
