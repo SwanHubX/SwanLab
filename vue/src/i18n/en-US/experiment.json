@@ -24,6 +24,7 @@
         "version": "SwanLab Version",
         "git": "Git Repository",
         "tags": "Tags",
+        "python": "Python Version",
         "time": {
           "day": "d ",
           "hour": "h ",

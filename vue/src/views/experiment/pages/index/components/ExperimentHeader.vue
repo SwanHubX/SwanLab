@@ -4,13 +4,6 @@
     <div class="flex justify-between pt-6 pb-2 flex-wrap">
       <!-- 实验相关 -->
       <div class="min-w-[400px] max-w-[50%] pr-4">
-        <!-- 实验状态 -->
-        <div class="flex items-center pb-4">
-          <div class="title">{{ $t(`experiment.index.header.experiment_infos.status`) }}</div>
-          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
-          <!-- 停止按钮 -->
-          <StopButton v-if="experimentStore.isRunning" />
-        </div>
         <div v-for="item in experiment_infos" :key="item.title">
           <div class="flex pb-4" v-if="item.value || item.title === 'git'">
             <div class="title">{{ $t(`experiment.index.header.experiment_infos.${item.title}`) }}</div>
@@ -40,11 +33,9 @@
  * @file: ExperimentHeader.vue
  * @since: 2023-12-11 14:43:51
  **/
-import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { useExperimentStroe } from '@swanlab-vue/store'
-import StopButton from './StopButton.vue'
 
 const experimentStore = useExperimentStroe()
 const experiment = ref(experimentStore.experiment)
@@ -62,8 +53,8 @@ const experiment_infos = computed(() => {
       value: experimentStore.duration
     },
     {
-      title: 'version',
-      value: `v${experiment.value.version}`
+      title: 'python',
+      value: experiment.value.system.python || ''
     }
   ]
 })
@@ -79,10 +70,6 @@ const experiment_device = computed(() => {
     {
       title: 'os',
       value: experiment.value.system.os || ''
-    },
-    {
-      title: 'python',
-      value: experiment.value.system.python || ''
     }
   ]
 })

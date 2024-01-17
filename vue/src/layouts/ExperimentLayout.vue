@@ -13,6 +13,9 @@
           </h1>
           <!-- 编辑按钮 -->
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
+          <!-- 实验状态 -->
+          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+          <slot name="stop-button"></slot>
         </div>
         <!-- 删除按钮 -->
         <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
@@ -58,9 +61,12 @@ import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from '@swanlab-vue/components/message'
 import { t } from '@swanlab-vue/i18n'
+import { ref } from 'vue'
+
 const router = useRouter()
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
+const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 控制h1缩进 ----------------------------------
 const isSideBarShow = inject('isSideBarShow')
