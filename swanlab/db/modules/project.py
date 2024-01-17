@@ -83,6 +83,11 @@ class Project(SwanModel):
     def update_sum(cls, type="increase"):
         """更新实验统计数量
         TODO: 等实验表建立后，可以从实验表中获取实验数量
+
+        Returns
+        -------
+        int:
+            被操作的行数
         """
 
         project = cls.select()[0]
@@ -111,6 +116,11 @@ class Project(SwanModel):
             实验名，不为空
         description : str
             实验描述，可为空
+
+        Returns
+        -------
+        int:
+            被操作的行数
         """
         if name is None or name == "":
             raise ValueError("Invalid project name")
@@ -121,8 +131,14 @@ class Project(SwanModel):
 
     @classmethod
     def update_updatetime(cls):
-        """更新项目更新时间"""
+        """更新项目更新时间
 
-        project = cls.select()[0]
+        Returns
+        -------
+        int:
+            被操作的行数
+        """
+
+        project = cls.select().where(cls.id == 1).first()
         project.update_time = create_time()
         return project.save()
