@@ -15,6 +15,11 @@ from ...utils.time import create_time
 class Project(SwanModel):
     """项目表
     在一个工程中，只有一个项目
+
+    Attributes
+    ----------
+    experiments: list of Experiment
+        由 Experiment 表中外键反链接生成的实验列表
     """
 
     id = IntegerField(primary_key=True)
@@ -139,6 +144,11 @@ class Project(SwanModel):
             被操作的行数
         """
 
-        project = cls.select().where(cls.id == 1).first()
-        project.update_time = create_time()
-        return project.save()
+        return cls.update(update_time=create_time()).where(cls.id == 1).execute()
+
+    @classmethod
+    @SwanModel.result_to_dict
+    def get_experiments(cls):
+        """获取项目下的所有实验"""
+
+        return cls.select()[0].experiments

@@ -19,7 +19,6 @@ swandb = SqliteDatabase(os.path.join(get_swanlog_dir(), "runs.swanlab"))
 class SwanModel(Model):
     """基础模型类，用于定义数据库表的基本信息"""
 
-    @staticmethod
     def result_to_dict(func):
         """将结果转换为字典"""
 

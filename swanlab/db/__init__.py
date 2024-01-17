@@ -13,6 +13,7 @@ from .modules.experiment import Experiment
 
 
 swandb.connect()
+# 在连接时提前创建，确保在查询时数据表一定存在
 swandb.create_tables(
     [
         Project,
