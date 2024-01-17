@@ -25,7 +25,7 @@ class Tag(SwanModel):
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
-    name = CharField(max_length=100, null=False)
+    name = CharField(unique=True, max_length=100, null=False)
     description = CharField(max_length=100)
     system = IntegerField(default=0, choices=[0, 1])
     more = TextField(default="")
@@ -48,16 +48,27 @@ class Tag(SwanModel):
         ValueError
             所属实验不存在
         """
+
         # 检查实验是否存在
         if not Experiment.get_experiment(experiment_id):
             raise ValueError("Experiment does not exist")
 
-        return cls.create(
-            experiment_id=experiment_id,
-            name=name,
-            description=description,
-            system=system,
-            more=more,
-            create_time=create_time(),
-            update_time=create_time(),
-        )
+        try:
+            return cls.create(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                system=system,
+                more=more,
+                create_time=create_time(),
+                update_time=create_time(),
+            )
+        except Exception as e:
+            raise e
+
+    @classmethod
+    @SwanModel.result_to_list
+    def get_tags(cls, experiment_id):
+        """获取指定实验下的所有tag"""
+
+        return cls.filter(cls.experiment_id == experiment_id)
