@@ -2,7 +2,7 @@ from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
 from typing import Dict
-from .utils import create_time, check_key_format, get_a_lock
+from .utils import create_time, check_tag_format, get_a_lock
 from urllib.parse import quote
 import ujson
 import os
@@ -42,7 +42,12 @@ class SwanLabExp:
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
-        check_key_format(tag)
+        key = tag
+        tag = check_tag_format(key, auto_cut=True)
+        if key != tag:
+            # 超过255字符，截断
+            swanlog.warning(f"Tag {key} is too long, cut to 255 characters.")
+
         if isinstance(data, BaseType):
             # 注入一些内容
             data.settings = self.settings
