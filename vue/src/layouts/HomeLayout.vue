@@ -1,7 +1,7 @@
 <template>
-  <div class="w-full h-full py-5 relative">
+  <div class="w-full h-full pt-5 relative flex flex-col">
     <!-- 项目标题部分 -->
-    <div class="px-6 border-b">
+    <div class="px-6 border-b flex-shrink-0">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
       <div class="project-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
         <div class="flex items-center gap-3">
