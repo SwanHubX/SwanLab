@@ -142,7 +142,7 @@ const navs = [
     display: none;
   }
   .nav-item {
-    @apply px-2.5 pt-2 pb-1.5 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
+    @apply px-1 pt-2 pb-1.5 relative text-sm text-dimmer whitespace-nowrap ring-0 outline-none;
     @apply mb-1 rounded flex items-center gap-1.5;
     &:hover {
       @apply bg-higher;
