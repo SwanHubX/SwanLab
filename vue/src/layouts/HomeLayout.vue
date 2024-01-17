@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full pt-5 relative flex flex-col">
+  <div class="w-full h-full pt-5 flex flex-col">
     <!-- 项目标题部分 -->
     <div class="px-6 border-b flex-shrink-0">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->

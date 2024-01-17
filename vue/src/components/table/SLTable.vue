@@ -1,33 +1,35 @@
 <template>
   <div class="w-full" ref="wrapper">
     <!-- 表格 -->
-    <div class="border-t" :class="{ 'gradient-last-line': lastRowGradient }" :style="{ width: tableWidth }" ref="table">
+    <div :class="{ 'gradient-last-line': lastRowGradient }" :style="{ width: tableWidth }" ref="table">
       <!-- 表头 -->
-      <div class="border-b flex bg-higher table-header">
-        <!-- 表头项 -->
-        <div
-          v-for="(item, index) in column"
-          :key="item.key"
-          class="cell table-header-item"
-          :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
-          @mouseover="handleMouseOver(index)"
-          @mouseout="handleMouseOver(-1)"
-          :style="{ width: elementWidths[index] }"
-          ref="columnsRef"
-        >
-          <p
-            class="overflow-hidden w-full h-full flex items-center"
-            :class="item.style || 'px-2 py-3'"
-            :title="item.title"
+      <div class="sticky top-0 z-20">
+        <div class="border-y flex bg-higher table-header">
+          <!-- 表头项 -->
+          <div
+            v-for="(item, index) in column"
+            :key="item.key"
+            class="cell table-header-item"
+            :class="activeColumnIndex === index ? 'bg-highest' : 'bg-higher'"
+            @mouseover="handleMouseOver(index)"
+            @mouseout="handleMouseOver(-1)"
+            :style="{ width: elementWidths[index] }"
+            ref="columnsRef"
           >
-            {{ item.title }}
-          </p>
-          <!-- 拖拽点 -->
-          <button
-            @mousedown="(e) => resize(e, index)"
-            :class="{ 'button-hover-tip': hoverColumnIndex === index }"
-            v-if="!column.unresizeable && !flexable"
-          />
+            <p
+              class="overflow-hidden w-full h-full flex items-center"
+              :class="item.style || 'px-2 py-3'"
+              :title="item.title"
+            >
+              {{ item.title }}
+            </p>
+            <!-- 拖拽点 -->
+            <button
+              @mousedown="(e) => resize(e, index)"
+              :class="{ 'button-hover-tip': hoverColumnIndex === index }"
+              v-if="!column.unresizeable && !flexable"
+            />
+          </div>
         </div>
       </div>
       <!-- 表体, 按一行一行来渲染 -->
@@ -52,7 +54,7 @@
           @mouseout="handleMouseOver(-1)"
           :style="{ width: elementWidths[index] }"
         >
-          <div v-if="item.slot">
+          <div class="w-full" v-if="item.slot">
             <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
           </div>
           <!-- 文本格式 -->
@@ -265,10 +267,10 @@ const handleMouseOver = (index) => {
       content: '';
       box-sizing: content-box;
       position: absolute;
-      right: -0.5px;
       top: 100%;
+      left: 0;
       height: 40px;
-      border-right: 1px;
+      width: 100%;
       border-right: 1px;
       border-style: solid;
       // 边框颜色从上到下渐变，从outline-default到transparent
@@ -279,6 +281,7 @@ const handleMouseOver = (index) => {
 
 .cell {
   @apply text-left whitespace-nowrap shrink-0;
+  @apply box-border;
   height: 54px;
 
   &:first-child {
