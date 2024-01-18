@@ -27,10 +27,24 @@ class Namespace(SwanModel):
 
     class Meta:
         database = swandb
-        # name 和 experiment_id 和 project_id 组合后唯一
-        indexes = ((("name", "experiment_id", "project_id"), True),)
-        # project_id 和 experiment_id 不能同时为空，也不能同时不为空
-        constraints = [Check("project_id is not null or experiment_id is not null")]
+
+        """
+        name 和 experiment_id 和 project_id 组合后需要确保唯一性
+        """
+        indexes = (
+            # 同一个项目/实验下，命名空间名称不能重复
+            (("name", "experiment_id"), True),
+            (("name", "project_id"), True),
+        )
+
+        constraints = [
+            # project_id 和 experiment_id 不能同时为空，也不能同时不为空
+            Check(
+                "(project_id IS NULL AND experiment_id IS NOT NULL) OR (project_id IS NOT NULL AND experiment_id IS NULL)"
+            ),
+            # index必须大于等于0
+            Check("index >= 0"),
+        ]
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="namespaces", on_delete="SET NULL", null=True)
@@ -49,7 +63,7 @@ class Namespace(SwanModel):
         experiment_id: int = None,
         project_id: int = None,
         description: str = "",
-        index=-1,
+        index=None,
     ):
         """创建命名空间
 
@@ -73,7 +87,7 @@ class Namespace(SwanModel):
         """
 
         current_time = create_time()
-        # TODO 自动设置index
+        # TODO 如果index为None，则自动添加到最后
 
         return super().create(
             name=name,

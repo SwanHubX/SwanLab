@@ -11,4 +11,5 @@ Namespace.create(
     name="name",
     index=1,
     experiment_id=1,
+    project_id=None,
 )
