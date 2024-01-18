@@ -19,8 +19,8 @@ class Chart(SwanModel):
     """chart表"""
 
     id = IntegerField(primary_key=True)
-    experiment_id = ForeignKeyField(Experiment, backref="chars", null=True, on_delete="SET NULL")
-    project_id = ForeignKeyField(Project, backref="charts", default=1, null=True, on_delete="SET NULL")
+    experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="SET NULL")
+    project_id = ForeignKeyField(Project, backref="charts", default=1, on_delete="SET NULL")
     name = CharField(max_length=100, null=False)
     description = CharField(max_length=255)
     system = IntegerField(default=1, choices=[-1, 0, 1])
