@@ -145,7 +145,7 @@ def __get_cwd():
         cwd = os.getcwd()
         return cwd
     except Exception as e:
-        swanlog.warning(f"An error occurred when getting current working directory: {e}")
+        swanlog.debug(f"An error occurred when getting current working directory: {e}")
         return None
 
 
