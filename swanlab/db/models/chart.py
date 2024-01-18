@@ -69,3 +69,9 @@ class Chart(SwanModel):
             )
         except Exception as e:
             raise e
+
+    @classmethod
+    def update_updatetime(cls, id: int):
+        """实验有更新，刷新 update_time"""
+
+        return cls.update(update_time=create_time()).where(cls.id == id).execute()
