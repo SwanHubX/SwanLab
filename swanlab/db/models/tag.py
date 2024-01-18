@@ -24,7 +24,7 @@ class Tag(SwanModel):
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
-    name = CharField(unique=True, max_length=100, null=False)
+    name = CharField(unique=True, max_length=255, null=False)
     description = CharField(max_length=100)
     system = IntegerField(default=0, choices=[0, 1])
     more = TextField(default="")
