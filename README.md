@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="80" height="80">
+  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="120" height="120">
 </p>
 <h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
 
@@ -16,10 +16,13 @@ Track and visualize all the pieces of your machine learning pipeline
   <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a>
 </p>
 
-
+<p align="center">
 👋 Join our <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>.
+</p>
 
-[ English | [中文](README_zh-hans.md) ]
+<p align="center">
+English | <a href="README_zh-hans.md">中文</a>
+</p>
 
 # Table of Contents
 
