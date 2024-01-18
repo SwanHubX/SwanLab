@@ -72,6 +72,7 @@ class Experiment(SwanModel):
         description: str = "",
         project_id: int = 1,
         more: dict = None,
+        index: int = None,
     ) -> "Experiment":
         """覆写继承的create方法，创建一个新的实验
 
@@ -101,6 +102,7 @@ class Experiment(SwanModel):
             project_id=project_id,
             description=description,
             more=cls.dict2json(more),
+            index=index,
             create_time=current_time,
             update_time=current_time,
         )
@@ -121,8 +123,6 @@ class Experiment(SwanModel):
     ):
         """创建实验表
         其中需要注意：run_id 必须传递！
-        TODO: 是否需要在创建实验数据之前 init Project 表？
-        答：不需要
         """
 
         # 确保 run_id 唯一
@@ -130,7 +130,7 @@ class Experiment(SwanModel):
             raise ValueError("run_id already exists")
         # 获取之前的实验数量
         experiment_count = cls.select().count()
-        experiment = cls.create(
+        experiment = super().create(
             project_id=project_id,
             run_id=run_id,
             name=name + f"-{experiment_count}",

@@ -28,7 +28,7 @@ class Namespace(SwanModel):
     class Meta:
         database = swandb
         # name 和 experiment_id 和 project_id 组合后唯一
-        indexes = ((("name", "experiment_id", "project_id"), True),)
+        # indexes = ((("name", "experiment_id", "project_id"), True),)
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="namespaces", on_delete="SET NULL", null=True)
@@ -36,7 +36,7 @@ class Namespace(SwanModel):
     name = CharField(max_length=100, null=False)
     description = CharField(max_length=255, null=True)
     index = IntegerField()
-    more = TextField(default="")
+    more = TextField(default=None, null=True)
     create_time = CharField(max_length=30, null=False)
     update_time = CharField(max_length=30, null=False)
 
@@ -72,6 +72,8 @@ class Namespace(SwanModel):
         Namespace : Namespace
             创建的命名空间
         """
+
+        current_time = create_time()
         kwargs = {
             "experiment_id": 1,
             "project_id": None,
@@ -79,8 +81,8 @@ class Namespace(SwanModel):
             "description": description,
             "more": more,
             "index": index,
-            "create_time": create_time(),
-            "update_time": create_time(),
+            "create_time": current_time,
+            "update_time": current_time,
         }
 
         # if project_id is not None:
@@ -90,4 +92,11 @@ class Namespace(SwanModel):
         # else:
         #     raise ValueError("experiment_id and project_id is None")
 
-        return cls.create(**kwargs)
+        return cls.create(
+            name="name",
+            index=1,
+            create_time=current_time,
+            update_time=current_time,
+            experiment_id=None,
+            project_id=None,
+        )
