@@ -140,6 +140,18 @@ def __get_memory_size():
         return None
 
 
+def __get_cwd():
+    """获取当前工作目录路径"""
+    import os
+
+    try:
+        cwd = os.getcwd()
+        return cwd
+    except Exception as e:
+        swanlog.debug(f"An error occurred when getting current working directory: {e}")
+        return None
+
+
 def get_system_info():
     """获取系统信息"""
     return {
@@ -153,6 +165,7 @@ def get_system_info():
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
         "command": __get_command(),  # 完整命令行信息
         "memory": __get_memory_size(),  # 内存大小
+        "cwd": __get_cwd(),  # 当前工作目录路径
     }
 
 
