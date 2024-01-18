@@ -23,46 +23,53 @@ class Display(SwanModel):
         database = swandb
 
     id = IntegerField(primary_key=True)
-    chart_id = ForeignKeyField(Chart, backref="displays", on_delete="SET NULL", null=True)
-    namespace_id = ForeignKeyField(Namespace, backref="displays", on_delete="SET NULL", null=True)
+    """display表唯一id"""
+    chart_id = ForeignKeyField(Chart, backref="displays", null=False)
+    """关联的chart，不可为空"""
+    namespace_id = ForeignKeyField(Namespace, backref="displays")
+    """关联的namespace，不可为空"""
     index = IntegerField()
+    """当前chart在namespace下的排序，索引越小，排序越靠前，索引>=0"""
     more = TextField(default=None, null=True)
+    """更多信息配置，json格式，将在表函数中检查并解析"""
     create_time = CharField(max_length=30, null=False)
+    """创建时间"""
     update_time = CharField(max_length=30, null=False)
+    """更新时间"""
 
     @classmethod
     def create(
         cls,
-        chart_id: int = None,
-        namespace_id: int = None,
-        index: int = -1,
-        more: str = None,
-    ):
+        chart_id: int,
+        namespace_id: int,
+        index: int = None,
+        more: dict = None,
+    ) -> "Display":
         """添加行数据
 
         Parameters
         ----------
-        chart_id : int, optional
-            _description_, by default None
-        namespace_id : int, optional
-            _description_, by default None
-        index : int, optional
-            _description_, by default -1
-        more : str, optional
-            _description_, by default None
+        chart_id : int
+            chart表中的id
+        namespace_id : int
+            namespace表中的id
+        index : int
+            排序索引，索引越小，排序越靠前，索引>=0，如果为None，则自动加到最后
+        more : str
+            更多信息配置，json格式，将在表函数中检查并解析
 
         Returns
         -------
-        _type_
-            _description_
+        Display
+            返回创建的display对象
         """
-
         current_time = create_time()
+
         return super().create(
             chart_id=chart_id,
             namespace_id=namespace_id,
             index=index,
-            more=more,
+            more=cls.dict2json(more),
             create_time=current_time,
             update_time=current_time,
         )

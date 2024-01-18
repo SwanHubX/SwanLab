@@ -16,6 +16,7 @@ from .settings import swandb
 class SwanModel(Model):
     """基础模型类，用于定义数据库表的基本信息"""
 
+    @staticmethod
     def search2dict(result) -> dict:
         """将select、filter的结果转换为字典"""
 
@@ -25,11 +26,13 @@ class SwanModel(Model):
         else:
             return dicts
 
+    @staticmethod
     def search2list(result) -> list:
         """将select、filter的结果转换为列表"""
 
         return [model_to_dict(row) for row in result]
 
+    @staticmethod
     def json2dict(json_str: str) -> dict:
         """将json字符串转换为字典
         如果字符串为空，返回空字典
@@ -56,6 +59,7 @@ class SwanModel(Model):
         except:
             raise TypeError
 
+    @staticmethod
     def dict2json(dict: dict) -> str:
         """将字典转换为json字符串
 

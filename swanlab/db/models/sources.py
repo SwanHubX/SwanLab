@@ -21,44 +21,52 @@ class Source(SwanModel):
 
     class Meta:
         database = swandb
+        # 写入check约束，name和experiment_id加起来唯一
         indexes = ((("tag_id", "chart_id"), True),)
 
     id = IntegerField(primary_key=True)
-    tag_id = ForeignKeyField(Tag, backref="sources", on_delete="SET NULL", null=True)
-    chart_id = ForeignKeyField(Chart, backref="sources", on_delete="SET NULL", null=True)
+    """此表唯一id"""
+    tag_id = ForeignKeyField(Tag, backref="sources", null=False)
+    """代表关联的tag，不可为空"""
+    chart_id = ForeignKeyField(Chart, backref="sources", null=False)
+    """关联的chart，不可为空"""
     error = TextField(null=True)
+    """代表这个tag数据转化到chart上失败了，错误信息，是一个json字符串"""
     more = TextField(null=True)
+    """更多信息配置，json格式，将在表函数中检查并解析"""
     create_time = CharField(max_length=30, null=False)
+    """创建时间"""
     update_time = CharField(max_length=30, null=False)
+    """更新时间"""
 
     @classmethod
     def create(
         cls,
-        tag_id: int = None,
-        chart_id: int = None,
-        error: str = None,
-        more: str = None,
+        tag_id: int,
+        chart_id: int,
+        error: dict = None,
+        more: dict = None,
     ):
         """添加行数据
 
         Parameters
         ----------
-        tag_id : int, optional
-            _description_, by default None
-        chart_id : int, optional
-            _description_, by default None
-        error : str, optional
-            _description_, by default None
-        more : str, optional
-            _description_, by default None
+        tag_id : int
+            对应的tag_id
+        chart_id : int
+            对应的chart_id
+        error : str
+            对应的错误信息
+        more : str
+            更多信息，json格式
         """
-
+        # TODO 错误检查
         current_time = create_time()
         return super().create(
             tag_id=tag_id,
             chart_id=chart_id,
-            error=error,
-            more=more,
+            error=cls.dict2json(error),
+            more=cls.dict2json(more),
             create_time=current_time,
             update_time=current_time,
         )
