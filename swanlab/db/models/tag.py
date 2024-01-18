@@ -25,12 +25,12 @@ class Tag(SwanModel):
 
     class Meta:
         database = swandb
+        # 写入check约束，name和experiment_id加起来唯一
+        indexes = ((("name", "experiment_id"), True),)
 
     id = IntegerField(primary_key=True)
-    # 写入check约束，name和experiment_id加起来唯一
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
     name = CharField(max_length=255, null=False)
-
     description = CharField(max_length=100)
     system = IntegerField(default=0, choices=[0, 1])
     more = TextField(default="")
@@ -43,7 +43,7 @@ class Tag(SwanModel):
         experiment_id: int,
         name: str,
         description="",
-        system: int = None,
+        system: int = 0,
         more: dict = {},
     ) -> "Tag":
         """在tags表中创建一条tag指定实验的tag数据

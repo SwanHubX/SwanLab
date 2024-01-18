@@ -1,9 +1,7 @@
 from swanlab.db import Project
 
-# # 创建一个新的项目
-
-
-# print(Project.init())
+# 创建一个新的项目
+print(Project.init())
 # new_project = Project.create(
 #     name="Sample Project",
 #     description="This is a sample project.",

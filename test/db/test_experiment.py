@@ -1,6 +1,6 @@
 from swanlab.db import Experiment
 
-# print(Experiment.create_experiment(run_id="1234").run_id)
+print(Experiment.create_experiment(run_id="1234").run_id)
 
 # print(Experiment.check_run_id("123123123"))
 # print(Experiment.get_experiment_by_runid("1"))
@@ -20,4 +20,4 @@ from swanlab.db import Experiment
 
 # print(Experiment.get_experiments())
 
-print(Experiment.get_charts(1))
+# print(Experiment.get_charts(1))
