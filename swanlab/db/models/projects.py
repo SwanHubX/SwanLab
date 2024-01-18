@@ -18,7 +18,7 @@ DEFAULT_PROJECT_ID = 1
 
 class Project(SwanModel):
     """项目表
-    在一个工程中，只有一个项目
+    目前，在一个工程中，只有一个项目
 
     Attributes
     ----------
