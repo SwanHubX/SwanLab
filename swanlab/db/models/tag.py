@@ -10,6 +10,8 @@ r"""
 from ..settings import swandb
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, TextField, IntegerField
+from peewee import IntegrityError
+from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 from .experiment import Experiment
 
@@ -29,6 +31,7 @@ class Tag(SwanModel):
         indexes = ((("name", "experiment_id"), True),)
 
     id = IntegerField(primary_key=True)
+    # backref是反向引用，可以通过实验获取tag，比如experiment.tags获取此实验下的所有tag
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
     name = CharField(max_length=255, null=False)
     description = CharField(max_length=100)
@@ -68,43 +71,79 @@ class Tag(SwanModel):
 
         Raises
         ------
-        ValueError
-            实验不存在
+        NotExistedError
+            实验对应的id不存在
         ExistedError
-            此name对应的
+            此tag已经在数据库中存在
         """
-
-        # 检查实验是否存在
+        # 如果实验id不存在，则抛出异常
         if not Experiment.get_experiment(experiment_id):
-            raise ValueError("Experiment does not exist: {}".format(experiment_id))
-        # 尝试创建实验tag
-        return cls.create(
-            experiment_id=experiment_id,
-            name=name,
-            description=description,
-            system=system,
-            more=more,
-            create_time=create_time(),
-            update_time=create_time(),
-        )
+            raise NotExistedError("Experiment id not found: {}".format(experiment_id))
+
+        # 尝试创建实验tag，如果已经存在则抛出异常
+        try:
+            return cls.create(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                system=system,
+                more=more,
+                create_time=create_time(),
+                update_time=create_time(),
+            )
+        except IntegrityError:
+            raise ExistedError("Tag already exists: {}".format(name))
 
     @classmethod
     @SwanModel.result_to_list
-    def get_tags(cls, experiment_id):
-        """获取指定实验下的所有tag"""
+    def get_tags(cls, experiment_id: int) -> list:
+        """获取指定实验下的所有tag
+        Parameters
+        ----------
+        experiment_id : int
+            实验id
 
+        Returns
+        -------
+        list
+            返回tag数据列表,每个元素是一个字典, 代表一条tag数据
+            如果对应实验不存在tag，则返回空列表
+
+        Raises
+        ------
+        NotExistedError
+            实验对应的id不存在
+        """
+        if not Experiment.get_experiment(experiment_id):
+            raise NotExistedError("Experiment id not found: {}".format(experiment_id))
         return cls.filter(cls.experiment_id == experiment_id)
 
     @classmethod
     @SwanModel.result_to_dict
     def get_tag(cls, id):
-        """根据id获取tag"""
-
-        return cls.filter(cls.id == id)
+        """根据id获取tag
+        Parameters
+        ----------
+        id : int
+            tag的id
+        """
+        try:
+            return cls.filter(cls.id == id)
+        except IndexError:
+            raise NotExistedError("Tag id not found: {}".format(id))
 
     @classmethod
     @SwanModel.result_to_dict
-    def get_tag_by_name(cls, experiment_id, name):
-        """根据name获取tag"""
+    def get_tag_by_name(cls, experiment_id: int, name: str):
+        """
+        已知实验id和tag名称，获取tag数据
+        Parameters
+        ----------
+        experiment_id : int
+            实验id
+        name : str
+            tag名称
+
+        """
 
         return cls.filter(cls.experiment_id == experiment_id, cls.name == name)
