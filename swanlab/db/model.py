@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2024-01-16 11:00:55
-@File: swanlab\db\setting.py
+@DATE: 2024-01-18 13:11:59
+@File: swanlab/db/model.py
 @IDE: vscode
 @Description:
-    一些配置
+    在此处定义基础模型类
 """
-import os
-from ..env import get_swanlog_dir
-from peewee import SqliteDatabase, Model
+from peewee import Model
 from playhouse.shortcuts import model_to_dict
-
-# 连接到SQLite数据库，设置数据库文件名为runs.swanlab
-swandb = SqliteDatabase(os.path.join(get_swanlog_dir(), "runs.swanlab"))
+from .settings import swandb
 
 
 class SwanModel(Model):

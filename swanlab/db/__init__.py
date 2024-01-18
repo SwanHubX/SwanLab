@@ -7,10 +7,10 @@ r"""
 @Description:
     数据库模型模块，在设计上应该在data模块或者server模块被初始化完毕后导入
 """
-from .setting import swandb
-from .modules.project import Project
-from .modules.experiment import Experiment
-from .modules.tag import Tag
+from .settings import swandb
+from .models.project import Project
+from .models.experiment import Experiment
+from .models.tag import Tag
 
 
 swandb.connect()

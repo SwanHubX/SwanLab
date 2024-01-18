@@ -7,8 +7,7 @@ r"""
 @Description:
     实验数据表
 """
-
-from ..setting import SwanModel
+from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField
 from .project import Project
 from ...utils.time import create_time

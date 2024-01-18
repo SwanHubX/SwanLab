@@ -8,7 +8,7 @@ r"""
     项目表，对应于0.1.5之前版本中的 project.json
 """
 from peewee import CharField, IntegerField
-from ..setting import SwanModel
+from ..model import SwanModel
 from ...utils.time import create_time
 
 
