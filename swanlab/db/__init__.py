@@ -12,6 +12,7 @@ from .models.projects import Project
 from .models.experiments import Experiment
 from .models.tags import Tag
 from .models.charts import Chart
+from .models.namespaces import Namespace
 
 
 swandb.connect()
@@ -22,6 +23,7 @@ swandb.create_tables(
         Experiment,
         Tag,
         Chart,
+        Namespace,
     ],
     safe=True,
 )
