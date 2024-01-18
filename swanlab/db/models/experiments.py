@@ -95,25 +95,25 @@ class Experiment(SwanModel):
         """根据id获取实验"""
 
         result = cls.filter(cls.id == id)
-        return SwanModel.result_to_dict(result)
+        return SwanModel.search_to_dict(result)
 
     @classmethod
     def get_experiment_by_runid(cls, run_id):
         """根据run_id获取实验"""
 
-        return SwanModel.result_to_dict(cls.filter(cls.run_id == run_id))
+        return SwanModel.search_to_dict(cls.filter(cls.run_id == run_id))
 
     @classmethod
     def get_experiment_by_name(cls, name):
         """根据name获取实验"""
 
-        return SwanModel.result_to_dict(cls.filter(cls.name == name))
+        return SwanModel.search_to_dict(cls.filter(cls.name == name))
 
     @classmethod
     def get_experiments(cls):
         """获取所有的实验"""
 
-        return SwanModel.result_to_dict(cls.select())
+        return SwanModel.search_to_dict(cls.select())
 
     @classmethod
     def get_tags(cls, id: int):
@@ -130,7 +130,7 @@ class Experiment(SwanModel):
             标签列表
         """
 
-        return SwanModel.result_to_list(cls.filter(cls.id == id).first().tags)
+        return SwanModel.search_to_list(cls.filter(cls.id == id).first().tags)
 
     @classmethod
     def get_charts(cls, id: int):
@@ -147,7 +147,7 @@ class Experiment(SwanModel):
             图表列表
         """
 
-        return SwanModel.result_to_list(cls.filter(cls.id == id).first().charts)
+        return SwanModel.search_to_list(cls.filter(cls.id == id).first().charts)
 
     @classmethod
     def delete_experiment(cls, id):

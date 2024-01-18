@@ -143,4 +143,4 @@ class Project(SwanModel):
     def get_experiments(cls):
         """获取项目下的所有实验"""
 
-        return SwanModel.result_to_dict(cls.select()[0].experiments)
+        return SwanModel.search_to_dict(cls.select()[0].experiments)
