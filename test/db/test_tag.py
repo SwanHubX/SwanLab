@@ -1,5 +1,7 @@
 from swanlab.db import Tag
 
-print(type(Tag.create_tag(1, "ikunskun")))
+# print(type(Tag.create_tag(1, "ikunskun-21")))
 
-# print(Tag.get_tags(1))
+tags = Tag.get_tag(1)
+
+print(tags)
