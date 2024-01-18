@@ -35,26 +35,26 @@ English | <a href="README_zh-hans.md">中文</a>
 
 # Key Function
 
-- **Experiments GridView**: compare your key metrics for inspiration faster
+- **🧪 Experiments GridView**: compare your key metrics for inspiration faster
 
 <div align="center">
   <img src="readme_files/experiment-gridview.png" width="600">
 </div>
 
-- **Charts**: visualize your entire training process
+- **📊 Charts**: visualize your entire training process
 
 <div align="center">
   <img src="readme_files/charts.png" width="600">
 </div>
 
-- **Track machine-learning pipeline**: Hyperparameters, Config, Metric, Terminal logging, Environment Information auto save
+- **⚡️ Track machine-learning pipeline**: Hyperparameters, Config, Metric, Terminal logging, Environment Information auto save
 
 <div align="center">
   <img src="readme_files/track-machine-learning-pipeline.gif" width="600">
 </div>
 
 
-- **Offline Support**: SwanLab can run entirely offile, ithout requiring any access to the Internet. For instance, this may be on your local machine, behind a corporate firewall, or in a datacenter
+- **🥔 Offline Support**: SwanLab can run entirely offile, ithout requiring any access to the Internet. For instance, this may be on your local machine, behind a corporate firewall, or in a datacenter
 
 See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
 
@@ -72,11 +72,11 @@ See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPn
 
 Learn how to use SwanLab more effectively by following these use cases:
 
-| Title | Description | 
+| Code Case | Description | 
 | ------- | ------- |
 | [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
 | [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
-| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
+| [ImageClassification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
 | [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
 
 # Getting Started
