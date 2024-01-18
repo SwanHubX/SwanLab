@@ -12,6 +12,9 @@ from peewee import CharField, IntegerField
 from ..model import SwanModel
 from ...utils.time import create_time
 
+# 默认的项目id应该是1
+DEFAULT_PROJECT_ID = 1
+
 
 class Project(SwanModel):
     """项目表
@@ -47,9 +50,8 @@ class Project(SwanModel):
     update_time = CharField(max_length=30, null=False)
     """更新时间"""
 
-    @property
     @classmethod
-    def inited(cls):
+    def is_inited(cls):
         """
         判断项目表是否已经初始化，这是为单项目模式设计的
         事实上数据库字段支持多项目，但是目前只需要单项目模式
@@ -58,10 +60,7 @@ class Project(SwanModel):
 
     @classmethod
     def init(cls, name="", description="", more="") -> "Project":
-        """初始化项目表，如果已经有项目存在，则不创建
-        若不满足初始化条件，返回 None
-        若初始化成功，返回项目实例，可以在项目实例上获取项目信息
-        TODO: 项目名等初始值的设置
+        """初始化项目表，如果已经有项目存在，则不创建，直接返回第一条数据实例
 
         Parameters
         ----------
@@ -78,8 +77,8 @@ class Project(SwanModel):
             项目实例
         """
         # 如果已经初始化，则不创建，直接返回第一条数据实例
-        if cls.inited:
-            return cls.filter(cls.id == 1)[0]
+        if cls.is_inited():
+            return cls.filter(cls.id == DEFAULT_PROJECT_ID)[0]
         # 创建项目
         return cls.create(
             name=name,
@@ -90,18 +89,12 @@ class Project(SwanModel):
         )
 
     @classmethod
-    def delete_projects(cls):
-        """清空项目表，删除所有项目"""
-
-        return cls.delete().execute()
-
-    @classmethod
-    def increase_sum(cls, id) -> int:
+    def increase_sum(cls, id=DEFAULT_PROJECT_ID) -> int:
         """更新实验统计数量，增加1
         Parameters
         ----------
         id : int
-            实验id
+            实验id, 默认为DEFAULT_PROJECT_ID
 
         Returns
         -------
@@ -114,14 +107,14 @@ class Project(SwanModel):
         return project.sum
 
     @classmethod
-    def get_sum(cls, id):
+    def get_sum(cls, id=DEFAULT_PROJECT_ID) -> int:
         """获取某个项目的历史实验个数"""
 
         project: "Project" = cls.filter(cls.id == id)[0]
         return project.sum
 
     @classmethod
-    def update_info(cls, id, name: str, description: str = "") -> "Project":
+    def update_info(cls, name: str, description: str = "", id=DEFAULT_PROJECT_ID) -> "Project":
         """设置实验名和实验描述
 
         Parameters
