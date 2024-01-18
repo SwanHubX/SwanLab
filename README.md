@@ -22,47 +22,46 @@ Track and visualize all the pieces of your machine learning pipeline
 <p align="center">
 👋 Join our <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>
 
-<p align="center">
-See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a>
- and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a>
- for a full description of the SwanLab.
-</p>
 
-## Table of Contents
+# Table of Contents
 
-- [Key function](#key-function)
+- [Key Function](#key-function)
 - [Changelog](#changelog)
+- [Use Case](#use-case)
 - [Getting Started](#getting-started)
-- [Examples](#examples)
 - [Tips](#tips)
 - [LICENSE](#license)
 
-## Key function
+<br>
+
+# Key Function
 
 - **Experiments GridView**: compare your key metrics for inspiration faster
 
 <div align="center">
-  <img src="readme_files/experiment-gridview.png" width="800">
+  <img src="readme_files/experiment-gridview.png" width="600">
 </div>
 
 - **Charts**: visualize your entire training process
 
 <div align="center">
-  <img src="readme_files/charts.png" width="800">
+  <img src="readme_files/charts.png" width="600">
 </div>
 
 - **Track machine-learning pipeline**: Hyperparameters, Config, Metric, Terminal logging, Environment Information auto save
 
 <div align="center">
-  <img src="readme_files/track-machine-learning-pipeline.gif" width="800">
+  <img src="readme_files/track-machine-learning-pipeline.gif" width="600">
 </div>
 
 
 - **Offline Support**: SwanLab can run entirely offile, ithout requiring any access to the Internet. For instance, this may be on your local machine, behind a corporate firewall, or in a datacenter
 
+See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
 
+<br>
 
-## Changelog
+# Changelog
 
 [24/01/14] We supported a new UI, tracking additional environment information, including command, git commit/branch and memory. Additionally, we've added a `logdir` API, allowing developers to set the directory for log files.
 
@@ -72,17 +71,31 @@ See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPn
 
 [Full Changelog](https://github.com/SwanHubX/SwanLab/releases)
 
+<br>
 
-## Getting Started
+# Use Case
+
+Learn how to use SwanLab more effectively by following these use cases:
+
+| Title | Description | 
+| ------- | ------- |
+| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
+| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
+| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
+| [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
+
+<br>
+
+# Getting Started
 
 1. First, install the SwanLab SDK with [pip](https://pip.pypa.io/en/stable/):
-
-> [!NOTE]
-> The installation of SwanLab requires Python 3.8+
 
 ```bash
 pip install -U swanlab
 ```
+
+> [!NOTE]
+> The installation of SwanLab requires Python 3.8+
 
 2. Second, Use the example code snippet below as a template to integrate SwanLab to your Python script:
 ```Python
@@ -109,27 +122,24 @@ $ swanlab watch --logdir ./logs
 
 That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab Experiment.
 
-## Examples
-
-| Title | Description | 
-| ------- | ------- |
-| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
-| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
-| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
-| [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
+<div align="center">
+  <img src="readme_files/get-started.png" width="600">
+</div>
 
 
-## Tips
+
+<br>
+
+# Tips
 
 | Title | Description | 
 | ------- | ------- |
 | [PyTorch+SwanLab+Gradio: Resnet50_cats_vs dogs](https://zhuanlan.zhihu.com/p/676430630) | A complete tutorial on how to train a cat and dog classification model based on Resnet50, visualize the training process, and deploy Gradio demo. |
-| [Access Dashboard Remotely](https://zhuanlan.zhihu.com/p/677224865) | How to Access the SwanLab Dashboard While Training on a Remote Server. |
-| [Use Argparse init swanlab.config ](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e) | How to Better Utilize argparse and swanlab.config Together |
+| [Remotely access Dashboard](https://zhuanlan.zhihu.com/p/677224865) | How to Access the SwanLab Dashboard While Training on a Remote Server. |
+| [Use Argparse init swanlab.config](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e) | How to Better Utilize argparse and swanlab.config Together |
 
 <br>
 
-
-## LICENSE
+# LICENSE
 
 This project is currently licensed under [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).
