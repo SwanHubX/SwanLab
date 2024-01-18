@@ -43,7 +43,7 @@ class Namespace(SwanModel):
                 "(project_id IS NULL AND experiment_id IS NOT NULL) OR (project_id IS NOT NULL AND experiment_id IS NULL)"
             ),
             # index必须大于等于0
-            Check("index >= 0"),
+            Check("`index` >= 0"),
         ]
 
     id = IntegerField(primary_key=True)
@@ -88,6 +88,11 @@ class Namespace(SwanModel):
 
         current_time = create_time()
         # TODO 如果index为None，则自动添加到最后
+        if index is None:
+            index = 0
+        elif index < 0:
+            max_index = cls.select(cls.index).order_by(cls.index.desc()).first().index
+            index = max_index + 1
 
         return super().create(
             name=name,
