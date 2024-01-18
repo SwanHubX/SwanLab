@@ -69,21 +69,17 @@ class Project(SwanModel):
             项目名称，默认为空字符串
         description : str, optional
             项目描述，默认为空字符串
-        sum : int, optional
-            by default 0
-        charts : int, optional
-            by default 0
         more : str, optional
-            by default ""
+            更多信息配置，默认为空字符串
 
         Returns
         -------
-        not create: None
-        create: Project instance
+        Project:
+            项目实例
         """
         # 如果已经初始化，则不创建，直接返回第一条数据实例
         if cls.inited:
-            return cls.select()[0]
+            return cls.filter(cls.id == 1)[0]
         # 创建项目
         return cls.create(
             name=name,
@@ -112,7 +108,7 @@ class Project(SwanModel):
         int:
             当前实验统计数量
         """
-        project: "Project" = cls.filter(cls.id == id)
+        project: "Project" = cls.filter(cls.id == id)[0]
         project.sum += 1
         project.save()
         return project.sum
@@ -121,7 +117,7 @@ class Project(SwanModel):
     def get_sum(cls, id):
         """获取某个项目的历史实验个数"""
 
-        project: "Project" = cls.filter(cls.id == id)
+        project: "Project" = cls.filter(cls.id == id)[0]
         return project.sum
 
     @classmethod
@@ -142,7 +138,7 @@ class Project(SwanModel):
         """
         if name is None or name == "":
             raise ValueError("Invalid project name")
-        project: "Project" = cls.filter(cls.id == id)
+        project: "Project" = cls.filter(cls.id == id)[0]
         project.name = name
         project.description = description
         # 更新更新时间
