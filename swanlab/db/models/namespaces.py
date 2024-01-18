@@ -43,7 +43,7 @@ class Namespace(SwanModel):
                 "(project_id IS NULL AND experiment_id IS NOT NULL) OR (project_id IS NOT NULL AND experiment_id IS NULL)"
             ),
             # index必须大于等于0
-            Check("`index` >= 0"),
+            Check("sort >= 0"),
         ]
 
     id = IntegerField(primary_key=True)
@@ -56,7 +56,7 @@ class Namespace(SwanModel):
     """这个命名空间的名称，同一个项目/实验下，命名空间名称不能重复"""
     description = CharField(max_length=255, null=True)
     """命名空间描述，可为空"""
-    index = IntegerField()
+    sort = IntegerField()
     """命名空间索引，用于排序，同一个项目/实验下，命名空间索引不能重复，索引越小，排序越靠前，索引>=0"""
     more = TextField(default=None, null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
@@ -72,7 +72,7 @@ class Namespace(SwanModel):
         experiment_id: int = None,
         project_id: int = None,
         description: str = None,
-        index=None,
+        sort=None,
     ):
         """创建命名空间
 
@@ -86,7 +86,7 @@ class Namespace(SwanModel):
             项目id, 默认为None，但是实验id和项目id不能同时为None，也不能同时不为None
         description : str, optional
             命名空间描述, 默认为""
-        index : int, optional
+        sort : int, optional
             命名空间索引, 如果传入的index为-1，则会自动在原本的基础上加1，如果为None，则会自动设置为0
 
         Returns
@@ -103,7 +103,7 @@ class Namespace(SwanModel):
             experiment_id=experiment_id,
             project_id=project_id,
             description=description,
-            index=index,
+            sort=sort,
             create_time=current_time,
             update_time=current_time,
         )

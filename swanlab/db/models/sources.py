@@ -30,6 +30,8 @@ class Source(SwanModel):
     """代表关联的tag，不可为空"""
     chart_id = ForeignKeyField(Chart, backref="sources", null=False)
     """关联的chart，不可为空"""
+    sort = IntegerField(default=0)
+    """此tag在此chart中的排序，值越小越靠前"""
     error = TextField(null=True)
     """代表这个tag数据转化到chart上失败了，错误信息，是一个json字符串"""
     more = TextField(null=True)

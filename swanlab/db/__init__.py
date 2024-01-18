@@ -8,11 +8,15 @@ r"""
     数据库模型模块，在设计上应该在data模块或者server模块被初始化完毕后导入
 """
 from .settings import swandb
-from .models.projects import Project
-from .models.experiments import Experiment
-from .models.tags import Tag
-from .models.charts import Chart
-from .models.namespaces import Namespace
+from .models import (
+    Project,
+    Experiment,
+    Tag,
+    Chart,
+    Namespace,
+    Source,
+    Display,
+)
 
 
 swandb.connect()
@@ -24,6 +28,8 @@ swandb.create_tables(
         Tag,
         Chart,
         Namespace,
+        Source,
+        Display,
     ],
     safe=True,
 )

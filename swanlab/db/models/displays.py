@@ -23,6 +23,8 @@ class Display(SwanModel):
         database = swandb
         # chart_id和namespace_id加起来唯一
         indexes = ((("chart_id", "namespace_id"), True),)
+        # 写入check约束，sort必须大于等于0
+        constraints = [Check("sort >= 0")]
 
     id = IntegerField(primary_key=True)
     """display表唯一id"""
@@ -30,7 +32,7 @@ class Display(SwanModel):
     """关联的chart，不可为空"""
     namespace_id = ForeignKeyField(Namespace, backref="displays", null=False)
     """关联的namespace，不可为空"""
-    index = IntegerField()
+    sort = IntegerField()
     """当前chart在namespace下的排序，索引越小，排序越靠前，索引>=0"""
     more = TextField(default=None, null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
@@ -44,7 +46,7 @@ class Display(SwanModel):
         cls,
         chart_id: int,
         namespace_id: int,
-        index: int = None,
+        sort: int = None,
         more: dict = None,
     ) -> "Display":
         """添加行数据
@@ -55,7 +57,7 @@ class Display(SwanModel):
             chart表中的id
         namespace_id : int
             namespace表中的id
-        index : int
+        sort : int
             排序索引，索引越小，排序越靠前，索引>=0，如果为None，则自动加到最后
         more : str
             更多信息配置，json格式，将在表函数中检查并解析
@@ -70,7 +72,7 @@ class Display(SwanModel):
         return super().create(
             chart_id=chart_id,
             namespace_id=namespace_id,
-            index=index,
+            sort=sort,
             more=cls.dict2json(more),
             create_time=current_time,
             update_time=current_time,

@@ -9,7 +9,7 @@ r"""
 """
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, IntegerField, TextField
+from peewee import ForeignKeyField, CharField, IntegerField, TextField, Check
 from .projects import Project, DEFAULT_PROJECT_ID
 from ...utils.time import create_time
 
@@ -31,7 +31,9 @@ class Experiment(SwanModel):
     class Meta:
         database = swandb
         # 通过meta规定name和project_id的唯一性
-        indexes = ((("name", "project_id"), True), (("index", "project_id"), True))
+        indexes = ((("name", "project_id"), True), (("sort", "project_id"), True))
+        # sort必须大于等于0
+        constraints = [Check("sort >= 0")]
 
     id = IntegerField(primary_key=True)
     """实验id"""
@@ -47,7 +49,7 @@ class Experiment(SwanModel):
     description = CharField(max_length=255, null=True)
     """实验描述"""
 
-    index = IntegerField(null=False)
+    sort = IntegerField(null=False)
     """实验索引，用于排序，通过meta规定index和project_id的唯一性"""
 
     status = IntegerField(choices=[-1, 0, 1], default=0)
@@ -83,7 +85,7 @@ class Experiment(SwanModel):
             运行时信息
         description : str
             实验描述，默认为空字符串
-        index : int
+        sort : int
             实验索引，默认为None，如果为None，则会自动设置为当前项目下的实验数量
         project_id : int, optional
             关联的项目id，由于目前为单项目模式，所以不需要手动设置此字段，默认置为DEFAULT_PROJECT_ID
@@ -99,7 +101,7 @@ class Experiment(SwanModel):
         # 这个sum是+1以后的值，所以需要-1
         sum = Project.increase_sum(project_id)
         # 自动设置index为sum-1
-        index = sum - 1
+        sort = sum - 1
         # 调用父类的create方法创建实验实例
         experiment = super().create(
             name=name,
@@ -107,7 +109,7 @@ class Experiment(SwanModel):
             project_id=project_id,
             description=description,
             more=cls.dict2json(more),
-            index=index,
+            sort=sort,
             create_time=current_time,
             update_time=current_time,
         )

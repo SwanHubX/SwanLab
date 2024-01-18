@@ -10,3 +10,10 @@ r"""
     例如 project 表中，删除方法可以命名为 delete_project
     以避免和 peewee 提供的接口冲突
 """
+from .charts import Chart
+from .displays import Display
+from .experiments import Experiment
+from .namespaces import Namespace
+from .projects import Project
+from .tags import Tag
+from .sources import Source
