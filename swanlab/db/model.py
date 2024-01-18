@@ -18,9 +18,6 @@ class SwanModel(Model):
     def result_to_dict(result):
         """将结果转换为字典"""
 
-        print(result)
-        print(type(result))
-
         dicts = [model_to_dict(row) for row in result]
         if len(dicts) == 1:
             return dicts[0]
