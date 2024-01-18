@@ -21,12 +21,14 @@ class Display(SwanModel):
 
     class Meta:
         database = swandb
+        # chart_id和namespace_id加起来唯一
+        indexes = ((("chart_id", "namespace_id"), True),)
 
     id = IntegerField(primary_key=True)
     """display表唯一id"""
     chart_id = ForeignKeyField(Chart, backref="displays", null=False)
     """关联的chart，不可为空"""
-    namespace_id = ForeignKeyField(Namespace, backref="displays")
+    namespace_id = ForeignKeyField(Namespace, backref="displays", null=False)
     """关联的namespace，不可为空"""
     index = IntegerField()
     """当前chart在namespace下的排序，索引越小，排序越靠前，索引>=0"""
