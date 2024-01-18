@@ -111,8 +111,8 @@
     "MD033": false,
     // 允许首行不是level1标题
     "MD041": false
-  },
+  }
 
-  /** SQLite */
-  "sqlite.databaseExtensions": ["db", "db3", "sdb", "s3db", "sqlite", "sqlite3", "swanlab"]
+  // /** SQLite */
+  // "sqlite.databaseExtensions": ["db", "db3", "sdb", "s3db", "sqlite", "sqlite3", "swanlab"]
 }
