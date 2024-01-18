@@ -11,6 +11,7 @@ from .settings import swandb
 from .models.project import Project
 from .models.experiment import Experiment
 from .models.tag import Tag
+from .models.chart import Chart
 
 
 swandb.connect()
@@ -20,6 +21,7 @@ swandb.create_tables(
         Project,
         Experiment,
         Tag,
+        Chart,
     ],
     safe=True,
 )

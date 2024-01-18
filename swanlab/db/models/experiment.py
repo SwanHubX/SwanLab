@@ -21,6 +21,8 @@ class Experiment(SwanModel):
     ----------
     tags: list of Tag
         由 Tag 表中外键反链接生成的tag数据列表
+    charts: list of Chart
+        由 Chart 表中外键反链接生成的chart数据列表
     """
 
     id = IntegerField(primary_key=True, unique=True)
@@ -123,10 +125,28 @@ class Experiment(SwanModel):
         Returns
         -------
         list
-            数据列表
+            标签列表
         """
 
         return cls.filter(cls.id == id).first().tags
+
+    @classmethod
+    @SwanModel.result_to_list
+    def get_charts(cls, id: int):
+        """获取实验下所有的图标数据
+
+        Parameters
+        ----------
+        id : int
+            实验的 id
+
+        Returns
+        -------
+        list
+            图表列表
+        """
+
+        return cls.filter(cls.id == id).first().charts
 
     @classmethod
     def delete_experiment(cls, id):

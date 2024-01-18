@@ -24,7 +24,7 @@ class Tag(SwanModel):
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
-    name = CharField(unique=True, max_length=255, null=False)
+    name = CharField(max_length=255, null=False)
     description = CharField(max_length=100)
     system = IntegerField(default=0, choices=[0, 1])
     more = TextField(default="")
@@ -71,3 +71,17 @@ class Tag(SwanModel):
         """获取指定实验下的所有tag"""
 
         return cls.filter(cls.experiment_id == experiment_id)
+
+    @classmethod
+    @SwanModel.result_to_dict
+    def get_tag(cls, id):
+        """根据id获取tag"""
+
+        return cls.filter(cls.id == id)
+
+    @classmethod
+    @SwanModel.result_to_dict
+    def get_tag_by_name(cls, experiment_id, name):
+        """根据name获取tag"""
+
+        return cls.filter(cls.experiment_id == experiment_id, cls.name == name)

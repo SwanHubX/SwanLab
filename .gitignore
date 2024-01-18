@@ -12,7 +12,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .swanlab/
-test/
+test/*
+!test/db/
 
 # C extensions
 *.so
