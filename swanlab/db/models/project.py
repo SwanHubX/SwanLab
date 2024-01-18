@@ -21,6 +21,8 @@ class Project(SwanModel):
     ----------
     experiments: list of Experiment
         由 Experiment 表中外键反链接生成的实验列表
+    charts: list of Chart
+        由 Chart 表中外键反链接生成的图表列表
     """
 
     class Meta:
