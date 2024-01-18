@@ -7,9 +7,8 @@ from swanlab.utils.time import create_time
 # Namespace.delete().where(Namespace.id == 1).execute()
 
 
-Namespace.get_or_create(
+Namespace.create(
     name="name",
     index=1,
-    create_time=create_time(),
-    update_time=create_time(),
+    experiment_id=1,
 )

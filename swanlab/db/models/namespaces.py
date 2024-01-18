@@ -10,7 +10,7 @@ r"""
 
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, Check
 from .experiments import Experiment
 from .projects import Project
 from ...utils.time import create_time
@@ -28,7 +28,9 @@ class Namespace(SwanModel):
     class Meta:
         database = swandb
         # name 和 experiment_id 和 project_id 组合后唯一
-        # indexes = ((("name", "experiment_id", "project_id"), True),)
+        indexes = ((("name", "experiment_id", "project_id"), True),)
+        # project_id 和 experiment_id 不能同时为空，也不能同时不为空
+        constraints = [Check("project_id is not null or experiment_id is not null")]
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="namespaces", on_delete="SET NULL", null=True)
@@ -41,14 +43,13 @@ class Namespace(SwanModel):
     update_time = CharField(max_length=30, null=False)
 
     @classmethod
-    def create_namespace(
+    def create(
         cls,
-        name,
-        experiment_id=None,
-        project_id=None,
-        description="",
-        more="",
-        index=1,
+        name: str,
+        experiment_id: int = None,
+        project_id: int = None,
+        description: str = "",
+        index=-1,
     ):
         """创建命名空间
 
@@ -57,15 +58,13 @@ class Namespace(SwanModel):
         name : str
             命名空间名称
         experiment_id : int, optional
-            实验ID
+            实验id, 默认为None，但是实验id和项目id不能同时为None，也不能同时不为None
         project_id : int, optional
-            项目ID
+            项目id, 默认为None，但是实验id和项目id不能同时为None，也不能同时不为None
         description : str, optional
-            命名空间描述
-        more : str, optional
-            额外信息
+            命名空间描述, 默认为""
         index : int, optional
-            命名空间索引
+            命名空间索引, 如果传入的index为-1，则会自动在原本的基础上加1，如果为None，则会自动设置为0
 
         Returns
         -------
@@ -74,29 +73,14 @@ class Namespace(SwanModel):
         """
 
         current_time = create_time()
-        kwargs = {
-            "experiment_id": 1,
-            "project_id": None,
-            "name": name,
-            "description": description,
-            "more": more,
-            "index": index,
-            "create_time": current_time,
-            "update_time": current_time,
-        }
+        # TODO 自动设置index
 
-        # if project_id is not None:
-        #     kwargs["project_id"] = project_id
-        # elif experiment_id is not None:
-        #     kwargs["experiment_id"] = experiment_id
-        # else:
-        #     raise ValueError("experiment_id and project_id is None")
-
-        return cls.create(
-            name="name",
-            index=1,
+        return super().create(
+            name=name,
+            experiment_id=experiment_id,
+            project_id=project_id,
+            description=description,
+            index=index,
             create_time=current_time,
             update_time=current_time,
-            experiment_id=None,
-            project_id=None,
         )
