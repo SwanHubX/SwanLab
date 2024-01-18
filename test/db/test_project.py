@@ -2,8 +2,6 @@ from swanlab.db import Project
 
 # 创建一个新的项目
 # project = Project.init()
-a = Project.is_inited()
-print(a)
 print(Project.init())
 # new_project = Project.create(
 #     name="Sample Project",
@@ -22,5 +20,3 @@ print(Project.init())
 # Project.set_info("123", description="123")
 
 # print(type(Project.update_updatetime()))
-
-print(Project.get_experiments())

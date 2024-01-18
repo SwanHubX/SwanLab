@@ -69,7 +69,7 @@ class Project(SwanModel):
         return cls.filter(cls.id == id)[0]
 
     @classmethod
-    def init(cls, name="", description="", more="") -> "Project":
+    def init(cls, name="", description=None, more="") -> "Project":
         """
         静态方法
         初始化项目表，如果已经有项目存在，则不创建，直接返回第一条数据实例
@@ -117,12 +117,6 @@ class Project(SwanModel):
             当前实验统计数量
         """
         project: "Project" = cls.filter(cls.id == id)[0]
-        project.sum += 1
+        project.sum = project.sum + 1 if project.sum else 1
         project.save()
         return project.sum
-
-    @classmethod
-    def get_experiments(cls):
-        """获取项目下的所有实验"""
-
-        return SwanModel.search2dict(cls.select()[0].experiments)
