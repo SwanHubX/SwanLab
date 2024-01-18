@@ -36,8 +36,3 @@ class SwanModel(Model):
             return [model_to_dict(row) for row in result]
 
         return wrapper
-
-    class Meta:
-        """设置元信息"""
-
-        database = swandb

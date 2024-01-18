@@ -7,7 +7,7 @@ r"""
 @Description:
     实验图标表
 """
-
+from ..settings import swandb
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField
 from .experiment import Experiment
@@ -17,6 +17,9 @@ from ...utils.time import create_time
 
 class Chart(SwanModel):
     """chart表"""
+
+    class Meta:
+        database = swandb
 
     id = IntegerField(primary_key=True)
     experiment_id = ForeignKeyField(Experiment, backref="chars", null=True, on_delete="SET NULL")

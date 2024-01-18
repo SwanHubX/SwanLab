@@ -7,6 +7,7 @@ r"""
 @Description:
     实验数据表
 """
+from ..settings import swandb
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField
 from .project import Project
@@ -24,6 +25,9 @@ class Experiment(SwanModel):
     charts: list of Chart
         由 Chart 表中外键反链接生成的chart数据列表
     """
+
+    class Meta:
+        database = swandb
 
     id = IntegerField(primary_key=True, unique=True)
     project_id = ForeignKeyField(Project, backref="experiments", default=1)

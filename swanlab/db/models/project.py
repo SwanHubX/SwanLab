@@ -7,6 +7,7 @@ r"""
 @Description:
     项目表，对应于0.1.5之前版本中的 project.json
 """
+from ..settings import swandb
 from peewee import CharField, IntegerField
 from ..model import SwanModel
 from ...utils.time import create_time
@@ -21,6 +22,9 @@ class Project(SwanModel):
     experiments: list of Experiment
         由 Experiment 表中外键反链接生成的实验列表
     """
+
+    class Meta:
+        database = swandb
 
     id = IntegerField(primary_key=True)
     name = CharField(max_length=100, null=False)

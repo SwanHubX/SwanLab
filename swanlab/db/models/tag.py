@@ -7,6 +7,7 @@ r"""
 @Description:
     实验 tag 表
 """
+from ..settings import swandb
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, TextField, IntegerField
 from ...utils.time import create_time
@@ -22,9 +23,14 @@ class Tag(SwanModel):
         自封装类
     """
 
+    class Meta:
+        database = swandb
+
     id = IntegerField(primary_key=True)
+    # 写入check约束，name和experiment_id加起来唯一
     experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
     name = CharField(max_length=255, null=False)
+
     description = CharField(max_length=100)
     system = IntegerField(default=0, choices=[0, 1])
     more = TextField(default="")
@@ -34,36 +40,53 @@ class Tag(SwanModel):
     @classmethod
     def create_tag(
         cls,
-        experiment_id,
-        name,
+        experiment_id: int,
+        name: str,
         description="",
-        system=0,
-        more="",
-    ):
-        """创建实验tag
+        system: int = None,
+        more: dict = {},
+    ) -> "Tag":
+        """在tags表中创建一条tag指定实验的tag数据
+
+        Parameters
+        ----------
+        experiment_id : int
+            这将成为tag数据的外键，指向实验表中的某一条实验数据
+        name : str
+            tag的名称，字符串类型，小于255个字符
+        description : str, optional
+            tag的描述，字符串类型，小于100个字符, 默认为空字符串
+        system : int, optional
+            判断是否是系统自动生成的tag，默认为否
+        more : str, optional
+            这必须是字典格式数据，代表更多信息, 默认为空字典
+
+        Returns
+        -------
+        Tag
+            返回创建的tag数据实例，可以通过实例获取tag数据
 
         Raises
         ------
         ValueError
-            所属实验不存在
+            实验不存在
+        ExistedError
+            此name对应的
         """
 
         # 检查实验是否存在
         if not Experiment.get_experiment(experiment_id):
-            raise ValueError("Experiment does not exist")
-
-        try:
-            return cls.create(
-                experiment_id=experiment_id,
-                name=name,
-                description=description,
-                system=system,
-                more=more,
-                create_time=create_time(),
-                update_time=create_time(),
-            )
-        except Exception as e:
-            raise e
+            raise ValueError("Experiment does not exist: {}".format(experiment_id))
+        # 尝试创建实验tag
+        return cls.create(
+            experiment_id=experiment_id,
+            name=name,
+            description=description,
+            system=system,
+            more=more,
+            create_time=create_time(),
+            update_time=create_time(),
+        )
 
     @classmethod
     @SwanModel.result_to_list
