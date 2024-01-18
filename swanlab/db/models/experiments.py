@@ -79,7 +79,6 @@ class Experiment(SwanModel):
         )
 
         if experiment:
-            Project.update_sum(type="increase")
             return experiment
         else:
             raise Exception("Failed to create experiment")
