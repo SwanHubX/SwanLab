@@ -15,7 +15,7 @@ from .settings import swandb
 class SwanModel(Model):
     """基础模型类，用于定义数据库表的基本信息"""
 
-    def search_to_dict(result) -> dict:
+    def search2dict(result) -> dict:
         """将select、filter的结果转换为字典"""
 
         dicts = [model_to_dict(row) for row in result]
@@ -24,7 +24,7 @@ class SwanModel(Model):
         else:
             return dicts
 
-    def search_to_list(result) -> list:
+    def search2list(result) -> list:
         """将select、filter的结果转换为列表"""
 
         return [model_to_dict(row) for row in result]

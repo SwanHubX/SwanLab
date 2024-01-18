@@ -115,7 +115,7 @@ class Tag(SwanModel):
         """
         if not Experiment.get_experiment(experiment_id):
             raise NotExistedError("Experiment id not found: {}".format(experiment_id))
-        return SwanModel.search_to_list(cls.filter(cls.experiment_id == experiment_id))
+        return SwanModel.search2list(cls.filter(cls.experiment_id == experiment_id))
 
     @classmethod
     def get_tag(cls, id):
@@ -126,7 +126,7 @@ class Tag(SwanModel):
             tag的id
         """
         try:
-            return SwanModel.search_to_dict(cls.filter(cls.id == id))
+            return SwanModel.search2dict(cls.filter(cls.id == id))
         except IndexError:
             raise NotExistedError("Tag id not found: {}".format(id))
 
@@ -144,4 +144,4 @@ class Tag(SwanModel):
         """
 
         result = cls.filter(cls.experiment_id == experiment_id, cls.name == name)
-        return SwanModel.search_to_dict(result)
+        return SwanModel.search2dict(result)
