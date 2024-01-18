@@ -62,7 +62,7 @@ class Namespace(SwanModel):
         name: str,
         experiment_id: int = None,
         project_id: int = None,
-        description: str = "",
+        description: str = None,
         index=None,
     ):
         """创建命名空间
