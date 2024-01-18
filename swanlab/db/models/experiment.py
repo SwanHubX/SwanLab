@@ -24,6 +24,8 @@ class Experiment(SwanModel):
         由 Tag 表中外键反链接生成的tag数据列表
     charts: list of Chart
         由 Chart 表中外键反链接生成的chart数据列表
+    namespaces: list of Namespace
+        由 Namespace 表中外键反链接生成的命名空间数据列表
     """
 
     class Meta:

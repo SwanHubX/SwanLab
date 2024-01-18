@@ -23,6 +23,8 @@ class Project(SwanModel):
         由 Experiment 表中外键反链接生成的实验列表
     charts: list of Chart
         由 Chart 表中外键反链接生成的图表列表
+    namespaces: list of Namespace
+        由 Namespace 表中外键反链接生成的命名空间数据列表
     """
 
     class Meta:
