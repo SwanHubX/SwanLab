@@ -24,16 +24,21 @@ Track and visualize all the pieces of your machine learning pipeline
 English | <a href="README_zh-hans.md">中文</a>
 </p>
 
-# Table of Contents
+
+## Table of Contents
 
 - [Key Function](#key-function)
 - [Changelog](#changelog)
 - [Use Case](#use-case)
 - [Getting Started](#getting-started)
-- [Tips](#tips)
+- [More Tips](#more-tips)
 - [LICENSE](#license)
 
-# Key Function
+## Key Function
+
+> [!NOTE]
+> See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
+
 
 - **🧪 Experiments GridView**: compare your key metrics for inspiration faster
 
@@ -58,7 +63,7 @@ English | <a href="README_zh-hans.md">中文</a>
 
 See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
 
-# Changelog
+## Changelog
 
 [24/01/14] We supported a new UI, tracking additional environment information, including command, git commit/branch and memory. Additionally, we've added a `logdir` API, allowing developers to set the directory for log files.
 
@@ -68,7 +73,7 @@ See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPn
 
 [Full Changelog](https://github.com/SwanHubX/SwanLab/releases)
 
-# Use Case
+## Use Case
 
 Learn how to use SwanLab more effectively by following these use cases:
 
@@ -76,10 +81,10 @@ Learn how to use SwanLab more effectively by following these use cases:
 | ------- | ------- |
 | [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
 | [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
-| [ImageClassification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
+| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
 | [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
 
-# Getting Started
+## Getting Started
 
 1. First, install the SwanLab SDK with [pip](https://pip.pypa.io/en/stable/):
 
@@ -112,22 +117,33 @@ $ swanlab watch --logdir ./logs
 
 That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab Experiment.
 
-<div align="center">
-  <img src="readme_files/get-started.png" width="800">
-</div>
+<br>
+
+## More Tips
+
+- Setting the Host and Port for the Dashboard: 
+```bash
+swanlab watch --host 0.0.0.0 --port 8080
+```
+- Use Argparse init swanlab.config: 
+```python
+import argparse
+import swanlab
+
+parser = argparse.ArgumentParser()
+···
+args = parser.parse_args()
+
+
+swanlab.init(
+    config=vars(args)
+)
+```
+
+- [Remotely access Dashboard](https://zhuanlan.zhihu.com/p/677224865): Access the SwanLab Dashboard While Training on a Remote Server.
 
 <br>
 
-# Tips
-
-Learn how to use SwanLab more effectively by following these Tips:
-
-| Article Title | Description | 
-| ------- | ------- |
-| [PyTorch+SwanLab+Gradio: Resnet50_cats_vs dogs](https://zhuanlan.zhihu.com/p/676430630) | A complete tutorial on how to train a cat and dog classification model based on Resnet50, visualize the training process, and deploy Gradio demo. |
-| [Remotely access Dashboard](https://zhuanlan.zhihu.com/p/677224865) | How to Access the SwanLab Dashboard While Training on a Remote Server. |
-| [Use Argparse init swanlab.config](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e) | How to Better Utilize argparse and swanlab.config Together |
-
-# LICENSE
+## LICENSE
 
 This project is currently licensed under [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).
