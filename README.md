@@ -122,7 +122,7 @@ That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab 
 
 Learn how to use SwanLab more effectively by following these Tips:
 
-| Title | Description | 
+| Article Title | Description | 
 | ------- | ------- |
 | [PyTorch+SwanLab+Gradio: Resnet50_cats_vs dogs](https://zhuanlan.zhihu.com/p/676430630) | A complete tutorial on how to train a cat and dog classification model based on Resnet50, visualize the training process, and deploy Gradio demo. |
 | [Remotely access Dashboard](https://zhuanlan.zhihu.com/p/677224865) | How to Access the SwanLab Dashboard While Training on a Remote Server. |
