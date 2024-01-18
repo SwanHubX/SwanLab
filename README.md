@@ -17,13 +17,12 @@ Track and visualize all the pieces of your machine learning pipeline
 </p>
 
 <p align="center">
-👋 Join our <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>.
+👋 Join our <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>
 </p>
 
 <p align="center">
 English | <a href="README_zh-hans.md">中文</a>
 </p>
-
 
 ## Table of Contents
 
@@ -36,20 +35,16 @@ English | <a href="README_zh-hans.md">中文</a>
 
 ## Key Function
 
-> [!NOTE]
-> See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
-
-
 - **🧪 Experiments GridView**: compare your key metrics for inspiration faster
 
 <div align="center">
-  <img src="readme_files/experiment-gridview.png" width="600">
+  <img src="readme_files/experiments-gridView.gif" width="600">
 </div>
 
 - **📊 Charts**: visualize your entire training process
 
 <div align="center">
-  <img src="readme_files/charts.png" width="600">
+  <img src="readme_files/charts.gif" width="600">
 </div>
 
 - **⚡️ Track machine-learning pipeline**: Hyperparameters, Config, Metric, Terminal logging, Environment Information auto save
@@ -61,28 +56,35 @@ English | <a href="README_zh-hans.md">中文</a>
 
 - **🥔 Offline Support**: SwanLab can run entirely offile, ithout requiring any access to the Internet. For instance, this may be on your local machine, behind a corporate firewall, or in a datacenter
 
-See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
+> [!NOTE]
+> See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
+
+<br>
 
 ## Changelog
 
-[24/01/14] We supported a new UI, tracking additional environment information, including command, git commit/branch and memory. Additionally, we've added a `logdir` API, allowing developers to set the directory for log files.
+[24/01/14] 🔥 We supported a new UI, tracking additional environment information, including command, git commit/branch and memory. Additionally, we've added a `logdir` API, allowing developers to set the directory for log files.
 
-[24/01/07] We supported delete experiment and edit experiment inforamation on Dashboard.
+[24/01/07] ✨ We supported delete experiment and edit experiment inforamation on Dashboard.
 
 [24/01/01] We fixed some bugs to make SwanLab more stable.
 
 [Full Changelog](https://github.com/SwanHubX/SwanLab/releases)
 
+<br>
+
 ## Use Case
 
 Learn how to use SwanLab more effectively by following these use cases:
 
-| Code Case | Description | 
+| Code Cases | Description | 
 | ------- | ------- |
 | [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
 | [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
 | [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
 | [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
+
+<br>
 
 ## Getting Started
 
@@ -100,7 +102,6 @@ import swanlab
 swanlab.init(
   # save model inputs and hyperparameters in a swanlab.config object
   config={'learning_rate': 0.01},
-  logdir="./logs"
 )
 
 # Model training code here...
@@ -112,7 +113,7 @@ for epoch in range(1, 20):
 
 3. Third, Run a Dashboard: 
 ```bash
-$ swanlab watch --logdir ./logs
+$ swanlab watch
 ```
 
 That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab Experiment.
@@ -121,9 +122,22 @@ That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab 
 
 ## More Tips
 
-- Setting the Host and Port for the Dashboard: 
+- Set a log directory save path and run the Dashboard using it:
+```python
+import swanlab 
+
+swanlab.init(
+  logdir="./logs"
+)
+```
+
 ```bash
-swanlab watch --host 0.0.0.0 --port 8080
+$ swanlab watch --logdir ./logs_path
+```
+
+- Set the Host and Port for the Dashboard: 
+```bash
+$ swanlab watch --host 0.0.0.0 --port 8080
 ```
 - Use Argparse init swanlab.config: 
 ```python
