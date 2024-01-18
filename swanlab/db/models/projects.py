@@ -51,16 +51,28 @@ class Project(SwanModel):
     """更新时间"""
 
     @classmethod
-    def is_inited(cls):
+    def get(cls, id=DEFAULT_PROJECT_ID) -> "Project":
         """
-        判断项目表是否已经初始化，这是为单项目模式设计的
-        事实上数据库字段支持多项目，但是目前只需要单项目模式
+        静态方法
+        获取项目实例
+
+        Parameters
+        ----------
+        id : int, optional
+            项目id，默认为DEFAULT_PROJECT_ID，在单项目模式下，不需要管这个参数
+
+        Returns
+        -------
+        Project:
+            项目实例
         """
-        return cls.select().count() >= 1
+        return cls.filter(cls.id == id)[0]
 
     @classmethod
     def init(cls, name="", description="", more="") -> "Project":
-        """初始化项目表，如果已经有项目存在，则不创建，直接返回第一条数据实例
+        """
+        静态方法
+        初始化项目表，如果已经有项目存在，则不创建，直接返回第一条数据实例
 
         Parameters
         ----------
@@ -77,7 +89,7 @@ class Project(SwanModel):
             项目实例
         """
         # 如果已经初始化，则不创建，直接返回第一条数据实例
-        if cls.is_inited():
+        if cls.select().count() >= 1:
             return cls.filter(cls.id == DEFAULT_PROJECT_ID)[0]
         # 创建项目
         return cls.create(
@@ -90,7 +102,10 @@ class Project(SwanModel):
 
     @classmethod
     def increase_sum(cls, id=DEFAULT_PROJECT_ID) -> int:
-        """更新实验统计数量，增加1
+        """
+        静态方法
+        更新实验统计数量，增加1
+        此方法通常在创建实验时被Experiment类调用
         Parameters
         ----------
         id : int
@@ -105,39 +120,6 @@ class Project(SwanModel):
         project.sum += 1
         project.save()
         return project.sum
-
-    @classmethod
-    def get_sum(cls, id=DEFAULT_PROJECT_ID) -> int:
-        """获取某个项目的历史实验个数"""
-
-        project: "Project" = cls.filter(cls.id == id)[0]
-        return project.sum
-
-    @classmethod
-    def update_info(cls, name: str, description: str = "", id=DEFAULT_PROJECT_ID) -> "Project":
-        """设置实验名和实验描述
-
-        Parameters
-        ----------
-        name : str
-            实验名，不能为空字符串
-        description : str
-            实验描述，可为空字符串
-
-        Returns
-        -------
-        Project:
-            项目实例
-        """
-        if name is None or name == "":
-            raise ValueError("Invalid project name")
-        project: "Project" = cls.filter(cls.id == id)[0]
-        project.name = name
-        project.description = description
-        # 更新更新时间
-        project.update_time = create_time()
-        project.save()
-        return project
 
     @classmethod
     def get_experiments(cls):
