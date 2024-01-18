@@ -11,8 +11,8 @@ r"""
 from ..settings import swandb
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField
-from .experiment import Experiment
-from .project import Project
+from .experiments import Experiment
+from .projects import Project
 
 
 class Namespace(SwanModel):

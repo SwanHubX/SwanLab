@@ -15,24 +15,19 @@ from .settings import swandb
 class SwanModel(Model):
     """基础模型类，用于定义数据库表的基本信息"""
 
-    def result_to_dict(func):
+    def result_to_dict(result):
         """将结果转换为字典"""
 
-        def wrapper(*args, **kwargs):
-            result = func(*args, **kwargs)
-            dicts = [model_to_dict(row) for row in result]
-            if len(dicts) == 1:
-                return dicts[0]
-            else:
-                return dicts
+        print(result)
+        print(type(result))
 
-        return wrapper
+        dicts = [model_to_dict(row) for row in result]
+        if len(dicts) == 1:
+            return dicts[0]
+        else:
+            return dicts
 
-    def result_to_list(func):
+    def result_to_list(result):
         """将结果转换为列表"""
 
-        def wrapper(*args, **kwargs):
-            result = func(*args, **kwargs)
-            return [model_to_dict(row) for row in result]
-
-        return wrapper
+        return [model_to_dict(row) for row in result]

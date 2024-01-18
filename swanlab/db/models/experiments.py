@@ -10,7 +10,7 @@ r"""
 from ..settings import swandb
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField
-from .project import Project
+from .projects import Project
 from ...utils.time import create_time
 
 
@@ -91,35 +91,31 @@ class Experiment(SwanModel):
         return cls.filter(cls.run_id == run_id).count() == 0
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_experiment(cls, id):
         """根据id获取实验"""
 
-        return cls.filter(cls.id == id)
+        result = cls.filter(cls.id == id)
+        return SwanModel.result_to_dict(result)
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_experiment_by_runid(cls, run_id):
         """根据run_id获取实验"""
 
-        return cls.filter(cls.run_id == run_id)
+        return SwanModel.result_to_dict(cls.filter(cls.run_id == run_id))
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_experiment_by_name(cls, name):
         """根据name获取实验"""
 
-        return cls.filter(cls.name == name)
+        return SwanModel.result_to_dict(cls.filter(cls.name == name))
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_experiments(cls):
         """获取所有的实验"""
 
-        return cls.select()
+        return SwanModel.result_to_dict(cls.select())
 
     @classmethod
-    @SwanModel.result_to_list
     def get_tags(cls, id: int):
         """获取实验下所有的标签数据
 
@@ -134,10 +130,9 @@ class Experiment(SwanModel):
             标签列表
         """
 
-        return cls.filter(cls.id == id).first().tags
+        return SwanModel.result_to_list(cls.filter(cls.id == id).first().tags)
 
     @classmethod
-    @SwanModel.result_to_list
     def get_charts(cls, id: int):
         """获取实验下所有的图标数据
 
@@ -152,7 +147,7 @@ class Experiment(SwanModel):
             图表列表
         """
 
-        return cls.filter(cls.id == id).first().charts
+        return SwanModel.result_to_list(cls.filter(cls.id == id).first().charts)
 
     @classmethod
     def delete_experiment(cls, id):

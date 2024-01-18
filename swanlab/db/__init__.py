@@ -8,10 +8,10 @@ r"""
     数据库模型模块，在设计上应该在data模块或者server模块被初始化完毕后导入
 """
 from .settings import swandb
-from .models.project import Project
-from .models.experiment import Experiment
-from .models.tag import Tag
-from .models.chart import Chart
+from .models.projects import Project
+from .models.experiments import Experiment
+from .models.tags import Tag
+from .models.charts import Chart
 
 
 swandb.connect()

@@ -155,8 +155,7 @@ class Project(SwanModel):
         return cls.update(update_time=create_time()).where(cls.id == 1).execute()
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_experiments(cls):
         """获取项目下的所有实验"""
 
-        return cls.select()[0].experiments
+        return SwanModel.result_to_dict(cls.select()[0].experiments)

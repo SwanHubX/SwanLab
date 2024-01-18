@@ -13,7 +13,7 @@ from peewee import ForeignKeyField, CharField, TextField, IntegerField
 from peewee import IntegrityError
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
-from .experiment import Experiment
+from .experiments import Experiment
 
 
 class Tag(SwanModel):
@@ -95,7 +95,6 @@ class Tag(SwanModel):
             raise ExistedError("Tag already exists: {}".format(name))
 
     @classmethod
-    @SwanModel.result_to_list
     def get_tags(cls, experiment_id: int) -> list:
         """获取指定实验下的所有tag
         Parameters
@@ -116,10 +115,9 @@ class Tag(SwanModel):
         """
         if not Experiment.get_experiment(experiment_id):
             raise NotExistedError("Experiment id not found: {}".format(experiment_id))
-        return cls.filter(cls.experiment_id == experiment_id)
+        return SwanModel.result_to_list(cls.filter(cls.experiment_id == experiment_id))
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_tag(cls, id):
         """根据id获取tag
         Parameters
@@ -128,12 +126,11 @@ class Tag(SwanModel):
             tag的id
         """
         try:
-            return cls.filter(cls.id == id)
+            return SwanModel.result_to_dict(cls.filter(cls.id == id))
         except IndexError:
             raise NotExistedError("Tag id not found: {}".format(id))
 
     @classmethod
-    @SwanModel.result_to_dict
     def get_tag_by_name(cls, experiment_id: int, name: str):
         """
         已知实验id和tag名称，获取tag数据
@@ -146,4 +143,5 @@ class Tag(SwanModel):
 
         """
 
-        return cls.filter(cls.experiment_id == experiment_id, cls.name == name)
+        result = cls.filter(cls.experiment_id == experiment_id, cls.name == name)
+        return SwanModel.result_to_dict(result)
