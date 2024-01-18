@@ -16,62 +16,90 @@ from ...utils.time import create_time
 
 
 class Chart(SwanModel):
-    """chart表"""
+    """chart表，图表在namspace下的排序交由display表处理"""
 
     class Meta:
         database = swandb
+        # 通过meta规定name和project_id的唯一性
+        indexes = ((("name", "experiment_id"), True), (("name", "project_id"), True))
 
     id = IntegerField(primary_key=True)
+    """图表id, 自增"""
     experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="SET NULL")
+    """外键，关联的项目id，与project_id只有一个为NULL"""
     project_id = ForeignKeyField(Project, backref="charts", default=1, on_delete="SET NULL")
+    """外键，关联的项目id，与experiment_id只有一个为NULL"""
     name = CharField(max_length=100, null=False)
+    """图表名称"""
     description = CharField(max_length=255)
+    """图表描述，可为空"""
     system = IntegerField(default=1, choices=[-1, 0, 1])
+    """是否为创建tag时自动生成的图表，-1: 删除的自动生成的图表，0: 否，1: 是，系统图表不可删除，只能改为-1"""
     type = CharField(max_length=10, null=False)
+    """图表类型，由创建者决定，这与数据库本身无关"""
     reference = CharField(max_length=10, default="step")
-    config = TextField(default="")
-    more = TextField(default="")
+    """图表数据参考，由创建者决定，这与数据库本身无关"""
+    config = TextField(null=True)
+    """图表的其他配置，这实际上是一个json字符串"""
+    more = TextField(null=True)
+    """更多信息配置，json格式"""
     create_time = CharField(max_length=30, null=False)
+    """创建时间"""
     update_time = CharField(max_length=30, null=False)
+    """更新时间"""
 
     @classmethod
-    def create_chart(
+    def create(
         cls,
-        experiment_id,
-        name,
-        project_id=1,
-        description="",
-        system=1,
-        type="default",
-        reference="step",
-        config="",
-        more="",
-    ):
-        """创建实验图标
-        必传：
-            - epxeriment_id：实验id
-            - name：图标名称
+        name: str,
+        description: str,
+        experiment_id: int = None,
+        project_id: int = None,
+        system: int = 1,
+        type: str = "default",
+        reference: str = "step",
+        config: dict = None,
+        more: dict = None,
+    ) -> "Chart":
+        """创建实验图表
+
+        Parameters
+        ----------
+        name : str
+            实验图表名称
+        description : str
+            实验图表描述
+        experiment_id : int, optional
+            外键，关联的实验id，与project_id只有一个为NULL, 默认为None，但与project_id只有一个为None
+        project_id : int, optional
+            外键，关联的项目id，与experiment_id只有一个为NULL, 默认为None，但与experiment_id只有一个为None
+        system : int, optional
+            是否为创建tag时自动生成的图表，-1: 删除的自动生成的图表，0: 否，1: 是，系统图表不可删除，只能改为-1, 默认为是
+        type : str, optional
+            图表类型，由创建者决定，这与数据库本身无关, 默认为"default"
+        reference : str, optional
+            图表数据参考，由创建者决定，这与数据库本身无关, 默认为"step"
+        config : dict, optional
+            图表的其他配置，这实际上是一个json字符串, 默认为None
+        more : dict, optional
+            更多信息配置，json格式, 默认为None
+
+        Returns
+        -------
+        Chart : Chart
+            创建的实验图表
         """
-
-        try:
-            cls.create(
-                experiment_id=experiment_id,
-                project_id=project_id,
-                name=name,
-                description=description,
-                system=system,
-                type=type,
-                reference=reference,
-                config=config,
-                more=more,
-                create_time=create_time(),
-                update_time=create_time(),
-            )
-        except Exception as e:
-            raise e
-
-    @classmethod
-    def update_updatetime(cls, id: int):
-        """实验有更新，刷新 update_time"""
-
-        return cls.update(update_time=create_time()).where(cls.id == id).execute()
+        current_time = create_time()
+        return cls.create(
+            experiment_id=experiment_id,
+            project_id=project_id,
+            name=name,
+            description=description,
+            system=system,
+            type=type,
+            reference=reference,
+            config=config,
+            more=more,
+            create_time=current_time,
+            update_time=current_time,
+        )

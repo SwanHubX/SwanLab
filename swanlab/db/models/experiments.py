@@ -70,7 +70,6 @@ class Experiment(SwanModel):
         name: str,
         run_id: str,
         description: str = None,
-        index: int = None,
         project_id: int = DEFAULT_PROJECT_ID,
         more: dict = None,
     ) -> "Experiment":
@@ -99,9 +98,8 @@ class Experiment(SwanModel):
         current_time = create_time()
         # 这个sum是+1以后的值，所以需要-1
         sum = Project.increase_sum(project_id)
-        if index is None:
-            index = sum - 1
-
+        # 自动设置index为sum-1
+        index = sum - 1
         # 调用父类的create方法创建实验实例
         experiment = super().create(
             name=name,

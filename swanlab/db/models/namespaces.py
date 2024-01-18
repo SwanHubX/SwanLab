@@ -47,14 +47,23 @@ class Namespace(SwanModel):
         ]
 
     id = IntegerField(primary_key=True)
+    """namespace唯一id"""
     experiment_id = ForeignKeyField(Experiment, backref="namespaces", on_delete="SET NULL", null=True)
+    """外键，对应的实验id，与project_id只能有一个为null"""
     project_id = ForeignKeyField(Project, backref="namespaces", on_delete="SET NULL", null=True)
+    """外键，对应的项目id，与experiment_id只能有一个为null"""
     name = CharField(max_length=100, null=False)
+    """这个命名空间的名称，同一个项目/实验下，命名空间名称不能重复"""
     description = CharField(max_length=255, null=True)
+    """命名空间描述，可为空"""
     index = IntegerField()
+    """命名空间索引，用于排序，同一个项目/实验下，命名空间索引不能重复，索引越小，排序越靠前，索引>=0"""
     more = TextField(default=None, null=True)
+    """更多信息配置，json格式，将在表函数中检查并解析"""
     create_time = CharField(max_length=30, null=False)
+    """创建时间"""
     update_time = CharField(max_length=30, null=False)
+    """更新的时间"""
 
     @classmethod
     def create(
@@ -88,11 +97,6 @@ class Namespace(SwanModel):
 
         current_time = create_time()
         # TODO 如果index为None，则自动添加到最后
-        if index is None:
-            index = 0
-        elif index < 0:
-            max_index = cls.select(cls.index).order_by(cls.index.desc()).first().index
-            index = max_index + 1
 
         return super().create(
             name=name,
