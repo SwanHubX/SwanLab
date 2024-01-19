@@ -1,4 +1,14 @@
-from fastapi import FastAPI, Request
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024-01-19 22:10:15
+@File: swanlab\server\middleware\common.py
+@IDE: vscode
+@Description:
+    常规中间件
+"""
+
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time

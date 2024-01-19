@@ -8,12 +8,8 @@ r"""
     综合服务 api
 """
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-import time
-from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
-from ..log import swanlog as swl
 from ..utils import get_package_version
 
 from .middleware.common import (
@@ -25,7 +21,7 @@ from .middleware.common import (
 )
 
 # 响应路径
-from .settings import ASSETS, INDEX
+from .settings import ASSETS
 
 
 # 服务全局对象
@@ -52,26 +48,36 @@ uvicorn_access.disabled = True
 
 @app.middleware("http")
 async def _(*args, **kwargs):
+    """基础中间件，调整响应结果，添加处理时间等信息"""
     return await resp_base(*args, **kwargs)
 
 
 @app.middleware("http")
 async def _(*args, **kwargs):
+    """资源中间件，此时所有与api相关的内容不会在此中间件中处理"""
     return await resp_static(*args, **kwargs)
 
 
 @app.middleware("http")
 async def _(*args, **kwargs):
+    """异常中间件，捕获异常，重构异常信息"""
     return await catch_error(*args, **kwargs)
 
 
 @app.middleware("http")
 async def _(*args, **kwargs):
+    """日志打印中间件"""
     return await log_print(*args, **kwargs)
 
 
 @app.middleware("http")
 async def _(*args, **kwargs):
+    """参数中间件，处理api请求中的参数校验问题，重新结构化校验错误结果
+
+    参数校验错误并不会影响其他情况的响应结果
+    此外由于参数校验错误在绝大多数情况应该是开发时的错误
+    所以不会影响正式版本的性能
+    """
     return await resp_params(*args, **kwargs)
 
 
@@ -79,8 +85,6 @@ async def _(*args, **kwargs):
 
 
 # 导入数据相关的路由
-# from .api.project import router as project
-# from .api.experiment import router as experiment
 from .routes.experiment import router as experiment
 from .routes.project import router as project
 
