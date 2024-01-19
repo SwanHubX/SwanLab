@@ -10,7 +10,8 @@ r"""
 
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, Check
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check
+from ..error import ExistedError, NotExistedError
 from .experiments import Experiment
 from .projects import Project
 from ...utils.time import create_time
@@ -107,17 +108,38 @@ class Namespace(SwanModel):
         -------
         Namespace : Namespace
             创建的命名空间
+
+        Raises
+        ------
+        NotExistedError
+            外键对应的id不存在(experiment/project不存在)
+        ExistedError
+           同名命名空间不可存在于同一个实验/项目中
         """
 
-        current_time = create_time()
-        # TODO 如果index为None，则自动添加到最后
+        # 检查外键存在性
+        if experiment_id and not Experiment.filter(Experiment.id == experiment_id).exists():
+            raise NotExistedError("实验不存在")
+        if project_id and not Project.filter(Project.id == project_id).exists():
+            raise NotExistedError("项目不存在")
 
-        return super().create(
-            name=name,
-            experiment_id=experiment_id,
-            project_id=project_id,
-            description=description,
-            sort=sort,
-            create_time=current_time,
-            update_time=current_time,
-        )
+        # 如果sort为None，则自动添加到最后
+        if sort is None:
+            sort = 0
+        elif sort < 0:
+            sort = cls.select(cls.sort).order_by(cls.sort.desc()).first().sort + 1
+
+        current_time = create_time()
+
+        try:
+            return super().create(
+                name=name,
+                experiment_id=experiment_id,
+                project_id=project_id,
+                description=description,
+                sort=sort,
+                create_time=current_time,
+                update_time=current_time,
+            )
+        except IntegrityError:
+            raise ExistedError("命名空间已存在")
