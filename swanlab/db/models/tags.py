@@ -48,6 +48,18 @@ class Tag(SwanModel):
     update_time = CharField(max_length=30, null=False)
     """tag的更新时间"""
 
+    def __dict__(self):
+        return {
+            "id": self.id,
+            "experiment_id": self.experiment_id,
+            "name": self.name,
+            "description": self.description,
+            "system": self.system,
+            "more": self.more,
+            "create_time": self.create_time,
+            "update_time": self.update_time,
+        }
+
     @classmethod
     def create_tag(
         cls,

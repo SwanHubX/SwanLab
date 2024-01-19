@@ -41,6 +41,17 @@ class Display(SwanModel):
     update_time = CharField(max_length=30, null=False)
     """更新时间"""
 
+    def __dict__(self):
+        return {
+            "id": self.id,
+            "chart_id": self.chart_id,
+            "namespace_id": self.namespace_id,
+            "sort": self.sort,
+            "more": self.more,
+            "create_time": self.create_time,
+            "update_time": self.update_time,
+        }
+
     @classmethod
     def create(
         cls,

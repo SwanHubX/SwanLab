@@ -41,6 +41,18 @@ class Source(SwanModel):
     update_time = CharField(max_length=30, null=False)
     """更新时间"""
 
+    def __dict__(self):
+        return {
+            "id": self.id,
+            "tag_id": self.tag_id,
+            "chart_id": self.chart_id,
+            "sort": self.sort,
+            "error": self.error,
+            "more": self.more,
+            "create_time": self.create_time,
+            "update_time": self.update_time,
+        }
+
     @classmethod
     def create(
         cls,
