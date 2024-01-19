@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-<a href="README_zh-hans.md">English</a> | 中文
+<a href="README.md">English</a> | 中文
 </p>
 
 ## 目录
