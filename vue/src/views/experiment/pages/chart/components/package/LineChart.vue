@@ -97,6 +97,17 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
         formatter: (data) => {
           return formatNumber2SN(data)
         }
+      },
+      // 显示y轴刻度线#bfbfbf
+      line: {
+        style: {
+          stroke: '#bfbfbf'
+        }
+      },
+      tickLine: {
+        style: {
+          stroke: '#bfbfbf'
+        }
       }
     },
     tooltip: {
