@@ -142,8 +142,10 @@ async def resp_params(request: Request, call_next):
 
 
 # 导入数据相关的路由
-from .api.project import router as project
-from .api.experiment import router as experiment
+# from .api.project import router as project
+# from .api.experiment import router as experiment
+from .routes.experiment import router as experiment
+from .routes.project import router as project
 
 # 使用配置列表，统一导入
 prefix = "/api/v1"
