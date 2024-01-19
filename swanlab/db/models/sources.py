@@ -48,7 +48,7 @@ class Source(SwanModel):
         chart_id: int,
         error: dict = None,
         more: dict = None,
-    ):
+    ) -> "Source":
         """添加行数据
 
         Parameters

@@ -55,7 +55,7 @@ class Tag(SwanModel):
         name: str,
         description="",
         system: int = 0,
-        more: dict = {},
+        more: dict = None,
     ) -> "Tag":
         """在tags表中创建一条tag指定实验的tag数据
 

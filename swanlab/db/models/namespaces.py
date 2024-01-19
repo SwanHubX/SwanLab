@@ -73,7 +73,8 @@ class Namespace(SwanModel):
         project_id: int = None,
         description: str = None,
         sort=None,
-    ):
+        more: dict = None,
+    ) -> "Namespace":
         """创建命名空间
 
         Parameters
