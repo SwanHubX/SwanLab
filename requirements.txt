@@ -6,6 +6,7 @@ click
 
 # database
 ujson
+PyYAML
 portalocker
 peewee
 

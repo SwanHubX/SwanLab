@@ -9,8 +9,8 @@ r"""
 """
 from peewee import Model
 from playhouse.shortcuts import model_to_dict
+from ..utils import create_time
 import json
-from .settings import swandb
 
 
 class SwanModel(Model):
@@ -85,3 +85,10 @@ class SwanModel(Model):
             return json.dumps(dict)
         except:
             raise TypeError
+
+    def save(self, *args, **kwargs):
+        """保存数据
+        经过swanmodel的覆写，save方法自动更新update_time字段
+        """
+        self.update(update_time=create_time())
+        super().save(*args, **kwargs)
