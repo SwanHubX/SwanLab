@@ -66,6 +66,10 @@ const reference = props.chart.reference
 // TODO 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 // 这块或许需要改为监听css变量的变化，然后重新渲染图表
 const color = props.chart.color || experimentStore.defaultColor
+const lineStyle = {
+  stroke: color
+}
+
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 默认y轴的依据key是data
@@ -130,7 +134,10 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     interactions: undefined,
     // 样式相关
     // smooth: true, // 平滑曲线
+    // 展示颜色
     color,
+    // 线条样式
+    lineStyle,
     ...config
   })
   c.render()
@@ -223,6 +230,7 @@ const render = (data) => {
   // console.log('data', data)
   chartObj = createChart(g2Ref.value, d)
   // console.log('chartObj', chartObj)
+  // 可以使用update api来更新配置
 }
 // 重渲染
 const change = (data) => {
