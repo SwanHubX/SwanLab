@@ -1,7 +1,7 @@
 <template>
   <div class="w-full flex justify-between items-center">
     <SLSearch
-      class="max-w-96"
+      class="max-w-[400px]"
       @input="(value) => $emit('update:searchText', value)"
       :placeholder="$t('experiment.index.header.table-bar.placeholder')"
     ></SLSearch>
@@ -15,8 +15,9 @@
         theme="default"
         class="px-3 py-2 rounded-lg flex items-center gap-2"
         @click="downloadCsv(tableHead, tableBody)"
+        hollow
       >
-        <SLIcon icon="home" class="w-4 h-4" />
+        <SLIcon icon="download" class="w-4 h-4" />
         <span>{{ $t('experiment.index.header.table-bar.export') }}</span>
       </SLButton>
     </div>
