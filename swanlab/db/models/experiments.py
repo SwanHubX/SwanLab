@@ -9,8 +9,7 @@ r"""
 """
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, IntegerField, TextField, Check
-from peewee import IntegrityError
+from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check
 from .projects import Project, DEFAULT_PROJECT_ID
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time

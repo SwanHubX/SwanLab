@@ -12,7 +12,8 @@ from ..settings import swandb
 from .tags import Tag
 from .charts import Chart
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, Check
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError
+from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 
 
@@ -73,14 +74,31 @@ class Source(SwanModel):
             对应的错误信息
         more : str
             更多信息，json格式
+
+        Raises
+        ------
+        NotExistedError
+            外键对应的id不存在(tag/chart不存在)
+        ExistedError
+           对应关系已经在数据库中存在（"tag_id"和"chart_id"唯一）
         """
-        # TODO 错误检查
+
+        # 检查外键存在性
+        if not Tag.filter(Tag.id == tag_id).exists():
+            raise NotExistedError("tag不存在")
+        if not Chart.filter(Chart.id == chart_id).exists():
+            raise NotExistedError("chart不存在")
+
         current_time = create_time()
-        return super().create(
-            tag_id=tag_id,
-            chart_id=chart_id,
-            error=cls.dict2json(error),
-            more=cls.dict2json(more),
-            create_time=current_time,
-            update_time=current_time,
-        )
+
+        try:
+            return super().create(
+                tag_id=tag_id,
+                chart_id=chart_id,
+                error=cls.dict2json(error),
+                more=cls.dict2json(more),
+                create_time=current_time,
+                update_time=current_time,
+            )
+        except IntegrityError:
+            raise ExistedError("source对应关系已存在")

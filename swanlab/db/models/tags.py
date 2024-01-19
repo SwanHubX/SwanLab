@@ -9,8 +9,7 @@ r"""
 """
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, TextField, IntegerField
-from peewee import IntegrityError
+from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 from .experiments import Experiment
@@ -96,15 +95,20 @@ class Tag(SwanModel):
         ExistedError
             此tag已经在数据库中存在（tag-experiment_id唯一）
         """
-        # TODO 如果实验id不存在，则抛出异常
+        # 如果实验id不存在，则抛出异常
+        if not Experiment.filter(Experiment.id == experiment_id).exists():
+            raise NotExistedError("experiment不存在")
 
-        # TODO 尝试创建实验tag，如果已经存在则抛出异常
-        return cls.create(
-            experiment_id=experiment_id,
-            name=name,
-            description=description,
-            system=system,
-            more=more,
-            create_time=create_time(),
-            update_time=create_time(),
-        )
+        # 尝试创建实验tag，如果已经存在则抛出异常
+        try:
+            return cls.create(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                system=system,
+                more=more,
+                create_time=create_time(),
+                update_time=create_time(),
+            )
+        except IntegrityError:
+            raise ExistedError("tag已存在")

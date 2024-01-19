@@ -9,7 +9,8 @@ r"""
 """
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check
+from ..error import ExistedError, NotExistedError
 from .experiments import Experiment
 from .projects import Project
 from ...utils.time import create_time
@@ -23,11 +24,20 @@ class Chart(SwanModel):
         # 通过meta规定name和project_id的唯一性
         indexes = ((("name", "experiment_id"), True), (("name", "project_id"), True))
 
+        constraints = [
+            # project_id 和 experiment_id 不能同时为空，也不能同时不为空
+            Check(
+                "(project_id IS NULL AND experiment_id IS NOT NULL) OR (project_id IS NOT NULL AND experiment_id IS NULL)"
+            ),
+            # index必须大于等于0
+            Check("sort >= 0"),
+        ]
+
     id = IntegerField(primary_key=True)
     """图表id, 自增"""
-    experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="SET NULL")
+    experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="SET NULL", null=True)
     """外键，关联的项目id，与project_id只有一个为NULL"""
-    project_id = ForeignKeyField(Project, backref="charts", default=1, on_delete="SET NULL")
+    project_id = ForeignKeyField(Project, backref="charts", default=1, on_delete="SET NULL", null=True)
     """外键，关联的项目id，与experiment_id只有一个为NULL"""
     name = CharField(max_length=100, null=False)
     """图表名称"""
@@ -104,18 +114,36 @@ class Chart(SwanModel):
         -------
         Chart : Chart
             创建的实验图表
+
+        Raises
+        -------
+        NotExistedError
+            实验/项目不存在
+        ExistedError
+            图标必须唯一
         """
+
+        # 检查外键存在性
+        if project_id and not Project.filter(Project.id == project_id).exists():
+            raise NotExistedError("项目不存在")
+        if experiment_id and not Experiment.filter(Experiment.id == experiment_id).exists():
+            raise NotExistedError("实验不存在")
+
         current_time = create_time()
-        return cls.create(
-            experiment_id=experiment_id,
-            project_id=project_id,
-            name=name,
-            description=description,
-            system=system,
-            type=type,
-            reference=reference,
-            config=config,
-            more=more,
-            create_time=current_time,
-            update_time=current_time,
-        )
+
+        try:
+            return super().create(
+                experiment_id=experiment_id,
+                project_id=project_id,
+                name=name,
+                description=description,
+                system=system,
+                type=type,
+                reference=reference,
+                config=config,
+                more=more,
+                create_time=current_time,
+                update_time=current_time,
+            )
+        except IntegrityError:
+            raise ExistedError("图标已存在")
