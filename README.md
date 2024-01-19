@@ -44,7 +44,7 @@ English | <a href="README_zh-hans.md">中文</a>
 - **📊 Charts**: visualize your entire training process
 
 <div align="center">
-  <img src="readme_files/charts.gif" width="600">
+  <img src="readme_files/charts-1.gif" width="600">
 </div>
 
 - **⚡️ Track machine-learning pipeline**: Hyperparameters, Config, Metric, Terminal logging, Environment Information auto save

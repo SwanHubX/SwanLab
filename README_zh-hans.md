@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-<a herf="README.md">English</a> | 中文
+<a href="README.md">English</a> | 中文
 </p>
 
 ## 目录
@@ -44,7 +44,7 @@
 - **📊 图表视图**: 可视化你的机器学习训练全过程
 
 <div align="center">
-  <img src="readme_files/charts.gif" width="600">
+  <img src="readme_files/charts-1.gif" width="600">
 </div>
 
 - **⚡️ 跟踪机器学习流程**: 自动保存超参数，配置，度量指标，终端日志记录，环境信息
