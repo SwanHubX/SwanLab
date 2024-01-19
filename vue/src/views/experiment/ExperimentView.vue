@@ -1,5 +1,8 @@
 <template>
   <ExperimentLayout :key="experimentStore.id" v-if="ready">
+    <template #stop-button>
+      <StopButton></StopButton>
+    </template>
     <router-view />
   </ExperimentLayout>
   <ErrorView :code="errorCode" v-if="!ready && errorCode" />
@@ -19,9 +22,12 @@ import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 import { computed } from 'vue'
 import { ref } from 'vue'
+import StopButton from './components/StopButton.vue'
+
 const route = useRoute()
 const experimentStore = useExperimentStroe()
 const projectStore = useProjectStore()
+
 // ---------------------------------- 请求实验信息 ----------------------------------
 const ready = computed(() => {
   return experimentStore.id !== undefined

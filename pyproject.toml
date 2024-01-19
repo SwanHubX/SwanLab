@@ -68,6 +68,15 @@ fragments = [{ path = "README.md" }]
 pattern = "(website/homepage|readme_files)/"
 replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
 
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置中文README跳转规则
+pattern = "README_zh-hans.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置README跳转规则
+pattern = "README.md"
+replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
+
+
 [tool.hatch.build]
 artifacts = [  # 将一些非python文件打包到项目中
   "/swanlab/template",

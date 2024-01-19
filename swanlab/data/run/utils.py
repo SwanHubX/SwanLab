@@ -7,5 +7,5 @@ r"""
 @Description:
     运行时工具函数
 """
-from ...utils.file import check_key_format, get_a_lock, check_exp_name_format, check_desc_format
+from ...utils.file import check_tag_format, get_a_lock, check_exp_name_format, check_desc_format
 from ...utils import get_package_version, create_time, generate_color

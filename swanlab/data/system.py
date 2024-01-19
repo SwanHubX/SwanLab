@@ -49,10 +49,10 @@ def __get_remote_url():
                 url = url[:-4]
             return __replace_second_colon(url, "/")
         else:
-            swanlog.warning(f"An error occurred: {result.stderr}")
+            swanlog.debug(f"An error occurred: {result.stderr}")
             return None
     except Exception as e:
-        swanlog.warning(f"An error occurred: {e}")
+        swanlog.debug(f"An error occurred: {e}")
         return None
 
 
@@ -65,7 +65,7 @@ def __get_git_branch_and_commit():
         )
         branch_name, branch_err = branch_process.communicate()
         if branch_process.returncode != 0:
-            swanlog.warning("Error getting branch name:", branch_err)
+            swanlog.debug("Error getting branch name:", branch_err)
             return None, None
 
         branch_name = branch_name.strip()
@@ -78,20 +78,20 @@ def __get_git_branch_and_commit():
 
         # 如果无法获取最新提交hash, 那么就返回branch_name和None
         if commit_process.returncode != 0:
-            swanlog.warning("Error getting commit hash:", commit_err)
+            swanlog.debug("Error getting commit hash:", commit_err)
             return branch_name, None
 
         commit_hash = commit_hash.strip()
         return branch_name, commit_hash
 
     except Exception as e:
-        swanlog.warning(f"An error occurred: {e}")
+        swanlog.debug(f"An error occurred: {e}")
         return None, None
 
 
 def __get_gpu_info():
     """获取 GPU 信息"""
-    info = {"cores": None, "type": []}
+    info = {"cores": None, "type": [], "memory": []}
     try:
         pynvml.nvmlInit()
     except:
@@ -104,9 +104,12 @@ def __get_gpu_info():
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             # 获取 GPU 型号
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
+            # 获取 GPU 显存, 单位为GB
+            info["memory"].append(pynvml.nvmlDeviceGetMemoryInfo(handle) / (1024**3))
 
     except pynvml.NVMLError as e:
-        swanlog.warning(f"An error occurred when getting GPU info: {e}")
+        swanlog.debug(f"An error occurred when getting GPU info: {e}")
+        pass
     finally:
         # 结束 NVML
         pynvml.nvmlShutdown()
@@ -130,10 +133,22 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = mem.total / (1024 * 1024 * 1024)  # 单位为GB
+        total_memory = mem.total / (1024**3)  # 单位为GB
         return total_memory
     except Exception as e:
-        swanlog.warning(f"An error occurred when getting memory size: {e}")
+        swanlog.debug(f"An error occurred when getting memory size: {e}")
+        return None
+
+
+def __get_cwd():
+    """获取当前工作目录路径"""
+    import os
+
+    try:
+        cwd = os.getcwd()
+        return cwd
+    except Exception as e:
+        swanlog.debug(f"An error occurred when getting current working directory: {e}")
         return None
 
 
@@ -150,6 +165,7 @@ def get_system_info():
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
         "command": __get_command(),  # 完整命令行信息
         "memory": __get_memory_size(),  # 内存大小
+        "cwd": __get_cwd(),  # 当前工作目录路径
     }
 
 
@@ -163,8 +179,8 @@ def get_requirements() -> str:
         if result.returncode == 0:
             return result.stdout
         else:
-            swanlog.warning(f"An error occurred when getting requirements:{result.stderr}")
+            swanlog.debug(f"An error occurred when getting requirements:{result.stderr}")
             return None
     except Exception as e:
-        swanlog.warning(f"An error occurred: {e}")
+        swanlog.debug(f"An error occurred: {e}")
         return None

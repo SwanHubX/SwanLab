@@ -7,12 +7,13 @@
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
           <h1 class="text-2xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
-            <RouterLink class="hover:underline underline-offset-2" to="/">{{ projectStore.name }}</RouterLink>
-            /
             <span class="font-semibold">{{ experimentStore.name }}</span>
           </h1>
           <!-- 编辑按钮 -->
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
+          <!-- 实验状态 -->
+          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+          <slot name="stop-button" v-if="experimentStore.isRunning"></slot>
         </div>
         <!-- 删除按钮 -->
         <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
@@ -33,6 +34,7 @@
           :key="nav.to"
           :to="nav.to"
         >
+          <SLIcon :icon="nav.icon" class="w-5 h-5" />
           {{ nav.label }}
         </RouterLink>
       </nav>
@@ -57,9 +59,12 @@ import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from '@swanlab-vue/components/message'
 import { t } from '@swanlab-vue/i18n'
+import { ref } from 'vue'
+
 const router = useRouter()
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStroe()
+const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 控制h1缩进 ----------------------------------
 const isSideBarShow = inject('isSideBarShow')
@@ -93,19 +98,23 @@ const modifyExperiment = async (newV, hideModal) => {
 const navs = [
   {
     label: t('experiment.navs.index'),
-    to: `/experiment/${experimentStore.id}/index`
+    to: `/experiment/${experimentStore.id}/index`,
+    icon: 'experiment'
   },
   {
     label: t('experiment.navs.chart'),
-    to: `/experiment/${experimentStore.id}/chart`
+    to: `/experiment/${experimentStore.id}/chart`,
+    icon: 'charts'
   },
   {
     label: t('experiment.navs.log'),
-    to: `/experiment/${experimentStore.id}/log`
+    to: `/experiment/${experimentStore.id}/log`,
+    icon: 'logs'
   },
   {
     label: t('experiment.navs.env'),
-    to: `/experiment/${experimentStore.id}/env`
+    to: `/experiment/${experimentStore.id}/env`,
+    icon: 'info'
   }
 ]
 </script>
@@ -133,8 +142,8 @@ const navs = [
     display: none;
   }
   .nav-item {
-    @apply px-2.5 py-2 relative text-lg text-dimmer whitespace-nowrap ring-0 outline-none;
-    @apply mb-1 rounded;
+    @apply px-1 pt-2 pb-1.5 relative text-sm text-dimmer whitespace-nowrap ring-0 outline-none;
+    @apply mb-1 rounded flex items-center gap-1.5;
     &:hover {
       @apply bg-higher;
     }

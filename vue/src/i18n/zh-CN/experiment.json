@@ -12,6 +12,11 @@
   },
   "index": {
     "header": {
+      "table-bar": {
+        "placeholder": "Search experiments",
+        "summary": "Only summary",
+        "export": "Export to CSV"
+      },
       "experiment_infos": {
         "status": "状态",
         "start_time": "开始时间",
