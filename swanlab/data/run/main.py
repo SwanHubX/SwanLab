@@ -12,20 +12,19 @@ from ..settings import SwanDataSettings
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
-    get_a_lock,
     check_exp_name_format,
     check_desc_format,
-    get_package_version,
-    create_time,
-    generate_color,
+    get_a_lock,
 )
 from datetime import datetime
-import sys, os, time
+import os, time
 import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
 from .db import Experiment, ExistedError
+from typing import Tuple
+import yaml
 
 
 class SwanConfig(Mapping):
@@ -33,9 +32,12 @@ class SwanConfig(Mapping):
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
     """
 
-    def __init__(self, config: dict):
-        # config就是外界传入的config，实际上外界访问的就是这个config中的内容
+    def __init__(self, config: dict, settings: SwanDataSettings):
+        self.__settings = settings
+        """配置保存路径，yaml格式"""
         self.__config = config
+        """config就是外界传入的config，实际上外界访问的就是这个config中的内容"""
+        self.__save()
 
     def __iter__(self):
         return iter(self.__config)
@@ -60,6 +62,13 @@ class SwanConfig(Mapping):
 
     def __getitem__(self, name):
         return self.__config[name]
+
+    def __save(self):
+        """
+        保存config为json，不必校验config的JSON格式，将在写入时完成校验
+        """
+        with get_a_lock(self.__settings.config_path, "w") as f:
+            yaml.dump(self.__config, f)
 
 
 class SwanLabRun:
@@ -107,7 +116,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
-        register(self.__settings.output_path, self.__settings.console_dir, log_level=level)
+        register(self.__settings.output_path, self.__settings.console_dir)
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
@@ -121,30 +130,48 @@ class SwanLabRun:
             description,
             suffix,
         )
-
         # 给外部1个config
-        self.__config = SwanConfig(config)
+        self.__config = SwanConfig(config, settings=self.__settings)
+        # 实验状态标记，如果status不为0，则无法再次调用log方法
+        self.__status = 0
+
+    @property
+    def settings(self) -> SwanDataSettings:
+        """
+        This property allows you to access the 'settings' content passed through `init`,
+        and runtime settings can not be modified.
+        """
+        return self.__settings
 
     @property
     def config(self):
-        """外部使用的config"""
+        """
+        This property allows you to access the 'config' content passed through `init`,
+        and allows you to modify it. The latest configuration after each modification
+        will be synchronized to the corresponding path by Swanlab. If you have
+        enabled the web service, you will notice the changes after refreshing.
+        """
         return self.__config
 
-    @property
-    def exp(self):
-        """实验对象"""
-        return self.__exp
-
-    @property
-    def settings(self):
-        """运行时配置"""
-        return self.__settings
-
-    def __str__(self) -> str:
-        """此类的字符串表示"""
-        return "run-{}-{}".format(self.__timestamp, self.__id)
-
     def log(self, data: dict, step: int = None):
+        """
+        Log a row of data to the current run.
+        Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
+        Of course, after you call the success/fail method, this method will be banned from calling.
+
+        Parameters
+        ----------
+        data : Dict[str, DataType]
+            Data must be a dict.
+            The key must be a string with 0-9, a-z, A-Z, " ", "_", "-", "/".
+            The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
+        step : int, optional
+            The step number of the current data, if not provided, it will be automatically incremented.
+            If step is duplicated, the data will be ignored.
+        """
+        if self.__status != 0:
+            raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
+
         if not isinstance(data, dict):
             return swanlog.error(
                 "log data must be a dict, but got {}, SwanLab will ignore records it.".format(type(data))
@@ -172,26 +199,27 @@ class SwanLabRun:
         """标记实验失败"""
         self.__set_exp_status(-1)
 
+    def __str__(self) -> str:
+        """此类的字符串表示"""
+        return self.__run_id
+
     def __set_exp_status(self, status: int):
+        """更新实验状态
+
+        Parameters
+        ----------
+        status : int
+            实验状态，1代表成功，-1代表失败，0代表未完成，其他值会被自动设置为-1
+        """
         if status not in [1, -1, 0]:
             swanlog.warning("Invalid status when set, status must be 1, -1 or 0, but got {}".format(status))
             swanlog.warning("SwanLab will set status to -1")
             status = -1
-        # 锁上文件，更新实验状态
-        with get_a_lock(self.__settings.project_path, "r+") as file:
-            project = ujson.load(file)
-            for index, experiment in enumerate(project["experiments"]):
-                if experiment["experiment_id"] == self.__exp.id:
-                    project["experiments"][index]["status"] = status
-                    time = create_time()
-                    project["experiments"][index]["update_time"] = time
-                    project["update_time"] = time
-                    break
-            file.truncate(0)
-            file.seek(0)
-            ujson.dump(project, file)
+        self.__status = status
+        self.__exp.db.status = status
+        self.__exp.db.save()
 
-    def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> tuple:
+    def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
         """
         预处理实验名称，如果实验名称过长，截断
 
@@ -237,6 +265,8 @@ class SwanLabRun:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
         """
+        # 这个循环的目的是如果创建失败则等零点五秒重新生成后缀重新创建，直到创建成功
+        # 但是由于需要考虑suffix为none不生成后缀的情况，所以需要在except中判断一下
         while True:
             experiment_name, exp_name = self.__get_exp_name(experiment_name, suffix)
             try:
@@ -244,14 +274,19 @@ class SwanLabRun:
                 exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
                 break
             except ExistedError:
+                if suffix is None:
+                    raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
+                # 如果suffix不为None，说明是自动生成的后缀，需要重新生成后缀
                 swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
                 time.sleep(0.5)
                 continue
-        # 实验创建成功
+        self.__settings.exp_name = exp_name
+        # 实验创建成功，执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
         # 打印信息
+
         swanlog.info(f"Experiment {experiment_name} has been registered.")
-        return SwanLabExp(self.__settings, exp.id)
+        return SwanLabExp(self.__settings, exp.id, exp=exp)
 
     def __check_log_level(self, log_level: str) -> str:
         """检查日志等级是否合法"""
@@ -292,7 +327,7 @@ class SwanLabRun:
         """
         files_dir = self.__settings.files_dir
         requirements_path = self.__settings.requirements_path
-        config_path = self.__settings.config_path
+        metadata_path = self.__settings.metadata_path
 
         # 在实验目录下创建 files 目录，用于存储实验配置信息
         if not os.path.exists(files_dir):
@@ -301,5 +336,5 @@ class SwanLabRun:
         with open(requirements_path, "w") as f:
             f.write(get_requirements())
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
-        with open(config_path, "w") as f:
+        with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(), f)

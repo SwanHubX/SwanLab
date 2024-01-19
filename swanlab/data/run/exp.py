@@ -7,7 +7,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from .db import Tag
+from .db import Tag, Experiment
 
 
 class SwanLabExp:
@@ -16,7 +16,7 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanDataSettings, id: int) -> None:
+    def __init__(self, settings: SwanDataSettings, id: int, exp: Experiment) -> None:
         """初始化实验
 
         Parameters
@@ -25,6 +25,8 @@ class SwanLabExp:
             全局运行时配置
         id : int
             实验id
+        exp : Experiment
+            数据库实例，代表当前实验行
         """
         self.settings = settings
         if not os.path.exists(self.settings.log_dir):
@@ -32,9 +34,7 @@ class SwanLabExp:
         # 当前实验的所有tag数据字段
         self.tags: Dict[str, SwanLabTag] = {}
         self.id = id
-        if not os.path.exists(self.settings.chart_path):
-            with open(self.settings.chart_path, "w", encoding="utf-8") as f:
-                f.write(ujson.dumps(self.__new_charts()))
+        self.db = exp
 
     def add(self, tag: str, data: DataType, step: int = None):
         """记录一条新的tag数据
@@ -79,9 +79,6 @@ class SwanLabExp:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
         tag_obj.add(data, step)
-
-    def __new_charts(self):
-        return {"_sum": 0, "charts": [], "namespaces": []}
 
 
 class SwanLabTag:

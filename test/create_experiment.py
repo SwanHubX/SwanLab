@@ -64,37 +64,37 @@ run = sw.init(
 
 print(run.config.learning_rate)
 
-print("start training")
+# print("start training")
 
-print("")
+# print("")
 
-# 模拟训练过程
-for epoch in range(2, epochs):
-    acc = 1 - 2**-epoch - random.random() / epoch - offset
-    loss = 2**-epoch + random.random() / epoch + offset
-    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    sw.log({"loss": loss, "accuracy": acc}, step=epoch)
-    if epoch < 10:
-        sw.log(
-            {
-                "loss_enlarge100000Billion": Enlarge100000Billion(loss),
-                "accuracy_shrink100Billion": Shrink100Billion(acc),
-            },
-            step=1,
-        )
-    else:
-        sw.log(
-            {
-                "loss_enlarge100000Billion": Enlarge100000Billion(loss),
-                "accuracy_shrink100Billion": Shrink100Billion(acc),
-            },
-            step=epoch,
-        )
-    # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)
-    # sw.log({"loss3": loss, "accuracy3": acc}, step=1)
-    # sw.log({"loss4": loss, "accuracy4": acc}, step=epoch * 2)
-    time.sleep(0.5)
+# # 模拟训练过程
+# for epoch in range(2, epochs):
+#     acc = 1 - 2**-epoch - random.random() / epoch - offset
+#     loss = 2**-epoch + random.random() / epoch + offset
+#     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
+#     sw.log({"loss": loss, "accuracy": acc}, step=epoch)
+#     if epoch < 10:
+#         sw.log(
+#             {
+#                 "loss_enlarge100000Billion": Enlarge100000Billion(loss),
+#                 "accuracy_shrink100Billion": Shrink100Billion(acc),
+#             },
+#             step=1,
+#         )
+#     else:
+#         sw.log(
+#             {
+#                 "loss_enlarge100000Billion": Enlarge100000Billion(loss),
+#                 "accuracy_shrink100Billion": Shrink100Billion(acc),
+#             },
+#             step=epoch,
+#         )
+#     # sw.log({"accuracy2": f"{acc}", "test/loss2": f"is {loss}"}, step=epochs - epoch)
+#     # sw.log({"loss3": loss, "accuracy3": acc}, step=1)
+#     # sw.log({"loss4": loss, "accuracy4": acc}, step=epoch * 2)
+#     time.sleep(0.5)
 
-print("")
-print("")
-print("finish training")
+# print("")
+# print("")
+# print("finish training")

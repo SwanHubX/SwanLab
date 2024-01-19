@@ -101,6 +101,10 @@ class SwanDataSettings:
         return os.path.join(self.files_dir, "requirements.txt")
 
     @property
-    def config_path(self) -> str:
+    def metadata_path(self) -> str:
         """实验环境存储文件"""
         return os.path.join(self.files_dir, "swanlab-metadata.json")
+
+    @property
+    def config_path(self) -> str:
+        return os.path.join(self.files_dir, "config.yaml")
