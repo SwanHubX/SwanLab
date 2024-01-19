@@ -72,17 +72,7 @@ export function convertUtcToLocal(utcTime) {
  */
 
 export const formatTime = (time) => {
-  const date = new Date(time)
-  const timezoneOffset = new Date().getTimezoneOffset()
-  // console.log(timezoneOffset)
-  const localTime = date.getTime() - timezoneOffset * 60 * 1000
-  const localDate = new Date(localTime)
-  const year = localDate.getFullYear()
-  let month = localDate.getMonth() + 1
-  let day = localDate.getDate()
-  let hour = localDate.getHours()
-  let minute = localDate.getMinutes()
-  let second = localDate.getSeconds()
+  let { year, month, day, hour, minute, second } = getTimes(time)
   /**
    * TO Little SHI:
    * 你需要在这解决时间的bug
@@ -99,4 +89,29 @@ export const formatTime = (time) => {
   if (second < 10) second = '0' + second
 
   return `${year}/${month}/${day} ${hour}:${minute}:${second}`
+}
+
+/**
+ * 获取年月日时分秒
+ */
+export const getTimes = (time) => {
+  const date = new Date(time)
+  const timezoneOffset = new Date().getTimezoneOffset()
+  const localTime = date.getTime() - timezoneOffset * 60 * 1000
+  const localDate = new Date(localTime)
+  const year = localDate.getFullYear()
+  let month = localDate.getMonth() + 1
+  let day = localDate.getDate()
+  let hour = localDate.getHours()
+  let minute = localDate.getMinutes()
+  let second = localDate.getSeconds()
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second
+  }
 }

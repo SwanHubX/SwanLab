@@ -33,6 +33,7 @@
 import SLCheck from '@swanlab-vue/components/SLCheck.vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
+import { getTimes } from '@swanlab-vue/utils/time'
 
 defineProps({
   tableBody: {
@@ -61,10 +62,15 @@ defineEmits(['update:checked', 'update:searchText'])
  * @param {Array} data 表格数据
  * @param {String} fileName 导出的文件名称
  */
-function downloadCsv(header, data, fileName = '导出结果.csv') {
+function downloadCsv(header, data) {
   if (!header || !data || !Array.isArray(header) || !Array.isArray(data) || !header.length || !data.length) {
     return
   }
+
+  // 拼接文件名
+  let { year, month, day, hour, minute, second } = getTimes(new Date().getTime() - 8 * 60 * 60 * 1000)
+  const fileName = `swanlab_experiments_${year}-${month}-${day}_${hour}-${minute}-${second}.csv`
+
   var csvContent = 'data:text/csv;charset=utf-8,\ufeff'
   // 头部数据，以逗号分隔
   const _header = header.map((h) => h.title).join(',')
