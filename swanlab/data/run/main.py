@@ -8,7 +8,7 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 from typing import Any
-from ..settings import SwanDataSettings, get_runtime_project
+from ..settings import SwanDataSettings
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
@@ -20,11 +20,12 @@ from .utils import (
     generate_color,
 )
 from datetime import datetime
-import sys, os
+import sys, os, time
 import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
+from .db import Experiment, ExistedError
 
 
 class SwanConfig(Mapping):
@@ -99,37 +100,26 @@ class SwanLabRun:
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        self.__id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
-        self.__timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # ---------------------------------- 初始化实验配置 ----------------------------------
-        # FIXME 初始化实验配置这里有点问题，写入的时候分了两个步骤
-        # 等后续使用数据库后，SwanDataSettings传入的应该是当前run对象的str表示，而不是实验名称
-        # 确保project.json文件存在
-        project_path = get_runtime_project()
-        open(project_path, "a", encoding="utf-8").close()
-        exp_name, cut = self.__get_exp_name(experiment_name, project_path, suffix)
-        # ---------------------------------- 初始化日志等级 ----------------------------------
-        level = self.__check_log_level(log_level)
-        # ---------------------------------- 初始化其他对象 ----------------------------------
+        id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.__run_id = "run-{}-{}".format(timestamp, id)
         # 初始化配置
-        self.__settings = SwanDataSettings(exp_name)
-        # 初始化日志记录器
-        # FIXME 日志记录器的初始化强依赖于settings，这不行，等后续使用数据库后，在data部分的顶层完成日志记录器的初始化
+        self.__settings = SwanDataSettings(run_id=self.__run_id)
+        # ---------------------------------- 初始化日志记录器 ----------------------------------
+        # output、console_dir等内容不依赖于实验名称的设置
         register(self.__settings.output_path, self.__settings.console_dir, log_level=level)
-        # 在此处判断是否被截断了，warning一下
-        if cut:
-            swanlog.warning(f"The experiment name you provided is too long, it has been truncated to {exp_name}.")
-        # 并判断一下log_level是否合法，如果不合法，warning一下
-        if log_level != level and log_level is not None:
-            swanlog.warning(f"The log level you provided is not valid, it has been set to {level}.")
-        # ---------------------------------- 其余配置 ----------------------------------
-        # 注册实验
+        # 初始化日志等级
+        level = self.__check_log_level(log_level)
+        swanlog.setLevel(level)
+        # ---------------------------------- 注册实验 ----------------------------------
+        # 校验配置格式
         config = self.__check_config(config)
+        # 校验描述格式
         description = self.__check_description(description)
         self.__exp = self.__register_exp(
-            exp_name,
+            experiment_name,
             description,
-            config,
+            suffix,
         )
 
         # 给外部1个config
@@ -201,86 +191,67 @@ class SwanLabRun:
             file.seek(0)
             ujson.dump(project, file)
 
-    def __get_exp_name(self, experiment_name: str = None, project_path: str = None, suffix: str = None) -> tuple:
-        """拿到实验名称
+    def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> tuple:
+        """
+        预处理实验名称，如果实验名称过长，截断
 
         Parameters
         ----------
         experiment_name : str
             实验名称
-        cut : bool
-            是否被截断
+        suffix : str
+            实验名称后缀添加方式，可以为None、"timestamp"，前者代表不添加后缀，后者代表添加时间戳后缀
+
+        Returns
+        ----------
+        experiment_name : str
+            校验后的实验名称
+        exp_name : str
+            最终的实验名称
         """
-        max_len = 20
-        cut = experiment_name is not None and len(experiment_name) > max_len
-        experiment_name = "exp" if experiment_name is None else check_exp_name_format(experiment_name)
+        # ---------------------------------- 校验实验名称 ----------------------------------
+        experiment_name = "exp" if experiment_name is None else experiment_name
+        # 校验实验名称
+        experiment_name_checked = check_exp_name_format(experiment_name)
+        # 如果前后长度不一样，说明实验名称被截断了，提醒
+        if len(experiment_name_checked) != len(experiment_name):
+            swanlog.warning("The experiment name you provided is not valid, it has been truncated automatically.")
         # 为实验名称添加后缀，格式为yyyy-mm-dd_HH-MM-SS
-        if suffix is not None and suffix.lower() != "timestamp":
+        if suffix is None:
+            return experiment_name_checked, experiment_name
+        # 如果suffix不是timestamp，提醒，自动改为timestamp
+        if suffix.lower() != "timestamp":
             suffix = "timestamp"
             swanlog.warning(f"The suffix you provided is not valid, it has been set to {suffix}.")
         # ---------------------------------- 自动添加后缀 ----------------------------------
-        if suffix is not None:
-            suffix = self.__timestamp
-            experiment_name = f"{experiment_name}_{suffix}"
-        # 拿取project.json文件中的实验配置
-        with get_a_lock(project_path, "r+") as f:
-            # 如果project.json文件为空，创建一个新的project.json文件
-            project_exist = os.path.exists(project_path) and os.path.getsize(project_path) != 0
-            if not project_exist:
-                return experiment_name, cut
-            project = ujson.load(f)
-            # 检查实验名称是否存在
-            while True:
-                unique = True
-                # 遍历所有实验，检查实验名称是否存在
-                for exp in project["experiments"]:
-                    if exp["name"] == experiment_name:
-                        # 第一次遇到重名，添加后缀-1
-                        if unique:
-                            experiment_name += "-1"
-                            unique = False
-                        # 第二次遇到重名，后缀+1
-                        else:
-                            num = int(experiment_name.split("-")[-1]) + 1
-                            experiment_name = "".join(experiment_name.split("-")[:-1]) + f"-{num}"
-                            unique = False
-                        break
-                # 如果实验名称不存在，跳出循环
-                if unique:
-                    break
-                swanlog.warning(
-                    f"The experiment name you provided is not unique, it has been set to {experiment_name}, check again."
-                )
-        return experiment_name, cut
+        # 现在只有一种后缀，即timestamp，所以直接添加就行
+        exp_name = "{}_{}".format(experiment_name_checked, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        return experiment_name_checked, exp_name
 
     def __register_exp(
         self,
         experiment_name: str,
         description: str = None,
-        config: dict = None,
+        suffix: str = None,
     ) -> SwanLabExp:
-        """将此实验配置写入project.json文件中
-        如果project.json文件不存在，则创建一个
-        记录实验配置——依赖、硬件信息、仓库信息等等
-        最终返回实验名称
         """
-        project_path = self.__settings.project_path
-        with get_a_lock(project_path, "r+") as f:
-            # 如果project.json文件为空，创建一个新的project.json文件
-            project_exist = os.path.exists(project_path) and os.path.getsize(project_path) != 0
-            project = ujson.load(f) if project_exist else self.__new_project()
-            # 创建新的实验配置
-            project["_sum"] = project["_sum"] + 1
-            experiment = self.__new_experiment(project["_sum"], experiment_name, description, config)
-            # 添加实验配置到project.json文件中
-            project["experiments"].append(experiment)
-            f.truncate(0)
-            f.seek(0)
-            ujson.dump(project, f)
-        # 记录实验配置
-        self.__record_exp_config()
+        注册实验，将实验配置写入数据库中，完成实验配置的初始化
+        """
+        while True:
+            experiment_name, exp_name = self.__get_exp_name(experiment_name, suffix)
+            try:
+                # 获得数据库实例
+                exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
+                break
+            except ExistedError:
+                swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
+                time.sleep(0.5)
+                continue
+        # 实验创建成功
+        self.__record_exp_config()  # 记录实验配置
+        # 打印信息
         swanlog.info(f"Experiment {experiment_name} has been registered.")
-        return SwanLabExp(self.__settings, experiment["experiment_id"])
+        return SwanLabExp(self.__settings, exp.id)
 
     def __check_log_level(self, log_level: str) -> str:
         """检查日志等级是否合法"""
@@ -290,6 +261,7 @@ class SwanLabRun:
         elif log_level.lower() in valids:
             return log_level.lower()
         else:
+            swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
             return "info"
 
     def __check_description(self, description: str) -> str:
@@ -311,35 +283,6 @@ class SwanLabRun:
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
         return config
-
-    def __new_project(self):
-        """创建一个新的project.json文件"""
-        time = create_time()
-        return {
-            "name": os.path.basename(self.__settings.root_dir),
-            "_sum": 0,
-            "experiments": [],
-            "version": get_package_version(),
-            "create_time": time,
-            "update_time": time,
-        }
-
-    @staticmethod
-    def __new_experiment(sum: int, name: str, description: str, config: dict):
-        """创建一个新的实验配置"""
-        return {
-            "experiment_id": sum,
-            "name": name,
-            "version": get_package_version(),
-            "status": 0,
-            "description": description,
-            "config": config,
-            "color": generate_color(sum),
-            "argv": sys.argv,
-            "index": sum,
-            "create_time": create_time(),
-            "update_time": create_time(),
-        }
 
     def __record_exp_config(self):
         """创建实验配置目录 files

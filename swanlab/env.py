@@ -137,23 +137,22 @@ def init_env(env: Optional[Env] = None):
 
 # ---------------------------------- 计算变量 ----------------------------------
 """日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
-PROJECT_PATH = "SWANLAB_PROJECT_PATH"
+DATABASE_PATH = "SWANLAB_DB_PATH"
 
 # ---------------------------------- 定义变量访问方法 ----------------------------------
 
 
-# TODO 后续改为数据库路径
-def get_runtime_project() -> Optional[str]:
-    """获取运行时项目配置，这是一个计算变量，
+def get_db_path() -> Optional[str]:
+    """获取数据库路径，这是一个计算变量，
     通过`get_swanlog_dir()`返回值得到
 
     Returns
     -------
     Optional[str]
-        项目配置文件路径
+        数据库文件路径
     """
-    if _env.get(PROJECT_PATH) is not None:
-        return _env.get(PROJECT_PATH)
+    if _env.get(DATABASE_PATH) is not None:
+        return _env.get(DATABASE_PATH)
     # 否则从环境变量中提取
-    _env[PROJECT_PATH] = os.path.join(get_swanlog_dir(), "project.json")
-    return _env.get(PROJECT_PATH)
+    _env[DATABASE_PATH] = os.path.join(get_swanlog_dir(), "runs.swanlab")
+    return _env.get(DATABASE_PATH)

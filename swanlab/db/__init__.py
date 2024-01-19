@@ -18,6 +18,11 @@ from .models import (
     Display,
 )
 
+from .error import (
+    ExistedError,
+    NotExistedError,
+)
+
 
 swandb.connect()
 # 在连接时提前创建，确保在查询时数据表一定存在

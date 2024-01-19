@@ -7,6 +7,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
+from .db import Tag
 
 
 class SwanLabExp:
@@ -16,6 +17,15 @@ class SwanLabExp:
     """
 
     def __init__(self, settings: SwanDataSettings, id: int) -> None:
+        """初始化实验
+
+        Parameters
+        ----------
+        settings : SwanDataSettings
+            全局运行时配置
+        id : int
+            实验id
+        """
         self.settings = settings
         if not os.path.exists(self.settings.log_dir):
             os.mkdir(self.settings.log_dir)
