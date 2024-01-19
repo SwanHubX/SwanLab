@@ -1,199 +1,164 @@
 <p align="center">
   <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="120" height="120">
 </p>
-
 <h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
 
-<p align="center">SwanLab是一个强大的开源机器学习训练管理工具，供研究人员跟踪记录自己的训练。通过使用SwanLab，研究人员可以积累训练经验并发现新的Idea。</p>
+<p align="center">
+跟踪与可视化你的机器学习全流程
+</p>
 
 <p align="center">
-  <b><a href="README.md">English</a> | 简体中文</b>
-</p>
-<p align="center">
-  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=blue" alt= /></a>
-  <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
-  <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a> 
-  <a href="https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"><img alt="Website" src="https://img.shields.io/badge/website-online-green"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/stargazers"><img src="https://img.shields.io/github/stars/SwanHubX/SwanLab?style=social" alt= /></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/commits/main"><img src="https://img.shields.io/github/last-commit/SwanHubX/SwanLab" alt="license"></a>
+  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange" alt= /></a>
+  <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
+  <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a>
 </p>
 
-<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
+<p align="center">
+👋 加入我们的<a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a>
+</p>
+
+<p align="center">
+<a href="README.md">English</a> | 中文
+</p>
+
+## 目录
+
+- [核心功能](#核心功能)
+- [更新日志](#更新日志)
+- [案例](#案例)
+- [快速开始](#快速开始)
+- [更多技巧](#更多技巧)
+- [协议](#协议)
+
+## 核心功能
+
+- **🧪 表格视图**: 对比关键指标，更快获得洞见
+
+<div align="center">
+  <img src="readme_files/experiments-gridView.gif" width="600">
+</div>
+
+- **📊 图表视图**: 可视化你的机器学习训练全过程
+
+<div align="center">
+  <img src="readme_files/charts-1.gif" width="600">
+</div>
+
+- **⚡️ 跟踪机器学习流程**: 自动保存超参数，配置，度量指标，终端日志记录，环境信息
+
+<div align="center">
+  <img src="readme_files/track-machine-learning-pipeline.gif" width="600">
+</div>
+
+
+- **🥔 离线支持**: SwanLab可以完全离线运行，无需任何对互联网的访问。例如，它可以在您的本地计算机上、企业防火墙后面或数据中心中运行。
+
+> [!NOTE]
+> See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
 
 <br>
 
-## ✨ 特色功能
+## 更新日志
 
-1. ⚽ **实时指标记录：** 几行代码，即可实时记录你的训练指标
-2. 🧪 **多实验对比**：支持多实验指标对比
-3. 🤖 **机器学习支持：** 支持 PyTorch、TensorFlow、Transformers、mmdetection 等主流训练框架
-4. 📝 **环境记录**：支持自动记录 Logging、报错、系统硬件、Python 环境等等一系列环境信息
-5. 🖥 **端云均支持：** 即支持本地管理训练，也支持同步到公有云（即将）
+[24/01/14] 🔥 我们发布了一个新的UI界面，以及跟踪更多环境信息，包括Command、git提交/分支、和机器内存。此外，我们还添加了一个`logdir` API，允许开发人员设置日志文件的目录。
 
-<br>
+[24/01/07] ✨ 我们支持在仪表板上删除实验和编辑实验信息。
 
-## 🔥 使用案例
+[24/01/01] 我们修复了一些错误，使SwanLab更加稳定。
 
-我们提供了一些案例代码和文章，来帮助你更好地理解与掌握 SwanLab：
-
-- [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World)
-- [MNIST 手写体识别](https://github.com/SwanHubX/SwanLab-examples/tree/main/plain_net_mnist)
-- [ResNet50 猫狗分类](https://github.com/SwanHubX/SwanLab-examples/tree/main/resnet50_cats_vs_dogs)
+[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
 <br>
 
-## ⚡️ 快速上手
+## 案例
 
-Hi，无论你是开发人员还是日常用户，这篇快速上手教程都将帮助你入门并且向你展示如何使用 SwanLab：
+通过以下用例学习如何更有效地使用SwanLab：
 
-- 记录训练配置信息
-- 记录关键指标
-- 可视化实验
+| 案例 | 介绍 | 
+| ------- | ------- |
+| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | 简单入门 |
+| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
+| [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
+| [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
 
 <br>
 
-### 🎯 第 1 步：安装 SwanLab
+## 快速开始
+
+1. 首先，使用[pip](https://pip.pypa.io/en/stable/)安装SwanLab SDK:
 
 ```bash
 pip install -U swanlab
 ```
 
-<br>
-
-### 👋 第 2 步：Hello World
-
-如果我们抽象机器学习的训练过程，其本质就是**配置参数**、再**循环**的过程，而我们关注的是中间的**指标**。
-
-下面的 Python 代码模拟了这一过程：
-
+2. 然后，使用下面的示例代码片段作为模板，将SwanLab集成到您的Python脚本中:
 ```Python
 import swanlab
 
-# 初始化swanlab
-swanlab.init()
+# Start a SwanLab Run with swanlab.init
+swanlab.init(
+  # save model inputs and hyperparameters in a swanlab.config object
+  config={'learning_rate': 0.01},
+)
 
+# Model training code here...
+
+# Log metrics over time for visualizing performance with swanlab.log
 for epoch in range(1, 20):
-    print("epoch", epoch)
-    # 跟踪指标epoch
-    swanlab.log({"epoch": epoch})
+    swanlab.log({"loss": loss})
 ```
 
-其中，`swanlab.init`是必需的，作用是初始化实例以及配置参数；`swanlab.log`的作用是负责记录数据，接收的数据类型是 1 个字典（dict）。
-
-运行上面的代码，你会看到下面的输出结果：
-
-```Bash
-[SwanLab-INFO]:        Run data will be saved locally in path/swanlog/majestic-hemlock-1
-[SwanLab-INFO]:        Experiment_name: majestic-hemlock-1
-[SwanLab-INFO]:        Run `swanlab watch` to view SwanLab Experiment Dashboard
-epoch 1
-epoch 2
-epoch 3
-epoch 4
-epoch 5
-epoch 6
-epoch 7
-epoch 8
-epoch 9
-[SwanLab-INFO]:        train successfully
-```
-
-并且根目录下会出现 1 个`swanlog`文件夹，里面是 SwanLab 自动生成的文件，记录了一系列实验数据。
-
-<br>
-
-### 🧪 第 3 步：开启实验看板
-
-现在来查看我们使用 SwanLab 记录的指在每个循环步骤中的情况。运行命令`swanlab watch`：
-
-```Bash
+3. 第三步，开启一个SwanLab仪表板: 
+```bash
 $ swanlab watch
-
-[SwanLab-INFO]:        SwanLab Experiment Dashboard ready in 375ms
-                       ➜  Local:   http://127.0.0.1:5092
 ```
 
-访问 `http://127.0.0.1:5092` ，打开实验看板，访问刚刚运行的实验：
-
-<img src="readme_files/hello_world_main1.gif" width=1535 alt="hello_world_main1">
+就是这样！打开 http://127.0.0.1:5092 ，查看你的第一个SwanLab实验的仪表板。
 
 <br>
 
-### 🚀 进阶一下
+## 更多技巧
 
-在这一节，让我们写 1 个进阶的训练脚本来模拟真实的机器学习训练。
+- 设置1个日志文件保存路径，以及运行基于它的实验看板：
+```python
+import swanlab 
 
-首先初始化 swanlab，这次设置了实验名称、介绍和配置：
-
-```Python
 swanlab.init(
-    # 设置实验名称
-    experiment_name="sample_experiment"
-    # 设置实验介绍
-    description="This is a sample experiment for machine learning training.",
-    # 记录跟踪的超参数和运行元数据
-    config={
-        "learning_rate": lr,
-        "epochs": epochs,
-    },
+  logdir="./logs"
 )
 ```
 
-组合成 1 个完整的训练脚本，使用`swanlab.log`API 追踪损失值`loss`和准确率`accuracy`：
+```bash
+$ swanlab watch --logdir ./logs_path
+```
 
-```Python
+- 设置实验看板的主机和端口：
+```bash
+$ swanlab watch --host 0.0.0.0 --port 8080
+```
+
+- 使用Argparse初始化swanlab.config: 
+```python
+import argparse
 import swanlab
-import time
-import random
 
-lr = 0.01
-epochs = 20
-offset = random.random() / 5
+parser = argparse.ArgumentParser()
+···
+args = parser.parse_args()
+
 
 swanlab.init(
-    # 设置实验名称
-    experiment_name="sample_experiment",
-    # 设置实验介绍
-    description="This is a sample experiment for machine learning training.",
-    # 记录跟踪的超参数和运行元数据
-    config={
-        "learning_rate": lr,
-        "epochs": epochs,
-    },
+    config=vars(args)
 )
-
-# 模拟机器学习训练过程
-for epoch in range(2, epochs):
-    acc = 1 - 2**-epoch - random.random() / epoch - offset
-    loss = 2**-epoch + random.random() / epoch + offset
-    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    # 记录loss和acc
-    swanlab.log({"loss": loss, "accuracy": acc})
-    time.sleep(1)
 ```
 
-同样的，运行`swanlab watch`启动实验看板：
-
-<img alt="hello_world_main2" src="readme_files/hello_world_main2.gif" width=1535>
+- [远程访问实验看板](https://zhuanlan.zhihu.com/p/677224865): 在远程服务器上进行训练时，访问SwanLab实验看板。
 
 <br>
 
-## 🌱 了解更多
+## 协议
 
-- [官方文档](https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home)：完整的 APl 文档与引导。
-- [案例仓库](https://github.com/SwanHubX/SwanLab-examples)：官方代码案例
-
-<br>
-
-## 💬 社区
-
-加入 SwanLab 社区，分享您的想法、建议或问题，并与其他用户和贡献者交流。
-
-WeChat 与 Github 社区入口：
-
-[![PyPI - Downloads](https://img.shields.io/badge/wechat-online-green)](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)[![Discuss on GitHub](https://img.shields.io/badge/discussions-GitHub-333333?logo=github)](https://github.com/SwanHubX/SwanLab/discussions)
-
-<br>
-
-## 版权说明
-
-SwanLab 是 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE)。
+此项目当前的许可证协议是 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).
