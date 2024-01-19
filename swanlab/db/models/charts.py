@@ -29,8 +29,6 @@ class Chart(SwanModel):
             Check(
                 "(project_id IS NULL AND experiment_id IS NOT NULL) OR (project_id IS NOT NULL AND experiment_id IS NULL)"
             ),
-            # index必须大于等于0
-            Check("sort >= 0"),
         ]
 
     id = IntegerField(primary_key=True)
