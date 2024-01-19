@@ -21,7 +21,7 @@ Track and visualize all the pieces of your machine learning pipeline
 </p>
 
 <p align="center">
-English | <a href="README_zh-hans.md">中文</a>
+English | <a href="README.md">中文</a>
 </p>
 
 ## Table of Contents
