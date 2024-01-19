@@ -25,8 +25,8 @@
       </div>
       <TableBar
         class="py-4 px-5 flex-shrink-0"
-        :table-head="column"
-        :table-body="experiments_table"
+        :table-head="tableHead"
+        :table-body="tableBody"
         :searchText="searchText"
         :checked="onlySummary"
         @update:checked="onlySummary = $event"
@@ -196,7 +196,7 @@ const onlySummary = ref(false)
 // 动态修改表头
 const tableHead = computed(() => {
   if (!onlySummary.value) {
-    return [...column.value, ...configs.value, ...tags.value]
+    return [...column.value, ...configs.value, ...(tags.value || [])]
   }
   return [...column.value, ...tags.value]
 })
