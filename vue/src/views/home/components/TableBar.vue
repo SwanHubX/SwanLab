@@ -1,8 +1,16 @@
 <template>
   <div class="w-full flex justify-between items-center">
-    <SLSearch class="max-w-96" :placeholder="$t('experiment.index.header.table-bar.placeholder')"></SLSearch>
+    <SLSearch
+      class="max-w-96"
+      @input="(value) => $emit('update:searchText', value)"
+      :placeholder="$t('experiment.index.header.table-bar.placeholder')"
+    ></SLSearch>
     <div class="flex gap-5 items-center pl-10">
-      <SLCheck :label="$t('experiment.index.header.table-bar.summary')" />
+      <SLCheck
+        :label="$t('experiment.index.header.table-bar.summary')"
+        :checked="checked"
+        @update:checked="$emit('update:checked', $event)"
+      />
       <SLButton
         theme="default"
         class="px-3 py-2 rounded-lg flex items-center gap-2"
@@ -33,8 +41,18 @@ defineProps({
   tableHead: {
     type: Array,
     default: () => []
+  },
+  checked: {
+    type: Boolean,
+    default: false
+  },
+  searchText: {
+    type: String,
+    default: ''
   }
 })
+
+defineEmits(['update:checked', 'update:searchText'])
 
 /**
  * @description 纯前端实现将表格数据导出为csv格式文件
@@ -43,7 +61,6 @@ defineProps({
  * @param {String} fileName 导出的文件名称
  */
 function downloadCsv(header, data, fileName = '导出结果.csv') {
-  console.log(data)
   if (!header || !data || !Array.isArray(header) || !Array.isArray(data) || !header.length || !data.length) {
     return
   }
