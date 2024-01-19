@@ -1,5 +1,8 @@
 from swanlab.db import Experiment
 
-exp = Experiment.create("test", run_id="test", description="test", more={"test": "test"})
+exp = Experiment.create("test-3", run_id="test-3", description="test", more={"test": "test"})
+
+a = exp.__dict__()
+
 
 print(exp.create_time)

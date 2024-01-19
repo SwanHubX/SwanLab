@@ -10,7 +10,9 @@ r"""
 from ..settings import swandb
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField, Check
+from peewee import IntegrityError
 from .projects import Project, DEFAULT_PROJECT_ID
+from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 
 
@@ -66,6 +68,21 @@ class Experiment(SwanModel):
     update_time = CharField(max_length=30, null=False)
     """更新的时间"""
 
+    def __dict__(self):
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "run_id": self.run_id,
+            "name": self.name,
+            "description": self.description,
+            "sort": self.sort,
+            "status": self.status,
+            "show": self.show,
+            "more": self.more,
+            "create_time": self.create_time,
+            "update_time": self.update_time,
+        }
+
     @classmethod
     def create(
         cls,
@@ -96,22 +113,34 @@ class Experiment(SwanModel):
         -------
         Experiment
             新建的实验实例
+
+        Raises
+        -------
+        NotExistedError
+            项目不存在
+        ExistedError
+            实验已经存在
         """
         current_time = create_time()
+        # 检查项目是否存在
+        if not Project.select().where(Project.id == project_id).exists():
+            raise NotExistedError("项目不存在")
+
         # 这个sum是+1以后的值，所以需要-1
         sum = Project.increase_sum(project_id)
         # 自动设置index为sum-1
         sort = sum - 1
         # 调用父类的create方法创建实验实例
-        experiment = super().create(
-            name=name,
-            run_id=run_id,
-            project_id=project_id,
-            description=description,
-            more=cls.dict2json(more),
-            sort=sort,
-            create_time=current_time,
-            update_time=current_time,
-        )
-
-        return experiment
+        try:
+            return super().create(
+                name=name,
+                run_id=run_id,
+                project_id=project_id,
+                description=description,
+                more=cls.dict2json(more),
+                sort=sort,
+                create_time=current_time,
+                update_time=current_time,
+            )
+        except IntegrityError:
+            raise ExistedError("实验已经存在")

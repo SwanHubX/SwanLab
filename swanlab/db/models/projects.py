@@ -51,24 +51,6 @@ class Project(SwanModel):
     """更新时间"""
 
     @classmethod
-    def get(cls, id=DEFAULT_PROJECT_ID) -> "Project":
-        """
-        静态方法
-        获取项目实例
-
-        Parameters
-        ----------
-        id : int, optional
-            项目id，默认为DEFAULT_PROJECT_ID，在单项目模式下，不需要管这个参数
-
-        Returns
-        -------
-        Project:
-            项目实例
-        """
-        return cls.filter(cls.id == id)[0]
-
-    @classmethod
     def init(cls, name="", description=None, more="") -> "Project":
         """
         静态方法
