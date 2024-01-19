@@ -24,7 +24,7 @@
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
       <TableBar
-        class="py-4 px-5 flex-shrink-0"
+        class="pb-4 pt-1 px-5 flex-shrink-0"
         :table-head="tableHead"
         :table-body="tableBody"
         :searchText="searchText"
