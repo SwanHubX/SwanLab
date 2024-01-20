@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center gap-2 cursor-pointer" @click="() => (checked = !checked)">
+  <div class="flex items-center gap-2 cursor-pointer" @click="$emit('update:checked', !checked)">
     <input type="checkbox" class="border w-4 h-4" :checked="checked" />
     <span class="select-none truncate">{{ label }}</span>
   </div>
@@ -11,16 +11,19 @@
  * @file: SLCheck.vue
  * @since: 2024-01-16 18:13:34
  **/
-import { ref } from 'vue'
 
 defineProps({
   label: {
     type: String,
     default: ''
+  },
+  checked: {
+    type: Boolean,
+    default: false
   }
 })
 
-const checked = ref(false)
+defineEmits(['update:checked'])
 </script>
 
 <style lang="scss" scoped></style>

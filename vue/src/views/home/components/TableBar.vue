@@ -1,14 +1,23 @@
 <template>
   <div class="w-full flex justify-between items-center">
-    <SLSearch class="max-w-96" :placeholder="$t('experiment.index.header.table-bar.placeholder')"></SLSearch>
+    <SLSearch
+      class="max-w-[400px]"
+      @input="(value) => $emit('update:searchText', value)"
+      :placeholder="$t('experiment.index.header.table-bar.placeholder')"
+    ></SLSearch>
     <div class="flex gap-5 items-center pl-10">
-      <SLCheck :label="$t('experiment.index.header.table-bar.summary')" />
+      <SLCheck
+        :label="$t('experiment.index.header.table-bar.summary')"
+        :checked="checked"
+        @update:checked="$emit('update:checked', $event)"
+      />
       <SLButton
         theme="default"
         class="px-3 py-2 rounded-lg flex items-center gap-2"
         @click="downloadCsv(tableHead, tableBody)"
+        hollow
       >
-        <SLIcon icon="home" class="w-4 h-4" />
+        <SLIcon icon="download" class="w-4 h-4" />
         <span>{{ $t('experiment.index.header.table-bar.export') }}</span>
       </SLButton>
     </div>
@@ -24,6 +33,7 @@
 import SLCheck from '@swanlab-vue/components/SLCheck.vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
+import { getTimes } from '@swanlab-vue/utils/time'
 
 defineProps({
   tableBody: {
@@ -33,8 +43,18 @@ defineProps({
   tableHead: {
     type: Array,
     default: () => []
+  },
+  checked: {
+    type: Boolean,
+    default: false
+  },
+  searchText: {
+    type: String,
+    default: ''
   }
 })
+
+defineEmits(['update:checked', 'update:searchText'])
 
 /**
  * @description 纯前端实现将表格数据导出为csv格式文件
@@ -42,11 +62,15 @@ defineProps({
  * @param {Array} data 表格数据
  * @param {String} fileName 导出的文件名称
  */
-function downloadCsv(header, data, fileName = '导出结果.csv') {
-  console.log(data)
+function downloadCsv(header, data) {
   if (!header || !data || !Array.isArray(header) || !Array.isArray(data) || !header.length || !data.length) {
     return
   }
+
+  // 拼接文件名
+  let { year, month, day, hour, minute, second } = getTimes(new Date().getTime() - 8 * 60 * 60 * 1000)
+  const fileName = `swanlab_experiments_${year}-${month}-${day}_${hour}-${minute}-${second}.csv`
+
   var csvContent = 'data:text/csv;charset=utf-8,\ufeff'
   // 头部数据，以逗号分隔
   const _header = header.map((h) => h.title).join(',')
