@@ -13,6 +13,7 @@ from peewee import ForeignKeyField, CharField, IntegerField, TextField, Integrit
 from .projects import Project, DEFAULT_PROJECT_ID
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
+from ...utils.package import get_package_version
 
 
 # 定义模型类
@@ -61,6 +62,9 @@ class Experiment(SwanModel):
 
     more = TextField(null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
+
+    version = CharField(max_length=30, null=False)
+    """创建时的版本号"""
 
     create_time = CharField(max_length=30, null=False)
     """创建时间"""
@@ -138,6 +142,7 @@ class Experiment(SwanModel):
                 description=description,
                 more=cls.dict2json(more),
                 sort=sort,
+                version=get_package_version(),
                 create_time=current_time,
                 update_time=current_time,
             )

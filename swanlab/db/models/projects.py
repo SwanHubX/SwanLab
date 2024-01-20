@@ -11,6 +11,7 @@ from ..settings import swandb
 from peewee import CharField, IntegerField
 from ..model import SwanModel
 from ...utils.time import create_time
+from ...utils.package import get_package_version
 
 # 默认的项目id应该是1
 DEFAULT_PROJECT_ID = 1
@@ -45,6 +46,8 @@ class Project(SwanModel):
     """是否已经生成项目级别图表，0 未生成，1 已生成"""
     more = CharField(null=True)
     """更多信息配置，json格式"""
+    version = CharField(max_length=30, null=False)
+    """创建时的版本号"""
     create_time = CharField(max_length=30, null=False)
     """创建时间"""
     update_time = CharField(max_length=30, null=False)
@@ -90,6 +93,7 @@ class Project(SwanModel):
             name=name,
             description=description,
             more=more,
+            version=get_package_version(),
             create_time=create_time(),
             update_time=create_time(),
         )
