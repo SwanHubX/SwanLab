@@ -58,6 +58,7 @@ def cli():
 def watch(log_level: str, **kwargs):
     """Run this command to turn on the swanlab service."""
     # 本质上此模块用于注入环境变量并启动服务
+    # 这里采用的是动态导入，因为路径的检查交由上面的is_valid_root_dir回调函数完成
     start = time.time()
     # 导入必要的模块
     from ..log import swanlog as swl

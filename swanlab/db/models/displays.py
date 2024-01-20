@@ -7,10 +7,8 @@ r"""
 @Description:
     中间表，namespace 和 chart，设计排序和排序可变
 """
-
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn, DatabaseProxy
 from ..error import ExistedError, NotExistedError
 from .charts import Chart
 from .namespaces import Namespace
@@ -21,7 +19,7 @@ class Display(SwanModel):
     """namespace 和 chart，设计排序和排序可变"""
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # chart_id和namespace_id加起来唯一
         indexes = ((("chart_id", "namespace_id"), True),)
         # 写入check约束，sort必须大于等于0

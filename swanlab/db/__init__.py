@@ -8,7 +8,6 @@ r"""
     数据库模型模块，在设计上应该在data模块或者server模块被初始化完毕后导入
     导入之前必须确保文件路径存在，否则会报错
 """
-from .settings import swandb
 from .models import (
     Project,
     Experiment,
@@ -25,10 +24,16 @@ from .error import (
 )
 
 
-swandb.connect()
-# 在连接时提前创建，确保在查询时数据表一定存在
-swandb.create_tables(
-    [
+def connect():
+    """
+    连接数据库，只有调用此方法以后，数据库才会被创建，所有导出的类才可用
+    这样设计的原因是因为路径问题，这里需要动态导入settings
+    """
+    from .settings import swandb
+
+    # 动态绑定数据库
+    swandb.connect()
+    tables = [
         Project,
         Experiment,
         Tag,
@@ -36,6 +41,6 @@ swandb.create_tables(
         Namespace,
         Source,
         Display,
-    ],
-    safe=True,
-)
+    ]
+    swandb.bind(tables)
+    swandb.create_tables(tables)

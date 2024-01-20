@@ -7,8 +7,7 @@ r"""
 @Description:
     项目表，对应于0.1.5之前版本中的 project.json
 """
-from ..settings import swandb
-from peewee import CharField, IntegerField
+from peewee import CharField, IntegerField, DatabaseProxy
 from ..model import SwanModel
 from ...utils.time import create_time
 from ...utils.package import get_package_version
@@ -32,7 +31,7 @@ class Project(SwanModel):
     DEFAULT_PROJECT_ID = 1
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
 
     id = IntegerField(primary_key=True)
     """项目id"""

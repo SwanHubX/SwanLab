@@ -266,7 +266,12 @@ class SwanLabTag:
                 swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                 error = {"data_class": class_name, "excepted": excepted}
         # 添加一条tag记录
-        tag: Tag = Tag.create(experiment_id=self.experiment_id, name=tag)
+        tag: Tag = Tag.create(
+            experiment_id=self.experiment_id,
+            name=tag,
+            # TODO 类型暂时为default
+            type="default",
+        )
         # 添加一条source记录
         Source.create(tag_id=tag.id, chart_id=chart.id, error=error)
 

@@ -7,9 +7,8 @@ r"""
 @Description:
     实验数据表
 """
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check
+from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check, DatabaseProxy
 from .projects import Project
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
@@ -31,7 +30,7 @@ class Experiment(SwanModel):
     """
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # 通过meta规定name和project_id的唯一性
         indexes = ((("name", "project_id"), True), (("sort", "project_id"), True))
         # sort必须大于等于0

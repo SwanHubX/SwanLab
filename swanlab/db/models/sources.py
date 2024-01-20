@@ -7,12 +7,10 @@ r"""
 @Description:
     中间表，多chart多tag
 """
-
-from ..settings import swandb
 from .tags import Tag
 from .charts import Chart
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, DatabaseProxy
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 
@@ -21,7 +19,7 @@ class Source(SwanModel):
     """多chart多tag"""
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # 写入check约束，name和experiment_id加起来唯一
         indexes = ((("tag_id", "chart_id"), True),)
 

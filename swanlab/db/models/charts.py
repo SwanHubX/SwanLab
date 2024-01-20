@@ -7,9 +7,8 @@ r"""
 @Description:
     实验图标表
 """
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy
 from ..error import ExistedError, NotExistedError
 from .experiments import Experiment
 from .projects import Project
@@ -20,7 +19,7 @@ class Chart(SwanModel):
     """chart表，图表在namspace下的排序交由display表处理"""
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # 通过meta规定name和project_id的唯一性
         indexes = ((("name", "experiment_id"), True), (("name", "project_id"), True))
 

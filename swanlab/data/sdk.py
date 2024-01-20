@@ -16,6 +16,7 @@ from .modules import DataType
 from typing import Dict
 from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
+from ..db import Project, connect
 
 
 run: Optional["SwanLabRun"] = None
@@ -81,7 +82,11 @@ def init(
 
     # 初始化环境变量
     init_env()
+    # 连接数据库
+    connect()
 
+    # 初始化项目数据库
+    Project.init("my-awesome-project")
     # 注册实验
     run = register(
         experiment_name=experiment_name,
