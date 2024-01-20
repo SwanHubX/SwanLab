@@ -13,6 +13,7 @@ from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from ..utils import FONT
 from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
+from ..db import connect
 
 
 @click.group()
@@ -64,6 +65,9 @@ def watch(log_level: str, **kwargs):
     from ..log import swanlog as swl
     from ..server import app
     import uvicorn
+
+    # 在此处已经完成了路径的检查，所以可以直接导入
+    connect()
 
     # debug一下当前日志文件夹的位置
     swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(get_swanlog_dir()))

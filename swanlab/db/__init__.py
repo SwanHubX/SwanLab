@@ -17,40 +17,48 @@ from .models import (
     Source,
     Display,
 )
-
+from peewee import SqliteDatabase
 from .error import (
     ExistedError,
     NotExistedError,
 )
+from ..env import get_db_path
 
 
 model_talbes = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
 
+# 判断是否已经binded了
+binded = False
 
-def connect():
+
+def connect() -> SqliteDatabase:
     """
     连接数据库，只有调用此方法以后，数据库才会被创建，所有导出的类才可用
     这样设计的原因是因为路径问题，这里需要动态导入settings
+    第一次调用此方法时会创建数据库，返回None，以后调用此方法会返回数据库实例，通过其自身的`connect`方法连接数据库
+    完成复杂的数据库操作后，需要调用其`close`方法关闭数据库连接
 
     Return:
     -------
     swandb :
         数据库实例
     """
-    from .settings import swandb
-
-    # 动态绑定数据库
-    swandb.connect()
-    tables = [
-        Project,
-        Experiment,
-        Tag,
-        Chart,
-        Namespace,
-        Source,
-        Display,
-    ]
-    swandb.bind(tables)
-    swandb.create_tables(tables)
-
+    global binded
+    swandb = SqliteDatabase(get_db_path())
+    if not binded:
+        # 动态绑定数据库
+        swandb.connect()
+        tables = [
+            Project,
+            Experiment,
+            Tag,
+            Chart,
+            Namespace,
+            Source,
+            Display,
+        ]
+        swandb.bind(tables)
+        swandb.create_tables(tables)
+        swandb.close()
+        binded = True
     return swandb

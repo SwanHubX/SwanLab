@@ -14,6 +14,7 @@ __pycache__/
 .swanlab/
 test/*
 !test/db/
+!test/_server.py
 
 # C extensions
 *.so

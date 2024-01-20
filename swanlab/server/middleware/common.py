@@ -17,8 +17,6 @@ from ...log import swanlog as swl
 from ...utils import get_package_version
 from ...db import connect
 
-binded = False
-
 version = get_package_version()
 
 # 响应路径
@@ -95,16 +93,6 @@ async def resp_params(request: Request, call_next):
     if not request.url.path.startswith("/api"):
         # 如果不是请求api，直接返回
         return await call_next(request)
-    # print("请求api")
-    # 在此之前，挂载数据库
-    global binded
-    if not binded:
-        try:
-            connect()
-            binded = True
-        except:
-            pass
-
     resp = await call_next(request)
     # 拿到状态码
     status = resp.status_code
