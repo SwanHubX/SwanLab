@@ -144,4 +144,4 @@ class Chart(SwanModel):
                 update_time=current_time,
             )
         except IntegrityError:
-            raise ExistedError("图标已存在")
+            raise ExistedError("图表已存在")

@@ -11,6 +11,9 @@ from ...db import (
     Project,
     Experiment,
     Tag,
+    Chart,
+    Namespace,
+    Display,
 )
 from ...db import (
     ExistedError,
