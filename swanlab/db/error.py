@@ -43,3 +43,9 @@ class ForeignProNotExistedError(NotExistedError):
     """项目外键不存在"""
 
     pass
+
+
+class ParameterError(Exception):
+    """参数错误"""
+
+    pass

@@ -93,17 +93,12 @@ class Display(SwanModel):
 
         # 如果sort为None，则自动添加到最后
         if sort is None:
-            max_sort = cls.select(fn.MAX(cls.sort)).scalar()
-            if max_sort or max_sort == 0:
-                sort = max_sort + 1
-            else:
-                sort = 0
-        elif sort >= 0:
-            # 先判断当前 sort 是否存在
-            if cls.filter(cls.sort == sort).exists():
-                cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
-        else:
-            raise ValueError("命名空间索引必须大于等于0")
+            # 获取当前namespace下的最大索引,如果没有，则为0
+            sort = cls.select(fn.Max(cls.sort)).where(cls.namespace_id == namespace_id).scalar()
+            sort = 0 if sort is None else sort + 1
+        elif sort >= 0 and cls.filter(cls.sort == sort).exists():
+            # 先判断当前 sort 是否存在，如果存在，则将大于等于 sort 的索引加1，这样可以直接将数据插入
+            cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
 
         current_time = create_time()
 
