@@ -68,7 +68,10 @@ class SwanConfig(Mapping):
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
         with get_a_lock(self.__settings.config_path, "w") as f:
-            yaml.dump(self.__config, f)
+            # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
+            # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
+            config = {key: {"desc": None, "value": value} for key, value in self.__config.items()}
+            yaml.dump(config, f)
 
 
 class SwanLabRun:
