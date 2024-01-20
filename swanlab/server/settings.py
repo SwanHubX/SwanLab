@@ -41,6 +41,8 @@ REQUIREMENTS = "requirements.txt"
 DB_NAME = "runs.swanlab"
 # 数据库路径
 DB_PATH = os.path.join(SWANLOG_DIR, DB_NAME)
+# 实验配置
+EXPERIMENT_CONFIG = "config.yaml"
 
 
 def get_exp_dir(name) -> str:
@@ -56,6 +58,11 @@ def get_logs_dir(name) -> str:
 def get_files_dir(name) -> str:
     """files 目录路径"""
     return os.path.join(SWANLOG_DIR, name, FILES)
+
+
+def get_config_path(name) -> str:
+    """实验配置存储路径"""
+    return os.path.join(get_files_dir(name), EXPERIMENT_CONFIG)
 
 
 def get_meta_path(name) -> str:
