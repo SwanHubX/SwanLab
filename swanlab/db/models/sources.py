@@ -10,7 +10,7 @@ r"""
 from .tags import Tag
 from .charts import Chart
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, DatabaseProxy
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, DatabaseProxy, fn
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 
@@ -58,6 +58,7 @@ class Source(SwanModel):
         tag_id: int,
         chart_id: int,
         error: dict = None,
+        sort: int = None,
         more: dict = None,
     ) -> "Source":
         """添加行数据
@@ -68,9 +69,11 @@ class Source(SwanModel):
             对应的tag_id
         chart_id : int
             对应的chart_id
-        error : str
-            对应的错误信息
-        more : str
+        error : str, optional
+            对应的错误信息, 默认为None
+        sort : int, optional
+            排序索引，索引越小，排序越靠前，索引>=0，如果为None，则自动加到最后
+        more : str, optional
             更多信息，json格式
 
         Raises
@@ -87,6 +90,14 @@ class Source(SwanModel):
         if not Chart.filter(Chart.id == chart_id).exists():
             raise NotExistedError("chart不存在")
 
+        # 如果sort为None，则自动添加到最后
+        if sort is None:
+            sort = Source.select(fn.Max(Source.sort)).where(Source.chart_id == chart_id).scalar()
+            sort = sort + 1 if sort is not None else 0
+        else:
+            # 如果sort不为None，则检查当前chart下的sort是否存在，如果存在，则把sort大于等于sort的索引+1
+            cls.update(sort=sort + 1).where(cls.chart_id == chart_id, cls.sort >= sort).execute()
+
         current_time = create_time()
 
         try:
@@ -97,6 +108,7 @@ class Source(SwanModel):
                 more=cls.dict2json(more),
                 create_time=current_time,
                 update_time=current_time,
+                sort=sort,
             )
         except IntegrityError:
             raise ExistedError("source对应关系已存在")

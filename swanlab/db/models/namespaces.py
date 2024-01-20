@@ -122,19 +122,20 @@ class Namespace(SwanModel):
         if project_id and not Project.filter(Project.id == project_id).exists():
             raise NotExistedError("项目不存在")
 
-        # 如果sort为None，则自动添加到最后
         if sort is None:
-            max_sort = cls.select(fn.MAX(cls.sort)).scalar()
-            if max_sort or max_sort == 0:
-                sort = max_sort + 1
+            # 如果没有指定sort，那么就自动添加到最后
+            # 寻找当前实验/项目下的最大索引，如果实验存在就在实验下找，如果实验不存在就在项目下找
+            if experiment_id is not None:
+                sort = cls.select(fn.Max(cls.sort)).where(cls.experiment_id == experiment_id).scalar()
             else:
-                sort = 0
+                sort = cls.select(fn.Max(cls.sort)).where(cls.project_id == project_id).scalar()
+            sort = 0 if sort is None else sort + 1
         elif sort >= 0:
-            # 先判断当前 sort 是否存在
-            if cls.filter(cls.sort == sort).exists():
-                cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
-        else:
-            raise ValueError("命名空间索引必须大于等于0")
+            # 如果指定了sort，那么将会把其他sort大于等于指定值的命名空间索引+1
+            if experiment_id is not None:
+                cls.update(sort=cls.sort + 1).where(cls.experiment_id == experiment_id, cls.sort >= sort).execute()
+            else:
+                cls.update(sort=cls.sort + 1).where(cls.project_id == project_id, cls.sort >= sort).execute()
 
         current_time = create_time()
 

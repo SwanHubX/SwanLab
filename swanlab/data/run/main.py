@@ -65,7 +65,7 @@ class SwanConfig(Mapping):
 
     def __save(self):
         """
-        保存config为json，不必校验config的JSON格式，将在写入时完成校验
+        保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
         with get_a_lock(self.__settings.config_path, "w") as f:
             yaml.dump(self.__config, f)
