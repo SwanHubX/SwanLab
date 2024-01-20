@@ -15,6 +15,7 @@ from fastapi import Request
 from urllib.parse import unquote
 from ..settings import get_logs_dir, get_tag_dir, get_files_dir
 from ...utils import get_a_lock
+from ...utils.file import check_desc_format
 import yaml
 from ...db import (
     Project,
@@ -57,9 +58,10 @@ def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             # 将其中的 project_id 字段去除
             experiment.pop("project_id")
             # 检查配置文件是否存在
-            if os.path.exists(get_files_dir(experiment["run_id"]), "config.yaml"):
+            config_path = os.path.join(get_files_dir(experiment["run_id"]), "config.yaml")
+            if os.path.exists(config_path):
                 # 加载config字段
-                with get_a_lock(os.path.join(get_files_dir(experiment["run_id"]), "config.yaml")) as f:
+                with get_a_lock(config_path) as f:
                     experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
         return SUCCESS_200(data)
     except Exception as e:
@@ -139,6 +141,24 @@ async def update_project_info(request: Request, project_id: int = DEFAULT_PROJEC
     """
 
     body = await request.json()
-    print(project_id)
 
-    print(body)
+    # 检查格式
+    body["description"] = check_desc_format(body["description"], False)
+
+    project = Project.filter(Project.id == project_id).first()
+    dict_project = project.__dict__()
+
+    # 检查名字
+    if "name" in dict_project and dict_project["name"] == body["name"]:
+        pass
+    else:
+        project.name = body["name"]
+
+    # 检查描述
+    if "description" in dict_project and dict_project["description"] == body["description"]:
+        pass
+    else:
+        project.description = body["description"]
+
+    project.save()
+    return SUCCESS_200({"project": project.__dict__()})
