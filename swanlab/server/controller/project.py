@@ -14,7 +14,14 @@ import shutil
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
 from urllib.parse import unquote
-from ..settings import get_logs_dir, get_tag_dir, get_files_dir, get_exp_dir, DB_PATH
+from ..settings import (
+    get_logs_dir,
+    get_tag_dir,
+    get_files_dir,
+    get_exp_dir,
+    DB_PATH,
+    get_config_path,
+)
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 import yaml
@@ -67,7 +74,7 @@ def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             # 将其中的 project_id 字段去除
             experiment.pop("project_id")
             # 检查配置文件是否存在
-            config_path = os.path.join(get_files_dir(experiment["run_id"]), "config.yaml")
+            config_path = get_config_path(experiment["run_id"])
             if os.path.exists(config_path):
                 # 加载config字段
                 with get_a_lock(config_path) as f:
