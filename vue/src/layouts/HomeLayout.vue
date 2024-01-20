@@ -48,7 +48,7 @@ const isSideBarShow = inject('isSideBarShow')
 
 const modifyProject = async (newV, hideModal) => {
   const { data } = await http.patch('/project/update', newV)
-  projectStore.setProject(data.project)
+  projectStore.updateInfo(data.updates)
   hideModal()
 }
 

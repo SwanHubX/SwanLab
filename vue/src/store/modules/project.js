@@ -18,6 +18,15 @@ export const useProjectStore = defineStore('project', () => {
     project.value = p
   }
   /**
+   * 修改项目信息
+   * @param {string} name 项目名称
+   * @param {string} description 项目描述
+   */
+  const updateInfo = ({ name, description }) => {
+    project.value.name = name
+    project.value.description = description
+  }
+  /**
    * 清空 project
    */
   const clearProject = () => {
@@ -65,6 +74,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
+    updateInfo,
     clearProject,
     setExperimentStatus,
     setExperimentInfo

@@ -146,7 +146,9 @@ async def update_project_info(request: Request, project_id: int = DEFAULT_PROJEC
     Returns
     -------
     dict
-        修改后完整的 Project 信息
+        新项目信息
+        - name
+        - description
     """
 
     body = await request.json()
@@ -170,7 +172,7 @@ async def update_project_info(request: Request, project_id: int = DEFAULT_PROJEC
         project.description = body["description"]
 
     project.save()
-    return SUCCESS_200({"project": project.__dict__()})
+    return SUCCESS_200({"updates": body})
 
 
 # 删除项目

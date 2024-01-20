@@ -54,7 +54,9 @@ async def _(request: Request, project_id: int = None):
     Returns
     -------
     dict
-        修改后完整的 Project 信息
+        修改后的项目信息
+        - name
+        - description
     """
 
     if project_id is None:
