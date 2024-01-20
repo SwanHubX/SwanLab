@@ -76,7 +76,7 @@ def init(
         try:
             os.makedirs(logdir, exist_ok=True)
             if not os.access(logdir, os.W_OK):
-                raise IOError
+                raise IyOError
         except:
             raise IOError("logdir must have Write permission.")
 
@@ -86,7 +86,7 @@ def init(
     connect()
 
     # 初始化项目数据库
-    Project.init("my-awesome-project")
+    Project.init(os.path.dirname(os.getcwd()))
     # 注册实验
     run = register(
         experiment_name=experiment_name,

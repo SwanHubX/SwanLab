@@ -15,7 +15,7 @@
       <!-- 实验列表 -->
       <RouterLink
         v-for="experiment in experiments"
-        :key="experiment.experiment_id"
+        :key="experiment.id"
         :to="getExperimentRouter(experiment)"
         :title="experiment.name"
         class="flex-shrink-0"
@@ -46,7 +46,7 @@ import { useProjectStore } from '@swanlab-vue/store'
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
 const getExperimentRouter = (experiment) => {
-  return `/experiment/${experiment.experiment_id}`
+  return `/experiment/${experiment.id}`
 }
 
 // ---------------------------------- 搜索实验 ----------------------------------

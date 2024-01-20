@@ -48,15 +48,6 @@ def connect() -> SqliteDatabase:
     if not binded:
         # 动态绑定数据库
         swandb.connect()
-        tables = [
-            Project,
-            Experiment,
-            Tag,
-            Chart,
-            Namespace,
-            Source,
-            Display,
-        ]
         swandb.bind(tables)
         swandb.create_tables(tables)
         swandb.close()
