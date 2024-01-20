@@ -25,7 +25,7 @@ from .error import (
 from ..env import get_db_path
 
 
-model_talbes = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
+tables = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
 
 # 判断是否已经binded了
 binded = False
@@ -44,6 +44,7 @@ def connect() -> SqliteDatabase:
         数据库实例
     """
     global binded
+    global tables
     swandb = SqliteDatabase(get_db_path())
     if not binded:
         # 动态绑定数据库
