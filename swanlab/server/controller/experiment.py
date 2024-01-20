@@ -27,7 +27,7 @@ from ...utils.file import check_desc_format
 import yaml
 
 from ...db import (
-    model_talbes,
+    tables,
     connect,
 )
 

@@ -27,7 +27,7 @@ from ...utils.file import check_desc_format
 import yaml
 
 from ...db import (
-    model_talbes,
+    tables,
     connect,
 )
 
@@ -211,11 +211,12 @@ async def delete_project(project_id: int = DEFAULT_PROJECT_ID):
             shutil.rmtree(exp_path)
 
     # 清空数据库
-    from ...db.settings import swandb as db
+    from ...db import connect
 
+    db = connect()
     try:
         with db.atomic():
-            for table in model_talbes:
+            for table in tables:
                 table.drop_table()
         db.commit()
     except Exception as e:
