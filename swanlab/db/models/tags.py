@@ -36,6 +36,8 @@ class Tag(SwanModel):
     """tag对应的实验id，代表这个tag由谁创建"""
     name = CharField(max_length=255, null=False)
     """tag名称，同一个实验下，tag名称不能重复"""
+    type = CharField(max_length=10, null=False)
+    """tag的类型"""
     description = CharField(max_length=100, null=True)
     """tag的描述，可为空"""
     system = IntegerField(default=0, choices=[0, 1])
@@ -64,6 +66,7 @@ class Tag(SwanModel):
         cls,
         experiment_id: int,
         name: str,
+        type: str,
         description="",
         system: int = 0,
         more: dict = None,
@@ -104,6 +107,7 @@ class Tag(SwanModel):
             return super().create(
                 experiment_id=experiment_id,
                 name=name,
+                type=type,
                 description=description,
                 system=system,
                 more=more,
