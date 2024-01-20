@@ -9,11 +9,10 @@ r"""
 """
 from ...utils.file import check_tag_format, get_a_lock, check_exp_name_format, check_desc_format
 from ...utils import get_package_version, create_time, generate_color
+import datetime
 
 
 def json_serializable(obj: dict):
-    import datetime
-
     """
     Convert an object into a JSON-serializable format.
     """
