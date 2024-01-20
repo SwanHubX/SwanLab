@@ -20,7 +20,3 @@ from ...db import (
     ExistedError,
     NotExistedError,
 )
-
-
-# 初始化项目数据库
-Project.init("my-awesome-project")

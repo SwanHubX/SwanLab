@@ -7,9 +7,8 @@ r"""
 @Description:
     实验 tag 表
 """
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError
+from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError, DatabaseProxy
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 from .experiments import Experiment
@@ -25,7 +24,7 @@ class Tag(SwanModel):
     """
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # 写入check约束，name和experiment_id加起来唯一
         indexes = ((("name", "experiment_id"), True),)
 
@@ -79,6 +78,8 @@ class Tag(SwanModel):
             这将成为tag数据的外键，指向实验表中的某一条实验数据
         name : str
             tag的名称，字符串类型，小于255个字符
+        type : str
+            tag的类型，字符串类型，小于10个字符
         description : str, optional
             tag的描述，字符串类型，小于100个字符, 默认为空字符串
         system : int, optional

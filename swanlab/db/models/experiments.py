@@ -7,10 +7,9 @@ r"""
 @Description:
     实验数据表
 """
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check
-from .projects import Project, DEFAULT_PROJECT_ID
+from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check, DatabaseProxy
+from .projects import Project
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 from ...utils.package import get_package_version
@@ -31,7 +30,7 @@ class Experiment(SwanModel):
     """
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
         # 通过meta规定name和project_id的唯一性
         indexes = ((("name", "project_id"), True), (("sort", "project_id"), True))
         # sort必须大于等于0
@@ -92,7 +91,7 @@ class Experiment(SwanModel):
         name: str,
         run_id: str,
         description: str = None,
-        project_id: int = DEFAULT_PROJECT_ID,
+        project_id: int = Project.DEFAULT_PROJECT_ID,
         more: dict = None,
     ) -> "Experiment":
         """覆写继承的create方法，创建一个新的实验

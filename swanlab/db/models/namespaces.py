@@ -7,10 +7,8 @@ r"""
 @Description:
     实验表格命名空间：一个实验/项目下可以有多个命名空间
 """
-
-from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn, DatabaseProxy
 from ..error import ExistedError, NotExistedError
 from .experiments import Experiment
 from .projects import Project
@@ -27,7 +25,7 @@ class Namespace(SwanModel):
     """
 
     class Meta:
-        database = swandb
+        database = DatabaseProxy()
 
         """
         name 和 experiment_id 和 project_id 组合后需要确保唯一性
