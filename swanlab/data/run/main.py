@@ -26,6 +26,7 @@ import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
+import argparse
 
 
 class SwanConfig(Mapping):
@@ -308,6 +309,8 @@ class SwanLabRun:
             return {}
         # config必须可以被json序列化
         try:
+            if isinstance(config, argparse.Namespace):
+                config = vars(config)
             check_config = ujson.dumps(json_serializable(dict(config)))
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
