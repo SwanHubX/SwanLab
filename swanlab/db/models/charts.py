@@ -39,7 +39,7 @@ class Chart(SwanModel):
     """外键，关联的项目id，与experiment_id只有一个为NULL"""
     name = CharField(max_length=100, null=False)
     """图表名称"""
-    description = CharField(max_length=255)
+    description = CharField(max_length=255, null=True)
     """图表描述，可为空"""
     system = IntegerField(default=1, choices=[-1, 0, 1])
     """是否为创建tag时自动生成的图表，-1: 删除的自动生成的图表，0: 否，1: 是，系统图表不可删除，只能改为-1"""
@@ -76,7 +76,7 @@ class Chart(SwanModel):
     def create(
         cls,
         name: str,
-        description: str,
+        description: str = None,
         experiment_id: int = None,
         project_id: int = None,
         system: int = 1,

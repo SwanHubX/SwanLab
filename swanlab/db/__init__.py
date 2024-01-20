@@ -6,6 +6,7 @@ r"""
 @IDE: vscode
 @Description:
     数据库模型模块，在设计上应该在data模块或者server模块被初始化完毕后导入
+    导入之前必须确保文件路径存在，否则会报错
 """
 from .settings import swandb
 from .models import (
