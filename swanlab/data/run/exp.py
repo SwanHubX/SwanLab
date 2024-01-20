@@ -7,7 +7,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from .db import Tag, Experiment
+from .db import Tag, Namespace, Chart, Experiment, Display, ExistedError
 
 
 class SwanLabExp:
@@ -34,9 +34,11 @@ class SwanLabExp:
         # 当前实验的所有tag数据字段
         self.tags: Dict[str, SwanLabTag] = {}
         self.id = id
+        """此实验对应的id，实际上就是db.id"""
         self.db = exp
+        """此实验对应的数据库实例"""
 
-    def add(self, tag: str, data: DataType, step: int = None):
+    def add(self, key: str, data: DataType, step: int = None):
         """记录一条新的tag数据
 
         Parameters
@@ -52,24 +54,27 @@ class SwanLabExp:
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
-        key = tag
         tag = check_tag_format(key, auto_cut=True)
         if key != tag:
             # 超过255字符，截断
             swanlog.warning(f"Tag {key} is too long, cut to 255 characters.")
 
+        # 如果是swanlab自定义的数据类型，注入settings，方便在类内部使用
         if isinstance(data, BaseType):
-            # 注入一些内容
             data.settings = self.settings
+        # 判断tag是否存在，如果不存在则创建tag
         tag_obj = self.tags.get(tag)
+        """
+        数据库创建字段将在chart创建完成后进行
+        无论格式是否正确，都会创建chart，但是如果格式不正确，不会写入日志
+        """
         if tag_obj is None:
-            # 添加tag,同时添加图表
-            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir, self.settings.chart_path)
+            # 将此tag对象添加到实验列表中
             self.tags[tag] = tag_obj
             """
             由于添加图表的同时会尝试转换data的类型，但这在注入step之前
             所以此处需要手动注入依赖
-            关于step，如果step格式不正确，会在add的时候被拦截，此处如果格式不正确直接设置为1即可
+            关于step，如果step格式不正确，会在tag_obj.add的时候被拦截，此处如果格式不正确直接设置为1即可
             """
             if isinstance(data, BaseType):
                 data.step = 1 if step is None or not isinstance(step, int) else step
@@ -90,20 +95,24 @@ class SwanLabTag:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, experiment_id, tag: str, log_dir: str, chart_path: str) -> None:
+    def __init__(self, experiment_id, tag: str, log_dir: str) -> None:
         self.experiment_id = experiment_id
         self.tag = tag
         self.__steps = set()
-        # 当前tag的图表配置
+        """此tag已经包含的steps步骤
+        """
         self.__chart = None
+        """当前tag的图表配置"""
         self.__log_dir = log_dir
-        self.__chart_path = chart_path
-        # 默认数据类型
+        """存储文件夹路径"""
         self.data_types = [float, int]
-        # summary 数据概要总结
+        """默认数据类型，如果tag数据为BaseType的子类，则使用其规定的数据类型"""
         self._summary = {}
-        # 当前tag的存储数据
+        """数据概要总结"""
         self.__data = self.__new_tags()
+        """当前tag的数据"""
+        self.namespace = None
+        """当前tag自动生成图表的命名空间"""
 
     @property
     def sum(self):
@@ -189,7 +198,40 @@ class SwanLabTag:
         return path
 
     def create_chart(self, tag: str, data: DataType):
-        """创建图表，图表可能会创建失败"""
+        """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
+        此方法只能执行一次
+        具体步骤是：
+        1. 创建tag字段
+        2. 如果不是baseType类型，
+
+        """
+        if self.namespace is not None:
+            raise ValueError(f"Chart {tag} has been created, cannot create again.")
+
+        # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
+        if not isinstance(data, BaseType):
+            # data_type不变
+            namespace, chart_type, reference, config = "default", "default", "step", None
+            sort = 0
+        else:
+            # 解构数据
+            namespace, types, reference, config = data.__next__()
+            chart_type, self.data_types = types
+            sort = None
+        # 创建chart
+        chart = Chart.create(
+            tag,
+            experiment_id=self.experiment_id,
+            type=chart_type,
+            reference=reference,
+            config=config,
+        )
+        # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
+        try:
+            Namespace.create(namespace, self.experiment_id)
+        except:
+            pass
+
         with get_a_lock(self.__chart_path) as f:
             charts = ujson.load(f)
             # 记录图表数量，+1
@@ -272,7 +314,8 @@ class SwanLabTag:
             "create_time": create_time(),
         }
 
-    def __new_tags(self) -> dict:
+    @staticmethod
+    def __new_tags() -> dict:
         """创建一个新的tag data数据集合
 
         Returns

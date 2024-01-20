@@ -189,7 +189,7 @@ class SwanLabRun:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            self.__exp.add(key, d, step=step)
+            self.__exp.add(key=key, data=d, step=step)
 
     def success(self):
         """标记实验成功"""

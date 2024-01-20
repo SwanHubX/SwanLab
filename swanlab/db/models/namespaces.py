@@ -102,7 +102,8 @@ class Namespace(SwanModel):
         description : str, optional
             命名空间描述, 默认为""
         sort : int, optional
-            命名空间索引, 如果传入的index为-1，则会自动在原本的基础上加1，如果为None，则会自动设置为0
+            命名空间索引, >=0, 越小排在越前面，默认为None，自动添加到最后
+            如果指定了sort，那么将会把其他sort大于等于指定值的命名空间索引+1
 
         Returns
         -------
