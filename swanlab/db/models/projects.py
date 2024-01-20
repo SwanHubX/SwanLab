@@ -12,9 +12,6 @@ from peewee import CharField, IntegerField
 from ..model import SwanModel
 from ...utils.time import create_time
 
-# 默认的项目id应该是1
-DEFAULT_PROJECT_ID = 1
-
 
 class Project(SwanModel):
     """项目表
@@ -29,6 +26,9 @@ class Project(SwanModel):
     namespaces: list of Namespace
         由 Namespace 表中外键反链接生成的命名空间数据列表
     """
+
+    # 默认的项目id应该是1
+    DEFAULT_PROJECT_ID = 1
 
     class Meta:
         database = swandb
@@ -84,7 +84,7 @@ class Project(SwanModel):
         """
         # 如果已经初始化，则不创建，直接返回第一条数据实例
         if cls.select().count() >= 1:
-            return cls.filter(cls.id == DEFAULT_PROJECT_ID)[0]
+            return cls.filter(cls.id == cls.DEFAULT_PROJECT_ID)[0]
         # 创建项目
         return cls.create(
             name=name,
