@@ -11,6 +11,7 @@ r"""
 import os
 import ujson
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
+from fastapi import Request
 from urllib.parse import unquote
 from ..settings import get_logs_dir, get_tag_dir, get_files_dir
 from ...utils import get_a_lock
@@ -64,7 +65,7 @@ def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
 
 
 # 获取项目总结信息
-def get_project_summary(project_id: int = 1) -> dict:
+def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     """
     获取项目下所有实验的总结信息
 
@@ -90,7 +91,6 @@ def get_project_summary(project_id: int = 1) -> dict:
         for experiment in __to_list(experiments)
     ]
     ids = [item["id"] for item in exprs]
-    run_ids = [item["run_id"] for item in exprs]
 
     # 根据 id 列表找到所有的 tag，提出不含重复 tag 名的元组
     tags = Tag.filter(Tag.experiment_id.in_(ids))
@@ -117,3 +117,26 @@ def get_project_summary(project_id: int = 1) -> dict:
                     continue
         data[expr["name"]] = experiment_summaries
     return SUCCESS_200({"tags": tag_names, "summaries": data})
+
+
+# 修改项目信息
+async def update_project_info(request: Request, project_id: int = DEFAULT_PROJECT_ID) -> dict:
+    """修改项目信息
+    - 项目名
+    - 项目描述
+
+    Parameters
+    ----------
+    project_id : int, optional
+        默认为 DEFAULT_PROJECT_ID
+
+    Returns
+    -------
+    dict
+        修改后完整的 Project 信息
+    """
+
+    body = await request.json()
+    print(project_id)
+
+    print(body)
