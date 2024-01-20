@@ -8,7 +8,7 @@ r"""
     每次一个个添加数据太麻烦了，写一个统筹的东西
 """
 
-from swanlab.db.settings import swandb
+from swanlab.db import connect
 from swanlab.db import (
     Project,
     Experiment,
@@ -19,6 +19,7 @@ from swanlab.db import (
     Source,
 )
 
+swandb = connect()
 
 with swandb.atomic():
     Project.init()

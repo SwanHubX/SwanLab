@@ -11,6 +11,7 @@ r"""
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from ..utils import get_package_version
+from ..db import connect
 
 from .middleware.common import (
     resp_base,
@@ -83,6 +84,8 @@ async def _(*args, **kwargs):
 
 # ---------------------------------- 在此处注册相关路由 ----------------------------------
 
+# 连接数据库
+connect()
 
 # 导入数据相关的路由
 from .routes.experiment import router as experiment

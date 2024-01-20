@@ -28,6 +28,11 @@ def connect():
     """
     连接数据库，只有调用此方法以后，数据库才会被创建，所有导出的类才可用
     这样设计的原因是因为路径问题，这里需要动态导入settings
+
+    Return:
+    -------
+    swandb :
+        数据库实例
     """
     from .settings import swandb
 
@@ -44,3 +49,5 @@ def connect():
     ]
     swandb.bind(tables)
     swandb.create_tables(tables)
+
+    return swandb
