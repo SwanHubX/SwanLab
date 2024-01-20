@@ -93,7 +93,7 @@ def get_project_summary(project_id: int = 1) -> dict:
     tag_names = list(set(unquote(tag["name"]) for tag in __to_list(tags)))
 
     # 所有总结数据
-    data = []
+    data = {}
     # 第一层循环对应实验层，每次探寻一个实验
     for expr in exprs:
         logs_path: str = get_logs_dir(expr["run_id"])
@@ -111,6 +111,5 @@ def get_project_summary(project_id: int = 1) -> dict:
                 except Exception as e:
                     print(f"[expr: {expr['name']} - {tag}] --- {e}")
                     continue
-                print(experiment_summaries)
         data[expr["name"]] = experiment_summaries
     return SUCCESS_200({"tags": tag_names, "summaries": data})
