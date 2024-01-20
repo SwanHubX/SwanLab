@@ -15,6 +15,9 @@ import time
 from ..module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
 from ...log import swanlog as swl
 from ...utils import get_package_version
+from ...db import connect
+
+binded = False
 
 version = get_package_version()
 
@@ -77,7 +80,7 @@ async def log_print(request: Request, call_next):
     swl.debug("[" + request.method + "] from " + request.base_url._url)
     resp = await call_next(request)
     # 拿到状态码
-    status = str(resp.status_code)
+    # status = str(resp.status_code)
     if not request.url.path.startswith("/api"):
         # 如果不是请求api，直接返回
         swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
@@ -93,6 +96,15 @@ async def resp_params(request: Request, call_next):
         # 如果不是请求api，直接返回
         return await call_next(request)
     # print("请求api")
+    # 在此之前，挂载数据库
+    global binded
+    if not binded:
+        try:
+            connect()
+            binded = True
+        except:
+            pass
+
     resp = await call_next(request)
     # 拿到状态码
     status = resp.status_code

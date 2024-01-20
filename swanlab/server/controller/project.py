@@ -20,16 +20,13 @@ from ...db import (
     Tag,
 )
 
-__to_dict = Project.search2dict
 __to_list = Project.search2list
 
 
 # ---------------------------------- 通用 ----------------------------------
 
 # 默认项目 id
-DEFAULT_PROJECT_ID = 1
-# 默认项目的实例
-default_project = Project().filter(Project.id == DEFAULT_PROJECT_ID).first()
+DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
@@ -53,7 +50,7 @@ def get_experiments_list(project_id: int = 1) -> dict:
     try:
         project = Project.filter(Project.id == project_id).first()
         data = project.__dict__()
-        data["experiments"] = __to_dict(project.experiments)
+        data["experiments"] = __to_list(project.experiments)
         return SUCCESS_200(data)
     except Exception as e:
         return DATA_ERROR_500(f"Get list experiments failed: {e}")
