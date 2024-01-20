@@ -31,3 +31,15 @@ class NotExistedError(Exception):
     """
 
     pass
+
+
+class ForeignExpNotExistedError(NotExistedError):
+    """实验外键不存在"""
+
+    pass
+
+
+class ForeignProNotExistedError(NotExistedError):
+    """项目外键不存在"""
+
+    pass

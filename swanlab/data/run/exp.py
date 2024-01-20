@@ -7,7 +7,15 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from .db import Tag, Namespace, Chart, Experiment, Display, ExistedError
+from .db import (
+    Tag,
+    Namespace,
+    Chart,
+    Source,
+    Experiment,
+    Display,
+    ExistedError,
+)
 
 
 class SwanLabExp:
@@ -70,6 +78,7 @@ class SwanLabExp:
         """
         if tag_obj is None:
             # 将此tag对象添加到实验列表中
+            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir)
             self.tags[tag] = tag_obj
             """
             由于添加图表的同时会尝试转换data的类型，但这在注入step之前
@@ -80,6 +89,7 @@ class SwanLabExp:
                 data.step = 1 if step is None or not isinstance(step, int) else step
                 data.tag = tag_obj.tag
             tag_obj.create_chart(tag, data)
+        # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
@@ -111,11 +121,14 @@ class SwanLabTag:
         """数据概要总结"""
         self.__data = self.__new_tags()
         """当前tag的数据"""
-        self.namespace = None
+        self.__namespace = None
         """当前tag自动生成图表的命名空间"""
+        self.__error = None
+        """此tag在自动生成chart的时候的错误信息"""
 
     @property
     def sum(self):
+        """当前tag的数据总数"""
         return len(self.__steps)
 
     @property
@@ -125,7 +138,7 @@ class SwanLabTag:
         为True则一切正常
         为False则tag对应的路径不存在
         """
-        return self.__chart.get("error") is None
+        return self.__error is None
 
     def add(self, data: DataType, step: int = None):
         """添加一个数据，在内部完成数据类型转换
@@ -162,9 +175,6 @@ class SwanLabTag:
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
         # ---------------------------------- 保存数据 ----------------------------------
-        self.__add_data(data, step)
-
-    def __add_data(self, data, step: int):
         """添加数据到data中"""
         if len(self.__data["data"]) >= self.__slice_size:
             # 如果当前数据已经达到了__slice_size，重新创建一个新的data
@@ -205,7 +215,7 @@ class SwanLabTag:
         2. 如果不是baseType类型，
 
         """
-        if self.namespace is not None:
+        if self.__namespace is not None:
             raise ValueError(f"Chart {tag} has been created, cannot create again.")
 
         # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
@@ -219,7 +229,7 @@ class SwanLabTag:
             chart_type, self.data_types = types
             sort = None
         # 创建chart
-        chart = Chart.create(
+        chart: Chart = Chart.create(
             tag,
             experiment_id=self.experiment_id,
             type=chart_type,
@@ -227,84 +237,38 @@ class SwanLabTag:
             config=config,
         )
         # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
+        # 需要指定sort，default命名空间的sort为0，其他命名空间的sort为None，表示默认添加到最后
         try:
-            Namespace.create(namespace, self.experiment_id)
-        except:
-            pass
-
-        with get_a_lock(self.__chart_path) as f:
-            charts = ujson.load(f)
-            # 记录图表数量，+1
-            charts["_sum"] += 1
-            chart = self.__new_chart(charts["_sum"], self.experiment_id)
-            # 如果data是BaseType类型，解构，并且修改一些必要参数
-            if issubclass(type(data), BaseType):
-                chart["namespace"], types, chart["reference"], chart["config"] = data.__next__()
-                chart["type"], self.data_types = types
-            # 如果data不是DataType中的类型，尝试转换为这两个类型中的一个（优先转换为float）
-            if not isinstance(data, tuple(self.data_types)):
-                try:
-                    data = self.try_convert(data)
-                except:
-                    # 此时代表数据异常，拿到data的__class__.__name__，记录到chart.error中并保存
-                    class_name = data.__class__.__name__
-                    excepted = [i.__name__ for i in self.data_types]
-                    swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
-                    chart["error"] = {"data_class": class_name, "excepted": excepted}
-            chart["source"].append(tag)
-            # 添加图表
-            self.__add_chart(charts, chart)
-            f.truncate(0)
-            f.seek(0)
-            ujson.dump(charts, f, ensure_ascii=False)
-
-    def __add_chart(self, charts, chart):
-        """添加图表到配置，同时更新组
-
-        Parameters
-        ----------
-        data : dict
-            配置
-        chart : dict
-            添加的图表
+            self.__namespace = Namespace.create(name=namespace, experiment_id=self.experiment_id, sort=sort)
+            swanlog.debug(f"Namespace {namespace} created, id: {self.__namespace.id}")
+        except ExistedError:
+            self.__namespace = Namespace.get(name=namespace, experiment_id=self.experiment_id)
+            swanlog.debug(f"Namespace {namespace} exists, id: {self.__namespace.id}")
+        # 创建display，这个必然是成功的，因为display是唯一的，直接添加到最后一条即可
+        Display.create(chart_id=chart.id, namespace_id=self.__namespace.id)
         """
-        namespace: str = chart["namespace"]
-        namespaces: list = charts["namespaces"]
-        charts["charts"].append(chart)
-        # 遍历data["namespaces"]
-        ns: dict = None
-        exists: bool = False
-        for ns in namespaces:
-            if ns["namespace"] == namespace:
-                exists = True
-                break
-        # 如果命名空间不存在，添加
-        if not exists:
-            swanlog.debug(f"Namespace {namespace} not found, add.")
-            ns = {"namespace": namespace, "charts": []}
-            if ns["namespace"] == "default":
-                swanlog.debug(f"Namespace {namespace} Add to the beginning")
-                namespaces.insert(0, ns)
-            else:
-                swanlog.debug(f"Namespace {namespace} Add to the end.")
-                namespaces.append(ns)
-        # 添加当前的chart_id到结尾
-        ns["charts"].append(chart["chart_id"])
-        swanlog.debug(f"Chart {chart['chart_id']} add, now charts: " + str(ns["charts"]))
-        self.__chart = chart
-
-    def __new_chart(self, chart_id, experiment_id):
-        return {
-            "chart_id": chart_id,
-            "namespace": "default",
-            "source": [],
-            "reference": "step",
-            "type": "default",
-            "config": {},
-            "experiment_id": experiment_id,
-            "update_time": create_time(),
-            "create_time": create_time(),
-        }
+        接下来判断tag格式的正确性，判断完毕后往source中添加一条tag记录
+        在此函数中，只判断tag的格式是否正确，不记录数据
+        在逻辑上只有第一次会检查tag的正确性，也就是说前端的error错误只有在第一次添加tag的时候才有可能出现
+        如果第一次添加成功，后续出现错误，只会在添加的时候warning一下然后丢弃这个错误
+        如果第一次添加失败，后续都不会再添加此数据，因此不会出现错误
+        """
+        # 如果data不是期望的data_types中的类型，尝试转换为这两个类型中的一个（优先转换为第一个）
+        # 如果data是BaseType类型，会在try_convert中完成转换，此处不需要管
+        error = None
+        if not isinstance(data, tuple(self.data_types)):
+            try:
+                data = self.try_convert(data)
+            except:
+                # 此时代表数据异常，拿到data的__class__.__name__，生成error并保存
+                class_name = data.__class__.__name__
+                excepted = [i.__name__ for i in self.data_types]
+                swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+                error = {"data_class": class_name, "excepted": excepted}
+        # 添加一条tag记录
+        tag: Tag = Tag.create(experiment_id=self.experiment_id, name=tag)
+        # 添加一条source记录
+        Source.create(tag_id=tag.id, chart_id=chart.id, error=error)
 
     def __new_tag(self, index, data) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""

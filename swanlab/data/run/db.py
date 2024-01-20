@@ -14,6 +14,7 @@ from ...db import (
     Chart,
     Namespace,
     Display,
+    Source,
 )
 from ...db import (
     ExistedError,
