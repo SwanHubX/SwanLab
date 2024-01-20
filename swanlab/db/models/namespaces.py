@@ -126,8 +126,11 @@ class Namespace(SwanModel):
 
         # 如果sort为None，则自动添加到最后
         if sort is None:
-            max_sort = cls.select(fn.MAX(Namespace.sort)).scalar() or -1
-            sort = max_sort + 1
+            max_sort = cls.select(fn.MAX(cls.sort)).scalar()
+            if max_sort or max_sort == 0:
+                sort = max_sort + 1
+            else:
+                sort = 0
         elif sort >= 0:
             # 先判断当前 sort 是否存在
             if cls.filter(cls.sort == sort).exists():

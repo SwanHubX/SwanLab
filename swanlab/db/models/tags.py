@@ -60,7 +60,7 @@ class Tag(SwanModel):
         }
 
     @classmethod
-    def create_tag(
+    def create(
         cls,
         experiment_id: int,
         name: str,
@@ -101,7 +101,7 @@ class Tag(SwanModel):
 
         # 尝试创建实验tag，如果已经存在则抛出异常
         try:
-            return cls.create(
+            return super().create(
                 experiment_id=experiment_id,
                 name=name,
                 description=description,

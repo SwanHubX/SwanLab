@@ -10,7 +10,7 @@ r"""
 
 from ..settings import swandb
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn
 from ..error import ExistedError, NotExistedError
 from .charts import Chart
 from .namespaces import Namespace
@@ -93,9 +93,19 @@ class Display(SwanModel):
         if not Namespace.filter(Namespace.id == namespace_id).exists():
             raise NotExistedError("命名空间不存在")
 
-        # 设置默认 sort
+        # 如果sort为None，则自动添加到最后
         if sort is None:
-            sort = cls.select(cls.sort).order_by(cls.sort.desc()).first().sort + 1
+            max_sort = cls.select(fn.MAX(cls.sort)).scalar()
+            if max_sort or max_sort == 0:
+                sort = max_sort + 1
+            else:
+                sort = 0
+        elif sort >= 0:
+            # 先判断当前 sort 是否存在
+            if cls.filter(cls.sort == sort).exists():
+                cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
+        else:
+            raise ValueError("命名空间索引必须大于等于0")
 
         current_time = create_time()
 

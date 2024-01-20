@@ -9,9 +9,14 @@ r"""
 """
 
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
-from ...db import Project, Experiment
+from ...db import (
+    Project,
+    Experiment,
+    Tag,
+)
 
 __to_dict = Project.search2dict
+__to_list = Project.search2list
 
 
 # ---------------------------------- 通用 ----------------------------------
@@ -71,5 +76,7 @@ def get_project_summary(project_id: int = 1) -> dict:
     data = []
 
     experiments = Experiment.select().where(Experiment.project_id == project_id)
+    experiment_ids = [experiment["id"] for experiment in __to_list(experiments)]
+    tags = Tag.filter(Tag.experiment_id.in_(experiment_ids))
 
-    return SUCCESS_200({"tags": experiments, "summaries": data})
+    return SUCCESS_200({"tags": __to_dict(tags), "summaries": data})
