@@ -37,6 +37,15 @@ FILES = "files"
 META_DATA = "swanlab-metadata.json"
 # 实验依赖
 REQUIREMENTS = "requirements.txt"
+# 数据库名
+DB_NAME = "runs.swanlab"
+# 数据库路径
+DB_PATH = os.path.join(SWANLOG_DIR, DB_NAME)
+
+
+def get_exp_dir(name) -> str:
+    """实验目录路径"""
+    return os.path.join(SWANLOG_DIR, name)
 
 
 def get_logs_dir(name) -> str:

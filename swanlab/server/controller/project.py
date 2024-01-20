@@ -10,13 +10,20 @@ r"""
 
 import os
 import ujson
+import shutil
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
 from urllib.parse import unquote
-from ..settings import get_logs_dir, get_tag_dir, get_files_dir
+from ..settings import get_logs_dir, get_tag_dir, get_files_dir, get_exp_dir, DB_PATH
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 import yaml
+
+from ...db import (
+    model_talbes,
+    connect,
+)
+
 from ...db import (
     Project,
     Experiment,
@@ -30,6 +37,8 @@ __to_list = Project.search2list
 
 # 默认项目 id
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
+# 实验运行状态
+RUNNING_STATUS = Experiment.RUNNING_STATUS
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
@@ -162,3 +171,48 @@ async def update_project_info(request: Request, project_id: int = DEFAULT_PROJEC
 
     project.save()
     return SUCCESS_200({"project": project.__dict__()})
+
+
+# 删除项目
+async def delete_project(project_id: int = DEFAULT_PROJECT_ID):
+    """删除项目
+    1. 删除实验目录
+    2. 删除数据库
+
+    Parameters
+    ----------
+    project_id : int, optional
+        默认为第一个项目
+
+    TODO: 原子操作，同时删除项目和实验
+    """
+
+    # 检查是否有正在运行的实验
+    running_exp = Experiment.filter(Experiment.project_id == project_id, Experiment.status == RUNNING_STATUS).count()
+    if running_exp > 0:
+        return CONFLICT_409("Can't delete project since there is experiment running")
+
+    project = Project.filter(Project.id == project_id).first()
+    run_ids = [experiment["run_id"] for experiment in __to_list(project.experiments)]
+
+    # 删除实验目录
+    for run_id in run_ids:
+        exp_path = get_exp_dir(run_id)
+        if os.path.isdir(exp_path):
+            shutil.rmtree(exp_path)
+
+    # 清空数据库
+    from ...db.settings import swandb as db
+
+    try:
+        with db.atomic():
+            for table in model_talbes:
+                table.drop_table()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print("Failed to delete database but folders are dropped")
+    finally:
+        db.close()
+
+    return SUCCESS_200({})

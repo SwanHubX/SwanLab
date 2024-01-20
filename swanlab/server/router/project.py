@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Request
 
 from ..controller.project import (
+    # 列出实验列表
     get_experiments_list,
+    # 获取项目总结信息
     get_project_summary,
+    # 修改项目信息
     update_project_info,
+    # 删除项目
+    delete_project,
 )
 
 router = APIRouter()
@@ -55,3 +60,18 @@ async def _(request: Request, project_id: int = None):
     if project_id is None:
         return await update_project_info(request)
     return await update_project_info(request, project_id)
+
+
+@router.delete("")
+async def _(project_id: int = None):
+    """删除项目
+
+    Parameters
+    ----------
+    project_id : int, optional
+        默认为第一个项目
+    """
+
+    if project_id is None:
+        return await delete_project()
+    return await delete_project(project_id)

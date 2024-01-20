@@ -24,6 +24,9 @@ from .error import (
 )
 
 
+model_talbes = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
+
+
 def connect():
     """
     连接数据库，只有调用此方法以后，数据库才会被创建，所有导出的类才可用

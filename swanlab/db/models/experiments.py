@@ -30,6 +30,9 @@ class Experiment(SwanModel):
         由 Namespace 表中外键反链接生成的命名空间数据列表
     """
 
+    # 实验运行时状态符
+    RUNNING_STATUS = 0
+
     class Meta:
         database = DatabaseProxy()
         # 通过meta规定name和project_id的唯一性
