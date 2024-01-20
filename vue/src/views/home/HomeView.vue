@@ -28,7 +28,7 @@
         <!-- 实验表格 -->
         <SLTable sticky-header class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
           <template v-slot:name="{ row }">
-            <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+            <ExperimentName :name="row.name" :id="row.experiment_id" :color="getExperimentColor(row)" />
           </template>
           <template v-slot:status="{ row }">
             <SLStatusLabel :id="row.experiment_id" :status="row.status" />
@@ -179,6 +179,11 @@ async function hashString(inputString) {
 
   // return hashHex
   return 'swanlab-overview-table-key' + inputString
+}
+
+// ---------------------------------- 颜色选择 ----------------------------------
+const getExperimentColor = (experiment) => {
+  return experiment.light
 }
 </script>
 

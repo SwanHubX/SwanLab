@@ -2,7 +2,7 @@ from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
 from typing import Dict
-from .utils import create_time, check_tag_format, get_a_lock
+from .utils import create_time, check_tag_format, get_a_lock, generate_color
 from urllib.parse import quote
 import ujson
 import os

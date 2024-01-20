@@ -13,6 +13,7 @@ from .projects import Project
 from ..error import ExistedError, NotExistedError
 from ...utils.time import create_time
 from ...utils.package import get_package_version
+from ...utils import generate_color
 
 
 # 定义模型类
@@ -58,6 +59,11 @@ class Experiment(SwanModel):
 
     show = IntegerField(default=1, choices=[0, 1])
     """实验可见性，0: 不可见，1: 可见"""
+
+    light = CharField(max_length=20, null=True)
+    """亮色主题颜色"""
+    dark = CharField(max_length=20, null=True)
+    """暗色主题颜色"""
 
     more = TextField(null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
@@ -130,8 +136,8 @@ class Experiment(SwanModel):
 
         # 这个sum是+1以后的值，所以需要-1
         sum = Project.increase_sum(project_id)
-        # 自动设置index为sum-1
-        sort = sum - 1
+        # 自动设置索引，为当前项目下的实验数量
+        sort = cls.select().where(cls.project_id == project_id).count()
         # 调用父类的create方法创建实验实例
         try:
             return super().create(
@@ -142,6 +148,7 @@ class Experiment(SwanModel):
                 more=cls.dict2json(more),
                 sort=sort,
                 version=get_package_version(),
+                light=generate_color(sum),
                 create_time=current_time,
                 update_time=current_time,
             )

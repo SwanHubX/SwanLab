@@ -21,7 +21,10 @@
         class="flex-shrink-0"
         active-class="active-router"
       >
-        <div class="w-4 h-4 rounded-full mr-3 flex-shrink-0" :style="{ backgroundColor: experiment.color }"></div>
+        <circle
+          class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
+          :style="{ backgroundColor: getExperimentColor(experiment) }"
+        ></circle>
         <span class="truncate">{{ experiment.name }}</span>
       </RouterLink>
     </div>
@@ -58,6 +61,11 @@ const searchValue = ref('')
 
 const search = (value) => {
   searchValue.value = value.toLowerCase()
+}
+
+// ---------------------------------- 获取实验颜色 ----------------------------------
+const getExperimentColor = (experiment) => {
+  return experiment.light
 }
 </script>
 

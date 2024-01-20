@@ -12,8 +12,9 @@ import os
 import ujson
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from urllib.parse import unquote
-from ..settings import get_logs_dir, get_tag_dir
-
+from ..settings import get_logs_dir, get_tag_dir, get_files_dir
+from ...utils import get_a_lock
+import yaml
 from ...db import (
     Project,
     Experiment,
@@ -32,7 +33,7 @@ DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 
 
 # 列出当前项目下的所有实验
-def get_experiments_list(project_id: int = 1) -> dict:
+def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     """
     列出当前项目下的所有实验
 
@@ -51,6 +52,12 @@ def get_experiments_list(project_id: int = 1) -> dict:
         project = Project.filter(Project.id == project_id).first()
         data = project.__dict__()
         data["experiments"] = __to_list(project.experiments)
+        for experiment in data["experiments"]:
+            # 将其中的 project_id 字段去除
+            experiment.pop("project_id")
+            # 加载config字段
+            with get_a_lock(os.path.join(get_files_dir(experiment["run_id"]), "config.yaml")) as f:
+                experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
         return SUCCESS_200(data)
     except Exception as e:
         return DATA_ERROR_500(f"Get list experiments failed: {e}")
