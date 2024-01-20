@@ -1,6 +1,6 @@
 {
   "overview": {
-    "create": "Start Time",
+    "create": "Created",
     "latest": "Latest Run",
     "total": "Total Experiments"
   },
@@ -10,7 +10,7 @@
       "header": {
         "name": "Name",
         "status": "State",
-        "create": "Start Time"
+        "create": "Created"
       }
     }
   },

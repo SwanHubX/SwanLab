@@ -120,7 +120,7 @@ button {
   @apply text-default border-default bg-default transition-all;
 
   &:hover {
-    @apply border-primary-dimmer;
+    @apply bg-higher;
   }
 
   &:active {

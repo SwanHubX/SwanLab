@@ -23,10 +23,18 @@
         <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
-      <!-- <TableBar class="py-4 px-5 flex-shrink-0" :table-head="column" :table-body="experiments_table" /> -->
+      <TableBar
+        class="pb-4 pt-1 px-5 flex-shrink-0"
+        :table-head="tableHead"
+        :table-body="tableBody"
+        :searchText="searchText"
+        :checked="onlySummary"
+        @update:checked="onlySummary = $event"
+        @update:searchText="searchText = $event"
+      />
       <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
         <!-- 实验表格 -->
-        <SLTable sticky-header class="dashboard-table" :column="column" :data="experiments_table" last-row-gradient>
+        <SLTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
           <template v-slot:name="{ row }">
             <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
           </template>
@@ -103,30 +111,29 @@ const column = ref([
 ])
 
 // 遍历 experiments，添加配置
-const configs = []
+const configs = ref([])
 ;(() => {
   // 寻找需要增加的表头
   experiments.value.map((item) => {
     Object.entries(item.config).forEach(([key]) => {
       // 如果这个key已经存在configs中，跳过
-      if (configs.some((config) => config.title === key)) {
+      if (configs.value.some((config) => config.title === key)) {
         return
       }
-      configs.push({
+      configs.value.push({
         type: 'config',
         slot: key,
         title: key
       })
     })
   })
-  column.value.push(...configs)
+  // column.value.push(...configs.value)
 })()
 
 // ---------------------------------- 表格数据，同时还有tag的表头处理 ----------------------------------
 
 // 表格体数据
 const experiments_table = computed(() => {
-  console.log(summaries.value)
   return experiments.value.map((expr) => {
     const summary = summaries.value[expr.name]
     if (!summary) return {}
@@ -163,7 +170,7 @@ http
         return { key, title: tag }
       })
     )
-    column.value.push(...tags.value)
+    // column.value.push(...tags.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })
@@ -180,6 +187,32 @@ async function hashString(inputString) {
   // return hashHex
   return 'swanlab-overview-table-key' + inputString
 }
+
+// ---------------------------------- 筛选 ----------------------------------
+
+// 是否开启了表格筛选
+const onlySummary = ref(false)
+
+// 动态修改表头
+const tableHead = computed(() => {
+  if (!onlySummary.value) {
+    return [...column.value, ...configs.value, ...(tags.value || [])]
+  }
+  return [...column.value, ...tags.value]
+})
+
+// ---------------------------------- 查找 ----------------------------------
+
+const searchText = ref('')
+
+const tableBody = computed(() => {
+  if (!searchText.value) {
+    return experiments_table.value
+  }
+  return experiments_table.value.filter((item) => {
+    return item.name.toLowerCase().includes(searchText.value.toLowerCase())
+  })
+})
 </script>
 
 <style lang="scss" scoped>
