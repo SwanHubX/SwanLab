@@ -9,6 +9,8 @@ r"""
 """
 
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
+from urllib.parse import unquote
+
 from ...db import (
     Project,
     Experiment,
@@ -70,13 +72,13 @@ def get_project_summary(project_id: int = 1) -> dict:
         项目总结信息
     """
 
-    # 表头数据
-    column = []
     # 总结数据
     data = []
-
+    # 查找所有实验，提出 id 列表
     experiments = Experiment.select().where(Experiment.project_id == project_id)
     experiment_ids = [experiment["id"] for experiment in __to_list(experiments)]
+    # 根据 id 列表找到所有的 tag，提出不含重复 tag 名的元组
     tags = Tag.filter(Tag.experiment_id.in_(experiment_ids))
+    tag_names = list(set(unquote(tag["name"]) for tag in __to_list(tags)))
 
-    return SUCCESS_200({"tags": __to_dict(tags), "summaries": data})
+    return SUCCESS_200({"tags": tag_names, "summaries": data})

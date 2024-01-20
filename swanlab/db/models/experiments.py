@@ -42,7 +42,7 @@ class Experiment(SwanModel):
     project_id = ForeignKeyField(Project, backref="experiments", default=1)
     """外键，项目id，可通过此外键反向查询项目下的所有实验"""
 
-    run_id = IntegerField(unique=True)
+    run_id = TextField(unique=True)
     """运行时id，用于区分不同的实验保存的文件夹名称"""
 
     name = CharField(max_length=100, null=False)
