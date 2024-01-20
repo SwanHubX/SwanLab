@@ -88,8 +88,8 @@ async def _(*args, **kwargs):
 connect()
 
 # 导入数据相关的路由
-from .routes.experiment import router as experiment
-from .routes.project import router as project
+from .router.experiment import router as experiment
+from .router.project import router as project
 
 # 使用配置列表，统一导入
 prefix = "/api/v1"
