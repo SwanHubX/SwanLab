@@ -9,13 +9,23 @@ r"""
 """
 
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
-from ...db import Project
+from ...db import Project, Experiment
 
-search_to_dict = Project.search2dict
+__to_dict = Project.search2dict
+
+
+# ---------------------------------- 通用 ----------------------------------
+
+# 默认项目 id
+DEFAULT_PROJECT_ID = 1
+# 默认项目的实例
+default_project = Project().filter(Project.id == DEFAULT_PROJECT_ID).first()
+
+# ---------------------------------- 路由对应的处理函数 ----------------------------------
 
 
 # 列出当前项目下的所有实验
-def list_experiments(project_id: int = 1) -> dict:
+def get_experiments_list(project_id: int = 1) -> dict:
     """
     列出当前项目下的所有实验
 
@@ -29,8 +39,37 @@ def list_experiments(project_id: int = 1) -> dict:
     dict:
         列出当前项目下的所有实验
     """
+
     try:
         project = Project.filter(Project.id == project_id).first()
-        return SUCCESS_200({"experiments": search_to_dict(project.experiments)})
+        data = project.__dict__()
+        data["experiments"] = __to_dict(project.experiments)
+        return SUCCESS_200(data)
     except Exception as e:
         return DATA_ERROR_500(f"Get list experiments failed: {e}")
+
+
+# 获取项目总结信息
+def get_project_summary(project_id: int = 1) -> dict:
+    """
+    获取项目下所有实验的总结信息
+
+    Parameters
+    ----------
+    project_id : int, optional
+        项目id, 默认为DEFAULT_PROJECT_ID
+
+    Returns
+    -------
+    dict:
+        项目总结信息
+    """
+
+    # 表头数据
+    column = []
+    # 总结数据
+    data = []
+
+    experiments = Experiment.select().where(Experiment.project_id == project_id)
+
+    return SUCCESS_200({"tags": experiments, "summaries": data})

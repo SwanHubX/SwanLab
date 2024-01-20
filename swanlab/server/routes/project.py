@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 
 from ..controller.project import (
-    list_experiments,
+    get_experiments_list,
+    get_project_summary,
 )
 
 router = APIRouter()
@@ -16,4 +17,9 @@ def _():
     list[dict]:
         项目下的实验列表
     """
-    return list_experiments()
+    return get_experiments_list()
+
+
+@router.get("/summaries")
+def _():
+    return get_project_summary()
