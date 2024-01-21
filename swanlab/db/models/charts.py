@@ -32,9 +32,11 @@ class Chart(SwanModel):
 
     id = IntegerField(primary_key=True)
     """图表id, 自增"""
-    experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="SET NULL", null=True)
+    experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="CASCADE", on_update="CASCADE", null=True)
     """外键，关联的项目id，与project_id只有一个为NULL"""
-    project_id = ForeignKeyField(Project, backref="charts", default=1, on_delete="SET NULL", null=True)
+    project_id = ForeignKeyField(
+        Project, backref="charts", default=1, on_delete="CASCADE", on_update="CASCADE", null=True
+    )
     """外键，关联的项目id，与experiment_id只有一个为NULL"""
     name = CharField(max_length=100, null=False)
     """图表名称"""

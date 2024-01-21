@@ -27,9 +27,9 @@ class Display(SwanModel):
 
     id = IntegerField(primary_key=True)
     """display表唯一id"""
-    chart_id = ForeignKeyField(Chart, backref="displays", null=False)
+    chart_id = ForeignKeyField(Chart, backref="displays", on_delete="CASCADE", on_update="CASCADE", null=False)
     """关联的chart，不可为空"""
-    namespace_id = ForeignKeyField(Namespace, backref="displays", null=False)
+    namespace_id = ForeignKeyField(Namespace, backref="displays", on_delete="CASCADE", on_update="CASCADE", null=False)
     """关联的namespace，不可为空"""
     sort = IntegerField()
     """当前chart在namespace下的排序，索引越小，排序越靠前，索引>=0"""

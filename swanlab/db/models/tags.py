@@ -31,7 +31,7 @@ class Tag(SwanModel):
     id = IntegerField(primary_key=True)
     """tag唯一id"""
     # backref是反向引用，可以通过实验获取tag，比如experiment.tags获取此实验下的所有tag
-    experiment_id = ForeignKeyField(Experiment, backref="tags", null=False)
+    experiment_id = ForeignKeyField(Experiment, backref="tags", null=False, on_delete="CASCADE", on_update="CASCADE")
     """tag对应的实验id，代表这个tag由谁创建"""
     name = CharField(max_length=255, null=False)
     """tag名称，同一个实验下，tag名称不能重复"""

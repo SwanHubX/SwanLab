@@ -47,9 +47,11 @@ class Namespace(SwanModel):
 
     id = IntegerField(primary_key=True)
     """namespace唯一id"""
-    experiment_id = ForeignKeyField(Experiment, backref="namespaces", on_delete="SET NULL", null=True)
+    experiment_id = ForeignKeyField(
+        Experiment, backref="namespaces", on_delete="CASCADE", on_update="CASCADE", null=True
+    )
     """外键，对应的实验id，与project_id只能有一个为null"""
-    project_id = ForeignKeyField(Project, backref="namespaces", on_delete="SET NULL", null=True)
+    project_id = ForeignKeyField(Project, backref="namespaces", on_delete="CASCADE", on_update="CASCADE", null=True)
     """外键，对应的项目id，与experiment_id只能有一个为null"""
     name = CharField(max_length=100, null=False)
     """这个命名空间的名称，同一个项目/实验下，命名空间名称不能重复"""

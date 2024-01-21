@@ -46,7 +46,7 @@ class Experiment(SwanModel):
 
     id = IntegerField(primary_key=True)
     """实验id"""
-    project_id = ForeignKeyField(Project, backref="experiments", default=1)
+    project_id = ForeignKeyField(Project, backref="experiments", on_delete="CASCADE", default=1)
     """外键，项目id，可通过此外键反向查询项目下的所有实验"""
 
     run_id = TextField(unique=True)

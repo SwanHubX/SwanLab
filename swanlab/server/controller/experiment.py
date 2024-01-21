@@ -335,6 +335,7 @@ def get_experiment_summary(experiment_id: int) -> dict:
             data = ujson.load(f)
             data = data["data"][-1]["data"]
             summaries.append({"key": unquote(tag), "value": data})
+
     return SUCCESS_200({"summaries": summaries})
 
 
@@ -431,9 +432,11 @@ def get_experimet_charts(experiment_id: int):
             displays.append(display["chart_id"]["id"])
         namespace_list[index]["charts"] = displays
 
-    # 适配前端字段
+    # COMPAT 适配前端字段
     for item in chart_list:
         item["chart_id"] = item["id"]
+    for namespace in namespace_list:
+        namespace["namespace"] = namespace["name"]
 
     return SUCCESS_200(
         {
@@ -501,13 +504,8 @@ def delete_experiment(experiment_id: int):
     # 先删除实验目录
     experiment_path = __get_exp_dir_by_id(experiment_id)
     shutil.rmtree(experiment_path)
-
-    db = connect()
-    models = [Tag, Chart, Namespace]
-    with db.atomic():
-        for cls in models:
-            cls.delete().where(cls.experiment_id == experiment_id).execute()
-        Experiment.delete().where(Experiment.id == experiment_id).execute()
+    # 再清除数据库中的实验数据
+    Experiment.delete().where(Experiment.id == experiment_id).execute()
 
     return SUCCESS_200({"experiment_id": experiment_id})
 
@@ -559,9 +557,9 @@ def get_experiment_requirements(experiment_id: int):
     """
 
     path = __get_requirements_path_by_id(experiment_id)
-    print(path)
     if not os.path.exists(path):
         return DATA_ERROR_500("failed to find requirements")
     with open(path) as f:
         requirements = f.read()
+
     return SUCCESS_200({"requirements": requirements.split("\n")})

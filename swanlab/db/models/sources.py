@@ -25,9 +25,9 @@ class Source(SwanModel):
 
     id = IntegerField(primary_key=True)
     """此表唯一id"""
-    tag_id = ForeignKeyField(Tag, backref="sources", null=False)
+    tag_id = ForeignKeyField(Tag, backref="sources", null=False, on_delete="CASCADE", on_update="CASCADE")
     """代表关联的tag，不可为空"""
-    chart_id = ForeignKeyField(Chart, backref="sources", null=False)
+    chart_id = ForeignKeyField(Chart, backref="sources", null=False, on_delete="CASCADE", on_update="CASCADE")
     """关联的chart，不可为空"""
     sort = IntegerField(default=0)
     """此tag在此chart中的排序，值越小越靠前"""
