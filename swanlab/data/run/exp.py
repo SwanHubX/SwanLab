@@ -86,7 +86,7 @@ class SwanLabExp:
             关于step，如果step格式不正确，会在tag_obj.add的时候被拦截，此处如果格式不正确直接设置为1即可
             """
             if isinstance(data, BaseType):
-                data.step = 1 if step is None or not isinstance(step, int) else step
+                data.step = 0 if step is None or not isinstance(step, int) else step
                 data.tag = tag_obj.tag
             tag_obj.create_chart(tag, data)
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
@@ -154,9 +154,9 @@ class SwanLabTag:
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
             step = None
-        # 转换step，如果step为None，则改为len(self.__steps)+1
+        # 转换step，如果step为None，则改为len(self.__steps)，step从0开始
         if step is None:
-            step = len(self.__steps) + 1
+            step = len(self.__steps)
         # 如果step已经存在，打印警告并退出
         if step in self.__steps:
             return swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
