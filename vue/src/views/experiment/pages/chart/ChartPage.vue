@@ -33,7 +33,7 @@ const route = useRoute()
 
 // ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
-// key是chart_id, value是chart_id在charts中的索引
+// key是chart.id, value是chart.id在charts中的索引
 let cnMap = new Map()
 let charts = []
 const groups = ref([])
@@ -52,6 +52,9 @@ const status = ref('initing')
 
 // ---------------------------------- 根据charts生成对应配置 ----------------------------------
 
+/**
+ * 解析charts，生成groups和cnMap
+ */
 const parseCharts = (data) => {
   charts = data.charts || []
   groups.value = data.namespaces || []
@@ -62,7 +65,9 @@ const parseCharts = (data) => {
     // 事实上这块需要注意的是，如果chart.error存在，那么chart.source将不会被渲染
     // 但是为了保持代码平衡，这里还是需要将chart.source添加到eventEmitter中
     // 这将在下面第一次请求数据的时候因为错误被停止
+    // 往轮询器中添加当前chart的source，即使重复也没事，因为轮询器中是set，默认去重
     eventEmitter.addSource(chart.source)
+    console.log('addSource', chart.source, eventEmitter._sources)
     // 返回id
     return chart.id
   })
@@ -83,7 +88,7 @@ const parseCharts = (data) => {
         }
       }
       if (!found) {
-        console.error('chart_id: ', id)
+        console.error('chart.id: ', id)
         console.error('charts: ', charts)
         console.error('groups: ', groups)
         throw new Error('Charts and groups cannot correspond.')
