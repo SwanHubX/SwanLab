@@ -180,4 +180,4 @@ class Experiment(SwanModel):
         try:
             return super().get(*args, **kwargs)
         except:
-            raise NotExistedError("Experiment does not exist: {}".format(args, kwargs))
+            raise NotExistedError("Experiment does not exist: {}".format(kwargs))
