@@ -26,6 +26,7 @@ from ..settings import (
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 from ...utils.time import create_time
+from ...utils.font import DEFAULT_COLOR
 import yaml
 from ...log import swanlog
 from typing import List, Dict
@@ -172,6 +173,9 @@ def get_experiment_info(experiment_id: int):
     if os.path.exists(meta_path):
         with get_a_lock(meta_path) as f:
             experiment["system"] = ujson.load(f)
+
+    # 实验默认颜色
+    experiment["default_color"] = DEFAULT_COLOR
 
     return SUCCESS_200(experiment)
 

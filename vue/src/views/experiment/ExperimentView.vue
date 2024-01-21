@@ -43,12 +43,12 @@ const init = async (id = route.params.experimentId) => {
     .then(({ data }) => {
       experimentStore.experiment = data
       // 设置实验状态
-      projectStore.setExperimentStatus(data.experiment_id, data.status, data.update_time)
+      projectStore.setExperimentStatus(data.id, data.status, data.update_time)
       // 如果实验状态还在running，就轮询
       if (experimentStore.isRunning) polling()
     })
     .catch((response) => {
-      // console.error(response)
+      console.error(response)
       errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
     })
 }
