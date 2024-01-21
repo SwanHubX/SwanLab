@@ -9,6 +9,8 @@ from ..controller.experiment import (
     get_experiment_status,
     # 获取实验的总结数据
     get_experiment_summary,
+    # 获取实验最近日志
+    get_recent_logs,
 )
 
 from urllib.parse import quote
@@ -80,3 +82,16 @@ def _(experiment_id: int) -> dict:
     """
 
     return get_experiment_summary(experiment_id)
+
+
+@router.get("/{experiment_id}/recent_log")
+async def _(experiment_id: int):
+    """一下返回最多 MAX_NUM 条打印记录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+    """
+
+    return get_recent_logs(experiment_id)
