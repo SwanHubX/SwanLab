@@ -28,11 +28,7 @@ import yaml
 from ...log import swanlog
 from typing import List, Dict
 
-from ...db import (
-    tables,
-    connect,
-    NotExistedError
-)
+from ...db import tables, connect, NotExistedError
 
 from ...db import (
     Project,
@@ -171,11 +167,10 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     # tag_json是最后一个文件的数据
     # 按顺序读取其他文件的数据
     tag_data_list: List[List[Dict]] = []
-    for path in paths:
+    for path in files[:-1]:
         # 读取tag数据，由于目前在设计上这些文件不会再被修改，所以不需要加锁
         with open(os.path.join(tag_path, path), "r") as f:
             tag_data_list.append(ujson.load(f)["data"])
-    return tag_data_list
     # 将数据合并
     for data in tag_data_list:
         tag_data.extend(data)
@@ -202,7 +197,7 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     else:
         # COMPAT 如果_summary文件不存在，手动获取最大值和最小值
         warn = f"Summary file of tag '{tag}' not found, SwanLab will automatically get the maximum and minimum values."
-        .warning(warn)
+        swanlog.warning(warn)
         # 遍历tag_data，获取最大值和最小值
         # 提取 data 字段的值
         data_values = [entry["data"] for entry in tag_data]
