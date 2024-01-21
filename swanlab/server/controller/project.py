@@ -17,19 +17,12 @@ from urllib.parse import unquote
 from ..settings import (
     get_logs_dir,
     get_tag_dir,
-    get_files_dir,
     get_exp_dir,
-    DB_PATH,
     get_config_path,
 )
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 import yaml
-
-from ...db import (
-    tables,
-    connect,
-)
 
 from ...db import (
     Project,

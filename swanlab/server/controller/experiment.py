@@ -17,10 +17,7 @@ from fastapi import Request
 from urllib.parse import unquote
 from ..settings import (
     get_logs_dir,
-    get_tag_dir,
-    get_files_dir,
     get_exp_dir,
-    DB_PATH,
     get_config_path,
     get_console_dir,
     get_meta_path,
@@ -33,16 +30,13 @@ import yaml
 from ...log import swanlog
 from typing import List, Dict
 
-from ...db import tables, connect, NotExistedError
+from ...db import connect, NotExistedError
 
 from ...db import (
     Project,
     Experiment,
-    Tag,
     Chart,
     Namespace,
-    Display,
-    Source,
 )
 
 __to_list = Experiment.search2list
