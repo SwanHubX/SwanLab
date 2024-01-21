@@ -46,7 +46,10 @@ class SwanConfig(Mapping):
         self.__save()
 
     def __check_config(self, config: dict) -> dict:
-        """检查实验配置是否合法"""
+        """
+        检查配置是否合法，确保它可以被 JSON 序列化。
+        如果传入的是 argparse.Namespace 类型，会先转换为字典。
+        """
         if config is None:
             return {}
         # config必须可以被json序列化
@@ -60,26 +63,41 @@ class SwanConfig(Mapping):
         return config
 
     def __setattr__(self, name: str, value: Any) -> None:
+        """
+        自定义属性设置方法。如果属性名不是私有属性，则同时更新配置字典并保存。
+        """
         self.__dict__[name] = value
         if not name.startswith("_" + self.__class__.__name__ + "__"):
             self.__config[name] = value
             self.__save()
 
     def __setitem__(self, name: str, value: Any) -> None:
+        """
+        以字典方式设置配置项的值，并保存。
+        """
         self.__config[name] = value
         self.__save()
 
     def set(self, name: str, value: Any) -> None:
+        """
+        显式设置配置项的值，并保存。
+        """
         self.__config[name] = value
         self.__save()
 
     def get(self, name: str):
+        """
+        获取配置项的值。如果配置项不存在，抛出 AttributeError。
+        """
         try:
             return self.__config[name]
         except KeyError:
             raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
 
     def __getattr__(self, name: str):
+        """
+        如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
+        """
         # 如果类被外部点号调用
         try:
             return self.__config[name]
@@ -87,6 +105,9 @@ class SwanConfig(Mapping):
             raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
 
     def __getitem__(self, name: str):
+        """
+        以字典方式获取配置项的值。
+        """
         try:
             return self.__config[name]
         except KeyError:
@@ -103,9 +124,15 @@ class SwanConfig(Mapping):
             yaml.dump(config, f)
 
     def __iter__(self):
+        """
+        返回配置字典的迭代器。
+        """
         return iter(self.__config)
 
     def __len__(self):
+        """
+        返回配置项的数量。
+        """
         return len(self.__config)
 
 
