@@ -38,35 +38,59 @@ class SwanConfig(Mapping):
     """
 
     def __init__(self, config: dict, settings: SwanDataSettings):
+        """配置保存路径, yaml格式"""
         self.__settings = settings
-        """配置保存路径，yaml格式"""
-        self.__config = config
-        """config就是外界传入的config，实际上外界访问的就是这个config中的内容"""
+        """config就是外界传入的config, 实际上外界访问的就是这个config中的内容"""
+        self.__config = self.__check_config(config)
+        """保存配置"""
         self.__save()
 
-    def __iter__(self):
-        return iter(self.__config)
-
-    def __len__(self):
-        return len(self.__config)
+    def __check_config(self, config: dict) -> dict:
+        """检查实验配置是否合法"""
+        if config is None:
+            return {}
+        # config必须可以被json序列化
+        try:
+            if isinstance(config, argparse.Namespace):
+                config = vars(config)
+            config = json_serializable(dict(config))
+            check_config = ujson.dumps(config)
+        except:
+            raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
+        return config
 
     def __setattr__(self, name: str, value: Any) -> None:
-        # 只允许修改私有属性，也就是在__init__中定义的属性
-        if name.startswith("_" + self.__class__.__name__ + "__"):
-            # 如果是私有属性，允许修改
-            self.__dict__[name] = value
-        else:
-            # 如果不是私有属性，不允许修改
-            raise AttributeError("SwanConfig object is read-only, attributes cannot be modified")
+        self.__dict__[name] = value
+        if not name.startswith("_" + self.__class__.__name__ + "__"):
+            self.__config[name] = value
+            self.__save()
+
+    def __setitem__(self, name: str, value: Any) -> None:
+        self.__config[name] = value
+        self.__save()
+
+    def set(self, name: str, value: Any) -> None:
+        self.__config[name] = value
+        self.__save()
+
+    def get(self, name):
+        try:
+            return self.__config[name]
+        except KeyError:
+            raise AttributeError(f"You have not set {name} in the config of the current experiment")
 
     def __getattr__(self, name):
+        # 如果类被外部点号调用
         try:
             return self.__config[name]
         except KeyError:
             raise AttributeError(f"You have not set {name} in the config of the current experiment")
 
     def __getitem__(self, name):
-        return self.__config[name]
+        try:
+            return self.__config[name]
+        except KeyError:
+            raise AttributeError(f"You have not set {name} in the config of the current experiment")
 
     def __save(self):
         """
@@ -77,6 +101,12 @@ class SwanConfig(Mapping):
             # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
             config = {key: {"desc": None, "value": value} for key, value in self.__config.items()}
             yaml.dump(config, f)
+
+    def __iter__(self):
+        return iter(self.__config)
+
+    def __len__(self):
+        return len(self.__config)
 
 
 class SwanLabRun:
@@ -129,8 +159,6 @@ class SwanLabRun:
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
         # ---------------------------------- 注册实验 ----------------------------------
-        # 校验配置格式
-        config = self.__check_config(config)
         # 校验描述格式
         description = self.__check_description(description)
         self.__exp = self.__register_exp(
@@ -315,20 +343,6 @@ class SwanLabRun:
         if desc != description:
             swanlog.warning("The description has been truncated automatically.")
         return desc
-
-    def __check_config(self, config: dict) -> dict:
-        """检查实验配置是否合法"""
-        if config is None:
-            return {}
-        # config必须可以被json序列化
-        try:
-            if isinstance(config, argparse.Namespace):
-                config = vars(config)
-            config = json_serializable(dict(config))
-            check_config = ujson.dumps(config)
-        except:
-            raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
-        return config
 
     def __record_exp_config(self):
         """创建实验配置目录 files
