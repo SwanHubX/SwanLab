@@ -45,7 +45,7 @@
             {{ transTime(convertUtcToLocal(row.create_time)) }}
           </template>
           <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
-            {{ row.config[item.slot].value || '-' }}
+            {{ row.config[item.slot]?.value || '-' }}
           </template>
         </SLTable>
       </div>
