@@ -26,6 +26,7 @@ from ..settings import (
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 from ...utils.time import create_time
+from ...utils.font import DEFAULT_COLOR
 import yaml
 from ...log import swanlog
 from typing import List, Dict
@@ -173,6 +174,9 @@ def get_experiment_info(experiment_id: int):
         with get_a_lock(meta_path) as f:
             experiment["system"] = ujson.load(f)
 
+    # 实验默认颜色
+    experiment["default_color"] = DEFAULT_COLOR
+
     return SUCCESS_200(experiment)
 
 
@@ -191,7 +195,7 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
     try:
-        tag_path: str = __get_logs_dir_by_id(experiment_id)
+        tag_path: str = os.path.join(__get_logs_dir_by_id(experiment_id), tag)
     except NotExistedError:
         return NOT_FOUND_404("experiment not found")
     if not os.path.exists(tag_path):
