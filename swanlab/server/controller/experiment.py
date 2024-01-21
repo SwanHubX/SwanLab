@@ -191,7 +191,7 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     # ---------------------------------- 前置处理 ----------------------------------
     # 获取tag对应的存储目录
     try:
-        tag_path: str = __get_logs_dir_by_id(experiment_id)
+        tag_path: str = os.path.join(__get_logs_dir_by_id(experiment_id), tag)
     except NotExistedError:
         return NOT_FOUND_404("experiment not found")
     if not os.path.exists(tag_path):
