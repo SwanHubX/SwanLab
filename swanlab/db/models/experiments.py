@@ -94,6 +94,7 @@ class Experiment(SwanModel):
             "status": self.status,
             "show": self.show,
             "more": self.more,
+            "version": self.version,
             "create_time": self.create_time,
             "update_time": self.update_time,
         }
