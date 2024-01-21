@@ -11,6 +11,7 @@ r"""
 import os
 import ujson
 import shutil
+import datetime
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
 from urllib.parse import unquote
@@ -21,6 +22,7 @@ from ..settings import (
     get_exp_dir,
     DB_PATH,
     get_config_path,
+    get_console_dir,
 )
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
@@ -87,10 +89,27 @@ def __get_logs_dir_by_id(experiment_id: int) -> str:
     Returns
     -------
     str
-        实验 run_id
+        实验 logs 目录路径
     """
 
     return get_logs_dir(Experiment.get(experiment_id).run_id)
+
+
+def __get_console_dir_by_id(experiment_id: int) -> str:
+    """通过 experiment_id 获取实验 console 保存目录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id
+
+    Returns
+    -------
+    str
+        实验 console 目录路径
+    """
+
+    return get_console_dir(Experiment.get(experiment_id).run_id)
 
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
@@ -179,7 +198,7 @@ def get_experiment_summary(experiment_id: int) -> dict:
     Returns
     -------
     dict:
-        summaries: array
+        summaries: list
             每个tag的最后一个数据
     """
 
@@ -194,3 +213,59 @@ def get_experiment_summary(experiment_id: int) -> dict:
             data = data["data"][-1]["data"]
             summaries.append({"key": unquote(tag), "value": data})
     return SUCCESS_200({"summaries": summaries})
+
+
+# 获取实验最近路由
+MAX_NUM = 6000
+
+
+def get_recent_logs(experiment_id):
+    """一下返回最多 MAX_NUM 条打印记录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+
+    Returns
+    -------
+    dict :
+        recent: list[str]
+            0: 截止处日志文件
+            1: 开始处日志文件
+        logs: list[str]
+            日志列表
+    """
+
+    console_path: str = __get_console_dir_by_id(experiment_id)
+    consoles: list = [f for f in os.listdir(console_path)]
+    # 含有error.log，在返回值中带上其中的错误信息
+    error = None
+    if "error.log" in consoles:
+        with open(os.path.join(console_path, "error.log"), mode="r") as f:
+            error = f.read().split("\n")
+        # 在consoles里删除error.log
+        consoles.remove("error.log")
+    total: int = len(consoles)
+    # # 如果 total 大于 1, 按照时间排序
+    if total > 1:
+        consoles = sorted(consoles, key=lambda x: datetime.strptime(x[:-4], "%Y-%m-%d"), reverse=True)
+    logs = []
+    # # current_page = total
+    for index, f in enumerate(consoles, start=1):
+        with open(os.path.join(console_path, f), mode="r") as f:
+            logs.extend(f.read().split("\n"))
+            # 如果当前收集到的数据超过限制，退出循环
+            if len(logs) >= MAX_NUM:
+                # current_page = index
+                break
+    logs = logs[:MAX_NUM]
+    end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
+    data = {
+        "recent": [logs[0].split(" ")[0], end],
+        "logs": logs,
+    }
+    if error is not None:
+        data["error"] = error
+    # 返回最新的 MAX_NUM 条记录
+    return SUCCESS_200(data)

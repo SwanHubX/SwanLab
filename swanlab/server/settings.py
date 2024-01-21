@@ -33,6 +33,8 @@ SWANLOG_DIR = get_swanlog_dir()
 LOGS = "logs"
 # files 实验环境目录
 FILES = "files"
+# console 实验环境目录
+CONSOLE = "console"
 # 实验环境(元数据)
 META_DATA = "swanlab-metadata.json"
 # 实验依赖
@@ -58,6 +60,11 @@ def get_logs_dir(name) -> str:
 def get_files_dir(name) -> str:
     """files 目录路径"""
     return os.path.join(SWANLOG_DIR, name, FILES)
+
+
+def get_console_dir(name) -> str:
+    """console 目录路径"""
+    return os.path.join(SWANLOG_DIR, name, CONSOLE)
 
 
 def get_config_path(name) -> str:
