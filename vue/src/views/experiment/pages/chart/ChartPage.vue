@@ -67,7 +67,7 @@ const parseCharts = (data) => {
     // 这将在下面第一次请求数据的时候因为错误被停止
     // 往轮询器中添加当前chart的source，即使重复也没事，因为轮询器中是set，默认去重
     eventEmitter.addSource(chart.source)
-    console.log('addSource', chart.source, eventEmitter._sources)
+    console.info('addSource', chart.source, eventEmitter._sources)
     // 返回id
     return chart.id
   })
@@ -163,7 +163,7 @@ class IntervalMap {
    */
   setInterval(key, length, callback = undefined) {
     // 如果length不存在，直接返回
-    if (!length) return
+    if (length === undefined) return
     // 如果callback不存在，且key对应的callback也不存在，直接返回
     if (!callback && !this._callbackMap.get(key)) return
     // console.warn('setInterval', key, length)
@@ -235,6 +235,8 @@ class EventEmitter {
     this._intervalMap = new Map()
     // 请求状态映射
     this._request = new RequestMap()
+    // 是否执行过start函数
+    this._started = false
   }
 
   /**
@@ -266,7 +268,17 @@ class EventEmitter {
    */
   addSource(source) {
     source = source || []
-    source.map((s) => this._sources.add(s))
+    source.map((s) => {
+      // 如果还没有执行过start函数，直接添加到源列表中
+      if (!this._started) return this._sources.add(s)
+      // 判断这个数据是否存在，即使set已经去重，但是需要开启轮询
+      if (this._sources.has(s)) return
+      // 添加到源列表中
+      this._sources.add(s)
+      // 发起请求
+      console.warn('添加源并开启轮询: ', s)
+      this._getTagRequestInterval(s)
+    })
   }
 
   /**
@@ -288,22 +300,33 @@ class EventEmitter {
       if (!experimentStore.isRunning) return
       // 遍历源列表，请求数据
       this._sources.forEach((tag) => {
-        this._timerMap.setInterval(tag, this._sourceMap.get(tag).list.length, () => {
-          // 在此处取出pinia中的charts配置，重新设置
-          experimentStore.charts && parseCharts(experimentStore.charts)
-          // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
-          if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
-            this._timerMap.clearAll()
-            return console.log('stop, experiment id is not equal to route id')
-          }
-          this._getSoureceData(tag)
-          // 如果实验状态不是0，停止轮询
-          if (!experimentStore.isRunning) {
-            this._timerMap.clearAll()
-            return console.log('stop, experiment status is not 0')
-          }
-        })
+        // 设置轮询
+        this._getTagRequestInterval(tag)
       })
+      this._started = true
+    })
+  }
+
+  /**
+   * 运行此函数代表必然开启轮询
+   * @param { string } tag 源名称
+   */
+  _getTagRequestInterval(tag) {
+    console.log('设置轮询', tag)
+    this._timerMap.setInterval(tag, this._sourceMap.get(tag)?.list.length || 0, () => {
+      // 在此处取出pinia中的charts配置，重新设置
+      experimentStore.charts && parseCharts(experimentStore.charts)
+      // 判断当前实验id和路由中的实验id是否相同，如果不同，停止轮询
+      if (Number(this._experiment_id) !== Number(route.params.experimentId)) {
+        this._timerMap.clearAll()
+        return console.log('stop, experiment id is not equal to route id')
+      }
+      this._getSoureceData(tag)
+      // 如果实验状态不是0，停止轮询
+      if (!experimentStore.isRunning) {
+        this._timerMap.clearAll()
+        return console.log('stop, experiment status is not 0')
+      }
     })
   }
 
@@ -356,7 +379,10 @@ class EventEmitter {
       // 否则，创建一个新的map，添加
       else this._distributeMap.set(tag, new Map([[cid, callback]]))
       // 如果这个tag的请求并不存在，发起请求
-      if (this._request.canRequest(tag)) return this._getSoureceData(tag)
+      if (this._request.canRequest(tag)) {
+        console.warn('数据不存在，发起请求')
+        return this._getSoureceData(tag)
+      }
     })
   }
 
