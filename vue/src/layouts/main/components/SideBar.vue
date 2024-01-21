@@ -15,13 +15,16 @@
       <!-- 实验列表 -->
       <RouterLink
         v-for="experiment in experiments"
-        :key="experiment.experiment_id"
+        :key="experiment.id"
         :to="getExperimentRouter(experiment)"
         :title="experiment.name"
         class="flex-shrink-0"
         active-class="active-router"
       >
-        <div class="w-4 h-4 rounded-full mr-3 flex-shrink-0" :style="{ backgroundColor: experiment.color }"></div>
+        <circle
+          class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
+          :style="{ backgroundColor: getExperimentColor(experiment) }"
+        ></circle>
         <span class="truncate">{{ experiment.name }}</span>
       </RouterLink>
     </div>
@@ -43,7 +46,7 @@ import { useProjectStore } from '@swanlab-vue/store'
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
 const getExperimentRouter = (experiment) => {
-  return `/experiment/${experiment.experiment_id}`
+  return `/experiment/${experiment.id}`
 }
 
 // ---------------------------------- 搜索实验 ----------------------------------
@@ -58,6 +61,11 @@ const searchValue = ref('')
 
 const search = (value) => {
   searchValue.value = value.toLowerCase()
+}
+
+// ---------------------------------- 获取实验颜色 ----------------------------------
+const getExperimentColor = (experiment) => {
+  return experiment.light
 }
 </script>
 

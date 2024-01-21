@@ -1,48 +1,32 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2023-11-30 20:47:18
-@File: swanlab\server\route.py
+@DATE: 2024-01-19 22:10:15
+@File: swanlab\server\middleware\common.py
 @IDE: vscode
 @Description:
-    综合服务 api
+    常规中间件
 """
 
-from fastapi import FastAPI, Request
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import time
-from .module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
-from ..log import swanlog as swl
-from ..utils import get_package_version
+from ..module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
+from ...log import swanlog as swl
+from ...utils import get_package_version
+from ...db import connect
+
+version = get_package_version()
 
 # 响应路径
-from .settings import ASSETS, INDEX
-
-
-# 服务全局对象
-app = FastAPI()
-version = get_package_version()
+from ..settings import ASSETS, INDEX
 
 # 注册静态文件路径
 static_path = "/assets"
 static = StaticFiles(directory=ASSETS)
-app.mount(static_path, static)
-
-# 将uvicorn的日志输出handler删除
-import logging
-
-# 删除 uvicorn logger
-uvicorn_error = logging.getLogger("uvicorn.error")
-uvicorn_error.disabled = True
-uvicorn_access = logging.getLogger("uvicorn.access")
-uvicorn_access.disabled = True
 
 
-# ---------------------------------- 在此处注册中间件 ----------------------------------
-
-
-@app.middleware("http")
 async def resp_base(request, call_next):
     """基础中间件，调整响应结果，添加处理时间等信息"""
     # 如果请求路径不以'/api'开头，说明并不是后端服务的请求，直接返回
@@ -64,7 +48,6 @@ async def resp_base(request, call_next):
     return response
 
 
-@app.middleware("http")
 async def resp_static(request, call_next):
     """资源中间件，此时所有与api相关的内容不会在此中间件中处理"""
     if request.url.path.startswith(static_path):
@@ -79,7 +62,6 @@ async def resp_static(request, call_next):
     return HTMLResponse(content=html_content, status_code=200)
 
 
-@app.middleware("http")
 async def catch_error(request: Request, call_next):
     """异常中间件，捕获异常，重构异常信息"""
     if not request.url.path.startswith("/api"):
@@ -91,13 +73,12 @@ async def catch_error(request: Request, call_next):
         return UNEXPECTED_ERROR_500(str(e))
 
 
-@app.middleware("http")
 async def log_print(request: Request, call_next):
     """日志打印中间件"""
     swl.debug("[" + request.method + "] from " + request.base_url._url)
     resp = await call_next(request)
     # 拿到状态码
-    status = str(resp.status_code)
+    # status = str(resp.status_code)
     if not request.url.path.startswith("/api"):
         # 如果不是请求api，直接返回
         swl.debug("[" + str(resp.status_code) + "] " + request.method + " assets: " + request.url.path)
@@ -107,13 +88,11 @@ async def log_print(request: Request, call_next):
     return resp
 
 
-@app.middleware("http")
 async def resp_params(request: Request, call_next):
     """参数中间件，处理api请求中的参数校验问题，重新结构化校验错误结果"""
     if not request.url.path.startswith("/api"):
         # 如果不是请求api，直接返回
         return await call_next(request)
-    # print("请求api")
     resp = await call_next(request)
     # 拿到状态码
     status = resp.status_code
@@ -136,16 +115,3 @@ async def resp_params(request: Request, call_next):
     所以不会影响正式版本的性能
     """
     return resp
-
-
-# ---------------------------------- 在此处注册相关路由 ----------------------------------
-
-
-# 导入数据相关的路由
-from .api.project import router as project
-from .api.experiment import router as experiment
-
-# 使用配置列表，统一导入
-prefix = "/api/v1"
-app.include_router(project, prefix=prefix + "/project")
-app.include_router(experiment, prefix=prefix + "/experiment")

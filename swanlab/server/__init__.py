@@ -16,4 +16,4 @@ init_env()
 register()
 
 # 导出app对象
-from .router import app
+from .app import app

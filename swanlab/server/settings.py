@@ -9,7 +9,7 @@ r"""
 """
 import os
 import mimetypes
-from ..env import get_swanlog_dir, get_runtime_project
+from ..env import get_swanlog_dir
 
 """
 在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
@@ -25,8 +25,6 @@ ASSETS = os.path.join(TEMPLATE_PATH, "assets")
 INDEX = os.path.join(TEMPLATE_PATH, "index.html")
 # swanlog文件夹路径
 SWANLOG_DIR = get_swanlog_dir()
-# project.json文件路径
-PROJECT_PATH = get_runtime_project()
 
 
 # ---------------------------------- 实验目录下的各个路径 ----------------------------------
@@ -35,10 +33,23 @@ PROJECT_PATH = get_runtime_project()
 LOGS = "logs"
 # files 实验环境目录
 FILES = "files"
+# console 实验环境目录
+CONSOLE = "console"
 # 实验环境(元数据)
 META_DATA = "swanlab-metadata.json"
 # 实验依赖
 REQUIREMENTS = "requirements.txt"
+# 数据库名
+DB_NAME = "runs.swanlab"
+# 数据库路径
+DB_PATH = os.path.join(SWANLOG_DIR, DB_NAME)
+# 实验配置
+EXPERIMENT_CONFIG = "config.yaml"
+
+
+def get_exp_dir(name) -> str:
+    """实验目录路径"""
+    return os.path.join(SWANLOG_DIR, name)
 
 
 def get_logs_dir(name) -> str:
@@ -49,6 +60,16 @@ def get_logs_dir(name) -> str:
 def get_files_dir(name) -> str:
     """files 目录路径"""
     return os.path.join(SWANLOG_DIR, name, FILES)
+
+
+def get_console_dir(name) -> str:
+    """console 目录路径"""
+    return os.path.join(SWANLOG_DIR, name, CONSOLE)
+
+
+def get_config_path(name) -> str:
+    """实验配置存储路径"""
+    return os.path.join(get_files_dir(name), EXPERIMENT_CONFIG)
 
 
 def get_meta_path(name) -> str:

@@ -18,6 +18,22 @@ export const useProjectStore = defineStore('project', () => {
     project.value = p
   }
   /**
+   * 删除对应的实验
+   * @param {int} id 实验id
+   */
+  const deleteExperiment = (id) => {
+    project.value.experiments = project.value.experiments.filter((e) => e.experiment_id !== id)
+  }
+  /**
+   * 修改项目信息
+   * @param {string} name 项目名称
+   * @param {string} description 项目描述
+   */
+  const updateInfo = ({ name, description }) => {
+    project.value.name = name
+    project.value.description = description
+  }
+  /**
    * 清空 project
    */
   const clearProject = () => {
@@ -37,7 +53,7 @@ export const useProjectStore = defineStore('project', () => {
   }
   /**
    * 重置实验列表中某一个实验的信息
-   * @param {number} id 燕燕唯一id
+   * @param {number} id 实验唯一id
    * @param {object} newInfo 涵盖字段为experiment中字段的子集，不需要修改的不必传
    * @param {boolean} overwirte 设置true后，newInfo直接覆盖experiment，请保证newInfo的完整性
    * @returns
@@ -65,6 +81,8 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
+    deleteExperiment,
+    updateInfo,
     clearProject,
     setExperimentStatus,
     setExperimentInfo

@@ -16,6 +16,7 @@ from .modules import DataType
 from typing import Dict
 from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
+from ..db import Project, connect
 
 
 run: Optional["SwanLabRun"] = None
@@ -81,7 +82,11 @@ def init(
 
     # 初始化环境变量
     init_env()
+    # 连接数据库
+    connect(autocreate=True)
 
+    # 初始化项目数据库
+    Project.init(os.path.basename(os.getcwd()))
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -96,7 +101,7 @@ def init(
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.exp_dir))
+    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
     inited = True

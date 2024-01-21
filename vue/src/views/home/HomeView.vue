@@ -36,7 +36,7 @@
         <!-- 实验表格 -->
         <SLTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
           <template v-slot:name="{ row }">
-            <ExperimentName :name="row.name" :id="row.experiment_id" :color="row.color" />
+            <ExperimentName :name="row.name" :id="row.id" :color="getExperimentColor(row)" />
           </template>
           <template v-slot:status="{ row }">
             <SLStatusLabel :id="row.experiment_id" :status="row.status" />
@@ -45,7 +45,7 @@
             {{ transTime(convertUtcToLocal(row.create_time)) }}
           </template>
           <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
-            {{ row.config[item.slot] || '-' }}
+            {{ row.config[item.slot]?.value || '-' }}
           </template>
         </SLTable>
       </div>
@@ -188,6 +188,11 @@ async function hashString(inputString) {
   return 'swanlab-overview-table-key' + inputString
 }
 
+// ---------------------------------- 颜色选择 ----------------------------------
+
+const getExperimentColor = (experiment) => {
+  return experiment.light
+}
 // ---------------------------------- 筛选 ----------------------------------
 
 // 是否开启了表格筛选

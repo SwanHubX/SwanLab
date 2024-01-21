@@ -14,7 +14,6 @@ from fastapi import APIRouter, Request
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
-from ..module import PT
 from swanlab.env import get_swanlog_dir
 import ujson
 from urllib.parse import unquote
@@ -30,8 +29,7 @@ async def _():
     获取项目信息，列出当前项目下的所有实验
     """
     try:
-        pt = PT()
-        return SUCCESS_200(data=pt.get())
+        return SUCCESS_200({})
     except Exception:
         return DATA_ERROR_500("project data error")
 

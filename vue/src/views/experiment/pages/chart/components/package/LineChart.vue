@@ -164,7 +164,7 @@ const format = (data) => {
  * @returns {string} 格式化后的字符串
  */
 const formatNumber2K = (num) => {
-  if (num % 1000 !== 0) return String(num)
+  if (num % 1000 !== 0 || num == 0) return String(num)
   return `${num / 1000}k`
 }
 

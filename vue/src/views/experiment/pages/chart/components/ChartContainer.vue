@@ -5,7 +5,7 @@
       <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
         <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
       </div>
-      <component ref="chartRef" :is="chartComponent(chart.type)" :title="title(chart.source[0])" :chart="chart" />
+      <component ref="chartRef" :is="chartComponent(chart.type)" :title="chart.name" :chart="chart" />
     </template>
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-else-if="status === 'error'">
@@ -101,12 +101,6 @@ props.chart.error ||
   onUnmounted(() => {
     $off(source, cid)
   })
-
-// ---------------------------------- 图表标题控制 ----------------------------------
-const title = (t) => {
-  // TODO 多数据时可能有不同的显示方式
-  return t
-}
 
 // ---------------------------------- 图表对象控制 ----------------------------------
 const chartRef = ref(null)
