@@ -157,3 +157,27 @@ class Experiment(SwanModel):
             )
         except IntegrityError:
             raise ExistedError("实验已经存在")
+
+    @classmethod
+    def get(cls, *args, **kwargs):
+        """覆写继承的get方法，通过id获取实验实例
+
+        Parameters
+        ----------
+        id : int
+            实验id
+
+        Returns
+        -------
+        Experiment
+            实验实例
+
+        Raises
+        -------
+        NotExistedError
+            实验不存在
+        """
+        try:
+            return super().get(*args, **kwargs)
+        except:
+            raise NotExistedError("Experiment does not exist: {}".format(args, kwargs))

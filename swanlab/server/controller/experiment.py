@@ -12,7 +12,7 @@ import os
 import ujson
 import shutil
 import datetime
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
+from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409, NOT_FOUND_404
 from fastapi import Request
 from urllib.parse import unquote
 from ..settings import (
@@ -27,11 +27,10 @@ from ..settings import (
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 import yaml
+from ...log import swanlog
+from typing import List, Dict
 
-from ...db import (
-    tables,
-    connect,
-)
+from ...db import tables, connect, NotExistedError
 
 from ...db import (
     Project,
@@ -91,7 +90,6 @@ def __get_logs_dir_by_id(experiment_id: int) -> str:
     str
         实验 logs 目录路径
     """
-
     return get_logs_dir(Experiment.get(experiment_id).run_id)
 
 
@@ -143,9 +141,89 @@ def get_experiment_info(experiment_id: int):
 def get_tag_data(experiment_id: int, tag: str) -> dict:
     """获取表单数据
     根据实验id得到实验的运行id，然后根据运行id和tag得到实验的数据
-    """
 
-    return SUCCESS_200({})
+    Parameters
+    ----------
+    experiment_id: int
+        实验唯一id，路径传参
+    tag: str
+        表单标签，路径传参，已经进行了 URIComponent 编码
+    """
+    # ---------------------------------- 前置处理 ----------------------------------
+    # 获取tag对应的存储目录
+    try:
+        tag_path: str = __get_logs_dir_by_id(experiment_id)
+    except NotExistedError:
+        return NOT_FOUND_404("experiment not found")
+    if not os.path.exists(tag_path):
+        return NOT_FOUND_404("tag not found")
+    # 获取目录下存储的所有数据
+    # 降序排列，最新的数据在最前面
+    files: list = os.listdir(tag_path)
+    # files中去除_summary.json文件
+    files = [f for f in files if not f.endswith("_summary.json")]
+    if len(files) == 0:
+        return []
+    files.sort()
+    tag_data: list = []
+    # 最后一个文件代表当前数据量
+    last_file = files[-1]
+    tag_json = None
+    # ---------------------------------- 开始读取最后一个文件 ----------------------------------
+
+    # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
+    with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
+        # 读取数据
+        tag_json = ujson.load(f)
+        # 倒数第二个文件+当前文件的数据量等于总数据量
+        # 倒数第二个文件可能不存在
+        count = files[-2].split(".")[0] if len(files) > 1 else 0
+        count = int(count) + len(tag_json["data"])
+    # 读取完毕，文件解锁
+    # ---------------------------------- 返回所有数据 ----------------------------------
+    # FIXME: 性能问题
+    # 读取所有数据
+    # tag_json是最后一个文件的数据
+    # 按顺序读取其他文件的数据
+    tag_data_list: List[List[Dict]] = []
+    for path in files[:-1]:
+        # 读取tag数据，由于目前在设计上这些文件不会再被修改，所以不需要加锁
+        with open(os.path.join(tag_path, path), "r") as f:
+            tag_data_list.append(ujson.load(f)["data"])
+    # 将数据合并
+    for data in tag_data_list:
+        tag_data.extend(data)
+    tag_data.extend(tag_json["data"])
+    # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
+    if tag_data[0].get("index") is None:
+        for index, data in enumerate(tag_data):
+            data["index"] = str(index + 1)
+    # COMPAT 如果第一个数据的index不是string，改为string
+    if not isinstance(tag_data[0]["index"], str):
+        for data in tag_data:
+            data["index"] = str(data["index"])
+    # 根据index升序排序
+    tag_data.sort(key=lambda x: int(x["index"]))
+    # tag_data 的 最后一个数据增加一个字段_last = True
+    tag_data[-1]["_last"] = True
+    # 获取_summary文件
+    summary_path = os.path.join(tag_path, "_summary.json")
+    if os.path.exists(summary_path):
+        with get_a_lock(summary_path, "r") as f:
+            summary = ujson.load(f)
+            max_value = summary["max"]
+            min_value = summary["min"]
+    else:
+        # COMPAT 如果_summary文件不存在，手动获取最大值和最小值
+        warn = f"Summary file of tag '{tag}' not found, SwanLab will automatically get the maximum and minimum values."
+        swanlog.warning(warn)
+        # 遍历tag_data，获取最大值和最小值
+        # 提取 data 字段的值
+        data_values = [entry["data"] for entry in tag_data]
+        # 获取最大值和最小值
+        max_value = max(data_values)
+        min_value = min(data_values)
+    return SUCCESS_200(data={"sum": len(tag_data), "max": max_value, "min": min_value, "list": tag_data})
 
 
 # 获取实验状态
