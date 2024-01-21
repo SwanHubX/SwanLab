@@ -49,7 +49,14 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
         raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
     # 路径必须存在
     if not os.path.exists(path):
-        raise ValueError('SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path))
+        if path == default:
+            raise ValueError(
+                'The log file was not found in the default path "{path}". Please use the "swanlab watch -l <LOG PATH>" command to specify the location of the log path."'.format(
+                    path=path
+                )
+            )
+        else:
+            raise ValueError('SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path))
     # 路径必须是一个目录
     if not os.path.isdir(path):
         raise ValueError('SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path))
