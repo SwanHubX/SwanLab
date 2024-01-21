@@ -19,6 +19,8 @@ from ..controller.experiment import (
     delete_experiment,
     # 停止实验
     stop_experiment,
+    # 获取实验依赖
+    get_experiment_requirements,
 )
 from fastapi import Request
 from urllib.parse import quote
@@ -171,3 +173,22 @@ def _(experiment_id: int):
     """
 
     return stop_experiment(experiment_id)
+
+
+# 获取实验依赖
+@router.get("/{experiment_id}/requirements")
+def _(experiment_id: int):
+    """获取实验依赖
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+
+    Returns
+    -------
+    requirements: list
+        每个依赖项为一行，以列表的形式返回
+    """
+
+    return get_experiment_requirements(experiment_id)

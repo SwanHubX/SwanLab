@@ -24,6 +24,7 @@ from ..settings import (
     get_config_path,
     get_console_dir,
     get_meta_path,
+    get_requirements_path,
 )
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
@@ -111,6 +112,23 @@ def __get_console_dir_by_id(experiment_id: int) -> str:
     """
 
     return get_console_dir(Experiment.get(experiment_id).run_id)
+
+
+def __get_requirements_path_by_id(experiment_id: int):
+    """通过 experiment_id 获取实验依赖存储路径
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id
+
+    Returns
+    -------
+    str
+        实验依赖存储路径
+    """
+
+    return get_requirements_path(Experiment.get(experiment_id).run_id)
 
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
@@ -491,3 +509,28 @@ def stop_experiment(experiment_id: int):
             "update_time": create_time(),
         }
     )
+
+
+# 获取实验依赖
+def get_experiment_requirements(experiment_id: int):
+    """获取实验依赖
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一ID
+
+    Returns
+    -------
+    dict :
+        requirements: list
+            每个依赖项为一行，以列表的形式返回
+    """
+
+    path = __get_requirements_path_by_id(experiment_id)
+    print(path)
+    if not os.path.exists(path):
+        return DATA_ERROR_500("failed to find requirements")
+    with open(path) as f:
+        requirements = f.read()
+    return SUCCESS_200({"requirements": requirements.split("\n")})
