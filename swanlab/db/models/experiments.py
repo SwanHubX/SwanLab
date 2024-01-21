@@ -32,6 +32,10 @@ class Experiment(SwanModel):
 
     # 实验运行时状态符
     RUNNING_STATUS = 0
+    # 实验停止时状态符
+    STOPPED_STATUS = -1
+    # 实验结束时状态符
+    FINISHED_STATUS = 1
 
     class Meta:
         database = DatabaseProxy()

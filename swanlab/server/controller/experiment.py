@@ -27,6 +27,7 @@ from ..settings import (
 )
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
+from ...utils.time import create_time
 import yaml
 from ...log import swanlog
 from typing import List, Dict
@@ -440,3 +441,53 @@ async def update_experiment_info(experiment_id: int, request: Request):
     db.close()
 
     return SUCCESS_200(body)
+
+
+# 删除实验
+def delete_experiment(experiment_id: int):
+    """删除实验
+
+    注意，需要先判断当前实验是否正在运行中，不可删除运行中的实验
+
+    Parameters
+    ----------
+    experiment_id : Int
+        实验唯一ID
+
+    Returns
+    -------
+    project : Dictionary
+        删除实验后的项目信息，提供给前端更新界面
+    """
+
+    pass
+
+
+# 停止实验
+def stop_experiment(experiment_id: int):
+    """停止实验
+
+    Parameters
+    ----------
+    experiment_id : Int
+        实验唯一ID
+
+    Returns
+    -------
+    project : Dictionary
+        停止实验后的项目信息，提供给前端更新界面
+    """
+
+    db = connect()
+    with db.atomic():
+        experiment = Experiment.get(experiment_id)
+        experiment.status = Experiment.STOPPED_STATUS
+        experiment.save()
+
+    return SUCCESS_200(
+        {
+            "id": experiment_id,
+            "status": Experiment.STOPPED_STATUS,
+            "update_time": create_time(),
+        }
+    )

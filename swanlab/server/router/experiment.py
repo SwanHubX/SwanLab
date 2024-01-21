@@ -15,6 +15,10 @@ from ..controller.experiment import (
     get_experimet_charts,
     # 更改实验信息
     update_experiment_info,
+    # 删除实验
+    delete_experiment,
+    # 停止实验
+    stop_experiment,
 )
 from fastapi import Request
 from urllib.parse import quote
@@ -134,3 +138,36 @@ async def _(experiment_id: int, request: Request):
     """
 
     return await update_experiment_info(experiment_id, request)
+
+
+@router.delete("/{experiment_id}")
+def _(experiment_id: int):
+    """删除实验
+
+    注意，需要先判断当前实验是否正在运行中，不可删除运行中的实验
+
+    Parameters
+    ----------
+    experiment_id : Int
+        实验唯一ID
+
+    Returns
+    -------
+    project : Dictionary
+        删除实验后的项目信息，提供给前端更新界面
+    """
+
+    return delete_experiment(experiment_id)
+
+
+@router.get("/{experiment_id}/stop")
+def _(experiment_id: int):
+    """停止实验
+
+    Parameters
+    ----------
+    experiment_id : Int
+        实验唯一ID
+    """
+
+    return stop_experiment(experiment_id)

@@ -80,9 +80,13 @@ export const useExperimentStroe = defineStore('experiment', () => {
     experiment.value = x
   }
   // 修改实验信息 => 部分信息
-  const setExperimentPartial = ({ name, description }) => {
-    experiment.value.name = name
-    experiment.value.description = description
+  const setExperimentPartial = (data) => {
+    for (const key in data) {
+      // 如果experiment中没有这个key，说明key不合法
+      if (experiment.value[key] == undefined) continue
+      // key 合法，更新该字段
+      experiment.value[key] = data[key]
+    }
   }
 
   return {
