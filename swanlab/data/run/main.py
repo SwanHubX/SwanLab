@@ -18,6 +18,7 @@ from .utils import (
     get_package_version,
     create_time,
     generate_color,
+    json_serializable,
 )
 from datetime import datetime
 import sys, os
@@ -25,6 +26,7 @@ import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
+import argparse
 
 
 class SwanConfig(Mapping):
@@ -307,10 +309,12 @@ class SwanLabRun:
             return {}
         # config必须可以被json序列化
         try:
-            ujson.dumps(config)
+            if isinstance(config, argparse.Namespace):
+                config = vars(config)
+            check_config = ujson.dumps(json_serializable(dict(config)))
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
-        return config
+        return check_config
 
     def __new_project(self):
         """创建一个新的project.json文件"""
