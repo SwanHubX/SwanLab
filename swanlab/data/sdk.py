@@ -83,7 +83,7 @@ def init(
     # 初始化环境变量
     init_env()
     # 连接数据库
-    connect()
+    connect(autocreate=True)
 
     # 初始化项目数据库
     Project.init(os.path.basename(os.getcwd()))
