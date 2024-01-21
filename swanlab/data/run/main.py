@@ -324,10 +324,11 @@ class SwanLabRun:
         try:
             if isinstance(config, argparse.Namespace):
                 config = vars(config)
-            check_config = ujson.dumps(json_serializable(dict(config)))
+            config = json_serializable(dict(config))
+            check_config = ujson.dumps(config)
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
-        return check_config
+        return config
 
     def __record_exp_config(self):
         """创建实验配置目录 files
