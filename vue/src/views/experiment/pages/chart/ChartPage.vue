@@ -65,6 +65,7 @@ const parseCharts = (data) => {
     // 事实上这块需要注意的是，如果chart.error存在，那么chart.source将不会被渲染
     // 但是为了保持代码平衡，这里还是需要将chart.source添加到eventEmitter中
     // 这将在下面第一次请求数据的时候因为错误被停止
+    // 往轮询器中添加当前chart的source，即使重复也没事，因为轮询器中是set，默认去重
     eventEmitter.addSource(chart.source)
     console.log('addSource', chart.source, eventEmitter._sources)
     // 返回id
