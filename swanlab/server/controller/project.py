@@ -214,18 +214,6 @@ async def delete_project(project_id: int = DEFAULT_PROJECT_ID):
             shutil.rmtree(exp_path)
 
     # 清空数据库
-    from ...db import connect
-
-    db = connect()
-    try:
-        with db.atomic():
-            for table in tables:
-                table.drop_table()
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        print("Failed to delete database but folders are dropped")
-    finally:
-        db.close()
+    project.delete_instance().execute()
 
     return SUCCESS_200({})
