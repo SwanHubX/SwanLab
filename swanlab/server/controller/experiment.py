@@ -40,6 +40,7 @@ from ...db import (
     Chart,
     Namespace,
     Display,
+    Source,
 )
 
 __to_list = Experiment.search2list
@@ -376,6 +377,12 @@ def get_experimet_charts(experiment_id: int):
 
     charts = Chart.filter(Chart.experiment_id == experiment_id)
     chart_list = __to_list(charts)
+    # TODO: 这里搞得不是很懂，需要检查一下
+    for index, chart in enumerate(charts):
+        sources = []
+        for source in __to_list(chart.sources):
+            sources.append(source["tag_id"]["name"])
+        chart_list[index]["source"] = sources
 
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
@@ -387,6 +394,10 @@ def get_experimet_charts(experiment_id: int):
         for display in __to_list(namespace.displays):
             displays.append(display["chart_id"]["id"])
         namespace_list[index]["charts"] = displays
+
+    # 适配前端字段
+    for item in chart_list:
+        item["chart_id"] = item["id"]
 
     return SUCCESS_200(
         {
