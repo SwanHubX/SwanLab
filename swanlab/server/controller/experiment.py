@@ -76,8 +76,8 @@ def __clear_field(target: list[dict], field: str) -> list[dict]:
     return target
 
 
-def __get_runid_by_id(experiment_id: int) -> str:
-    """通过 experiment_id 获取实验 run_id
+def __get_logs_dir_by_id(experiment_id: int) -> str:
+    """通过 experiment_id 获取实验 保存目录
 
     Parameters
     ----------
@@ -90,7 +90,7 @@ def __get_runid_by_id(experiment_id: int) -> str:
         实验 run_id
     """
 
-    return Experiment.get(experiment_id).run_id
+    return get_logs_dir(Experiment.get(experiment_id).run_id)
 
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
@@ -123,18 +123,7 @@ def get_experiment_info(experiment_id: int):
 # 获取表单数据
 def get_tag_data(experiment_id: int, tag: str) -> dict:
     """获取表单数据
-
-    parameter
-    ----------
-    experiment_id: int
-        实验唯一id，路径传参
-    tag: str
-        表单标签，路径传参，使用时需要 URIComponent 解码
-
-    Returns
-    -------
-    dict
-        _description_
+    根据实验id得到实验的运行id，然后根据运行id和tag得到实验的数据
     """
 
     return SUCCESS_200({})
@@ -194,8 +183,7 @@ def get_experiment_summary(experiment_id: int) -> dict:
             每个tag的最后一个数据
     """
 
-    run_id = __get_runid_by_id(experiment_id)
-    experiment_path = get_logs_dir(run_id)
+    experiment_path = __get_logs_dir_by_id(experiment_id)
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
     for tag in tags:

@@ -11,6 +11,8 @@ from ..controller.experiment import (
     get_experiment_summary,
 )
 
+from urllib.parse import quote
+
 router = APIRouter()
 
 
@@ -32,6 +34,7 @@ def _(experiment_id: int):
     return get_experiment_info(experiment_id)
 
 
+# COMPAT 由于fastapi不支持%2F的路径转换，所以采用通配符:path，并且在下面将path进行quote编码
 @router.get("/{experiment_id}/tag/{tag:path}")
 def _(experiment_id: int, tag: str) -> dict:
     """获取表单数据
@@ -41,8 +44,9 @@ def _(experiment_id: int, tag: str) -> dict:
     experiment_id: int
         实验唯一id，路径传参
     tag: str
-        表单标签，路径传参，使用时需要 URIComponent 解码
+        表单标签，路径传参，使用时需要 URIComponent 编码
     """
+    tag = quote(tag, safe="")
 
     return get_tag_data(experiment_id, tag)
 
