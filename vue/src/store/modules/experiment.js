@@ -10,7 +10,7 @@ export const useExperimentStroe = defineStore('experiment', () => {
   const charts = ref()
   /** getter */
   // 当前实验id
-  const id = computed(() => experiment.value?.experiment_id)
+  const id = computed(() => experiment.value?.id)
   // 实验名称
   const name = computed(() => experiment.value?.name)
   // 实验描述
@@ -18,7 +18,7 @@ export const useExperimentStroe = defineStore('experiment', () => {
   // 当前实验状态
   const status = computed(() => experiment.value?.status)
   // 当前实验颜色
-  const color = computed(() => experiment.value?.color)
+  const color = computed(() => experiment.value?.light)
   // 默认颜色
   const defaultColor = computed(() => experiment.value?.default_color)
   // 是否running

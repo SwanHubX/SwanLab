@@ -134,7 +134,7 @@ def get_experiment_info(experiment_id: int):
         with get_a_lock(config_path) as f:
             experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
 
-    return SUCCESS_200({"experiment": experiment})
+    return SUCCESS_200(experiment)
 
 
 # 获取表单数据
