@@ -76,6 +76,23 @@ def __clear_field(target: list[dict], field: str) -> list[dict]:
     return target
 
 
+def __get_runid_by_id(experiment_id: int) -> str:
+    """通过 experiment_id 获取实验 run_id
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id
+
+    Returns
+    -------
+    str
+        实验 run_id
+    """
+
+    return Experiment.get(experiment_id).run_id
+
+
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
 
@@ -159,3 +176,24 @@ def get_experiment_status(experiment_id: int):
             },
         }
     )
+
+
+# 获取实验的总结数据
+def get_experiment_summary(experiment_id: int) -> dict:
+    """获取实验的总结数据——每个tag的最后一个setp的data
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+
+    Returns
+    -------
+    dict:
+        summaries: array
+            每个tag的最后一个数据
+    """
+
+    run_id = __get_runid_by_id(experiment_id)
+
+    return SUCCESS_200({"summaries": run_id})

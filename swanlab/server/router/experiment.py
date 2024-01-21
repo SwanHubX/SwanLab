@@ -7,6 +7,8 @@ from ..controller.experiment import (
     get_tag_data,
     # 获取实验状态
     get_experiment_status,
+    # 获取实验的总结数据
+    get_experiment_summary,
 )
 
 router = APIRouter()
@@ -46,7 +48,7 @@ def _(experiment_id: int, tag: str) -> dict:
 
 
 @router.get("/{experiment_id}/status")
-async def _(experiment_id: int):
+def _(experiment_id: int):
     """获取实验状态以及实验图表配置，用于实时更新实验状态
 
     Parameters
@@ -56,3 +58,21 @@ async def _(experiment_id: int):
     """
 
     return get_experiment_status(experiment_id)
+
+
+@router.get("/{experiment_id}/summary")
+def _(experiment_id: int) -> dict:
+    """获取实验的总结数据——每个tag的最后一个setp的data
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+
+    Returns
+    -------
+    dict
+        响应信息
+    """
+
+    return get_experiment_summary(experiment_id)
