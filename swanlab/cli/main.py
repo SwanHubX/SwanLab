@@ -67,7 +67,7 @@ def watch(log_level: str, **kwargs):
     import uvicorn
 
     # 在此处已经完成了路径的检查，所以可以直接导入
-    connect()
+    connect(autocreate=True)
 
     # debug一下当前日志文件夹的位置
     swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(get_swanlog_dir()))
