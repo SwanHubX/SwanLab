@@ -11,6 +11,8 @@ from ..controller.experiment import (
     get_experiment_summary,
     # 获取实验最近日志
     get_recent_logs,
+    # 获取实验图标
+    get_experimet_charts,
 )
 
 from urllib.parse import quote
@@ -95,3 +97,16 @@ async def _(experiment_id: int):
     """
 
     return get_recent_logs(experiment_id)
+
+
+@router.get("/{experiment_id}/chart")
+def _(experiment_id: int):
+    """获取图标信息
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一 ID
+    """
+
+    return get_experimet_charts(experiment_id)

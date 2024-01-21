@@ -23,6 +23,7 @@ from ..settings import (
     DB_PATH,
     get_config_path,
     get_console_dir,
+    get_meta_path,
 )
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
@@ -118,6 +119,7 @@ def get_experiment_info(experiment_id: int):
     """获取实验信息
     1. 数据库中获取实验的基本信息
     2. 从实验目录获取配置信息
+    3. 获取实验元信息
 
     Parameters
     ----------
@@ -133,6 +135,12 @@ def get_experiment_info(experiment_id: int):
     if os.path.exists(config_path):
         with get_a_lock(config_path) as f:
             experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
+
+    # 加载实验元信息
+    meta_path = get_meta_path(experiment["run_id"])
+    if os.path.exists(meta_path):
+        with get_a_lock(meta_path) as f:
+            experiment["system"] = ujson.load(f)
 
     return SUCCESS_200(experiment)
 
@@ -293,10 +301,10 @@ def get_experiment_summary(experiment_id: int) -> dict:
     return SUCCESS_200({"summaries": summaries})
 
 
-# 获取实验最近路由
 MAX_NUM = 6000
 
 
+# 获取实验最近日志
 def get_recent_logs(experiment_id):
     """一下返回最多 MAX_NUM 条打印记录
 
@@ -347,3 +355,43 @@ def get_recent_logs(experiment_id):
         data["error"] = error
     # 返回最新的 MAX_NUM 条记录
     return SUCCESS_200(data)
+
+
+# 获取图表信息
+def get_experimet_charts(experiment_id: int):
+    """获取图表信息
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一 ID
+
+    Returns
+    -------
+    dict :
+        _sum: integer
+        charts: list[dict]
+        namesapces: list[dict]
+    """
+
+    charts = Chart.filter(Chart.experiment_id == experiment_id)
+    chart_list = __to_list(charts)
+
+    # 当前实验下的命名空间
+    namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
+    namespace_list = __clear_field(__to_list(namespaces), "experiment_id")
+    # 获取每个命名空间对应的 display
+    # display 含有 chart 与 namespace 的对应关系
+    for index, namespace in enumerate(namespaces):
+        displays = []
+        for display in __to_list(namespace.displays):
+            displays.append(display["chart_id"]["id"])
+        namespace_list[index]["charts"] = displays
+
+    return SUCCESS_200(
+        {
+            "_sum": charts.count(),
+            "charts": __clear_field(chart_list, "experiment_id"),
+            "namespaces": namespace_list,
+        }
+    )
