@@ -282,6 +282,11 @@ def get_experiment_status(experiment_id: int):
     experiment = Experiment.get(experiment_id)
     charts = Chart.filter(Chart.experiment_id == experiment_id)
     chart_list = __clear_field(__to_list(charts), "experiment_id")
+    for index, chart in enumerate(charts):
+        sources = []
+        for source in __to_list(chart.sources):
+            sources.append(source["tag_id"]["name"])
+        chart_list[index]["source"] = sources
 
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
