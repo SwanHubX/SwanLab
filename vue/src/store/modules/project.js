@@ -18,6 +18,13 @@ export const useProjectStore = defineStore('project', () => {
     project.value = p
   }
   /**
+   * 删除对应的实验
+   * @param {int} id 实验id
+   */
+  const deleteExperiment = (id) => {
+    project.value.experiments = project.value.experiments.filter((e) => e.experiment_id !== id)
+  }
+  /**
    * 修改项目信息
    * @param {string} name 项目名称
    * @param {string} description 项目描述
@@ -74,6 +81,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     setProject,
+    deleteExperiment,
     updateInfo,
     clearProject,
     setExperimentStatus,

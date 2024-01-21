@@ -74,7 +74,7 @@ const deleteExperiment = () => {
   http
     .delete(`/experiment/${experimentStore.id}`)
     .then(({ data }) => {
-      projectStore.setProject(data.project)
+      projectStore.deleteExperiment(data.experiment_id)
       router.replace('/').then(() => {
         message.success('Delete Successfully')
       })

@@ -81,6 +81,23 @@ def __clear_field(target: list[dict], field: str) -> list[dict]:
     return target
 
 
+def __get_exp_dir_by_id(experiment_id: int) -> str:
+    """通过 experiment_id 获取实验目录
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id
+
+    Returns
+    -------
+    str
+        实验目录路径
+    """
+
+    return get_exp_dir(Experiment.get(experiment_id).run_id)
+
+
 def __get_logs_dir_by_id(experiment_id: int) -> str:
     """通过 experiment_id 获取实验 保存目录
 
@@ -466,6 +483,7 @@ def delete_experiment(experiment_id: int):
     """删除实验
 
     注意，需要先判断当前实验是否正在运行中，不可删除运行中的实验
+    同时，需要删除所有表中含有该 experiment_id 的行
 
     Parameters
     ----------
@@ -476,9 +494,22 @@ def delete_experiment(experiment_id: int):
     -------
     project : Dictionary
         删除实验后的项目信息，提供给前端更新界面
+
+    TODO: 该怎么删才能高效删干净
     """
 
-    pass
+    # 先删除实验目录
+    experiment_path = __get_exp_dir_by_id(experiment_id)
+    shutil.rmtree(experiment_path)
+
+    db = connect()
+    models = [Tag, Chart, Namespace]
+    with db.atomic():
+        for cls in models:
+            cls.delete().where(cls.experiment_id == experiment_id).execute()
+        Experiment.delete().where(Experiment.id == experiment_id).execute()
+
+    return SUCCESS_200({"experiment_id": experiment_id})
 
 
 # 停止实验
