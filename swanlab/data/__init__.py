@@ -14,4 +14,5 @@ from .sdk import (
     init,
     log,
     finish,
+    config,
 )

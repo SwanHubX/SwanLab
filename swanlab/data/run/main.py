@@ -73,24 +73,24 @@ class SwanConfig(Mapping):
         self.__config[name] = value
         self.__save()
 
-    def get(self, name):
+    def get(self, name: str):
         try:
             return self.__config[name]
         except KeyError:
-            raise AttributeError(f"You have not set {name} in the config of the current experiment")
+            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         # 如果类被外部点号调用
         try:
             return self.__config[name]
         except KeyError:
-            raise AttributeError(f"You have not set {name} in the config of the current experiment")
+            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str):
         try:
             return self.__config[name]
         except KeyError:
-            raise AttributeError(f"You have not set {name} in the config of the current experiment")
+            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
 
     def __save(self):
         """

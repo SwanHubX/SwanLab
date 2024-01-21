@@ -9,8 +9,8 @@ r"""
 """
 import atexit, sys, traceback, os
 from datetime import datetime
-from .run import SwanLabRun, register
-from typing import Optional
+from .run import SwanLabRun, SwanConfig, register
+from typing import Optional, Any
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
@@ -21,6 +21,7 @@ from ..db import Project, connect
 
 run: Optional["SwanLabRun"] = None
 inited: bool = False
+run_config: Optional["SwanConfig"] = None
 
 
 def init(
@@ -56,7 +57,7 @@ def init(
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
     """
-    global run, inited
+    global run, inited, run_config
 
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -105,6 +106,8 @@ def init(
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
     inited = True
+    # 同步run.config
+    run_config = run.config
     return run
 
 
@@ -187,3 +190,44 @@ def __except_handler(tp, val, tb):
     # 重置控制台记录器
     swanlog.reset_console()
     raise tp(val)
+
+
+class __Config:
+    """用于swanlab.config能够与run.config同步的类"""
+
+    global run_config
+
+    def __check_init__(self):
+        if not inited:
+            raise RuntimeError("You must call swanlab.data.init() before using swanlab.config")
+        if inited and run is None:
+            return swanlog.error("After calling finish(), you can no longer fetch config to the current experiment")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self.__check_init__()
+        self.__dict__[name] = value
+        if not name.startswith("_" + self.__class__.__name__ + "__"):
+            run_config.set(name, value)
+
+    def __setitem__(self, name: str, value: Any) -> None:
+        self.__check_init__()
+        run_config.set(name, value)
+
+    def set(self, name: str, value: Any) -> None:
+        self.__check_init__()
+        run_config.set(name, value)
+
+    def get(self, name: str):
+        self.__check_init__()
+        return run_config.get(name)
+
+    def __getattr__(self, name: str):
+        self.__check_init__()
+        return run_config.get(name)
+
+    def __getitem__(self, name: str):
+        self.__check_init__()
+        return run_config.get(name)
+
+
+config = __Config()
