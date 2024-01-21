@@ -406,3 +406,37 @@ def get_experimet_charts(experiment_id: int):
             "namespaces": namespace_list,
         }
     )
+
+
+# 更改项目信息
+async def update_experiment_info(experiment_id: int, request: Request):
+    """修改实验的信息
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    body : Body
+        name: str
+            实验名称
+        description: str
+            实验描述
+
+    Returns
+    -------
+    dict :
+        name: str
+        description: str
+    """
+
+    db = connect()
+    body = await request.json()
+    with db.atomic():
+        experiment = Experiment.get(experiment_id)
+        experiment.name = body.get("name")
+        experiment.description = body.get("description")
+        experiment.save()
+
+    db.close()
+
+    return SUCCESS_200(body)

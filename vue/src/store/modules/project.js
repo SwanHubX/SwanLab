@@ -46,7 +46,7 @@ export const useProjectStore = defineStore('project', () => {
   }
   /**
    * 重置实验列表中某一个实验的信息
-   * @param {number} id 燕燕唯一id
+   * @param {number} id 实验唯一id
    * @param {object} newInfo 涵盖字段为experiment中字段的子集，不需要修改的不必传
    * @param {boolean} overwirte 设置true后，newInfo直接覆盖experiment，请保证newInfo的完整性
    * @returns

@@ -13,8 +13,10 @@ from ..controller.experiment import (
     get_recent_logs,
     # 获取实验图标
     get_experimet_charts,
+    # 更改实验信息
+    update_experiment_info,
 )
-
+from fastapi import Request
 from urllib.parse import quote
 
 router = APIRouter()
@@ -110,3 +112,25 @@ def _(experiment_id: int):
     """
 
     return get_experimet_charts(experiment_id)
+
+
+@router.patch("/{experiment_id}")
+async def _(experiment_id: int, request: Request):
+    """修改实验的信息
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    body : Body
+        name: str
+            实验名称
+        description: str
+            实验描述
+
+    Returns
+    -------
+    dict
+    """
+
+    return await update_experiment_info(experiment_id, request)

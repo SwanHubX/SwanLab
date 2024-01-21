@@ -69,7 +69,10 @@ def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     try:
         project = Project.filter(Project.id == project_id).first()
         data = project.__dict__()
-        data["experiments"] = __to_list(project.experiments)
+        experiments = __to_list(project.experiments)
+        for experiment in experiments:
+            experiment["experiment_id"] = experiment["id"]
+        data["experiments"] = experiments
         for experiment in data["experiments"]:
             # 将其中的 project_id 字段去除
             experiment.pop("project_id")

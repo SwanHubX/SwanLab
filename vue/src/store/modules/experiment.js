@@ -74,11 +74,15 @@ export const useExperimentStroe = defineStore('experiment', () => {
   const setUpateTime = (time) => {
     experiment.value.update_time = time
   }
-
-  // 修改实验信息
+  // 修改实验信息 => 全部信息
   const setExperiment = (x) => {
     x.default_color = defaultColor.value
     experiment.value = x
+  }
+  // 修改实验信息 => 部分信息
+  const setExperimentPartial = ({ name, description }) => {
+    experiment.value.name = name
+    experiment.value.description = description
   }
 
   return {
@@ -97,6 +101,7 @@ export const useExperimentStroe = defineStore('experiment', () => {
     // action
     setStatus,
     setUpateTime,
-    setExperiment
+    setExperiment,
+    setExperimentPartial
   }
 })
