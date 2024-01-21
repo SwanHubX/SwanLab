@@ -45,7 +45,7 @@ class Shrink100Billion(sw.data.BaseType):
 
 
 # 迭代次数
-epochs = 50
+epochs = 500
 # 学习率
 lr = 0.01
 # 随机偏移量

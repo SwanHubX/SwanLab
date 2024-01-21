@@ -3,8 +3,8 @@
   <template v-if="status === 'success'">
     <ChartsContainer
       v-for="group in groups"
-      :key="group.namespace"
-      :label="getGroupName(group.namespace)"
+      :key="group.name"
+      :label="getGroupName(group.name)"
       :count="group.charts.length"
     >
       <ChartContainer :chart="charts[cnMap.get(chartID)]" v-for="chartID in group.charts" :key="chartID" />
@@ -58,13 +58,13 @@ const parseCharts = (data) => {
   // 添加一个临时array，用于减少遍历次数
   const chartsIdArray = charts.map((chart) => {
     // 为每一个chart生成一个cid
-    chart._cid = cid(chart.chart_id)
+    chart._cid = cid(chart.id)
     // 事实上这块需要注意的是，如果chart.error存在，那么chart.source将不会被渲染
     // 但是为了保持代码平衡，这里还是需要将chart.source添加到eventEmitter中
     // 这将在下面第一次请求数据的时候因为错误被停止
     eventEmitter.addSource(chart.source)
     // 返回id
-    return chart.chart_id
+    return chart.id
   })
   // 标志，判断groups是否找到对应的chart
   let found = false
@@ -83,6 +83,7 @@ const parseCharts = (data) => {
         }
       }
       if (!found) {
+        console.error('chart_id: ', id)
         console.error('charts: ', charts)
         console.error('groups: ', groups)
         throw new Error('Charts and groups cannot correspond.')
@@ -399,10 +400,10 @@ onUnmounted(() => {
  * 将组名进行一些翻译
  * @param { string } namespace 组名
  */
-const getGroupName = (namespace) => {
-  console.log(namespace)
-  if (namespace === 'default') return t('experiment.chart.label.default')
-  else return namespace
+const getGroupName = (name) => {
+  console.log(name)
+  if (name === 'default') return t('experiment.chart.label.default')
+  else return name
 }
 
 /**
