@@ -35,16 +35,45 @@ from ...db import (
     Project,
     Experiment,
     Tag,
+    Chart,
+    Namespace,
+    Display,
 )
 
 __to_list = Experiment.search2list
 
 # ---------------------------------- 通用 ----------------------------------
 
+
 # 默认项目 id
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
+
+
+# ---------------------------------- 工具函数 ----------------------------------
+
+
+def __clear_field(target: list[dict], field: str) -> list[dict]:
+    """遍历字典列表清除某个字段
+
+    Parameters
+    ----------
+    target : list[dict]
+        需要处理的列表
+    field : str
+        需要删除的字段
+
+    Returns
+    -------
+    list[dict]
+        处理后的字典列表
+    """
+
+    for item in target:
+        item.pop(field)
+
+    return target
 
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
@@ -72,3 +101,61 @@ def get_experiment_info(experiment_id: int):
             experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
 
     return SUCCESS_200({"experiment": experiment})
+
+
+# 获取表单数据
+def get_tag_data(experiment_id: int, tag: str) -> dict:
+    """获取表单数据
+
+    parameter
+    ----------
+    experiment_id: int
+        实验唯一id，路径传参
+    tag: str
+        表单标签，路径传参，使用时需要 URIComponent 解码
+
+    Returns
+    -------
+    dict
+        _description_
+    """
+
+    return SUCCESS_200({})
+
+
+# 获取实验状态
+def get_experiment_status(experiment_id: int):
+    """获取实验状态以及实验图表配置，用于实时更新实验状态
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id，路径传参
+    """
+
+    experiment = Experiment.get(experiment_id)
+    charts = Chart.filter(Chart.experiment_id == experiment_id)
+    chart_list = __clear_field(__to_list(charts), "experiment_id")
+
+    # 当前实验下的命名空间
+    namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
+    namespace_list = __clear_field(__to_list(namespaces), "experiment_id")
+    # 获取每个命名空间对应的 display
+    # display 含有 chart 与 namespace 的对应关系
+    for index, namespace in enumerate(namespaces):
+        displays = []
+        for display in __to_list(namespace.displays):
+            displays.append(display["chart_id"]["id"])
+        namespace_list[index]["charts"] = displays
+
+    return SUCCESS_200(
+        {
+            "status": experiment.status,
+            "update_time": experiment.update_time,
+            "charts": {
+                "_sum": charts.count(),
+                "charts": chart_list,
+                "namespaces": namespace_list,
+            },
+        }
+    )

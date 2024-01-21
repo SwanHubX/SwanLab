@@ -1,7 +1,12 @@
 from fastapi import APIRouter
 
 from ..controller.experiment import (
+    # 获取实验信息
     get_experiment_info,
+    # 获取 tag 信息
+    get_tag_data,
+    # 获取实验状态
+    get_experiment_status,
 )
 
 router = APIRouter()
@@ -23,3 +28,31 @@ def _(experiment_id: int):
     """
 
     return get_experiment_info(experiment_id)
+
+
+@router.get("/{experiment_id}/tag/{tag:path}")
+def _(experiment_id: int, tag: str) -> dict:
+    """获取表单数据
+
+    parameter
+    ----------
+    experiment_id: int
+        实验唯一id，路径传参
+    tag: str
+        表单标签，路径传参，使用时需要 URIComponent 解码
+    """
+
+    return get_tag_data(experiment_id, tag)
+
+
+@router.get("/{experiment_id}/status")
+async def _(experiment_id: int):
+    """获取实验状态以及实验图表配置，用于实时更新实验状态
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验唯一id，路径传参
+    """
+
+    return get_experiment_status(experiment_id)
