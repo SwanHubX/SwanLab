@@ -430,12 +430,6 @@ def get_experimet_charts(experiment_id: int):
             displays.append(display["chart_id"]["id"])
         namespace_list[index]["charts"] = displays
 
-    # COMPAT 适配前端字段
-    for item in chart_list:
-        item["chart_id"] = item["id"]
-    for namespace in namespace_list:
-        namespace["namespace"] = namespace["name"]
-
     return SUCCESS_200(
         {
             "_sum": charts.count(),
