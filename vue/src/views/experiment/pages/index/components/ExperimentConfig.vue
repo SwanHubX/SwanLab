@@ -60,7 +60,7 @@ const configs = computed(() => {
   for (const key in experiment.value.config) {
     configs.push({
       key,
-      value: experiment.value.config[key]
+      value: experiment.value.config[key].value
     })
   }
   return configs
