@@ -32,18 +32,30 @@ import yaml
 import argparse
 
 
-class SwanConfig(Mapping):
+class SwanLabConfigParamters:
+    # 配置保存路径, yaml格式
+    settings: SwanDataSettings = None
+    # 判断是否已swanlab.init
+    inited: bool = False
+
+
+class SwanLabConfig(Mapping):
     """
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
     """
 
-    def __init__(self, config: dict, settings: SwanDataSettings):
-        """配置保存路径, yaml格式"""
-        self.__settings = settings
-        """config就是外界传入的config, 实际上外界访问的就是这个config中的内容"""
-        self.__config = self.__check_config(config)
+    # 配置字典
+    config = {}
+
+    """存储配置，dict类型"""
+    params = SwanLabConfigParamters()
+
+    def __init__(self, config_instant: dict):
+        """实例化时更新config"""
+        self.config.update(self.__check_config(config_instant))
         """保存配置"""
-        self.__save()
+        if self.params.settings:
+            self.__save()
 
     def __check_config(self, config: dict) -> dict:
         """
@@ -62,78 +74,90 @@ class SwanConfig(Mapping):
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
         return config
 
+    def __check__inited(self):
+        if not self.params.inited:
+            raise RuntimeError("You must call swanlab.init() before using swanlab.config")
+
     def __setattr__(self, name: str, value: Any) -> None:
         """
         自定义属性设置方法。如果属性名不是私有属性，则同时更新配置字典并保存。
         """
         self.__dict__[name] = value
         if not name.startswith("_" + self.__class__.__name__ + "__"):
-            self.__config[name] = value
-            self.__save()
+            self.__check__inited()
+            self.config[name] = value
+            if self.params.settings:
+                self.__save()
 
     def __setitem__(self, name: str, value: Any) -> None:
         """
         以字典方式设置配置项的值，并保存。
         """
-        self.__config[name] = value
-        self.__save()
+        self.__check__inited()
+        self.config[name] = value
+        if self.params.settings:
+            self.__save()
 
     def set(self, name: str, value: Any) -> None:
         """
         显式设置配置项的值，并保存。
         """
-        self.__config[name] = value
-        self.__save()
+        self.__check__inited()
+        self.config[name] = value
+        if self.params.settings:
+            self.__save()
 
     def get(self, name: str):
         """
         获取配置项的值。如果配置项不存在，抛出 AttributeError。
         """
+        self.__check__inited()
         try:
-            return self.__config[name]
+            return self.config[name]
         except KeyError:
-            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
+            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
 
     def __getattr__(self, name: str):
         """
         如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
         """
-        # 如果类被外部点号调用
+        self.__check__inited()
         try:
-            return self.__config[name]
+            return self.config[name]
         except KeyError:
-            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
+            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
 
     def __getitem__(self, name: str):
         """
         以字典方式获取配置项的值。
         """
+        self.__check__inited()
         try:
-            return self.__config[name]
+            return self.config[name]
         except KeyError:
-            raise AttributeError(f"You have not set '{name}' in the config of the current experiment")
+            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
 
     def __save(self):
         """
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
-        with get_a_lock(self.__settings.config_path, "w") as f:
+        with get_a_lock(self.params.settings.config_path, "w") as f:
             # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
             # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
-            config = {key: {"desc": None, "value": value} for key, value in self.__config.items()}
+            config = {key: {"desc": None, "value": value} for key, value in self.config.items()}
             yaml.dump(config, f)
 
     def __iter__(self):
         """
         返回配置字典的迭代器。
         """
-        return iter(self.__config)
+        return iter(self.config)
 
     def __len__(self):
         """
         返回配置项的数量。
         """
-        return len(self.__config)
+        return len(self.config)
 
 
 class SwanLabRun:
@@ -194,7 +218,9 @@ class SwanLabRun:
             suffix,
         )
         # 给外部1个config
-        self.__config = SwanConfig(config, settings=self.__settings)
+        self.__config = SwanLabConfig(config)
+        self.__config.params.inited = True
+        self.__config.params.settings = self.__settings
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__status = 0
 

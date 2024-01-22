@@ -9,7 +9,7 @@ r"""
 """
 import atexit, sys, traceback, os
 from datetime import datetime
-from .run import SwanLabRun, SwanConfig, register
+from .run import SwanLabRun, SwanLabConfig, register
 from typing import Optional, Any
 from ..log import swanlog
 from .modules import DataType
@@ -21,7 +21,7 @@ from ..db import Project, connect
 
 run: Optional["SwanLabRun"] = None
 inited: bool = False
-run_config: Optional["SwanConfig"] = None
+config = SwanLabConfig(None)
 
 
 def init(
@@ -57,7 +57,7 @@ def init(
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
     """
-    global run, inited, run_config
+    global run, inited
 
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -105,9 +105,6 @@ def init(
     swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
-    inited = True
-    # 同步run.config
-    run_config = run.config
     return run
 
 
@@ -192,66 +189,66 @@ def __except_handler(tp, val, tb):
     raise tp(val)
 
 
-class __Config:
-    """用于swanlab.config能够与run.config同步的类"""
+# class __Config:
+#     """用于swanlab.config能够与run.config同步的类"""
 
-    global run_config
+#     global run_config
 
-    def __check_init__(self):
-        """
-        检查 swanlab.init()是否已经完成。
-        如果没有完成，抛出 RuntimeError 异常。
-        如果完成但 run 为 None，打印error日志。
-        """
-        if not inited:
-            raise RuntimeError("You must call swanlab.data.init() before using swanlab.config")
-        if inited and run is None:
-            return swanlog.error("After calling finish(), you can no longer fetch config to the current experiment")
+#     def __check_init__(self):
+#         """
+#         检查 swanlab.init()是否已经完成。
+#         如果没有完成，抛出 RuntimeError 异常。
+#         如果完成但 run 为 None，打印error日志。
+#         """
+#         if not inited:
+#             raise RuntimeError("You must call swanlab.data.init() before using swanlab.config")
+#         if inited and run is None:
+#             return swanlog.error("After calling finish(), you can no longer fetch config to the current experiment")
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        """
-        自定义属性设置方法。在设置属性之前进行初始化检查。
-        如果属性名称不是以类私有命名开始的，则同步更新 run_config。
-        """
-        self.__check_init__()
-        self.__dict__[name] = value
-        if not name.startswith("_" + self.__class__.__name__ + "__"):
-            run_config.set(name, value)
+#     def __setattr__(self, name: str, value: Any) -> None:
+#         """
+#         自定义属性设置方法。在设置属性之前进行初始化检查。
+#         如果属性名称不是以类私有命名开始的，则同步更新 run_config。
+#         """
+#         self.__check_init__()
+#         self.__dict__[name] = value
+#         if not name.startswith("_" + self.__class__.__name__ + "__"):
+#             run_config.set(name, value)
 
-    def __setitem__(self, name: str, value: Any) -> None:
-        """
-        以字典方式设置config的值。
-        """
-        self.__check_init__()
-        run_config.set(name, value)
+#     def __setitem__(self, name: str, value: Any) -> None:
+#         """
+#         以字典方式设置config的值。
+#         """
+#         self.__check_init__()
+#         run_config.set(name, value)
 
-    def set(self, name: str, value: Any) -> None:
-        """
-        显式设置config的值
-        """
-        self.__check_init__()
-        run_config.set(name, value)
+#     def set(self, name: str, value: Any) -> None:
+#         """
+#         显式设置config的值
+#         """
+#         self.__check_init__()
+#         run_config.set(name, value)
 
-    def get(self, name: str):
-        """
-        获取config对应name的值
-        """
-        self.__check_init__()
-        return run_config.get(name)
+#     def get(self, name: str):
+#         """
+#         获取config对应name的值
+#         """
+#         self.__check_init__()
+#         return run_config.get(name)
 
-    def __getattr__(self, name: str):
-        """
-        以点号方式获取config对应name的值
-        """
-        self.__check_init__()
-        return run_config.get(name)
+#     def __getattr__(self, name: str):
+#         """
+#         以点号方式获取config对应name的值
+#         """
+#         self.__check_init__()
+#         return run_config.get(name)
 
-    def __getitem__(self, name: str):
-        """
-        显式获取config对应name的值
-        """
-        self.__check_init__()
-        return run_config.get(name)
+#     def __getitem__(self, name: str):
+#         """
+#         显式获取config对应name的值
+#         """
+#         self.__check_init__()
+#         return run_config.get(name)
 
 
-config = __Config()
+# config = __Config()
