@@ -11,6 +11,7 @@ export const useProjectStore = defineStore('project', () => {
   const sum = computed(() => project.value?.experiments.length)
   const createTime = computed(() => project.value?.create_time)
   const updateTime = computed(() => project.value?.update_time)
+  const logdir = computed(() => project.value?.logdir)
 
   /** action */
   const setProject = (p) => {
@@ -80,6 +81,7 @@ export const useProjectStore = defineStore('project', () => {
     experiments,
     createTime,
     updateTime,
+    logdir,
     setProject,
     deleteExperiment,
     updateInfo,

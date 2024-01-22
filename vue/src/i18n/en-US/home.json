@@ -2,7 +2,8 @@
   "overview": {
     "create": "Created",
     "latest": "Latest Run",
-    "total": "Total Experiments"
+    "total": "Total Experiments",
+    "logdir": "Logdir"
   },
   "list": {
     "title": "Experiments",

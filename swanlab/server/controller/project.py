@@ -20,6 +20,7 @@ from ..settings import (
     get_exp_dir,
     get_config_path,
 )
+from ...env import get_swanlog_dir
 from ...utils import get_a_lock
 from ...utils.file import check_desc_format
 import yaml
@@ -43,10 +44,12 @@ RUNNING_STATUS = Experiment.RUNNING_STATUS
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
 
-# 列出当前项目下的所有实验
-def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
+# 获取项目信息
+def get_project_info(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     """
-    列出当前项目下的所有实验
+    1. 获取项目信息
+    2. 列出当前项目下的所有实验
+    3. 获取 swanlog 目录路径
 
     Parameters
     ----------
@@ -62,6 +65,7 @@ def get_experiments_list(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     try:
         project = Project.filter(Project.id == project_id).first()
         data = project.__dict__()
+        data["logdir"] = get_swanlog_dir()
         experiments = __to_list(project.experiments)
         for experiment in experiments:
             experiment["experiment_id"] = experiment["id"]

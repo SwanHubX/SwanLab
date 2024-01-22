@@ -12,8 +12,8 @@
           <p class="w-36 whitespace-nowrap">{{ updateTime }}</p>
         </div>
         <div class="flex justify-between">
-          <div class="grow">{{ $t('home.overview.total') }}</div>
-          <p class="w-36 whitespace-nowrap">{{ projectStore.sum }}</p>
+          <div class="grow">{{ $t('home.overview.logdir') }}</div>
+          <p class="w-36 whitespace-nowrap">{{ projectStore.logdir }}</p>
         </div>
       </div>
     </template>
@@ -203,7 +203,8 @@ const tableHead = computed(() => {
   if (!onlySummary.value) {
     return [...column.value, ...configs.value, ...(tags.value || [])]
   }
-  return [...column.value, ...tags.value]
+
+  return [column.value[0], ...tags.value]
 })
 
 // ---------------------------------- 查找 ----------------------------------

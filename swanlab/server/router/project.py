@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 
 from ..controller.project import (
     # 列出实验列表
-    get_experiments_list,
+    get_project_info,
     # 获取项目总结信息
     get_project_summary,
     # 修改项目信息
@@ -24,7 +24,7 @@ def _():
         项目下的实验列表
     """
 
-    return get_experiments_list()
+    return get_project_info()
 
 
 @router.get("/summaries")

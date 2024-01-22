@@ -6,6 +6,7 @@
       v-for="item in data"
       :key="item.key"
       :highLight="item.highLight"
+      :copy="item.copy"
       :link="item.link"
     />
   </div>
