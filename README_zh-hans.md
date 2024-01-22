@@ -28,9 +28,9 @@
 
 - [核心功能](#核心功能)
 - [更新日志](#更新日志)
-- [案例](#案例)
 - [安装](#安装)
 - [快速开始](#快速开始)
+- [案例](#案例)
 - [更多技巧](#更多技巧)
 - [协议](#协议)
 
@@ -71,19 +71,6 @@
 [24/01/07] ✨ 我们支持在仪表板上删除实验和编辑实验信息。
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
-
-<br>
-
-## 案例
-
-通过以下用例学习如何更有效地使用SwanLab：
-
-| 案例 | 介绍 | 
-| ------- | ------- |
-| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | 简单入门 |
-| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
-| [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
-| [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
 
 <br>
 
@@ -136,6 +123,19 @@ $ swanlab watch
 ```
 
 就是这样！打开 http://127.0.0.1:5092 ，查看你的第一个SwanLab实验的仪表板。
+
+<br>
+
+## 案例
+
+通过以下用例学习如何更有效地使用SwanLab：
+
+| 案例 | 介绍 | 
+| ------- | ------- |
+| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | 简单入门 |
+| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
+| [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
+| [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
 
 <br>
 

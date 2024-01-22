@@ -28,9 +28,9 @@ English | <a href="README_zh-hans.md">中文</a>
 
 - [Key Function](#key-function)
 - [Changelog](#changelog)
-- [Use Case](#use-case)
 - [Installation](#installation)
 - [Getting Started](#getting-started)
+- [Use Case](#use-case)
 - [More Tips](#more-tips)
 - [LICENSE](#license)
 
@@ -73,19 +73,6 @@ Additionally, we supported export the experiment list as `CSV`, new environment 
 [24/01/07] ✨ We supported delete experiment and edit experiment inforamation on Dashboard.
 
 [Full Changelog](https://github.com/SwanHubX/SwanLab/releases)
-
-<br>
-
-## Use Case
-
-Learn how to use SwanLab more effectively by following these use cases:
-
-| Code Cases | Description | 
-| ------- | ------- |
-| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
-| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
-| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
-| [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
 
 <br>
 
@@ -138,6 +125,19 @@ $ swanlab watch
 ```
 
 That's it! Open http://127.0.0.1:5092 to view a dashboard of your first SwanLab Experiment.
+
+<br>
+
+## Use Case
+
+Learn how to use SwanLab more effectively by following these use cases:
+
+| Code Cases | Description | 
+| ------- | ------- |
+| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | Getting Started |
+| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | Handwriting recognition based on a plain net and MNIST dataset with pytroch, swanlab. |
+| [Image Classification](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | Cat and dog classification based on ResNet50 with pytorch, swanlab and gradio. [Tutorial](https://zhuanlan.zhihu.com/p/676430630). |
+| [Text Generation](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | Text generation based on Word_language_model (RNN/LSTM/GRU/Transformer) |
 
 <br>
 
