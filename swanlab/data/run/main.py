@@ -305,6 +305,9 @@ class SwanLabConfig(Mapping):
         """
         return len(self.__config)
 
+    def __str__(self):
+        return str(self.__config)
+
 
 class SwanLabRun:
     """
