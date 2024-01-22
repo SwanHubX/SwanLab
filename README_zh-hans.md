@@ -91,8 +91,7 @@
 
 ### pip安装
 
-> [!NOTE]
-> 环境要求：Python 3.8+
+环境要求：Python 3.8+
 
 使用[pip](https://pip.pypa.io/en/stable/)将安装我们稳定发布的版本，安装命令如下所示：
 

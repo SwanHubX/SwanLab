@@ -93,8 +93,7 @@ Learn how to use SwanLab more effectively by following these use cases:
 
 ### with pip
 
-> [!NOTE]
-> Requirement：Python 3.8+
+Requirement：Python 3.8+.
 
 Use [pip](https://pip.pypa.io/en/stable/) to install our stable release version. The installation command is as follows:
 
