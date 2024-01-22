@@ -10,7 +10,7 @@ r"""
 import atexit, sys, traceback, os
 from datetime import datetime
 from .run import SwanLabRun, SwanLabConfig, register
-from typing import Optional, Any
+from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
@@ -20,8 +20,19 @@ from ..db import Project, connect
 
 
 run: Optional["SwanLabRun"] = None
+"""Global runtime instance. After the user calls finish(), run will be set to None."""
+
 inited: bool = False
-config = SwanLabConfig(None)
+"""Indicates whether init() has been called in the current process."""
+
+config: Optional["SwanLabConfig"] = SwanLabConfig(None)
+"""
+Allows users to record experiment configurations through swanlab.config.
+Before calling the init() function, config cannot be read or written, even if it is a SwanLabConfig object.
+After calling the init() function, swanlab.config is equivalent to run.config.
+Configuration information synchronization is achieved through class variables.
+When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
+"""
 
 
 def init(
@@ -83,7 +94,7 @@ def init(
 
     # 初始化环境变量
     init_env()
-    # 连接数据库
+    # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
 
     # 初始化项目数据库
@@ -105,6 +116,7 @@ def init(
     swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
+    inited = True
     return run
 
 
@@ -147,8 +159,8 @@ def finish():
     run = None
 
 
-# 定义清理函数
 def __clean_handler():
+    """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     if not swanlog.isError:
@@ -164,6 +176,7 @@ def __clean_handler():
 
 # 定义异常处理函数
 def __except_handler(tp, val, tb):
+    """定义异常处理函数"""
     if run is None:
         return swanlog.warning("SwanLab Runtime has been cleaned manually, the exception will be ignored")
     swanlog.error("Error happended while training, SwanLab will throw it")
@@ -187,68 +200,3 @@ def __except_handler(tp, val, tb):
     # 重置控制台记录器
     swanlog.reset_console()
     raise tp(val)
-
-
-# class __Config:
-#     """用于swanlab.config能够与run.config同步的类"""
-
-#     global run_config
-
-#     def __check_init__(self):
-#         """
-#         检查 swanlab.init()是否已经完成。
-#         如果没有完成，抛出 RuntimeError 异常。
-#         如果完成但 run 为 None，打印error日志。
-#         """
-#         if not inited:
-#             raise RuntimeError("You must call swanlab.data.init() before using swanlab.config")
-#         if inited and run is None:
-#             return swanlog.error("After calling finish(), you can no longer fetch config to the current experiment")
-
-#     def __setattr__(self, name: str, value: Any) -> None:
-#         """
-#         自定义属性设置方法。在设置属性之前进行初始化检查。
-#         如果属性名称不是以类私有命名开始的，则同步更新 run_config。
-#         """
-#         self.__check_init__()
-#         self.__dict__[name] = value
-#         if not name.startswith("_" + self.__class__.__name__ + "__"):
-#             run_config.set(name, value)
-
-#     def __setitem__(self, name: str, value: Any) -> None:
-#         """
-#         以字典方式设置config的值。
-#         """
-#         self.__check_init__()
-#         run_config.set(name, value)
-
-#     def set(self, name: str, value: Any) -> None:
-#         """
-#         显式设置config的值
-#         """
-#         self.__check_init__()
-#         run_config.set(name, value)
-
-#     def get(self, name: str):
-#         """
-#         获取config对应name的值
-#         """
-#         self.__check_init__()
-#         return run_config.get(name)
-
-#     def __getattr__(self, name: str):
-#         """
-#         以点号方式获取config对应name的值
-#         """
-#         self.__check_init__()
-#         return run_config.get(name)
-
-#     def __getitem__(self, name: str):
-#         """
-#         显式获取config对应name的值
-#         """
-#         self.__check_init__()
-#         return run_config.get(name)
-
-
-# config = __Config()

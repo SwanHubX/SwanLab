@@ -93,6 +93,8 @@ class SwanDataSettings:
     @property
     def files_dir(self) -> str:
         """实验配置信息路径"""
+        path = os.path.join(self.run_dir, "files")
+        os.makedirs(path, exist_ok=True)
         return os.path.join(self.run_dir, "files")
 
     @property
