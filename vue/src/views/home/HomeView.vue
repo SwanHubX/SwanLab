@@ -203,7 +203,8 @@ const tableHead = computed(() => {
   if (!onlySummary.value) {
     return [...column.value, ...configs.value, ...(tags.value || [])]
   }
-  return [...column.value, ...tags.value]
+
+  return [column.value[0], ...tags.value]
 })
 
 // ---------------------------------- 查找 ----------------------------------
