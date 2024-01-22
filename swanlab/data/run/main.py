@@ -36,7 +36,7 @@ def need_inited(func):
     """装饰器，用于检查是否已经初始化"""
 
     def wrapper(self, *args, **kwargs):
-        if self._inited is None:
+        if not self._inited:
             raise RuntimeError("You must call swanlab.init() before using swanlab.log")
         return func(self, *args, **kwargs)
 
