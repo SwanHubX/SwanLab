@@ -29,6 +29,7 @@
 - [核心功能](#核心功能)
 - [更新日志](#更新日志)
 - [案例](#案例)
+- [安装](#安装)
 - [快速开始](#快速开始)
 - [更多技巧](#更多技巧)
 - [协议](#协议)
@@ -57,17 +58,17 @@
 - **🥔 离线支持**: SwanLab可以完全离线运行，无需任何对互联网的访问。例如，它可以在您的本地计算机上、企业防火墙后面或数据中心中运行。
 
 > [!NOTE]
-> See the SwanLab <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Documentaion</a> and <a href="https://github.com/SwanHubX/SwanLab-examples">Examples</a> for a full description of the SwanLab.
+> 请查看SwanLab的<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">文档</a>和<a href="https://github.com/SwanHubX/SwanLab-examples">示例</a>，以获取有关SwanLab的完整介绍。
 
 <br>
 
 ## 更新日志
 
+[24/01/23] 🚨 我们使用SQLite数据库和Peewee库替代了之前的基础配置信息读写方案（[#114](https://github.com/SwanHubX/SwanLab/issues/114)），这是个极大有利于项目未来的改动，但缺陷是不兼容旧版本（swanlab<=v0.1.4）的日志数据文件，所以如需可视化旧版本产生的日志文件请安装<=0.1.4的版本。与此同时，我们增加了支持导出实验列表为CSV，新的环境记录项`Run path`和`logdir`，增加了快捷复制的交互，以及新的API `swanlab.config`。
+
 [24/01/14] 🔥 我们发布了一个新的UI界面，以及跟踪更多环境信息，包括Command、git提交/分支、和机器内存。此外，我们还添加了一个`logdir` API，允许开发人员设置日志文件的目录。
 
 [24/01/07] ✨ 我们支持在仪表板上删除实验和编辑实验信息。
-
-[24/01/01] 我们修复了一些错误，使SwanLab更加稳定。
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
@@ -83,6 +84,25 @@
 | [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
 | [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
 | [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
+
+<br>
+
+## 安装
+
+### pip安装
+
+> [!NOTE]
+> 环境要求：Python 3.8+
+
+使用[pip](https://pip.pypa.io/en/stable/)将安装我们稳定发布的版本，安装命令如下所示：
+
+```bash
+pip install -U swanlab
+```
+
+### 源码安装
+
+如果您等不及发布，想体验最新的代码与特性，那么必须[从源代码安装此库](https://geektechstudio.feishu.cn/wiki/DvxSweHUKiAe8yksci3cMflbnwh#SMXHdJ1c1o4jzTxcDticHcwvnHd)。
 
 <br>
 
@@ -122,7 +142,13 @@ $ swanlab watch
 
 ## 更多技巧
 
-- 设置1个日志文件保存路径，以及运行基于它的实验看板：
+🏄‍♀️ 实验看板相关：
+
+<details>
+<summary>设置日志文件保存路径，并运行基于它的实验看板</summary>
+
+设置日志文件保存路径，比如`./logs`: 
+
 ```python
 import swanlab 
 
@@ -131,16 +157,35 @@ swanlab.init(
 )
 ```
 
-```bash
-$ swanlab watch --logdir ./logs_path
-```
+运行基于`./logs`的看实验看板：
 
-- 设置实验看板的主机和端口：
+```bash
+$ swanlab watch --logdir ./logs
+```
+</details>
+
+
+<details>
+<summary>设置实验看板的主机和端口</summary>
+
 ```bash
 $ swanlab watch --host 0.0.0.0 --port 8080
 ```
+</details>
 
-- 使用Argparse初始化swanlab.config: 
+<details>
+<summary>远程访问实验看板</summary>
+
+- 链接：[在远程服务器上进行训练时，访问SwanLab实验看板](https://zhuanlan.zhihu.com/p/677224865)
+
+</details>
+
+⚙️ 其他：
+
+<details>
+<summary>argparse与swanlab.config</summary>
+
+swanlab.config支持直接传入argparse.Namespace类型的变量，如:
 ```python
 import argparse
 import swanlab
@@ -151,11 +196,10 @@ args = parser.parse_args()
 
 
 swanlab.init(
-    config=vars(args)
+    config=args
 )
 ```
-
-- [远程访问实验看板](https://zhuanlan.zhihu.com/p/677224865): 在远程服务器上进行训练时，访问SwanLab实验看板。
+</details>
 
 <br>
 
