@@ -5,7 +5,7 @@
     <span class="item" :class="{ 'high-light': highLight, copy: copy }">
       <span v-if="!link">{{ envValue }}</span>
       <a :href="envValue" target="_blank" class="hover:underline underline-offset-2" v-else>{{ envValue }}</a>
-      <SLCopy :text="envValue" class="absolute top-1 right-1 transition-all duration-150 opacity-0 copy-button" />
+      <SLCopy :text="envValue" class="copy-button" />
     </span>
   </div>
 </template>
@@ -49,6 +49,10 @@ defineProps({
     .copy-button {
       @apply opacity-100;
     }
+  }
+
+  .copy-button {
+    @apply absolute top-1 right-1 transition-all duration-150 opacity-0;
   }
 }
 
