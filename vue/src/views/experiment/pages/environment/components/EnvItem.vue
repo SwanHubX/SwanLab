@@ -1,11 +1,11 @@
 <template>
-  <div class="w-full flex" v-if="envValue">
+  <div class="w-full flex relative" v-if="envValue">
     <!-- key -->
     <span class="text-dimmer w-44 shrink-0">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
-    <span class="item" :class="{ 'high-light': highLight, copy: copy }">
+    <span class="item" :class="{ 'high-light': highLight, copy: copy }" @click="copyText(envValue)">
       <span v-if="!link">{{ envValue }}</span>
       <a :href="envValue" target="_blank" class="hover:underline underline-offset-2" v-else>{{ envValue }}</a>
-      <SLCopy :text="envValue" class="copy-button" />
+      <SLIcon icon="copy" class="copy-button" v-if="copy" />
     </span>
   </div>
 </template>
@@ -16,6 +16,9 @@
  * @file: EnvItem.vue
  * @since: 2024-01-09 19:44:16
  **/
+
+import { message } from '@swanlab-vue/components/message'
+import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
 
 defineProps({
   envKey: {
@@ -36,14 +39,19 @@ defineProps({
   },
   copy: {
     type: Boolean,
-    default: true
+    default: false
   }
 })
+
+const copyText = (value) => {
+  copyTextToClipboard(value)
+  message.success('Copy!')
+}
 </script>
 
 <style lang="scss" scoped>
 .item {
-  @apply break-all relative;
+  @apply absolute left-48 break-all;
 
   &:hover {
     .copy-button {
@@ -52,7 +60,7 @@ defineProps({
   }
 
   .copy-button {
-    @apply absolute top-1 right-1 transition-all duration-150 opacity-0;
+    @apply absolute w-4 h-4 top-1.5 right-1 transition-all duration-150 opacity-0;
   }
 }
 
@@ -61,9 +69,9 @@ defineProps({
 }
 
 .copy {
-  @apply transition-all overflow-hidden;
+  @apply transition-all absolute;
   &:hover {
-    @apply bg-higher pr-8;
+    @apply absolute rounded pr-8 pl-2 py-0.5 scale-y-100 bg-highest cursor-pointer;
   }
 }
 </style>

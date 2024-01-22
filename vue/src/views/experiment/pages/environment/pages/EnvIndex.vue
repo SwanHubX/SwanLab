@@ -13,12 +13,13 @@
  * 这里会放一些实验配置信息
  **/
 
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import EnvItems from '../components/EnvItems.vue'
 
 const experimentStore = useExperimentStroe()
+const projectStore = useProjectStore()
 const experiment = experimentStore.experiment
 const system = experiment.system
 
@@ -53,12 +54,14 @@ const systems = computed(() => {
     {
       key: 'executable',
       value: system.executable,
-      highLight: true
+      highLight: true,
+      copy: true
     },
     {
       key: 'command',
       value: system.command,
-      highLight: true
+      highLight: true,
+      copy: true
     }
   ]
 })
@@ -78,7 +81,8 @@ const gits = computed(() => {
     },
     {
       key: 'git_commit',
-      value: system.git_info ? system.git_info[1] : ''
+      value: system.git_info ? system.git_info[1] : '',
+      copy: true
     }
   ]
 })
@@ -116,6 +120,12 @@ const hardware = computed(() => {
 // swanlab 相关
 const swanlab = computed(() => {
   return [
+    {
+      key: 'logdir',
+      value: projectStore.logdir,
+      highLight: true,
+      copy: true
+    },
     {
       key: 'swanlab',
       value: `v${experiment.version}`
