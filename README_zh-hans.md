@@ -101,7 +101,7 @@ pip install -U swanlab
 ```
 
 2. 然后，使用下面的示例代码片段作为模板，将SwanLab集成到您的Python脚本中:
-```Python
+```python
 import swanlab
 
 # Start a SwanLab Run with swanlab.init

@@ -103,7 +103,7 @@ pip install -U swanlab
 ```
 
 2. Second, Use the example code snippet below as a template to integrate SwanLab to your Python script:
-```Python
+```python
 import swanlab
 
 # Start a SwanLab Run with swanlab.init
