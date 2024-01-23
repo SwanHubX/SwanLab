@@ -23,15 +23,9 @@
         <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
         <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
       </div>
-      <TableBar
-        class="pb-4 pt-1 px-5 flex-shrink-0"
-        :table-head="tableHead"
-        :table-body="tableBody"
-        :searchText="searchText"
-        :checked="onlySummary"
-        @update:checked="onlySummary = $event"
-        @update:searchText="searchText = $event"
-      />
+      <TableBar class="pb-4 pt-1 px-5 flex-shrink-0" :table-head="tableHead" :table-body="tableBody"
+        :searchText="searchText" :checked="onlySummary" @update:checked="onlySummary = $event"
+        @update:searchText="searchText = $event" />
       <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
         <!-- 实验表格 -->
         <SLTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
@@ -112,23 +106,23 @@ const column = ref([
 
 // 遍历 experiments，添加配置
 const configs = ref([])
-;(() => {
-  // 寻找需要增加的表头
-  experiments.value.map((item) => {
-    Object.entries(item.config).forEach(([key]) => {
-      // 如果这个key已经存在configs中，跳过
-      if (configs.value.some((config) => config.title === key)) {
-        return
-      }
-      configs.value.push({
-        type: 'config',
-        slot: key,
-        title: key
+  ; (() => {
+    // 寻找需要增加的表头
+    experiments.value.map((item) => {
+      Object.entries(item.config).forEach(([key]) => {
+        // 如果这个key已经存在configs中，跳过
+        if (configs.value.some((config) => config.title === key)) {
+          return
+        }
+        configs.value.push({
+          type: 'config',
+          slot: key,
+          title: key
+        })
       })
     })
-  })
-  // column.value.push(...configs.value)
-})()
+    // column.value.push(...configs.value)
+  })()
 
 // ---------------------------------- 表格数据，同时还有tag的表头处理 ----------------------------------
 
@@ -226,6 +220,7 @@ const tableBody = computed(() => {
 .dashboard-table {
   @apply border-x-0 border-b-0;
 }
+
 .grow {
   @apply text-dimmest;
 }

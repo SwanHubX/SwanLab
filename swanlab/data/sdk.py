@@ -9,30 +9,17 @@ r"""
 """
 import atexit, sys, traceback, os
 from datetime import datetime
-from .run import SwanLabRun, SwanLabConfig, register
+from .run import SwanLabRun, register
 from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
 from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
-from ..db import Project, connect
 
 
 run: Optional["SwanLabRun"] = None
-"""Global runtime instance. After the user calls finish(), run will be set to None."""
-
 inited: bool = False
-"""Indicates whether init() has been called in the current process."""
-
-config: Optional["SwanLabConfig"] = SwanLabConfig(None)
-"""
-Allows users to record experiment configurations through swanlab.config.
-Before calling the init() function, config cannot be read or written, even if it is a SwanLabConfig object.
-After calling the init() function, swanlab.config is equivalent to run.config.
-Configuration information synchronization is achieved through class variables.
-When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
-"""
 
 
 def init(
@@ -94,11 +81,7 @@ def init(
 
     # 初始化环境变量
     init_env()
-    # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
-    connect(autocreate=True)
 
-    # 初始化项目数据库
-    Project.init(os.path.basename(os.getcwd()))
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -113,7 +96,7 @@ def init(
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
+    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.exp_dir))
     swanlog.info("Experiment_name: " + run.settings.exp_name)
     swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
     inited = True
@@ -159,8 +142,8 @@ def finish():
     run = None
 
 
+# 定义清理函数
 def __clean_handler():
-    """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     if not swanlog.isError:
@@ -176,7 +159,6 @@ def __clean_handler():
 
 # 定义异常处理函数
 def __except_handler(tp, val, tb):
-    """定义异常处理函数"""
     if run is None:
         return swanlog.warning("SwanLab Runtime has been cleaned manually, the exception will be ignored")
     swanlog.error("Error happended while training, SwanLab will throw it")
