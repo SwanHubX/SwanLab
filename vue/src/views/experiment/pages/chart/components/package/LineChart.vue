@@ -209,15 +209,19 @@ const formatXAxisTick = (category) => {
   // 判断这个长度能容纳多少个步长
   const count = Math.floor(length / step)
   // console.log('count', count)
-  // 生成刻度，与步长绑定
-  const ticks = [values[0]]
+  // 生成刻度，与步长绑定,去重
+  const ticks = new Set()
   // 以最小值为基准，生成刻度
   const base = Math.floor(Number(values[0]) / step)
+  // 刻度不大于最大值
+  const max = Math.floor(Number(values[length - 1]))
   // console.log('base', base)
   for (let i = base; i <= base + count; i++) {
-    ticks.push(String(i * step))
+    i * step < max && ticks.add(i * step)
   }
-  return ticks
+  // set转array
+  console.log('ticks', Array.from(ticks))
+  return Array.from(ticks)
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
