@@ -79,7 +79,7 @@ def init(
         try:
             logdir = check_dir_and_create(logdir)
             # 检查logdir内文件的版本，如果<=0.1.4则报错
-            version_limit(logdir)
+            version_limit(logdir, mode="init")
         except ValueError:
             raise ValueError("logdir must be a str.")
         except IOError:
