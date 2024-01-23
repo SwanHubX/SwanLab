@@ -1,9 +1,10 @@
 <template>
+  <!-- 这一层是为了保证表格宽度，设计到边框长度、背景色长度等 -->
   <div class="w-full" ref="wrapper">
     <!-- 表格 -->
     <div
       :class="{ 'gradient-last-line': lastRowGradient, 'table-border': tableBorder }"
-      :style="{ width: tableWidth }"
+      :style="{ width: typeof tableWidth === 'string' ? tableWidth : `${tableWidth}px` }"
       ref="table"
     >
       <!-- 表头 -->
@@ -84,7 +85,7 @@
 
 import { computed } from 'vue'
 import { onMounted } from 'vue'
-import { ref } from 'vue'
+import { ref, watch, inject } from 'vue'
 
 // ---------------------------------- 组件接口 ----------------------------------
 
@@ -201,11 +202,21 @@ const handleTableWith = () => {
     width += value
   })
   if (wrapper.value.offsetWidth > width) {
-    tableWidth.value = wrapper.value.offsetWidth + 'px'
+    if (wrapper.value.offsetWidth) tableWidth.value = wrapper.value.offsetWidth
   } else {
-    tableWidth.value = width + 'px'
+    tableWidth.value = width
   }
 }
+
+const layoutSiderBar = inject('isSideBarShow')
+const siderWith = 288
+watch(layoutSiderBar, (newV) => {
+  if (!newV) {
+    tableWidth.value += siderWith
+  } else {
+    tableWidth.value -= siderWith
+  }
+})
 
 // ---------------------------------- resize 相关 ----------------------------------
 
