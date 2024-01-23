@@ -211,6 +211,6 @@ async def delete_project(project_id: int = DEFAULT_PROJECT_ID):
             shutil.rmtree(exp_path)
 
     # 清空数据库
-    project.delete_instance().execute()
+    project.delete_instance()
 
     return SUCCESS_200({})
