@@ -58,6 +58,12 @@ const systems = computed(() => {
       copy: true
     },
     {
+      key: 'workspace',
+      value: system.cwd,
+      highLight: true,
+      copy: true
+    },
+    {
       key: 'command',
       value: system.command,
       highLight: true,

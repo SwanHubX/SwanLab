@@ -80,6 +80,7 @@
       "duration": "Duration",
       "python": "Python Version",
       "executable": "Python executable",
+      "workspace": "Run path",
       "command": "Command",
       "hostname": "Hostname",
       "OS": "OS",
