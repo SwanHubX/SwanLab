@@ -37,6 +37,9 @@ def version_limit(path: str, mode: str) -> None:
     ----------
     path : str
         swanlog目录
+    mode : str
+        模式，只能是['watch', 'init']中的一个，分别对应swanlab watch和swanlab init
+        主要是显示不同的错误信息
 
     Raises
     ------
@@ -54,13 +57,10 @@ def version_limit(path: str, mode: str) -> None:
             if project.get("version") is not None:
                 # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
                 if mode == "watch":
-                    raise ValueError(
-                        "The version of logdir's file is old (Created by swanlab<=0.1.4), the current version of SwanLab doesn't support this logfile. If you need to watch this logfile, please downgrade to v0.1.4 with 'pip install swanlog==0.1.4'"
-                    )
+                    info = "The version of logdir's file is old (Created by swanlab<=0.1.4), the current version of SwanLab doesn't support this logfile. If you need to watch this logfile, please downgrade to v0.1.4 with 'pip install swanlog==0.1.4'"
                 elif mode == "init":
-                    raise ValueError(
-                        "Suggest you set a new logdir: The version of logdir's file is old (Created by swanlab<=0.1.4), the current version of SwanLab doesn't support this logfile."
-                    )
+                    info = "Suggest you set a new logdir: The version of logdir's file is old (Created by swanlab<=0.1.4), the current version of SwanLab doesn't support this logfile."
                 else:
-                    raise ValueError("version_limit function only support mode in ['watch', 'init']")
+                    info = "version_limit function only support mode in ['watch', 'init']"
+                raise ValueError(info)
     return
