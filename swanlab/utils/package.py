@@ -5,7 +5,7 @@ r"""
 @File: swanlab/utils/package.py
 @IDE: vscode
 @Description:
-    用于管理swanlab的包管理器的模块，做一些分装
+    用于管理swanlab的包管理器的模块，做一些封装
 """
 import json
 import os
