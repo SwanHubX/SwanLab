@@ -104,7 +104,7 @@ function downloadCsv(header, data) {
 const checkType = (item, type, key) => {
   switch (type) {
     case 'config':
-      return item.config[key]
+      return item.config[key] ? item.config[key].value : '-'
     case 'create_time':
       return formatTime(item.create_time)
     case 'status':
