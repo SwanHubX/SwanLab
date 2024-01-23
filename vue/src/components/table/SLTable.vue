@@ -211,6 +211,7 @@ const handleTableWith = () => {
 const layoutSiderBar = inject('isSideBarShow')
 const siderWith = 288
 watch(layoutSiderBar, (newV) => {
+  if (props.flexable) return
   if (!newV) {
     tableWidth.value += siderWith
   } else {
