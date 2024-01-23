@@ -171,6 +171,6 @@ def version_limit(path: str) -> None:
             if project.get("version") is not None:
                 # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
                 raise ValueError(
-                    "The version of swanlog is too low, please downgrade to v0.1.4 with 'pip install swanlog==0.1.4'"
+                    "The version of logfile is old, the current version of SwanLab doesn't support this logfile. If you need to watch this logfile, please downgrade to v0.1.4 with 'pip install swanlog==0.1.4'"
                 )
     return
