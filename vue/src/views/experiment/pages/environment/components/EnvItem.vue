@@ -51,7 +51,7 @@ const copyText = (value) => {
 
 <style lang="scss" scoped>
 .item {
-  @apply absolute left-48 break-all;
+  @apply left-48 break-all;
 
   &:hover {
     .copy-button {
@@ -69,9 +69,9 @@ const copyText = (value) => {
 }
 
 .copy {
-  @apply transition-all absolute;
+  @apply transition-all;
   &:hover {
-    @apply absolute rounded pr-8 pl-2 py-0.5 scale-y-100 bg-highest cursor-pointer;
+    @apply rounded pr-8 pl-2 scale-y-100 bg-highest cursor-pointer;
   }
 }
 </style>

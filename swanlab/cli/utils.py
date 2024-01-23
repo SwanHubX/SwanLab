@@ -13,6 +13,7 @@ import socket
 import click
 from ..utils import FONT, file
 from ..env import PORT, HOST, ROOT
+import json
 
 
 def is_valid_ip(ctx, param, ip: str) -> tuple:

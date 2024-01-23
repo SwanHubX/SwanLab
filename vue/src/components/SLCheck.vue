@@ -1,6 +1,6 @@
 <template>
   <div class="flex items-center gap-2 cursor-pointer" @click="$emit('update:checked', !checked)">
-    <input type="checkbox" class="border w-4 h-4" :checked="checked" />
+    <input type="checkbox" class="border cursor-pointer w-4 h-4" :checked="checked" />
     <span class="select-none truncate">{{ label }}</span>
   </div>
 </template>
