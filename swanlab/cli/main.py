@@ -9,7 +9,7 @@ r"""
 """
 
 import click
-from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
+from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL, version_limit
 from ..utils import FONT
 from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
@@ -66,15 +66,16 @@ def watch(log_level: str, **kwargs):
     from ..server import app
     import uvicorn
 
-    # 在此处已经完成了路径的检查，所以可以直接导入
+    log_dir = get_swanlog_dir()
+    print(log_dir)
+    version_limit(log_dir)
+
+    # debug一下当前日志文件夹的位置
+    swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(log_dir))
     try:
         connect()
     except FileNotFoundError:
-        pass
-
-    # debug一下当前日志文件夹的位置
-    swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(get_swanlog_dir()))
-
+        swl.error("Can not find the swanlab db in: " + FONT.bold(log_dir))
     # ---------------------------------- 日志等级处理 ----------------------------------
     swl.setLevel(log_level)
     # ---------------------------------- 服务地址处理 ----------------------------------
