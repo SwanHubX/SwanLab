@@ -82,9 +82,6 @@ def init(
             raise ValueError("logdir must be a str.")
         except IOError:
             raise IOError("logdir must be a path and have Write permission.")
-
-        # 检查logdir内文件的版本，如果<=0.1.4则报错
-        version_limit(logdir, mode="init")
         os.environ[ROOT] = logdir
     # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录，但是需要保证目录存在
     else:
@@ -95,9 +92,8 @@ def init(
                 raise IOError
         except:
             raise IOError("logdir must have Write permission.")
-        # 检查logdir内文件的版本，如果<=0.1.4则报错
-        version_limit(logdir, mode="init")
-
+    # 检查logdir内文件的版本，如果<=0.1.4则报错
+    version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
     # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
