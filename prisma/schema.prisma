@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 当前一个工程中只有一个项目
+model Project {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+  sum         Int?
+  charts      Int     @default(0) // 是否已经生成项目级别图表，0 未生成，1 已生成
+  more        String? // json
+  version     String
+  create_time String
+  update_time String
+
+  Experiment Experiment[]
+  Namespace  Namespace[]
+  Chart      Chart[]
+
+  @@map("project")
+}
+
+model Experiment {
+  id          Int     @id @default(autoincrement())
+  run_id      String  @unique
+  name        String
+  description String?
+  sort        Int // >=0
+  status      Int     @default(0) // 实验状态 -1: crushed, 0: running, 1: finished
+  show        Int     @default(0) // 实验可见性 0: 不可见，1: 可见
+  light       String?
+  dark        String?
+  more        String? // json
+  version     String
+  create_time String
+  update_time String
+
+  project_id Int
+  Project    Project     @relation(fields: [project_id], references: [id])
+  Namespace  Namespace[]
+  Chart      Chart[]
+  Tag        Tag[]
+
+  @@unique([project_id, name])
+  @@unique([project_id, sort])
+  @@map("experiment")
+}
+
+// 一个实验/项目下可以有多个命名空间
+model Namespace {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  sort        Int // >=0, 索引越小，排序越靠前
+  more        String // json
+  create_time String
+  update_time String
+
+  // 一个命名空间只能属于项目或实验
+  project_id    Int?
+  experiment_id Int?
+  Project       Project?    @relation(fields: [project_id], references: [id])
+  Experiment    Experiment? @relation(fields: [experiment_id], references: [id])
+  Display       Display[]
+
+  @@unique([project_id, name])
+  @@unique([experiment_id, name])
+  @@map("namespace")
+}
+
+model Chart {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  system      Int     @default(1) // 是否为创建tag时自动生成的图表, -1: 删除的自动生成的图表; 0: 否; 1: 是; 系统图表不可删除，只能改为-1
+  type        String // 由创建者决定
+  reference   String  @default("step") // 由创建者决定
+  config      String? // json
+  more        String? // json
+  create_time String
+  update_time String
+
+  project_id    Int?
+  experiment_id Int?
+  Project       Project?    @relation(fields: [project_id], references: [id])
+  Experiment    Experiment? @relation(fields: [experiment_id], references: [id])
+  Display       Display[]
+  Source        Source[]
+
+  @@unique([project_id, name])
+  @@unique([experiment_id, name])
+  @@map("chart")
+}
+
+// 中间表，namespace 和 chart，设计排序和排序可变
+model Display {
+  id          Int     @id @default(autoincrement())
+  sort        Int // 索引越小，排序越靠前，索引>=0
+  more        String? // json
+  create_time String
+  update_time String
+
+  namespace_id Int
+  chart_id     Int
+  Namespace    Namespace @relation(fields: [namespace_id], references: [id])
+  Chart        Chart     @relation(fields: [chart_id], references: [id])
+
+  @@unique([namespace_id, chart_id])
+  @@map("display")
+}
+
+model Source {
+  id          Int     @id @default(autoincrement())
+  sort        Int     @default(0) // 值越小越靠前
+  error       String? // json
+  more        String? // json
+  create_time String
+  update_time String
+
+  chart_id Int
+  Chart    Chart @relation(fields: [chart_id], references: [id])
+  tag_id   Int
+  Tag      Tag   @relation(fields: [tag_id], references: [id])
+
+  @@unique([chart_id, tag_id])
+  @@map("source")
+}
+
+// 与实验关联
+model Tag {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  type        String
+  description String?
+  system      Int     @default(0) // 0: 用户生成，1: 系统生成
+  more        String? // json
+  create_time String
+  update_time String
+
+  experiment_id Int
+  Experiment    Experiment @relation(fields: [experiment_id], references: [id])
+  Source        Source[]
+
+  @@unique([experiment_id, name])
+  @@map("tag")
+}

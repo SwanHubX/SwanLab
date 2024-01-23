@@ -33,7 +33,7 @@ class Chart(SwanModel):
     id = IntegerField(primary_key=True)
     """图表id, 自增"""
     experiment_id = ForeignKeyField(Experiment, backref="charts", on_delete="CASCADE", on_update="CASCADE", null=True)
-    """外键，关联的项目id，与project_id只有一个为NULL"""
+    """外键，关联的实验id，与project_id只有一个为NULL"""
     project_id = ForeignKeyField(
         Project, backref="charts", default=1, on_delete="CASCADE", on_update="CASCADE", null=True
     )
