@@ -11,7 +11,7 @@
         <SLTable table-border :column="column" :data="configs" flexable />
       </div>
       <div class="pt-4">
-        <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
+        <div class="flex items-center pb-4">
           <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
           <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
             >{{ $t('experiment.index.config.help.summary') }}
