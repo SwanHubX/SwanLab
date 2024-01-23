@@ -68,7 +68,7 @@
         </div>
       </div>
       <!-- 没有数据时，空占位 -->
-      <div v-if="!data.length" class="flex justify-center py-3">
+      <div v-if="!data.length" class="flex justify-center py-3 border border-t-0">
         <div class="data-empty">{{ $t('common.table.empty') }}</div>
       </div>
     </div>
