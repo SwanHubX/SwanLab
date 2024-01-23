@@ -9,8 +9,8 @@ r"""
 """
 
 import click
-from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL, version_limit
-from ..utils import FONT
+from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
+from ..utils import FONT, version_limit
 from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
 from ..db import connect
@@ -68,7 +68,7 @@ def watch(log_level: str, **kwargs):
 
     log_dir = get_swanlog_dir()
     print(log_dir)
-    version_limit(log_dir)
+    version_limit(log_dir, mode="watch")
 
     # debug一下当前日志文件夹的位置
     swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(log_dir))

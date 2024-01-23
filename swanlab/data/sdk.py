@@ -17,6 +17,7 @@ from typing import Dict
 from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
+from ..utils import version_limit
 
 
 run: Optional["SwanLabRun"] = None
@@ -77,12 +78,14 @@ def init(
     if logdir is not None:
         try:
             logdir = check_dir_and_create(logdir)
+            # 检查logdir内文件的版本，如果<=0.1.4则报错
+            version_limit(logdir)
         except ValueError:
             raise ValueError("logdir must be a str.")
         except IOError:
             raise IOError("logdir must be a path and have Write permission.")
         os.environ[ROOT] = logdir
-    # 如果没有传入logdir，则使用默认的logdir,即当前工作目录，但是需要保证目录存在
+    # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录，但是需要保证目录存在
     else:
         logdir = os.path.abspath("swanlog")
         try:
@@ -91,6 +94,8 @@ def init(
                 raise IOError
         except:
             raise IOError("logdir must have Write permission.")
+        # 检查logdir内文件的版本，如果<=0.1.4则报错
+        version_limit(logdir, mode="init")
 
     # 初始化环境变量
     init_env()
