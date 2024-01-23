@@ -78,12 +78,13 @@ def init(
     if logdir is not None:
         try:
             logdir = check_dir_and_create(logdir)
-            # 检查logdir内文件的版本，如果<=0.1.4则报错
-            version_limit(logdir, mode="init")
         except ValueError:
             raise ValueError("logdir must be a str.")
         except IOError:
             raise IOError("logdir must be a path and have Write permission.")
+
+        # 检查logdir内文件的版本，如果<=0.1.4则报错
+        version_limit(logdir, mode="init")
         os.environ[ROOT] = logdir
     # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录，但是需要保证目录存在
     else:
