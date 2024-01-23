@@ -31,7 +31,7 @@ const emits = defineEmits(['input', 'search', 'update:modelValue'])
 const props = defineProps({
   dealy: {
     type: String,
-    default: '500'
+    default: '0'
   },
   placeholder: {
     type: String,
