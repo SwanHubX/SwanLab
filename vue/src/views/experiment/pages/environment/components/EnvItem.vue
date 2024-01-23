@@ -2,7 +2,7 @@
   <div class="w-full flex relative" v-if="envValue">
     <!-- key -->
     <span class="text-dimmer w-44 shrink-0">{{ $t(`experiment.env.keys.${envKey}`) }}</span>
-    <span class="item" :class="{ 'high-light': highLight, copy: copy }" @click="copyText(envValue)">
+    <span class="item" :class="{ 'high-light': highLight, copy: copy }" @click="copy && copyText(envValue)">
       <span v-if="!link">{{ envValue }}</span>
       <a :href="envValue" target="_blank" class="hover:underline underline-offset-2" v-else>{{ envValue }}</a>
       <SLIcon icon="copy" class="copy-button" v-if="copy" />
