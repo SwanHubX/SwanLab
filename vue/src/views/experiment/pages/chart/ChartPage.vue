@@ -9,8 +9,9 @@
     >
       <ChartContainer :chart="charts[cnMap.get(chartID)]" v-for="chartID in group.charts" :key="chartID" />
     </ChartsContainer>
+    <!-- 图表不存在 -->
+    <p class="font-semibold mt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
   </template>
-  <EmptyExperiment v-once v-else-if="status !== 'initing'" />
 </template>
 
 <script setup>
@@ -24,7 +25,6 @@ import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
 import ChartsContainer from './components/ChartsContainer.vue'
 import ChartContainer from './components/ChartContainer.vue'
-import EmptyExperiment from './components/EmptyExperiment.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
