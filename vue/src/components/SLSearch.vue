@@ -1,15 +1,13 @@
 <template>
-  <div class="search" :class="focused ? ' border-primary-default' : 'hover:border-primary-dimmer'">
-    <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
+  <div class="swan-search" :class="{ 'icon-reverse': reverse }">
+    <SLIcon class="swan-icon" icon="search" />
     <input
       type="text"
       v-model="value"
-      class="w-full outline-none text-sm text-dimmer"
+      class="focus:border-primary-default hover:border-primary-dimmer"
       :placeholder="placeholder"
       @input="input"
       @keydown.enter="$emit('search', value)"
-      @focus="focused = true"
-      @blur="focused = false"
     />
   </div>
 </template>
@@ -40,11 +38,14 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: ''
+  },
+  reverse: {
+    type: Boolean,
+    default: false
   }
 })
 
 const value = ref('')
-const focused = ref(false)
 
 const input = debounce(() => {
   emits('input', value.value)
@@ -53,7 +54,25 @@ const input = debounce(() => {
 </script>
 
 <style lang="scss" scoped>
-.search {
-  @apply w-full border flex gap-2 justify-between items-center py-2 px-2 rounded-lg transition-all;
+.swan-search {
+  @apply relative w-full;
+  input {
+    @apply w-full outline-none text-sm text-dimmer border p-2 rounded-lg transition-all;
+    @apply pl-7;
+  }
+
+  .swan-icon {
+    @apply w-4 h-4 shrink-0;
+    @apply absolute top-1/2 left-2 transform -translate-y-1/2;
+  }
+}
+
+.icon-reverse {
+  input {
+    @apply pl-2 pr-7;
+  }
+  .swan-icon {
+    @apply right-2 left-auto;
+  }
 }
 </style>

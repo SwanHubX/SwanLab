@@ -2,22 +2,10 @@
   <div class="pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
       <div class="pt-4">
-        <div class="flex items-center pb-4">
-          <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
-          <SLHelp document="https://geektechstudio.feishu.cn/wiki/EFi3wuACGiEWlLki5aDcQiSpngg">{{
-            $t('experiment.index.config.help.config')
-          }}</SLHelp>
-        </div>
-        <SLTable table-border :column="column" :data="configs" flexable />
+        <DataTable table-border :column="column" :data="configs" title="Config" />
       </div>
       <div class="pt-4">
-        <div class="flex items-center pb-4">
-          <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
-          <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
-            >{{ $t('experiment.index.config.help.summary') }}
-          </SLHelp>
-        </div>
-        <SLTable table-border :column="column" :data="summaries" flexable />
+        <DataTable table-border :column="column" :data="summaries" title="Summary" />
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -31,8 +19,7 @@
  * @since: 2023-12-11 17:07:31
  **/
 
-import SLTable from '@swanlab-vue/components/table'
-import SLHelp from '@swanlab-vue/components/SLHelp.vue'
+import DataTable from './DataTable.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'

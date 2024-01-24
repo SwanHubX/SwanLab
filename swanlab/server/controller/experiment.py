@@ -54,12 +54,12 @@ RUNNING_STATUS = Experiment.RUNNING_STATUS
 # ---------------------------------- 工具函数 ----------------------------------
 
 
-def __clear_field(target: list[dict], field: str) -> list[dict]:
+def __clear_field(target: List[dict], field: str) -> list[dict]:
     """遍历字典列表清除某个字段
 
     Parameters
     ----------
-    target : list[dict]
+    target : List[dict]
         需要处理的列表
     field : str
         需要删除的字段
@@ -363,10 +363,10 @@ def get_recent_logs(experiment_id):
     Returns
     -------
     dict :
-        recent: list[str]
+        recent: List[str]
             0: 截止处日志文件
             1: 开始处日志文件
-        logs: list[str]
+        logs: List[str]
             日志列表
     """
 
@@ -417,8 +417,8 @@ def get_experimet_charts(experiment_id: int):
     -------
     dict :
         _sum: integer
-        charts: list[dict]
-        namesapces: list[dict]
+        charts: List[dict]
+        namesapces: List[dict]
     """
 
     charts = Chart.filter(Chart.experiment_id == experiment_id)
