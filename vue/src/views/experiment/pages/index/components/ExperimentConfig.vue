@@ -63,7 +63,7 @@ http
     summaries.value = (data.summaries || []).map((item) => {
       return {
         key: item.key,
-        value: formatNumber2SN(item.value)
+        value: isNaN(item.value) ? item.value : formatNumber2SN(item.value)
       }
     })
   })

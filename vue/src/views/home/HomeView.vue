@@ -139,7 +139,7 @@ const experiments_table = computed(() => {
     if (!summary) return {}
     Promise.all(
       Object.keys(summary).map(async (key) => {
-        expr[await hashString(key)] = formatNumber2SN(summary[key])
+        expr[await hashString(key)] = isNaN(summary[key]) ? summary[key] : formatNumber2SN(summary[key])
       })
     )
     return expr
@@ -170,7 +170,6 @@ http
         return { key, title: tag }
       })
     )
-    // column.value.push(...tags.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })

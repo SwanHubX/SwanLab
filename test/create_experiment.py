@@ -15,5 +15,5 @@ for i in range(100):
     # time.sleep(0.1)
 
 for i in range(300):
-    swanlab.log({"accccc": "xfds"})
+    swanlab.log({"acc": "nan"})
     # time.sleep(0.1)
