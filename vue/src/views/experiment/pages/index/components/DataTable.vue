@@ -1,7 +1,7 @@
 <template>
   <div class="table">
     <!-- title and search -->
-    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-lg">
+    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-t-lg">
       <p class="pr-10">{{ title }}</p>
       <SLSearch
         class="bg-default max-w-[300px]"
@@ -17,13 +17,13 @@
         <div class="header-item" v-for="item in column" :key="item.key" :title="item.title">{{ item.title }}</div>
       </div>
       <!-- body -->
-      <TableLine class="line" v-for="line in tableData" :key="line.key" :line="line">
-        <div class="body-item hover:before:contents" v-for="item in line" :key="item.key" :title="item">
+      <TableLine class="data-line" v-for="line in tableData" :key="line.key" :line="line">
+        <div class="body-item" v-for="item in line" :key="item.key" :title="item">
           {{ item }}
         </div>
       </TableLine>
       <!-- empty body -->
-      <div class="w-full py-4 flex justify-center" v-if="data.length === 0">
+      <div class="w-full py-4 flex justify-center" v-if="tableData.length === 0">
         {{ $t('experiment.index.config.table.empty') }}
       </div>
     </div>
@@ -86,6 +86,13 @@ const tableData = computed(() => {
 
 .line {
   @apply grid grid-cols-2 gap-3;
+}
+
+.data-line {
+  @apply line;
+  &:last-child {
+    @apply rounded-b-lg;
+  }
 }
 
 .header-item {
