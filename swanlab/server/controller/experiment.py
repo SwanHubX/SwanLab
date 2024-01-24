@@ -336,7 +336,8 @@ def get_experiment_summary(experiment_id: int) -> dict:
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
-            data = data["data"][-1]["data"]
+            # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
+            data = str(data["data"][-1]["data"])
             summaries.append({"key": unquote(tag), "value": data})
 
     return SUCCESS_200({"summaries": summaries})
