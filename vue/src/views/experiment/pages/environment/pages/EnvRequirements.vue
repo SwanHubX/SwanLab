@@ -36,7 +36,7 @@
 <script setup>
 /**
  * @description: 依赖项
- * @file: EnvDependances.vue
+ * @file: EnvRequirements.vue
  * @since: 2024-01-09 16:01:55
  **/
 
