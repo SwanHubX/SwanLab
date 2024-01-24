@@ -19,7 +19,11 @@ const navs = [
     to: `index`
   },
   {
-    key: 'dependances',
+    key: 'hardware',
+    to: `hardware`
+  },
+  {
+    key: 'requirements',
     to: `requirements`
   }
 ]

@@ -69,7 +69,8 @@
   "env": {
     "navs": {
       "index": "Overview",
-      "dependances": "Requrements"
+      "hardware": "System Hardware",
+      "requirements": "Requrements"
     },
     "title": {
       "exp_env_index": "Overview",
