@@ -16,3 +16,5 @@ class Chart:
     line = "line", [float, int]
     # 图片类型
     image = "image", [str]
+    # 音频类型
+    audio = "audio", [str]

@@ -133,4 +133,4 @@ class Audio(BaseType):
         # TODO: audio chart type 在 Chart object 中还未定义
         # 目前计划缓存 音频 + 频谱图 + 波形图
         # 可视化时，可以选择播放音频，或者显示频谱图、波形图
-        return self.chart.image
+        return self.chart.audio
