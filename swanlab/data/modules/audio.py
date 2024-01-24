@@ -23,10 +23,13 @@ class Audio(BaseType):
         print("root_dir", self.settings.root_dir)
         # numpy.array() 类型保存
         self.audio_data, self.sample_rate = self.preprocess(self.value)
+
+        if os.path.exists(self.settings.static_dir) is False:
+            os.makedirs(self.settings.static_dir)
+        # 保存音频文件、频谱图、波形图到指定目录
         save_path = os.path.join(self.settings.static_dir, f"audio-{self.tag}-{self.step}.wav")
-        # 保存音频数据到指定目录
         self.save(save_path)
-        print("save_path:", save_path)
+        # print("save_path:", save_path)
         # 获得目录的相对路径
         save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
         print("save_relative_path", save_relative_path)
@@ -78,6 +81,7 @@ class Audio(BaseType):
             if num_channels > 1:
                 axes[c].set_ylabel(f"Channel {c+1}")
         figure.savefig(plot_save_path)
+        plt.close()
 
     def plot_spectrogram(self, plot_save_path):
         """获取音频的频谱"""
@@ -91,6 +95,7 @@ class Audio(BaseType):
             if num_channels > 1:
                 axes[c].set_ylabel(f"Channel {c+1}")
         figure.savefig(plot_save_path)
+        plt.close()
 
     def get_play_audio(self):
         """获取可播放音频类型"""
@@ -102,9 +107,20 @@ class Audio(BaseType):
     def save(self, save_path):
         """
         保存 wav 文件到指定路径
+        绘制频谱图和波形图，保存到同样的路径
+        audio-{tag}-{step}.wav
+        audio-{tag}-{step}-spectrogram.png
+        audio-{tag}-{step}-waveform.png
         """
         try:
+            # 保存音频
             sf.write(save_path, self.audio_data, self.sample_rate, subtype="PCM_16")
+            # 保存频谱图
+            spectrogram_save_path = save_path.replace(".wav", "-spectrogram.png")
+            self.plot_spectrogram(spectrogram_save_path)
+            # 保存波形图
+            waveform_save_path = save_path.replace(".wav", "-waveform.png")
+            self.plot_waveform(waveform_save_path)
         except Exception as e:
             raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
 
@@ -114,4 +130,7 @@ class Audio(BaseType):
 
     def get_chart_type(self) -> str:
         """设定图表类型"""
+        # TODO: audio chart type 在 Chart object 中还未定义
+        # 目前计划缓存 音频 + 频谱图 + 波形图
+        # 可视化时，可以选择播放音频，或者显示频谱图、波形图
         return self.chart.image
