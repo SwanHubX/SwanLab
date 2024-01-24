@@ -30,14 +30,16 @@
     </div>
     <!-- links -->
     <div class="w-full grow px-8 items-center font-semibold justify-end gap-8 md:flex hidden">
-      <a :href="item.link" target="_blank" class="links-a" v-for="item in links" :key="item.link">{{ item.title }}</a>
+      <a :href="item.link" target="_blank" class="text-dimmest a-hover" v-for="item in links" :key="item.link">{{
+        item.title
+      }}</a>
     </div>
     <!-- fixeds -->
     <div class="flex items-center font-semibold">
       <a
         :href="item.link"
         target="_blank"
-        class="flex gap-1.5 items-center h-full text-dimmest hover:text-dimmer"
+        class="flex gap-1.5 items-center h-full text-dimmest a-hover"
         v-for="item in fixeds"
         :key="item.icon"
       >
@@ -98,8 +100,7 @@ const fixeds = ref([
 </script>
 
 <style lang="scss" scoped>
-.links-a {
-  @apply text-dimmest;
+.a-hover {
   &:hover {
     @apply text-[#dadde1];
   }
