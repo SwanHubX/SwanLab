@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-t-lg">
       <p class="pr-10">{{ title }}</p>
       <SLSearch
-        class="bg-default max-w-52"
+        class="bg-default max-w-[300px]"
         :placeholder="$t('experiment.index.config.table.search')"
         reverse
         v-model="search"
@@ -13,7 +13,7 @@
     <!-- table -->
     <div class="w-full">
       <!-- header -->
-      <div class="line bg-higher">
+      <div class="line bg-higher border-b">
         <div class="header-item" v-for="item in column" :key="item.key" :title="item.title">{{ item.title }}</div>
       </div>
       <!-- body -->
