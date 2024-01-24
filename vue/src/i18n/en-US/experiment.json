@@ -57,6 +57,10 @@
       "help": {
         "config": "The Configuration parameter describes the input options of your model. Configure it in the 'config' parameter of swanlab.init. Click the icon to learn more.",
         "summary": "The Summary parameter describes the final results of the metrics you record. Click the icon to learn more."
+      },
+      "table": {
+        "empty": "No Data",
+        "search": "Search..."
       }
     }
   },

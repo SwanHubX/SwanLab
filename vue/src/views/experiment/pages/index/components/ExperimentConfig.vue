@@ -8,7 +8,7 @@
             $t('experiment.index.config.help.config')
           }}</SLHelp>
         </div>
-        <SLTable table-border :column="column" :data="configs" flexable />
+        <DataTable table-border :column="column" :data="configs" title="Config" />
       </div>
       <div class="pt-4">
         <div class="flex items-center pb-4">
@@ -17,7 +17,7 @@
             >{{ $t('experiment.index.config.help.summary') }}
           </SLHelp>
         </div>
-        <SLTable table-border :column="column" :data="summaries" flexable />
+        <DataTable table-border :column="column" :data="summaries" title="Summary" />
       </div>
     </div>
     <div class="w-full h-6"></div>
@@ -31,7 +31,7 @@
  * @since: 2023-12-11 17:07:31
  **/
 
-import SLTable from '@swanlab-vue/components/table'
+import DataTable from './DataTable.vue'
 import SLHelp from '@swanlab-vue/components/SLHelp.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'

@@ -1,5 +1,8 @@
 <template>
-  <div class="search" :class="focused ? ' border-primary-default' : 'hover:border-primary-dimmer'">
+  <div
+    class="search"
+    :class="[focused ? 'border-primary-default' : 'hover:border-primary-dimmer', reverse ? 'flex-row-reverse' : '']"
+  >
     <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
     <input
       type="text"
@@ -40,6 +43,10 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: ''
+  },
+  reverse: {
+    type: Boolean,
+    default: false
   }
 })
 

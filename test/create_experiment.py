@@ -1,7 +1,14 @@
 import swanlab
 import time
 
-swanlab.init(log_level="debug")
+swanlab.init(
+    log_level="debug",
+    config={
+        "test": 1,
+        "debug": 1,
+        "verbose": 1,
+    },
+)
 
 for i in range(100):
     swanlab.log({"loss": i})
