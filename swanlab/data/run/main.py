@@ -9,7 +9,7 @@ r"""
 """
 from typing import Any
 from ..settings import SwanDataSettings
-from ...log import register, swanlog
+from ...log import register, swanlog, SwanLog
 from ..system import get_system_info, get_requirements
 from .utils import (
     check_exp_name_format,
@@ -322,6 +322,7 @@ class SwanLabRun:
         config: dict = None,
         log_level: str = None,
         suffix: str = None,
+        loggings: bool = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -344,6 +345,9 @@ class SwanLabRun:
         suffix : str, optional
             实验名称后缀，用于区分同名实验，格式为yyyy-mm-dd_HH-MM-SS
             如果不提供此参数(为None)，不会添加后缀
+        loggings: bool, optional
+            swanlab.log是否在终端打印日志的全局配置，默认为False
+            如果开启, swanlab.log将在全局开启终端打印日志。
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -372,6 +376,7 @@ class SwanLabRun:
         )
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__status = 0
+        self.loggings = loggings
 
     @property
     def settings(self) -> SwanDataSettings:
@@ -391,7 +396,7 @@ class SwanLabRun:
         """
         return self.__config
 
-    def log(self, data: dict, step: int = None):
+    def log(self, data: dict, step: int = None, logggings: bool = None):
         """
         Log a row of data to the current run.
         Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
@@ -410,10 +415,12 @@ class SwanLabRun:
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
 
+        # 检查data的类型
         if not isinstance(data, dict):
             return swanlog.error(
                 "log data must be a dict, but got {}, SwanLab will ignore records it.".format(type(data))
             )
+
         # 检查step的类型
         if step is not None and (not isinstance(step, int) or step < 0):
             swanlog.error(
@@ -422,12 +429,22 @@ class SwanLabRun:
                 )
             )
             step = None
+
+        # 获取本次log的时间戳
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 遍历data，记录data
         for key in data:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            self.__exp.add(key=key, data=d, step=step)
+            step = self.__exp.add(key=key, data=d, step=step)
+            # 如果开启logging，则在终端打印日志
+            if logggings and not isinstance(step, SwanLog):
+                logging_info = "{}  Step:{}  Tag:{}  Value:{} ".format(timestamp, step, key, d)
+                swanlog.info(logging_info)
+        # 如果开启logging且log的数据项大于2，则增加分隔符
+        if logggings and len(data) >= 2:
+            swanlog.info("-" * 32)
 
     def success(self):
         """标记实验成功"""

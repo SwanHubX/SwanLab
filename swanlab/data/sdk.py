@@ -42,6 +42,7 @@ def init(
     config: dict = None,
     logdir: str = None,
     suffix: str = "timestamp",
+    loggings: bool = None,
     log_level: str = None,
 ) -> SwanLabRun:
     """
@@ -68,6 +69,9 @@ def init(
         The suffix of the experiment name, used to distinguish experiments with the same name, the format is yyyy-mm-dd_HH-MM-SS.
         If this parameter is not provided, no suffix will be added.
         At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
+    loggings : bool, optional
+        Is swanlab.log globally configured to print logs in the terminal, default is False.
+        If True, swanlab.log will enable printing logs in the terminal globally.
     """
     global run, inited
 
@@ -108,6 +112,7 @@ def init(
         config=config,
         log_level=log_level,
         suffix=suffix,
+        loggings=loggings,
     )
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -122,7 +127,7 @@ def init(
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None):
+def log(data: Dict[str, DataType], step: int = None, loggings: bool = None):
     """
     Log a row of data to the current run.
 
@@ -135,12 +140,18 @@ def log(data: Dict[str, DataType], step: int = None):
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
+    loggings: bool, optional
+        If logging is True, the log will be printed to the terminal.
     """
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
-    return run.log(data, step)
+
+    if loggings is None:
+        loggings = run.loggings
+
+    return run.log(data, step, loggings)
 
 
 def finish():

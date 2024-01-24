@@ -93,7 +93,9 @@ class SwanLabExp:
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
-        tag_obj.add(data, step)
+        step = tag_obj.add(data, step)
+
+        return step
 
 
 class SwanLabTag:
@@ -192,6 +194,8 @@ class SwanLabTag:
         # 更新实验信息总结
         with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
+
+        return step
 
     @property
     def save_path(self):
