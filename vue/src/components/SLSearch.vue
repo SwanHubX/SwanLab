@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="search"
-    :class="[focused ? 'border-primary-default' : 'hover:border-primary-dimmer', reverse ? 'flex-row-reverse' : '']"
-  >
+  <div class="search focus:border-primary-default hover:border-primary-dimmer" :class="{ 'flex-row-reverse': reverse }">
     <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
     <input
       type="text"
@@ -11,8 +8,6 @@
       :placeholder="placeholder"
       @input="input"
       @keydown.enter="$emit('search', value)"
-      @focus="focused = true"
-      @blur="focused = false"
     />
   </div>
 </template>
@@ -51,7 +46,6 @@ const props = defineProps({
 })
 
 const value = ref('')
-const focused = ref(false)
 
 const input = debounce(() => {
   emits('input', value.value)
