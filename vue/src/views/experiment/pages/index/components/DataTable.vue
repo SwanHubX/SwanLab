@@ -1,7 +1,7 @@
 <template>
   <div class="table">
     <!-- title and search -->
-    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-t-lg">
+    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-lg">
       <p class="pr-10">{{ title }}</p>
       <SLSearch
         class="bg-default max-w-[300px]"
