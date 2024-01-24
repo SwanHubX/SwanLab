@@ -1,10 +1,10 @@
 <template>
-  <div class="search focus:border-primary-default hover:border-primary-dimmer" :class="{ 'flex-row-reverse': reverse }">
-    <SLIcon class="w-4 h-4 shrink-0" icon="search"></SLIcon>
+  <div class="swan-search" :class="{ 'icon-reverse': reverse }">
+    <SLIcon class="swan-icon" icon="search" />
     <input
       type="text"
       v-model="value"
-      class="w-full outline-none text-sm text-dimmer"
+      class="focus:border-primary-default hover:border-primary-dimmer"
       :placeholder="placeholder"
       @input="input"
       @keydown.enter="$emit('search', value)"
@@ -54,7 +54,25 @@ const input = debounce(() => {
 </script>
 
 <style lang="scss" scoped>
-.search {
-  @apply w-full border flex gap-2 justify-between items-center py-2 px-2 rounded-lg transition-all;
+.swan-search {
+  @apply relative w-full;
+  input {
+    @apply w-full outline-none text-sm text-dimmer border p-2 rounded-lg transition-all;
+    @apply pl-7;
+  }
+
+  .swan-icon {
+    @apply w-4 h-4 shrink-0;
+    @apply absolute top-1/2 left-2 transform -translate-y-1/2;
+  }
+}
+
+.icon-reverse {
+  input {
+    @apply pl-2 pr-7;
+  }
+  .swan-icon {
+    @apply right-2 left-auto;
+  }
 }
 </style>
