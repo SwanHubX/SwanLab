@@ -140,6 +140,10 @@ class SwanLabTag:
         """
         return self.__error is None
 
+    def __is_nan(self, data):
+        """判断data是否为nan"""
+        return data == "nan" or data == float("nan") or math.isnan(data)
+
     def add(self, data: DataType, step: int = None):
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
@@ -168,9 +172,11 @@ class SwanLabTag:
         目前的策略是让python解释器自己处理，在前端完成数据的格式化展示
         """
         data = self.try_convert_after_add_chart(data, step)
-        # 如果数据比之前的数据小，则更新最小值，否则不更新
-        self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
-        self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
+        is_nan = self.__is_nan(data)
+        if not is_nan:
+            # 如果数据比之前的数据小，则更新最小值，否则不更新
+            self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
+            self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
         self._summary["num"] = self._summary.get("num", 0) + 1
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
@@ -180,6 +186,7 @@ class SwanLabTag:
             # 如果当前数据已经达到了__slice_size，重新创建一个新的data
             self.__data = self.__new_tags()
         # 添加数据
+        data = data if not is_nan else "NaN"
         self.__data["data"].append(self.__new_tag(step, data))
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
         sum = len(self.__steps)
@@ -229,7 +236,7 @@ class SwanLabTag:
             chart_type, self.data_types = types
             sort = None
         # 创建chart
-        chart: Chart = Chart.create(
+        self.__chart: Chart = Chart.create(
             tag,
             experiment_id=self.experiment_id,
             type=chart_type,
@@ -242,10 +249,10 @@ class SwanLabTag:
             self.__namespace = Namespace.create(name=namespace, experiment_id=self.experiment_id, sort=sort)
             swanlog.debug(f"Namespace {namespace} created, id: {self.__namespace.id}")
         except ExistedError:
-            self.__namespace = Namespace.get(name=namespace, experiment_id=self.experiment_id)
+            self.__namespace: Namespace = Namespace.get(name=namespace, experiment_id=self.experiment_id)
             swanlog.debug(f"Namespace {namespace} exists, id: {self.__namespace.id}")
         # 创建display，这个必然是成功的，因为display是唯一的，直接添加到最后一条即可
-        Display.create(chart_id=chart.id, namespace_id=self.__namespace.id)
+        Display.create(chart_id=self.__chart.id, namespace_id=self.__namespace.id)
         """
         接下来判断tag格式的正确性，判断完毕后往source中添加一条tag记录
         在此函数中，只判断tag的格式是否正确，不记录数据
@@ -273,7 +280,8 @@ class SwanLabTag:
             type="default",
         )
         # 添加一条source记录
-        Source.create(tag_id=tag.id, chart_id=chart.id, error=error)
+        Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
+        self.__error = error
 
     def __new_tag(self, index, data) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""
