@@ -30,15 +30,7 @@
     </div>
     <!-- links -->
     <div class="w-full grow px-8 items-center font-semibold justify-end gap-8 md:flex hidden">
-      <!-- links标签的悬浮色未处理 -->
-      <a
-        :href="item.link"
-        target="_blank"
-        class="text-dimmest hover:text-dimmer"
-        v-for="item in links"
-        :key="item.link"
-        >{{ item.title }}</a
-      >
+      <a :href="item.link" target="_blank" class="links-a" v-for="item in links" :key="item.link">{{ item.title }}</a>
     </div>
     <!-- fixeds -->
     <div class="flex items-center font-semibold">
@@ -105,4 +97,11 @@ const fixeds = ref([
 ])
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.links-a {
+  @apply text-dimmest;
+  &:hover {
+    @apply text-[#dadde1];
+  }
+}
+</style>
