@@ -2,7 +2,6 @@
   <ExperimentHeader />
   <hr />
   <ExperimentConfig />
-  <hr />
 </template>
 
 <script setup>
