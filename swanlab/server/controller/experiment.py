@@ -328,10 +328,15 @@ def get_experiment_summary(experiment_id: int) -> dict:
             每个tag的最后一个数据
     """
 
+    experiment = Experiment.get_by_id(experiment_id)
+    tag_list = [tag["name"] for tag in __to_list(experiment.tags)]
     experiment_path = __get_logs_dir_by_id(experiment_id)
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
-    for tag in tags:
+    for tag in tag_list:
+        if tag not in tags:
+            summaries.append({"key": tag, "value": "TypeError"})
+            continue
         tag_path = os.path.join(experiment_path, tag)
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
