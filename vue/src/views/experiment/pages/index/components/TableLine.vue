@@ -1,8 +1,10 @@
 <template>
-  <div class="group relative">
-    <div class="absolute top-[-30px] left-[40%] text-center hidden group-hover:block">
-      <p class="border px-3 py-1 text-sx scale-75 bg-higher rounded-lg">{{ `${line.key}: ${line.value}` }}</p>
-    </div>
+  <div class="group w-full relative hover:bg-highest">
+    <p
+      class="border absolute max-w-[80%] left-10 translate-y-[-90%] top-0 text-center group-hover:block hidden px-3 py-1 text-sx scale-75 bg-higher rounded-lg"
+    >
+      {{ `${line.key}: ${line.value}` }}
+    </p>
     <slot></slot>
   </div>
 </template>

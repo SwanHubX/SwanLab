@@ -1,7 +1,7 @@
 <template>
   <div class="table">
     <!-- title and search -->
-    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher">
+    <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-t-lg">
       <p class="pr-10">{{ title }}</p>
       <SLSearch
         class="bg-default max-w-52"
@@ -11,7 +11,7 @@
       />
     </div>
     <!-- table -->
-    <div class="w-full overflow-x-auto">
+    <div class="w-full">
       <!-- header -->
       <div class="line bg-higher">
         <div class="header-item" v-for="item in column" :key="item.key" :title="item.title">{{ item.title }}</div>
@@ -81,7 +81,7 @@ const tableData = computed(() => {
 
 <style lang="scss" scoped>
 .table {
-  @apply w-full border rounded-lg overflow-hidden;
+  @apply w-full border rounded-lg;
 }
 
 .line {
