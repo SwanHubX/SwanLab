@@ -51,7 +51,10 @@ export default {
         dimmer: 'var(--foreground-dimmer, #555)',
         dimmest: 'var(--foreground-dimmest, #b5b5b5)',
         // 复杂文字高亮
-        'white-default': 'var(--accent-white-default, #fff)'
+        'white-highest': 'var(--foreground-complex-highest, #B5B5B5)',
+        'white-higher': 'var(--accent-white-higher, #DADDE1)',
+        'white-default': 'var(--accent-white-default, #fff)',
+        'green-default': 'var(--accent-green-default, #99A559)'
       }
     },
     // 基础颜色
