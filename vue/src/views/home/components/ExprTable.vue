@@ -49,7 +49,7 @@
           v-for="(item, index) in column"
           :key="item.key"
           :title="dataColumn[item.key]"
-          class="cell flex items-center px-2 py-3"
+          class="cell flex items-center px-2 py-3 overflow-hidden"
           :class="[
             item.style,
             { 'hover:bg-primary-dimmest': resizeIndex === -1 },
@@ -63,7 +63,9 @@
             <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
           </div>
           <!-- 文本格式 -->
-          <div class="w-full overflow-hidden" v-else>{{ dataColumn[item.key] || '-' }}</div>
+          <div class="w-full" v-else>
+            {{ dataColumn[item.key] || '-' }}
+          </div>
         </div>
       </div>
       <!-- 没有数据时，空占位 -->
