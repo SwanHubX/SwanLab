@@ -92,7 +92,7 @@ const tableData = computed(() => {
 }
 
 .data-line {
-  @apply line hover:bg-highest;
+  @apply line hover:bg-highest border-b last:border-none border-[#f2f2f2];
   &:last-child {
     @apply rounded-b-lg;
   }
