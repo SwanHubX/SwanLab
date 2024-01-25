@@ -43,6 +43,7 @@ def init(
     logdir: str = None,
     suffix: str = "timestamp",
     log_level: str = None,
+    logggings: bool = False,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -108,6 +109,7 @@ def init(
         config=config,
         log_level=log_level,
         suffix=suffix,
+        loggings=logggings,
     )
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -122,7 +124,7 @@ def init(
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None):
+def log(data: Dict[str, DataType], step: int = None, loggings: bool = None):
     """
     Log a row of data to the current run.
 
@@ -141,7 +143,7 @@ def log(data: Dict[str, DataType], step: int = None):
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
-    swanlog.set_temporary_logging()
+    swanlog.set_temporary_logging(loggings)
     l = run.log(data, step)
     swanlog.reset_temporary_logging()
     return l

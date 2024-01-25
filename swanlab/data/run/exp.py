@@ -7,6 +7,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
+from datetime import datetime
 from .db import (
     Tag,
     Namespace,
@@ -93,7 +94,9 @@ class SwanLabExp:
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
-        tag_obj.add(data, step)
+        step = tag_obj.add(data, step)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        swanlog.log(f"{timestamp}  step:{step}  tag:{tag}  value:{str(data)}")
 
 
 class SwanLabTag:
@@ -199,6 +202,8 @@ class SwanLabTag:
         # 更新实验信息总结
         with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
+
+        return step
 
     @property
     def save_path(self):
