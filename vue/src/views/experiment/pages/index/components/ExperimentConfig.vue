@@ -1,8 +1,8 @@
 <template>
   <div class="pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
-      <div class="pt-4">
-        <DataTable table-border :column="column" :data="configs" title="Config" />
+      <div class="pt-4 w-full">
+        <DataTable class="w-full" table-border :column="column" :data="configs" title="Config" />
       </div>
       <div class="pt-4">
         <DataTable table-border :column="column" :data="summaries" title="Summary" />
