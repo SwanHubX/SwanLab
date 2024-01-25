@@ -287,7 +287,14 @@ class SwanLabConfig(Mapping):
         with get_a_lock(self.__settings.get("save_path"), "w") as f:
             # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
             # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
-            config = {key: {"desc": None, "value": value} for key, value in self.__config.items()}
+            config = {
+                key: {
+                    "desc": None,
+                    "sort": index,
+                    "value": value,
+                }
+                for index, (key, value) in enumerate(self.__config.items())
+            }
             yaml.dump(config, f)
 
     def __iter__(self):
