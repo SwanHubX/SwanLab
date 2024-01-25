@@ -55,9 +55,9 @@ const input = debounce(() => {
 
 <style lang="scss" scoped>
 .swan-search {
-  @apply relative w-full;
+  @apply relative w-full rounded-lg;
   input {
-    @apply w-full outline-none text-sm text-dimmer border p-2 rounded-lg transition-all;
+    @apply w-full outline-none text-sm text-dimmer border rounded-lg p-2  transition-all;
     @apply pl-7;
   }
 
