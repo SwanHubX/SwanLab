@@ -50,6 +50,7 @@ class ColoredFormatter(logging.Formatter, FONT):
             logging.WARNING: self.yellow,
             logging.ERROR: self.red,
             logging.CRITICAL: self.bold_red,
+            COLLECT_LEVEL: self.green,
         }
 
     def bold_red(self, s: str) -> str:
@@ -78,6 +79,7 @@ class ColoredFormatter(logging.Formatter, FONT):
         message : string
             需要装载的颜色
         """
+
         return self.__color_map.get(levelno)(message)
 
     def format(self, record):
@@ -117,6 +119,9 @@ class CustomFileHandler(logging.FileHandler):
         super().emit(record)
 
 
+COLLECT_LEVEL = 60
+
+
 class SwanLog(Logsys):
     # 日志系统支持的输出等级
     __levels = {
@@ -127,8 +132,21 @@ class SwanLog(Logsys):
         "critical": logging.CRITICAL,
     }
 
+    # 是否打印收集信息
+    logging = False
+    # 是否临时允许打印
+    temp_logging = False
+    # 自定义等级
+    __LOG_LEVEL = {
+        "value": COLLECT_LEVEL,
+        "name": "COLLECT",
+    }
+
     def __init__(self, name=__name__, level="debug"):
         super()
+        # 自定义log级别
+        logging.addLevelName(self.__LOG_LEVEL["value"], self.__LOG_LEVEL["name"])
+        # 设置日志器
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
         self.__consoler: SwanConsoler = None
@@ -140,6 +158,7 @@ class SwanLog(Logsys):
         console_level=None,
         file_level=None,
         console_path=None,
+        enable_logging=False,
     ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
@@ -159,6 +178,8 @@ class SwanLog(Logsys):
             控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
         """
 
+        # 保存设置
+        self.logging = enable_logging
         # 初始化控制台记录器
         if self.__consoler is None and console_path:
             self.debug("init consoler")
@@ -324,6 +345,31 @@ class SwanLog(Logsys):
     @__concat_messages
     def critical(self, message):
         self.logger.critical(message)
+
+    @__concat_messages
+    def log(self, message):
+        """全局自定义信息打印，级别最高
+        临时打印，只有在为 ture 的时候权限高于全局打印
+
+        Parameters
+        ----------
+        message : _type_
+            _description_
+        """
+
+        if self.temp_logging:
+            # 如果临时打印通过，那么一定打印
+            pass
+        elif not self.logging:
+            # 临时打印不通过，并且全局打印也通不过，直接返回
+            return
+        # 到这里，临时打印为 false，全局打印为 true
+        self.logger.log(self.__LOG_LEVEL["value"], message)
+
+    @__concat_messages
+    def force_log(self, message):
+        """强制打印"""
+        self.logger.log(self.__LOG_LEVEL["value"], message)
 
     def reset_console(self):
         """重置控制台记录器"""
