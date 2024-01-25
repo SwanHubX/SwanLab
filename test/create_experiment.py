@@ -11,5 +11,6 @@ swanlab.init(
     logggings=True,
 )
 
-for i in range(10):
+for i in range(30):
     swanlab.log({"acc": i, "loss": "123"})
+    time.sleep(0.5)
