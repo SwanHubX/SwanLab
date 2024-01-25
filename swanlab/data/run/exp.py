@@ -7,6 +7,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
+from datetime import datetime
 from .db import (
     Tag,
     Namespace,
@@ -93,7 +94,9 @@ class SwanLabExp:
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
-        tag_obj.add(data, step)
+        step = tag_obj.add(data, step)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        swanlog.log(f"{timestamp}  step:{step}  tag:{tag}  value:{str(data)}")
 
 
 class SwanLabTag:
@@ -171,7 +174,12 @@ class SwanLabTag:
         对于整型和浮点型，还存在极大和极小值的问题
         目前的策略是让python解释器自己处理，在前端完成数据的格式化展示
         """
-        data = self.try_convert_after_add_chart(data, step)
+        try:
+            data = self.try_convert_after_add_chart(data, step)
+        except ValueError:
+            return swanlog.warning(
+                f"Data {data} on tag {self.tag} cannot be converted, SwanLab will ignore it, but the chart still exists."
+            )
         is_nan = self.__is_nan(data)
         if not is_nan:
             # 如果数据比之前的数据小，则更新最小值，否则不更新
@@ -199,6 +207,8 @@ class SwanLabTag:
         # 更新实验信息总结
         with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
+
+        return step
 
     @property
     def save_path(self):

@@ -319,6 +319,7 @@ class SwanLabRun:
         config: dict = None,
         log_level: str = None,
         suffix: str = None,
+        loggings: bool = False,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -351,7 +352,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
-        register(self.__settings.output_path, self.__settings.console_dir)
+        register(self.__settings.output_path, self.__settings.console_dir, enable_logging=loggings)
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)

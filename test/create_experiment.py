@@ -2,18 +2,14 @@ import swanlab
 import time
 
 swanlab.init(
-    log_level="debug",
+    log_level="info",
     config={
         "test": 1,
         "debug": 1,
         "verbose": 1,
     },
+    logggings=True,
 )
 
-for i in range(100):
-    swanlab.log({"lllloss": "hahahah"})
-    # time.sleep(0.1)
-
-for i in range(300):
-    swanlab.log({"acc": "nan"})
-    # time.sleep(0.1)
+for i in range(10):
+    swanlab.log({"acc": i, "loss": "123"})
