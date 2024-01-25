@@ -18,7 +18,7 @@
       </div>
       <!-- body -->
       <div class="max-h-[500px] overflow-y-auto">
-        <TableLine class="data-line" v-for="line in tableData" :key="line.key" :line="line">
+        <TableLine class="data-line" v-for="(line, index) in tableData" :key="line.key" :line="line" :index="index">
           <div class="body-item" v-for="item in line" :key="item.key" :title="item">
             {{ item }}
           </div>
