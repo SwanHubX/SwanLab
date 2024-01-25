@@ -142,7 +142,7 @@ class SwanLabTag:
 
     def __is_nan(self, data):
         """判断data是否为nan"""
-        return data == "nan" or data == float("nan") or math.isnan(data)
+        return math.isnan(data)
 
     def add(self, data: DataType, step: int = None):
         """添加一个数据，在内部完成数据类型转换
@@ -222,7 +222,7 @@ class SwanLabTag:
         2. 如果不是baseType类型，
 
         """
-        if self.__namespace is not None:
+        if self.__namespace is not None or self.__chart is not None:
             raise ValueError(f"Chart {tag} has been created, cannot create again.")
 
         # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
@@ -272,6 +272,9 @@ class SwanLabTag:
                 excepted = [i.__name__ for i in self.data_types]
                 swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                 error = {"data_class": class_name, "excepted": excepted}
+        if self.__is_nan(data):
+            """如果data是nan，生成error并保存"""
+            error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
         # 添加一条tag记录
         tag: Tag = Tag.create(
             experiment_id=self.experiment_id,
