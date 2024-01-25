@@ -34,9 +34,6 @@ defineProps({
 <style lang="scss" scoped>
 .table-line {
   @apply w-full relative hover:bg-highest last:border-none;
-
-  &:not(:last-child) {
-    @apply border-b border-dimmest;
-  }
+  @apply border-b border-dimmest;
 }
 </style>
