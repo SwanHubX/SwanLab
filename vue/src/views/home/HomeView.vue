@@ -34,7 +34,7 @@
       />
       <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
         <!-- 实验表格 -->
-        <SLTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
+        <ExprTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
           <template v-slot:name="{ row }">
             <ExperimentName :name="row.name" :id="row.id" :color="getExperimentColor(row)" />
           </template>
@@ -47,7 +47,7 @@
           <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
             {{ row.config[item.slot]?.value || '-' }}
           </template>
-        </SLTable>
+        </ExprTable>
       </div>
       <EmptyTable v-else-if="experiments.length === 0" />
     </div>
@@ -68,7 +68,7 @@ import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import http from '@swanlab-vue/api/http'
-import SLTable from '@swanlab-vue/components/table'
+import ExprTable from './components/ExprTable.vue'
 import EmptyTable from './components/EmptyTable.vue'
 import TableBar from './components/TableBar.vue'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
@@ -139,7 +139,7 @@ const experiments_table = computed(() => {
     if (!summary) return {}
     Promise.all(
       Object.keys(summary).map(async (key) => {
-        expr[await hashString(key)] = formatNumber2SN(summary[key])
+        expr[await hashString(key)] = isNaN(summary[key]) ? summary[key] : formatNumber2SN(summary[key])
       })
     )
     return expr
@@ -170,7 +170,6 @@ http
         return { key, title: tag }
       })
     )
-    // column.value.push(...tags.value)
     // 保存tag总结数据
     summaries.value = data.summaries
   })

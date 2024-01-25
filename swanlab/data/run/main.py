@@ -15,9 +15,6 @@ from .utils import (
     check_exp_name_format,
     check_desc_format,
     get_a_lock,
-    get_package_version,
-    create_time,
-    generate_color,
     json_serializable,
 )
 from datetime import datetime
@@ -365,7 +362,7 @@ class SwanLabRun:
         # ---------------------------------- 注册实验 ----------------------------------
         # 校验描述格式
         description = self.__check_description(description)
-        self.__exp = self.__register_exp(
+        self.__exp: SwanLabExp = self.__register_exp(
             experiment_name,
             description,
             suffix,

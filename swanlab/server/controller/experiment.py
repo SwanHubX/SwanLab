@@ -54,12 +54,12 @@ RUNNING_STATUS = Experiment.RUNNING_STATUS
 # ---------------------------------- 工具函数 ----------------------------------
 
 
-def __clear_field(target: list[dict], field: str) -> list[dict]:
+def __clear_field(target: List[dict], field: str) -> list[dict]:
     """遍历字典列表清除某个字段
 
     Parameters
     ----------
-    target : list[dict]
+    target : List[dict]
         需要处理的列表
     field : str
         需要删除的字段
@@ -328,15 +328,21 @@ def get_experiment_summary(experiment_id: int) -> dict:
             每个tag的最后一个数据
     """
 
+    experiment = Experiment.get_by_id(experiment_id)
+    tag_list = [tag["name"] for tag in __to_list(experiment.tags)]
     experiment_path = __get_logs_dir_by_id(experiment_id)
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
-    for tag in tags:
+    for tag in tag_list:
+        if tag not in tags:
+            summaries.append({"key": tag, "value": "TypeError"})
+            continue
         tag_path = os.path.join(experiment_path, tag)
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
-            data = data["data"][-1]["data"]
+            # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
+            data = str(data["data"][-1]["data"])
             summaries.append({"key": unquote(tag), "value": data})
 
     return SUCCESS_200({"summaries": summaries})
@@ -357,10 +363,10 @@ def get_recent_logs(experiment_id):
     Returns
     -------
     dict :
-        recent: list[str]
+        recent: List[str]
             0: 截止处日志文件
             1: 开始处日志文件
-        logs: list[str]
+        logs: List[str]
             日志列表
     """
 
@@ -411,17 +417,22 @@ def get_experimet_charts(experiment_id: int):
     -------
     dict :
         _sum: integer
-        charts: list[dict]
-        namesapces: list[dict]
+        charts: List[dict]
+        namesapces: List[dict]
     """
 
     charts = Chart.filter(Chart.experiment_id == experiment_id)
     chart_list = __to_list(charts)
-    # TODO: 这里搞得不是很懂，需要检查一下
+    # 获取每个图表对应的数据源
     for index, chart in enumerate(charts):
         sources = []
         for source in __to_list(chart.sources):
             sources.append(source["tag_id"]["name"])
+            if source["error"] is not None and source["error"] != "":
+                try:
+                    chart_list[index]["error"] = ujson.loads(source["error"])
+                except:
+                    pass
         chart_list[index]["source"] = sources
 
     # 当前实验下的命名空间
