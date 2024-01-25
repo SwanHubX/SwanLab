@@ -328,15 +328,21 @@ def get_experiment_summary(experiment_id: int) -> dict:
             每个tag的最后一个数据
     """
 
+    experiment = Experiment.get_by_id(experiment_id)
+    tag_list = [tag["name"] for tag in __to_list(experiment.tags)]
     experiment_path = __get_logs_dir_by_id(experiment_id)
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
-    for tag in tags:
+    for tag in tag_list:
+        if tag not in tags:
+            summaries.append({"key": tag, "value": "TypeError"})
+            continue
         tag_path = os.path.join(experiment_path, tag)
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
-            data = data["data"][-1]["data"]
+            # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
+            data = str(data["data"][-1]["data"])
             summaries.append({"key": unquote(tag), "value": data})
 
     return SUCCESS_200({"summaries": summaries})
@@ -417,11 +423,16 @@ def get_experimet_charts(experiment_id: int):
 
     charts = Chart.filter(Chart.experiment_id == experiment_id)
     chart_list = __to_list(charts)
-    # TODO: 这里搞得不是很懂，需要检查一下
+    # 获取每个图表对应的数据源
     for index, chart in enumerate(charts):
         sources = []
         for source in __to_list(chart.sources):
             sources.append(source["tag_id"]["name"])
+            if source["error"] is not None and source["error"] != "":
+                try:
+                    chart_list[index]["error"] = ujson.loads(source["error"])
+                except:
+                    pass
         chart_list[index]["source"] = sources
 
     # 当前实验下的命名空间

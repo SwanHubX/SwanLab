@@ -104,11 +104,12 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     experiments = Experiment.select().where(Experiment.project_id == project_id)
     exprs = [
         {
-            "id": experiment["id"],
-            "name": experiment["name"],
-            "run_id": experiment["run_id"],
+            "id": experiment.id,
+            "name": experiment.name,
+            "run_id": experiment.run_id,
+            "tags": [tag["name"] for tag in __to_list(experiment.tags)],
         }
-        for experiment in __to_list(experiments)
+        for experiment in experiments
     ]
     ids = [item["id"] for item in exprs]
 
@@ -120,22 +121,25 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     data = {}
     # 第一层循环对应实验层，每次探寻一个实验
     for expr in exprs:
-        logs_path: str = get_logs_dir(expr["run_id"])
-        # 列出所有 tag 目录
-        tag_list: list = os.listdir(logs_path)
         # 第二层为 tag 层，在实验目录下遍历所有 tag，若存在则获取最后一个次提交的值
         experiment_summaries = {}
-        for tag in tag_list:
+        for tag in expr["tags"]:
             tag_path = get_tag_dir(expr["run_id"], tag)
+            if not os.path.exists(tag_path):
+                experiment_summaries[unquote(tag)] = "TypeError"
+                continue
             logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
                 try:
                     tag_data = ujson.load(f)
-                    experiment_summaries[unquote(tag)] = tag_data["data"][-1]["data"]
+                    # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
+                    experiment_summaries[unquote(tag)] = str(tag_data["data"][-1]["data"])
                 except Exception as e:
                     print(f"[expr: {expr['name']} - {tag}] --- {e}")
                     continue
+
         data[expr["name"]] = experiment_summaries
+
     return SUCCESS_200({"tags": tag_names, "summaries": data})
 
 

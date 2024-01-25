@@ -63,9 +63,7 @@
             <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
           </div>
           <!-- 文本格式 -->
-          <div v-else>
-            {{ dataColumn[item.key] || '-' }}
-          </div>
+          <div class="w-full overflow-hidden" v-else>{{ dataColumn[item.key] || '-' }}</div>
         </div>
       </div>
       <!-- 没有数据时，空占位 -->
