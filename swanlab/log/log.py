@@ -365,11 +365,6 @@ class SwanLog(Logsys):
         临时打印，为 None 的时候无效
         1. 临时凭证为 true，通过
         2. 未设临时凭证，且全局为true，通过
-
-        Parameters
-        ----------
-        message : _type_
-            _description_
         """
 
         if self.__temp_logging is True:
@@ -382,11 +377,6 @@ class SwanLog(Logsys):
             # 别的情况都返回
             return
 
-        self.logger.log(self.__LOG_LEVEL["value"], message)
-
-    @__concat_messages
-    def force_log(self, message):
-        """强制打印"""
         self.logger.log(self.__LOG_LEVEL["value"], message)
 
     def reset_console(self):
