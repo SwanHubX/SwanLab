@@ -136,7 +136,7 @@ const navs = [
 }
 
 .experiment-navs {
-  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-visible -ml-3;
+  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-visible;
   // 隐藏滚动条
   &::-webkit-scrollbar {
     display: none;

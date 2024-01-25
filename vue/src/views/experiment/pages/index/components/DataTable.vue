@@ -18,11 +18,11 @@
       </div>
       <!-- body -->
       <div class="max-h-[500px] overflow-y-auto">
-        <TableLine class="data-line" v-for="(line, index) in tableData" :key="line.key" :line="line" :index="index">
+        <div class="data-line" v-for="(line, index) in tableData" :key="line.key" :line="line" :index="index">
           <div class="body-item" v-for="item in line" :key="item.key" :title="item">
             {{ item }}
           </div>
-        </TableLine>
+        </div>
       </div>
       <!-- empty body -->
       <div class="w-full py-4 flex justify-center" v-if="tableData.length === 0">
@@ -40,7 +40,6 @@
  **/
 
 import { ref, computed } from 'vue'
-import TableLine from './TableLine.vue'
 
 // ---------------------------------- 组件接口 ----------------------------------
 
@@ -83,18 +82,17 @@ const tableData = computed(() => {
 
 <style lang="scss" scoped>
 .table {
-  @apply w-full rounded-lg outline;
+  @apply rounded-lg outline w-full;
   outline-color: var(--outline-default);
   outline-width: 1px;
 }
 
 .line {
-  @apply w-full grid grid-cols-2 gap-3;
-  grid-template-columns: 1fr 2fr;
+  @apply grid grid-cols-5 gap-3;
 }
 
 .data-line {
-  @apply line;
+  @apply line hover:bg-highest border-b last:border-none border-[#f2f2f2];
   &:last-child {
     @apply rounded-b-lg;
   }
@@ -102,15 +100,21 @@ const tableData = computed(() => {
 
 .header-item {
   @apply border-r pl-4 my-3;
+  &:first-child {
+    @apply col-span-2;
+  }
   &:last-child {
-    @apply border-none pl-0;
+    @apply border-none pl-0 col-span-3;
   }
 }
 
 .body-item {
   @apply py-3 pl-4 pr-2 break-words;
+  &:first-child {
+    @apply col-span-2;
+  }
   &:last-child {
-    @apply border-none pl-0;
+    @apply border-none pl-0 col-span-3;
   }
 }
 </style>
