@@ -3,7 +3,7 @@
   <p class="text-center font-semibold">{{ title }}</p>
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
-    <p class="text-center text-xs">
+    <p class="text-center text-sm">
       {{ $t('experiment.chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
