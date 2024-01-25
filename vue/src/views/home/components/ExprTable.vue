@@ -59,7 +59,7 @@
           @mouseout="handleMouseOver(-1)"
           :style="{ width: elementWidths[index] }"
         >
-          <div class="w-full" v-if="item.slot">
+          <div class="w-full overflow-hidden" v-if="item.slot">
             <slot :name="item.slot" v-bind:row="dataColumn" v-bind:index="dataIndex"></slot>
           </div>
           <!-- 文本格式 -->
