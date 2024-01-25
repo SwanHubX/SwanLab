@@ -14,7 +14,7 @@
         </div>
       </div>
       <!-- 系统相关 -->
-      <div class="w-1/2 min-w-[400px]" v-if="experiment.system">
+      <div class="w-1/2 min-w-[400px] pl-5" v-if="experiment.system">
         <div v-for="item in experiment_device" :key="item.title" class="flex pb-4">
           <div class="title">{{ $t(`experiment.index.header.experiment_device.${item.title}`) }}</div>
           <div :title="item.value">{{ item.value || 'Unkown' }}</div>
