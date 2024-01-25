@@ -9,6 +9,7 @@
  * @description: 系统硬件信息
  * @file: EnvHardware.vue
  * @since: 2024-01-24 21:19:24
+ * 第一步优化已经做好了，怎么展示多个gpu信息，并且分别展示memory和tpye还需要再看
  **/
 
 import { computed } from 'vue'
