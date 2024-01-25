@@ -14,9 +14,11 @@ from ..utils import FONT, version_limit
 from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
 from ..db import connect
+from ..utils import get_package_version
 
 
-@click.group()
+@click.group(invoke_without_command=True)
+@click.version_option(get_package_version(), "--version", "-v", message="SwanLab %(version)s")
 def cli():
     pass
 

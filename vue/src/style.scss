@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 body {
-  font-family: PingFang SC, DFPKingGothicGB-Medium, sans-serif;
+  font-family: Source Sans Pro, PingFang SC, DFPKingGothicGB-Medium, sans-serif;
   // 设置任何元素的默认边框颜色、文字颜色
   @apply text-default;
   * {
@@ -19,6 +19,13 @@ body {
   @font-face {
     font-family: 'JetBrains Mono';
     src: url('@swanlab-vue/assets/font/JetBrainsMono-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Source Sans Pro';
+    src: url('@swanlab-vue/assets/font/SourceSansPro-Regular.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
   }

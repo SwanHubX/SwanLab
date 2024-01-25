@@ -2,7 +2,7 @@
   <div class="table">
     <!-- title and search -->
     <div class="flex items-center justify-between border-b py-2 px-4 bg-higher rounded-t-lg">
-      <p class="pr-10">{{ title }}</p>
+      <p class="pr-10 font-semibold">{{ title }}</p>
       <SLSearch
         class="bg-default max-w-[300px]"
         :placeholder="$t('experiment.index.config.table.search')"
@@ -17,11 +17,13 @@
         <div class="header-item" v-for="item in column" :key="item.key" :title="item.title">{{ item.title }}</div>
       </div>
       <!-- body -->
-      <TableLine class="data-line" v-for="line in tableData" :key="line.key" :line="line">
-        <div class="body-item" v-for="item in line" :key="item.key" :title="item">
-          {{ item }}
+      <div class="max-h-[500px] overflow-y-auto">
+        <div class="data-line" v-for="(line, index) in tableData" :key="line.key" :line="line" :index="index">
+          <div class="body-item" v-for="item in line" :key="item.key" :title="item">
+            {{ item }}
+          </div>
         </div>
-      </TableLine>
+      </div>
       <!-- empty body -->
       <div class="w-full py-4 flex justify-center" v-if="tableData.length === 0">
         {{ $t('experiment.index.config.table.empty') }}
@@ -38,7 +40,6 @@
  **/
 
 import { ref, computed } from 'vue'
-import TableLine from './TableLine.vue'
 
 // ---------------------------------- 组件接口 ----------------------------------
 
@@ -81,31 +82,39 @@ const tableData = computed(() => {
 
 <style lang="scss" scoped>
 .table {
-  @apply w-full border rounded-lg;
+  @apply rounded-lg outline w-full;
+  outline-color: var(--outline-default);
+  outline-width: 1px;
 }
 
 .line {
-  @apply grid grid-cols-2 gap-3;
+  @apply grid grid-cols-5 gap-3;
 }
 
 .data-line {
-  @apply line;
+  @apply line hover:bg-highest border-b last:border-none border-dimmest;
   &:last-child {
     @apply rounded-b-lg;
   }
 }
 
 .header-item {
-  @apply w-full border-r pl-4 my-3;
+  @apply border-r pl-4 my-3;
+  &:first-child {
+    @apply col-span-2;
+  }
   &:last-child {
-    @apply border-none pl-0;
+    @apply border-none pl-0 col-span-3;
   }
 }
 
 .body-item {
-  @apply py-3 pl-4 pr-2 truncate;
+  @apply py-3 pl-4 pr-2 break-words;
+  &:first-child {
+    @apply col-span-2;
+  }
   &:last-child {
-    @apply border-none pl-0;
+    @apply border-none pl-0 col-span-3;
   }
 }
 </style>

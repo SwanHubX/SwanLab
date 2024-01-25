@@ -6,7 +6,7 @@
       <div class="project-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
-          <h1 class="text-xl items-center gap-1 font-semibold max-w-md truncate">
+          <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
             {{ projectStore.name }}
           </h1>
           <!-- 编辑按钮 -->

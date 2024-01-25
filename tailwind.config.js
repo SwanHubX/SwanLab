@@ -43,7 +43,9 @@ export default {
       },
       // 边框颜色
       borderColor: {
-        default: 'var(--outline-default, #d1d7dd)'
+        default: 'var(--outline-default, #d1d7dd)',
+        dimmer: 'var(--outline-dimmer, #e5e8eb)',
+        dimmest: 'var(--outline-dimmest, #f2f2f2)'
       },
       // 文字颜色
       textColor: {
