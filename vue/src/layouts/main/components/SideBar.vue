@@ -78,7 +78,7 @@ const getExperimentColor = (experiment) => {
 }
 
 a {
-  @apply flex items-center px-4 h-11 text-sm text-default hover:bg-positive-dimmest rounded-lg;
+  @apply flex items-center px-4 h-11 text-default hover:bg-positive-dimmest rounded-lg;
 }
 
 .active-router {
