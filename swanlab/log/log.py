@@ -158,7 +158,7 @@ class SwanLog(Logsys):
         console_level=None,
         file_level=None,
         console_path=None,
-        enable_logging=None,
+        enable_logging=False,
     ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
@@ -176,6 +176,8 @@ class SwanLog(Logsys):
             文件日志级别，高于或等于该级别即记录到文件
         console_path: str, optional
             控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
+        enable_logging: bool, optional
+            是否在全局允许打印, 默认为 False
         """
 
         # 保存设置

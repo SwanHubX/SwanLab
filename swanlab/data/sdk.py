@@ -140,7 +140,11 @@ def log(data: Dict[str, DataType], step: int = None):
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
-    return run.log(data, step)
+
+    swanlog.set_temporary_logging()
+    l = run.log(data, step)
+    swanlog.reset_temporary_logging()
+    return l
 
 
 def finish():
