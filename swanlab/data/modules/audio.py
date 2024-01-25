@@ -39,11 +39,10 @@ class Audio(BaseType):
         # preprocess 直接对 self.sample_rate 和 self.audio_data 赋值
         self.preprocess(self.value)
 
-        # static_dir 下额外加一个 tag
-        tag_path = os.path.join(self.settings.static_dir, f"{self.tag}")
-        save_path = os.path.join(tag_path, f"audio-{self.tag}-{self.step}.wav")
-        if os.path.exists(tag_path) is False:
-            os.makedirs(tag_path)
+        # 先判断 static_dir 是否存在
+        if os.path.exists(self.settings.static_dir) is False:
+            os.makedirs(self.settings.static_dir)
+        save_path = os.path.join(self.settings.static_dir, f"audio-{self.tag}-{self.step}.wav")
 
         # 保存音频数据到指定目录
         self.save(save_path)
@@ -137,8 +136,8 @@ class Audio(BaseType):
     def save(self, save_path):
         """
         保存静态资源文件 .wav 到指定路径
-        {tag}/audio-{tag}-{step}.wav
-        {tag}/audio-{tag}-{step}.json
+        audio-{tag}-{step}.wav
+        audio-{tag}-{step}.json
         """
         try:
             write_audio_data = self.audio_data.T

@@ -5,12 +5,20 @@ import os
 
 
 class Image(BaseType):
+    def __init__(self):
+        super().__init__()
+        self.image = None
+
     def get_data(self):
         print("step {}, 获取data".format(self.step))
         print(self.step, self.tag, self.settings.static_dir)
         print("root_dir", self.settings.root_dir)
 
         self.image = self.preprocess(self.value)
+
+        # 先判断 static_dir 是否存在
+        if os.path.exists(self.settings.static_dir) is False:
+            os.makedirs(self.settings.static_dir)
         save_path = os.path.join(self.settings.static_dir, f"image-{self.tag}-{self.step}.png")
 
         # 保存图像到指定目录
