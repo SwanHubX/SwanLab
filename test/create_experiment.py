@@ -12,5 +12,5 @@ swanlab.init(
 )
 
 for i in range(30):
-    swanlab.log({"acc": i, "loss": "123"})
+    swanlab.log({"acc": i, "hhh/loss": "123"})
     time.sleep(0.5)
