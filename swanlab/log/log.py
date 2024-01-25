@@ -133,9 +133,9 @@ class SwanLog(Logsys):
     }
 
     # 是否打印收集信息
-    logging = False
+    __logging = False
     # 是否临时允许打印
-    temp_logging = False
+    __temp_logging = None
     # 自定义等级
     __LOG_LEVEL = {
         "value": COLLECT_LEVEL,
@@ -158,7 +158,7 @@ class SwanLog(Logsys):
         console_level=None,
         file_level=None,
         console_path=None,
-        enable_logging=False,
+        enable_logging=None,
     ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
@@ -179,7 +179,7 @@ class SwanLog(Logsys):
         """
 
         # 保存设置
-        self.logging = enable_logging
+        self.__logging = enable_logging
         # 初始化控制台记录器
         if self.__consoler is None and console_path:
             self.debug("init consoler")
@@ -277,6 +277,19 @@ class SwanLog(Logsys):
         """
         self.__consoler.setLevel(level)
 
+    def set_temporary_logging(self, temp_logging: bool):
+        """设置临时打印权限
+
+        Parameters
+        ----------
+        temp_logging : bool
+        """
+        self.__temp_logging = temp_logging
+
+    def reset_temporary_logging(self):
+        """重置临时打印权限"""
+        self.__temp_logging = None
+
     def getCollectionLevel(self):
         """
         获取日志收集级别。
@@ -349,7 +362,9 @@ class SwanLog(Logsys):
     @__concat_messages
     def log(self, message):
         """全局自定义信息打印，级别最高
-        临时打印，只有在为 ture 的时候权限高于全局打印
+        临时打印，为 None 的时候无效
+        1. 临时凭证为 true，通过
+        2. 未设临时凭证，且全局为true，通过
 
         Parameters
         ----------
@@ -357,13 +372,16 @@ class SwanLog(Logsys):
             _description_
         """
 
-        if self.temp_logging:
-            # 如果临时打印通过，那么一定打印
+        if self.__temp_logging is True:
+            # 临时凭证通过
             pass
-        elif not self.logging:
-            # 临时打印不通过，并且全局打印也通不过，直接返回
+        elif self.__temp_logging is None and self.__logging:
+            # 临时凭证没设置，且全局设置通过，可以打印
+            pass
+        else:
+            # 别的情况都返回
             return
-        # 到这里，临时打印为 false，全局打印为 true
+
         self.logger.log(self.__LOG_LEVEL["value"], message)
 
     @__concat_messages
