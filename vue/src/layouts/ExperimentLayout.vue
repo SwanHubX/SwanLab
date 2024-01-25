@@ -6,7 +6,7 @@
       <div class="experiment-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
-          <h1 class="text-xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
+          <h1 class="text-2xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
             <span class="font-semibold">{{ experimentStore.name }}</span>
           </h1>
           <!-- 编辑按钮 -->
@@ -142,7 +142,7 @@ const navs = [
     display: none;
   }
   .nav-item {
-    @apply px-1 pt-2 pb-1.5 relative text-sm text-dimmer whitespace-nowrap ring-0 outline-none;
+    @apply px-1 pt-2 pb-1.5 relative text-dimmer whitespace-nowrap ring-0 outline-none;
     @apply mb-1 rounded flex items-center gap-1.5;
     &:hover {
       @apply bg-higher;
