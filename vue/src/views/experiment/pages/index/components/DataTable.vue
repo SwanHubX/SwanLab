@@ -89,7 +89,8 @@ const tableData = computed(() => {
 }
 
 .line {
-  @apply grid grid-cols-2 gap-3;
+  @apply w-full grid grid-cols-2 gap-3;
+  grid-template-columns: 1fr 2fr;
 }
 
 .data-line {
@@ -100,7 +101,7 @@ const tableData = computed(() => {
 }
 
 .header-item {
-  @apply w-full border-r pl-4 my-3;
+  @apply border-r pl-4 my-3;
   &:last-child {
     @apply border-none pl-0;
   }
