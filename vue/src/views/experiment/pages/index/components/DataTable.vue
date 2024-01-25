@@ -107,7 +107,7 @@ const tableData = computed(() => {
 }
 
 .body-item {
-  @apply py-3 pl-4 pr-2 truncate;
+  @apply py-3 pl-4 pr-2 break-words;
   &:last-child {
     @apply border-none pl-0;
   }
