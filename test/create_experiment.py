@@ -11,7 +11,7 @@ swanlab.init(
 )
 
 for i in range(100):
-    swanlab.log({"lllloss": i})
+    swanlab.log({"lllloss": "hahahah"})
     # time.sleep(0.1)
 
 for i in range(300):

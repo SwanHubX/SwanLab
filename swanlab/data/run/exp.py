@@ -142,7 +142,7 @@ class SwanLabTag:
 
     def __is_nan(self, data):
         """判断data是否为nan"""
-        return math.isnan(data)
+        return isinstance(data, (int, float)) and math.isnan(data)
 
     def add(self, data: DataType, step: int = None):
         """添加一个数据，在内部完成数据类型转换
