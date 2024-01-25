@@ -47,10 +47,19 @@ const configs = computed(() => {
   for (const key in experiment.value.config) {
     configs.push({
       key,
-      value: experiment.value.config[key].value
+      value: experiment.value.config[key].value,
+      sort: experiment.value.config[key].sort
     })
   }
+  // 按照 sort 排序，然后删除 sort 属性
   return configs
+    .sort((a, b) => {
+      return a.sort - b.sort
+    })
+    .map((item) => {
+      delete item.sort
+      return item
+    })
 })
 
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
