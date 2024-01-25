@@ -90,5 +90,5 @@ class SwanModel(Model):
         """保存数据
         经过swanmodel的覆写，save方法自动更新update_time字段
         """
-        self.update(update_time=create_time())
+        self.update_time = create_time()
         super().save(*args, **kwargs)

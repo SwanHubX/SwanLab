@@ -14,7 +14,7 @@ import shutil
 import datetime
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409, NOT_FOUND_404
 from fastapi import Request
-from urllib.parse import unquote
+from urllib.parse import quote
 from ..settings import (
     get_logs_dir,
     get_exp_dir,
@@ -334,16 +334,16 @@ def get_experiment_summary(experiment_id: int) -> dict:
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
     summaries = []
     for tag in tag_list:
-        if tag not in tags:
+        if quote(tag, safe="") not in tags:
             summaries.append({"key": tag, "value": "TypeError"})
             continue
-        tag_path = os.path.join(experiment_path, tag)
+        tag_path = os.path.join(experiment_path, quote(tag, safe=""))
         logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
             data = str(data["data"][-1]["data"])
-            summaries.append({"key": unquote(tag), "value": data})
+            summaries.append({"key": tag, "value": data})
 
     return SUCCESS_200({"summaries": summaries})
 

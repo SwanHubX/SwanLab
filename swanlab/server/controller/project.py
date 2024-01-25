@@ -13,9 +13,8 @@ import ujson
 import shutil
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
-from urllib.parse import unquote
+from urllib.parse import quote
 from ..settings import (
-    get_logs_dir,
     get_tag_dir,
     get_exp_dir,
     get_config_path,
@@ -115,7 +114,8 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
 
     # 根据 id 列表找到所有的 tag，提出不含重复 tag 名的元组
     tags = Tag.filter(Tag.experiment_id.in_(ids))
-    tag_names = list(set(unquote(tag["name"]) for tag in __to_list(tags)))
+    # tag_names不用编码，因为前端需要展示
+    tag_names = list(set(tag["name"] for tag in __to_list(tags)))
 
     # 所有总结数据
     data = {}
@@ -124,16 +124,16 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         # 第二层为 tag 层，在实验目录下遍历所有 tag，若存在则获取最后一个次提交的值
         experiment_summaries = {}
         for tag in expr["tags"]:
-            tag_path = get_tag_dir(expr["run_id"], tag)
+            tag_path = get_tag_dir(expr["run_id"], quote(tag, safe=""))
             if not os.path.exists(tag_path):
-                experiment_summaries[unquote(tag)] = "TypeError"
+                experiment_summaries[tag] = "TypeError"
                 continue
             logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
                 try:
                     tag_data = ujson.load(f)
                     # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
-                    experiment_summaries[unquote(tag)] = str(tag_data["data"][-1]["data"])
+                    experiment_summaries[tag] = str(tag_data["data"][-1]["data"])
                 except Exception as e:
                     print(f"[expr: {expr['name']} - {tag}] --- {e}")
                     continue
