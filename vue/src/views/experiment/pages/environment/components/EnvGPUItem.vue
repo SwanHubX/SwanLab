@@ -12,7 +12,7 @@
       <!-- type -->
       <span class="w-96 shrink">{{ system.gpu.type[i] }}</span>
       <!-- memory -->
-      <span class="w-50 shrink-0">{{ gpu }}</span>
+      <span class="w-50 shrink-0">{{ gpu }} GB</span>
     </div>
   </div>
 </template>
