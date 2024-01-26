@@ -1,6 +1,7 @@
 <template>
   <div class="w-full">
     <EnvItems :data="item" v-for="item in environments" :key="item" />
+    <EnvgpuItem />
   </div>
 </template>
 
@@ -15,17 +16,16 @@
 import { computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import EnvItems from '../components/EnvItems.vue'
-
+import EnvgpuItem from '../components/EnvgpuItem.vue'
 const experimentStore = useExperimentStroe()
 const experiment = experimentStore.experiment
 const system = experiment.system
-
 const environments = computed(() => {
-  return [hardware.value]
+  return [cpu.value, gpu.value]
 })
 
 // 系统硬件信息
-const hardware = computed(() => {
+const cpu = computed(() => {
   return [
     {
       key: 'cpu',
@@ -34,7 +34,12 @@ const hardware = computed(() => {
     {
       key: 'memory',
       value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
-    },
+    }
+  ]
+})
+
+const gpu = computed(() => {
+  return [
     {
       key: 'gpu_cores',
       value: system.gpu?.cores
