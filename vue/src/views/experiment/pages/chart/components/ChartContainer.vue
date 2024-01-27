@@ -1,11 +1,16 @@
 <template>
-  <section class="chart-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
+  <section
+    class="chart-container"
+    :class="chartComponent.class"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
+  >
     <template v-if="status === 'success'">
       <!-- 图表相关控制按钮 -->
       <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
         <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
       </div>
-      <component ref="chartRef" :is="chartComponent(chart.type)" :title="chart.name" :chart="chart" />
+      <component ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
     </template>
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-else-if="status === 'error'">
@@ -26,15 +31,15 @@
  * @since: 2023-12-12 21:01:26
  **/
 import { inject } from 'vue'
-import { onUnmounted } from 'vue'
+import { onUnmounted, computed, watch } from 'vue'
 import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 // import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import LineChart from './package/LineChart.vue'
+import LineChart from '@swanlab-vue/charts/LineChart.vue'
+import UnknownChart from '@swanlab-vue/charts/UnknownChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
-import UnknownChart from './package/UnknownChart.vue'
 const props = defineProps({
   chart: {
     type: Object,
@@ -53,18 +58,39 @@ const handleMouseLeave = () => (hover.value = false)
 // ---------------------------------- 控制chart显示状态 ----------------------------------
 const status = ref(props.chart.error ? 'success' : 'loading')
 const unknown = ref(false)
-const chartComponent = (type) => {
-  switch (type) {
+/**
+ * @description: 根据chart的type，返回对应的chart组件
+ * @return {Object} {type: ChartComponent, class: String}, 其中type为图表组件，class为图表组件的class，class可能不存在
+ * @example: {type: LineChart, class: 'line-chart'} 或者 {type: UnknownChart}
+ */
+const chartComponent = computed(() => {
+  switch (props.chart.type) {
     case 'default':
-      return LineChart
+      return {
+        type: LineChart
+      }
     case 'line':
-      return LineChart
+      return {
+        type: LineChart
+      }
     default:
-      // 未知图表
-      unknown.value = true
-      return UnknownChart
+      return {
+        type: UnknownChart
+      }
   }
-}
+})
+
+// 监听chartComponent的变化，如果变化为UnknownChart，则unknown为true
+// 如果放在chartComponent的computed中会带来额外副作用
+watch(
+  chartComponent,
+  (newVal) => {
+    unknown.value = newVal.type === UnknownChart
+  },
+  {
+    immediate: true
+  }
+)
 
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
@@ -74,7 +100,7 @@ const $off = inject('$off')
 // 如果props.chart.error存在，则不订阅
 props.chart.error ||
   inject('$on')(source, cid, (tag, _tagData, error) => {
-    // 异步回调
+    // 异步回调（其实是同步），用于控制图表的显示状态
     return new Promise((resolve, reject) => {
       if (error) {
         status.value = 'error'
