@@ -36,7 +36,7 @@
           class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
           :style="{ backgroundColor: getExperimentColor(experiment) }"
         />
-        <span class="truncate font-semibold">{{ experiment.name }}</span>
+        <span class="truncate font-medium">{{ experiment.name }}</span>
         <!-- 更多信息，进入此容器后不触发父容器所有效果(包括hover、active的css效果) -->
         <div class="more-info" @click.prevent @mouseenter="removeHover" @mouseleave="resetHover">
           <!-- 如果实验正在运行，显示running -->
