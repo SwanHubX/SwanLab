@@ -74,6 +74,14 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  /**
+   * 修改实验的显示状态，是否显示，二元状态，如果show为1，则改为0，反之亦然
+   */
+  const changeExperimentShow = (id) => {
+    const experiment = experiments.value.find((e) => e.experiment_id == id)
+    experiment.show = experiment.show ? 0 : 1
+  }
+
   return {
     sum,
     name,
@@ -87,6 +95,7 @@ export const useProjectStore = defineStore('project', () => {
     updateInfo,
     clearProject,
     setExperimentStatus,
-    setExperimentInfo
+    setExperimentInfo,
+    changeExperimentShow
   }
 })

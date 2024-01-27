@@ -42,8 +42,9 @@
           <!-- 如果实验正在运行，显示running -->
           <span v-if="experiment.status === 0"> ({{ $t('common.sidebar.experiments.running') }}) </span>
           <!-- 如果在charts页面，显示眼睛 -->
-          <button class="show-button" v-if="$route.path == '/charts'">
-            <SLIcon icon="eye" class="w-full h-full" />
+          <button class="show-button" v-if="$route.path == '/charts'" @click="changeExperimentShow(experiment.id)">
+            <SLIcon icon="eye" class="w-full h-full" v-if="experiment.show" />
+            <SLIcon icon="eye-close" class="w-full h-full text-dimmest" v-else />
           </button>
         </div>
       </RouterLink>
@@ -95,6 +96,10 @@ const totalExperiments = computed(() => {
 })
 
 // ---------------------------------- 项目图表界面下，点击眼睛后的效果 ----------------------------------
+
+const changeExperimentShow = (id) => {
+  projectStore.changeExperimentShow(id)
+}
 
 // ---------------------------------- 进入more-info部分，将父元素hover效果移除 ----------------------------------
 const removeHover = (e) => {
