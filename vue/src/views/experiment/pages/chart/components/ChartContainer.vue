@@ -121,13 +121,13 @@ const zoom = () => {
 
 <style lang="scss" scoped>
 .chart-container {
-  @apply w-full h-72 border rounded relative overflow-hidden;
+  @apply w-full h-72 border rounded relative overflow-hidden bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
 }
 
 .chart-pannel {
-  @apply absolute top-1 right-2   h-4;
+  @apply absolute top-1 right-2 h-4;
   @apply flex justify-end gap-2;
 }
 </style>
