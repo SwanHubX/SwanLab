@@ -119,7 +119,7 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
       // FIXME 当前tooltip只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
-        return { name: source[0], value: formatNumber2SN(data.data) }
+        return { name: data.series, value: formatNumber2SN(data.data) }
       }
       // customContent: (title, data) => {
       //   console.log(title, data)
@@ -147,12 +147,24 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
  * 为了将数据格式化为图表可用的格式，需要将数据源中的数据进行格式化
+ * 遍历data的所有key，合并其中的list为一个数组
  * @param { Object } data 待格式化的数据
+ * @returns { Object } 格式化后的数据, { d: [{}, {}, ...], config: {} } config是图表的一些其他配置
  */
 const format = (data) => {
-  // FIXME 暂时只支持单数据
-  const d = data[source[0]].list
-  return { d }
+  console.log('format data', data)
+  // 如果source的长度小于1，抛出错误
+  if (source.length < 1) throw new Error('source length must be greater than 1')
+  // 新的数据,遍历得到
+  const d = []
+  Object.keys(data).forEach((key) => {
+    // 如果不是单数据，需要将所有数据的list合并为一个数组
+    data[key].list.forEach((item) => {
+      // item新加series字段，用于标识数据来源
+      d.push({ ...item, series: key })
+    })
+  })
+  return { d, config: { seriesField: 'series' } }
 }
 
 /**
@@ -230,9 +242,9 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   // console.log('data', data)
-  const { d } = format(data)
+  const { d, config } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, d)
+  chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
 }
