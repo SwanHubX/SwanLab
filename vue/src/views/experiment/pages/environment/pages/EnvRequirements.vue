@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full" v-if="requirements">
+  <div class="w-full border p-6 rounded-lg bg-default" v-if="requirements">
     <div class="flex items-center justify-between border-b pb-4 mb-5">
       <h1 class="text-xl font-semibold border-none basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
       <FuncBar

@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full">
+  <div class="w-full border p-6 rounded-lg bg-default">
     <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
   </div>
