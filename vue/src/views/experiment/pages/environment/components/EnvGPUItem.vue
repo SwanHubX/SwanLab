@@ -10,9 +10,9 @@
       <!-- gpu -->
       <span class="text-dimmer w-44">GPU{{ i }}</span>
       <!-- type -->
-      <span class="w-96 shrink">{{ system.gpu.type[i] }}</span>
+      <span class="w-96 break-words whitespace-wrap shrink">{{ system.gpu.type[i] }}</span>
       <!-- memory -->
-      <span class="w-50 shrink-0">{{ gpu }} GB</span>
+      <span class="shrink-0 pl-8">{{ gpu }} GB</span>
     </div>
   </div>
 </template>
@@ -26,18 +26,9 @@
 
 import { useExperimentStroe } from '@swanlab-vue/store'
 
-// const gpu_cores = ref(4)
 const experimentStore = useExperimentStroe()
 const experiment = experimentStore.experiment
 const system = experiment.system
-
-// 模拟数据
-// const gpuList = [
-//   { key: 'GPU0', type: 'NVIDIA GeForce RTX 3060 Laptop GPU', memory: '40.00GB' },
-//   { key: 'GPU1', type: 'NVIDIA GeForce GTX 1660 Ti', memory: '32.00GB' },
-//   { key: 'GPU2', type: 'AMD Radeon RX 6700 XT', memory: '16.00GB' },
-//   { key: 'GPU3', type: 'AMD Radeon RX 6700 XT', memory: '16.00GB' }
-// ]
 </script>
 
 <style lang="scss" scoped></style>
