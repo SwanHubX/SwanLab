@@ -52,7 +52,7 @@ const props = defineProps({
 })
 
 // 初始按钮top位置，单位px
-const initialTop = 26 + 'px'
+const initialTop = 16 + 'px'
 
 // ---------------------------------- 开启/关闭sidebar ----------------------------------
 
