@@ -1,9 +1,9 @@
 <template>
   <div class="w-full" v-if="requirements">
-    <div class="flex-container flex-row">
-      <h1 class="text-xl font-semibold no-border basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
+    <div class="flex-container flex items-center justify-between flex-row mb-8">
+      <h1 class="text-xl font-semibold border-none basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
       <FuncBar
-        class="py-4 basis-1/2"
+        class="py-4 basis-1/3"
         @input="search"
         :content="requirements?.join('\n')"
         :filename="filename"
@@ -108,16 +108,7 @@ $duration: 3s;
 }
 
 .flex-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  // 下划线颜色
   border-bottom: 1px solid #e5e8eb;
-  margin-bottom: 2rem;
-}
-
-.no-border {
-  border-bottom: none;
 }
 
 @keyframes animloader {
