@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-y-4 pt-4">
+  <div class="flex flex-col gap-y-4 pt-4" v-if="system.gpu?.cores">
     <!-- gpu-cores -->
     <div class="w-full flex">
       <span class="text-dimmer w-44">GPU count</span>

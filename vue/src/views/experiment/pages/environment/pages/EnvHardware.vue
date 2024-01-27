@@ -1,8 +1,8 @@
 <template>
-  <div class="w-full">
+  <div class="w-full border p-6 rounded-lg bg-default">
     <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
-    <EnvgpuItem />
+    <EnvGPUItem />
   </div>
 </template>
 
@@ -16,7 +16,7 @@
 import { computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import EnvItems from '../components/EnvItems.vue'
-import EnvgpuItem from '../components/EnvgpuItem.vue'
+import EnvGPUItem from '../components/EnvGPUItem.vue'
 import { useRoute } from 'vue-router'
 const experimentStore = useExperimentStroe()
 const experiment = experimentStore.experiment
@@ -35,24 +35,10 @@ const cpu = computed(() => {
     },
     {
       key: 'memory',
-      value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
+      value: system.memory ? system.memory + 'GB' : ''
     }
   ]
 })
-
-// gpu信息转移到System Hardware中
-// const gpu = computed(() => {
-//   return [
-//     {
-//       key: 'gpu_cores',
-//       value: system.gpu?.cores
-//     },
-//     {
-//       key: 'gpu_type',
-//       value: system.gpu?.type[0]
-//     }
-//   ]
-// })
 </script>
 
 <style lang="scss" scoped></style>

@@ -11,6 +11,7 @@
     "help": "java",
     "experiment": "benchMark",
     "chart": "app",
+    "charts": "app",
     "index": "home",
     "readme_files": "custom",
     "run": "core",

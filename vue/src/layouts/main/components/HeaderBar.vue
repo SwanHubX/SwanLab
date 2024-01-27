@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full bg-dimmest text-dimmest border-b flex justify-between items-center px-6">
+  <div class="w-full h-full bg-dimmest text-dimmest flex justify-between items-center px-6">
     <!-- logo and version -->
     <div class="flex items-center gap-1.5">
       <!-- icon -->
@@ -52,10 +52,10 @@ defineProps({
 })
 
 // ---------------------------------- 格式化版本号 ----------------------------------
-const formatVersion = (version) => {
-  if (version === 'unknown') return version
-  return 'v' + version
-}
+// const formatVersion = (version) => {
+//   if (version === 'unknown') return version
+//   return 'v' + version
+// }
 
 // ---------------------------------- 链接配置 ----------------------------------
 
@@ -86,7 +86,7 @@ const fixeds = ref([
 <style lang="scss" scoped>
 .a-hover {
   &:hover {
-    @apply text-[#dadde1];
+    @apply text-white-higher;
   }
 }
 </style>
