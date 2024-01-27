@@ -1,6 +1,6 @@
 <template>
-  <!-- 剩余区域 -->
-  <div class="flex flex-col grow h-full">
+  <!-- 侧边栏区域 -->
+  <div class="flex flex-col grow h-full bg-higher font-semibold">
     <!-- 概览区域 -->
     <div class="p-4 flex flex-col border-b gap-2">
       <!-- 项目信息 -->
@@ -16,7 +16,7 @@
     </div>
     <!-- 实验路由 -->
     <div class="experiments-container" ref="expContainerRef">
-      <div class="flex flex-col gap-4 sticky top-0 bg-default py-4 -mb-4">
+      <div class="flex flex-col gap-4 sticky top-0 bg-higher py-4 -mb-4">
         <div class="flex items-center gap-1.5">
           <h1 class="font-semibold">{{ $t('common.sidebar.experiments.title') }}</h1>
           <span class="font-semibold px-3 text-sm bg-highest rounded-full">{{ totalExperiments }}</span>
