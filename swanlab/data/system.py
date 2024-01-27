@@ -104,8 +104,8 @@ def __get_gpu_info():
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             # 获取 GPU 型号
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
-            # 获取 GPU 显存, 单位为GB
-            info["memory"].append(pynvml.nvmlDeviceGetMemoryInfo(handle) / (1024**3))
+            # 获取 GPU 的总显存, 单位为GB
+            info["memory"].append(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3))
 
     except pynvml.NVMLError as e:
         swanlog.debug(f"An error occurred when getting GPU info: {e}")

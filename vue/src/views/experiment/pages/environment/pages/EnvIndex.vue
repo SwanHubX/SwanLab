@@ -1,5 +1,6 @@
 <template>
   <div class="w-full">
+    <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
   </div>
 </template>
@@ -13,11 +14,13 @@
  * 这里会放一些实验配置信息
  **/
 
+import { useRoute } from 'vue-router'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import EnvItems from '../components/EnvItems.vue'
 
+const route = useRoute()
 const experimentStore = useExperimentStroe()
 const projectStore = useProjectStore()
 const experiment = experimentStore.experiment
@@ -27,12 +30,20 @@ const system = experiment.system
 
 // 环境配置汇总
 const environments = computed(() => {
-  return [times.value, systems.value, gits.value, hardware.value, swanlab.value]
+  return [overview.value, systems.value, gits.value, swanlab.value]
 })
 
-// 时间相关
-const times = computed(() => {
+// 实验相关（实验描述、时间、系统）
+const overview = computed(() => {
   return [
+    {
+      key: 'name',
+      value: experiment.name
+    },
+    {
+      key: 'description',
+      value: experiment.description
+    },
     {
       key: 'start_time',
       value: formatTime(experiment.create_time)
@@ -40,6 +51,14 @@ const times = computed(() => {
     {
       key: 'duration',
       value: experimentStore.duration
+    },
+    {
+      key: 'hostname',
+      value: system.hostname
+    },
+    {
+      key: 'OS',
+      value: system.os
     }
   ]
 })
@@ -93,35 +112,7 @@ const gits = computed(() => {
   ]
 })
 
-// 硬件相关
-const hardware = computed(() => {
-  return [
-    {
-      key: 'hostname',
-      value: system.hostname
-    },
-    {
-      key: 'OS',
-      value: system.os
-    },
-    {
-      key: 'memory',
-      value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
-    },
-    {
-      key: 'cpu',
-      value: system.cpu
-    },
-    {
-      key: 'gpu_cores',
-      value: system.gpu?.cores
-    },
-    {
-      key: 'gpu_type',
-      value: system.gpu?.type[0]
-    }
-  ]
-})
+// 硬件相关--v0.2.0 转移到System Hardware页面
 
 // swanlab 相关
 const swanlab = computed(() => {

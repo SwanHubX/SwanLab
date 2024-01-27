@@ -44,6 +44,11 @@ const routes = [
             component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvIndex.vue')
           },
           {
+            path: 'hardware',
+            name: 'exp_env_hardware',
+            component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvHardware.vue')
+          },
+          {
             path: 'requirements',
             name: 'exp_env_dependencies',
             component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvRequirements.vue')

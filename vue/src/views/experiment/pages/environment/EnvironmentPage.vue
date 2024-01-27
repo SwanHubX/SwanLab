@@ -1,10 +1,9 @@
 <template>
   <div class="w-full h-full flex px-6 py-6">
-    <SiderNav class="shrink-0" />
-    <div class="w-full pl-14">
-      <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
+    <div class="w-full p-6 border rounded-lg mr-6 bg-default">
       <RouterView></RouterView>
     </div>
+    <SiderNav class="shrink-0" />
   </div>
 </template>
 
@@ -16,9 +15,6 @@
  **/
 
 import SiderNav from './components/SiderNav.vue'
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
 </script>
 
 <style lang="scss" scoped>

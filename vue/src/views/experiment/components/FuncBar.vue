@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full flex gap-5 justify-between">
+  <div class="w-full flex gap-5">
     <SLSearch @input="input" :placeholder="placeholder" class="max-w-[400px]" />
     <div class="flex gap-3">
       <SLButton hollow @click="copy">
