@@ -1,16 +1,19 @@
 <template>
   <div class="w-full" v-if="requirements">
-    <template v-if="requirements.length !== 0">
-      <!-- 搜索、复制、下载 -->
+    <div class="flex items-center justify-between border-b pb-4 mb-5">
+      <h1 class="text-xl font-semibold border-none basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
       <FuncBar
-        class="pb-6 py-4"
+        class="basis-1/3"
         @input="search"
         :content="requirements?.join('\n')"
         :filename="filename"
         :placeholder="$t('experiment.func-bar.placeholder.requirements')"
       />
+    </div>
+
+    <template v-if="requirements.length !== 0">
       <!-- 如果有依赖项 -->
-      <div class="px-6 py-4 bg-higher rounded">
+      <div class="px-6 py-4 bg-higher rounded max-h-[60vh] overflow-y-auto">
         <p v-for="line in lines" :key="line">
           <span v-show="!line.isTarget">{{ line.value }}</span>
           <span v-show="line.isTarget">
@@ -36,7 +39,7 @@
 <script setup>
 /**
  * @description: 依赖项
- * @file: EnvDependances.vue
+ * @file: EnvRequirements.vue
  * @since: 2024-01-09 16:01:55
  **/
 
@@ -44,10 +47,10 @@ import { ref, computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
 import http from '@swanlab-vue/api/http'
-
+import { useRoute } from 'vue-router'
 const experimentStore = useExperimentStroe()
 const requirements = ref()
-
+const route = useRoute()
 http
   .get(`/experiment/${experimentStore.id}/requirements`)
   .then(({ data }) => {

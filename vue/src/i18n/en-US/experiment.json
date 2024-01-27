@@ -81,13 +81,17 @@
   "env": {
     "navs": {
       "index": "Overview",
-      "dependances": "Requirements"
+      "hardware": "System Hardware",
+      "requirements": "Requirements"
     },
     "title": {
       "exp_env_index": "Overview",
+      "exp_env_hardware": "System Hardware",
       "exp_env_dependencies": "Requirements"
     },
     "keys": {
+      "name": "Experiment name",
+      "description": "Description",
       "start_time": "Start Time",
       "duration": "Duration",
       "python": "Python Version",

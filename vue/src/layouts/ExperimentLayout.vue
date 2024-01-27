@@ -39,7 +39,7 @@
         </RouterLink>
       </nav>
     </div>
-    <div class="w-full overflow-y-auto pb-10">
+    <div class="w-full overflow-y-auto">
       <slot></slot>
     </div>
   </div>
