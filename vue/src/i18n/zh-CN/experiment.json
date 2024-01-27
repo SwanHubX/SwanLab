@@ -78,6 +78,8 @@
       "exp_env_dependencies": "Requirements"
     },
     "keys": {
+      "name": "Experiment name",
+      "description": "Description",
       "start_time": "Start Time",
       "duration": "Duration",
       "python": "Python Version",
