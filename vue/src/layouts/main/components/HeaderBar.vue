@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full bg-dimmest text-dimmest border-b flex justify-between items-center px-6">
+  <div class="w-full h-full bg-dimmest text-dimmest flex justify-between items-center px-6">
     <!-- logo and version -->
     <div class="flex items-center gap-1.5">
       <!-- icon -->
