@@ -1,15 +1,17 @@
 <template>
   <div class="w-full" v-if="requirements">
-    <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
-    <template v-if="requirements.length !== 0">
-      <!-- 搜索、复制、下载 -->
+    <div class="flex-container flex-row">
+      <h1 class="text-xl font-semibold no-border basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
       <FuncBar
-        class="pb-6 py-4"
+        class="py-4 basis-1/2"
         @input="search"
         :content="requirements?.join('\n')"
         :filename="filename"
         :placeholder="$t('experiment.func-bar.placeholder.requirements')"
       />
+    </div>
+
+    <template v-if="requirements.length !== 0">
       <!-- 如果有依赖项 -->
       <div class="px-6 py-4 bg-higher rounded">
         <p v-for="line in lines" :key="line">
@@ -103,6 +105,19 @@ $duration: 3s;
 .magnifier {
   @apply w-10 h-10;
   animation: animloader $duration infinite;
+}
+
+.flex-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  // 下划线颜色
+  border-bottom: 1px solid #e5e8eb;
+  margin-bottom: 2rem;
+}
+
+.no-border {
+  border-bottom: none;
 }
 
 @keyframes animloader {

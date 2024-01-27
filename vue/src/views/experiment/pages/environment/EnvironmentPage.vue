@@ -15,9 +15,6 @@
  **/
 
 import SiderNav from './components/SiderNav.vue'
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
 </script>
 
 <style lang="scss" scoped>
