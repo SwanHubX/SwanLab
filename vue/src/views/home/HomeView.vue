@@ -21,7 +21,7 @@
       <!-- 实验列表+实验统计 -->
       <div class="flex mx-6 mb-4 items-center gap-1.5 flex-shrink-0">
         <h2 class="text-xl font-semibold">{{ $t('home.list.title') }}</h2>
-        <span v-if="total" class="bg-positive-dimmest text-positive-higher rounded-full px-3">{{ total }}</span>
+        <span v-if="total" class="bg-highest text-default rounded-full px-3">{{ total }}</span>
       </div>
       <TableBar
         class="pb-4 pt-1 px-5 flex-shrink-0"

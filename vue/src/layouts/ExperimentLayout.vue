@@ -149,7 +149,7 @@ const navs = [
     }
   }
   .nav-active {
-    @apply text-positive-higher;
+    @apply text-default font-semibold;
     &:hover {
       background-color: transparent !important;
     }
@@ -157,12 +157,6 @@ const navs = [
       @apply w-full h-0.5 bg-positive-higher absolute -bottom-1 left-1/2 -translate-x-1/2 z-10;
       content: '';
     }
-    // 字体加粗
-    // &::before {
-    //   @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold whitespace-nowrap;
-    //   content: attr(data-text);
-    //   color: var(--positive-higher);
-    // }
   }
 }
 </style>
