@@ -113,27 +113,6 @@ const gits = computed(() => {
 })
 
 // 硬件相关--v0.2.0 转移到System Hardware页面
-// const hardware = computed(() => {
-//   return [
-
-//     {
-//       key: 'memory',
-//       value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
-//     },
-//     {
-//       key: 'cpu',
-//       value: system.cpu
-//     },
-//     {
-//       key: 'gpu_cores',
-//       value: system.gpu?.cores
-//     },
-//     {
-//       key: 'gpu_type',
-//       value: system.gpu?.type[0]
-//     }
-//   ]
-// })
 
 // swanlab 相关
 const swanlab = computed(() => {
