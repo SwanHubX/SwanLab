@@ -2,9 +2,9 @@
   <!-- 侧边栏区域 -->
   <div class="flex flex-col grow h-full bg-higher">
     <!-- 概览区域 -->
-    <div class="p-4 pt-0 flex flex-col border-b gap-2 font-semibold">
+    <div class="p-4 flex flex-col border-b gap-2 font-semibold">
       <!-- 项目信息 -->
-      <h1 class="font-semibold mb-1 mt-2.5">{{ $t('common.sidebar.project.title') }}</h1>
+      <h1 class="font-semibold mb-1">{{ $t('common.sidebar.project.title') }}</h1>
       <RouterLink to="/" active-class="active-link">
         <SLIcon icon="runs" class="w-4 h-4 mr-2" />
         <span>{{ $t('common.sidebar.project.runs') }}</span>
