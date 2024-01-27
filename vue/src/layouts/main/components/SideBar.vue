@@ -127,7 +127,7 @@ a {
 
   // 实验链接样式
   .experiment-link {
-    @apply flex-shrink-0 text-sm pr-0;
+    @apply flex-shrink-0 text-base pr-0;
     .more-info {
       @apply flex justify-end grow text-primary-default pr-4 gap-2 cursor-default;
       .show-button {
