@@ -16,7 +16,13 @@
     </div>
     <!-- 实验路由 -->
     <div class="experiments-container" ref="expContainerRef">
-      <SLSearch @input="search" reverse />
+      <div class="flex flex-col gap-4 sticky top-0 bg-default py-4 -mb-4">
+        <div class="flex items-center gap-1.5">
+          <h1 class="font-semibold">{{ $t('common.sidebar.experiments.title') }}</h1>
+          <span class="font-semibold px-3 text-sm bg-highest rounded-full">{{ totalExperiments }}</span>
+        </div>
+        <SLSearch @input="search" reverse />
+      </div>
       <!-- 实验列表 -->
       <RouterLink
         v-for="experiment in experiments"
@@ -31,7 +37,7 @@
           :style="{ backgroundColor: getExperimentColor(experiment) }"
         />
         <span class="truncate font-semibold">{{ experiment.name }}</span>
-        <!-- 更多信息，进入此容器后不触发父容器所有效果 -->
+        <!-- 更多信息，进入此容器后不触发父容器所有效果(包括hover、active的css效果) -->
         <div class="more-info" @click.prevent @mouseenter="removeHover" @mouseleave="resetHover">
           <!-- 如果实验正在运行，显示running -->
           <span v-if="experiment.status === 0"> ({{ $t('common.sidebar.experiments.running') }}) </span>
@@ -53,7 +59,7 @@
  **/
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 
@@ -114,7 +120,7 @@ a {
 }
 
 .experiments-container {
-  @apply flex flex-col p-4 grow gap-2 overflow-auto;
+  @apply flex flex-col p-4 pt-0 grow gap-4 overflow-auto;
   &::-webkit-scrollbar-track {
     background: transparent;
   }

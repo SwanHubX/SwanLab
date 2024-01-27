@@ -86,7 +86,7 @@ const fixeds = ref([
 <style lang="scss" scoped>
 .a-hover {
   &:hover {
-    @apply text-[#dadde1];
+    @apply text-white-higher;
   }
 }
 </style>
