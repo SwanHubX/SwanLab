@@ -1,7 +1,7 @@
 <template>
   <div>
     <router-link v-for="item in navs" :key="item.key" :to="item.to" active-class="active-router">
-      <span class="lg:w-48 lg:h-auto lg:px-4 px-6 w-0 h-0 transition-all overflow-hidden">{{
+      <span class="lg:w-48 lg:h-auto lg:px-4 lg:transition-none px-6 w-0 h-0 transition-all overflow-hidden">{{
         $t(`experiment.env.navs.${item.key}`)
       }}</span>
       <SLIcon :icon="item.icon" class="w-4 h-4 lg:w-0 lg:h-0 transition-all absolute left-4" />
