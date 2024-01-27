@@ -31,10 +31,10 @@ const navs = [
 
 <style lang="scss" scoped>
 a {
-  @apply flex items-center px-4 h-11 text-default hover:bg-positive-dimmest rounded-lg mb-2;
+  @apply flex items-center px-4 h-11 text-default hover:bg-higher rounded-lg mb-2;
 }
 
 .active-router {
-  @apply bg-positive-dimmest text-positive-higher;
+  @apply bg-highest hover:bg-highest;
 }
 </style>
