@@ -2,30 +2,44 @@
   <!-- 剩余区域 -->
   <div class="flex flex-col grow h-full">
     <!-- 概览区域 -->
-    <div class="p-4 flex flex-col border-b pr-14">
-      <RouterLink to="/" active-class="active-router">
+    <div class="p-4 flex flex-col border-b gap-2">
+      <!-- 项目信息 -->
+      <h1 class="font-semibold mb-1 mt-2.5">{{ $t('common.sidebar.project.title') }}</h1>
+      <RouterLink to="/" active-class="active-link">
         <SLIcon icon="runs" class="w-4 h-4 mr-2" />
-        <!-- <span>{{ $t('sider.nav.home') }}</span> -->
-        <span>{{ $t('common.sidebar.runs') }}</span>
+        <span>{{ $t('common.sidebar.project.runs') }}</span>
+      </RouterLink>
+      <RouterLink to="/charts" active-class="active-link">
+        <SLIcon icon="runs" class="w-4 h-4 mr-2" />
+        <span>{{ $t('common.sidebar.project.charts') }}</span>
       </RouterLink>
     </div>
     <!-- 实验路由 -->
-    <div class="experiments-container">
-      <SLSearch @input="search" />
+    <div class="experiments-container" ref="expContainerRef">
+      <SLSearch @input="search" reverse />
       <!-- 实验列表 -->
       <RouterLink
         v-for="experiment in experiments"
         :key="experiment.id"
         :to="getExperimentRouter(experiment)"
         :title="experiment.name"
-        class="flex-shrink-0"
-        active-class="active-router"
+        class="experiment-link"
+        active-class="active-link"
       >
         <circle
           class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
           :style="{ backgroundColor: getExperimentColor(experiment) }"
-        ></circle>
-        <span class="truncate">{{ experiment.name }}</span>
+        />
+        <span class="truncate font-semibold">{{ experiment.name }}</span>
+        <!-- 更多信息，进入此容器后不触发父容器所有效果 -->
+        <div class="more-info" @click.prevent @mouseenter="removeHover" @mouseleave="resetHover">
+          <!-- 如果实验正在运行，显示running -->
+          <span v-if="experiment.status === 0"> ({{ $t('common.sidebar.experiments.running') }}) </span>
+          <!-- 如果在charts页面，显示眼睛 -->
+          <button class="show-button" v-if="$route.path == '/charts'">
+            <SLIcon icon="eye" class="w-full h-full" />
+          </button>
+        </div>
       </RouterLink>
     </div>
   </div>
@@ -39,7 +53,7 @@
  **/
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 
@@ -67,28 +81,56 @@ const search = (value) => {
 const getExperimentColor = (experiment) => {
   return experiment.light
 }
+
+// ---------------------------------- 计算实验数量，也包括可视实验数量 ----------------------------------
+
+const totalExperiments = computed(() => {
+  return projectStore.experiments.length
+})
+
+// ---------------------------------- 项目图表界面下，点击眼睛后的效果 ----------------------------------
+
+// ---------------------------------- 进入more-info部分，将父元素hover效果移除 ----------------------------------
+const removeHover = (e) => {
+  // console.log('进入', e.target.parentNode)
+  const parent = e.target.parentNode
+  parent.classList.add('!bg-transparent')
+}
+const resetHover = (e) => {
+  // console.log('离开', e.target.parentNode)
+  const parent = e.target.parentNode
+  parent.classList.remove('!bg-transparent')
+}
 </script>
 
 <style lang="scss" scoped>
-.link {
-  @apply p-1.5 bg-default rounded border border-default h-7;
-  &:hover {
-    background: var(--background-default) !important;
-  }
-}
-
+// RouterLink共享样式
 a {
-  @apply flex items-center px-4 h-11 text-default hover:bg-positive-dimmest rounded-lg;
+  @apply flex items-center px-4 h-11 text-default hover:bg-highest rounded-lg;
 }
 
-.active-router {
-  @apply bg-positive-dimmest text-positive-higher;
+.active-link {
+  @apply bg-highest text-default cursor-default;
 }
 
 .experiments-container {
   @apply flex flex-col p-4 grow gap-2 overflow-auto;
   &::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  // 实验链接样式
+  .experiment-link {
+    @apply flex-shrink-0 text-sm pr-0;
+    .more-info {
+      @apply flex justify-end grow text-primary-default pr-4 gap-2 cursor-default;
+      .show-button {
+        @apply w-7 h-6 p-0.5 rounded;
+        &:hover {
+          @apply text-primary-highest bg-highest;
+        }
+      }
+    }
   }
 }
 </style>

@@ -7,6 +7,11 @@ const routes = [
     component: () => import('@swanlab-vue/views/home/HomeView.vue')
   },
   {
+    path: '/charts',
+    name: 'charts',
+    component: () => import('@swanlab-vue/views/charts/ChartsView.vue')
+  },
+  {
     path: '/experiment/:experimentId',
     name: 'experiment',
     component: () => import('@swanlab-vue/views/experiment/ExperimentView.vue'),

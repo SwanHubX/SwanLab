@@ -1,114 +1,122 @@
 {
-  "navs": {
-    "index": "概览",
-    "chart": "实验图表",
-    "log": "日志Log",
-    "env": "实验环境"
+  "chart": {
+    "charts": {
+      "line": {
+        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
+      }
+    },
+    "empty": "缺少实验数据",
+    "error": "此图表无法正确显示",
+    "label": {
+      "default": "图表"
+    },
+    "unkonwn": "未知的图表类型: {type}",
+    "zoom": "放大展示"
   },
-  "status": {
-    "-1": "中断",
-    "0": "正在进行",
-    "1": "完成"
+  "env": {
+    "empty": {
+      "requirements": "No requirements found"
+    },
+    "keys": {
+      "OS": "OS",
+      "command": "Command",
+      "cpu": "CPU count",
+      "duration": "Duration",
+      "executable": "Python executable",
+      "git_branch": "Git Branch",
+      "git_commit": "Git Commit",
+      "git_remote": "Git Repository",
+      "gpu_cores": "GPU count",
+      "gpu_type": "GPU type",
+      "hostname": "Hostname",
+      "logdir": "Logdir",
+      "memory": "Memory",
+      "python": "Python Version",
+      "start_time": "Start Time",
+      "swanlab": "SwanLab Version",
+      "workspace": "Run path"
+    },
+    "navs": {
+      "dependances": "Requrements",
+      "index": "Overview"
+    },
+    "title": {
+      "exp_env_dependencies": "Requirements",
+      "exp_env_index": "Overview"
+    }
+  },
+  "func-bar": {
+    "copy": "Copy",
+    "copy-success": "Copied",
+    "download": "Download",
+    "placeholder": {
+      "log": "Search log...",
+      "requirements": "Search requirement..."
+    }
   },
   "index": {
+    "config": {
+      "detail": "配置",
+      "help": {
+        "config": "配置（Config）参数描述你的模型的输入项，在swanlab.init的config参数中配置，点击图标了解更多。",
+        "summary": "摘要（Summary）参数描述你记录的指标的最终结果，点击图标了解更多。"
+      },
+      "summarize": "摘要",
+      "table": {
+        "empty": "No Data",
+        "search": "Search..."
+      },
+      "title": "配置信息"
+    },
     "header": {
-      "table-bar": {
-        "placeholder": "Search experiments",
-        "summary": "Only summary",
-        "export": "Export to CSV"
+      "experiment_device": {
+        "cpu": "",
+        "executable": "",
+        "gpu": "",
+        "hardware": "",
+        "hostname": "Hostname",
+        "os": "操作系统",
+        "python": "Python版本",
+        "type": ""
       },
       "experiment_infos": {
-        "status": "状态",
-        "start_time": "开始时间",
+        "git": "",
         "last_time": "持续时间",
+        "python": "",
+        "start_time": "开始时间",
+        "status": "状态",
         "tags": "Tag",
         "time": {
           "day": "天",
           "hour": "小时",
           "minute": "分钟",
           "second": "秒"
-        }
-      },
-      "experiment_device": {
-        "hostname": "Hostname",
-        "os": "操作系统",
-        "python": "Python版本"
+        },
+        "version": ""
       },
       "stop": {
         "button": "Confirm",
         "modal": {
-          "title": "Has this experiment been stopped?",
-          "text": "Once confirmed, the state will be set to 'Crashed', and stop receiving data."
+          "text": "Once confirmed, the state will be set to 'Crashed', and stop receiving data.",
+          "title": "Has this experiment been stopped?"
         }
-      }
-    },
-    "config": {
-      "title": "配置信息",
-      "detail": "配置",
-      "summarize": "摘要",
-      "help": {
-        "config": "配置（Config）参数描述你的模型的输入项，在swanlab.init的config参数中配置，点击图标了解更多。",
-        "summary": "摘要（Summary）参数描述你记录的指标的最终结果，点击图标了解更多。"
       },
-      "table": {
-        "empty": "No Data",
-        "search": "Search..."
+      "table-bar": {
+        "export": "Export to CSV",
+        "placeholder": "Search experiments",
+        "summary": "Only summary"
       }
     }
   },
-  "chart": {
-    "empty": "缺少实验数据",
-    "error": "此图表无法正确显示",
-    "unkonwn": "未知的图表类型: {type}",
-    "label": {
-      "default": "图表"
-    },
-    "zoom": "放大展示",
-    "charts": {
-      "line": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
-      }
-    }
+  "navs": {
+    "chart": "实验图表",
+    "env": "实验环境",
+    "index": "概览",
+    "log": "日志Log"
   },
-  "env": {
-    "navs": {
-      "index": "Overview",
-      "dependances": "Requrements"
-    },
-    "title": {
-      "exp_env_index": "Overview",
-      "exp_env_dependencies": "Requirements"
-    },
-    "keys": {
-      "start_time": "Start Time",
-      "duration": "Duration",
-      "python": "Python Version",
-      "executable": "Python executable",
-      "workspace": "Run path",
-      "command": "Command",
-      "hostname": "Hostname",
-      "OS": "OS",
-      "git_remote": "Git Repository",
-      "git_branch": "Git Branch",
-      "git_commit": "Git Commit",
-      "cpu": "CPU count",
-      "memory": "Memory",
-      "gpu_cores": "GPU count",
-      "gpu_type": "GPU type",
-      "logdir": "Logdir",
-      "swanlab": "SwanLab Version"
-    },
-    "empty": {
-      "requirements": "No requirements found"
-    }
-  },
-  "func-bar": {
-    "copy": "Copy",
-    "download": "Download",
-    "copy-success": "Copied",
-    "placeholder": {
-      "requirements": "Search requirement...",
-      "log": "Search log..."
-    }
+  "status": {
+    "-1": "中断",
+    "0": "正在进行",
+    "1": "完成"
   }
 }
