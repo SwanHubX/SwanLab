@@ -35,7 +35,7 @@ const cpu = computed(() => {
     },
     {
       key: 'memory',
-      value: system.memory ? system.memory.toFixed(2) + 'GB' : ''
+      value: system.memory ? system.memory + 'GB' : ''
     }
   ]
 })
