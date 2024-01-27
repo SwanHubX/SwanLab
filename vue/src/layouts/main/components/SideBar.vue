@@ -99,6 +99,7 @@ const totalExperiments = computed(() => {
 
 const changeExperimentShow = (id) => {
   projectStore.changeExperimentShow(id)
+  // 请求后端更新，直接更新store后请求，不需要等待
 }
 
 // ---------------------------------- 进入more-info部分，将父元素hover效果移除 ----------------------------------
