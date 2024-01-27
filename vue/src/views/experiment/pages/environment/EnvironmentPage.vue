@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full flex px-6 py-6">
+  <div class="w-full h-full flex px-6 py-6 bg-higher min-h-[calc(100vh-175px)]">
     <div class="w-full p-6 border rounded-lg mr-6 bg-default">
       <RouterView></RouterView>
     </div>
