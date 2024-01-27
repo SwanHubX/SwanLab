@@ -1,9 +1,9 @@
 <template>
   <div class="w-full" v-if="requirements">
-    <div class="flex-container flex items-center justify-between flex-row mb-8">
+    <div class="flex items-center justify-between border-b pb-4 mb-5">
       <h1 class="text-xl font-semibold border-none basis-1/4">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
       <FuncBar
-        class="py-4 basis-1/3"
+        class="basis-1/3"
         @input="search"
         :content="requirements?.join('\n')"
         :filename="filename"
@@ -13,7 +13,7 @@
 
     <template v-if="requirements.length !== 0">
       <!-- 如果有依赖项 -->
-      <div class="px-6 py-4 bg-higher rounded">
+      <div class="px-6 py-4 bg-higher rounded max-h-[60vh] overflow-y-auto">
         <p v-for="line in lines" :key="line">
           <span v-show="!line.isTarget">{{ line.value }}</span>
           <span v-show="line.isTarget">
@@ -105,10 +105,6 @@ $duration: 3s;
 .magnifier {
   @apply w-10 h-10;
   animation: animloader $duration infinite;
-}
-
-.flex-container {
-  border-bottom: 1px solid #e5e8eb;
 }
 
 @keyframes animloader {

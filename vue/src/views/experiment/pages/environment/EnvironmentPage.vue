@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full flex px-6 py-6">
-    <div class="w-full px-6">
+    <div class="w-full p-6 border rounded-lg mr-6 bg-default">
       <RouterView></RouterView>
     </div>
     <SiderNav class="shrink-0" />
