@@ -1,6 +1,6 @@
 <template>
   <!-- 图表容器 -->
-  <template v-if="status === 'success'">
+  <div class="bg-higher min-h-[calc(100vh-175px)]" v-if="status === 'success'">
     <ChartsContainer
       v-for="group in groups"
       :key="group.name"
@@ -11,7 +11,7 @@
     </ChartsContainer>
     <!-- 图表不存在 -->
     <p class="font-semibold mt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
-  </template>
+  </div>
 </template>
 
 <script setup>

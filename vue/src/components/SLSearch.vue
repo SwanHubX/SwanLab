@@ -57,7 +57,7 @@ const input = debounce(() => {
 .swan-search {
   @apply relative w-full rounded-lg;
   input {
-    @apply w-full outline-none text-sm text-dimmer border rounded-lg p-2  transition-all;
+    @apply w-full outline-none text-sm text-dimmer border rounded-lg py-1.5 px-3 transition-all;
     @apply pl-7;
   }
 
@@ -69,10 +69,10 @@ const input = debounce(() => {
 
 .icon-reverse {
   input {
-    @apply pl-2 pr-7;
+    @apply pl-3 pr-7;
   }
   .swan-icon {
-    @apply right-2 left-auto;
+    @apply right-3 left-auto;
   }
 }
 </style>

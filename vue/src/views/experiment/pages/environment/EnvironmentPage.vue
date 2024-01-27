@@ -1,9 +1,9 @@
 <template>
-  <div class="w-full h-full flex px-6 py-6">
-    <div class="w-full p-6 border rounded-lg mr-6 bg-default">
+  <div class="w-full h-full flex p-6 bg-higher min-h-[calc(100vh-175px)]">
+    <SiderNav class="shrink-0 mr-6" />
+    <div class="w-full rounded-lg mr-6">
       <RouterView></RouterView>
     </div>
-    <SiderNav class="shrink-0" />
   </div>
 </template>
 
@@ -17,12 +17,4 @@
 import SiderNav from './components/SiderNav.vue'
 </script>
 
-<style lang="scss" scoped>
-a {
-  @apply flex items-center px-4 h-11 text-sm text-default hover:bg-positive-dimmest rounded-lg mb-2;
-}
-
-.active-router {
-  @apply bg-positive-dimmest text-positive-higher;
-}
-</style>
+<style lang="scss" scoped></style>

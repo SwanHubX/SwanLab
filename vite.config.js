@@ -8,16 +8,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(process.cwd(), 'vue'))
   // console.log('当前模式：', mode)
   // console.log('当前环境：', env)
-  const useMock = mode === 'mock'
   // 如果使用mock模式，不使用代理
-  const proxy = useMock
-    ? undefined
-    : {
-        '/api': {
-          target: env.VITE_SERVER_PROXY,
-          changeOrigin: true
-        }
-      }
+  const proxy = {
+    '/api': {
+      target: env.VITE_SERVER_PROXY,
+      changeOrigin: true
+    }
+  }
   return {
     // 服务插件
     plugins: [
