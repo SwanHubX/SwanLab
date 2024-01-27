@@ -51,12 +51,7 @@ export default {
       textColor: {
         default: 'var(--foreground-default, #000)',
         dimmer: 'var(--foreground-dimmer, #555)',
-        dimmest: 'var(--foreground-dimmest, #b5b5b5)',
-        // 复杂文字高亮
-        'white-highest': 'var(--accent-white-highest, #B5B5B5)',
-        'white-higher': 'var(--accent-white-higher, #DADDE1)',
-        'white-default': 'var(--accent-white-default, #fff)',
-        'green-default': 'var(--accent-green-default, #99A559)'
+        dimmest: 'var(--foreground-dimmest, #b5b5b5)'
       }
     },
     // 基础颜色
@@ -83,7 +78,12 @@ export default {
       'negative-higher': 'var(--negative-higher, #c20a0a)',
       'negative-default': 'var(--negative-default, #fa4b4b)',
       'negative-dimmest': 'var(--negative-dimmest, #ff9494)',
-      'negative-dimmer': 'var(--negative-dimmer, #ffc7c7)'
+      'negative-dimmer': 'var(--negative-dimmer, #ffc7c7)',
+      /** 辅助高亮颜色 */
+      'white-highest': 'var(--accent-white-highest, #B5B5B5)',
+      'white-higher': 'var(--accent-white-higher, #DADDE1)',
+      'white-default': 'var(--accent-white-default, #fff)',
+      'green-default': 'var(--accent-green-default, #99A559)'
     }
   },
   plugins: []
