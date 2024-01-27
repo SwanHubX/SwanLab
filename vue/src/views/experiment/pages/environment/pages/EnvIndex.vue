@@ -1,5 +1,6 @@
 <template>
   <div class="w-full">
+    <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
   </div>
 </template>
@@ -13,11 +14,13 @@
  * 这里会放一些实验配置信息
  **/
 
+import { useRoute } from 'vue-router'
 import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import EnvItems from '../components/EnvItems.vue'
 
+const route = useRoute()
 const experimentStore = useExperimentStroe()
 const projectStore = useProjectStore()
 const experiment = experimentStore.experiment

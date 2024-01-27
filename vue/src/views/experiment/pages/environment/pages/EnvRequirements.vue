@@ -1,5 +1,6 @@
 <template>
   <div class="w-full" v-if="requirements">
+    <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <template v-if="requirements.length !== 0">
       <!-- 搜索、复制、下载 -->
       <FuncBar
@@ -44,10 +45,10 @@ import { ref, computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
 import http from '@swanlab-vue/api/http'
-
+import { useRoute } from 'vue-router'
 const experimentStore = useExperimentStroe()
 const requirements = ref()
-
+const route = useRoute()
 http
   .get(`/experiment/${experimentStore.id}/requirements`)
   .then(({ data }) => {

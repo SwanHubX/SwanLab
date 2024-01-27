@@ -1,5 +1,6 @@
 <template>
   <div class="w-full">
+    <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
     <EnvgpuItem />
   </div>
@@ -16,9 +17,11 @@ import { computed } from 'vue'
 import { useExperimentStroe } from '@swanlab-vue/store'
 import EnvItems from '../components/EnvItems.vue'
 import EnvgpuItem from '../components/EnvgpuItem.vue'
+import { useRoute } from 'vue-router'
 const experimentStore = useExperimentStroe()
 const experiment = experimentStore.experiment
 const system = experiment.system
+const route = useRoute()
 const environments = computed(() => {
   return [cpu.value]
 })
