@@ -1,8 +1,8 @@
 <template>
   <!-- 侧边栏区域 -->
-  <div class="flex flex-col grow h-full bg-higher font-semibold">
+  <div class="flex flex-col grow h-full bg-higher">
     <!-- 概览区域 -->
-    <div class="p-4 flex flex-col border-b gap-2">
+    <div class="p-4 flex flex-col border-b gap-2 font-semibold">
       <!-- 项目信息 -->
       <h1 class="font-semibold mb-1 mt-2.5">{{ $t('common.sidebar.project.title') }}</h1>
       <RouterLink to="/" active-class="active-link">
@@ -36,7 +36,7 @@
           class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
           :style="{ backgroundColor: getExperimentColor(experiment) }"
         />
-        <span class="truncate font-semibold">{{ experiment.name }}</span>
+        <span class="truncate">{{ experiment.name }}</span>
         <!-- 更多信息，进入此容器后不触发父容器所有效果(包括hover、active的css效果) -->
         <div class="more-info" @click.prevent @mouseenter="removeHover" @mouseleave="resetHover">
           <!-- 如果实验正在运行，显示running -->
