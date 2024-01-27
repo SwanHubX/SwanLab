@@ -52,10 +52,10 @@ defineProps({
 })
 
 // ---------------------------------- 格式化版本号 ----------------------------------
-const formatVersion = (version) => {
-  if (version === 'unknown') return version
-  return 'v' + version
-}
+// const formatVersion = (version) => {
+//   if (version === 'unknown') return version
+//   return 'v' + version
+// }
 
 // ---------------------------------- 链接配置 ----------------------------------
 
