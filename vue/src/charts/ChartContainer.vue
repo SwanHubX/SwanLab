@@ -36,9 +36,9 @@ import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 // import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import LineChart from '@swanlab-vue/charts/LineChart.vue'
-import UnknownChart from '@swanlab-vue/charts/UnknownChart.vue'
-import PannelButton from './PannelButton.vue'
+import LineChart from './package/LineChart.vue'
+import UnknownChart from './package/UnknownChart.vue'
+import PannelButton from './components/PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 const props = defineProps({
   chart: {

@@ -24,7 +24,7 @@
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref } from 'vue'
 /**
- * @description: 图表容器，用于包裹 PlotlyChart 组件，插槽允许isExpand参数，用于标识图表的展开和关闭
+ * @description: 图表容器，用于包裹图表组件，插槽允许isExpand参数，用于标识图表的展开和关闭
  * @file: ChartsContainer.vue
  * @since: 2023-12-09 15:35:28
  **/
