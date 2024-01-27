@@ -38,7 +38,7 @@ export default {
         overlay: `var(--background-overlay, rgba(15, 21, 36, 0.8))`,
         default: 'var(--background-default, #fff)',
         higher: 'var(--background-higher, #f6f8fA)',
-        highest: 'var(--background-highest, #ebebec)',
+        highest: 'var(--background-highest, #DADDE1)',
         dimmest: 'var(--background-dimmest, #27282E)'
       },
       // 边框颜色
