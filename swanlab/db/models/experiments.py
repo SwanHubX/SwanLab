@@ -141,11 +141,8 @@ class Experiment(SwanModel):
         # 检查项目是否存在
         if not Project.select().where(Project.id == project_id).exists():
             raise NotExistedError("项目不存在")
-
-        # 这个sum是+1以后的值，所以需要-1
+        # 这个sum是+1以后的值
         sum = Project.increase_sum(project_id)
-        # 自动设置索引，为当前项目下的实验数量
-        sort = cls.select().where(cls.project_id == project_id).count()
         # 调用父类的create方法创建实验实例
         try:
             return super().create(
@@ -154,7 +151,7 @@ class Experiment(SwanModel):
                 project_id=project_id,
                 description=description,
                 more=cls.dict2json(more),
-                sort=sort,
+                sort=sum,
                 version=get_package_version(),
                 light=generate_color(sum),
                 create_time=current_time,
