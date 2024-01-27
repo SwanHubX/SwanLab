@@ -105,7 +105,7 @@ def __get_gpu_info():
             # 获取 GPU 型号
             info["type"].append(pynvml.nvmlDeviceGetName(handle))
             # 获取 GPU 的总显存, 单位为GB
-            info["memory"].append(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3))
+            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
 
     except pynvml.NVMLError as e:
         swanlog.debug(f"An error occurred when getting GPU info: {e}")
@@ -133,7 +133,7 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = mem.total / (1024**3)  # 单位为GB
+        total_memory = round(mem.total / (1024**3))  # 单位为GB
         return total_memory
     except Exception as e:
         swanlog.debug(f"An error occurred when getting memory size: {e}")
@@ -152,23 +152,6 @@ def __get_cwd():
         return None
 
 
-def get_system_info():
-    """获取系统信息"""
-    return {
-        "hostname": socket.gethostname(),
-        "os": platform.platform(),
-        "python": platform.python_version(),
-        "executable": sys.executable,  # python 解释器路径
-        "git_remote": __get_remote_url(),  # 获取远程仓库的链接
-        "cpu": multiprocessing.cpu_count(),  # cpu 核心数
-        "gpu": __get_gpu_info(),  # gpu 相关信息
-        "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
-        "command": __get_command(),  # 完整命令行信息
-        "memory": __get_memory_size(),  # 内存大小
-        "cwd": __get_cwd(),  # 当前工作目录路径
-    }
-
-
 def get_requirements() -> str:
     """获取当前项目下的全部Python环境，是1个很长的、带换行的文件列表，建议后续存储在swanlog目录下"""
     try:
@@ -184,3 +167,20 @@ def get_requirements() -> str:
     except Exception as e:
         swanlog.debug(f"An error occurred: {e}")
         return None
+
+
+def get_system_info():
+    """获取系统信息"""
+    return {
+        "hostname": socket.gethostname(),
+        "os": platform.platform(),
+        "python": platform.python_version(),
+        "executable": sys.executable,  # python 解释器路径
+        "git_remote": __get_remote_url(),  # 获取远程仓库的链接
+        "cpu": multiprocessing.cpu_count(),  # cpu 核心数
+        "gpu": __get_gpu_info(),  # gpu 相关信息
+        "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
+        "command": __get_command(),  # 完整命令行信息
+        "memory": __get_memory_size(),  # 内存大小
+        "cwd": __get_cwd(),  # 当前工作目录路径
+    }
