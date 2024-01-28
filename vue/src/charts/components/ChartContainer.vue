@@ -76,7 +76,8 @@ const chartComponent = computed(() => {
       }
     case 'line':
       return {
-        type: LineChart
+        type: LineChart,
+        class: 'line-chart'
       }
     default:
       return {
@@ -100,7 +101,7 @@ watch(
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
 // 是否已经渲染，用于控制执行render方法还是change方法
-let init = false
+let hasInited = false
 const $off = inject('$off')
 // 如果props.chart.error存在，则不订阅
 props.chart.error ||
@@ -117,9 +118,9 @@ props.chart.error ||
         if (Object.keys(data).length === source.length) {
           // 渲染
           addTaskToBrowserMainThread(() => {
-            if (!init) render(data)
+            if (!hasInited) render(data)
             else change(data)
-            init = true
+            hasInited = true
             resolve()
           })
         }
@@ -143,7 +144,6 @@ const render = debounce(() => {
 const change = debounce(() => {
   chartRef.value.change(data)
 }, 100)
-
 // 放大功能
 const zoom = () => {
   chartRef.value.zoom(data)
@@ -160,6 +160,9 @@ defineExpose({
   @apply w-full h-72 border rounded relative overflow-hidden bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
+  .line-chart {
+    @apply col-span-3;
+  }
 }
 
 .chart-pannel {

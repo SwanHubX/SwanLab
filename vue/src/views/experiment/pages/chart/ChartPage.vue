@@ -299,7 +299,6 @@ class EventEmitter {
    *
    */
   start() {
-    // 第一次延时1秒执行，后面每隔n秒执行一次
     // 遍历源列表，请求数据
     const promises = []
     this._sources.forEach((tag) => {
@@ -444,7 +443,7 @@ onUnmounted(() => {
  * @param { string } namespace 组名
  */
 const getGroupName = (name) => {
-  console.log(name)
+  // console.log(name)
   if (name === 'default') return t('experiment.chart.label.default')
   else return name
 }

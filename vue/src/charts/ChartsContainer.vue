@@ -13,7 +13,7 @@
       <div class="grow"></div>
       <!-- 添加图表的按钮 -->
     </div>
-    <!-- 图表插槽 -->
+    <!-- 图表网格 -->
     <div class="charts-slot" v-show="isExpand" ref="chartsSlotRef">
       <ChartContainer
         v-for="(chart, index) in charts"

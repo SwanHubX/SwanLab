@@ -170,7 +170,6 @@ const createChart = (dom, data, config = {}) => {
         }
       }
     },
-
     // 图例相关
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
