@@ -64,21 +64,19 @@ const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
   draw(cfg, container) {
-    if (!cfg.data._last) return
     const point = { x: cfg.x, y: cfg.y }
     // console.log('point', cfg.data)
-    const group = container.addGroup()
-    group.addShape('circle', {
-      name: 'inner-point',
+    const shape = container.addShape('circle', {
+      name: 'point',
       attrs: {
         x: point.x,
         y: point.y,
         fill: cfg.color || 'red',
-        opacity: 1,
+        opacity: cfg?.data?._last ? 1 : 0,
         r: 3
       }
     })
-    return group
+    return shape
   }
 })
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
@@ -108,7 +106,6 @@ const createChart = (dom, data, config = {}) => {
     colorField,
     color: colors,
     point: {
-      size: 5,
       shape: 'last-point'
     },
     // 坐标轴相关
@@ -196,6 +193,11 @@ const createChart = (dom, data, config = {}) => {
     ...config
   })
   c.render()
+
+  // 给 tooltip 添加点击事件
+  c.on('tooltip:show', (...args) => {
+    console.log(...args)
+  })
   return c
 }
 
