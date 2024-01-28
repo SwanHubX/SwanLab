@@ -29,12 +29,11 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { Line } from '@antv/g2plot'
+import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
 import { ref, inject } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
-import { useProjectStore } from '@swanlab-vue/store'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -62,8 +61,27 @@ const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 
+// ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
+G2.registerShape('point', 'last-point', {
+  draw(cfg, container) {
+    if (!cfg.data._last) return
+    const point = { x: cfg.x, y: cfg.y }
+    // console.log('point', cfg.data)
+    const group = container.addGroup()
+    group.addShape('circle', {
+      name: 'inner-point',
+      attrs: {
+        x: point.x,
+        y: point.y,
+        fill: cfg.color || 'red',
+        opacity: 1,
+        r: 3
+      }
+    })
+    return group
+  }
+})
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
-
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
@@ -89,6 +107,10 @@ const createChart = (dom, data, config = {}) => {
     // seriesField,
     colorField,
     color: colors,
+    point: {
+      size: 5,
+      shape: 'last-point'
+    },
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
@@ -196,6 +218,7 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
+  console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
   return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
 }
@@ -284,17 +307,9 @@ const render = (data) => {
 // 重渲染
 const change = (data) => {
   const { d, config } = format(data)
-  // 如果d的长度超过1200, change函数等于render函数
-  if (d.length > 1200) {
-    chartObj.destroy()
-    chartObj = createChart(g2Ref.value, d, config)
-    return
-  }
-
-  // console.log('更新...')
-  // console.log(chartObj)
-  // updateYAxis(yAxis)
-  chartObj.changeData(d)
+  // change函数等于render函数
+  chartObj.destroy()
+  chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
