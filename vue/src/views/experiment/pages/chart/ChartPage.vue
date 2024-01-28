@@ -20,7 +20,7 @@
  * @file: ChartPage.vue
  * @since: 2023-12-25 15:34:51
  **/
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
@@ -28,8 +28,11 @@ import ChartContainer from '@swanlab-vue/charts/ChartContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const route = useRoute()
+
+// ---------------------------------- 颜色配置，注入色盘 ----------------------------------
+provide('colors', useProjectStore().colors)
 
 // ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap

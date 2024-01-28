@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { t } from '@swanlab-vue/i18n'
 
-export const useExperimentStroe = defineStore('experiment', () => {
+export const useExperimentStore = defineStore('experiment', () => {
   /** state */
   // 当前实验
   const experiment = ref()
@@ -19,8 +19,6 @@ export const useExperimentStroe = defineStore('experiment', () => {
   const status = computed(() => experiment.value?.status)
   // 当前实验颜色
   const color = computed(() => experiment.value?.light)
-  // 默认颜色
-  const defaultColor = computed(() => experiment.value?.default_color)
   // 是否running
   const isRunning = computed(() => status.value === 0)
   // 持续时间
@@ -76,7 +74,6 @@ export const useExperimentStroe = defineStore('experiment', () => {
   }
   // 修改实验信息 => 全部信息
   const setExperiment = (x) => {
-    x.default_color = defaultColor.value
     experiment.value = x
   }
   // 修改实验信息 => 部分信息
@@ -99,7 +96,6 @@ export const useExperimentStroe = defineStore('experiment', () => {
     description,
     status,
     color,
-    defaultColor,
     isRunning,
     duration,
     // action

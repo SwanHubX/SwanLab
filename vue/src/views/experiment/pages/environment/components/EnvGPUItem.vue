@@ -24,9 +24,9 @@
  * @since: 2024-01-25 22:52:50
  **/
 
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const experiment = experimentStore.experiment
 const system = experiment.system
 </script>

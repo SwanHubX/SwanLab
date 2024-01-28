@@ -14,11 +14,11 @@
  **/
 
 import { computed } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 import EnvItems from '../components/EnvItems.vue'
 import EnvGPUItem from '../components/EnvGPUItem.vue'
 import { useRoute } from 'vue-router'
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const experiment = experimentStore.experiment
 const system = experiment.system
 const route = useRoute()

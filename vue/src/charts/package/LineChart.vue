@@ -31,13 +31,11 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { ref, inject } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
-const experimentStore = useExperimentStroe()
 const props = defineProps({
   title: {
     type: String,
@@ -53,6 +51,11 @@ const props = defineProps({
 
 const error = ref(props.chart.error)
 
+// ---------------------------------- 图表颜色配置 ----------------------------------
+// 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
+const colors = inject('colors')
+if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
 // 组件对象
@@ -62,20 +65,13 @@ const g2ZoomRef = ref()
 const source = props.chart.source
 // 参考字段和显示名称
 const reference = props.chart.reference
-// 图表颜色
-// TODO 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-// 这块或许需要改为监听css变量的变化，然后重新渲染图表
-const color = props.chart.color || experimentStore.defaultColor
-const lineStyle = {
-  stroke: color
-}
-
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 默认y轴的依据key是data
 const yField = 'data'
+const seriesField = 'series'
+const colorField = 'type'
 // 创建图表的函数
-// FIXME 兼容多数据情况
 const createChart = (dom, data, config = { interactions: undefined, height: 200 }) => {
   const c = new Line(dom, {
     data,
@@ -83,6 +79,10 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     xField,
     // 默认的y轴依据key为data
     yField,
+    // 多数据的时候，需要设置seriesField，单数据也可以设置，但是没什么区别
+    seriesField,
+    colorField,
+    color: colors,
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
@@ -134,10 +134,8 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     interactions: undefined,
     // 样式相关
     // smooth: true, // 平滑曲线
-    // 展示颜色
-    color,
     // 线条样式
-    lineStyle,
+    // lineStyle,
     ...config
   })
   c.render()
@@ -152,7 +150,6 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
  * @returns { Object } 格式化后的数据, { d: [{}, {}, ...], config: {} } config是图表的一些其他配置
  */
 const format = (data) => {
-  console.log('format data', data)
   // 如果source的长度小于1，抛出错误
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
@@ -164,7 +161,7 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
-  return { d, config: { seriesField: 'series' } }
+  return { d }
 }
 
 /**
@@ -242,9 +239,9 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   // console.log('data', data)
-  const { d, config } = format(data)
+  const { d } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, d, config)
+  chartObj = createChart(g2Ref.value, d)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
 }
@@ -254,8 +251,7 @@ const change = (data) => {
   // 如果d的长度超过1200, change函数等于render函数
   if (d.length > 1200) {
     chartObj.destroy()
-    render(data)
-    return
+    return render(data)
   }
 
   // console.log('更新...')

@@ -60,7 +60,7 @@
  * @file: EditorWrap.vue
  * @since: 2023-12-31 10:30:01
  **/
-import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
+import { useProjectStore, useExperimentStore } from '@swanlab-vue/store'
 import { ref } from 'vue'
 import SLLoading from '../SLLoading.vue'
 import { message } from '@swanlab-vue/components/message'
@@ -68,7 +68,7 @@ import { t } from '@swanlab-vue/i18n'
 import { computed } from 'vue'
 
 const projectStore = useProjectStore()
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 
 const props = defineProps({
   type: String

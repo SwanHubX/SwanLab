@@ -12,6 +12,8 @@ export const useProjectStore = defineStore('project', () => {
   const createTime = computed(() => project.value?.create_time)
   const updateTime = computed(() => project.value?.update_time)
   const logdir = computed(() => project.value?.logdir)
+  // 色盘
+  const colors = computed(() => project.value?.colors)
 
   /** action */
   const setProject = (p) => {
@@ -90,6 +92,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     logdir,
+    colors,
     setProject,
     deleteExperiment,
     updateInfo,

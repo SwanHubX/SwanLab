@@ -54,7 +54,7 @@
 import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
 import DeleteButton from '@swanlab-vue/components/config-editor/DeleteButton.vue'
 import http from '@swanlab-vue/api/http'
-import { useProjectStore, useExperimentStroe } from '@swanlab-vue/store'
+import { useProjectStore, useExperimentStore } from '@swanlab-vue/store'
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from '@swanlab-vue/components/message'
@@ -63,7 +63,7 @@ import { ref } from 'vue'
 
 const router = useRouter()
 const projectStore = useProjectStore()
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 控制h1缩进 ----------------------------------

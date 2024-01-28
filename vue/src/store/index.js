@@ -1,4 +1,4 @@
-import { useExperimentStroe } from './modules/experiment'
+import { useExperimentStore } from './modules/experiment'
 import { useProjectStore } from './modules/project'
 
-export { useExperimentStroe, useProjectStore }
+export { useExperimentStore, useProjectStore }

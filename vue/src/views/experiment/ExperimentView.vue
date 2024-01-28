@@ -17,7 +17,7 @@
 
 import ExperimentLayout from '@swanlab-vue/layouts/ExperimentLayout.vue'
 import ErrorView from '../error/ErrorView.vue'
-import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import http from '@swanlab-vue/api/http'
 import { computed } from 'vue'
@@ -25,7 +25,7 @@ import { ref } from 'vue'
 import StopButton from './components/StopButton.vue'
 
 const route = useRoute()
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
 
 // ---------------------------------- 请求实验信息 ----------------------------------

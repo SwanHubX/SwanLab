@@ -20,7 +20,7 @@ from ..settings import (
     get_config_path,
 )
 from ...env import get_swanlog_dir
-from ...utils import get_a_lock
+from ...utils import get_a_lock, COLOR_LIST
 from ...utils.file import check_desc_format
 import yaml
 
@@ -78,6 +78,8 @@ def get_project_info(project_id: int = DEFAULT_PROJECT_ID) -> dict:
                 # 加载config字段
                 with get_a_lock(config_path) as f:
                     experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
+        # 色盘
+        data["colors"] = COLOR_LIST
         return SUCCESS_200(data)
     except Exception as e:
         return DATA_ERROR_500(f"Get list experiments failed: {e}")

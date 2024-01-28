@@ -15,13 +15,13 @@
  **/
 
 import { useRoute } from 'vue-router'
-import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
 import EnvItems from '../components/EnvItems.vue'
 
 const route = useRoute()
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
 const experiment = experimentStore.experiment
 const system = experiment.system

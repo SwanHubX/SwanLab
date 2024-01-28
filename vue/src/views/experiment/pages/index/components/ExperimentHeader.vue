@@ -35,9 +35,9 @@
  **/
 import { computed, ref } from 'vue'
 import { formatTime } from '@swanlab-vue/utils/time'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const experiment = ref(experimentStore.experiment)
 
 // ---------------------------------- 实验信息 ----------------------------------
