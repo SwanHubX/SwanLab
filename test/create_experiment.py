@@ -21,7 +21,8 @@ swanlab.init(
 for epoch in range(2, epochs):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
+    loss2 = 3**-epoch + random.random() / epoch + offset * 3
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    swanlab.log({"accuracy": acc, "loss": loss})
+    swanlab.log({"accuracy": acc, "loss": loss, "loss2": loss2})
     time.sleep(1)
     time.sleep(0.5)
