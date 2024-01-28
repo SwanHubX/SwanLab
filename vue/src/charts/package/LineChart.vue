@@ -116,7 +116,7 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     },
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
-      // FIXME 当前tooltip只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+      // 如果需要自定义浮窗，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
         return { name: data.series, value: formatNumber2SN(data.data) }
