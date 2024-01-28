@@ -1,6 +1,7 @@
 # 这里提供了 SwanLab 所有支持的图表类型
 
-每个图表类型被抽象为一个组件,但是在外部通过本部分提供的[ChartsContainer](./ChartsContainer.vue)组件和[ChartContainer](./ChartsContainer.vue)组件统一调用,所需的就仅仅是传入chart配置和一些props
+每个图表类型被抽象为一个组件,但是在外部通过本部分提供的[ChartsContainer](./ChartsContainer.vue)组件统一调用，所需的就是传入chart配置  
+一个ChartsContainer组件代表一个命名空间
 
 ## 图表组件
 
