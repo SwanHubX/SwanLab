@@ -31,7 +31,7 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref, inject } from 'vue'
+import { ref, inject, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
@@ -43,6 +43,10 @@ const props = defineProps({
   },
   chart: {
     type: Object,
+    required: true
+  },
+  index: {
+    type: Number,
     required: true
   }
 })
@@ -193,11 +197,6 @@ const createChart = (dom, data, config = {}) => {
     ...config
   })
   c.render()
-
-  // 给 tooltip 添加点击事件
-  c.on('tooltip:show', (...args) => {
-    console.log(...args)
-  })
   return c
 }
 
@@ -220,7 +219,7 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
-  console.log('data', data)
+  // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
   return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
 }
@@ -305,6 +304,7 @@ const render = (data) => {
   chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
+  registerTooltipEvent()
 }
 // 重渲染
 const change = (data) => {
@@ -312,6 +312,7 @@ const change = (data) => {
   // change函数等于render函数
   chartObj.destroy()
   chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
+  registerTooltipEvent()
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -332,15 +333,57 @@ const zoom = (data) => {
   })
 }
 
-// ---------------------------------- hover功能 ----------------------------------
-const hover = (percent) => {}
+// ---------------------------------- 额外功能 ----------------------------------
+const chartsRefList = inject('chartsRefList')
+const lineChartsRef = computed(() => {
+  // 将列表中除了props.index的所有chartRef过滤出来
+  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef.lineShowTooltip)
+})
 
+let manual = true
+// 调用此方法则必然是自动触发
+const lineShowTooltip = (point) => {
+  manual = false
+  console.log('lineShowTooltip', props.index)
+  // console.log('title', title)
+  chartObj.chart.showTooltip(point)
+}
+const lineHideTooltip = () => {
+  manual = false
+  chartObj.chart.hideTooltip()
+}
+
+const registerTooltipEvent = () => {
+  // 给 tooltip 添加点击事件
+  chartObj.on('tooltip:show', (evt) => {
+    if (!manual) {
+      return console.log('auto show tooltip')
+    }
+    const point = { x: evt.data.x, y: evt.data.y }
+    // 通知其他图表，当前图表的数据被hover到了
+    lineChartsRef.value.forEach((chart) => {
+      chart.chartRef.lineShowTooltip(point)
+    })
+    manual = true
+  })
+  chartObj.on('tooltip:hide', (...args) => {
+    // 通知其他图表，当前图表的数据被hover到了
+    lineChartsRef.value.forEach((chart) => {
+      if (!manual) {
+        return console.log('auto hide tooltip')
+      }
+      chart.chartRef.lineHideTooltip(...args)
+    })
+    manual = true
+  })
+}
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
   change,
   zoom,
-  hover
+  lineShowTooltip,
+  lineHideTooltip
 })
 </script>
 

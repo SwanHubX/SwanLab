@@ -10,7 +10,7 @@
       <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
         <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
       </div>
-      <component ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
+      <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
     </template>
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-else-if="status === 'error'">
@@ -43,6 +43,10 @@ import { debounce } from '@swanlab-vue/utils/common'
 const props = defineProps({
   chart: {
     type: Object,
+    required: true
+  },
+  index: {
+    type: Number,
     required: true
   }
 })
@@ -144,6 +148,11 @@ const change = debounce(() => {
 const zoom = () => {
   chartRef.value.zoom(data)
 }
+
+// ---------------------------------- 暴露组件对象 ----------------------------------
+defineExpose({
+  chartRef
+})
 </script>
 
 <style lang="scss" scoped>

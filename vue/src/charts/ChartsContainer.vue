@@ -15,7 +15,13 @@
     </div>
     <!-- 图表插槽 -->
     <div class="charts-slot" v-show="isExpand" ref="chartsSlotRef">
-      <ChartContainer v-for="chart in charts" :key="chart._cid" :chart="chart" />
+      <ChartContainer
+        v-for="(chart, index) in charts"
+        :key="chart._cid"
+        :chart="chart"
+        :index="index"
+        :ref="(el) => setChartsRefList(el, index)"
+      />
     </div>
   </div>
 </template>
@@ -23,9 +29,9 @@
 <script setup>
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import ChartContainer from './components/ChartContainer.vue'
-import { ref } from 'vue'
+import { ref, provide } from 'vue'
 /**
- * @description: 图表容器，用于包裹图表组件，插槽允许isExpand参数，用于标识图表的展开和关闭
+ * @description: 图表容器，用于包裹图表组件，一个图表容器对应一个namespace
  * @file: ChartsContainer.vue
  * @since: 2023-12-09 15:35:28
  **/
@@ -40,8 +46,6 @@ const props = defineProps({
   }
 })
 
-console.log(props.charts)
-
 // ---------------------------------- 控制展开和关闭的状态 ----------------------------------
 
 const isExpand = ref(true)
@@ -50,7 +54,16 @@ const handleExpand = () => {
   isExpand.value = !isExpand.value
 }
 
-// ----------------------------------  ----------------------------------
+// ---------------------------------- charts组件列表 ----------------------------------
+const chartsRefList = ref([])
+
+const setChartsRefList = (el, index) => {
+  chartsRefList.value[index] = el
+  chartsRefList.value.length = props.charts.length
+}
+
+// ---------------------------------- 将charts组建传递给子组件 ----------------------------------
+provide('chartsRefList', chartsRefList)
 </script>
 
 <style lang="scss" scoped>

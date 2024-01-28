@@ -25,7 +25,7 @@
 > `tagData`是一个对象，每个key代表对应的数据，包含一个list，我们约定list的数据已经依据与元素内部的index完成了升序排序
 > 具体的处理逻辑由各个图表组件自行决定和实现
 
-大致的组件模版如下(js 部分), 可以输入`vue-chart`代码片段生成此模版:
+大致的组件模版如下(js 部分), 可以输入`vue-chart`代码片段生成此模版(最新模版可能和下面的内容有所出入):
 
 ```js
 import SLModal from '@swanlab-vue/components/SLModal.vue'
