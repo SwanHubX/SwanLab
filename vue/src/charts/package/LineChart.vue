@@ -56,6 +56,11 @@ const error = ref(props.chart.error)
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+const rootStyle = getComputedStyle(document.documentElement)
+// 边框颜色，通过js获取css变量值
+const borderColor = rootStyle.getPropertyValue('--outline-default')
+// 网格线颜色，通过js获取css变量值
+const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
@@ -73,15 +78,15 @@ const yField = 'data'
 const seriesField = 'series'
 const colorField = 'type'
 // 创建图表的函数
-const createChart = (dom, data, config = { interactions: undefined, height: 200 }) => {
+const createChart = (dom, data, config = {}) => {
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
     xField,
     // 默认的y轴依据key为data
     yField,
-    // 多数据的时候，需要设置seriesField，单数据也可以设置，但是没什么区别
-    seriesField,
+    // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
+    // seriesField,
     colorField,
     color: colors,
     // 坐标轴相关
@@ -93,6 +98,21 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
         formatter: (data) => {
           return formatNumber2K(data)
         }
+      },
+      // x轴坐标轴样式
+      line: {
+        style: {
+          stroke: borderColor,
+          lineWidth: 2
+        }
+      },
+      // x轴刻度样式
+      tickLine: {
+        length: 4,
+        style: {
+          stroke: borderColor,
+          lineWidth: 2
+        }
       }
     },
     yAxis: {
@@ -103,24 +123,40 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
           return formatNumber2SN(data)
         }
       },
-      // 显示y轴刻度线#bfbfbf
+      // y轴坐标轴样式
       line: {
         style: {
-          stroke: '#bfbfbf'
+          stroke: borderColor,
+          lineWidth: 2
         }
       },
+      // y轴刻度样式
       tickLine: {
+        length: 4,
         style: {
-          stroke: '#bfbfbf'
+          stroke: borderColor,
+          lineWidth: 2
+        }
+      },
+      // 网格线
+      grid: {
+        line: {
+          style: {
+            stroke: gridColor
+          }
         }
       }
     },
+
+    // 图例相关
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
       // 如果需要自定义浮窗，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
-        return { name: data.series, value: formatNumber2SN(data.data) }
+        // 如果data.series是undefined，说明是单数据,直接显示source[0]即可
+        const name = data.series ? data.series : source[0]
+        return { name, value: formatNumber2SN(data.data) }
       }
       // customContent: (title, data) => {
       //   console.log(title, data)
@@ -132,11 +168,9 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     width: undefined,
     autoFit: true,
     // 开启一些交互
-    interactions: undefined,
-    // 样式相关
-    // smooth: true, // 平滑曲线
-    // 线条样式
-    // lineStyle,
+    interactions: [{ type: 'element-active' }],
+    // 平滑曲线
+    smooth: false,
     ...config
   })
   c.render()
@@ -162,7 +196,8 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
-  return { d }
+  // 如果source的长度大于1，需要设置seriesField
+  return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
 }
 
 /**
@@ -230,7 +265,7 @@ const formatXAxisTick = (category) => {
     i * step < max && ticks.add(i * step)
   }
   // set转array
-  console.log('ticks', Array.from(ticks))
+  // console.log('ticks', Array.from(ticks))
   return Array.from(ticks)
 }
 
@@ -240,19 +275,20 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   // console.log('data', data)
-  const { d } = format(data)
+  const { d, config } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, d)
+  chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
 }
 // 重渲染
 const change = (data) => {
-  const { d } = format(data)
+  const { d, config } = format(data)
   // 如果d的长度超过1200, change函数等于render函数
   if (d.length > 1200) {
     chartObj.destroy()
-    return render(data)
+    chartObj = createChart(g2Ref.value, d, config)
+    return
   }
 
   // console.log('更新...')
@@ -268,12 +304,13 @@ const isZoom = ref(false)
 const zoom = (data) => {
   isZoom.value = true
   // 当前window的高度
-  const { d } = format(data)
+  const { d, config } = format(data)
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
     createChart(g2ZoomRef.value, d, {
-      interactions: [{ type: 'brush-x' }],
-      height
+      interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
+      height,
+      ...config
     })
   })
 }
