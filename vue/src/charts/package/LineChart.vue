@@ -34,6 +34,7 @@ import * as UTILS from './utils'
 import { ref, inject } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
+import { useProjectStore } from '@swanlab-vue/store'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({

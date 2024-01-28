@@ -11,7 +11,7 @@ r"""
 
 import re
 
-COLOR_LIST = [
+light_colors = [
     "#528d59",  # 绿色
     "#587ad2",  # 蓝色
     "#c24d46",  # 红色
@@ -30,6 +30,11 @@ COLOR_LIST = [
     "#989fa3",  # 灰色
 ]
 
+COLOR_LIST = {
+    "light": light_colors,
+    "dark": light_colors,
+}
+
 
 def generate_color(number: int = 1) -> str:
     """输入数字，在设定好顺序的颜色列表中返回十六进制颜色字符串
@@ -46,7 +51,7 @@ def generate_color(number: int = 1) -> str:
     else:
         number = number % 16
 
-    return COLOR_LIST[number - 1]
+    return COLOR_LIST["light"][number - 1], COLOR_LIST["dark"][number - 1]
 
 
 class FONT:

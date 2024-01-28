@@ -144,6 +144,7 @@ class Experiment(SwanModel):
         # 这个sum是+1以后的值
         sum = Project.increase_sum(project_id)
         # 调用父类的create方法创建实验实例
+        light, dark = generate_color(sum)
         try:
             return super().create(
                 name=name,
@@ -153,7 +154,8 @@ class Experiment(SwanModel):
                 more=cls.dict2json(more),
                 sort=sum,
                 version=get_package_version(),
-                light=generate_color(sum),
+                light=light,
+                dark=dark,
                 create_time=current_time,
                 update_time=current_time,
             )

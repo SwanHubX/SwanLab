@@ -30,7 +30,7 @@
 ```js
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import * as UTILS from './utils'
-import { ref } from 'vue'
+import { ref,inject } from 'vue'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -49,6 +49,12 @@ const props = defineProps({
 const source = props.chart.source
 // 参考字段和显示名称
 const { xField, xTitle } = UTILS.refrence2XField(props.chart.refrence)
+
+
+// ---------------------------------- 图表颜色配置 ----------------------------------
+// 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
+const colors = inject('colors')
+if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
