@@ -1,6 +1,8 @@
-"""
-@DATE: 2024-1-29 18:17:36
-@File: swanlab/system/__init__.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024-01-29 19:22:55
+@File: swanlab\system\__init__.py
 @IDE: vscode
 @Description:
     硬件监控模块

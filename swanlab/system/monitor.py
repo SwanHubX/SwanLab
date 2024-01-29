@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024-01-29 19:21:38
+@File: swanlab\system\monitor.py
+@IDE: vscode
+@Description:
+    监控硬件数据类，包含16种硬件参数
+"""
 from pynvml import *
 import psutil
 import time
