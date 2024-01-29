@@ -125,6 +125,9 @@ def __get_wav_duration(path: str, sample_rate: float):
 # ---------------------------------- 音频相关 ----------------------------------
 
 
+MAX_LENGTH_PER_SECOND = 200
+
+
 def get_audio_data(path: str):
     """解析并获取音频数据
 
@@ -132,12 +135,26 @@ def get_audio_data(path: str):
     ----------
     path : str
         音频文件相对于 swanlog 目录的相对路径
+
+    Returns
+    -------
+    data : dict
+        - path : string
+            音频文件路径
+        - header_info : dict
+            音频头部信息
+        - data : list
+            音频数据
+        - duration : float
+            音频时长
     """
 
     # TODO 处理路径的拼接
     path = os.path.join(SWANLOG_DIR, path)
     # 获取头部信息
     header_info = __get_wav_header_info(path)
+    # 获取音频时长
+    duration = round(__get_wav_duration(path, header_info["sample_rate"]), 2)
     # 获取音频数据
     with open(path, "rb") as f:
         # 跳过WAV文件头部
@@ -145,15 +162,17 @@ def get_audio_data(path: str):
         # 读取音频数据
         data = np.fromfile(f, dtype=np.int16)
 
-    time = np.arange(0, len(data)) / header_info["sample_rate"]
-
-    print(dict(enumerate(time)))
+    # 对data进行取样
+    max_length = int(duration * MAX_LENGTH_PER_SECOND)
+    if len(data) > max_length:
+        sampling_ratio = len(data) // max_length  # 计算取样比例
+        data = data[::sampling_ratio]  # 进行取样
 
     return SUCCESS_200(
         {
             "path": path,
             "header_info": header_info,
             "data": data.tolist(),
-            "duration": __get_wav_duration(path, header_info["sample_rate"]),
+            "duration": duration,
         }
     )
