@@ -37,6 +37,7 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 // import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import LineChart from '../package/LineChart.vue'
+import AudioChart from '../package/AudioChart.vue'
 import UnknownChart from '../package/UnknownChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
@@ -78,6 +79,11 @@ const chartComponent = computed(() => {
       return {
         type: LineChart,
         class: 'line-chart'
+      }
+    case 'audio':
+      return {
+        type: AudioChart,
+        class: 'audio-chart'
       }
     default:
       return {
