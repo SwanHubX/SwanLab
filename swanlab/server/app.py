@@ -85,8 +85,10 @@ async def _(*args, **kwargs):
 # 导入数据相关的路由
 from .router.experiment import router as experiment
 from .router.project import router as project
+from .router.media import router as media
 
 # 使用配置列表，统一导入
 prefix = "/api/v1"
 app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")
+app.include_router(media, prefix=prefix + "/media")
