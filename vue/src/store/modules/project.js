@@ -1,9 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+// 这是一个全局的 store，用于存储当前项目的信息，以及一些前端需要的信息
 export const useProjectStore = defineStore('project', () => {
   /** state */
+  // 当前项目信息
   const project = ref()
+  // 当前主题暗还是亮
+  const dark = ref(false)
+
   /** getter */
   const name = computed(() => (project.value?.name ? project.value.name : 'my-machine-learning-project'))
   const description = computed(() => (project.value?.description ? project.value.description : ''))
@@ -12,6 +17,11 @@ export const useProjectStore = defineStore('project', () => {
   const createTime = computed(() => project.value?.create_time)
   const updateTime = computed(() => project.value?.update_time)
   const logdir = computed(() => project.value?.logdir)
+  // 色盘
+  const colors = computed(() => {
+    const key = dark.value ? 'dark' : 'light'
+    return project.value?.colors[key]
+  })
 
   /** action */
   const setProject = (p) => {
@@ -90,6 +100,7 @@ export const useProjectStore = defineStore('project', () => {
     createTime,
     updateTime,
     logdir,
+    colors,
     setProject,
     deleteExperiment,
     updateInfo,

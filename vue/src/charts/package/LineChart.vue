@@ -29,15 +29,13 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { Line } from '@antv/g2plot'
+import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { ref, inject, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
-const experimentStore = useExperimentStroe()
 const props = defineProps({
   title: {
     type: String,
@@ -46,6 +44,10 @@ const props = defineProps({
   chart: {
     type: Object,
     required: true
+  },
+  index: {
+    type: Number,
+    required: true
   }
 })
 
@@ -53,8 +55,35 @@ const props = defineProps({
 
 const error = ref(props.chart.error)
 
-// ---------------------------------- 组件渲染逻辑 ----------------------------------
+// ---------------------------------- 图表颜色配置 ----------------------------------
+// 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
+const colors = inject('colors')
+if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+const rootStyle = getComputedStyle(document.documentElement)
+// 边框颜色，通过js获取css变量值
+const borderColor = rootStyle.getPropertyValue('--outline-default')
+// 网格线颜色，通过js获取css变量值
+const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 
+// ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
+G2.registerShape('point', 'last-point', {
+  draw(cfg, container) {
+    const point = { x: cfg.x, y: cfg.y }
+    // console.log('point', cfg.data)
+    const shape = container.addShape('circle', {
+      name: 'point',
+      attrs: {
+        x: point.x,
+        y: point.y,
+        fill: cfg.color || 'red',
+        opacity: cfg?.data?._last ? 1 : 0,
+        r: 3
+      }
+    })
+    return shape
+  }
+})
+// ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
@@ -62,27 +91,27 @@ const g2ZoomRef = ref()
 const source = props.chart.source
 // 参考字段和显示名称
 const reference = props.chart.reference
-// 图表颜色
-// TODO 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-// 这块或许需要改为监听css变量的变化，然后重新渲染图表
-const color = props.chart.color || experimentStore.defaultColor
-const lineStyle = {
-  stroke: color
-}
-
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
 const { xField, xTitle } = UTILS.refrence2XField[reference]
 // 默认y轴的依据key是data
 const yField = 'data'
+const seriesField = 'series'
+const colorField = 'type'
 // 创建图表的函数
-// FIXME 兼容多数据情况
-const createChart = (dom, data, config = { interactions: undefined, height: 200 }) => {
+const createChart = (dom, data, config = {}) => {
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
     xField,
     // 默认的y轴依据key为data
     yField,
+    // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
+    // seriesField,
+    colorField,
+    color: colors,
+    point: {
+      shape: 'last-point'
+    },
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
@@ -91,6 +120,21 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
       label: {
         formatter: (data) => {
           return formatNumber2K(data)
+        }
+      },
+      // x轴坐标轴样式
+      line: {
+        style: {
+          stroke: borderColor,
+          lineWidth: 2
+        }
+      },
+      // x轴刻度样式
+      tickLine: {
+        length: 4,
+        style: {
+          stroke: borderColor,
+          lineWidth: 2
         }
       }
     },
@@ -102,24 +146,39 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
           return formatNumber2SN(data)
         }
       },
-      // 显示y轴刻度线#bfbfbf
+      // y轴坐标轴样式
       line: {
         style: {
-          stroke: '#bfbfbf'
+          stroke: borderColor,
+          lineWidth: 2
         }
       },
+      // y轴刻度样式
       tickLine: {
+        length: 4,
         style: {
-          stroke: '#bfbfbf'
+          stroke: borderColor,
+          lineWidth: 2
+        }
+      },
+      // 网格线
+      grid: {
+        line: {
+          style: {
+            stroke: gridColor
+          }
         }
       }
     },
+    // 图例相关
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
-      // FIXME 当前tooltip只支持单数据，需要兼容多数据，可以用下面的customContent，但是目前不管
+      // 如果需要自定义浮窗，可以用下面的customContent，但是目前不管
       formatter: (data) => {
         // console.log(data)
-        return { name: source[0], value: formatNumber2SN(data.data) }
+        // 如果data.series是undefined，说明是单数据,直接显示source[0]即可
+        const name = data.series ? data.series : source[0]
+        return { name, value: formatNumber2SN(data.data) }
       }
       // customContent: (title, data) => {
       //   console.log(title, data)
@@ -131,13 +190,9 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
     width: undefined,
     autoFit: true,
     // 开启一些交互
-    interactions: undefined,
-    // 样式相关
-    // smooth: true, // 平滑曲线
-    // 展示颜色
-    color,
-    // 线条样式
-    lineStyle,
+    interactions: [{ type: 'element-active' }],
+    // 平滑曲线
+    smooth: false,
     ...config
   })
   c.render()
@@ -147,12 +202,25 @@ const createChart = (dom, data, config = { interactions: undefined, height: 200 
 // ---------------------------------- 数据格式化 ----------------------------------
 /**
  * 为了将数据格式化为图表可用的格式，需要将数据源中的数据进行格式化
+ * 遍历data的所有key，合并其中的list为一个数组
  * @param { Object } data 待格式化的数据
+ * @returns { Object } 格式化后的数据, { d: [{}, {}, ...], config: {} } config是图表的一些其他配置
  */
 const format = (data) => {
-  // FIXME 暂时只支持单数据
-  const d = data[source[0]].list
-  return { d }
+  // 如果source的长度小于1，抛出错误
+  if (source.length < 1) throw new Error('source length must be greater than 1')
+  // 新的数据,遍历得到
+  const d = []
+  Object.keys(data).forEach((key) => {
+    // 如果不是单数据，需要将所有数据的list合并为一个数组
+    data[key].list.forEach((item) => {
+      // item新加series字段，用于标识数据来源
+      d.push({ ...item, series: key })
+    })
+  })
+  // console.log('data', data)
+  // 如果source的长度大于1，需要设置seriesField
+  return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
 }
 
 /**
@@ -220,7 +288,7 @@ const formatXAxisTick = (category) => {
     i * step < max && ticks.add(i * step)
   }
   // set转array
-  console.log('ticks', Array.from(ticks))
+  // console.log('ticks', Array.from(ticks))
   return Array.from(ticks)
 }
 
@@ -230,26 +298,20 @@ let chartObj = null
 const render = (data) => {
   // console.log('渲染折线图')
   // console.log('data', data)
-  const { d } = format(data)
+  const { d, config } = format(data)
   // console.log('data', data)
-  chartObj = createChart(g2Ref.value, d)
+  chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
+  registerTooltipEvent()
 }
 // 重渲染
 const change = (data) => {
-  const { d } = format(data)
-  // 如果d的长度超过1200, change函数等于render函数
-  if (d.length > 1200) {
-    chartObj.destroy()
-    render(data)
-    return
-  }
-
-  // console.log('更新...')
-  // console.log(chartObj)
-  // updateYAxis(yAxis)
-  chartObj.changeData(d)
+  const { d, config } = format(data)
+  // change函数等于render函数
+  chartObj.destroy()
+  chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
+  registerTooltipEvent()
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -259,21 +321,68 @@ const isZoom = ref(false)
 const zoom = (data) => {
   isZoom.value = true
   // 当前window的高度
-  const { d } = format(data)
+  const { d, config } = format(data)
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
     createChart(g2ZoomRef.value, d, {
-      interactions: [{ type: 'brush-x' }],
-      height
+      interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
+      height,
+      ...config
     })
   })
 }
 
+// ---------------------------------- 额外功能 ----------------------------------
+const chartsRefList = inject('chartsRefList')
+const lineChartsRef = computed(() => {
+  // 将列表中除了props.index的所有chartRef过滤出来
+  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef.lineShowTooltip)
+})
+
+let manual = true
+// 调用此方法则必然是自动触发
+const lineShowTooltip = (point) => {
+  manual = false
+  console.log('lineShowTooltip', props.index)
+  // console.log('title', title)
+  chartObj.chart.showTooltip(point)
+}
+const lineHideTooltip = () => {
+  manual = false
+  chartObj.chart.hideTooltip()
+}
+
+const registerTooltipEvent = () => {
+  // 给 tooltip 添加点击事件
+  chartObj.on('tooltip:show', (evt) => {
+    if (!manual) {
+      return console.log('auto show tooltip')
+    }
+    const point = { x: evt.data.x, y: evt.data.y }
+    // 通知其他图表，当前图表的数据被hover到了
+    lineChartsRef.value.forEach((chart) => {
+      chart.chartRef.lineShowTooltip(point)
+    })
+    manual = true
+  })
+  chartObj.on('tooltip:hide', (...args) => {
+    // 通知其他图表，当前图表的数据被hover到了
+    lineChartsRef.value.forEach((chart) => {
+      if (!manual) {
+        return console.log('auto hide tooltip')
+      }
+      chart.chartRef.lineHideTooltip(...args)
+    })
+    manual = true
+  })
+}
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
   change,
-  zoom
+  zoom,
+  lineShowTooltip,
+  lineHideTooltip
 })
 </script>
 

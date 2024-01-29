@@ -10,7 +10,7 @@
  * @file: StopButton.vue
  * @since: 2023-12-30 20:30:30
  **/
-import { useExperimentStroe, useProjectStore } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { confirm } from '@swanlab-vue/components/comfirm'
 import http from '@swanlab-vue/api/http'
@@ -19,7 +19,7 @@ import { message } from '@swanlab-vue/components/message'
 
 // ---------------------------------- 弹窗相关 ----------------------------------
 
-const experiment = useExperimentStroe()
+const experiment = useExperimentStore()
 const id = experiment.id
 const status = experiment.status
 

@@ -22,11 +22,11 @@
 import DataTable from './DataTable.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
-const experiment = ref(useExperimentStroe().experiment)
+const experiment = ref(useExperimentStore().experiment)
 
 // 通用表头
 const column = [
@@ -65,7 +65,7 @@ const configs = computed(() => {
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
 
 const summaries = ref([])
-const experimentId = ref(useExperimentStroe().id)
+const experimentId = ref(useExperimentStore().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
   .then(({ data }) => {

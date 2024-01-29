@@ -52,7 +52,7 @@
 
 import { ref } from 'vue'
 import http from '@swanlab-vue/api/http'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 import FuncBar from '../../components/FuncBar.vue'
@@ -62,7 +62,7 @@ const logAreaRef = ref()
 
 // ---------------------------------- 系统相关 ----------------------------------
 
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const id = experimentStore.id
 
 // ---------------------------------- 获取日志和日志相关数据 ----------------------------------

@@ -5,10 +5,8 @@
       v-for="group in groups"
       :key="group.name"
       :label="getGroupName(group.name)"
-      :count="group.charts.length"
-    >
-      <ChartContainer :chart="charts[cnMap.get(chartID)]" v-for="chartID in group.charts" :key="chartID" />
-    </ChartsContainer>
+      :charts="getCharts(group)"
+    />
     <!-- 图表不存在 -->
     <p class="font-semibold mt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
   </div>
@@ -20,16 +18,18 @@
  * @file: ChartPage.vue
  * @since: 2023-12-25 15:34:51
  **/
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
-import ChartsContainer from './components/ChartsContainer.vue'
-import ChartContainer from './components/ChartContainer.vue'
+import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const route = useRoute()
+
+// ---------------------------------- 颜色配置，注入色盘 ----------------------------------
+provide('colors', useProjectStore().colors)
 
 // ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
@@ -44,13 +44,25 @@ const status = ref('initing')
   parseCharts(data)
   // console.log(cnMap)
 })().then(() => {
-  status.value = 'success'
-  // 在完成以后，开始请求数据
   // console.log(eventEmitter)
+  // status在start函数中被设置为success
   eventEmitter.start()
+  // 设置状态为success
+  status.value = 'success'
 })
 
 // ---------------------------------- 根据charts生成对应配置 ----------------------------------
+
+/**
+ * 根据group中的chart_id获取chart配置，生成一个数组
+ */
+const getCharts = (group) => {
+  const _charts = []
+  group.charts.forEach((id) => {
+    _charts.push(charts[cnMap.get(id)])
+  })
+  return _charts
+}
 
 /**
  * 解析charts，生成groups和cnMap
@@ -287,7 +299,6 @@ class EventEmitter {
    *
    */
   start() {
-    // 第一次延时1秒执行，后面每隔n秒执行一次
     // 遍历源列表，请求数据
     const promises = []
     this._sources.forEach((tag) => {
@@ -432,7 +443,7 @@ onUnmounted(() => {
  * @param { string } namespace 组名
  */
 const getGroupName = (name) => {
-  console.log(name)
+  // console.log(name)
   if (name === 'default') return t('experiment.chart.label.default')
   else return name
 }

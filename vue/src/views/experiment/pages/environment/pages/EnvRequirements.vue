@@ -44,11 +44,11 @@
  **/
 
 import { ref, computed } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
 import FuncBar from '@swanlab-vue/views/experiment/components/FuncBar.vue'
 import http from '@swanlab-vue/api/http'
 import { useRoute } from 'vue-router'
-const experimentStore = useExperimentStroe()
+const experimentStore = useExperimentStore()
 const requirements = ref()
 const route = useRoute()
 http
