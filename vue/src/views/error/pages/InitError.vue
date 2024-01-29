@@ -4,7 +4,7 @@
       {{ $t(`error.init-error.title`) }}
     </template>
     <ul>
-      <li v-for="index in [0, 1]" :key="index">
+      <li v-for="index in [0, 1, 2]" :key="index">
         {{ $t(`error.init-error.reasons[${index}]`) }}
       </li>
     </ul>

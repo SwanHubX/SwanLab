@@ -1,54 +1,76 @@
 <template>
-  <MainLayout v-if="ready">
-    <template #left>
-      <HomeSiderBar />
-    </template>
-    <router-view v-if="!error_code" />
-    <ErrorView :code="error_code" v-else />
+  <MainLayout :show-side-bar="!errorCode" :version="version" v-if="ready">
+    <router-view v-if="!errorCode" />
+    <ErrorView :code="errorCode" :message="errorMessage" v-else />
   </MainLayout>
+  <!-- 全局气泡提示 -->
+  <SLMessages ref="messagesRef" />
+  <!-- 全局确认弹窗 -->
+  <SLComfirm ref="confirmRef" />
 </template>
 
 <script setup>
-import MainLayout from './layouts/MainLayout.vue'
-import HomeSiderBar from './components/HomeSiderBar.vue'
+import MainLayout from './layouts/main/MainLayout.vue'
 import ErrorView from './views/error/ErrorView.vue'
 import http from './api/http'
 import { useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
 import { ref } from 'vue'
-import { provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { watch } from 'vue'
+import { installMessage, SLMessages, message } from '@swanlab-vue/components/message'
+import { installConfirm, SLComfirm } from './components/comfirm'
+import { onMounted } from 'vue'
+
+// ---------------------------------- state ----------------------------------
+
 const projectStore = useProjectStore()
-const ready = computed(() => !!projectStore.experiments || error_code.value)
+const ready = ref()
 
 // ---------------------------------- 在此处请求项目信息 ----------------------------------
+const version = ref()
 http
   .get('/project')
-  .then(({ data }) => {
+  .then(({ data, _header }) => {
     projectStore.setProject(data)
+    version.value = _header['swanlab-version']
   })
   .catch((response) => {
     // console.error(response)
-    error_code.value = response.data?.code || 3000 // 3000 时，后端启动失败
+    errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
+    version.value = response.headers['swanlab-version']
+  })
+  .finally(() => {
+    ready.value = true
   })
 
 // ---------------------------------- 错误处理 ----------------------------------
-const error_code = ref(0)
-const show_error = (code) => {
-  error_code.value = code
-}
-const clear_error = () => {
-  error_code.value = 0
-}
-provide('show_error', show_error)
-provide('clear_error', clear_error)
 
+const errorCode = ref(0) // 错误码
+const errorMessage = ref('') // 错误信息
 const route = useRoute()
+
+// 监测路由修改
 watch(
   computed(() => route.fullPath),
-  () => clear_error()
+  (oldVal) => {
+    // console.log('route change', newVal, oldVal)
+    if (oldVal === undefined) return
+    // 清除消息弹窗
+    message.clear()
+  }
 )
+
+// ---------------------------------- 项目配置 ----------------------------------
+
+const messagesRef = ref(null)
+const confirmRef = ref(null)
+
+onMounted(() => {
+  // 注册全局顶部提醒
+  installMessage(messagesRef)
+  installConfirm(confirmRef)
+})
 </script>
 
 <style scoped></style>

@@ -59,12 +59,10 @@ components/style/color/*.less
 
 .huskyrc
 
-README.md
-
 doc/**
 
-**.md
-
+*.md
 .github/**
 
 swanlab/
+

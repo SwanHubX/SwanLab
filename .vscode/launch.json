@@ -14,14 +14,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"]
     },
-    {
-      "name": "前端开发:mock",
-      "request": "launch",
-      "cwd": "${workspaceRoot}",
-      "type": "node",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:mock"]
-    },
     // 启动后端开发服务
     {
       "name": "后端开发",
@@ -50,6 +42,17 @@
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/test/create_experiment.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      //sys.path 会加入顶层目录，影响模块导入查询路径
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "模拟命令行watch",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/cli_test.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}",

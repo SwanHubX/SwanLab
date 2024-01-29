@@ -1,5 +1,6 @@
 <template>
   <a class="sl-status-label" :class="config.class" :href="url" @click.prevent="handleClick">
+    <SLIcon :icon="config.icon" />
     {{ config.label }}
   </a>
 </template>
@@ -31,23 +32,27 @@ const props = defineProps({
 
 const config = computed(() => {
   const status = t('experiment.status.' + props.status)
-  let className = ''
+  let className, icon
   switch (props.status) {
     case 0:
       className = 'running'
+      icon = 'circle-fill'
       break
     case 1:
       className = 'finished'
+      icon = 'success'
       break
     case -1:
-      className = 'stoped'
+      className = 'crashed'
+      icon = 'error'
       break
   }
   if (!className) throw new Error('Invalid status:' + props.status + 'in StatusLabel.vue')
 
   return {
     label: status,
-    class: className
+    class: className,
+    icon
   }
 })
 
@@ -66,18 +71,44 @@ const handleClick = () => {
 </script>
 
 <style lang="scss" scoped>
-.sl-status-label {
-  @apply px-3 py-1 rounded-full text-sm;
+@mixin icon {
+  svg {
+    @apply w-4 h-4;
+  }
 }
-.stoped {
+.sl-status-label {
+  @apply px-3 py-1 rounded-full text-sm text-center inline-flex items-center gap-1.5;
+}
+
+.crashed {
   @apply bg-negative-dimmest text-negative-default;
+  @include icon;
 }
 
 .finished {
-  @apply bg-positive-higher text-positive-dimmer;
+  @apply bg-positive-dimmest text-positive-higher;
+  @include icon;
 }
-
 .running {
-  @apply bg-primary-dimmest text-primary-default;
+  @apply bg-primary-dimmest text-primary-higher;
+  @include icon;
+  // 设置svg动画，呼吸效果
+  @keyframes breathe {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.5;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.8);
+      opacity: 0.5;
+    }
+  }
+  svg {
+    animation: breathe 1.5s ease-in-out infinite;
+  }
 }
 </style>

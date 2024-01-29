@@ -1,7 +1,10 @@
 <template>
   <Tippy trigger="click">
     <template v-slot="{ hide }">
-      <SLIcon icon="copy" :class="iconClass" @click="copy(hide)" />
+      <div class="flex gap-2 items-center cursor-pointer">
+        <SLIcon icon="copy" :class="iconClass" @click="copy(hide)" />
+        <slot></slot>
+      </div>
     </template>
     <template #content> {{ $t('common.copy') }}</template>
   </Tippy>
@@ -20,7 +23,7 @@ import { copyTextToClipboard } from '@swanlab-vue/utils/browser'
 const props = defineProps({
   text: {
     // 复制到剪切板的文字
-    type: String,
+    type: [String, Number],
     required: true
   },
   iconClass: {

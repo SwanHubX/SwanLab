@@ -16,9 +16,9 @@ license = "Apache-2.0" # 项目许可证
 requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
 authors = [  # 项目作者
   { name = "Cunyue", email = "team@swanhub.co" },
-  { name = "Ink", email = "team@swanhub.co" },
-  { name = "KaiKai", email = "team@swanhub.co" },
-  { name = "Feudalman", email = "team@swanhub.co" }
+  { name = "Feudalman", email = "team@swanhub.co" },
+  {name="ZeYi Lin", email = "team@swanhub.co"},
+  {name="KashiwaByte", email="team@swanhub.co"}
 ]
 keywords = [  # 项目关键词
     "machine learning",
@@ -44,10 +44,13 @@ classifiers = [  # 项目分类
 swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 
 [project.urls] # 项目链接
-Homepage = "https://swabhub.co"
+"Homepage" = "https://swanhub.co"
+"Source" = "https://github.com/SwanHubX/SwanLab"
+"Bug Reports" = "https://github.com/SwanHubX/SwanLab/issues"
+"Documentation" = "https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"
 
 [tool.hatch.version] # 动态设置项目版本
-path = "package.json"  # TODO 选择前端package.json文件，从中获取版本号
+path = "swanlab/package.json"  # package.json文件，从中获取版本号
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
 [tool.hatch.metadata.hooks.requirements_txt] # 动态设置依赖
@@ -61,13 +64,23 @@ content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
 
-# [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
-# pattern = "(website/homepage|readme_files)/"
-# replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
+pattern = "(website/homepage|readme_files)/"
+replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置中文README跳转规则
+pattern = "README_zh-hans.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置README跳转规则
+pattern = "README.md"
+replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
+
 
 [tool.hatch.build]
 artifacts = [  # 将一些非python文件打包到项目中
   "/swanlab/template",
+  "*.json",
   "*.pyi",  # 类型提示文件
 ]
 
@@ -85,6 +98,9 @@ include = [
   "/.config/copy_frontend.py",  # 包含拷贝前端文件的脚本
   "/package.json",  # 包含前端的package.json文件
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["swanlab"]  # 指定项目包名
 
 [tool.pyright]  # 静态类型检查
 include = ["swanlab/**/*.py"]  # 检查的文件

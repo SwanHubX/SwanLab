@@ -7,6 +7,11 @@ const routes = [
     component: () => import('@swanlab-vue/views/home/HomeView.vue')
   },
   {
+    path: '/charts',
+    name: 'charts',
+    component: () => import('@swanlab-vue/views/charts/ChartsView.vue')
+  },
+  {
     path: '/experiment/:experimentId',
     name: 'experiment',
     component: () => import('@swanlab-vue/views/experiment/ExperimentView.vue'),
@@ -25,7 +30,30 @@ const routes = [
       {
         path: 'log',
         name: 'experiment_log',
-        component: () => import('@swanlab-vue/views/experiment/pages/LogPage.vue')
+        component: () => import('@swanlab-vue/views/experiment/pages/log/LogPage.vue')
+      },
+      {
+        path: 'env',
+        name: 'experiment_env',
+        component: () => import('@swanlab-vue/views/experiment/pages/environment/EnvironmentPage.vue'),
+        redirect: { name: 'exp_env_index' },
+        children: [
+          {
+            path: 'index',
+            name: 'exp_env_index',
+            component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvIndex.vue')
+          },
+          {
+            path: 'hardware',
+            name: 'exp_env_hardware',
+            component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvHardware.vue')
+          },
+          {
+            path: 'requirements',
+            name: 'exp_env_dependencies',
+            component: () => import('@swanlab-vue/views/experiment/pages/environment/pages/EnvRequirements.vue')
+          }
+        ]
       }
     ]
   },
@@ -37,7 +65,7 @@ const routes = [
   {
     path: '/404',
     name: 'not-found',
-    component: () => import('@swanlab-vue/views/error/pages/404.vue')
+    component: () => import('@swanlab-vue/views/error/pages/NotFound.vue')
   },
   { path: '/:pathMatch(.*)*', redirect: '/404' }
 ]

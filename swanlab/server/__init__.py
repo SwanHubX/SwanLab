@@ -7,12 +7,13 @@ r"""
 @Description:
         在此处引出swanlab的web服务器框架，名为SwanWeb以及一些神奇的路由配置，以完成在库最外层的函数式调用
 """
-from swanlab.env import swc
-from swanlab.log import swanlog as swl
+from ..env import init_env
+from ..log import register
 
-# 先初始化配置文件和日志对象
-swc.init(swc.getcwd(), "server")
-swl.init(swc.output, level="debug")
+# 在此处完成环境变量的初始化
+init_env()
+# 日志注册
+register()
 
 # 导出app对象
-from .router import app
+from .app import app

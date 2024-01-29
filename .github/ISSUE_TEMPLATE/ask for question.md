@@ -1,7 +1,7 @@
 ---
 name: 🤔 Ask for question
 about: Look for some help or ask question
-title: '🐛 [QUESTION] '
+title: '[QUESTION] '
 labels: help wanted
 assignees: ''
 ---

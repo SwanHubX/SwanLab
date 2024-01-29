@@ -4,182 +4,162 @@ r"""
 @File: swanlab\env.py
 @IDE: vscode
 @Description:
-    环境变量配置，用于配置一些全局变量，如存储路径等内容
+    swanlab全局共用环境变量(运行时环境变量)
 """
 import os
-import mimetypes
-from functools import wraps
+from typing import MutableMapping, Optional
+from .utils.file import is_port, is_ipv4
 
-"""
-在此处注册静态文件路径，因为静态文件由vue框架编译后生成，在配置中，编译后的文件存储在/swanlab/template中
-入口文件为index.html，网页图标为logo.ico，其他文件为assets文件夹中的文件
-因此，需要指定文件路径与文件名，用于后端服务的响应（这在下面的路由配置中也有说明）
-"""
-# 注册静态文件路径
-mimetypes.add_type("application/javascript", ".js")
-mimetypes.add_type("text/css", ".css")
-# 静态文件路径
-FILEPATH = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_PATH = os.path.join(FILEPATH, "template")
-ASSETS = os.path.join(TEMPLATE_PATH, "assets")
-INDEX = os.path.join(TEMPLATE_PATH, "index.html")
+Env = Optional[MutableMapping]
+
+_env = dict()
+"""运行时环境变量参数存储，实际上就是一个字典"""
+
+# '描述' = "key"
+# ---------------------------------- 基础环境变量 ----------------------------------
+
+ROOT = "SWANLAB_LOG_DIR"
+"""命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
+
+PORT = "SWANLAB_SERVER_PORT"
+"""服务端口SWANLAB_SERVER_PORT，服务端口"""
+
+HOST = "SWANLAB_SERVER_HOST"
+"""服务端口SWANLAB_SERVER_PORT，服务地址"""
 
 
-class SwanlabConfig(object):
-    """Swanlab全局配置对象"""
+def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
+    """获取swanlog路径
 
-    def __init__(self) -> None:
-        # 标志位，用于判断是否已经初始化
-        self.__init = False
-        # 根目录，这将决定日志输出的位置以及服务读取的位置
-        self.__folder = None
-        # 当前实验名称
-        self.__exp_name = None
-        # 当前模式，可选值: train, server; 前者代表日志记录模式，后者代表服务模式
-        self.__mode = None
-
-    def _should_initialized(func):
-        """装饰器：必须在初始化完毕以后才能执行"""
-
-        def wrapper(cls, *args, **kwargs):
-            if cls.__init is False:
-                raise ValueError("config has not been initialized")
-            result = func(cls, *args, **kwargs)
-            return result
-
-        return wrapper
-
-    def _should_added_exp(func):
-        """装饰器：比如已经添加了实验"""
-
-        def wrapper(cls, *args, **kwargs):
-            if cls.__exp_name is None:
-                raise ValueError("config has not add experiment")
-            result = func(cls, *args, **kwargs)
-            return result
-
-        return wrapper
-
-    def _should_server_mode(func):
-        """装饰器：必须是server mode"""
-
-        def wrapper(cls, *args, **kwargs):
-            if cls.__mode != "server":
-                raise ValueError(f"{func.__name__} is only available in server mode")
-            result = func(cls, *args, **kwargs)
-            return result
-
-        return wrapper
-
-    def _should_train_mode(func):
-        """装饰器：必须是train mode"""
-
-        def wrapper(cls, *args, **kwargs):
-            if cls.__mode != "train":
-                raise ValueError(f"{func.__name__} is only available in train mode")
-            result = func(cls, *args, **kwargs)
-            return result
-
-        return wrapper
-
-    def init(self, root: str, mode: str):
-        """初始化配置对象"""
-        if self.__init:
-            # TODO debug输出一下，已经初始化了
-            return
-        self.__folder = root
-        if mode not in ["train", "server"]:
-            raise ValueError("mode must be train or server")
-        self.__mode = mode
-        self.__init = True
-
-    def add_exp(self, exp_name: str):
-        if self.__exp_name is not None and self.__mode == "train":
-            raise ValueError("config has been added experiment in train mode")
-        self.__exp_name = exp_name
-
-    @property
-    @_should_initialized
-    def isTrain(self) -> str:
-        """当前模式是否为训练模式"""
-        return self.__mode == "train"
-
-    @staticmethod
-    def getcwd() -> str:
-        """当前程序运行路径，不包括文件名"""
-        return os.getcwd()
-
-    @property
-    @_should_initialized
-    def root(self) -> str:
-        """项目输出根目录，必须先被初始化"""
-        r = os.path.join(self.__folder, "swanlog")
-        if not os.path.exists(r):
-            os.mkdir(r)
-        return r
-
-    @property
-    @_should_initialized
-    def project(self) -> str:
-        """项目配置文件路径，必须是训练模式"""
-        return os.path.join(self.root, "project.json")
-
-    @property
-    @_should_initialized
-    def output(self) -> str:
-        """服务日志输出文件路径或者训练时swanlab的日志输出文件路径"""
-        if self.__mode == "train":
-            return os.path.join(self.exp_folder, "output.log")
+    Returns
+    -------
+    Optional[str]
+        swanlog目录路径
+    """
+    if _env.get(ROOT) is not None:
+        return _env.get(ROOT)
+    # 否则从环境变量中提取
+    if env is None:
+        env = os.environ
+    # 默认为当前目录下的swanlog目录
+    default: Optional[str] = os.path.join(os.getcwd(), "swanlog")
+    path = env.get(ROOT, default=default)
+    # 必须是一个绝对路径
+    if not os.path.isabs(path):
+        raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
+    # 路径必须存在
+    if not os.path.exists(path):
+        if path == default:
+            raise ValueError(
+                'The log file was not found in the default path "{path}". Please use the "swanlab watch -l <LOG PATH>" command to specify the location of the log path."'.format(
+                    path=path
+                )
+            )
         else:
-            #
-            return os.path.join(self.root, "output.log")
-
-    @property
-    @_should_initialized
-    @_should_train_mode
-    @_should_added_exp
-    def exp_folder(self) -> str:
-        """实验存储路径"""
-        return os.path.join(self.root, self.__exp_name)
-
-    @property
-    @_should_initialized
-    @_should_train_mode
-    @_should_added_exp
-    def logs_folder(self) -> str:
-        """日志输出根目录，必须是训练模式"""
-        return os.path.join(self.root, self.__exp_name, "logs")
-
-    @property
-    @_should_initialized
-    @_should_train_mode
-    @_should_added_exp
-    def chart(self) -> str:
-        """表格路径"""
-        return os.path.join(self.root, self.__exp_name, "chart.json")
-
-    @property
-    @_should_initialized
-    @_should_train_mode
-    @_should_added_exp
-    def console_folder(self) -> str:
-        """终端监听文件根目录，必须是训练模式"""
-        return os.path.join(self.root, self.__exp_name, "console")
-
-    @property
-    @_should_initialized
-    @_should_train_mode
-    @_should_added_exp
-    def error(self) -> str:
-        """终端错误日志打印路径"""
-        return os.path.join(self.root, self.__exp_name, "console", "error.log")
+            raise ValueError('SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path))
+    # 路径必须是一个目录
+    if not os.path.isdir(path):
+        raise ValueError('SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path))
+    _env[ROOT] = path
+    return path
 
 
-swc = SwanlabConfig()
+def get_server_port(env: Optional[Env] = None) -> Optional[int]:
+    """获取服务端口
+
+    Parameters
+    ----------
+    env : Optional[Env], optional
+        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
+
+    Returns
+    -------
+    Optional[int]
+        服务端口
+    """
+    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
+    if _env.get(PORT) is not None:
+        return _env.get(PORT)
+    # 否则从环境变量中提取
+    if env is None:
+        env = os.environ
+    default: Optional[int] = 5092
+    port = env.get(PORT, default=default)
+    # 必须可以转换为整数，且在0-65535之间
+    if not is_port(port):
+        raise ValueError('SWANLAB_SERVER_PORT must be a port, now is "{port}"'.format(port=port))
+    _env[PORT] = int(port)
+    return _env.get(PORT)
 
 
-if __name__ == "__main__":
-    swc.init("test", "server")
-    print(swc.root)
-    print(swc.output)
-    print(swc.console_folder)
+def get_server_host(env: Optional[Env] = None) -> Optional[str]:
+    """获取服务端口
+
+    Parameters
+    ----------
+    env : Optional[Env], optional
+        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
+
+    Returns
+    -------
+    Optional[int]
+        服务端口
+    """
+    default: Optional[str] = "127.0.0.1"
+    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
+    if _env.get(HOST) is not None:
+        return _env.get(HOST)
+    # 否则从环境变量中提取
+    if env is None:
+        env = os.environ
+    _env[HOST] = env.get(HOST, default=default)
+    # 必须是一个ipv4地址
+    if not is_ipv4(_env.get(HOST)):
+        raise ValueError('SWANLAB_SERVER_HOST must be an ipv4 address, now is "{host}"'.format(host=_env.get(HOST)))
+    return _env.get(HOST)
+
+
+# ---------------------------------- 初始化基础环境变量 ----------------------------------
+
+# 所有的初始化函数
+function_list = [
+    get_swanlog_dir,
+    get_server_port,
+    get_server_host,
+]
+
+
+# 定义初始化函数
+def init_env(env: Optional[Env] = None):
+    """初始化环境变量
+
+    Parameters
+    ----------
+    env : Optional[Env], optional
+        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
+    """
+    for func in function_list:
+        func(env)
+
+
+# ---------------------------------- 计算变量 ----------------------------------
+"""日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
+DATABASE_PATH = "SWANLAB_DB_PATH"
+
+# ---------------------------------- 定义变量访问方法 ----------------------------------
+
+
+def get_db_path() -> Optional[str]:
+    """获取数据库路径，这是一个计算变量，
+    通过`get_swanlog_dir()`返回值得到
+
+    Returns
+    -------
+    Optional[str]
+        数据库文件路径
+    """
+    if _env.get(DATABASE_PATH) is not None:
+        return _env.get(DATABASE_PATH)
+    # 否则从环境变量中提取
+    _env[DATABASE_PATH] = os.path.join(get_swanlog_dir(), "runs.swanlab")
+    return _env.get(DATABASE_PATH)

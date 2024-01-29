@@ -1,8 +1,9 @@
 import logging
 import logging.config
 import logging.handlers
+import sys
 from .console import SwanConsoler
-from ..env import swc
+from ..utils import FONT
 
 
 class Logsys:
@@ -37,33 +38,91 @@ class Logsys:
         return self.__status == "running"
 
 
-# 新增的带颜色的格式化类
-class ColoredFormatter(logging.Formatter):
+# 控制台打印格式化类，只负责控制台的相关打印的格式化
+class ColoredFormatter(logging.Formatter, FONT):
     def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
         super().__init__(fmt, datefmt, style)
         self.__handle = handle
+        # 打印等级对应的颜色装载器
+        self.__color_map = {
+            logging.DEBUG: self.grey,
+            logging.INFO: self.green,
+            logging.WARNING: self.yellow,
+            logging.ERROR: self.red,
+            logging.CRITICAL: self.bold_red,
+            COLLECT_LEVEL: self.green,
+        }
 
-    _color_mapping = {
-        logging.DEBUG: "\033[37m",  # White
-        logging.INFO: "\033[32m",  # Green
-        logging.WARNING: "\033[33m",  # Yellow
-        logging.ERROR: "\033[91m",  # Red
-        logging.CRITICAL: "\033[1;31m",  # Bold Red
-    }
+    def bold_red(self, s: str) -> str:
+        """在终端中加粗的红色字符串
+
+        Parameters
+        ----------
+        s : str
+            需要加粗的字符串
+
+        Returns
+        -------
+        str
+            加粗后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return self.bold(self.red(s))
+
+    def __get_colored_str(self, levelno, message):
+        """获取使用打印等级对应的颜色装载的字符串
+
+        Parameters
+        ----------
+        levelno : logging.levelno
+            logging 等级对象
+        message : string
+            需要装载的颜色
+        """
+
+        return self.__color_map.get(levelno)(message)
 
     def format(self, record):
+        """格式化打印字符串
+            1. 分割消息头和消息体
+            2. 消息头根据 logging 等级装载颜色
+            3. 使用空格填充，统一消息头长度为 20 个字符
+            4.. 拼接消息头和消息体
+
+        Parameters
+        ----------
+        record : logging.record
+            logging 信息实例
+
+        Returns
+        -------
+        string
+            格式化后的字符串
+        """
         log_message = super().format(record)
         self.__handle(log_message + "\n") if self.__handle else None
-        color = self._color_mapping.get(record.levelno, "\033[0m")  # Default: Reset color
-        reset_color = "\033[0m"
         # 分割消息，分别处理头尾
         messages: list = log_message.split(":", 1)
         target_length = 20
+        # 填充空格，统一消息头的长度
         message_header = messages[0] + ":" + " " * max(0, target_length - len(messages[0]))
-        return f"{color}{message_header}{reset_color} {messages[1]}"
+        return f"{self.__get_colored_str(record.levelno, message_header)} {messages[1]}"
 
 
-class Swanlog(Logsys):
+# 日志文件格式化类
+class CustomFileHandler(logging.FileHandler):
+    def emit(self, record):
+        # 在写入日志之前把颜色剔除
+        processed_message = FONT.clear(record.getMessage())
+        record.msg = processed_message
+        # 调用父类的 emit 方法写入日志
+        super().emit(record)
+
+
+COLLECT_LEVEL = 60
+
+
+class SwanLog(Logsys):
     # 日志系统支持的输出等级
     __levels = {
         "debug": logging.DEBUG,
@@ -73,24 +132,65 @@ class Swanlog(Logsys):
         "critical": logging.CRITICAL,
     }
 
+    # 是否打印收集信息
+    __logging = False
+    # 是否临时允许打印
+    __temp_logging = None
+    # 自定义等级
+    __LOG_LEVEL = {
+        "value": COLLECT_LEVEL,
+        "name": "COLLECT",
+    }
+
     def __init__(self, name=__name__, level="debug"):
         super()
+        # 自定义log级别
+        logging.addLevelName(self.__LOG_LEVEL["value"], self.__LOG_LEVEL["name"])
+        # 设置日志器
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._getLevel(level))
         self.__consoler: SwanConsoler = None
 
-    def init(self, path, level=None, console_level=None, file_level=None):
-        # 初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
-        # 所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
+    def init(
+        self,
+        path,
+        level=None,
+        console_level=None,
+        file_level=None,
+        console_path=None,
+        enable_logging=False,
+    ):
+        """初始化内部打印器
+            初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
+            所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
 
+        Parameters
+        ----------
+        path : string
+            日志文件的路径，打印会记录到文件
+        level : string, optional
+            全局日志级别，设置该等级会同时影响控制台和文件, by default None
+        console_level : string, optional
+            控制台日志级别，仅影响控制台
+        file_level : string, optional
+            文件日志级别，高于或等于该级别即记录到文件
+        console_path: str, optional
+            控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
+        enable_logging: bool, optional
+            是否在全局允许打印, 默认为 False
+        """
+
+        # 保存设置
+        self.__logging = enable_logging
         # 初始化控制台记录器
-        if self.__consoler is None and swc.isTrain:
+        if self.__consoler is None and console_path:
             self.debug("init consoler")
             self.__consoler = SwanConsoler()
-            self.__consoler.init(swc.console_folder)
+            self.__consoler.init(console_path)
 
         self._create_console_handler()
-        self._create_file_handler(path)
+        if path:
+            self._create_file_handler(path)
         if level:
             self.logger.setLevel(self._getLevel(level))
         if console_level:
@@ -113,10 +213,9 @@ class Swanlog(Logsys):
     # 创建控制台记录器
     @_check_init
     def _create_console_handler(self, level="debug"):
-        console_handler = logging.StreamHandler()
-        handle = None if self.__consoler is None else self.__consoler.add
+        console_handler = logging.StreamHandler(sys.stdout)
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s", handle=handle)
+        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s")
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)
@@ -124,7 +223,7 @@ class Swanlog(Logsys):
     # 创建日志文件记录器
     @_check_init
     def _create_file_handler(self, log_path, level="debug"):
-        file_handler = logging.FileHandler(log_path)
+        file_handler = CustomFileHandler(log_path, encoding="utf-8")
         formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
         file_handler.setFormatter(formatter)
         file_handler.setLevel(self._getLevel(level))
@@ -171,8 +270,56 @@ class Swanlog(Logsys):
         """
         self.logger.setLevel(self._getLevel(level))
 
+    def setCollectionLevel(self, level):
+        """
+        设置日志收集级别。
+
+        Parameters:
+            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
+        """
+        self.__consoler.setLevel(level)
+
+    def set_temporary_logging(self, temp_logging: bool):
+        """设置临时打印权限
+
+        Parameters
+        ----------
+        temp_logging : bool
+        """
+        self.__temp_logging = temp_logging
+
+    def reset_temporary_logging(self):
+        """重置临时打印权限"""
+        self.__temp_logging = None
+
+    def getCollectionLevel(self):
+        """
+        获取日志收集级别。
+
+        Returns:
+            str: 日志收集级别。
+        """
+        return self.__consoler.getLevel()
+
     # 获取对应等级的logging对象
     def _getLevel(self, level):
+        """私有属性，获取等级对应的 logging 对象
+
+        Parameters
+        ----------
+        level : string
+            日志级别，可以是 "debug", "info", "warning", "error", 或 "critical"
+
+        Returns
+        -------
+        logging.level : object
+            logging 模块中的日志等级
+
+        Raises
+        ------
+        KeyError
+            无效的日志级别
+        """
         if level.lower() in self.__levels:
             return self.__levels.get(level.lower())
         else:
@@ -180,25 +327,59 @@ class Swanlog(Logsys):
                 "Invalid log level: %s, level must be one of ['debug', 'info', 'warning', 'error', 'critical']" % level
             )
 
+    def __concat_messages(func):
+        """装饰器，当传递打印信息有多个时，拼接为一个"""
+
+        def wrapper(self, *args):
+            message = " ".join(args)
+            return func(self, message)
+
+        return wrapper
+
     # 发送调试消息
+    @__concat_messages
     def debug(self, message):
         self.logger.debug(message)
 
     # 发送通知
+    @__concat_messages
     def info(self, message):
         self.logger.info(message)
 
     # 发生警告
+    @__concat_messages
     def warning(self, message):
         self.logger.warning(message)
 
     # 发生错误
+    @__concat_messages
     def error(self, message):
         self.logger.error(message)
 
     # 致命错误
+    @__concat_messages
     def critical(self, message):
         self.logger.critical(message)
+
+    @__concat_messages
+    def log(self, message):
+        """全局自定义信息打印，级别最高
+        临时打印，为 None 的时候无效
+        1. 临时凭证为 true，通过
+        2. 未设临时凭证，且全局为true，通过
+        """
+
+        if self.__temp_logging is True:
+            # 临时凭证通过
+            pass
+        elif self.__temp_logging is None and self.__logging:
+            # 临时凭证没设置，且全局设置通过，可以打印
+            pass
+        else:
+            # 别的情况都返回
+            return
+
+        self.logger.log(self.__LOG_LEVEL["value"], message)
 
     def reset_console(self):
         """重置控制台记录器"""

@@ -1,31 +1,15 @@
 <template>
-  <ExtendBlock class="pt-2 pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
+  <div class="pr-5" icon="config" :title="$t('experiment.index.config.title')" :retract="false">
     <div class="pl-6 w-full grid lg:grid-cols-2 lg:gap-10">
-      <div>
-        <div class="flex items-center pb-4">
-          <p class="font-semibold pr-2">{{ $t('experiment.index.config.detail') }}</p>
-          <SLHelp document="https://geektechstudio.feishu.cn/wiki/EFi3wuACGiEWlLki5aDcQiSpngg">{{
-            $t('experiment.index.config.help.config')
-          }}</SLHelp>
-        </div>
-        <SLTable class="max-w-[600px]" :header="['Key', 'Value']" :data="getConfigs(experiment.config)" />
+      <div class="pt-4 w-full">
+        <DataTable class="w-full" table-border :column="column" :data="configs" title="Config" />
       </div>
-      <div v-if="summaries?.length !== 0">
-        <div class="flex items-center pb-4" v-if="summaries?.length !== 0">
-          <p class="font-semibold pr-2">{{ $t('experiment.index.config.summarize') }}</p>
-          <SLHelp document="https://geektechstudio.feishu.cn/wiki/TudNwOSMyihFetky7l5cTI8UnJf"
-            >{{ $t('experiment.index.config.help.summary') }}
-          </SLHelp>
-        </div>
-        <SLTable
-          class="max-w-[600px]"
-          :header="['Key', 'Value']"
-          :data="summaries?.map((item) => [item[0], item[1].toFixed(4)])"
-        />
+      <div class="pt-4">
+        <DataTable table-border :column="column" :data="summaries" title="Summary" />
       </div>
     </div>
     <div class="w-full h-6"></div>
-  </ExtendBlock>
+  </div>
 </template>
 
 <script setup>
@@ -34,33 +18,63 @@
  * @file: ExperimentConfig.vue
  * @since: 2023-12-11 17:07:31
  **/
-import ExtendBlock from '@swanlab-vue/views/experiment/components/ExtendBlock.vue'
-import SLTable from '@swanlab-vue/components/SLTable.vue'
-import SLHelp from '@swanlab-vue/components/SLHelp.vue'
+
+import DataTable from './DataTable.vue'
 import http from '@swanlab-vue/api/http'
 import { ref } from 'vue'
-import { useExperimentStroe } from '@swanlab-vue/store'
+import { useExperimentStore } from '@swanlab-vue/store'
+import { computed } from 'vue'
+import { formatNumber2SN } from '@swanlab-vue/utils/common'
 
-const experiment = ref(useExperimentStroe().experiment)
+const experiment = ref(useExperimentStore().experiment)
+
+// 通用表头
+const column = [
+  {
+    title: 'key',
+    key: 'key'
+  },
+  {
+    title: 'value',
+    key: 'value'
+  }
+]
 
 // ---------------------------------- 转化实验配置为表格数据 ----------------------------------
 
-const getConfigs = (config) => {
+const configs = computed(() => {
   const configs = []
-  for (const key in config) {
-    configs.push([key, config[key]])
+  for (const key in experiment.value.config) {
+    configs.push({
+      key,
+      value: experiment.value.config[key].value,
+      sort: experiment.value.config[key].sort
+    })
   }
+  // 按照 sort 排序，然后删除 sort 属性
   return configs
-}
+    .sort((a, b) => {
+      return a.sort - b.sort
+    })
+    .map((item) => {
+      delete item.sort
+      return item
+    })
+})
 
 // ---------------------------------- 获取实验的总结数据 ----------------------------------
 
 const summaries = ref([])
-const experimentId = ref(useExperimentStroe().id)
+const experimentId = ref(useExperimentStore().id)
 http
   .get(`/experiment/${experimentId.value}/summary`)
-  .then((res) => {
-    summaries.value = res.data.summaries || []
+  .then(({ data }) => {
+    summaries.value = (data.summaries || []).map((item) => {
+      return {
+        key: item.key,
+        value: isNaN(item.value) ? item.value : formatNumber2SN(item.value)
+      }
+    })
   })
   .catch((error) => {
     console.error(error)

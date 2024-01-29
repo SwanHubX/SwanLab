@@ -61,3 +61,30 @@ export const copyTextToClipboard = async (text, callback) => {
 export const addTaskToBrowserMainThread = (task) => {
   setTimeout(task, 0)
 }
+
+/**
+ * 生成一个uuid，用于标识一个唯一的id
+ * @param { Number } now 传入一个时间戳，用于生成uuid，如果不传入，默认为当前时间戳
+ * @returns { String } 生成的uuid
+ */
+export const uuid = (now = Math.round(new Date() / 1000)) => {
+  return now.toString(36) + Math.random().toString(36).slice(-4)
+}
+
+/**
+ * 将目标字符串下载成文件
+ * @param {string} content 下载的内容
+ * @param {string} fileName 文件名
+ */
+export const downloadStringAsFile = (content, fileName) => {
+  // 创建一个包含字符串内容的 Blob 对象
+  const blob = new Blob([content], { type: 'text/plain' })
+
+  // 创建一个下载链接
+  const downloadLink = document.createElement('a')
+
+  // 设置链接的属性，包括下载文件的名称
+  downloadLink.href = window.URL.createObjectURL(blob)
+  downloadLink.download = fileName
+  downloadLink.click()
+}

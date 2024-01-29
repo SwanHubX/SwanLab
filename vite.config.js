@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import { viteMockServe } from 'vite-plugin-mock'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import vue from '@vitejs/plugin-vue'
@@ -9,24 +8,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(process.cwd(), 'vue'))
   // console.log('当前模式：', mode)
   // console.log('当前环境：', env)
-  const useMock = mode === 'mock'
   // 如果使用mock模式，不使用代理
-  const proxy = useMock
-    ? undefined
-    : {
-        '/api': {
-          target: env.VITE_SERVER_PROXY,
-          changeOrigin: true
-        }
-      }
+  const proxy = {
+    '/api': {
+      target: env.VITE_SERVER_PROXY,
+      changeOrigin: true
+    }
+  }
   return {
     // 服务插件
     plugins: [
       vue(),
-      viteMockServe({
-        mockPath: 'vue/src/mock',
-        localEnabled: useMock
-      }),
       // 自动化导入
       AutoImport({ imports: ['vue', 'vue-router'], dts: 'auto-imports.d.ts' }),
       // 自动导入组件，自定义组件库

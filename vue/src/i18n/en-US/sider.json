@@ -1,0 +1,12 @@
+{
+  "version": {
+    "version": "Current Version: v{version}, View",
+    "updates": "Release Notes"
+  },
+  "nav": {
+    "home": "Overview",
+    "search": "Search Experiments...",
+    "experiment": "Experiment",
+    "help": "Help"
+  }
+}
