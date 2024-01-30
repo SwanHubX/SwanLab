@@ -30,5 +30,4 @@ def _(path: str, tag: str, run_id: str):
     tag需要进行url编码
     """
     media_path = os.path.join(get_media_dir(run_id, quote(tag, safe="")), path)
-
     return FileResponse(media_path)
