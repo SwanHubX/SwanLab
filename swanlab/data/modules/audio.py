@@ -12,51 +12,49 @@ import os
 ### 以下为音频数据解析的依赖库
 import soundfile as sf
 import numpy as np
-import matplotlib.pyplot as plt
+
+# import matplotlib.pyplot as plt
 from IPython.display import Audio as AudioDisplay
 import json
 
 
 class Audio(BaseType):
     """
-    Audio类构造函数
+    Audio class constructor
     ----
-    value: str or numpy.array
+    data_or_path: str or numpy.array
     """
 
-    def __init__(self, value, sample_rate: int = None):
-        super().__init__(value)
+    def __init__(self, data_or_path, sample_rate: int = None):
+        """Accept a path to an audio file on a numpу array of audio data."""
+        super().__init__(data_or_path)
         self.audio_data = None
         self.sample_rate = None
         if sample_rate is not None:
             self.sample_rate = sample_rate
 
     def get_data(self):
-        print("step {}, 获取data".format(self.step))
-        print(self.step, self.tag, self.settings.static_dir)
+        # print(self.step, self.tag, self.settings.static_dir)
 
         # numpy.array() 类型保存音频数据
-        # preprocess 直接对 self.sample_rate 和 self.audio_data 赋值
         self.preprocess(self.value)
-
-        # 先判断 static_dir 是否存在
-        if os.path.exists(self.settings.static_dir) is False:
-            os.makedirs(self.settings.static_dir)
-        save_path = os.path.join(self.settings.static_dir, f"audio-{self.tag}-{self.step}.wav")
+        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_name = f"audio-{self.step}.wav"
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path = os.path.join(save_dir, save_name)
 
         # 保存音频数据到指定目录
         self.save(save_path)
         # print("save_path:", save_path)
-        # 获得目录的相对路径
-        save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
         # print("save_relative_path", save_relative_path)
-        return save_relative_path
+        return save_name
 
     def preprocess(self, data_or_path):
         """
         根据输入不同的输入类型进行不同处理
         """
-        print("data_or_path", data_or_path)
+        # print("data_or_path", data_or_path)
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
             # 根据输入是否为 json , 选择不同的加载方式
@@ -89,19 +87,19 @@ class Audio(BaseType):
         except Exception as e:
             raise ValueError(f"Invalid audio path: {path}") from e
 
-    def plot_spectrogram(self, plot_save_path):
-        """获取音频的频谱"""
-        num_channels = self.audio_data.shape[0]
-        sample_rate = self.sample_rate
-        figure, axes = plt.subplots(num_channels, 1)
-        if num_channels == 1:
-            axes = [axes]
-        for c in range(num_channels):
-            axes[c].specgram(self.audio_data[c], Fs=sample_rate)
-            if num_channels > 1:
-                axes[c].set_ylabel(f"Channel {c+1}")
-        figure.savefig(plot_save_path)
-        plt.close()
+    # def plot_spectrogram(self, plot_save_path):
+    #     """获取音频的频谱"""
+    #     num_channels = self.audio_data.shape[0]
+    #     sample_rate = self.sample_rate
+    #     figure, axes = plt.subplots(num_channels, 1)
+    #     if num_channels == 1:
+    #         axes = [axes]
+    #     for c in range(num_channels):
+    #         axes[c].specgram(self.audio_data[c], Fs=sample_rate)
+    #         if num_channels > 1:
+    #             axes[c].set_ylabel(f"Channel {c+1}")
+    #     figure.savefig(plot_save_path)
+    #     plt.close()
 
     def to_json(self, audio_path, json_path):
         """将音频元数据转换为json文件"""
@@ -144,9 +142,9 @@ class Audio(BaseType):
             sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
 
             # 这边存 json 的时候放的是相对路径
-            json_path = save_path.replace(".wav", ".json")
-            save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
-            self.to_json(save_relative_path, json_path)
+            # json_path = save_path.replace(".wav", ".json")
+            # save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
+            # self.to_json(save_relative_path, json_path)
 
             # 保存频谱图
             # spectrogram_save_path = save_path.replace(".wav", "-spectrogram.png")
