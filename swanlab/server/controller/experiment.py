@@ -391,6 +391,10 @@ def get_recent_logs(experiment_id):
             if len(logs) >= MAX_NUM:
                 # current_page = index
                 break
+    # 如果 logs 内容为空
+    if logs[0] == "":
+        return NOT_FOUND_404("No Logs Found")
+
     logs = logs[:MAX_NUM]
     end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
     data = {
