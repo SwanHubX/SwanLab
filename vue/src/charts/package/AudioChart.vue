@@ -12,31 +12,22 @@
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
     <div class="flex flex-col w-full" v-for="tag in source" :key="tag">
-      <canvas ref="canvasRef"></canvas>
+      <canvas ref="canvasRef" />
     </div>
-    <div class="relative flex items-center">
-      <SLButton @click="playAudio" class="p-2 rounded-full">
-        <!-- TODO: 换换 -->
-        <svg
-          t="1706616480334"
-          class="icon"
-          viewBox="0 0 1024 1024"
-          version="1.1"
-          xmlns="http://www.w3.org/2000/svg"
-          p-id="1483"
-          width="16"
-          height="16"
-        >
-          <path
-            d="M90.624 100.442028C90.624 8.302184 154.098115-26.506202 231.905095 21.611273l642.931359 401.320211c77.80698 49.14125 77.80698 128.995782 0 177.113256L231.905095 1002.388727C154.098115 1050.506202 90.624 1015.697816 90.624 923.557972V100.442028z"
-            p-id="1484"
-          ></path>
-        </svg>
-      </SLButton>
-      <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" />
+    <div class="relative flex justify-between items-center">
+      <PlayButton @click="playAudio" />
+      <span>{{ chartData[defaultTag]?.list[currentIndex].data }}</span>
+      <span></span>
     </div>
+    <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" />
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> 123</SLModal>
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+      <canvas ref="modalCanvasRef" class="w-full border" />
+      <div class="flex justify-between items-center">
+        <PlayButton @click="playAudio" />
+        <span></span>
+      </div>
+    </SLModal>
   </template>
 </template>
 
@@ -53,6 +44,7 @@ import SlideBar from '../components/SlideBar.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import { useExperimentStore } from '@swanlab-vue/store'
+import PlayButton from '../components/PlayButton.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -74,19 +66,14 @@ const props = defineProps({
   }
 })
 
-/**
- * 底部栏
- */
-const currentIndex = ref(0)
-const minIndex = 0
-const maxIndex = computed(() => {
-  const tag = source.value[0]
-  return audioData.value[tag]?.length - 1
-})
-
 // 图表相关 tag
 const source = computed(() => {
-  return props.chart?.source
+  return props.chart?.source || []
+})
+
+// 注意！目前是单 tag，故默认选中第一个 tag
+const defaultTag = computed(() => {
+  return source.value[0]
 })
 
 // 音频上下文
@@ -101,6 +88,17 @@ const error = ref(props.chart.error)
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+
+// ---------------------------------- 实例：滑块的使用 ----------------------------------
+
+const currentIndex = ref(0)
+const minIndex = 0
+const maxIndex = computed(() => {
+  const tag = defaultTag.value
+  return audioData.value[tag]?.length - 1
+})
+// 已经滑动部分颜色，应该通过色盘计算得到
+const barColor = inject('colors')[0]
 
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
@@ -117,7 +115,7 @@ onMounted(() => {
 })
 
 watch(currentIndex, (newV) => {
-  draw(source.value[0], newV)
+  draw(defaultTag.value, newV)
 })
 
 /**
@@ -129,23 +127,21 @@ const playAudio = () => {
     audioSource.stop()
   }
   audioSource = audioCtx.createBufferSource()
-  audioSource.buffer = audioData.value[source.value[0]][currentIndex.value].data
+  audioSource.buffer = audioData.value[defaultTag.value][currentIndex.value].data
   audioSource.connect(audioCtx.destination)
   audioSource.start()
 }
 
 const canvasRef = ref(null)
 
-const draw = (tag, index) => {
-  console.log(index)
+const draw = (tag, index, ref = canvasRef.value[0], height = 200) => {
   // 创建canvas上下文
-  const canvas = canvasRef.value[0]
+  const canvas = ref
   const buffer = getAudioBuffer(tag, index)
-  const [data, positives, negatives] = sample(buffer)
+  const [positives, negatives] = sample(buffer)
 
   if (canvas.getContext) {
     const width = canvas.offsetWidth
-    const height = 200
     const ratio = window.devicePixelRatio || 1
     let ctx = canvas.getContext('2d')
     canvas.width = Math.round(width * ratio)
@@ -193,7 +189,7 @@ const sample = (buffer) => {
     positives.push(Math.max.apply(null, temp))
     negatives.push(Math.min.apply(null, temp))
   }
-  return [data, positives, negatives]
+  return [positives, negatives]
 }
 
 /**
@@ -320,8 +316,11 @@ const blobToBuf = (blob) => {
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
+const chartData = ref([])
+
 // 渲染
 const render = async (data) => {
+  chartData.value = data
   if (source.value && source.value.length < 0) {
     error.value = true
     return
@@ -330,28 +329,22 @@ const render = async (data) => {
   Object.keys(audioBlob.value).forEach(format)
 }
 // 重渲染
-const change = (data) => {}
+const change = (data) => {
+  chartData.value = data
+}
 
 // ---------------------------------- 放大功能 ----------------------------------
 // 是否放大
 const isZoom = ref(false)
-// // 放大数据
-const zoom = (data) => {
+// 弹窗画板
+const modalCanvasRef = ref(null)
+// 放大数据
+const zoom = () => {
   isZoom.value = true
-  // 放大后图表的高度
-  const height = window.innerHeight * 0.6
-  addTaskToBrowserMainThread(() => {})
+  addTaskToBrowserMainThread(() => {
+    draw(defaultTag.value, currentIndex.value, modalCanvasRef.value)
+  })
 }
-
-// ---------------------------------- 实例：滑块的使用 ----------------------------------
-// 当前值
-const now = ref(0)
-// 最大值
-const max = ref(100)
-// 最小值
-const min = ref(0)
-// 已经滑动部分颜色，应该通过色盘计算得到
-const barColor = inject('colors')[0]
 
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
@@ -361,4 +354,12 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+canvas {
+  @apply relative;
+  &::before {
+    @apply absolute left-0 top-0 w-full h-full bg-positive-highest border-x z-10;
+    content: '111';
+  }
+}
+</style>
