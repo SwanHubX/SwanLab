@@ -273,8 +273,8 @@ const render = async (data) => {
 const change = (data) => {}
 
 // ---------------------------------- 放大功能 ----------------------------------
-// // 是否放大
-// const isZoom = ref(false)
+// 是否放大
+const isZoom = ref(false)
 // // 放大数据
 // const zoom = (data) => {
 //   isZoom.value = true
