@@ -10,6 +10,7 @@ r"""
 from abc import ABC, abstractmethod
 from ..settings import SwanDataSettings
 from .chart import Chart
+from urllib.parse import quote
 
 
 class BaseType(ABC):
@@ -94,7 +95,7 @@ class BaseType(ABC):
     @tag.setter
     def tag(self, value):
         if self.__tag is None:
-            self.__tag = value
+            self.__tag = quote(value, safe="")
         else:
             raise AttributeError("tag can only be set once")
 
