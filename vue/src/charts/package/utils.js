@@ -7,16 +7,16 @@ export const media = {
    * 获取媒体文件，获取blob对象
    * 返回promise，如果成功，返回blob对象，否则返回错误信息
    * @param { string } data 即文件名，即数据中的data字段
-   * @param {*} runId 用于区分不同的实验，即run_id字段
+   * @param {*} run_id 用于区分不同的实验，即run_id字段
    * @param {*} tag 数据名称
    * @returns { Promise<Blob> }
    */
-  get: (data, runId, tag) => {
+  get: (data, run_id, tag) => {
     return new Promise((resolve, reject) => {
       http
-        .get('/media/' + data, { params: { runId: runId, tag }, responseType: 'blob' })
+        .get('/media/' + data, { params: { tag, run_id }, responseType: 'blob' })
         .then((res) => {
-          resolve(res.data)
+          resolve(res)
         })
         .catch((err) => {
           // 如果blob的type为application/json，说明是后端返回的错误信息，需要解析

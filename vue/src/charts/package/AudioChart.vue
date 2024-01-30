@@ -27,7 +27,14 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
+import http from '@swanlab-vue/api/http'
+import { useExperimentStore } from '@swanlab-vue/store'
 
+const experimentStore = useExperimentStore()
+const run_id = computed(() => experimentStore.experiment.run_id)
+
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+// let audioSource = audioCtx.createBufferSource()
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
   title: {
@@ -57,46 +64,105 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 
 // ---------------------------------- 数据格式化 ----------------------------------
 
-const getMediaData = (data) => {
-  /**
-   * data 是一个对象，与该表相关的 tag 名为对象 key,对应的值为数组
-   * 需要构建一个 Promise 数组，对所有数据发起请求
-   */
-  console.log('================================================')
-  Object.keys(data).forEach((key) => {
-    console.log(data[key].list)
+const audioBlob = ref({})
+const audioData = ref({})
+
+/**
+ * 获取音频数据
+ * @param {object} data 与该表相关的 tag 名为 key,对应的值为数组
+ */
+const getMediaData = async (data) => {
+  const tags = []
+  const promises = []
+  Object.keys(data).forEach((tag) => {
+    tags.push(tag)
+    promises.push(
+      getMedia(
+        tag,
+        data[tag].list.map((item) => item.data)
+      )
+    )
   })
+  const res = await Promise.all(promises)
+  res.forEach((item, index) => {
+    audioBlob.value[tags[index]] = item
+  })
+}
+
+const getMedia = (tag, list) => {
+  const promises = []
+  list.forEach((item) => {
+    console.log(item)
+    promises.push(
+      new Promise((resolve) => {
+        UTILS.media.get(item, run_id.value, tag).then((res) => {
+          resolve(res)
+        })
+      })
+    )
+  })
+  return Promise.all(promises)
+}
+
+const format = (key) => {
+  audioBlob.value[key].forEach((blob) => {
+    const list = []
+    blobToBuf(blob, (buf, type) => {
+      console.log(type)
+      audioCtx.decodeAudioData(buf).then((res) => {
+        list.push(res)
+      })
+    })
+    console.log(list)
+  })
+}
+
+const blobToBuf = (blob, callback) => {
+  var fr = new FileReader()
+  var type = blob.type
+
+  fr.readAsArrayBuffer(blob)
+  fr.addEventListener(
+    'loadend',
+    (e) => {
+      var buf = e.target.result
+      callback(buf, type)
+    },
+    false
+  )
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
 // 渲染
-const render = (data) => {
+const render = async (data) => {
   if (source.value && source.value.length < 0) {
     error.value = true
     return
   }
-  getMediaData(data)
+  await getMediaData(data)
+  console.log(audioBlob.value)
+  Object.keys(audioBlob.value).forEach(format)
 }
 // 重渲染
 const change = (data) => {}
 
 // ---------------------------------- 放大功能 ----------------------------------
-// 是否放大
-const isZoom = ref(false)
-// 放大数据
-const zoom = (data) => {
-  isZoom.value = true
-  // 放大后图表的高度
-  const height = window.innerHeight * 0.6
-  addTaskToBrowserMainThread(() => {})
-}
+// // 是否放大
+// const isZoom = ref(false)
+// // 放大数据
+// const zoom = (data) => {
+//   isZoom.value = true
+//   // 放大后图表的高度
+//   const height = window.innerHeight * 0.6
+//   addTaskToBrowserMainThread(() => {})
+// }
 
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
-  change,
-  zoom
+  change
+  // zoom
 })
 </script>
 
