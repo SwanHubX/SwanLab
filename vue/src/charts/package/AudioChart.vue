@@ -1,6 +1,7 @@
 <template>
   <!-- 图表标题 -->
   <p class="text-center font-semibold">{{ title }}</p>
+  <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
   <!-- 如果图表数据错误 -->
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
@@ -27,6 +28,7 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { onMounted, ref, inject, computed } from 'vue'
+import SlideBar from '../components/SlideBar.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import http from '@swanlab-vue/api/http'
@@ -45,6 +47,10 @@ const props = defineProps({
   chart: {
     type: Object,
     required: true
+  },
+  index: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -214,6 +220,16 @@ const change = (data) => {}
 //   const height = window.innerHeight * 0.6
 //   addTaskToBrowserMainThread(() => {})
 // }
+
+// ---------------------------------- 实例：滑块的使用 ----------------------------------
+// 当前值
+const now = ref(0)
+// 最大值
+const max = ref(100)
+// 最小值
+const min = ref(0)
+// 已经滑动部分颜色，应该通过色盘计算得到
+const barColor = inject('colors')[0]
 
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
