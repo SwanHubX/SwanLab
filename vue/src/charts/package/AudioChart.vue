@@ -1,7 +1,6 @@
 <template>
   <!-- 图表标题 -->
   <p class="text-center font-semibold">{{ title }}</p>
-  <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
   <!-- 如果图表数据错误 -->
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
@@ -12,11 +11,11 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div ref="canvas"></div>
+    <canvas v-for="tag in source" :key="tag" class="border" ref="canvasRef"></canvas>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
   </template>
-  {{ display }}
+  <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
 </template>
 
 <script setup>
@@ -29,9 +28,8 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { onMounted, ref, inject, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+// import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
-import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
 
 // ---------------------------------- 配置 ----------------------------------
@@ -75,6 +73,8 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
+const canvasRef = ref(null)
+
 // 当前展示的是对应 tag 的第几条数据
 const display = ref({})
 
@@ -86,8 +86,65 @@ onMounted(() => {
   })
 })
 
-// 画布元素
-const canvas = ref(null)
+const draw = (tag, index) => {
+  // 创建canvas上下文
+  const canvas = canvasRef.value[0]
+  const buffer = getAudioBuffer(tag, index)
+  const [data, positives, negatives] = sample(buffer)
+
+  if (canvas.getContext) {
+    let ctx = canvas.getContext('2d')
+    canvas.width = positives.length
+    let x = 0
+    let y = 100
+    // let offset = 0
+    ctx.fillStyle = '#fa541c'
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    // canvas高度200，横坐标在canvas中点100px的位置，横坐标上方绘制正数据，下方绘制负数据
+    // 先从左往右绘制正数据
+    // x + 0.5是为了解决canvas 1像素线条模糊的问题
+    for (let k = 0; k < positives.length; k++) {
+      ctx.lineTo(x + k + 0.5, y - 100 * positives[k])
+    }
+
+    // 再从右往左绘制负数据
+    for (let l = negatives.length - 1; l >= 0; l--) {
+      ctx.lineTo(x + l + 0.5, y + 100 * Math.abs(negatives[l]))
+    }
+    // 填充图形
+    ctx.fill()
+  }
+}
+
+const sample = (buffer) => {
+  let data = []
+  let originData = buffer.getChannelData(0)
+  // 存储所有的正数据
+  let positives = []
+  // 存储所有的负数据
+  let negatives = []
+  // 先每隔100条数据取1条
+  for (let i = 0; i < originData.length; i += 100) {
+    data.push(originData[i])
+  }
+  // 再从data中每10条取一个最大值一个最小值
+  for (let j = 0, len = parseInt(data.length / 10); j < len; j++) {
+    let temp = data.slice(j * 10, (j + 1) * 10)
+    positives.push(Math.max.apply(null, temp))
+    negatives.push(Math.min.apply(null, temp))
+  }
+  return [data, positives, negatives]
+}
+
+/**
+ * 根据 tag 和索引获取 AudioBuffer
+ * @param {string} tag
+ * @param {int} index
+ */
+const getAudioBuffer = (tag, index) => {
+  return audioData.value[tag][index].data
+}
 
 // ---------------------------------- 数据格式化 ----------------------------------
 
@@ -142,7 +199,11 @@ const getMedia = (tag, list) => {
  * 从后端获取的数据皆为 Blob，存放在 audioBlob
  * 需要将二进制音频转成音频上下文可以解析和使用的格式 AudioBuffer
  * 使用 decodeAudioData 可以将 ArrayBuffer 转成 AudioBuffer
- * @param {*} tag
+ *
+ * 注意：
+ * 一次 format 只是完成了对一个 tag 数据的转化
+ *
+ * @param {string} tag log tag name
  */
 const format = async (tag) => {
   let promises = []
@@ -172,7 +233,8 @@ const format = async (tag) => {
     }
   })
   // 到这里所有数据都被转成 AudioBuffer 类型，可以进行抽样和绘制
-  console.log(audioData.value)
+  // 在这里只绘制当前 tag 的部分
+  draw(tag, display.value[tag])
 }
 
 /**
