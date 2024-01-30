@@ -8,6 +8,4 @@ r"""
     硬件监控模块
 """
 
-from .monitor import Monitor
-
-Swanmonitor = Monitor()
+from .monitor import SwanSystemMonitor
