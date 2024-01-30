@@ -19,7 +19,7 @@
       <span>{{ chartData[defaultTag]?.list[currentIndex].data }}</span>
       <span></span>
     </div>
-    <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" />
+    <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" :key="maxIndex" />
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <canvas ref="modalCanvasRef" class="w-full border" />
@@ -91,8 +91,11 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 
 // ---------------------------------- 实例：滑块的使用 ----------------------------------
 
+// 当前滑块索引
 const currentIndex = ref(0)
+// 最小索引
 const minIndex = 0
+// 最大索引
 const maxIndex = computed(() => {
   const tag = defaultTag.value
   return audioData.value[tag]?.length - 1
@@ -260,7 +263,7 @@ const getMedia = (tag, list) => {
  *
  * @param {string} tag log tag name
  */
-const format = async (tag) => {
+const format = async (tag, notDraw = false) => {
   let promises = []
   // 将 blob 转成 ArrayBuffer，因为 decodeAudioData 接收参数类型为 ArrayBuffer，因为
   audioBlob.value[tag].forEach((blob) => {
@@ -290,6 +293,7 @@ const format = async (tag) => {
   // 到这里所有数据都被转成 AudioBuffer 类型，可以进行抽样和绘制
   // 在这里只绘制当前 tag 的部分
   // 当前只考虑单tag音频图表，用 currentIndex ，若图表需要含有多个 tag 则用 display.value[tag]
+  if (notDraw) return // 如果只需要完成格式化，而不需要画表，直接返回
   draw(tag, currentIndex.value)
 }
 
@@ -321,16 +325,20 @@ const chartData = ref([])
 // 渲染
 const render = async (data) => {
   chartData.value = data
+  console.log(data)
   if (source.value && source.value.length < 0) {
     error.value = true
     return
   }
   await getMediaData(data)
+  // 对全部数据进行格式化
   Object.keys(audioBlob.value).forEach(format)
 }
 // 重渲染
-const change = (data) => {
-  chartData.value = data
+const change = async (data) => {
+  await getMediaData(data)
+  // 更新的时候，只需要对 data 中包含的 tag，也就是有改动的 tag 进行格式化
+  Object.keys(data).forEach((key) => format(key, true))
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
