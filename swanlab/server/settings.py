@@ -35,6 +35,8 @@ LOGS = "logs"
 FILES = "files"
 # console 实验环境目录
 CONSOLE = "console"
+# media 实验生成媒体目录
+MEDIA = "media"
 # 实验环境(元数据)
 META_DATA = "swanlab-metadata.json"
 # 实验依赖
@@ -85,3 +87,8 @@ def get_requirements_path(name) -> str:
 def get_tag_dir(name, tag) -> str:
     """获取 tag 对应的目录路径"""
     return os.path.join(SWANLOG_DIR, name, LOGS, tag)
+
+
+def get_media_dir(name, tag) -> str:
+    """获取 media 对应的目录路径"""
+    return os.path.join(SWANLOG_DIR, name, MEDIA, tag)
