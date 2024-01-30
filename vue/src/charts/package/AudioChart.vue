@@ -11,13 +11,32 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <canvas v-for="tag in source" :key="tag" class="border h-1/2" ref="canvasRef"></canvas>
-    <div class="relative">
-      <SLButton @click="playAudio">播放</SLButton>
+    <div class="flex flex-col w-full" v-for="tag in source" :key="tag">
+      <canvas ref="canvasRef"></canvas>
+    </div>
+    <div class="relative flex items-center">
+      <SLButton @click="playAudio" class="p-2 rounded-full">
+        <!-- TODO: 换换 -->
+        <svg
+          t="1706616480334"
+          class="icon"
+          viewBox="0 0 1024 1024"
+          version="1.1"
+          xmlns="http://www.w3.org/2000/svg"
+          p-id="1483"
+          width="16"
+          height="16"
+        >
+          <path
+            d="M90.624 100.442028C90.624 8.302184 154.098115-26.506202 231.905095 21.611273l642.931359 401.320211c77.80698 49.14125 77.80698 128.995782 0 177.113256L231.905095 1002.388727C154.098115 1050.506202 90.624 1015.697816 90.624 923.557972V100.442028z"
+            p-id="1484"
+          ></path>
+        </svg>
+      </SLButton>
       <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> 123</SLModal>
   </template>
 </template>
 
@@ -31,7 +50,7 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { onMounted, watch, ref, inject, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
-// import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import { useExperimentStore } from '@swanlab-vue/store'
 
@@ -58,11 +77,11 @@ const props = defineProps({
 /**
  * 底部栏
  */
-const currentIndex = ref(1)
-const minIndex = 1
+const currentIndex = ref(0)
+const minIndex = 0
 const maxIndex = computed(() => {
   const tag = source.value[0]
-  return audioData.value[tag]?.length
+  return audioData.value[tag]?.length - 1
 })
 
 // 图表相关 tag
@@ -98,7 +117,7 @@ onMounted(() => {
 })
 
 watch(currentIndex, (newV) => {
-  draw(source.value[0], newV - 1)
+  draw(source.value[0], newV)
 })
 
 /**
@@ -110,7 +129,7 @@ const playAudio = () => {
     audioSource.stop()
   }
   audioSource = audioCtx.createBufferSource()
-  audioSource.buffer = audioData.value[source.value[0]][currentIndex.value - 1].data
+  audioSource.buffer = audioData.value[source.value[0]][currentIndex.value].data
   audioSource.connect(audioCtx.destination)
   audioSource.start()
 }
@@ -118,6 +137,7 @@ const playAudio = () => {
 const canvasRef = ref(null)
 
 const draw = (tag, index) => {
+  console.log(index)
   // 创建canvas上下文
   const canvas = canvasRef.value[0]
   const buffer = getAudioBuffer(tag, index)
@@ -125,7 +145,7 @@ const draw = (tag, index) => {
 
   if (canvas.getContext) {
     const width = canvas.offsetWidth
-    const height = canvas.offsetHeight
+    const height = 200
     const ratio = window.devicePixelRatio || 1
     let ctx = canvas.getContext('2d')
     canvas.width = Math.round(width * ratio)
@@ -135,7 +155,7 @@ const draw = (tag, index) => {
     let x = 0
     let y = 100
     // let offset = 0
-    ctx.fillStyle = '#fa541c'
+    ctx.fillStyle = colors[0]
     ctx.beginPath()
     ctx.moveTo(x, y)
     // canvas高度200，横坐标在canvas中点100px的位置，横坐标上方绘制正数据，下方绘制负数据
@@ -161,12 +181,14 @@ const sample = (buffer) => {
   let positives = []
   // 存储所有的负数据
   let negatives = []
+  const step = 10
   // 先每隔100条数据取1条
-  for (let i = 0; i < originData.length; i += 100) {
+  for (let i = 0; i < originData.length; i += step) {
     data.push(originData[i])
   }
   // 再从data中每10条取一个最大值一个最小值
-  for (let j = 0, len = parseInt(data.length / 10); j < len; j++) {
+  const range = 5
+  for (let j = 0, len = parseInt(data.length / range); j < len; j++) {
     let temp = data.slice(j * 10, (j + 1) * 10)
     positives.push(Math.max.apply(null, temp))
     negatives.push(Math.min.apply(null, temp))
@@ -314,12 +336,12 @@ const change = (data) => {}
 // 是否放大
 const isZoom = ref(false)
 // // 放大数据
-// const zoom = (data) => {
-//   isZoom.value = true
-//   // 放大后图表的高度
-//   const height = window.innerHeight * 0.6
-//   addTaskToBrowserMainThread(() => {})
-// }
+const zoom = (data) => {
+  isZoom.value = true
+  // 放大后图表的高度
+  const height = window.innerHeight * 0.6
+  addTaskToBrowserMainThread(() => {})
+}
 
 // ---------------------------------- 实例：滑块的使用 ----------------------------------
 // 当前值
@@ -334,8 +356,8 @@ const barColor = inject('colors')[0]
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
-  change
-  // zoom
+  change,
+  zoom
 })
 </script>
 
