@@ -11,22 +11,21 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="flex flex-col w-full" v-for="tag in source" :key="tag">
-      <canvas ref="canvasRef" />
+    <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
+      <AudioModule />
     </div>
-    <div class="relative flex justify-between items-center">
-      <PlayButton @click="playAudio" />
-      <span>{{ chartData[defaultTag]?.list[currentIndex].data }}</span>
-      <span></span>
-    </div>
-    <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" :key="maxIndex" />
+    <SlideBar
+      class="mt-2"
+      v-model="currentIndex"
+      :max="maxIndex"
+      :min="minIndex"
+      :bar-color="barColor"
+      :key="maxIndex"
+    />
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
-      <canvas ref="modalCanvasRef" class="w-full border" />
-      <div class="flex justify-between items-center">
-        <PlayButton @click="playAudio" />
-        <span></span>
-      </div>
+      <div ref="modalAudioRef"></div>
+      <PlayButton @click="playAudio" />
     </SLModal>
   </template>
 </template>
@@ -45,6 +44,7 @@ import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import { useExperimentStore } from '@swanlab-vue/store'
 import PlayButton from '../components/PlayButton.vue'
+import AudioModule from '../modules/AudioModule.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -173,6 +173,11 @@ const draw = (tag, index, ref = canvasRef.value[0], height = 200) => {
   }
 }
 
+/**
+ * 抽样
+ * @param {AudioBuffer} buffer 音频缓存
+ * @returns {array} [positives, negatives] 正数据和负数据
+ */
 const sample = (buffer) => {
   let data = []
   let originData = buffer.getChannelData(0)
@@ -325,7 +330,7 @@ const chartData = ref([])
 // 渲染
 const render = async (data) => {
   chartData.value = data
-  console.log(data)
+  // console.log(data)
   if (source.value && source.value.length < 0) {
     error.value = true
     return

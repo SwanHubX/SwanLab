@@ -163,7 +163,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .chart-container {
-  @apply w-full h-auto min-h-72 border rounded relative overflow-hidden bg-default;
+  @apply w-full h-auto min-h-[288px] border rounded relative overflow-hidden bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
   .line-chart {
