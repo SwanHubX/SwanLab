@@ -35,6 +35,11 @@
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
+        <!-- 没有日志 -->
+        <div class="w-full py-10 flex flex-col items-center text-lg font-semibold">
+          <SLIcon class="magnifier" icon="search"></SLIcon>
+          <span>No Logs</span>
+        </div>
       </div>
       <div class="flex h-full items-center justify-center" v-else>
         <SLLoding />
@@ -100,7 +105,14 @@ function splitStringBySearch(target, substring) {
 const errorLogs = ref([])
 ;(async function () {
   // 获取日志
-  const { data } = await http.get(`/experiment/${id}/recent_log`)
+  const { data } = await http.get(`/experiment/${id}/recent_log`).catch((error) => {
+    if (error.data.code === 3404) {
+      logs.value = []
+    } else {
+      console.error(error)
+    }
+    return
+  })
   // 设置日志
   logs.value = data.logs
   if (data.error) errorLogs.value = data.error
@@ -141,6 +153,31 @@ const filename = 'print.log'
 
   .log-line {
     @apply flex gap-2 whitespace-pre-wrap;
+  }
+}
+
+$duration: 3s;
+
+.magnifier {
+  @apply w-10 h-10;
+  animation: animloader $duration infinite;
+}
+
+@keyframes animloader {
+  0% {
+    transform: translate(-5px, -5px);
+  }
+  25% {
+    transform: translate(-5px, 5px);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+  75% {
+    transform: translate(5px, -5px);
+  }
+  100% {
+    transform: translate(-5px, -5px);
   }
 }
 </style>

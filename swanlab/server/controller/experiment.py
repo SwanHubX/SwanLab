@@ -374,6 +374,10 @@ def get_recent_logs(experiment_id):
             error = f.read().split("\n")
         # 在consoles里删除error.log
         consoles.remove("error.log")
+    # 没有日志
+    if len(consoles) == 0:
+        return NOT_FOUND_404("No Logs Found")
+
     total: int = len(consoles)
     # # 如果 total 大于 1, 按照时间排序
     if total > 1:
