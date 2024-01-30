@@ -1,7 +1,6 @@
 <template>
   <!-- 图表标题 -->
   <p class="text-center font-semibold">{{ title }}</p>
-  <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
   <!-- 如果图表数据错误 -->
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
@@ -13,6 +12,7 @@
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
     <div ref="canvas"></div>
+    <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
   </template>
