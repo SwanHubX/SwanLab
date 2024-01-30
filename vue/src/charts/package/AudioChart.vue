@@ -11,11 +11,14 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <canvas v-for="tag in source" :key="tag" class="border" ref="canvasRef"></canvas>
+    <canvas v-for="tag in source" :key="tag" class="border h-1/2" ref="canvasRef"></canvas>
+    <div class="relative">
+      <SLButton @click="playAudio">播放</SLButton>
+      <SlideBar v-model="currentIndex" :max="maxIndex" :min="minIndex" :bar-color="barColor" />
+    </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
   </template>
-  <SlideBar v-model="now" :max="max" :min="min" :bar-color="barColor" />
 </template>
 
 <script setup>
@@ -26,7 +29,7 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { onMounted, ref, inject, computed } from 'vue'
+import { onMounted, watch, ref, inject, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
 // import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
@@ -52,14 +55,23 @@ const props = defineProps({
   }
 })
 
+/**
+ * 底部栏
+ */
+const currentIndex = ref(1)
+const minIndex = 1
+const maxIndex = computed(() => {
+  const tag = source.value[0]
+  return audioData.value[tag]?.length
+})
+
 // 图表相关 tag
 const source = computed(() => {
   return props.chart?.source
 })
 
 // 音频上下文
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-// let audioSource = audioCtx.createBufferSource()
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
@@ -73,18 +85,37 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
-const canvasRef = ref(null)
-
 // 当前展示的是对应 tag 的第几条数据
 const display = ref({})
 
-// 初始化显示配置
+// 初始化显示配置，
 onMounted(() => {
+  // 当前为单 tag，不需要这里
   // 每一个相关 tag 都展示第一条数据
   source.value.forEach((tag) => {
     display.value[tag] = 1
   })
 })
+
+watch(currentIndex, (newV) => {
+  draw(source.value[0], newV - 1)
+})
+
+/**
+ * 播放音频
+ */
+let audioSource = null
+const playAudio = () => {
+  if (audioSource !== null) {
+    audioSource.stop()
+  }
+  audioSource = audioCtx.createBufferSource()
+  audioSource.buffer = audioData.value[source.value[0]][currentIndex.value - 1].data
+  audioSource.connect(audioCtx.destination)
+  audioSource.start()
+}
+
+const canvasRef = ref(null)
 
 const draw = (tag, index) => {
   // 创建canvas上下文
@@ -93,8 +124,14 @@ const draw = (tag, index) => {
   const [data, positives, negatives] = sample(buffer)
 
   if (canvas.getContext) {
+    const width = canvas.offsetWidth
+    const height = canvas.offsetHeight
+    const ratio = window.devicePixelRatio || 1
     let ctx = canvas.getContext('2d')
-    canvas.width = positives.length
+    canvas.width = Math.round(width * ratio)
+    canvas.height = Math.round(height * ratio)
+    canvas.style.width = canvas.width + 'px'
+    canvas.style.height = canvas.height + 'px'
     let x = 0
     let y = 100
     // let offset = 0
@@ -104,12 +141,12 @@ const draw = (tag, index) => {
     // canvas高度200，横坐标在canvas中点100px的位置，横坐标上方绘制正数据，下方绘制负数据
     // 先从左往右绘制正数据
     // x + 0.5是为了解决canvas 1像素线条模糊的问题
-    for (let k = 0; k < positives.length; k++) {
+    for (let k = 0; k < width; k++) {
       ctx.lineTo(x + k + 0.5, y - 100 * positives[k])
     }
 
     // 再从右往左绘制负数据
-    for (let l = negatives.length - 1; l >= 0; l--) {
+    for (let l = width - 1; l >= 0; l--) {
       ctx.lineTo(x + l + 0.5, y + 100 * Math.abs(negatives[l]))
     }
     // 填充图形
@@ -214,14 +251,14 @@ const format = async (tag) => {
   /**
    * 这里需要注意：
    * buffers 中的元素为对象
-   * - buf : ArrayBuffer
+   * - data : ArrayBuffer
    * - type: BlobType
    */
   const buffers = await Promise.all(promises)
   promises = []
   // 将所有缓存都转成 AudioBuffer
   buffers.forEach((buffer) => {
-    promises.push(audioCtx.decodeAudioData(buffer.buf))
+    promises.push(audioCtx.decodeAudioData(buffer.data))
   })
   // 多线程异步转化
   const audioBuffers = await Promise.all(promises)
@@ -234,7 +271,8 @@ const format = async (tag) => {
   })
   // 到这里所有数据都被转成 AudioBuffer 类型，可以进行抽样和绘制
   // 在这里只绘制当前 tag 的部分
-  draw(tag, display.value[tag])
+  // 当前只考虑单tag音频图表，用 currentIndex ，若图表需要含有多个 tag 则用 display.value[tag]
+  draw(tag, currentIndex.value)
 }
 
 /**
@@ -250,8 +288,8 @@ const blobToBuf = (blob) => {
     fr.addEventListener(
       'loadend',
       (e) => {
-        var buf = e.target.result
-        resolve({ buf, type })
+        var data = e.target.result
+        resolve({ data, type })
       },
       false
     )
