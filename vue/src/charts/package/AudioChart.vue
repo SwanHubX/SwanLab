@@ -24,7 +24,7 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { ref, inject } from 'vue'
+import { ref, inject, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 
@@ -40,6 +40,11 @@ const props = defineProps({
   }
 })
 
+// 图表相关 tag
+const source = computed(() => {
+  return props.chart?.source
+})
+
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
 const error = ref(props.chart.error)
@@ -52,11 +57,26 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 
 // ---------------------------------- 数据格式化 ----------------------------------
 
+const getMediaData = (data) => {
+  /**
+   * data 是一个对象，与该表相关的 tag 名为对象 key,对应的值为数组
+   * 需要构建一个 Promise 数组，对所有数据发起请求
+   */
+  console.log('================================================')
+  Object.keys(data).forEach((key) => {
+    console.log(data[key].list)
+  })
+}
+
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
 // 渲染
 const render = (data) => {
-  console.log(data)
+  if (source.value && source.value.length < 0) {
+    error.value = true
+    return
+  }
+  getMediaData(data)
 }
 // 重渲染
 const change = (data) => {}
