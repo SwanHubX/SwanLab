@@ -91,7 +91,7 @@ const handleChange = (e) => {
 
 <style lang="scss" scoped>
 .chart-slide {
-  @apply flex items-center justify-center flex-wrap w-full gap-2 text-dimmer;
+  @apply flex items-center justify-center flex-wrap w-full gap-2 text-dimmer select-none;
   .slide {
     @apply max-w-[230px] w-full;
   }
