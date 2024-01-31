@@ -13,6 +13,9 @@
     <!-- 在此处完成图表主体定义 -->
     <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
       <AudioModule :audios="audioData" :key="nowStep" v-if="audioData" />
+      <div class="flex flex-col justify-center items-center h-full" v-if="loading">
+        <SLLoading />
+      </div>
     </div>
     <div class="h-8">
       <SlideBar
@@ -27,8 +30,20 @@
     </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
-      <div ref="modalAudioRef"></div>
-      <PlayButton @click="playAudio" />
+      <div class="mt-15 p-2 w-full border border-dimmer rounded-sm relative h-56">
+        <AudioModule :audios="audioData" :key="nowStep" v-if="audioData" />
+      </div>
+      <div class="h-8 mt-20">
+        <SlideBar
+          class="mt-2"
+          v-model="currentIndex"
+          :max="maxIndex"
+          :min="minIndex"
+          :bar-color="barColor"
+          :key="slideKey"
+          v-if="maxIndex !== minIndex"
+        />
+      </div>
     </SLModal>
   </template>
 </template>
@@ -41,12 +56,11 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { onMounted, watch, ref, inject, computed } from 'vue'
+import { watch, ref, inject, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { debounce } from '@swanlab-vue/utils/common'
 import * as UTILS from './utils'
 import { useExperimentStore } from '@swanlab-vue/store'
-import PlayButton from '../components/PlayButton.vue'
 import AudioModule from '../modules/AudioModule.vue'
 
 // ---------------------------------- 配置 ----------------------------------
@@ -102,9 +116,12 @@ const slideKey = ref(0)
 watch([maxIndex, minIndex], ([max, min]) => {
   slideKey.value = max + '-' + min
 })
+const loading = ref(false)
 
 // 已经滑动部分颜色，应该通过色盘计算得到
 const barColor = inject('colors')[0]
+
+// ---------------------------------- 控制渲染第几个数据 ----------------------------------
 
 // ---------------------------------- 数据驱动控制音频组件渲染 ----------------------------------
 const audiosTagData = ref()
@@ -196,14 +213,9 @@ const change = async (data) => {
 // ---------------------------------- 放大功能 ----------------------------------
 // 是否放大
 const isZoom = ref(false)
-// 弹窗画板
-const modalCanvasRef = ref(null)
 // 放大数据
 const zoom = () => {
   isZoom.value = true
-  addTaskToBrowserMainThread(() => {
-    draw(defaultTag.value, currentIndex.value, modalCanvasRef.value)
-  })
 }
 
 // ---------------------------------- 暴露api ----------------------------------
