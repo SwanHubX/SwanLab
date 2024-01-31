@@ -343,7 +343,7 @@ let manual = true
 // 调用此方法则必然是自动触发
 const lineShowTooltip = (point) => {
   manual = false
-  console.log('lineShowTooltip', props.index)
+  // console.log('lineShowTooltip', props.index)
   // console.log('title', title)
   chartObj.chart.showTooltip(point)
 }
@@ -356,7 +356,8 @@ const registerTooltipEvent = () => {
   // 给 tooltip 添加点击事件
   chartObj.on('tooltip:show', (evt) => {
     if (!manual) {
-      return console.log('auto show tooltip')
+      // console.log('auto show tooltip')
+      return
     }
     const point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
@@ -369,7 +370,8 @@ const registerTooltipEvent = () => {
     // 通知其他图表，当前图表的数据被hover到了
     lineChartsRef.value.forEach((chart) => {
       if (!manual) {
-        return console.log('auto hide tooltip')
+        return
+        // return console.log('auto hide tooltip')
       }
       chart.chartRef.lineHideTooltip(...args)
     })

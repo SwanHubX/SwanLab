@@ -7,7 +7,7 @@
 
 <script setup>
 /**
- * @description: 音频模块，用于播放音频，渲染音频波形图
+ * @description: 音频模块，用于播放音频，渲染音频波形图，被AudioChart.vue调用
  * @file: AudioModule.vue
  * @since: 2024-01-30 22:44:56
  **/

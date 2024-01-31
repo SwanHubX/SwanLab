@@ -12,7 +12,7 @@
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
     <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
-      <AudioModule />
+      <AudioModule :audios="nowData" v-if="nowData" :key="nowStep" />
     </div>
     <SlideBar
       class="mt-2"
@@ -103,6 +103,16 @@ const maxIndex = computed(() => {
 // 已经滑动部分颜色，应该通过色盘计算得到
 const barColor = inject('colors')[0]
 
+// ---------------------------------- 数据驱动控制音频组件渲染 ----------------------------------
+// 音频数据缓存，格式为 {step: nowData }
+const data = ref({})
+// 当前展示的是第几步的数据，格式为{tag: {audio: AudioBuffer, title: String}}
+const nowData = computed(() => {
+  if (nowStep.value === undefined) return undefined
+  return data.value[nowStep.value]
+})
+// 当前展示的步数
+const nowStep = ref(undefined)
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 
 // 当前展示的是对应 tag 的第几条数据
