@@ -12,16 +12,19 @@
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
     <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
-      <AudioModule :audios="nowData" v-if="nowData" :key="nowStep" />
+      <AudioModule :audios="audioData" :key="nowStep" v-if="audioData" />
     </div>
-    <SlideBar
-      class="mt-2"
-      v-model="currentIndex"
-      :max="maxIndex"
-      :min="minIndex"
-      :bar-color="barColor"
-      :key="maxIndex"
-    />
+    <div class="h-8">
+      <SlideBar
+        class="mt-2"
+        v-model="currentIndex"
+        :max="maxIndex"
+        :min="minIndex"
+        :bar-color="barColor"
+        :key="slideKey"
+        v-if="maxIndex !== minIndex"
+      />
+    </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <div ref="modalAudioRef"></div>
@@ -76,9 +79,6 @@ const defaultTag = computed(() => {
   return source.value[0]
 })
 
-// 音频上下文
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
 const error = ref(props.chart.error)
@@ -94,22 +94,27 @@ if (!colors) throw new Error('colors is not defined, please provide colors in pa
 // 当前滑块索引
 const currentIndex = ref(0)
 // 最小索引
-const minIndex = 0
+const minIndex = ref(undefined)
 // 最大索引
-const maxIndex = computed(() => {
-  const tag = defaultTag.value
-  return audioData.value[tag]?.length - 1
+const maxIndex = ref(undefined)
+// slide的key
+const slideKey = ref(0)
+watch([maxIndex, minIndex], ([max, min]) => {
+  slideKey.value = max + '-' + min
 })
+
 // 已经滑动部分颜色，应该通过色盘计算得到
 const barColor = inject('colors')[0]
 
 // ---------------------------------- 数据驱动控制音频组件渲染 ----------------------------------
+const audiosTagData = ref()
 // 音频数据缓存，格式为 {step: nowData }
-const data = ref({})
+const audiosData = ref({})
 // 当前展示的是第几步的数据，格式为{tag: {audio: AudioBuffer, title: String}}
-const nowData = computed(() => {
+const audioData = computed(() => {
   if (nowStep.value === undefined) return undefined
-  return data.value[nowStep.value]
+  // console.log('nowStep', nowStep.value, audiosData.value[nowStep.value])
+  return audiosData.value[nowStep.value]
 })
 // 当前展示的步数
 const nowStep = ref(undefined)
@@ -221,29 +226,30 @@ const getAudioBuffer = (tag, index) => {
 
 // ---------------------------------- 数据格式化 ----------------------------------
 
-const audioBlob = ref({})
-const audioData = ref({})
-
 /**
  * 获取音频数据
- * @param {object} data 与该表相关的 tag 名为 key,对应的值为数组
+ * @param {str} filename 文件名
  */
-const getMediaData = async (data) => {
-  const tags = []
-  const promises = []
-  Object.keys(data).forEach((tag) => {
-    tags.push(tag)
-    promises.push(
-      getMedia(
-        tag,
-        data[tag].list.map((item) => item.data)
-      )
+const getMediaData = async (data, tag) => {
+  const audioBlob = await UTILS.media.get(data, run_id.value, tag)
+  // console.log('audioBlob', audioBlob)
+  // 将blob转换成AudioBuffer
+  // 1. 将 Blob 转换为 ArrayBuffer
+  const arrayBuffer = await audioBlob.arrayBuffer()
+
+  // 2. 使用 Web Audio API 的 decodeAudioData 方法将 ArrayBuffer 转换为 AudioBuffer
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+
+  return new Promise((resolve, reject) => {
+    audioContext.decodeAudioData(
+      arrayBuffer,
+      (buffer) => {
+        resolve(buffer)
+      },
+      (error) => {
+        reject(error)
+      }
     )
-  })
-  const res = await Promise.all(promises)
-  // 保存所有 blob 数据
-  res.forEach((item, index) => {
-    audioBlob.value[tags[index]] = item
   })
 }
 
@@ -333,27 +339,49 @@ const blobToBuf = (blob) => {
   })
 }
 
+/**
+ * 将 tag 数据转成 AudioBuffer，添加到audiosData中
+ * 并且设置当前step为index对应的step,最终返回当前的step和最大step和最小step
+ * 后续如果要兼容多数据，就在此处添加逻辑
+ * @param { number } index
+ */
+const tagData2Buffer = async (index) => {
+  const tag = source.value[0]
+  const data = audiosTagData.value[tag].list[index]
+  const audioBuffer = await getMediaData(data.data, tag)
+  nowStep.value = Number(data.index)
+  return {
+    nowStep: Number(data.index),
+    maxStep: Number(audiosTagData.value[tag].list[audiosTagData.value[tag].list.length - 1].index),
+    minStep: Number(audiosTagData.value[tag].list[0].index),
+    data: [{ audioBuffer, title: data.data, tag: tag }],
+    tag
+  }
+}
+
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
-
-const chartData = ref([])
-
 // 渲染
 const render = async (data) => {
-  chartData.value = data
-  // console.log(data)
-  if (source.value && source.value.length < 0) {
-    error.value = true
-    return
-  }
-  await getMediaData(data)
-  // 对全部数据进行格式化
-  Object.keys(audioBlob.value).forEach(format)
+  audiosTagData.value = data
+  // 根据 data 获取所有的音频数据，存储到audiosData中
+  // 当前step必然为第一个，因为是第一次渲染，所以其他的数据不需要请求,只需要请求第一个就可以
+  const steps = await tagData2Buffer(0)
+  // 将数据添加到audiosData中
+  audiosData.value[steps.nowStep] = steps.data
+  // console.log('steps', steps, audiosData.value)
+  // 设置最大值最小值
+  currentIndex.value = nowStep.value = steps.nowStep
+  maxIndex.value = steps.maxStep
+  minIndex.value = steps.minStep
 }
-// 重渲染
+
+// 重渲染，只需要往audiosData中添加数据并更新maxIndex和minIndex即可，不需要重复请求数据
 const change = async (data) => {
-  await getMediaData(data)
-  // 更新的时候，只需要对 data 中包含的 tag，也就是有改动的 tag 进行格式化
-  Object.keys(data).forEach((key) => format(key, true))
+  audiosTagData.value = data
+  // 设置最大值最小值
+  const tag = source.value[0]
+  maxIndex.value = Number(data[tag].list[data[tag].list.length - 1].index)
+  minIndex.value = Number(data[tag].list[0].index)
 }
 
 // ---------------------------------- 放大功能 ----------------------------------

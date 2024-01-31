@@ -1,7 +1,12 @@
 <template>
   <!-- 音频容器，完成响应式 -->
   <div class="audios-container" ref="audiosRef">
-    <div class="audio-container" :ref="(el) => handleAddAudio(tag, el)" v-for="tag in tags" :key="tag"></div>
+    <div
+      class="audio-container"
+      :ref="(el) => handleAddAudio(tag, index, el)"
+      v-for="(tag, index) in tags"
+      :key="tag"
+    ></div>
   </div>
 </template>
 
@@ -14,14 +19,14 @@
 import { ref, computed } from 'vue'
 
 const props = defineProps({
-  // 接受的音频数据，格式为 { tag: { data: AudioBuffer, title: String } }
+  // 接受的音频数据，格式为 { tag: { data: AudioBuffer, title: String, tag: String } }
   audios: {
     type: Object,
     required: true
   }
 })
 
-const tags = computed(() => Object.keys(props.audios.value))
+const tags = computed(() => props.audios.map((audio) => audio.tag))
 
 // 所有音频容器
 const audiosRef = ref(null)
@@ -29,15 +34,17 @@ const audiosRef = ref(null)
 const audioRef = ref({})
 
 // ---------------------------------- 将dom元素和tag对应起来 ----------------------------------
-const handleAddAudio = (tag, el) => {
+const handleAddAudio = (tag, index, el) => {
   if (audioRef.value[tag]) return // 防止重复添加
 
   audioRef.value[tag] = {
-    audio: props.audios.value[tag].data,
+    audio: props.audios[index].audioBuffer,
     dom: el
   }
+
+  console.log(audioRef.value, props.audios)
   // 挂载完成后，开始绘制波形图
-  draw(el, props.audios.value[tag].audio)
+  // draw(el, props.audios.value[tag].audio)
 }
 
 // ---------------------------------- 绘制波形图 ----------------------------------

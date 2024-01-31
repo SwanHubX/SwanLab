@@ -31,7 +31,7 @@
  * @since: 2023-12-12 21:01:26
  **/
 import { inject } from 'vue'
-import { onUnmounted, computed, watch } from 'vue'
+import { onUnmounted, computed, watch, onMounted } from 'vue'
 import { ref } from 'vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 // import SLLoading from '@swanlab-vue/components/SLLoading.vue'
@@ -125,32 +125,34 @@ let data = {}
 let hasInited = false
 const $off = inject('$off')
 // 如果props.chart.error存在，则不订阅
-props.chart.error ||
-  inject('$on')(source, cid, (tag, _tagData, error) => {
-    // console.log('tag, _tagData, error', tag, _tagData, error)
-    // 异步回调（其实是同步），用于控制图表的显示状态
-    return new Promise((resolve, reject) => {
-      if (error) {
-        status.value = 'error'
-        loading.value = false
-        reject(error)
-      } else {
-        data[tag] = _tagData
-        // 判断data的key数量是否和source长度相同
-        if (Object.keys(data).length === source.length) {
-          // 渲染
-          addTaskToBrowserMainThread(() => {
-            if (!hasInited) {
-              // 判断render方法是否为Promise，如果是，则等待渲染完成再resolve并设置status为success
-              render(data)
-            } else change(data)
-            hasInited = true
-            resolve()
-          })
+onMounted(() => {
+  props.chart.error ||
+    inject('$on')(source, cid, (tag, _tagData, error) => {
+      // console.log('tag, _tagData, error', tag, _tagData, error)
+      // 异步回调（其实是同步），用于控制图表的显示状态
+      return new Promise((resolve, reject) => {
+        if (error) {
+          status.value = 'error'
+          loading.value = false
+          reject(error)
+        } else {
+          data[tag] = _tagData
+          // 判断data的key数量是否和source长度相同
+          if (Object.keys(data).length === source.length) {
+            // 渲染
+            addTaskToBrowserMainThread(() => {
+              if (!hasInited) {
+                // 判断render方法是否为Promise，如果是，则等待渲染完成再resolve并设置status为success
+                render(data)
+              } else change(data)
+              hasInited = true
+              resolve()
+            })
+          }
         }
-      }
+      })
     })
-  })
+})
 
 // 卸载时取消订阅
 props.chart.error ||
