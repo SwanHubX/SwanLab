@@ -5,14 +5,14 @@ r"""
 @File: test/unit/utils/create_exp.py
 @IDE: vscode
 @Description:
-    创建实验
+    创建实验，请确保在unit目录下存在temp文件夹,用于保存实验数据
 """
 import os
 
 # 当前文件的绝对路径
 cur_path = os.path.abspath(__file__)
 # swanlog存储位置
-save_dir = os.path.join(os.path.dirname(os.path.dirname(cur_path)), "temp", "test")
+save_dir = os.path.join(os.path.dirname(os.path.dirname(cur_path)), "temp")
 # swanlab库存储位置
 swanlab_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(cur_path))))
 import sys
