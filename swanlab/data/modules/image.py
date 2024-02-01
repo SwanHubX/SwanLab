@@ -5,31 +5,21 @@ import os
 
 
 class Image(BaseType):
-    def __init__(self):
-        super().__init__()
-        self.image = None
+    def __init__(self, data_or_path):
+        super().__init__(data_or_path)
+        self.image_data = None
 
     def get_data(self):
-        print("step {}, 获取data".format(self.step))
-        print(self.step, self.tag, self.settings.static_dir)
-        print("root_dir", self.settings.root_dir)
-
-        self.image = self.preprocess(self.value)
-
-        # 先判断 static_dir 是否存在
+        self.preprocess(self.value)
+        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_name = f"image-step{self.step}.png"
         if os.path.exists(self.settings.static_dir) is False:
             os.makedirs(self.settings.static_dir)
-        save_path = os.path.join(self.settings.static_dir, f"image-{self.tag}-{self.step}.png")
+        save_path = os.path.join(save_dir, f"image-step{self.step}.png")
 
         # 保存图像到指定目录
         self.save(save_path)
-        print("save_path:", save_path)
-
-        # 获得目录的相对路径
-        save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
-        print("save_relative_path", save_relative_path)
-
-        return save_relative_path
+        return save_name
 
     def preprocess(self, data):
         """将不同类型的输入转换为PIL图像"""
@@ -48,9 +38,11 @@ class Image(BaseType):
 
         # 对数据做通道转换
         image = self.convert_channels(image)
+
+        # 缩放大小
         image = self.resize(image)
 
-        return image
+        self.image_data = image
 
     def load_image_from_path(self, path):
         """判断字符串是否为正确的图像路径，如果是则返回PIL.Image类型对象，如果不是则报错"""
