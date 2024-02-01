@@ -12,10 +12,9 @@ import os
 ### 以下为音频数据解析的依赖库
 import soundfile as sf
 import numpy as np
-
-# import matplotlib.pyplot as plt
-from IPython.display import Audio as AudioDisplay
 import json
+import time
+import os
 
 
 class Audio(BaseType):
@@ -34,20 +33,15 @@ class Audio(BaseType):
             self.sample_rate = sample_rate
 
     def get_data(self):
-        # print(self.step, self.tag, self.settings.static_dir)
-
-        # numpy.array() 类型保存音频数据
         self.preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"audio-{self.step}.wav"
+        save_name = f"audio-step{self.step}.wav"
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path = os.path.join(save_dir, save_name)
 
         # 保存音频数据到指定目录
         self.save(save_path)
-        # print("save_path:", save_path)
-        # print("save_relative_path", save_relative_path)
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
@@ -57,7 +51,6 @@ class Audio(BaseType):
         """
         根据输入不同的输入类型进行不同处理
         """
-        # print("data_or_path", data_or_path)
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
             # 根据输入是否为 json , 选择不同的加载方式
@@ -90,20 +83,6 @@ class Audio(BaseType):
         except Exception as e:
             raise ValueError(f"Invalid audio path: {path}") from e
 
-    # def plot_spectrogram(self, plot_save_path):
-    #     """获取音频的频谱"""
-    #     num_channels = self.audio_data.shape[0]
-    #     sample_rate = self.sample_rate
-    #     figure, axes = plt.subplots(num_channels, 1)
-    #     if num_channels == 1:
-    #         axes = [axes]
-    #     for c in range(num_channels):
-    #         axes[c].specgram(self.audio_data[c], Fs=sample_rate)
-    #         if num_channels > 1:
-    #             axes[c].set_ylabel(f"Channel {c+1}")
-    #     figure.savefig(plot_save_path)
-    #     plt.close()
-
     def to_json(self, audio_path, json_path):
         """将音频元数据转换为json文件"""
         audio_json = {}
@@ -127,13 +106,6 @@ class Audio(BaseType):
         self.audio_data = audio_data
         self.sample_rate = data_sample_rate
 
-    def get_play_audio(self):
-        """获取可播放音频类型"""
-        try:
-            return AudioDisplay(self.audio_data, rate=self.sample_rate)
-        except Exception as e:
-            raise ValueError(f"Could not play the audio file") from e
-
     def save(self, save_path):
         """
         保存静态资源文件 .wav 到指定路径
@@ -143,16 +115,6 @@ class Audio(BaseType):
         try:
             write_audio_data = self.audio_data.T
             sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
-
-            # 这边存 json 的时候放的是相对路径
-            # json_path = save_path.replace(".wav", ".json")
-            # save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
-            # self.to_json(save_relative_path, json_path)
-
-            # 保存频谱图
-            # spectrogram_save_path = save_path.replace(".wav", "-spectrogram.png")
-            # self.plot_spectrogram(spectrogram_save_path)
-
         except Exception as e:
             raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
 
@@ -163,3 +125,50 @@ class Audio(BaseType):
     def get_chart_type(self) -> str:
         """设定图表类型"""
         return self.chart.audio
+
+    # The following is a temporary code that may be used in the future.
+
+    # def plot_spectrogram(self, plot_save_path):
+    #     """获取音频的频谱"""
+    #     num_channels = self.audio_data.shape[0]
+    #     sample_rate = self.sample_rate
+    #     figure, axes = plt.subplots(num_channels, 1)
+    #     if num_channels == 1:
+    #         axes = [axes]
+    #     for c in range(num_channels):
+    #         axes[c].specgram(self.audio_data[c], Fs=sample_rate)
+    #         if num_channels > 1:
+    #             axes[c].set_ylabel(f"Channel {c+1}")
+    #     figure.savefig(plot_save_path)
+    #     plt.close()
+
+    # def get_play_audio(self):
+    #     """获取可播放音频类型"""
+    #     from IPython.display import Audio as AudioDisplay
+
+    #     try:
+    #         return AudioDisplay(self.audio_data, rate=self.sample_rate)
+    #     except Exception as e:
+    #         raise ValueError(f"Could not play the audio file") from e
+
+    # def save_all(self, save_path):
+
+    #     """
+    #     保存静态资源文件 .wav 到指定路径
+    #     audio-{tag}-{step}.wav
+    #     audio-{tag}-{step}.json
+    #     """
+    #     try:
+    #         write_audio_data = self.audio_data.T
+    #         sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
+
+    #         # 这边存 json 的时候放的是相对路径
+    #         json_path = save_path.replace(".wav", ".json")
+    #         save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
+    #         self.to_json(save_relative_path, json_path)
+
+    #         # 保存频谱图
+    #         spectrogram_save_path = save_path.replace(".wav", "-spectrogram.png")
+    #         self.plot_spectrogram(spectrogram_save_path)
+    #     except Exception as e:
+    #         raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
