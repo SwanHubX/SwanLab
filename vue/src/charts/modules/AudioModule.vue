@@ -2,7 +2,7 @@
   <!-- 音频容器，完成响应式 -->
   <div class="audios-container" ref="audiosRef">
     <div class="audio-container" :ref="(el) => handleAddAudio(tag, index, el)" v-for="(tag, index) in tags" :key="tag">
-      <div class="flex items-center">
+      <div class="flex items-center mt-2">
         <PlayButton
           v-model="playingList[index]"
           :color="colors[index]"
@@ -24,9 +24,9 @@
  * @since: 2024-01-30 22:44:56
  **/
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import { ref, computed, inject, reactive, onUnmounted } from 'vue'
+import { ref, computed, inject, reactive, onUnmounted, onMounted } from 'vue'
 import PlayButton from '../components/PlayButton.vue'
-
+import { debounce } from '@swanlab-vue/utils/common'
 const props = defineProps({
   // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, tag: String } ]
   audios: {
@@ -34,7 +34,6 @@ const props = defineProps({
     required: true
   }
 })
-
 const tags = computed(() => props.audios.map((audio) => audio.tag))
 const colors = inject('colors')
 // 所有音频容器
@@ -117,6 +116,7 @@ const formatTime = (tag) => {
  */
 const draw = (tag, index, r = 2, a = 2 / 3) => {
   const dom = audioRef[tag].dom
+  dom.style.width = audiosRef.value.offsetWidth + 'px'
   const offset = audioRef[tag].offset
   const channels = audioRef[tag].channels
   const color = colors[index]
@@ -134,6 +134,8 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
     // 清空画布
     ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    canvas.width = width
+    canvas.height = height
     // console.log('clear, 复用canvas')
   } else {
     // 创建 canvas上下文
@@ -156,8 +158,11 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
   let y = height / 2
   // let offset = 0
   ctx.lineWidth = 1
+  ctx.fillStyle = color2
   // 最大高度为画布高度的0.4倍
   const h = height * 0.4
+  //额外延伸5个像素点
+  const o = 3
   // 判断长度与画布宽度的关系，一像素对应多少数据
   const step = channels[0].length / width
   const baseHeight = 2
@@ -165,7 +170,10 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
   const offsetIndex = Math.min(width - 1, Math.max(0, parseInt(offset * width)))
   // 先从左往右绘制数据
   let num
+
   for (let k = 0; k < width; k++) {
+    // 方便调试
+    if (k * step > channels[0].length) throw new Error('k*step > channels[0].length')
     ctx.strokeStyle = k <= offsetIndex ? color2 : color
     // 如果当前处于变淡的区域边界，绘制一条长线段
     if (k === offsetIndex) {
@@ -174,30 +182,23 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
       ctx.lineTo(x + k, y + h * a)
       ctx.closePath()
       ctx.stroke()
+      ctx.fillStyle = color
     }
-    ctx.beginPath()
-    ctx.moveTo(x + k, y)
-    // 将当前k对应的数据绘制到画布上
-    // 设置高度
+    // ctx.beginPath()
+    // ctx.moveTo(x + k, y)
+    // // 将当前k对应的数据绘制到画布上
+    // // 设置高度
     num = channels[0][parseInt(k * step)] * h * r
-    num = num > 0 ? num + baseHeight : num - baseHeight
-    ctx.lineTo(x + k, y - num)
-    ctx.closePath()
-    ctx.stroke()
+    num = num > 0 ? num + baseHeight + o : num - baseHeight - o
+    const rectHeight = Math.abs(num) + o
+    const ry = num > 0 ? y - num : y - o
 
-    // 画右声道
-    if (channels[1]) {
-      ctx.beginPath()
-      ctx.moveTo(x + k, y)
-      // 将当前k对应的数据绘制到画布上
-      // 设置高度
-      num = channels[1][parseInt(k * step)] * h * r
-      num = num > 0 ? num + baseHeight : num - baseHeight
+    // ctx.lineTo(x + k, y - num)
+    // ctx.closePath()
+    // ctx.stroke()
 
-      ctx.lineTo(x + k, y + num)
-      ctx.closePath()
-      ctx.stroke()
-    }
+    // 画矩形
+    ctx.fillRect(x + k, ry, 2, rectHeight)
   }
 
   ctx.fill()
@@ -205,10 +206,12 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
 
 // 重新绘制所有波形图，用于前端样式的响应式
 const redraw = () => {
-  for (const tag in audioRef) {
-    draw(audioRef[tag].dom, audioRef[tag].audio)
+  for (let i = 0; i < tags.value.length; i++) {
+    draw(tags.value[i], i)
   }
 }
+
+const debounceRedraw = debounce(redraw, 500)
 
 // ---------------------------------- offset更新 ----------------------------------
 
@@ -318,6 +321,15 @@ const handelClickCanvas = (event, tag, index) => {
   }
 }
 
+// ---------------------------------- 响应式处理 ----------------------------------
+// 监听audiosRef的宽度变化，重新绘制波形图
+const observer = new ResizeObserver(() => {
+  debounceRedraw()
+})
+onMounted(() => {
+  observer.observe(audiosRef.value)
+})
+
 // ---------------------------------- 组件卸载，停止播放 ----------------------------------
 
 onUnmounted(() => {
@@ -329,6 +341,7 @@ onUnmounted(() => {
       continue
     }
   }
+  observer.disconnect()
 })
 </script>
 

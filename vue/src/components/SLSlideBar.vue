@@ -72,7 +72,6 @@ const slidingValue = computed({
     if (!val) val = 0
     // console.log(val)
     // 设置滑动按钮的位置
-    setButtonAndBarPosition(val)
     // 触发事件
     emits('update:modelValue', val)
   }

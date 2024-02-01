@@ -12,7 +12,7 @@
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
     <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
-      <AudioModule :audios="audioData" :key="nowStep" v-if="audioData" />
+      <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
       </div>
@@ -104,9 +104,10 @@ const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
 
 // ---------------------------------- 实例：滑块的使用 ----------------------------------
-
+// 已经滑动部分颜色，应该通过色盘计算得到
+const barColor = inject('colors')[0]
 // 当前滑块索引
-const currentIndex = ref(0)
+const __currentIndex = ref(0)
 // 最小索引
 const minIndex = ref(undefined)
 // 最大索引
@@ -118,19 +119,58 @@ watch([maxIndex, minIndex], ([max, min]) => {
 })
 const loading = ref(false)
 
-// 已经滑动部分颜色，应该通过色盘计算得到
-const barColor = inject('colors')[0]
+const currentIndex = computed({
+  get: () => __currentIndex.value,
+  set: (val) => {
+    if (stepMap.has(val)) {
+      // 如果存在，则设置当前值
+      if (val === __currentIndex.value) return
+      __currentIndex.value = val
+      // 当前值
+      console.log('设置当前值为', val)
+    } else {
+      console.log('当前值不存在: ', val)
+      // 寻找最近的值
+      const keys = Array.from(stepMap.keys())
+      const index = keys.findIndex((item) => item > val)
+      const num = Number(index === -1 ? keys[keys.length - 1] : keys[index])
+      if (num === __currentIndex.value) return
+      __currentIndex.value = num
+    }
+    loading.value = true
+    debounceRender()
+  }
+})
 
-// ---------------------------------- 控制渲染第几个数据 ----------------------------------
+// ---------------------------------- 控制渲染第几个数据，防抖 ----------------------------------
+
+const debounceRender = debounce(() => {
+  const step = __currentIndex.value
+
+  if (!audiosData.value[step]) {
+    tagData2Buffer(stepMap.get(step)[0][1]).then((data) => {
+      loading.value = false
+      console.log('请求数据成功，设置当前step为', step)
+      nowStep.value = step
+      // 将数据添加到audiosData中
+      audiosData.value[data.nowStep] = data.data
+    })
+  } else {
+    console.log('已经存在数据，不需要请求, 设置当前step为', step)
+    loading.value = false
+    nowStep.value = step
+  }
+}, 500)
 
 // ---------------------------------- 数据驱动控制音频组件渲染 ----------------------------------
+// 音频数据，格式为 {tag: {audio: AudioBuffer, title: String}}
 const audiosTagData = ref()
 // 音频数据缓存，格式为 {step: nowData }
 const audiosData = ref({})
 // 当前展示的是第几步的数据，格式为{tag: {audio: AudioBuffer, title: String}}
 const audioData = computed(() => {
   if (nowStep.value === undefined) return undefined
-  // console.log('nowStep', nowStep.value, audiosData.value[nowStep.value])
+  // console.log('nowStep变化：', nowStep.value)
   return audiosData.value[nowStep.value]
 })
 // 当前展示的步数
@@ -169,10 +209,11 @@ const getMediaData = async (data, tag) => {
  * 将 tag 数据转成 AudioBuffer，添加到audiosData中
  * 并且设置当前step为index对应的step,最终返回当前的step和最大step和最小step
  * 后续如果要兼容多数据，就在此处添加逻辑
- * @param { number } index
+ * @param { number } index 当前数据的索引,并不是step
  */
 const tagData2Buffer = async (index) => {
   const tag = source.value[0]
+  console.log('tagData2Buffer', tag, index)
   const data = audiosTagData.value[tag].list[index]
   const audioBuffer = await getMediaData(data.data, tag)
   nowStep.value = Number(data.index)
@@ -185,10 +226,35 @@ const tagData2Buffer = async (index) => {
   }
 }
 
+//  step与data[tag].list[index]的映射关系，每次change都会更新
+// 通过step，可以找到对应的tag和index，{step: [[tag, index],]}
+const stepMap = new Map()
+
+const setStepMap = (data) => {
+  // 遍历data[tag].list，将step与index的映射关系存储到stepMap中
+  // 获取所有tag
+  const tags = Object.keys(data)
+  // 最长数组长度
+  const maxLength = Math.max(...tags.map((tag) => data[tag].list.length))
+  for (let i = 0; i < maxLength; i++) {
+    for (const tag of tags) {
+      const step = Number(data[tag].list[i].index)
+      if (!stepMap.has(i)) stepMap.set(step, [])
+      if (data[tag].list[i]) {
+        // 如果这个step中已经存在此tag，则不需要添加
+        if (stepMap.get(step).findIndex((item) => item[0] === tag) === -1) {
+          stepMap.get(step).push([tag, i])
+        }
+      }
+    }
+  }
+}
+
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 // 渲染
 const render = async (data) => {
   audiosTagData.value = data
+  setStepMap(data)
   // 根据 data 获取所有的音频数据，存储到audiosData中
   // 当前step必然为第一个，因为是第一次渲染，所以其他的数据不需要请求,只需要请求第一个就可以
   const steps = await tagData2Buffer(0)
@@ -208,6 +274,7 @@ const change = async (data) => {
   const tag = source.value[0]
   maxIndex.value = Number(data[tag].list[data[tag].list.length - 1].index)
   minIndex.value = Number(data[tag].list[0].index)
+  setStepMap(data)
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
