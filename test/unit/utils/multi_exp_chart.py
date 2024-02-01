@@ -7,17 +7,3 @@ r"""
 @Description:
     测试多实验图表后端数据生成
 """
-import os
-import sys
-import subprocess
-from create_exp import run, save_dir
-import shutil
-
-if os.path.exists(save_dir):
-    shutil.rmtree(save_dir)
-os.mkdir(save_dir)
-
-
-run()
-
-run()

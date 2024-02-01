@@ -35,10 +35,6 @@ def run():
     sample_rate = 44100
     test_audio_arr = np.random.randn(2, 100000)
     run.log({"test-1": 1, "test-2": 1, "no": swanlab.Audio(test_audio_arr, sample_rate=sample_rate)})
-    try:
-        swanlab.finish(another_run=True)
-    except RuntimeError:
-        pass
 
 
 if __name__ == "__main__":
