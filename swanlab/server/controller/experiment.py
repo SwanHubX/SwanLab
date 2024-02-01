@@ -389,7 +389,8 @@ def get_recent_logs(experiment_id):
     # # current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r", encoding="utf-8") as log:
-            logs.extend(log.read().split("\n"))
+            # logs.extend(log.read().split("\n"))
+            logs = log.read().split("\n") + logs
             # 如果当前收集到的数据超过限制，退出循环
             if len(logs) >= MAX_NUM:
                 # current_page = index
@@ -398,7 +399,7 @@ def get_recent_logs(experiment_id):
     if logs[0] == "":
         return NOT_FOUND_404("No Logs Found")
 
-    logs = logs[:100]
+    logs = logs[:MAX_NUM]
     end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
     data = {
         "recent": [logs[0].split(" ")[0], end],
