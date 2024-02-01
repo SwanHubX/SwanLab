@@ -6,6 +6,7 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
+      {{ $t('experiment.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
   <!-- 如果图表数据正确 -->
@@ -86,11 +87,6 @@ const props = defineProps({
 // 图表相关 tag
 const source = computed(() => {
   return props.chart?.source || []
-})
-
-// 注意！目前是单 tag，故默认选中第一个 tag
-const defaultTag = computed(() => {
-  return source.value[0]
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
