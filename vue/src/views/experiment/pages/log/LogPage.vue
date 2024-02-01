@@ -3,7 +3,7 @@
     <FuncBar
       class="pb-6"
       @input="search"
-      :content="logs?.join('\n')"
+      :content="download"
       :placeholder="$t('experiment.func-bar.placeholder.log')"
       :filename="filename"
       v-if="logs"
@@ -100,6 +100,15 @@ const lastLineIndex = computed(() => {
     return Number(line.index) > Number(max) ? line.index : max
   }, 0)
   return Number(maxIndex)
+})
+
+const download = computed(() => {
+  const log_list = logs.value?.map((log) => {
+    const noIndex = isNaN(log.substring(0, log.indexOf(' ')))
+    return noIndex ? log : log.substring(log.indexOf(' ')).trimStart()
+  })
+
+  return log_list?.join('\n') + errorLogs.value.join('\n')
 })
 
 function splitStringBySearch(target, substring) {
