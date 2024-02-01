@@ -18,17 +18,21 @@ import os
 
 
 class Audio(BaseType):
-    """
-    Audio class constructor
+    """Audio class constructor
+
+    Parameters
     ----
-    data_or_path: str or numpy.array
+    data_or_path: (str or numpy.array) Path to an audio file or numpy array of audio data.
+    sample_rate: (int) Sample rate of the audio data. Required when input is numpy array.
+    caption: (str) Caption for the audio.
     """
 
-    def __init__(self, data_or_path, sample_rate: int = None):
+    def __init__(self, data_or_path, sample_rate: int = None, caption: str = None):
         """Accept a path to an audio file on a numpу array of audio data."""
         super().__init__(data_or_path)
         self.audio_data = None
         self.sample_rate = None
+        self.caption = caption
         if sample_rate is not None:
             self.sample_rate = sample_rate
 
@@ -108,9 +112,8 @@ class Audio(BaseType):
 
     def save(self, save_path):
         """
-        保存静态资源文件 .wav 到指定路径
-        audio-{tag}-{step}.wav
-        audio-{tag}-{step}.json
+        保存媒体资源文件 .wav 到指定路径
+        audio-step{}.wav
         """
         try:
             write_audio_data = self.audio_data.T

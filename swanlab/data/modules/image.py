@@ -5,9 +5,18 @@ import os
 
 
 class Image(BaseType):
-    def __init__(self, data_or_path):
+    """Image class constructor
+
+    Parameters
+    ----------
+    data_or_path: (str or numpy.array) Path to the image file or numpy array of image data.
+    caption: (str) Caption for the image.
+    """
+
+    def __init__(self, data_or_path, caption: str = None):
         super().__init__(data_or_path)
         self.image_data = None
+        self.caption = caption
 
     def get_data(self):
         self.preprocess(self.value)
