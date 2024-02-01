@@ -36,7 +36,7 @@
           <span>{{ line }}</span>
         </div>
         <!-- 没有日志 -->
-        <div class="w-full py-10 flex flex-col items-center text-lg font-semibold">
+        <div class="w-full py-10 flex flex-col items-center text-lg font-semibold" v-if="logs.length === 0">
           <SLIcon class="magnifier" icon="search"></SLIcon>
           <span>No Logs</span>
         </div>
