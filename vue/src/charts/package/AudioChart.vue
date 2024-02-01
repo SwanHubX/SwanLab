@@ -32,7 +32,10 @@
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <div class="mt-15 p-2 w-full border border-dimmer rounded-sm relative h-56">
-        <AudioModule :audios="audioData" :key="nowStep" v-if="audioData" />
+        <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
+        <div class="flex flex-col justify-center items-center h-full" v-if="loading">
+          <SLLoading />
+        </div>
       </div>
       <div class="h-8 mt-20">
         <SlideBar
