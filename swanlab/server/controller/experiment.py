@@ -389,7 +389,6 @@ def get_recent_logs(experiment_id):
     # # current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r", encoding="utf-8") as log:
-            # logs.extend(log.read().split("\n"))
             logs = log.read().split("\n") + logs
             # 如果当前收集到的数据超过限制，退出循环
             if len(logs) >= MAX_NUM:

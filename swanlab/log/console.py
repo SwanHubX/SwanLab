@@ -167,7 +167,7 @@ class Consoler(sys.stdout.__class__, LeverCtl):
                 message = str(self.__sum) + " " + FONT.clear(message)
             else:
                 message = FONT.clear(message)
-        # 如果是一个不带换行的字符串，需要判断一下前一个message是否带有换行
+        # 如果是一个头尾不带换行的字符串，需要判断一下前一个message是否带有换行
         else:
             if self.__previous_message.endswith("\n"):
                 self.__sum += 1
