@@ -278,7 +278,7 @@ class SwanLabTag:
         if not isinstance(data, tuple(self.data_types)):
             try:
                 data = self.try_convert(data)
-            except:
+            except ValueError:
                 # 此时代表数据异常，拿到data的__class__.__name__，生成error并保存
                 if isinstance(data, BaseType):
                     class_name = data.value.__class__.__name__
