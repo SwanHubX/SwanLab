@@ -12,6 +12,8 @@ import swanlab
 import os
 import numpy as np
 import shutil
+import sys
+import io
 
 # 当前文件的绝对路径
 cur_path = os.path.abspath(__file__)
@@ -21,6 +23,9 @@ save_dir = os.path.join(os.path.dirname(os.path.dirname(cur_path)), "temp", "mut
 
 def run():
     """运行试验"""
+    buffer = io.BytesIO()
+    # 重定向标准输出流
+    sys.stdout = buffer
     # 设置swanlog存储位置
     os.environ[ROOT] = save_dir
     if os.path.exists(os.environ[ROOT]):
