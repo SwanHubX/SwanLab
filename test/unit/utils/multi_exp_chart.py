@@ -46,3 +46,10 @@ if __name__ == "__main__":
 
     process1.join()
     process2.join()
+
+    # 开始校验数据库信息
+    from swanlab.db import *
+
+    # 连接数据库
+    connect()
+    # ...
