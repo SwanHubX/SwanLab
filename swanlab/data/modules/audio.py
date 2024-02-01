@@ -36,9 +36,11 @@ class Audio(BaseType):
         self.audio_data = None
         self.sample_rate = sample_rate
         self.caption = caption
+        if self.caption is not None:
+            self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        self.preprocess(self.value)
+        self.__preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = f"audio-step{self.step}.wav"
         if not os.path.exists(save_dir):
@@ -46,13 +48,25 @@ class Audio(BaseType):
         save_path = os.path.join(save_dir, save_name)
 
         # 保存音频数据到指定目录
-        self.save(save_path)
+        self.__save(save_path)
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "numpy.array"]
 
-    def preprocess(self, data_or_path):
+    def __convert_caption(self, caption):
+        """将caption转换为字符串"""
+        # 如果类型是字符串，则不做转换
+        if isinstance(caption, str):
+            caption = caption
+        # 如果类型是数字，则转换为字符串
+        elif isinstance(caption, (int, float)):
+            caption = str(caption)
+        else:
+            raise TypeError("caption must be a string, int or float.")
+        return caption
+
+    def __preprocess(self, data_or_path):
         """
         根据输入不同的输入类型进行不同处理
         """
@@ -60,9 +74,9 @@ class Audio(BaseType):
             # 如果输入为路径字符串
             # 根据输入是否为 json , 选择不同的加载方式
             if data_or_path.endswith(".json"):
-                self.load_from_json(data_or_path)
+                self.__load_from_json(data_or_path)
             else:
-                self.audio_data, self.sample_rate = self.load_audio_from_path(data_or_path)
+                self.audio_data, self.sample_rate = self.__load_audio_from_path(data_or_path)
 
         elif isinstance(data_or_path, np.ndarray):
             # 如果输入为numpy array ，要求输入为 (num_channels, num_frames) 的形式
@@ -77,7 +91,7 @@ class Audio(BaseType):
             # 以上都不是，则报错
             raise TypeError("Unsupported audio type. Please provide a valid path or numpy array.")
 
-    def load_audio_from_path(self, path):
+    def __load_audio_from_path(self, path):
         """判断字符串是否为正确的音频文件路径，如果是则转换为numpy array，如果不是则报错"""
         try:
             audio_data, sample_rate = sf.read(path)
@@ -88,7 +102,7 @@ class Audio(BaseType):
         except Exception as e:
             raise ValueError(f"Invalid audio path: {path}") from e
 
-    def to_json(self, audio_path, json_path):
+    def __to_json(self, audio_path, json_path):
         """将音频元数据转换为json文件"""
         audio_json = {}
         audio_json["type"] = "audio"
@@ -99,19 +113,19 @@ class Audio(BaseType):
         with open(json_path, "w") as f:
             json.dump(audio_json, f)
 
-    def load_from_json(self, json_path):
+    def __load_from_json(self, json_path):
         """从json文件中加载音频元数据"""
         with open(json_path, "r") as f:
             audio_json = json.load(f)
         json_sample_rate = audio_json["sample_rate"]
         file_path = audio_json["file_path"]
-        audio_data, data_sample_rate = self.load_audio_from_path(file_path)
+        audio_data, data_sample_rate = self.__load_audio_from_path(file_path)
         if json_sample_rate != data_sample_rate:
             raise TypeError("sample_rate in json file is not equal to the sample_rate of the audio file")
         self.audio_data = audio_data
         self.sample_rate = data_sample_rate
 
-    def save(self, save_path):
+    def __save(self, save_path):
         """
         保存媒体资源文件 .wav 到指定路径
         audio-step{}.wav
@@ -124,9 +138,9 @@ class Audio(BaseType):
 
     def get_config(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        caption_value = self.caption if self.caption is not None else ""
+        # 如果没有设置caption，则caption的值为None
         return {
-            "caption": caption_value,
+            "caption": self.caption,
         }
 
     def get_namespace(self, *args, **kwargs) -> str:

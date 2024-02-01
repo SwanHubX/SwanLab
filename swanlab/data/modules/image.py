@@ -19,9 +19,11 @@ class Image(BaseType):
         super().__init__(data_or_path)
         self.image_data = None
         self.caption = caption
+        if self.caption is not None:
+            self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        self.preprocess(self.value)
+        self.__preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = f"image-step{self.step}.png"
         if os.path.exists(save_dir) is False:
@@ -29,20 +31,32 @@ class Image(BaseType):
         save_path = os.path.join(save_dir, f"image-step{self.step}.png")
 
         # 保存图像到指定目录
-        self.save(save_path)
+        self.__save(save_path)
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "numpy.array", "PIL.Image.Image"]
 
-    def preprocess(self, data):
+    def __convert_caption(self, caption):
+        """将caption转换为字符串"""
+        # 如果类型是字符串，则不做转换
+        if isinstance(caption, str):
+            caption = caption
+        # 如果类型是数字，则转换为字符串
+        elif isinstance(caption, (int, float)):
+            caption = str(caption)
+        else:
+            raise TypeError("caption must be a string, int or float.")
+        return caption
+
+    def __preprocess(self, data):
         """将不同类型的输入转换为PIL图像"""
         if isinstance(data, str):
             # 如果输入为字符串
-            image = self.load_image_from_path(data)
+            image = self.__load_image_from_path(data)
         elif isinstance(data, np.ndarray):
             # 如果输入为numpy array
-            image = self.convert_numpy_array_to_image(data)
+            image = self.__convert_numpy_array_to_image(data)
         elif isinstance(data, PILImage.Image):
             # 如果输入为PIL.Image
             image = data
@@ -51,28 +65,28 @@ class Image(BaseType):
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
 
         # 对数据做通道转换
-        image = self.convert_channels(image)
+        image = self.__convert_channels(image)
 
         # 缩放大小
-        image = self.resize(image)
+        image = self.__resize(image)
 
         self.image_data = image
 
-    def load_image_from_path(self, path):
+    def __load_image_from_path(self, path):
         """判断字符串是否为正确的图像路径，如果是则返回PIL.Image类型对象，如果不是则报错"""
         try:
             return PILImage.open(path)
         except Exception as e:
             raise TypeError(f"Invalid image path: {path}") from e
 
-    def convert_numpy_array_to_image(self, array):
+    def __convert_numpy_array_to_image(self, array):
         """判断np array对象是否能转换为PIL.Image，如果是则返回PIL.Image类型对象，如果不是则报错"""
         try:
             return PILImage.fromarray(array)
         except Exception as e:
             raise TypeError("Invalid numpy array for the image") from e
 
-    def convert_channels(self, image):
+    def __convert_channels(self, image):
         """将1通道和4通道图像转换为3通道的RGB图像。"""
         if image.mode == "L":  # 1-channel
             return image.convert("RGB")
@@ -80,13 +94,13 @@ class Image(BaseType):
             return image.convert("RGB")
         return image
 
-    def resize(self, image, MAX_DIMENSION=1280):
+    def __resize(self, image, MAX_DIMENSION=1280):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
         if max(image.size) > MAX_DIMENSION:
             image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
         return image
 
-    def save(self, save_path):
+    def __save(self, save_path):
         """将图像保存到指定路径"""
         pil_image = self.image_data
         if not isinstance(pil_image, PILImage.Image):
@@ -98,9 +112,9 @@ class Image(BaseType):
 
     def get_config(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        caption_value = self.caption if self.caption is not None else ""
+        # 如果没有设置caption，则caption的值为None
         return {
-            "caption": caption_value,
+            "caption": self.caption,
         }
 
     def get_namespace(self, *args, **kwargs) -> str:
