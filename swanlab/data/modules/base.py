@@ -72,6 +72,11 @@ class BaseType(ABC):
         """获取config数据，应该返回一个字典"""
         return {}
 
+    @abstractmethod
+    def expect_types(self, *args, **kwargs) -> list:
+        """输入期望的数据类型，list类型，例如["int", "float"]"""
+        pass
+
     # ---------------------------------- 向子类暴露tag、step、create_time,他们的值只能修改一次 ----------------------------------
     @property
     def tag(self):

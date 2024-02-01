@@ -50,6 +50,9 @@ class Audio(BaseType):
         # print("save_relative_path", save_relative_path)
         return save_name
 
+    def expect_types(self, *args, **kwargs) -> list:
+        return ["str", "numpy.array"]
+
     def preprocess(self, data_or_path):
         """
         根据输入不同的输入类型进行不同处理

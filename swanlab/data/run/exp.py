@@ -282,9 +282,10 @@ class SwanLabTag:
                 # 此时代表数据异常，拿到data的__class__.__name__，生成error并保存
                 if isinstance(data, BaseType):
                     class_name = data.value.__class__.__name__
+                    excepted = data.expect_types()
                 else:
                     class_name = data.__class__.__name__
-                excepted = [i.__name__ for i in self.data_types]
+                    excepted = [i.__name__ for i in self.data_types]
                 swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
