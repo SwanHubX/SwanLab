@@ -150,6 +150,13 @@ class RequestMap {
   setError(key) {
     this._map.set(key, 'error')
   }
+
+  /**
+   * 获取某个key的状态
+   */
+  get(key) {
+    return this._map.get(key)
+  }
 }
 
 // 轮询映射表，提供轮询间隔的设置、依据id清除轮询等功能
@@ -308,7 +315,7 @@ class EventEmitter {
     // 等待第一次请求完成，然后设置轮询
     Promise.all(promises).then(() => {
       // 如果实验状态不是0，停止轮询
-      if (!experimentStore.isRunning) return
+      if (!experimentStore.isRunning) return console.log('stop, experiment status is not 0')
       // 遍历源列表，请求数据
       this._sources.forEach((tag) => {
         // 设置轮询
@@ -323,7 +330,7 @@ class EventEmitter {
    * @param { string } tag 源名称
    */
   _getTagRequestInterval(tag) {
-    console.log('设置轮询', tag)
+    // console.log('设置轮询', tag)
     this._timerMap.setInterval(tag, this._sourceMap.get(tag)?.list.length || 0, () => {
       // 在此处取出pinia中的charts配置，重新设置
       experimentStore.charts && parseCharts(experimentStore.charts)
@@ -381,6 +388,7 @@ class EventEmitter {
    * 回调函数接收三个参数，分别是tag、data和err
    */
   $on(tags, cid, callback) {
+    console.log('订阅', tags, cid)
     tags = tags || []
     tags.map((tag) => {
       // 拿到已经订阅的回调函数
@@ -393,6 +401,11 @@ class EventEmitter {
       if (this._request.canRequest(tag)) {
         console.warn('数据不存在，发起请求')
         return this._getSoureceData(tag)
+      }
+      // 如果这个tag的请求已经失败，执行回调函数
+      if (this._request.get(tag) === 'error') {
+        console.warn('数据请求失败，执行回调函数')
+        return callback(tag, null, true)
       }
     })
   }

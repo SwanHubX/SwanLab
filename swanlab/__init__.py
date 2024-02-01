@@ -4,6 +4,7 @@ from .data import (
     log,
     finish,
     config,
+    Audio,
 )
 from .utils import get_package_version
 

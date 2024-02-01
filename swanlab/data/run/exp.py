@@ -240,11 +240,13 @@ class SwanLabTag:
             # data_type不变
             namespace, chart_type, reference, config = "default", "default", "step", None
             sort = 0
+            data_type = "default"
         else:
             # 解构数据
             namespace, types, reference, config = data.__next__()
             chart_type, self.data_types = types
             sort = None
+            data_type = data.__class__.__name__.lower()
         # 创建chart
         self.__chart: Chart = Chart.create(
             tag,
@@ -276,21 +278,24 @@ class SwanLabTag:
         if not isinstance(data, tuple(self.data_types)):
             try:
                 data = self.try_convert(data)
-            except:
+            except ValueError:
                 # 此时代表数据异常，拿到data的__class__.__name__，生成error并保存
-                class_name = data.__class__.__name__
-                excepted = [i.__name__ for i in self.data_types]
+                if isinstance(data, BaseType):
+                    class_name = data.value.__class__.__name__
+                    excepted = data.expect_types()
+                else:
+                    class_name = data.__class__.__name__
+                    excepted = [i.__name__ for i in self.data_types]
                 swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
             """如果data是nan，生成error并保存"""
             error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
-        # 添加一条tag记录
         tag: Tag = Tag.create(
             experiment_id=self.experiment_id,
             name=tag,
-            # TODO 类型暂时为default
-            type="default",
+            # 如果data是BaseType类型，使用data的小写类名，否则使用default
+            type=data_type,
         )
         # 添加一条source记录
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)

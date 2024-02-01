@@ -27,7 +27,7 @@ from .settings import ASSETS
 app = FastAPI()
 version = get_package_version()
 
-# 注册静态文件路径
+# 注册前端静态文件路径
 static_path = "/assets"
 static = StaticFiles(directory=ASSETS)
 app.mount(static_path, static)
@@ -86,7 +86,11 @@ async def _(*args, **kwargs):
 from .router.experiment import router as experiment
 from .router.project import router as project
 
+# 媒体文件路由，允许前端获取其他产生的媒体文件
+from .router.media import router as media
+
 # 使用配置列表，统一导入
 prefix = "/api/v1"
 app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")
+app.include_router(media, prefix=prefix + "/media")

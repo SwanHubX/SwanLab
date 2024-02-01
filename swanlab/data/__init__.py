@@ -9,6 +9,7 @@ r"""
 """
 from .modules import (
     BaseType,
+    Audio,
 )
 from .sdk import (
     init,
