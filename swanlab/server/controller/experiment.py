@@ -381,7 +381,7 @@ def get_recent_logs(experiment_id):
     if len(consoles) == 0 and error is None:
         return NOT_FOUND_404("No Logs Found")
     # 如果只有错误日志，直接返回
-    elif len(consoles) == 0 and error is None:
+    elif len(consoles) == 0 and error:
         return SUCCESS_200({"error": error})
 
     total: int = len(consoles)

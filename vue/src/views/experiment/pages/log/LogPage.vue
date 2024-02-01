@@ -36,7 +36,10 @@
           <span>{{ line }}</span>
         </div>
         <!-- 没有日志 -->
-        <div class="w-full py-10 flex flex-col items-center text-lg font-semibold" v-if="logs.length === 0">
+        <div
+          class="w-full py-10 flex flex-col items-center text-lg font-semibold"
+          v-if="logs.length === 0 && errorLogs.length === 0"
+        >
           <SLIcon class="magnifier" icon="search"></SLIcon>
           <span>No Logs</span>
         </div>
@@ -95,7 +98,7 @@ const lastLineIndex = computed(() => {
   const maxIndex = lines.value?.reduce((max, line) => {
     if (!line.index) return max
     return Number(line.index) > Number(max) ? line.index : max
-  }, -Infinity)
+  }, 0)
   return Number(maxIndex)
 })
 
@@ -123,7 +126,7 @@ const errorLogs = ref([])
     return
   })
   // 设置日志
-  logs.value = data.logs
+  logs.value = data.logs || []
   if (data.error) errorLogs.value = data.error
   addTaskToBrowserMainThread(() => {
     // 滚动到底部
