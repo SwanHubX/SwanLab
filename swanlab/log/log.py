@@ -16,14 +16,14 @@ class Logsys:
     def setSuccess(self):
         if self.isRunning:
             self.__status = "success"
-        else:
-            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
+        # else:
+        #     raise RuntimeError("current status is %s. You can only set success while runnging" % self.__status)
 
     def setError(self):
         if self.isRunning:
             self.__status = "error"
-        else:
-            raise Exception("current status is %s. You can only set success while runnging" % self.__status)
+        # else:
+        #     raise RuntimeError("current status is %s. You can only set success while runnging" % self.__status)
 
     @property
     def isSuccess(self) -> bool:

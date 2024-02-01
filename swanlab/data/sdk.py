@@ -149,14 +149,21 @@ def log(data: Dict[str, DataType], step: int = None, loggings: bool = None):
     return l
 
 
-def finish():
+def finish(another_run: bool = False):
     """
     Finish the current run and close the current experiment
     Normally, swanlab will run this function automatically,
     but you can also execute it manually and mark the experiment as 'completed'.
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
+
+    Parameters
+    ----------
+    another_run : bool, optional
+        Whether to start another experiment after closing the current experiment.
+        If True, the current experiment will be closed and you can create a new experiment by `init`.
+        If False, the current experiment will be closed and you can no longer log data to the current process.
     """
-    global run
+    global run, inited
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
     if run is None:
@@ -165,6 +172,7 @@ def finish():
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
+    inited = not another_run
 
 
 def __clean_handler():

@@ -15,6 +15,7 @@
     "index": "home",
     "readme_files": "custom",
     "run": "core",
+    "system": "core",
     "data": "guard"
   },
   "material-icon-theme.files.associations": {
