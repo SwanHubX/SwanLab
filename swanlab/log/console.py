@@ -3,6 +3,7 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
+import io
 
 
 class LeverCtl(object):
@@ -113,7 +114,9 @@ class Consoler(sys.stdout.__class__, LeverCtl):
     __previous_message = None
 
     def __init__(self):
-        super().__init__(sys.stdout.buffer)
+        buffer1 = io.StringIO()
+        buffer2 = io.StringIO()
+        super().__init__(buffer1, buffer2)
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
 
     def init(self, path, swanlog_level="debug"):

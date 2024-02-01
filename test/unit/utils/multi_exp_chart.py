@@ -23,14 +23,8 @@ save_dir = os.path.join(os.path.dirname(os.path.dirname(cur_path)), "temp", "mut
 
 def run():
     """运行试验"""
-    buffer = io.BytesIO()
-    # 重定向标准输出流
-    sys.stdout = buffer
     # 设置swanlog存储位置
     os.environ[ROOT] = save_dir
-    if os.path.exists(os.environ[ROOT]):
-        shutil.rmtree(os.environ[ROOT])
-    os.mkdir(os.environ[ROOT])
     print("set swanlog path: ", os.environ[ROOT])
     run = swanlab.init(log_level="debug")
     # audio
@@ -40,17 +34,24 @@ def run():
 
 
 if __name__ == "__main__":
+    if os.path.exists(save_dir):
+        shutil.rmtree(save_dir)
+    os.mkdir(save_dir)
+
     # 开启两个进程，写入两个实验
     import multiprocessing
 
     process1 = multiprocessing.Process(target=run)
     process2 = multiprocessing.Process(target=run)
+    process3 = multiprocessing.Process(target=run)
 
     process1.start()
     process2.start()
+    process3.start()
 
     process1.join()
     process2.join()
+    process3.join()
 
     # 开始校验数据库信息
     from swanlab.db import *
