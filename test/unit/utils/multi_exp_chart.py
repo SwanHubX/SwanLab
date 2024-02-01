@@ -50,6 +50,6 @@ if __name__ == "__main__":
     # 开始校验数据库信息
     from swanlab.db import *
 
+    print("check database...")
     # 连接数据库
     connect()
-    # ...
