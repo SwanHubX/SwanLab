@@ -21,20 +21,21 @@ class Audio(BaseType):
     """Audio class constructor
 
     Parameters
-    ----
-    data_or_path: (str or numpy.array) Path to an audio file or numpy array of audio data.
-    sample_rate: (int) Sample rate of the audio data. Required when input is numpy array.
-    caption: (str) Caption for the audio.
+    ----------
+    data_or_path: str or numpy.array
+        Path to an audio file or numpy array of audio data.
+    sample_rate: int
+            Sample rate of the audio data. Required when input is numpy array.
+    caption: str
+        Caption for the audio.
     """
 
     def __init__(self, data_or_path, sample_rate: int = None, caption: str = None):
         """Accept a path to an audio file on a numpу array of audio data."""
         super().__init__(data_or_path)
         self.audio_data = None
-        self.sample_rate = None
+        self.sample_rate = sample_rate
         self.caption = caption
-        if sample_rate is not None:
-            self.sample_rate = sample_rate
 
     def get_data(self):
         self.preprocess(self.value)
@@ -106,7 +107,7 @@ class Audio(BaseType):
         file_path = audio_json["file_path"]
         audio_data, data_sample_rate = self.load_audio_from_path(file_path)
         if json_sample_rate != data_sample_rate:
-            raise ValueError("sample_rate in json file is not equal to the sample_rate of the audio file")
+            raise TypeError("sample_rate in json file is not equal to the sample_rate of the audio file")
         self.audio_data = audio_data
         self.sample_rate = data_sample_rate
 
@@ -120,6 +121,13 @@ class Audio(BaseType):
             sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
         except Exception as e:
             raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
+
+    def get_config(self, *args, **kwargs) -> dict:
+        """返回config数据"""
+        caption_value = self.caption if self.caption is not None else ""
+        return {
+            "caption": caption_value,
+        }
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""

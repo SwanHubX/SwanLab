@@ -9,8 +9,10 @@ class Image(BaseType):
 
     Parameters
     ----------
-    data_or_path: (str or numpy.array) Path to the image file or numpy array of image data.
-    caption: (str) Caption for the image.
+    data_or_path: (str or numpy.array or PIL.Image)
+        Path to the image file, numpy array of image data or PIL.Image data.
+    caption: (str)
+        Caption for the image.
     """
 
     def __init__(self, data_or_path, caption: str = None):
@@ -22,13 +24,16 @@ class Image(BaseType):
         self.preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = f"image-step{self.step}.png"
-        if os.path.exists(self.settings.static_dir) is False:
-            os.makedirs(self.settings.static_dir)
+        if os.path.exists(save_dir) is False:
+            os.makedirs(save_dir)
         save_path = os.path.join(save_dir, f"image-step{self.step}.png")
 
         # 保存图像到指定目录
         self.save(save_path)
         return save_name
+
+    def expect_types(self, *args, **kwargs) -> list:
+        return ["str", "numpy.array", "PIL.Image.Image"]
 
     def preprocess(self, data):
         """将不同类型的输入转换为PIL图像"""
@@ -58,14 +63,14 @@ class Image(BaseType):
         try:
             return PILImage.open(path)
         except Exception as e:
-            raise ValueError(f"Invalid image path: {path}") from e
+            raise TypeError(f"Invalid image path: {path}") from e
 
     def convert_numpy_array_to_image(self, array):
         """判断np array对象是否能转换为PIL.Image，如果是则返回PIL.Image类型对象，如果不是则报错"""
         try:
             return PILImage.fromarray(array)
         except Exception as e:
-            raise ValueError("Invalid numpy array for the image") from e
+            raise TypeError("Invalid numpy array for the image") from e
 
     def convert_channels(self, image):
         """将1通道和4通道图像转换为3通道的RGB图像。"""
@@ -83,10 +88,20 @@ class Image(BaseType):
 
     def save(self, save_path):
         """将图像保存到指定路径"""
+        pil_image = self.image_data
+        if not isinstance(pil_image, PILImage.Image):
+            raise TypeError("Invalid image data for the image")
         try:
-            self.image.save(save_path)
+            pil_image.save(save_path, format="png")
         except Exception as e:
-            raise ValueError(f"Could not save the image to the path: {save_path}") from e
+            raise TypeError(f"Could not save the image to the path: {save_path}") from e
+
+    def get_config(self, *args, **kwargs) -> dict:
+        """返回config数据"""
+        caption_value = self.caption if self.caption is not None else ""
+        return {
+            "caption": caption_value,
+        }
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
