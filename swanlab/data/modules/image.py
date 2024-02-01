@@ -66,7 +66,7 @@ class Image(BaseType):
             return image.convert("RGB")
         return image
 
-    def resize(self, image, MAX_DIMENSION=600):
+    def resize(self, image, MAX_DIMENSION=1280):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
         if max(image.size) > MAX_DIMENSION:
             image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
