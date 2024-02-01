@@ -31,7 +31,7 @@
         <!-- 错误日志 -->
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span class="w-8 text-right flex-shrink-0 select-none">{{ lines.length + index + 1 }}</span>
+          <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
         </div>
@@ -77,18 +77,26 @@ const logs = ref()
 
 // 分开行号和内容之后的日志
 const lines = computed(() => {
-  return logs.value.map((line) => {
+  return logs.value?.map((line) => {
     const noIndex = isNaN(line.substring(0, line.indexOf(' ')))
     const index = noIndex ? null : line.substring(0, line.indexOf(' '))
     const content = noIndex ? line : line.substring(line.indexOf(' ')).trimStart()
     const isTarget = searchValue.value !== '' && content.toLowerCase().includes(searchValue.value)
-
     return {
       isTarget,
       index,
       value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
+})
+
+// 正常内容最后一行的行号
+const lastLineIndex = computed(() => {
+  const maxIndex = lines.value?.reduce((max, line) => {
+    if (!line.index) return max
+    return Number(line.index) > Number(max) ? line.index : max
+  }, -Infinity)
+  return Number(maxIndex)
 })
 
 function splitStringBySearch(target, substring) {
