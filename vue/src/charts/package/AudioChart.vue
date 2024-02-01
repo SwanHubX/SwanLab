@@ -196,8 +196,8 @@ const getMediaData = async (data, tag) => {
   return new Promise((resolve, reject) => {
     audioContext.decodeAudioData(
       arrayBuffer,
-      (buffer) => {
-        resolve(buffer)
+      (audioBuffer) => {
+        resolve({ audioBuffer, audioBlob })
       },
       (error) => {
         reject(error)
@@ -215,13 +215,13 @@ const tagData2Buffer = async (index) => {
   const tag = source.value[0]
   console.log('tagData2Buffer', tag, index)
   const data = audiosTagData.value[tag].list[index]
-  const audioBuffer = await getMediaData(data.data, tag)
+  const { audioBuffer, audioBlob } = await getMediaData(data.data, tag)
   nowStep.value = Number(data.index)
   return {
     nowStep: Number(data.index),
     maxStep: Number(audiosTagData.value[tag].list[audiosTagData.value[tag].list.length - 1].index),
     minStep: Number(audiosTagData.value[tag].list[0].index),
-    data: [{ audioBuffer, title: data.data, tag: tag }],
+    data: [{ audioBuffer, audioBlob, title: data.data, tag: tag }],
     tag
   }
 }

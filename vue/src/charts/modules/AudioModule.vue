@@ -11,7 +11,10 @@
         />
         <!-- 当前时间 -->
         <p class="text-sm ml-1" v-if="audioRef[tag]">{{ formatTime(tag) }}</p>
+        <!-- 文件名称 -->
         <p class="text-sm w-full text-center -ml-10">{{ audios[index].title }}</p>
+        <!-- 下载按钮 -->
+        <DownloadButton @click="download(index)" />
       </div>
     </div>
   </div>
@@ -27,6 +30,7 @@ import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { ref, computed, inject, reactive, onUnmounted, onMounted } from 'vue'
 import PlayButton from '../components/PlayButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
+import DownloadButton from '../components/DownloadButton.vue'
 const props = defineProps({
   // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, tag: String } ]
   audios: {
@@ -38,7 +42,7 @@ const tags = computed(() => props.audios.map((audio) => audio.tag))
 const colors = inject('colors')
 // 所有音频容器
 const audiosRef = ref(null)
-// 单个音频容器集合, {tag:{audio:AudioBuffer, dom:HTMLDivElement}}
+// 单个音频容器集合, {tag:{audio:channels, dom:HTMLDivElement, ...}}
 const audioRef = reactive({})
 // 用于控制子播放组件的播放状态
 const playingList = ref(props.audios.map(() => false))
@@ -233,7 +237,7 @@ function createAudioOffestUpdator(tag, index) {
     draw(tag, index)
     // 如果offset大于1，则停止更新
     if (audioRef[tag].offset >= 1) {
-      console.log('播放结束')
+      // console.log('播放结束')
       destory()
       playingList.value[index] = false
       return
@@ -343,6 +347,17 @@ onUnmounted(() => {
   }
   observer.disconnect()
 })
+
+// ---------------------------------- audioBuffer to blob ----------------------------------
+const download = (index) => {
+  const blob = props.audios[index].audioBlob
+  const filename = props.audios[index].title
+  // console.log('blob', blob, filename)
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+}
 </script>
 
 <style lang="scss" scoped>
