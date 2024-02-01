@@ -71,9 +71,9 @@ class Audio(BaseType):
             # 支持单声道 或 双声道 两种形式
             num_channels = data_or_path.shape[0]
             if num_channels != 2 and num_channels != 1:
-                raise ValueError("Invalid numpy array for the audio data, support shape is (num_channels, num_frames)")
+                raise TypeError("Invalid numpy array for the audio data, support shape is (num_channels, num_frames)")
             if self.sample_rate is None:
-                raise ValueError("sample_rate must be provided when input is numpy array while constructing Audio()")
+                raise TypeError("sample_rate must be provided when input is numpy array while constructing Audio()")
             self.audio_data = data_or_path
         else:
             # 以上都不是，则报错
