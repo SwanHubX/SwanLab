@@ -366,6 +366,9 @@ def get_recent_logs(experiment_id):
     """
 
     console_path: str = __get_console_dir_by_id(experiment_id)
+    # 是否存在
+    if not os.path.exists(console_path):
+        return NOT_FOUND_404("Log Folder not Found")
     consoles: list = [f for f in os.listdir(console_path)]
     # 含有error.log，在返回值中带上其中的错误信息
     error = None
