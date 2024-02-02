@@ -24,6 +24,8 @@ class Image(BaseType):
             self.caption = self.__convert_caption(caption)
 
     def get_data(self):
+        if isinstance(self.value, list):
+            return [i.get_data() for i in self.value]
         self.__preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = f"image-step{self.step}.png"
@@ -112,7 +114,9 @@ class Image(BaseType):
             raise TypeError(f"Could not save the image to the path: {save_path}") from e
 
     def get_more(self, *args, **kwargs) -> dict:
-        """返回config数据"""
+        """返回每个step的data的更多信息的数据"""
+        if isinstance(self.value, list):
+            return [i.get_more() for i in self.value]
         return (
             {
                 "caption": self.caption,
