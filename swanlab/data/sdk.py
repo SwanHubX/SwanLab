@@ -124,7 +124,7 @@ def init(
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None, loggings: Optional(bool, list) = None):
+def log(data: Dict[str, DataType], step: int = None, loggings: Optional(bool, dict) = None):
     """
     Log a row of data to the current run.
 
@@ -142,6 +142,12 @@ def log(data: Dict[str, DataType], step: int = None, loggings: Optional(bool, li
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
+
+    loggings_dict = {
+        "open": None,
+        "prefix": False,
+        "file": False,
+    }
 
     if isinstance(loggings, bool):
         swanlog.set_temporary_logging(loggings)
