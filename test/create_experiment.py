@@ -8,13 +8,15 @@ lr = 0.01
 offset = random.random() / 5
 
 swanlab.init(
-    log_level="info",
+    log_level="debug",
     config={
         "epochs": epochs,
         "learning_rate": lr,
         "test": 1,
+        "debug": "这是一串" + "很长" * 100 + "的字符串",
         "verbose": 1,
     },
+    logggings=True,
 )
 
 for epoch in range(2, epochs):
@@ -22,8 +24,7 @@ for epoch in range(2, epochs):
         # audio
         sample_rate = 44100
         test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log({"WhiteNoise": swanlab.Audio(test_audio_arr, sample_rate, caption=epoch)}, step=epoch)
-        # swanlab.log({"Music": swanlab.Audio("/Users/zeyilin/Desktop/Coding/swanlab/test/assets/慢冷.mp3")}, step=epoch)
+        swanlab.log({"test/audio": swanlab.Audio(test_audio_arr)}, step=epoch)
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3
