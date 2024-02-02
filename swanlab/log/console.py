@@ -157,17 +157,36 @@ class Consoler(sys.stdout.__class__, LeverCtl):
             self.__sum += 1
             message = str(self.__sum) + " " + FONT.clear(message)
             self.__previous_message = ""
-        # 如果直接就是换行，什么都不做
+        # 如果直接就是换行
         elif message == "\n":
-            pass
-        # 如果以换行符结尾，那么是一个正常的 print 打印，正常处理和输出，单独占一行
-        elif message.endswith("\n"):
+            # 上一个消息也是以 \n 结尾
             if self.__previous_message.endswith("\n"):
                 self.__sum += 1
-                message = str(self.__sum) + " " + FONT.clear(message)
-            else:
-                message = FONT.clear(message)
-        # 如果是一个不带换行的字符串，需要判断一下前一个message是否带有换行
+                message = str(self.__sum) + " \n"
+        # 如果在字符串含有 \n
+        elif "\n" in message:
+            # 通过 \n 切割字符串
+            messages = FONT.clear(message).split("\n")
+            for index, msg in enumerate(messages):
+                # 两种情况不需要处理
+                # 为第一个子串，且上一条消息不是以换行结尾，那么不需要添加行号
+                # 为最后一个子串，且该子串为空，那么不需要添加行号
+                if (index == 0 and not self.__previous_message.endswith("\n")) or (
+                    index == len(messages) - 1 and msg == ""
+                ):
+                    pass
+                # 该字串需要单独一行展示，则添加行号
+                else:
+                    self.__sum += 1
+                    msg = str(self.__sum) + " " + msg
+                # 如果最后为空，说明原串以 \n 结尾，略过
+                if index == len(messages) - 1 and msg == "":
+                    pass
+                else:
+                    self.console.write(msg + "\n")
+            self.__previous_message = FONT.clear(message)
+            return self.console.flush()
+        # 如果是一个头尾不带换行的字符串，需要判断一下前一个message是否带有换行
         else:
             if self.__previous_message.endswith("\n"):
                 self.__sum += 1

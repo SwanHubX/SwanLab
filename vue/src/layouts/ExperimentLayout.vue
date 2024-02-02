@@ -128,7 +128,7 @@ const navs = [
   }
 }
 .experiment-description {
-  @apply mt-3.5 w-full break-words text-sm text-dimmer;
+  @apply mt-3 w-full break-words text-sm text-dimmer;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -136,7 +136,7 @@ const navs = [
 }
 
 .experiment-navs {
-  @apply flex items-center gap-8 mt-6 w-full overflow-x-auto overflow-y-visible;
+  @apply flex items-center gap-8 mt-3 w-full overflow-x-auto overflow-y-visible;
   // 隐藏滚动条
   &::-webkit-scrollbar {
     display: none;
