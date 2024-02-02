@@ -16,7 +16,8 @@
     "readme_files": "custom",
     "run": "core",
     "system": "core",
-    "data": "guard"
+    "data": "guard",
+    "unit": "test"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"

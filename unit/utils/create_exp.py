@@ -50,6 +50,8 @@ if __name__ == "__main__":
     assert exp.run_id == run.settings.run_id
     assert exp.name == exp_name
     assert exp.status == 1
+    # 新建实验的sort应该等于实验的id（目前是这样的
+    assert exp.sort == exp.id
     """
     检查当前实验的tag字段数量
     """

@@ -220,3 +220,13 @@ async def delete_project(project_id: int = DEFAULT_PROJECT_ID):
     project.delete_instance()
 
     return SUCCESS_200({})
+
+
+async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
+    """获取多实验对比图表数据,并且考虑往期版本兼容性
+    1. 如果当前项目的chart字段为0，先生成多实验对比数据，跳转步骤2
+    2. 依据规则获取所有实验的图表数据
+    """
+
+    # 获取项目下所有实验的图表数据
+    return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx"})
