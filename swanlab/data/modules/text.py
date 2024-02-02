@@ -88,12 +88,15 @@ class Text(BaseType):
             raise TypeError("caption must be a string, int or float.")
         return caption
 
-    def get_config(self, *args, **kwargs) -> dict:
+    def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        # 如果没有设置caption，则caption的值为None
-        return {
-            "caption": self.caption,
-        }
+        return (
+            {
+                "caption": self.caption,
+            }
+            if self.caption is not None
+            else None
+        )
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
