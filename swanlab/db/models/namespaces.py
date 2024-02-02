@@ -135,9 +135,18 @@ class Namespace(SwanModel):
         elif sort >= 0:
             # 如果指定了sort，那么将会把其他sort大于等于指定值的命名空间索引+1
             if experiment_id is not None:
-                cls.update(sort=cls.sort + 1).where(cls.experiment_id == experiment_id, cls.sort >= sort).execute()
+
+                cls.update(sort=cls.sort + 1).where(
+                    cls.experiment_id == experiment_id,
+                    cls.name != name,
+                    cls.sort >= sort,
+                ).execute()
             else:
-                cls.update(sort=cls.sort + 1).where(cls.project_id == project_id, cls.sort >= sort).execute()
+                cls.update(sort=cls.sort + 1).where(
+                    cls.project_id == project_id,
+                    cls.name != name,
+                    cls.sort >= sort,
+                ).execute()
 
         current_time = create_time()
 

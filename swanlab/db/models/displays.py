@@ -98,7 +98,8 @@ class Display(SwanModel):
             sort = 0 if sort is None else sort + 1
         elif sort >= 0 and cls.filter(cls.sort == sort).exists():
             # 先判断当前 sort 是否存在，如果存在，则将大于等于 sort 的索引加1，这样可以直接将数据插入
-            cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
+            if cls.filter(cls.sort == sort).exists():
+                cls.update(sort=cls.sort + 1).where(cls.sort >= sort).execute()
 
         current_time = create_time()
 
