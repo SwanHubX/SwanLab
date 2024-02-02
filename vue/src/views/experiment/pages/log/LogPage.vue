@@ -3,7 +3,7 @@
     <FuncBar
       class="pb-6"
       @input="search"
-      :content="logs?.join('\n')"
+      :content="download"
       :placeholder="$t('experiment.func-bar.placeholder.log')"
       :filename="filename"
       v-if="logs"
@@ -22,7 +22,7 @@
             <span
               v-for="substring in line.value"
               :key="substring"
-              :class="substring.toLowerCase() === searchValue ? ' bg-warning-dimmest' : ''"
+              :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
             >
               {{ substring }}
             </span>
@@ -31,9 +31,17 @@
         <!-- 错误日志 -->
         <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
           <!-- 行数 -->
-          <span class="w-8 text-right flex-shrink-0 select-none">{{ logs.length + index }}</span>
+          <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
           <!-- 日志内容 -->
           <span>{{ line }}</span>
+        </div>
+        <!-- 没有日志 -->
+        <div
+          class="w-full py-10 flex flex-col items-center text-lg font-semibold"
+          v-if="logs.length === 0 && errorLogs.length === 0"
+        >
+          <SLIcon class="magnifier" icon="search"></SLIcon>
+          <span>No Logs</span>
         </div>
       </div>
       <div class="flex h-full items-center justify-center" v-else>
@@ -72,17 +80,35 @@ const logs = ref()
 
 // 分开行号和内容之后的日志
 const lines = computed(() => {
-  return logs.value.map((line) => {
-    const index = line.substring(0, line.indexOf(' '))
-    const content = line.substring(line.indexOf(' '))
+  return logs.value?.map((line) => {
+    const noIndex = isNaN(line.substring(0, line.indexOf(' ')))
+    const index = noIndex ? null : line.substring(0, line.indexOf(' '))
+    const content = noIndex ? line : line.substring(line.indexOf(' ')).trimStart()
     const isTarget = searchValue.value !== '' && content.toLowerCase().includes(searchValue.value)
-
     return {
       isTarget,
       index,
       value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
+})
+
+// 正常内容最后一行的行号
+const lastLineIndex = computed(() => {
+  const maxIndex = lines.value?.reduce((max, line) => {
+    if (!line.index) return max
+    return Number(line.index) > Number(max) ? line.index : max
+  }, 0)
+  return Number(maxIndex)
+})
+
+const download = computed(() => {
+  const log_list = logs.value?.map((log) => {
+    const noIndex = isNaN(log.substring(0, log.indexOf(' ')))
+    return noIndex ? log : log.substring(log.indexOf(' ')).trimStart()
+  })
+
+  return log_list?.join('\n') + errorLogs.value.join('\n')
 })
 
 function splitStringBySearch(target, substring) {
@@ -100,14 +126,21 @@ function splitStringBySearch(target, substring) {
 const errorLogs = ref([])
 ;(async function () {
   // 获取日志
-  const { data } = await http.get(`/experiment/${id}/recent_log`)
-  // 设置日志
-  logs.value = data.logs
-  if (data.error) errorLogs.value = data.error
-  addTaskToBrowserMainThread(() => {
-    // 滚动到底部
-    logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
+  const { data } = await http.get(`/experiment/${id}/recent_log`).catch((error) => {
+    if (error.data.code === 3404) {
+      logs.value = []
+    } else {
+      console.error(error)
+    }
+    return
   })
+  // 设置日志
+  logs.value = data.logs || []
+  if (data.error) errorLogs.value = data.error
+  // addTaskToBrowserMainThread(() => {
+  //   // 滚动到底部
+  //   logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
+  // })
 })()
 
 // ---------------------------------- 搜索 ----------------------------------
@@ -141,6 +174,31 @@ const filename = 'print.log'
 
   .log-line {
     @apply flex gap-2 whitespace-pre-wrap;
+  }
+}
+
+$duration: 3s;
+
+.magnifier {
+  @apply w-10 h-10;
+  animation: animloader $duration infinite;
+}
+
+@keyframes animloader {
+  0% {
+    transform: translate(-5px, -5px);
+  }
+  25% {
+    transform: translate(-5px, 5px);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+  75% {
+    transform: translate(5px, -5px);
+  }
+  100% {
+    transform: translate(-5px, -5px);
   }
 }
 </style>

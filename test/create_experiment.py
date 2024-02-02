@@ -9,6 +9,10 @@ swanlab.init(
     log_level="info",
     config={
         "epochs": epochs,
+        "learning_rate": lr,
+        "test": 1,
+        "debug": "这是一串" + "很长" * 100 + "的字符串",
+        "verbose": 1,
     },
 )
 
