@@ -25,6 +25,12 @@ class Image(BaseType):
 
     def get_data(self):
         if isinstance(self.value, list):
+            datas = []
+            for i in self.value:
+                i.settings = self.settings
+                i.tag = self.tag
+                i.step = self.step
+                datas.append(i.get_data())
             return [i.get_data() for i in self.value]
         self.__preprocess(self.value)
         save_dir = os.path.join(self.settings.static_dir, self.tag)

@@ -3,7 +3,7 @@ import time
 import random
 import numpy as np
 
-epochs = 100
+epochs = 15
 lr = 0.01
 offset = random.random() / 5
 
@@ -21,10 +21,10 @@ swanlab.init(
 
 for epoch in range(2, epochs):
     if epoch % 10 == 0:
-        # audio
+        # 测试audio
         sample_rate = 44100
         test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log({"test/audio": swanlab.Audio(test_audio_arr)}, step=epoch)
+        swanlab.log({"test/audio": [swanlab.Image(test_audio_arr, caption="test")] * 3}, step=epoch)
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3
