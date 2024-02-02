@@ -14,7 +14,7 @@ import shutil
 from fastapi import Request
 from urllib.parse import quote
 from ...env import get_swanlog_dir
-from ...utils import get_a_lock, COLOR_LIST
+from ...utils import get_a_lock, COLOR_LIST, create_time
 from ...utils.file import check_desc_format
 import yaml
 from ...db import (
@@ -47,6 +47,8 @@ from ...db import (
     Project,
     Experiment,
     Tag,
+    Chart,
+    Source,
 )
 
 # 将查询结果对象转为列表
@@ -253,6 +255,7 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     except NotExistedError as e:
         return NOT_FOUND_404("Target project does not exist")
     temp = None
+
     # COMPAT 兼容以前没有多实验对比数据的情况
     # 如果不存在，则按照一下步骤和注意事项进行：
     # 1. 查找
@@ -261,6 +264,8 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     # 2. 生成
     # - 生成 chart
     # - 生成 source
+    # 3. 标记
+    # - 设置 project 中字段 charts 为 1，表示已经生成多实验表格
     if project.charts == 0:
         # 获取名称在两个及以上实验中出现过的 tag，同时 type 一致
         tags_with_same_name = (
@@ -282,15 +287,36 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             # 获取当前name的所有数据行
             target = Tag.filter(Tag.name == tag["name"], Tag.type == tag["type"])
             # 将数据行添加到结果列表
-            result_lists[tag["name"]] = [item["experiment_id"]["name"] for item in __to_list(target)]
-        # 至此 result_list 数据结构为：{ tag_name: [experiment_name] }，找到了所有可以生成多实验图表的 tag
-        temp = result_lists
+            result_lists[tag["name"]] = [
+                {"experiment_name": item["experiment_id"]["name"], "tag_id": item["id"]} for item in __to_list(target)
+            ]
+        # 至此 result_list 数据结构为：{ tag_name: [{experiment_name, tag_id}] }，找到了所有可以生成多实验图表的 tag
         # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
         db = connect()
         with db.atomic():
-            # 1. 生成图表
-            # 2. 生成source
-            pass
+            for key in result_lists:
+                # # 1. 生成图表
+                chart = Chart.create(key, experiment_id=None, project_id=project_id, system=0)
+                # # 2. 生成source
+                time = create_time()
+                sources = [
+                    {
+                        "tag_id": item["tag_id"],
+                        "chart_id": chart.id,
+                        "sort": index,
+                        "create_time": time,
+                        "update_time": time,
+                    }
+                    for index, item in enumerate(result_lists[key])
+                ]
+                Source.insert_many(sources).execute()
+            # 最后将 project 表中的 charts 标注为 1，即已经生成多实验表格
+            Project.update(charts=1).where(Project.id == project_id).execute()
+        db.commit()
+
+    # 获取当前项目下所有的多实验对比表
+    multi_charts = Chart.filter(Chart.project_id == project_id)
+    temp = __to_list(multi_charts)
 
     # 获取项目下所有实验的图表数据
     return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx", "temp": temp})
