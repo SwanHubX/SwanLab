@@ -26,17 +26,15 @@ os.environ[ROOT] = save_dir
 print("set swanlog path: ", os.environ[ROOT])
 
 
-if not os.path.exists(save_dir):
-    os.mkdir(save_dir)
-run = swanlab.init(log_level="debug")
-# audio
-sample_rate = 44100
-test_audio_arr = np.random.randn(2, 100000)
-run.log({"test-1": 1, "test-2": 1, "no": swanlab.Audio(test_audio_arr, sample_rate=sample_rate)})
-swanlab.finish()
-
-
 if __name__ == "__main__":
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+    run = swanlab.init(log_level="debug")
+    # audio
+    sample_rate = 44100
+    test_audio_arr = np.random.randn(2, 100000)
+    run.log({"test-1": 1, "test-2": 1, "no": swanlab.Audio(test_audio_arr, sample_rate=sample_rate)})
+    swanlab.finish()
     # 注册的实验名称
     exp_name = run.settings.exp_name
     # 检查写入的字段是否正确,不需要再次连接数据库

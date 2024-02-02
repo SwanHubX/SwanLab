@@ -227,6 +227,10 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     1. 如果当前项目的chart字段为0，先生成多实验对比数据，跳转步骤2
     2. 依据规则获取所有实验的图表数据
     """
+    # COMPAT 兼容以前没有多实验对比数据的情况
+    if Project.get(id=DEFAULT_PROJECT_ID).charts == 0:
+        # 生成多实验对比数据
+        pass
 
     # 获取项目下所有实验的图表数据
     return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx"})
