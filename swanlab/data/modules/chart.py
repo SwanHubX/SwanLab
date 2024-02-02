@@ -15,7 +15,7 @@ class Chart:
     # 折线图
     line = "line", [float, int]
     # 图片类型
-    image = "image", [str]
+    image = "image", [str, list]
     # 音频类型
     audio = "audio", [str]
     # 文本类型

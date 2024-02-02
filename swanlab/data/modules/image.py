@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
+from ..utils.file import get_file_hash_pil
 from typing import Union, List
 import os
 
@@ -19,21 +20,27 @@ class Image(BaseType):
     def __init__(self, data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]], caption: str = None):
         super().__init__(data_or_path)
         self.image_data = None
-        self.caption = caption
-        if self.caption is not None:
-            self.caption = self.__convert_caption(caption)
+        self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        self.__preprocess(self.value)
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"image-step{self.step}.png"
-        if os.path.exists(save_dir) is False:
-            os.makedirs(save_dir)
-        save_path = os.path.join(save_dir, f"image-step{self.step}.png")
-
-        # 保存图像到指定目录
-        self.__save(save_path)
-        return save_name
+        # 如果传入的是Image类列表
+        if isinstance(self.value, list):
+            return [value.get_data() for value in self.value]
+        # 如果传入的是其他类型
+        else:
+            self.__preprocess(self.value)
+            # 获取图像的hash值
+            hash_name = get_file_hash_pil(self.image_data)[:16]
+            # 设置保存路径, 保存文件名
+            save_dir = os.path.join(self.settings.static_dir, self.tag)
+            save_name = f"{self.caption}-step{self.step}-{hash_name}.png"
+            # 如果不存在目录则创建
+            if os.path.exists(save_dir) is False:
+                os.makedirs(save_dir)
+            save_path = os.path.join(save_dir, f"image-step{self.step}.png")
+            # 保存图像到指定目录
+            self.__save(save_path)
+            return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "numpy.array", "PIL.Image.Image"]
@@ -46,6 +53,9 @@ class Image(BaseType):
         # 如果类型是数字，则转换为字符串
         elif isinstance(caption, (int, float)):
             caption = str(caption)
+        # 如果类型是None，则转换为默认字符串
+        elif caption is None:
+            caption = "image"
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
@@ -113,13 +123,17 @@ class Image(BaseType):
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        return (
-            {
-                "caption": self.caption,
-            }
-            if self.caption is not None
-            else None
-        )
+        # 如果传入的是Image类列表
+        if isinstance(self.value, list):
+            return [value.get_more() for value in self.value]
+        else:
+            return (
+                {
+                    "caption": self.caption,
+                }
+                if self.caption is not None
+                else None
+            )
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
