@@ -316,7 +316,22 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
 
     # 获取当前项目下所有的多实验对比表
     multi_charts = Chart.filter(Chart.project_id == project_id)
-    temp = __to_list(multi_charts)
+    _sum = multi_charts.count()
+    charts = []
+    for _chart in multi_charts:
+        # 多实验图表的 source 中不是 tag_name，而是 experiment_name
+        sources = []
+        # 单箭头是通过外键反向索引的 chart -> source -> tag -> experiment => experiment_name
+        for source in _chart.sources:
+            sources.append(source.tag_id.experiment_id.name)
+        charts.append(
+            {
+                "id": _chart.id,
+                "name": _chart.name,
+                "description": _chart.description,
+                "source": sources,
+            }
+        )
 
     # 获取项目下所有实验的图表数据
-    return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx", "temp": temp})
+    return SUCCESS_200({"_sum": _sum, "charts": charts, "summaries": "xxx"})
