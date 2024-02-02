@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from .base import BaseType
 import os
-import ujson
 
 
 class Text(BaseType):

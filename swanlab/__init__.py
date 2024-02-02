@@ -6,7 +6,6 @@ from .data import (
     config,
     Audio,
     Image,
-    Text,
 )
 from .utils import get_package_version
 
