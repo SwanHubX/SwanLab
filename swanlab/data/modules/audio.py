@@ -7,13 +7,14 @@ Description:
     音频数据解析
 """
 from .base import BaseType
+from ..utils.file import get_file_hash_numpy_array, get_file_hash_path
 import os
+from typing import Union, List
 
 ### 以下为音频数据解析的依赖库
 import soundfile as sf
 import numpy as np
 import json
-import time
 import os
 
 
@@ -30,26 +31,35 @@ class Audio(BaseType):
         Caption for the audio.
     """
 
-    def __init__(self, data_or_path, sample_rate: int = None, caption: str = None):
+    def __init__(
+        self, data_or_path: Union[str, np.ndarray, List["Audio"]], sample_rate: int = None, caption: str = None
+    ):
         """Accept a path to an audio file on a numpу array of audio data."""
         super().__init__(data_or_path)
         self.audio_data = None
         self.sample_rate = sample_rate
-        self.caption = caption
-        if self.caption is not None:
-            self.caption = self.__convert_caption(caption)
+        self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        self.__preprocess(self.value)
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"audio-step{self.step}.wav"
-        if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, save_name)
+        # 如果传入的是Audio类列表
+        if isinstance(self.value, list):
+            return [value.get_data() for value in self.value]
+        else:
+            self.__preprocess(self.value)
+            hash_name = (
+                get_file_hash_numpy_array(self.audio_data)[:16]
+                if isinstance(self.audio_data, np.ndarray)
+                else get_file_hash_path(self.audio_data)[:16]
+            )
+            save_dir = os.path.join(self.settings.static_dir, self.tag)
+            save_name = f"{self.caption}-step{self.step}-{hash_name}.wav"
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
+            save_path = os.path.join(save_dir, save_name)
 
-        # 保存音频数据到指定目录
-        self.__save(save_path)
-        return save_name
+            # 保存音频数据到指定目录
+            self.__save(save_path)
+            return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "numpy.array"]
@@ -62,6 +72,9 @@ class Audio(BaseType):
         # 如果类型是数字，则转换为字符串
         elif isinstance(caption, (int, float)):
             caption = str(caption)
+        # 如果类型是None，则转换为默认字符串
+        elif caption is None:
+            caption = "audio"
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
@@ -138,13 +151,17 @@ class Audio(BaseType):
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        return (
-            {
-                "caption": self.caption,
-            }
-            if self.caption is not None
-            else None
-        )
+        # 如果传入的是Audio类列表
+        if isinstance(self.value, list):
+            return [value.get_more() for value in self.value]
+        else:
+            return (
+                {
+                    "caption": self.caption,
+                }
+                if self.caption is not None
+                else None
+            )
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
