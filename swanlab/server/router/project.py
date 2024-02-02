@@ -9,6 +9,8 @@ from ..controller.project import (
     update_project_info,
     # 删除项目
     delete_project,
+    # 获取多实验对比图表
+    get_project_charts,
 )
 
 router = APIRouter()
@@ -77,3 +79,13 @@ async def _(project_id: int = None):
     if project_id is None:
         return await delete_project()
     return await delete_project(project_id)
+
+
+@router.get("/charts")
+async def _(project_id: int = None):
+    """获取多实验对比图表数据,并且考虑往期版本兼容性
+    1. 如果当前项目的chart字段为0，先生成多实验对比数据，跳转步骤2
+    2. 依据规则获取所有实验的图表数据
+    """
+
+    return await get_project_charts()

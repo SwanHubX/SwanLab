@@ -11,25 +11,45 @@ r"""
 import os
 import ujson
 import shutil
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
 from urllib.parse import quote
+from ...env import get_swanlog_dir
+from ...utils import get_a_lock, COLOR_LIST
+from ...utils.file import check_desc_format
+import yaml
+from ...db import (
+    connect,
+    NotExistedError,
+)
+
+# peewee 相关
+from peewee import (
+    fn,
+)
+
+# 自定义响应
+from ..module.resp import (
+    SUCCESS_200,
+    DATA_ERROR_500,
+    CONFLICT_409,
+    NOT_FOUND_404,
+)
+
+# 功能性函数
 from ..settings import (
     get_tag_dir,
     get_exp_dir,
     get_config_path,
 )
-from ...env import get_swanlog_dir
-from ...utils import get_a_lock, COLOR_LIST
-from ...utils.file import check_desc_format
-import yaml
 
+# 数据表模型
 from ...db import (
     Project,
     Experiment,
     Tag,
 )
 
+# 将查询结果对象转为列表
 __to_list = Project.search2list
 
 
@@ -227,10 +247,50 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     1. 如果当前项目的chart字段为0，先生成多实验对比数据，跳转步骤2
     2. 依据规则获取所有实验的图表数据
     """
+
+    try:
+        project = Project.get_by_id(project_id)
+    except NotExistedError as e:
+        return NOT_FOUND_404("Target project does not exist")
+    temp = None
     # COMPAT 兼容以前没有多实验对比数据的情况
-    if Project.get(id=DEFAULT_PROJECT_ID).charts == 0:
-        # 生成多实验对比数据
-        pass
+    # 如果不存在，则按照一下步骤和注意事项进行：
+    # 1. 查找
+    # - 找到所有满足条件的 tag : tag 名在多个实验中出现
+    # - tag 名一样，但类型不一样，以第一个被找到的 tag 类型为基准
+    # 2. 生成
+    # - 生成 chart
+    # - 生成 source
+    if project.charts == 0:
+        # 获取名称在两个及以上实验中出现过的 tag，同时 type 一致
+        tags_with_same_name = (
+            Tag.select(Tag.name, Tag.type, fn.COUNT(Tag.id).alias("count"))
+            .group_by(Tag.name, Tag.type)
+            .having(fn.COUNT(Tag.id) > 1)
+        )
+        tags = [{"name": tag.name, "type": tag.type} for tag in tags_with_same_name]
+        print(tags)
+        # 如果没有满足多实验图表生成条件的 tag，返回404
+        if len(tags) == 0:
+            return NOT_FOUND_404("No mutiple experment charts found")
+        result_lists = {}
+        # 遍历查询，获取满足多实验图表生成条件的 tag
+        for tag in tags:
+            # 如果当前 tag 名已经存在收集列表，说明有同名不同类的 tag 都满足多图表条件，目前只取第一次出现的 type，即后续有同名不同类的 tag 都忽略
+            if tag["name"] in result_lists:
+                continue
+            # 获取当前name的所有数据行
+            target = Tag.filter(Tag.name == tag["name"], Tag.type == tag["type"])
+            # 将数据行添加到结果列表
+            result_lists[tag["name"]] = [item["experiment_id"]["name"] for item in __to_list(target)]
+        # 至此 result_list 数据结构为：{ tag_name: [experiment_name] }，找到了所有可以生成多实验图表的 tag
+        temp = result_lists
+        # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
+        db = connect()
+        with db.atomic():
+            # 1. 生成图表
+            # 2. 生成source
+            pass
 
     # 获取项目下所有实验的图表数据
-    return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx"})
+    return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx", "temp": temp})

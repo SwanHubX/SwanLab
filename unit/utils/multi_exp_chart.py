@@ -22,9 +22,7 @@ from swanlab.server.controller.project import get_project_charts
 """
 
 
-result = json.loads(asyncio.run(get_project_charts()).body)["data"]
-assert result["status"] == 200
+result = json.loads(asyncio.run(get_project_charts()).body)
+
+assert result["code"] == 0
 data = result["data"]
-
-
-print(result)
