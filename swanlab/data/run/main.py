@@ -439,7 +439,7 @@ class SwanLabRun:
             loggings_json[key] = d
 
         # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
-        # 如果value是数值类型，则保留4位有效数字
+        # 如果value是数值类型，则保留4位小数
         loggings_formatted = ", ".join(
             [
                 "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
