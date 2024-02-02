@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from typing import Any
+from typing import Any, Optional
 from ..settings import SwanDataSettings
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
@@ -396,7 +396,7 @@ class SwanLabRun:
         """
         return self.__config
 
-    def log(self, data: dict, step: int = None):
+    def log(self, data: dict, step: int = None, logger_dict: dict = None):
         """
         Log a row of data to the current run.
         Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
@@ -411,6 +411,9 @@ class SwanLabRun:
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
+        logger_dict : dict, optional
+            The logger_dict is used to customize the log output.
+            The logger_dict is a dict with the following keys: "open", "prefix", "subfix", "time".
         """
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
@@ -438,17 +441,8 @@ class SwanLabRun:
             # 将key, data, step记录到loggings_json中
             loggings_json[key] = d
 
-        # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
-        # 如果value是数值类型，则保留4位小数
-        loggings_formatted = ", ".join(
-            [
-                "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
-                for key, value in loggings_json.items()
-            ]
-        )
-        # 设置时间戳
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        swanlog.log(f"{loggings_formatted}, time:{timestamp}", header=False)
+        # 将内容打印到终端
+        swanlog.log(self.__get_logging_content(loggings_json, logger_dict).strip(), header=False)
 
     def success(self):
         """标记实验成功"""
@@ -581,3 +575,30 @@ class SwanLabRun:
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(), f)
+
+    def __get_logging_content(self, loggings_json: dict, logger_dict: dict):
+        """得到logging的内容"""
+        # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
+        # 如果value是数值类型，则保留4位小数
+        loggings_formatted = ", ".join(
+            [
+                "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
+                for key, value in loggings_json.items()
+            ]
+        )
+
+        # 如果time参数为Ture, 设置时间戳
+        if logger_dict["time"]:
+            time_text = ", time: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            time_text = ""
+
+        # 设置日志的内容, 并去掉前后空格
+        logging_content = "{} {}{} {}".format(
+            logger_dict["prefix"],
+            loggings_formatted,
+            time_text,
+            logger_dict["subfix"],
+        )
+
+        return logging_content
