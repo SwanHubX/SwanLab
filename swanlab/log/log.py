@@ -330,9 +330,9 @@ class SwanLog(Logsys):
     def __concat_messages(func):
         """装饰器，当传递打印信息有多个时，拼接为一个"""
 
-        def wrapper(self, *args):
+        def wrapper(self, *args, **kwargs):
             message = " ".join(args)
-            return func(self, message)
+            return func(self, message, **kwargs)
 
         return wrapper
 
@@ -362,7 +362,7 @@ class SwanLog(Logsys):
         self.logger.critical(message)
 
     @__concat_messages
-    def log(self, message):
+    def log(self, message, header=True):
         """全局自定义信息打印，级别最高
         临时打印，为 None 的时候无效
         1. 临时凭证为 true，通过
@@ -379,6 +379,8 @@ class SwanLog(Logsys):
             # 别的情况都返回
             return
 
+        if not header:
+            return print(message)
         self.logger.log(self.__LOG_LEVEL["value"], message)
 
     def reset_console(self):
