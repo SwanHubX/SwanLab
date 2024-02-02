@@ -52,6 +52,7 @@ class BaseType(ABC):
     def convert(self):
         if self.__is_get_data is False:
             self.__data = self.get_data()
+            self.__is_get_data = True
         return self.__data
 
     @abstractmethod

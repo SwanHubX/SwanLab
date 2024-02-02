@@ -18,3 +18,5 @@ class Chart:
     image = "image", [str]
     # 音频类型
     audio = "audio", [str]
+    # 文本类型
+    text = "text", [str]
