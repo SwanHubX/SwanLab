@@ -174,6 +174,7 @@ class SwanLabTag:
         对于整型和浮点型，还存在极大和极小值的问题
         目前的策略是让python解释器自己处理，在前端完成数据的格式化展示
         """
+        more = None if not isinstance(data, BaseType) else data.get_more()
         try:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
@@ -195,7 +196,7 @@ class SwanLabTag:
             self.__data = self.__new_tags()
         # 添加数据
         data = data if not is_nan else "NaN"
-        self.__data["data"].append(self.__new_tag(step, data))
+        self.__data["data"].append(self.__new_tag(step, data, more=more))
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
         sum = len(self.__steps)
         mu = math.ceil(sum / self.__slice_size)
@@ -301,13 +302,31 @@ class SwanLabTag:
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
 
-    def __new_tag(self, index, data) -> dict:
-        """创建一个新的data数据，实际上是一个字典，包含一些默认信息"""
-        return {
-            "index": str(index),
-            "data": data,
-            "create_time": create_time(),
-        }
+    def __new_tag(self, index, data, more: dict = None) -> dict:
+        """创建一个新的data数据，实际上是一个字典，包含一些默认信息
+
+        Parameters
+        ----------
+        index : int
+            步数
+        data : DataType
+            数据
+        more : dict, optional
+            更多的数据，如果有的话
+        """
+        if more is None:
+            return {
+                "index": str(index),
+                "data": data,
+                "create_time": create_time(),
+            }
+        else:
+            return {
+                "index": str(index),
+                "data": data,
+                "create_time": create_time(),
+                "more": more,
+            }
 
     @staticmethod
     def __new_tags() -> dict:

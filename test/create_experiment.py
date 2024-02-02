@@ -22,8 +22,8 @@ for epoch in range(2, epochs):
         # audio
         sample_rate = 44100
         test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log({"WhiteNoise": swanlab.Audio(test_audio_arr, sample_rate, caption=123)}, step=epoch)
-        swanlab.log({"Music": swanlab.Audio("/Users/zeyilin/Desktop/Coding/swanlab/test/assets/慢冷.mp3")}, step=epoch)
+        swanlab.log({"WhiteNoise": swanlab.Audio(test_audio_arr, sample_rate, caption=epoch)}, step=epoch)
+        # swanlab.log({"Music": swanlab.Audio("/Users/zeyilin/Desktop/Coding/swanlab/test/assets/慢冷.mp3")}, step=epoch)
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3
