@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
-from typing import Union
+from typing import Union, List
 import os
 
 
@@ -16,7 +16,7 @@ class Image(BaseType):
         Caption for the image.
     """
 
-    def __init__(self, data_or_path: Union[str, np.ndarray, PILImage.Image, list["Image"]], caption: str = None):
+    def __init__(self, data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]], caption: str = None):
         super().__init__(data_or_path)
         self.image_data = None
         self.caption = caption
