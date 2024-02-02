@@ -16,8 +16,6 @@ class Text(BaseType):
         e.g. swanlab.Text("Hello World", caption="This is a caption for the text data.")
     """
 
-    text_datas = {}
-
     def __init__(self, data, caption: str = None):
         super().__init__(data)
         self.text_data = None
@@ -31,16 +29,11 @@ class Text(BaseType):
 
         # 设置文本数据的保存路径
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = "text.json"
+        save_name = f"text-step{self.step}.txt"
         # 如果路径不存在，则创建路径
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path = os.path.join(save_dir, save_name)
-
-        try:
-            self.text_datas[self.tag]
-        except:
-            self.text_datas[self.tag] = {"data": []}
 
         # 保存文本数据写入到指定目录的指定json文件
         self.__save(save_path)
@@ -62,17 +55,12 @@ class Text(BaseType):
 
     def __save(self, save_path):
         """
-        将文本数据写入到指定目录的指定json文件
+        将文本数据写入到指定目录的txt文件
         """
-        # 将step, caption和文本数据内容写入json
-        json_data = {"step": self.step, "caption": self.caption, "text": self.text_data}
-        print(self.text_datas)
-        self.text_datas[self.tag]["data"].append(json_data)
-
         try:
             with open(save_path, "w+", encoding="utf-8") as f:
-                # 将文本数据写入到指定目录的指定json文件, ensure_ascii=False 保证中文不乱码
-                ujson.dump(self.text_datas[self.tag], f, ensure_ascii=False)
+                # 将文本数据写入到指定目录的txt文件
+                f.write(self.text_data)
         except Exception as e:
             raise ValueError(f"Could not save the text data to the path: {save_path}") from e
 
