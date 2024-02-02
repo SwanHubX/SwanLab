@@ -18,5 +18,5 @@ class Chart:
     image = "image", [list, str]
     # 音频类型，list代表一步多音频
     audio = "audio", [list, str]
-    # 文本类型，str代表一步多文本
-    text = "text", [str]
+    # 文本类型，代表一步多文本
+    text = "text", [list, str]
