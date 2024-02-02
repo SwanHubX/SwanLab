@@ -1,5 +1,6 @@
 from .base import BaseType
 from .audio import Audio
+from .image import Image
 from typing import Protocol, Union
 
 

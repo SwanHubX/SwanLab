@@ -221,7 +221,7 @@ const tagData2Buffer = async (index) => {
     nowStep: Number(data.index),
     maxStep: Number(audiosTagData.value[tag].list[audiosTagData.value[tag].list.length - 1].index),
     minStep: Number(audiosTagData.value[tag].list[0].index),
-    data: [{ audioBuffer, audioBlob, title: data.data, tag: tag }],
+    data: [{ audioBuffer, audioBlob, title: data.data, tag: tag, caption: data.more?.caption }],
     tag
   }
 }

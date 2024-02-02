@@ -69,8 +69,12 @@ class BaseType(ABC):
         pass
 
     def get_config(self, *args, **kwargs) -> dict:
-        """获取config数据，应该返回一个字典"""
+        """获取图表的config数据，应该返回一个字典"""
         return {}
+
+    def get_more(self, *args, **kwargs):
+        """代表当前步骤的此数据支持标注的更多内容，应该返回一个字典，或者为None"""
+        return None
 
     @abstractmethod
     def expect_types(self, *args, **kwargs) -> list:

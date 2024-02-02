@@ -12,7 +12,7 @@
         <!-- 当前时间 -->
         <p class="text-sm ml-1" v-if="audioRef[tag]">{{ formatTime(tag) }}</p>
         <!-- 文件名称 -->
-        <p class="text-sm w-full text-center -ml-10">{{ audios[index].title }}</p>
+        <p class="text-sm w-full text-center -ml-10">{{ audios[index].caption }}</p>
         <!-- 下载按钮 -->
         <DownloadButton @click="download(index)" />
       </div>
@@ -32,7 +32,7 @@ import PlayButton from '../components/PlayButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
 const props = defineProps({
-  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, tag: String } ]
+  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, caption: , tag: String, caption: String } ]
   audios: {
     type: Object,
     required: true
