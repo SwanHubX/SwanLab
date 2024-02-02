@@ -14,9 +14,9 @@ class Chart:
     default = "line", [float, int]
     # 折线图
     line = "line", [float, int]
-    # 图片类型
-    image = "image", [str, list]
-    # 音频类型
-    audio = "audio", [str]
-    # 文本类型
-    text = "text", [str]
+    # 图片类型，list代表一步多图
+    image = "image", [list, str]
+    # 音频类型，list代表一步多音频
+    audio = "audio", [list, str]
+    # 文本类型，代表一步多文本
+    text = "text", [list, str]
