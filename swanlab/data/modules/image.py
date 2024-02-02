@@ -46,7 +46,7 @@ class Image(BaseType):
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
-        save_path = os.path.join(save_dir, f"image-step{self.step}.png")
+        save_path = os.path.join(save_dir, save_name)
         # 保存图像到指定目录
         self.__save(save_path)
         return save_name
