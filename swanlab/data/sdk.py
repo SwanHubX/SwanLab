@@ -149,7 +149,46 @@ def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] =
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
-    logger_dict = __check_logger(logger)
+    # logger_dict的参数为open, prefix, subfix
+    # open: 是否开启打印, 如果为None，则根据init的loggings结果走; 如果为True，则开启打印;如果为False，则关闭打印。log->logger的优先级高于init->loggings。
+    # prefix: 打印的前缀, 必须为str, float or init。
+    # subfix: 打印的后缀, 必须为str, float or init。
+    logger_dict = {
+        "open": None,
+        "prefix": "",
+        "subfix": "",
+        "time": True,
+    }
+
+    # 如果传入的是布尔值且是True，则默认开启打印
+    if isinstance(logger, bool):
+        logger_dict["open"] = logger
+    # 如果传入的是字典，默认开启打印，并将字典中的值赋值给logger_dict
+    elif isinstance(logger, dict):
+        logger_dict["open"] = True
+        logger_dict.update(logger)
+
+        # 字典内参数类型检查
+        if not isinstance(logger_dict["open"], bool):
+            raise ValueError("logger's open must be a bool")
+        if not isinstance(logger_dict["prefix"], (str, float, int)):
+            raise ValueError("logger's prefix must be a str, float or init")
+        if not isinstance(logger_dict["subfix"], (str, float, int)):
+            raise ValueError("logger's subfix must be a str, float or init")
+        if not isinstance(logger_dict["time"], bool):
+            raise ValueError("logger's time must be a bool")
+
+        # 如果传入的参数超过了open, prefix, subfix，则警告
+        if len(logger_dict) > 4:
+            swanlog.warning(
+                "logger's valid key only has 'open', 'prefix' , 'subfix' and 'time', other parameters will not take effect"
+            )
+    # 如果传入的是None，则默认关闭打印
+    elif logger is None:
+        logger_dict["open"] = None
+    else:
+        raise ValueError("loggings must be a bool or a dict")
+
     swanlog.set_temporary_logging(logger_dict["open"])
     l = run.log(data, step, logger_dict)
     swanlog.reset_temporary_logging()
@@ -215,44 +254,3 @@ def __except_handler(tp, val, tb):
     # 重置控制台记录器
     swanlog.reset_console()
     raise tp(val)
-
-
-def __check_logger(logger: Union[bool, dict] = None):
-    # logger_dict的参数为open, prefix, subfix
-    # open: 是否开启打印, 如果为None，则根据init的loggings结果走; 如果为True，则开启打印;如果为False，则关闭打印。log->logger的优先级高于init->loggings。
-    # prefix: 打印的前缀, 必须为str, float or init。
-    # subfix: 打印的后缀, 必须为str, float or init。
-    logger_dict = {
-        "open": None,
-        "prefix": "",
-        "subfix": "",
-        "time": True,
-    }
-
-    # 如果传入的是布尔值且是True，则默认开启打印
-    if isinstance(logger, bool):
-        logger_dict["open"] = logger
-    # 如果传入的是字典，默认开启打印，并将字典中的值赋值给logger_dict
-    elif isinstance(logger, dict):
-        logger_dict["open"] = True
-        logger_dict.update(logger)
-
-        if not isinstance(logger_dict["prefix"], (str, float, int)):
-            raise ValueError("logger's prefix must be a str, float or init")
-        if not isinstance(logger_dict["subfix"], (str, float, int)):
-            raise ValueError("logger's subfix must be a str, float or init")
-        if not isinstance(logger_dict["time"], bool):
-            raise ValueError("logger's time must be a bool")
-
-        if len(logger_dict) > 4:
-            # 如果传入的参数超过了open, prefix, subfix，则警告
-            swanlog.warning(
-                "logger's valid key only has 'open', 'prefix' , 'subfix' and 'time', other parameters will not take effect"
-            )
-    # 如果传入的是None，则默认关闭打印
-    elif logger is None:
-        logger_dict["open"] = None
-    else:
-        raise ValueError("loggings must be a bool or a dict")
-
-    return logger_dict
