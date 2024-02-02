@@ -43,23 +43,22 @@ class Audio(BaseType):
     def get_data(self):
         # 如果传入的是Audio类列表
         if isinstance(self.value, list):
-            return [value.get_data() for value in self.value]
-        else:
-            self.__preprocess(self.value)
-            hash_name = (
-                get_file_hash_numpy_array(self.audio_data)[:16]
-                if isinstance(self.audio_data, np.ndarray)
-                else get_file_hash_path(self.audio_data)[:16]
-            )
-            save_dir = os.path.join(self.settings.static_dir, self.tag)
-            save_name = f"{self.caption}-step{self.step}-{hash_name}.wav"
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            save_path = os.path.join(save_dir, save_name)
+            return self.get_data_list()
+        self.__preprocess(self.value)
+        hash_name = (
+            get_file_hash_numpy_array(self.audio_data)[:16]
+            if isinstance(self.audio_data, np.ndarray)
+            else get_file_hash_path(self.audio_data)[:16]
+        )
+        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_name = f"{self.caption}-step{self.step}-{hash_name}.wav"
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path = os.path.join(save_dir, save_name)
 
-            # 保存音频数据到指定目录
-            self.__save(save_path)
-            return save_name
+        # 保存音频数据到指定目录
+        self.__save(save_path)
+        return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "numpy.array"]
@@ -153,7 +152,7 @@ class Audio(BaseType):
         """返回config数据"""
         # 如果传入的是Audio类列表
         if isinstance(self.value, list):
-            return [value.get_more() for value in self.value]
+            return self.get_more_list()
         else:
             return (
                 {

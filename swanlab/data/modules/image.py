@@ -25,13 +25,7 @@ class Image(BaseType):
     def get_data(self):
         # 如果传入的是Image类列表
         if isinstance(self.value, list):
-            datas = []
-            for i in self.value:
-                i.settings = self.settings
-                i.tag = self.tag
-                i.step = self.step
-                datas.append(i.get_data())
-            return [i.get_data() for i in self.value]
+            return self.get_data_list()
         self.__preprocess(self.value)
         # 获取图像的hash值
         hash_name = get_file_hash_pil(self.image_data)[:16]
@@ -129,7 +123,7 @@ class Image(BaseType):
         """返回config数据"""
         # 如果传入的是Image类列表
         if isinstance(self.value, list):
-            return [value.get_more() for value in self.value]
+            return self.get_more_list()
         else:
             return (
                 {

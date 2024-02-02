@@ -27,7 +27,7 @@ from .db import Experiment, ExistedError
 from typing import Tuple
 import yaml
 import argparse
-from ..modules import Image
+from ..modules import BaseType
 
 
 def need_inited(func):
@@ -433,8 +433,9 @@ class SwanLabRun:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
             # 如果d的数据类型是list，且里面的数据全部为Image类型，则需要转换一下
-            if isinstance(d, list) and all([isinstance(i, Image) for i in d]):
-                d = Image(d)
+            if isinstance(d, list) and all([isinstance(i, BaseType) for i in d]):
+                # 将d作为输入，构造一个与d相同类型的实例
+                d = d[0].__class__(d)
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
 

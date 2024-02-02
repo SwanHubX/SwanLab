@@ -24,7 +24,12 @@ for epoch in range(2, epochs):
         # 测试audio
         sample_rate = 44100
         test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log({"test/audio": [swanlab.Image(test_audio_arr, caption="test")] * 3}, step=epoch)
+        swanlab.log(
+            {
+                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * 3,
+            },
+            step=epoch,
+        )
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3

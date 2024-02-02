@@ -82,6 +82,29 @@ class BaseType(ABC):
         """输入期望的数据类型，list类型，例如["int", "float"]"""
         pass
 
+    def get_data_list(self):
+        """单step多数据时，返回多个数据的列表"""
+        datas = []
+        for i in self.value:
+            try:
+                i.settings = self.settings
+            except AttributeError:
+                pass
+            try:
+                i.tag = self.tag
+            except AttributeError:
+                pass
+            try:
+                i.step = self.step
+            except AttributeError:
+                pass
+            datas.append(i.get_data())
+        return [i.get_data() for i in self.value]
+
+    def get_more_list(self):
+        """单step多数据时，返回多个数据更多信息"""
+        return [i.get_more() for i in self.value]
+
     # ---------------------------------- 向子类暴露tag、step、create_time,他们的值只能修改一次 ----------------------------------
     @property
     def tag(self):

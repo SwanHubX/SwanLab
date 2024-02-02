@@ -24,7 +24,7 @@ class Text(BaseType):
     def get_data(self):
         # 如果传入的是Text类列表
         if isinstance(self.value, list):
-            return [value.get_data() for value in self.value]
+            return self.get_data_list()
         else:
             # 预处理文本数据
             self.__preprocess(self.value)
@@ -85,7 +85,7 @@ class Text(BaseType):
         """返回config数据"""
         # 如果传入的是Text类列表
         if isinstance(self.value, list):
-            return [value.get_more() for value in self.value]
+            return self.get_more_list()
         else:
             return (
                 {

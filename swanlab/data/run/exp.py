@@ -352,6 +352,8 @@ class SwanLabTag:
             value = value.convert
         for data_type in self.data_types:
             try:
+                if type(value) in self.data_types:
+                    return value
                 converted_value = data_type(value)
                 return converted_value
             except (ValueError, TypeError):
