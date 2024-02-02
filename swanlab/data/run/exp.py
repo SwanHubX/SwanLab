@@ -95,8 +95,6 @@ class SwanLabExp:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
         step = tag_obj.add(data, step)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        swanlog.log(f"{timestamp}  step:{step}  tag:{tag}  value:{str(data)}")
 
 
 class SwanLabTag:

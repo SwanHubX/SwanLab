@@ -427,12 +427,28 @@ class SwanLabRun:
                 )
             )
             step = None
+
+        loggings_json = dict()
         # 遍历data，记录data
         for key in data:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
+            # 将key, data, step记录到loggings_json中
+            loggings_json[key] = d
+
+        # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
+        # 如果value是数值类型，则保留4位有效数字
+        loggings_formatted = ", ".join(
+            [
+                "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
+                for key, value in loggings_json.items()
+            ]
+        )
+        # 设置时间戳
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        swanlog.log(f"{loggings_formatted}, time:{timestamp}", header=False)
 
     def success(self):
         """标记实验成功"""
