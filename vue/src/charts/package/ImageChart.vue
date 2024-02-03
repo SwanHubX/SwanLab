@@ -82,7 +82,6 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, watch, computed } from 'vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { useExperimentStore } from '@swanlab-vue/store'
 import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
