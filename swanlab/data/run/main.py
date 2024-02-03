@@ -13,6 +13,7 @@ from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
     check_exp_name_format,
+    check_exp_suffix_format,
     check_desc_format,
     get_a_lock,
     json_serializable,
@@ -27,6 +28,7 @@ from .db import Experiment, ExistedError
 from typing import Tuple
 import yaml
 import argparse
+import socket
 
 
 def need_inited(func):
@@ -481,7 +483,7 @@ class SwanLabRun:
         experiment_name : str
             实验名称
         suffix : str
-            实验名称后缀添加方式，可以为None、"timestamp"，前者代表不添加后缀，后者代表添加时间戳后缀
+            实验名称后缀添加方式，可以为None、"default"或自由后缀，前者代表不添加后缀，后者代表添加时间戳后缀
 
         Returns
         ----------
@@ -497,16 +499,27 @@ class SwanLabRun:
         # 如果前后长度不一样，说明实验名称被截断了，提醒
         if len(experiment_name_checked) != len(experiment_name):
             swanlog.warning("The experiment name you provided is not valid, it has been truncated automatically.")
-        # 为实验名称添加后缀，格式为yyyy-mm-dd_HH-MM-SS
+
+        # 如果suffix为None, 则不添加后缀
         if suffix is None:
             return experiment_name_checked, experiment_name
-        # 如果suffix不是timestamp，提醒，自动改为timestamp
-        if suffix.lower() != "timestamp":
-            suffix = "timestamp"
-            swanlog.warning(f"The suffix you provided is not valid, it has been set to {suffix}.")
-        # ---------------------------------- 自动添加后缀 ----------------------------------
-        # 现在只有一种后缀，即timestamp，所以直接添加就行
-        exp_name = "{}_{}".format(experiment_name_checked, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+
+        # 校验实验名后缀
+        suffix_checked = check_exp_suffix_format(suffix)
+        # 如果前后长度不一样，说明实验名称被截断了，提醒
+        if len(suffix_checked) != len(suffix):
+            swanlog.warning(
+                "The suffix of experiment name you provided is not valid, it has been truncated automatically."
+            )
+
+        # 如果suffix_checked为default，则设置为默认后缀
+        if suffix_checked.lower().strip() == "default":
+            # 添加默认后缀
+            default_suffix = "{}_{}".format(datetime.now().strftime("%b%d_%H-%M-%S"), socket.gethostname())
+            exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
+        else:
+            exp_name = "{}_{}".format(experiment_name_checked, suffix_checked)
+
         return experiment_name_checked, exp_name
 
     def __register_exp(
@@ -529,10 +542,15 @@ class SwanLabRun:
             except ExistedError:
                 if suffix is None:
                     raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
-                # 如果suffix不为None，说明是自动生成的后缀，需要重新生成后缀
-                swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
-                time.sleep(0.5)
-                continue
+                # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
+                if suffix.lower().strip() == "default":
+                    swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
+                    time.sleep(0.5)
+                    continue
+                # 如果suffix名是其他名称，说明是用户自定义的后缀，则报错
+                else:
+                    raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
+
         self.__settings.exp_name = exp_name
         # 实验创建成功，执行一些记录操作
         self.__record_exp_config()  # 记录实验配置

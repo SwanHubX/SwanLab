@@ -41,7 +41,7 @@ def init(
     description: str = None,
     config: dict = None,
     logdir: str = None,
-    suffix: str = "timestamp",
+    suffix: str = "default",
     log_level: str = None,
     logggings: bool = False,
 ) -> SwanLabRun:
@@ -66,9 +66,12 @@ def init(
         The directory where the log file is stored, the default is current working directory.
         You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
-        The suffix of the experiment name, used to distinguish experiments with the same name, the format is yyyy-mm-dd_HH-MM-SS.
-        If this parameter is not provided, no suffix will be added.
-        At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
+        The suffix of the experiment name, the default is 'default'.
+        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s_<hostname>'(example:'Feb03_14-45-37_windowsX'), which represents the current time.
+        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37_windowsX';
+        If this parameter is None, no suffix will be added.
+        If this paramter is a string, the suffix will be the string you provided.
+        Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     """
     global run, inited
 

@@ -130,6 +130,50 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     return name
 
 
+def check_exp_suffix_format(suffix: str, auto_cut: bool = True) -> str:
+    """检查实验名格式，必须是0-9a-zA-Z和连字符(_-)，并且不能以连字符(_-)开头或结尾
+    最大长度为100个字符，一个中文字符算一个字符
+
+    Parameters
+    ----------
+    name : str
+        待检查的字符串
+    auto_cut : bool, optional
+        如果超出长度，是否自动截断，默认为True
+        如果为False，则超出长度会抛出异常
+
+    Returns
+    -------
+    str
+        检查后的字符串
+
+    Raises
+    ------
+    TypeError
+        name不是字符串，或者name为空字符串
+    ValueError
+        name不符合规定格式
+    IndexError
+        name超出长度
+    """
+    max_len = 100
+    if not isinstance(suffix, str) or suffix == "":
+        raise TypeError(f"suffix: {suffix} is not a string")
+    # 定义正则表达式
+    pattern = re.compile(r"^[0-9a-zA-Z][0-9a-zA-Z_-]*[0-9a-zA-Z]$")
+    # 检查 name 是否符合规定格式
+    if not pattern.match(suffix):
+        raise ValueError(
+            f"suffix: {suffix} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
+        )
+    # 检查长度
+    if auto_cut and len(suffix) > max_len:
+        suffix = suffix[:max_len]
+    elif not auto_cut and len(suffix) > max_len:
+        raise IndexError(f"suffix: {suffix} is too long, which must be less than {max_len} characters")
+    return suffix
+
+
 def check_desc_format(description: str, auto_cut: bool = True):
     """检查实验描述
     不能超过255个字符，可以包含任何字符
