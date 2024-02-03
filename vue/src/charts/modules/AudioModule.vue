@@ -1,16 +1,21 @@
 <template>
   <!-- 音频容器，完成响应式 -->
-  <div class="audios-container" ref="audiosRef">
-    <div class="audio-container" :ref="(el) => handleAddAudio(tag, index, el)" v-for="(tag, index) in tags" :key="tag">
+  <div class="audios-container" :class="setGrid()" ref="audiosRef">
+    <div
+      class="audio-container"
+      :ref="(el) => handleAddAudio(index, el)"
+      v-for="(audio, index) in audios"
+      :key="audio.title"
+    >
       <div class="flex items-center mt-2">
         <PlayButton
           v-model="playingList[index]"
-          :color="colors[index]"
-          @play="handlePlay(tag, index)"
-          @pause="handelPause(tag, index)"
+          :color="colors[0]"
+          @play="handlePlay(index)"
+          @pause="handelPause(index)"
         />
         <!-- 当前时间 -->
-        <p class="text-sm ml-1" v-if="audioRef[tag]">{{ formatTime(tag) }}</p>
+        <p class="text-sm ml-1" v-if="audioRef[index]">{{ formatTime(index) }}</p>
         <!-- 文件名称 -->
         <p class="text-sm w-full text-center -ml-10">{{ audios[index].caption }}</p>
         <!-- 下载按钮 -->
@@ -27,7 +32,7 @@
  * @since: 2024-01-30 22:44:56
  **/
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-import { ref, computed, inject, reactive, onUnmounted, onMounted } from 'vue'
+import { ref, inject, reactive, onUnmounted, onMounted } from 'vue'
 import PlayButton from '../components/PlayButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
@@ -38,19 +43,18 @@ const props = defineProps({
     required: true
   }
 })
-const tags = computed(() => props.audios.map((audio) => audio.tag))
 const colors = inject('colors')
 // 所有音频容器
 const audiosRef = ref(null)
-// 单个音频容器集合, {tag:{audio:channels, dom:HTMLDivElement, ...}}
+// 单个音频容器集合, {index:{audio:channels, dom:HTMLDivElement, ...}}
 const audioRef = reactive({})
 // 用于控制子播放组件的播放状态
 const playingList = ref(props.audios.map(() => false))
 
 // ---------------------------------- 将dom元素和tag对应起来 ----------------------------------
-const handleAddAudio = (tag, index, el) => {
-  if (audioRef[tag]) return // 防止重复添加
-  audioRef[tag] = {
+const handleAddAudio = (index, el) => {
+  if (audioRef[index]) return // 防止重复添加
+  audioRef[index] = {
     channels: sample(props.audios[index].audioBuffer),
     dom: el,
     // 音频源
@@ -62,7 +66,7 @@ const handleAddAudio = (tag, index, el) => {
   // console.log(audioRef, props.audios)
   // 挂载完成后，开始绘制波形图
   addTaskToBrowserMainThread(() => {
-    draw(tag, index)
+    draw(index)
   })
 }
 
@@ -91,9 +95,9 @@ const sample = (buffer) => {
   return [sampledLeftChannel, sampledRightChannel]
 }
 
-const formatTime = (tag) => {
-  const duration = audioRef[tag].duration
-  const offset = audioRef[tag].offset
+const formatTime = (index) => {
+  const duration = audioRef[index].duration
+  const offset = audioRef[index].offset
   const now = duration * offset
   const minutes = Math.floor(now / 60)
   const seconds = Math.floor(now % 60)
@@ -118,12 +122,12 @@ const formatTime = (tag) => {
  * @param {Number} r 比例，用于控制波形图的高度，越大越高
  * @param {Number} a 比例，控制关键帧的高度，越大越高
  */
-const draw = (tag, index, r = 2, a = 2 / 3) => {
-  const dom = audioRef[tag].dom
-  dom.style.width = audiosRef.value.offsetWidth + 'px'
-  const offset = audioRef[tag].offset
-  const channels = audioRef[tag].channels
-  const color = colors[index]
+const draw = (index, r = 2, a = 2 / 3) => {
+  const dom = audioRef[index].dom
+  // dom.style.width = audiosRef.value.offsetWidth / 2 + 'px'
+  const offset = audioRef[index].offset
+  const channels = audioRef[index].channels
+  const color = colors[0]
   // 将color变淡一些,代表已经播放过的部分
   const color2 = color + '99'
   // console.log('positives', positives, 'negatives', negatives)
@@ -150,7 +154,7 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
     ctx = canvas.getContext('2d')
     // 为每个canvas添加一个点击事件，用于控制播放
     canvas.addEventListener('click', (event) => {
-      handelClickCanvas(event, tag, index)
+      handelClickCanvas(event, index)
     })
     // 挂载 canvas
     canvas.style.width = '100%'
@@ -210,8 +214,8 @@ const draw = (tag, index, r = 2, a = 2 / 3) => {
 
 // 重新绘制所有波形图，用于前端样式的响应式
 const redraw = () => {
-  for (let i = 0; i < tags.value.length; i++) {
-    draw(tags.value[i], i)
+  for (let i = 0; i < props.audios.length; i++) {
+    draw(i)
   }
 }
 
@@ -219,10 +223,10 @@ const debounceRedraw = debounce(redraw, 500)
 
 // ---------------------------------- offset更新 ----------------------------------
 
-function createAudioOffestUpdator(tag, index) {
+function createAudioOffestUpdator(index) {
   const now = Date.now()
   let last = now
-  const oldOffset = audioRef[tag].offset
+  const oldOffset = audioRef[index].offset
   let timer = null
   const update = () => {
     // 如果last和now相差小于15ms
@@ -232,11 +236,11 @@ function createAudioOffestUpdator(tag, index) {
       return
     }
     last = Date.now()
-    audioRef[tag].offset = (Date.now() - now) / audioRef[tag].duration / 1000 + oldOffset
+    audioRef[index].offset = (Date.now() - now) / audioRef[index].duration / 1000 + oldOffset
     // console.log('audioRef[tag].offset', audioRef[tag].offset, audioRef[tag].duration, oldOffset)
-    draw(tag, index)
+    draw(index)
     // 如果offset大于1，则停止更新
-    if (audioRef[tag].offset >= 1) {
+    if (audioRef[index].offset >= 1) {
       // console.log('播放结束')
       destory()
       playingList.value[index] = false
@@ -247,7 +251,7 @@ function createAudioOffestUpdator(tag, index) {
 
   const destory = () => {
     cancelAnimationFrame(timer)
-    audioRef[tag].updator = null
+    audioRef[index].updator = null
   }
 
   return {
@@ -277,51 +281,50 @@ const createAudioContext = (audioBuffer) => {
   return { source, duration }
 }
 
-const handlePlay = (tag, index) => {
+const handlePlay = (index) => {
   // console.log('handlePlay', tag, index, audioRef[tag])
   // 如果已经存在source，且没有暂停，则返回
   if (playingList.value[index]) return console.log('已经在播放了')
-  if (audioRef[tag].offset >= 1) audioRef[tag].offset = 0
+  if (audioRef[index].offset >= 1) audioRef[index].offset = 0
   // 如果存在source，且已经暂停，则重新生成一个新的source，并且设置offset为上次暂停的位置
-  audioRef[tag].source = createAudioContext(props.audios[index].audioBuffer).source
+  audioRef[index].source = createAudioContext(props.audios[index].audioBuffer).source
   // 将百分比转换为秒
-  const offset = audioRef[tag].offset * audioRef[tag].duration
+  const offset = audioRef[index].offset * audioRef[index].duration
   // console.log('offset', offset, audioRef[tag].duration, audioRef[tag].offset)
 
-  audioRef[tag].source.start(0, offset)
+  audioRef[index].source.start(0, offset)
   playingList.value[index] = true
   // 更新offset
-  audioRef[tag].updator = createAudioOffestUpdator(tag, index)
-  audioRef[tag].updator.start()
+  audioRef[index].updator = createAudioOffestUpdator(index)
+  audioRef[index].updator.start()
 }
 
-const handelPause = (tag, index) => {
+const handelPause = (index) => {
   // console.log('handelPause')
   // console.log(audioRef)
-  if (!audioRef[tag].source) {
+  if (!audioRef[index].source) {
     // console.log('audiosRef.value[tag].source', audiosRef.value[tag].source)
     // 如果不存在source，则返回
     return
   }
   // 暂停音频
-  audioRef[tag].source.stop()
+  audioRef[index].source.stop()
   playingList.value[index] = false
-  audioRef[tag].updator?.destory()
+  audioRef[index].updator?.destory()
 }
 
 // ---------------------------------- 点击播放处理 ----------------------------------
-const handelClickCanvas = (event, tag, index) => {
+const handelClickCanvas = (event, index) => {
   // 更新当前点击水平位置的百分比，重新绘制波形图
-  audioRef[tag].offset = event.offsetX / event.target.offsetWidth
-  draw(tag, index)
+  audioRef[index].offset = event.offsetX / event.target.offsetWidth
+  draw(index)
   // 如果音频正在播放，删除原来的source，重新生成一个新的source，并且设置offset为点击位置的百分比
-  // console.log('audioRef[tag].source?.state', audioRef[tag].source)
   console.log('playingList.value[index]', playingList.value[index])
   if (playingList.value[index]) {
-    audioRef[tag].source.stop()
+    audioRef[index].source.stop()
     playingList.value[index] = false
-    audioRef[tag].updator?.destory()
-    handlePlay(tag, index)
+    audioRef[index].updator?.destory()
+    handlePlay(index, index)
   }
 }
 
@@ -337,10 +340,10 @@ onMounted(() => {
 // ---------------------------------- 组件卸载，停止播放 ----------------------------------
 
 onUnmounted(() => {
-  for (const tag in audioRef) {
+  for (const index in audioRef) {
     try {
-      audioRef[tag].source?.stop()
-      audioRef[tag].updator?.destory()
+      audioRef[index].source?.stop()
+      audioRef[index].updator?.destory()
     } catch (_) {
       continue
     }
@@ -358,13 +361,21 @@ const download = (index) => {
   a.download = filename
   a.click()
 }
+
+// ---------------------------------- 判断元素个数，如果超过1个，就设置grid-cols-2 ----------------------------------
+const setGrid = () => {
+  if (props.audios.length > 1) {
+    return 'grid-cols-2'
+  }
+}
 </script>
 
 <style lang="scss" scoped>
 .audios-container {
-  @apply h-full w-full;
+  @apply w-full grid gap-4;
   .audio-container {
-    @apply h-full w-full flex flex-col relative text-dimmer;
+    @apply h-48 w-full flex flex-col relative text-dimmer;
+    /* 如果只有一个元素，沾满两格，否则只占一格 */
   }
 }
 </style>

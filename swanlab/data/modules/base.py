@@ -128,7 +128,8 @@ class BaseType(ABC):
     @tag.setter
     def tag(self, value):
         if self.__tag is None:
-            self.__tag = quote(value, safe="")
+            # 将tag进行url编码,但是可能已经被编码了，所以需要设置safe="%2F"
+            self.__tag = quote(value, safe="%2F")
         else:
             raise AttributeError("tag can only be set once")
 

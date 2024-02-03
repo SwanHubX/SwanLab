@@ -3,7 +3,7 @@ import time
 import random
 import numpy as np
 
-epochs = 15
+epochs = 50
 lr = 0.01
 offset = random.random() / 5
 
@@ -26,7 +26,7 @@ for epoch in range(2, epochs):
         test_audio_arr = np.random.randn(2, 100000)
         swanlab.log(
             {
-                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * 3,
+                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
             },
             step=epoch,
         )
