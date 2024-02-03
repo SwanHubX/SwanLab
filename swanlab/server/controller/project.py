@@ -17,6 +17,7 @@ from ...env import get_swanlog_dir
 from ...utils import get_a_lock, COLOR_LIST, create_time
 from ...utils.file import check_desc_format
 import yaml
+from typing import List
 from ...db import (
     connect,
     NotExistedError,
@@ -49,6 +50,8 @@ from ...db import (
     Tag,
     Chart,
     Source,
+    Namespace,
+    Display,
 )
 
 # 将查询结果对象转为列表
@@ -61,6 +64,52 @@ __to_list = Project.search2list
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
+
+
+def __clear_field(target: List[dict], field: str) -> list[dict]:
+    """遍历字典列表清除某个字段
+
+    Parameters
+    ----------
+    target : List[dict]
+        需要处理的列表
+    field : str
+        需要删除的字段
+
+    Returns
+    -------
+    list[dict]
+        处理后的字典列表
+    """
+
+    for item in target:
+        item.pop(field)
+
+    return target
+
+
+def __clear_fields(target: List[dict], fields: List[str]) -> list[dict]:
+    """遍历字典列表清除某个字段
+
+    Parameters
+    ----------
+    target : List[dict]
+        需要处理的列表
+    field : str
+        需要删除的字段
+
+    Returns
+    -------
+    list[dict]
+        处理后的字典列表
+    """
+
+    for item in target:
+        for field in fields:
+            item.pop(field)
+
+    return target
+
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
@@ -262,7 +311,9 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     # - 找到所有满足条件的 tag : tag 名在多个实验中出现
     # - tag 名一样，但类型不一样，以第一个被找到的 tag 类型为基准
     # 2. 生成
+    # - 生成 namespace
     # - 生成 chart
+    # - 添加 chart 和 namespace 到 display
     # - 生成 source
     # 3. 标记
     # - 设置 project 中字段 charts 为 1，表示已经生成多实验表格
@@ -288,16 +339,21 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             target = Tag.filter(Tag.name == tag["name"], Tag.type == tag["type"])
             # 将数据行添加到结果列表
             result_lists[tag["name"]] = [
-                {"experiment_name": item["experiment_id"]["name"], "tag_id": item["id"]} for item in __to_list(target)
+                {"experiment_name": item["experiment_id"]["name"], "tag_id": item["id"], "type": tag["type"]}
+                for item in __to_list(target)
             ]
-        # 至此 result_list 数据结构为：{ tag_name: [{experiment_name, tag_id}] }，找到了所有可以生成多实验图表的 tag
+        # 至此 result_list 数据结构为：{ tag_name: [{experiment_name, tag_id, tag_type}] }，找到了所有可以生成多实验图表的 tag
         # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
         db = connect()
         with db.atomic():
+            # 1. 生成 namespace
+            namespace = Namespace.create("default", project_id=project_id)
             for key in result_lists:
-                # # 1. 生成图表
+                # 2. 生成图表
                 chart = Chart.create(key, experiment_id=None, project_id=project_id, system=0)
-                # # 2. 生成source
+                # 3. 添加 chart 和 namespace 到 display
+                Display.create(chart_id=chart.id, namespace_id=namespace.id)
+                # 4. 生成source
                 time = create_time()
                 sources = [
                     {
@@ -317,6 +373,7 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     # 获取当前项目下所有的多实验对比表
     multi_charts = Chart.filter(Chart.project_id == project_id)
     _sum = multi_charts.count()
+    # 获取图表配置
     charts = []
     for _chart in multi_charts:
         # 多实验图表的 source 中不是 tag_name，而是 experiment_name
@@ -332,6 +389,15 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
                 "source": sources,
             }
         )
+    # 获取命名空间配置
+    namespaces = Namespace.filter(Namespace.project_id == project_id)
+    namespace_list = __clear_fields(__to_list(namespaces), ["project_id", "experiment_id"])
+    # 通过 namespace 获取 display，从而获取该 namespace 下的 charts
+    for index, namespace in enumerate(namespaces):
+        displays = []
+        for display in __to_list(namespace.displays):
+            displays.append(display["chart_id"]["id"])
+        namespace_list[index]["charts"] = displays
 
     # 获取项目下所有实验的图表数据
-    return SUCCESS_200({"_sum": _sum, "charts": charts, "summaries": "xxx"})
+    return SUCCESS_200({"_sum": _sum, "charts": charts, "namespace": namespace_list})
