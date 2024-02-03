@@ -24,13 +24,8 @@
           :key="index"
         >
           <div class="image-container">
-            <img class="img-no-zoom" :src="imagesData[s.filename].url" />
-            <DownloadButton
-              class="!w-5 !h-5 !p-0.5 download-button"
-              :filename="s.filename"
-              :run_id="run_id"
-              :tag="source[0]"
-            />
+            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+            <DownloadButton class="!w-5 !h-5 !p-0.5 download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
         </div>
@@ -50,8 +45,8 @@
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="image-content">
-        <div class="flex flex-col justify-center items-center grow" v-if="loading">
+      <div class="image-content flex flex-col justify-center">
+        <div class="flex flex-col justify-center items-center" v-if="loading">
           <SLLoading />
         </div>
         <!-- 加载完成 -->
@@ -61,7 +56,10 @@
             v-for="(s, index) in stepsData[currentIndex][source[0]]"
             :key="index"
           >
-            <img :src="imagesData[s.filename].url" />
+            <div class="image-container">
+              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+              <DownloadButton class="!w-5 !h-5 !p-0.5 download-button" @click.stop="download(s.filename)" />
+            </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
           </div>
         </div>
@@ -74,9 +72,19 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          v-if="maxIndex !== undefined"
+          v-if="maxIndex !== minIndex"
         />
       </div>
+    </SLModal>
+    <!-- 额外的放大功能，点击某个图像，放大显示 -->
+    <SLModal
+      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-10"
+      v-model="isSingleZoom"
+      close-on-overlay-click
+      hidden-close
+      max-w="-1"
+    >
+      <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
     </SLModal>
   </template>
 </template>
@@ -261,9 +269,36 @@ const isZoom = ref(false)
 // 放大数据
 const zoom = () => {
   isZoom.value = true
-  // 放大后图表的高度
-  // const height = window.innerHeight * 0.6
-  // addTaskToBrowserMainThread(() => {})
+}
+
+// ---------------------------------- 点击某个图像，放大 ----------------------------------
+const isSingleZoom = ref(false)
+watch(isSingleZoom, () => {
+  isZoom.value = false
+})
+const signleZoomFilename = ref()
+// 点击某个图像，放大
+const handelClickZoom = (filename) => {
+  signleZoomFilename.value = filename
+  isSingleZoom.value = true
+  // console.log('filename', filename)
+  // console.log('image data', imagesData[filename])
+}
+
+// ---------------------------------- 点击下载按钮下载 ----------------------------------
+
+const download = (filename) => {
+  // 拿到blob数据
+  const blob = imagesData[filename].blob
+  // 创建a标签
+  const a = document.createElement('a')
+  // 创建url
+  const url = window.URL.createObjectURL(blob)
+  // 设置a标签
+  a.href = url
+  a.download = filename
+  // 模拟点击
+  a.click()
 }
 
 // ---------------------------------- 暴露api ----------------------------------
@@ -277,6 +312,9 @@ defineExpose({
 <style lang="scss" scoped>
 .image-content {
   @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
+  img {
+    @apply cursor-pointer;
+  }
   .images-container {
     @apply grid gap-2 h-full;
     .image-container {
@@ -286,7 +324,7 @@ defineExpose({
         @apply block;
       }
       .download-button {
-        @apply opacity-75 absolute top-0 right-0 hidden;
+        @apply opacity-75 absolute top-1 right-1 hidden;
       }
     }
   }
