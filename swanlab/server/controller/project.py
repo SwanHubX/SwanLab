@@ -303,7 +303,6 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         project = Project.get_by_id(project_id)
     except NotExistedError as e:
         return NOT_FOUND_404("Target project does not exist")
-    temp = None
 
     # COMPAT 兼容以前没有多实验对比数据的情况
     # 如果不存在，则按照一下步骤和注意事项进行：
