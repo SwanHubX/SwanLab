@@ -211,7 +211,8 @@ defineExpose({
 
 // ---------------------------------- 图表样式 ----------------------------------
 
-.audio-chart {
+.audio-chart,
+.image-chart {
   @apply col-span-3;
 }
 </style>

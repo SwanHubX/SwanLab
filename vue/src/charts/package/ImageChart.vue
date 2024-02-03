@@ -12,7 +12,33 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-
+    <div class="image-content">
+      <div class="flex flex-col justify-center items-center h-full" v-if="loading">
+        <SLLoading />
+      </div>
+      <!-- 加载完成 -->
+      <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
+        <div
+          class="flex flex-col items-center h-full justify-center"
+          v-for="(s, index) in stepsData[currentIndex][source[0]]"
+          :key="index"
+        >
+          <img :src="imagesData[s.filename].url" />
+          <p class="text-xs">{{ s.caption }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="h-8">
+      <SlideBar
+        class="mt-2"
+        v-model="currentIndex"
+        :max="maxIndex"
+        :min="minIndex"
+        :bar-color="barColor"
+        :key="slideKey"
+        v-if="maxIndex !== minIndex"
+      />
+    </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
   </template>
@@ -26,10 +52,13 @@
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { ref, inject } from 'vue'
+import { ref, inject, watch, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { useExperimentStore } from '@swanlab-vue/store'
+import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
-
+import { debounce } from '@swanlab-vue/utils/common'
+const experimentStore = useExperimentStore()
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
   title: {
@@ -39,7 +68,15 @@ const props = defineProps({
   chart: {
     type: Object,
     required: true
+  },
+  index: {
+    type: Number,
+    required: true
   }
+})
+const run_id = computed(() => experimentStore.experiment.run_id)
+const source = computed(() => {
+  return props.chart.source
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
@@ -51,12 +88,85 @@ const error = ref(props.chart.error)
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
+// 已经滑动部分颜色，应该通过色盘计算得到
+const barColor = inject('colors')[0]
+// 当前滑块索引
+const __currentIndex = ref(0)
+// 最小索引
+const minIndex = ref(undefined)
+// 最大索引
+const maxIndex = ref(undefined)
+// slide的key
+const slideKey = ref(0)
+watch([maxIndex, minIndex], ([max, min]) => {
+  slideKey.value = max + '-' + min
+})
+const loading = ref(true)
+
+// 计算属性，拦截滑块索引变化
+const currentIndex = computed({
+  get: () => __currentIndex.value,
+  set: (val) => {
+    // 如果当前值存在于stepsData的key中，则直接赋值
+    if (val in stepsData) {
+      if (val === __currentIndex.value) return
+      __currentIndex.value = val
+    } else {
+      // 寻找一个最接近的值
+      const keys = Array.from(Object.keys(stepsData))
+      const index = keys.findIndex((item) => item > val)
+      const num = Number(index === -1 ? keys[keys.length - 1] : keys[index])
+      if (num === __currentIndex.value) return
+      __currentIndex.value = num
+    }
+    loading.value = true
+    debounceGetImagesData(stepsData[__currentIndex.value])
+  }
+})
+
+// 布局处理,一共length列，最多显示8列
+const setGrid = (length) => {
+  if (length <= 8) {
+    return 'grid-template-columns:' + 'repeat(' + length + ', minmax(0, 1fr))'
+  } else {
+    return 'grid-template-columns:' + 'repeat(8, minmax(0, 1fr))'
+  }
+}
 
 // ---------------------------------- 数据格式化 ----------------------------------
 // 前端映射数据，不包含图像，数据格式：{step: {tag: [{filename: string, caption: string}]}}
 const stepsData = {}
-// 图像数据缓存, 数据格式：{String<filename>: ImageData}
+// 图像数据缓存, 数据格式：{String<filename>: {blob: Blob, url: string<base64>}}
 const imagesData = {}
+
+const getImagesData = async (stepData) => {
+  // 单数据
+  const tag = source.value[0]
+  const promises = []
+  // console.log('stepData', stepData)
+  for (const { filename } of stepData[tag]) {
+    if (!imagesData[filename]) {
+      promises.push(
+        new Promise((resolve) => {
+          UTILS.media.get(filename, run_id.value, tag).then((blob) => {
+            // blob转换为图像base64
+            const reader = new FileReader()
+            reader.onload = function () {
+              imagesData[filename] = { blob, url: reader.result }
+              resolve()
+            }
+            reader.readAsDataURL(blob)
+          })
+        })
+      )
+    }
+  }
+  await Promise.all(promises)
+  loading.value = false
+  // console.log('图像数据：', imagesData)
+}
+
+const debounceGetImagesData = debounce(getImagesData, 500)
 
 /**
  * 将后端传回的数据转换为图像数据，存储到imageStepsData中
@@ -65,10 +175,15 @@ const imagesData = {}
  */
 const changeData2Image = (data) => {
   // 遍历数据，将数据转换为图像数据
+  let _maxIndex = 0
+  let _minIndex = Infinity
   for (const tag in data) {
     // 遍历tag下的数据
+    _maxIndex = Math.max(Number(data[tag].list[data[tag].list.length - 1].index), _maxIndex)
+    _minIndex = Math.min(Number(data[tag].list[0].index), _minIndex)
     for (const item of data[tag].list) {
       if (!stepsData[item.index]) stepsData[item.index] = {}
+      else continue
       // 对当前tag下的数据进行处理,向stepsData中添加数据
       if (!stepsData[item.index][tag]) stepsData[item.index][tag] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
@@ -81,6 +196,8 @@ const changeData2Image = (data) => {
       }
     }
   }
+  maxIndex.value = _maxIndex
+  minIndex.value = _minIndex
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
@@ -89,7 +206,8 @@ const changeData2Image = (data) => {
 const render = (data) => {
   // 数据格式化
   changeData2Image(data)
-  console.log('图像数据：', stepsData)
+  // console.log('图像数据：', stepsData)
+  currentIndex.value = minIndex.value
 }
 // 重渲染
 const change = (data) => {
@@ -116,4 +234,11 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.image-content {
+  @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
+  .images-container {
+    @apply grid gap-2 h-full;
+  }
+}
+</style>

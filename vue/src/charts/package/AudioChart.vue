@@ -129,9 +129,9 @@ const currentIndex = computed({
       if (val === __currentIndex.value) return
       __currentIndex.value = val
       // 当前值
-      console.log('设置当前值为', val)
+      // console.log('设置当前值为', val)
     } else {
-      console.log('当前值不存在: ', val)
+      // console.log('当前值不存在: ', val)
       // 寻找最近的值
       const keys = Array.from(stepMap.keys())
       const index = keys.findIndex((item) => item > val)
