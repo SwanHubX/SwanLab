@@ -20,15 +20,7 @@ import yaml
 from typing import List
 from ...db.utils.chart import transform_to_multi_exp_charts
 
-from ...db import (
-    connect,
-    NotExistedError,
-)
-
-# peewee 相关
-from peewee import (
-    fn,
-)
+from ...db import NotExistedError
 
 # 自定义响应
 from ..module.resp import (
@@ -51,9 +43,7 @@ from ...db import (
     Experiment,
     Tag,
     Chart,
-    Source,
     Namespace,
-    Display,
 )
 
 # 将查询结果对象转为列表
@@ -68,37 +58,15 @@ DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 RUNNING_STATUS = Experiment.RUNNING_STATUS
 
 
-def __clear_field(target: List[dict], field: str) -> list[dict]:
-    """遍历字典列表清除某个字段
-
-    Parameters
-    ----------
-    target : List[dict]
-        需要处理的列表
-    field : str
-        需要删除的字段
-
-    Returns
-    -------
-    list[dict]
-        处理后的字典列表
-    """
-
-    for item in target:
-        item.pop(field)
-
-    return target
-
-
 def __clear_fields(target: List[dict], fields: List[str]) -> list[dict]:
-    """遍历字典列表清除某个字段
+    """遍历字典列表清除多个字段
 
     Parameters
     ----------
     target : List[dict]
         需要处理的列表
-    field : str
-        需要删除的字段
+    fields : List[str]
+        需要删除的字段列表
 
     Returns
     -------
