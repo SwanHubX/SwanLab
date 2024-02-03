@@ -24,5 +24,34 @@ from swanlab.server.controller.project import get_project_charts
 
 result = json.loads(asyncio.run(get_project_charts()).body)
 
+# ---------------------------------- 请求状态 ----------------------------------
+
 assert result["code"] == 0
+
+# ---------------------------------- 响应体字段 ----------------------------------
+
 data = result["data"]
+
+assert "_sum" in data, "data中缺少 _sum 字段"
+assert "charts" in data, "data中缺少 charts 字段"
+assert "namespaces" in data, "data中缺少 namespaces 字段"
+
+# ---------------------------------- 字段类型 ----------------------------------
+
+# _sum
+assert isinstance(data["_sum"], (int, float)), "_sum 字段的值不是数字"
+# charts
+charts_value = data["charts"]
+assert isinstance(charts_value, list), "charts 字段的值不是列表"
+for chart in charts_value:
+    assert isinstance(chart, dict), "charts 列表中的元素不是字典"
+    assert all(key in chart for key in ("id", "name", "source")), "charts 字典缺少 id, name 或 source 字段"
+# namesapces
+namespaces_value = data["namespaces"]
+assert isinstance(namespaces_value, list), "namespaces 字段的值不是列表"
+for namespace in namespaces_value:
+    assert isinstance(namespace, dict), "namespaces 列表中的元素不是字典"
+    assert all(key in namespace for key in ("id", "name", "charts")), "namespaces 字典缺少 id, name 或 charts 字段"
+
+
+print(data)

@@ -324,7 +324,6 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             .having(fn.COUNT(Tag.id) > 1)
         )
         tags = [{"name": tag.name, "type": tag.type} for tag in tags_with_same_name]
-        print(tags)
         # 如果没有满足多实验图表生成条件的 tag，返回404
         if len(tags) == 0:
             return NOT_FOUND_404("No mutiple experment charts found")
@@ -399,4 +398,4 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         namespace_list[index]["charts"] = displays
 
     # 获取项目下所有实验的图表数据
-    return SUCCESS_200({"_sum": _sum, "charts": charts, "namespace": namespace_list})
+    return SUCCESS_200({"_sum": _sum, "charts": charts, "namespaces": namespace_list})
