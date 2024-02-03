@@ -26,6 +26,9 @@ result = json.loads(asyncio.run(get_project_charts()).body)
 
 # ---------------------------------- 请求状态 ----------------------------------
 
+if result["code"] == 3404:
+    print(result["message"])
+
 assert result["code"] == 0
 
 # ---------------------------------- 响应体字段 ----------------------------------
