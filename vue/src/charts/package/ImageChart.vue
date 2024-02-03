@@ -54,7 +54,7 @@
             :key="index"
           >
             <img :src="imagesData[s.filename].url" />
-            <p class="text-xs">{{ s.caption }}</p>
+            <p class="text-xs mt-2">{{ s.caption }}</p>
           </div>
         </div>
       </div>
@@ -66,7 +66,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          v-if="maxIndex !== minIndex"
+          v-if="maxIndex !== undefined"
         />
       </div>
     </SLModal>
@@ -139,7 +139,7 @@ const currentIndex = computed({
   set: (val) => {
     // 如果当前值存在于stepsData的key中，则直接赋值
     if (val in stepsData) {
-      if (val === __currentIndex.value) return
+      if (val === __currentIndex.value && loading.value === false) return
       __currentIndex.value = val
     } else {
       // 寻找一个最接近的值
@@ -251,11 +251,11 @@ const change = (data) => {
 // 是否放大
 const isZoom = ref(false)
 // 放大数据
-const zoom = (data) => {
+const zoom = () => {
   isZoom.value = true
   // 放大后图表的高度
-  const height = window.innerHeight * 0.6
-  addTaskToBrowserMainThread(() => {})
+  // const height = window.innerHeight * 0.6
+  // addTaskToBrowserMainThread(() => {})
 }
 
 // ---------------------------------- 暴露api ----------------------------------
