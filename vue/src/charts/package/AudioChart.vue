@@ -6,7 +6,7 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      {{ $t('experiment.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
+      {{ $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
   <!-- 如果图表数据正确 -->
