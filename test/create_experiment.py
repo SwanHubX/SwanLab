@@ -33,8 +33,9 @@ for epoch in range(2, epochs):
         test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
             {
-                "test/image": swanlab.Image("/Users/likang/Desktop/IMG_0531.PNG", caption="test"),
-            }
+                "test/image": swanlab.Image(test_image, caption="test"),
+            },
+            step=epoch,
         )
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset

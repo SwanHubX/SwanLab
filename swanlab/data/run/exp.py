@@ -259,6 +259,9 @@ class SwanLabTag:
         # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
         # 需要指定sort，default命名空间的sort为0，其他命名空间的sort为None，表示默认添加到最后
         try:
+            # 对于namesoace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
+            if len(tag.split("/")) > 1:
+                namespace = tag.split("/")[0]
             self.__namespace = Namespace.create(name=namespace, experiment_id=self.experiment_id, sort=sort)
             swanlog.debug(f"Namespace {namespace} created, id: {self.__namespace.id}")
         except ExistedError:
