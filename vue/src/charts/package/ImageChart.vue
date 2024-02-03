@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="image-content">
+    <div class="image-content" ref="imageContentRef">
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
       </div>
@@ -40,7 +40,36 @@
       />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+      <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+      <div class="image-content">
+        <div class="flex flex-col justify-center items-center grow" v-if="loading">
+          <SLLoading />
+        </div>
+        <!-- 加载完成 -->
+        <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
+          <div
+            class="flex flex-col items-center h-full justify-center"
+            v-for="(s, index) in stepsData[currentIndex][source[0]]"
+            :key="index"
+          >
+            <img :src="imagesData[s.filename].url" />
+            <p class="text-xs">{{ s.caption }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="h-8">
+        <SlideBar
+          class="mt-2"
+          v-model="currentIndex"
+          :max="maxIndex"
+          :min="minIndex"
+          :bar-color="barColor"
+          :key="slideKey"
+          v-if="maxIndex !== minIndex"
+        />
+      </div>
+    </SLModal>
   </template>
 </template>
 
@@ -102,6 +131,7 @@ watch([maxIndex, minIndex], ([max, min]) => {
   slideKey.value = max + '-' + min
 })
 const loading = ref(true)
+const imageContentRef = ref(null)
 
 // 计算属性，拦截滑块索引变化
 const currentIndex = computed({
@@ -120,6 +150,7 @@ const currentIndex = computed({
       __currentIndex.value = num
     }
     loading.value = true
+    imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
 })
@@ -163,6 +194,7 @@ const getImagesData = async (stepData) => {
   }
   await Promise.all(promises)
   loading.value = false
+  imageContentRef.value.height = ''
   // console.log('图像数据：', imagesData)
 }
 

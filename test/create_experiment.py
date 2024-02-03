@@ -34,7 +34,7 @@ for epoch in range(2, epochs):
         test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
             {
-                "test/image": swanlab.Image(test_image, caption="test"),
+                "test/image": [swanlab.Image(test_image, caption="test")] * 24,
             },
             step=epoch,
         )
