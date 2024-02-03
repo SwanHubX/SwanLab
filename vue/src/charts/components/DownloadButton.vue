@@ -1,6 +1,6 @@
 <template>
-  <SLButton class="p-1.5 rounded border flex items-center justify-cente">
-    <SLIcon class="h-4 w-4 text-dimmer" icon="download" />
+  <SLButton class="p-1.5 rounded border flex items-center justify-cente h-7.5 w-7.5">
+    <SLIcon class="text-dimmer w-full h-full" icon="download" />
   </SLButton>
 </template>
 

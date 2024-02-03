@@ -19,11 +19,19 @@
       <!-- 加载完成 -->
       <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
         <div
-          class="flex flex-col items-center h-full justify-center"
+          class="flex flex-col items-center justify-center relative"
           v-for="(s, index) in stepsData[currentIndex][source[0]]"
           :key="index"
         >
-          <img class="img-no-zoom" :src="imagesData[s.filename].url" />
+          <div class="image-container">
+            <img class="img-no-zoom" :src="imagesData[s.filename].url" />
+            <DownloadButton
+              class="!w-5 !h-5 !p-0.5 download-button"
+              :filename="s.filename"
+              :run_id="run_id"
+              :tag="source[0]"
+            />
+          </div>
           <p class="text-xs">{{ s.caption }}</p>
         </div>
       </div>
@@ -86,6 +94,7 @@ import { useExperimentStore } from '@swanlab-vue/store'
 import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
+import DownloadButton from '../components/DownloadButton.vue'
 const experimentStore = useExperimentStore()
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -270,10 +279,16 @@ defineExpose({
   @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
   .images-container {
     @apply grid gap-2 h-full;
-  }
+    .image-container {
+      @apply inline-block relative;
 
-  .img-no-zoom {
-    @apply min-h-[224px];
+      &:hover .download-button {
+        @apply block;
+      }
+      .download-button {
+        @apply opacity-75 absolute top-0 right-0 hidden;
+      }
+    }
   }
 }
 
