@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="audio-content" ref="audioContentRef">
+    <div class="audio-content audio-content-no-zomm" ref="audioContentRef">
       <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
@@ -317,7 +317,10 @@ defineExpose({
 
 <style lang="scss" scoped>
 .audio-content {
-  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56;
-  @apply overflow-clip overflow-y-auto;
+  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative min-h-[224px];
+}
+
+.audio-content-no-zomm {
+  @apply overflow-clip overflow-y-auto h-56;
 }
 </style>

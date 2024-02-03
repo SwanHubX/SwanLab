@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="image-content" ref="imageContentRef">
+    <div class="image-content image-content-no-zoom" ref="imageContentRef">
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
       </div>
@@ -23,7 +23,7 @@
           v-for="(s, index) in stepsData[currentIndex][source[0]]"
           :key="index"
         >
-          <img :src="imagesData[s.filename].url" />
+          <img class="img-no-zoom" :src="imagesData[s.filename].url" />
           <p class="text-xs">{{ s.caption }}</p>
         </div>
       </div>
@@ -268,13 +268,17 @@ defineExpose({
 
 <style lang="scss" scoped>
 .image-content {
-  @apply mt-1 p-2 w-full rounded-sm relative h-56 overflow-y-auto overflow-x-clip;
+  @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
   .images-container {
     @apply grid gap-2 h-full;
   }
+
+  .img-no-zoom {
+    @apply min-h-[224px];
+  }
 }
 
-img {
-  @apply max-h-[200px];
+.image-content-no-zoom {
+  @apply h-56 overflow-y-auto overflow-x-clip;
 }
 </style>
