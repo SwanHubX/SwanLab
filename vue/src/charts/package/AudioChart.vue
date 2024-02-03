@@ -317,6 +317,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .audio-content {
-  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative min-h-[224px];
+  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56;
+  @apply overflow-clip overflow-y-auto;
 }
 </style>

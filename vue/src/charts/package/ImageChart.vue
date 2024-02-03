@@ -268,9 +268,13 @@ defineExpose({
 
 <style lang="scss" scoped>
 .image-content {
-  @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
+  @apply mt-1 p-2 w-full rounded-sm relative h-56 overflow-y-auto overflow-x-clip;
   .images-container {
     @apply grid gap-2 h-full;
   }
+}
+
+img {
+  @apply max-h-[200px];
 }
 </style>

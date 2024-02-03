@@ -208,7 +208,6 @@ defineExpose({
   @apply absolute top-1 right-2 h-4;
   @apply flex justify-end gap-2;
 }
-
 // ---------------------------------- 图表样式 ----------------------------------
 
 .audio-chart,
