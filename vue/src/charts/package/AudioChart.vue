@@ -32,13 +32,13 @@
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="mt-15 p-2 w-full border border-dimmer rounded-sm relative h-56">
+      <div class="audio-content" ref="audioContentRef">
         <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
         <div class="flex flex-col justify-center items-center h-full" v-if="loading">
           <SLLoading />
         </div>
       </div>
-      <div class="h-8 mt-20">
+      <div class="h-8 mt-10">
         <SlideBar
           class="mt-2"
           v-model="currentIndex"
@@ -140,6 +140,7 @@ const currentIndex = computed({
       __currentIndex.value = num
     }
     // 设置audioContentRef的height为当前height
+    // console.log('设置audioContentRef的height为当前height', audioContentRef.value)
     audioContentRef.value.style.height = audioContentRef.value.offsetHeight + 'px'
     loading.value = true
     debounceRender()
