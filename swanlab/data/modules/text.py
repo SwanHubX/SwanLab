@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from .base import BaseType
 import os
+from typing import Union, List
 
 
 class Text(BaseType):
@@ -15,28 +16,30 @@ class Text(BaseType):
         e.g. swanlab.Text("Hello World", caption="This is a caption for the text data.")
     """
 
-    def __init__(self, data, caption: str = None):
+    def __init__(self, data: Union[str, List["Text"]], caption: str = None):
         super().__init__(data)
         self.text_data = None
-        self.caption = caption
-        if self.caption is not None:
-            self.caption = self.__convert_caption(caption)
+        self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        # 预处理文本数据
-        self.__preprocess(self.value)
+        # 如果传入的是Text类列表
+        if isinstance(self.value, list):
+            return self.get_data_list()
+        else:
+            # 预处理文本数据
+            self.__preprocess(self.value)
 
-        # 设置文本数据的保存路径
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"text-step{self.step}.txt"
-        # 如果路径不存在，则创建路径
-        if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, save_name)
+            # 设置文本数据的保存路径
+            save_dir = os.path.join(self.settings.static_dir, self.tag)
+            save_name = f"{self.caption}-step{self.step}-{self.text_data[:16]}.txt"
+            # 如果路径不存在，则创建路径
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
+            save_path = os.path.join(save_dir, save_name)
 
-        # 保存文本数据写入到指定目录的指定json文件
-        self.__save(save_path)
-        return save_name
+            # 保存文本数据写入到指定目录的指定json文件
+            self.__save(save_path)
+            return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "int", "float"]
@@ -71,19 +74,26 @@ class Text(BaseType):
         # 如果类型是数字，则转换为字符串
         elif isinstance(caption, (int, float)):
             caption = str(caption)
+        # 如果类型是None，则转换为默认字符串
+        elif caption is None:
+            caption = "audio"
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
-        return (
-            {
-                "caption": self.caption,
-            }
-            if self.caption is not None
-            else None
-        )
+        # 如果传入的是Text类列表
+        if isinstance(self.value, list):
+            return self.get_more_list()
+        else:
+            return (
+                {
+                    "caption": self.caption,
+                }
+                if self.caption is not None
+                else None
+            )
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""

@@ -18,7 +18,7 @@ from .utils import (
     json_serializable,
 )
 from datetime import datetime
-import os, time
+import time
 import random
 import ujson
 from .exp import SwanLabExp
@@ -27,7 +27,7 @@ from .db import Experiment, ExistedError
 from typing import Tuple
 import yaml
 import argparse
-import socket
+from ..modules import BaseType
 
 
 def need_inited(func):
@@ -437,6 +437,10 @@ class SwanLabRun:
         for key in data:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
+            # 如果d的数据类型是list，且里面的数据全部为Image类型，则需要转换一下
+            if isinstance(d, list) and all([isinstance(i, BaseType) for i in d]) and len(d) > 0:
+                # 将d作为输入，构造一个与d相同类型的实例
+                d = d[0].__class__(d)
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
             # 将key, data, step记录到loggings_json中
@@ -513,7 +517,7 @@ class SwanLabRun:
         # 如果suffix_checked为default，则设置为默认后缀
         if suffix.lower().strip() == "default":
             # 添加默认后缀
-            default_suffix = "{}_{}".format(datetime.now().strftime("%b%d_%H-%M-%S"), socket.gethostname())
+            default_suffix = "{}".format(datetime.now().strftime("%b%d_%H-%M-%S"))
             exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
         else:
             exp_name = "{}_{}".format(experiment_name_checked, suffix)
