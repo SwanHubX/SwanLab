@@ -118,11 +118,11 @@ const createChart = (dom, data, config = {}) => {
       // tickMethod: formatXAxisTick,
       tickCount: 5,
       // 在此处完成X轴数据的格式化
-      label: {
-        formatter: (data) => {
-          return formatNumber2K(data)
-        }
-      },
+      // label: {
+      //   formatter: (data) => {
+      //     return formatNumber2K(data)
+      //   }
+      // },
       // x轴坐标轴样式
       line: {
         style: {
