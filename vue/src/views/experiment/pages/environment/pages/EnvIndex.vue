@@ -36,14 +36,14 @@ const environments = computed(() => {
 // 实验相关（实验描述、时间、系统）
 const overview = computed(() => {
   return [
-    {
-      key: 'name',
-      value: experiment.name
-    },
-    {
-      key: 'description',
-      value: experiment.description
-    },
+    // {
+    //   key: 'name',
+    //   value: experiment.name
+    // },
+    // {
+    //   key: 'description',
+    //   value: experiment.description
+    // },
     {
       key: 'start_time',
       value: formatTime(experiment.create_time)
