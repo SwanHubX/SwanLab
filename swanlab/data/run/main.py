@@ -7,12 +7,13 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from typing import Any
+from typing import Any, Optional
 from ..settings import SwanDataSettings
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
     check_exp_name_format,
+    check_exp_suffix_format,
     check_desc_format,
     get_a_lock,
     json_serializable,
@@ -28,6 +29,7 @@ from typing import Tuple
 import yaml
 import argparse
 from ..modules import BaseType
+import socket
 
 
 def need_inited(func):
@@ -397,7 +399,7 @@ class SwanLabRun:
         """
         return self.__config
 
-    def log(self, data: dict, step: int = None):
+    def log(self, data: dict, step: int = None, logger_dict: dict = None):
         """
         Log a row of data to the current run.
         Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
@@ -412,6 +414,9 @@ class SwanLabRun:
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
+        logger_dict : dict, optional
+            The logger_dict is used to customize the log output.
+            The logger_dict is a dict with the following keys: "open", "prefix", "subfix", "time".
         """
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
@@ -428,6 +433,8 @@ class SwanLabRun:
                 )
             )
             step = None
+
+        loggings_json = dict()
         # 遍历data，记录data
         for key in data:
             # 遍历字典的key，记录到本地文件中
@@ -438,6 +445,11 @@ class SwanLabRun:
                 d = d[0].__class__(d)
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
+            # 将key, data, step记录到loggings_json中
+            loggings_json[key] = d
+
+        # 将内容打印到终端
+        swanlog.log(self.__get_logging_content(loggings_json, logger_dict).strip(), header=False)
 
     def success(self):
         """标记实验成功"""
@@ -476,7 +488,7 @@ class SwanLabRun:
         experiment_name : str
             实验名称
         suffix : str
-            实验名称后缀添加方式，可以为None、"timestamp"，前者代表不添加后缀，后者代表添加时间戳后缀
+            实验名称后缀添加方式，可以为None、"default"或自由后缀，前者代表不添加后缀，后者代表添加时间戳后缀
 
         Returns
         ----------
@@ -489,19 +501,34 @@ class SwanLabRun:
         experiment_name = "exp" if experiment_name is None else experiment_name
         # 校验实验名称
         experiment_name_checked = check_exp_name_format(experiment_name)
+        # 如果实验名称太长的tip
+        tip = "The experiment name you provided is too long, it has been truncated automatically."
+
         # 如果前后长度不一样，说明实验名称被截断了，提醒
-        if len(experiment_name_checked) != len(experiment_name):
-            swanlog.warning("The experiment name you provided is not valid, it has been truncated automatically.")
-        # 为实验名称添加后缀，格式为yyyy-mm-dd_HH-MM-SS
+        if len(experiment_name_checked) != len(experiment_name) and suffix is None:
+            swanlog.warning(tip)
+
+        # 如果suffix为None, 则不添加后缀，直接返回
         if suffix is None:
             return experiment_name_checked, experiment_name
-        # 如果suffix不是timestamp，提醒，自动改为timestamp
-        if suffix.lower() != "timestamp":
-            suffix = "timestamp"
-            swanlog.warning(f"The suffix you provided is not valid, it has been set to {suffix}.")
-        # ---------------------------------- 自动添加后缀 ----------------------------------
-        # 现在只有一种后缀，即timestamp，所以直接添加就行
-        exp_name = "{}_{}".format(experiment_name_checked, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+
+        # suffix必须是字符串
+        if not isinstance(suffix, str):
+            raise TypeError("The suffix must be a string, but got {}".format(type(suffix)))
+
+        # 如果suffix_checked为default，则设置为默认后缀
+        if suffix.lower().strip() == "default":
+            # 添加默认后缀
+            default_suffix = "{}_{}".format(datetime.now().strftime("%b%d_%H-%M-%S"), socket.gethostname())
+            exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
+        else:
+            exp_name = "{}_{}".format(experiment_name_checked, suffix)
+
+        # 校验实验名称，如果实验名称过长，截断
+        experiment_name_checked = check_exp_name_format(exp_name)
+        if len(experiment_name_checked) != len(exp_name):
+            swanlog.warning(tip)
+
         return experiment_name_checked, exp_name
 
     def __register_exp(
@@ -522,12 +549,15 @@ class SwanLabRun:
                 exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
                 break
             except ExistedError:
-                if suffix is None:
+                # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
+                if suffix.lower().strip() == "default":
+                    swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
+                    time.sleep(0.5)
+                    continue
+                # 其他情况下，说明是用户自定义的后缀，需要报错
+                else:
                     raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
-                # 如果suffix不为None，说明是自动生成的后缀，需要重新生成后缀
-                swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
-                time.sleep(0.5)
-                continue
+
         self.__settings.exp_name = exp_name
         # 实验创建成功，执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
@@ -570,3 +600,30 @@ class SwanLabRun:
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(), f)
+
+    def __get_logging_content(self, loggings_json: dict, logger_dict: dict):
+        """得到logging的内容"""
+        # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
+        # 如果value是数值类型，则保留4位小数
+        loggings_formatted = ", ".join(
+            [
+                "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
+                for key, value in loggings_json.items()
+            ]
+        )
+
+        # 如果time参数为Ture, 设置时间戳
+        if logger_dict["time"]:
+            time_text = ", time: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            time_text = ""
+
+        # 设置日志的内容, 并去掉前后空格
+        logging_content = "{} {}{} {}".format(
+            logger_dict["prefix"],
+            loggings_formatted,
+            time_text,
+            logger_dict["subfix"],
+        )
+
+        return logging_content
