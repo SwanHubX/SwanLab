@@ -90,4 +90,4 @@ async def _(project_id: int = DEFAULT_PROJECT_ID):
     2. 依据规则获取所有实验的图表数据
     """
 
-    return await get_project_charts()
+    return await get_project_charts(project_id)
