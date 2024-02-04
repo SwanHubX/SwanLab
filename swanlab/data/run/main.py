@@ -496,29 +496,33 @@ class SwanLabRun:
         experiment_name = "exp" if experiment_name is None else experiment_name
         # 校验实验名称
         experiment_name_checked = check_exp_name_format(experiment_name)
+        # 如果实验名称太长的tip
+        tip = "The experiment name you provided is too long, it has been truncated automatically."
+
         # 如果前后长度不一样，说明实验名称被截断了，提醒
-        if len(experiment_name_checked) != len(experiment_name):
-            swanlog.warning("The experiment name you provided is not valid, it has been truncated automatically.")
+        if len(experiment_name_checked) != len(experiment_name) and suffix is None:
+            swanlog.warning(tip)
 
         # 如果suffix为None, 则不添加后缀，直接返回
         if suffix is None:
             return experiment_name_checked, experiment_name
 
-        # 校验实验名后缀
-        suffix_checked = check_exp_suffix_format(suffix, experiment_name_checked)
-        # 如果前后长度不一样，说明实验名称被截断了，提醒
-        if len(suffix_checked) != len(suffix):
-            swanlog.warning(
-                "The suffix of experiment name you provided is not valid, it has been truncated automatically."
-            )
+        # suffix必须是字符串
+        if not isinstance(suffix, str):
+            raise TypeError("The suffix must be a string, but got {}".format(type(suffix)))
 
         # 如果suffix_checked为default，则设置为默认后缀
-        if suffix_checked.lower().strip() == "default":
+        if suffix.lower().strip() == "default":
             # 添加默认后缀
             default_suffix = "{}_{}".format(datetime.now().strftime("%b%d_%H-%M-%S"), socket.gethostname())
             exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
         else:
-            exp_name = "{}_{}".format(experiment_name_checked, suffix_checked)
+            exp_name = "{}_{}".format(experiment_name_checked, suffix)
+
+        # 校验实验名称，如果实验名称过长，截断
+        experiment_name_checked = check_exp_name_format(exp_name)
+        if len(experiment_name_checked) != len(exp_name):
+            swanlog.warning(tip)
 
         return experiment_name_checked, exp_name
 

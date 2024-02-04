@@ -12,7 +12,6 @@ from ...utils.file import (
     get_a_lock,
     check_exp_name_format,
     check_desc_format,
-    check_exp_suffix_format,
 )
 from ...utils import get_package_version, create_time, generate_color
 import datetime
