@@ -505,7 +505,7 @@ class SwanLabRun:
             return experiment_name_checked, experiment_name
 
         # 校验实验名后缀
-        suffix_checked = check_exp_suffix_format(suffix)
+        suffix_checked = check_exp_suffix_format(suffix, experiment_name_checked)
         # 如果前后长度不一样，说明实验名称被截断了，提醒
         if len(suffix_checked) != len(suffix):
             swanlog.warning(

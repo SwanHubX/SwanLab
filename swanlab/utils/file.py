@@ -130,7 +130,7 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     return name
 
 
-def check_exp_suffix_format(suffix: str, auto_cut: bool = True) -> str:
+def check_exp_suffix_format(suffix: str, experiment_name_checked: str, auto_cut: bool = True) -> str:
     """检查实验名后缀，必须是0-9a-zA-Z和连字符(_-)，并且不能以连字符(_-)开头或结尾
     最大长度为100个字符，一个中文字符算一个字符
 
@@ -167,9 +167,9 @@ def check_exp_suffix_format(suffix: str, auto_cut: bool = True) -> str:
             f"suffix: {suffix} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
         )
     # 检查长度
-    if auto_cut and len(suffix) > max_len:
+    if auto_cut and len(experiment_name_checked + "_" + suffix) > max_len:
         suffix = suffix[:max_len]
-    elif not auto_cut and len(suffix) > max_len:
+    elif not auto_cut and len(experiment_name_checked + "_" + suffix) > max_len:
         raise IndexError(f"suffix: {suffix} is too long, which must be less than {max_len} characters")
     return suffix
 
