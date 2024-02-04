@@ -77,7 +77,12 @@
       </div>
     </SLModal>
     <!-- 额外的放大功能，点击某个图像，放大显示 -->
-    <SLModal class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14" v-model="isSingleZoom" max-w="-1">
+    <SLModal
+      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14"
+      max-w="-1"
+      v-model="isSingleZoom"
+      close-on-overlay-click
+    >
       <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
     </SLModal>
   </template>
