@@ -13,7 +13,6 @@ from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
     check_exp_name_format,
-    check_exp_suffix_format,
     check_desc_format,
     get_a_lock,
     json_serializable,
