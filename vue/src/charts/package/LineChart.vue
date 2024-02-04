@@ -115,13 +115,14 @@ const createChart = (dom, data, config = {}) => {
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
-      tickMethod: formatXAxisTick,
+      // tickMethod: formatXAxisTick,
+      tickCount: 5,
       // 在此处完成X轴数据的格式化
-      label: {
-        formatter: (data) => {
-          return formatNumber2K(data)
-        }
-      },
+      // label: {
+      //   formatter: (data) => {
+      //     return formatNumber2K(data)
+      //   }
+      // },
       // x轴坐标轴样式
       line: {
         style: {
@@ -247,50 +248,52 @@ const formatNumber2K = (num) => {
  * 5. [70, 140), 每隔20个取一个（第一个和最后一个都取） 140=20*7
  * 6. [140, 350), 每隔50个取一个（第一个和最后一个都取） 350=50*7
  * ...
- *
+ * 这段代码暂时没有用处，原因是在指定位置的tick可能不存在数据
  * @param {object} category 目录配置
  * @returns {array} 刻度数组
  */
-const formatXAxisTick = (category) => {
-  // console.log('category', category)
-  const { values } = category
-  const length = values.length
-  if (length < 8) return values
-  if (length < 15) return values.filter((_, i) => i % 2 === 0)
-  if (length <= 35) return values.filter((_, i) => i % 5 === 0)
-  // 接下来，将length归一化到[35, 350)区间内，判断步长取值
-  // 1. 计算归一化尺度，这应该是10的n次方,具体计算是/35，然后判断其小于哪个10的n次方
-  const p = Math.ceil(Math.log10(length / 35)) - 1
-  // 现在区间就确定了，是[35*10**(p-1), 35*10**p]
-  // 然后判断一下在哪个区间内，这样就可以取步长
-  const lengthScale = length / 10 ** p
-  let step
-  if (lengthScale < 70) {
-    step = 10 * 10 ** p
-  } else if (lengthScale < 140) {
-    step = 20 * 10 ** p
-  } else {
-    step = 50 * 10 ** p
-  }
-  // console.log('p', p)
-  // console.log('step', step)
-  // 判断这个长度能容纳多少个步长
-  const count = Math.floor(length / step)
-  // console.log('count', count)
-  // 生成刻度，与步长绑定,去重
-  const ticks = new Set()
-  // 以最小值为基准，生成刻度
-  const base = Math.floor(Number(values[0]) / step)
-  // 刻度不大于最大值
-  const max = Math.floor(Number(values[length - 1]))
-  // console.log('base', base)
-  for (let i = base; i <= base + count; i++) {
-    i * step < max && ticks.add(i * step)
-  }
-  // set转array
-  // console.log('ticks', Array.from(ticks))
-  return Array.from(ticks)
-}
+// const formatXAxisTick = (category) => {
+//   // console.log('category', category)
+//   const { values } = category
+//   // console.log('values', values)
+//   const length = Number(values[values.length - 1])
+//   if (length < 8) return values
+//   if (length < 15) return values.filter((_, i) => i % 2 === 0)
+//   if (length <= 35) return values.filter((_, i) => i % 5 === 0)
+//   // 接下来，将length归一化到[35, 350)区间内，判断步长取值
+//   // 1. 计算归一化尺度，这应该是10的n次方,具体计算是/35，然后判断其小于哪个10的n次方
+//   const p = Math.ceil(Math.log10(length / 35)) - 1
+//   // 现在区间就确定了，是[35*10**(p-1), 35*10**p]
+//   // 然后判断一下在哪个区间内，这样就可以取步长
+//   const lengthScale = length / 10 ** p
+//   let step
+//   if (lengthScale < 70) {
+//     step = 10 * 10 ** p
+//   } else if (lengthScale < 140) {
+//     step = 20 * 10 ** p
+//   } else {
+//     step = 50 * 10 ** p
+//   }
+//   // console.log('p', p)
+//   // console.log('step', step)
+//   // 判断这个长度能容纳多少个步长
+//   const count = Math.floor(length / step)
+//   // console.log('count', count)
+//   // 生成刻度，与步长绑定,去重
+//   const ticks = new Set()
+//   // 以最小值为基准，生成刻度
+//   const base = Math.floor(Number(values[0]) / step)
+//   // 刻度不大于最大值
+//   const max = Math.floor(Number(values[values.length - 1]))
+//   // console.log('max', max)
+//   // console.log('base', base)
+//   for (let i = base; i <= base + count; i++) {
+//     i * step < max && ticks.add(String(i * step))
+//   }
+//   // set转array
+//   console.log('ticks', Array.from(ticks))
+//   return Array.from(ticks)
+// }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
