@@ -11,7 +11,8 @@
       "header": {
         "name": "实验名",
         "status": "状态",
-        "create": "创建时间"
+        "create": "创建时间",
+        "duration": "Runtime"
       }
     }
   },

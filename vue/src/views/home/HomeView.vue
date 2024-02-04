@@ -44,6 +44,9 @@
           <template v-slot:create="{ row }">
             {{ transTime(convertUtcToLocal(row.create_time)) }}
           </template>
+          <template v-slot:duration="{ row }">
+            {{ getDuration(row) }}
+          </template>
           <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
             {{ row.config[item.slot]?.value || '-' }}
           </template>
@@ -66,7 +69,7 @@
  * @since: 2023-12-04 19:36:21
  **/
 import { useProjectStore } from '@swanlab-vue/store'
-import { formatTime } from '@swanlab-vue/utils/time'
+import { formatTime, getDuration } from '@swanlab-vue/utils/time'
 import { computed, ref, onMounted } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
@@ -121,6 +124,11 @@ const column = ref([
     title: t('home.list.table.header.create'),
     slot: 'create',
     type: 'create_time'
+  },
+  {
+    title: t('home.list.table.header.duration'),
+    slot: 'duration',
+    type: 'duration'
   }
 ])
 
