@@ -28,7 +28,6 @@ from typing import Tuple
 import yaml
 import argparse
 from ..modules import BaseType
-import socket
 
 
 def need_inited(func):
@@ -518,7 +517,7 @@ class SwanLabRun:
         # 如果suffix_checked为default，则设置为默认后缀
         if suffix.lower().strip() == "default":
             # 添加默认后缀
-            default_suffix = "{}_{}".format(datetime.now().strftime("%b%d_%H-%M-%S"), socket.gethostname())
+            default_suffix = "{}".format(datetime.now().strftime("%b%d_%H-%M-%S"))
             exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
         else:
             exp_name = "{}_{}".format(experiment_name_checked, suffix)
