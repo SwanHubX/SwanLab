@@ -500,7 +500,7 @@ class SwanLabRun:
         if len(experiment_name_checked) != len(experiment_name):
             swanlog.warning("The experiment name you provided is not valid, it has been truncated automatically.")
 
-        # 如果suffix为None, 则不添加后缀
+        # 如果suffix为None, 则不添加后缀，直接返回
         if suffix is None:
             return experiment_name_checked, experiment_name
 
@@ -540,14 +540,12 @@ class SwanLabRun:
                 exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
                 break
             except ExistedError:
-                if suffix is None:
-                    raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
                 # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
                 if suffix.lower().strip() == "default":
                     swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
                     time.sleep(0.5)
                     continue
-                # 如果suffix名是其他名称，说明是用户自定义的后缀，则报错
+                # 其他情况下，说明是用户自定义的后缀，需要报错
                 else:
                     raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
 

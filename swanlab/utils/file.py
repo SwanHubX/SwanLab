@@ -131,7 +131,7 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
 
 
 def check_exp_suffix_format(suffix: str, auto_cut: bool = True) -> str:
-    """检查实验名格式，必须是0-9a-zA-Z和连字符(_-)，并且不能以连字符(_-)开头或结尾
+    """检查实验名后缀，必须是0-9a-zA-Z和连字符(_-)，并且不能以连字符(_-)开头或结尾
     最大长度为100个字符，一个中文字符算一个字符
 
     Parameters
