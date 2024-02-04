@@ -254,7 +254,8 @@ const formatNumber2K = (num) => {
 const formatXAxisTick = (category) => {
   // console.log('category', category)
   const { values } = category
-  const length = values.length
+  // console.log('values', values)
+  const length = Number(values[values.length - 1])
   if (length < 8) return values
   if (length < 15) return values.filter((_, i) => i % 2 === 0)
   if (length <= 35) return values.filter((_, i) => i % 5 === 0)
@@ -282,13 +283,14 @@ const formatXAxisTick = (category) => {
   // 以最小值为基准，生成刻度
   const base = Math.floor(Number(values[0]) / step)
   // 刻度不大于最大值
-  const max = Math.floor(Number(values[length - 1]))
+  const max = Math.floor(Number(values[values.length - 1]))
+  // console.log('max', max)
   // console.log('base', base)
   for (let i = base; i <= base + count; i++) {
-    i * step < max && ticks.add(i * step)
+    i * step < max && ticks.add(String(i * step))
   }
   // set转array
-  // console.log('ticks', Array.from(ticks))
+  console.log('ticks', Array.from(ticks))
   return Array.from(ticks)
 }
 
