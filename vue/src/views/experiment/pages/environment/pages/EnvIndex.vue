@@ -119,7 +119,7 @@ const swanlab = computed(() => {
   return [
     {
       key: 'logdir',
-      value: projectStore.logdir,
+      value: projectStore.logdir + (projectStore.logdir.includes('/') ? '/' : '\\') + experiment.run_id,
       highLight: true,
       copy: true
     },
