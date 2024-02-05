@@ -10,17 +10,7 @@ r"""
 from ..env import get_db_path
 import os
 from peewee import SqliteDatabase
-from .models import (
-    Project,
-    Experiment,
-    Tag,
-    Chart,
-    Namespace,
-    Source,
-    Display,
-)
-
-tables = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
+from .table_config import tables
 
 # 判断是否已经binded了
 binded = False

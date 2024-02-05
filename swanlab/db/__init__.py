@@ -27,6 +27,6 @@ from .error import (
     ForeignNameNotExistedError,
     ChartTypeError,
 )
+from .table_config import tables
 from .db_connect import connect
-
-tables = [Project, Experiment, Tag, Chart, Namespace, Source, Display]
+from .utils import add_multi_chart
