@@ -40,6 +40,8 @@ def transform_to_multi_exp_charts(project_id: int):
     ------
     NotExistedError
         project 不存在
+    IndexError
+        project 已经生成过多实验图表
     NotExistedError
         没有满足多实验图表的 tag
     """
@@ -49,7 +51,7 @@ def transform_to_multi_exp_charts(project_id: int):
         raise NotExistedError("Target project does not exist")
 
     if project.first().charts == 1:
-        return "have multiple charts"
+        raise IndexError("project.charts must be 0, which means no multiple charts")
 
     # ---------------------------------- 未生成多实验图表 ----------------------------------
 
