@@ -11,25 +11,42 @@ r"""
 import os
 import ujson
 import shutil
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409
 from fastapi import Request
 from urllib.parse import quote
+from ...env import get_swanlog_dir
+from ...utils import get_a_lock, COLOR_LIST
+from ...utils.file import check_desc_format
+import yaml
+from typing import List
+from ...db.utils.chart import transform_to_multi_exp_charts
+
+from ...db import NotExistedError
+
+# 自定义响应
+from ..module.resp import (
+    SUCCESS_200,
+    DATA_ERROR_500,
+    CONFLICT_409,
+    NOT_FOUND_404,
+)
+
+# 功能性函数
 from ..settings import (
     get_tag_dir,
     get_exp_dir,
     get_config_path,
 )
-from ...env import get_swanlog_dir
-from ...utils import get_a_lock, COLOR_LIST
-from ...utils.file import check_desc_format
-import yaml
 
+# 数据表模型
 from ...db import (
     Project,
     Experiment,
     Tag,
+    Chart,
+    Namespace,
 )
 
+# 将查询结果对象转为列表
 __to_list = Project.search2list
 
 
@@ -39,6 +56,30 @@ __to_list = Project.search2list
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
+
+
+def __clear_fields(target: List[dict], fields: List[str]) -> list[dict]:
+    """遍历字典列表清除多个字段
+
+    Parameters
+    ----------
+    target : List[dict]
+        需要处理的列表
+    fields : List[str]
+        需要删除的字段列表
+
+    Returns
+    -------
+    list[dict]
+        处理后的字典列表
+    """
+
+    for item in target:
+        for field in fields:
+            item.pop(field)
+
+    return target
+
 
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
@@ -227,10 +268,41 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     1. 如果当前项目的chart字段为0，先生成多实验对比数据，跳转步骤2
     2. 依据规则获取所有实验的图表数据
     """
+
     # COMPAT 兼容以前没有多实验对比数据的情况
-    if Project.get(id=DEFAULT_PROJECT_ID).charts == 0:
-        # 生成多实验对比数据
-        pass
+    try:
+        transform_to_multi_exp_charts(project_id)
+    except NotExistedError as e:
+        return NOT_FOUND_404(str(e))
+
+    # 获取当前项目下所有的多实验对比表
+    multi_charts = Chart.filter(Chart.project_id == project_id)
+    _sum = multi_charts.count()
+    # 获取图表配置
+    charts = []
+    for _chart in multi_charts:
+        # 多实验图表的 source 中不是 tag_name，而是 experiment_name
+        sources = []
+        # 单箭头是通过外键反向索引的 chart -> source -> tag -> experiment => experiment_name
+        for source in _chart.sources:
+            sources.append(source.tag_id.experiment_id.name)
+        charts.append(
+            {
+                "id": _chart.id,
+                "name": _chart.name,
+                "description": _chart.description,
+                "source": sources,
+            }
+        )
+    # 获取命名空间配置
+    namespaces = Namespace.filter(Namespace.project_id == project_id)
+    namespace_list = __clear_fields(__to_list(namespaces), ["project_id", "experiment_id"])
+    # 通过 namespace 获取 display，从而获取该 namespace 下的 charts
+    for index, namespace in enumerate(namespaces):
+        displays = []
+        for display in __to_list(namespace.displays):
+            displays.append(display["chart_id"]["id"])
+        namespace_list[index]["charts"] = displays
 
     # 获取项目下所有实验的图表数据
-    return SUCCESS_200({"_sum": "xxx", "charts": "xxx", "summaries": "xxx"})
+    return SUCCESS_200({"_sum": _sum, "charts": charts, "namespaces": namespace_list})

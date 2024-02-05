@@ -10,8 +10,7 @@ r"""
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check, DatabaseProxy
 from .projects import Project
-from ..error import ExistedError, NotExistedError
-from ...utils.time import create_time
+from ..error import ExistedError, NotExistedError, ForeignProNotExistedError
 from ...utils.package import get_package_version
 from ...utils import generate_color
 
@@ -132,15 +131,14 @@ class Experiment(SwanModel):
 
         Raises
         -------
-        NotExistedError
+        ForeignProNotExistedError
             项目不存在
         ExistedError
             实验已经存在
         """
-        current_time = create_time()
         # 检查项目是否存在
         if not Project.select().where(Project.id == project_id).exists():
-            raise NotExistedError("项目不存在")
+            raise ForeignProNotExistedError("项目不存在")
         # 这个sum是+1以后的值
         sum = Project.increase_sum(project_id)
         # 调用父类的create方法创建实验实例
@@ -156,8 +154,6 @@ class Experiment(SwanModel):
                 version=get_package_version(),
                 light=light,
                 dark=dark,
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("实验已经存在")

@@ -45,7 +45,25 @@ class ForeignProNotExistedError(NotExistedError):
     pass
 
 
-class ParameterError(Exception):
-    """参数错误"""
+class ForeignNameNotExistedError(NotExistedError):
+    """命名空间外键不存在"""
+
+    pass
+
+
+class ForeignChartNotExistedError(NotExistedError):
+    """图表外键不存在"""
+
+    pass
+
+
+class ForeignTagNotExistedError(NotExistedError):
+    """标签外键不存在"""
+
+    pass
+
+
+class ChartTypeError(Exception):
+    """图表类型错误，对应的"""
 
     pass
