@@ -6,6 +6,7 @@ pnpm-lock.yaml
 vue/components.d.ts
 vue/auto-imports.d.ts
 swanlog/
+swanlog.bak/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

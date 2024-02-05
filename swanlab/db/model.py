@@ -92,3 +92,19 @@ class SwanModel(Model):
         """
         self.update_time = create_time()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def insert_many(cls, rows, fields=None):
+        """批量插入数据
+        经过swanmodel的覆写，insert_many方法自动创建create_time和update_time字段
+        """
+        current_time = create_time()
+        rows = [{**row, "create_time": current_time, "update_time": current_time} for row in rows]
+        return super().insert_many(rows, fields=fields)
+
+    @classmethod
+    def create(cls, **query):
+        current_time = create_time()
+        query["create_time"] = current_time
+        query["update_time"] = current_time
+        return super().create(**query)

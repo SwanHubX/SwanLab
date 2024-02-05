@@ -39,7 +39,7 @@ assert "_sum" in data, "data中缺少 _sum 字段"
 assert "charts" in data, "data中缺少 charts 字段"
 assert "namespaces" in data, "data中缺少 namespaces 字段"
 
-# ---------------------------------- 字段类型 ----------------------------------
+# ---------------------------------- 字段类型检测 ----------------------------------
 
 # _sum
 assert isinstance(data["_sum"], (int, float)), "_sum 字段的值不是数字"
@@ -56,5 +56,5 @@ for namespace in namespaces_value:
     assert isinstance(namespace, dict), "namespaces 列表中的元素不是字典"
     assert all(key in namespace for key in ("id", "name", "charts")), "namespaces 字典缺少 id, name 或 charts 字段"
 
-
+# ---------------------------------- 字段值检测 ----------------------------------
 print(data)

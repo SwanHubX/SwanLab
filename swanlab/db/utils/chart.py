@@ -10,7 +10,6 @@ r"""
 """
 
 from peewee import fn
-from ...utils import create_time
 from ..models import (
     Project,
     Namespace,
@@ -101,7 +100,7 @@ def transform_to_multi_exp_charts(project_id: int):
             # 1. 获取/生成 namespace
             # 获取 tag 对应的伴生 namespace 名
             accompanying_chart = Chart.filter(
-                Chart.name == tag_name, Chart.experiment_id == tag_list[0]["experiment_id"]
+                Chart.name == tag_name, Chart.experiment_id == tag_list[0]["experiment_id"], Chart.system != 0
             ).first()
             ns_name = Display.filter(Display.chart_id == accompanying_chart.id).first().namespace_id.name
             # 如果属于项目的同名 namespace 已经存在，直接使用这个
@@ -122,14 +121,11 @@ def transform_to_multi_exp_charts(project_id: int):
             # 3. 添加 chart 和 namespace 到 display
             Display.create(chart_id=chart.id, namespace_id=namespace.id)
             # 4. 生成source
-            time = create_time()
             sources = [
                 {
                     "tag_id": item["tag_id"],
                     "chart_id": chart.id,
                     "sort": index,
-                    "create_time": time,
-                    "update_time": time,
                 }
                 for index, item in enumerate(tag_list)
             ]
