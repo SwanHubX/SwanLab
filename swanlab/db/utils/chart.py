@@ -26,8 +26,6 @@ from ..error import (
     ChartTypeError,
 )
 
-__to_list = Project.search2list
-
 
 def transform_to_multi_exp_charts(project_id: int):
     """兼容以前没有多实验对比数据的情况
@@ -83,7 +81,7 @@ def transform_to_multi_exp_charts(project_id: int):
         # 将数据行添加到结果列表
         result_lists[tag["name"]] = [
             {"experiment_name": item["experiment_id"]["name"], "tag_id": item["id"], "type": tag["type"]}
-            for item in __to_list(target)
+            for item in Project.search2list(target)
         ]
     # 至此 result_list 数据结构为：{ tag_name: [{experiment_name, tag_id, tag_type}] }，找到了所有可以生成多实验图表的 tag
     # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
@@ -185,11 +183,11 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         name = Display.filter(Display.chart_id == chart_id).first().namespace_id.name
         namespaces = Namespace.filter(Namespace.project_id == project_id, Namespace.name == name)
         if Namespace.filter(Namespace.project_id == project_id, Namespace.name == name).count() > 0:
-            namespace = namespaces.first()
+            namespace: Namespace = namespaces.first()
         else:
-            namespace = Namespace.create(name, project_id=project_id)
+            namespace: Namespace = Namespace.create(name, project_id=project_id)
         # 2. 生成图表
-        accompanying_chart = Chart.get_by_id(chart_id)
+        accompanying_chart: Chart = Chart.get_by_id(chart_id)
         # # 通过 tag 的伴生图表获取部分信息
         chart = Chart.create(
             name=accompanying_chart.name,
