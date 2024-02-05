@@ -82,19 +82,40 @@ def transform_to_multi_exp_charts(project_id: int):
         target = Tag.filter(Tag.name == tag["name"], Tag.type == tag["type"])
         # 将数据行添加到结果列表
         result_lists[tag["name"]] = [
-            {"experiment_name": item["experiment_id"]["name"], "tag_id": item["id"], "type": tag["type"]}
+            {
+                "experiment_id": item["experiment_id"]["id"],
+                "experiment_name": item["experiment_id"]["name"],
+                "tag_id": item["id"],
+                "type": tag["type"],
+            }
             for item in Project.search2list(target)
         ]
-    # 至此 result_list 数据结构为：{ tag_name: [{experiment_name, tag_id, tag_type}] }，找到了所有可以生成多实验图表的 tag
+    # 至此 result_list 数据结构为：{ tag_name: [{experiment_id, experiment_name, tag_id, tag_type}] }，找到了所有可以生成多实验图表的 tag
     # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
     db = connect()
     with db.atomic():
-        # 1. 生成 namespace
-        namespace = Namespace.create("default", project_id=project_id)
-        for key in result_lists:
+        for tag_name in result_lists:
+            tag_list = result_lists[tag_name]
+            # 1. 获取/生成 namespace
+            # 获取 tag 对应的伴生 namespace 名
+            accompanying_chart = Chart.filter(
+                Chart.name == tag_name, Chart.experiment_id == tag_list[0]["experiment_id"]
+            ).first()
+            ns_name = Display.filter(Display.chart_id == accompanying_chart.id).first().namespace_id.name
+            # 如果属于项目的同名 namespace 已经存在，直接使用这个
+            namespaces = Namespace.filter(Namespace.name == ns_name, Namespace.project_id == project_id)
+            if namespaces.count():
+                namespace = namespaces.first()
+            # 没有该命名空间，需创建
+            else:
+                namespace = Namespace.create(ns_name, project_id=project_id)
             # 2. 生成图表
             chart = Chart.create(
-                key, experiment_id=None, project_id=project_id, system=0, type=result_lists[key][0]["type"]
+                tag_name,
+                experiment_id=None,
+                project_id=project_id,
+                system=0,
+                type=tag_list[0]["type"],
             )
             # 3. 添加 chart 和 namespace 到 display
             Display.create(chart_id=chart.id, namespace_id=namespace.id)
@@ -108,7 +129,7 @@ def transform_to_multi_exp_charts(project_id: int):
                     "create_time": time,
                     "update_time": time,
                 }
-                for index, item in enumerate(result_lists[key])
+                for index, item in enumerate(tag_list)
             ]
             Source.insert_many(sources).execute()
         # 最后将 project 表中的 charts 标注为 1，即已经生成多实验表格
@@ -150,13 +171,18 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
 
     # ---------------------------------- charts 为 1 说明已经生成过多实验图表 ----------------------------------
 
+    # 当前新增 tag
     tag = Tag.get_by_id(tag_id)
+    # 属于项目的所有与 tag 同名的 chart，用于判断是否已经生成该 tag 的多实验对比图
     charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name)
     chart = charts.first()
 
     # 已经有对应名称的 chart
     if not charts.count() == 0:
-        if not chart.type == tag.type:
+        # 获取图所属 tag 的类型
+        source = Source.filter(Source.chart_id == chart.id).first()
+        chart_type = source.tag_id.type
+        if not chart_type == tag.type:
             # 同名 chart 已生成，但是类型不满足
             return (
                 "A chart with the tag name has been generated, but the current tag type does not meet the requirements"
@@ -164,7 +190,6 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         else:
             # 如果该 chart 和 tag 同类，直接添加
             Source.create(tag_id, chart.id)
-            return True
 
     # 如果没有对应名称的 chart, 执行创建新多实验对比图表操作
     # 此时该 tag 应该是第一次出现
@@ -201,4 +226,3 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         # 4. 生成 source
         Source.create(tag_id, chart.id)
     db.commit()
-    return True
