@@ -70,9 +70,9 @@ def transform_to_multi_exp_charts(project_id: int):
     tags_with_same_name = Tag.select(Tag.name, Tag.type, fn.COUNT(Tag.id).alias("count")).group_by(Tag.name, Tag.type)
     tags = [{"name": tag.name, "type": tag.type} for tag in tags_with_same_name]
     # 如果没有满足多实验图表生成条件的 tag，抛出异常
-    # 这是一个非预期异常，因为按道理不会出现这种情况
+    # 这是一个非预期异常，因为按道理不会出现这种情况,这种情况也不会写到文档中，仅仅是调试方便
     if len(tags) == 0:
-        raise IndexError("No mutiple experment charts found")
+        raise ValueError("No mutiple experment charts found")
     # 用于收集满足多实验图表生成条件的 tag
     result_lists = {}
     # 遍历查询，获取满足多实验图表生成条件的 tag
@@ -159,6 +159,8 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         当前 tag 类型和期望 chart 类型不一致
     NotExistedError
         输入的project或tag或chart不存在
+    IndexError
+        project 已经生成过多实验图表, 无法再次生成
     """
 
     try:
@@ -180,13 +182,11 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     chart = charts.first()
 
     # 已经有对应名称的 chart
-    if not charts.count() == 0:
+    if charts.count() != 0:
         # 获取图所属 tag 的类型
-        if not chart.sources.first().tag_id.type == tag.type:
+        if chart.sources.first().tag_id.type != tag.type:
             # 同名 chart 已生成，但是类型不满足
-            raise ChartTypeError(
-                "A chart with the tag name has been generated, but the current tag type does not meet the requirements"
-            )
+            raise ChartTypeError("Error tag type")
         else:
             # 如果该 chart 和 tag 同类，直接添加
             Source.create(tag_id, chart.id)
@@ -204,8 +204,10 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         # 1. 获取 namespace
         name = Display.filter(Display.chart_id == chart_id).first().namespace_id.name
         namespaces = Namespace.filter(Namespace.project_id == project_id, Namespace.name == name)
+        # 如果属于项目的同名 namespace 已经存在，直接使用这个
         if Namespace.filter(Namespace.project_id == project_id, Namespace.name == name).count() > 0:
             namespace: Namespace = namespaces.first()
+        # 没有该命名空间，需创建, 生成 namespace
         else:
             namespace: Namespace = Namespace.create(name, project_id=project_id)
         # 2. 生成图表
@@ -213,13 +215,11 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         # # 通过 tag 的伴生图表获取部分信息
         chart = Chart.create(
             name=accompanying_chart.name,
-            description=accompanying_chart.description,
             project_id=project_id,
+            # 不是创建tag时自动生成的图表
             system=0,
             type=accompanying_chart.type,
             reference=accompanying_chart.reference,
-            config=accompanying_chart.config,
-            more=accompanying_chart.more,
         )
         # 3. 添加 chart 和 namespace 到 display
         Display.create(chart.id, namespace.id)
