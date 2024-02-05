@@ -9,7 +9,7 @@ r"""
 """
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn, DatabaseProxy
-from ..error import ExistedError, NotExistedError
+from ..error import ExistedError, ForeignProNotExistedError, ForeignExpNotExistedError
 from .experiments import Experiment
 from .projects import Project
 from ...utils.time import create_time
@@ -112,17 +112,19 @@ class Namespace(SwanModel):
 
         Raises
         ------
-        NotExistedError
-            外键对应的id不存在(experiment/project不存在)
+        ForeignProNotExistedError
+            外键对应的id不存在(project不存在)
+        ForeignExpNotExistedError
+            外键对应的id不存在(experiment不存在)
         ExistedError
            同名命名空间不可存在于同一个实验/项目中
         """
 
         # 检查外键存在性
         if experiment_id and not Experiment.filter(Experiment.id == experiment_id).exists():
-            raise NotExistedError("实验不存在")
+            raise ForeignExpNotExistedError("实验不存在")
         if project_id and not Project.filter(Project.id == project_id).exists():
-            raise NotExistedError("项目不存在")
+            raise ForeignProNotExistedError("项目不存在")
 
         if sort is None:
             # 如果没有指定sort，那么就自动添加到最后
