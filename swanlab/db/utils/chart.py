@@ -67,9 +67,11 @@ def transform_to_multi_exp_charts(project_id: int):
     # 根据名称和类型分类获取 tag
     tags_with_same_name = Tag.select(Tag.name, Tag.type, fn.COUNT(Tag.id).alias("count")).group_by(Tag.name, Tag.type)
     tags = [{"name": tag.name, "type": tag.type} for tag in tags_with_same_name]
-    # 如果没有满足多实验图表生成条件的 tag，返回404
+    # 如果没有满足多实验图表生成条件的 tag，抛出异常
+    # 这是一个非预期异常，因为按道理不会出现这种情况
     if len(tags) == 0:
-        raise NotExistedError("No mutiple experment charts found")
+        raise IndexError("No mutiple experment charts found")
+    # 用于收集满足多实验图表生成条件的 tag
     result_lists = {}
     # 遍历查询，获取满足多实验图表生成条件的 tag
     for tag in tags:
@@ -144,12 +146,7 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     # ---------------------------------- charts 为 0 说明还没有生成过多实验图表 ----------------------------------
 
     if project.charts == 0:
-        try:
-            transform_to_multi_exp_charts(project_id)
-        except NotExistedError:
-            # 转化失败（没有可转换的）
-            return False
-        return True
+        return transform_to_multi_exp_charts(project_id)
 
     # ---------------------------------- charts 为 1 说明已经生成过多实验图表 ----------------------------------
 
