@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { t } from '@swanlab-vue/i18n'
+import { getDuration } from '@swanlab-vue/utils/time'
 
 export const useExperimentStore = defineStore('experiment', () => {
   /** state */
@@ -23,44 +23,7 @@ export const useExperimentStore = defineStore('experiment', () => {
   const isRunning = computed(() => status.value === 0)
   // 持续时间
   const duration = computed(() => {
-    const time1 = new Date(experiment.value.create_time)
-    const currentTime = new Date()
-    const time2 =
-      experiment.value.status === 0
-        ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000)
-        : new Date(experiment.value.update_time)
-
-    if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
-      // 处理无效日期的情况
-      return 'Invalid date'
-    }
-
-    const timeDifference = Math.abs(time2 - time1)
-
-    const seconds = Math.floor(timeDifference / 1000) % 60
-    const minutes = Math.floor(timeDifference / (1000 * 60)) % 60
-    const hours = Math.floor(timeDifference / (1000 * 60 * 60)) % 24
-    const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24))
-
-    const formattedTime = []
-
-    if (days > 0) {
-      formattedTime.push(`${days}${t('experiment.index.header.experiment_infos.time.day')}`)
-    }
-
-    if (hours > 0) {
-      formattedTime.push(`${hours}${t('experiment.index.header.experiment_infos.time.hour')}`)
-    }
-
-    if (minutes > 0) {
-      formattedTime.push(`${minutes}${t('experiment.index.header.experiment_infos.time.minute')}`)
-    }
-
-    if (seconds > 0) {
-      formattedTime.push(`${seconds}${t('experiment.index.header.experiment_infos.time.second')}`)
-    }
-
-    return formattedTime.join('') || 'less than 1s'
+    return getDuration(experiment.value) || ''
   })
 
   /** action */

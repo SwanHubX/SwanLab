@@ -457,7 +457,7 @@ onUnmounted(() => {
  */
 const getGroupName = (name) => {
   // console.log(name)
-  if (name === 'default') return t('experiment.chart.label.default')
+  if (name === 'default') return t('common.chart.label.default')
   else return name
 }
 
