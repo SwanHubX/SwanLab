@@ -20,7 +20,7 @@ from ..models import (
     Display,
 )
 
-from ...db import connect, NotExistedError
+from ...db import connect, NotExistedError, ChartTypeError
 
 __to_list = Project.search2list
 
@@ -112,7 +112,7 @@ def transform_to_multi_exp_charts(project_id: int):
     db.commit()
 
 
-def add_multi_chart(project_id: int, experiment_id: int, tag_id: int, chart_id: int):
+def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     """添加新的多实验对比图表
     1. 当前 tag 已有多实验图表，将该 tag 添加 source 即可
     2. 当前 tag 满足条件但未创建多实验图表，进行创建和添加
@@ -121,12 +121,17 @@ def add_multi_chart(project_id: int, experiment_id: int, tag_id: int, chart_id: 
     ----------
     project_id : int
         项目 id
-    experiment_id : int
-        实验 id
     tag_id : int
         tag id
     chart_id : int
         tag 伴生 chart 的 id
+
+    Raises
+    ------
+    ChartTypeError
+        当前 tag 类型和期望 chart 类型不一致
+    NotExistedError
+        输入的project或tag或chart不存在
     """
 
     try:

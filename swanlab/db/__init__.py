@@ -21,6 +21,12 @@ from peewee import SqliteDatabase
 from .error import (
     ExistedError,
     NotExistedError,
+    ForeignProNotExistedError,
+    ForeignExpNotExistedError,
+    ForeignTagNotExistedError,
+    ForeignChartNotExistedError,
+    ForeignNameNotExistedError,
+    ChartTypeError,
 )
 from ..env import get_db_path
 import os
