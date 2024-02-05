@@ -18,9 +18,9 @@ connect()
 
 res = add_multi_chart(
     project_id=1,
-    experiment_id=3,
-    tag_id=9,
-    chart_id=11,
+    experiment_id=2,
+    tag_id=4,
+    chart_id=5,
 )
 
 print(res)

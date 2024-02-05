@@ -139,6 +139,7 @@ def add_multi_chart(project_id: int, experiment_id: int, tag_id: int, chart_id: 
         raise NotExistedError("Target project does not exist")
 
     # ---------------------------------- charts 为 0 说明还没有生成过多实验图表 ----------------------------------
+
     if project.charts == 0:
         try:
             transform_to_multi_exp_charts(project_id)
@@ -148,49 +149,42 @@ def add_multi_chart(project_id: int, experiment_id: int, tag_id: int, chart_id: 
         return True
 
     # ---------------------------------- charts 为 1 说明已经生成过多实验图表 ----------------------------------
+
     tag = Tag.get_by_id(tag_id)
-    # 找出所有和该 tag 同名同类的行
-    tags = Tag.filter(Tag.name == tag.name, Tag.type == tag.type)
-
-    # 检查该 tag 是否已经有满足的图表了 => 下面的逻辑只考虑了单 namesapce
-
-    if tags.count() <= 1:
-        # 如果只有一个，说明当前 tag 是第一个，不满足添加和创建条件，略过
-        return "No tag to create multiple experimental chart"
-
-    # 起码三个
-    if tags.count() > 2:
-        # 当前 tag 是否有对应的图表，因为可能同名不同类，当不同类都满足条件时，后出现的类型忽略，只有最初的类型才可绑定到对应表
-        charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name, Chart.type == tag.type)
-        if charts.count() == 0:
-            # 之前有同名不同类的 tag 已经创建了多实验对比图表
-            return "Previously, there were tags with the same name but different types, and the chart has been created"
-        # 说明之前已经有这种表格了，且当前 tag 不是第一个，现在只需将 tag 插入多实验图表
-        chart = charts.first()
-        # 将 tag 和相应的多实验对比图表对应起来 => 使用 source
-        Source.create(tag.id, chart.id)
-        return True
-
-    # 如果有两个，说明该 tag 在添加后，刚好满足图表创建条件
-    # 但是这个时候需要注意，是否有同名不同类的 tag 已经设置了多实验图表
     charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name)
-    if not charts.count() == 0:
-        c = charts.first()
-        return f"There are different types of tags called this name, and the chart named {c.name} has inited in type '{c.type}'"
+    chart = charts.first()
 
-    # 此时刚好有两个同名同类的 tag，执行创建新多实验对比图表操作：
-    # - 检查(生成) namespace
+    # 已经有对应名称的 chart
+    if not charts.count() == 0:
+        if not chart.type == tag.type:
+            # 同名 chart 已生成，但是类型不满足
+            return (
+                "A chart with the tag name has been generated, but the current tag type does not meet the requirements"
+            )
+        else:
+            # 如果该 chart 和 tag 同类，直接添加
+            Source.create(tag_id, chart.id)
+            return True
+
+    # 如果没有对应名称的 chart, 执行创建新多实验对比图表操作
+    # 此时该 tag 应该是第一次出现
+    # 获取/创建 namespace
     # - 生成 chart
     # - 添加 chart 和 namespace 到 display
     # - 生成 source
 
     db = connect()
     with db.atomic():
-        # 1. 获取 namespace，此时 project.charts 为 1，project 的默认 namsepace 一定存在
-        namespace = Namespace.filter(Namespace.project_id == project_id).first()
+        # 1. 获取 namespace
+        name = Display.filter(Display.chart_id == chart_id).first().namespace_id.name
+        namespaces = Namespace.filter(Namespace.project_id == project_id, Namespace.name == name)
+        if Namespace.filter(Namespace.project_id == project_id, Namespace.name == name).count() > 0:
+            namespace = namespaces.first()
+        else:
+            namespace = Namespace.create(name, project_id=project_id)
         # 2. 生成图表
         accompanying_chart = Chart.get_by_id(chart_id)
-        # 通过 tag 的伴生图表获取部分信息
+        # # 通过 tag 的伴生图表获取部分信息
         chart = Chart.create(
             name=accompanying_chart.name,
             description=accompanying_chart.description,
@@ -204,17 +198,6 @@ def add_multi_chart(project_id: int, experiment_id: int, tag_id: int, chart_id: 
         # 3. 添加 chart 和 namespace 到 display
         Display.create(chart.id, namespace.id)
         # 4. 生成 source
-        time = create_time()
-        sources = [
-            {
-                "tag_id": tag.id,
-                "chart_id": chart.id,
-                "sort": index,
-                "create_time": time,
-                "update_time": time,
-            }
-            for index, tag in enumerate(tags)
-        ]
-        Source.insert_many(sources).execute()
+        Source.create(tag_id, chart.id)
     db.commit()
     return True
