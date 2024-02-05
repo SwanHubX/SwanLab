@@ -10,7 +10,7 @@ r"""
 import atexit, sys, traceback, os
 from datetime import datetime
 from .run import SwanLabRun, SwanLabConfig, register
-from typing import Optional
+from typing import Optional, Union
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
@@ -41,7 +41,7 @@ def init(
     description: str = None,
     config: dict = None,
     logdir: str = None,
-    suffix: str = "timestamp",
+    suffix: str = "default",
     log_level: str = None,
     logggings: bool = False,
 ) -> SwanLabRun:
@@ -66,9 +66,12 @@ def init(
         The directory where the log file is stored, the default is current working directory.
         You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
-        The suffix of the experiment name, used to distinguish experiments with the same name, the format is yyyy-mm-dd_HH-MM-SS.
-        If this parameter is not provided, no suffix will be added.
-        At present, only 'timestamp' or None is allowed, and other values will be ignored as 'timestamp'.
+        The suffix of the experiment name, the default is 'default'.
+        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s_<hostname>'(example:'Feb03_14-45-37_windowsX'), which represents the current time.
+        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37_windowsX';
+        If this parameter is None, no suffix will be added.
+        If this paramter is a string, the suffix will be the string you provided.
+        Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     """
     global run, inited
 
@@ -124,7 +127,7 @@ def init(
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None, loggings: bool = None):
+def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] = None):
     """
     Log a row of data to the current run.
 
@@ -137,14 +140,60 @@ def log(data: Dict[str, DataType], step: int = None, loggings: bool = None):
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
+    logger : bool or dict, optional
+        Whether to print the data to the console, the default is None.
+        If you pass a bool, you can specify whether to print the data to the console.
+        If you pass a dict, you can specify whether to print the data to the console, the prefix and suffix of the print data, whether to print timestamp.
+        Examples1: swanlab.log({"loss": loss}, logger=True)
+        Examples2: swanlab.log({"loss": loss}, logger={"open": True, "prefix": "[0/200] ", "subfix": None, "time":False})
     """
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
-    swanlog.set_temporary_logging(loggings)
-    l = run.log(data, step)
+    # logger_dict的参数为open, prefix, subfix
+    # open: 是否开启打印, 如果为None，则根据init的loggings结果走; 如果为True，则开启打印;如果为False，则关闭打印。log->logger的优先级高于init->loggings。
+    # prefix: 打印的前缀, 必须为str, float or init。
+    # subfix: 打印的后缀, 必须为str, float or init。
+    logger_dict = {
+        "open": None,
+        "prefix": "",
+        "subfix": "",
+        "time": True,
+    }
+
+    # 如果传入的是布尔值且是True，则默认开启打印
+    if isinstance(logger, bool):
+        logger_dict["open"] = logger
+    # 如果传入的是字典，默认开启打印，并将字典中的值赋值给logger_dict
+    elif isinstance(logger, dict):
+        logger_dict["open"] = True
+        logger_dict.update(logger)
+
+        # 字典内参数类型检查
+        if not isinstance(logger_dict["open"], bool):
+            raise ValueError("logger's open must be a bool")
+        if not isinstance(logger_dict["prefix"], (str, float, int)):
+            raise ValueError("logger's prefix must be a str, float or init")
+        if not isinstance(logger_dict["subfix"], (str, float, int)):
+            raise ValueError("logger's subfix must be a str, float or init")
+        if not isinstance(logger_dict["time"], bool):
+            raise ValueError("logger's time must be a bool")
+
+        # 如果传入的参数超过了open, prefix, subfix，则警告
+        if len(logger_dict) > 4:
+            swanlog.warning(
+                "logger's valid key only has 'open', 'prefix' , 'subfix' and 'time', other parameters will not take effect"
+            )
+    # 如果传入的是None，则默认关闭打印
+    elif logger is None:
+        logger_dict["open"] = None
+    else:
+        raise ValueError("loggings must be a bool or a dict")
+
+    swanlog.set_temporary_logging(logger_dict["open"])
+    l = run.log(data, step, logger_dict)
     swanlog.reset_temporary_logging()
     return l
 

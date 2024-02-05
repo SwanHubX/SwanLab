@@ -115,3 +115,48 @@ export const getTimes = (time) => {
     second
   }
 }
+
+/**
+ * 获取实验的持续时间
+ * @param {experiment} experiment 实验对象
+ * @returns {string} 实验持续时间
+ */
+export const getDuration = (experiment) => {
+  if (!experiment) return null
+  const time1 = new Date(experiment.create_time)
+  const currentTime = new Date()
+  const time2 =
+    experiment.status === 0 ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000) : new Date(experiment.update_time)
+
+  if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
+    // 处理无效日期的情况
+    return 'Invalid date'
+  }
+
+  const timeDifference = Math.abs(time2 - time1)
+
+  const seconds = Math.floor(timeDifference / 1000) % 60
+  const minutes = Math.floor(timeDifference / (1000 * 60)) % 60
+  const hours = Math.floor(timeDifference / (1000 * 60 * 60)) % 24
+  const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+
+  const formattedTime = []
+
+  if (days > 0) {
+    formattedTime.push(`${days}${t('experiment.index.header.experiment_infos.time.day')}`)
+  }
+
+  if (hours > 0) {
+    formattedTime.push(`${hours}${t('experiment.index.header.experiment_infos.time.hour')}`)
+  }
+
+  if (minutes > 0) {
+    formattedTime.push(`${minutes}${t('experiment.index.header.experiment_infos.time.minute')}`)
+  }
+
+  if (seconds > 0) {
+    formattedTime.push(`${seconds}${t('experiment.index.header.experiment_infos.time.second')}`)
+  }
+
+  return formattedTime.join('') || 'less than 1s'
+}

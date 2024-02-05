@@ -32,7 +32,7 @@
         @update:checked="onlySummary = $event"
         @update:searchText="searchText = $event"
       />
-      <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags">
+      <div class="w-full pb-10 flex flex-col overflow-scroll flex-grow basis-0" v-if="tags && init">
         <!-- 实验表格 -->
         <ExprTable sticky-header class="dashboard-table" :column="tableHead" :data="tableBody" last-row-gradient>
           <template v-slot:name="{ row }">
@@ -44,12 +44,20 @@
           <template v-slot:create="{ row }">
             {{ transTime(convertUtcToLocal(row.create_time)) }}
           </template>
+          <template v-slot:duration="{ row }">
+            {{ getDuration(row) }}
+          </template>
           <template v-for="item in configs" :key="item.slot" v-slot:[item.slot]="{ row }">
             {{ row.config[item.slot]?.value || '-' }}
           </template>
         </ExprTable>
       </div>
-      <EmptyTable v-else-if="experiments.length === 0" />
+      <EmptyTable v-else-if="experiments.length === 0 && init" />
+      <div v-else>
+        <div class="w-full flex" v-for="index in 3" :key="index">
+          <div v-for="i in 5" :key="i" class="skeleton w-full py-3 m-2"></div>
+        </div>
+      </div>
     </div>
   </HomeLayout>
 </template>
@@ -61,8 +69,8 @@
  * @since: 2023-12-04 19:36:21
  **/
 import { useProjectStore } from '@swanlab-vue/store'
-import { formatTime } from '@swanlab-vue/utils/time'
-import { computed, ref } from 'vue'
+import { formatTime, getDuration } from '@swanlab-vue/utils/time'
+import { computed, ref, onMounted } from 'vue'
 import SLStatusLabel from '@swanlab-vue/components/SLStatusLabel.vue'
 import ExperimentName from './components/ExperimentName.vue'
 import { transTime, convertUtcToLocal } from '@swanlab-vue/utils/time'
@@ -80,6 +88,15 @@ const experiments = computed(() => {
     return []
   }
   return projectStore.experiments
+})
+
+// ---------------------------------- 图表延迟 ----------------------------------
+
+const init = ref(false)
+onMounted(() => {
+  setTimeout(() => {
+    init.value = true
+  }, 500)
 })
 
 // ---------------------------------- 在此处处理项目创建时间、运行时间和总实验数量 ----------------------------------
@@ -107,6 +124,11 @@ const column = ref([
     title: t('home.list.table.header.create'),
     slot: 'create',
     type: 'create_time'
+  },
+  {
+    title: t('home.list.table.header.duration'),
+    slot: 'duration',
+    type: 'duration'
   }
 ])
 
@@ -227,5 +249,43 @@ const tableBody = computed(() => {
 }
 .grow {
   @apply text-dimmest;
+}
+
+@-webkit-keyframes skeleton-ani {
+  0% {
+    left: 0;
+  }
+
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes skeleton-ani {
+  0% {
+    left: 0;
+  }
+
+  to {
+    left: 100%;
+  }
+}
+
+.skeleton {
+  background-image: linear-gradient(-45deg, #f5f5f5 40%, #fff 55%, #f5f5f5 63%);
+  list-style: none;
+  background-size: 400% 100%;
+  background-position: 100% 50%;
+  animation: skeleton-animation 2s ease infinite;
+}
+
+@keyframes skeleton-animation {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
 }
 </style>
