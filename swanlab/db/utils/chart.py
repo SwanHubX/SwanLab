@@ -20,7 +20,11 @@ from ..models import (
     Display,
 )
 
-from ...db import connect, NotExistedError, ChartTypeError
+from ..db_connect import connect
+from ..error import (
+    NotExistedError,
+    ChartTypeError,
+)
 
 __to_list = Project.search2list
 
