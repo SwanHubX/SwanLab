@@ -174,6 +174,7 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     # 如果没有对应名称的 chart, 执行创建新多实验对比图表操作
     # 此时该 tag 应该是第一次出现
     # 获取/创建 namespace
+    # - 生成或者查找 namespace
     # - 生成 chart
     # - 添加 chart 和 namespace 到 display
     # - 生成 source
