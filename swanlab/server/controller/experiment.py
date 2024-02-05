@@ -53,7 +53,7 @@ RUNNING_STATUS = Experiment.RUNNING_STATUS
 # ---------------------------------- 工具函数 ----------------------------------
 
 
-def __clear_field(target: List[dict], field: str) -> list[dict]:
+def __clear_field(target: List[dict], field: str) -> List[dict]:
     """遍历字典列表清除某个字段
 
     Parameters
@@ -65,7 +65,7 @@ def __clear_field(target: List[dict], field: str) -> list[dict]:
 
     Returns
     -------
-    list[dict]
+    List[dict]
         处理后的字典列表
     """
 
