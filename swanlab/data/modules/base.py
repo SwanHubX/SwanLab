@@ -52,6 +52,7 @@ class BaseType(ABC):
     def convert(self):
         if self.__is_get_data is False:
             self.__data = self.get_data()
+            self.__is_get_data = True
         return self.__data
 
     @abstractmethod
@@ -69,13 +70,40 @@ class BaseType(ABC):
         pass
 
     def get_config(self, *args, **kwargs) -> dict:
-        """获取config数据，应该返回一个字典"""
+        """获取图表的config数据，应该返回一个字典"""
         return {}
+
+    def get_more(self, *args, **kwargs):
+        """代表当前步骤的此数据支持标注的更多内容，应该返回一个字典，或者为None"""
+        return None
 
     @abstractmethod
     def expect_types(self, *args, **kwargs) -> list:
         """输入期望的数据类型，list类型，例如["int", "float"]"""
         pass
+
+    def get_data_list(self):
+        """单step多数据时，返回多个数据的列表"""
+        datas = []
+        for i in self.value:
+            try:
+                i.settings = self.settings
+            except AttributeError:
+                pass
+            try:
+                i.tag = self.tag
+            except AttributeError:
+                pass
+            try:
+                i.step = self.step
+            except AttributeError:
+                pass
+            datas.append(i.get_data())
+        return [i.get_data() for i in self.value]
+
+    def get_more_list(self):
+        """单step多数据时，返回多个数据更多信息"""
+        return [i.get_more() for i in self.value]
 
     # ---------------------------------- 向子类暴露tag、step、create_time,他们的值只能修改一次 ----------------------------------
     @property
@@ -100,7 +128,8 @@ class BaseType(ABC):
     @tag.setter
     def tag(self, value):
         if self.__tag is None:
-            self.__tag = quote(value, safe="")
+            # 将tag进行url编码,但是可能已经被编码了，所以需要设置safe="%2F"
+            self.__tag = quote(value, safe="%2F")
         else:
             raise AttributeError("tag can only be set once")
 

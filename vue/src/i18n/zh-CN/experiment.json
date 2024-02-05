@@ -56,23 +56,6 @@
       }
     }
   },
-  "chart": {
-    "empty": "缺少实验数据",
-    "error": "此图表无法正确显示",
-    "unkonwn": "未知的图表类型: {type}",
-    "label": {
-      "default": "图表"
-    },
-    "zoom": "放大展示",
-    "charts": {
-      "line": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
-      },
-      "audio": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是音频图并不支持此类型."
-      }
-    }
-  },
   "env": {
     "navs": {
       "index": "Overview",

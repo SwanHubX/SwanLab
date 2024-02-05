@@ -10,6 +10,8 @@ r"""
 from .modules import (
     BaseType,
     Audio,
+    Image,
+    Text,
 )
 from .sdk import (
     init,

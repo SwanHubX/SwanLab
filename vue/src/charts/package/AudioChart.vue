@@ -6,13 +6,13 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      {{ $t('experiment.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
+      {{ $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="mt-1 p-2 w-full border border-dimmer rounded-sm relative h-56">
+    <div class="audio-content audio-content-no-zomm" ref="audioContentRef">
       <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
@@ -32,13 +32,13 @@
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="mt-15 p-2 w-full border border-dimmer rounded-sm relative h-56">
+      <div class="audio-content" ref="audioContentRef">
         <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
         <div class="flex flex-col justify-center items-center h-full" v-if="loading">
           <SLLoading />
         </div>
       </div>
-      <div class="h-8 mt-20">
+      <div class="h-8 mt-10">
         <SlideBar
           class="mt-2"
           v-model="currentIndex"
@@ -104,6 +104,8 @@ const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
 
 // ---------------------------------- 实例：滑块的使用 ----------------------------------
+
+const audioContentRef = ref(null)
 // 已经滑动部分颜色，应该通过色盘计算得到
 const barColor = inject('colors')[0]
 // 当前滑块索引
@@ -127,9 +129,9 @@ const currentIndex = computed({
       if (val === __currentIndex.value) return
       __currentIndex.value = val
       // 当前值
-      console.log('设置当前值为', val)
+      // console.log('设置当前值为', val)
     } else {
-      console.log('当前值不存在: ', val)
+      // console.log('当前值不存在: ', val)
       // 寻找最近的值
       const keys = Array.from(stepMap.keys())
       const index = keys.findIndex((item) => item > val)
@@ -137,6 +139,9 @@ const currentIndex = computed({
       if (num === __currentIndex.value) return
       __currentIndex.value = num
     }
+    // 设置audioContentRef的height为当前height
+    // console.log('设置audioContentRef的height为当前height', audioContentRef.value)
+    audioContentRef.value.style.height = audioContentRef.value.offsetHeight + 'px'
     loading.value = true
     debounceRender()
   }
@@ -154,11 +159,15 @@ const debounceRender = debounce(() => {
       nowStep.value = step
       // 将数据添加到audiosData中
       audiosData.value[data.nowStep] = data.data
+      // 设置audioContentRef的height
+      audioContentRef.value.style.height = ''
     })
   } else {
     console.log('已经存在数据，不需要请求, 设置当前step为', step)
     loading.value = false
     nowStep.value = step
+    // 设置audioContentRef的height
+    audioContentRef.value.style.height = ''
   }
 }, 500)
 
@@ -213,15 +222,28 @@ const getMediaData = async (data, tag) => {
  */
 const tagData2Buffer = async (index) => {
   const tag = source.value[0]
-  console.log('tagData2Buffer', tag, index)
+  // console.log('tagData2Buffer', tag, index)
   const data = audiosTagData.value[tag].list[index]
-  const { audioBuffer, audioBlob } = await getMediaData(data.data, tag)
+  // data.data可能是list<string>或者string
+  const returnData = []
+  if (Array.isArray(data.data)) {
+    for (let i = 0; i < data.data.length; i++) {
+      const item = data.data[i]
+      const { audioBuffer, audioBlob } = await getMediaData(item, tag)
+      audiosData.value[index] = audiosData.value[index] || []
+      returnData.push({ audioBuffer, audioBlob, title: item, tag: tag, caption: data.more[i]?.caption })
+    }
+  } else {
+    const { audioBuffer, audioBlob } = await getMediaData(data.data, tag)
+    audiosData.value[index] = audiosData.value[index] || []
+    returnData.push({ audioBuffer, audioBlob, title: data.data, tag: tag, caption: data.more?.caption })
+  }
   nowStep.value = Number(data.index)
   return {
     nowStep: Number(data.index),
     maxStep: Number(audiosTagData.value[tag].list[audiosTagData.value[tag].list.length - 1].index),
     minStep: Number(audiosTagData.value[tag].list[0].index),
-    data: [{ audioBuffer, audioBlob, title: data.data, tag: tag }],
+    data: returnData,
     tag
   }
 }
@@ -294,11 +316,11 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
-canvas {
-  @apply relative;
-  &::before {
-    @apply absolute left-0 top-0 w-full h-full bg-positive-highest border-x z-10;
-    content: '111';
-  }
+.audio-content {
+  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative min-h-[224px];
+}
+
+.audio-content-no-zomm {
+  @apply overflow-clip overflow-y-auto h-56;
 }
 </style>

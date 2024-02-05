@@ -8,12 +8,12 @@
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="status === 'error'">
       <SLIcon class="mx-auto h-5 w-5" icon="error" />
-      <p class="text-center text-xs">{{ $t('experiment.chart.error') }}</p>
+      <p class="text-center text-xs">{{ $t('common.chart.error') }}</p>
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
       <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
-        <PannelButton icon="zoom" :tip="$t('experiment.chart.zoom')" @click="zoom" />
+        <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
       </div>
       <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
     </template>
@@ -41,6 +41,7 @@ import AudioChart from '../package/AudioChart.vue'
 import UnknownChart from '../package/UnknownChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
+import ImageChart from '../package/ImageChart.vue'
 const props = defineProps({
   chart: {
     type: Object,
@@ -86,6 +87,11 @@ const chartComponent = computed(() => {
       return {
         type: AudioChart,
         class: 'audio-chart'
+      }
+    case 'image':
+      return {
+        type: ImageChart,
+        class: 'image-chart'
       }
     default:
       return {
@@ -202,10 +208,10 @@ defineExpose({
   @apply absolute top-1 right-2 h-4;
   @apply flex justify-end gap-2;
 }
-
 // ---------------------------------- 图表样式 ----------------------------------
 
-.audio-chart {
+.audio-chart,
+.image-chart {
   @apply col-span-3;
 }
 </style>

@@ -11,7 +11,8 @@
       "header": {
         "name": "Name",
         "status": "State",
-        "create": "Created"
+        "create": "Created",
+        "duration": "Runtime"
       }
     }
   },

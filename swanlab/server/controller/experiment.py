@@ -11,7 +11,7 @@ r"""
 import os
 import ujson
 import shutil
-import datetime
+from datetime import datetime
 from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409, NOT_FOUND_404
 from fastapi import Request
 from urllib.parse import quote
@@ -366,6 +366,9 @@ def get_recent_logs(experiment_id):
     """
 
     console_path: str = __get_console_dir_by_id(experiment_id)
+    # 是否存在
+    if not os.path.exists(console_path):
+        return NOT_FOUND_404("Log Folder not Found")
     consoles: list = [f for f in os.listdir(console_path)]
     # 含有error.log，在返回值中带上其中的错误信息
     error = None
@@ -374,6 +377,13 @@ def get_recent_logs(experiment_id):
             error = f.read().split("\n")
         # 在consoles里删除error.log
         consoles.remove("error.log")
+    # 没有日志，也没有错误日志
+    if len(consoles) == 0 and error is None:
+        return NOT_FOUND_404("No Logs Found")
+    # 如果只有错误日志，直接返回
+    elif len(consoles) == 0 and error:
+        return SUCCESS_200({"error": error})
+
     total: int = len(consoles)
     # # 如果 total 大于 1, 按照时间排序
     if total > 1:
@@ -382,11 +392,15 @@ def get_recent_logs(experiment_id):
     # # current_page = total
     for index, f in enumerate(consoles, start=1):
         with open(os.path.join(console_path, f), mode="r", encoding="utf-8") as log:
-            logs.extend(log.read().split("\n"))
+            logs = log.read().split("\n") + logs
             # 如果当前收集到的数据超过限制，退出循环
             if len(logs) >= MAX_NUM:
                 # current_page = index
                 break
+    # 如果 logs 内容为空
+    if logs[0] == "":
+        return NOT_FOUND_404("No Logs Found")
+
     logs = logs[:MAX_NUM]
     end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
     data = {
