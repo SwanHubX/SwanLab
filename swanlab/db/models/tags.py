@@ -10,7 +10,6 @@ r"""
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError, DatabaseProxy
 from ..error import ExistedError, ForeignExpNotExistedError
-from ...utils.time import create_time
 from .experiments import Experiment
 
 
@@ -112,8 +111,6 @@ class Tag(SwanModel):
                 description=description,
                 system=system,
                 more=more,
-                create_time=create_time(),
-                update_time=create_time(),
             )
         except IntegrityError:
             raise ExistedError("tag已存在")

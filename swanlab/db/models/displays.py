@@ -12,7 +12,6 @@ from peewee import CharField, IntegerField, ForeignKeyField, TextField, Integrit
 from ..error import ExistedError, ForeignChartNotExistedError, ForeignNameNotExistedError
 from .charts import Chart
 from .namespaces import Namespace
-from ...utils.time import create_time
 
 
 class Display(SwanModel):
@@ -103,16 +102,12 @@ class Display(SwanModel):
             if cls.filter(cls.sort == sort).exists():
                 cls.update(sort=cls.sort + 1).where(cls.sort >= sort).execute()
 
-        current_time = create_time()
-
         try:
             return super().create(
                 chart_id=chart_id,
                 namespace_id=namespace_id,
                 sort=sort,
                 more=cls.dict2json(more),
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("display对应关系已存在")

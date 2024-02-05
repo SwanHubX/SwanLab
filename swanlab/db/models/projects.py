@@ -9,7 +9,6 @@ r"""
 """
 from peewee import CharField, IntegerField, DatabaseProxy
 from ..model import SwanModel
-from ...utils.time import create_time
 from ...utils.package import get_package_version
 
 
@@ -93,8 +92,6 @@ class Project(SwanModel):
             description=description,
             more=more,
             version=get_package_version(),
-            create_time=create_time(),
-            update_time=create_time(),
         )
 
     @classmethod

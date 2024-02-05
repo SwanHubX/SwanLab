@@ -12,7 +12,6 @@ from .charts import Chart
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, DatabaseProxy, fn
 from ..error import ExistedError, ForeignTagNotExistedError, ForeignChartNotExistedError
-from ...utils.time import create_time
 
 
 class Source(SwanModel):
@@ -100,16 +99,12 @@ class Source(SwanModel):
             # 如果sort不为None，则检查当前chart下的sort是否存在，如果存在，则把sort大于等于sort的索引+1
             cls.update(sort=sort + 1).where(cls.chart_id == chart_id, cls.sort >= sort).execute()
 
-        current_time = create_time()
-
         try:
             return super().create(
                 tag_id=tag_id,
                 chart_id=chart_id,
                 error=cls.dict2json(error),
                 more=cls.dict2json(more),
-                create_time=current_time,
-                update_time=current_time,
                 sort=sort,
             )
         except IntegrityError:

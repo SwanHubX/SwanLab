@@ -12,7 +12,6 @@ from peewee import CharField, IntegerField, ForeignKeyField, TextField, Integrit
 from ..error import ExistedError, ForeignExpNotExistedError, ForeignProNotExistedError
 from .experiments import Experiment
 from .projects import Project
-from ...utils.time import create_time
 
 
 class Chart(SwanModel):
@@ -130,8 +129,6 @@ class Chart(SwanModel):
         if experiment_id and not Experiment.filter(Experiment.id == experiment_id).exists():
             raise ForeignExpNotExistedError("实验不存在")
 
-        current_time = create_time()
-
         try:
             return super().create(
                 experiment_id=experiment_id,
@@ -143,8 +140,6 @@ class Chart(SwanModel):
                 reference=reference,
                 config=config,
                 more=more,
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("图表已存在")

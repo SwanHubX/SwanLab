@@ -12,7 +12,6 @@ from peewee import CharField, IntegerField, ForeignKeyField, TextField, Integrit
 from ..error import ExistedError, ForeignProNotExistedError, ForeignExpNotExistedError
 from .experiments import Experiment
 from .projects import Project
-from ...utils.time import create_time
 
 
 class Namespace(SwanModel):
@@ -150,8 +149,6 @@ class Namespace(SwanModel):
                     cls.sort >= sort,
                 ).execute()
 
-        current_time = create_time()
-
         try:
             return super().create(
                 name=name,
@@ -160,8 +157,6 @@ class Namespace(SwanModel):
                 description=description,
                 sort=sort,
                 more=more,
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("命名空间已存在")
