@@ -62,12 +62,8 @@ def transform_to_multi_exp_charts(project_id: int):
     # 3. 标记
     # - 设置 project 中字段 charts 为 1，表示已经生成多实验表格
 
-    # 获取名称在两个及以上实验中出现过的 tag，同时 type 一致
-    tags_with_same_name = (
-        Tag.select(Tag.name, Tag.type, fn.COUNT(Tag.id).alias("count"))
-        .group_by(Tag.name, Tag.type)
-        .having(fn.COUNT(Tag.id) > 1)
-    )
+    # 根据名称和类型分类获取 tag
+    tags_with_same_name = Tag.select(Tag.name, Tag.type, fn.COUNT(Tag.id).alias("count")).group_by(Tag.name, Tag.type)
     tags = [{"name": tag.name, "type": tag.type} for tag in tags_with_same_name]
     # 如果没有满足多实验图表生成条件的 tag，返回404
     if len(tags) == 0:
@@ -76,7 +72,7 @@ def transform_to_multi_exp_charts(project_id: int):
     # 遍历查询，获取满足多实验图表生成条件的 tag
     for tag in tags:
         # 如果当前 tag 名已经存在收集列表，说明有同名不同类的 tag 都满足多图表条件，目前只取第一次出现的 type，即后续有同名不同类的 tag 都忽略
-        if tag["name"] in result_lists:
+        if tag["name"] in result_lists and not tag["type"] == Tag.filter(Tag.name == tag["name"]).first().type:
             continue
         # 获取当前name的所有数据行
         target = Tag.filter(Tag.name == tag["name"], Tag.type == tag["type"])
