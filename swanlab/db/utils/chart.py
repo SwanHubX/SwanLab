@@ -180,9 +180,7 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     # 已经有对应名称的 chart
     if not charts.count() == 0:
         # 获取图所属 tag 的类型
-        source = Source.filter(Source.chart_id == chart.id).first()
-        chart_type = source.tag_id.type
-        if not chart_type == tag.type:
+        if not chart.sources.first().tag_id.type == tag.type:
             # 同名 chart 已生成，但是类型不满足
             return (
                 "A chart with the tag name has been generated, but the current tag type does not meet the requirements"
