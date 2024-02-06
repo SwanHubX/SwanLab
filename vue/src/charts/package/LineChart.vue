@@ -52,8 +52,10 @@ const props = defineProps({
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-
-const error = ref(props.chart.error)
+// 数据源 arrya
+const source = props.chart.source
+// source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
+const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[0] : null)
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
@@ -87,8 +89,6 @@ G2.registerShape('point', 'last-point', {
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
-// 数据源 arrya
-const source = props.chart.source
 // 参考字段和显示名称
 const reference = props.chart.reference
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
@@ -212,7 +212,11 @@ const format = (data) => {
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
   const d = []
+  let keys = 0
   Object.keys(data).forEach((key) => {
+    // 如果key存在于props.chart.error中，说明这个数据有问题，直接返回
+    if (props.chart.error && props.chart.error[key]) return
+    keys++
     // 如果不是单数据，需要将所有数据的list合并为一个数组
     data[key].list.forEach((item) => {
       // item新加series字段，用于标识数据来源
@@ -221,7 +225,7 @@ const format = (data) => {
   })
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
-  return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
+  return { d, config: keys > 1 ? { seriesField } : { color: colors[0] } }
 }
 
 /**

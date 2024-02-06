@@ -302,6 +302,7 @@ class SwanLabTag:
         # 添加一条source记录
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
+        # 新建多实验对比图表数据
 
     def __new_tag(self, index, data, more: dict = None) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息

@@ -287,7 +287,9 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         for source in _chart.sources:
             sources.append(source.tag_id.experiment_id.name)
         # 当前chart的error字段
-        error = {source.tag_id.name: Chart.json2dict(source.error) for source in _chart.sources if source.error}
+        error = {
+            source.tag_id.experiment_id.name: Chart.json2dict(source.error) for source in _chart.sources if source.error
+        }
         charts.append(
             {
                 "id": _chart.id,

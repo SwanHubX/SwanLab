@@ -435,13 +435,12 @@ def get_experimet_charts(experiment_id: int):
     # 获取每个图表对应的数据源
     for index, chart in enumerate(charts):
         sources = []
+        error = {}
         for source in __to_list(chart.sources):
             sources.append(source["tag_id"]["name"])
-            if source["error"] is not None and source["error"] != "":
-                try:
-                    chart_list[index]["error"] = ujson.loads(source["error"])
-                except:
-                    pass
+            if source["error"]:
+                error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
+        chart_list[index]["error"] = error
         chart_list[index]["source"] = sources
 
     # 当前实验下的命名空间

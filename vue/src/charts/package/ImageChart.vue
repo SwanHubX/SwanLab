@@ -124,8 +124,8 @@ const source = computed(() => {
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-
-const error = ref(props.chart.error)
+// TODO 当前只支持单个tag，所以error就是error.{tag}
+const error = ref(props.chart.error[source.value[0]])
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算

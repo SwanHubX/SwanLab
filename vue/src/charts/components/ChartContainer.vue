@@ -12,7 +12,7 @@
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
+      <div class="chart-pannel" v-if="hover && !unknown && !isAllError">
         <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
       </div>
       <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
@@ -125,6 +125,11 @@ function isPromiseAndAsyncFunction(func) {
   )
 }
 
+// 是否全部数据都错
+const isAllError = computed(() => {
+  return Object.keys(props.chart.error || {}).length === source.length
+})
+
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
 // 是否已经渲染，用于控制执行render方法还是change方法
@@ -132,9 +137,9 @@ let hasInited = false
 const $off = inject('$off')
 // 如果props.chart.error存在，则不订阅
 onMounted(() => {
-  props.chart.error ||
+  // error的key数量不等于source的长度
+  !isAllError.value &&
     inject('$on')(source, cid, (tag, _tagData, error) => {
-      // console.log('tag, _tagData, error', tag, _tagData, error)
       // 异步回调（其实是同步），用于控制图表的显示状态
       return new Promise((resolve, reject) => {
         if (error) {
