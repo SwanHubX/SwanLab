@@ -272,8 +272,8 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     # COMPAT 兼容以前没有多实验对比数据的情况
     try:
         transform_to_multi_exp_charts(project_id)
-    except NotExistedError as e:
-        return NOT_FOUND_404(str(e))
+    except IndexError:  # 已经有多实验对比数据
+        pass
 
     # 获取当前项目下所有的多实验对比表
     multi_charts = Chart.filter(Chart.project_id == project_id)
@@ -286,12 +286,15 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         # 单箭头是通过外键反向索引的 chart -> source -> tag -> experiment => experiment_name
         for source in _chart.sources:
             sources.append(source.tag_id.experiment_id.name)
+        # 当前chart的error字段
+        error = {source.tag_id.name: Chart.json2dict(source.error) for source in _chart.sources if source.error}
         charts.append(
             {
                 "id": _chart.id,
                 "name": _chart.name,
                 "description": _chart.description,
                 "source": sources,
+                "error": error,
             }
         )
     # 获取命名空间配置

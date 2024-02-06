@@ -61,7 +61,7 @@ class SwanModel(Model):
 
     @staticmethod
     def dict2json(dict: dict) -> str:
-        """将字典转换为json字符串
+        """将字典转换为json字符串,如果已经是json字符串，则直接返回
 
         Parameters
         ----------
@@ -81,6 +81,12 @@ class SwanModel(Model):
         """
         if dict is None:
             return ""
+        if isinstance(dict, str):
+            try:
+                json.loads(dict)
+                return dict
+            except:
+                raise TypeError
         try:
             return json.dumps(dict)
         except:

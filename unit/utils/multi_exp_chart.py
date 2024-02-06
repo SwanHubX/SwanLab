@@ -57,4 +57,22 @@ for namespace in namespaces_value:
     assert all(key in namespace for key in ("id", "name", "charts")), "namespaces 字典缺少 id, name 或 charts 字段"
 
 # ---------------------------------- 字段值检测 ----------------------------------
+# 查询当前数据库中的项目图表
+charts = Chart.search2list(Chart.filter(project_id=Project.DEFAULT_PROJECT_ID))
+# 这些图表应该存在于data.charts中
+for chart in charts:
+    assert any(c["id"] == chart["id"] for c in charts_value), f"图表 {chart.id} 不在 data.charts 中"
+# 查询当前数据库中的项目命名空间
+namespaces = Namespace.search2list(Namespace.filter(project_id=Project.DEFAULT_PROJECT_ID))
+# 这些命名空间应该存在于data.namespaces中
+for namespace in namespaces:
+    assert any(n["id"] == namespace["id"] for n in namespaces_value), f"命名空间 {namespace.id} 不在 data.namespaces 中"
+# 这些命名空间下的图表应该存在于data.namespaces.charts中，并且与数据库中的一致
+for namespace in namespaces_value:
+    namespace_id = namespace["id"]
+    namespace_charts = Display.search2list(Display.filter(namespace_id=namespace_id))
+    for chart in namespace_charts:
+        assert any(
+            c == chart["chart_id"]["id"] for c in namespace["charts"]
+        ), f"图表 {chart.id} 不在 data.namespaces.charts 中"
 print(data)

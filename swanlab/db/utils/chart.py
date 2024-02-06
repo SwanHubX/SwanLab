@@ -126,6 +126,7 @@ def transform_to_multi_exp_charts(project_id: int):
                     "tag_id": item["tag_id"],
                     "chart_id": chart.id,
                     "sort": index,
+                    "error": Source.filter(Source.tag_id == item["tag_id"]).first().error,
                 }
                 for index, item in enumerate(tag_list)
             ]
@@ -157,6 +158,8 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         输入的project或tag或chart不存在
     IndexError
         project 已经生成过多实验图表, 无法再次生成
+    ValueError
+        当前tag自动生成的chart数据有问题，无法生成多实验图表
     """
 
     try:
@@ -170,11 +173,10 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         return transform_to_multi_exp_charts(project_id)
 
     # ---------------------------------- charts 为 1 说明已经生成过多实验图表 ----------------------------------
-
     # 当前新增 tag
     tag = Tag.get_by_id(tag_id)
     # 属于项目的所有与 tag 同名的 chart，用于判断是否已经生成该 tag 的多实验对比图
-    charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name)
+    charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name, Chart.system != 0)
     chart = charts.first()
 
     # 已经有对应名称的 chart
@@ -220,5 +222,9 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
         # 3. 添加 chart 和 namespace 到 display
         Display.create(chart.id, namespace.id)
         # 4. 生成 source
-        Source.create(tag_id, chart.id)
+        Source.create(
+            tag_id,
+            chart.id,
+            error=Source.filter(Source.tag_id == tag_id).first().error,
+        )
     db.commit()
