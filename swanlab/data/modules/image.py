@@ -3,6 +3,7 @@ from PIL import Image as PILImage
 from .base import BaseType
 from ..utils.file import get_file_hash_pil
 from typing import Union, List
+from io import BytesIO
 import os
 
 
@@ -35,14 +36,17 @@ class Image(BaseType):
         # 如果传入的是Image类列表
         if isinstance(self.value, list):
             return self.get_data_list()
-
         # 图像预处理
         self.__preprocess(self.value)
         # 获取图像的hash值
         hash_name = get_file_hash_pil(self.image_data)[:16]
         # 设置保存路径, 保存文件名
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"{self.caption}-step{self.step}-{hash_name}.png"
+        save_name = (
+            f"{self.caption}-step{self.step}-{hash_name}.png"
+            if self.caption is not None
+            else f"image-step{self.step}-{hash_name}.png"
+        )
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
@@ -64,7 +68,7 @@ class Image(BaseType):
             caption = str(caption)
         # 如果类型是None，则转换为默认字符串
         elif caption is None:
-            caption = "image"
+            caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
@@ -80,6 +84,9 @@ class Image(BaseType):
         elif isinstance(data, PILImage.Image):
             # 如果输入为PIL.Image
             image = data.convert(self.mode)
+        elif hasattr(self.value, "savefig"):
+            # 如果输入为matplotlib图像
+            image = self.__convert_plt_to_image(data)
         else:
             # 以上都不是，则报错
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
@@ -105,6 +112,18 @@ class Image(BaseType):
                 raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
         except Exception as e:
             raise TypeError("Invalid numpy array for the image") from e
+
+    def __convert_plt_to_image(self, plt_obj):
+        """ """
+        try:
+            buf = BytesIO()
+            plt_obj.savefig(buf, format="png")  # 将图像保存到BytesIO对象
+            buf.seek(0)  # 移动到缓冲区的开始位置
+            image = PILImage.open(buf).convert(self.mode)  # 使用PIL打开图像
+            buf.close()  # 关闭缓冲区
+            return image
+        except Exception as e:
+            raise TypeError("Invalid matplotlib figure for the image") from e
 
     def __resize(self, image, MAX_DIMENSION=1280):
         """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""

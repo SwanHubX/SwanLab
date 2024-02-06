@@ -65,7 +65,7 @@ def __clear_field(target: List[dict], field: str) -> List[dict]:
 
     Returns
     -------
-    list[dict]
+    List[dict]
         处理后的字典列表
     """
 
