@@ -228,18 +228,18 @@ const format = (data) => {
   return { d, config: keys > 1 ? { seriesField } : { color: colors[0] } }
 }
 
-/**
- * 以千为单位格式化数字，例如:
- * 100 => 100 (如果不是1000的倍数，则直接返回)
- * 1000 => 1k
- * 10000 => 10k
- * @param {number} num 待格式化的数字
- * @returns {string} 格式化后的字符串
- */
-const formatNumber2K = (num) => {
-  if (num % 1000 !== 0 || num == 0) return String(num)
-  return `${num / 1000}k`
-}
+// /**
+//  * 以千为单位格式化数字，例如:
+//  * 100 => 100 (如果不是1000的倍数，则直接返回)
+//  * 1000 => 1k
+//  * 10000 => 10k
+//  * @param {number} num 待格式化的数字
+//  * @returns {string} 格式化后的字符串
+//  */
+// const formatNumber2K = (num) => {
+//   if (num % 1000 !== 0 || num == 0) return String(num)
+//   return `${num / 1000}k`
+// }
 
 /**
  * 格式化x轴的刻度，最终返回一个数组，数组内是字符串，代表刻度
