@@ -1,6 +1,6 @@
 <template>
   <!-- 图表标题 -->
-  <p class="text-center font-semibold">{{ title }}</p>
+  <p class="text-center font-semibold select-none">{{ title }}</p>
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-sm">
@@ -9,14 +9,14 @@
   </div>
   <template v-else>
     <!-- x轴坐标单位 -->
-    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     <!-- 图表主体 -->
     <div ref="g2Ref"></div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div ref="g2ZoomRef"></div>
-      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
   </template>
 </template>
@@ -107,6 +107,28 @@ const createChart = (dom, data, config = {}) => {
     // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
     // seriesField,
     colorField,
+    legend: {
+      // flipPage: false,
+      pageNavigator: {
+        marker: {
+          style: {
+            // 非激活，不可点击态时的填充色设置
+            inactiveFill: '#000',
+            inactiveOpacity: 0.45,
+            // 默认填充色设置
+            fill: '#000',
+            opacity: 0.8,
+            size: 8
+          }
+        },
+        text: {
+          style: {
+            fill: '#ccc',
+            fontSize: 8
+          }
+        }
+      }
+    },
     color: colors,
     point: {
       shape: 'last-point'
@@ -222,6 +244,9 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
+  // 依据xField排序，从小到大
+  d.sort((a, b) => a[xField] - b[xField])
+  console.log('d', d)
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
   return { d, config: keys > 1 ? { seriesField } : { color: colors[0] } }
@@ -352,12 +377,12 @@ const lineShowTooltip = (point) => {
   manual = false
   // console.log('lineShowTooltip', props.index)
   // console.log('title', title)
-  chartObj.chart.showTooltip(point)
+  chartObj?.chart?.showTooltip(point)
 }
 const lineHideTooltip = () => {
   if (error.value) return
   manual = false
-  chartObj.chart.hideTooltip()
+  chartObj?.chart?.hideTooltip()
 }
 
 const registerTooltipEvent = () => {

@@ -276,7 +276,9 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
         pass
 
     # 获取当前项目下所有的多实验对比表
-    multi_charts = Chart.filter(Chart.project_id == project_id)
+    # 暂时只请求chart.type为default或者line的图表
+    allow_types = ["default", "line"]
+    multi_charts = Chart.filter(Chart.project_id == project_id, Chart.type.in_(allow_types))
     _sum = multi_charts.count()
     # 获取图表配置
     charts = []
@@ -294,6 +296,9 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             {
                 "id": _chart.id,
                 "name": _chart.name,
+                "type": _chart.type,
+                "reference": _chart.reference,
+                "config": _chart.config,
                 "description": _chart.description,
                 "source": sources,
                 "error": error,
@@ -306,8 +311,13 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     for index, namespace in enumerate(namespaces):
         displays = []
         for display in __to_list(namespace.displays):
-            displays.append(display["chart_id"]["id"])
-        namespace_list[index]["charts"] = displays
+            # 只获取默认图表
+            if display["chart_id"]["type"] in allow_types:
+                displays.append(display["chart_id"]["id"])
+        if len(displays) > 0:
+            namespace_list[index]["charts"] = displays
 
+    # 过滤namespace中的空charts的namespace
+    namespace_list = [namespace for namespace in namespace_list if "charts" in namespace]
     # 获取项目下所有实验的图表数据
     return SUCCESS_200({"_sum": _sum, "charts": charts, "namespaces": namespace_list})

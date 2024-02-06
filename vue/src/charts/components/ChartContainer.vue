@@ -53,7 +53,7 @@ const props = defineProps({
   }
 })
 
-const cid = props.chart._cid
+const cid = props.chart.id
 const source = props.chart.source
 
 // ---------------------------------- 判断是否处于hover状态 ----------------------------------
@@ -62,8 +62,13 @@ const handleMouseEnter = () => (hover.value = true)
 const handleMouseLeave = () => (hover.value = false)
 
 // ---------------------------------- 控制chart显示状态 ----------------------------------
+// 是否全部数据都错
+const isAllError = computed(() => {
+  return Object.keys(props.chart.error || {}).length === source.length
+})
+
 const status = ref(props.chart.error ? 'success' : undefined)
-const loading = ref(!props.chart.error)
+const loading = ref(!isAllError.value)
 
 const unknown = ref(false)
 /**
@@ -124,12 +129,6 @@ function isPromiseAndAsyncFunction(func) {
     func.constructor.name === 'AsyncFunction'
   )
 }
-
-// 是否全部数据都错
-const isAllError = computed(() => {
-  return Object.keys(props.chart.error || {}).length === source.length
-})
-
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
 // 是否已经渲染，用于控制执行render方法还是change方法
@@ -201,7 +200,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .chart-container {
-  @apply w-full h-auto min-h-[288px] border rounded relative overflow-hidden bg-default;
+  @apply w-full h-auto min-h-[288px] border rounded relative bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
   .line-chart {
