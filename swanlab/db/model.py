@@ -83,6 +83,8 @@ class SwanModel(Model):
             return ""
         if isinstance(dict, str):
             try:
+                if not dict:
+                    return ""
                 json.loads(dict)
                 return dict
             except:

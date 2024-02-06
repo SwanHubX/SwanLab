@@ -7,7 +7,6 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from datetime import datetime
 from .db import (
     Tag,
     Namespace,
@@ -17,6 +16,7 @@ from .db import (
     Display,
     ExistedError,
 )
+from ...db import add_multi_chart
 
 
 class SwanLabExp:
@@ -303,6 +303,7 @@ class SwanLabTag:
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
         # 新建多实验对比图表数据
+        add_multi_chart(tag_id=tag.id, chart_id=self.__chart.id)
 
     def __new_tag(self, index, data, more: dict = None) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息

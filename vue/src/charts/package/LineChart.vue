@@ -55,8 +55,7 @@ const props = defineProps({
 // 数据源 arrya
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
-const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[0] : null)
-
+const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
@@ -349,18 +348,21 @@ const lineChartsRef = computed(() => {
 let manual = true
 // 调用此方法则必然是自动触发
 const lineShowTooltip = (point) => {
+  if (error.value) return
   manual = false
   // console.log('lineShowTooltip', props.index)
   // console.log('title', title)
   chartObj.chart.showTooltip(point)
 }
 const lineHideTooltip = () => {
+  if (error.value) return
   manual = false
   chartObj.chart.hideTooltip()
 }
 
 const registerTooltipEvent = () => {
   // 给 tooltip 添加点击事件
+  if (error.value) return
   chartObj.on('tooltip:show', (evt) => {
     if (!manual) {
       // console.log('auto show tooltip')

@@ -136,20 +136,23 @@ def transform_to_multi_exp_charts(project_id: int):
     db.commit()
 
 
-def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
+def add_multi_chart(
+    tag_id: int,
+    chart_id: int,
+    project_id: int = None,
+):
     """添加新的多实验对比图表
     1. 当前 tag 已有多实验图表，将该 tag 添加 source 即可
     2. 当前 tag 满足条件但未创建多实验图表，进行创建和添加
 
     Parameters
     ----------
-    project_id : int
-        项目 id
     tag_id : int
         tag id
     chart_id : int
         tag 伴生 chart 的 id
-
+    project_id : int
+        项目 id, 由于目前为单项目，所以可以不传
     Raises
     ------
     ChartTypeError
@@ -161,6 +164,8 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     ValueError
         当前tag自动生成的chart数据有问题，无法生成多实验图表
     """
+    if project_id is None:
+        project_id = Project.DEFAULT_PROJECT_ID
 
     try:
         project = Project.filter(Project.id == project_id).first()
@@ -176,7 +181,7 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
     # 当前新增 tag
     tag = Tag.get_by_id(tag_id)
     # 属于项目的所有与 tag 同名的 chart，用于判断是否已经生成该 tag 的多实验对比图
-    charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name, Chart.system != 0)
+    charts = Chart.filter(Chart.project_id == project_id, Chart.name == tag.name)
     chart = charts.first()
 
     # 已经有对应名称的 chart
@@ -187,7 +192,7 @@ def add_multi_chart(project_id: int, tag_id: int, chart_id: int):
             raise ChartTypeError("Error tag type")
         else:
             # 如果该 chart 和 tag 同类，直接添加
-            Source.create(tag_id, chart.id)
+            return Source.create(tag_id, chart.id, error=Source.filter(Source.tag_id == tag_id).first().error)
 
     # 如果没有对应名称的 chart, 执行创建新多实验对比图表操作
     # 此时该 tag 应该是第一次出现
