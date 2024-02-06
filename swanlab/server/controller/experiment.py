@@ -579,3 +579,33 @@ def get_experiment_requirements(experiment_id: int):
         requirements = f.read()
 
     return SUCCESS_200({"requirements": requirements.split("\n")})
+
+
+# 修改实验是否可见
+def change_experiment_visibility(experiment_id: int, show: bool):
+    """修改实验是否可见
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    show : bool
+        在多实验对比图表中，该实验是否可见，true -> 1 , false -> 0
+
+    Returns
+    -------
+    experiment : dict
+        当前实验信息
+    """
+
+    try:
+        experiment = Experiment.get_by_id(experiment_id)
+    except NotExistedError:
+        return NOT_FOUND_404("Experiment with id {} does not exist.".format(experiment_id))
+
+    if show:
+        experiment.show = 1
+    else:
+        experiment.show = 0
+    experiment.save()
+    return SUCCESS_200({"experiment": experiment.__dict__()})

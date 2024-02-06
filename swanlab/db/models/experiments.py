@@ -85,7 +85,7 @@ class Experiment(SwanModel):
     def __dict__(self):
         return {
             "id": self.id,
-            "project_id": self.project_id,
+            "project_id": self.project_id.__dict__(),
             "run_id": self.run_id,
             "name": self.name,
             "description": self.description,
