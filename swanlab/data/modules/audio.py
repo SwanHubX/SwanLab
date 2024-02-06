@@ -51,7 +51,11 @@ class Audio(BaseType):
             else get_file_hash_path(self.audio_data)[:16]
         )
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"{self.caption}-step{self.step}-{hash_name}.wav"
+        save_name = (
+            f"{self.caption}-step{self.step}-{hash_name}.wav"
+            if self.caption is not None
+            else f"audio-step{self.step}-{hash_name}.wav"
+        )
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path = os.path.join(save_dir, save_name)
@@ -73,7 +77,7 @@ class Audio(BaseType):
             caption = str(caption)
         # 如果类型是None，则转换为默认字符串
         elif caption is None:
-            caption = "audio"
+            caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption

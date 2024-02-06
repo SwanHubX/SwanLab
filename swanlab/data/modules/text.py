@@ -31,7 +31,11 @@ class Text(BaseType):
 
             # 设置文本数据的保存路径
             save_dir = os.path.join(self.settings.static_dir, self.tag)
-            save_name = f"{self.caption}-step{self.step}-{self.text_data[:16]}.txt"
+            save_name = (
+                f"{self.caption}-step{self.step}-{self.text_data[:16]}.txt"
+                if self.caption is not None
+                else f"text-step{self.step}-{self.text_data[:16]}.txt"
+            )
             # 如果路径不存在，则创建路径
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
@@ -76,7 +80,7 @@ class Text(BaseType):
             caption = str(caption)
         # 如果类型是None，则转换为默认字符串
         elif caption is None:
-            caption = "audio"
+            caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
