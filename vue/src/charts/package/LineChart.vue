@@ -60,6 +60,7 @@ const error = ref(source.length === Object.keys(props.chart.error).length ? prop
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+if (!colors.getSeriesColor) throw new Error('colors.getSeries is not defined, please provide getSeries in colors')
 const rootStyle = getComputedStyle(document.documentElement)
 // 边框颜色，通过js获取css变量值
 const borderColor = rootStyle.getPropertyValue('--outline-default')
@@ -129,7 +130,10 @@ const createChart = (dom, data, config = {}) => {
         }
       }
     },
-    color: colors,
+    // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
+    color: ({ series }) => {
+      return colors.getSeriesColor(series, source.indexOf(series))
+    },
     point: {
       shape: 'last-point'
     },
@@ -239,6 +243,7 @@ const format = (data) => {
     if (props.chart.error && props.chart.error[key]) return
     keys++
     // 如果不是单数据，需要将所有数据的list合并为一个数组
+    if (!data[key]) return
     data[key].list.forEach((item) => {
       // item新加series字段，用于标识数据来源
       d.push({ ...item, series: key })
@@ -367,7 +372,7 @@ const zoom = (data) => {
 const chartsRefList = inject('chartsRefList')
 const lineChartsRef = computed(() => {
   // 将列表中除了props.index的所有chartRef过滤出来
-  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef.lineShowTooltip)
+  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef?.lineShowTooltip)
 })
 
 let manual = true
@@ -395,14 +400,14 @@ const registerTooltipEvent = () => {
     }
     const point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value.forEach((chart) => {
+    lineChartsRef.value?.forEach((chart) => {
       chart.chartRef.lineShowTooltip(point)
     })
     manual = true
   })
   chartObj.on('tooltip:hide', (...args) => {
     // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value.forEach((chart) => {
+    lineChartsRef.value?.forEach((chart) => {
       if (!manual) {
         return
         // return console.log('auto hide tooltip')

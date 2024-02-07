@@ -1,5 +1,14 @@
 <template>
-  <ChartsPage :groups="groups" :charts="charts" v-if="groups.length" />
+  <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
+  <div class="project-title transition-marging duration-300 mt-5 pl-4" :class="{ 'ml-8': !isSideBarShow }">
+    <div class="flex items-center gap-3">
+      <!-- 项目标题/实验标题 -->
+      <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
+        {{ projectStore.name }}
+      </h1>
+    </div>
+  </div>
+  <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
 </template>
 
 <script setup>
@@ -12,8 +21,9 @@
  **/
 import http from '@swanlab-vue/api/http'
 import { useProjectStore } from '@swanlab-vue/store'
-import { ref, provide } from 'vue'
+import { ref, provide, inject } from 'vue'
 import ChartsPage from './components/ChartsPage.vue'
+import { onUnmounted } from 'vue'
 const projectStore = useProjectStore()
 http.get('/project/charts').then(({ data }) => {
   // 将namespaces转换为groups
@@ -28,25 +38,37 @@ http.get('/project/charts').then(({ data }) => {
     return namespace
   })
 })
+const isSideBarShow = inject('isSideBarShow')
 
 // ---------------------------------- 数据驱动 ----------------------------------
 // 项目对比图表数据，[{name, charts: [charts]}]
 const groups = ref([])
 const charts = ref([])
+const chartsPageKey = ref(0)
 
-// ---------------------------------- 订阅管理器 ----------------------------------
-
-class SubscriptionManager {
-  constructor() {
-    // 订阅管理器，map(experiment-id, Map(cid, callback))
-    this.subscriptions = new Map()
-  }
+// ---------------------------------- 向projectStore注册回调，当点击眼睛时执行此回调 ----------------------------------
+const handleShowChange = () => {
+  // 重新渲染页面
+  chartsPageKey.value++
 }
 
-// ---------------------------------- 订阅函数 ----------------------------------
+projectStore.registerChangeShowCallback(handleShowChange)
+
+onUnmounted(() => {
+  projectStore.destoryChangeShowCallback()
+})
 
 // ---------------------------------- 色盘注入 ----------------------------------
-const colors = projectStore.colors
+const createGetSeriesColor = () => {
+  // 遍历所有实验，实验名称为key，实验颜色为value
+  const colors = projectStore.colorMap
+  return (exp_name) => {
+    return colors[exp_name]
+  }
+}
+const colors = [...projectStore.colors]
+colors.getSeriesColor = createGetSeriesColor()
+// console.log(colors)
 provide('colors', colors)
 </script>
 

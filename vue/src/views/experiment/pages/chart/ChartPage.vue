@@ -25,11 +25,21 @@ import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
+const projectStore = useProjectStore()
 const experimentStore = useExperimentStore()
 const route = useRoute()
 
 // ---------------------------------- 颜色配置，注入色盘 ----------------------------------
-provide('colors', useProjectStore().colors)
+const colors = [...projectStore.colors]
+const createGetSeriesColor = () => {
+  // 遍历所有实验，实验名称为key，实验颜色为value
+  return (_, index) => {
+    return colors[index]
+  }
+}
+colors.getSeriesColor = createGetSeriesColor()
+// console.log(colors)
+provide('colors', colors)
 
 // ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap

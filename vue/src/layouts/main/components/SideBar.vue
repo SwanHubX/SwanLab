@@ -63,6 +63,8 @@ import SLSearch from '@swanlab-vue/components/SLSearch.vue'
 import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
+import http from '@swanlab-vue/api/http'
+import { debounce } from '@swanlab-vue/utils/common'
 
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
@@ -96,10 +98,15 @@ const totalExperiments = computed(() => {
 })
 
 // ---------------------------------- 项目图表界面下，点击眼睛后的效果 ----------------------------------
-
+const path = debounce((id, show) => {
+  http.patch('/experiment/' + id + '/show', {
+    show
+  })
+}, 500)
 const changeExperimentShow = (id) => {
-  projectStore.changeExperimentShow(id)
+  const show = projectStore.changeExperimentShow(id)
   // 请求后端更新，直接更新store后请求，不需要等待
+  path(id, show)
 }
 
 // ---------------------------------- 进入more-info部分，将父元素hover效果移除 ----------------------------------
@@ -137,7 +144,7 @@ a {
     .more-info {
       @apply flex justify-end grow text-primary-default pr-4 gap-2 cursor-default;
       .show-button {
-        @apply w-7 h-6 p-0.5 rounded;
+        @apply w-7 h-6 p-1 rounded;
         &:hover {
           @apply text-primary-highest bg-highest;
         }
