@@ -1,6 +1,6 @@
 <template>
   <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-  <div class="project-title transition-marging duration-300 mt-5 pl-4" :class="{ 'ml-8': !isSideBarShow }">
+  <div class="project-title transition-marging duration-300 mt-5 pl-6" :class="{ 'ml-8': !isSideBarShow }">
     <div class="flex items-center gap-3">
       <!-- 项目标题/实验标题 -->
       <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
