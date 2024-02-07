@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from ..module.resp import PARAMS_ERROR_422
 
 from ..controller.experiment import (
     # 获取实验信息
@@ -21,6 +22,8 @@ from ..controller.experiment import (
     stop_experiment,
     # 获取实验依赖
     get_experiment_requirements,
+    # 修改实验可见性
+    change_experiment_visibility,
 )
 from fastapi import Request
 from urllib.parse import quote
@@ -192,3 +195,27 @@ def _(experiment_id: int):
     """
 
     return get_experiment_requirements(experiment_id)
+
+
+# 修改实验可见性
+@router.patch("/{experiment_id}/show")
+async def _(experiment_id: int, request: Request):
+    """修改实验是否可见
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    request : Request
+        请求体，包含 show 字段
+
+    Returns
+    -------
+    experiment : dict
+        当前实验信息
+    """
+
+    show = (await request.json()).get("show")
+    if show is None:
+        return PARAMS_ERROR_422("Request parameter 'show'")
+    return change_experiment_visibility(experiment_id, show)
