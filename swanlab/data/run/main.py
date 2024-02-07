@@ -581,8 +581,9 @@ class SwanLabRun:
         """
         # 这个循环的目的是如果创建失败则等零点五秒重新生成后缀重新创建，直到创建成功
         # 但是由于需要考虑suffix为none不生成后缀的情况，所以需要在except中判断一下
+        old = experiment_name
         while True:
-            _, exp_name = self.__get_exp_name(experiment_name, suffix)
+            experiment_name, exp_name = self.__get_exp_name(old, suffix)
             try:
                 # 获得数据库实例
                 exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
