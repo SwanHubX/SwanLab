@@ -9,8 +9,7 @@ r"""
 """
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError, DatabaseProxy
-from ..error import ExistedError, NotExistedError
-from ...utils.time import create_time
+from ..error import ExistedError, ForeignExpNotExistedError
 from .experiments import Experiment
 
 
@@ -94,14 +93,14 @@ class Tag(SwanModel):
 
         Raises
         ------
-        NotExistedError
+        ForeignExpNotExistedError
             实验对应的id不存在
         ExistedError
             此tag已经在数据库中存在（tag-experiment_id唯一）
         """
         # 如果实验id不存在，则抛出异常
         if not Experiment.filter(Experiment.id == experiment_id).exists():
-            raise NotExistedError("experiment不存在")
+            raise ForeignExpNotExistedError("experiment不存在")
 
         # 尝试创建实验tag，如果已经存在则抛出异常
         try:
@@ -112,8 +111,6 @@ class Tag(SwanModel):
                 description=description,
                 system=system,
                 more=more,
-                create_time=create_time(),
-                update_time=create_time(),
             )
         except IntegrityError:
             raise ExistedError("tag已存在")

@@ -95,7 +95,7 @@ const source = computed(() => {
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
-const error = ref(props.chart.error)
+const error = ref(props.chart.error[source.value[0]])
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 

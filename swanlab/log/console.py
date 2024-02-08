@@ -3,6 +3,7 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
+import io
 
 
 class LeverCtl(object):

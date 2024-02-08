@@ -20,15 +20,15 @@ swanlab.init(
 )
 for epoch in range(2, epochs):
     if epoch % 10 == 0:
-        # 测试audio
-        sample_rate = 44100
-        test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log(
-            {
-                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
-            },
-            step=epoch,
-        )
+        # # 测试audio
+        # sample_rate = 44100
+        # test_audio_arr = np.random.randn(2, 100000)
+        # swanlab.log(
+        #     {
+        #         "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
+        #     },
+        #     step=epoch,
+        # )
         # 测试image
         test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
@@ -41,5 +41,5 @@ for epoch in range(2, epochs):
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    swanlab.log({"accuracy": acc, "loss": loss, "loss2": loss2})
+    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
     time.sleep(0.2)

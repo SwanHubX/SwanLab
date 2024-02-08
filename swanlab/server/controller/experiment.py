@@ -208,15 +208,19 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     last_file = files[-1]
     tag_json = None
     # ---------------------------------- 开始读取最后一个文件 ----------------------------------
-
-    # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
-    with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
-        # 读取数据
-        tag_json = ujson.load(f)
-        # 倒数第二个文件+当前文件的数据量等于总数据量
-        # 倒数第二个文件可能不存在
-        count = files[-2].split(".")[0] if len(files) > 1 else 0
-        count = int(count) + len(tag_json["data"])
+    # 如果最后一个文件内容为空
+    if os.path.getsize(os.path.join(tag_path, last_file)) == 0:
+        tag_json = {"data": []}
+        count = 0
+    else:
+        # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
+        with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
+            # 读取数据
+            tag_json = ujson.load(f)
+            # 倒数第二个文件+当前文件的数据量等于总数据量
+            # 倒数第二个文件可能不存在
+            count = files[-2].split(".")[0] if len(files) > 1 else 0
+            count = int(count) + len(tag_json["data"])
     # 读取完毕，文件解锁
     # ---------------------------------- 返回所有数据 ----------------------------------
     # FIXME: 性能问题
@@ -435,14 +439,14 @@ def get_experimet_charts(experiment_id: int):
     # 获取每个图表对应的数据源
     for index, chart in enumerate(charts):
         sources = []
+        error = {}
         for source in __to_list(chart.sources):
             sources.append(source["tag_id"]["name"])
-            if source["error"] is not None and source["error"] != "":
-                try:
-                    chart_list[index]["error"] = ujson.loads(source["error"])
-                except:
-                    pass
+            if source["error"]:
+                error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
+        chart_list[index]["error"] = error
         chart_list[index]["source"] = sources
+        chart_list[index]["mutli"] = False
 
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
@@ -580,3 +584,33 @@ def get_experiment_requirements(experiment_id: int):
         requirements = f.read()
 
     return SUCCESS_200({"requirements": requirements.split("\n")})
+
+
+# 修改实验是否可见
+def change_experiment_visibility(experiment_id: int, show: bool):
+    """修改实验是否可见
+
+    Parameters
+    ----------
+    experiment_id : int
+        实验id
+    show : bool
+        在多实验对比图表中，该实验是否可见，true -> 1 , false -> 0
+
+    Returns
+    -------
+    experiment : dict
+        当前实验信息
+    """
+
+    try:
+        experiment = Experiment.get_by_id(experiment_id)
+    except NotExistedError:
+        return NOT_FOUND_404("Experiment with id {} does not exist.".format(experiment_id))
+
+    if show:
+        experiment.show = 1
+    else:
+        experiment.show = 0
+    experiment.save()
+    return SUCCESS_200({"experiment": experiment.__dict__()})

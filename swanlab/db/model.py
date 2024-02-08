@@ -61,7 +61,7 @@ class SwanModel(Model):
 
     @staticmethod
     def dict2json(dict: dict) -> str:
-        """将字典转换为json字符串
+        """将字典转换为json字符串,如果已经是json字符串，则直接返回
 
         Parameters
         ----------
@@ -81,6 +81,14 @@ class SwanModel(Model):
         """
         if dict is None:
             return ""
+        if isinstance(dict, str):
+            try:
+                if not dict:
+                    return ""
+                json.loads(dict)
+                return dict
+            except:
+                raise TypeError
         try:
             return json.dumps(dict)
         except:
@@ -92,3 +100,19 @@ class SwanModel(Model):
         """
         self.update_time = create_time()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def insert_many(cls, rows, fields=None):
+        """批量插入数据
+        经过swanmodel的覆写，insert_many方法自动创建create_time和update_time字段
+        """
+        current_time = create_time()
+        rows = [{**row, "create_time": current_time, "update_time": current_time} for row in rows]
+        return super().insert_many(rows, fields=fields)
+
+    @classmethod
+    def create(cls, **query):
+        current_time = create_time()
+        query["create_time"] = current_time
+        query["update_time"] = current_time
+        return super().create(**query)

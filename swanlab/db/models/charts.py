@@ -9,10 +9,9 @@ r"""
 """
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy
-from ..error import ExistedError, NotExistedError
+from ..error import ExistedError, ForeignExpNotExistedError, ForeignProNotExistedError
 from .experiments import Experiment
 from .projects import Project
-from ...utils.time import create_time
 
 
 class Chart(SwanModel):
@@ -116,19 +115,19 @@ class Chart(SwanModel):
 
         Raises
         -------
-        NotExistedError
-            实验/项目不存在
+        ForeignExpNotExistedError
+            实验不存在
+        ForeignProNotExistedError
+            项目不存在
         ExistedError
             图标必须唯一
         """
 
         # 检查外键存在性
         if project_id and not Project.filter(Project.id == project_id).exists():
-            raise NotExistedError("项目不存在")
+            raise ForeignProNotExistedError("项目不存在")
         if experiment_id and not Experiment.filter(Experiment.id == experiment_id).exists():
-            raise NotExistedError("实验不存在")
-
-        current_time = create_time()
+            raise ForeignExpNotExistedError("实验不存在")
 
         try:
             return super().create(
@@ -141,8 +140,6 @@ class Chart(SwanModel):
                 reference=reference,
                 config=config,
                 more=more,
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("图表已存在")

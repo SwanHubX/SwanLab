@@ -22,6 +22,23 @@ export const useProjectStore = defineStore('project', () => {
     const key = dark.value ? 'dark' : 'light'
     return project.value?.colors[key]
   })
+  // 当前主题下的所有实验颜色映射关系
+  const colorMap = computed(() => {
+    const key = dark.value ? 'dark' : 'light'
+    const colors = {}
+    project.value?.experiments.forEach((e) => {
+      colors[e.name] = e[key]
+    })
+    return colors
+  })
+  // 当前所有实验可见映射关系
+  const showMap = computed(() => {
+    const showMap = {}
+    project.value?.experiments.forEach((e) => {
+      showMap[e.name] = e.show
+    })
+    return showMap
+  })
 
   /** action */
   const setProject = (p) => {
@@ -87,9 +104,19 @@ export const useProjectStore = defineStore('project', () => {
   /**
    * 修改实验的显示状态，是否显示，二元状态，如果show为1，则改为0，反之亦然
    */
+  let changeShowCallback = null
   const changeExperimentShow = (id) => {
     const experiment = experiments.value.find((e) => e.experiment_id == id)
     experiment.show = experiment.show ? 0 : 1
+    changeShowCallback && changeShowCallback(id, experiment.show)
+    return experiment.show
+  }
+
+  const registerChangeShowCallback = (callback) => {
+    changeShowCallback = callback
+  }
+  const destoryChangeShowCallback = () => {
+    changeShowCallback = null
   }
 
   return {
@@ -101,12 +128,16 @@ export const useProjectStore = defineStore('project', () => {
     updateTime,
     logdir,
     colors,
+    colorMap,
+    showMap,
     setProject,
     deleteExperiment,
     updateInfo,
     clearProject,
     setExperimentStatus,
     setExperimentInfo,
-    changeExperimentShow
+    changeExperimentShow,
+    registerChangeShowCallback,
+    destoryChangeShowCallback
   }
 })

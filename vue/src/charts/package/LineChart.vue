@@ -1,6 +1,6 @@
 <template>
   <!-- 图表标题 -->
-  <p class="text-center font-semibold">{{ title }}</p>
+  <p class="text-center font-semibold select-none">{{ title }}</p>
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-sm">
@@ -9,14 +9,14 @@
   </div>
   <template v-else>
     <!-- x轴坐标单位 -->
-    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     <!-- 图表主体 -->
     <div ref="g2Ref"></div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div ref="g2ZoomRef"></div>
-      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90">{{ xTitle }}</p>
+      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
   </template>
 </template>
@@ -52,13 +52,17 @@ const props = defineProps({
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-
-const error = ref(props.chart.error)
-
+// 数据源 arrya
+const source = props.chart.source
+// source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
+const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
+// 图表模式，mutli或者single
+const mutli = props.chart.mutli
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+if (!colors.getSeriesColor) throw new Error('colors.getSeries is not defined, please provide getSeries in colors')
 const rootStyle = getComputedStyle(document.documentElement)
 // 边框颜色，通过js获取css变量值
 const borderColor = rootStyle.getPropertyValue('--outline-default')
@@ -87,8 +91,6 @@ G2.registerShape('point', 'last-point', {
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
-// 数据源 arrya
-const source = props.chart.source
 // 参考字段和显示名称
 const reference = props.chart.reference
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
@@ -108,7 +110,32 @@ const createChart = (dom, data, config = {}) => {
     // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
     // seriesField,
     colorField,
-    color: colors,
+    legend: {
+      // flipPage: false,
+      pageNavigator: {
+        marker: {
+          style: {
+            // 非激活，不可点击态时的填充色设置
+            inactiveFill: '#000',
+            inactiveOpacity: 0.45,
+            // 默认填充色设置
+            fill: '#000',
+            opacity: 0.8,
+            size: 8
+          }
+        },
+        text: {
+          style: {
+            fill: '#ccc',
+            fontSize: 8
+          }
+        }
+      }
+    },
+    // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
+    color: ({ series }) => {
+      return colors.getSeriesColor(series, source.indexOf(series))
+    },
     point: {
       shape: 'last-point'
     },
@@ -187,7 +214,7 @@ const createChart = (dom, data, config = {}) => {
       // }
     },
     // 大小相关
-    height: 200,
+    height: 220,
     width: undefined,
     autoFit: true,
     // 开启一些交互
@@ -212,30 +239,38 @@ const format = (data) => {
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
   const d = []
+  let keys = 0
   Object.keys(data).forEach((key) => {
+    // 如果key存在于props.chart.error中，说明这个数据有问题，直接返回
+    if (props.chart.error && props.chart.error[key]) return
+    keys++
     // 如果不是单数据，需要将所有数据的list合并为一个数组
+    if (!data[key]) return
     data[key].list.forEach((item) => {
       // item新加series字段，用于标识数据来源
       d.push({ ...item, series: key })
     })
   })
+  // 依据xField排序，从小到大
+  d.sort((a, b) => a[xField] - b[xField])
+  console.log('d', d)
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
-  return { d, config: source.length > 1 ? { seriesField } : { color: colors[0] } }
+  return { d, config: mutli ? { seriesField } : { color: colors[0] } }
 }
 
-/**
- * 以千为单位格式化数字，例如:
- * 100 => 100 (如果不是1000的倍数，则直接返回)
- * 1000 => 1k
- * 10000 => 10k
- * @param {number} num 待格式化的数字
- * @returns {string} 格式化后的字符串
- */
-const formatNumber2K = (num) => {
-  if (num % 1000 !== 0 || num == 0) return String(num)
-  return `${num / 1000}k`
-}
+// /**
+//  * 以千为单位格式化数字，例如:
+//  * 100 => 100 (如果不是1000的倍数，则直接返回)
+//  * 1000 => 1k
+//  * 10000 => 10k
+//  * @param {number} num 待格式化的数字
+//  * @returns {string} 格式化后的字符串
+//  */
+// const formatNumber2K = (num) => {
+//   if (num % 1000 !== 0 || num == 0) return String(num)
+//   return `${num / 1000}k`
+// }
 
 /**
  * 格式化x轴的刻度，最终返回一个数组，数组内是字符串，代表刻度
@@ -339,24 +374,27 @@ const zoom = (data) => {
 const chartsRefList = inject('chartsRefList')
 const lineChartsRef = computed(() => {
   // 将列表中除了props.index的所有chartRef过滤出来
-  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef.lineShowTooltip)
+  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef?.lineShowTooltip)
 })
 
 let manual = true
 // 调用此方法则必然是自动触发
 const lineShowTooltip = (point) => {
+  if (error.value) return
   manual = false
   // console.log('lineShowTooltip', props.index)
   // console.log('title', title)
-  chartObj.chart.showTooltip(point)
+  chartObj?.chart?.showTooltip(point)
 }
 const lineHideTooltip = () => {
+  if (error.value) return
   manual = false
-  chartObj.chart.hideTooltip()
+  chartObj?.chart?.hideTooltip()
 }
 
 const registerTooltipEvent = () => {
   // 给 tooltip 添加点击事件
+  if (error.value) return
   chartObj.on('tooltip:show', (evt) => {
     if (!manual) {
       // console.log('auto show tooltip')
@@ -364,14 +402,14 @@ const registerTooltipEvent = () => {
     }
     const point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value.forEach((chart) => {
+    lineChartsRef.value?.forEach((chart) => {
       chart.chartRef.lineShowTooltip(point)
     })
     manual = true
   })
   chartObj.on('tooltip:hide', (...args) => {
     // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value.forEach((chart) => {
+    lineChartsRef.value?.forEach((chart) => {
       if (!manual) {
         return
         // return console.log('auto hide tooltip')

@@ -9,10 +9,9 @@ r"""
 """
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, fn, DatabaseProxy
-from ..error import ExistedError, NotExistedError
+from ..error import ExistedError, ForeignChartNotExistedError, ForeignNameNotExistedError
 from .charts import Chart
 from .namespaces import Namespace
-from ...utils.time import create_time
 
 
 class Display(SwanModel):
@@ -79,17 +78,19 @@ class Display(SwanModel):
 
         Raises
         ------
-        NotExistedError
-            外键对应的id不存在(chart/namespace不存在)
+        ForeignChartNotExistedError
+            外键对应的id不存在(chart不存在)
+        ForeignNameNotExistedError
+            外键对应的id不存在(namespace不存在)
         ExistedError
            "chart_id" 和 "namespace_id" 的对应关系已存在
         """
 
         # 检查外键存在性
         if not Chart.filter(Chart.id == chart_id).exists():
-            raise NotExistedError("图表不存在")
+            raise ForeignChartNotExistedError("图表不存在")
         if not Namespace.filter(Namespace.id == namespace_id).exists():
-            raise NotExistedError("命名空间不存在")
+            raise ForeignNameNotExistedError("命名空间不存在")
 
         # 如果sort为None，则自动添加到最后
         if sort is None:
@@ -98,9 +99,8 @@ class Display(SwanModel):
             sort = 0 if sort is None else sort + 1
         elif sort >= 0 and cls.filter(cls.sort == sort).exists():
             # 先判断当前 sort 是否存在，如果存在，则将大于等于 sort 的索引加1，这样可以直接将数据插入
-            cls.update({cls.sort: cls.sort + 1}).where(cls.sort >= sort).execute()
-
-        current_time = create_time()
+            if cls.filter(cls.sort == sort).exists():
+                cls.update(sort=cls.sort + 1).where(cls.sort >= sort).execute()
 
         try:
             return super().create(
@@ -108,8 +108,6 @@ class Display(SwanModel):
                 namespace_id=namespace_id,
                 sort=sort,
                 more=cls.dict2json(more),
-                create_time=current_time,
-                update_time=current_time,
             )
         except IntegrityError:
             raise ExistedError("display对应关系已存在")

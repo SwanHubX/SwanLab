@@ -11,8 +11,7 @@ from .tags import Tag
 from .charts import Chart
 from ..model import SwanModel
 from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, DatabaseProxy, fn
-from ..error import ExistedError, NotExistedError
-from ...utils.time import create_time
+from ..error import ExistedError, ForeignTagNotExistedError, ForeignChartNotExistedError
 
 
 class Source(SwanModel):
@@ -78,17 +77,19 @@ class Source(SwanModel):
 
         Raises
         ------
-        NotExistedError
-            外键对应的id不存在(tag/chart不存在)
+        ForeignTagNotExistedError
+            外键对应的id不存在(tag不存在)
+        ForeignChartNotExistedError
+            外键对应的id不存在(chart不存在)
         ExistedError
            对应关系已经在数据库中存在（"tag_id"和"chart_id"唯一）
         """
 
         # 检查外键存在性
         if not Tag.filter(Tag.id == tag_id).exists():
-            raise NotExistedError("tag不存在")
+            raise ForeignTagNotExistedError("tag不存在")
         if not Chart.filter(Chart.id == chart_id).exists():
-            raise NotExistedError("chart不存在")
+            raise ForeignChartNotExistedError("chart不存在")
 
         # 如果sort为None，则自动添加到最后
         if sort is None:
@@ -98,16 +99,12 @@ class Source(SwanModel):
             # 如果sort不为None，则检查当前chart下的sort是否存在，如果存在，则把sort大于等于sort的索引+1
             cls.update(sort=sort + 1).where(cls.chart_id == chart_id, cls.sort >= sort).execute()
 
-        current_time = create_time()
-
         try:
             return super().create(
                 tag_id=tag_id,
                 chart_id=chart_id,
                 error=cls.dict2json(error),
                 more=cls.dict2json(more),
-                create_time=current_time,
-                update_time=current_time,
                 sort=sort,
             )
         except IntegrityError:

@@ -4,7 +4,6 @@
   // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-
     // 启动前端开发服务
     {
       "name": "前端开发:dev",
@@ -17,7 +16,7 @@
     // 启动后端开发服务
     {
       "name": "后端开发",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/test/start_server.py",
       "console": "integratedTerminal",
@@ -29,7 +28,7 @@
     // 打包命令
     {
       "name": "构建项目",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/build_pypi.py",
       "console": "integratedTerminal",
@@ -39,7 +38,7 @@
     // 模拟实验开启
     {
       "name": "开启一个实验",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/test/create_experiment.py",
       "console": "integratedTerminal",
@@ -50,7 +49,7 @@
     },
     {
       "name": "模拟命令行watch",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/test/cli_test.py",
       "console": "integratedTerminal",
@@ -62,7 +61,7 @@
     // python运行当前文件
     {
       "name": "Python运行当前文件",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",

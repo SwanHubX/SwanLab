@@ -12,7 +12,7 @@
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover && !unknown && !props.chart.error">
+      <div class="chart-pannel" v-if="hover && !unknown && !isAllError">
         <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
       </div>
       <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
@@ -53,7 +53,7 @@ const props = defineProps({
   }
 })
 
-const cid = props.chart._cid
+const cid = props.chart.id
 const source = props.chart.source
 
 // ---------------------------------- 判断是否处于hover状态 ----------------------------------
@@ -62,8 +62,13 @@ const handleMouseEnter = () => (hover.value = true)
 const handleMouseLeave = () => (hover.value = false)
 
 // ---------------------------------- 控制chart显示状态 ----------------------------------
+// 是否全部数据都错
+const isAllError = computed(() => {
+  return Object.keys(props.chart.error || {}).length === source.length
+})
+
 const status = ref(props.chart.error ? 'success' : undefined)
-const loading = ref(!props.chart.error)
+const loading = ref(!isAllError.value)
 
 const unknown = ref(false)
 /**
@@ -124,7 +129,6 @@ function isPromiseAndAsyncFunction(func) {
     func.constructor.name === 'AsyncFunction'
   )
 }
-
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
 // 是否已经渲染，用于控制执行render方法还是change方法
@@ -132,9 +136,9 @@ let hasInited = false
 const $off = inject('$off')
 // 如果props.chart.error存在，则不订阅
 onMounted(() => {
-  props.chart.error ||
+  // error的key数量不等于source的长度
+  !isAllError.value &&
     inject('$on')(source, cid, (tag, _tagData, error) => {
-      // console.log('tag, _tagData, error', tag, _tagData, error)
       // 异步回调（其实是同步），用于控制图表的显示状态
       return new Promise((resolve, reject) => {
         if (error) {
@@ -196,7 +200,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .chart-container {
-  @apply w-full h-auto min-h-[288px] border rounded relative overflow-hidden bg-default;
+  @apply w-full h-auto min-h-[288px] border rounded relative bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
   .line-chart {
