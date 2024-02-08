@@ -208,15 +208,19 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     last_file = files[-1]
     tag_json = None
     # ---------------------------------- 开始读取最后一个文件 ----------------------------------
-
-    # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
-    with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
-        # 读取数据
-        tag_json = ujson.load(f)
-        # 倒数第二个文件+当前文件的数据量等于总数据量
-        # 倒数第二个文件可能不存在
-        count = files[-2].split(".")[0] if len(files) > 1 else 0
-        count = int(count) + len(tag_json["data"])
+    # 如果最后一个文件内容为空
+    if os.path.getsize(os.path.join(tag_path, last_file)) == 0:
+        tag_json = {"data": []}
+        count = 0
+    else:
+        # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
+        with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
+            # 读取数据
+            tag_json = ujson.load(f)
+            # 倒数第二个文件+当前文件的数据量等于总数据量
+            # 倒数第二个文件可能不存在
+            count = files[-2].split(".")[0] if len(files) > 1 else 0
+            count = int(count) + len(tag_json["data"])
     # 读取完毕，文件解锁
     # ---------------------------------- 返回所有数据 ----------------------------------
     # FIXME: 性能问题
