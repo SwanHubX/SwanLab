@@ -1,6 +1,6 @@
 # dat process
-IPython
 soundfile
+pillow
 numpy
 
 # web server
