@@ -19,4 +19,5 @@ from ...db import (
 from ...db import (
     ExistedError,
     NotExistedError,
+    ChartTypeError,
 )

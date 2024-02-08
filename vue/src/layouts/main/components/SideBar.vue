@@ -10,7 +10,7 @@
         <span>{{ $t('common.sidebar.project.runs') }}</span>
       </RouterLink>
       <RouterLink to="/charts" active-class="active-link">
-        <SLIcon icon="runs" class="w-4 h-4 mr-2" />
+        <SLIcon icon="charts" class="w-4 h-4 mr-2" />
         <span>{{ $t('common.sidebar.project.charts') }}</span>
       </RouterLink>
     </div>

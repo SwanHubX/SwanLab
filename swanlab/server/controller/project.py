@@ -301,6 +301,7 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
                 "config": _chart.config,
                 "description": _chart.description,
                 "source": sources,
+                "mutli": True,
                 "error": error,
             }
         )

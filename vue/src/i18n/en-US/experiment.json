@@ -1,7 +1,7 @@
 {
   "navs": {
     "index": "Experiment Card",
-    "chart": "Charts",
+    "chart": "Chart",
     "log": "Logs",
     "env": "Environment"
   },

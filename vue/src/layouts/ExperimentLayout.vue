@@ -104,7 +104,7 @@ const navs = [
   {
     label: t('experiment.navs.chart'),
     to: `/experiment/${experimentStore.id}/chart`,
-    icon: 'charts'
+    icon: 'chart'
   },
   {
     label: t('experiment.navs.log'),

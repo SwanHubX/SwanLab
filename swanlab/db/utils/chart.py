@@ -157,12 +157,8 @@ def add_multi_chart(
     ------
     ChartTypeError
         当前 tag 类型和期望 chart 类型不一致
-    NotExistedError
-        输入的project或tag或chart不存在
     IndexError
         project 已经生成过多实验图表, 无法再次生成
-    ValueError
-        当前tag自动生成的chart数据有问题，无法生成多实验图表
     """
     if project_id is None:
         project_id = Project.DEFAULT_PROJECT_ID

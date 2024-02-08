@@ -56,6 +56,8 @@ const props = defineProps({
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
 const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
+// 图表模式，mutli或者single
+const mutli = props.chart.mutli
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
@@ -212,7 +214,7 @@ const createChart = (dom, data, config = {}) => {
       // }
     },
     // 大小相关
-    height: 200,
+    height: 220,
     width: undefined,
     autoFit: true,
     // 开启一些交互
@@ -254,7 +256,7 @@ const format = (data) => {
   console.log('d', d)
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
-  return { d, config: keys > 1 ? { seriesField } : { color: colors[0] } }
+  return { d, config: mutli ? { seriesField } : { color: colors[0] } }
 }
 
 // /**

@@ -442,6 +442,7 @@ def get_experimet_charts(experiment_id: int):
                 error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
         chart_list[index]["error"] = error
         chart_list[index]["source"] = sources
+        chart_list[index]["mutli"] = False
 
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)

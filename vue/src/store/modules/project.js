@@ -31,6 +31,14 @@ export const useProjectStore = defineStore('project', () => {
     })
     return colors
   })
+  // 当前所有实验可见映射关系
+  const showMap = computed(() => {
+    const showMap = {}
+    project.value?.experiments.forEach((e) => {
+      showMap[e.name] = e.show
+    })
+    return showMap
+  })
 
   /** action */
   const setProject = (p) => {
@@ -121,6 +129,7 @@ export const useProjectStore = defineStore('project', () => {
     logdir,
     colors,
     colorMap,
+    showMap,
     setProject,
     deleteExperiment,
     updateInfo,
