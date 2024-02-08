@@ -57,11 +57,14 @@ const generateGroups = () => {
         return chart.id === chart_id
       })
       // 如果chart的所有source都为不可见，不push
-
       if (chart.source.every((source) => !projectStore.showMap[source])) return
+      // 如果在source中不在error的keys中的都不可见，不push
+      // 首先找到所有source中不在error的keys中的source
+      const sources = chart.source.filter((source) => !chart.error[source])
+      if (sources.every((source) => !projectStore.showMap[source])) return
+
       group.charts.push(chart)
     })
-    console.log(group)
     // 如果group的所有chart都为不可见，不push
     if (group.charts.length) groups.push(group)
   })
