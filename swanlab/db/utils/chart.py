@@ -87,11 +87,10 @@ def transform_to_multi_exp_charts(project_id: int):
                 "experiment_id": item["experiment_id"]["id"],
                 "experiment_name": item["experiment_id"]["name"],
                 "tag_id": item["id"],
-                "type": tag["type"],
             }
             for item in Project.search2list(target)
         ]
-    # 至此 result_list 数据结构为：{ tag_name: [{experiment_id, experiment_name, tag_id, tag_type}] }，找到了所有可以生成多实验图表的 tag
+    # 至此 result_list 数据结构为：{ tag_name: [{experiment_id, experiment_name, tag_id}] }，找到了所有可以生成多实验图表的 tag
     # 查找过滤后，需要生成多实验图表，生成操作需要使用原子操作
     db = connect()
     with db.atomic():
@@ -111,12 +110,13 @@ def transform_to_multi_exp_charts(project_id: int):
             else:
                 namespace = Namespace.create(ns_name, project_id=project_id)
             # 2. 生成图表
+            chart_type = Source.filter(Source.tag_id == tag_list[0]["tag_id"]).first().chart_id.type
             chart = Chart.create(
                 tag_name,
                 experiment_id=None,
                 project_id=project_id,
                 system=0,
-                type=tag_list[0]["type"],
+                type=chart_type,
             )
             # 3. 添加 chart 和 namespace 到 display
             Display.create(chart_id=chart.id, namespace_id=namespace.id)
@@ -211,7 +211,7 @@ def add_multi_chart(
             namespace: Namespace = Namespace.create(name, project_id=project_id)
         # 2. 生成图表
         accompanying_chart: Chart = Chart.get_by_id(chart_id)
-        # # 通过 tag 的伴生图表获取部分信息
+        # 通过 tag 的伴生图表获取部分信息
         chart = Chart.create(
             name=accompanying_chart.name,
             project_id=project_id,
