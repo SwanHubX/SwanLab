@@ -354,6 +354,14 @@ def get_experiment_summary(experiment_id: int) -> dict:
             # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
             data = str(data["data"][-1]["data"])
             summaries.append({"key": tag, "value": data})
+    # 获取数据库记录时在实验下的排序
+    sorts = {item["name"]: item["sort"] for item in __to_list(experiment.tags)}
+    # 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
+    if not all(value == 0 for value in sorts.values()):
+        temp = [0] * len(summaries)
+        for item in summaries:
+            temp[sorts[item["key"]]] = item
+        summaries = temp
 
     return SUCCESS_200({"summaries": summaries})
 
