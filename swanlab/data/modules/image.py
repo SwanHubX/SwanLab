@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
-from .utils_modules import BoundingBoxes
+from .utils_modules import BoundingBoxes, ImageMask
 from ..utils.file import get_file_hash_pil
 from typing import Union, List, Dict
 from io import BytesIO
@@ -28,12 +28,14 @@ class Image(BaseType):
         mode: str = "RGB",
         caption: str = None,
         boxes: dict = None,
+        masks: dict = None,
     ):
         super().__init__(data_or_path)
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
-        self.total_classes, self.boxes = self.__convert_boxes(boxes)
+        self.boxes, self.boxes_total_classes = self.__convert_boxes(boxes)
+        self.masks, self.masks_total_classes = self.__convert_masks(masks)
 
     def get_data(self):
         # 如果传入的是Image类列表
@@ -96,6 +98,30 @@ class Image(BaseType):
                 total_classes.update(boxes_final[key]._class_labels)
 
             return boxes_final, total_classes
+
+        else:
+            return None
+
+    def __convert_masks(self, masks):
+        """将masks转换为Dict[str, ImageMask]类型对象, 并返回该对象和总标签"""
+        if masks:
+            # 如果masks的类型不是字典，则报错
+            if not isinstance(masks, dict):
+                raise TypeError("swanlab.Image 'masks' argument must be a dictionary")
+
+            masks_final: Dict[str, ImageMask] = {}
+            total_classes = {}
+
+            # 对于masks中的每一个key
+            for key in masks:
+                mask_item = masks[key]
+                if isinstance(mask_item, ImageMask):
+                    masks_final[key] = mask_item
+                elif isinstance(mask_item, dict):
+                    masks_final[key] = ImageMask(mask_item, key)
+                total_classes.update(masks_final[key]._class_labels)
+
+            return masks_final, total_classes
 
         else:
             return None
@@ -179,11 +205,17 @@ class Image(BaseType):
             if self.caption is not None:
                 get_more_dict["caption"] = self.caption
 
-            if self._boxes is not None:
+            if self.boxes is not None:
                 get_more_dict["boxes"] = self.boxes
 
-            if self.total_classes is not None:
-                get_more_dict["total_classes"] = self.total_classes
+            if self.boxes_total_classes is not None:
+                get_more_dict["boxes_total_classes"] = self.boxes_total_classes
+
+            if self.masks is not None:
+                get_more_dict["masks"] = self.masks
+
+            if self.masks_total_classes is not None:
+                get_more_dict["masks_total_classes"] = self.masks_total_classes
 
             return get_more_dict if len[get_more_dict] != 0 else None
 
