@@ -1,8 +1,9 @@
 import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
+from .utils_modules import BoundingBoxes
 from ..utils.file import get_file_hash_pil
-from typing import Union, List
+from typing import Union, List, Dict
 from io import BytesIO
 import os
 
@@ -26,11 +27,13 @@ class Image(BaseType):
         data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]],
         mode: str = "RGB",
         caption: str = None,
+        boxes: dict = None,
     ):
         super().__init__(data_or_path)
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
+        self._total_classes, self._boxes = self.__convert_boxes(boxes)
 
     def get_data(self):
         # 如果传入的是Image类列表
@@ -72,6 +75,35 @@ class Image(BaseType):
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
+
+    def __convert_boxes(self, boxes):
+        """将boxes转换为Dict[str, BoundingBoxes]类型对象, 并返回该对象和总标签"""
+        if boxes:
+            # 如果boxes的类型不是字典，则报错
+            if not isinstance(boxes, dict):
+                raise TypeError("swanlab.Image 'boxes' argument must be a dictionary")
+
+            boxes_final: Dict[str, BoundingBoxes] = {}
+            total_classes = {}
+
+            # 对于boxes中的每一个key
+            for key in boxes:
+                # 创建变量box_item，赋值为boxes[key]
+                box_item = boxes[key]
+                # 如果box_item的类型是BoundingBoxes
+                if isinstance(box_item, BoundingBoxes):
+                    boxes_final[key] = box_item
+                # 如果box_item的类型是dict
+                elif isinstance(box_item, dict):
+                    # 转换为BoundingBoxes类型
+                    boxes_final[key] = BoundingBoxes(box_item, key)
+                # total_classes更新为boxes_final的class_labels
+                total_classes.update(boxes_final[key]._class_labels)
+
+            return boxes_final, total_classes
+
+        else:
+            return None
 
     def __preprocess(self, data):
         """将不同类型的输入转换为PIL图像"""
@@ -147,13 +179,18 @@ class Image(BaseType):
         if isinstance(self.value, list):
             return self.get_more_list()
         else:
-            return (
-                {
-                    "caption": self.caption,
-                }
-                if self.caption is not None
-                else None
-            )
+            get_more_dict = {}
+
+            if self.caption is not None:
+                get_more_dict["caption"] = self.caption
+
+            if self._boxes is not None:
+                get_more_dict["boxes"] = self._boxes
+
+            if self._total_classes is not None:
+                get_more_dict["total_classes"] = self._total_classes
+
+            return get_more_dict if len[get_more_dict] != 0 else None
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
