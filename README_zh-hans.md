@@ -38,7 +38,7 @@
 
 ## 更新日志
 
-[24/02/08] 🔥 超大更新! 我们支持了图像图表、音频图表、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。
+[24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。
 
 [24/01/25] 😄 我们发布了新的Config/Summary表格组件，支持参数搜索。此外我们还使用了新的字体和配色。
 

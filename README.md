@@ -38,7 +38,7 @@ English | <a href="README_zh-hans.md">中文</a>
 
 ## Changelog
 
-[24/02/08] 🔥 Very Big Update! We supported Image Chart、Audio Chart、Mutil-Experiments Chart and a series of comprehensive optimizations and improvements! Please be sure to upgrade to the latest version via `pip install -U swanlab`.
+[24/02/08] 🔥 Very Big Update! We supported [Image Chart](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[Audio Chart](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、Mutil-Experiments Chart and a series of comprehensive optimizations and improvements! Please be sure to upgrade to the latest version via `pip install -U swanlab`.
 
 [24/01/25] 😄 We supported a new Config/Summary table component that supports parameter search. Additionally, we've used new fonts and color schemes.
 
