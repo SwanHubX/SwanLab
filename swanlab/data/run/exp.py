@@ -80,7 +80,7 @@ class SwanLabExp:
         """
         if tag_obj is None:
             # 将此tag对象添加到实验列表中
-            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir, sort=len(self.tags))
+            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir)
             self.tags[tag] = tag_obj
             """
             由于添加图表的同时会尝试转换data的类型，但这在注入step之前
@@ -107,7 +107,7 @@ class SwanLabTag:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, experiment_id, tag: str, log_dir: str, sort: int) -> None:
+    def __init__(self, experiment_id, tag: str, log_dir: str) -> None:
         """
         初始化tag对象
 
@@ -119,8 +119,6 @@ class SwanLabTag:
             tag名称
         log_dir : str
             log文件夹路径
-        sort : int
-            tag的排序
         """
         self.experiment_id = experiment_id
         self.tag = tag
@@ -133,7 +131,7 @@ class SwanLabTag:
         """存储文件夹路径"""
         self.data_types = [float, int]
         """默认数据类型，如果tag数据为BaseType的子类，则使用其规定的数据类型"""
-        self._summary = {"sort": sort}
+        self._summary = {}
         """数据概要总结"""
         self.__data = self.__new_tags()
         """当前tag的数据"""
