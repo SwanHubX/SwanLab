@@ -27,15 +27,17 @@ class Image(BaseType):
         data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]],
         mode: str = "RGB",
         caption: str = None,
-        boxes: dict = None,
-        masks: dict = None,
+        # boxes: dict = None,
+        # masks: dict = None,
     ):
         super().__init__(data_or_path)
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
-        self.boxes, self.boxes_total_classes = self.__convert_boxes(boxes)
-        self.masks, self.masks_total_classes = self.__convert_masks(masks)
+
+        # TODO: 等前端支持Boxes和Masks后再开启
+        # self.boxes, self.boxes_total_classes = self.__convert_boxes(boxes)
+        # self.masks, self.masks_total_classes = self.__convert_masks(masks)
 
     def get_data(self):
         # 如果传入的是Image类列表
