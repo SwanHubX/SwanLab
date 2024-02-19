@@ -33,7 +33,7 @@ class Image(BaseType):
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
-        self._total_classes, self._boxes = self.__convert_boxes(boxes)
+        self.total_classes, self.boxes = self.__convert_boxes(boxes)
 
     def get_data(self):
         # 如果传入的是Image类列表
@@ -88,16 +88,11 @@ class Image(BaseType):
 
             # 对于boxes中的每一个key
             for key in boxes:
-                # 创建变量box_item，赋值为boxes[key]
                 box_item = boxes[key]
-                # 如果box_item的类型是BoundingBoxes
                 if isinstance(box_item, BoundingBoxes):
                     boxes_final[key] = box_item
-                # 如果box_item的类型是dict
                 elif isinstance(box_item, dict):
-                    # 转换为BoundingBoxes类型
                     boxes_final[key] = BoundingBoxes(box_item, key)
-                # total_classes更新为boxes_final的class_labels
                 total_classes.update(boxes_final[key]._class_labels)
 
             return boxes_final, total_classes
@@ -185,10 +180,10 @@ class Image(BaseType):
                 get_more_dict["caption"] = self.caption
 
             if self._boxes is not None:
-                get_more_dict["boxes"] = self._boxes
+                get_more_dict["boxes"] = self.boxes
 
-            if self._total_classes is not None:
-                get_more_dict["total_classes"] = self._total_classes
+            if self.total_classes is not None:
+                get_more_dict["total_classes"] = self.total_classes
 
             return get_more_dict if len[get_more_dict] != 0 else None
 

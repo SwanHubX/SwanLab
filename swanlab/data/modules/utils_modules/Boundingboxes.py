@@ -3,10 +3,6 @@ import numbers
 from typing import Mapping, Any
 
 
-def validate_dict_key_has_number(dictionary: Mapping, key: Any) -> bool:
-    return key in dictionary and isinstance(dictionary[key], numbers.Number)
-
-
 class BoundingBoxes:
     """
     用于处理2D边界框（bounding boxes）数据的类。
@@ -16,7 +12,9 @@ class BoundingBoxes:
     # box_data存储了所有box的数据(包括位置、类别id、准确率、是否有caption、...)，class_labels存储了所有的标签合集
 
     def __init__(self, box_item: dict, key: str) -> None:
-        # 1张图的所有box数据
+        # 验证box_item是否符合要求
+        self.validate(box_item)
+
         self._box_data = box_item["box_data"]
         self._key = key
 
@@ -27,8 +25,6 @@ class BoundingBoxes:
             self._class_labels = class_labels
         else:
             self._class_labels = box_item["class_labels"]
-
-        self.validate(box_item)
 
     def validate(self, box_item) -> bool:
         """
@@ -96,3 +92,7 @@ class BoundingBoxes:
                 raise TypeError("A box's caption must be a string")
 
         return True
+
+
+def validate_dict_key_has_number(dictionary: Mapping, key: Any) -> bool:
+    return key in dictionary and isinstance(dictionary[key], numbers.Number)
