@@ -49,6 +49,7 @@ def connect(autocreate=False) -> SqliteDatabase:
     path_exists = os.path.exists(os.path.dirname(path))
     if not path_exists or (not db_exists and not autocreate):
         raise FileNotFoundError(f"DB file {path} not found")
+    # 启用外键约束
     swandb = SqliteDatabase(path, pragmas={"foreign_keys": 1})
     if not binded:
         # 动态绑定数据库
