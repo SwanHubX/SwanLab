@@ -108,6 +108,18 @@ class SwanLabTag:
     __slice_size = 1000
 
     def __init__(self, experiment_id, tag: str, log_dir: str) -> None:
+        """
+        初始化tag对象
+
+        Parameters
+        ----------
+        experiment_id : int
+            实验id
+        tag : str
+            tag名称
+        log_dir : str
+            log文件夹路径
+        """
         self.experiment_id = experiment_id
         self.tag = tag
         self.__steps = set()

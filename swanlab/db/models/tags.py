@@ -8,7 +8,7 @@ r"""
     实验 tag 表
 """
 from ..model import SwanModel
-from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError, DatabaseProxy
+from peewee import ForeignKeyField, CharField, TextField, IntegerField, IntegrityError, DatabaseProxy, fn
 from ..error import ExistedError, ForeignExpNotExistedError
 from .experiments import Experiment
 
@@ -40,6 +40,8 @@ class Tag(SwanModel):
     """tag的描述，可为空"""
     system = IntegerField(default=0, choices=[0, 1])
     """标识这个tag数据由系统生成还是用户生成，0: 用户生成，1: 系统生成，默认为0"""
+    sort = IntegerField(default=0)
+    """tag在实验中的排序，值越小越靠前"""
     more = TextField(null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
     create_time = CharField(max_length=30, null=False)
@@ -101,7 +103,9 @@ class Tag(SwanModel):
         # 如果实验id不存在，则抛出异常
         if not Experiment.filter(Experiment.id == experiment_id).exists():
             raise ForeignExpNotExistedError("experiment不存在")
-
+        # 获取当前实验下tag的最大排序索引，如果没有则为0
+        sort = Tag.select(fn.Max(Tag.sort)).where(Tag.experiment_id == experiment_id).scalar()
+        sort = sort + 1 if sort is not None else 0
         # 尝试创建实验tag，如果已经存在则抛出异常
         try:
             return super().create(
@@ -110,6 +114,7 @@ class Tag(SwanModel):
                 type=type,
                 description=description,
                 system=system,
+                sort=sort,
                 more=more,
             )
         except IntegrityError:

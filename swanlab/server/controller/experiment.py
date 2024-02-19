@@ -49,6 +49,11 @@ DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
 
+# tag 总结文件名
+TAG_SUMMARY_FILE = "_summary.json"
+# logs 目录下的配置文件
+LOGS_CONFIGS = [TAG_SUMMARY_FILE]
+
 
 # ---------------------------------- 工具函数 ----------------------------------
 
@@ -328,21 +333,35 @@ def get_experiment_summary(experiment_id: int) -> dict:
     """
 
     experiment = Experiment.get_by_id(experiment_id)
+    # 通过外键反链获取实验下的所有tag
     tag_list = [tag["name"] for tag in __to_list(experiment.tags)]
     experiment_path = __get_logs_dir_by_id(experiment_id)
+    # 通过目录结构获取所有正常的tag
     tags = [f for f in os.listdir(experiment_path) if os.path.isdir(os.path.join(experiment_path, f))]
+    # 实验总结数据
     summaries = []
     for tag in tag_list:
+        # 如果 tag 记录在数据库，但是没有对应目录，说明 tag 有问题
+        # 所以 tags 是 tag_list 的子集，出现异常的 tag 会记录在数据库但不会添加到目录结构中
         if quote(tag, safe="") not in tags:
             summaries.append({"key": tag, "value": "TypeError"})
             continue
         tag_path = os.path.join(experiment_path, quote(tag, safe=""))
-        logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
+        logs = sorted([item for item in os.listdir(tag_path) if not item in LOGS_CONFIGS])
+        # 打开 tag 目录下最后一个存储文件，获取最后一条数据
         with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
             data = ujson.load(f)
             # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
             data = str(data["data"][-1]["data"])
             summaries.append({"key": tag, "value": data})
+    # 获取数据库记录时在实验下的排序
+    sorts = {item["name"]: item["sort"] for item in __to_list(experiment.tags)}
+    # 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
+    if not all(value == 0 for value in sorts.values()):
+        temp = [0] * len(summaries)
+        for item in summaries:
+            temp[sorts[item["key"]]] = item
+        summaries = temp
 
     return SUCCESS_200({"summaries": summaries})
 
