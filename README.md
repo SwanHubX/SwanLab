@@ -8,10 +8,10 @@ Track and visualize all the pieces of your machine learning pipeline
 </p>
 
 <p align="center">
-  <a href="https://github.com/SwanHubX/SwanLab/stargazers"><img src="https://img.shields.io/github/stars/SwanHubX/SwanLab?style=social" alt= /></a>
+  <a href="https://github.com/SwanHubX/SwanLab/stargazers"><img src="https://img.shields.io/github/stars/SwanHubX/SwanLab?style=social"/></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
   <a href="https://github.com/SwanHubX/SwanLab/commits/main"><img src="https://img.shields.io/github/last-commit/SwanHubX/SwanLab" alt="license"></a>
-  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange" alt= /></a>
+  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange"/></a>
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
   <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a>
 </p>
@@ -52,10 +52,16 @@ Additionally, we supported export the experiment list as `CSV`, new environment 
 
 ## Key Function
 
+- **🚀 Multimedia charts**: log Image/Audio/Video/Text/object3D...
+
+<div align="center">
+  <img src="readme_files/mutilmedia-chart.gif" width="600">
+</div>
+
 - **🧪 Experiments GridView**: compare your key metrics for inspiration faster
 
 <div align="center">
-  <img src="readme_files/experiments-gridView.gif" width="600">
+  <img src="readme_files/experiments-table.png" width="600">
 </div>
 
 - **📊 Charts**: visualize your entire training process
