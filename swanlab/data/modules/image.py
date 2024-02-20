@@ -1,8 +1,9 @@
 import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
+from .utils_modules import BoundingBoxes, ImageMask
 from ..utils.file import get_file_hash_pil
-from typing import Union, List
+from typing import Union, List, Dict
 from io import BytesIO
 import os
 
@@ -26,11 +27,25 @@ class Image(BaseType):
         data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]],
         mode: str = "RGB",
         caption: str = None,
+        # boxes: dict = None,
+        # masks: dict = None,
     ):
         super().__init__(data_or_path)
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
+
+        # self.boxes = None
+        # self.boxes_total_classes = None
+        # self.masks = None
+        # self.masks_total_classes = None
+
+        # TODO: 等前端支持Boxes和Masks后再开启
+        # if boxes:
+        #     self.boxes, self.boxes_total_classes = self.__convert_boxes(boxes)
+
+        # if masks:
+        #     self.masks, self.masks_total_classes = self.__convert_masks(masks)
 
     def get_data(self):
         # 如果传入的是Image类列表
@@ -72,6 +87,46 @@ class Image(BaseType):
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
+
+    def __convert_boxes(self, boxes):
+        """将boxes转换为Dict[str, BoundingBoxes]类型对象, 并返回该对象和总标签"""
+        # 如果boxes的类型不是字典，则报错
+        if not isinstance(boxes, dict):
+            raise TypeError("swanlab.Image 'boxes' argument must be a dictionary")
+
+        boxes_final: Dict[str, BoundingBoxes] = {}
+        total_classes = {}
+
+        # 对于boxes中的每一个key
+        for key in boxes:
+            box_item = boxes[key]
+            if isinstance(box_item, BoundingBoxes):
+                boxes_final[key] = box_item
+            elif isinstance(box_item, dict):
+                boxes_final[key] = BoundingBoxes(box_item, key)
+            total_classes.update(boxes_final[key]._class_labels)
+
+        return boxes_final, total_classes
+
+    def __convert_masks(self, masks):
+        """将masks转换为Dict[str, ImageMask]类型对象, 并返回该对象和总标签"""
+        # 如果masks的类型不是字典，则报错
+        if not isinstance(masks, dict):
+            raise TypeError("swanlab.Image 'masks' argument must be a dictionary")
+
+        masks_final: Dict[str, ImageMask] = {}
+        total_classes = {}
+
+        # 对于masks中的每一个key
+        for key in masks:
+            mask_item = masks[key]
+            if isinstance(mask_item, ImageMask):
+                masks_final[key] = mask_item
+            elif isinstance(mask_item, dict):
+                masks_final[key] = ImageMask(mask_item, key)
+            total_classes.update(masks_final[key]._class_labels)
+
+        return masks_final, total_classes
 
     def __preprocess(self, data):
         """将不同类型的输入转换为PIL图像"""
@@ -147,13 +202,24 @@ class Image(BaseType):
         if isinstance(self.value, list):
             return self.get_more_list()
         else:
-            return (
-                {
-                    "caption": self.caption,
-                }
-                if self.caption is not None
-                else None
-            )
+            get_more_dict = {}
+
+            if self.caption is not None:
+                get_more_dict["caption"] = self.caption
+
+            # if self.boxes is not None:
+            #     get_more_dict["boxes"] = self.boxes
+
+            # if self.boxes_total_classes is not None:
+            #     get_more_dict["boxes_total_classes"] = self.boxes_total_classes
+
+            # if self.masks is not None:
+            #     get_more_dict["masks"] = self.masks
+
+            # if self.masks_total_classes is not None:
+            #     get_more_dict["masks_total_classes"] = self.masks_total_classes
+
+            return get_more_dict if get_more_dict else None
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
