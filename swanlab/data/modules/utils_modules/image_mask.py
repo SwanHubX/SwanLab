@@ -37,7 +37,7 @@ class ImageMask:
             )
         else:
             error_str = "mask_data must be a 2D array"
-            shape = ["mask_data"].shape
+            shape = mask_item["mask_data"].shape
             if len(shape) != 2:
                 raise TypeError(error_str)
             if not ((mask_item["mask_data"] >= 0).all() and (mask_item["mask_data"] <= 255).all()) and issubclass(
