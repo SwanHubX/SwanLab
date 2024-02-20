@@ -102,6 +102,20 @@ class Video(BaseType):
         except Exception as e:
             raise TypeError(f"Could not save the video to the path: {save_path}") from e
 
+    def get_more(self, *args, **kwargs) -> dict:
+        """返回config数据"""
+        # 如果传入的是Video类列表
+        if isinstance(self.value, list):
+            return self.get_more_list()
+        else:
+            return (
+                {
+                    "caption": self.caption,
+                }
+                if self.caption is not None
+                else None
+            )
+
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
