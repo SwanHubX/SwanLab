@@ -14,6 +14,8 @@ from typing import Union, List
 import numpy as np
 from io import BytesIO
 from typing import TextIO, Optional
+from moviepy.editor import VideoClip
+
 
 class Video(BaseType):
     """Video class constructor
@@ -84,6 +86,22 @@ class Video(BaseType):
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
+
+    def __save(self, save_path):
+        """将视频保存到指定路径"""
+        fps = self.fps
+        write_video_data = self.video_data
+        # 计算视频的总时长
+        frame_count = write_video_data.shape[0]
+        duration = frame_count / fps
+        # 读取视频帧
+        frame = write_video_data[int(duration * fps)]
+        clip = VideoClip(frame, duration=duration)
+        try:
+            clip.write_videofile(save_path, fps=fps, codec="libx264")
+        except Exception as e:
+            raise TypeError(f"Could not save the video to the path: {save_path}") from e
+
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
