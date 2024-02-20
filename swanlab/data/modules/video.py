@@ -59,15 +59,35 @@ class Video(BaseType):
         self.width = None
         self.height = None
         self.channels = None
-        if self._format not in Video.EXTS:
+        if self.format not in Video.EXTS:
             raise ValueError("swanlab.Video accepts %s formats" % ", ".join(Video.EXTS))
 
     def get_data(self, *args, **kwargs):
-        return super().get_data(*args, **kwargs)
+        # 如果传入的是Video类列表
+        if isinstance(self.value, list):
+            return self.get_data_list()
+        # 视频预处理
+        self.__preprocess(self.value)
+        # 获取视频hash值
+        hash_name = (
+            get_file_hash_numpy_array(self.video_data)[:16]
+            if isinstance(self.video_data, np.ndarray)
+            else get_file_hash_path(self.video_data)[:16]
+        )
+        # 设置视频保存路径, 保存文件名
+        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_name = (
+            f"{self.caption}-step{self.step}-{hash_name}.mp4"
+            if self.caption is not None
+            else f"video-step{self.step}-{hash_name}.mp4"
+        )
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path = os.path.join(save_dir, save_name)
 
-
-
-
+        # 保存视频数据到指定目录
+        self.__save(save_path)
+        return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str","np.ndarray", "TextIO", "BytesIO"]
@@ -86,6 +106,9 @@ class Video(BaseType):
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption
+
+    def __preprocess(self,data):
+        """将不同类型的输入转换为"""
 
     def __save(self, save_path):
         """将视频保存到指定路径"""
