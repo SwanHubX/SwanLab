@@ -143,6 +143,7 @@ const createChart = (dom, data, config = {}) => {
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
       // tickMethod: formatXAxisTick,
+      type: 'linear',
       tickCount: 5,
       // 在此处完成X轴数据的格式化
       // label: {
