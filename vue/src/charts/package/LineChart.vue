@@ -146,11 +146,14 @@ const createChart = (dom, data, config = {}) => {
       type: 'linear',
       tickCount: 5,
       // 在此处完成X轴数据的格式化
-      // label: {
-      //   formatter: (data) => {
-      //     return formatNumber2K(data)
-      //   }
-      // },
+      label: {
+        formatter: (data) => {
+          // console.log('data', data)
+          // 如果是100的倍数且大于1000，返回k
+          if (data % 100 === 0 && data >= 1000) return `${data / 1000}k`
+          return data
+        }
+      },
       // x轴坐标轴样式
       line: {
         style: {
