@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full">
-    <div class="w-full border-b" v-for="item in data" :key="item">
+    <div class="w-full border-b" v-for="tag in source" :key="tag">
       <!-- header -->
       <div class="w-full flex items-center bg-higher border-y">
         <div class="caption">Caption</div>
@@ -9,7 +9,7 @@
       <!-- body -->
       <div class="w-full">
         <!-- line -->
-        <div class="line" v-for="line in item.list" :key="line">
+        <div class="line" v-for="line in data[tag].list" :key="line">
           <!-- caption -->
           <div class="caption">{{ line.more ? line.more.caption : '-' }}</div>
           <!-- text -->
@@ -18,11 +18,13 @@
           <SLIcon
             icon="zoom"
             class="w-5 h-5 p-1 absolute right-3 cursor-pointer icon hidden transition-all"
-            @click="isZoom = true"
+            @click="zoom(tag, line)"
           />
         </div>
       </div>
-      <SLModal class="py-10 overflow-hidden" max-w="1200" v-model="isZoom"> 111 </SLModal>
+      <SLModal class="py-10 overflow-hidden" max-w="1200" v-model="isZoom">
+        <TextDetail :data="current" />
+      </SLModal>
     </div>
   </div>
 </template>
@@ -35,8 +37,9 @@
  **/
 import { ref } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
+import TextDetail from './TextDetail.vue'
 
-const props = defineProps({
+defineProps({
   data: {
     type: Object,
     default: () => {}
@@ -48,6 +51,16 @@ const props = defineProps({
 })
 
 const isZoom = ref(false)
+
+const current = ref({})
+
+const zoom = (tag, line) => {
+  isZoom.value = true
+  current.value = {
+    tag,
+    line
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -60,7 +73,7 @@ const isZoom = ref(false)
 }
 
 .line {
-  @apply border-b border-dimmest flex items-center relative;
+  @apply border-b border-dimmest flex items-center relative last:border-none;
 
   &:hover {
     .icon {

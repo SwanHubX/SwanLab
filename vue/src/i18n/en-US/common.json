@@ -70,6 +70,15 @@
       "image": {
         "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Image Chart do not support displaying type {type}."
       }
+    },
+    "text-chart": {
+      "titles": {
+        "tag": "tag",
+        "step": "step",
+        "caption": "caption",
+        "count": "number of words",
+        "text": "Text"
+      }
     }
   }
 }

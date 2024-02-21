@@ -29,7 +29,6 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, computed } from 'vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import TextModule from '../modules/TextModule.vue'
 
@@ -88,14 +87,12 @@ const change = (data) => {
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
+
 // 是否放大
 const isZoom = ref(false)
 // 放大数据
-const zoom = (data) => {
+const zoom = () => {
   isZoom.value = true
-  // 放大后图表的高度
-  const height = window.innerHeight * 0.6
-  addTaskToBrowserMainThread(() => {})
 }
 
 // ---------------------------------- 暴露api ----------------------------------

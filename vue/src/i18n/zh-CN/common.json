@@ -70,6 +70,15 @@
       "image": {
         "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是图片图并不支持此类型."
       }
+    },
+    "text-chart": {
+      "titles": {
+        "tag": "tag",
+        "step": "step",
+        "caption": "caption",
+        "count": "number of words",
+        "text": "Text"
+      }
     }
   }
 }
