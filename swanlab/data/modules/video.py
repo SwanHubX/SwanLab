@@ -5,7 +5,7 @@ r"""
 @File: swanlab\data\modules\video.py
 @IDE: vscode
 @Description:
-    Swanlab的video数据类
+     视频数据解析
 """
 from .base import BaseType
 from ..utils.file import get_file_hash_numpy_array, get_file_hash_path
@@ -17,6 +17,9 @@ from io import BytesIO
 from typing import  Optional
 from moviepy.editor import VideoClip
 import numpy as np
+import cv2
+import tempfile
+import shutil
 
 
 class Video(BaseType):
@@ -32,6 +35,7 @@ class Video(BaseType):
             The numpy tensor must be either 4 dimensional or 5 dimensional.
             Channels should be (time, channel, height, width) or
             (batch, time, channel, height width)
+            The time axis is measured in frames
     caption: str
         caption associated with the video for display
     fps: int
@@ -58,7 +62,6 @@ class Video(BaseType):
         self.caption = self.__convert_caption(caption)
         self.fps = fps
         self.format = format
-        self.time = None
         self.height = None
         self.width = None
         self.channels = None
@@ -111,19 +114,21 @@ class Video(BaseType):
         return caption
 
     def __preprocess(self,data):
-        """将不同类型的输入转换为"""
+        """将不同类型的输入转换为np.ndarray类型"""
         if isinstance(data,str):
             # 如果输入为字符串
-           self.__load_video_from_path(data)
+            path_video_ndarray = self.__load_video_from_path(data)
+            tensor = self.__prepare_video(path_video_ndarray)
+            return tensor
         elif isinstance(data,np.ndarray):
              # 如果输入为numpy array
-            tensor = self.__prepare_video(self.data)
-            self.time, self.height, self.width, self.channels = tensor.shape
+            tensor = self.__prepare_video(data)
             return tensor
         elif isinstance(data,BytesIO):
             # 如果输入为二进制数据流
-            self.__load_video_from_BytesIO()
-            pass
+            bytes_video_ndarray = self.__load_video_from_BytesIO(data)
+            tensor = self.__prepare_video(bytes_video_ndarray)
+            return tensor
         else:
             # 以上都不是，则报错
             raise ValueError(
@@ -132,12 +137,60 @@ class Video(BaseType):
 
     def __load_video_from_path(self,path):
         """判断字符串是否为正确的视频路径，如果是则返回np.ndarry类型对象，如果不是则报错"""
-        pass
+        _, ext = os.path.splitext(path)
+        ext = ext[1:].lower()
+        if ext not in Video.EXTS:
+            raise ValueError(
+                "swanlab.Video accepts %s formats" % ", ".join(Video.EXTS)
+                )
+        video_ndarray = self.__read_video_to_ndarray(path)
+        return video_ndarray
 
     def __load_video_from_BytesIO(self,Bytes):
         """将字节流保存为临时视频文件，再读取为np.ndarry类型对象"""
+        video_ndarray = self.__bytesio_to_ndarray(Bytes)
+        return video_ndarray
 
-        pass
+    def __read_video_to_ndarray(video_path):
+    # 使用 OpenCV 打开视频
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise IOError("Cannot open video file: {}".format(video_path))
+
+        frames = []  # 用于存储视频帧的列表
+
+        # 读取视频帧
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break  # 如果没有帧了，就退出循环
+            # 将帧转置为 (通道数, 高度, 宽度)
+            frame = frame.transpose(2, 0, 1)
+            frames.append(frame)
+
+        # 释放视频文件
+        cap.release()
+
+        # 将帧列表转换为四维 NumPy 数组 (时间, 通道数, 高度, 宽度)
+        video_data = np.stack(frames, axis=0)
+
+        return video_data
+
+    def __bytesio_to_ndarray(self,video_bytesio):
+        # 创建一个临时文件
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video_file:
+            # 将 BytesIO 流的内容写入临时文件
+            shutil.copyfileobj(video_bytesio, temp_video_file)
+            # 获取临时文件的路径
+            temp_video_file_path = temp_video_file.name
+
+        # 使用 OpenCV 读取视频帧并转换为 ndarray
+        try:
+            video_data = self.__read_video_to_ndarray(temp_video_file_path)
+            return video_data
+        finally:
+            # 删除临时文件
+            os.remove(temp_video_file_path)
 
     def __prepare_video(self, video: "np.ndarray") -> "np.ndarray":
         """This logic was mostly taken from tensorboardX."""
@@ -169,6 +222,8 @@ class Video(BaseType):
         video = np.reshape(video, newshape=(n_rows, n_cols, t, c, h, w))
         video = np.transpose(video, axes=(2, 0, 4, 1, 5, 3))
         video = np.reshape(video, newshape=(t, n_rows * h, n_cols * w, c))
+
+        _, self.height, self.width, self.channels = video.shape
         return video
 
     def __save(self, save_path):
