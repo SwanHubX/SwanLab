@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="pt-2" :data="original_data" :source="source"></TextModule>
+    <TextModule class="pt-2 -mx-3" :data="original_data" :source="source"></TextModule>
     <!-- 放大效果弹窗 -->
     <SLModal class="py-10 overflow-hidden" max-w="-1" v-model="isZoom">
       <TextModule :data="original_data" :source="source" />

@@ -96,7 +96,7 @@ const zoom = (tag, line) => {
 
 <style lang="scss" scoped>
 .caption {
-  @apply w-28 py-2 px-4 border-r truncate;
+  @apply w-40 py-2 px-4 border-r truncate;
 }
 
 .text {

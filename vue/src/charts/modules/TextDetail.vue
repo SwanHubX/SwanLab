@@ -7,7 +7,9 @@
     </div>
     <!-- text -->
     <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}</p>
-    <div class="p-4 min-h-[200px] border rounded bg-higher">{{ data.line.data }}</div>
+    <div class="p-4 min-h-[20vh] max-h-[60vh] overflow-y-auto border rounded bg-higher">
+      {{ data.line.data }}
+    </div>
   </div>
 </template>
 
