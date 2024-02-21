@@ -16,6 +16,8 @@ import numpy as np
 from io import BytesIO
 from typing import  Optional
 from moviepy.editor import VideoClip
+from moviepy.editor import VideoFileClip
+from moviepy.editor import ImageSequenceClip
 import numpy as np
 import cv2
 import tempfile
@@ -142,7 +144,7 @@ class Video(BaseType):
         if ext not in Video.EXTS:
             raise ValueError(
                 "swanlab.Video accepts %s formats" % ", ".join(Video.EXTS)
-                )
+               )
         video_ndarray = self.__read_video_to_ndarray(path)
         return video_ndarray
 
@@ -151,12 +153,12 @@ class Video(BaseType):
         video_ndarray = self.__bytesio_to_ndarray(Bytes)
         return video_ndarray
 
-    def __read_video_to_ndarray(video_path):
-    # 使用 OpenCV 打开视频
+    def __read_video_to_ndarray(self,video_path):
+        # 使用 OpenCV 打开视频
+
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise IOError("Cannot open video file: {}".format(video_path))
-
         frames = []  # 用于存储视频帧的列表
 
         # 读取视频帧
@@ -175,6 +177,8 @@ class Video(BaseType):
         video_data = np.stack(frames, axis=0)
 
         return video_data
+
+
 
     def __bytesio_to_ndarray(self,video_bytesio):
         # 创建一个临时文件
@@ -229,14 +233,14 @@ class Video(BaseType):
     def __save(self, save_path):
         """将视频保存到指定路径"""
         fps = self.fps
-        write_video_data = self.video_data
-        # 计算视频的总时长
-        frame_count = write_video_data.shape[0]
-        duration = frame_count / fps
+        write_video_data_bgr = self.video_data
+        # OpenCV 默认读取为BGR，转化为RGB
+        write_video_data_rgb = [frame[:, :, ::-1] for frame in write_video_data_bgr]
         # 读取视频帧
-        clip = VideoClip(write_video_data, duration=duration)
+        clip = ImageSequenceClip(list(write_video_data_rgb), fps=self.fps)
         try:
-            clip.write_videofile(save_path, fps=fps, codec="libx264")
+            clip.write_videofile(save_path, codec='libx264')
+            clip.close()
         except Exception as e:
             raise TypeError(f"Could not save the video to the path: {save_path}") from e
 
@@ -263,3 +267,7 @@ class Video(BaseType):
         """设定图表类型"""
         return self.chart.video
 
+if __name__ == "__main__":
+    gif_file = 'F:\SwanLab\swanlab\data\modules\snow-man-10450_256.gif'
+    swanvideo = Video(gif_file,format="gif",caption="giftest")
+    swanvideo.get_data()
