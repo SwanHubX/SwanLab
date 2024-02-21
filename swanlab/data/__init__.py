@@ -12,6 +12,7 @@ from .modules import (
     Audio,
     Image,
     Text,
+    Object3D,
 )
 from .sdk import (
     init,

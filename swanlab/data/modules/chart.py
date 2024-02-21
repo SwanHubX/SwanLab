@@ -20,3 +20,5 @@ class Chart:
     audio = "audio", [list, str]
     # 文本类型，代表一步多文本
     text = "text", [list, str]
+    # 3D点云类型，代表一步多 object3d
+    object3d = "object3d", [list, str]

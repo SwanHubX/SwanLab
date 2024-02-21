@@ -18,22 +18,44 @@ swanlab.init(
     },
     logggings=True,
 )
+
+
+def generate_random_nx3(n):
+    """生成形状为nx3的随机数组"""
+    return np.random.rand(n, 3)
+
+
+def generate_random_nx4(n):
+    """生成形状为nx4的随机数组，最后一列是[1,14]范围内的整数分类"""
+    xyz = np.random.rand(n, 3)
+    c = np.random.randint(1, 15, size=(n, 1))
+    return np.hstack((xyz, c))
+
+
+def generate_random_nx6(n):
+    """生成形状为nx6的随机数组，包含RGB颜色"""
+    xyz = np.random.rand(n, 3)
+    rgb = np.random.rand(n, 3)  # RGB颜色值也可以是[0,1]之间的随机数
+    rgb = (rgb * 255).astype(np.uint8)  # 转换为[0,255]之间的整数
+    return np.hstack((xyz, rgb))
+
+
 for epoch in range(2, epochs):
     if epoch % 10 == 0:
-        # # 测试audio
-        # sample_rate = 44100
-        # test_audio_arr = np.random.randn(2, 100000)
+        arr1 = generate_random_nx3(1000)
+        arr2 = generate_random_nx4(1000)
+        arr3 = generate_random_nx6(1000)
         # swanlab.log(
         #     {
-        #         "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
+        #         "test/object3d1":
         #     },
         #     step=epoch,
         # )
-        # 测试image
-        test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
             {
-                "test/image": swanlab.Image(test_image, caption="test"),
+                "test-object3d1": swanlab.Object3D(arr1, caption="3D点云数据"),
+                "test-object3d2": swanlab.Object3D(arr2, caption="3D点云数据"),
+                "test-object3d3": swanlab.Object3D(arr3, caption="3D点云数据"),
             },
             step=epoch,
         )
