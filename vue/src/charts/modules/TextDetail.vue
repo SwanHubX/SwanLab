@@ -28,6 +28,7 @@ const props = defineProps({
 })
 
 const info_list = computed(() => {
+  const line = props.data.line
   return [
     {
       key: 'tag',
@@ -35,15 +36,15 @@ const info_list = computed(() => {
     },
     {
       key: 'step',
-      value: props.data.line.index
+      value: line.index
     },
     {
       key: 'caption',
-      value: props.data.line.more.caption
+      value: line.more ? line.more.caption : '-'
     },
     {
       key: 'count',
-      value: props.data.line.data.length
+      value: line.data.length
     }
   ]
 })
