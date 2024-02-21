@@ -11,7 +11,7 @@
     </div>
     <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
     <!-- 图表不存在 -->
-    <p class="font-semibold mt-5 text-center" v-else>Empty Charts</p>
+    <p class="font-semibold pt-5 text-center" v-else>Empty Charts</p>
   </div>
 </template>
 
