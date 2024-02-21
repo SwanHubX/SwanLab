@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="pt-2 -mx-3" :data="original_data" :source="source"></TextModule>
+    <TextModule class="text-table" :data="original_data" :source="source"></TextModule>
     <!-- 放大效果弹窗 -->
     <SLModal class="py-10 overflow-hidden" max-w="-1" v-model="isZoom">
       <TextModule :data="original_data" :source="source" />
@@ -29,7 +29,6 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, computed } from 'vue'
-import * as UTILS from './utils'
 import TextModule from '../modules/TextModule.vue'
 
 // ---------------------------------- 配置 ----------------------------------
@@ -103,4 +102,8 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.text-table {
+  @apply pt-2 -mx-3 w-[calc(100%+1.5rem)];
+}
+</style>
