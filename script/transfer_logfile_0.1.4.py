@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024-01-25 12:37:08
-@File: test/test_wandb.py
 @IDE: vscode
 @Description:
     Swanlab update script for upgrading from v0.1.4 to v0.1.5, transitioning from file system to database.
