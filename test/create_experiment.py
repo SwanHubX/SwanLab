@@ -34,13 +34,13 @@ for epoch in range(2, epochs):
         swanlab.log(
             {
                 # "test/image": swanlab.Image(test_image, caption="test"),
-                "test/text": swanlab.Text("this is a test text"),
+                "test/text": swanlab.Text("this is a test text", caption="test"),
             },
             step=epoch,
         )
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3
-    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
-    time.sleep(0.2)
+    # print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
+    # swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
+    time.sleep(2)
