@@ -142,8 +142,26 @@ const createChart = (dom, data, config = {}) => {
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
-      maxTickCount: 5,
+      tickCount: 5,
       type: 'linear',
+      // tickMethod: (cfg) => {
+      //   // console.log('chart', props.chart.name)
+      //   console.log('cfg', cfg)
+      //   console.log('cfg.values', cfg.values)
+      //   // 数据个数
+      //   const num = cfg.values?.length || 0
+      //   // 每隔多少个显示一个刻度
+      //   const step = Math.ceil(num / 5)
+      //   console.log('step', step)
+      //   const tick = []
+      //   let i = 0
+      //   while (i < num) {
+      //     tick.push(i)
+      //     i += step
+      //   }
+      //   console.log('tick', tick)
+      //   return tick
+      // },
       // 在此处完成X轴数据的格式化
       label: {
         formatter: (data) => {
@@ -255,6 +273,7 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
+  // console.log('d', d)
   // 依据xField排序，从小到大
   d.sort((a, b) => a[xField] - b[xField])
   // console.log('d', d)

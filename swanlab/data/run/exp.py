@@ -337,13 +337,13 @@ class SwanLabTag:
         """
         if more is None:
             return {
-                "index": str(index),
+                "index": int(index),
                 "data": data,
                 "create_time": create_time(),
             }
         else:
             return {
-                "index": str(index),
+                "index": int(index),
                 "data": data,
                 "create_time": create_time(),
                 "more": more,
