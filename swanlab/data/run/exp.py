@@ -195,8 +195,12 @@ class SwanLabTag:
         is_nan = self.__is_nan(data)
         if not is_nan:
             # 如果数据比之前的数据小，则更新最小值，否则不更新
-            self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
-            self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
+            if self._summary.get("max") is None or data > self._summary["max"]:
+                self._summary["max"] = data
+                self._summary["max_step"] = step
+            if self._summary.get("min") is None or data < self._summary["min"]:
+                self._summary["min"] = data
+                self._summary["min_step"] = step
         self._summary["num"] = self._summary.get("num", 0) + 1
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
