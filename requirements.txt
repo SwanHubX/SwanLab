@@ -2,7 +2,6 @@
 soundfile
 pillow
 numpy
-moviepy
 
 # web server
 fastapi
