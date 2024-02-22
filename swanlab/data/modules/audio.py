@@ -32,7 +32,10 @@ class Audio(BaseType):
     """
 
     def __init__(
-        self, data_or_path: Union[str, np.ndarray, List["Audio"]], sample_rate: int = None, caption: str = None
+        self,
+        data_or_path: Union[str, np.ndarray, List["Audio"]],
+        sample_rate: int = None,
+        caption: str = None,
     ):
         """Accept a path to an audio file on a numpу array of audio data."""
         super().__init__(data_or_path)

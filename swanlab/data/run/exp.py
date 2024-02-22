@@ -108,6 +108,18 @@ class SwanLabTag:
     __slice_size = 1000
 
     def __init__(self, experiment_id, tag: str, log_dir: str) -> None:
+        """
+        初始化tag对象
+
+        Parameters
+        ----------
+        experiment_id : int
+            实验id
+        tag : str
+            tag名称
+        log_dir : str
+            log文件夹路径
+        """
         self.experiment_id = experiment_id
         self.tag = tag
         self.__steps = set()
@@ -183,8 +195,12 @@ class SwanLabTag:
         is_nan = self.__is_nan(data)
         if not is_nan:
             # 如果数据比之前的数据小，则更新最小值，否则不更新
-            self._summary["max"] = data if self._summary.get("max") is None else max(self._summary["max"], data)
-            self._summary["min"] = data if self._summary.get("min") is None else min(self._summary["min"], data)
+            if self._summary.get("max") is None or data > self._summary["max"]:
+                self._summary["max"] = data
+                self._summary["max_step"] = step
+            if self._summary.get("min") is None or data < self._summary["min"]:
+                self._summary["min"] = data
+                self._summary["min_step"] = step
         self._summary["num"] = self._summary.get("num", 0) + 1
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")

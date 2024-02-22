@@ -156,10 +156,22 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
     ids = [item["id"] for item in exprs]
 
     # 根据 id 列表找到所有的 tag，提出不含重复 tag 名的元组
-    tags = Tag.filter(Tag.experiment_id.in_(ids))
+    # tags = Tag.filter(Tag.experiment_id.in_(ids)).order_by(Tag.experiment_id)
+    tags = (
+        Tag.select()
+        .join(Experiment, on=(Tag.experiment_id == Experiment.id))
+        .where(Tag.experiment_id.in_(ids))
+        .order_by(Tag.experiment_id, Tag.create_time)
+    )
     # tag_names不用编码，因为前端需要展示
-    tag_names = list(set(tag["name"] for tag in __to_list(tags)))
-
+    # 要保持顺序，需要额外使用一个列表，直接用 set 会打乱顺序
+    unique_values = []
+    seen = set()
+    for value in [item["name"] for item in __to_list(tags)]:
+        if value not in seen:
+            unique_values.append(value)
+            seen.add(value)
+    tag_names = list(unique_values)
     # 所有总结数据
     data = {}
     # 第一层循环对应实验层，每次探寻一个实验

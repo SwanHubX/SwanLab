@@ -8,7 +8,7 @@
       :charts="getCharts(group)"
     />
     <!-- 图表不存在 -->
-    <p class="font-semibold mt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
+    <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
   </div>
 </template>
 

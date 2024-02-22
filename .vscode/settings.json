@@ -17,7 +17,8 @@
     "run": "core",
     "system": "core",
     "data": "guard",
-    "unit": "test"
+    "unit": "test",
+    "migrate": "Husky"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"

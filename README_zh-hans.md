@@ -38,11 +38,11 @@
 
 ## 更新日志
 
+[24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。
+
 [24/01/25] 😄 我们发布了新的Config/Summary表格组件，支持参数搜索。此外我们还使用了新的字体和配色。
 
 [24/01/23] 🚨 我们使用SQLite数据库和Peewee库替代了之前的基础配置信息读写方案（[#114](https://github.com/SwanHubX/SwanLab/issues/114)），这是个极大有利于项目未来的改动，但缺陷是不兼容旧版本（swanlab<=v0.1.4）的日志数据文件，所以如需可视化旧版本产生的日志文件, 请使用[转换脚本](script/transfer_logfile_0.1.4.py)。与此同时，我们增加了支持导出实验列表为CSV，新的环境记录项`Run path`和`logdir`，增加了快捷复制的交互，以及新的API `swanlab.config`。
-
-[24/01/14] 🔥 我们发布了一个新的UI界面，以及跟踪更多环境信息，包括Command、git提交/分支、和机器内存。此外，我们还添加了一个`logdir` API，允许开发人员设置日志文件的目录。
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
@@ -50,10 +50,16 @@
 
 ## 核心功能
 
+- **🚀 多媒体图表**: 记录训练中的图像/音频/视频/文本/3D模型...
+
+<div align="center">
+  <img src="readme_files/mutilmedia-chart.gif" width="600">
+</div>
+
 - **🧪 表格视图**: 对比关键指标，更快获得洞见
 
 <div align="center">
-  <img src="readme_files/experiments-gridView.gif" width="600">
+  <img src="readme_files/experiments-table.png" width="600">
 </div>
 
 - **📊 图表视图**: 可视化你的机器学习训练全过程
@@ -110,6 +116,7 @@ import swanlab
 swanlab.init(
   # save model inputs and hyperparameters in a swanlab.config object
   config={'learning_rate': 0.01},
+  logdir="./logs",
 )
 
 # Model training code here...
@@ -121,7 +128,7 @@ for epoch in range(1, 20):
 
 3. 第三步，开启一个SwanLab仪表板: 
 ```bash
-$ swanlab watch
+$ swanlab watch -l ./logs
 ```
 
 就是这样！打开 http://127.0.0.1:5092 ，查看你的第一个SwanLab实验的仪表板。
@@ -138,6 +145,7 @@ $ swanlab watch
 | [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
 | [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
 | [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
+| [微调UIE](https://github.com/SwanHubX/SwanLab-examples/tree/main/UIE) | 如何使用个人数据来微调UIE模型并通过swanlab监控训练过程 |
 
 <br>
 
