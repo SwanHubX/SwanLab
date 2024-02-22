@@ -14,8 +14,8 @@
     <!-- 在此处完成图表主体定义 -->
     <TextModule class="text-table" :data="original_data" :source="source" />
     <!-- 放大效果弹窗 -->
-    <SLModal class="py-10 overflow-hidden" max-w="-1" v-model="isZoom">
-      <TextModule :data="original_data" :source="source" />
+    <SLModal class="pb-10 overflow-hidden" max-w="-1" v-model="isZoom">
+      <TextModule :data="original_data" :source="source" modal />
     </SLModal>
   </template>
 </template>

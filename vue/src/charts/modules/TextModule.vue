@@ -1,6 +1,8 @@
 <template>
   <div class="w-full h-full pb-5">
-    <div class="w-full" v-for="(tag, index) in source" :key="tag">
+    <div class="w-full relative" v-for="(tag, index) in source" :key="tag">
+      <!-- title: show in modal -->
+      <p class="w-full text-center py-6 text-xl font-semibold" v-if="modal">{{ tag }}</p>
       <!-- header -->
       <div class="w-full flex items-center bg-higher border-y">
         <div class="caption">Caption</div>
@@ -57,6 +59,9 @@ const props = defineProps({
   source: {
     type: Array,
     default: () => []
+  },
+  modal: {
+    type: Boolean
   }
 })
 

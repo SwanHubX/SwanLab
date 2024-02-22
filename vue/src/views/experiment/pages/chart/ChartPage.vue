@@ -1,6 +1,6 @@
 <template>
   <!-- 图表容器 -->
-  <div class="bg-higher min-h-[calc(100vh-175px)]" v-if="status === 'success'">
+  <div class="bg-higher min-h-[calc(100vh-163px)]" v-if="status === 'success'">
     <ChartsContainer
       v-for="group in groups"
       :key="group.name"
