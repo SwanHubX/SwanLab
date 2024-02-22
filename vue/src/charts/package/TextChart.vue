@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="text-table" :data="original_data" :source="source"></TextModule>
+    <TextModule class="text-table" :data="original_data" :source="source" />
     <!-- 放大效果弹窗 -->
     <SLModal class="py-10 overflow-hidden" max-w="-1" v-model="isZoom">
       <TextModule :data="original_data" :source="source" />
@@ -26,12 +26,13 @@
  * @file: TextChart.vue
  * @since: 2024-02-20 20:04:09
  **/
+import { ref, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { ref, inject, computed } from 'vue'
 import TextModule from '../modules/TextModule.vue'
 
 // ---------------------------------- 配置 ----------------------------------
+
 const props = defineProps({
   title: {
     type: String,
@@ -61,19 +62,10 @@ const error = computed(() => {
   return false
 })
 
-// ---------------------------------- 图表颜色配置 ----------------------------------
-// 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-const colors = inject('colors')
-if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
-// ---------------------------------- 组件渲染逻辑 ----------------------------------
-
-// ---------------------------------- 数据格式化 ----------------------------------
-
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
 // 渲染
 const render = (data) => {
-  console.log('render')
   original_data.value = data
 }
 
@@ -81,7 +73,8 @@ const render = (data) => {
 const change = (data) => {
   // 将发生更新的 tag 数据保存到原始数据中
   for (let key in data) {
-    original_data[key] = data[key]
+    // original_data.value[key] = data[key] => 这行代码触发不了 props 的响应式，而下面这行可以
+    original_data.value[key] = { ...data[key] }
   }
 }
 

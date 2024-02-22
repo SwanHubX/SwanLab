@@ -43,7 +43,7 @@
  * @file: TextModule.vue
  * @since: 2024-02-20 20:06:45
  **/
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import TextDetail from './TextDetail.vue'
 import SlideBar from '../components/SlideBar.vue'
@@ -63,15 +63,11 @@ const color = inject('colors')[0]
 
 // ---------------------------------- 分页 ----------------------------------
 
-const currentPage = ref([])
+const currentPage = ref(Array(props.source.length).fill(1))
 const pageSize = ref(10)
-const totalPage = ref([])
-
-onMounted(() => {
-  props.source.forEach((tag) => {
-    currentPage.value.push(1)
-    const temp = Math.ceil(props.data[tag].sum / pageSize.value)
-    totalPage.value.push(temp)
+const totalPage = computed(() => {
+  return props.source.map((tag) => {
+    return Math.ceil(props.data[tag].sum / pageSize.value)
   })
 })
 
