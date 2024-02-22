@@ -269,7 +269,39 @@ const isZoom = ref(false)
 const zoom = () => {
   isZoom.value = true
 }
+// 放大时，左右键切换
+const handelKeydown = (e) => {
+  // 如果点了esc，则关闭放大
+  if (e.key === 'Escape') {
+    isZoom.value = false
+    return
+  }
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  // console.log('e', e)
+  // console.log('key', e.key)
+  const steps = Object.keys(stepsData)
+  const index = steps.findIndex((item) => item == currentIndex.value)
+  if (e.key === 'ArrowLeft') {
+    // 向左
+    // console.log('减小', stepsData)
+    if (currentIndex.value == minIndex.value) return
+    currentIndex.value = Number(steps[index - 1])
+  } else {
+    // 向右
+    // console.log('增大', stepsData)
+    if (currentIndex.value == maxIndex.value) return
+    currentIndex.value = Number(steps[index + 1])
+  }
+  // console.log('currentIndex', currentIndex.value)
+}
 
+watch(isZoom, (val) => {
+  if (val) {
+    document.addEventListener('keydown', handelKeydown)
+  } else {
+    document.removeEventListener('keydown', handelKeydown)
+  }
+})
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
 const isSingleZoom = ref(false)
 watch(isSingleZoom, () => {

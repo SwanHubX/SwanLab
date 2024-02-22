@@ -306,7 +306,33 @@ const isZoom = ref(false)
 const zoom = () => {
   isZoom.value = true
 }
+// 放大时，左右键切换
+const handelKeydown = (e) => {
+  // 如果点了esc，则关闭放大
+  if (e.key === 'Escape') {
+    isZoom.value = false
+    return
+  }
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  const steps = Array.from(stepMap.keys())
+  const index = steps.findIndex((item) => item == currentIndex.value)
+  if (e.key === 'ArrowLeft') {
+    if (index == 0) return
+    currentIndex.value = Number(steps[index - 1])
+  } else {
+    if (index == steps.length - 1) return
+    currentIndex.value = Number(steps[index + 1])
+  }
+  // console.log('handelKeydown', e.key, steps, index, currentIndex.value)
+}
 
+watch(isZoom, (val) => {
+  if (val) {
+    window.addEventListener('keydown', handelKeydown)
+  } else {
+    window.removeEventListener('keydown', handelKeydown)
+  }
+})
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
