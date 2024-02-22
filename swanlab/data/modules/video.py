@@ -38,8 +38,6 @@ class Video(BaseType):
         frames per second for video. Default is 4.
     format: str
         format of video, necessary if initializing with path or io object.
-
-
     """
 
     EXTS = ("gif", "mp4", "webm", "ogg")
@@ -81,9 +79,9 @@ class Video(BaseType):
         # 设置视频保存路径, 保存文件名
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.mp4"
+            f"{self.caption}-step{self.step}-{hash_name}.{self.format}"
             if self.caption is not None
-            else f"video-step{self.step}-{hash_name}.mp4"
+            else f"video-step{self.step}-{hash_name}.{self.format}"
         )
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
