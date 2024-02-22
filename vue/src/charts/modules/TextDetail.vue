@@ -3,7 +3,7 @@
     <!-- infos -->
     <div v-for="item in info_list" :key="item" class="sm:flex pb-3">
       <span class="block w-48 font-semibold shrink-0">{{ $t(`common.chart.text-chart.titles.${item.key}`) }}:</span>
-      <span class="line-clamp-3" :title="item.value">{{ item.value }}</span>
+      <span :title="item.value">{{ item.value }}</span>
     </div>
     <!-- text -->
     <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}</p>
