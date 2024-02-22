@@ -142,14 +142,20 @@ const createChart = (dom, data, config = {}) => {
     // 坐标轴相关
     xAxis: {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
-      // tickMethod: formatXAxisTick,
-      tickCount: 5,
+      maxTickCount: 5,
+      type: 'linear',
       // 在此处完成X轴数据的格式化
-      // label: {
-      //   formatter: (data) => {
-      //     return formatNumber2K(data)
-      //   }
-      // },
+      label: {
+        formatter: (data) => {
+          // console.log('data', data)
+          // 如果是小数，返回空
+          if (data % 1 !== 0) return ''
+          // 如果是100的倍数且大于1000，返回k
+          if (data % 100 === 0 && data >= 1000) return `${data / 1000}k`
+          return data
+        }
+      },
+
       // x轴坐标轴样式
       line: {
         style: {
@@ -239,11 +245,9 @@ const format = (data) => {
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
   const d = []
-  let keys = 0
   Object.keys(data).forEach((key) => {
     // 如果key存在于props.chart.error中，说明这个数据有问题，直接返回
     if (props.chart.error && props.chart.error[key]) return
-    keys++
     // 如果不是单数据，需要将所有数据的list合并为一个数组
     if (!data[key]) return
     data[key].list.forEach((item) => {
@@ -253,83 +257,11 @@ const format = (data) => {
   })
   // 依据xField排序，从小到大
   d.sort((a, b) => a[xField] - b[xField])
-  console.log('d', d)
+  // console.log('d', d)
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
   return { d, config: mutli ? { seriesField } : { color: colors[0] } }
 }
-
-// /**
-//  * 以千为单位格式化数字，例如:
-//  * 100 => 100 (如果不是1000的倍数，则直接返回)
-//  * 1000 => 1k
-//  * 10000 => 10k
-//  * @param {number} num 待格式化的数字
-//  * @returns {string} 格式化后的字符串
-//  */
-// const formatNumber2K = (num) => {
-//   if (num % 1000 !== 0 || num == 0) return String(num)
-//   return `${num / 1000}k`
-// }
-
-/**
- * 格式化x轴的刻度，最终返回一个数组，数组内是字符串，代表刻度
- * 所有的处理都基于category的values，即category.values是一个数组，数组内是字符串，代表所有数据的刻度，为字符串类型，已经基于数值大小完成了升序排序
- * 划分规则如下：
- * 1. [0, 8)，直接返回
- * 2. [8, 15)，每隔2个取一个（第一个和最后一个都取） 15=2*7+1
- * 3. [15, 35), 每隔5个取一个（第一个和最后一个都取） 35=5*7
- * 4. [35, 70), 每隔10个取一个（第一个和最后一个都取） 70=10*7
- * 5. [70, 140), 每隔20个取一个（第一个和最后一个都取） 140=20*7
- * 6. [140, 350), 每隔50个取一个（第一个和最后一个都取） 350=50*7
- * ...
- * 这段代码暂时没有用处，原因是在指定位置的tick可能不存在数据
- * @param {object} category 目录配置
- * @returns {array} 刻度数组
- */
-// const formatXAxisTick = (category) => {
-//   // console.log('category', category)
-//   const { values } = category
-//   // console.log('values', values)
-//   const length = Number(values[values.length - 1])
-//   if (length < 8) return values
-//   if (length < 15) return values.filter((_, i) => i % 2 === 0)
-//   if (length <= 35) return values.filter((_, i) => i % 5 === 0)
-//   // 接下来，将length归一化到[35, 350)区间内，判断步长取值
-//   // 1. 计算归一化尺度，这应该是10的n次方,具体计算是/35，然后判断其小于哪个10的n次方
-//   const p = Math.ceil(Math.log10(length / 35)) - 1
-//   // 现在区间就确定了，是[35*10**(p-1), 35*10**p]
-//   // 然后判断一下在哪个区间内，这样就可以取步长
-//   const lengthScale = length / 10 ** p
-//   let step
-//   if (lengthScale < 70) {
-//     step = 10 * 10 ** p
-//   } else if (lengthScale < 140) {
-//     step = 20 * 10 ** p
-//   } else {
-//     step = 50 * 10 ** p
-//   }
-//   // console.log('p', p)
-//   // console.log('step', step)
-//   // 判断这个长度能容纳多少个步长
-//   const count = Math.floor(length / step)
-//   // console.log('count', count)
-//   // 生成刻度，与步长绑定,去重
-//   const ticks = new Set()
-//   // 以最小值为基准，生成刻度
-//   const base = Math.floor(Number(values[0]) / step)
-//   // 刻度不大于最大值
-//   const max = Math.floor(Number(values[values.length - 1]))
-//   // console.log('max', max)
-//   // console.log('base', base)
-//   for (let i = base; i <= base + count; i++) {
-//     i * step < max && ticks.add(String(i * step))
-//   }
-//   // set转array
-//   console.log('ticks', Array.from(ticks))
-//   return Array.from(ticks)
-// }
-
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
 // 渲染

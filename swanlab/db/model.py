@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义基础模型类
 """
-from peewee import Model
+from peewee import Model, OperationalError
 from playhouse.shortcuts import model_to_dict
 from ..utils import create_time
 import json
@@ -116,3 +116,21 @@ class SwanModel(Model):
         query["create_time"] = current_time
         query["update_time"] = current_time
         return super().create(**query)
+
+    @classmethod
+    def field_exists(cls, field: str) -> bool:
+        """
+        判断某个字段是否存在于表中
+
+        Parameters
+        ----------
+        field : str
+            字段名
+        """
+        # 进行一次查询
+        try:
+            a = cls.select().where(cls.__getattribute__(cls, field) is not None)
+            cls.search2dict(a)
+        except OperationalError:
+            return False
+        return True

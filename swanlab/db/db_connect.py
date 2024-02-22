@@ -10,7 +10,8 @@ r"""
 from ..env import get_db_path
 import os
 from peewee import SqliteDatabase
-from .table_config import tables
+from .table_config import tables, Tag
+from .migrate import *
 
 # 判断是否已经binded了
 binded = False
@@ -48,7 +49,7 @@ def connect(autocreate=False) -> SqliteDatabase:
     path_exists = os.path.exists(os.path.dirname(path))
     if not path_exists or (not db_exists and not autocreate):
         raise FileNotFoundError(f"DB file {path} not found")
-
+    # 启用外键约束
     swandb = SqliteDatabase(path, pragmas={"foreign_keys": 1})
     if not binded:
         # 动态绑定数据库
@@ -56,5 +57,9 @@ def connect(autocreate=False) -> SqliteDatabase:
         swandb.bind(tables)
         swandb.create_tables(tables)
         swandb.close()
+        # 完成数据迁移，如果tag表中没有sort字段，则添加
+        if not Tag.field_exists("sort"):
+            # 不启用外键约束
+            add_sort(SqliteDatabase(path))
         binded = True
     return swandb
