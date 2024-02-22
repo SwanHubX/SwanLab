@@ -169,6 +169,13 @@ class Video(BaseType):
 
         # 如果data_or_path是np.ndarray，则使用moviepy库保存视频
         elif isinstance(self.video_data, np.ndarray):
+            try:
+                import moviepy
+            except ImportError as e:
+                raise TypeError(
+                    "swanlab.Video requires moviepy when process numpy data. Install with 'pip install moviepy'."
+                )
+
             from moviepy.editor import ImageSequenceClip
 
             write_video_data_bgr = self.video_data
