@@ -34,6 +34,8 @@ import * as UTILS from './utils'
 import { ref, inject, computed } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
+import { t } from '@swanlab-vue/i18n'
+import { getTimes } from '@swanlab-vue/utils/time'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -58,7 +60,7 @@ const source = props.chart.source
 const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
 // 图表模式，mutli或者single
 const mutli = props.chart.mutli
-// ---------------------------------- 图表颜色配置 ----------------------------------
+// ---------------------------------- 图表样式配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
@@ -68,6 +70,17 @@ const rootStyle = getComputedStyle(document.documentElement)
 const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
+// tooltip内容，从左到右，分别是颜色，步长，值，时间，tag，先第一行
+let tooltipContent = ``
+for (const c of [
+  ['', 'lc-tooltip-color'],
+  [t('common.chart.charts.share.step'), 'lc-tooltip-step'],
+  [t('common.chart.charts.share.value'), 'lc-tooltip-value'],
+  [t('common.chart.charts.share.time'), 'lc-tooltip-time'],
+  [t('common.chart.charts.share.tag'), 'lc-tooltip-tag']
+]) {
+  tooltipContent += `<p class="${c[1]}">${c[0]}</p>`
+}
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -226,16 +239,31 @@ const createChart = (dom, data, config = {}) => {
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
       // 如果需要自定义浮窗，可以用下面的customContent，但是目前不管
-      formatter: (data) => {
-        // console.log(data)
-        // 如果data.series是undefined，说明是单数据,直接显示source[0]即可
-        const name = data.series ? data.series : source[0]
-        return { name, value: formatNumber2SN(data.data) }
-      }
-      // customContent: (title, data) => {
-      //   console.log(title, data)
-      //   return `<div>${title}</div>`
+      // formatter: (data) => {
+      //   // console.log(data)
+      //   // 如果data.series是undefined，说明是单数据,直接显示source[0]即可
+      //   const name = data.series ? data.series : source[0]
+      //   return { name, value: formatNumber2SN(data.data) }
       // }
+      customContent: (title, data) => {
+        // 网格布局，一行五列
+        console.log('data', data)
+        // 一行一行生成
+        let content = tooltipContent
+        for (const d of data) {
+          // 先颜色
+          content += `<span class="lc-tooltip-color lc-tooltip-color-rect" style="color:${d.color}"></span>`
+          // 再步长
+          content += `<span class="lc-tooltip-step" style="color:${d.color}">${d.data.index}</span>`
+          // 再值
+          content += `<span class="lc-tooltip-value" style="color:${d.color}">${formatNumber2SN(d.data.data)}</span>`
+          // 再时间
+          content += `<span class="lc-tooltip-time" style="color:${d.color}">${formatTime(d.data.create_time)}</span>`
+          // 再tag
+          content += `<span class="lc-tooltip-tag" style="color:${d.color}">${d.data.series}</span>`
+        }
+        return `<div class="lc-tooltip">${content}</div>`
+      }
     },
     // 大小相关
     height: 220,
@@ -273,13 +301,30 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
-  // console.log('d', d)
+  console.log('d', d)
   // 依据xField排序，从小到大
   d.sort((a, b) => a[xField] - b[xField])
   // console.log('d', d)
   // console.log('data', data)
   // 如果source的长度大于1，需要设置seriesField
   return { d, config: mutli ? { seriesField } : { color: colors[0] } }
+}
+
+const formatTime = (time) => {
+  let { year, month, day, hour, minute } = getTimes(time)
+  // year只保留后两位
+  year = year.toString().slice(-2)
+  // 格式化minute，如果是个位数，前面加0
+  minute = minute.toString().length === 1 ? `0${minute}` : minute
+  let pm = false
+  if (hour > 12) {
+    hour -= 12
+    pm = true
+  }
+  let result = `${month}/${day}/${year} ${hour}:${minute}`
+  if (pm) result += ' PM'
+  else result += ' AM'
+  return result
 }
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
@@ -380,4 +425,40 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss">
+.lc-tooltip {
+  @apply grid grid-cols-7 gap-3 px-3 py-2 pb-5;
+  p {
+    @apply text-xs text-default font-semibold;
+  }
+  .lc-tooltip-color {
+    @apply col-span-1;
+  }
+  .lc-tooltip-color-rect {
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 6px;
+      border-radius: 2px;
+      margin-right: 5px;
+      background-color: currentColor;
+    }
+  }
+  .lc-tooltip-step {
+    @apply col-span-1;
+    @apply w-7;
+  }
+  .lc-tooltip-value {
+    @apply col-span-1;
+    @apply w-10 text-left;
+  }
+  .lc-tooltip-time {
+    @apply col-span-2;
+  }
+
+  .lc-tooltip-tag {
+    @apply col-span-2 truncate;
+  }
+}
+</style>
