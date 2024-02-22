@@ -8,7 +8,12 @@
         "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Image Chart do not support displaying type {type}."
       },
       "line": {
-        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}.",
+        "copy": {
+          "windows": "Press CTRL+C to copy this data.",
+          "apple": "Press CMD+C to copy this data.",
+          "success": "Copied!"
+        }
       },
       "share": {
         "step": "Step",

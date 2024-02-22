@@ -31,11 +31,13 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref, inject, computed } from 'vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import { ref, inject, computed, onUnmounted } from 'vue'
+import { addTaskToBrowserMainThread, copyTextToClipboard } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
+import { isApple } from '@swanlab-vue/utils/browser'
+import { message } from '@swanlab-vue/components/message'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -71,7 +73,7 @@ const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 // tooltip内容，从左到右，分别是颜色，步长，值，时间，tag，先第一行
-let tooltipContent = ``
+let tooltipContent = `<div class="lc-tooltip-item-zoom">`
 for (const c of [
   ['', 'lc-tooltip-color'],
   [t('common.chart.charts.share.step'), 'lc-tooltip-step'],
@@ -81,6 +83,7 @@ for (const c of [
 ]) {
   tooltipContent += `<p class="${c[1]}">${c[0]}</p>`
 }
+tooltipContent += `</div>`
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -112,8 +115,14 @@ const { xField, xTitle } = UTILS.refrence2XField[reference]
 const yField = 'data'
 const seriesField = 'series'
 const colorField = 'type'
-// 创建图表的函数
-const createChart = (dom, data, config = {}) => {
+/**
+ * 创建图表函数
+ * @param { HTMLElement } dom 图表挂载的dom
+ * @param { Array } data 图表数据
+ * @param { Object } config 图表的一些其他配置
+ * @param { bool } zoom 是否放大
+ */
+const createChart = (dom, data, config = {}, zoom = false) => {
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
@@ -247,21 +256,43 @@ const createChart = (dom, data, config = {}) => {
       // }
       customContent: (title, data) => {
         // 网格布局，一行五列
-        console.log('data', data)
-        // 一行一行生成
-        let content = tooltipContent
-        for (const d of data) {
-          // 先颜色
-          content += `<span class="lc-tooltip-color lc-tooltip-color-rect" style="color:${d.color}"></span>`
-          // 再步长
-          content += `<span class="lc-tooltip-step" style="color:${d.color}">${d.data.index}</span>`
-          // 再值
-          content += `<span class="lc-tooltip-value" style="color:${d.color}">${formatNumber2SN(d.data.data)}</span>`
-          // 再时间
-          content += `<span class="lc-tooltip-time" style="color:${d.color}">${formatTime(d.data.create_time)}</span>`
-          // 再tag
-          content += `<span class="lc-tooltip-tag" style="color:${d.color}">${d.data.series}</span>`
+        // console.log('data', data)
+        // 一行一行生成,放大样式和非放大样式不一样
+        let content = zoom ? tooltipContent : ``
+        // data 根据value降序
+        data.sort((a, b) => b.data.data - a.data.data)
+        if (!zoom) {
+          // 缩小样式
+          for (const d of data) {
+            content += `<div class="lc-tooltip-item-no-zoom" style="color:${d.color}">`
+            // 先颜色
+            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
+            // 再步长
+            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
+            // 再值
+            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
+            // 再tag
+            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
+            content += `</div>`
+          }
+        } else {
+          for (const d of data) {
+            content += `<div class="lc-tooltip-item-zoom" style="color:${d.color}">`
+            // 先颜色
+            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
+            // 再步长
+            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
+            // 再值
+            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
+            // 再时间
+            content += `<span class="lc-tooltip-time">${formatTime(d.data.create_time)}</span>`
+            // 再tag
+            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
+            content += `</div>`
+          }
         }
+        // 最后加一行tip
+        content += `<p class="lc-tooltip-tip">${tip}</p>`
         return `<div class="lc-tooltip">${content}</div>`
       }
     },
@@ -276,6 +307,9 @@ const createChart = (dom, data, config = {}) => {
     ...config
   })
   c.render()
+  addTaskToBrowserMainThread(() => {
+    registerTooltipEvent(zoom)
+  })
   return c
 }
 
@@ -301,7 +335,7 @@ const format = (data) => {
       d.push({ ...item, series: key })
     })
   })
-  console.log('d', d)
+  // console.log('d', d)
   // 依据xField排序，从小到大
   d.sort((a, b) => a[xField] - b[xField])
   // console.log('d', d)
@@ -337,7 +371,6 @@ const render = (data) => {
   chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
-  registerTooltipEvent()
 }
 // 重渲染
 const change = (data) => {
@@ -345,12 +378,12 @@ const change = (data) => {
   // change函数等于render函数
   chartObj.destroy()
   chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
-  registerTooltipEvent()
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
 // 是否放大
 const isZoom = ref(false)
+let zoomChartObj = null
 // 放大数据
 const zoom = (data) => {
   isZoom.value = true
@@ -358,15 +391,20 @@ const zoom = (data) => {
   const { d, config } = format(data)
   const height = window.innerHeight * 0.6
   addTaskToBrowserMainThread(() => {
-    createChart(g2ZoomRef.value, d, {
-      interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
-      height,
-      ...config
-    })
+    zoomChartObj = createChart(
+      g2ZoomRef.value,
+      d,
+      {
+        interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
+        height,
+        ...config
+      },
+      true
+    )
   })
 }
 
-// ---------------------------------- 额外功能 ----------------------------------
+// ---------------------------------- 额外功能：多linechart之间的联动 ----------------------------------
 const chartsRefList = inject('chartsRefList')
 const lineChartsRef = computed(() => {
   // 将列表中除了props.index的所有chartRef过滤出来
@@ -388,33 +426,74 @@ const lineHideTooltip = () => {
   chartObj?.chart?.hideTooltip()
 }
 
-const registerTooltipEvent = () => {
+const registerTooltipEvent = (zoom) => {
   // 给 tooltip 添加点击事件
   if (error.value) return
-  chartObj.on('tooltip:show', (evt) => {
+  const chart = zoom ? zoomChartObj : chartObj
+  chart.on('tooltip:show', (evt) => {
+    // 非js触发的tooltip，不执行下面的逻辑
     if (!manual) {
       // console.log('auto show tooltip')
       return
     }
+    nowData = evt.data.items
+    // console.log('nowData', nowData)
     const point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value?.forEach((chart) => {
-      chart.chartRef.lineShowTooltip(point)
-    })
+    !zoom &&
+      lineChartsRef.value?.forEach((chart) => {
+        chart.chartRef.lineShowTooltip(point)
+      })
     manual = true
   })
-  chartObj.on('tooltip:hide', (...args) => {
-    // 通知其他图表，当前图表的数据被hover到了
-    lineChartsRef.value?.forEach((chart) => {
-      if (!manual) {
-        return
-        // return console.log('auto hide tooltip')
-      }
-      chart.chartRef.lineHideTooltip(...args)
-    })
+  chart.on('tooltip:hide', (...args) => {
+    // 非js触发的tooltip，不执行下面的逻辑
+    if (manual && !zoom)
+      // 通知其他图表，当前图表的数据被hover到了
+      lineChartsRef.value?.forEach((chart) => {
+        chart.chartRef.lineHideTooltip(...args)
+      })
+    nowData = null
     manual = true
   })
 }
+
+// ---------------------------------- tooltip出现并且是非js触发时，可执行copy操作 ----------------------------------
+const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
+// 当前tooltip的数据,用于copy
+let nowData = null
+// 全局注册keydown事件，当mac端触发command+c，windows端触发ctrl+c时，且nowData不为null，执行copy操作
+const handelCopy = (e) => {
+  if (error.value) return
+  if (nowData === null) {
+    // return
+    return console.log('非js触发的tooltip，或者未悬浮，不执行copy操作')
+  }
+  if (e.key === 'c' && (isApple ? e.metaKey : e.ctrlKey)) {
+    console.log('copy:', nowData)
+    // nowData依据data降序
+    nowData.sort((a, b) => b.data.data - a.data.data)
+    // 生成copy的内容，zoom和非zoom样式不一样
+    let content = ''
+    if (!isZoom.value) {
+      // 复制数据和tag：tag data
+      for (const d of nowData) {
+        content += `${d.data.series} ${formatNumber2SN(d.data.data)}\n`
+      }
+    } else {
+      // 复制数据、时间和tag：tag data time
+      for (const d of nowData) {
+        content += `${d.data.series} ${formatNumber2SN(d.data.data)} ${formatTime(d.data.create_time)}\n`
+      }
+    }
+    copyTextToClipboard(content, () => message.success(t('common.chart.charts.line.copy.success')))
+  }
+}
+window.addEventListener('keydown', handelCopy)
+onUnmounted(() => {
+  window.removeEventListener('keydown', handelCopy)
+})
+
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
@@ -427,26 +506,53 @@ defineExpose({
 
 <style lang="scss">
 .lc-tooltip {
-  @apply grid grid-cols-7 gap-3 px-3 py-2 pb-5;
+  @apply py-2 px-3;
   p {
     @apply text-xs text-default font-semibold;
   }
-  .lc-tooltip-color {
-    @apply col-span-1;
-  }
-  .lc-tooltip-color-rect {
-    &::before {
-      content: '';
-      display: inline-block;
-      width: 20px;
-      height: 6px;
-      border-radius: 2px;
-      margin-right: 5px;
-      background-color: currentColor;
+  .lc-tooltip-item-no-zoom,
+  .lc-tooltip-item-zoom {
+    @apply flex items-center gap-3;
+    &:not(:last-child) {
+      @apply mb-1.5;
+    }
+    .lc-tooltip-color {
+      @apply w-5 flex  items-center;
+    }
+    .lc-tooltip-color-rect {
+      &::before {
+        content: '';
+        display: inline-block;
+        width: 20px;
+        height: 6px;
+        border-radius: 2px;
+        margin-right: 5px;
+        background-color: currentColor;
+      }
     }
   }
+  .lc-tooltip-tip {
+    @apply font-normal text-dimmer text-xs;
+  }
+}
+
+.lc-tooltip-item-no-zoom {
   .lc-tooltip-step {
-    @apply col-span-1;
+    &::after {
+      content: ':';
+    }
+  }
+  .lc-tooltip-value {
+    @apply w-10 text-left;
+  }
+  .lc-tooltip-tag {
+    @apply truncate;
+    max-width: 128px;
+  }
+}
+
+.lc-tooltip-item-zoom {
+  .lc-tooltip-step {
     @apply w-7;
   }
   .lc-tooltip-value {
@@ -454,11 +560,12 @@ defineExpose({
     @apply w-10 text-left;
   }
   .lc-tooltip-time {
-    @apply col-span-2;
+    @apply w-28;
   }
 
   .lc-tooltip-tag {
-    @apply col-span-2 truncate;
+    @apply truncate;
+    max-width: 160px;
   }
 }
 </style>
