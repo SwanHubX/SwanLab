@@ -355,7 +355,7 @@ const formatTime = (time) => {
     hour -= 12
     pm = true
   }
-  let result = `${month}/${day}/${year} ${hour}:${minute}`
+  let result = `${year}/${month}/${day} ${hour}:${minute}`
   if (pm) result += ' PM'
   else result += ' AM'
   return result
