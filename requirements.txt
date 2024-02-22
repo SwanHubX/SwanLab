@@ -2,6 +2,8 @@
 soundfile
 pillow
 numpy
+opencv-python
+moviepy
 
 # web server
 fastapi
