@@ -28,6 +28,7 @@
         :max="totalPage[index] ? totalPage[index] : 1"
         :min="1"
         :bar-color="color"
+        :key="totalPage[index]"
         v-if="currentPage != [] && totalPage[index] && totalPage[index] != 1"
       />
       <SLModal class="py-10 overflow-hidden" max-w="1200" v-model="isZoom">
