@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full pb-5">
+  <div class="w-full h-full">
     <div class="w-full relative" v-for="(tag, index) in source" :key="tag">
       <!-- title: show in modal -->
       <p class="w-full text-center py-6 text-xl font-semibold" v-if="modal">{{ tag }}</p>
@@ -9,7 +9,7 @@
         <div class="text">Text</div>
       </div>
       <!-- body -->
-      <div class="w-full h-[310px] overflow-y-auto border-b">
+      <div class="w-full h-[310px] overflow-y-auto border-b" :class="{ 'h-[60vh]': modal }">
         <!-- line -->
         <div class="line" v-for="(text, i) in texts[tag][currentPage[index] - 1]" :key="text + i">
           <!-- caption -->
@@ -47,7 +47,7 @@
         @change="$emit('getText', tag, currentPage[index])"
         v-if="currentPage != [] && totalPage[index] && totalPage[index] != 1"
       />
-      <SLModal class="py-10 overflow-hidden" max-w="1200" v-model="isZoom">
+      <SLModal max-w="1200" v-model="isZoom">
         <TextDetail :data="current" />
       </SLModal>
     </div>
@@ -119,7 +119,7 @@ const zoom = (tag, i, text) => {
 
 <style lang="scss" scoped>
 .caption {
-  @apply w-40 py-2 px-4 border-r truncate;
+  @apply md:w-40 w-24 py-2 px-4 border-r truncate shrink-0;
 }
 
 .text {
@@ -130,8 +130,9 @@ const zoom = (tag, i, text) => {
   @apply border-b border-dimmest flex items-center relative;
 
   &:hover {
+    @apply bg-higher;
     .icon {
-      @apply hover:bg-highest hover:rounded block;
+      @apply border border-dimmest rounded-sm hover:bg-highest hover:rounded block;
     }
   }
 }

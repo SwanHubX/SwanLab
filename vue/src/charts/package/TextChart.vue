@@ -14,7 +14,7 @@
     <!-- 在此处完成图表主体定义 -->
     <TextModule class="text-table" :data="original_data" :texts="texts" :source="source" @getText="getText" />
     <!-- 放大效果弹窗 -->
-    <SLModal class="pb-10 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom">
       <TextModule :data="original_data" :texts="texts" :source="source" @getText="getText" modal />
     </SLModal>
   </template>

@@ -61,7 +61,6 @@
 import { ref } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'

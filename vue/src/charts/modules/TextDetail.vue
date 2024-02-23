@@ -1,13 +1,13 @@
 <template>
-  <div class="px-6">
+  <div class="px-6 py-10 overflow-hidden bg-higher rounded-lg">
     <!-- infos -->
     <div v-for="item in info_list" :key="item" class="sm:flex pb-3">
       <span class="block w-48 font-semibold shrink-0">{{ $t(`common.chart.text-chart.titles.${item.key}`) }}:</span>
       <span :title="item.value">{{ item.value }}</span>
     </div>
     <!-- text -->
-    <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}</p>
-    <div class="p-4 min-h-[20vh] max-h-[55vh] overflow-y-auto border rounded bg-higher">
+    <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}:</p>
+    <div class="p-4 min-h-[20vh] max-h-[55vh] overflow-y-auto border rounded bg-default">
       {{ data.text }}
     </div>
   </div>
