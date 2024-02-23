@@ -247,13 +247,17 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     // 图例相关
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
-      // 如果需要自定义浮窗，可以用下面的customContent，但是目前不管
+      // 如果需要自定义浮窗，可以用下面的customContent
       // formatter: (data) => {
       //   // console.log(data)
       //   // 如果data.series是undefined，说明是单数据,直接显示source[0]即可
       //   const name = data.series ? data.series : source[0]
       //   return { name, value: formatNumber2SN(data.data) }
-      // }
+      // },
+      follow: true,
+      enterable: false,
+      position: 'left',
+      offset: 10,
       customContent: (title, data) => {
         // 网格布局，一行五列
         // console.log('data', data)
@@ -294,6 +298,13 @@ const createChart = (dom, data, config = {}, zoom = false) => {
         // 最后加一行tip
         content += `<p class="lc-tooltip-tip">${tip}</p>`
         return `<div class="lc-tooltip">${content}</div>`
+      },
+      domStyles: {
+        'g2-tooltip': {
+          boxShadow: 'rgba(21, 24, 31, 0.16) 0px 12px 24px 0px',
+          borderWidth: '1px',
+          borderRadius: '4px'
+        }
       }
     },
     // 大小相关
@@ -517,7 +528,7 @@ defineExpose({
       @apply mb-1.5;
     }
     .lc-tooltip-color {
-      @apply w-5 flex  items-center;
+      @apply w-5 flex items-center;
     }
     .lc-tooltip-color-rect {
       &::before {
@@ -532,18 +543,20 @@ defineExpose({
     }
   }
   .lc-tooltip-tip {
-    @apply font-normal text-dimmer text-xs;
+    @apply font-normal text-dimmest text-xs;
   }
 }
 
 .lc-tooltip-item-no-zoom {
   .lc-tooltip-step {
+    @apply font-semibold;
     &::after {
       content: ':';
+      @apply font-semibold;
     }
   }
   .lc-tooltip-value {
-    @apply w-10 text-left;
+    @apply w-10 text-left font-semibold;
   }
   .lc-tooltip-tag {
     @apply truncate;
