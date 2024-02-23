@@ -158,7 +158,7 @@ const filename = 'print.log'
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full h-[calc(100vh-180px)] rounded p-4;
+  @apply bg-higher w-full h-[calc(100vh-270px)] rounded p-4;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
