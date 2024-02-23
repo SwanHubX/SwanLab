@@ -26,7 +26,7 @@
  * @file: TextChart.vue
  * @since: 2024-02-20 20:04:09
  **/
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import TextModule from '../modules/TextModule.vue'
