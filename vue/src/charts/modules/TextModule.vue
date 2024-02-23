@@ -131,7 +131,7 @@ const zoom = (tag, i, text) => {
   current.value = {
     tag,
     line,
-    caption: line?.more[i],
+    caption: Array.isArray(line?.more) ? line?.more[i]?.caption : line?.more?.caption,
     text
   }
 }
