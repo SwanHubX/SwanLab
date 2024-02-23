@@ -15,7 +15,10 @@ from ..settings import get_media_dir
 from fastapi import APIRouter
 from urllib.parse import quote
 from fastapi.responses import FileResponse
+from typing import List
+import asyncio
 import os
+from ..module.resp import SUCCESS_200
 
 router = APIRouter()
 
@@ -23,7 +26,7 @@ router = APIRouter()
 # ---------------------------------- 音频相关 ----------------------------------
 
 
-@router.get("/{path:path}")
+@router.get("/audio/{path:path}")
 def _(path: str, tag: str, run_id: str):
     """获取媒体文件
     通过参数拼接为本地路径，返回二进制数据
@@ -31,3 +34,28 @@ def _(path: str, tag: str, run_id: str):
     """
     media_path = os.path.join(get_media_dir(run_id, quote(tag, safe="")), path)
     return FileResponse(media_path)
+
+
+# ---------------------------------- 文字相关 ----------------------------------
+
+
+def read_file_sync(file_name):
+    with open(file_name, "r", encoding="utf8") as file:
+        return file.read()
+
+
+async def read_file_async(file_name):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, read_file_sync, file_name)
+
+
+@router.get("/text")
+async def _(path, tag: str, run_id: str):
+    """获取文本内容"""
+
+    paths = path.split(",") if "," in path else [path]
+
+    tasks = [read_file_async(os.path.join(get_media_dir(run_id, quote(tag, safe="")), p)) for p in paths]
+    res = await asyncio.gather(*tasks)
+
+    return SUCCESS_200({"text": res})

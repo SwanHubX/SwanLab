@@ -70,7 +70,7 @@ const color = inject('colors')[0]
 // ---------------------------------- 分页 ----------------------------------
 
 const currentPage = ref(Array(props.source.length).fill(1))
-const pageSize = ref(10)
+const pageSize = ref(1)
 const totalPage = computed(() => {
   return props.source.map((tag) => {
     return Math.ceil(props.data[tag].sum / pageSize.value)
@@ -78,7 +78,7 @@ const totalPage = computed(() => {
 })
 
 const slice = (data, index) => {
-  return data.slice((currentPage.value[index] - 1) * 10, currentPage.value[index] * 10)
+  return data.slice((currentPage.value[index] - 1) * pageSize.value, currentPage.value[index] * pageSize.value)
 }
 
 // ---------------------------------- 放大 ----------------------------------

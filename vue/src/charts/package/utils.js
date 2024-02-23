@@ -14,7 +14,7 @@ export const media = {
   get: (data, run_id, tag) => {
     return new Promise((resolve, reject) => {
       http
-        .get('/media/' + data, { params: { tag, run_id }, responseType: 'blob' })
+        .get('/media/audio/' + data, { params: { tag, run_id }, responseType: 'blob' })
         .then((res) => {
           resolve(res)
         })
