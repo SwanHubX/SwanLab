@@ -8,7 +8,7 @@
     <!-- text -->
     <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}</p>
     <div class="p-4 min-h-[20vh] max-h-[55vh] overflow-y-auto border rounded bg-higher">
-      {{ data.line.data }}
+      {{ data.text }}
     </div>
   </div>
 </template>
@@ -42,7 +42,7 @@ const info_list = computed(() => {
     },
     {
       key: 'caption',
-      value: line.more ? line.more.caption : '-'
+      value: props.data.caption || '-'
     },
     {
       key: 'count',

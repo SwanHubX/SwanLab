@@ -13,8 +13,19 @@
         <!-- line -->
         <div class="line" v-for="(text, i) in texts[tag][currentPage[index] - 1]" :key="text + i">
           <!-- caption -->
-          <div class="caption" :title="data[tag].list[currentPage - 1].more[i]">
-            {{ data[tag].list[currentPage - 1].more[i] || '-' }}
+          <div
+            class="caption"
+            :title="
+              texts[tag][currentPage[index] - 1]?.length != 1
+                ? data[tag].list[currentPage - 1]?.more[i]
+                : data[tag].list[currentPage - 1]?.more
+            "
+          >
+            {{
+              (texts[tag][currentPage[index] - 1]?.length != 1
+                ? data[tag].list[currentPage - 1]?.more[i]
+                : data[tag].list[currentPage - 1]?.more) || '-'
+            }}
           </div>
           <!-- text -->
           <div class="text" :title="text">{{ text }}</div>
@@ -22,7 +33,7 @@
           <SLIcon
             icon="zoom"
             class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
-            @click="zoom(tag, line)"
+            @click="zoom(tag, i, text)"
           />
         </div>
       </div>
@@ -76,6 +87,8 @@ defineEmits(['getText'])
 
 const color = inject('colors')[0]
 
+const getLine = () => {}
+
 // ---------------------------------- 分页 ----------------------------------
 
 const currentPage = ref(Array(props.source.length).fill(1))
@@ -86,21 +99,20 @@ const totalPage = computed(() => {
   })
 })
 
-const slice = (data, index) => {
-  return data[index].data
-}
-
 // ---------------------------------- 放大 ----------------------------------
 
 const isZoom = ref(false)
 
 const current = ref({})
 
-const zoom = (tag, line) => {
+const zoom = (tag, i, text) => {
   isZoom.value = true
+  const line = props.data[tag]?.list[currentPage.value - 1]
   current.value = {
     tag,
-    line
+    line,
+    caption: line?.more[i],
+    text
   }
 }
 </script>
