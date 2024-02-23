@@ -103,6 +103,7 @@ G2.registerShape('point', 'last-point', {
     return shape
   }
 })
+
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 组件对象
 const g2Ref = ref()
@@ -312,7 +313,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     width: undefined,
     autoFit: true,
     // 开启一些交互
-    interactions: [{ type: 'element-active' }],
+    interactions: [{ type: 'hover-cursor' }],
     // 平滑曲线
     smooth: false,
     ...config
@@ -321,6 +322,34 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   addTaskToBrowserMainThread(() => {
     registerTooltipEvent(zoom)
   })
+  // 监听鼠标移入事件
+  c.on('plot:mouseenter', (evt) => {
+    // console.log('plot:mouseenter', evt)
+    // console.log(c.chart.getElements())
+    // const e = c.chart.getElements()[0]
+    // c.chart.getElements()[0].update({ ...e.model, defaultStyle: { lineWidth: 5 } })
+    // 通过颜色判断类型，只需要改变每个类型的第一个元素, color => e
+    const eMap = new Map()
+    c.chart.getElements().forEach((e) => {
+      if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
+    })
+    eMap.forEach((e) => {
+      e.update({ ...e.model, defaultStyle: { lineWidth: 5 } })
+    })
+  })
+  // 监听鼠标移出事件
+  c.on('plot:mouseleave', (evt) => {
+    // console.log('plot:mouseleave', evt)
+    // 同理
+    const eMap = new Map()
+    c.chart.getElements().forEach((e) => {
+      if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
+    })
+    eMap.forEach((e) => {
+      e.update({ ...e.model, defaultStyle: { lineWidth: 2 } })
+    })
+  })
+
   return c
 }
 
@@ -406,7 +435,7 @@ const zoom = (data) => {
       g2ZoomRef.value,
       d,
       {
-        interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
+        interactions: [{ type: 'brush-x' }],
         height,
         ...config
       },
@@ -481,6 +510,7 @@ const handelCopy = (e) => {
     return console.log('非js触发的tooltip，或者未悬浮，不执行copy操作')
   }
   if (e.key === 'c' && (isApple ? e.metaKey : e.ctrlKey)) {
+    e.preventDefault()
     console.log('copy:', nowData)
     // nowData依据data降序
     nowData.sort((a, b) => b.data.data - a.data.data)
