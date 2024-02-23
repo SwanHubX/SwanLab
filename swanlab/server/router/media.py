@@ -54,7 +54,6 @@ async def _(path, tag: str, run_id: str):
     """获取文本内容"""
 
     paths = path.split(",") if "," in path else [path]
-
     tasks = [read_file_async(os.path.join(get_media_dir(run_id, quote(tag, safe="")), p)) for p in paths]
     res = await asyncio.gather(*tasks)
 

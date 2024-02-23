@@ -9,13 +9,15 @@
         <div class="text">Text</div>
       </div>
       <!-- body -->
-      <div class="w-full border-b">
+      <div class="w-full h-[310px] overflow-y-auto border-b">
         <!-- line -->
-        <div class="line" v-for="line in slice(data[tag].list, index)" :key="line">
+        <div class="line" v-for="(text, i) in texts[tag][currentPage[index] - 1]" :key="text + i">
           <!-- caption -->
-          <div class="caption" :title="line.more?.caption">{{ line.more ? line.more.caption : '-' }}</div>
+          <div class="caption" :title="data[tag].list[currentPage - 1].more[i]">
+            {{ data[tag].list[currentPage - 1].more[i] || '-' }}
+          </div>
           <!-- text -->
-          <div class="text" :title="line.data">{{ line.data }}</div>
+          <div class="text" :title="text">{{ text }}</div>
           <!-- zoom -->
           <SLIcon
             icon="zoom"
@@ -31,6 +33,7 @@
         :min="1"
         :bar-color="color"
         :key="totalPage[index]"
+        @change="$emit('getText', tag, currentPage[index])"
         v-if="currentPage != [] && totalPage[index] && totalPage[index] != 1"
       />
       <SLModal class="py-10 overflow-hidden" max-w="1200" v-model="isZoom">
@@ -56,6 +59,10 @@ const props = defineProps({
     type: Object,
     default: () => {}
   },
+  texts: {
+    type: Object,
+    default: () => {}
+  },
   source: {
     type: Array,
     default: () => []
@@ -64,6 +71,8 @@ const props = defineProps({
     type: Boolean
   }
 })
+
+defineEmits(['getText'])
 
 const color = inject('colors')[0]
 
@@ -78,7 +87,7 @@ const totalPage = computed(() => {
 })
 
 const slice = (data, index) => {
-  return data.slice((currentPage.value[index] - 1) * pageSize.value, currentPage.value[index] * pageSize.value)
+  return data[index].data
 }
 
 // ---------------------------------- 放大 ----------------------------------
@@ -106,7 +115,7 @@ const zoom = (tag, line) => {
 }
 
 .line {
-  @apply border-b border-dimmest flex items-center relative last:border-none;
+  @apply border-b border-dimmest flex items-center relative;
 
   &:hover {
     .icon {
