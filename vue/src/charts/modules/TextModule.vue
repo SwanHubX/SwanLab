@@ -121,14 +121,16 @@ const findClosestNumber = (targetNumber, larger) => {
   const minDistance = Math.min(...distances)
   let index = distances.indexOf(minDistance)
   let number = numericArray[index]
+  if (number === targetNumber) return { index, number }
   // 这个时候已经找到绝对值上最接近的数，但是需要判断是向前还是向后翻页
-  if (
-    (larger && number <= currentPage.value && index !== indexes.value.length - 1) ||
-    (!larger && number > currentPage.value && index !== 0)
-  ) {
-    index += larger ? 1 : -1
-    return { index, number: numericArray[index] }
-  }
+  // if (
+  //   (larger && number <= currentPage.value && index !== indexes.value.length - 1) ||
+  //   (!larger && number > currentPage.value && index !== 0)
+  // ) {
+  //   index += larger ? 1 : -1
+  //   return { index, number: numericArray[index] }
+  // }
+
   return { index, number }
 }
 
@@ -138,6 +140,7 @@ const findClosestNumber = (targetNumber, larger) => {
  * @param {*} index
  */
 const turnPage = (p) => {
+  console.log(p)
   const { index, number } = findClosestNumber(p, p > previousPage.value)
   currentIndex.value = index
   currentPage.value = Number(number)
