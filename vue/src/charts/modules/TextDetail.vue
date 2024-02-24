@@ -46,7 +46,7 @@ const info_list = computed(() => {
     },
     {
       key: 'count',
-      value: props.data.text.replace(/\n/g, '').length
+      value: props.data.text.replace(/[\r\n\s]/g, '').length
     }
   ]
 })

@@ -12,10 +12,26 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="text-table" :data="original_data" :texts="texts" :source="source" @getText="getText" />
+    <TextModule
+      class="text-table"
+      :data="original_data[tag]"
+      :texts="texts[tag]"
+      :tag="tag"
+      @getText="getText"
+      v-for="tag in source"
+      :key="tag"
+    />
     <!-- 放大效果弹窗 -->
     <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom">
-      <TextModule :data="original_data" :texts="texts" :source="source" @getText="getText" modal />
+      <TextModule
+        :data="original_data[tag]"
+        :texts="texts[tag]"
+        :tag="tag"
+        @getText="getText"
+        v-for="tag in source"
+        :key="tag"
+        modal
+      />
     </SLModal>
   </template>
 </template>
@@ -72,7 +88,9 @@ const error = computed(() => {
 const texts = ref({})
 
 const getText = async (tag, currentPage) => {
-  const path = original_data.value[tag].list[currentPage - 1].data
+  // 已经有数据了，不需要重复请求
+  if (texts.value[tag][currentPage] != null) return
+  const path = original_data.value[tag].list[currentPage].data
   const res = await http.get('/media/text', {
     params: {
       path: Array.isArray(path) ? path.join(',') : path,
@@ -80,7 +98,7 @@ const getText = async (tag, currentPage) => {
       run_id: run_id.value
     }
   })
-  texts.value[tag][currentPage - 1] = res.data.text
+  texts.value[tag][currentPage] = res.data.text
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
@@ -91,7 +109,7 @@ const render = (data) => {
   for (let index in source.value) {
     const tag = source.value[index]
     texts.value[tag] = Array(data[tag].list.length).fill(null)
-    getText(tag, 1)
+    getText(tag, 0)
   }
 }
 
