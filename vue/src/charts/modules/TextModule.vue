@@ -20,7 +20,7 @@
           @click="zoom(text, i)"
         />
       </div>
-      <div v-if="skeleton || !texts[currentIndex]">
+      <div v-if="skeleton && texts[currentIndex]">
         <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
           <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
             <span class="skeleton w-full h-1/2"></span>
@@ -29,7 +29,6 @@
         </div>
       </div>
     </div>
-
     <SlideBar
       class="pt-2"
       v-model="currentPage"
@@ -139,16 +138,22 @@ const findClosestNumber = (targetNumber, larger) => {
  * @param {*} tag
  * @param {*} index
  */
+const time = ref()
 const turnPage = (p) => {
-  console.log(p)
   const { index, number } = findClosestNumber(p, p > previousPage.value)
   currentIndex.value = index
   currentPage.value = Number(number)
   previousPage.value = Number(number)
   skeleton.value = true
-  debounce(() => {
+  if (time.value) {
+    clearTimeout(time.value)
+  }
+  time.value = setTimeout(() => {
     skeleton.value = false
-  }, 300)()
+  }, 400)
+  // debounce(() => {
+  //   skeleton.value = false
+  // }, 300)()
   emits('getText', props.tag, index)
 }
 
