@@ -84,6 +84,8 @@ for (const c of [
   tooltipContent += `<p class="${c[1]}">${c[0]}</p>`
 }
 tooltipContent += `</div>`
+// tooltip的x轴偏移量
+const tooltipXOffset = 50
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -257,6 +259,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       // },
       follow: true,
       enterable: false,
+      shared: true,
       position: 'left',
       offset: 10,
       customContent: (title, data) => {
@@ -266,6 +269,23 @@ const createChart = (dom, data, config = {}, zoom = false) => {
         let content = zoom ? tooltipContent : ``
         // data 根据value降序
         data.sort((a, b) => b.data.data - a.data.data)
+        addTaskToBrowserMainThread(() => {
+          const g2Tooltip = dom.querySelector('.g2-tooltip')
+          console.log('g2Tooltip top', g2Tooltip.style.top)
+          const tooltipDom = g2Ref.value.querySelector('.lc-tooltip')
+          tooltipDom.style.top = '-' + g2Tooltip.style.top
+          // 设置left或者right的值，这将取决于tooltip左右两侧是否超出dom的宽度
+          // 如果左侧超出，设置right，否则设置left
+          const clientWidth = parseFloat(g2Ref.value.clientWidth)
+          const left = parseFloat(g2Tooltip.style.left)
+          console.log('clientWidth', clientWidth)
+          console.log('left', left)
+          if (left + tooltipXOffset + tooltipDom.clientWidth > clientWidth) {
+            tooltipDom.style.right = `${tooltipXOffset - 50}px`
+          } else {
+            tooltipDom.style.left = `${tooltipXOffset}px`
+          }
+        })
         if (!zoom) {
           // 缩小样式
           for (const d of data) {
@@ -302,9 +322,9 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       },
       domStyles: {
         'g2-tooltip': {
-          boxShadow: 'rgba(21, 24, 31, 0.16) 0px 12px 24px 0px',
-          borderWidth: '1px',
-          borderRadius: '4px'
+          boxShadow: 'none',
+          borderWidth: 'none',
+          borderRadius: 'none'
         }
       }
     },
@@ -341,13 +361,13 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   c.on('plot:mouseleave', (evt) => {
     // console.log('plot:mouseleave', evt)
     // 同理
-    const eMap = new Map()
-    c.chart.getElements().forEach((e) => {
-      if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
-    })
-    eMap.forEach((e) => {
-      e.update({ ...e.model, defaultStyle: { lineWidth: 2 } })
-    })
+    // const eMap = new Map()
+    // c.chart.getElements().forEach((e) => {
+    //   if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
+    // })
+    // eMap.forEach((e) => {
+    //   e.update({ ...e.model, defaultStyle: { lineWidth: 2 } })
+    // })
   })
 
   return c
@@ -444,7 +464,7 @@ const zoom = (data) => {
   })
 }
 
-// ---------------------------------- 额外功能：多linechart之间的联动 ----------------------------------
+// ---------------------------------- 额外功能：多linechart之间的tooltip联动 ----------------------------------
 const chartsRefList = inject('chartsRefList')
 const lineChartsRef = computed(() => {
   // 将列表中除了props.index的所有chartRef过滤出来
@@ -511,7 +531,7 @@ const handelCopy = (e) => {
   }
   if (e.key === 'c' && (isApple ? e.metaKey : e.ctrlKey)) {
     e.preventDefault()
-    console.log('copy:', nowData)
+    // console.log('copy:', nowData)
     // nowData依据data降序
     nowData.sort((a, b) => b.data.data - a.data.data)
     // 生成copy的内容，zoom和非zoom样式不一样
@@ -547,7 +567,8 @@ defineExpose({
 
 <style lang="scss">
 .lc-tooltip {
-  @apply py-2 px-3;
+  @apply py-2 px-3 absolute bg-default border rounded;
+  box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
   p {
     @apply text-xs text-default font-semibold;
   }
