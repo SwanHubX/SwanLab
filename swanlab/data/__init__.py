@@ -20,3 +20,7 @@ from .sdk import (
     finish,
     config,
 )
+
+from .run import (
+    SwanLabRun as Run,
+)

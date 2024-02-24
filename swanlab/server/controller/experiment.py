@@ -245,10 +245,10 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if tag_data[0].get("index") is None:
         for index, data in enumerate(tag_data):
             data["index"] = str(index + 1)
-    # COMPAT 如果第一个数据的index不是string，改为string
-    if not isinstance(tag_data[0]["index"], str):
+    # COMPAT 如果第一个数据的index不是int，改为int
+    if not isinstance(tag_data[0]["index"], int):
         for data in tag_data:
-            data["index"] = str(data["index"])
+            data["index"] = int(data["index"])
     # 根据index升序排序
     tag_data.sort(key=lambda x: int(x["index"]))
     # tag_data 的 最后一个数据增加一个字段_last = True

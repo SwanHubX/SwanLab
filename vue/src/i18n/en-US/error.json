@@ -4,10 +4,7 @@
     "return": "Return to homepage"
   },
   "experiment-error": {
-    "reasons": [
-      "1. Corresponding log file not found",
-      "2. Corresponding log file is damaged or cannot be opened"
-    ],
+    "reasons": ["1. Corresponding log file not found", "2. Corresponding log file is damaged or cannot be opened"],
     "title": "This experiment cannot be viewed"
   },
   "init-error": {
@@ -16,7 +13,6 @@
       "2. SwanLab couldn't find your log file",
       "3. Maybe this is an internal error of SwanLab"
     ],
-    "reasons[2]": "",
     "title": "No available experiment dashboard in the current directory"
   },
   "wrap": {

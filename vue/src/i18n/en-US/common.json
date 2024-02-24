@@ -1,4 +1,35 @@
 {
+  "chart": {
+    "charts": {
+      "audio": {
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Audio Chart do not support displaying type {type}."
+      },
+      "image": {
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Image Chart do not support displaying type {type}."
+      },
+      "line": {
+        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}.",
+        "copy": {
+          "windows": "Press CTRL+C to copy this data.",
+          "apple": "Press CMD+C to copy this data.",
+          "success": "Copied!"
+        }
+      },
+      "share": {
+        "step": "Step",
+        "tag": "Tag",
+        "time": "Time",
+        "value": "Value"
+      }
+    },
+    "empty": "Empty Experiment with No Charts",
+    "error": "This chart is not displayed correctly.",
+    "label": {
+      "default": "Charts"
+    },
+    "unkonwn": "Unknown chart type: {type}",
+    "zoom": "Zoom In"
+  },
   "config-editor": {
     "button": "Edit",
     "not-allowed": "Not Allowed Since Is Running",
@@ -27,7 +58,7 @@
     "button": "Delete",
     "content": {
       "experiment": "Once you delete a experiment, there is no going back. Please be certain.",
-      "project": "Once you delete a repository, there is no going back. Please be certain."
+      "project": "Once you delete a project, there is no going back. Please be certain."
     },
     "not-allowed": "Not Allowed Since Is Running",
     "title": {
@@ -40,8 +71,8 @@
   },
   "sidebar": {
     "experiments": {
-      "title": "Experiments",
-      "running": "running"
+      "running": "running",
+      "title": "Experiments"
     },
     "project": {
       "charts": "Charts",
@@ -51,25 +82,5 @@
   },
   "table": {
     "empty": "Empty Table"
-  },
-  "chart": {
-    "empty": "Empty Experiment with No Charts",
-    "error": "This chart is not displayed correctly.",
-    "unkonwn": "Unknown chart type: {type}",
-    "label": {
-      "default": "Charts"
-    },
-    "zoom": "Zoom In",
-    "charts": {
-      "line": {
-        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Line Chart do not support displaying type {type}."
-      },
-      "audio": {
-        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Audio Chart do not support displaying type {type}."
-      },
-      "image": {
-        "error": "The Chart cannot be displayed because the value of \"{tag}\" is type {type}, and Image Chart do not support displaying type {type}."
-      }
-    }
   }
 }
