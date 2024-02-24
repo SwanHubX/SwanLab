@@ -11,11 +11,15 @@
     <!-- x轴坐标单位 -->
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     <!-- 图表主体 -->
-    <div ref="g2Ref"></div>
+    <div class="relative" ref="g2Ref">
+      <LineChartTooltip ref="tooltipRef" />
+    </div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div ref="g2ZoomRef"></div>
+      <div class="relative" ref="g2ZoomRef">
+        <LineChartTooltip detail ref="tooltipZoomRef" />
+      </div>
       <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
   </template>
@@ -31,13 +35,14 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref, inject, computed, onUnmounted } from 'vue'
+import { ref, inject, computed, onUnmounted, provide } from 'vue'
 import { addTaskToBrowserMainThread, copyTextToClipboard } from '@swanlab-vue/utils/browser'
-import { formatNumber2SN } from '@swanlab-vue/utils/common'
+import { debounce, formatNumber2SN } from '@swanlab-vue/utils/common'
 import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
+import LineChartTooltip from '../components/LinChartTooltip.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -72,20 +77,6 @@ const rootStyle = getComputedStyle(document.documentElement)
 const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
-// tooltip内容，从左到右，分别是颜色，步长，值，时间，tag，先第一行
-let tooltipContent = `<div class="lc-tooltip-item-zoom">`
-for (const c of [
-  ['', 'lc-tooltip-color'],
-  [t('common.chart.charts.share.step'), 'lc-tooltip-step'],
-  [t('common.chart.charts.share.value'), 'lc-tooltip-value'],
-  [t('common.chart.charts.share.time'), 'lc-tooltip-time'],
-  [t('common.chart.charts.share.tag'), 'lc-tooltip-tag']
-]) {
-  tooltipContent += `<p class="${c[1]}">${c[0]}</p>`
-}
-tooltipContent += `</div>`
-// tooltip的x轴偏移量
-const tooltipXOffset = 50
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -110,6 +101,8 @@ G2.registerShape('point', 'last-point', {
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
+const tooltipRef = ref()
+const tooltipZoomRef = ref()
 // 参考字段和显示名称
 const reference = props.chart.reference
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
@@ -260,66 +253,8 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       follow: true,
       enterable: false,
       shared: true,
-      position: 'left',
-      offset: 10,
-      customContent: (title, data) => {
-        // 网格布局，一行五列
-        // console.log('data', data)
-        // 一行一行生成,放大样式和非放大样式不一样
-        let content = zoom ? tooltipContent : ``
-        // data 根据value降序
-        data.sort((a, b) => b.data.data - a.data.data)
-        addTaskToBrowserMainThread(() => {
-          const g2Tooltip = dom.querySelector('.g2-tooltip')
-          console.log('g2Tooltip top', g2Tooltip.style.top)
-          const tooltipDom = g2Ref.value.querySelector('.lc-tooltip')
-          tooltipDom.style.top = '-' + g2Tooltip.style.top
-          // 设置left或者right的值，这将取决于tooltip左右两侧是否超出dom的宽度
-          // 如果左侧超出，设置right，否则设置left
-          const clientWidth = parseFloat(g2Ref.value.clientWidth)
-          const left = parseFloat(g2Tooltip.style.left)
-          console.log('clientWidth', clientWidth)
-          console.log('left', left)
-          if (left + tooltipXOffset + tooltipDom.clientWidth > clientWidth) {
-            tooltipDom.style.right = `${tooltipXOffset - 50}px`
-          } else {
-            tooltipDom.style.left = `${tooltipXOffset}px`
-          }
-        })
-        if (!zoom) {
-          // 缩小样式
-          for (const d of data) {
-            content += `<div class="lc-tooltip-item-no-zoom" style="color:${d.color}">`
-            // 先颜色
-            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
-            // 再步长
-            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
-            // 再值
-            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
-            // 再tag
-            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
-            content += `</div>`
-          }
-        } else {
-          for (const d of data) {
-            content += `<div class="lc-tooltip-item-zoom" style="color:${d.color}">`
-            // 先颜色
-            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
-            // 再步长
-            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
-            // 再值
-            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
-            // 再时间
-            content += `<span class="lc-tooltip-time">${formatTime(d.data.create_time)}</span>`
-            // 再tag
-            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
-            content += `</div>`
-          }
-        }
-        // 最后加一行tip
-        content += `<p class="lc-tooltip-tip">${tip}</p>`
-        return `<div class="lc-tooltip">${content}</div>`
-      },
+      position: 'top',
+      customContent: () => '',
       domStyles: {
         'g2-tooltip': {
           boxShadow: 'none',
@@ -340,7 +275,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   })
   c.render()
   addTaskToBrowserMainThread(() => {
-    registerTooltipEvent(zoom)
+    registerTooltipEvent(dom, zoom)
   })
   // 监听鼠标移入事件
   c.on('plot:mouseenter', (evt) => {
@@ -420,6 +355,9 @@ const formatTime = (time) => {
   else result += ' AM'
   return result
 }
+
+provide('formatTime', formatTime)
+provide('formatNumber2SN', formatNumber2SN)
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
 // 渲染
@@ -486,11 +424,20 @@ const lineHideTooltip = () => {
   chartObj?.chart?.hideTooltip()
 }
 
-const registerTooltipEvent = (zoom) => {
+const registerTooltipEvent = (dom, zoom) => {
   // 给 tooltip 添加点击事件
   if (error.value) return
+  // 代理实现tooltip的显示和隐藏
   const chart = zoom ? zoomChartObj : chartObj
+  const tRef = zoom ? tooltipZoomRef : tooltipRef
+
   chart.on('tooltip:show', (evt) => {
+    // 获取当前tooltip的left
+    const items = evt.data.items
+    addTaskToBrowserMainThread(() => {
+      const left = dom.querySelector('.g2-tooltip').style.left
+      tRef.value.show(items, dom.clientWidth, left)
+    })
     // 非js触发的tooltip，不执行下面的逻辑
     if (!manual) {
       // console.log('auto show tooltip')
@@ -507,7 +454,9 @@ const registerTooltipEvent = (zoom) => {
     manual = true
   })
   chart.on('tooltip:hide', (...args) => {
+    // console.log('tooltip:hide', chart)
     // 非js触发的tooltip，不执行下面的逻辑
+    tRef.value.hide()
     if (manual && !zoom)
       // 通知其他图表，当前图表的数据被hover到了
       lineChartsRef.value?.forEach((chart) => {
@@ -519,7 +468,6 @@ const registerTooltipEvent = (zoom) => {
 }
 
 // ---------------------------------- tooltip出现并且是非js触发时，可执行copy操作 ----------------------------------
-const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
 // 当前tooltip的数据,用于copy
 let nowData = null
 // 全局注册keydown事件，当mac端触发command+c，windows端触发ctrl+c时，且nowData不为null，执行copy操作
@@ -569,6 +517,7 @@ defineExpose({
 .lc-tooltip {
   @apply py-2 px-3 absolute bg-default border rounded;
   box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
+  visibility: visible;
   p {
     @apply text-xs text-default font-semibold;
   }
