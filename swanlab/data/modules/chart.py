@@ -21,4 +21,4 @@ class Chart:
     # 文本类型，list代表一步多文本
     text = "text", [list, str]
     # 视频类型 list代表一步多视频
-    video = "video", [list,str]
+    video = "video", [list, str]

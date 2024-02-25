@@ -14,13 +14,7 @@ from typing import Union, List
 import logging
 import numpy as np
 from io import BytesIO
-from typing import  Optional
-from moviepy.editor import VideoClip
-from moviepy.editor import VideoFileClip
-from moviepy.editor import ImageSequenceClip
-import numpy as np
-import cv2
-import tempfile
+from typing import Optional
 import shutil
 
 
@@ -44,22 +38,19 @@ class Video(BaseType):
         frames per second for video. Default is 4.
     format: str
         format of video, necessary if initializing with path or io object.
-
-
     """
 
     EXTS = ("gif", "mp4", "webm", "ogg")
     width: Optional[int]
     height: Optional[int]
 
-
     def __init__(
         self,
-        data_or_path: Union[ str,"np.ndarray", "BytesIO",List["Video"]],
+        data_or_path: Union[str, "np.ndarray", "BytesIO", List["Video"]],
         caption: Optional[str] = None,
         fps: int = 4,
         format: Optional[str] = None,
-        ):
+    ):
         super().__init__(data_or_path)
         self.caption = self.__convert_caption(caption)
         self.fps = fps
@@ -67,8 +58,11 @@ class Video(BaseType):
         self.height = None
         self.width = None
         self.channels = None
+        # self.format的默认值为mp4
+        self.format = format or "mp4"
+        # 如果self.format不在Video.EXTS中，则报错
         if self.format not in Video.EXTS:
-            raise ValueError("swanlab.Video accepts %s formats" % ", ".join(Video.EXTS))
+            raise ValueError("swanlab.Video 'format' paramters's format range is ({}) .".format(", ".join(Video.EXTS)))
 
     def get_data(self, *args, **kwargs):
         # 如果传入的是Video类列表
@@ -85,9 +79,9 @@ class Video(BaseType):
         # 设置视频保存路径, 保存文件名
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.mp4"
+            f"{self.caption}-step{self.step}-{hash_name}.{self.format}"
             if self.caption is not None
-            else f"video-step{self.step}-{hash_name}.mp4"
+            else f"video-step{self.step}-{hash_name}.{self.format}"
         )
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
@@ -98,7 +92,7 @@ class Video(BaseType):
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
-        return ["str","np.ndarray", "BytesIO"]
+        return ["str", "np.ndarray", "BytesIO"]
 
     def __convert_caption(self, caption):
         """将caption转换为字符串"""
@@ -115,93 +109,25 @@ class Video(BaseType):
             raise TypeError("caption must be a string, int or float.")
         return caption
 
-    def __preprocess(self,data):
+    def __preprocess(self, data):
         """将不同类型的输入转换为np.ndarray类型"""
-        if isinstance(data,str):
-            # 如果输入为字符串
-            path_video_ndarray = self.__load_video_from_path(data)
-            tensor = self.__prepare_video(path_video_ndarray)
-            return tensor
-        elif isinstance(data,np.ndarray):
-             # 如果输入为numpy array
-            tensor = self.__prepare_video(data)
-            return tensor
-        elif isinstance(data,BytesIO):
-            # 如果输入为二进制数据流
-            bytes_video_ndarray = self.__load_video_from_BytesIO(data)
-            tensor = self.__prepare_video(bytes_video_ndarray)
-            return tensor
+        if isinstance(data, (str, BytesIO)):
+            # 如果输入为字符串或二进制数据流
+            return data
+
+        elif isinstance(data, np.ndarray):
+            # 如果输入为numpy array
+            data = self.__numpy_preprocess(data)
+            return data
+
         else:
             # 以上都不是，则报错
-            raise ValueError(
-                    "swanlab.Video accepts a file path or numpy like data as input"
-                )
+            raise ValueError("swanlab.Video accepts a file path or numpy like data as input")
 
-    def __load_video_from_path(self,path):
-        """判断字符串是否为正确的视频路径，如果是则返回np.ndarry类型对象，如果不是则报错"""
-        _, ext = os.path.splitext(path)
-        ext = ext[1:].lower()
-        if ext not in Video.EXTS:
-            raise ValueError(
-                "swanlab.Video accepts %s formats" % ", ".join(Video.EXTS)
-               )
-        video_ndarray = self.__read_video_to_ndarray(path)
-        return video_ndarray
-
-    def __load_video_from_BytesIO(self,Bytes):
-        """将字节流保存为临时视频文件，再读取为np.ndarry类型对象"""
-        video_ndarray = self.__bytesio_to_ndarray(Bytes)
-        return video_ndarray
-
-    def __read_video_to_ndarray(self,video_path):
-        # 使用 OpenCV 打开视频
-
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise IOError("Cannot open video file: {}".format(video_path))
-        frames = []  # 用于存储视频帧的列表
-
-        # 读取视频帧
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break  # 如果没有帧了，就退出循环
-            # 将帧转置为 (通道数, 高度, 宽度)
-            frame = frame.transpose(2, 0, 1)
-            frames.append(frame)
-
-        # 释放视频文件
-        cap.release()
-
-        # 将帧列表转换为四维 NumPy 数组 (时间, 通道数, 高度, 宽度)
-        video_data = np.stack(frames, axis=0)
-
-        return video_data
-
-
-
-    def __bytesio_to_ndarray(self,video_bytesio):
-        # 创建一个临时文件
-        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video_file:
-            # 将 BytesIO 流的内容写入临时文件
-            shutil.copyfileobj(video_bytesio, temp_video_file)
-            # 获取临时文件的路径
-            temp_video_file_path = temp_video_file.name
-
-        # 使用 OpenCV 读取视频帧并转换为 ndarray
-        try:
-            video_data = self.__read_video_to_ndarray(temp_video_file_path)
-            return video_data
-        finally:
-            # 删除临时文件
-            os.remove(temp_video_file_path)
-
-    def __prepare_video(self, video: "np.ndarray") -> "np.ndarray":
+    def __numpy_preprocess(self, video: "np.ndarray") -> "np.ndarray":
         """This logic was mostly taken from tensorboardX."""
         if video.ndim < 4:
-            raise ValueError(
-                "Video must be atleast 4 dimensions: time, channels, height, width"
-            )
+            raise ValueError("Video must be atleast 4 dimensions: time, channels, height, width")
         if video.ndim == 4:
             video = video.reshape(1, *video.shape)
         b, t, c, h, w = video.shape
@@ -216,9 +142,7 @@ class Video(BaseType):
         # pad to nearest power of 2, all at once
         if not is_power2(video.shape[0]):
             len_addition = int(2 ** video.shape[0].bit_length() - video.shape[0])
-            video = np.concatenate(
-                (video, np.zeros(shape=(len_addition, t, c, h, w))), axis=0
-            )
+            video = np.concatenate((video, np.zeros(shape=(len_addition, t, c, h, w))), axis=0)
 
         n_rows = 2 ** ((b.bit_length() - 1) // 2)
         n_cols = video.shape[0] // n_rows
@@ -232,17 +156,36 @@ class Video(BaseType):
 
     def __save(self, save_path):
         """将视频保存到指定路径"""
-        fps = self.fps
-        write_video_data_bgr = self.video_data
-        # OpenCV 默认读取为BGR，转化为RGB
-        write_video_data_rgb = [frame[:, :, ::-1] for frame in write_video_data_bgr]
-        # 读取视频帧
-        clip = ImageSequenceClip(list(write_video_data_rgb), fps=self.fps)
-        try:
-            clip.write_videofile(save_path, codec='libx264')
-            clip.close()
-        except Exception as e:
-            raise TypeError(f"Could not save the video to the path: {save_path}") from e
+        # 如果data_or_path是路径, 则直接复制文件到目标文件夹
+        if isinstance(self.video_data, str):
+            shutil.copyfile(self.video_data, save_path)
+
+        # 如果data_or_path是字节流, 则直接写入文件到目标文件夹
+        elif isinstance(self.video_data, BytesIO):
+            with open(save_path, "wb") as f:
+                f.write(self.video_data.read())
+
+        # 如果data_or_path是np.ndarray，则使用moviepy库保存视频
+        elif isinstance(self.video_data, np.ndarray):
+            try:
+                import moviepy
+            except ImportError as e:
+                raise TypeError(
+                    "swanlab.Video requires moviepy when process numpy data. Install with 'pip install moviepy'."
+                )
+
+            from moviepy.editor import ImageSequenceClip
+
+            write_video_data_bgr = self.video_data
+            # OpenCV 默认读取为BGR，转化为RGB
+            write_video_data_rgb = [frame[:, :, ::-1] for frame in write_video_data_bgr]
+            # 读取视频帧
+            clip = ImageSequenceClip(list(write_video_data_rgb), fps=self.fps)
+            try:
+                clip.write_videofile(save_path, codec="libx264")
+                clip.close()
+            except Exception as e:
+                raise TypeError(f"Could not save the video to the path: {save_path}") from e
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
@@ -258,7 +201,6 @@ class Video(BaseType):
                 else None
             )
 
-
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
         return "Video"
@@ -266,8 +208,3 @@ class Video(BaseType):
     def get_chart_type(self, *args, **kwargs) -> str:
         """设定图表类型"""
         return self.chart.video
-
-if __name__ == "__main__":
-    gif_file = 'F:\SwanLab\swanlab\data\modules\snow-man-10450_256.gif'
-    swanvideo = Video(gif_file,format="gif",caption="giftest")
-    swanvideo.get_data()
