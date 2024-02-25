@@ -278,6 +278,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     interactions: [{ type: 'hover-cursor' }],
     // 平滑曲线
     smooth: false,
+    animation: false,
     ...config
   })
   c.render()
@@ -389,10 +390,11 @@ const render = (data) => {
 }
 // 重渲染
 const change = (data) => {
-  const { d, config } = format(data)
-  // change函数等于render函数
-  chartObj.destroy()
-  chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
+  const { d } = format(data)
+  chartObj.changeData(d)
+  // // change函数等于render函数
+  // chartObj.destroy()
+  // chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -440,7 +442,7 @@ const lineHideTooltip = () => {
   manual = false
   chartObj?.chart?.hideTooltip()
 }
-
+let point = null
 const registerTooltipEvent = (dom, zoom) => {
   // 给 tooltip 添加点击事件
   if (error.value) return
@@ -462,7 +464,7 @@ const registerTooltipEvent = (dom, zoom) => {
     }
     nowData = evt.data.items
     // console.log('nowData', nowData)
-    const point = { x: evt.data.x, y: evt.data.y }
+    point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
       lineChartsRef.value?.forEach((chart) => {
@@ -481,6 +483,7 @@ const registerTooltipEvent = (dom, zoom) => {
       })
     nowData = null
     manual = true
+    point = null
   })
 }
 
@@ -541,7 +544,7 @@ const thickenByColor = (plot, zoom, color) => {
   for (const e of els) {
     // console.log(e, props.chart.name)
     if (e.model.color === color) {
-      // console.log('加粗', props.chart.name)
+      console.log('加粗', props.chart.name, e)
       e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
       break
     }
