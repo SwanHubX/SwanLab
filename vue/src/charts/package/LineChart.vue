@@ -37,7 +37,7 @@ import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
 import { ref, inject, computed, onUnmounted, provide } from 'vue'
 import { addTaskToBrowserMainThread, copyTextToClipboard } from '@swanlab-vue/utils/browser'
-import { debounce, formatNumber2SN } from '@swanlab-vue/utils/common'
+import { formatNumber2SN } from '@swanlab-vue/utils/common'
 import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
@@ -502,6 +502,8 @@ window.addEventListener('keydown', handelCopy)
 onUnmounted(() => {
   window.removeEventListener('keydown', handelCopy)
 })
+
+// ---------------------------------- 控制线段加粗 ----------------------------------
 
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
