@@ -77,6 +77,10 @@ const rootStyle = getComputedStyle(document.documentElement)
 const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
+// 线段默认宽度
+const lineWidth = 2
+// 线段加粗宽度
+const thickerLineWidth = 5
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -156,6 +160,9 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     },
     point: {
       shape: 'last-point'
+    },
+    lineStyle: {
+      lineWidth
     },
     // 坐标轴相关
     xAxis: {
@@ -284,25 +291,35 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     // const e = c.chart.getElements()[0]
     // c.chart.getElements()[0].update({ ...e.model, defaultStyle: { lineWidth: 5 } })
     // 通过颜色判断类型，只需要改变每个类型的第一个元素, color => e
-    const eMap = new Map()
-    c.chart.getElements().forEach((e) => {
-      if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
-    })
-    eMap.forEach((e) => {
-      e.update({ ...e.model, defaultStyle: { lineWidth: 5 } })
-    })
-  })
-  // 监听鼠标移出事件
-  c.on('plot:mouseleave', (evt) => {
-    // console.log('plot:mouseleave', evt)
-    // 同理
     // const eMap = new Map()
     // c.chart.getElements().forEach((e) => {
     //   if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
     // })
     // eMap.forEach((e) => {
-    //   e.update({ ...e.model, defaultStyle: { lineWidth: 2 } })
+    //   e.update({ ...e.model, defaultStyle: { lineWidth: 5 } })
     // })
+  })
+  // 监听鼠标移出事件
+  c.on('plot:mouseleave', (evt) => {
+    restoreByColor(c, zoom, nowthickenColor)
+  })
+  // 监听鼠标移动事件
+  c.on('plot:mousemove', (evt) => {
+    if (!nowData) return
+    const y = evt.y
+    // 遍历所有的nowData，寻找其中与y绝对值最小的点
+    let index = undefined
+    let min = Infinity
+    for (let i = 0; i < nowData.length; i++) {
+      const data = nowData[i]
+      const d = Math.abs(data.y - y)
+      if (d < min) {
+        min = d
+        index = i
+      }
+    }
+    // console.log('鼠标移动', props.chart.name)
+    if (index !== undefined) thickenByColor(c, zoom, nowData[index].color)
   })
 
   return c
@@ -504,6 +521,79 @@ onUnmounted(() => {
 })
 
 // ---------------------------------- 控制线段加粗 ----------------------------------
+/**
+ * 当前加粗的颜色,需要注意的是当前加粗的颜色可能不存在于当前图表的数据中
+ */
+let nowthickenColor = null
+/**
+ * 加粗指定颜色的线段
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } color 十六进制颜色，例如#f5f5f5
+ */
+const thickenByColor = (plot, zoom, color) => {
+  // console.log('触发:', props.chart.name)
+  if (!color) return
+  if (!plot) return
+  if (color === nowthickenColor) return // 避免重复加粗，会造成无限回调
+  if (color !== nowthickenColor && nowthickenColor) restoreByColor(plot, zoom, nowthickenColor)
+  const els = plot.chart.getElements()
+  for (const e of els) {
+    // console.log(e, props.chart.name)
+    if (e.model.color === color) {
+      // console.log('加粗', props.chart.name)
+      e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
+      break
+    }
+  }
+  nowthickenColor = color
+  // 加粗其他图表的数据，保持联动
+  lineChartsRef.value.forEach((chart) => {
+    chart.chartRef.thickenByColorLinkage(zoom, color)
+  })
+}
+
+/**
+ * 将指定颜色的线段恢复原状
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } color 十六进制颜色，例如#f5f5f5
+ */
+const restoreByColor = (plot, zoom, color) => {
+  if (!color) return
+  if (!nowthickenColor) return
+  const els = plot.chart.getElements()
+  for (const e of els) {
+    // console.log(e)
+    if (e.model.color === color) {
+      e.update({ ...e.model, style: { lineWidth: lineWidth } })
+      break
+    }
+  }
+  nowthickenColor = null
+  lineChartsRef.value.forEach((chart) => {
+    chart.chartRef.restoreByColorLinkage(zoom, color)
+  })
+}
+
+/**
+ * 用于交给其他图表联动调用来加粗线段
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } color 十六进制颜色，例如#f5f5f5
+ */
+const thickenByColorLinkage = (zoom, color) => {
+  const plot = zoom ? zoomChartObj : chartObj
+  thickenByColor(plot, zoom, color)
+}
+
+/**
+ * 用于交给其他图表联动调用来恢复线段粗细
+ */
+const restoreByColorLinkage = (zoom, color) => {
+  const plot = zoom ? zoomChartObj : chartObj
+  restoreByColor(plot, zoom, color)
+}
 
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
@@ -511,7 +601,9 @@ defineExpose({
   change,
   zoom,
   lineShowTooltip,
-  lineHideTooltip
+  lineHideTooltip,
+  thickenByColorLinkage,
+  restoreByColorLinkage
 })
 </script>
 

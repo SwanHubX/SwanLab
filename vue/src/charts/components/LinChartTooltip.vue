@@ -71,12 +71,12 @@ const key = ref(null)
  * 显示提示框，传入父元素宽度和显示x轴位置，计算提示框位置
  */
 const show = (data, width, x) => {
-  console.log('show', data, width, x)
+  // console.log('show', data, width, x)
   // key.value = Math.random()
   items.value = data
   isShow.value = true
   const left = parseFloat(x.split('px')[0])
-  console.log(left + tooltipWidth, width)
+  // console.log(left + tooltipWidth, width)
   if (left + tooltipWidth > width) {
     toolTipRef.value.style.right = `${width - left + tooltipXOffset}px`
     toolTipRef.value.style.left = 'auto'
