@@ -12,10 +12,15 @@ from .modules import (
     Audio,
     Image,
     Text,
+    Video,
 )
 from .sdk import (
     init,
     log,
     finish,
     config,
+)
+
+from .run import (
+    SwanLabRun as Run,
 )
