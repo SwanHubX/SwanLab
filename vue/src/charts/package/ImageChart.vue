@@ -45,8 +45,8 @@
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="image-content flex flex-col justify-center">
-        <div class="flex flex-col justify-center items-center" v-if="loading">
+      <div class="image-content image-content-zoom">
+        <div class="flex flex-col justify-center items-center h-full" v-if="loading">
           <SLLoading />
         </div>
         <!-- 加载完成 -->
@@ -331,5 +331,9 @@ defineExpose({
 
 .image-content-no-zoom {
   @apply h-56 overflow-y-auto overflow-x-clip;
+}
+
+.image-content-zoom {
+  @apply h-[calc(100vh-18.5rem)] overflow-y-auto overflow-x-clip;
 }
 </style>
