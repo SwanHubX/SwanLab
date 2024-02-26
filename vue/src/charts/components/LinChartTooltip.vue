@@ -1,11 +1,11 @@
 <template>
   <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :style="{ width: getTooltipWidth() }" :key="key">
     <div class="lc-tooltip-item-zoom" v-if="detail">
-      <p class="lc-tooltip-color"></p>
-      <p class="lc-tooltip-step">{{ $t('common.chart.charts.share.step') }}</p>
-      <p class="lc-tooltip-value">{{ $t('common.chart.charts.share.value') }}</p>
-      <p class="lc-tooltip-time">{{ $t('common.chart.charts.share.time') }}</p>
-      <p class="lc-tooltip-tag">{{ $t('common.chart.charts.share.tag') }}</p>
+      <p class="lc-tooltip-color font-semibold !text-sm"></p>
+      <p class="lc-tooltip-step font-semibold !text-sm">{{ $t('common.chart.charts.share.step') }}</p>
+      <p class="lc-tooltip-value font-semibold !text-sm">{{ $t('common.chart.charts.share.value') }}</p>
+      <p class="lc-tooltip-time font-semibold !text-sm">{{ $t('common.chart.charts.share.time') }}</p>
+      <p class="lc-tooltip-tag font-semibold !text-sm">{{ $t('common.chart.charts.share.tag') }}</p>
     </div>
     <template v-if="detail && items.length">
       <div class="lc-tooltip-item-zoom" v-for="item in items" :key="item.color" :style="{ color: item.color }">
@@ -121,7 +121,7 @@ defineExpose({
       @apply mb-1.5;
     }
     .lc-tooltip-color {
-      @apply w-5 flex items-center;
+      @apply w-5 flex items-center flex-shrink-0;
     }
     .lc-tooltip-color-rect {
       &::before {
@@ -136,13 +136,13 @@ defineExpose({
     }
   }
   .lc-tooltip-tip {
-    @apply font-normal text-dimmest text-xs;
+    @apply font-normal text-dimmest text-xs flex-shrink-0;
   }
 }
 
 .lc-tooltip-item-no-zoom {
   .lc-tooltip-step {
-    @apply font-semibold;
+    @apply font-semibold flex-shrink-0;
     &::after {
       content: ':';
       @apply font-semibold;
@@ -166,7 +166,7 @@ defineExpose({
     @apply w-10 text-left;
   }
   .lc-tooltip-time {
-    @apply w-28;
+    @apply w-32;
   }
 
   .lc-tooltip-tag {
