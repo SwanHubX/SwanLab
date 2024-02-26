@@ -39,14 +39,15 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
+        @turn="handelTurn"
         v-if="maxIndex !== minIndex"
       />
     </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="image-content flex flex-col justify-center">
-        <div class="flex flex-col justify-center items-center" v-if="loading">
+      <div class="image-content image-content-zoom">
+        <div class="flex flex-col justify-center items-center h-full" v-if="loading">
           <SLLoading />
         </div>
         <!-- 加载完成 -->
@@ -72,6 +73,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
+          @turn="handelTurn"
           v-if="maxIndex !== minIndex"
         />
       </div>
@@ -169,6 +171,19 @@ const currentIndex = computed({
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
 })
+
+// 事件处理，触发slideBar的turn事件
+const handelTurn = (direction, value) => {
+  const keys = Array.from(Object.keys(stepsData))
+  const index = keys.findIndex((item) => item > value)
+  if (direction === 'forward') {
+    currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
+  } else {
+    // 向下获取
+    if (index === -1) currentIndex.value = Number(keys[Math.max(0, keys.length - 2)])
+    else currentIndex.value = Number(keys[Math.max(0, index - 2)])
+  }
+}
 
 // 布局处理,一共length列，最多显示8列
 const setGrid = (length) => {
@@ -331,5 +346,9 @@ defineExpose({
 
 .image-content-no-zoom {
   @apply h-56 overflow-y-auto overflow-x-clip;
+}
+
+.image-content-zoom {
+  @apply h-[calc(100vh-18.5rem)] overflow-y-auto overflow-x-clip;
 }
 </style>

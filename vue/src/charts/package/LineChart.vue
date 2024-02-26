@@ -11,11 +11,15 @@
     <!-- x轴坐标单位 -->
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     <!-- 图表主体 -->
-    <div ref="g2Ref"></div>
+    <div class="relative" ref="g2Ref">
+      <LineChartTooltip ref="tooltipRef" />
+    </div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div ref="g2ZoomRef"></div>
+      <div class="relative" ref="g2ZoomRef">
+        <LineChartTooltip detail ref="tooltipZoomRef" />
+      </div>
       <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
   </template>
@@ -31,13 +35,14 @@ import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { Line, G2 } from '@antv/g2plot'
 import * as UTILS from './utils'
-import { ref, inject, computed, onUnmounted } from 'vue'
+import { ref, inject, computed, onUnmounted, provide } from 'vue'
 import { addTaskToBrowserMainThread, copyTextToClipboard } from '@swanlab-vue/utils/browser'
 import { formatNumber2SN } from '@swanlab-vue/utils/common'
 import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
+import LineChartTooltip from '../components/LinChartTooltip.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -72,18 +77,12 @@ const rootStyle = getComputedStyle(document.documentElement)
 const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
-// tooltip内容，从左到右，分别是颜色，步长，值，时间，tag，先第一行
-let tooltipContent = `<div class="lc-tooltip-item-zoom">`
-for (const c of [
-  ['', 'lc-tooltip-color'],
-  [t('common.chart.charts.share.step'), 'lc-tooltip-step'],
-  [t('common.chart.charts.share.value'), 'lc-tooltip-value'],
-  [t('common.chart.charts.share.time'), 'lc-tooltip-time'],
-  [t('common.chart.charts.share.tag'), 'lc-tooltip-tag']
-]) {
-  tooltipContent += `<p class="${c[1]}">${c[0]}</p>`
-}
-tooltipContent += `</div>`
+// 十字准线颜色，通过js获取css变量值
+const crosshairsColor = rootStyle.getPropertyValue('--primary-dimmest')
+// 线段默认宽度
+const lineWidth = 2
+// 线段加粗宽度
+const thickerLineWidth = 3.5
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
@@ -103,10 +102,13 @@ G2.registerShape('point', 'last-point', {
     return shape
   }
 })
+
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 组件对象
 const g2Ref = ref()
 const g2ZoomRef = ref()
+const tooltipRef = ref()
+const tooltipZoomRef = ref()
 // 参考字段和显示名称
 const reference = props.chart.reference
 // 拿到参考系，未来图表可能有不同的x轴依据，比如step、time等，这里需要根据设置的reference来决定
@@ -160,6 +162,9 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     },
     point: {
       shape: 'last-point'
+    },
+    lineStyle: {
+      lineWidth
     },
     // 坐标轴相关
     xAxis: {
@@ -256,54 +261,23 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       // },
       follow: true,
       enterable: false,
-      position: 'left',
-      offset: 10,
-      customContent: (title, data) => {
-        // 网格布局，一行五列
-        // console.log('data', data)
-        // 一行一行生成,放大样式和非放大样式不一样
-        let content = zoom ? tooltipContent : ``
-        // data 根据value降序
-        data.sort((a, b) => b.data.data - a.data.data)
-        if (!zoom) {
-          // 缩小样式
-          for (const d of data) {
-            content += `<div class="lc-tooltip-item-no-zoom" style="color:${d.color}">`
-            // 先颜色
-            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
-            // 再步长
-            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
-            // 再值
-            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
-            // 再tag
-            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
-            content += `</div>`
-          }
-        } else {
-          for (const d of data) {
-            content += `<div class="lc-tooltip-item-zoom" style="color:${d.color}">`
-            // 先颜色
-            content += `<span class="lc-tooltip-color lc-tooltip-color-rect"></span>`
-            // 再步长
-            content += `<span class="lc-tooltip-step">${d.data.index}</span>`
-            // 再值
-            content += `<span class="lc-tooltip-value">${formatNumber2SN(d.data.data)}</span>`
-            // 再时间
-            content += `<span class="lc-tooltip-time">${formatTime(d.data.create_time)}</span>`
-            // 再tag
-            content += `<span class="lc-tooltip-tag">${d.data.series}</span>`
-            content += `</div>`
-          }
-        }
-        // 最后加一行tip
-        content += `<p class="lc-tooltip-tip">${tip}</p>`
-        return `<div class="lc-tooltip">${content}</div>`
-      },
+      shared: true,
+      position: 'top',
+      customContent: () => '',
       domStyles: {
         'g2-tooltip': {
-          boxShadow: 'rgba(21, 24, 31, 0.16) 0px 12px 24px 0px',
-          borderWidth: '1px',
-          borderRadius: '4px'
+          boxShadow: 'none',
+          borderWidth: 'none',
+          borderRadius: 'none'
+        }
+      },
+      showCrosshairs: true,
+      crosshairs: {
+        line: {
+          style: {
+            stroke: crosshairsColor,
+            lineWidth: 2
+          }
         }
       }
     },
@@ -312,15 +286,42 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     width: undefined,
     autoFit: true,
     // 开启一些交互
-    interactions: [{ type: 'element-active' }],
+    interactions: [{ type: 'hover-cursor' }],
     // 平滑曲线
     smooth: false,
+    animation: false,
     ...config
   })
   c.render()
   addTaskToBrowserMainThread(() => {
-    registerTooltipEvent(zoom)
+    registerTooltipEvent(dom, zoom)
   })
+  // 监听鼠标移入事件
+  // c.on('plot:mouseenter', (evt) => {
+  // })
+  // 监听鼠标移出事件
+  c.on('plot:mouseleave', () => {
+    restoreByTag(c, zoom, nowThickenTag, nowThickenColor)
+  })
+  // 监听鼠标移动事件
+  c.on('plot:mousemove', (evt) => {
+    if (!nowData) return
+    const y = evt.y
+    // 遍历所有的nowData，寻找其中与y绝对值最小的点
+    let index = undefined
+    let min = Infinity
+    for (let i = 0; i < nowData.length; i++) {
+      const data = nowData[i]
+      const d = Math.abs(data.y - y)
+      if (d < min) {
+        min = d
+        index = i
+      }
+    }
+    // console.log('鼠标移动', props.chart.name)
+    if (index !== undefined) thickenByTag(c, zoom, nowData[index].data.series, nowData[index].color)
+  })
+
   return c
 }
 
@@ -371,6 +372,9 @@ const formatTime = (time) => {
   else result += ' AM'
   return result
 }
+
+provide('formatTime', formatTime)
+provide('formatNumber2SN', formatNumber2SN)
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 let chartObj = null
 // 渲染
@@ -385,10 +389,11 @@ const render = (data) => {
 }
 // 重渲染
 const change = (data) => {
-  const { d, config } = format(data)
-  // change函数等于render函数
-  chartObj.destroy()
-  chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
+  const { d } = format(data)
+  chartObj.changeData(d)
+  // // change函数等于render函数
+  // chartObj.destroy()
+  // chartObj = createChart(g2Ref.value, d, { animation: false, ...config })
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -406,7 +411,7 @@ const zoom = (data) => {
       g2ZoomRef.value,
       d,
       {
-        interactions: [{ type: 'brush-x' }, { type: 'element-active' }],
+        interactions: [{ type: 'brush-x' }],
         height,
         ...config
       },
@@ -415,7 +420,7 @@ const zoom = (data) => {
   })
 }
 
-// ---------------------------------- 额外功能：多linechart之间的联动 ----------------------------------
+// ---------------------------------- 额外功能：多linechart之间的tooltip联动 ----------------------------------
 const chartsRefList = inject('chartsRefList')
 const lineChartsRef = computed(() => {
   // 将列表中除了props.index的所有chartRef过滤出来
@@ -436,12 +441,21 @@ const lineHideTooltip = () => {
   manual = false
   chartObj?.chart?.hideTooltip()
 }
-
-const registerTooltipEvent = (zoom) => {
+let point = null
+const registerTooltipEvent = (dom, zoom) => {
   // 给 tooltip 添加点击事件
   if (error.value) return
+  // 代理实现tooltip的显示和隐藏
   const chart = zoom ? zoomChartObj : chartObj
+  const tRef = zoom ? tooltipZoomRef : tooltipRef
+
   chart.on('tooltip:show', (evt) => {
+    // 获取当前tooltip的left
+    const items = evt.data.items
+    addTaskToBrowserMainThread(() => {
+      const left = dom.querySelector('.g2-tooltip').style.left
+      tRef.value.show(items, dom.clientWidth, left)
+    })
     // 非js触发的tooltip，不执行下面的逻辑
     if (!manual) {
       // console.log('auto show tooltip')
@@ -449,7 +463,7 @@ const registerTooltipEvent = (zoom) => {
     }
     nowData = evt.data.items
     // console.log('nowData', nowData)
-    const point = { x: evt.data.x, y: evt.data.y }
+    point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
       lineChartsRef.value?.forEach((chart) => {
@@ -458,7 +472,9 @@ const registerTooltipEvent = (zoom) => {
     manual = true
   })
   chart.on('tooltip:hide', (...args) => {
+    // console.log('tooltip:hide', chart)
     // 非js触发的tooltip，不执行下面的逻辑
+    tRef.value.hide()
     if (manual && !zoom)
       // 通知其他图表，当前图表的数据被hover到了
       lineChartsRef.value?.forEach((chart) => {
@@ -466,11 +482,11 @@ const registerTooltipEvent = (zoom) => {
       })
     nowData = null
     manual = true
+    point = null
   })
 }
 
 // ---------------------------------- tooltip出现并且是非js触发时，可执行copy操作 ----------------------------------
-const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
 // 当前tooltip的数据,用于copy
 let nowData = null
 // 全局注册keydown事件，当mac端触发command+c，windows端触发ctrl+c时，且nowData不为null，执行copy操作
@@ -481,7 +497,8 @@ const handelCopy = (e) => {
     return console.log('非js触发的tooltip，或者未悬浮，不执行copy操作')
   }
   if (e.key === 'c' && (isApple ? e.metaKey : e.ctrlKey)) {
-    console.log('copy:', nowData)
+    e.preventDefault()
+    // console.log('copy:', nowData)
     // nowData依据data降序
     nowData.sort((a, b) => b.data.data - a.data.data)
     // 生成copy的内容，zoom和非zoom样式不一样
@@ -505,19 +522,128 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handelCopy)
 })
 
+// ---------------------------------- 控制线段加粗 ----------------------------------
+/**
+ * 当前加粗的tag,需要注意的是当前加粗的tag可能不存在于当前图表的数据中
+ * mutli为true时，按照tag加粗，否则按照color加粗
+ */
+let nowThickenTag = null
+/**
+ * 当前加粗的颜色，需要注意的是当前加粗的颜色可能不存在于当前图表的数据中
+ * mutlti为false时，按照color加粗，否则按照tag加粗
+ */
+let nowThickenColor = null
+/**
+ * 加粗指定tag的线段
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } tag 实验标签
+ */
+const thickenByTag = (plot, zoom, tag, color) => {
+  // console.log('触发:', props.chart.name)
+  if (!tag || !color) return
+  if (!plot) return
+  if (tag === nowThickenTag) return // 避免重复加粗，会造成无限回调
+  if (tag !== nowThickenTag && nowThickenTag) restoreByTag(plot, zoom, nowThickenTag, nowThickenColor)
+  const els = plot.chart.getElements()
+  for (const e of els) {
+    // 多数据模式下，依据tag加粗
+    if (mutli) {
+      // 如果是array，取[0],如果是object，取series
+      const series = e.model.data[0]?.series || e.model.data.series
+      // console.log('series', series)
+      if (series === tag) {
+        // console.log('加粗', props.chart.name, e)
+        e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
+        break
+      }
+    }
+    // 单数据模式下，依据color加粗
+    else {
+      if (color === e.model.color) {
+        e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
+        break
+      }
+    }
+  }
+  nowThickenTag = tag
+  nowThickenColor = color
+  // 加粗其他图表的数据，保持联动
+  lineChartsRef.value.forEach((chart) => {
+    chart.chartRef.thickenByTagLinkage(zoom, tag, color)
+  })
+}
+
+/**
+ * 将指定颜色的线段恢复原状
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } tag 实验标签
+ */
+const restoreByTag = (plot, zoom, tag, color) => {
+  if (!tag || !color) return
+  if (!nowThickenTag) return
+  const els = plot.chart.getElements()
+  for (const e of els) {
+    // 多数据模式下，依据tag恢复
+    if (mutli) {
+      const series = e.model.data[0]?.series || e.model.data.series
+      if (series === tag) {
+        e.update({ ...e.model, style: { lineWidth: lineWidth } })
+        break
+      }
+    }
+    // 单数据模式下，依据color恢复
+    else {
+      if (color === e.model.color) {
+        e.update({ ...e.model, style: { lineWidth: lineWidth } })
+        break
+      }
+    }
+  }
+  nowThickenTag = null
+  nowThickenColor = null
+  lineChartsRef.value.forEach((chart) => {
+    chart.chartRef.restoreByTagLinkage(zoom, tag, color)
+  })
+}
+
+/**
+ * 用于交给其他图表联动调用来加粗线段
+ * @param { Object } plot plot对象，chartObj或者zoomChartObj
+ * @param { bool } zoom 是否放大
+ * @param { string } color 颜色
+ */
+const thickenByTagLinkage = (zoom, tag, color) => {
+  const plot = zoom ? zoomChartObj : chartObj
+  thickenByTag(plot, zoom, tag, color)
+}
+
+/**
+ * 用于交给其他图表联动调用来恢复线段粗细
+ */
+const restoreByTagLinkage = (zoom, tag, color) => {
+  const plot = zoom ? zoomChartObj : chartObj
+  restoreByTag(plot, zoom, tag, color)
+}
+
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
   change,
   zoom,
   lineShowTooltip,
-  lineHideTooltip
+  lineHideTooltip,
+  thickenByTagLinkage,
+  restoreByTagLinkage
 })
 </script>
 
 <style lang="scss">
 .lc-tooltip {
-  @apply py-2 px-3;
+  @apply py-2 px-3 absolute bg-default border rounded;
+  box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
+  visibility: visible;
   p {
     @apply text-xs text-default font-semibold;
   }
