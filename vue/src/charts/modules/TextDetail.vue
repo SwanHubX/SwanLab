@@ -8,7 +8,10 @@
     <!-- text -->
     <p class="font-semibold pb-2">{{ $t('common.chart.text-chart.titles.text') }}:</p>
     <div class="p-4 min-h-[20vh] max-h-[55vh] overflow-y-auto border rounded bg-default">
-      {{ data.text }}
+      <p v-for="text in data.text.split('\n')" :key="text">
+        <span v-if="text != ''">{{ text }}</span>
+        <br v-else />
+      </p>
     </div>
   </div>
 </template>

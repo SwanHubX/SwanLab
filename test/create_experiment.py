@@ -54,4 +54,4 @@ for epoch in range(2, epochs):
         )
     # print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
-    time.sleep(1)
+    time.sleep(2)
