@@ -297,22 +297,10 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     registerTooltipEvent(dom, zoom)
   })
   // 监听鼠标移入事件
-  c.on('plot:mouseenter', (evt) => {
-    // console.log('plot:mouseenter', evt)
-    // console.log(c.chart.getElements())
-    // const e = c.chart.getElements()[0]
-    // c.chart.getElements()[0].update({ ...e.model, defaultStyle: { lineWidth: 5 } })
-    // 通过颜色判断类型，只需要改变每个类型的第一个元素, color => e
-    // const eMap = new Map()
-    // c.chart.getElements().forEach((e) => {
-    //   if (!eMap.has(e.model.color)) eMap.set(e.model.color, e)
-    // })
-    // eMap.forEach((e) => {
-    //   e.update({ ...e.model, defaultStyle: { lineWidth: 5 } })
-    // })
-  })
+  // c.on('plot:mouseenter', (evt) => {
+  // })
   // 监听鼠标移出事件
-  c.on('plot:mouseleave', (evt) => {
+  c.on('plot:mouseleave', () => {
     restoreByTag(c, zoom, nowThickenTag, nowThickenColor)
   })
   // 监听鼠标移动事件
