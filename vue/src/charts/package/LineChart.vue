@@ -82,7 +82,7 @@ const crosshairsColor = rootStyle.getPropertyValue('--primary-dimmest')
 // 线段默认宽度
 const lineWidth = 2
 // 线段加粗宽度
-const thickerLineWidth = 5
+const thickerLineWidth = 3.5
 
 // ---------------------------------- 样式注册，数据点样式注册，如果是最后一个，会放大 ----------------------------------
 G2.registerShape('point', 'last-point', {
