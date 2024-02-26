@@ -302,7 +302,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   })
   // 监听鼠标移出事件
   c.on('plot:mouseleave', (evt) => {
-    restoreByColor(c, zoom, nowthickenColor)
+    restoreByTag(c, zoom, nowThickenTag)
   })
   // 监听鼠标移动事件
   c.on('plot:mousemove', (evt) => {
@@ -320,7 +320,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       }
     }
     // console.log('鼠标移动', props.chart.name)
-    if (index !== undefined) thickenByColor(c, zoom, nowData[index].color)
+    if (index !== undefined) thickenByTag(c, zoom, nowData[index].data.series)
   })
 
   return c
@@ -525,34 +525,37 @@ onUnmounted(() => {
 
 // ---------------------------------- 控制线段加粗 ----------------------------------
 /**
- * 当前加粗的颜色,需要注意的是当前加粗的颜色可能不存在于当前图表的数据中
+ * 当前加粗的tag,需要注意的是当前加粗的tag可能不存在于当前图表的数据中
  */
-let nowthickenColor = null
+let nowThickenTag = null
 /**
- * 加粗指定颜色的线段
+ * 加粗指定tag的线段
  * @param { Object } plot plot对象，chartObj或者zoomChartObj
  * @param { bool } zoom 是否放大
- * @param { string } color 十六进制颜色，例如#f5f5f5
+ * @param { string } tag 实验标签
  */
-const thickenByColor = (plot, zoom, color) => {
+const thickenByTag = (plot, zoom, tag) => {
   // console.log('触发:', props.chart.name)
-  if (!color) return
+  if (!tag) return
   if (!plot) return
-  if (color === nowthickenColor) return // 避免重复加粗，会造成无限回调
-  if (color !== nowthickenColor && nowthickenColor) restoreByColor(plot, zoom, nowthickenColor)
+  if (tag === nowThickenTag) return // 避免重复加粗，会造成无限回调
+  if (tag !== nowThickenTag && nowThickenTag) restoreByTag(plot, zoom, nowThickenTag)
   const els = plot.chart.getElements()
   for (const e of els) {
-    // console.log(e, props.chart.name)
-    if (e.model.color === color) {
-      console.log('加粗', props.chart.name, e)
+    console.log(e, props.chart.name)
+    // 如果是array，取[0],如果是object，取series
+    const series = e.model.data[0]?.series || e.model.data.series
+    // console.log('series', series)
+    if (series === tag) {
+      // console.log('加粗', props.chart.name, e)
       e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
       break
     }
   }
-  nowthickenColor = color
+  nowThickenTag = tag
   // 加粗其他图表的数据，保持联动
   lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.thickenByColorLinkage(zoom, color)
+    chart.chartRef.thickenByTagLinkage(zoom, tag)
   })
 }
 
@@ -560,22 +563,22 @@ const thickenByColor = (plot, zoom, color) => {
  * 将指定颜色的线段恢复原状
  * @param { Object } plot plot对象，chartObj或者zoomChartObj
  * @param { bool } zoom 是否放大
- * @param { string } color 十六进制颜色，例如#f5f5f5
+ * @param { string } tag 实验标签
  */
-const restoreByColor = (plot, zoom, color) => {
-  if (!color) return
-  if (!nowthickenColor) return
+const restoreByTag = (plot, zoom, tag) => {
+  if (!tag) return
+  if (!nowThickenTag) return
   const els = plot.chart.getElements()
   for (const e of els) {
-    // console.log(e)
-    if (e.model.color === color) {
+    const series = e.model.data[0]?.series || e.model.data.series
+    if (series === tag) {
       e.update({ ...e.model, style: { lineWidth: lineWidth } })
       break
     }
   }
-  nowthickenColor = null
+  nowThickenTag = null
   lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.restoreByColorLinkage(zoom, color)
+    chart.chartRef.restoreByTagLinkage(zoom, tag)
   })
 }
 
@@ -583,19 +586,19 @@ const restoreByColor = (plot, zoom, color) => {
  * 用于交给其他图表联动调用来加粗线段
  * @param { Object } plot plot对象，chartObj或者zoomChartObj
  * @param { bool } zoom 是否放大
- * @param { string } color 十六进制颜色，例如#f5f5f5
+ * @param { string } color 颜色
  */
-const thickenByColorLinkage = (zoom, color) => {
+const thickenByTagLinkage = (zoom, tag) => {
   const plot = zoom ? zoomChartObj : chartObj
-  thickenByColor(plot, zoom, color)
+  thickenByTag(plot, zoom, tag)
 }
 
 /**
  * 用于交给其他图表联动调用来恢复线段粗细
  */
-const restoreByColorLinkage = (zoom, color) => {
+const restoreByTagLinkage = (zoom, tag) => {
   const plot = zoom ? zoomChartObj : chartObj
-  restoreByColor(plot, zoom, color)
+  restoreByTag(plot, zoom, tag)
 }
 
 // ---------------------------------- 暴露api ----------------------------------
@@ -605,8 +608,8 @@ defineExpose({
   zoom,
   lineShowTooltip,
   lineHideTooltip,
-  thickenByColorLinkage,
-  restoreByColorLinkage
+  thickenByTagLinkage,
+  restoreByTagLinkage
 })
 </script>
 
