@@ -26,6 +26,7 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
+        @turn="handelTurn"
         v-if="maxIndex !== minIndex"
       />
     </div>
@@ -46,6 +47,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
+          @turn="handelTurn"
           v-if="maxIndex !== minIndex"
         />
       </div>
@@ -146,6 +148,20 @@ const currentIndex = computed({
     debounceRender()
   }
 })
+
+// 事件处理，触发slideBar的turn事件
+const handelTurn = (direction, value) => {
+  const keys = Array.from(stepMap.keys())
+  console.log('handelTurn', direction, value, keys)
+  const index = keys.findIndex((item) => item > value)
+  if (direction === 'forward') {
+    currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
+  } else {
+    // 向下获取
+    if (index === -1) currentIndex.value = Number(keys[Math.max(0, keys.length - 2)])
+    else currentIndex.value = Number(keys[Math.max(0, index - 2)])
+  }
+}
 
 // ---------------------------------- 控制渲染第几个数据，防抖 ----------------------------------
 

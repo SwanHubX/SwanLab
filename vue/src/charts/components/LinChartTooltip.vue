@@ -43,7 +43,7 @@
  * @file: LinChartTooltip.vue
  * @since: 2024-02-24 15:36:59
  **/
-import { reactive, ref, inject } from 'vue'
+import { ref, inject } from 'vue'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { t } from '@swanlab-vue/i18n'
 const props = defineProps({
@@ -77,7 +77,7 @@ const show = (data, width, x) => {
   isShow.value = true
   const left = parseFloat(x.split('px')[0])
   // console.log(left + tooltipWidth, width)
-  if (left + tooltipWidth > width) {
+  if (left + tooltipWidth - 100 > width) {
     toolTipRef.value.style.right = `${width - left + tooltipXOffset}px`
     toolTipRef.value.style.left = 'auto'
   } else {

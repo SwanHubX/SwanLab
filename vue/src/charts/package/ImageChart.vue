@@ -39,6 +39,7 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
+        @turn="handelTurn"
         v-if="maxIndex !== minIndex"
       />
     </div>
@@ -72,6 +73,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
+          @turn="handelTurn"
           v-if="maxIndex !== minIndex"
         />
       </div>
@@ -169,6 +171,19 @@ const currentIndex = computed({
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
 })
+
+// 事件处理，触发slideBar的turn事件
+const handelTurn = (direction, value) => {
+  const keys = Array.from(Object.keys(stepsData))
+  const index = keys.findIndex((item) => item > value)
+  if (direction === 'forward') {
+    currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
+  } else {
+    // 向下获取
+    if (index === -1) currentIndex.value = Number(keys[Math.max(0, keys.length - 2)])
+    else currentIndex.value = Number(keys[Math.max(0, index - 2)])
+  }
+}
 
 // 布局处理,一共length列，最多显示8列
 const setGrid = (length) => {
