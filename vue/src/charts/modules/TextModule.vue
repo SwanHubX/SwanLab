@@ -111,7 +111,7 @@ const previousPage = ref(currentPage.value)
 // 当前索引，与数据在数组中的索引对应
 const currentIndex = ref(0)
 
-const findClosestNumber = (targetNumber, larger) => {
+const findClosestNumber = (targetNumber, larger, isClick) => {
   // 将字符串转换为数字
   const numericArray = indexes.value.map(Number)
   // 计算每个数字与给定数字之间的距离
@@ -121,14 +121,15 @@ const findClosestNumber = (targetNumber, larger) => {
   let index = distances.indexOf(minDistance)
   let number = numericArray[index]
   if (number === targetNumber) return { index, number }
+  if (!isClick) return { index, number }
   // 这个时候已经找到绝对值上最接近的数，但是需要判断是向前还是向后翻页
-  // if (
-  //   (larger && number <= currentPage.value && index !== indexes.value.length - 1) ||
-  //   (!larger && number > currentPage.value && index !== 0)
-  // ) {
-  //   index += larger ? 1 : -1
-  //   return { index, number: numericArray[index] }
-  // }
+  if (
+    (larger && number <= currentPage.value && index !== indexes.value.length - 1) ||
+    (!larger && number > currentPage.value && index !== 0)
+  ) {
+    index += larger ? 1 : -1
+    return { index, number: numericArray[index] }
+  }
 
   return { index, number }
 }
@@ -139,8 +140,8 @@ const findClosestNumber = (targetNumber, larger) => {
  * @param {*} index
  */
 const time = ref()
-const turnPage = (p) => {
-  const { index, number } = findClosestNumber(p, p > previousPage.value)
+const turnPage = (p, isClick) => {
+  const { index, number } = findClosestNumber(p, p > previousPage.value, isClick)
   currentIndex.value = index
   currentPage.value = Number(number)
   previousPage.value = Number(number)

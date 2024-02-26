@@ -3,7 +3,7 @@ import time
 import random
 import numpy as np
 
-epochs = 50
+epochs = 100
 lr = 0.01
 offset = random.random() / 5
 
@@ -41,16 +41,17 @@ for epoch in range(2, epochs):
     # acc = 1 - 2**-epoch - random.random() / epoch - offset
     # loss = 2**-epoch + random.random() / epoch + offset
     # loss2 = 3**-epoch + random.random() / epoch + offset * 3
-    swanlab.log(
-        {
-            # "test/image": swanlab.Image(test_image, caption="test"),
-            "test/text": swanlab.Text(
-                "test test test test test test test test test test test test test test test",
-                caption="test test test test test test test test test test test test test test test",
-            ),
-        },
-        step=epoch,
-    )
+    if epoch % 7 == 0:
+        swanlab.log(
+            {
+                # "test/image": swanlab.Image(test_image, caption="test"),
+                "test/text": swanlab.Text(
+                    "test test test test test test test test test test test test test test test",
+                    caption="test test test test test test test test test test test test test test test",
+                ),
+            },
+            step=epoch,
+        )
     # print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
     time.sleep(2)

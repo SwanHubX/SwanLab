@@ -28,7 +28,7 @@
  * @file: SlideBar.vue
  * @since: 2024-01-30 16:18:31
  **/
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   max: {
@@ -66,19 +66,26 @@ const _modelValue = computed({
       return (_modelValue.value = props.max)
     }
     emits('update:modelValue', value)
-    emits('change', value)
+    emits('change', value, isClick.value)
+    if (isClick.value) isClick.value = false
   }
 })
 
 // ---------------------------------- 上下键增加/减少数字 ----------------------------------
+
+// 当前修改是否是由点击上下按钮触发的
+const isClick = ref(false)
+
 const handleClickDown = () => {
   if (_modelValue.value > props.min) {
+    isClick.value = true
     _modelValue.value = _modelValue.value - 1
   }
 }
 
 const handleClickUp = () => {
   if (_modelValue.value < props.max) {
+    isClick.value = true
     _modelValue.value = _modelValue.value + 1
   }
 }
