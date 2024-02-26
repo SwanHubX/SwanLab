@@ -3,7 +3,7 @@ import time
 import random
 import numpy as np
 
-epochs = 100
+epochs = 50
 lr = 0.01
 offset = random.random() / 5
 
@@ -33,8 +33,8 @@ for epoch in range(2, epochs):
     # test_image = np.random.randint(0, 255, (100, 100, 3))
     # swanlab.log(
     #     {
-    #         # "test/image": swanlab.Image(test_image, caption="test"),
-    #         "test/text": swanlab.Text("this is a test text", caption="test"),
+    #         "test/image": swanlab.Image(test_image, caption="test"),
+    #         "test/text": swanlab.Text(["this is a test text"] * 20, caption="test"),
     #     },
     #     step=epoch,
     # )
@@ -45,13 +45,13 @@ for epoch in range(2, epochs):
         swanlab.log(
             {
                 # "test/image": swanlab.Image(test_image, caption="test"),
-                "test/text": swanlab.Text(
-                    "test test test test test test test test test test test test test test test",
-                    caption="test test test test test test test test test test test test test test test",
-                ),
+                "hello": [
+                    swanlab.Text("test test test"),
+                ]
+                * 10,
             },
             step=epoch,
         )
     # print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     # swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
-    time.sleep(2)
+    time.sleep(1)

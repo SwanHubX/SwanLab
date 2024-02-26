@@ -9,7 +9,7 @@
     </div>
 
     <!-- body -->
-    <div class="w-full h-[310px] overflow-y-auto border-b" :class="{ 'h-[60vh]': modal }">
+    <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
       <!-- line -->
       <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
         <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
@@ -36,7 +36,8 @@
       :max="pages.maxIndex"
       :bar-color="color"
       @change="turnPage"
-      v-if="texts.length > 1"
+      :key="pages.maxIndex"
+      v-if="data.list.length > 1"
     />
     <SLModal max-w="1200" v-model="isZoom">
       <TextDetail :data="current" />
@@ -54,7 +55,6 @@ import { ref, inject, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import TextDetail from './TextDetail.vue'
 import SlideBar from '../components/SlideBar.vue'
-import { debounce } from '@swanlab-vue/utils/common'
 
 const props = defineProps({
   data: {
@@ -95,23 +95,47 @@ const getCaption = (i) => {
 
 // ---------------------------------- 分页 ----------------------------------
 
+/**
+ * 分页信息，包括 minIndex，maxIndex，sum
+ * minIndex: 最小页码
+ * maxIndex: 最大页码
+ * sum: 总页数
+ */
 const pages = computed(() => {
   const minIndex = Math.min(...indexes.value)
   const maxIndex = Math.max(...indexes.value)
   return { minIndex, maxIndex, sum: indexes.value.length }
 })
 
+/**
+ * 对下面三个变量：
+ * indexes: 对应 steps
+ * currentPage: 当前页码，与 step 对应
+ * currentIndex: 当前索引，与数据在数组中的索引对应
+ *
+ * 这样做的原因是，step 并不一定均匀，而是单增随机的
+ * 所以 currentPage 是当前页码
+ * 而 currentIndex 是当前页码所对应的数组索引
+ * 对应到 props.data 的 list 中，currentIndex 就是数组索引，currentPage 就是索引对应元素中，index 属性值
+ *
+ * 这二者的关系被抽离，通过 indexes 联系：
+ * indexes 中，把 props.data.list 中每一项的 step 提出，按照原本顺序排列
+ * 当有 currentIndex 时，可以通过 indexes[currentIndex] 找到数据对应的 step
+ * 而有 currentPage 时，也可以通过找到其在 indexes 中的位置而知道 index,从而通过 props.data.list[index] 获取数据
+ */
 const indexes = computed(() => {
   return props.data.list.map((item) => item.index)
 })
-
-// 当前页码，与 step 对应
 const currentPage = ref(pages.value.minIndex)
-const previousPage = ref(currentPage.value)
-// 当前索引，与数据在数组中的索引对应
 const currentIndex = ref(0)
 
-const findClosestNumber = (targetNumber, larger, isClick) => {
+/**
+ * 在翻页时找到有效页码和页码索引
+ * @param {int} targetNumber 翻页页码
+ * @param {boolean} next 当前页码是向前还是向后, true 为向后翻页
+ * @param {boolean} isClick 当前翻页操作是否是通过点击上下翻页按钮触发
+ */
+const findClosestNumber = (targetNumber, next, isClick) => {
   // 将字符串转换为数字
   const numericArray = indexes.value.map(Number)
   // 计算每个数字与给定数字之间的距离
@@ -124,10 +148,10 @@ const findClosestNumber = (targetNumber, larger, isClick) => {
   if (!isClick) return { index, number }
   // 这个时候已经找到绝对值上最接近的数，但是需要判断是向前还是向后翻页
   if (
-    (larger && number <= currentPage.value && index !== indexes.value.length - 1) ||
-    (!larger && number > currentPage.value && index !== 0)
+    (next && number <= currentPage.value && index !== indexes.value.length - 1) ||
+    (!next && number > currentPage.value && index !== 0)
   ) {
-    index += larger ? 1 : -1
+    index += next ? 1 : -1
     return { index, number: numericArray[index] }
   }
 
@@ -135,26 +159,27 @@ const findClosestNumber = (targetNumber, larger, isClick) => {
 }
 
 /**
- * 翻页时展示骨架屏
- * @param {*} tag
- * @param {*} index
+ * 翻页，同时展示骨架屏
+ * @param {number} p 当前页面
+ * @param {boolean} isClick 是否是通过点击上下翻页按钮而触发
+ * isClick:
+ * -1: 向前翻页
+ *  0：不是点击上下翻页按钮触发
+ *  1: 向后翻页
  */
 const time = ref()
 const turnPage = (p, isClick) => {
-  const { index, number } = findClosestNumber(p, p > previousPage.value, isClick)
+  // 获取有效页码，index 是页码对应数据数组中的索引，number 是页码
+  const { index, number } = findClosestNumber(p, isClick === 1, isClick)
   currentIndex.value = index
   currentPage.value = Number(number)
-  previousPage.value = Number(number)
+  // 骨架屏
   skeleton.value = true
-  if (time.value) {
-    clearTimeout(time.value)
-  }
+  if (time.value) clearTimeout(time.value)
   time.value = setTimeout(() => {
     skeleton.value = false
   }, 400)
-  // debounce(() => {
-  //   skeleton.value = false
-  // }, 300)()
+  // 获取当前页码对应的数据
   emits('getText', props.tag, index)
 }
 
@@ -165,18 +190,22 @@ const isZoom = ref(false)
 const current = ref({})
 /**
  * 放大查看行详情
- * @param {*} text
- * @param {*} i
+ * @param {string} text 文本内容
+ * @param {int} i v-for 时的行号索引
+ *
+ * 因为一个 step 下可能有多条文本，而单行和多行时对应数据结构并不一样，所以需要分辨一下
  */
 const zoom = (text, i) => {
-  isZoom.value = true
+  // 当前页面所有的信息
   const line = props.data?.list[currentIndex.value]
   current.value = {
     tag: props.tag,
     line,
+    // 单行时，more.caption 是 string，多行时为 array
     caption: Array.isArray(line?.more) ? line?.more[i]?.caption : line?.more?.caption,
     text
   }
+  isZoom.value = true
 }
 </script>
 
