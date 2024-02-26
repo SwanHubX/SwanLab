@@ -302,7 +302,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   })
   // 监听鼠标移出事件
   c.on('plot:mouseleave', (evt) => {
-    restoreByTag(c, zoom, nowThickenTag)
+    restoreByTag(c, zoom, nowThickenTag, nowThickenColor)
   })
   // 监听鼠标移动事件
   c.on('plot:mousemove', (evt) => {
@@ -320,7 +320,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       }
     }
     // console.log('鼠标移动', props.chart.name)
-    if (index !== undefined) thickenByTag(c, zoom, nowData[index].data.series)
+    if (index !== undefined) thickenByTag(c, zoom, nowData[index].data.series, nowData[index].color)
   })
 
   return c
@@ -526,36 +526,52 @@ onUnmounted(() => {
 // ---------------------------------- 控制线段加粗 ----------------------------------
 /**
  * 当前加粗的tag,需要注意的是当前加粗的tag可能不存在于当前图表的数据中
+ * mutli为true时，按照tag加粗，否则按照color加粗
  */
 let nowThickenTag = null
+/**
+ * 当前加粗的颜色，需要注意的是当前加粗的颜色可能不存在于当前图表的数据中
+ * mutlti为false时，按照color加粗，否则按照tag加粗
+ */
+let nowThickenColor = null
 /**
  * 加粗指定tag的线段
  * @param { Object } plot plot对象，chartObj或者zoomChartObj
  * @param { bool } zoom 是否放大
  * @param { string } tag 实验标签
  */
-const thickenByTag = (plot, zoom, tag) => {
+const thickenByTag = (plot, zoom, tag, color) => {
   // console.log('触发:', props.chart.name)
-  if (!tag) return
+  if (!tag || !color) return
   if (!plot) return
   if (tag === nowThickenTag) return // 避免重复加粗，会造成无限回调
-  if (tag !== nowThickenTag && nowThickenTag) restoreByTag(plot, zoom, nowThickenTag)
+  if (tag !== nowThickenTag && nowThickenTag) restoreByTag(plot, zoom, nowThickenTag, nowThickenColor)
   const els = plot.chart.getElements()
   for (const e of els) {
-    console.log(e, props.chart.name)
-    // 如果是array，取[0],如果是object，取series
-    const series = e.model.data[0]?.series || e.model.data.series
-    // console.log('series', series)
-    if (series === tag) {
-      // console.log('加粗', props.chart.name, e)
-      e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
-      break
+    // 多数据模式下，依据tag加粗
+    if (mutli) {
+      // 如果是array，取[0],如果是object，取series
+      const series = e.model.data[0]?.series || e.model.data.series
+      // console.log('series', series)
+      if (series === tag) {
+        // console.log('加粗', props.chart.name, e)
+        e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
+        break
+      }
+    }
+    // 单数据模式下，依据color加粗
+    else {
+      if (color === e.model.color) {
+        e.update({ ...e.model, style: { lineWidth: thickerLineWidth } })
+        break
+      }
     }
   }
   nowThickenTag = tag
+  nowThickenColor = color
   // 加粗其他图表的数据，保持联动
   lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.thickenByTagLinkage(zoom, tag)
+    chart.chartRef.thickenByTagLinkage(zoom, tag, color)
   })
 }
 
@@ -565,20 +581,31 @@ const thickenByTag = (plot, zoom, tag) => {
  * @param { bool } zoom 是否放大
  * @param { string } tag 实验标签
  */
-const restoreByTag = (plot, zoom, tag) => {
-  if (!tag) return
+const restoreByTag = (plot, zoom, tag, color) => {
+  if (!tag || !color) return
   if (!nowThickenTag) return
   const els = plot.chart.getElements()
   for (const e of els) {
-    const series = e.model.data[0]?.series || e.model.data.series
-    if (series === tag) {
-      e.update({ ...e.model, style: { lineWidth: lineWidth } })
-      break
+    // 多数据模式下，依据tag恢复
+    if (mutli) {
+      const series = e.model.data[0]?.series || e.model.data.series
+      if (series === tag) {
+        e.update({ ...e.model, style: { lineWidth: lineWidth } })
+        break
+      }
+    }
+    // 单数据模式下，依据color恢复
+    else {
+      if (color === e.model.color) {
+        e.update({ ...e.model, style: { lineWidth: lineWidth } })
+        break
+      }
     }
   }
   nowThickenTag = null
+  nowThickenColor = null
   lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.restoreByTagLinkage(zoom, tag)
+    chart.chartRef.restoreByTagLinkage(zoom, tag, color)
   })
 }
 
@@ -588,17 +615,17 @@ const restoreByTag = (plot, zoom, tag) => {
  * @param { bool } zoom 是否放大
  * @param { string } color 颜色
  */
-const thickenByTagLinkage = (zoom, tag) => {
+const thickenByTagLinkage = (zoom, tag, color) => {
   const plot = zoom ? zoomChartObj : chartObj
-  thickenByTag(plot, zoom, tag)
+  thickenByTag(plot, zoom, tag, color)
 }
 
 /**
  * 用于交给其他图表联动调用来恢复线段粗细
  */
-const restoreByTagLinkage = (zoom, tag) => {
+const restoreByTagLinkage = (zoom, tag, color) => {
   const plot = zoom ? zoomChartObj : chartObj
-  restoreByTag(plot, zoom, tag)
+  restoreByTag(plot, zoom, tag, color)
 }
 
 // ---------------------------------- 暴露api ----------------------------------

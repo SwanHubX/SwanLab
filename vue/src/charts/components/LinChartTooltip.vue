@@ -72,6 +72,7 @@ const key = ref(null)
  */
 const show = (data, width, x) => {
   // console.log('show', data, width, x)
+  data.sort((a, b) => b.data.data - a.data.data)
   // key.value = Math.random()
   items.value = data
   isShow.value = true
