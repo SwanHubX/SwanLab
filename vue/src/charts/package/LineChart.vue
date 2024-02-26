@@ -78,7 +78,7 @@ const borderColor = rootStyle.getPropertyValue('--outline-default')
 // 网格线颜色，通过js获取css变量值
 const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 // 十字准线颜色，通过js获取css变量值
-const crosshairsColor = rootStyle.getPropertyValue('--outline-dimmer')
+const crosshairsColor = rootStyle.getPropertyValue('--primary-dimmest')
 // 线段默认宽度
 const lineWidth = 2
 // 线段加粗宽度
