@@ -28,7 +28,7 @@
  * @file: SlideBar.vue
  * @since: 2024-01-30 16:18:31
  **/
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   max: {

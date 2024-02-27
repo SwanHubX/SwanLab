@@ -36,6 +36,7 @@
       :max="pages.maxIndex"
       :bar-color="color"
       @change="turnPage"
+      @turn="clickToTurn"
       :key="pages.maxIndex"
       v-if="data.list.length > 1"
     />
@@ -147,10 +148,7 @@ const findClosestNumber = (targetNumber, next, isClick) => {
   if (number === targetNumber) return { index, number }
   if (!isClick) return { index, number }
   // 这个时候已经找到绝对值上最接近的数，但是需要判断是向前还是向后翻页
-  if (
-    (next && number <= currentPage.value && index !== indexes.value.length - 1) ||
-    (!next && number > currentPage.value && index !== 0)
-  ) {
+  if ((next && index !== indexes.value.length - 1) || (!next && index !== 0)) {
     index += next ? 1 : -1
     return { index, number: numericArray[index] }
   }
@@ -162,15 +160,11 @@ const findClosestNumber = (targetNumber, next, isClick) => {
  * 翻页，同时展示骨架屏
  * @param {number} p 当前页面
  * @param {boolean} isClick 是否是通过点击上下翻页按钮而触发
- * isClick:
- * -1: 向前翻页
- *  0：不是点击上下翻页按钮触发
- *  1: 向后翻页
  */
 const time = ref()
 const turnPage = (p, isClick) => {
   // 获取有效页码，index 是页码对应数据数组中的索引，number 是页码
-  const { index, number } = findClosestNumber(p, isClick === 1, isClick)
+  const { index, number } = findClosestNumber(p, isClick, isClick !== undefined)
   currentIndex.value = index
   currentPage.value = Number(number)
   // 骨架屏
@@ -183,7 +177,17 @@ const turnPage = (p, isClick) => {
   emits('getText', props.tag, index)
 }
 
-// // ---------------------------------- 放大 ----------------------------------
+/**
+ * 通过点击上下按钮翻页
+ * @param {string} type 前后，前为 forward，页码增加，后为 backward，页码减小
+ * @param {int} p 当前页码
+ */
+const clickToTurn = (type, p) => {
+  if (type === 'forward') return turnPage(p + 1, true)
+  return turnPage(p - 1, false)
+}
+
+// ---------------------------------- 放大 ----------------------------------
 
 const isZoom = ref(false)
 
