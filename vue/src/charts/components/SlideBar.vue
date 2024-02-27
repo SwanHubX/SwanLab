@@ -53,7 +53,7 @@ const props = defineProps({
   }
 })
 
-const emits = defineEmits(['update:modelValue', 'change'])
+const emits = defineEmits(['update:modelValue', 'change', 'turn'])
 
 const _modelValue = computed({
   get() {
@@ -66,32 +66,27 @@ const _modelValue = computed({
       return (_modelValue.value = props.max)
     }
     emits('update:modelValue', value)
-    emits('change', value, turnPageByClick.value)
-    if (turnPageByClick.value !== 0) turnPageByClick.value = 0
+    emits('change', value)
   }
 })
 
 // ---------------------------------- 上下键增加/减少数字 ----------------------------------
 
 /**
- * 当前修改是否是由点击上下按钮触发的
- * -1: 点击向前翻页
- * 0: 不是点击上下按钮触发的
- * 1: 点击向后翻页
+ * 向后渐少
  */
-const turnPageByClick = ref(0)
-
 const handleClickDown = () => {
   if (_modelValue.value > props.min) {
-    turnPageByClick.value = -1
-    _modelValue.value = _modelValue.value - 1
+    emits('turn', 'backward', _modelValue.value)
   }
 }
 
+/**
+ * 向前增加
+ */
 const handleClickUp = () => {
   if (_modelValue.value < props.max) {
-    turnPageByClick.value = 1
-    _modelValue.value = _modelValue.value + 1
+    emits('turn', 'forward', _modelValue.value)
   }
 }
 
