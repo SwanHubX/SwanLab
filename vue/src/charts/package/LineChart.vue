@@ -147,6 +147,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
     // seriesField,
     colorField,
+    // 自己写图例
     legend: false,
     // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
     color: ({ series }) => {
