@@ -85,14 +85,22 @@ const error = computed(() => {
 
 // ---------------------------------- 获取文本 ----------------------------------
 
+// 文本内容，数据结构：{ tag: Array<array || string> }
 const texts = ref({})
 
+/**
+ * 通过 log 中记录的文件名获取文本内容
+ * @param {string} tag 标签名
+ * @param {int} currentPage 数据在 list 中的索引号 => step 对应的索引，指出了数据在数组中的真实位置
+ */
 const getText = async (tag, currentPage) => {
   // 已经有数据了，不需要重复请求
   if (texts.value[tag][currentPage] != null) return
+  // 即训练时的 log 内容，保存了文本文件名称
   const path = original_data.value[tag].list[currentPage].data
   const res = await http.get('/media/text', {
     params: {
+      // 如果 path 是数组，则拼接成字符串 => 该接口通过 params 获取数组
       path: Array.isArray(path) ? path.join(',') : path,
       tag,
       run_id: run_id.value
@@ -105,10 +113,14 @@ const getText = async (tag, currentPage) => {
 
 // 渲染
 const render = (data) => {
+  // 保存原始数据，其中主要数据结构：{tag: {list: [{data: 'xxx', more: {caption: 'xxx'}}]}}
   original_data.value = data
+  // 遍历 source 获取所有 tag 第一页的文本数据
   for (let index in source.value) {
     const tag = source.value[index]
+    // texts 是对象，属性名为 tag，属性值为数组，数组长度为每个 tag 所有数据的总数，未获取的数据位置用 null 填充
     texts.value[tag] = Array(data[tag].list.length).fill(null)
+    // 第二参数为 0，表示获取 tag 第一页的文本
     getText(tag, 0)
   }
 }

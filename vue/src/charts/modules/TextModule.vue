@@ -12,14 +12,18 @@
     <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
       <!-- line -->
       <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
+        <!-- caption -->
         <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
+        <!-- text -->
         <div class="text" :title="text">{{ text }}</div>
+        <!-- zoom icon -->
         <SLIcon
           icon="zoom"
           class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
           @click="zoom(text, i)"
         />
       </div>
+      <!-- 骨架屏 -->
       <div v-if="skeleton && texts[currentIndex]">
         <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
           <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
@@ -29,6 +33,7 @@
         </div>
       </div>
     </div>
+    <!-- 翻页 -->
     <SlideBar
       class="pt-2"
       v-model="currentPage"
@@ -40,6 +45,7 @@
       :key="pages.maxIndex"
       v-if="data.list.length > 1"
     />
+    <!-- 数据详情 -->
     <SLModal max-w="1200" v-model="isZoom">
       <TextDetail :data="current" />
     </SLModal>
