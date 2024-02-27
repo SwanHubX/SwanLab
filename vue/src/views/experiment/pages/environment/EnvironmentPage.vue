@@ -1,5 +1,8 @@
 <template>
-  <div class="w-full h-full flex p-6 bg-higher min-h-[calc(100vh-175px)]">
+  <div
+    class="w-full h-full flex p-6 bg-higher"
+    :class="experimentStore.experiment.description ? 'min-h-[calc(100vh-195px)]' : 'min-h-[calc(100vh-163px)]'"
+  >
     <SiderNav class="shrink-0 mr-6" />
     <div class="w-full rounded-lg mr-6">
       <RouterView></RouterView>
@@ -15,6 +18,9 @@
  **/
 
 import SiderNav from './components/SiderNav.vue'
+import { useExperimentStore } from '@swanlab-vue/store'
+
+const experimentStore = useExperimentStore()
 </script>
 
 <style lang="scss" scoped></style>
