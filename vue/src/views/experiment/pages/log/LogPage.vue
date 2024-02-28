@@ -8,8 +8,8 @@
       :filename="filename"
       v-if="logs"
     />
-    <section class="log-container" :class="experimentStore.experiment.description ? 'h-[65vh]' : 'h-[70vh]'">
-      <div class="log-area" ref="logAreaRef" v-if="logs">
+    <section class="log-container">
+      <div class="log-area" ref="logAreaRef" @scroll="handleScroll" v-if="logs">
         <!-- 运行日志 -->
         <div class="log-line" v-for="line in lines" :key="line">
           <!-- 行号 -->
@@ -58,12 +58,14 @@
  * @since: 2023-12-09 20:40:44
  **/
 
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'
+import { debounce } from '@swanlab-vue/utils/common'
+import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 
 const logAreaRef = ref()
 
@@ -123,8 +125,66 @@ function splitStringBySearch(target, substring) {
 
 // 错误日志
 const errorLogs = ref([])
-;(async function () {
-  // 获取日志
+
+// ---------------------------------- 搜索 ----------------------------------
+
+const searchValue = ref('')
+
+const search = (value) => {
+  searchValue.value = value.toLowerCase()
+}
+
+// ---------------------------------- 下载 ----------------------------------
+
+const filename = 'print.log'
+
+// ---------------------------------- 动态渲染 ----------------------------------
+
+// log 渲染范围
+const range = ref([0, 0])
+// 行高
+const lineHeight = ref(0)
+// 最大额外渲染行数
+const addition = 10
+// log 区高度
+const areaHeight = computed(() => {
+  return lines.value?.length * lineHeight.value
+})
+
+const handleScroll = debounce((event) => {
+  const e = event.target
+  computeRange(e)
+}, 100)
+
+// 计算 log 的渲染范围
+const computeRange = (e) => {
+  const line_height = lineHeight.value
+  // 计算应该渲染多少条数据
+  const pageSize = Math.ceil(e.clientHeight / line_height)
+  // 计算第一条 log 的索引
+  const startIndex = Math.floor(e.scrollTop / line_height)
+  // 计算最后一条 log 的索引
+  const endIndex = startIndex + pageSize
+
+  // 如果距离顶部很近，把顶部到第一条中的log也渲染了
+  if (e.scrollTop <= addition * line_height) range.value[0] = 0
+  // 如果距离顶部比较远，仅渲染第一条上的 addition 条 log
+  else range.value[0] = startIndex - addition
+
+  // 如果距离底部很近，把最后一条到底部的log也渲染了
+  if (e.scrollTop + e.clientHeight >= e.scrollHeight - addition * line_height) range.value[1] = lines.value.length - 1
+  // 如果距离底部较远，仅渲染最后一条下的 addition 条 log
+  else range.value[1] = endIndex + addition
+}
+
+// 计算 log 行高
+const computeLineHeight = () => {
+  const line_styles = window.getComputedStyle(document.querySelector('.log-line'))
+  lineHeight.value = parseFloat(line_styles.getPropertyValue('line-height'))
+}
+
+onMounted(async () => {
+  // 获取日志数据
   const { data } = await http.get(`/experiment/${id}/recent_log`).catch((error) => {
     if (error.data.code === 3404) {
       logs.value = []
@@ -140,24 +200,15 @@ const errorLogs = ref([])
   //   // 滚动到底部
   //   logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
   // })
-})()
 
-// ---------------------------------- 搜索 ----------------------------------
-
-const searchValue = ref('')
-
-const search = (value) => {
-  searchValue.value = value.toLowerCase()
-}
-
-// ---------------------------------- 下载 ----------------------------------
-
-const filename = 'print.log'
+  // 保证渲染后再获取行高
+  addTaskToBrowserMainThread(computeLineHeight)
+})
 </script>
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full rounded p-4;
+  @apply bg-higher w-full rounded p-4 h-[78vh];
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
