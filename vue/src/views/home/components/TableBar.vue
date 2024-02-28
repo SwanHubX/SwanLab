@@ -31,7 +31,7 @@
  * @since: 2024-01-16 17:52:07
  **/
 import SLCheck from '@swanlab-vue/components/SLCheck.vue'
-import { formatTime } from '@swanlab-vue/utils/time'
+import { formatTime, getDuration } from '@swanlab-vue/utils/time'
 import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
 
@@ -109,6 +109,8 @@ const checkType = (item, type, key) => {
       return formatTime(item.create_time)
     case 'status':
       return t(`experiment.status.${item.status}`)
+    case 'duration':
+      return getDuration(item)
   }
 }
 </script>
