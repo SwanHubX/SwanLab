@@ -12,7 +12,7 @@
       <!-- 用于撑开容器，保证滚动条高度 -->
       <div class="log-area" :style="{ height: areaHeight + 'px' }" v-if="logs">
         <!-- 日志画板 -->
-        <div class="absolute pb-5 w-full" :style="{ top: computeTop }">
+        <div class="log-board" :style="{ top: computeTop + 'px' }">
           <!-- 运行日志 -->
           <div
             class="log-line"
@@ -20,29 +20,28 @@
             :key="line.value + range[0] + index"
           >
             <!-- 行号 -->
-            <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
-            <!-- 日志内容 -->
-            <!-- 如果没有搜索内容/不含搜索内容 -->
-            <span v-show="!line.isTarget">{{ line.value }} </span>
-            <!-- 如果有搜索内容且含有搜索内容 -->
-            <span v-show="line.isTarget">
-              <span
-                v-for="substring in line.value"
-                :key="substring"
-                :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
-              >
-                {{ substring }}
+            <span
+              class="w-8 text-right flex-shrink-0 text-dimmest select-none"
+              :class="{ 'text-negative-default': line.error }"
+              >{{ line.index }}</span
+            >
+            <!-- 正常日志 -->
+            <div v-if="!line.error">
+              <!-- 如果没有搜索内容/不含搜索内容 -->
+              <span v-show="!line.isTarget">{{ line.value }} </span>
+              <!-- 如果有搜索内容且含有搜索内容 -->
+              <span v-show="line.isTarget">
+                <span
+                  v-for="substring in line.value"
+                  :key="substring"
+                  :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
+                >
+                  {{ substring }}
+                </span>
               </span>
-            </span>
-          </div>
-        </div>
-        <!-- 错误日志 -->
-        <div class="absolute bottom-0" ref="errorLog">
-          <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
-            <!-- 行数 -->
-            <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
-            <!-- 日志内容 -->
-            <span>{{ line }}</span>
+            </div>
+            <!-- 错误日志 -->
+            <div class="text-negative-default" v-else>{{ line.value }}</div>
           </div>
         </div>
         <!-- 没有日志 -->
@@ -89,7 +88,8 @@ const logs = ref()
 
 // 分开行号和内容之后的日志
 const lines = computed(() => {
-  return logs.value?.map((line) => {
+  // 正常日志内容
+  const data = logs.value?.map((line) => {
     const noIndex = isNaN(line.substring(0, line.indexOf(' ')))
     const index = noIndex ? null : line.substring(0, line.indexOf(' '))
     const content = noIndex ? line : line.substring(line.indexOf(' ')).trimStart()
@@ -100,16 +100,28 @@ const lines = computed(() => {
       value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
+  // 正常内容最后一行的行号
+  const lastLineIndex = getLastLineIndex(data)
+  // 处理错误日志内容
+  errorLogs.value.map((line, index) => {
+    return data.push({
+      index: lastLineIndex + index + 1,
+      value: line,
+      error: true
+    })
+  })
+
+  return data
 })
 
-// 正常内容最后一行的行号
-const lastLineIndex = computed(() => {
-  const maxIndex = lines.value?.reduce((max, line) => {
+// 获取正常内容最后一行的行号
+const getLastLineIndex = (data) => {
+  const maxIndex = data?.reduce((max, line) => {
     if (!line.index) return max
     return Number(line.index) > Number(max) ? line.index : max
   }, 0)
   return Number(maxIndex)
-})
+}
 
 const download = computed(() => {
   const log_list = logs.value?.map((log) => {
@@ -120,7 +132,7 @@ const download = computed(() => {
   return log_list?.join('\n') + errorLogs.value.join('\n')
 })
 
-function splitStringBySearch(target, substring) {
+const splitStringBySearch = (target, substring) => {
   // 使用正则表达式进行大小写不敏感的分割，并保留分割点
   let resultArray = target.split(new RegExp(`(${substring})`, 'i'))
 
@@ -143,11 +155,11 @@ const search = (value) => {
   searchValue.value = value.toLowerCase()
 }
 
-// const searchTargets = computed(() => {
-//   return lines.value.filter((line) => {
-//     return line.isTarget
-//   })
-// })
+const searchTargets = computed(() => {
+  return lines.value.filter((line) => {
+    return line.isTarget
+  })
+})
 
 // ---------------------------------- 下载 ----------------------------------
 
@@ -162,10 +174,8 @@ const lineHeight = ref(16)
 // 最大额外渲染行数
 const addition = 10
 // log 区高度
-const errorLog = ref(null)
 const areaHeight = computed(() => {
-  const eh = errorLog.value?.scrollHeight || 0
-  return lines.value?.length * lineHeight.value + eh
+  return lines.value?.length * lineHeight.value
 })
 
 const handleScroll = debounce((event) => {
@@ -206,7 +216,7 @@ const computeLineHeight = () => {
 }
 
 const computeTop = computed(() => {
-  return range.value[0] * lineHeight.value + 'px'
+  return range.value[0] * lineHeight.value
 })
 
 /**
@@ -250,6 +260,10 @@ onMounted(async () => {
     @apply relative h-full break-all;
     &::-webkit-scrollbar-track {
       background: transparent;
+    }
+
+    .log-board {
+      @apply absolute pb-5 w-full;
     }
   }
 
