@@ -10,44 +10,45 @@
     />
     <section class="log-container" @scroll="handleScroll">
       <div class="log-area" :style="{ height: areaHeight + 'px' }" v-if="logs">
-        <!-- 运行日志 -->
-        <div
-          class="log-line"
-          :style="{ top: computeTop(index) }"
-          v-for="(line, index) in lines.slice(range[0], range[1] + 1)"
-          :key="line"
-          ref="linesRef"
-        >
-          <!-- 行号 -->
-          <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
-          <!-- 日志内容 -->
-          <!-- 如果没有搜索内容/不含搜索内容 -->
-          <span v-show="!line.isTarget">{{ line.value }} </span>
-          <!-- 如果有搜索内容且含有搜索内容 -->
-          <span v-show="line.isTarget">
-            <span
-              v-for="substring in line.value"
-              :key="substring"
-              :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
-            >
-              {{ substring }}
+        <div class="absolute" :style="{ top: computeTop }">
+          <!-- 运行日志 -->
+          <div
+            class="log-line"
+            v-for="(line, index) in lines.slice(range[0], range[1] + 1)"
+            :key="line.value + range[0] + index"
+            ref="linesRef"
+          >
+            <!-- 行号 -->
+            <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
+            <!-- 日志内容 -->
+            <!-- 如果没有搜索内容/不含搜索内容 -->
+            <span v-show="!line.isTarget">{{ line.value }} </span>
+            <!-- 如果有搜索内容且含有搜索内容 -->
+            <span v-show="line.isTarget">
+              <span
+                v-for="substring in line.value"
+                :key="substring"
+                :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
+              >
+                {{ substring }}
+              </span>
             </span>
-          </span>
-        </div>
-        <!-- 错误日志 -->
-        <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
-          <!-- 行数 -->
-          <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
-          <!-- 日志内容 -->
-          <span>{{ line }}</span>
-        </div>
-        <!-- 没有日志 -->
-        <div
-          class="w-full py-10 flex flex-col items-center text-lg font-semibold"
-          v-if="logs.length === 0 && errorLogs.length === 0"
-        >
-          <SLIcon class="magnifier" icon="search"></SLIcon>
-          <span>No Logs</span>
+          </div>
+          <!-- 错误日志 -->
+          <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
+            <!-- 行数 -->
+            <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
+            <!-- 日志内容 -->
+            <span>{{ line }}</span>
+          </div>
+          <!-- 没有日志 -->
+          <div
+            class="w-full py-10 flex flex-col items-center text-lg font-semibold"
+            v-if="logs.length === 0 && errorLogs.length === 0"
+          >
+            <SLIcon class="magnifier" icon="search"></SLIcon>
+            <span>No Logs</span>
+          </div>
         </div>
       </div>
       <div class="flex h-full items-center justify-center" v-else>
@@ -194,15 +195,9 @@ const computeLineHeight = () => {
   lineHeight.value = parseFloat(line_styles.getPropertyValue('line-height'))
 }
 
-const computeTop = (index) => {
-  const refs = linesRef.value?.slice(0, index)
-  if (!refs) return
-  let h = 0
-  for (const ref of refs) {
-    h += ref.clientHeight
-  }
-  return range.value[0] * lineHeight.value + h + 'px'
-}
+const computeTop = computed(() => {
+  return range.value[0] * lineHeight.value + 'px'
+})
 
 /**
  * 初始化：
@@ -249,7 +244,7 @@ onMounted(async () => {
   }
 
   .log-line {
-    @apply flex gap-2 whitespace-pre-wrap absolute;
+    @apply flex gap-2 whitespace-pre-wrap;
   }
 }
 
