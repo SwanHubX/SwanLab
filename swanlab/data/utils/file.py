@@ -109,3 +109,16 @@ def get_file_hash_pil(image) -> str:
         image.save(buffer, format="PNG")  # 可以选择其他格式，如'JPEG'
         hash_sha256.update(buffer.getvalue())
     return hash_sha256.hexdigest()
+
+
+def get_text_sha256_hash(text):
+    """计算并返回给定文本的SHA-256哈希值。"""
+    import hashlib
+
+    # 使用hashlib库创建一个sha256哈希对象
+    hash_object = hashlib.sha256()
+    # 对输入的文本进行编码，因为hashlib需要的是字节对象
+    hash_object.update(text.encode())
+    # 获取十六进制格式的哈希值
+    hex_dig = hash_object.hexdigest()
+    return hex_dig

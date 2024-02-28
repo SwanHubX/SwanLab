@@ -7,14 +7,9 @@
     </div>
     <!-- <p>{{ max }}</p> -->
     <!-- 输入框 -->
-    <div class="w-16 h-6 border rounded flex items-center p-1">
-      <input
-        class="w-full h-full border-none outline-none bg-transparent text-xs"
-        type="number"
-        v-model="_modelValue"
-        @change="handleChange"
-      />
-      <div class="w-3 flex-shrink-0 flex-col flex">
+    <div class="flex items-center relative">
+      <input type="number" :value="_modelValue" ref="input" @keyup.enter="handleChange" @blur="handleChange" />
+      <div class="w-3 flex-shrink-0 flex-col flex absolute right-1">
         <SLIcon icon="down" class="w-full h-3 -rotate-180 -mb-1" @click="handleClickUp" />
         <SLIcon icon="down" class="w-full aspect-square" @click="handleClickDown" />
       </div>
@@ -28,7 +23,7 @@
  * @file: SlideBar.vue
  * @since: 2024-01-30 16:18:31
  **/
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   max: {
@@ -55,6 +50,8 @@ const props = defineProps({
 
 const emits = defineEmits(['update:modelValue', 'change', 'turn'])
 
+const input = ref(null)
+
 const _modelValue = computed({
   get() {
     return props.modelValue
@@ -67,6 +64,7 @@ const _modelValue = computed({
     }
     emits('update:modelValue', value)
     emits('change', value)
+    input.value.value = _modelValue.value
   }
 })
 
@@ -91,8 +89,10 @@ const handleClickUp = () => {
 }
 
 // ---------------------------------- 当input输入结束时，再次赋值 ----------------------------------
+
 const handleChange = (e) => {
-  e.target.value = _modelValue.value
+  if (e.target.value == _modelValue.value) return
+  _modelValue.value = e.target.value
 }
 </script>
 
@@ -111,5 +111,9 @@ const handleChange = (e) => {
     -moz-appearance: textfield;
     appearance: textfield;
   }
+}
+
+input {
+  @apply w-16 h-6 pl-1 pr-5 rounded border outline-none bg-transparent text-xs focus:border-primary-default;
 }
 </style>

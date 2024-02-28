@@ -8,7 +8,7 @@
       :filename="filename"
       v-if="logs"
     />
-    <section class="log-container">
+    <section class="log-container" :class="experimentStore.experiment.description ? 'h-[65vh]' : 'h-[70vh]'">
       <div class="log-area" ref="logAreaRef" v-if="logs">
         <!-- 运行日志 -->
         <div class="log-line" v-for="line in lines" :key="line">
@@ -61,7 +61,6 @@
 import { ref } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'
@@ -158,7 +157,7 @@ const filename = 'print.log'
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full h-[calc(100vh-180px)] rounded p-4;
+  @apply bg-higher w-full rounded p-4;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;

@@ -2,6 +2,7 @@
 from .base import BaseType
 import os
 from typing import Union, List
+from ..utils.file import get_text_sha256_hash
 
 
 class Text(BaseType):
@@ -25,25 +26,29 @@ class Text(BaseType):
         # 如果传入的是Text类列表
         if isinstance(self.value, list):
             return self.get_data_list()
-        else:
-            # 预处理文本数据
-            self.__preprocess(self.value)
 
-            # 设置文本数据的保存路径
-            save_dir = os.path.join(self.settings.static_dir, self.tag)
-            save_name = (
-                f"{self.caption}-step{self.step}-{self.text_data[:16]}.txt"
-                if self.caption is not None
-                else f"text-step{self.step}-{self.text_data[:16]}.txt"
-            )
-            # 如果路径不存在，则创建路径
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-            save_path = os.path.join(save_dir, save_name)
+        # 预处理文本数据
+        self.__preprocess(self.value)
 
-            # 保存文本数据写入到指定目录的指定json文件
-            self.__save(save_path)
-            return save_name
+        # 获取文本的hash值
+        hash_name = get_text_sha256_hash(self.text_data)[:16]
+
+        # 设置文本数据的保存路径
+        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_name = (
+            f"{self.caption}-step{self.step}-{hash_name}.txt"
+            if self.caption is not None
+            else f"text-step{self.step}-{hash_name}.txt"
+        )
+
+        # 如果路径不存在，则创建路径
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path = os.path.join(save_dir, save_name)
+
+        # 保存文本数据写入到指定目录的指定json文件
+        self.__save(save_path)
+        return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "int", "float"]

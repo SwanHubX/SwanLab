@@ -34,6 +34,7 @@ for epoch in range(2, epochs):
         swanlab.log(
             {
                 "test/image": swanlab.Image(test_image, caption="test"),
+                "test/text": swanlab.Text("hello swanlab!", caption="swanlab official"),
             },
             step=epoch,
         )

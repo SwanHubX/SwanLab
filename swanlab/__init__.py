@@ -6,6 +6,7 @@ from .data import (
     config,
     Audio,
     Image,
+    Text,
     Run,
 )
 
