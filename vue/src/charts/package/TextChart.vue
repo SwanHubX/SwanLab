@@ -48,6 +48,7 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import TextModule from '../modules/TextModule.vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
+import * as UTILS from './utils'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -87,7 +88,8 @@ const error = computed(() => {
 
 // 文本内容，数据结构：{ tag: Array<array || string> }
 const texts = ref({})
-
+// 文本内容缓存，防止多次请求同一资源
+const textBuffers = {}
 /**
  * 通过 log 中记录的文件名获取文本内容
  * @param {string} tag 标签名
@@ -97,16 +99,46 @@ const getText = async (tag, currentPage) => {
   // 已经有数据了，不需要重复请求
   if (texts.value[tag][currentPage] != null) return
   // 即训练时的 log 内容，保存了文本文件名称
-  const path = original_data.value[tag].list[currentPage].data
-  const res = await http.get('/media/text', {
-    params: {
-      // 如果 path 是数组，则拼接成字符串 => 该接口通过 params 获取数组
-      path: Array.isArray(path) ? path.join(',') : path,
-      tag,
-      run_id: run_id.value
-    }
+  let path = original_data.value[tag].list[currentPage].data
+  const promises = []
+  ;(Array.isArray(path) ? path : [path]).map((url) => {
+    promises.push(
+      // 通过 promise 构建单个请求
+      new Promise((resolve) => {
+        // 如果缓存中有，直接用缓存
+        if (textBuffers[url]) {
+          resolve(textBuffers[url])
+        } else {
+          // 请求，并将 blob 以 utf-8 字符串的形式返回
+          UTILS.media.get(url, run_id.value, tag).then((res) => {
+            blobToString(res).then((text) => {
+              // 记录缓存
+              textBuffers[url] = text
+              resolve(text)
+            })
+          })
+        }
+      })
+    )
   })
-  texts.value[tag][currentPage] = res.data.text
+  texts.value[tag][currentPage] = await Promise.all(promises)
+}
+
+/**
+ * 将 blob 以 utf-8 编码解析成字符串
+ * @param {blob} blob 二进制 txt 内容
+ */
+const blobToString = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = function (event) {
+      resolve(event.target.result)
+    }
+    reader.onerror = function () {
+      reject(new Error('Failed to read the Blob as UTF-8 string.'))
+    }
+    reader.readAsText(blob, 'UTF-8')
+  })
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
