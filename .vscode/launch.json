@@ -25,15 +25,17 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
-    // 打包命令
+    // 开发调试
     {
-      "name": "构建项目",
+      "name": "开发调试",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/build_pypi.py",
+      "program": "${workspaceFolder}/test/test_create_experiment.py",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      //sys.path 会加入顶层目录，影响模块导入查询路径
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     // 模拟实验开启
     {
@@ -69,6 +71,16 @@
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    // 打包命令
+    {
+      "name": "构建项目",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_pypi.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
