@@ -19,39 +19,28 @@ swanlab.init(
     logggings=True,
 )
 for epoch in range(2, epochs):
-    # if epoch % 10 == 0:
-    # # 测试audio
-    # sample_rate = 44100
-    # test_audio_arr = np.random.randn(2, 100000)
-    # swanlab.log(
-    #     {
-    #         "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
-    #     },
-    #     step=epoch,
-    # )
-    # 测试image
-    # test_image = np.random.randint(0, 255, (100, 100, 3))
-    # swanlab.log(
-    #     {
-    #         "test/image": swanlab.Image(test_image, caption="test"),
-    #         "test/text": swanlab.Text(["this is a test text"] * 20, caption="test"),
-    #     },
-    #     step=epoch,
-    # )
-    # acc = 1 - 2**-epoch - random.random() / epoch - offset
-    # loss = 2**-epoch + random.random() / epoch + offset
-    # loss2 = 3**-epoch + random.random() / epoch + offset * 3
-    if epoch % 7 == 0:
+    if epoch % 10 == 0:
+        # # 测试audio
+        # sample_rate = 44100
+        # test_audio_arr = np.random.randn(2, 100000)
+        # swanlab.log(
+        #     {
+        #         "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
+        #     },
+        #     step=epoch,
+        # )
+        # 测试image
+        test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
             {
-                # "test/image": swanlab.Image(test_image, caption="test"),
-                "hello": [
-                    swanlab.Text("test test test"),
-                ]
-                * 10,
+                "test/image": swanlab.Image(test_image, caption="test"),
+                "test/text": swanlab.Text("hello swanlab!", caption="swanlab official"),
             },
             step=epoch,
         )
-    # print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    # swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
-    time.sleep(2)
+    acc = 1 - 2**-epoch - random.random() / epoch - offset
+    loss = 2**-epoch + random.random() / epoch + offset
+    loss2 = 3**-epoch + random.random() / epoch + offset * 3
+    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
+    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
+    time.sleep(0.2)
