@@ -25,7 +25,7 @@
         >
           <div class="image-container">
             <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
-            <DownloadButton class="!w-5 !h-5 !p-0.5 download-button" @click.stop="download(s.filename)" />
+            <DownloadButton class="download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
         </div>
@@ -59,7 +59,7 @@
           >
             <div class="image-container">
               <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
-              <DownloadButton class="!w-5 !h-5 !p-0.5 download-button" @click.stop="download(s.filename)" />
+              <DownloadButton class="download-button" @click.stop="download(s.filename)" />
             </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
           </div>
@@ -85,7 +85,12 @@
       v-model="isSingleZoom"
       close-on-overlay-click
     >
-      <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
+      <div class="image-single-zoom">
+        <div class="relative">
+          <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
+          <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
+        </div>
+      </div>
     </SLModal>
   </template>
 </template>
@@ -287,9 +292,6 @@ const zoom = () => {
 
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
 const isSingleZoom = ref(false)
-watch(isSingleZoom, () => {
-  isZoom.value = false
-})
 const signleZoomFilename = ref()
 // 点击某个图像，放大
 const handelClickZoom = (filename) => {
@@ -337,11 +339,15 @@ defineExpose({
       &:hover .download-button {
         @apply block;
       }
-      .download-button {
-        @apply opacity-75 absolute top-1 right-1 hidden;
-      }
     }
   }
+}
+
+.download-button {
+  @apply opacity-75 absolute top-1 right-1 hidden;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  padding: 0.125rem !important;
 }
 
 .image-content-no-zoom {
@@ -349,6 +355,13 @@ defineExpose({
 }
 
 .image-content-zoom {
-  @apply h-[calc(100vh-18.5rem)] overflow-y-auto overflow-x-clip;
+  @apply h-[calc(100vh-19rem)] overflow-y-auto overflow-x-clip;
+}
+
+.image-single-zoom {
+  @apply flex items-center;
+  &:hover .download-button {
+    @apply block;
+  }
 }
 </style>
