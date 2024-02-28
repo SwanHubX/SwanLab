@@ -9,14 +9,15 @@
       v-if="logs"
     />
     <section class="log-container" @scroll="handleScroll">
+      <!-- 用于撑开容器，保证滚动条高度 -->
       <div class="log-area" :style="{ height: areaHeight + 'px' }" v-if="logs">
-        <div class="absolute" :style="{ top: computeTop }">
+        <!-- 日志画板 -->
+        <div class="absolute pb-5 w-full" :style="{ top: computeTop }">
           <!-- 运行日志 -->
           <div
             class="log-line"
             v-for="(line, index) in lines.slice(range[0], range[1] + 1)"
             :key="line.value + range[0] + index"
-            ref="linesRef"
           >
             <!-- 行号 -->
             <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
@@ -34,21 +35,23 @@
               </span>
             </span>
           </div>
-          <!-- 错误日志 -->
+        </div>
+        <!-- 错误日志 -->
+        <div class="absolute bottom-0" ref="errorLog">
           <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
             <!-- 行数 -->
             <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
             <!-- 日志内容 -->
             <span>{{ line }}</span>
           </div>
-          <!-- 没有日志 -->
-          <div
-            class="w-full py-10 flex flex-col items-center text-lg font-semibold"
-            v-if="logs.length === 0 && errorLogs.length === 0"
-          >
-            <SLIcon class="magnifier" icon="search"></SLIcon>
-            <span>No Logs</span>
-          </div>
+        </div>
+        <!-- 没有日志 -->
+        <div
+          class="w-full py-10 flex flex-col items-center text-lg font-semibold"
+          v-if="logs.length === 0 && errorLogs.length === 0"
+        >
+          <SLIcon class="magnifier" icon="search"></SLIcon>
+          <span>No Logs</span>
         </div>
       </div>
       <div class="flex h-full items-center justify-center" v-else>
@@ -134,10 +137,17 @@ const errorLogs = ref([])
 // ---------------------------------- 搜索 ----------------------------------
 
 const searchValue = ref('')
+const searchIndex = ref(1)
 
 const search = (value) => {
   searchValue.value = value.toLowerCase()
 }
+
+// const searchTargets = computed(() => {
+//   return lines.value.filter((line) => {
+//     return line.isTarget
+//   })
+// })
 
 // ---------------------------------- 下载 ----------------------------------
 
@@ -145,8 +155,6 @@ const filename = 'print.log'
 
 // ---------------------------------- 动态渲染 ----------------------------------
 
-// 行实例
-const linesRef = ref(null)
 // log 渲染范围
 const range = ref([0, 0])
 // 行高
@@ -154,8 +162,10 @@ const lineHeight = ref(16)
 // 最大额外渲染行数
 const addition = 10
 // log 区高度
+const errorLog = ref(null)
 const areaHeight = computed(() => {
-  return lines.value?.length * lineHeight.value
+  const eh = errorLog.value?.scrollHeight || 0
+  return lines.value?.length * lineHeight.value + eh
 })
 
 const handleScroll = debounce((event) => {
