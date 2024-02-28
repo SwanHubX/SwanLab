@@ -83,7 +83,8 @@ function downloadCsv(header, data) {
     for (let i = 0; i < header.length; i++) {
       const head = header[i]
       const label = head.key || head.slot
-      dataString += (head.type ? checkType(item, head.type, label) : item[label] || '-') + ','
+      const value = head.type ? checkType(item, head.type, label) : item[label] || '-'
+      dataString += (typeof value === 'string' ? value.replace(/,/g, '，') : value) + ','
     }
     csvContent += index < data.length ? dataString.replace(/,$/, '\n') : dataString.replace(/,$/, '')
   })
