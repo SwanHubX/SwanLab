@@ -8,10 +8,16 @@
       :filename="filename"
       v-if="logs"
     />
-    <section class="log-container">
-      <div class="log-area" ref="logAreaRef" @scroll="handleScroll" v-if="logs">
+    <section class="log-container" @scroll="handleScroll">
+      <div class="log-area" :style="{ height: areaHeight + 'px' }" v-if="logs">
         <!-- 运行日志 -->
-        <div class="log-line" v-for="line in lines" :key="line">
+        <div
+          class="log-line"
+          :style="{ top: computeTop(index) }"
+          v-for="(line, index) in lines.slice(range[0], range[1] + 1)"
+          :key="line"
+          ref="linesRef"
+        >
           <!-- 行号 -->
           <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
           <!-- 日志内容 -->
@@ -66,8 +72,6 @@ import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
-
-const logAreaRef = ref()
 
 // ---------------------------------- 系统相关 ----------------------------------
 
@@ -140,10 +144,12 @@ const filename = 'print.log'
 
 // ---------------------------------- 动态渲染 ----------------------------------
 
+// 行实例
+const linesRef = ref(null)
 // log 渲染范围
 const range = ref([0, 0])
 // 行高
-const lineHeight = ref(0)
+const lineHeight = ref(16)
 // 最大额外渲染行数
 const addition = 10
 // log 区高度
@@ -177,12 +183,33 @@ const computeRange = (e) => {
   else range.value[1] = endIndex + addition
 }
 
-// 计算 log 行高
+/**
+ * 计算 log 行高
+ * 没有使用计算属性，因为担心用户手动更改缩放等情况，不会触发响应式计算
+ * 采用函数，对某些事件进行监听后调用以适应不同情况下的行高
+ * 一般行高是 16px，基本不会出问题，所以目前只在初始化时计算，而没做另外的事件监听
+ */
 const computeLineHeight = () => {
   const line_styles = window.getComputedStyle(document.querySelector('.log-line'))
   lineHeight.value = parseFloat(line_styles.getPropertyValue('line-height'))
 }
 
+const computeTop = (index) => {
+  const refs = linesRef.value?.slice(0, index)
+  if (!refs) return
+  let h = 0
+  for (const ref of refs) {
+    h += ref.clientHeight
+  }
+  return range.value[0] * lineHeight.value + h + 'px'
+}
+
+/**
+ * 初始化：
+ * 1. 获取日志数据
+ * 2. 计算日志行高
+ * 3. 计算日志渲染范围
+ */
 onMounted(async () => {
   // 获取日志数据
   const { data } = await http.get(`/experiment/${id}/recent_log`).catch((error) => {
@@ -196,19 +223,18 @@ onMounted(async () => {
   // 设置日志
   logs.value = data.logs || []
   if (data.error) errorLogs.value = data.error
-  // addTaskToBrowserMainThread(() => {
-  //   // 滚动到底部
-  //   logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
-  // })
 
-  // 保证渲染后再获取行高
-  addTaskToBrowserMainThread(computeLineHeight)
+  // 保证渲染后再获取行高，再计算渲染范围
+  addTaskToBrowserMainThread(() => {
+    computeRange(document.querySelector('.log-container'))
+    computeLineHeight()
+  })
 })
 </script>
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full rounded p-4 h-[78vh];
+  @apply bg-higher w-full rounded p-4 h-[78vh] overflow-auto;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
@@ -216,14 +242,14 @@ onMounted(async () => {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   .log-area {
-    @apply overflow-auto h-full break-all;
+    @apply relative h-full break-all;
     &::-webkit-scrollbar-track {
       background: transparent;
     }
   }
 
   .log-line {
-    @apply flex gap-2 whitespace-pre-wrap;
+    @apply flex gap-2 whitespace-pre-wrap absolute;
   }
 }
 
