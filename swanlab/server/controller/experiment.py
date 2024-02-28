@@ -270,7 +270,16 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
         # 获取最大值和最小值
         max_value = max(data_values)
         min_value = min(data_values)
-    return SUCCESS_200(data={"sum": len(tag_data), "max": max_value, "min": min_value, "list": tag_data})
+    return SUCCESS_200(
+        data={
+            "sum": len(tag_data),
+            "max": max_value,
+            "min": min_value,
+            "list": tag_data,
+            # 标注此数据隶属于哪个实验
+            "experiment_id": experiment_id,
+        }
+    )
 
 
 # 获取实验状态
