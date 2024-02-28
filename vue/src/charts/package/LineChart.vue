@@ -11,12 +11,24 @@
     <!-- x轴坐标单位 -->
     <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     <!-- 图表主体 -->
+    <LineChartLegend
+      :items="legend"
+      @hoverin="(item) => legendHoverin(item, false)"
+      @hoverout="(item) => legendHoverout(item, false)"
+      v-if="legend && mutli"
+    />
     <div class="relative" ref="g2Ref">
       <LineChartTooltip ref="tooltipRef" />
     </div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+      <LineChartLegend
+        :items="legend"
+        @hoverin="(item) => legendHoverin(item, true)"
+        @hoverout="(item) => legendHoverout(item, true)"
+        v-if="legend && mutli"
+      />
       <div class="relative" ref="g2ZoomRef">
         <LineChartTooltip detail ref="tooltipZoomRef" />
       </div>
@@ -43,6 +55,7 @@ import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
 import LineChartTooltip from '../components/LinChartTooltip.vue'
+import LineChartLegend from '../components/LineChartLegend.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -80,7 +93,7 @@ const gridColor = rootStyle.getPropertyValue('--outline-dimmest')
 // 十字准线颜色，通过js获取css变量值
 const crosshairsColor = rootStyle.getPropertyValue('--primary-dimmest')
 // 线段默认宽度
-const lineWidth = 2
+const lineWidth = 1.5
 // 线段加粗宽度
 const thickerLineWidth = 3.5
 
@@ -134,28 +147,8 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     // 多数据的时候，需要设置seriesField，单数据也可以设置，但是不希望出现label
     // seriesField,
     colorField,
-    legend: {
-      // flipPage: false,
-      pageNavigator: {
-        marker: {
-          style: {
-            // 非激活，不可点击态时的填充色设置
-            inactiveFill: '#000',
-            inactiveOpacity: 0.45,
-            // 默认填充色设置
-            fill: '#000',
-            opacity: 0.8,
-            size: 8
-          }
-        },
-        text: {
-          style: {
-            fill: '#ccc',
-            fontSize: 8
-          }
-        }
-      }
-    },
+    // 自己写图例
+    legend: false,
     // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
     color: ({ series }) => {
       return colors.getSeriesColor(series, source.indexOf(series))
@@ -249,7 +242,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
         }
       }
     },
-    // 图例相关
+    // 悬浮提示相关
     tooltip: {
       // 在此处完成悬浮数据提示的格式化
       // 如果需要自定义浮窗，可以用下面的customContent
@@ -286,7 +279,9 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     width: undefined,
     autoFit: true,
     // 开启一些交互
-    interactions: [{ type: 'hover-cursor' }],
+    // interactions: [{ type: 'element-active' }],
+    // 图例相关
+
     // 平滑曲线
     smooth: false,
     animation: false,
@@ -334,6 +329,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
  */
 const format = (data) => {
   // 如果source的长度小于1，抛出错误
+  console.log(data)
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
   const d = []
@@ -352,7 +348,15 @@ const format = (data) => {
   d.sort((a, b) => a[xField] - b[xField])
   // console.log('d', d)
   // console.log('data', data)
-  // 如果source的长度大于1，需要设置seriesField
+  // 依据source生成legend，排序依据是source，数据结构：[{name, color}]
+  const items = []
+  for (const s of source) {
+    if (props.chart.error && props.chart.error[s]) continue
+    if (!data[s]) continue
+    items.push({ name: s, color: colors.getSeriesColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
+  }
+  legend.value = items
+  // console.log('legend', legend.value)
   return { d, config: mutli ? { seriesField } : { color: colors[0] } }
 }
 
@@ -627,6 +631,22 @@ const restoreByTagLinkage = (zoom, tag, color) => {
   restoreByTag(plot, zoom, tag, color)
 }
 
+// ---------------------------------- 图例渲染，在这保存数据，传给legend组件 ----------------------------------
+
+const legend = ref(null)
+
+const legendHoverin = (item, zoom) => {
+  // console.log('mouseenter', item)
+  const plot = zoom ? zoomChartObj : chartObj
+  thickenByTag(plot, zoom, item.name, item.color)
+}
+
+const legendHoverout = (item, zoom) => {
+  // console.log('mouseleave', item)
+  const plot = zoom ? zoomChartObj : chartObj
+  restoreByTag(plot, zoom, item.name, item.color)
+}
+
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
@@ -639,72 +659,4 @@ defineExpose({
 })
 </script>
 
-<style lang="scss">
-.lc-tooltip {
-  @apply py-2 px-3 absolute bg-default border rounded;
-  box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
-  visibility: visible;
-  p {
-    @apply text-xs text-default font-semibold;
-  }
-  .lc-tooltip-item-no-zoom,
-  .lc-tooltip-item-zoom {
-    @apply flex items-center gap-3;
-    &:not(:last-child) {
-      @apply mb-1.5;
-    }
-    .lc-tooltip-color {
-      @apply w-5 flex items-center;
-    }
-    .lc-tooltip-color-rect {
-      &::before {
-        content: '';
-        display: inline-block;
-        width: 20px;
-        height: 6px;
-        border-radius: 2px;
-        margin-right: 5px;
-        background-color: currentColor;
-      }
-    }
-  }
-  .lc-tooltip-tip {
-    @apply font-normal text-dimmest text-xs;
-  }
-}
-
-.lc-tooltip-item-no-zoom {
-  .lc-tooltip-step {
-    @apply font-semibold;
-    &::after {
-      content: ':';
-      @apply font-semibold;
-    }
-  }
-  .lc-tooltip-value {
-    @apply w-10 text-left font-semibold;
-  }
-  .lc-tooltip-tag {
-    @apply truncate;
-    max-width: 128px;
-  }
-}
-
-.lc-tooltip-item-zoom {
-  .lc-tooltip-step {
-    @apply w-7;
-  }
-  .lc-tooltip-value {
-    @apply col-span-1;
-    @apply w-10 text-left;
-  }
-  .lc-tooltip-time {
-    @apply w-28;
-  }
-
-  .lc-tooltip-tag {
-    @apply truncate;
-    max-width: 160px;
-  }
-}
-</style>
+<style lang="scss"></style>
