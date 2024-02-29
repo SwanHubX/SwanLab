@@ -43,7 +43,7 @@ const stop_experiment = async () => {
   if (!data) return
   experiment.setStatus(data.status)
   experiment.setFinishTime(data.finish_time)
-  useProjectStore().setExperimentStatus(id, -1)
+  useProjectStore().setExperimentStatus(id, -1, data.finish_time)
   message.success('State changed')
 }
 </script>
