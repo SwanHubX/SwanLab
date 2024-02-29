@@ -71,7 +71,7 @@ export const useProjectStore = defineStore('project', () => {
    * 设置指定实验的状态
    * @param { number } id 实验id
    * @param { string } status 实验状态
-   * @param { number } update_time 实验更新时间
+   * @param { number } finish_time 实验更新时间
    */
   const setExperimentStatus = (id, status, finish_time) => {
     // 不需要绝对等于
