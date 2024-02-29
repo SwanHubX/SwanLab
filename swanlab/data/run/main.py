@@ -418,6 +418,14 @@ class SwanLabRun:
         """
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
+        # 每一次log的时候检查一下数据库中的实验状态
+        # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
+        # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
+        status = Experiment.get(id=self.__exp.id).status
+        swanlog.debug(f"Check experiment status: {status}")
+        # 此时self.__status == 0，说明是前端主动停止的
+        if status != 0:
+            raise KeyboardInterrupt("The experiment has been stopped by the user")
 
         if not isinstance(data, dict):
             return swanlog.error(

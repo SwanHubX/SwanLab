@@ -573,12 +573,8 @@ def stop_experiment(experiment_id: int):
     project : Dictionary
         停止实验后的项目信息，提供给前端更新界面
     """
-
-    db = connect()
-    with db.atomic():
-        experiment = Experiment.get(experiment_id)
-        experiment.status = Experiment.STOPPED_STATUS
-        experiment.save()
+    experiment: Experiment = Experiment.get(experiment_id)
+    experiment.update_status(Experiment.STOPPED_STATUS)
 
     return SUCCESS_200(
         {
