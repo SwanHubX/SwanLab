@@ -23,6 +23,7 @@
             <span
               class="w-8 text-right flex-shrink-0 text-dimmest select-none"
               :class="{ 'text-negative-default': line.error }"
+              :style="{ width: indexWidth }"
               >{{ line.index }}</span
             >
             <!-- 正常日志 -->
@@ -112,6 +113,16 @@ const lines = computed(() => {
   })
 
   return data
+})
+
+// 行号宽度
+const indexWidth = computed(() => {
+  let index = 1
+  const l = lines.value?.length
+  if (l) {
+    index = lines.value[l - 1].index === '' ? lines.value[l - 2].index : lines.value[l - 1].index
+  }
+  return 8 * index.length + 'px'
 })
 
 // 获取正常内容最后一行的行号
@@ -241,15 +252,21 @@ onMounted(async () => {
 
   // 保证渲染后再获取行高，再计算渲染范围
   addTaskToBrowserMainThread(() => {
+    // 计算
     computeRange(document.querySelector('.log-container'))
     computeLineHeight()
+
+    // 判断是否出现滚动条，如果有滚动条，滚动到底部
+    if (document.querySelector('.log-container').scrollHeight > document.querySelector('.log-container').clientHeight) {
+      document.querySelector('.log-container').scrollTop = document.querySelector('.log-container').scrollHeight
+    }
   })
 })
 </script>
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full rounded p-4 h-[75vh] overflow-auto relative;
+  @apply bg-higher w-full rounded p-4 h-[76vh] overflow-auto relative;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
