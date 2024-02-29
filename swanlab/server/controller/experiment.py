@@ -316,6 +316,7 @@ def get_experiment_status(experiment_id: int):
         {
             "status": experiment.status,
             "update_time": experiment.update_time,
+            "finish_time": experiment.finish_time,
             "charts": {
                 "_sum": charts.count(),
                 "charts": chart_list,

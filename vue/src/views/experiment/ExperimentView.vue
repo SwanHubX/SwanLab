@@ -76,7 +76,7 @@ const polling = () => {
       }
       // 设置实验状态
       experimentStore.setStatus(data.status)
-      experimentStore.setUpateTime(data.update_time)
+      experimentStore.setFinishTime(data.finish_time)
       projectStore.setExperimentStatus(experimentStore.id, data.status, data.update_time)
       experimentStore.charts = data.charts
 
