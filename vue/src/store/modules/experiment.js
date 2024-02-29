@@ -35,6 +35,10 @@ export const useExperimentStore = defineStore('experiment', () => {
   const setUpateTime = (time) => {
     experiment.value.update_time = time
   }
+  // 修改完成时间
+  const setFinishTime = (time) => {
+    experiment.value.finish_time = time
+  }
   // 修改实验信息 => 全部信息
   const setExperiment = (x) => {
     experiment.value = x
@@ -64,6 +68,7 @@ export const useExperimentStore = defineStore('experiment', () => {
     // action
     setStatus,
     setUpateTime,
+    setFinishTime,
     setExperiment,
     setExperimentPartial
   }

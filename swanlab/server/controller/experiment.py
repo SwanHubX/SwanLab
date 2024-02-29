@@ -580,7 +580,7 @@ def stop_experiment(experiment_id: int):
         {
             "id": experiment_id,
             "status": Experiment.STOPPED_STATUS,
-            "update_time": create_time(),
+            "finish_time": create_time(),
         }
     )
 

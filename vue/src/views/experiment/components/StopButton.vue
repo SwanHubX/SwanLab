@@ -41,11 +41,8 @@ const stop = () => {
 const stop_experiment = async () => {
   const { data } = await http.get(`/experiment/${id}/stop`)
   if (!data) return
-  // experiment.setUpateTime(data.update_time)
-  experiment.setExperimentPartial({
-    update_time: data.update_time,
-    status: data.status
-  })
+  experiment.setStatus(data.status)
+  experiment.setFinishTime(data.finish_time)
   useProjectStore().setExperimentStatus(id, -1)
   message.success('State changed')
 }

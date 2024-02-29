@@ -101,6 +101,7 @@ class Experiment(SwanModel):
             "version": self.version,
             "create_time": self.create_time,
             "update_time": self.update_time,
+            "finish_time": self.finish_time,
         }
 
     @classmethod
