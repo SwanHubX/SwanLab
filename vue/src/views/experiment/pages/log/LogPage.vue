@@ -172,7 +172,7 @@ const range = ref([0, 0])
 // 行高
 const lineHeight = ref(16)
 // 最大额外渲染行数
-const addition = 10
+const addition = 30
 // log 区高度
 const areaHeight = computed(() => {
   return lines.value?.length * lineHeight.value
@@ -249,13 +249,14 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full rounded p-4 h-[78vh] overflow-auto;
+  @apply bg-higher w-full rounded p-4 h-[75vh] overflow-auto relative;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0.1px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
   .log-area {
     @apply relative h-full break-all;
     &::-webkit-scrollbar-track {
