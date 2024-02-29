@@ -10,6 +10,7 @@ r"""
 from peewee import Model, OperationalError
 from playhouse.shortcuts import model_to_dict
 from ..utils import create_time
+from .error import NotExistedError
 import json
 
 

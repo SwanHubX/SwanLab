@@ -515,8 +515,7 @@ class SwanLabRun:
             swanlog.warning("SwanLab will set status to -1")
             status = -1
         self.__status = status
-        self.__exp.db.status = status
-        self.__exp.db.save()
+        self.__exp.db.update_status(status)
 
     def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
         """
