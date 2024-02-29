@@ -149,7 +149,7 @@ defineExpose({
     }
   }
   .lc-tooltip-value {
-    @apply w-10 text-left font-semibold;
+    @apply text-left font-semibold;
   }
   .lc-tooltip-tag {
     @apply truncate;
@@ -162,8 +162,7 @@ defineExpose({
     @apply w-7;
   }
   .lc-tooltip-value {
-    @apply col-span-1;
-    @apply w-10 text-left;
+    @apply text-left;
   }
   .lc-tooltip-time {
     @apply w-32;
