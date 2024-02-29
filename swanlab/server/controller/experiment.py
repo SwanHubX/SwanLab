@@ -37,6 +37,7 @@ from ...db import (
     Experiment,
     Chart,
     Namespace,
+    Tag,
 )
 
 __to_list = Experiment.search2list
@@ -553,8 +554,22 @@ def delete_experiment(experiment_id: int):
     # 先删除实验目录
     experiment_path = __get_exp_dir_by_id(experiment_id)
     shutil.rmtree(experiment_path)
-    # 再清除数据库中的实验数据
-    Experiment.delete().where(Experiment.id == experiment_id).execute()
+    # 看看该实验下有哪儿些 tag
+    tags = Tag.filter(Tag.experiment_id == experiment_id)
+    tag_names = [tag["name"] for tag in __to_list(tags)]
+    # 检查多实验图表是否有需要删除的
+    project_id = Experiment.get_by_id(experiment_id).project_id.id
+    charts = Chart.filter(Chart.project_id == project_id, Chart.name.in_(tag_names))
+
+    db = connect()
+    with db.atomic():
+        # 必须先清除数据库中的实验数据
+        Experiment.delete().where(Experiment.id == experiment_id).execute()
+        # 图表无 source 的需要删除
+        for chart in charts:
+            if len(chart.sources) == 0:
+                chart.delete().execute()
+    db.commit()
 
     return SUCCESS_200({"experiment_id": experiment_id})
 
