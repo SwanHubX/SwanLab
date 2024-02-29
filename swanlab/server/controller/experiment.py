@@ -426,14 +426,14 @@ def get_recent_logs(experiment_id):
         with open(os.path.join(console_path, f), mode="r", encoding="utf-8") as log:
             logs = log.read().split("\n") + logs
             # 如果当前收集到的数据超过限制，退出循环
-            if len(logs) >= MAX_NUM:
-                # current_page = index
-                break
+            # if len(logs) >= MAX_NUM:
+            #     # current_page = index
+            #     break
     # 如果 logs 内容为空
     if logs[0] == "":
         return NOT_FOUND_404("No Logs Found")
 
-    logs = logs[:MAX_NUM]
+    # logs = logs[:MAX_NUM]
     end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
     data = {
         "recent": [logs[0].split(" ")[0], end],
