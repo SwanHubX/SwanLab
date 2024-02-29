@@ -317,6 +317,7 @@ def get_experiment_status(experiment_id: int):
         {
             "status": experiment.status,
             "update_time": experiment.update_time,
+            "finish_time": experiment.finish_time,
             "charts": {
                 "_sum": charts.count(),
                 "charts": chart_list,
@@ -588,18 +589,14 @@ def stop_experiment(experiment_id: int):
     project : Dictionary
         停止实验后的项目信息，提供给前端更新界面
     """
-
-    db = connect()
-    with db.atomic():
-        experiment = Experiment.get(experiment_id)
-        experiment.status = Experiment.STOPPED_STATUS
-        experiment.save()
+    experiment: Experiment = Experiment.get(experiment_id)
+    experiment.update_status(Experiment.STOPPED_STATUS)
 
     return SUCCESS_200(
         {
             "id": experiment_id,
             "status": Experiment.STOPPED_STATUS,
-            "update_time": create_time(),
+            "finish_time": create_time(),
         }
     )
 

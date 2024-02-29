@@ -10,7 +10,7 @@ r"""
 from ..env import get_db_path
 import os
 from peewee import SqliteDatabase
-from .table_config import tables, Tag
+from .table_config import tables, Tag, Experiment
 from .migrate import *
 
 # 判断是否已经binded了
@@ -57,6 +57,10 @@ def connect(autocreate=False) -> SqliteDatabase:
         swandb.bind(tables)
         swandb.create_tables(tables)
         swandb.close()
+        # 完成数据迁移，如果experiment表中没有finish_time字段，则添加
+        if not Experiment.field_exists("finish_time"):
+            # 不启用外键约束
+            add_finish_time(SqliteDatabase(path))
         # 完成数据迁移，如果tag表中没有sort字段，则添加
         if not Tag.field_exists("sort"):
             # 不启用外键约束

@@ -45,7 +45,7 @@ class SwanLabExp:
         self.tags: Dict[str, SwanLabTag] = {}
         self.id = id
         """此实验对应的id，实际上就是db.id"""
-        self.db = exp
+        self.db: Experiment = exp
         """此实验对应的数据库实例"""
 
     def add(self, key: str, data: DataType, step: int = None):

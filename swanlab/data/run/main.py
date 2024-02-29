@@ -23,7 +23,7 @@ import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
-from .db import Experiment, ExistedError
+from .db import Experiment, ExistedError, NotExistedError
 from typing import Tuple
 import yaml
 import argparse
@@ -418,6 +418,17 @@ class SwanLabRun:
         """
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
+        # 每一次log的时候检查一下数据库中的实验状态
+        # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
+        # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
+        swanlog.debug(f"Check experiment and status...")
+        try:
+            exp = Experiment.get(self.__exp.id)
+        except NotExistedError:
+            raise KeyboardInterrupt("The experiment has been deleted by the user")
+        # 此时self.__status == 0，说明是前端主动停止的
+        if exp.status != 0:
+            raise KeyboardInterrupt("The experiment has been stopped by the user")
 
         if not isinstance(data, dict):
             return swanlog.error(
@@ -515,8 +526,7 @@ class SwanLabRun:
             swanlog.warning("SwanLab will set status to -1")
             status = -1
         self.__status = status
-        self.__exp.db.status = status
-        self.__exp.db.save()
+        self.__exp.db.update_status(status)
 
     def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
         """

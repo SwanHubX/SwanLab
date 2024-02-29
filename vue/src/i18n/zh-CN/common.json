@@ -15,6 +15,15 @@
         },
         "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
       },
+      "text": {
+        "titles": {
+          "tag": "标签",
+          "step": "步数",
+          "caption": "说明",
+          "count": "字数",
+          "text": "文本"
+        }
+      },
       "share": {
         "step": "步数",
         "tag": "标签",
@@ -82,34 +91,5 @@
   },
   "table": {
     "empty": "暂无数据"
-  },
-  "chart": {
-    "empty": "缺少实验数据",
-    "error": "此图表无法正确显示",
-    "unkonwn": "未知的图表类型: {type}",
-    "label": {
-      "default": "图表"
-    },
-    "zoom": "放大展示",
-    "charts": {
-      "line": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
-      },
-      "audio": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是音频图并不支持此类型."
-      },
-      "image": {
-        "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是图片图并不支持此类型."
-      }
-    },
-    "text-chart": {
-      "titles": {
-        "tag": "tag",
-        "step": "step",
-        "caption": "caption",
-        "count": "number of words",
-        "text": "Text"
-      }
-    }
   }
 }
