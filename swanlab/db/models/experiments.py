@@ -165,7 +165,7 @@ class Experiment(SwanModel):
             raise ExistedError("实验已经存在")
 
     @classmethod
-    def get(cls, *args, **kwargs):
+    def get(cls, *args, **kwargs) -> "Experiment":
         """覆写继承的get方法，通过id获取实验实例
 
         Parameters
