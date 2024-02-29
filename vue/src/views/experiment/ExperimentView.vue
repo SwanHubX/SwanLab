@@ -69,22 +69,28 @@ onBeforeRouteUpdate((to, from) => {
 let timer = null
 const polling = () => {
   timer = setInterval(() => {
-    http.get(`/experiment/${experimentStore.id}/status`).then(({ data }) => {
-      if (Number(experimentStore.id) !== Number(route.params.experimentId)) {
-        clearInterval(timer)
-        return console.log('stop, experiment id is not equal to route id')
-      }
-      // 设置实验状态
-      experimentStore.setStatus(data.status)
-      experimentStore.setFinishTime(data.finish_time)
-      projectStore.setExperimentStatus(experimentStore.id, data.status, data.finish_time)
-      experimentStore.charts = data.charts
+    http
+      .get(`/experiment/${experimentStore.id}/status`)
+      .then(({ data }) => {
+        if (Number(experimentStore.id) !== Number(route.params.experimentId)) {
+          clearInterval(timer)
+          return console.log('stop, experiment id is not equal to route id')
+        }
+        // 设置实验状态
+        experimentStore.setStatus(data.status)
+        experimentStore.setFinishTime(data.finish_time)
+        projectStore.setExperimentStatus(experimentStore.id, data.status, data.finish_time)
+        experimentStore.charts = data.charts
 
-      if (!experimentStore.isRunning) {
+        if (!experimentStore.isRunning) {
+          clearInterval(timer)
+          return console.log('stop, experiment status is not 0')
+        }
+      })
+      .catch((response) => {
+        console.error('polling error', response)
         clearInterval(timer)
-        return console.log('stop, experiment status is not 0')
-      }
-    })
+      })
   }, 1000)
 }
 </script>

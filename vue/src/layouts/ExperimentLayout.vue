@@ -17,7 +17,7 @@
         </div>
         <!-- 删除按钮 -->
         <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
-          <DeleteButton type="experiment" :disabled="experimentStore.isRunning" @confirm="deleteExperiment" />
+          <DeleteButton type="experiment" @confirm="deleteExperiment" />
         </div>
       </div>
       <!-- 第二行内容，实验描述 -->

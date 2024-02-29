@@ -23,7 +23,7 @@ import random
 import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
-from .db import Experiment, ExistedError
+from .db import Experiment, ExistedError, NotExistedError
 from typing import Tuple
 import yaml
 import argparse
@@ -422,8 +422,9 @@ class SwanLabRun:
         # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
         # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
         swanlog.debug(f"Check experiment and status...")
-        exp = Experiment.get(self.__exp.id)
-        if exp is None:
+        try:
+            exp = Experiment.get(self.__exp.id)
+        except NotExistedError:
             raise KeyboardInterrupt("The experiment has been deleted by the user")
         # 此时self.__status == 0，说明是前端主动停止的
         if exp.status != 0:
