@@ -1,5 +1,5 @@
 <template>
-  <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :style="{}" :key="key">
+  <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :key="key">
     <!-- <div class="lc-tooltip-item-zoom" v-if="detail">
       <p class="lc-tooltip-color font-semibold !text-sm"></p>
       <p class="lc-tooltip-step font-semibold !text-sm">{{ $t('common.chart.charts.share.step') }}</p>
@@ -55,11 +55,8 @@ const props = defineProps({
 })
 
 const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
+// 提示框宽度，用于计算提示框位置，但是不直接使用
 const tooltipWidth = props.detail ? 400 : 256
-
-// const getTooltipWidth = () => {
-//   return `${tooltipWidth}px`
-// }
 // 提示框数据
 const items = ref([])
 // 显示模式，分为详细版和简单版
