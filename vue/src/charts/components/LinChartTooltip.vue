@@ -1,12 +1,12 @@
 <template>
-  <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :style="{ width: getTooltipWidth() }" :key="key">
-    <div class="lc-tooltip-item-zoom" v-if="detail">
+  <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :style="{}" :key="key">
+    <!-- <div class="lc-tooltip-item-zoom" v-if="detail">
       <p class="lc-tooltip-color font-semibold !text-sm"></p>
       <p class="lc-tooltip-step font-semibold !text-sm">{{ $t('common.chart.charts.share.step') }}</p>
       <p class="lc-tooltip-value font-semibold !text-sm">{{ $t('common.chart.charts.share.value') }}</p>
       <p class="lc-tooltip-time font-semibold !text-sm">{{ $t('common.chart.charts.share.time') }}</p>
       <p class="lc-tooltip-tag font-semibold !text-sm">{{ $t('common.chart.charts.share.tag') }}</p>
-    </div>
+    </div> -->
     <template v-if="detail && items.length">
       <div class="lc-tooltip-item-zoom" v-for="item in items" :key="item.color" :style="{ color: item.color }">
         <!-- 颜色 -->
@@ -15,10 +15,10 @@
         <span class="lc-tooltip-step">{{ item.data.index }}</span>
         <!-- 数据 -->
         <span class="lc-tooltip-value">{{ formatNumber2SN(item.data.data) }}</span>
-        <!-- 时间 -->
-        <span class="lc-tooltip-time">{{ formatTime(item.data.create_time) }}</span>
         <!-- 标签 -->
         <span class="lc-tooltip-tag">{{ item.data.series }}</span>
+        <!-- 时间 -->
+        <span class="lc-tooltip-time">{{ formatTime(item.data.create_time) }}</span>
       </div>
     </template>
     <template v-else-if="items.length">
@@ -57,9 +57,9 @@ const props = defineProps({
 const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
 const tooltipWidth = props.detail ? 400 : 256
 
-const getTooltipWidth = () => {
-  return `${tooltipWidth}px`
-}
+// const getTooltipWidth = () => {
+//   return `${tooltipWidth}px`
+// }
 // 提示框数据
 const items = ref([])
 // 显示模式，分为详细版和简单版
@@ -141,6 +141,7 @@ defineExpose({
 }
 
 .lc-tooltip-item-no-zoom {
+  @apply text-xs;
   .lc-tooltip-step {
     @apply font-semibold flex-shrink-0;
     &::after {
@@ -153,11 +154,11 @@ defineExpose({
   }
   .lc-tooltip-tag {
     @apply truncate;
-    max-width: 128px;
   }
 }
 
 .lc-tooltip-item-zoom {
+  // @apply text-xs;
   .lc-tooltip-step {
     @apply w-7;
   }
@@ -170,7 +171,6 @@ defineExpose({
 
   .lc-tooltip-tag {
     @apply truncate;
-    max-width: 160px;
   }
 }
 </style>
