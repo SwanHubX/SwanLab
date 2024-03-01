@@ -116,7 +116,7 @@ import swanlab
 
 # 初始化swanlab
 swanlab.init(
-  config={'learning_rate': 0.01, 'epochs': 20},  # 通过config参数保存输入或超参数
+  config={'epochs': 20, 'learning_rate': 0.01},  # 通过config参数保存输入或超参数
   logdir="./logs",  # 指定日志文件的保存路径
 )
 
@@ -185,7 +185,7 @@ $ swanlab watch -l ./logs
 
 **技巧**
 - [远程访问实验看板](https://geektechstudio.feishu.cn/wiki/Icesw6coTidDsPkN960c0lNtnCb)
-- [用argparse初始化swanlab.config](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
+- [将argparse传入swanlab.config](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
 
 <br>
 
