@@ -17,6 +17,11 @@
 </p>
 
 <p align="center">
+  <img alt="SwanLab Head Image" src="readme_files/swanlab-head-image.png" width="800">
+</p>
+
+
+<p align="center">
 👋 加入我们的<a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a>
 </p>
 
@@ -38,13 +43,13 @@
 
 ## 更新日志
 
-[24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。
+[24/03/01] 🚀 依旧是超大杯的更新！我们支持了[文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)以适配NLP、LLM、Agent等场景任务的需求; 我们对折线图的UI、图例、渲染速度做了大量优化，并提高了Logs的渲染性能，200k行的终端打印信息查看也不卡顿。（v0.2.1）
 
-[24/01/25] 😄 我们发布了新的Config/Summary表格组件，支持参数搜索。此外我们还使用了新的字体和配色。
+[24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。（v0.2.0）
 
-[24/01/23] 🚨 我们使用SQLite数据库和Peewee库替代了之前的基础配置信息读写方案（[#114](https://github.com/SwanHubX/SwanLab/issues/114)），这是个极大有利于项目未来的改动，但缺陷是不兼容旧版本（swanlab<=v0.1.4）的日志数据文件，所以如需可视化旧版本产生的日志文件, 请使用[转换脚本](script/transfer_logfile_0.1.4.py)。与此同时，我们增加了支持导出实验列表为CSV，新的环境记录项`Run path`和`logdir`，增加了快捷复制的交互，以及新的API `swanlab.config`。
+[24/01/25] 😄 我们发布了新的Config/Summary表格组件，支持参数搜索。此外我们还使用了新的字体和配色。（v0.1.6）
 
-[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
+[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)，升级到最新版本: `pip install -U swanlab`。
 
 <br>
 
