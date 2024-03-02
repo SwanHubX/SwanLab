@@ -64,7 +64,7 @@ import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { debounce } from '@swanlab-vue/utils/common'
+import { debounces } from '@swanlab-vue/utils/common'
 
 const projectStore = useProjectStore()
 // ---------------------------------- 实验id转路由 ----------------------------------
@@ -98,14 +98,14 @@ const totalExperiments = computed(() => {
 })
 
 // ---------------------------------- 项目图表界面下，点击眼睛后的效果 ----------------------------------
-const path = debounce((id, show) => {
+const path = debounces((id, show) => {
   http.patch('/experiment/' + id + '/show', {
     show
   })
 }, 500)
 const changeExperimentShow = (id) => {
   const show = projectStore.changeExperimentShow(id)
-  // 请求后端更新，直接更新store后请求，不需要等待
+  // // 请求后端更新，直接更新store后请求，不需要等待
   path(id, show)
 }
 
