@@ -4,7 +4,6 @@
      * 前端相关插件
      */
     "Vue.volar",
-    "Vue.vscode-typescript-vue-plugin",
     "esbenp.prettier-vscode",
     "bradlc.vscode-tailwindcss",
     "dbaeumer.vscode-eslint",

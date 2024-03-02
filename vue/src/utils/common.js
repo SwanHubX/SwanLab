@@ -13,7 +13,23 @@ export function debounce(func, delay) {
   return function (...args) {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
-      func.apply(this, args)
+      func?.apply(this, args)
+    }, delay)
+  }
+}
+
+/**
+ * 进阶防抖函数，除了传入函数和延迟时间外，约定生成的函数的第一个参数为id，用于标识防抖唯一性
+ * @param { Function } func 函数
+ * @param { string } delay 延迟时间，单位毫秒
+ * @returns { Function } 返回一个新的函数, 该函数的第一个参数为id
+ */
+export function debounces(func, delay) {
+  const timers = []
+  return function (id, ...args) {
+    if (timers[id]) clearTimeout(timers[id])
+    timers[id] = setTimeout(() => {
+      func?.apply(this, [id, ...args])
     }, delay)
   }
 }
