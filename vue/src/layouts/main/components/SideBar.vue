@@ -105,7 +105,7 @@ const path = debounces((id, show) => {
 }, 500)
 const changeExperimentShow = (id) => {
   const show = projectStore.changeExperimentShow(id)
-  // // 请求后端更新，直接更新store后请求，不需要等待
+  // 请求后端更新，直接更新store后请求，不需要等待
   path(id, show)
 }
 
