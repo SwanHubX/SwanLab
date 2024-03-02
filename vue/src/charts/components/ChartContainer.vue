@@ -38,6 +38,7 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import LineChart from '../package/LineChart.vue'
 import AudioChart from '../package/AudioChart.vue'
+import TextChart from '../package/TextChart.vue'
 import UnknownChart from '../package/UnknownChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
@@ -97,6 +98,11 @@ const chartComponent = computed(() => {
       return {
         type: ImageChart,
         class: 'image-chart'
+      }
+    case 'text':
+      return {
+        type: TextChart,
+        class: 'text-chart'
       }
     default:
       return {
@@ -215,7 +221,8 @@ defineExpose({
 // ---------------------------------- 图表样式 ----------------------------------
 
 .audio-chart,
-.image-chart {
+.image-chart,
+.text-chart {
   @apply col-span-3;
 }
 </style>

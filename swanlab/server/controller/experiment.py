@@ -37,6 +37,7 @@ from ...db import (
     Experiment,
     Chart,
     Namespace,
+    Tag,
 )
 
 __to_list = Experiment.search2list
@@ -245,10 +246,10 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if tag_data[0].get("index") is None:
         for index, data in enumerate(tag_data):
             data["index"] = str(index + 1)
-    # COMPAT 如果第一个数据的index不是string，改为string
-    if not isinstance(tag_data[0]["index"], str):
+    # COMPAT 如果第一个数据的index不是int，改为int
+    if not isinstance(tag_data[0]["index"], int):
         for data in tag_data:
-            data["index"] = str(data["index"])
+            data["index"] = int(data["index"])
     # 根据index升序排序
     tag_data.sort(key=lambda x: int(x["index"]))
     # tag_data 的 最后一个数据增加一个字段_last = True
@@ -270,7 +271,16 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
         # 获取最大值和最小值
         max_value = max(data_values)
         min_value = min(data_values)
-    return SUCCESS_200(data={"sum": len(tag_data), "max": max_value, "min": min_value, "list": tag_data})
+    return SUCCESS_200(
+        data={
+            "sum": len(tag_data),
+            "max": max_value,
+            "min": min_value,
+            "list": tag_data,
+            # 标注此数据隶属于哪个实验
+            "experiment_id": experiment_id,
+        }
+    )
 
 
 # 获取实验状态
@@ -307,6 +317,7 @@ def get_experiment_status(experiment_id: int):
         {
             "status": experiment.status,
             "update_time": experiment.update_time,
+            "finish_time": experiment.finish_time,
             "charts": {
                 "_sum": charts.count(),
                 "charts": chart_list,
@@ -417,14 +428,14 @@ def get_recent_logs(experiment_id):
         with open(os.path.join(console_path, f), mode="r", encoding="utf-8") as log:
             logs = log.read().split("\n") + logs
             # 如果当前收集到的数据超过限制，退出循环
-            if len(logs) >= MAX_NUM:
-                # current_page = index
-                break
+            # if len(logs) >= MAX_NUM:
+            #     # current_page = index
+            #     break
     # 如果 logs 内容为空
     if logs[0] == "":
         return NOT_FOUND_404("No Logs Found")
 
-    logs = logs[:MAX_NUM]
+    # logs = logs[:MAX_NUM]
     end = (logs[-1] if not logs[-1] == "" else logs[-2]).split(" ")[0]
     data = {
         "recent": [logs[0].split(" ")[0], end],
@@ -544,8 +555,22 @@ def delete_experiment(experiment_id: int):
     # 先删除实验目录
     experiment_path = __get_exp_dir_by_id(experiment_id)
     shutil.rmtree(experiment_path)
-    # 再清除数据库中的实验数据
-    Experiment.delete().where(Experiment.id == experiment_id).execute()
+    # 看看该实验下有哪儿些 tag
+    tags = Tag.filter(Tag.experiment_id == experiment_id)
+    tag_names = [tag["name"] for tag in __to_list(tags)]
+    # 检查多实验图表是否有需要删除的
+    project_id = Experiment.get_by_id(experiment_id).project_id.id
+    charts = Chart.filter(Chart.project_id == project_id, Chart.name.in_(tag_names))
+
+    db = connect()
+    with db.atomic():
+        # 必须先清除数据库中的实验数据
+        Experiment.delete().where(Experiment.id == experiment_id).execute()
+        # 图表无 source 的需要删除
+        for chart in charts:
+            if len(chart.sources) == 0:
+                chart.delete().execute()
+    db.commit()
 
     return SUCCESS_200({"experiment_id": experiment_id})
 
@@ -564,18 +589,14 @@ def stop_experiment(experiment_id: int):
     project : Dictionary
         停止实验后的项目信息，提供给前端更新界面
     """
-
-    db = connect()
-    with db.atomic():
-        experiment = Experiment.get(experiment_id)
-        experiment.status = Experiment.STOPPED_STATUS
-        experiment.save()
+    experiment: Experiment = Experiment.get(experiment_id)
+    experiment.update_status(Experiment.STOPPED_STATUS)
 
     return SUCCESS_200(
         {
             "id": experiment_id,
             "status": Experiment.STOPPED_STATUS,
-            "update_time": create_time(),
+            "finish_time": create_time(),
         }
     )
 

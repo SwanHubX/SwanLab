@@ -13,6 +13,7 @@ from .projects import Project
 from ..error import ExistedError, NotExistedError, ForeignProNotExistedError
 from ...utils.package import get_package_version
 from ...utils import generate_color
+from ...utils import create_time
 
 
 # 定义模型类
@@ -79,6 +80,10 @@ class Experiment(SwanModel):
 
     create_time = CharField(max_length=30, null=False)
     """创建时间"""
+
+    finish_time = CharField(max_length=30, null=True, default=None)
+    """实验结束时间"""
+
     update_time = CharField(max_length=30, null=False)
     """更新的时间"""
 
@@ -96,6 +101,7 @@ class Experiment(SwanModel):
             "version": self.version,
             "create_time": self.create_time,
             "update_time": self.update_time,
+            "finish_time": self.finish_time,
         }
 
     @classmethod
@@ -159,7 +165,7 @@ class Experiment(SwanModel):
             raise ExistedError("实验已经存在")
 
     @classmethod
-    def get(cls, *args, **kwargs):
+    def get(cls, *args, **kwargs) -> "Experiment":
         """覆写继承的get方法，通过id获取实验实例
 
         Parameters
@@ -181,3 +187,15 @@ class Experiment(SwanModel):
             return super().get(*args, **kwargs)
         except:
             raise NotExistedError("Experiment does not exist: {}".format(kwargs))
+
+    def update_status(self, status: int):
+        """更新实验状态
+
+        Parameters
+        ----------
+        status : int
+            实验状态
+        """
+        self.status = status
+        self.finish_time = create_time()
+        self.save()

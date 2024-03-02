@@ -8,3 +8,4 @@ r"""
     数据库迁移模块
 """
 from .tag_sort import add_sort
+from .exp_finish_time import add_finish_time

@@ -12,6 +12,7 @@ from .modules import (
     Audio,
     Image,
     Text,
+    Video,
     Object3D,
 )
 from .sdk import (
@@ -19,4 +20,8 @@ from .sdk import (
     log,
     finish,
     config,
+)
+
+from .run import (
+    SwanLabRun as Run,
 )

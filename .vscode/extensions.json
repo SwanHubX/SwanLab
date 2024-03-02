@@ -33,6 +33,6 @@
     "usernamehw.errorlens",
     "tamasfe.even-better-toml",
     // 单元测试
-    "ZixuanChen.vitest-explorer"
+    "vitest.explorer"
   ]
 }

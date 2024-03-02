@@ -1,5 +1,4 @@
 import swanlab
-import time
 import random
 import numpy as np
 
@@ -7,8 +6,9 @@ epochs = 50
 lr = 0.01
 offset = random.random() / 5
 
-swanlab.init(
-    log_level="debug",
+run = swanlab.init(
+    experiment_name="Example",
+    description="这是一个机器学习模拟实验",
     config={
         "epochs": epochs,
         "learning_rate": lr,
@@ -42,9 +42,7 @@ def generate_random_nx6(n):
 
 for epoch in range(2, epochs):
     if epoch % 10 == 0:
-        arr1 = generate_random_nx3(1000)
-        arr2 = generate_random_nx4(1000)
-        arr3 = generate_random_nx6(1000)
+
         # swanlab.log(
         #     {
         #         "test/object3d1":
@@ -53,15 +51,11 @@ for epoch in range(2, epochs):
         # )
         swanlab.log(
             {
-                "test-object3d1": swanlab.Object3D(arr1, caption="3D点云数据"),
-                "test-object3d2": swanlab.Object3D(arr2, caption="3D点云数据"),
-                "test-object3d3": swanlab.Object3D(arr3, caption="3D点云数据"),
+                "test-object3d1": swanlab.Object3D("./assets/bunny.obj", caption="bunny-obj"),
+                "test-object3d2": swanlab.Object3D("./assets/test1.pts.json", caption="test1-pts"),
             },
             step=epoch,
         )
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
-    loss2 = 3**-epoch + random.random() / epoch + offset * 3
-    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
-    time.sleep(0.2)
+    swanlab.log({"loss": loss, "accuracy": acc})

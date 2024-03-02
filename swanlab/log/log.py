@@ -331,6 +331,8 @@ class SwanLog(Logsys):
         """装饰器，当传递打印信息有多个时，拼接为一个"""
 
         def wrapper(self, *args, **kwargs):
+            # 拼接消息，首先将所有参数转换为字符串，然后拼接
+            args = [str(arg) for arg in args]
             message = " ".join(args)
             return func(self, message, **kwargs)
 

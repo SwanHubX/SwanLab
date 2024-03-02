@@ -8,32 +8,42 @@
       :filename="filename"
       v-if="logs"
     />
-    <section class="log-container">
-      <div class="log-area" ref="logAreaRef" v-if="logs">
-        <!-- 运行日志 -->
-        <div class="log-line" v-for="line in lines" :key="line">
-          <!-- 行号 -->
-          <span class="w-8 text-right flex-shrink-0 text-dimmest select-none">{{ line.index }}</span>
-          <!-- 日志内容 -->
-          <!-- 如果没有搜索内容/不含搜索内容 -->
-          <span v-show="!line.isTarget">{{ line.value }} </span>
-          <!-- 如果有搜索内容且含有搜索内容 -->
-          <span v-show="line.isTarget">
+    <section class="log-container" @scroll="handleScroll">
+      <!-- 用于撑开容器，保证滚动条高度 -->
+      <div class="log-area" :style="{ height: areaHeight + 'px' }" v-if="logs">
+        <!-- 日志画板 -->
+        <div class="log-board" :style="{ top: computeTop + 'px' }">
+          <!-- 运行日志 -->
+          <div
+            class="log-line"
+            v-for="(line, index) in lines.slice(range[0], range[1] + 1)"
+            :key="line.value + range[0] + index"
+          >
+            <!-- 行号 -->
             <span
-              v-for="substring in line.value"
-              :key="substring"
-              :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
+              class="w-8 text-right flex-shrink-0 text-dimmest select-none"
+              :class="{ 'text-negative-default': line.error }"
+              :style="{ width: indexWidth }"
+              >{{ line.index }}</span
             >
-              {{ substring }}
-            </span>
-          </span>
-        </div>
-        <!-- 错误日志 -->
-        <div class="log-line text-negative-default" v-for="(line, index) in errorLogs" :key="line">
-          <!-- 行数 -->
-          <span class="w-8 text-right flex-shrink-0 select-none">{{ lastLineIndex + index + 1 }}</span>
-          <!-- 日志内容 -->
-          <span>{{ line }}</span>
+            <!-- 正常日志 -->
+            <div v-if="!line.error">
+              <!-- 如果没有搜索内容/不含搜索内容 -->
+              <span v-show="!line.isTarget">{{ line.value }} </span>
+              <!-- 如果有搜索内容且含有搜索内容 -->
+              <span v-show="line.isTarget">
+                <span
+                  v-for="substring in line.value"
+                  :key="substring"
+                  :class="{ 'bg-warning-dimmest': substring.toLowerCase() === searchValue }"
+                >
+                  {{ substring }}
+                </span>
+              </span>
+            </div>
+            <!-- 错误日志 -->
+            <div class="text-negative-default" v-else>{{ line.value }}</div>
+          </div>
         </div>
         <!-- 没有日志 -->
         <div
@@ -58,15 +68,14 @@
  * @since: 2023-12-09 20:40:44
  **/
 
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import SLLoding from '@swanlab-vue/components/SLLoading.vue'
 import FuncBar from '../../components/FuncBar.vue'
 import { computed } from 'vue'
-
-const logAreaRef = ref()
+import { debounce } from '@swanlab-vue/utils/common'
+import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 
 // ---------------------------------- 系统相关 ----------------------------------
 
@@ -80,7 +89,8 @@ const logs = ref()
 
 // 分开行号和内容之后的日志
 const lines = computed(() => {
-  return logs.value?.map((line) => {
+  // 正常日志内容
+  const data = logs.value?.map((line) => {
     const noIndex = isNaN(line.substring(0, line.indexOf(' ')))
     const index = noIndex ? null : line.substring(0, line.indexOf(' '))
     const content = noIndex ? line : line.substring(line.indexOf(' ')).trimStart()
@@ -91,16 +101,38 @@ const lines = computed(() => {
       value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
+  // 正常内容最后一行的行号
+  const lastLineIndex = getLastLineIndex(data)
+  // 处理错误日志内容
+  errorLogs.value.map((line, index) => {
+    return data.push({
+      index: lastLineIndex + index + 1,
+      value: line,
+      error: true
+    })
+  })
+
+  return data
 })
 
-// 正常内容最后一行的行号
-const lastLineIndex = computed(() => {
-  const maxIndex = lines.value?.reduce((max, line) => {
+// 行号宽度
+const indexWidth = computed(() => {
+  let index = 1
+  const l = lines.value?.length
+  if (l) {
+    index = lines.value[l - 1].index === '' ? lines.value[l - 2].index : lines.value[l - 1].index
+  }
+  return 8 * index.length + 'px'
+})
+
+// 获取正常内容最后一行的行号
+const getLastLineIndex = (data) => {
+  const maxIndex = data?.reduce((max, line) => {
     if (!line.index) return max
     return Number(line.index) > Number(max) ? line.index : max
   }, 0)
   return Number(maxIndex)
-})
+}
 
 const download = computed(() => {
   const log_list = logs.value?.map((log) => {
@@ -111,7 +143,7 @@ const download = computed(() => {
   return log_list?.join('\n') + errorLogs.value.join('\n')
 })
 
-function splitStringBySearch(target, substring) {
+const splitStringBySearch = (target, substring) => {
   // 使用正则表达式进行大小写不敏感的分割，并保留分割点
   let resultArray = target.split(new RegExp(`(${substring})`, 'i'))
 
@@ -124,8 +156,88 @@ function splitStringBySearch(target, substring) {
 
 // 错误日志
 const errorLogs = ref([])
-;(async function () {
-  // 获取日志
+
+// ---------------------------------- 搜索 ----------------------------------
+
+const searchValue = ref('')
+const searchIndex = ref(1)
+
+const search = (value) => {
+  searchValue.value = value.toLowerCase()
+}
+
+const searchTargets = computed(() => {
+  return lines.value.filter((line) => {
+    return line.isTarget
+  })
+})
+
+// ---------------------------------- 下载 ----------------------------------
+
+const filename = 'print.log'
+
+// ---------------------------------- 动态渲染 ----------------------------------
+
+// log 渲染范围
+const range = ref([0, 0])
+// 行高
+const lineHeight = ref(16)
+// 最大额外渲染行数
+const addition = 30
+// log 区高度
+const areaHeight = computed(() => {
+  return lines.value?.length * lineHeight.value
+})
+
+const handleScroll = debounce((event) => {
+  const e = event.target
+  computeRange(e)
+}, 100)
+
+// 计算 log 的渲染范围
+const computeRange = (e) => {
+  const line_height = lineHeight.value
+  // 计算应该渲染多少条数据
+  const pageSize = Math.ceil(e.clientHeight / line_height)
+  // 计算第一条 log 的索引
+  const startIndex = Math.floor(e.scrollTop / line_height)
+  // 计算最后一条 log 的索引
+  const endIndex = startIndex + pageSize
+
+  // 如果距离顶部很近，把顶部到第一条中的log也渲染了
+  if (e.scrollTop <= addition * line_height) range.value[0] = 0
+  // 如果距离顶部比较远，仅渲染第一条上的 addition 条 log
+  else range.value[0] = startIndex - addition
+
+  // 如果距离底部很近，把最后一条到底部的log也渲染了
+  if (e.scrollTop + e.clientHeight >= e.scrollHeight - addition * line_height) range.value[1] = lines.value.length - 1
+  // 如果距离底部较远，仅渲染最后一条下的 addition 条 log
+  else range.value[1] = endIndex + addition
+}
+
+/**
+ * 计算 log 行高
+ * 没有使用计算属性，因为担心用户手动更改缩放等情况，不会触发响应式计算
+ * 采用函数，对某些事件进行监听后调用以适应不同情况下的行高
+ * 一般行高是 16px，基本不会出问题，所以目前只在初始化时计算，而没做另外的事件监听
+ */
+const computeLineHeight = () => {
+  const line_styles = window.getComputedStyle(document.querySelector('.log-line'))
+  lineHeight.value = parseFloat(line_styles.getPropertyValue('line-height'))
+}
+
+const computeTop = computed(() => {
+  return range.value[0] * lineHeight.value
+})
+
+/**
+ * 初始化：
+ * 1. 获取日志数据
+ * 2. 计算日志行高
+ * 3. 计算日志渲染范围
+ */
+onMounted(async () => {
+  // 获取日志数据
   const { data } = await http.get(`/experiment/${id}/recent_log`).catch((error) => {
     if (error.data.code === 3404) {
       logs.value = []
@@ -137,38 +249,39 @@ const errorLogs = ref([])
   // 设置日志
   logs.value = data.logs || []
   if (data.error) errorLogs.value = data.error
-  // addTaskToBrowserMainThread(() => {
-  //   // 滚动到底部
-  //   logAreaRef.value.scrollTop = logAreaRef.value.scrollHeight
-  // })
-})()
 
-// ---------------------------------- 搜索 ----------------------------------
+  // 保证渲染后再获取行高，再计算渲染范围
+  addTaskToBrowserMainThread(() => {
+    // 计算
+    computeRange(document.querySelector('.log-container'))
+    computeLineHeight()
 
-const searchValue = ref('')
-
-const search = (value) => {
-  searchValue.value = value.toLowerCase()
-}
-
-// ---------------------------------- 下载 ----------------------------------
-
-const filename = 'print.log'
+    // 判断是否出现滚动条，如果有滚动条，滚动到底部
+    if (document.querySelector('.log-container').scrollHeight > document.querySelector('.log-container').clientHeight) {
+      document.querySelector('.log-container').scrollTop = document.querySelector('.log-container').scrollHeight
+    }
+  })
+})
 </script>
 
 <style lang="scss" scoped>
 .log-container {
-  @apply bg-higher w-full h-[calc(100vh-180px)] rounded p-4;
+  @apply bg-higher w-full rounded p-4 h-[76vh] overflow-auto relative;
   font-size: 13px;
   line-height: 16px;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0.1px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
   .log-area {
-    @apply overflow-auto h-full break-all;
+    @apply relative h-full break-all;
     &::-webkit-scrollbar-track {
       background: transparent;
+    }
+
+    .log-board {
+      @apply absolute pb-5 w-full;
     }
   }
 

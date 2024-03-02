@@ -18,7 +18,9 @@ class Chart:
     image = "image", [list, str]
     # 音频类型，list代表一步多音频
     audio = "audio", [list, str]
-    # 文本类型，代表一步多文本
+    # 文本类型，list代表一步多文本
     text = "text", [list, str]
-    # 3D点云类型，代表一步多 object3d
+    # 视频类型 list代表一步多视频
+    video = "video", [list, str]
+    # 3D点云类型，list代表一步多3D点云
     object3d = "object3d", [list, str]

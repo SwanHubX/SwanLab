@@ -11,7 +11,7 @@
     </div>
     <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
     <!-- 图表不存在 -->
-    <p class="font-semibold pt-5 text-center" v-else>Empty Charts</p>
+    <p class="font-semibold pt-5 text-center" v-else-if="ready">Empty Charts</p>
   </div>
 </template>
 
@@ -34,9 +34,10 @@ http.get('/project/charts').then(({ data }) => {
   charts.value = data.charts
   namespaces.value = data.namespaces
   groups.value = generateGroups()
+  ready.value = true
 })
 const isSideBarShow = inject('isSideBarShow')
-
+const ready = ref(false)
 // ---------------------------------- 数据驱动 ----------------------------------
 // 项目对比图表数据，[{name, charts: [charts]}]
 const groups = ref([])

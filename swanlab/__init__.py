@@ -1,5 +1,16 @@
 # 导出初始化函数和log函数
-from .data import init, log, finish, config, Audio, Image, Object3D
+from .data import (
+    init,
+    log,
+    finish,
+    config,
+    Audio,
+    Image,
+    Object3D,
+    Text,
+    Run,
+)
+
 from .utils import get_package_version
 
 
