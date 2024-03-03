@@ -44,6 +44,7 @@
       @turn="clickToTurn"
       :key="pages.maxIndex"
       v-if="data.list.length > 1"
+      :turn-by-arrow="modal && !isZoom"
     />
     <!-- 数据详情 -->
     <SLModal max-w="1200" v-model="isZoom" esc-exit>

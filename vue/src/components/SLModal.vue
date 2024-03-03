@@ -82,10 +82,12 @@ const maxWidth = computed(() => {
  * @param {*} param0
  */
 const handleEsc = ({ key }) => {
+  if (key != 'Escape') return
   emits('onExit')
-  if (key != 'Escape' || !props.escExit) return
-  emits('onBeforeClose')
-  close('esc')
+  if (props.escExit) {
+    emits('onBeforeClose')
+    close('esc')
+  }
 }
 
 // 订阅或销毁键盘事件

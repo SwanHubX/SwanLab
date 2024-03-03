@@ -47,7 +47,6 @@ import { ref, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import TextModule from '../modules/TextModule.vue'
-import http from '@swanlab-vue/api/http'
 import { useExperimentStore } from '@swanlab-vue/store'
 import * as UTILS from './utils'
 

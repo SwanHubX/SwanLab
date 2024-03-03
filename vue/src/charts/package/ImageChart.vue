@@ -75,6 +75,7 @@
           :key="slideKey"
           @turn="handelTurn"
           v-if="maxIndex !== minIndex"
+          :turn-by-arrow="isZoom && !isSingleZoom"
         />
       </div>
     </SLModal>
