@@ -44,7 +44,7 @@
       />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div class="image-content image-content-zoom">
         <div class="flex flex-col justify-center items-center h-full" v-if="loading">
@@ -84,6 +84,7 @@
       max-w="-1"
       v-model="isSingleZoom"
       close-on-overlay-click
+      @onExit="exitByEsc"
     >
       <div class="image-single-zoom">
         <div class="relative">
@@ -299,6 +300,17 @@ const handelClickZoom = (filename) => {
   isSingleZoom.value = true
   // console.log('filename', filename)
   // console.log('image data', imagesData[filename])
+}
+
+// ---------------------------------- 按键操作 ----------------------------------
+
+// 通过 esc 按键关闭弹窗
+const exitByEsc = () => {
+  // 如果两个弹窗都有，只关闭单图弹窗
+  if (isZoom.value && isSingleZoom.value) return (isSingleZoom.value = false)
+  // 剩下的情况都是只有一个弹窗，全部关闭
+  isZoom.value = false
+  isSingleZoom.value = false
 }
 
 // ---------------------------------- 点击下载按钮下载 ----------------------------------

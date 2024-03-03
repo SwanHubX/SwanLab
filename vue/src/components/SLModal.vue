@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import SLIcon from './SLIcon.vue'
 import { Dialog } from '@headlessui/vue'
 
@@ -54,10 +54,15 @@ const props = defineProps({
   hiddenClose: {
     type: Boolean,
     default: false
+  },
+  // 是否可通过键盘 esc 键关闭弹窗
+  escExit: {
+    type: Boolean,
+    default: false
   }
 })
 // onBeforeClose事件特指人为关闭事件，如果是在外部用js修改modelValue的值，不会触发该事件
-const emits = defineEmits(['onBeforeClose', 'update:modelValue'])
+const emits = defineEmits(['onBeforeClose', 'update:modelValue', 'onExit'])
 
 // 关闭弹窗方法
 const close = (type) => {
@@ -69,6 +74,28 @@ const close = (type) => {
 const maxWidth = computed(() => {
   return props.maxW + 'px'
 })
+
+// ---------------------------------- 键盘esc关闭弹窗 ----------------------------------
+
+/**
+ * 通过按键关闭弹窗
+ * @param {*} param0
+ */
+const handleEsc = ({ key }) => {
+  emits('onExit')
+  if (key != 'Escape' || !props.escExit) return
+  emits('onBeforeClose')
+  close('esc')
+}
+
+// 订阅或销毁键盘事件
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (value) return window.addEventListener('keyup', handleEsc)
+    window.removeEventListener('keyup', handleEsc)
+  }
+)
 </script>
 
 <style lang="scss">

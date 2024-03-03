@@ -22,8 +22,9 @@
       :key="tag"
     />
     <!-- 放大效果弹窗 -->
-    <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
       <TextModule
+        v-model="isDetailZoom"
         :data="original_data[tag]"
         :texts="texts[tag]"
         :tag="tag"
@@ -170,9 +171,18 @@ const change = (data) => {
 
 // 是否放大
 const isZoom = ref(false)
+// 是否展示数据详情弹窗
+const isDetailZoom = ref(false)
 // 放大数据
 const zoom = () => {
   isZoom.value = true
+}
+
+// 通过按键退出放大弹窗
+const exitByEsc = () => {
+  // 如果放大弹窗中有数据详情弹窗，则不关闭放大弹窗，直接关闭数据详情弹窗（在 TextModel.vue 中关闭）
+  if (isDetailZoom.value) return
+  isZoom.value = false
 }
 
 // ---------------------------------- 暴露api ----------------------------------
