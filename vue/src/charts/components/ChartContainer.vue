@@ -128,6 +128,7 @@ function isPromiseAndAsyncFunction(func) {
   return (
     (func instanceof Promise ||
       (func !== null &&
+        func !== undefined &&
         typeof func === 'object' &&
         typeof func.then === 'function' &&
         typeof func.catch === 'function')) &&
@@ -182,10 +183,10 @@ const chartRef = ref(null)
 const render = debounce(() => {
   // 判断是否为Promise，如果是，则等待渲染完成再resolve并设置loading为false
   // console.log('isPromise(chartRef.value.render)', isPromise(chartRef.value.render), chartRef.value.render)
-  if (isPromiseAndAsyncFunction(chartRef.value.render))
-    chartRef.value.render(data).finally(() => (loading.value = false))
+  const r = chartRef.value?.render
+  if (isPromiseAndAsyncFunction(r)) r(data).finally(() => (loading.value = false))
   else {
-    chartRef.value.render(data)
+    r && r(data)
     loading.value = false
   }
 }, 100)
