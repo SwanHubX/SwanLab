@@ -44,6 +44,8 @@ English | <a href="README_zh-hans.md">中文</a>
 
 Upgrade to the latest version: `pip install -U swanlab`。
 
+[24/03/03] 🔧 We fixed some issues in v0.2.1 and added support for switching multimedia chart content by pressing keys.（v0.2.2）
+
 [24/03/01] 🚀 Still Very Big Upgrade！We supported [Text Chart](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)to meet the needs of tasks in NLP, LLM, Agent and other scenarios; We have made a lot of optimizations to line chart's UI, legend, and rendering speed. We improved the rendering performance of Logs —— now viewing terminal printing information with 200k lines is also not lagging.（v0.2.1）
 
 [24/02/08] 🔥 Very Big Upgrade! We supported [Image Chart](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[Audio Chart](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、Mutil-Experiments Chart and a series of comprehensive optimizations and improvements! Please be sure to upgrade to the latest version via `pip install -U swanlab`.（v0.2.0）
