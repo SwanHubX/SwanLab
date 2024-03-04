@@ -81,18 +81,31 @@
     </SLModal>
     <!-- 额外的放大功能，点击某个图像，放大显示 -->
     <SLModal
-      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14"
+      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14 relative"
       max-w="-1"
       v-model="isSingleZoom"
       close-on-overlay-click
       @onExit="exitByEsc"
     >
+      <!-- 标题 -->
+      <p class="w-full overflow-hidden text-center text-lg font-semibold absolute top-5">
+        {{ signleZoomFilename }}
+      </p>
+      <!-- 图片 -->
       <div class="image-single-zoom">
-        <div class="relative">
-          <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
+        <!-- 上一张图片 -->
+        <SLIcon icon="down" class="icon rotate-90" @click="handleSingleChange({ key: 'ArrowLeft' })"></SLIcon>
+        <!-- 当前图片 -->
+        <div class="relative w-full mx-5 select-none">
+          <img :src="imagesData[signleZoomFilename].url" class="object-contain w-full" />
           <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
         </div>
+        <!-- 下一张图片 -->
+        <SLIcon icon="down" class="icon -rotate-90" @click="handleSingleChange({ key: 'ArrowRight' })"></SLIcon>
       </div>
+      <p class="w-full text-center absolute bottom-5 select-none">
+        {{ `${currentSingleImageIndex + 1} / ${stepsData[currentIndex][source[0]].length}` }}
+      </p>
     </SLModal>
   </template>
 </template>
@@ -303,7 +316,7 @@ const handelClickZoom = (filename) => {
   // console.log('image data', imagesData[filename])
 }
 
-// ---------------------------------- 按键操作 ----------------------------------
+// ---------------------------------- ESC 退出弹窗 ----------------------------------
 
 // 通过 esc 按键关闭弹窗
 const exitByEsc = () => {
@@ -313,6 +326,40 @@ const exitByEsc = () => {
   isZoom.value = false
   isSingleZoom.value = false
 }
+
+// ---------------------------------- 左右方向键翻页 ----------------------------------
+
+// 当前单个图像的索引
+const currentSingleImageIndex = computed(() => {
+  const images = stepsData[currentIndex.value][source.value[0]]
+  return images.findIndex((image) => image.filename === signleZoomFilename.value)
+})
+
+// 方向键切换单图 - 回调
+const handleSingleChange = ({ key }) => {
+  const images = stepsData[currentIndex.value][source.value[0]]
+  let index = images.findIndex((image) => image.filename === signleZoomFilename.value)
+
+  if (key === 'ArrowRight' && index < images.length - 1) {
+    index++
+  } else if (key === 'ArrowLeft' && index > 0) {
+    index--
+  }
+
+  signleZoomFilename.value = images[index].filename
+}
+
+// 订阅通过左右方向键切换单图
+watch(
+  () => isSingleZoom.value,
+  (newVal) => {
+    if (newVal) {
+      window.addEventListener('keyup', handleSingleChange)
+    } else {
+      window.removeEventListener('keyup', handleSingleChange)
+    }
+  }
+)
 
 // ---------------------------------- 点击下载按钮下载 ----------------------------------
 
@@ -372,9 +419,17 @@ defineExpose({
 }
 
 .image-single-zoom {
-  @apply flex items-center;
+  @apply flex items-center w-full;
   &:hover .download-button {
     @apply block;
+  }
+
+  .icon {
+    @apply w-10 h-10 cursor-pointer border rounded-full opacity-20 transition-all;
+
+    &:hover {
+      @apply opacity-100;
+    }
   }
 }
 </style>
