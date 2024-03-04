@@ -1,6 +1,6 @@
 <template>
   <!-- 图表顶层，嵌入全局功能 -->
-  <div class="sticky top-0 px-4 py-3 bg-higher z-full">
+  <div class="charts-pannel">
     <SmoothButton />
   </div>
   <!-- 每一个namespace对应一个图表容器 -->
@@ -21,6 +21,7 @@
  **/
 import ChartsContainer from './components/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
+import SmoothButton from './components/SmoothButton.vue'
 const props = defineProps({
   // 整个图表列表集合
   groups: {
@@ -58,4 +59,9 @@ const getCharts = (group) => {
 // ---------------------------------- 处理图表平滑事件 ----------------------------------
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.charts-pannel {
+  @apply sticky px-4 py-3 bg-higher flex justify-end top-0 border-b;
+  z-index: 999;
+}
+</style>

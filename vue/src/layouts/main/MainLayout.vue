@@ -9,25 +9,23 @@
       <HeaderBar :version="version" />
     </header>
     <!-- 下半部分主要内容，增加一个relative-container的原因是解决按钮在滑动时的隐藏问题 -->
-    <div class="relative-container">
-      <main class="main-container">
-        <!-- 遮罩，淡入淡出 -->
-        <transition name="fade" v-if="showSideBar">
-          <div class="md:hidden sidebar-overlay" v-if="isSideBarShow" @click="handleClose"></div>
-        </transition>
-        <!-- 侧边栏 -->
-        <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
-          <!-- 侧边栏规定宽度 -->
-          <div class="sidebar-content">
-            <SideBar />
-          </div>
+    <main class="main-container">
+      <!-- 遮罩，淡入淡出 -->
+      <transition name="fade" v-if="showSideBar">
+        <div class="md:hidden sidebar-overlay" v-if="isSideBarShow" @click="handleClose"></div>
+      </transition>
+      <!-- 侧边栏 -->
+      <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
+        <!-- 侧边栏规定宽度 -->
+        <div class="sidebar-content">
+          <SideBar />
         </div>
-        <!-- 右侧主要内容 -->
-        <div class="main-content border-l" ref="containerRef">
-          <slot></slot>
-        </div>
-      </main>
-    </div>
+      </div>
+      <!-- 右侧主要内容 -->
+      <div class="main-content border-l" ref="containerRef">
+        <slot></slot>
+      </div>
+    </main>
   </section>
 </template>
 <script setup>
@@ -214,7 +212,7 @@ $main-content-height: calc(100vh - 56px);
 
 // 遮罩
 .sidebar-overlay {
-  @apply absolute w-full  overflow-x-hidden z-50;
+  @apply absolute w-full  overflow-x-hidden z-40;
   height: $main-content-height;
   background-color: var(--background-overlay);
   animation: fadeIn $duration ease;

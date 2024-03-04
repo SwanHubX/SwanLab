@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full py-5 relative">
+  <div class="w-full h-full py-5">
     <!-- 导航栏 -->
     <div class="px-6 border-b">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
@@ -39,9 +39,7 @@
         </RouterLink>
       </nav>
     </div>
-    <div class="w-full overflow-y-auto">
-      <slot></slot>
-    </div>
+    <slot></slot>
   </div>
 </template>
 
@@ -55,7 +53,6 @@ import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue
 import DeleteButton from '@swanlab-vue/components/config-editor/DeleteButton.vue'
 import http from '@swanlab-vue/api/http'
 import { useProjectStore, useExperimentStore } from '@swanlab-vue/store'
-import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from '@swanlab-vue/components/message'
 import { t } from '@swanlab-vue/i18n'
@@ -65,9 +62,6 @@ const router = useRouter()
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStore()
 const experiment = ref(experimentStore.experiment)
-
-// ---------------------------------- 控制h1缩进 ----------------------------------
-const isSideBarShow = inject('isSideBarShow')
 
 // ---------------------------------- 删除实验 ----------------------------------
 const deleteExperiment = () => {
