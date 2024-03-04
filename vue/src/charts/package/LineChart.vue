@@ -17,8 +17,9 @@
       @hoverout="(item) => legendHoverout(item, false)"
       v-if="legend && mutli"
     />
-    <div class="relative" ref="g2Ref">
+    <div class="relative">
       <LineChartTooltip ref="tooltipRef" />
+      <div class="overflow-hidden" ref="g2Ref"></div>
     </div>
     <!-- 放大效果 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>

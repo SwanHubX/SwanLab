@@ -62,6 +62,6 @@ const getCharts = (group) => {
 <style lang="scss" scoped>
 .charts-pannel {
   @apply sticky px-4 py-3 bg-higher flex justify-end top-0 border-b;
-  z-index: 999;
+  z-index: 30;
 }
 </style>
