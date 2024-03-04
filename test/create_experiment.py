@@ -6,7 +6,7 @@ r"""
 @IDE: vscode
 @Description:
     创建一个文件，作为测试用例
-    WARNING 请勿随意修改此文件，以免影响测试结果
+    WARNING 请勿随意修改此文件，以免影响测试效果
 """
 import swanlab
 import time
@@ -44,7 +44,13 @@ for epoch in range(2, epochs):
         swanlab.log(
             {
                 "test/image": swanlab.Image(test_image, caption="test"),
-                "test/text": swanlab.Text("hello swanlab!", caption="swanlab official"),
+            },
+            step=epoch,
+        )
+        # 测试text
+        swanlab.log(
+            {
+                "text": swanlab.Text("这是一段测试文本", caption="test"),
             },
             step=epoch,
         )
