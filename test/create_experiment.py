@@ -1,19 +1,56 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024-03-04 13:26:59
+@File: test/create_experiment.py
+@IDE: vscode
+@Description:
+    创建一个文件，作为测试用例
+    WARNING 请勿随意修改此文件，以免影响测试结果
+"""
 import swanlab
+import time
 import random
+import numpy as np
 
+epochs = 50
+lr = 0.01
 offset = random.random() / 5
 
-run = swanlab.init(
-    experiment_name="Example",
-    description="这是一个机器学习模拟实验",
+swanlab.init(
+    log_level="debug",
     config={
-        "learning_rate": 0.01,
-        "epochs": 20,
+        "epochs": epochs,
+        "learning_rate": lr,
+        "test": 1,
+        "debug": "这是一串" + "很长" * 100 + "的字符串",
+        "verbose": 1,
     },
+    logggings=True,
 )
-
-# 模拟机器学习训练过程
-for epoch in range(2, run.config.epochs):
+for epoch in range(2, epochs):
+    if epoch % 10 == 0:
+        # 测试audio
+        sample_rate = 44100
+        test_audio_arr = np.random.randn(2, 100000)
+        swanlab.log(
+            {
+                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
+            },
+            step=epoch,
+        )
+        # 测试image
+        test_image = np.random.randint(0, 255, (100, 100, 3))
+        swanlab.log(
+            {
+                "test/image": swanlab.Image(test_image, caption="test"),
+                "test/text": swanlab.Text("hello swanlab!", caption="swanlab official"),
+            },
+            step=epoch,
+        )
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
-    swanlab.log({"loss": loss, "accuracy": acc})
+    loss2 = 3**-epoch + random.random() / epoch + offset * 3
+    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
+    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
+    time.sleep(0.5)
