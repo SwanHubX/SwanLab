@@ -56,7 +56,8 @@
   "todo-tree.general.tags": [
     "TODO", // 待办
     "FIXME", // 待修复
-    "COMPAT" // 兼容性问题
+    "COMPAT", // 兼容性问题
+    "WARNING" // 警告
   ],
   "todo-tree.highlights.customHighlight": {
     "TODO": {
@@ -64,6 +65,12 @@
       "type": "tag",
       "foreground": "#ffff00",
       "iconColour": "#ffff"
+    },
+    "WARNING": {
+      "icon": "alert",
+      "type": "tag",
+      "foreground": "#ff0000",
+      "iconColour": "#ff0000"
     },
     "FIXME": {
       "icon": "flame",

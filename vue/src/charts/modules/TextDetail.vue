@@ -1,5 +1,5 @@
 <template>
-  <div class="px-6 py-10 overflow-hidden bg-higher rounded-lg">
+  <div class="text-detail">
     <!-- infos -->
     <div v-for="item in info_list" :key="item" class="sm:flex pb-3">
       <span class="block w-48 font-semibold shrink-0">{{ $t(`common.chart.charts.text.titles.${item.key}`) }}:</span>
@@ -55,4 +55,8 @@ const info_list = computed(() => {
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.text-detail {
+  @apply px-6 py-10 overflow-hidden bg-higher rounded-lg;
+}
+</style>

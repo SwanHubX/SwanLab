@@ -21,7 +21,7 @@
       <LineChartTooltip ref="tooltipRef" />
     </div>
     <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <LineChartLegend
         :items="legend"

@@ -24,7 +24,7 @@
           :key="index"
         >
           <div class="image-container">
-            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
@@ -44,7 +44,7 @@
       />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div class="image-content image-content-zoom">
         <div class="flex flex-col justify-center items-center h-full" v-if="loading">
@@ -58,7 +58,7 @@
             :key="index"
           >
             <div class="image-container">
-              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
               <DownloadButton class="download-button" @click.stop="download(s.filename)" />
             </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
@@ -75,22 +75,37 @@
           :key="slideKey"
           @turn="handelTurn"
           v-if="maxIndex !== minIndex"
+          :turn-by-arrow="isZoom && !isSingleZoom"
         />
       </div>
     </SLModal>
     <!-- 额外的放大功能，点击某个图像，放大显示 -->
     <SLModal
-      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14"
+      class="w-full flex justify-center min-h-[calc(100vh-8rem)] p-14 relative"
       max-w="-1"
       v-model="isSingleZoom"
       close-on-overlay-click
+      @onExit="exitByEsc"
     >
+      <!-- 标题 -->
+      <p class="w-full overflow-hidden text-center text-lg font-semibold absolute top-5">
+        {{ signleZoomFilename }}
+      </p>
+      <!-- 图片 -->
       <div class="image-single-zoom">
-        <div class="relative">
-          <img :src="imagesData[signleZoomFilename].url" class="object-contain" />
+        <!-- 上一张图片 -->
+        <SLIcon icon="down" class="icon rotate-90" @click="handleSingleChange({ key: 'ArrowLeft' })"></SLIcon>
+        <!-- 当前图片 -->
+        <div class="relative mx-5 select-none">
+          <img :src="imagesData[signleZoomFilename].url" class="object-contain w-full" />
           <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
         </div>
+        <!-- 下一张图片 -->
+        <SLIcon icon="down" class="icon -rotate-90" @click="handleSingleChange({ key: 'ArrowRight' })"></SLIcon>
       </div>
+      <p class="w-full text-center absolute bottom-5 select-none">
+        {{ `${currentSingleImageIndex + 1} / ${stepsData[currentIndex][source[0]].length}` }}
+      </p>
     </SLModal>
   </template>
 </template>
@@ -293,13 +308,52 @@ const zoom = () => {
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
 const isSingleZoom = ref(false)
 const signleZoomFilename = ref()
+// 当前单个图像的索引
+const currentSingleImageIndex = ref(0)
 // 点击某个图像，放大
-const handelClickZoom = (filename) => {
+const handelClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
-  // console.log('filename', filename)
-  // console.log('image data', imagesData[filename])
+  currentSingleImageIndex.value = index
 }
+
+// ---------------------------------- ESC 退出弹窗 ----------------------------------
+
+// 通过 esc 按键关闭弹窗
+const exitByEsc = () => {
+  // 如果两个弹窗都有，只关闭单图弹窗
+  if (isZoom.value && isSingleZoom.value) return (isSingleZoom.value = false)
+  // 剩下的情况都是只有一个弹窗，全部关闭
+  isZoom.value = false
+  isSingleZoom.value = false
+}
+
+// ---------------------------------- 左右方向键翻页 ----------------------------------
+
+// 方向键切换单图 - 回调
+const handleSingleChange = ({ key }) => {
+  const images = stepsData[currentIndex.value][source.value[0]]
+
+  if (key === 'ArrowRight' && currentSingleImageIndex.value < images.length - 1) {
+    currentSingleImageIndex.value++
+  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
+    currentSingleImageIndex.value--
+  }
+
+  signleZoomFilename.value = images[currentSingleImageIndex.value].filename
+}
+
+// 订阅通过左右方向键切换单图
+watch(
+  () => isSingleZoom.value,
+  (newVal) => {
+    if (newVal) {
+      window.addEventListener('keyup', handleSingleChange)
+    } else {
+      window.removeEventListener('keyup', handleSingleChange)
+    }
+  }
+)
 
 // ---------------------------------- 点击下载按钮下载 ----------------------------------
 
@@ -359,9 +413,17 @@ defineExpose({
 }
 
 .image-single-zoom {
-  @apply flex items-center;
+  @apply flex items-center justify-between w-full;
   &:hover .download-button {
     @apply block;
+  }
+
+  .icon {
+    @apply w-10 h-10 cursor-pointer border rounded-full opacity-20 transition-all;
+
+    &:hover {
+      @apply opacity-100;
+    }
   }
 }
 </style>
