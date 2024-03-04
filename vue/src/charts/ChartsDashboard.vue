@@ -1,6 +1,8 @@
 <template>
   <!-- 图表顶层，嵌入全局功能 -->
-  <div></div>
+  <div class="sticky top-0 px-4 py-3 bg-higher z-full">
+    <SmoothButton />
+  </div>
   <!-- 每一个namespace对应一个图表容器 -->
   <ChartsContainer
     v-for="group in groups"
@@ -17,9 +19,8 @@
  * @file: ChartsDashboard.vue
  * @since: 2024-03-04 19:30:29
  **/
-import ChartsContainer from './ChartsContainer.vue'
+import ChartsContainer from './components/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
-import { ref } from 'vue'
 const props = defineProps({
   // 整个图表列表集合
   groups: {

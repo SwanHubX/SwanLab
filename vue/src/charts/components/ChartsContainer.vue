@@ -28,7 +28,7 @@
 
 <script setup>
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import ChartContainer from './components/ChartContainer.vue'
+import ChartContainer from './ChartContainer.vue'
 import { ref, provide } from 'vue'
 /**
  * @description: 图表容器，用于包裹图表组件，一个图表容器对应一个namespace
