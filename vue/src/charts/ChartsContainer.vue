@@ -43,15 +43,19 @@ const props = defineProps({
   charts: {
     type: Array,
     required: true
+  },
+  isExpand: {
+    type: Boolean,
+    required: true
   }
 })
 
 // ---------------------------------- 控制展开和关闭的状态 ----------------------------------
 
-const isExpand = ref(true)
+const emit = defineEmits(['update:isExpanded'])
 
 const handleExpand = () => {
-  isExpand.value = !isExpand.value
+  emit('update:isExpanded', !props.isExpand)
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------
