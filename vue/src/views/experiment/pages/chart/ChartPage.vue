@@ -1,12 +1,7 @@
 <template>
   <!-- 图表容器 -->
   <div class="bg-higher min-h-[calc(100vh-163px)]" v-if="status === 'success'">
-    <ChartsContainer
-      v-for="group in groups"
-      :key="group.name"
-      :label="getGroupName(group.name)"
-      :charts="getCharts(group)"
-    />
+    <ChartsDashboard :groups="groups" />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
   </div>
@@ -21,10 +16,10 @@
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
-import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
+import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStore()
 const route = useRoute()
@@ -62,18 +57,6 @@ const status = ref('initing')
 })
 
 // ---------------------------------- 根据charts生成对应配置 ----------------------------------
-
-/**
- * 根据group中的chart_id获取chart配置，生成一个数组
- */
-const getCharts = (group) => {
-  const _charts = []
-  group.charts.forEach((id) => {
-    _charts.push(charts[cnMap.get(id)])
-  })
-  return _charts
-}
-
 /**
  * 解析charts，生成groups和cnMap
  */
@@ -99,7 +82,10 @@ const parseCharts = (data) => {
   const temp = groups.value
   groups.value.forEach((group) => {
     found = false
+    // 第二次调用以后，id是chart配置，所以id.id
     group.charts.forEach((id) => {
+      // 如果id是Object，说明是一个chart配置，取id.id
+      if (typeof id === 'object') id = id.id
       // 遍历charts，如果id和charts.charts_id相同，cnMap添加一个key
       for (let i = 0; i < chartsIdArray.length; i++) {
         const chartId = chartsIdArray[i]
@@ -115,6 +101,13 @@ const parseCharts = (data) => {
         console.error('groups: ', groups)
         throw new Error('Charts and groups cannot correspond.')
       }
+    })
+  })
+  // 最终传入的groups，是将charts中的chart_id替换为chart配置
+  temp.forEach((group) => {
+    group.charts = group.charts.map((id) => {
+      if (typeof id === 'object') return charts[cnMap.get(id.id)]
+      return charts[cnMap.get(id)]
     })
   })
   groups.value = temp

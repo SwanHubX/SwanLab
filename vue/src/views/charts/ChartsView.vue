@@ -59,11 +59,10 @@ const generateGroups = () => {
       })
       // 如果chart的所有source都为不可见，不push
       if (chart.source.every((source) => !projectStore.showMap[source])) return
-      // 如果在source中不在error的keys中的都不可见，不push
       // 首先找到所有source中不在error的keys中的source
       const sources = chart.source.filter((source) => !chart.error[source])
       if (sources.every((source) => !projectStore.showMap[source])) return
-
+      // 如果在source中不在error的keys中的都不可见，不push
       group.charts.push(chart)
     })
     // 如果group的所有chart都为不可见，不push
@@ -79,7 +78,7 @@ const handleShowChange = () => {
   // 重新生成groups
   groups.value = generateGroups()
 }
-
+// 注册点击眼睛的回调
 projectStore.registerChangeShowCallback(handleShowChange)
 
 onUnmounted(() => {
