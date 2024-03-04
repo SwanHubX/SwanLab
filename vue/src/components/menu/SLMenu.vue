@@ -1,22 +1,22 @@
 <template>
-  <Menu as="div" class="relative" v-slot="{ open, close }">
+  <Menu as="div" class="relative select-none" :class="props.menuClass" v-slot="{ open, close }">
     <!-- 按钮区域 -->
-    <div class="relative w-full items-center flex" ref="button">
+    <div class="relative w-full items-center flex select-none" ref="button">
       <MenuButton class="w-full" :class="[{ 'sa-popover-button-active': open }]" data-sa-menu>
         <slot :open="open">按钮</slot>
         <SLIcon
-          name="down"
+          icon="down"
           class="h-4 w-4 absolute transition-transform duration-300"
           :class="[$props.downPosition, { 'rotate-180': open }]"
-          v-if="notDown"
+          v-if="down"
         />
       </MenuButton>
     </div>
     <!-- 弹窗区域 -->
     <div class="absolute z-full" :class="[$props.class]" :style="{ minWidth: menuMinWidth + 'px' }" ref="container">
       <MenuItems tabindex="" as="div" class="sa-menu-pop" :class="[$props.itemsClass]" data-sa-menu>
-        <div class="overflow-y-auto py-2" :style="{ maxHeight: props.menuMaxHeight + 'px' }">
-          <slot name="pop" :showPosition="showPosition" :open="open" :close="close">弹窗区域</slot>
+        <div class="py-2" :style="{ maxHeight: props.menuMaxHeight + 'px' }">
+          <slot name="pop" :open="open" :close="close">弹窗区域</slot>
         </div>
       </MenuItems>
     </div>
@@ -36,7 +36,7 @@ import SLIcon from '../SLIcon.vue'
 
 const props = defineProps({
   // 是否需要down图标
-  notDown: {
+  down: {
     type: Boolean,
     default: false
   },
@@ -44,6 +44,10 @@ const props = defineProps({
   downPosition: {
     type: String,
     default: 'right-3 top-3'
+  },
+  // 菜单样式，影响最顶层的样式
+  menuClass: {
+    type: String
   },
   // 弹窗的样式，直观感受上，对外层组件使用class的时候应该修改弹出框的样式
   class: {
@@ -104,7 +108,7 @@ const hasCorner = computed(() => {
 }
 
 .sa-menu-pop[data-sa-menu] {
-  @apply border overflow-hidden rounded w-full text-sm my-1;
+  @apply border rounded w-full text-sm my-1;
   box-shadow: 0px 4px 10px 0px rgba(0, 0, 0, 0.1);
 }
 </style>

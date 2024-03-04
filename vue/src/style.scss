@@ -31,6 +31,15 @@ body {
   }
 }
 
+// 移除safari的蓝边
+a,
+input,
+p,
+div {
+  outline: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
 // 弹跳进入动画
 .animate-bounce-in {
   animation: bounceIn 200ms;

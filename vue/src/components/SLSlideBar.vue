@@ -1,13 +1,29 @@
 <template>
-  <div class="sliding-range" ref="slidingRange">
-    <!-- 滑动条容器 -->
-    <div class="w-full relative h-1 flex">
-      <!-- 滑动条进度 -->
-      <div class="sliding-bar" :style="{ backgroundColor: barColor }" ref="slidingBar"></div>
-      <!-- 滑动条背景容器 -->
-      <div class="sliding-container"></div>
-      <!-- 滑动按钮 -->
-      <div class="sliding-button" ref="slidingButton"></div>
+  <div class="flex items-center w-full">
+    <div class="sliding-range" ref="slidingRange">
+      <!-- 滑动条容器 -->
+      <div class="w-full relative h-1 flex">
+        <!-- 滑动条进度 -->
+        <div class="sliding-bar" :style="{ backgroundColor: barColor }" ref="slidingBar"></div>
+        <!-- 滑动条背景容器 -->
+        <div class="sliding-container"></div>
+        <!-- 滑动按钮 -->
+        <div class="sliding-button" ref="slidingButton"></div>
+      </div>
+    </div>
+    <!-- 输入框,只有change的时候才会更改置 -->
+    <div class="flex items-center relative ml-3" v-if="showInput">
+      <input
+        type="number"
+        :value="props.modelValue"
+        ref="inputRef"
+        @keydown.enter="handleChange"
+        @blur="handleChange"
+      />
+      <div class="w-3 flex-shrink-0 flex-col flex absolute right-1">
+        <SLIcon icon="down" class="w-full h-3 -rotate-180 -mb-1" @click="handleClickUp" />
+        <SLIcon icon="down" class="w-full aspect-square" @click="handleClickDown" />
+      </div>
     </div>
   </div>
 </template>
@@ -19,6 +35,7 @@
  * @since: 2024-01-30 16:06:28
  **/
 import { computed, onMounted, ref, watch } from 'vue'
+import SLIcon from './SLIcon.vue'
 /**
  * 滑块封装组件
  */
@@ -45,7 +62,12 @@ const props = defineProps({
   // 已经滑动的进度条颜色
   barColor: {
     type: String,
-    default: 'var(--primary-default)'
+    default: 'var(--positive-default)'
+  },
+  // 是否显示输入框
+  showInput: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -54,10 +76,11 @@ watch(
   () => {
     // 访问一次slidingValue，触发get
     slidingValue.value
+    inputRef.value.value = props.modelValue
   }
 )
 
-const emits = defineEmits(['on-change', 'update:modelValue'])
+const emits = defineEmits(['on-change', 'update:modelValue', 'turn', 'change'])
 const slidingBar = ref(null)
 const slidingButton = ref(null)
 const slidingRange = ref(null)
@@ -136,11 +159,39 @@ function setButtonAndBarPosition(value) {
   // 进度条长度
   slidingBar.value.style.width = percent
 }
+
+// ---------------------------------- 右侧输入框相关 ----------------------------------
+
+const inputRef = ref(null)
+
+/**
+ * 向后渐少
+ */
+const handleClickDown = () => {
+  if (props.modelValue > props.min) {
+    emits('turn', 'backward', props.modelValue)
+  }
+}
+
+/**
+ * 向前增加
+ */
+const handleClickUp = () => {
+  if (props.modelValue < props.max) {
+    emits('turn', 'forward', props.modelValue)
+  }
+}
+
+const handleChange = (e) => {
+  e.preventDefault()
+  if (e.target.value == props.modelValue) return
+  emits('change', e.target.value)
+}
 </script>
 
 <style lang="scss" scoped>
 .sliding-range {
-  @apply hover:cursor-grab active:cursor-grabbing mx-0.5 py-3;
+  @apply hover:cursor-grab active:cursor-grabbing mx-0.5 py-3 grow;
   // 滑动条进度
   .sliding-bar {
     @apply h-full rounded-l-full;
@@ -161,5 +212,19 @@ function setButtonAndBarPosition(value) {
       @apply border-dimmer;
     }
   }
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input {
+  @apply w-16 h-6 pl-1 pr-5 rounded border outline-none bg-transparent text-xs focus:border-primary-default;
 }
 </style>
