@@ -3,7 +3,7 @@
     <!-- 项目标题部分 -->
     <div class="px-6 border-b flex-shrink-0">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-      <div class="project-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
+      <div class="project-title transition-marging duration-300">
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
           <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
@@ -13,7 +13,7 @@
           <ConfigEditor type="project" @modify="modifyProject" />
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
+        <div class="flex justify-end grow transition-padding duration-300 ml-1">
           <DeleteButton type="project" @confirm="deleteProject" :disabled="hasRunning" />
         </div>
       </div>
@@ -35,15 +35,11 @@
  * @file: HomeLayout.vue
  * @since: 2024-01-09 16:33:56
  **/
-import { inject, computed } from 'vue'
+import { computed } from 'vue'
 import { useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { message } from '@swanlab-vue/components/message'
 const projectStore = useProjectStore()
-
-// ---------------------------------- 控制h1缩进 ----------------------------------
-const isSideBarShow = inject('isSideBarShow')
-
 // ---------------------------------- 修改项目信息 ----------------------------------
 
 const modifyProject = async (newV, hideModal) => {

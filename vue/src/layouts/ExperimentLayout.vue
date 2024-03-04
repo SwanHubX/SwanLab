@@ -3,7 +3,7 @@
     <!-- 导航栏 -->
     <div class="px-6 border-b">
       <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-      <div class="experiment-title transition-marging duration-300" :class="{ 'ml-8': !isSideBarShow }">
+      <div class="experiment-title transition-marging duration-300">
         <div class="flex items-center gap-3">
           <!-- 项目标题/实验标题 -->
           <h1 class="text-2xl items-center gap-1 truncate max-w-sm sm:max-w-lg 2xl:max-w-5xl">
@@ -16,7 +16,7 @@
           <slot name="stop-button" v-if="experimentStore.isRunning"></slot>
         </div>
         <!-- 删除按钮 -->
-        <div class="flex justify-end grow transition-padding duration-300 ml-1" :class="{ 'pr-8': !isSideBarShow }">
+        <div class="flex justify-end grow transition-padding duration-300 ml-1">
           <DeleteButton type="experiment" @confirm="deleteExperiment" />
         </div>
       </div>

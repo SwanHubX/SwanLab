@@ -1,4 +1,7 @@
 <template>
+  <!-- 图表顶层，嵌入全局功能 -->
+  <div></div>
+  <!-- 每一个namespace对应一个图表容器 -->
   <ChartsContainer
     v-for="group in groups"
     :ref="(el) => setChartsRefList(el, index)"
@@ -10,7 +13,7 @@
 
 <script setup>
 /**
- * @description: 图表面板，置于ChartsContainers上方，提供一些全局图表功能
+ * @description: 图表面板，组织图表
  * @file: ChartsDashboard.vue
  * @since: 2024-03-04 19:30:29
  **/

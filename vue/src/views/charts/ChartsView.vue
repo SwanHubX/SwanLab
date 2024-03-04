@@ -1,14 +1,5 @@
 <template>
   <div class="flex flex-col min-h-full bg-higher">
-    <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-    <div class="project-title transition-marging duration-300 mt-5 pl-6" :class="{ 'ml-8': !isSideBarShow }">
-      <div class="flex items-center gap-3">
-        <!-- 项目标题/实验标题 -->
-        <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
-          {{ projectStore.name }}
-        </h1>
-      </div>
-    </div>
     <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-else-if="ready">Empty Charts</p>
@@ -25,7 +16,7 @@
  **/
 import http from '@swanlab-vue/api/http'
 import { useProjectStore } from '@swanlab-vue/store'
-import { ref, provide, inject } from 'vue'
+import { ref, provide } from 'vue'
 import ChartsPage from './components/ChartsPage.vue'
 import { onUnmounted } from 'vue'
 const projectStore = useProjectStore()
@@ -36,7 +27,6 @@ http.get('/project/charts').then(({ data }) => {
   groups.value = generateGroups()
   ready.value = true
 })
-const isSideBarShow = inject('isSideBarShow')
 const ready = ref(false)
 // ---------------------------------- 数据驱动 ----------------------------------
 // 项目对比图表数据，[{name, charts: [charts]}]

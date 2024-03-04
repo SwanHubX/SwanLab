@@ -1,6 +1,6 @@
 <template>
   <!-- 图表容器 -->
-  <div class="bg-higher min-h-[calc(100vh-163px)]" v-if="status === 'success'">
+  <div class="chart-page" v-if="status === 'success'">
     <ChartsDashboard :groups="groups" />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
@@ -16,7 +16,6 @@
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
-import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
 import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
@@ -462,4 +461,8 @@ const cid = (chart_id) => {
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.chart-page {
+  @apply bg-higher min-h-[calc(100vh-163px)];
+}
+</style>
