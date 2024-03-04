@@ -24,7 +24,7 @@
           :key="index"
         >
           <div class="image-container">
-            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
@@ -58,7 +58,7 @@
             :key="index"
           >
             <div class="image-container">
-              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
+              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
               <DownloadButton class="download-button" @click.stop="download(s.filename)" />
             </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
@@ -96,7 +96,7 @@
         <!-- 上一张图片 -->
         <SLIcon icon="down" class="icon rotate-90" @click="handleSingleChange({ key: 'ArrowLeft' })"></SLIcon>
         <!-- 当前图片 -->
-        <div class="relative w-full mx-5 select-none">
+        <div class="relative mx-5 select-none">
           <img :src="imagesData[signleZoomFilename].url" class="object-contain w-full" />
           <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
         </div>
@@ -308,12 +308,13 @@ const zoom = () => {
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
 const isSingleZoom = ref(false)
 const signleZoomFilename = ref()
+// 当前单个图像的索引
+const currentSingleImageIndex = ref(0)
 // 点击某个图像，放大
-const handelClickZoom = (filename) => {
+const handelClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
-  // console.log('filename', filename)
-  // console.log('image data', imagesData[filename])
+  currentSingleImageIndex.value = index
 }
 
 // ---------------------------------- ESC 退出弹窗 ----------------------------------
@@ -329,24 +330,17 @@ const exitByEsc = () => {
 
 // ---------------------------------- 左右方向键翻页 ----------------------------------
 
-// 当前单个图像的索引
-const currentSingleImageIndex = computed(() => {
-  const images = stepsData[currentIndex.value][source.value[0]]
-  return images.findIndex((image) => image.filename === signleZoomFilename.value)
-})
-
 // 方向键切换单图 - 回调
 const handleSingleChange = ({ key }) => {
   const images = stepsData[currentIndex.value][source.value[0]]
-  let index = images.findIndex((image) => image.filename === signleZoomFilename.value)
 
-  if (key === 'ArrowRight' && index < images.length - 1) {
-    index++
-  } else if (key === 'ArrowLeft' && index > 0) {
-    index--
+  if (key === 'ArrowRight' && currentSingleImageIndex.value < images.length - 1) {
+    currentSingleImageIndex.value++
+  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
+    currentSingleImageIndex.value--
   }
 
-  signleZoomFilename.value = images[index].filename
+  signleZoomFilename.value = images[currentSingleImageIndex.value].filename
 }
 
 // 订阅通过左右方向键切换单图
@@ -419,7 +413,7 @@ defineExpose({
 }
 
 .image-single-zoom {
-  @apply flex items-center w-full;
+  @apply flex items-center justify-between w-full;
   &:hover .download-button {
     @apply block;
   }
