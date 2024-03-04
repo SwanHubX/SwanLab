@@ -453,17 +453,6 @@ onUnmounted(() => {
 })
 
 // ---------------------------------- 工具函数：辅助渲染 ----------------------------------
-
-/**
- * 将组名进行一些翻译
- * @param { string } namespace 组名
- */
-const getGroupName = (name) => {
-  // console.log(name)
-  if (name === 'default') return t('common.chart.label.default')
-  else return name
-}
-
 /**
  * 依据chart_id生成cid，这是一个唯一id，用于eventEmitter中的订阅id，也是dom对象的id
  * @param { string } chart_id
