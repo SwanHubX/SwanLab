@@ -16,7 +16,7 @@ import numpy as np
 epochs = 50
 lr = 0.01
 offset = random.random() / 5
-
+# 初始化
 swanlab.init(
     log_level="debug",
     config={
@@ -28,7 +28,12 @@ swanlab.init(
     },
     logggings=True,
 )
+# 模拟训练
 for epoch in range(2, epochs):
+    acc = 1 - 2**-epoch - random.random() / epoch - offset
+    loss = 2**-epoch + random.random() / epoch + offset
+    loss2 = 3**-epoch + random.random() / epoch + offset * 3
+    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     if epoch % 10 == 0:
         # 测试audio
         sample_rate = 44100
@@ -43,7 +48,7 @@ for epoch in range(2, epochs):
         test_image = np.random.randint(0, 255, (100, 100, 3))
         swanlab.log(
             {
-                "test/image": swanlab.Image(test_image, caption="test"),
+                "test/image": [swanlab.Image(test_image, caption="test")] * (epoch // 10),
             },
             step=epoch,
         )
@@ -54,9 +59,9 @@ for epoch in range(2, epochs):
             },
             step=epoch,
         )
-    acc = 1 - 2**-epoch - random.random() / epoch - offset
-    loss = 2**-epoch + random.random() / epoch + offset
-    loss2 = 3**-epoch + random.random() / epoch + offset * 3
-    print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
-    swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
+        # 测试折线图
+        swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
+    else:
+        # 测试折线图
+        swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
     time.sleep(0.5)
