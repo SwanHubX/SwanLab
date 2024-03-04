@@ -13,6 +13,7 @@ from .modules import (
     Image,
     Text,
     Video,
+    Object3D,
 )
 from .sdk import (
     init,
