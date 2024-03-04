@@ -1,5 +1,12 @@
 <template>
-  <ChartsContainer v-for="group in groups" :key="group.name" :label="group.name" :charts="group.charts" />
+  <ChartsContainer
+    v-for="group in groups"
+    :key="group.name"
+    :label="group.name"
+    :charts="group.charts"
+    :isExpand="isExpand"
+    @update:isExpanded="handleExpand"
+  />
 </template>
 
 <script setup>
@@ -11,8 +18,24 @@
  **/
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { useProjectStore } from '@swanlab-vue/store'
-import { provide, onUnmounted } from 'vue'
+import { provide, onUnmounted, ref, onMounted } from 'vue'
 import http from '@swanlab-vue/api/http'
+
+// 从localStorage获取初始状态，如果没有则默认为true
+const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
+
+// 页面加载时设置初始状态
+onMounted(() => {
+  isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
+})
+
+// 处理展开状态改变
+const handleExpand = (newValue) => {
+  isExpand.value = newValue
+  // 更新localStorage
+  localStorage.setItem('chartsExpand', JSON.stringify(newValue))
+}
+
 const props = defineProps({
   // 图表组
   groups: {
