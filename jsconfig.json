@@ -9,5 +9,5 @@
     }
   },
   "exclude": ["node_modules", "dist", "vue/public"],
-  "include": ["vue/"]
+  "include": ["vue/src/**/*.js", "vue/src/**/*.vue", "vue/auto-imports.d.ts"]
 }
