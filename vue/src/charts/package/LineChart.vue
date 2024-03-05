@@ -57,6 +57,7 @@ import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
 import makeSmooth from './smooth'
+import { needSmooth } from './smooth'
 import LineChartTooltip from '../components/LinChartTooltip.vue'
 import LineChartLegend from '../components/LineChartLegend.vue'
 
@@ -255,7 +256,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       enterable: false,
       shared: true,
       position: 'top',
-      showMarkers: false,
+      showMarkers: true,
       customContent: () => '',
       domStyles: {
         'g2-tooltip': {
@@ -280,8 +281,6 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     autoFit: true,
     // 开启一些交互
     // interactions: [{ type: 'element-active' }],
-    // 图例相关
-
     // 平滑曲线
     smooth: false,
     animation: false,
@@ -300,7 +299,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   })
   // 监听鼠标移动事件
   c.on('plot:mousemove', (evt) => {
-    console.log('plot:mousemove', evt)
+    // console.log('plot:mousemove', evt)
     if (!nowData) return
     const y = evt.y
     // 遍历所有的nowData，寻找其中与y绝对值最小的点
@@ -666,8 +665,11 @@ const legendHoverout = (item, zoom) => {
 const chartData = inject('data')
 const smooth = (method) => {
   console.log('smooth by linechart:', method)
-  smoothMethod = method
-
+  if (!needSmooth(method)) {
+    smoothMethod = null
+  } else {
+    smoothMethod = method
+  }
   render(chartData)
 }
 
