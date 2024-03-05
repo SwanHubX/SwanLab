@@ -31,21 +31,6 @@ const projectStore = useProjectStore()
 const experimentStore = useExperimentStore()
 const route = useRoute()
 
-// 从localStorage获取初始状态，如果没有则默认为true
-// const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
-
-// 页面加载时设置初始状态
-// onMounted(() => {
-//   isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
-// })
-
-// 处理展开状态改变
-// const handleExpand = (newValue) => {
-//   isExpand.value = newValue
-//   // 更新localStorage
-//   localStorage.setItem('chartsExpand', JSON.stringify(newValue))
-// }
-
 // ---------------------------------- 颜色配置，注入色盘 ----------------------------------
 const colors = [...projectStore.colors]
 const createGetSeriesColor = () => {

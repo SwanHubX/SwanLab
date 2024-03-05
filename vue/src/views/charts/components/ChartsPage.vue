@@ -21,21 +21,6 @@ import { useProjectStore } from '@swanlab-vue/store'
 import { provide, onUnmounted, onMounted, reactive } from 'vue'
 import http from '@swanlab-vue/api/http'
 
-// 从localStorage获取初始状态，如果没有则默认为true
-// const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
-
-// 页面加载时设置初始状态
-// onMounted(() => {
-//   isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
-// })
-
-// 处理展开状态改变
-// const handleExpand = (newValue) => {
-//   isExpand.value = newValue
-//   // 更新localStorage
-//   localStorage.setItem('chartsExpand', JSON.stringify(newValue))
-// }
-
 const props = defineProps({
   // 图表组
   groups: {
@@ -49,6 +34,9 @@ const props = defineProps({
   }
 })
 
+const projectStore = useProjectStore()
+
+// ---------------------------------- 控制charts的展开关闭 ----------------------------------
 // 使用对象来跟踪每个group的展开状态
 const groupsExpand = reactive(JSON.parse(localStorage.getItem('groupsExpand')) || {})
 
@@ -67,8 +55,6 @@ const handleExpand = (groupName, newValue) => {
   // 更新localStorage
   localStorage.setItem('groupsExpand', JSON.stringify(groupsExpand))
 }
-
-const projectStore = useProjectStore()
 
 // ---------------------------------- 轮询器 ----------------------------------
 const intervalMap = new Map()
