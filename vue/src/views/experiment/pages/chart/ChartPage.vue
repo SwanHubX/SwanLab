@@ -6,8 +6,12 @@
       :key="group.name"
       :label="getGroupName(group.name)"
       :charts="getCharts(group)"
-      :isExpand="groupExpand[group.name] !== undefined ? groupExpand[group.name] : true"
-      @update:isExpanded="(value) => handleExpand(group.name, value)"
+      :isExpand="
+        groupExpand[experimentName] && groupExpand[experimentName][group.name] !== undefined
+          ? groupExpand[experimentName][group.name]
+          : true
+      "
+      @update:isExpanded="(value) => handleExpand(experimentName, group.name, value)"
     />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
@@ -124,6 +128,9 @@ const parseCharts = (data) => {
 
 // ---------------------------------- 控制charts的展开关闭 ----------------------------------
 
+// 获取实验名称
+const experimentName = ref(experimentStore.experiment.name)
+
 // 使用对象跟踪单个实验图表group的展开状态
 const groupExpand = reactive(JSON.parse(localStorage.getItem('groupExpand')) || {})
 
@@ -131,15 +138,18 @@ const groupExpand = reactive(JSON.parse(localStorage.getItem('groupExpand')) || 
 onMounted(() => {
   console.log(groups.value)
   const storedStates = JSON.parse(localStorage.getItem('groupExpand')) || {}
-  Object.keys(storedStates).forEach((groupName) => {
-    groupExpand[groupName] = storedStates[groupName]
-  })
+  if (!groupExpand[experimentName]) {
+    groupExpand[experimentName] = storedStates[experimentName] || {}
+  }
 })
 
 // 处理展开状态改变
-const handleExpand = (groupName, newValue) => {
-  groupExpand[groupName] = newValue
-  // 更新localStorage
+const handleExpand = (experimentName, groupName, newValue) => {
+  if (!groupExpand[experimentName]) {
+    groupExpand[experimentName] = {}
+  }
+  groupExpand[experimentName][groupName] = newValue
+  // 更新Localstorage
   localStorage.setItem('groupExpand', JSON.stringify(groupExpand))
 }
 
