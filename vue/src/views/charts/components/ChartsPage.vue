@@ -4,8 +4,8 @@
     :key="group.name"
     :label="group.name"
     :charts="group.charts"
-    :isExpand="isExpand"
-    @update:isExpanded="handleExpand"
+    :isExpand="groupStates[group.name] !== undefined ? groupStates[group.name] : true"
+    @update:isExpanded="(value) => handleExpand(group.name, value)"
   />
 </template>
 
@@ -18,23 +18,23 @@
  **/
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { useProjectStore } from '@swanlab-vue/store'
-import { provide, onUnmounted, ref, onMounted } from 'vue'
+import { provide, onUnmounted, onMounted, reactive } from 'vue'
 import http from '@swanlab-vue/api/http'
 
 // 从localStorage获取初始状态，如果没有则默认为true
-const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
+// const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
 
 // 页面加载时设置初始状态
-onMounted(() => {
-  isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
-})
+// onMounted(() => {
+//   isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
+// })
 
 // 处理展开状态改变
-const handleExpand = (newValue) => {
-  isExpand.value = newValue
-  // 更新localStorage
-  localStorage.setItem('chartsExpand', JSON.stringify(newValue))
-}
+// const handleExpand = (newValue) => {
+//   isExpand.value = newValue
+//   // 更新localStorage
+//   localStorage.setItem('chartsExpand', JSON.stringify(newValue))
+// }
 
 const props = defineProps({
   // 图表组
@@ -48,6 +48,26 @@ const props = defineProps({
     required: true
   }
 })
+
+// 使用对象来跟踪每个group的展开状态
+const groupStates = reactive(JSON.parse(localStorage.getItem('groupStates')) || {})
+
+// 初始化每个group的展开状态
+onMounted(() => {
+  console.log(props.groups)
+  const storedStates = JSON.parse(localStorage.getItem('groupStates')) || {}
+  Object.keys(storedStates).forEach((groupName) => {
+    groupStates[groupName] = storedStates[groupName]
+  })
+})
+
+// 处理展开状态改变
+const handleExpand = (groupName, newValue) => {
+  groupStates[groupName] = newValue
+  // 更新localStorage
+  localStorage.setItem('groupStates', JSON.stringify(groupStates))
+}
+
 const projectStore = useProjectStore()
 
 // ---------------------------------- 轮询器 ----------------------------------
