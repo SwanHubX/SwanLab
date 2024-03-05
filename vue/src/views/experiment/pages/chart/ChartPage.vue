@@ -11,7 +11,7 @@
           ? groupExpand[experimentName][group.name]
           : true
       "
-      @update:isExpanded="(value) => handleExpand(experimentName, group.name, value)"
+      @switch="(value) => handleExpand(experimentName, group.name, value)"
     />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
@@ -132,7 +132,7 @@ const parseCharts = (data) => {
 const experimentName = ref(experimentStore.experiment.name)
 
 // 使用对象跟踪单个实验图表group的展开状态
-const groupExpand = reactive(JSON.parse(localStorage.getItem('groupExpand')) || {})
+const groupExpand = ref(JSON.parse(localStorage.getItem('groupExpand')) || {})
 
 // 初始化每个group的展开状态
 onMounted(() => {
