@@ -125,7 +125,7 @@ const props = defineProps({
     required: true
   }
 })
-const run_id = computed(() => experimentStore.experiment.run_id)
+const run_id = computed(() => experimentStore.experiment?.run_id)
 const source = computed(() => {
   return props.chart.source
 })
@@ -206,10 +206,14 @@ const stepsData = {}
 const imagesData = {}
 
 const getImagesData = async (stepData) => {
+  if (source.value?.length === 1) return await getSingleImageData(stepData)
+  console.log(stepData)
+}
+
+const getSingleImageData = async (stepData) => {
   // 单数据
   const tag = source.value[0]
   const promises = []
-  // console.log('stepData', stepData)
   for (const { filename } of stepData[tag]) {
     if (!imagesData[filename]) {
       promises.push(
@@ -230,7 +234,6 @@ const getImagesData = async (stepData) => {
   await Promise.all(promises)
   loading.value = false
   imageContentRef.value.height = ''
-  // console.log('图像数据：', imagesData)
 }
 
 const debounceGetImagesData = debounce(getImagesData, 500)
@@ -245,6 +248,7 @@ const changeData2Image = (data) => {
   let _maxIndex = 0
   let _minIndex = Infinity
   for (const tag in data) {
+    if (data[tag] === null) continue
     // 遍历tag下的数据
     _maxIndex = Math.max(Number(data[tag].list[data[tag].list.length - 1].index), _maxIndex)
     _minIndex = Math.min(Number(data[tag].list[0].index), _minIndex)
