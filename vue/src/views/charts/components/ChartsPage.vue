@@ -18,7 +18,7 @@
  **/
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { useProjectStore } from '@swanlab-vue/store'
-import { provide, onUnmounted, onMounted, reactive } from 'vue'
+import { provide, onUnmounted, onMounted } from 'vue'
 import http from '@swanlab-vue/api/http'
 
 const props = defineProps({
@@ -38,7 +38,7 @@ const projectStore = useProjectStore()
 
 // ---------------------------------- 控制charts的展开关闭 ----------------------------------
 // 使用对象来跟踪每个group的展开状态
-const groupsExpand = reactive(JSON.parse(localStorage.getItem('groupsExpand')) || {})
+const groupsExpand = ref(JSON.parse(localStorage.getItem('groupsExpand')) || {})
 
 // 初始化每个group的展开状态
 onMounted(() => {
