@@ -4,7 +4,7 @@
     :key="group.name"
     :label="group.name"
     :charts="group.charts"
-    :isExpand="groupStates[group.name] !== undefined ? groupStates[group.name] : true"
+    :isExpand="groupsExpand[group.name] !== undefined ? groupsExpand[group.name] : true"
     @update:isExpanded="(value) => handleExpand(group.name, value)"
   />
 </template>
@@ -50,22 +50,22 @@ const props = defineProps({
 })
 
 // 使用对象来跟踪每个group的展开状态
-const groupStates = reactive(JSON.parse(localStorage.getItem('groupStates')) || {})
+const groupsExpand = reactive(JSON.parse(localStorage.getItem('groupsExpand')) || {})
 
 // 初始化每个group的展开状态
 onMounted(() => {
   console.log(props.groups)
-  const storedStates = JSON.parse(localStorage.getItem('groupStates')) || {}
+  const storedStates = JSON.parse(localStorage.getItem('groupsExpand')) || {}
   Object.keys(storedStates).forEach((groupName) => {
-    groupStates[groupName] = storedStates[groupName]
+    groupsExpand[groupName] = storedStates[groupName]
   })
 })
 
 // 处理展开状态改变
 const handleExpand = (groupName, newValue) => {
-  groupStates[groupName] = newValue
+  groupsExpand[groupName] = newValue
   // 更新localStorage
-  localStorage.setItem('groupStates', JSON.stringify(groupStates))
+  localStorage.setItem('groupsExpand', JSON.stringify(groupsExpand))
 }
 
 const projectStore = useProjectStore()

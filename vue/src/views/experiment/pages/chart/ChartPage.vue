@@ -6,8 +6,8 @@
       :key="group.name"
       :label="getGroupName(group.name)"
       :charts="getCharts(group)"
-      :isExpand="isExpand"
-      @update:isExpanded="handleExpand"
+      :isExpand="groupExpand[group.name] !== undefined ? groupExpand[group.name] : true"
+      @update:isExpanded="(value) => handleExpand(group.name, value)"
     />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
@@ -22,7 +22,7 @@
  **/
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide, onMounted, reactive } from 'vue'
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
@@ -32,19 +32,19 @@ const experimentStore = useExperimentStore()
 const route = useRoute()
 
 // 从localStorage获取初始状态，如果没有则默认为true
-const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
+// const isExpand = ref(JSON.parse(localStorage.getItem('chartsExpand') || 'true'))
 
 // 页面加载时设置初始状态
-onMounted(() => {
-  isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
-})
+// onMounted(() => {
+//   isExpand.value = JSON.parse(localStorage.getItem('chartsExpand') || 'true')
+// })
 
 // 处理展开状态改变
-const handleExpand = (newValue) => {
-  isExpand.value = newValue
-  // 更新localStorage
-  localStorage.setItem('chartsExpand', JSON.stringify(newValue))
-}
+// const handleExpand = (newValue) => {
+//   isExpand.value = newValue
+//   // 更新localStorage
+//   localStorage.setItem('chartsExpand', JSON.stringify(newValue))
+// }
 
 // ---------------------------------- 颜色配置，注入色盘 ----------------------------------
 const colors = [...projectStore.colors]
@@ -135,6 +135,27 @@ const parseCharts = (data) => {
     })
   })
   groups.value = temp
+}
+
+// ---------------------------------- 控制charts的展开关闭 ----------------------------------
+
+// 使用对象跟踪单个实验图表group的展开状态
+const groupExpand = reactive(JSON.parse(localStorage.getItem('groupExpand')) || {})
+
+// 初始化每个group的展开状态
+onMounted(() => {
+  console.log(groups.value)
+  const storedStates = JSON.parse(localStorage.getItem('groupExpand')) || {}
+  Object.keys(storedStates).forEach((groupName) => {
+    groupExpand[groupName] = storedStates[groupName]
+  })
+})
+
+// 处理展开状态改变
+const handleExpand = (groupName, newValue) => {
+  groupExpand[groupName] = newValue
+  // 更新localStorage
+  localStorage.setItem('groupExpand', JSON.stringify(groupExpand))
 }
 
 // ---------------------------------- 发布、订阅模型 ----------------------------------
