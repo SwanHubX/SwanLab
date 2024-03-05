@@ -52,10 +52,10 @@ const props = defineProps({
 
 // ---------------------------------- 控制展开和关闭的状态 ----------------------------------
 
-const emit = defineEmits(['update:isExpanded'])
+const emit = defineEmits(['switch'])
 
 const handleExpand = () => {
-  emit('expanded', !props.isExpand)
+  emit('switch', !props.isExpand)
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------
