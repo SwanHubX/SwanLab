@@ -5,7 +5,7 @@
     :label="group.name"
     :charts="group.charts"
     :isExpand="groupsExpand[group.name] !== undefined ? groupsExpand[group.name] : true"
-    @update:isExpanded="(value) => handleExpand(group.name, value)"
+    @Expande="(value) => handleExpand(group.name, value)"
   />
 </template>
 
