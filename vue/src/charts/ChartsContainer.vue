@@ -55,7 +55,7 @@ const props = defineProps({
 const emit = defineEmits(['update:isExpanded'])
 
 const handleExpand = () => {
-  emit('update:isExpanded', !props.isExpand)
+  emit('expanded', !props.isExpand)
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------
