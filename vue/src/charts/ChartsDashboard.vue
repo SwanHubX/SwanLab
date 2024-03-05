@@ -1,11 +1,11 @@
 <template>
   <!-- 图表顶层，嵌入全局功能 -->
   <div class="charts-pannel">
-    <SmoothButton />
+    <SmoothButton @smooth="handleSmooth" :default-method-id="1" />
   </div>
   <!-- 每一个namespace对应一个图表容器 -->
   <ChartsContainer
-    v-for="group in groups"
+    v-for="(group, index) in groups"
     :ref="(el) => setChartsRefList(el, index)"
     :key="group.name"
     :label="getNamespaces(group.name)"
@@ -57,6 +57,15 @@ const getCharts = (group) => {
 }
 
 // ---------------------------------- 处理图表平滑事件 ----------------------------------
+
+const handleSmooth = (method) => {
+  // 遍历chartsRefList中的所有chartRefList，调用其smooth方法
+  chartsRefList.value.forEach((chartsRef) => {
+    chartsRef.chartRefList.forEach((chartRef) => {
+      chartRef.smooth(method)
+    })
+  })
+}
 </script>
 
 <style lang="scss" scoped>

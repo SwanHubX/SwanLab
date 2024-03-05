@@ -14,10 +14,15 @@
     </div>
     <!-- 弹窗区域 -->
     <div class="absolute z-full" :class="[$props.class]" :style="{ minWidth: menuMinWidth + 'px' }" ref="container">
-      <MenuItems tabindex="" as="div" class="sa-menu-pop" :class="[$props.itemsClass]" data-sa-menu>
-        <div class="py-2" :style="{ maxHeight: props.menuMaxHeight + 'px' }">
-          <slot name="pop" :open="open" :close="close">弹窗区域</slot>
-        </div>
+      <MenuItems
+        tabindex=""
+        as="div"
+        class="sa-menu-pop py-2"
+        :class="[$props.itemsClass]"
+        :style="{ maxHeight: props.menuMaxHeight + 'px' }"
+        data-sa-menu
+      >
+        <slot name="pop" :open="open" :close="close">弹窗区域</slot>
       </MenuItems>
     </div>
     <!-- 尖尖角 -->
@@ -59,7 +64,7 @@ const props = defineProps({
     type: String,
     default: '120'
   },
-  // 弹窗的最大高度（超出此高度后出现滑动条）
+  // 弹窗的最大高度（超出此高度后，需要与itemsClass配合出现滑动条）
   menuMaxHeight: {
     type: String,
     default: '240'

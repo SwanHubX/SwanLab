@@ -20,7 +20,7 @@
         :key="chart._cid"
         :chart="chart"
         :index="index"
-        :ref="(el) => setChartsRefList(el, index)"
+        :ref="(el) => setChartRefList(el, index)"
       />
     </div>
   </div>
@@ -55,15 +55,19 @@ const handleExpand = () => {
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------
-const chartsRefList = ref([])
+const chartRefList = ref([])
 
-const setChartsRefList = (el, index) => {
-  chartsRefList.value[index] = el
-  chartsRefList.value.length = props.charts.length
+const setChartRefList = (el, index) => {
+  chartRefList.value[index] = el
+  chartRefList.value.length = props.charts.length
 }
 
 // ---------------------------------- 将charts组建传递给子组件 ----------------------------------
-provide('chartsRefList', chartsRefList)
+provide('chartRefList', chartRefList)
+
+defineExpose({
+  chartRefList
+})
 </script>
 
 <style lang="scss" scoped>

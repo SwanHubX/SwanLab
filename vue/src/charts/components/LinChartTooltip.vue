@@ -68,6 +68,8 @@ const key = ref(null)
  * 显示提示框，传入父元素宽度和显示x轴位置，计算提示框位置
  */
 const show = (data, width, x) => {
+  // 去除其中带&smooth后缀的数据，屏蔽展示
+  data = data.filter((item) => !item.data.series.includes('&smooth'))
   // console.log('show', data, width, x)
   data.sort((a, b) => b.data.data - a.data.data)
   // key.value = Math.random()
