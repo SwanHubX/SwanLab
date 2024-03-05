@@ -26,7 +26,7 @@
  **/
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { ref, provide, onMounted, reactive } from 'vue'
+import { ref, provide, onMounted } from 'vue'
 import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import { useRoute } from 'vue-router'
