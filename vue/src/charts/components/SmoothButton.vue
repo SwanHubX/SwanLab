@@ -121,13 +121,15 @@ const handleMethodClick = (method) => {
 // ---------------------------------- 处理slidebar的change和turn事件 ----------------------------------
 // 不需要考虑最大最小值溢出的情况，因为slidebar组件已经处理了
 const handleTurn = (direction) => {
+  console.log('direction', direction)
   if (direction === 'forward') {
     // 向前+1或+0.01,保留两位小数
-    _value.value = nowMethod.isInt ? _value.value + 1 : Number((_value.value + 0.01).toFixed(2))
+    _value.value = nowMethod.value.isInt ? _value.value + 1 : Number((_value.value + 0.01).toFixed(2))
   } else {
     // 向后-1或-0.01
-    _value.value = nowMethod.isInt ? _value.value - 1 : Number((_value.value - 0.01).toFixed(2))
+    _value.value = nowMethod.value.isInt ? _value.value - 1 : Number((_value.value - 0.01).toFixed(2))
   }
+  debounceSmooth()
 }
 const handleChange = (value) => {
   _value.value = Number(value.toFixed(2))

@@ -41,13 +41,40 @@ const runningAverage = (data, param) => {
   })
 }
 
-// 高斯函数
-const gaussian = (x, sigma) => {
-  return Math.exp((-x * x) / (2 * sigma * sigma))
+// 创建高斯函数
+const createGaussian = () => {
+  // 根号2π
+  const sqrt2PI = Math.sqrt(2 * Math.PI)
+  /**
+   * 高斯函数
+   * @param { Number } x 自变量
+   * @param { Number } stdDev 标准差
+   */
+  return (x, stdDev) => {
+    return Math.exp(-0.5 * Math.pow(x / stdDev, 2)) / (stdDev * sqrt2PI)
+  }
 }
 
 // 高斯平均
-const gaussianAverage = (data, param) => {}
+const gaussianAverage = (data, param) => {
+  const gaussian = createGaussian()
+  // 在代码中正负无穷似乎在大数据上影响算法速度，但是高斯函数在-3到3区间上进行积分似乎已经达到0.99以上，考虑使用此区间即可
+  const range = 6
+  // 对于每一个值，计算高斯函数的值，只采用-3到3的区间
+  let sum = 0
+  let weightSum = 0
+  return data.map((item, index) => {
+    sum = 0
+    weightSum = 0
+    for (let i = -range; i <= range; i++) {
+      if (index + i >= 0 && index + i < data.length) {
+        sum += data[index + i].data * gaussian(i, param)
+        weightSum += gaussian(i, param)
+      }
+    }
+    return { ...item, data: sum / weightSum }
+  })
+}
 
 // 平滑算法映射关系
 const smoothArithmetics = new Map([
@@ -78,6 +105,9 @@ export default function smooth(data, method) {
  * @returns { Boolean } 是否需要平滑，true为需要，false为不需要
  */
 export const needSmooth = (method) => {
+  if (!method.value) {
+    return false
+  }
   if (method.id !== 0) {
     return true
   }

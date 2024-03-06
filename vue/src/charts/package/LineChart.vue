@@ -467,7 +467,7 @@ const registerTooltipEvent = (dom, zoom) => {
   const tRef = zoom ? tooltipZoomRef : tooltipRef
 
   chart.on('tooltip:show', (evt) => {
-    console.log('tooltip:show', evt)
+    // console.log('tooltip:show', evt)
     // 获取当前tooltip的left
     const items = evt.data.items
     addTaskToBrowserMainThread(() => {
