@@ -21,7 +21,7 @@
         <div class="flex items-center gap-2">
           <span class="w-20 flex-shrink-0">{{ $t('common.chart.charts.share.smooth.method') }}</span>
           <SLMenu menu-class="w-full" items-class="overflow-auto bg-default" down down-position="top-2.5 right-2">
-            <div class="w-full border p-2 text-left rounded">{{ nowMethod.name }}</div>
+            <div class="w-full border p-2 text-left rounded hover:bg-higher">{{ nowMethod.name }}</div>
             <template #pop>
               <SLMenuItems class="method-items">
                 <SLMenuItem

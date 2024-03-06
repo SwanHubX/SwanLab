@@ -502,6 +502,10 @@ const registerTooltipEvent = (dom, zoom) => {
     manual = true
     point = null
   })
+  // brush相关事件
+  chart.on(G2.BRUSH_FILTER_EVENTS.BEFORE_FILTER, (...agrs) => {
+    console.log('BEFORE_FILTER', agrs)
+  })
 }
 
 // ---------------------------------- tooltip出现并且是非js触发时，可执行copy操作 ----------------------------------
