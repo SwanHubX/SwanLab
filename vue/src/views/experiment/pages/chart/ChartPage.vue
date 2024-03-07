@@ -15,7 +15,7 @@
  **/
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
 import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
@@ -111,23 +111,6 @@ const parseCharts = (data) => {
   })
   groups.value = temp
 }
-
-// ---------------------------------- 控制charts的展开关闭 ----------------------------------
-
-// 获取实验名称
-const experimentName = ref(experimentStore.experiment.name)
-
-// 使用对象跟踪单个实验图表group的展开状态
-const groupExpand = ref(JSON.parse(localStorage.getItem('groupExpand')) || {})
-
-// 初始化每个group的展开状态
-onMounted(() => {
-  console.log(groups.value)
-  const storedStates = JSON.parse(localStorage.getItem('groupExpand')) || {}
-  if (!groupExpand[experimentName]) {
-    groupExpand[experimentName] = storedStates[experimentName] || {}
-  }
-})
 
 // ---------------------------------- 发布、订阅模型 ----------------------------------
 // 请求映射表，反映映射状态

@@ -4,7 +4,7 @@
     <!-- 控制栏 -->
     <div class="flex items-center">
       <!-- 关闭、展开按钮 -->
-      <button class="flex items-center gap-1 relative" @click="handleExpand">
+      <button class="flex items-center gap-1 relative" @click="handleNamespaceClick">
         <SLIcon icon="down" class="w-6 h-6 absolute -left-6" :class="{ '-rotate-90': !isExpand }" />
         {{ label }}
         <span class="px-3 bg-highest text-sm rounded-full ml-2 text-difault">{{ charts.length || 0 }}</span>
@@ -44,18 +44,18 @@ const props = defineProps({
     type: Array,
     required: true
   },
-  isExpand: {
+  opened: {
     type: Boolean,
     required: true
   }
 })
-
-// ---------------------------------- 控制展开和关闭的状态 ----------------------------------
-
 const emit = defineEmits(['switch'])
+// ---------------------------------- 控制展开和关闭的状态 ----------------------------------
+const isExpand = ref(props.opened)
 
-const handleExpand = () => {
-  emit('switch', !props.isExpand)
+const handleNamespaceClick = () => {
+  isExpand.value = !isExpand.value
+  emit('switch', !isExpand.value)
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------

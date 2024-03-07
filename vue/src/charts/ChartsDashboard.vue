@@ -10,6 +10,8 @@
     :key="group.name"
     :label="getNamespaces(group.name)"
     :charts="getCharts(group)"
+    :opened="!!group.opened"
+    @switch="(opened) => debouncedHandleSwitch(index, opened)"
   />
 </template>
 
@@ -22,6 +24,7 @@
 import ChartsContainer from './components/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import SmoothButton from './components/SmoothButton.vue'
+import { debounce } from '@swanlab-vue/utils/common'
 const props = defineProps({
   // 整个图表列表集合
   groups: {
@@ -66,6 +69,14 @@ const handleSmooth = (method) => {
     })
   })
 }
+
+// ---------------------------------- 在此处处理命名空间打开和关闭 ----------------------------------
+const handleSwitch = (index, opened) => {
+  console.log('namespace click', index, opened)
+  // 向后端更新展开状态
+}
+
+const debouncedHandleSwitch = debounce(handleSwitch, 300)
 </script>
 
 <style lang="scss" scoped>
