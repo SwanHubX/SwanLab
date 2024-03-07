@@ -20,7 +20,13 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       // 自动化导入
-      AutoImport({ imports: ['vue', 'vue-router'], dts: 'auto-imports.d.ts' }),
+      AutoImport({
+        imports: ['vue', 'vue-router'],
+        dts: 'auto-imports.d.ts',
+        eslintrc: {
+          enabled: true
+        }
+      }),
       // 自动导入组件，自定义组件库
       Components({
         // 指定组件所在文件夹的位置

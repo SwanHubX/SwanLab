@@ -24,6 +24,7 @@
  * @since: 2024-01-30 16:18:31
  **/
 import { computed, ref, onUnmounted } from 'vue'
+import SLSlideBar from '@swanlab-vue/components/SLSlideBar.vue'
 
 const props = defineProps({
   max: {
