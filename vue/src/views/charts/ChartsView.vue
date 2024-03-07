@@ -1,14 +1,5 @@
 <template>
   <div class="flex flex-col min-h-full bg-higher">
-    <!-- 第一行内容，项目标题、实验标题、编辑按钮、删除按钮 -->
-    <div class="project-title transition-marging duration-300 mt-5 pl-6" :class="{ 'ml-8': !isSideBarShow }">
-      <div class="flex items-center gap-3">
-        <!-- 项目标题/实验标题 -->
-        <h1 class="text-2xl items-center gap-1 font-semibold max-w-md truncate">
-          {{ projectStore.name }}
-        </h1>
-      </div>
-    </div>
     <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-else-if="ready">Empty Charts</p>
@@ -25,7 +16,7 @@
  **/
 import http from '@swanlab-vue/api/http'
 import { useProjectStore } from '@swanlab-vue/store'
-import { ref, provide, inject } from 'vue'
+import { ref, provide } from 'vue'
 import ChartsPage from './components/ChartsPage.vue'
 import { onUnmounted } from 'vue'
 const projectStore = useProjectStore()
@@ -36,7 +27,6 @@ http.get('/project/charts').then(({ data }) => {
   groups.value = generateGroups()
   ready.value = true
 })
-const isSideBarShow = inject('isSideBarShow')
 const ready = ref(false)
 // ---------------------------------- 数据驱动 ----------------------------------
 // 项目对比图表数据，[{name, charts: [charts]}]
@@ -59,11 +49,10 @@ const generateGroups = () => {
       })
       // 如果chart的所有source都为不可见，不push
       if (chart.source.every((source) => !projectStore.showMap[source])) return
-      // 如果在source中不在error的keys中的都不可见，不push
       // 首先找到所有source中不在error的keys中的source
       const sources = chart.source.filter((source) => !chart.error[source])
       if (sources.every((source) => !projectStore.showMap[source])) return
-
+      // 如果在source中不在error的keys中的都不可见，不push
       group.charts.push(chart)
     })
     // 如果group的所有chart都为不可见，不push
@@ -79,7 +68,7 @@ const handleShowChange = () => {
   // 重新生成groups
   groups.value = generateGroups()
 }
-
+// 注册点击眼睛的回调
 projectStore.registerChangeShowCallback(handleShowChange)
 
 onUnmounted(() => {

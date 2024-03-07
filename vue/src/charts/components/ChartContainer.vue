@@ -138,6 +138,7 @@ function isPromiseAndAsyncFunction(func) {
 }
 // ---------------------------------- 订阅 ----------------------------------
 let data = {}
+provide('data', data)
 // 是否已经渲染，用于控制执行render方法还是change方法
 let hasInited = false
 const $off = inject('$off')
@@ -199,9 +200,38 @@ const zoom = () => {
   chartRef.value.zoom(data)
 }
 
+// ---------------------------------- 图表显示/隐藏tooltip ----------------------------------
+
+const showTooltip = (...args) => {
+  chartRef.value.showTooltip && chartRef.value.showTooltip(...args)
+}
+
+const hideTooltip = () => {
+  chartRef.value.hideTooltip && chartRef.value.hideTooltip()
+}
+
+// ---------------------------------- 图表加粗 ----------------------------------
+const thicken = (...args) => {
+  chartRef.value.thicken && chartRef.value.thicken(...args)
+}
+
+const thin = (...args) => {
+  chartRef.value.thin && chartRef.value.thin(...args)
+}
+
+// ---------------------------------- 图表平滑方法 ----------------------------------
+const smooth = (method) => {
+  chartRef.value.smooth && chartRef.value.smooth(method)
+}
+
 // ---------------------------------- 暴露组件对象 ----------------------------------
 defineExpose({
-  chartRef
+  chartRef,
+  smooth,
+  thicken,
+  thin,
+  showTooltip,
+  hideTooltip
 })
 </script>
 

@@ -28,7 +28,11 @@
         "step": "Step",
         "tag": "Tag",
         "time": "Time",
-        "value": "Value"
+        "value": "Value",
+        "smooth": {
+          "smoothing": "Smoothing",
+          "method": "Method"
+        }
       }
     },
     "empty": "Empty Experiment with No Charts",

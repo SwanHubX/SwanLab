@@ -1,33 +1,31 @@
 <template>
   <section class="w-screen h-screen overflow-x-clip">
+    <!-- 侧边栏关闭/开启按钮 -->
+    <button class="close-button" ref="cbRef" @click="handleClose" v-if="showSideBar">
+      <SLIcon icon="sidebar" class="w-full h-full" />
+    </button>
     <!-- 顶部header -->
     <header class="h-14 w-full">
       <HeaderBar :version="version" />
     </header>
     <!-- 下半部分主要内容，增加一个relative-container的原因是解决按钮在滑动时的隐藏问题 -->
-    <div class="relative-container">
-      <main class="main-container">
-        <!-- 遮罩，淡入淡出 -->
-        <transition name="fade" v-if="showSideBar">
-          <div class="md:hidden sidebar-overlay" v-if="isSideBarShow" @click="handleClose"></div>
-        </transition>
-        <!-- 侧边栏 -->
-        <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
-          <!-- 侧边栏规定宽度 -->
-          <div class="sidebar-content">
-            <SideBar />
-          </div>
+    <main class="main-container">
+      <!-- 遮罩，淡入淡出 -->
+      <transition name="fade" v-if="showSideBar">
+        <div class="md:hidden sidebar-overlay" v-if="isSideBarShow" @click="handleClose"></div>
+      </transition>
+      <!-- 侧边栏 -->
+      <div class="sidebar-container bg-default" ref="sidebarRef" v-if="showSideBar">
+        <!-- 侧边栏规定宽度 -->
+        <div class="sidebar-content">
+          <SideBar />
         </div>
-        <!-- 右侧主要内容 -->
-        <div class="main-content border-l" ref="containerRef">
-          <!-- 侧边栏关闭/开启按钮 -->
-          <button class="close-button" ref="cbRef" @click="handleClose" v-if="showSideBar">
-            <SLIcon icon="sidebar" class="w-full h-full" />
-          </button>
-          <slot></slot>
-        </div>
-      </main>
-    </div>
+      </div>
+      <!-- 右侧主要内容 -->
+      <div class="main-content border-l" ref="containerRef">
+        <slot></slot>
+      </div>
+    </main>
   </section>
 </template>
 <script setup>
@@ -39,7 +37,6 @@ import { ref, watch, onMounted, provide, computed } from 'vue'
 import HeaderBar from './components/HeaderBar.vue'
 import SideBar from './components/SideBar.vue'
 import { useRoute } from 'vue-router'
-import { onUnmounted } from 'vue'
 const props = defineProps({
   version: {
     type: String,
@@ -50,9 +47,6 @@ const props = defineProps({
     default: true
   }
 })
-
-// 初始按钮top位置，单位px
-const initialTop = 16 + 'px'
 
 // ---------------------------------- 开启/关闭sidebar ----------------------------------
 
@@ -89,7 +83,6 @@ provide('closeSideBar', () => {
 
 // 关闭按钮点击事件
 const handleClose = () => {
-  cbRef.value.classList.add('close-animation')
   isSideBarShow.value = !isSideBarShow.value
 }
 
@@ -108,13 +101,12 @@ onMounted(() => {
       // 显示
       if (val) {
         sidebarRef.value.style = 'width: 288px;'
-        cbRef.value.style.transform = ''
-        cbRef.value.style.top = initialTop
+        cbRef.value.classList.remove('close-button-sidebar-close')
+        cbRef.value.classList.add('close-button-sidebar-open')
       } else {
         sidebarRef.value.style = 'width: 0;'
-        // cb添加transform动画，向左移动233px，旋转180度，向下移动60px
-        cbRef.value.style.transform = 'translateX(-228px) rotateY(180deg)'
-        handleContainerScroll(false)
+        cbRef.value.classList.remove('close-button-sidebar-open')
+        cbRef.value.classList.add('close-button-sidebar-close')
       }
     },
     {
@@ -134,27 +126,6 @@ watch(
     }
   }
 )
-
-// ---------------------------------- 按钮位置修改，监听下滑距离 ----------------------------------
-
-onMounted(() => {
-  containerRef.value.addEventListener('scroll', handleContainerScroll)
-  onUnmounted(() => {
-    containerRef.value.removeEventListener('scroll', handleContainerScroll)
-  })
-})
-
-const handleContainerScroll = (removeAnimation = true) => {
-  if (isSideBarShow.value) return
-  // 获取滚动距离
-  requestAnimationFrame(() => {
-    const scrollTop = containerRef.value.scrollTop
-    // 按钮top位置为其class中的top值-滚动距离
-    cbRef.value.style.top = `calc(26px - ${scrollTop}px)`
-    removeAnimation && cbRef.value.classList.remove('close-animation')
-  })
-}
-
 // ---------------------------------- 暴露对象 ----------------------------------
 
 defineExpose({
@@ -163,6 +134,9 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
+$open-top: 72px;
+$close-top: 17px;
+
 // 动画持续时间
 $duration: 400ms;
 
@@ -192,17 +166,30 @@ $main-content-height: calc(100vh - 56px);
 
 .close-button {
   @apply absolute z-full outline-none border-none rounded p-1 bg-transparent;
+  transition-duration: $duration;
+  transition-timing-function: ease-in-out;
+  transition-property: top, color, transform, background-color;
   width: $close-button-size;
   height: $close-button-size;
   left: calc($sidebar-width - $close-button-size - 16px);
+}
+
+// sidebar被关闭
+.close-button-sidebar-close {
+  top: $close-top;
+  color: var(--accent-white-highest);
+  transform: translateX(-108px) rotateY(180deg);
+  &:hover {
+    @apply text-white-default;
+  }
+}
+
+// sidebar开启时
+.close-button-sidebar-open {
+  top: $open-top;
   &:hover {
     @apply bg-highest;
   }
-}
-.close-animation {
-  transition-property: translateX translateY;
-  transition-duration: $duration;
-  transition-timing-function: ease-in-out;
 }
 
 // 定义一个动画，$duration秒之内不透明度从1到0再到1
@@ -225,7 +212,7 @@ $main-content-height: calc(100vh - 56px);
 
 // 遮罩
 .sidebar-overlay {
-  @apply absolute w-full  overflow-x-hidden z-50;
+  @apply absolute w-full  overflow-x-hidden z-40;
   height: $main-content-height;
   background-color: var(--background-overlay);
   animation: fadeIn $duration ease;
