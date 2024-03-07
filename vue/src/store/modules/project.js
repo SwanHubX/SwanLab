@@ -46,6 +46,13 @@ export const useProjectStore = defineStore('project', () => {
     project.value = p
   }
   /**
+   * 通过实验名获取实验 run_id
+   */
+  const getExpRunIdByName = (name) => {
+    const experiment = experiments.value.find((e) => e.name === name)
+    return experiment?.run_id
+  }
+  /**
    * 删除对应的实验
    * @param {int} id 实验id
    */
@@ -131,6 +138,7 @@ export const useProjectStore = defineStore('project', () => {
     colorMap,
     showMap,
     setProject,
+    getExpRunIdByName,
     deleteExperiment,
     updateInfo,
     clearProject,

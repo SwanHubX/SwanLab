@@ -17,12 +17,13 @@
         <SLLoading />
       </div>
       <!-- 加载完成 -->
-      <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
-        <div
-          class="flex flex-col items-center justify-center relative"
-          v-for="(s, index) in stepsData[currentIndex][source[0]]"
-          :key="index"
-        >
+      <!-- 单实验图表 -->
+      <div
+        class="images-container"
+        :style="setGrid(stepsData[currentIndex][source[0]].length)"
+        v-if="!loading && !isMulti"
+      >
+        <div class="image-detail" v-for="(s, index) in stepsData[currentIndex][source[0]]" :key="index">
           <div class="image-container">
             <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
@@ -30,8 +31,25 @@
           <p class="text-xs">{{ s.caption }}</p>
         </div>
       </div>
+      <!-- 多实验图表 -->
+      <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
+        <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
+          <div class="text-xs text-left w-full flex items-center pb-1">
+            <div class="h-2 w-2 rounded-full border"></div>
+            <p class="pl-2">{{ name }}</p>
+          </div>
+          <div class="image-container">
+            <img
+              :src="imagesData[s[currentInnerIndex - 1].filename].url"
+              @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
+            />
+            <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
+          </div>
+          <p class="text-xs">{{ s.caption }}</p>
+        </div>
+      </div>
     </div>
-    <div class="h-8">
+    <div class="h-8 flex items-center justify-center">
       <SlideBar
         class="mt-2"
         v-model="currentIndex"
@@ -41,6 +59,15 @@
         :key="slideKey"
         @turn="handelTurn"
         v-if="maxIndex !== minIndex"
+      />
+      <SlideBar
+        v-model="currentInnerIndex"
+        :max="maxInnerIndex"
+        :min="minInnerIndex"
+        :bar-color="barColor"
+        :key="maxInnerIndex"
+        reference="index"
+        v-if="source?.length > 1"
       />
     </div>
     <!-- 放大效果弹窗 -->
@@ -104,13 +131,19 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, watch, computed } from 'vue'
-import { useExperimentStore } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
+import { useRoute } from 'vue-router'
+
 const experimentStore = useExperimentStore()
+const projectStore = useProjectStore()
+const route = useRoute()
+
 // ---------------------------------- 配置 ----------------------------------
+
 const props = defineProps({
   title: {
     type: String,
@@ -125,9 +158,30 @@ const props = defineProps({
     required: true
   }
 })
-const run_id = computed(() => experimentStore.experiment?.run_id)
+/**
+ * 图表数据来源，为数组
+ * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
+ * 当isMulti为false时，数组元素为tag，即给该表提供数据的tag
+ */
 const source = computed(() => {
   return props.chart.source
+})
+// 是否为多实验的图表，根据路由名称判断
+const isMulti = computed(() => {
+  return route.name === 'charts'
+})
+/**
+ * 实验名对应的run_id
+ * 单实验时直接从 experiment pinia 中拿
+ * 多实验时通过 project pinia 中的 getExpRunIdByName 获取（传入实验名查询 run_id）
+ */
+const run_id = computed(() => {
+  if (!isMulti.value) return experimentStore.experiment?.run_id
+  const run_ids = {}
+  for (const exp of source.value) {
+    run_ids[exp] = projectStore.getExpRunIdByName(exp)
+  }
+  return run_ids
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
@@ -173,7 +227,11 @@ const currentIndex = computed({
     }
     loading.value = true
     imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
+    // 如果是多实验模式，将内部数据索引置 1
+    if (isMulti.value) currentInnerIndex.value = 1
+    // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
+    console.log(stepsData)
   }
 })
 
@@ -199,19 +257,76 @@ const setGrid = (length) => {
   }
 }
 
+// ---------------------------------- 多实验适配 ----------------------------------
+
+// index 进度条配置
+const maxInnerIndex = computed(() => {
+  let tempLength = 1
+  for (const exp in stepsData[currentIndex.value]) {
+    const l = stepsData[currentIndex.value][exp].length
+    if (l > maxInnerIndex.value) tempLength = l
+  }
+  return tempLength
+})
+const minInnerIndex = ref(1)
+const currentInnerIndex = ref(minInnerIndex.value)
+
+// 同时获取多个实验的图像数据
+const getMultiImagesData = async (stepData) => {
+  const promises = []
+  for (const exp in stepData) {
+    for (const { filename } of stepData[exp]) {
+      if (imagesData[filename]) continue
+      // 没有缓存，发起请求
+      promises.push(
+        new Promise((resolve) => {
+          console.log(run_id.value[exp], props.title, filename)
+          UTILS.media.get(filename, run_id.value[exp], props.title).then((blob) => {
+            // blob转换为图像base64
+            const reader = new FileReader()
+            reader.onload = function () {
+              imagesData[filename] = { blob, url: reader.result }
+              resolve()
+            }
+            reader.readAsDataURL(blob)
+          })
+        })
+      )
+    }
+  }
+
+  await Promise.all(promises)
+  loading.value = false
+  imageContentRef.value.height = ''
+}
+
+const visiableSources = computed(() => {
+  const temp = []
+  for (const key in stepsData[currentIndex.value]) {
+    temp.push(key)
+  }
+  return temp
+})
+
 // ---------------------------------- 数据格式化 ----------------------------------
 // 前端映射数据，不包含图像，数据格式：{step: {tag: [{filename: string, caption: string}]}}
 const stepsData = {}
 // 图像数据缓存, 数据格式：{String<filename>: {blob: Blob, url: string<base64>}}
 const imagesData = {}
 
+/**
+ * 获取图像数据
+ * step 发生改变后触发获取
+ */
 const getImagesData = async (stepData) => {
-  if (source.value?.length === 1) return await getSingleImageData(stepData)
-  console.log(stepData)
+  if (!isMulti.value) return await getSingleImageData(stepData)
+  await getMultiImagesData(stepData)
 }
 
+/**
+ * 单数据源
+ */
 const getSingleImageData = async (stepData) => {
-  // 单数据
   const tag = source.value[0]
   const promises = []
   for (const { filename } of stepData[tag]) {
@@ -236,33 +351,40 @@ const getSingleImageData = async (stepData) => {
   imageContentRef.value.height = ''
 }
 
+/**
+ * 防抖函数，防止请求过于频繁
+ */
 const debounceGetImagesData = debounce(getImagesData, 500)
 
 /**
  * 将后端传回的数据转换为图像数据，存储到imageStepsData中
- * 后端返回的数据格式为：{tag: {..., list:[{data: string or list<strinf>, more: object or list<object>, index: string<number>, create_time: string}]}}
+ * 后端返回的数据格式为：{exp_name: {..., list:[{data: string or list<strinf>, more: object or list<object>, index: string<number>, create_time: string}]}}
+ * 主要工作：
+ * 1. 将有用数据按 step 提取到 stepsData
+ * 2. 找出最大最小 step
+ *
  * @param { Object } data 后端返回的数据
  */
 const changeData2Image = (data) => {
   // 遍历数据，将数据转换为图像数据
   let _maxIndex = 0
   let _minIndex = Infinity
-  for (const tag in data) {
-    if (data[tag] === null) continue
-    // 遍历tag下的数据
-    _maxIndex = Math.max(Number(data[tag].list[data[tag].list.length - 1].index), _maxIndex)
-    _minIndex = Math.min(Number(data[tag].list[0].index), _minIndex)
-    for (const item of data[tag].list) {
+  for (const exp in data) {
+    if (data[exp] === null) continue
+    // 遍历实验下的数据
+    _maxIndex = Math.max(Number(data[exp].list[data[exp].list.length - 1].index), _maxIndex)
+    _minIndex = Math.min(Number(data[exp].list[0].index), _minIndex)
+    for (const item of data[exp].list) {
+      // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
-      else continue
-      // 对当前tag下的数据进行处理,向stepsData中添加数据
-      if (!stepsData[item.index][tag]) stepsData[item.index][tag] = []
+      // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
+      if (!stepsData[item.index][exp]) stepsData[item.index][exp] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][tag].push({ filename: item.data, caption: item.more?.caption })
+        stepsData[item.index][exp].push({ filename: item.data, caption: item.more?.caption })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][tag].push({ filename: item.data[i], caption: item.more[i]?.caption })
+          stepsData[item.index][exp].push({ filename: item.data[i], caption: item.more[i]?.caption })
         }
       }
     }
@@ -343,6 +465,10 @@ defineExpose({
       &:hover .download-button {
         @apply block;
       }
+    }
+
+    .image-detail {
+      @apply flex flex-col items-center justify-center relative;
     }
   }
 }
