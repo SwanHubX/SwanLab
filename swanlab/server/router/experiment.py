@@ -24,6 +24,8 @@ from ..controller.experiment import (
     get_experiment_requirements,
     # 修改实验可见性
     change_experiment_visibility,
+    # 修改namespace可见性
+    change_namespace_visibility,
 )
 from fastapi import Request
 from urllib.parse import quote
@@ -219,3 +221,12 @@ async def _(experiment_id: int, request: Request):
     if show is None:
         return PARAMS_ERROR_422("Request parameter 'show'")
     return change_experiment_visibility(experiment_id, show)
+
+
+# 修改namespace可见性
+@router.patch("namespace/{id}/opened")
+async def _(namespace_id: int, request: Request):
+    opened = (await request.json()).get("opened")
+    if opened is None:
+        return PARAMS_ERROR_422("Request parameter 'show'")
+    return change_namespace_visibility

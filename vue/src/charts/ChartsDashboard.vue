@@ -10,8 +10,8 @@
     :key="group.name"
     :label="getNamespaces(group.name)"
     :charts="getCharts(group)"
-    :opened="!!group.opened"
-    @switch="(opened) => debouncedHandleSwitch(index, opened)"
+    :opened="!!group.open"
+    @switch="(opened) => debouncedHandleSwitch(group.id, opened)"
   />
 </template>
 
@@ -71,9 +71,10 @@ const handleSmooth = (method) => {
 }
 
 // ---------------------------------- 在此处处理命名空间打开和关闭 ----------------------------------
-const handleSwitch = (index, opened) => {
+const handleSwitch = (group, index, opened) => {
   console.log('namespace click', index, opened)
-  // 向后端更新展开状态
+  // 向后端更新展开状态 index opened
+  console.log(group)
 }
 
 const debouncedHandleSwitch = debounce(handleSwitch, 300)
