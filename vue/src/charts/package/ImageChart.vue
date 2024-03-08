@@ -280,7 +280,6 @@ const currentIndex = computed({
     if (isMulti.value) currentInnerIndex.value = 1
     // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
-    console.log(stepsData)
   }
 })
 

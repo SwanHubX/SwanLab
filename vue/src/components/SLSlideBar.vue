@@ -14,6 +14,7 @@
     <!-- 输入框,只有change的时候才会更改置 -->
     <div class="flex items-center relative ml-3" :class="{ 'input-disabled': disabled }" v-if="showInput">
       <input
+        class="silder-input"
         type="number"
         :disabled="disabled"
         :value="props.modelValue"
@@ -77,11 +78,14 @@ const props = defineProps({
   }
 })
 
+const inputRef = ref(null)
+
 watch(
   () => props.modelValue,
   () => {
     // 访问一次slidingValue，触发get
     slidingValue.value
+    if (!inputRef.value) return
     inputRef.value.value = props.modelValue
   }
 )
@@ -169,8 +173,6 @@ function setButtonAndBarPosition(value) {
 }
 
 // ---------------------------------- 右侧输入框相关 ----------------------------------
-
-const inputRef = ref(null)
 
 /**
  * 向后渐少
