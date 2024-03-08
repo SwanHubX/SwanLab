@@ -42,11 +42,11 @@
             <div class="image-container">
               <img
                 :src="imagesData[s[currentInnerIndex].filename].url"
-                @click="handelClickZoom(s[currentInnerIndex].filename)"
+                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
               />
               <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
             </div>
-            <p class="text-xs">{{ s.caption }}</p>
+            <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
           </div>
         </div>
       </div>
@@ -70,7 +70,7 @@
         :key="maxInnerIndex"
         reference="index"
         @turn="handleTurnIndex"
-        v-if="source?.length > 1"
+        v-if="isMulti"
       />
     </div>
     <!-- 放大效果弹窗 -->
@@ -103,17 +103,17 @@
           <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
             <div>
               <div class="text-xs text-left w-full flex items-center pb-1">
-                <div class="h-2 w-2 rounded-full border"></div>
-                <p class="pl-2">{{ name }}</p>
+                <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+                <p class="pl-1">{{ name }}</p>
               </div>
               <div class="image-container">
                 <img
                   :src="imagesData[s[currentInnerIndex].filename].url"
-                  @click="handelClickZoom(s[currentInnerIndex].filename)"
+                  @click="handelClickZoom(s[currentInnerIndex].filename, name)"
                 />
                 <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
               </div>
-              <p class="text-xs">{{ s.caption }}</p>
+              <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@
           :key="maxInnerIndex"
           reference="index"
           @turn="handleTurnIndex"
-          v-if="source?.length > 1"
+          v-if="isMulti"
           :turn-by-arrow="isZoom && !isSingleZoom && isMulti"
           vertical-arrow
         />
@@ -154,6 +154,7 @@
     >
       <!-- 标题 -->
       <p class="w-full overflow-hidden text-center text-lg font-semibold absolute top-5">
+        <span v-if="isMulti">{{ visiableSources[currentSingleImageIndex] }} / </span>
         {{ signleZoomFilename }}
       </p>
       <!-- 图片 -->
@@ -169,7 +170,11 @@
         <SLIcon icon="down" class="icon -rotate-90" @click="handleSingleChange({ key: 'ArrowRight' })"></SLIcon>
       </div>
       <p class="w-full text-center absolute bottom-5 select-none">
-        {{ `${currentSingleImageIndex + 1} / ${stepsData[currentIndex][source[0]].length}` }}
+        {{
+          `${currentSingleImageIndex + 1} / ${
+            isMulti ? visiableSources.length : stepsData[currentIndex][source[0]].length
+          }`
+        }}
       </p>
     </SLModal>
   </template>
@@ -281,7 +286,7 @@ const currentIndex = computed({
     loading.value = true
     imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
     // 如果是多实验模式，将内部数据索引置 0
-    // if (isMulti.value) currentInnerIndex.value = 0
+    if (isMulti.value) currentInnerIndex.value = 0
     // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
@@ -357,6 +362,9 @@ const getMultiImagesData = async (stepData) => {
   imageContentRef.value.height = ''
 }
 
+/**
+ * 多实验图表时，当前 step 中含有的实验名数组
+ */
 const visiableSources = computed(() => {
   const temp = []
   for (const key in stepsData[currentIndex.value]) {
@@ -474,6 +482,7 @@ const zoom = () => {
 }
 
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
+
 const isSingleZoom = ref(false)
 const signleZoomFilename = ref()
 // 当前单个图像的索引
@@ -482,7 +491,7 @@ const currentSingleImageIndex = ref(0)
 const handelClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
-  currentSingleImageIndex.value = index
+  currentSingleImageIndex.value = isMulti.value ? visiableSources.value.indexOf(index) : index
 }
 
 // ---------------------------------- ESC 退出弹窗 ----------------------------------
@@ -500,6 +509,11 @@ const exitByEsc = () => {
 
 // 方向键切换单图 - 回调
 const handleSingleChange = ({ key }) => {
+  if (!isMulti.value) return (signleZoomFilename.value = _getFilenameSingle(key))
+  signleZoomFilename.value = _getFilenameMultiple(key)
+}
+
+const _getFilenameSingle = (key) => {
   const images = stepsData[currentIndex.value][source.value[0]]
 
   if (key === 'ArrowRight' && currentSingleImageIndex.value < images.length - 1) {
@@ -508,7 +522,19 @@ const handleSingleChange = ({ key }) => {
     currentSingleImageIndex.value--
   }
 
-  signleZoomFilename.value = images[currentSingleImageIndex.value].filename
+  return images[currentSingleImageIndex.value].filename
+}
+
+const _getFilenameMultiple = (key) => {
+  const images = stepsData[currentIndex.value]
+
+  if (key === 'ArrowRight' && currentSingleImageIndex.value < visiableSources.value.length - 1) {
+    currentSingleImageIndex.value++
+  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
+    currentSingleImageIndex.value--
+  }
+
+  return images[visiableSources.value[currentSingleImageIndex.value]][currentInnerIndex.value].filename
 }
 
 // 订阅通过左右方向键切换单图
