@@ -34,23 +34,18 @@
       <!-- 多实验图表 -->
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-          <div class="w-full">
-            <div class="text-xs text-left w-full flex items-center pb-1" :title="name">
-              <div
-                class="h-2 w-2 rounded-full shrink-0"
-                :style="{ backgroundColor: projectStore.colorMap[name] }"
-              ></div>
-              <p class="pl-1 truncate">{{ name }}</p>
-            </div>
-            <div class="image-container">
-              <img
-                :src="imagesData[s[currentInnerIndex].filename].url"
-                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
-              />
-              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
-            </div>
-            <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
+          <div class="text-xs flex items-center pb-1" :title="name">
+            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+            <p class="pl-1 truncate">{{ name }}</p>
           </div>
+          <div class="image-container">
+            <img
+              :src="imagesData[s[currentInnerIndex].filename].url"
+              @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+            />
+            <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
+          </div>
+          <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
         </div>
       </div>
     </div>
@@ -104,20 +99,18 @@
         <!-- 多实验图表 -->
         <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
           <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-            <div class="w-full">
-              <div class="text-xs text-left w-full flex items-center pb-1" :title="name">
-                <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
-                <p class="pl-1 truncate">{{ name }}</p>
-              </div>
-              <div class="image-container">
-                <img
-                  :src="imagesData[s[currentInnerIndex].filename].url"
-                  @click="handelClickZoom(s[currentInnerIndex].filename, name)"
-                />
-                <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
-              </div>
-              <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
+            <div class="text-xs flex items-center pb-1" :title="name">
+              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+              <p class="pl-1 truncate">{{ name }}</p>
             </div>
+            <div class="image-container">
+              <img
+                :src="imagesData[s[currentInnerIndex].filename].url"
+                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+              />
+              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
+            </div>
+            <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
           </div>
         </div>
       </div>
