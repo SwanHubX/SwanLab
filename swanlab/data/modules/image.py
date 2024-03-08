@@ -145,8 +145,6 @@ class Image(BaseType):
         else:
             # 以上都不是，则报错
             raise TypeError("Unsupported image type. Please provide a valid path, numpy array, or PIL.Image.")
-        # 缩放大小
-        image = self.__resize(image)
 
         self.image_data = image
 
@@ -180,11 +178,11 @@ class Image(BaseType):
         except Exception as e:
             raise TypeError("Invalid matplotlib figure for the image") from e
 
-    def __resize(self, image, MAX_DIMENSION=1280):
-        """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
-        if max(image.size) > MAX_DIMENSION:
-            image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
-        return image
+    # def __resize(self, image, MAX_DIMENSION=1280):
+    #     """将图像调整大小, 保证最大边长不超过MAX_DIMENSION"""
+    #     if max(image.size) > MAX_DIMENSION:
+    #         image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
+    #     return image
 
     def __save(self, save_path):
         """将图像保存到指定路径"""
