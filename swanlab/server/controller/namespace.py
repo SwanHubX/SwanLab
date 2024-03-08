@@ -34,13 +34,10 @@ def change_namespace_visibility(namespace_id: int, opened: int):
         当前namespace信息
     """
     try:
-        namespace = Namespace.get_by_id(namespace_id)
+        namespace: Namespace = Namespace.get_by_id(namespace_id)
     except NotExistedError:
         return NOT_FOUND_404("Namespace with id {} does not exist.".format(namespace_id))
-    if opened:
-        namespace.opened = 1
-    else:
-        namespace.opened = 0
+    namespace.opened = 1 if opened else 0
     namespace.save()
     print(namespace_id, namespace.opened, opened)
     return SUCCESS_200({"namespace": namespace.__dict__()})
