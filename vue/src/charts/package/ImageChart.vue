@@ -342,24 +342,15 @@ const getMultiImagesData = async (stepData) => {
       // 没有缓存，发起请求
       promises.push(
         new Promise((resolve) => {
-          console.log(run_id.value[exp], props.title, filename)
-          UTILS.media.get(filename, run_id.value[exp], props.title).then((blob) => {
-            // blob转换为图像base64
-            const reader = new FileReader()
-            reader.onload = function () {
-              imagesData[filename] = { blob, url: reader.result }
-              resolve()
-            }
-            reader.readAsDataURL(blob)
-          })
+          UTILS.media
+            .get(filename, run_id.value[exp], props.title)
+            .then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
   }
 
   await Promise.all(promises)
-  loading.value = false
-  imageContentRef.value.height = ''
 }
 
 /**
@@ -384,8 +375,10 @@ const imagesData = {}
  * step 发生改变后触发获取
  */
 const getImagesData = async (stepData) => {
-  if (!isMulti.value) return await getSingleImageData(stepData)
-  await getMultiImagesData(stepData)
+  if (!isMulti.value) await getSingleImageData(stepData)
+  else await getMultiImagesData(stepData)
+  loading.value = false
+  imageContentRef.value.height = ''
 }
 
 /**
@@ -398,22 +391,27 @@ const getSingleImageData = async (stepData) => {
     if (!imagesData[filename]) {
       promises.push(
         new Promise((resolve) => {
-          UTILS.media.get(filename, run_id.value, tag).then((blob) => {
-            // blob转换为图像base64
-            const reader = new FileReader()
-            reader.onload = function () {
-              imagesData[filename] = { blob, url: reader.result }
-              resolve()
-            }
-            reader.readAsDataURL(blob)
-          })
+          UTILS.media.get(filename, run_id.value, tag).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
   }
   await Promise.all(promises)
-  loading.value = false
-  imageContentRef.value.height = ''
+}
+
+/**
+ * 将 blob 转成图片
+ */
+const transformBlob = (blob, filename) => {
+  return new Promise((resolve) => {
+    // blob转换为图像base64
+    const reader = new FileReader()
+    reader.onload = function () {
+      imagesData[filename] = { blob, url: reader.result }
+      resolve()
+    }
+    reader.readAsDataURL(blob)
+  })
 }
 
 /**
