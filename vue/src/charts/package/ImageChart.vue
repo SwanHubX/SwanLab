@@ -507,32 +507,22 @@ const exitByEsc = () => {
 
 // 方向键切换单图 - 回调
 const handleSingleChange = ({ key }) => {
-  if (!isMulti.value) return (signleZoomFilename.value = _getFilenameSingle(key))
-  signleZoomFilename.value = _getFilenameMultiple(key)
-}
+  const isSingle = !isMulti.value
+  const images = isSingle ? stepsData[currentIndex.value][source.value[0]] : stepsData[currentIndex.value]
 
-const _getFilenameSingle = (key) => {
-  const images = stepsData[currentIndex.value][source.value[0]]
-
-  if (key === 'ArrowRight' && currentSingleImageIndex.value < images.length - 1) {
-    currentSingleImageIndex.value++
-  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
-    currentSingleImageIndex.value--
+  if (
+    (key === 'ArrowRight' &&
+      currentSingleImageIndex.value < (isSingle ? images.length - 1 : visiableSources.value.length - 1)) ||
+    (key === 'ArrowLeft' && currentSingleImageIndex.value > 0)
+  ) {
+    currentSingleImageIndex.value += key === 'ArrowRight' ? 1 : -1
   }
 
-  return images[currentSingleImageIndex.value].filename
-}
+  const filename = isSingle
+    ? images[currentSingleImageIndex.value].filename
+    : images[visiableSources.value[currentSingleImageIndex.value]][currentInnerIndex.value].filename
 
-const _getFilenameMultiple = (key) => {
-  const images = stepsData[currentIndex.value]
-
-  if (key === 'ArrowRight' && currentSingleImageIndex.value < visiableSources.value.length - 1) {
-    currentSingleImageIndex.value++
-  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
-    currentSingleImageIndex.value--
-  }
-
-  return images[visiableSources.value[currentSingleImageIndex.value]][currentInnerIndex.value].filename
+  signleZoomFilename.value = filename
 }
 
 // 订阅通过左右方向键切换单图
