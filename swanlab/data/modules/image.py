@@ -42,7 +42,7 @@ class Image(BaseType):
         The size of the image can be controlled in four ways:
         1. If int type, it represents the maximum side length of the image, that is, the width and height cannot exceed this maximum side length. The image will be scaled proportionally to ensure that the maximum side length does not exceed MAX_DIMENSION.
         2. If list or tuple type with both specified values, e.g. (500, 500), then the image will be scaled to the specified width and height.
-        3. If list or tuple type with only one specified value and another value as None, e.g. (500, None), it means limiting the width or height of the image to not exceed the specified value.
+        3. If list or tuple type with only one specified value and another value as None, e.g. (500, None), it means resize the image to the specified width, and the height is scaled proportionally.
         4. If it is None, it means no scaling for the image.
     qualityu: (int)
         Quality of the image.
@@ -55,7 +55,6 @@ class Image(BaseType):
         caption: str = None,
         file_type: str = None,
         size: Union[int, list, tuple] = None,
-        quality: int = None,
         # boxes: dict = None,
         # masks: dict = None,
     ):
@@ -65,7 +64,6 @@ class Image(BaseType):
         self.caption = self.__convert_caption(caption)
         self.format = self.__convert_file_type(file_type)
         self.size = self.__convert_size(size)
-        self.quality = quality
 
         # TODO: 等前端支持Boxes和Masks后再开启
 
@@ -272,11 +270,11 @@ class Image(BaseType):
                 image = image.resize(size)
             else:
                 # 如果size中有一个值为None，且图像对应的边长超过了size中的另一个值，则进行缩放
-                if size[0] is not None and image.size[0] > size[0]:
+                if size[0] is not None:
                     wpercent = size[0] / float(image.size[0])
                     hsize = int(float(image.size[1]) * float(wpercent))
                     image = image.resize((size[0], hsize), PILImage.ANTIALIAS)
-                elif size[1] is not None and image.size[1] > size[1]:
+                elif size[1] is not None:
                     hpercent = size[1] / float(image.size[1])
                     wsize = int(float(image.size[0]) * float(hpercent))
                     image = image.resize((wsize, size[1]), PILImage.ANTIALIAS)
@@ -289,7 +287,11 @@ class Image(BaseType):
         if not isinstance(pil_image, PILImage.Image):
             raise TypeError("Invalid image data for the image")
         try:
-            pil_image.save(save_path, format=self.format, quality=self.quality)
+            if self.format == "jpg":
+                pil_image.save(save_path, format="JPEG")
+            else:
+                pil_image.save(save_path, format=self.format)
+
         except Exception as e:
             raise TypeError(f"Could not save the image to the path: {save_path}") from e
 
