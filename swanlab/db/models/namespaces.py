@@ -70,7 +70,7 @@ class Namespace(SwanModel):
     def __dict__(self):
         return {
             "id": self.id,
-            "experiment_id": self.experiment_id,
+            "experiment_id": self.experiment_id.__dict__(),
             "project_id": self.project_id,
             "name": self.name,
             "description": self.description,
