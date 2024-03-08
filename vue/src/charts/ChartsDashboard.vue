@@ -10,7 +10,7 @@
     :key="group.name"
     :label="getNamespaces(group.name)"
     :charts="getCharts(group)"
-    :opened="!!group.open"
+    :opened="!!group.opened"
     @switch="(opened) => debouncedHandleSwitch(group.id, opened)"
   />
 </template>

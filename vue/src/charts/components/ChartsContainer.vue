@@ -55,7 +55,7 @@ const isExpand = ref(props.opened)
 
 const handleNamespaceClick = () => {
   isExpand.value = !isExpand.value
-  emit('switch', !isExpand.value)
+  emit('switch', isExpand.value)
 }
 
 // ---------------------------------- charts组件列表 ----------------------------------
