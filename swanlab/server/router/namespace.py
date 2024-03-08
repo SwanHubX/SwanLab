@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 # 修改namespace可见性
-@router.patch("/namespace/{id}/opened")
+@router.patch("/{id}/opened")
 async def _(namespace_id: int, request: Request):
     opened = (await request.json()).get("opened")
     if opened is None:

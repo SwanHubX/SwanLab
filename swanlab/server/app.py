@@ -95,4 +95,4 @@ prefix = "/api/v1"
 app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")
 app.include_router(media, prefix=prefix + "/media")
-app.include_router(media, prefix=prefix + "/namespace")
+app.include_router(namespace, prefix=prefix + "/namespace")
