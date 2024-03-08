@@ -28,19 +28,6 @@ const props = defineProps({
 
 const projectStore = useProjectStore()
 
-// ---------------------------------- 控制charts的展开关闭 ----------------------------------
-// 使用对象来跟踪每个group的展开状态
-const groupsExpand = ref(JSON.parse(localStorage.getItem('groupsExpand')) || {})
-
-// 初始化每个group的展开状态
-onMounted(() => {
-  console.log(props.groups)
-  const storedStates = JSON.parse(localStorage.getItem('groupsExpand')) || {}
-  Object.keys(storedStates).forEach((groupName) => {
-    groupsExpand[groupName] = storedStates[groupName]
-  })
-})
-
 // ---------------------------------- 轮询器 ----------------------------------
 const intervalMap = new Map()
 const createInterval = (exp_name, cid, callback) => {
