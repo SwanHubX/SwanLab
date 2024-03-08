@@ -34,10 +34,13 @@
       <!-- 多实验图表 -->
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-          <div>
-            <div class="text-xs text-left w-full flex items-center pb-1">
-              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
-              <p class="pl-1">{{ name }}</p>
+          <div class="w-full">
+            <div class="text-xs text-left w-full flex items-center pb-1" :title="name">
+              <div
+                class="h-2 w-2 rounded-full shrink-0"
+                :style="{ backgroundColor: projectStore.colorMap[name] }"
+              ></div>
+              <p class="pl-1 truncate">{{ name }}</p>
             </div>
             <div class="image-container">
               <img
@@ -101,10 +104,10 @@
         <!-- 多实验图表 -->
         <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
           <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-            <div>
-              <div class="text-xs text-left w-full flex items-center pb-1">
+            <div class="w-full">
+              <div class="text-xs text-left w-full flex items-center pb-1" :title="name">
                 <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
-                <p class="pl-1">{{ name }}</p>
+                <p class="pl-1 truncate">{{ name }}</p>
               </div>
               <div class="image-container">
                 <img
