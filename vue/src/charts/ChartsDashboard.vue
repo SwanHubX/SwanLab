@@ -75,13 +75,9 @@ const handleSmooth = (method) => {
 const handleSwitch = (id, opened) => {
   console.log('namespace click', id, opened)
   // 向后端更新展开状态
-  http.patch(
-    `/namespace/${id}/opened`,
-    {
-      opened
-    },
-    300
-  )
+  http.patch('/namespace/' + id + '/opened', {
+    opened
+  })
 }
 
 const debouncedHandleSwitch = debounce(handleSwitch, 300)

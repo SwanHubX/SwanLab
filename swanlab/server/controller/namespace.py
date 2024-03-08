@@ -23,4 +23,4 @@ def change_namespace_visibility(namespace_id: int, opened: bool):
     namespace = Namespace.get_by_id(namespace_id)
     namespace.opened = opened
     namespace.save()
-    return SUCCESS_200({"namespace": namespace.__dict__})
+    return SUCCESS_200({"namespace": namespace.__dict__()})
