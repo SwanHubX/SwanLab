@@ -36,8 +36,8 @@
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
           <div>
             <div class="text-xs text-left w-full flex items-center pb-1">
-              <div class="h-2 w-2 rounded-full border"></div>
-              <p class="pl-2">{{ name }}</p>
+              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+              <p class="pl-1">{{ name }}</p>
             </div>
             <div class="image-container">
               <img
@@ -139,6 +139,8 @@
           reference="index"
           @turn="handleTurnIndex"
           v-if="source?.length > 1"
+          :turn-by-arrow="isZoom && !isSingleZoom && isMulti"
+          vertical-arrow
         />
       </div>
     </SLModal>
@@ -278,8 +280,8 @@ const currentIndex = computed({
     }
     loading.value = true
     imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
-    // 如果是多实验模式，将内部数据索引置 1
-    if (isMulti.value) currentInnerIndex.value = 0
+    // 如果是多实验模式，将内部数据索引置 0
+    // if (isMulti.value) currentInnerIndex.value = 0
     // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
