@@ -23,7 +23,8 @@
  * @file: SlideBar.vue
  * @since: 2024-01-30 16:18:31
  **/
-import { computed, ref } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
+import SLSlideBar from '@swanlab-vue/components/SLSlideBar.vue'
 
 const props = defineProps({
   max: {
@@ -45,6 +46,11 @@ const props = defineProps({
   reference: {
     type: String,
     default: 'Step'
+  },
+  // 通过方向键切换
+  turnByArrow: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -94,6 +100,27 @@ const handleChange = (e) => {
   if (e.target.value == _modelValue.value) return
   _modelValue.value = e.target.value
 }
+
+// ---------------------------------- 键盘左右切换 ----------------------------------
+
+const handleKeydown = (e) => {
+  if (!props.turnByArrow) return
+  if (e.key == 'ArrowLeft') {
+    handleClickDown()
+  } else if (e.key == 'ArrowRight') {
+    handleClickUp()
+  }
+}
+
+if (props.turnByArrow) {
+  document.addEventListener('keydown', handleKeydown)
+}
+
+onUnmounted(() => {
+  if (props.turnByArrow) {
+    document.removeEventListener('keydown', handleKeydown)
+  }
+})
 </script>
 
 <style lang="scss" scoped>

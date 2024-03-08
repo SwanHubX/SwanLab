@@ -15,20 +15,24 @@
         },
         "error": "图表无法被显示，因为\"{tag}\"是 {type} 类型, 但是折线图并不支持此类型."
       },
-      "text": {
-        "titles": {
-          "tag": "标签",
-          "step": "步数",
-          "caption": "说明",
-          "count": "字数",
-          "text": "文本"
-        }
-      },
       "share": {
+        "smooth": {
+          "method": "算法",
+          "smoothing": "平滑"
+        },
         "step": "步数",
         "tag": "标签",
         "time": "时间",
         "value": "值"
+      },
+      "text": {
+        "titles": {
+          "caption": "说明",
+          "count": "字数",
+          "step": "步数",
+          "tag": "标签",
+          "text": "文本"
+        }
       }
     },
     "empty": "缺少实验数据",

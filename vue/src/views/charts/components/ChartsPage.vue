@@ -1,5 +1,5 @@
 <template>
-  <ChartsContainer v-for="group in groups" :key="group.name" :label="group.name" :charts="group.charts" />
+  <ChartsDashboard :groups="groups" />
 </template>
 
 <script setup>
@@ -9,10 +9,10 @@
  * @file: ChartsPage.vue
  * @since: 2024-02-06 17:17:55
  **/
-import ChartsContainer from '@swanlab-vue/charts/ChartsContainer.vue'
 import { useProjectStore } from '@swanlab-vue/store'
 import { provide, onUnmounted } from 'vue'
 import http from '@swanlab-vue/api/http'
+import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
 const props = defineProps({
   // 图表组
   groups: {

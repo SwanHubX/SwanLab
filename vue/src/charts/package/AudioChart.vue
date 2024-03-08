@@ -31,7 +31,7 @@
       />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <div class="audio-content" ref="audioContentRef">
         <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
@@ -49,6 +49,7 @@
           :key="slideKey"
           @turn="handelTurn"
           v-if="maxIndex !== minIndex"
+          :turn-by-arrow="isZoom"
         />
       </div>
     </SLModal>

@@ -13,15 +13,17 @@
     <!-- 图表主体 -->
     <LineChartLegend
       :items="legend"
+      :key="legend.length"
       @hoverin="(item) => legendHoverin(item, false)"
       @hoverout="(item) => legendHoverout(item, false)"
       v-if="legend && mutli"
     />
-    <div class="relative" ref="g2Ref">
+    <div class="relative">
       <LineChartTooltip ref="tooltipRef" />
+      <div class="overflow-hidden" ref="g2Ref"></div>
     </div>
     <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom">
+    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
       <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
       <LineChartLegend
         :items="legend"
@@ -54,6 +56,8 @@ import { t } from '@swanlab-vue/i18n'
 import { getTimes } from '@swanlab-vue/utils/time'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
+import makeSmooth from './smooth'
+import { needSmooth } from './smooth'
 import LineChartTooltip from '../components/LinChartTooltip.vue'
 import LineChartLegend from '../components/LineChartLegend.vue'
 
@@ -80,6 +84,14 @@ const source = props.chart.source
 const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
 // 图表模式，mutli或者single
 const mutli = props.chart.mutli
+// 当前命名空间下除了自己的所有chartRef
+const chartRefList = inject('chartRefList')
+const chartRefListExceptSelf = computed(() => {
+  // 将列表中除了props.index的所有chartRef过滤出来
+  return chartRefList.value.filter((_, i) => i !== props.index)
+})
+// 平滑配置
+let smoothMethod = props.chart.smooth || undefined
 // ---------------------------------- 图表样式配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')
@@ -151,7 +163,13 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     legend: false,
     // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
     color: ({ series }) => {
-      return colors.getSeriesColor(series, source.indexOf(series))
+      // 是否有&smooth后缀
+      const smooth = series.includes('&smooth')
+      series = series.replace('&smooth', '')
+      // 如果没有&smooth后缀，直接返回颜色
+      const color = colors.getSeriesColor(series, source.indexOf(series))
+      if (!smooth) return color
+      else return UTILS.transparentColor(color)
     },
     point: {
       shape: 'last-point'
@@ -164,24 +182,6 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       // 自定义坐标轴的刻度，暂时没有找到文档，通过源码来看是返回一个数组，数组内是字符串，代表刻度
       tickCount: 5,
       type: 'linear',
-      // tickMethod: (cfg) => {
-      //   // console.log('chart', props.chart.name)
-      //   console.log('cfg', cfg)
-      //   console.log('cfg.values', cfg.values)
-      //   // 数据个数
-      //   const num = cfg.values?.length || 0
-      //   // 每隔多少个显示一个刻度
-      //   const step = Math.ceil(num / 5)
-      //   console.log('step', step)
-      //   const tick = []
-      //   let i = 0
-      //   while (i < num) {
-      //     tick.push(i)
-      //     i += step
-      //   }
-      //   console.log('tick', tick)
-      //   return tick
-      // },
       // 在此处完成X轴数据的格式化
       label: {
         formatter: (data) => {
@@ -256,6 +256,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       enterable: false,
       shared: true,
       position: 'top',
+      showMarkers: true,
       customContent: () => '',
       domStyles: {
         'g2-tooltip': {
@@ -280,8 +281,6 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     autoFit: true,
     // 开启一些交互
     // interactions: [{ type: 'element-active' }],
-    // 图例相关
-
     // 平滑曲线
     smooth: false,
     animation: false,
@@ -300,6 +299,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
   })
   // 监听鼠标移动事件
   c.on('plot:mousemove', (evt) => {
+    // console.log('plot:mousemove', evt)
     if (!nowData) return
     const y = evt.y
     // 遍历所有的nowData，寻找其中与y绝对值最小的点
@@ -308,7 +308,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     for (let i = 0; i < nowData.length; i++) {
       const data = nowData[i]
       const d = Math.abs(data.y - y)
-      if (d < min) {
+      if (d < min && !nowData[i].data.series.includes('&smooth')) {
         min = d
         index = i
       }
@@ -328,8 +328,25 @@ const createChart = (dom, data, config = {}, zoom = false) => {
  * @returns { Object } 格式化后的数据, { d: [{}, {}, ...], config: {} } config是图表的一些其他配置
  */
 const format = (data) => {
+  // 如果配置了平滑方法，需要动态计算平滑后的数据
+  if (smoothMethod) {
+    const smoothData = {}
+    for (const key in data) {
+      if (!data[key]) continue
+      smoothData[key] = {
+        ...data[key],
+        list: makeSmooth(data[key].list, smoothMethod)
+      }
+    }
+    // 将原本的data的key添加&smooth后，但是注意不要修改原本的data，应该新建一个对象
+    for (const key in data) {
+      smoothData[`${key}&smooth`] = data[key]
+    }
+    data = smoothData
+  }
+  // console.log('data', data)
   // 如果source的长度小于1，抛出错误
-  console.log(data)
+  // console.log(data)
   if (source.length < 1) throw new Error('source length must be greater than 1')
   // 新的数据,遍历得到
   const d = []
@@ -356,8 +373,8 @@ const format = (data) => {
     items.push({ name: s, color: colors.getSeriesColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
   }
   legend.value = items
-  // console.log('legend', legend.value)
-  return { d, config: mutli ? { seriesField } : { color: colors[0] } }
+  console.log('legend', legend.value)
+  return { d, config: mutli || smoothMethod ? { seriesField } : { color: colors[0] } }
 }
 
 const formatTime = (time) => {
@@ -387,6 +404,7 @@ const render = (data) => {
   // console.log('data', data)
   const { d, config } = format(data)
   // console.log('data', data)
+  chartObj && chartObj.destroy()
   chartObj = createChart(g2Ref.value, d, config)
   // console.log('chartObj', chartObj)
   // 可以使用update api来更新配置
@@ -424,12 +442,7 @@ const zoom = (data) => {
   })
 }
 
-// ---------------------------------- 额外功能：多linechart之间的tooltip联动 ----------------------------------
-const chartsRefList = inject('chartsRefList')
-const lineChartsRef = computed(() => {
-  // 将列表中除了props.index的所有chartRef过滤出来
-  return chartsRefList.value.filter((item, i) => i !== props.index && item.chartRef?.lineShowTooltip)
-})
+// ---------------------------------- 多linechart之间的tooltip联动 ----------------------------------
 
 let manual = true
 // 调用此方法则必然是自动触发
@@ -454,6 +467,7 @@ const registerTooltipEvent = (dom, zoom) => {
   const tRef = zoom ? tooltipZoomRef : tooltipRef
 
   chart.on('tooltip:show', (evt) => {
+    // console.log('tooltip:show', evt)
     // 获取当前tooltip的left
     const items = evt.data.items
     addTaskToBrowserMainThread(() => {
@@ -470,8 +484,8 @@ const registerTooltipEvent = (dom, zoom) => {
     point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
-      lineChartsRef.value?.forEach((chart) => {
-        chart.chartRef.lineShowTooltip(point)
+      chartRefListExceptSelf.value?.forEach((chart) => {
+        chart.showTooltip(point)
       })
     manual = true
   })
@@ -481,12 +495,16 @@ const registerTooltipEvent = (dom, zoom) => {
     tRef.value.hide()
     if (manual && !zoom)
       // 通知其他图表，当前图表的数据被hover到了
-      lineChartsRef.value?.forEach((chart) => {
-        chart.chartRef.lineHideTooltip(...args)
+      chartRefListExceptSelf.value?.forEach((chart) => {
+        chart.hideTooltip(...args)
       })
     nowData = null
     manual = true
     point = null
+  })
+  // brush相关事件
+  chart.on(G2.BRUSH_FILTER_EVENTS.BEFORE_FILTER, (...agrs) => {
+    console.log('BEFORE_FILTER', agrs)
   })
 }
 
@@ -497,8 +515,8 @@ let nowData = null
 const handelCopy = (e) => {
   if (error.value) return
   if (nowData === null) {
-    // return
-    return console.log('非js触发的tooltip，或者未悬浮，不执行copy操作')
+    return
+    // return console.log('非js触发的tooltip，或者未悬浮，不执行copy操作')
   }
   if (e.key === 'c' && (isApple ? e.metaKey : e.ctrlKey)) {
     e.preventDefault()
@@ -573,8 +591,8 @@ const thickenByTag = (plot, zoom, tag, color) => {
   nowThickenTag = tag
   nowThickenColor = color
   // 加粗其他图表的数据，保持联动
-  lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.thickenByTagLinkage(zoom, tag, color)
+  chartRefListExceptSelf.value.forEach((chart) => {
+    chart.thicken(zoom, tag, color)
   })
 }
 
@@ -607,8 +625,8 @@ const restoreByTag = (plot, zoom, tag, color) => {
   }
   nowThickenTag = null
   nowThickenColor = null
-  lineChartsRef.value.forEach((chart) => {
-    chart.chartRef.restoreByTagLinkage(zoom, tag, color)
+  chartRefListExceptSelf.value.forEach((chart) => {
+    chart.thin(zoom, tag, color)
   })
 }
 
@@ -647,15 +665,28 @@ const legendHoverout = (item, zoom) => {
   restoreByTag(plot, zoom, item.name, item.color)
 }
 
+// ---------------------------------- 图表平滑 ----------------------------------
+const chartData = inject('data')
+const smooth = (method) => {
+  console.log('smooth by linechart:', method)
+  if (!needSmooth(method)) {
+    smoothMethod = null
+  } else {
+    smoothMethod = method
+  }
+  render(chartData)
+}
+
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
   change,
   zoom,
-  lineShowTooltip,
-  lineHideTooltip,
-  thickenByTagLinkage,
-  restoreByTagLinkage
+  smooth,
+  showTooltip: lineShowTooltip,
+  hideTooltip: lineHideTooltip,
+  thicken: thickenByTagLinkage,
+  thin: restoreByTagLinkage
 })
 </script>
 

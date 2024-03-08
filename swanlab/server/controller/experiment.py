@@ -560,6 +560,7 @@ def delete_experiment(experiment_id: int):
     tag_names = [tag["name"] for tag in __to_list(tags)]
     # 检查多实验图表是否有需要删除的
     project_id = Experiment.get_by_id(experiment_id).project_id.id
+    # 找到属于多实验且与该实验相关的图表
     charts = Chart.filter(Chart.project_id == project_id, Chart.name.in_(tag_names))
 
     db = connect()
@@ -567,9 +568,11 @@ def delete_experiment(experiment_id: int):
         # 必须先清除数据库中的实验数据
         Experiment.delete().where(Experiment.id == experiment_id).execute()
         # 图表无 source 的需要删除
+        del_list = []
         for chart in charts:
-            if len(chart.sources) == 0:
-                chart.delete().execute()
+            if chart.sources.count() == 0:
+                del_list.append(chart.id)
+        Chart.delete().where(Chart.id.in_(del_list)).execute()
     db.commit()
 
     return SUCCESS_200({"experiment_id": experiment_id})

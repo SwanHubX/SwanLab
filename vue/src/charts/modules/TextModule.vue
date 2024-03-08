@@ -44,9 +44,10 @@
       @turn="clickToTurn"
       :key="pages.maxIndex"
       v-if="data.list.length > 1"
+      :turn-by-arrow="modal && !isZoom"
     />
     <!-- 数据详情 -->
-    <SLModal max-w="1200" v-model="isZoom">
+    <SLModal max-w="1200" v-model="isZoom" esc-exit>
       <TextDetail :data="current" />
     </SLModal>
   </div>
@@ -58,7 +59,7 @@
  * @file: TextModule.vue
  * @since: 2024-02-20 20:06:45
  **/
-import { ref, inject, computed } from 'vue'
+import { ref, inject, computed, watch } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import TextDetail from './TextDetail.vue'
 import SlideBar from '../components/SlideBar.vue'
@@ -78,10 +79,13 @@ const props = defineProps({
   },
   modal: {
     type: Boolean
+  },
+  modelValue: {
+    type: Boolean
   }
 })
 
-const emits = defineEmits(['getText'])
+const emits = defineEmits(['getText', 'update:modelValue'])
 
 const color = inject('colors')[0]
 const skeleton = ref(false)
@@ -217,6 +221,13 @@ const zoom = (text, i) => {
   }
   isZoom.value = true
 }
+
+watch(
+  () => isZoom.value,
+  (v) => {
+    emits('update:modelValue', v)
+  }
+)
 </script>
 
 <style lang="scss" scoped>

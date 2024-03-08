@@ -125,7 +125,7 @@ const resetHover = (e) => {
 <style lang="scss" scoped>
 // RouterLink共享样式
 a {
-  @apply flex items-center px-4 h-11 text-default hover:bg-highest rounded-lg;
+  @apply flex items-center px-4 h-9 text-default hover:bg-highest rounded-lg;
 }
 
 .active-link {
