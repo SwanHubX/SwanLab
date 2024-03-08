@@ -34,18 +34,20 @@
       <!-- 多实验图表 -->
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-          <div class="text-xs text-left w-full flex items-center pb-1">
-            <div class="h-2 w-2 rounded-full border"></div>
-            <p class="pl-2">{{ name }}</p>
+          <div>
+            <div class="text-xs text-left w-full flex items-center pb-1">
+              <div class="h-2 w-2 rounded-full border"></div>
+              <p class="pl-2">{{ name }}</p>
+            </div>
+            <div class="image-container">
+              <img
+                :src="imagesData[s[currentInnerIndex - 1].filename].url"
+                @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
+              />
+              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
+            </div>
+            <p class="text-xs">{{ s.caption }}</p>
           </div>
-          <div class="image-container">
-            <img
-              :src="imagesData[s[currentInnerIndex - 1].filename].url"
-              @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
-            />
-            <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
-          </div>
-          <p class="text-xs">{{ s.caption }}</p>
         </div>
       </div>
     </div>
@@ -78,7 +80,11 @@
           <SLLoading />
         </div>
         <!-- 加载完成 -->
-        <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
+        <div
+          class="images-container"
+          :style="setGrid(stepsData[currentIndex][source[0]].length)"
+          v-if="!loading && !isMulti"
+        >
           <div
             class="flex flex-col items-center h-full justify-center"
             v-for="(s, index) in stepsData[currentIndex][source[0]]"
@@ -91,8 +97,27 @@
             <p class="text-xs mt-2">{{ s.caption }}</p>
           </div>
         </div>
+        <!-- 多实验图表 -->
+        <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
+          <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
+            <div>
+              <div class="text-xs text-left w-full flex items-center pb-1">
+                <div class="h-2 w-2 rounded-full border"></div>
+                <p class="pl-2">{{ name }}</p>
+              </div>
+              <div class="image-container">
+                <img
+                  :src="imagesData[s[currentInnerIndex - 1].filename].url"
+                  @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
+                />
+                <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
+              </div>
+              <p class="text-xs">{{ s.caption }}</p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="h-8">
+      <div class="h-8 flex items-center justify-center">
         <SlideBar
           class="mt-2"
           v-model="currentIndex"
@@ -102,6 +127,15 @@
           :key="slideKey"
           @turn="handelTurn"
           v-if="maxIndex !== minIndex"
+        />
+        <SlideBar
+          v-model="currentInnerIndex"
+          :max="maxInnerIndex"
+          :min="minInnerIndex"
+          :bar-color="barColor"
+          :key="maxInnerIndex"
+          reference="index"
+          v-if="source?.length > 1"
         />
       </div>
     </SLModal>
@@ -264,7 +298,7 @@ const maxInnerIndex = computed(() => {
   let tempLength = 1
   for (const exp in stepsData[currentIndex.value]) {
     const l = stepsData[currentIndex.value][exp].length
-    if (l > maxInnerIndex.value) tempLength = l
+    if (l >= maxInnerIndex.value) tempLength = l
   }
   return tempLength
 })
