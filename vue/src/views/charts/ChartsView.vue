@@ -40,7 +40,7 @@ const generateGroups = () => {
   const groups = []
   namespaces.value.forEach((namespace) => {
     const group = {
-      name: namespace.name,
+      ...namespace,
       charts: []
     }
     namespace.charts.forEach((chart_id) => {
