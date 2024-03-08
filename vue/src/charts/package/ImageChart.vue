@@ -41,10 +41,10 @@
             </div>
             <div class="image-container">
               <img
-                :src="imagesData[s[currentInnerIndex - 1].filename].url"
-                @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
+                :src="imagesData[s[currentInnerIndex].filename].url"
+                @click="handelClickZoom(s[currentInnerIndex].filename)"
               />
-              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
+              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
             </div>
             <p class="text-xs">{{ s.caption }}</p>
           </div>
@@ -59,7 +59,7 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
-        @turn="handelTurn"
+        @turn="handleTurn"
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
@@ -69,6 +69,7 @@
         :bar-color="barColor"
         :key="maxInnerIndex"
         reference="index"
+        @turn="handleTurnIndex"
         v-if="source?.length > 1"
       />
     </div>
@@ -107,10 +108,10 @@
               </div>
               <div class="image-container">
                 <img
-                  :src="imagesData[s[currentInnerIndex - 1].filename].url"
-                  @click="handelClickZoom(s[currentInnerIndex - 1].filename)"
+                  :src="imagesData[s[currentInnerIndex].filename].url"
+                  @click="handelClickZoom(s[currentInnerIndex].filename)"
                 />
-                <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex - 1].filename)" />
+                <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
               </div>
               <p class="text-xs">{{ s.caption }}</p>
             </div>
@@ -125,7 +126,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          @turn="handelTurn"
+          @turn="handleTurn"
           v-if="maxIndex !== minIndex"
           :turn-by-arrow="isZoom && !isSingleZoom"
         />
@@ -136,6 +137,7 @@
           :bar-color="barColor"
           :key="maxInnerIndex"
           reference="index"
+          @turn="handleTurnIndex"
           v-if="source?.length > 1"
         />
       </div>
@@ -277,14 +279,14 @@ const currentIndex = computed({
     loading.value = true
     imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
     // 如果是多实验模式，将内部数据索引置 1
-    if (isMulti.value) currentInnerIndex.value = 1
+    if (isMulti.value) currentInnerIndex.value = 0
     // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
 })
 
 // 事件处理，触发slideBar的turn事件
-const handelTurn = (direction, value) => {
+const handleTurn = (direction, value) => {
   const keys = Array.from(Object.keys(stepsData))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
@@ -294,6 +296,11 @@ const handelTurn = (direction, value) => {
     if (index === -1) currentIndex.value = Number(keys[Math.max(0, keys.length - 2)])
     else currentIndex.value = Number(keys[Math.max(0, index - 2)])
   }
+}
+
+// 在多实验图表时完成 index 的翻页
+const handleTurnIndex = (direction, value) => {
+  currentInnerIndex.value = direction === 'forward' ? value + 1 : value - 1
 }
 
 // 布局处理,一共length列，最多显示8列
@@ -309,14 +316,14 @@ const setGrid = (length) => {
 
 // index 进度条配置
 const maxInnerIndex = computed(() => {
-  let tempLength = 1
+  let tempLength = 0
   for (const exp in stepsData[currentIndex.value]) {
-    const l = stepsData[currentIndex.value][exp].length
+    const l = stepsData[currentIndex.value][exp].length - 1
     if (l >= maxInnerIndex.value) tempLength = l
   }
   return tempLength
 })
-const minInnerIndex = ref(1)
+const minInnerIndex = ref(0)
 const currentInnerIndex = ref(minInnerIndex.value)
 
 // 同时获取多个实验的图像数据
