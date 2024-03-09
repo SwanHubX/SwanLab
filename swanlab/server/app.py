@@ -85,6 +85,7 @@ async def _(*args, **kwargs):
 # 导入数据相关的路由
 from .router.experiment import router as experiment
 from .router.project import router as project
+from .router.namespace import router as namespace
 
 # 媒体文件路由，允许前端获取其他产生的媒体文件
 from .router.media import router as media
@@ -94,3 +95,4 @@ prefix = "/api/v1"
 app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")
 app.include_router(media, prefix=prefix + "/media")
+app.include_router(namespace, prefix=prefix + "/namespace")

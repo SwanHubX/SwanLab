@@ -10,7 +10,7 @@
  * @since: 2024-02-06 17:17:55
  **/
 import { useProjectStore } from '@swanlab-vue/store'
-import { provide, onUnmounted } from 'vue'
+import { provide, onUnmounted, onMounted } from 'vue'
 import http from '@swanlab-vue/api/http'
 import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
 const props = defineProps({
@@ -25,6 +25,7 @@ const props = defineProps({
     required: true
   }
 })
+
 const projectStore = useProjectStore()
 
 // ---------------------------------- 轮询器 ----------------------------------

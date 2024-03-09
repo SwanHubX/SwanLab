@@ -9,3 +9,4 @@ r"""
 """
 from .tag_sort import add_sort
 from .exp_finish_time import add_finish_time
+from .namespace_opened import add_opened
