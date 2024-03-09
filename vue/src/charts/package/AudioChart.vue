@@ -11,6 +11,13 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
+    <div class="audio-content audio-content-no-zomm" ref="audioContentRef">
+      <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
+      <div class="flex flex-col justify-center items-center h-full" v-if="loading">
+        <SLLoading />
+      </div>
+    </div>
+    <!-- 滑块 -->
     <div class="h-8 flex items-center justify-center">
       <SlideBar
         class="mt-2"
@@ -47,6 +54,7 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SlideBar from '../components/SlideBar.vue'
+import AudioModule from '../modules/AudioModule.vue'
 import { ref, inject } from 'vue'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
@@ -75,6 +83,8 @@ const props = defineProps({
   }
 })
 
+const audioContentRef = ref(null)
+
 /**
  * 图表数据来源，为数组
  * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
@@ -101,6 +111,33 @@ const run_id = computed(() => {
     run_ids[exp] = projectStore.getExpRunIdByName(exp)
   }
   return run_ids
+})
+
+const audioData = computed(() => {
+  const stepData = stepsData[currentIndex.value]
+  if (!stepData) return []
+  // 如果是单源
+  if (!isMulti.value) {
+    return stepData[sources.value[0]].map(({ filename, caption }) => {
+      return {
+        audioBuffer: audiosData[filename],
+        title: filename,
+        caption
+      }
+    })
+  }
+  const data = []
+  for (const exp in stepData) {
+    const temp = stepData[exp][currentInnerIndex.value]
+    data.push({
+      audioBuffer: audiosData[temp.filename],
+      title: temp.filename,
+      caption: temp.caption,
+      color: projectStore.colorMap[exp],
+      exp
+    })
+  }
+  return data
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
@@ -146,6 +183,7 @@ const currentIndex = computed({
       if (num === __currentIndex.value) return
       __currentIndex.value = num
     }
+    // audioContentRef.value.style.height = audioContentRef.value.offsetHeight + 'px'
     loading.value = true
     // 如果是多实验模式，将内部数据索引置 0
     if (isMulti.value) currentInnerIndex.value = 0
@@ -174,7 +212,7 @@ const handelTurn = (direction, value) => {
 // 关联 step 与数据
 const stepsData = {}
 // 缓存
-const audiosData = {}
+const audiosData = reactive({})
 
 /**
  * 解析 log 数据
@@ -229,17 +267,31 @@ const debounceGetAudiosData = debounce(async (stepData) => {
       )
     }
   }
+
+  await Promise.all(promises)
+  loading.value = false
 }, 500)
 
 /**
  * 将 blob 转成 AudioBuffer
  */
-const transformBlob = (blob, filename) => {
-  console.log(filename)
-  return new Promise((resolve) => {})
+const transformBlob = async (blob, filename) => {
+  const arrayBuffer = await blob.arrayBuffer()
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+  return new Promise((resolve, reject) => {
+    audioContext.decodeAudioData(
+      arrayBuffer,
+      (audioBuffer) => {
+        audiosData[filename] = audioBuffer
+        resolve(audioBuffer)
+      },
+      (error) => {
+        error.value = error
+        reject(error)
+      }
+    )
+  })
 }
-
-// ---------------------------------- 单实验 ----------------------------------
 
 // ---------------------------------- 多实验 ----------------------------------
 

@@ -37,7 +37,7 @@ import PlayButton from '../components/PlayButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
 const props = defineProps({
-  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, caption: , tag: String, caption: String } ]
+  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, tag: String, caption: String } ]
   audios: {
     type: Object,
     required: true
