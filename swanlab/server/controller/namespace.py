@@ -39,5 +39,4 @@ def change_namespace_visibility(namespace_id: int, opened: int):
         return NOT_FOUND_404("Namespace with id {} does not exist.".format(namespace_id))
     namespace.opened = 1 if opened else 0
     namespace.save()
-    print(namespace_id, namespace.opened, opened)
-    return SUCCESS_200({"namespace": namespace.__dict__()})
+    return SUCCESS_200(None)

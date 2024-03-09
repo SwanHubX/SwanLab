@@ -71,6 +71,8 @@ class Chart(SwanModel):
             "type": self.type,
             "reference": self.reference,
             "config": self.config,
+            "status": self.status,
+            "sort": self.sort,
             "more": self.more,
             "create_time": self.create_time,
             "update_time": self.update_time,
@@ -147,3 +149,34 @@ class Chart(SwanModel):
             )
         except IntegrityError:
             raise ExistedError("图表已存在")
+
+    @classmethod
+    def pinned(cls, id: int, sort: int = None) -> "Chart":
+        """
+        把某个chart置顶
+
+        Parameters
+        ----------
+        id : int
+            图表id
+        sort : int
+            图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden, 默认为None
+            默认排在最后，也就是传入None的时候
+
+        Returns
+        -------
+        Chart : Chart
+            置顶的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = 1
+        if sort is None:
+            # 判断当前实验/项目下有多少个pinned的chart
+            count = cls.filter(
+                cls.project_id == chart.project_id, cls.experiment_id == chart.experiment_id, cls.status == 1
+            ).count()
+            chart.sort = count
+        else:
+            chart.sort = sort
+        chart.save()
+        return chart
