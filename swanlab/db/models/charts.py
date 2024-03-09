@@ -47,6 +47,10 @@ class Chart(SwanModel):
     """图表类型，由创建者决定，这与数据库本身无关"""
     reference = CharField(max_length=10, default="step")
     """图表数据参考，由创建者决定，这与数据库本身无关"""
+    status = IntegerField(null=False, default=0)
+    """图表状态 0代表默认状态 1代表被pinned -1代表被hidden"""
+    sort = IntegerField(null=True, default=None)
+    """图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden"""
     config = TextField(null=True)
     """图表的其他配置，这实际上是一个json字符串"""
     more = TextField(null=True)

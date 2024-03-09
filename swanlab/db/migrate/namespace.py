@@ -17,5 +17,5 @@ def add_opened(db):
     默认值为False
     """
     migrator = SqliteMigrator(db)
-    opened = IntegerField(default=1)
+    opened = IntegerField(default=1, choices=[0, 1])
     migrate(migrator.add_column("namespace", "opened", opened))

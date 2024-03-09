@@ -42,6 +42,10 @@ class Project(SwanModel):
     """项目下实验数量，包括已删除的实验，这是一个只增不减的值"""
     charts = IntegerField(default=0, choices=[0, 1], null=False)
     """是否已经生成项目级别图表，0 未生成，1 已生成"""
+    pinned_opened = IntegerField(default=1, choices=[0, 1])
+    """多实验图表置顶部分是否打开，默认值为1，表示打开"""
+    hidden_opened = IntegerField(default=0, choices=[0, 1])
+    """多实验图表隐藏部分是否打开，默认值为0,表示关闭"""
     more = CharField(null=True)
     """更多信息配置，json格式"""
     version = CharField(max_length=30, null=False)
