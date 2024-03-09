@@ -22,6 +22,16 @@
         @turn="handelTurn"
         v-if="maxIndex !== minIndex"
       />
+      <SlideBar
+        v-model="currentInnerIndex"
+        :max="maxInnerIndex"
+        :min="minInnerIndex"
+        :bar-color="barColor"
+        :key="maxInnerIndex"
+        reference="index"
+        @turn="handleTurnIndex"
+        v-if="isMulti"
+      />
     </div>
     <!-- 放大效果弹窗 -->
     <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
@@ -200,7 +210,6 @@ const changeData2Audio = (data) => {
 // ---------------------------------- 数据请求和解析 ----------------------------------
 
 const debounceGetAudiosData = debounce(async (stepData) => {
-  console.log(stepData)
   loading.value = true
 
   const promises = []
@@ -226,6 +235,7 @@ const debounceGetAudiosData = debounce(async (stepData) => {
  * 将 blob 转成 AudioBuffer
  */
 const transformBlob = (blob, filename) => {
+  console.log(filename)
   return new Promise((resolve) => {})
 }
 
@@ -244,6 +254,10 @@ const maxInnerIndex = computed(() => {
 })
 const minInnerIndex = ref(0)
 const currentInnerIndex = ref(minInnerIndex.value)
+
+const handleTurnIndex = (direction, value) => {
+  currentInnerIndex.value = direction === 'forward' ? value + 1 : value - 1
+}
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
