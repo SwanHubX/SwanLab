@@ -428,22 +428,22 @@ const changeData2Image = (data) => {
   // 遍历数据，将数据转换为图像数据
   let _maxIndex = 0
   let _minIndex = Infinity
-  for (const exp in data) {
-    if (data[exp] === null) continue
+  for (const source in data) {
+    if (data[source] === null) continue
     // 遍历实验下的数据
-    _maxIndex = Math.max(Number(data[exp].list[data[exp].list.length - 1].index), _maxIndex)
-    _minIndex = Math.min(Number(data[exp].list[0].index), _minIndex)
-    for (const item of data[exp].list) {
+    _maxIndex = Math.max(Number(data[source].list[data[source].list.length - 1].index), _maxIndex)
+    _minIndex = Math.min(Number(data[source].list[0].index), _minIndex)
+    for (const item of data[source].list) {
       // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
       // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
-      if (!stepsData[item.index][exp]) stepsData[item.index][exp] = []
+      if (!stepsData[item.index][source]) stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][exp].push({ filename: item.data, caption: item.more?.caption })
+        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][exp].push({ filename: item.data[i], caption: item.more[i]?.caption })
+          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption })
         }
       }
     }

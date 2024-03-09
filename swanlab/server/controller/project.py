@@ -289,7 +289,7 @@ async def get_project_charts(project_id: int = DEFAULT_PROJECT_ID) -> dict:
 
     # 获取当前项目下所有的多实验对比表
     # 暂时只请求chart.type为default或者line的图表
-    allow_types = ["default", "line", "image"]
+    allow_types = ["default", "line", "image", "audio"]
     multi_charts = Chart.filter(Chart.project_id == project_id, Chart.type.in_(allow_types))
     _sum = multi_charts.count()
     # 获取图表配置
