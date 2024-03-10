@@ -6,6 +6,12 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
+      <span v-if="!isMulti">{{
+        $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] })
+      }}</span>
+      <span v-else>
+        {{ $t('common.chart.error') }}
+      </span>
     </p>
   </div>
   <!-- 如果图表数据正确 -->
@@ -181,7 +187,15 @@ const audioData = computed(() => {
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
-const error = ref(props.chart.error[sources.value[0]])
+const error = computed(() => {
+  if (!isMulti.value) return props.chart.error[sources.value[0]]
+  // 如果是多实验，检查每个实验的error
+  for (const exp of sources.value) {
+    // 如果有错误，直接返回
+    if (props.chart.error[exp]) return true
+  }
+  return false
+})
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 
