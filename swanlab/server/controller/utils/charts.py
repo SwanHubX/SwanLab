@@ -57,7 +57,7 @@ def get_proj_charts(id: int):
     """
     # 获取当前项目下所有的多实验对比表
     # 暂时只请求chart.type为default或者line的图表
-    allow_types = ["default", "line"]
+    allow_types = ["default", "line","image", "audio"]
     multi_charts = Chart.filter(Chart.project_id == id, Chart.type.in_(allow_types))
     # 获取图表配置
     charts = []
