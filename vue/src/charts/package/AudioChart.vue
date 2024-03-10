@@ -267,8 +267,10 @@ const changeData2Audio = (data) => {
     for (const item of data[source].list) {
       // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
+      // 如果当前 step 下已经有该实验的信息，说明这是之前的数据，重复了，不需要额外添加
+      if (stepsData[item.index][source]) continue
       // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
-      if (!stepsData[item.index][source]) stepsData[item.index][source] = []
+      stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
         stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
@@ -279,6 +281,7 @@ const changeData2Audio = (data) => {
       }
     }
   }
+  console.log(stepsData)
   maxIndex.value = _maxIndex
   minIndex.value = _minIndex
 }
