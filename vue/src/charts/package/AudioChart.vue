@@ -24,9 +24,9 @@
       </div>
     </div>
     <!-- 滑块 -->
-    <div class="h-8 flex items-center justify-center">
+    <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
       <SlideBar
-        class="mt-2"
+        :class="{ 'md:!justify-end': isMulti }"
         v-model="currentIndex"
         :max="maxIndex"
         :min="minIndex"
@@ -36,12 +36,13 @@
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
+        class="md:!justify-start"
         v-model="currentInnerIndex"
         :max="maxInnerIndex"
         :min="minInnerIndex"
         :bar-color="barColor"
         :key="maxInnerIndex"
-        reference="index"
+        reference="Index"
         @turn="handleTurnIndex"
         v-if="isMulti"
       />
@@ -61,9 +62,9 @@
         </div>
       </div>
       <!-- 滑块 -->
-      <div class="h-8 flex items-center justify-center">
+      <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
         <SlideBar
-          class="mt-2"
+          :class="{ 'md:!justify-end': isMulti }"
           v-model="currentIndex"
           :max="maxIndex"
           :min="minIndex"
@@ -74,12 +75,13 @@
           :turn-by-arrow="isZoom"
         />
         <SlideBar
+          class="md:!justify-start"
           v-model="currentInnerIndex"
           :max="maxInnerIndex"
           :min="minInnerIndex"
           :bar-color="barColor"
           :key="maxInnerIndex"
-          reference="index"
+          reference="Index"
           @turn="handleTurnIndex"
           v-if="isMulti"
           :turn-by-arrow="isZoom"

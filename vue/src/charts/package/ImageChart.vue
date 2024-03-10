@@ -6,7 +6,10 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      {{ $t('common.chart.charts.image.error', { type: error['data_class'], tag: source[0] }) }}
+      <span v-if="!isMulti">{{
+        $t('common.chart.charts.image.error', { type: error['data_class'], tag: source[0] })
+      }}</span>
+      <span v-else>{{ $t('common.chart.error') }}</span>
     </p>
   </div>
   <!-- 如果图表数据正确 -->
@@ -239,8 +242,16 @@ const run_id = computed(() => {
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-// TODO 当前只支持单个tag，所以error就是error.{tag}
-const error = ref(props.chart.error[source.value[0]])
+
+const error = computed(() => {
+  if (!isMulti.value) return props.chart.error[source.value[0]]
+  // 如果是多实验，检查每个实验的error
+  for (const exp of source.value) {
+    // 如果有错误，直接返回
+    if (props.chart.error[exp]) return true
+  }
+  return false
+})
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
