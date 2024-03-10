@@ -17,12 +17,16 @@
     <div class="charts-slot" v-show="isExpand" ref="chartsSlotRef">
       <ChartContainer
         v-for="(chart, index) in charts"
-        :key="chart._cid"
+        :key="chart.id"
         :chart="chart"
         :index="index"
         :isPinned="isPinned"
         :isHidden="isHidden"
         :ref="(el) => setChartRefList(el, index)"
+        @pin="pin"
+        @unpin="unpin"
+        @hide="hide"
+        @unhide="unhide"
       />
     </div>
   </div>
@@ -44,6 +48,11 @@ const props = defineProps({
   },
   charts: {
     type: Array,
+    required: true
+  },
+  // namespace的索引
+  index: {
+    type: Number,
     required: true
   },
   opened: {
@@ -82,6 +91,23 @@ provide('chartRefList', chartRefList)
 defineExpose({
   chartRefList
 })
+
+// ---------------------------------- 图表置顶、隐藏、取消置顶、取消隐藏 ----------------------------------
+const pin = (chart) => {
+  emit('pin', chart)
+}
+
+const unpin = (chart) => {
+  emit('unpin', chart)
+}
+
+const hide = (chart) => {
+  emit('hide', chart)
+}
+
+const unhide = (chart) => {
+  emit('unhide', chart)
+}
 </script>
 
 <style lang="scss" scoped>

@@ -153,7 +153,7 @@ class Chart(SwanModel):
             raise ExistedError("图表已存在")
 
     @classmethod
-    def pinned(cls, id: int, sort: int = None) -> "Chart":
+    def pin(cls, id: int, sort: int = None) -> "Chart":
         """
         把某个chart置顶
 
@@ -176,6 +176,58 @@ class Chart(SwanModel):
             # 判断当前实验/项目下有多少个pinned的chart
             count = cls.filter(
                 cls.project_id == chart.project_id, cls.experiment_id == chart.experiment_id, cls.status == 1
+            ).count()
+            chart.sort = count
+        else:
+            chart.sort = sort
+        chart.save()
+        return chart
+
+    @classmethod
+    def restore(cls, id: int) -> "Chart":
+        """
+        把某个chart恢复正常状态
+
+        Parameters
+        ----------
+        id : int
+            图表id
+
+        Returns
+        -------
+        Chart : Chart
+            恢复的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = 0
+        chart.sort = None
+        chart.save()
+        return chart
+
+    @classmethod
+    def hide(cls, id: int, sort: int = None) -> "Chart":
+        """
+        把某个chart隐藏
+
+        Parameters
+        ----------
+        id : int
+            图表id
+        sort : int
+            图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden, 默认为None
+            默认排在最后，也就是传入None的时候
+
+        Returns
+        -------
+        Chart : Chart
+            隐藏的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = -1
+        if sort is None:
+            # 判断当前实验/项目下有多少个hidden的chart
+            count = cls.filter(
+                cls.project_id == chart.project_id, cls.experiment_id == chart.experiment_id, cls.status == -1
             ).count()
             chart.sort = count
         else:

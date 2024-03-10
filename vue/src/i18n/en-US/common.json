@@ -38,7 +38,9 @@
     "empty": "Empty Experiment with No Charts",
     "error": "This chart is not displayed correctly.",
     "label": {
-      "default": "Charts"
+      "default": "Charts",
+      "pinned": "Pinned",
+      "hidden": "Hidden"
     },
     "unkonwn": "Unknown chart type: {type}",
     "zoom": "Zoom In",

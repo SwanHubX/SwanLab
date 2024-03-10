@@ -17,13 +17,22 @@
         <PannelButton
           class="!text-positive-default"
           icon="pinned"
+          click-icon="loading"
+          click-class="animate-spin"
           :tip="$t('common.chart.unpin')"
           @click="unpin"
           v-if="isPinned"
         />
         <template v-if="hover && !unknown && !isAllError">
           <!-- 置顶 -->
-          <PannelButton icon="pin" :tip="$t('common.chart.pin')" @click="pin" v-if="!isPinned" />
+          <PannelButton
+            icon="pin"
+            :tip="$t('common.chart.pin')"
+            @click="pin"
+            click-icon="loading"
+            click-class="animate-spin"
+            v-if="!isPinned"
+          />
           <!-- 放大功能 -->
           <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
           <!-- 更多功能 -->
@@ -266,20 +275,20 @@ const smooth = (method) => {
 
 // ---------------------------------- 图表置顶 ----------------------------------
 const pin = () => {
-  emit('pin')
+  emit('pin', props.chart)
 }
 const unpin = () => {
-  emit('unpin')
+  emit('unpin', props.chart)
 }
 
 // ---------------------------------- 图表隐藏 ----------------------------------
 
 const hide = () => {
-  emit('hide')
+  emit('hide', props.chart)
 }
 
 const unhide = () => {
-  emit('unhide')
+  emit('unhide', props.chart)
 }
 
 // ---------------------------------- 暴露组件对象 ----------------------------------
@@ -298,9 +307,6 @@ defineExpose({
   @apply w-full h-auto min-h-[288px] border rounded relative bg-default;
   @apply px-3 py-4;
   @apply flex-col flex justify-between;
-  .line-chart {
-    @apply col-span-3;
-  }
 }
 
 .chart-pannel {
@@ -308,7 +314,9 @@ defineExpose({
   @apply flex justify-end items-center gap-2;
 }
 // ---------------------------------- 图表样式 ----------------------------------
-
+.line-chart {
+  @apply col-span-3 lg:col-span-1;
+}
 .audio-chart,
 .image-chart,
 .text-chart {

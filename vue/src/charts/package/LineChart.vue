@@ -485,7 +485,7 @@ const registerTooltipEvent = (dom, zoom) => {
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
       chartRefListExceptSelf.value?.forEach((chart) => {
-        chart.showTooltip(point)
+        chart?.showTooltip(point)
       })
     manual = true
   })
@@ -496,7 +496,7 @@ const registerTooltipEvent = (dom, zoom) => {
     if (manual && !zoom)
       // 通知其他图表，当前图表的数据被hover到了
       chartRefListExceptSelf.value?.forEach((chart) => {
-        chart.hideTooltip(...args)
+        chart?.hideTooltip(...args)
       })
     nowData = null
     manual = true
@@ -592,7 +592,7 @@ const thickenByTag = (plot, zoom, tag, color) => {
   nowThickenColor = color
   // 加粗其他图表的数据，保持联动
   chartRefListExceptSelf.value.forEach((chart) => {
-    chart.thicken(zoom, tag, color)
+    chart?.thicken(zoom, tag, color)
   })
 }
 
@@ -626,7 +626,7 @@ const restoreByTag = (plot, zoom, tag, color) => {
   nowThickenTag = null
   nowThickenColor = null
   chartRefListExceptSelf.value.forEach((chart) => {
-    chart.thin(zoom, tag, color)
+    chart?.thin(zoom, tag, color)
   })
 }
 
