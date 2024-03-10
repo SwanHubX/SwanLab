@@ -106,8 +106,22 @@ def get_pinned_and_hidden(chart_list: List[dict], namespace_list: List[dict]) ->
     pinned_opened, hidden_opened = exp_or_proj["pinned_opened"], exp_or_proj["hidden_opened"]
 
     # 遍历chart_list，动态生成pinned与hidden的namespace，这两个namespace的id分别为-1与-2
-    pinned_namespace = {"id": -1, "name": "pinned", "charts": [], "opened": pinned_opened}
-    hidden_namespace = {"id": -2, "name": "hidden", "charts": [], "opened": hidden_opened}
+    pinned_namespace = {
+        "id": -1,
+        "name": "pinned",
+        "charts": [],
+        "opened": pinned_opened,
+        "experiment_id": first_chart["experiment_id"],
+        "project_id": first_chart["project_id"],
+    }
+    hidden_namespace = {
+        "id": -2,
+        "name": "hidden",
+        "charts": [],
+        "opened": hidden_opened,
+        "experiment_id": first_chart["experiment_id"],
+        "project_id": first_chart["project_id"],
+    }
     for chart in chart_list:
         # 如果chart的status为1，则将其加入pinned的namespace，如果是-1加入hidden的namespace
         # 如果是0，则不加入任何namespace
@@ -122,11 +136,15 @@ def get_pinned_and_hidden(chart_list: List[dict], namespace_list: List[dict]) ->
     namespace_list = [namespace for namespace in namespace_list if len(namespace["charts"]) != 0]
     # 如果pinned_namespace中有charts，则加入namespace_list的首位
     if len(pinned_namespace["charts"]) > 0:
-        pinned_namespace = {"id": -1, "name": "pinned", "charts": [chart["id"] for chart in pinned_namespace["charts"]]}
+        # namespaces的charts字段根据每个元素的sort排序，小的在前
+        pinned_namespace["charts"].sort(key=lambda x: x["sort"])
+        pinned_namespace = {**pinned_namespace, "charts": [chart["id"] for chart in pinned_namespace["charts"]]}
         namespace_list.insert(0, pinned_namespace)
     # 如果hidden_namespace中有charts，则加入namespace_list的末位
     if len(hidden_namespace["charts"]) > 0:
-        hidden_namespace = {"id": -2, "name": "hidden", "charts": [chart["id"] for chart in hidden_namespace["charts"]]}
+        # namespaces的charts字段根据每个元素的sort排序，小的在前
+        hidden_namespace["charts"].sort(key=lambda x: x["sort"])
+        hidden_namespace = {**hidden_namespace, "charts": [chart["id"] for chart in hidden_namespace["charts"]]}
         namespace_list.append(hidden_namespace)
     return chart_list, namespace_list
 
