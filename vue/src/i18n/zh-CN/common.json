@@ -37,6 +37,9 @@
     },
     "empty": "缺少实验数据",
     "error": "此图表无法正确显示",
+    "search": {
+      "placeholder": "搜索图表..."
+    },
     "label": {
       "default": "图表",
       "pinned": "置顶图表",

@@ -1,11 +1,15 @@
 <template>
   <!-- 图表顶层，嵌入全局功能 -->
   <div class="charts-pannel">
+    <!-- 搜索框 -->
+    <div class="w-60 mr-2">
+      <SLSearch :placeholder="$t('common.chart.search.placeholder')" reverse @search="search" @input="search" />
+    </div>
     <SmoothButton @smooth="handleSmooth" :default-method-id="1" />
   </div>
   <!-- 每一个namespace对应一个图表容器 -->
   <ChartsContainer
-    v-for="(group, index) in chartsGroupList"
+    v-for="(group, index) in nowChartsGroupList"
     :ref="(el) => setChartsRefList(el, index)"
     :key="group.id"
     :label="getNamespaces(group)"
@@ -33,6 +37,7 @@ import { t } from '@swanlab-vue/i18n'
 import SmoothButton from './components/SmoothButton.vue'
 import { debounces } from '@swanlab-vue/utils/common'
 import http from '@swanlab-vue/api/http'
+import SLSearch from '@swanlab-vue/components/SLSearch.vue'
 const props = defineProps({
   // 整个图表列表集合
   groups: {
@@ -48,8 +53,13 @@ watch(
     chartsGroupList.value = newVal
   }
 )
+const searchChartsGroupList = ref(null)
 
 const chartsRefList = ref([])
+
+const nowChartsGroupList = computed(() => {
+  return searchChartsGroupList.value ? searchChartsGroupList.value : chartsGroupList.value
+})
 
 const setChartsRefList = (el, index) => {
   chartsRefList.value[index] = el
@@ -141,11 +151,22 @@ const hide = (chart) => {
 const unhide = (chart) => {
   updateChartStatus(chart, 0)
 }
+
+// ---------------------------------- 处理搜索图表事件 ----------------------------------
+const search = (value) => {
+  console.log('search', value)
+  if (!value) return (searchChartsGroupList.value = null)
+  searchChartsGroupList.value = chartsGroupList.value.filter((group) => {
+    return group.charts.some((chart) => {
+      return chart.name.toLowerCase().includes(value.toLowerCase())
+    })
+  })
+}
 </script>
 
 <style lang="scss" scoped>
 .charts-pannel {
-  @apply sticky px-4 py-3 bg-higher flex justify-end top-0 border-b;
+  @apply sticky px-4 py-3 bg-higher flex justify-between top-0 border-b;
   z-index: 30;
 }
 </style>

@@ -37,6 +37,9 @@
     },
     "empty": "Empty Experiment with No Charts",
     "error": "This chart is not displayed correctly.",
+    "search": {
+      "placeholder": "Search Chart..."
+    },
     "label": {
       "default": "Charts",
       "pinned": "Pinned",
