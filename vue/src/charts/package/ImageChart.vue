@@ -6,7 +6,10 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      {{ $t('common.chart.charts.image.error', { type: error['data_class'], tag: source[0] }) }}
+      <span v-if="!isMulti">{{
+        $t('common.chart.charts.image.error', { type: error['data_class'], tag: source[0] })
+      }}</span>
+      <span v-else>{{ $t('common.chart.error') }}</span>
     </p>
   </div>
   <!-- 如果图表数据正确 -->
@@ -17,12 +20,13 @@
         <SLLoading />
       </div>
       <!-- 加载完成 -->
-      <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
-        <div
-          class="flex flex-col items-center justify-center relative"
-          v-for="(s, index) in stepsData[currentIndex][source[0]]"
-          :key="index"
-        >
+      <!-- 单实验图表 -->
+      <div
+        class="images-container"
+        :style="setGrid(stepsData[currentIndex][source[0]].length)"
+        v-if="!loading && !isMulti"
+      >
+        <div class="image-detail" v-for="(s, index) in stepsData[currentIndex][source[0]]" :key="index">
           <div class="image-container">
             <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
@@ -30,17 +34,45 @@
           <p class="text-xs">{{ s.caption }}</p>
         </div>
       </div>
+      <!-- 多实验图表 -->
+      <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
+        <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
+          <div class="text-xs flex items-center pb-1" :title="name">
+            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+            <p class="pl-1 truncate">{{ name }}</p>
+          </div>
+          <div class="image-container">
+            <img
+              :src="imagesData[s[currentInnerIndex].filename].url"
+              @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+            />
+            <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
+          </div>
+          <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
+        </div>
+      </div>
     </div>
-    <div class="h-8">
+    <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
       <SlideBar
-        class="mt-2"
+        :class="{ 'md:!justify-end': isMulti }"
         v-model="currentIndex"
         :max="maxIndex"
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
-        @turn="handelTurn"
+        @turn="handleTurn"
         v-if="maxIndex !== minIndex"
+      />
+      <SlideBar
+        class="md:!justify-start"
+        v-model="currentInnerIndex"
+        :max="maxInnerIndex"
+        :min="minInnerIndex"
+        :bar-color="barColor"
+        :key="maxInnerIndex"
+        reference="Index"
+        @turn="handleTurnIndex"
+        v-if="isMulti"
       />
     </div>
     <!-- 放大效果弹窗 -->
@@ -51,7 +83,11 @@
           <SLLoading />
         </div>
         <!-- 加载完成 -->
-        <div class="images-container" :style="setGrid(stepsData[currentIndex][source[0]].length)" v-else>
+        <div
+          class="images-container"
+          :style="setGrid(stepsData[currentIndex][source[0]].length)"
+          v-if="!loading && !isMulti"
+        >
           <div
             class="flex flex-col items-center h-full justify-center"
             v-for="(s, index) in stepsData[currentIndex][source[0]]"
@@ -64,18 +100,48 @@
             <p class="text-xs mt-2">{{ s.caption }}</p>
           </div>
         </div>
+        <!-- 多实验图表 -->
+        <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
+          <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
+            <div class="text-xs flex items-center pb-1" :title="name">
+              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+              <p class="pl-1 truncate">{{ name }}</p>
+            </div>
+            <div class="image-container">
+              <img
+                :src="imagesData[s[currentInnerIndex].filename].url"
+                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+              />
+              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
+            </div>
+            <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
+          </div>
+        </div>
       </div>
-      <div class="h-8">
+      <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
         <SlideBar
-          class="mt-2"
+          :class="{ 'md:!justify-end': isMulti }"
           v-model="currentIndex"
           :max="maxIndex"
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          @turn="handelTurn"
+          @turn="handleTurn"
           v-if="maxIndex !== minIndex"
           :turn-by-arrow="isZoom && !isSingleZoom"
+        />
+        <SlideBar
+          class="md:!justify-start"
+          v-model="currentInnerIndex"
+          :max="maxInnerIndex"
+          :min="minInnerIndex"
+          :bar-color="barColor"
+          :key="maxInnerIndex"
+          reference="index"
+          @turn="handleTurnIndex"
+          v-if="isMulti"
+          :turn-by-arrow="isZoom && !isSingleZoom && isMulti"
+          vertical-arrow
         />
       </div>
     </SLModal>
@@ -89,6 +155,7 @@
     >
       <!-- 标题 -->
       <p class="w-full overflow-hidden text-center text-lg font-semibold absolute top-5">
+        <span v-if="isMulti">{{ visiableSources[currentSingleImageIndex] }} / </span>
         {{ signleZoomFilename }}
       </p>
       <!-- 图片 -->
@@ -104,7 +171,11 @@
         <SLIcon icon="down" class="icon -rotate-90" @click="handleSingleChange({ key: 'ArrowRight' })"></SLIcon>
       </div>
       <p class="w-full text-center absolute bottom-5 select-none">
-        {{ `${currentSingleImageIndex + 1} / ${stepsData[currentIndex][source[0]].length}` }}
+        {{
+          `${currentSingleImageIndex + 1} / ${
+            isMulti ? visiableSources.length : stepsData[currentIndex][source[0]].length
+          }`
+        }}
       </p>
     </SLModal>
   </template>
@@ -119,13 +190,19 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, watch, computed } from 'vue'
-import { useExperimentStore } from '@swanlab-vue/store'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
+import { useRoute } from 'vue-router'
+
 const experimentStore = useExperimentStore()
+const projectStore = useProjectStore()
+const route = useRoute()
+
 // ---------------------------------- 配置 ----------------------------------
+
 const props = defineProps({
   title: {
     type: String,
@@ -140,14 +217,43 @@ const props = defineProps({
     required: true
   }
 })
-const run_id = computed(() => experimentStore.experiment.run_id)
+/**
+ * 图表数据来源，为数组
+ * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
+ * 当isMulti为false时，数组元素为tag，即给该表提供数据的tag
+ */
 const source = computed(() => {
   return props.chart.source
 })
+// 是否为多实验的图表，根据路由名称判断
+const isMulti = computed(() => {
+  return route.name === 'charts'
+})
+/**
+ * 实验名对应的run_id
+ * 单实验时直接从 experiment pinia 中拿
+ * 多实验时通过 project pinia 中的 getExpRunIdByName 获取（传入实验名查询 run_id）
+ */
+const run_id = computed(() => {
+  if (!isMulti.value) return experimentStore.experiment?.run_id
+  const run_ids = {}
+  for (const exp of source.value) {
+    run_ids[exp] = projectStore.getExpRunIdByName(exp)
+  }
+  return run_ids
+})
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-// TODO 当前只支持单个tag，所以error就是error.{tag}
-const error = ref(props.chart.error[source.value[0]])
+
+const error = computed(() => {
+  if (!isMulti.value) return props.chart.error[source.value[0]]
+  // 如果是多实验，检查每个实验的error
+  for (const exp of source.value) {
+    // 如果有错误，直接返回
+    if (props.chart.error[exp]) return true
+  }
+  return false
+})
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
@@ -188,12 +294,15 @@ const currentIndex = computed({
     }
     loading.value = true
     imageContentRef.value.height = imageContentRef.value.offsetHeight + 'px'
+    // 如果是多实验模式，将内部数据索引置 0
+    if (isMulti.value) currentInnerIndex.value = 0
+    // 获取数据
     debounceGetImagesData(stepsData[__currentIndex.value])
   }
 })
 
 // 事件处理，触发slideBar的turn事件
-const handelTurn = (direction, value) => {
+const handleTurn = (direction, value) => {
   const keys = Array.from(Object.keys(stepsData))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
@@ -205,6 +314,11 @@ const handelTurn = (direction, value) => {
   }
 }
 
+// 在多实验图表时完成 index 的翻页
+const handleTurnIndex = (direction, value) => {
+  currentInnerIndex.value = direction === 'forward' ? value + 1 : value - 1
+}
+
 // 布局处理,一共length列，最多显示8列
 const setGrid = (length) => {
   if (length <= 8) {
@@ -214,66 +328,136 @@ const setGrid = (length) => {
   }
 }
 
+// ---------------------------------- 多实验适配 ----------------------------------
+
+// index 进度条配置
+const maxInnerIndex = computed(() => {
+  let tempLength = 0
+  for (const exp in stepsData[currentIndex.value]) {
+    const l = stepsData[currentIndex.value][exp].length - 1
+    if (l > tempLength) tempLength = l
+  }
+  return tempLength
+})
+const minInnerIndex = ref(0)
+const currentInnerIndex = ref(minInnerIndex.value)
+
+// 同时获取多个实验的图像数据
+const getMultiImagesData = async (stepData) => {
+  const promises = []
+  for (const exp in stepData) {
+    for (const { filename } of stepData[exp]) {
+      if (imagesData[filename]) continue
+      // 没有缓存，发起请求
+      promises.push(
+        new Promise((resolve) => {
+          UTILS.media
+            .get(filename, run_id.value[exp], props.title)
+            .then((blob) => resolve(transformBlob(blob, filename)))
+        })
+      )
+    }
+  }
+
+  await Promise.all(promises)
+}
+
+/**
+ * 多实验图表时，当前 step 中含有的实验名数组
+ */
+const visiableSources = computed(() => {
+  const temp = []
+  for (const key in stepsData[currentIndex.value]) {
+    temp.push(key)
+  }
+  return temp
+})
+
 // ---------------------------------- 数据格式化 ----------------------------------
 // 前端映射数据，不包含图像，数据格式：{step: {tag: [{filename: string, caption: string}]}}
 const stepsData = {}
 // 图像数据缓存, 数据格式：{String<filename>: {blob: Blob, url: string<base64>}}
 const imagesData = {}
 
+/**
+ * 获取图像数据
+ * step 发生改变后触发获取
+ */
 const getImagesData = async (stepData) => {
-  // 单数据
+  if (!isMulti.value) await getSingleImageData(stepData)
+  else await getMultiImagesData(stepData)
+  loading.value = false
+  imageContentRef.value.height = ''
+}
+
+/**
+ * 单数据源
+ */
+const getSingleImageData = async (stepData) => {
   const tag = source.value[0]
   const promises = []
-  // console.log('stepData', stepData)
   for (const { filename } of stepData[tag]) {
     if (!imagesData[filename]) {
       promises.push(
         new Promise((resolve) => {
-          UTILS.media.get(filename, run_id.value, tag).then((blob) => {
-            // blob转换为图像base64
-            const reader = new FileReader()
-            reader.onload = function () {
-              imagesData[filename] = { blob, url: reader.result }
-              resolve()
-            }
-            reader.readAsDataURL(blob)
-          })
+          UTILS.media.get(filename, run_id.value, tag).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
   }
   await Promise.all(promises)
-  loading.value = false
-  imageContentRef.value.height = ''
-  // console.log('图像数据：', imagesData)
 }
 
+/**
+ * 将 blob 转成图片
+ */
+const transformBlob = (blob, filename) => {
+  return new Promise((resolve) => {
+    // blob转换为图像base64
+    const reader = new FileReader()
+    reader.onload = function () {
+      imagesData[filename] = { blob, url: reader.result }
+      resolve()
+    }
+    reader.readAsDataURL(blob)
+  })
+}
+
+/**
+ * 防抖函数，防止请求过于频繁
+ */
 const debounceGetImagesData = debounce(getImagesData, 500)
 
 /**
  * 将后端传回的数据转换为图像数据，存储到imageStepsData中
- * 后端返回的数据格式为：{tag: {..., list:[{data: string or list<strinf>, more: object or list<object>, index: string<number>, create_time: string}]}}
+ * 后端返回的数据格式为：{exp_name: {..., list:[{data: string or list<strinf>, more: object or list<object>, index: string<number>, create_time: string}]}}
+ * 主要工作：
+ * 1. 将有用数据按 step 提取到 stepsData
+ * 2. 找出最大最小 step
+ *
  * @param { Object } data 后端返回的数据
  */
 const changeData2Image = (data) => {
   // 遍历数据，将数据转换为图像数据
   let _maxIndex = 0
   let _minIndex = Infinity
-  for (const tag in data) {
-    // 遍历tag下的数据
-    _maxIndex = Math.max(Number(data[tag].list[data[tag].list.length - 1].index), _maxIndex)
-    _minIndex = Math.min(Number(data[tag].list[0].index), _minIndex)
-    for (const item of data[tag].list) {
+  for (const source in data) {
+    if (data[source] === null) continue
+    // 遍历实验下的数据
+    _maxIndex = Math.max(Number(data[source].list[data[source].list.length - 1].index), _maxIndex)
+    _minIndex = Math.min(Number(data[source].list[0].index), _minIndex)
+    for (const item of data[source].list) {
+      // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
-      else continue
-      // 对当前tag下的数据进行处理,向stepsData中添加数据
-      if (!stepsData[item.index][tag]) stepsData[item.index][tag] = []
+      // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
+      if (stepsData[item.index][source]) continue
+      stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][tag].push({ filename: item.data, caption: item.more?.caption })
+        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][tag].push({ filename: item.data[i], caption: item.more[i]?.caption })
+          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption })
         }
       }
     }
@@ -306,6 +490,7 @@ const zoom = () => {
 }
 
 // ---------------------------------- 点击某个图像，放大 ----------------------------------
+
 const isSingleZoom = ref(false)
 const signleZoomFilename = ref()
 // 当前单个图像的索引
@@ -314,7 +499,7 @@ const currentSingleImageIndex = ref(0)
 const handelClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
-  currentSingleImageIndex.value = index
+  currentSingleImageIndex.value = isMulti.value ? visiableSources.value.indexOf(index) : index
 }
 
 // ---------------------------------- ESC 退出弹窗 ----------------------------------
@@ -332,15 +517,22 @@ const exitByEsc = () => {
 
 // 方向键切换单图 - 回调
 const handleSingleChange = ({ key }) => {
-  const images = stepsData[currentIndex.value][source.value[0]]
+  const isSingle = !isMulti.value
+  const images = isSingle ? stepsData[currentIndex.value][source.value[0]] : stepsData[currentIndex.value]
 
-  if (key === 'ArrowRight' && currentSingleImageIndex.value < images.length - 1) {
-    currentSingleImageIndex.value++
-  } else if (key === 'ArrowLeft' && currentSingleImageIndex.value > 0) {
-    currentSingleImageIndex.value--
+  if (
+    (key === 'ArrowRight' &&
+      currentSingleImageIndex.value < (isSingle ? images.length - 1 : visiableSources.value.length - 1)) ||
+    (key === 'ArrowLeft' && currentSingleImageIndex.value > 0)
+  ) {
+    currentSingleImageIndex.value += key === 'ArrowRight' ? 1 : -1
   }
 
-  signleZoomFilename.value = images[currentSingleImageIndex.value].filename
+  const filename = isSingle
+    ? images[currentSingleImageIndex.value].filename
+    : images[visiableSources.value[currentSingleImageIndex.value]][currentInnerIndex.value].filename
+
+  signleZoomFilename.value = filename
 }
 
 // 订阅通过左右方向键切换单图
@@ -393,6 +585,10 @@ defineExpose({
       &:hover .download-button {
         @apply block;
       }
+    }
+
+    .image-detail {
+      @apply flex flex-col items-center justify-center relative;
     }
   }
 }

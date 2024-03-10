@@ -108,6 +108,7 @@ defineExpose({
 <style lang="scss" scoped>
 .lc-tooltip {
   @apply py-2 px-3 absolute bg-default border rounded z-10;
+  min-width: 180px;
   box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
   visibility: visible;
   p {

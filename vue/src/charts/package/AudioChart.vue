@@ -6,21 +6,27 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      {{ $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}
+      <span v-if="!isMulti">{{
+        $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] })
+      }}</span>
+      <span v-else>
+        {{ $t('common.chart.error') }}
+      </span>
     </p>
   </div>
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="audio-content audio-content-no-zomm" ref="audioContentRef">
-      <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
+    <div class="h-[220px] overflow-y-auto px-2">
+      <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
       </div>
     </div>
-    <div class="h-8">
+    <!-- 滑块 -->
+    <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
       <SlideBar
-        class="mt-2"
+        :class="{ 'md:!justify-end': isMulti }"
         v-model="currentIndex"
         :max="maxIndex"
         :min="minIndex"
@@ -29,19 +35,36 @@
         @turn="handelTurn"
         v-if="maxIndex !== minIndex"
       />
+      <SlideBar
+        class="md:!justify-start"
+        v-model="currentInnerIndex"
+        :max="maxInnerIndex"
+        :min="minInnerIndex"
+        :bar-color="barColor"
+        :key="maxInnerIndex"
+        reference="Index"
+        @turn="handleTurnIndex"
+        v-if="isMulti"
+      />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
-      <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
-      <div class="audio-content" ref="audioContentRef">
-        <AudioModule :audios="audioData" :key="nowStep" v-if="audioData && !loading" />
+    <SLModal
+      class="p-10 pt-14 overflow-hidden h-[70vh] flex flex-col justify-between"
+      max-w="-1"
+      v-model="isZoom"
+      esc-exit
+    >
+      <p class="absolute top-4 w-full pr-20 text-center font-semibold">{{ title }}</p>
+      <div class="overflow-y-auto px-2 h-full">
+        <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
         <div class="flex flex-col justify-center items-center h-full" v-if="loading">
           <SLLoading />
         </div>
       </div>
-      <div class="h-8 mt-10">
+      <!-- 滑块 -->
+      <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
         <SlideBar
-          class="mt-2"
+          :class="{ 'md:!justify-end': isMulti }"
           v-model="currentIndex"
           :max="maxIndex"
           :min="minIndex"
@@ -51,8 +74,20 @@
           v-if="maxIndex !== minIndex"
           :turn-by-arrow="isZoom"
         />
-      </div>
-    </SLModal>
+        <SlideBar
+          class="md:!justify-start"
+          v-model="currentInnerIndex"
+          :max="maxInnerIndex"
+          :min="minInnerIndex"
+          :bar-color="barColor"
+          :key="maxInnerIndex"
+          reference="Index"
+          @turn="handleTurnIndex"
+          v-if="isMulti"
+          :turn-by-arrow="isZoom"
+          vertical-arrow
+        /></div
+    ></SLModal>
   </template>
 </template>
 
@@ -60,21 +95,23 @@
 /**
  * @description:
  * @file: AudioChart.vue
- * @since: 2024-01-29 20:31:18
+ * @since: 2024-03-09 19:22:22
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { watch, ref, inject, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
-import { debounce } from '@swanlab-vue/utils/common'
-import * as UTILS from './utils'
-import { useExperimentStore } from '@swanlab-vue/store'
 import AudioModule from '../modules/AudioModule.vue'
+import { ref, inject } from 'vue'
+import * as UTILS from './utils'
+import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
+import { useRoute } from 'vue-router'
+import { debounce } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
 
 const experimentStore = useExperimentStore()
-const run_id = computed(() => experimentStore.experiment.run_id)
+const projectStore = useProjectStore()
+const route = useRoute()
 
 const props = defineProps({
   title: {
@@ -87,18 +124,80 @@ const props = defineProps({
   },
   index: {
     type: Number,
-    default: 0
+    required: true
   }
 })
 
-// 图表相关 tag
-const source = computed(() => {
+/**
+ * 图表数据来源，为数组
+ * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
+ * 当isMulti为false时，数组元素为tag，即给该表提供数据的tag
+ */
+const sources = computed(() => {
   return props.chart?.source || []
+})
+
+// 是否为多实验的图表，根据路由名称判断
+const isMulti = computed(() => {
+  return route.name === 'charts'
+})
+
+/**
+ * 实验名对应的run_id
+ * 单实验时直接从 experiment pinia 中拿
+ * 多实验时通过 project pinia 中的 getExpRunIdByName 获取（传入实验名查询 run_id）
+ */
+const run_id = computed(() => {
+  if (!isMulti.value) return experimentStore.experiment?.run_id
+  const run_ids = {}
+  for (const exp of sources.value) {
+    run_ids[exp] = projectStore.getExpRunIdByName(exp)
+  }
+  return run_ids
+})
+
+/**
+ * 展示用的音频数据
+ */
+const audioData = computed(() => {
+  const stepData = stepsData[currentIndex.value]
+  if (!stepData) return []
+  // 如果是单源
+  if (!isMulti.value) {
+    return stepData[sources.value[0]].map(({ filename, caption }) => {
+      return {
+        audioBuffer: audiosData[filename],
+        title: filename,
+        caption
+      }
+    })
+  }
+  // 如果是多源
+  const data = []
+  for (const exp in stepData) {
+    const temp = stepData[exp][currentInnerIndex.value]
+    data.push({
+      audioBuffer: audiosData[temp.filename],
+      title: temp.filename,
+      caption: temp.caption,
+      color: projectStore.colorMap[exp],
+      exp
+    })
+  }
+  return data
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
-const error = ref(props.chart.error[source.value[0]])
+const error = computed(() => {
+  if (!isMulti.value) return props.chart.error[sources.value[0]]
+  // 如果是多实验，检查每个实验的error
+  for (const exp of sources.value) {
+    // 如果有错误，直接返回
+    if (props.chart.error[exp]) return true
+  }
+  return false
+})
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 
@@ -106,54 +205,52 @@ const error = ref(props.chart.error[source.value[0]])
 const colors = inject('colors')
 if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
 
-// ---------------------------------- 实例：滑块的使用 ----------------------------------
+// ---------------------------------- step 滑块 ----------------------------------
 
-const audioContentRef = ref(null)
 // 已经滑动部分颜色，应该通过色盘计算得到
 const barColor = inject('colors')[0]
 // 当前滑块索引
 const __currentIndex = ref(0)
 // 最小索引
-const minIndex = ref(undefined)
+const minIndex = ref(NaN)
 // 最大索引
-const maxIndex = ref(undefined)
+const maxIndex = ref(NaN)
 // slide的key
 const slideKey = ref(0)
 watch([maxIndex, minIndex], ([max, min]) => {
   slideKey.value = max + '-' + min
 })
-const loading = ref(false)
+const loading = ref(true)
 
+// 计算属性，拦截滑块索引变化
 const currentIndex = computed({
   get: () => __currentIndex.value,
   set: (val) => {
-    if (stepMap.has(val)) {
-      // 如果存在，则设置当前值
-      if (val === __currentIndex.value) return
+    // 如果当前值存在于stepsData的key中，则直接赋值
+    if (val in stepsData) {
+      if (val === __currentIndex.value && loading.value === false) return
       __currentIndex.value = val
-      // 当前值
-      // console.log('设置当前值为', val)
     } else {
-      // console.log('当前值不存在: ', val)
-      // 寻找最近的值
-      const keys = Array.from(stepMap.keys())
+      // 寻找一个最接近的值
+      const keys = Array.from(Object.keys(stepsData))
       const index = keys.findIndex((item) => item > val)
       const num = Number(index === -1 ? keys[keys.length - 1] : keys[index])
       if (num === __currentIndex.value) return
       __currentIndex.value = num
     }
-    // 设置audioContentRef的height为当前height
-    // console.log('设置audioContentRef的height为当前height', audioContentRef.value)
-    audioContentRef.value.style.height = audioContentRef.value.offsetHeight + 'px'
     loading.value = true
-    debounceRender()
+    // 如果是多实验模式，将内部数据索引置 0
+    if (isMulti.value) currentInnerIndex.value = 0
+    // 获取数据
+    debounceGetAudiosData(stepsData[__currentIndex.value])
   }
 })
 
-// 事件处理，触发slideBar的turn事件
+/**
+ * step 滑块，点击上下按钮翻页
+ */
 const handelTurn = (direction, value) => {
-  const keys = Array.from(stepMap.keys())
-  console.log('handelTurn', direction, value, keys)
+  const keys = Array.from(Object.keys(stepsData))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
     currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
@@ -164,156 +261,122 @@ const handelTurn = (direction, value) => {
   }
 }
 
-// ---------------------------------- 控制渲染第几个数据，防抖 ----------------------------------
-
-const debounceRender = debounce(() => {
-  const step = __currentIndex.value
-
-  if (!audiosData.value[step]) {
-    tagData2Buffer(stepMap.get(step)[0][1]).then((data) => {
-      loading.value = false
-      console.log('请求数据成功，设置当前step为', step)
-      nowStep.value = step
-      // 将数据添加到audiosData中
-      audiosData.value[data.nowStep] = data.data
-      // 设置audioContentRef的height
-      audioContentRef.value.style.height = ''
-    })
-  } else {
-    console.log('已经存在数据，不需要请求, 设置当前step为', step)
-    loading.value = false
-    nowStep.value = step
-    // 设置audioContentRef的height
-    audioContentRef.value.style.height = ''
-  }
-}, 500)
-
-// ---------------------------------- 数据驱动控制音频组件渲染 ----------------------------------
-// 音频数据，格式为 {tag: {audio: AudioBuffer, title: String}}
-const audiosTagData = ref()
-// 音频数据缓存，格式为 {step: nowData }
-const audiosData = ref({})
-// 当前展示的是第几步的数据，格式为{tag: {audio: AudioBuffer, title: String}}
-const audioData = computed(() => {
-  if (nowStep.value === undefined) return undefined
-  // console.log('nowStep变化：', nowStep.value)
-  return audiosData.value[nowStep.value]
-})
-// 当前展示的步数
-const nowStep = ref(undefined)
-
 // ---------------------------------- 数据格式化 ----------------------------------
 
+// 关联 step 与数据
+const stepsData = {}
+// 缓存
+const audiosData = reactive({})
+
 /**
- * 获取音频数据
- * @param {str} filename 文件名
- * @param {str} tag log tag 名称
+ * 解析 log 数据
  */
-const getMediaData = async (data, tag) => {
-  const audioBlob = await UTILS.media.get(data, run_id.value, tag)
-  // console.log('audioBlob', audioBlob)
-  // 将blob转换成AudioBuffer
-  // 1. 将 Blob 转换为 ArrayBuffer
-  const arrayBuffer = await audioBlob.arrayBuffer()
+const changeData2Audio = (data) => {
+  let _maxIndex = 0
+  let _minIndex = Infinity
+  for (const source in data) {
+    if (data[source] === null) continue
+    // 获取最大和最小索引
+    _maxIndex = Math.max(Number(data[source].list[data[source].list.length - 1].index), _maxIndex)
+    _minIndex = Math.min(Number(data[source].list[0].index), _minIndex)
 
-  // 2. 使用 Web Audio API 的 decodeAudioData 方法将 ArrayBuffer 转换为 AudioBuffer
+    for (const item of data[source].list) {
+      // 如果不存在当前 step
+      if (!stepsData[item.index]) stepsData[item.index] = {}
+      // 如果当前 step 下已经有该实验的信息，说明这是之前的数据，重复了，不需要额外添加
+      if (stepsData[item.index][source]) continue
+      // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
+      stepsData[item.index][source] = []
+      // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
+      if (typeof item.data === 'string') {
+        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
+      } else {
+        for (let i = 0; i < item.data.length; i++) {
+          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption })
+        }
+      }
+    }
+  }
+  maxIndex.value = _maxIndex
+  minIndex.value = _minIndex
+}
+
+// ---------------------------------- 数据请求和解析 ----------------------------------
+
+const debounceGetAudiosData = debounce(async (stepData) => {
+  loading.value = true
+
+  const promises = []
+  // 遍历该 step 下的数据源
+  for (const source in stepData) {
+    // 如果数据源中没有东西，跳过
+    if (stepData[source] === null) continue
+    // 遍历该数据源下的数据
+    for (const { filename } of stepData[source]) {
+      if (audiosData[filename]) continue
+      // 没有缓存，需要请求
+      promises.push(
+        new Promise((resolve) => {
+          const runid = isMulti.value ? run_id.value[source] : run_id.value
+          UTILS.media.get(filename, runid, props.title).then((blob) => resolve(transformBlob(blob, filename)))
+        })
+      )
+    }
+  }
+
+  await Promise.all(promises)
+  loading.value = false
+}, 500)
+
+/**
+ * 将 blob 转成 AudioBuffer
+ */
+const transformBlob = async (blob, filename) => {
+  const arrayBuffer = await blob.arrayBuffer()
   const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-
   return new Promise((resolve, reject) => {
     audioContext.decodeAudioData(
       arrayBuffer,
       (audioBuffer) => {
-        resolve({ audioBuffer, audioBlob })
+        audiosData[filename] = audioBuffer
+        resolve(audioBuffer)
       },
       (error) => {
+        error.value = error
         reject(error)
       }
     )
   })
 }
-/**
- * 将 tag 数据转成 AudioBuffer，添加到audiosData中
- * 并且设置当前step为index对应的step,最终返回当前的step和最大step和最小step
- * 后续如果要兼容多数据，就在此处添加逻辑
- * @param { number } index 当前数据的索引,并不是step
- */
-const tagData2Buffer = async (index) => {
-  const tag = source.value[0]
-  // console.log('tagData2Buffer', tag, index)
-  const data = audiosTagData.value[tag].list[index]
-  // data.data可能是list<string>或者string
-  const returnData = []
-  if (Array.isArray(data.data)) {
-    for (let i = 0; i < data.data.length; i++) {
-      const item = data.data[i]
-      const { audioBuffer, audioBlob } = await getMediaData(item, tag)
-      audiosData.value[index] = audiosData.value[index] || []
-      returnData.push({ audioBuffer, audioBlob, title: item, tag: tag, caption: data.more[i]?.caption })
-    }
-  } else {
-    const { audioBuffer, audioBlob } = await getMediaData(data.data, tag)
-    audiosData.value[index] = audiosData.value[index] || []
-    returnData.push({ audioBuffer, audioBlob, title: data.data, tag: tag, caption: data.more?.caption })
-  }
-  nowStep.value = Number(data.index)
-  return {
-    nowStep: Number(data.index),
-    maxStep: Number(audiosTagData.value[tag].list[audiosTagData.value[tag].list.length - 1].index),
-    minStep: Number(audiosTagData.value[tag].list[0].index),
-    data: returnData,
-    tag
-  }
-}
 
-//  step与data[tag].list[index]的映射关系，每次change都会更新
-// 通过step，可以找到对应的tag和index，{step: [[tag, index],]}
-const stepMap = new Map()
+// ---------------------------------- 多实验 ----------------------------------
 
-const setStepMap = (data) => {
-  // 遍历data[tag].list，将step与index的映射关系存储到stepMap中
-  // 获取所有tag
-  const tags = Object.keys(data)
-  // 最长数组长度
-  const maxLength = Math.max(...tags.map((tag) => data[tag].list.length))
-  for (let i = 0; i < maxLength; i++) {
-    for (const tag of tags) {
-      const step = Number(data[tag].list[i].index)
-      if (!stepMap.has(i)) stepMap.set(step, [])
-      if (data[tag].list[i]) {
-        // 如果这个step中已经存在此tag，则不需要添加
-        if (stepMap.get(step).findIndex((item) => item[0] === tag) === -1) {
-          stepMap.get(step).push([tag, i])
-        }
-      }
-    }
+// index 进度条配置
+const maxInnerIndex = computed(() => {
+  let tempLength = 0
+  for (const exp in stepsData[currentIndex.value]) {
+    const l = stepsData[currentIndex.value][exp].length - 1
+    if (l > tempLength) tempLength = l
   }
+  return tempLength
+})
+const minInnerIndex = ref(0)
+const currentInnerIndex = ref(minInnerIndex.value)
+
+const handleTurnIndex = (direction, value) => {
+  currentInnerIndex.value = direction === 'forward' ? value + 1 : value - 1
 }
 
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
-// 渲染
-const render = async (data) => {
-  audiosTagData.value = data
-  setStepMap(data)
-  // 根据 data 获取所有的音频数据，存储到audiosData中
-  // 当前step必然为第一个，因为是第一次渲染，所以其他的数据不需要请求,只需要请求第一个就可以
-  const steps = await tagData2Buffer(0)
-  // 将数据添加到audiosData中
-  audiosData.value[steps.nowStep] = steps.data
-  // console.log('steps', steps, audiosData.value)
-  // 设置最大值最小值
-  currentIndex.value = nowStep.value = steps.nowStep
-  maxIndex.value = steps.maxStep
-  minIndex.value = steps.minStep
-}
 
-// 重渲染，只需要往audiosData中添加数据并更新maxIndex和minIndex即可，不需要重复请求数据
-const change = async (data) => {
-  audiosTagData.value = data
-  // 设置最大值最小值
-  const tag = source.value[0]
-  maxIndex.value = Number(data[tag].list[data[tag].list.length - 1].index)
-  minIndex.value = Number(data[tag].list[0].index)
-  setStepMap(data)
+// 渲染
+const render = (data) => {
+  changeData2Audio(data)
+  currentIndex.value = minIndex.value
+}
+// 重渲染
+const change = (data) => {
+  changeData2Audio(data)
 }
 
 // ---------------------------------- 放大功能 ----------------------------------
@@ -332,12 +395,4 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped>
-.audio-content {
-  @apply mt-1 p-2 w-full border border-dimmer rounded-sm relative min-h-[224px];
-}
-
-.audio-content-no-zomm {
-  @apply overflow-clip overflow-y-auto h-56;
-}
-</style>
+<style lang="scss" scoped></style>

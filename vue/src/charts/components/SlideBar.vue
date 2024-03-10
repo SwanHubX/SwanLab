@@ -51,6 +51,11 @@ const props = defineProps({
   turnByArrow: {
     type: Boolean,
     default: false
+  },
+  // 方向键的类型，false：左右键，true：上下键
+  verticalArrow: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -105,9 +110,9 @@ const handleChange = (e) => {
 
 const handleKeydown = (e) => {
   if (!props.turnByArrow) return
-  if (e.key == 'ArrowLeft') {
+  if (e.key == (props.verticalArrow ? 'ArrowDown' : 'ArrowLeft')) {
     handleClickDown()
-  } else if (e.key == 'ArrowRight') {
+  } else if (e.key == (props.verticalArrow ? 'ArrowUp' : 'ArrowRight')) {
     handleClickUp()
   }
 }
