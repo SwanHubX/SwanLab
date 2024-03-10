@@ -11,7 +11,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="audio-content audio-content-no-zomm" ref="audioContentRef">
+    <div class="h-[220px] overflow-y-auto px-2">
       <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />
@@ -41,7 +41,45 @@
       />
     </div>
     <!-- 放大效果弹窗 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom"> </SLModal>
+    <SLModal
+      class="p-10 pt-14 overflow-hidden h-[70vh] flex flex-col justify-between"
+      max-w="-1"
+      v-model="isZoom"
+      esc-exit
+    >
+      <p class="absolute top-4 w-full pr-20 text-center font-semibold">{{ title }}</p>
+      <div class="overflow-y-auto px-2 h-full">
+        <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
+        <div class="flex flex-col justify-center items-center h-full" v-if="loading">
+          <SLLoading />
+        </div>
+      </div>
+      <!-- 滑块 -->
+      <div class="h-8 flex items-center justify-center">
+        <SlideBar
+          class="mt-2"
+          v-model="currentIndex"
+          :max="maxIndex"
+          :min="minIndex"
+          :bar-color="barColor"
+          :key="slideKey"
+          @turn="handelTurn"
+          v-if="maxIndex !== minIndex"
+          :turn-by-arrow="isZoom"
+        />
+        <SlideBar
+          v-model="currentInnerIndex"
+          :max="maxInnerIndex"
+          :min="minInnerIndex"
+          :bar-color="barColor"
+          :key="maxInnerIndex"
+          reference="index"
+          @turn="handleTurnIndex"
+          v-if="isMulti"
+          :turn-by-arrow="isZoom"
+          vertical-arrow
+        /></div
+    ></SLModal>
   </template>
 </template>
 
@@ -56,7 +94,6 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SlideBar from '../components/SlideBar.vue'
 import AudioModule from '../modules/AudioModule.vue'
 import { ref, inject } from 'vue'
-import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 import * as UTILS from './utils'
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { useRoute } from 'vue-router'
@@ -82,8 +119,6 @@ const props = defineProps({
     required: true
   }
 })
-
-const audioContentRef = ref(null)
 
 /**
  * 图表数据来源，为数组
@@ -187,7 +222,6 @@ const currentIndex = computed({
       if (num === __currentIndex.value) return
       __currentIndex.value = num
     }
-    // audioContentRef.value.style.height = audioContentRef.value.offsetHeight + 'px'
     loading.value = true
     // 如果是多实验模式，将内部数据索引置 0
     if (isMulti.value) currentInnerIndex.value = 0
@@ -331,11 +365,8 @@ const change = (data) => {
 // 是否放大
 const isZoom = ref(false)
 // 放大数据
-const zoom = (data) => {
+const zoom = () => {
   isZoom.value = true
-  // 放大后图表的高度
-  const height = window.innerHeight * 0.6
-  addTaskToBrowserMainThread(() => {})
 }
 
 // ---------------------------------- 暴露api ----------------------------------
