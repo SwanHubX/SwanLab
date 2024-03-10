@@ -281,7 +281,6 @@ const changeData2Audio = (data) => {
       }
     }
   }
-  console.log(stepsData)
   maxIndex.value = _maxIndex
   minIndex.value = _minIndex
 }
