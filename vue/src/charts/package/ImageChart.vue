@@ -335,7 +335,7 @@ const maxInnerIndex = computed(() => {
   let tempLength = 0
   for (const exp in stepsData[currentIndex.value]) {
     const l = stepsData[currentIndex.value][exp].length - 1
-    if (l >= maxInnerIndex.value) tempLength = l
+    if (l > tempLength) tempLength = l
   }
   return tempLength
 })
