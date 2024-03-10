@@ -113,6 +113,9 @@ const run_id = computed(() => {
   return run_ids
 })
 
+/**
+ * 展示用的音频数据
+ */
 const audioData = computed(() => {
   const stepData = stepsData[currentIndex.value]
   if (!stepData) return []
@@ -126,6 +129,7 @@ const audioData = computed(() => {
       }
     })
   }
+  // 如果是多源
   const data = []
   for (const exp in stepData) {
     const temp = stepData[exp][currentInnerIndex.value]
