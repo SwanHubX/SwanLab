@@ -158,11 +158,18 @@ const unhide = (chart) => {
 // ---------------------------------- 处理搜索图表事件 ----------------------------------
 const search = (value) => {
   if (!value) return (searchChartsGroupList.value = null)
-  searchChartsGroupList.value = chartsGroupList.value.filter((group) => {
+  const newGroup = chartsGroupList.value.filter((group) => {
     return group.charts.some((chart) => {
       return chart.name.toLowerCase().includes(value.toLowerCase())
     })
   })
+  // 然后将newGroup中滤除不包含value的chart
+  newGroup.forEach((group) => {
+    group.charts = group.charts.filter((chart) => {
+      return chart.name.toLowerCase().includes(value.toLowerCase())
+    })
+  })
+  searchChartsGroupList.value = newGroup
 }
 </script>
 
