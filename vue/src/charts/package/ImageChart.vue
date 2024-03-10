@@ -437,7 +437,8 @@ const changeData2Image = (data) => {
       // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
       // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
-      if (!stepsData[item.index][source]) stepsData[item.index][source] = []
+      if (stepsData[item.index][source]) continue
+      stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
         stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
