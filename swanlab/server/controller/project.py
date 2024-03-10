@@ -58,29 +58,6 @@ DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 RUNNING_STATUS = Experiment.RUNNING_STATUS
 
 
-def __clear_fields(target: List[dict], fields: List[str]) -> list[dict]:
-    """遍历字典列表清除多个字段
-
-    Parameters
-    ----------
-    target : List[dict]
-        需要处理的列表
-    fields : List[str]
-        需要删除的字段列表
-
-    Returns
-    -------
-    list[dict]
-        处理后的字典列表
-    """
-
-    for item in target:
-        for field in fields:
-            item.pop(field)
-
-    return target
-
-
 # ---------------------------------- 路由对应的处理函数 ----------------------------------
 
 

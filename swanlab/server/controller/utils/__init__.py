@@ -8,3 +8,26 @@ r"""
     共享工具函数
 """
 from .charts import get_exp_charts, get_proj_charts
+from typing import List
+
+
+def clear_field(target: List[dict], field: str) -> List[dict]:
+    """遍历字典列表清除某个字段
+
+    Parameters
+    ----------
+    target : List[dict]
+        需要处理的列表
+    field : str
+        需要删除的字段
+
+    Returns
+    -------
+    List[dict]
+        处理后的字典列表
+    """
+
+    for item in target:
+        item.pop(field)
+
+    return target

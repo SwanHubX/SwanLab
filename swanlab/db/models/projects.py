@@ -63,6 +63,9 @@ class Project(SwanModel):
             "sum": self.sum,
             "charts": self.charts,
             "more": self.more,
+            "pinned_opened": self.pinned_opened,
+            "hidden_opened": self.hidden_opened,
+            "version": self.version,
             "create_time": self.create_time,
             "update_time": self.update_time,
         }

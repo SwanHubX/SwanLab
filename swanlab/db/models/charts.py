@@ -61,10 +61,12 @@ class Chart(SwanModel):
     """更新时间"""
 
     def __dict__(self):
+        experiment_id = None if self.experiment_id is None else self.experiment_id.__dict__()
+        project_id = None if self.project_id is None else self.project_id.__dict__()
         return {
             "id": self.id,
-            "experiment_id": self.experiment_id,
-            "project_id": self.project_id,
+            "experiment_id": experiment_id,
+            "project_id": project_id,
             "name": self.name,
             "description": self.description,
             "system": self.system,

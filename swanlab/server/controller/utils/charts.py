@@ -72,8 +72,6 @@ def get_proj_charts(id: int):
             if source.error:
                 error[source.tag_id.experiment_id.name] = Chart.json2dict(source.error)
         t = _chart.__dict__()
-        del t["project_id"]
-        print(t)
         charts.append({**t, "error": error, "source": sources, "mutli": True})
     # 获取命名空间配置
     namespaces = Namespace.filter(Namespace.project_id == id)
@@ -97,9 +95,19 @@ def get_pinned_and_hidden(chart_list: List[dict], namespace_list: List[dict]) ->
     """
     获取置顶图表与隐藏图表
     """
+    if not len(chart_list) or not len(namespace_list):
+        return chart_list, namespace_list
+    # 获取pinned和hidden的开启/关闭状态，通过chart_list的第一个元素的experiment_id或者project_id获取
+    first_chart = chart_list[0]
+    if first_chart["experiment_id"] is not None:
+        exp_or_proj = first_chart["experiment_id"]
+    else:
+        exp_or_proj = first_chart["project_id"]
+    pinned_opened, hidden_opened = exp_or_proj["pinned_opened"], exp_or_proj["hidden_opened"]
+
     # 遍历chart_list，动态生成pinned与hidden的namespace，这两个namespace的id分别为-1与-2
-    pinned_namespace = {"id": -1, "name": "pinned", "charts": []}
-    hidden_namespace = {"id": -2, "name": "hidden", "charts": []}
+    pinned_namespace = {"id": -1, "name": "pinned", "charts": [], "opened": pinned_opened}
+    hidden_namespace = {"id": -2, "name": "hidden", "charts": [], "opened": hidden_opened}
     for chart in chart_list:
         # 如果chart的status为1，则将其加入pinned的namespace，如果是-1加入hidden的namespace
         # 如果是0，则不加入任何namespace
