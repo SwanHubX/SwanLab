@@ -86,6 +86,7 @@ async def _(*args, **kwargs):
 from .router.experiment import router as experiment
 from .router.project import router as project
 from .router.namespace import router as namespace
+from .router.chart import router as chart
 
 # 媒体文件路由，允许前端获取其他产生的媒体文件
 from .router.media import router as media
@@ -96,3 +97,4 @@ app.include_router(project, prefix=prefix + "/project")
 app.include_router(experiment, prefix=prefix + "/experiment")
 app.include_router(media, prefix=prefix + "/media")
 app.include_router(namespace, prefix=prefix + "/namespace")
+app.include_router(chart, prefix=prefix + "/chart")

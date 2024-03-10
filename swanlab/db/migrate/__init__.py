@@ -7,6 +7,7 @@ r"""
 @Description:
     数据库迁移模块
 """
-from .tag_sort import add_sort
-from .exp_finish_time import add_finish_time
-from .namespace_opened import add_opened
+from .tag import add_sort
+from .experiment import add_finish_time
+from .namespace import add_opened
+from .chart import add_status

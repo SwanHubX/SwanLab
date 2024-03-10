@@ -8,7 +8,7 @@ r"""
     实验图标表
 """
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy, fn
 from ..error import ExistedError, ForeignExpNotExistedError, ForeignProNotExistedError
 from .experiments import Experiment
 from .projects import Project
@@ -47,6 +47,10 @@ class Chart(SwanModel):
     """图表类型，由创建者决定，这与数据库本身无关"""
     reference = CharField(max_length=10, default="step")
     """图表数据参考，由创建者决定，这与数据库本身无关"""
+    status = IntegerField(null=False, default=0)
+    """图表状态 0代表默认状态 1代表被pinned -1代表被hidden"""
+    sort = IntegerField(null=True, default=None)
+    """图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden"""
     config = TextField(null=True)
     """图表的其他配置，这实际上是一个json字符串"""
     more = TextField(null=True)
@@ -57,16 +61,20 @@ class Chart(SwanModel):
     """更新时间"""
 
     def __dict__(self):
+        experiment_id = None if self.experiment_id is None else self.experiment_id.__dict__()
+        project_id = None if self.project_id is None else self.project_id.__dict__()
         return {
             "id": self.id,
-            "experiment_id": self.experiment_id,
-            "project_id": self.project_id,
+            "experiment_id": experiment_id,
+            "project_id": project_id,
             "name": self.name,
             "description": self.description,
             "system": self.system,
             "type": self.type,
             "reference": self.reference,
             "config": self.config,
+            "status": self.status,
+            "sort": self.sort,
             "more": self.more,
             "create_time": self.create_time,
             "update_time": self.update_time,
@@ -143,3 +151,94 @@ class Chart(SwanModel):
             )
         except IntegrityError:
             raise ExistedError("图表已存在")
+
+    @classmethod
+    def pin(cls, id: int, sort: int = None) -> "Chart":
+        """
+        把某个chart置顶
+
+        Parameters
+        ----------
+        id : int
+            图表id
+        sort : int
+            图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden, 默认为None
+            默认排在最后，也就是传入None的时候
+
+        Returns
+        -------
+        Chart : Chart
+            置顶的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = 1
+        if sort is None:
+            # 判断当前实验/项目下有多少个hidden的chart
+            project_id = None if chart.project_id is None else chart.project_id.id
+            experiment_id = None if chart.experiment_id is None else chart.experiment_id.id
+            # 获取当前namespace下的最大索引,如果没有，则为0
+            sort = (
+                cls.select(fn.Max(cls.sort))
+                .where(cls.project_id == project_id, cls.experiment_id == experiment_id, cls.status == 1)
+                .scalar()
+            )
+            sort = 0 if sort is None else sort + 1
+        chart.sort = sort
+        chart.save()
+        return chart
+
+    @classmethod
+    def restore(cls, id: int) -> "Chart":
+        """
+        把某个chart恢复正常状态
+
+        Parameters
+        ----------
+        id : int
+            图表id
+
+        Returns
+        -------
+        Chart : Chart
+            恢复的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = 0
+        chart.sort = None
+        chart.save()
+        return chart
+
+    @classmethod
+    def hide(cls, id: int, sort: int = None) -> "Chart":
+        """
+        把某个chart隐藏
+
+        Parameters
+        ----------
+        id : int
+            图表id
+        sort : int
+            图表在被pinned或hidden时的排序，越小越靠前，越大越靠后，如果为NULL则代表未被pinned或hidden, 默认为None
+            默认排在最后，也就是传入None的时候
+
+        Returns
+        -------
+        Chart : Chart
+            隐藏的图表
+        """
+        chart: Chart = cls.get(cls.id == id)
+        chart.status = -1
+        if sort is None:
+            # 判断当前实验/项目下有多少个hidden的chart
+            project_id = None if chart.project_id is None else chart.project_id.id
+            experiment_id = None if chart.experiment_id is None else chart.experiment_id.id
+            # 获取当前namespace下的最大索引,如果没有，则为0
+            sort = (
+                cls.select(fn.Max(cls.sort))
+                .where(cls.project_id == project_id, cls.experiment_id == experiment_id, cls.status == -1)
+                .scalar()
+            )
+            sort = 0 if sort is None else sort + 1
+        chart.sort = sort
+        chart.save()
+        return chart

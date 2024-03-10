@@ -17,10 +17,16 @@
     <div class="charts-slot" v-show="isExpand" ref="chartsSlotRef">
       <ChartContainer
         v-for="(chart, index) in charts"
-        :key="chart._cid"
+        :key="chart.id"
         :chart="chart"
         :index="index"
+        :isPinned="isPinned"
+        :isHidden="isHidden"
         :ref="(el) => setChartRefList(el, index)"
+        @pin="pin"
+        @unpin="unpin"
+        @hide="hide"
+        @unhide="unhide"
       />
     </div>
   </div>
@@ -44,12 +50,25 @@ const props = defineProps({
     type: Array,
     required: true
   },
+  // namespace的索引
+  index: {
+    type: Number,
+    required: true
+  },
   opened: {
+    type: Boolean,
+    required: true
+  },
+  isPinned: {
+    type: Boolean,
+    required: true
+  },
+  isHidden: {
     type: Boolean,
     required: true
   }
 })
-const emit = defineEmits(['switch'])
+const emit = defineEmits(['switch', 'pin', 'unpin', 'hide', 'unhide'])
 // ---------------------------------- 控制展开和关闭的状态 ----------------------------------
 const isExpand = ref(props.opened)
 
@@ -72,6 +91,23 @@ provide('chartRefList', chartRefList)
 defineExpose({
   chartRefList
 })
+
+// ---------------------------------- 图表置顶、隐藏、取消置顶、取消隐藏 ----------------------------------
+const pin = (chart) => {
+  emit('pin', chart)
+}
+
+const unpin = (chart) => {
+  emit('unpin', chart)
+}
+
+const hide = (chart) => {
+  emit('hide', chart)
+}
+
+const unhide = (chart) => {
+  emit('unhide', chart)
+}
 </script>
 
 <style lang="scss" scoped>

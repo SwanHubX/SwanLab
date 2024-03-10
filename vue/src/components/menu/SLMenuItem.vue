@@ -1,5 +1,5 @@
 <template>
-  <MenuItem :as="as" class="p-3 hover:bg-gray-light cursor-pointer">
+  <MenuItem :as="as" class="p-3 hover:bg-higher cursor-pointer">
     <slot></slot>
   </MenuItem>
 </template>
