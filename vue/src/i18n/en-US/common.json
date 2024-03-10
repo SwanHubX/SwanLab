@@ -37,11 +37,21 @@
     },
     "empty": "Empty Experiment with No Charts",
     "error": "This chart is not displayed correctly.",
+    "search": {
+      "placeholder": "Search Chart..."
+    },
     "label": {
-      "default": "Charts"
+      "default": "Charts",
+      "pinned": "Pinned",
+      "hidden": "Hidden"
     },
     "unkonwn": "Unknown chart type: {type}",
-    "zoom": "Zoom In"
+    "zoom": "Zoom In",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "more": "More actions",
+    "hide": "Hide",
+    "unhide": "Unhide"
   },
   "config-editor": {
     "button": "Edit",

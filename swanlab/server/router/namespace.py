@@ -2,8 +2,8 @@ from fastapi import APIRouter
 from ..module.resp import PARAMS_ERROR_422
 
 from ..controller.namespace import (
-    # 修改namespace可见性
-    change_namespace_visibility,
+    # 修改namespace开启关闭状态
+    change_namespace_opened,
 )
 from fastapi import Request
 from urllib.parse import quote
@@ -28,7 +28,13 @@ async def _(namespace_id: int, request: Request):
         当前实验信息
     """
 
-    opened = (await request.json()).get("opened")
+    data = await request.json()
+    opened = data.get("opened")
+    experiment_id = data.get("experiment_id")
+    project_id = data.get("project_id")
+
     if opened is None:
-        return PARAMS_ERROR_422("Request parameter 'show'")
-    return change_namespace_visibility(namespace_id, opened)
+        return PARAMS_ERROR_422("Request parameter 'opened'")
+    if experiment_id is None and project_id is None:
+        return PARAMS_ERROR_422("Request parameter 'experiment_id' or 'project_id'")
+    return change_namespace_opened(namespace_id, opened, experiment_id, project_id)

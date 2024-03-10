@@ -58,7 +58,7 @@ class Namespace(SwanModel):
     """命名空间描述，可为空"""
     sort = IntegerField()
     """命名空间索引，用于排序，同一个项目/实验下，命名空间索引不能重复，索引越小，排序越靠前，索引>=0"""
-    opened = IntegerField(default=1)
+    opened = IntegerField(default=1, choices=[0, 1])
     """命名空间是否已经被打开，默认为1，表示已经被打开，0表示未被打开"""
     more = TextField(default=None, null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""

@@ -72,6 +72,12 @@ class Experiment(SwanModel):
     dark = CharField(max_length=20, null=True)
     """暗色主题颜色"""
 
+    pinned_opened = IntegerField(default=1, choices=[0, 1])
+    """实验图表置顶部分是否打开，默认值为1，表示打开"""
+
+    hidden_opened = IntegerField(default=0, choices=[0, 1])
+    """实验图表隐藏部分是否打开，默认值为0,表示关闭"""
+
     more = TextField(null=True)
     """更多信息配置，json格式，将在表函数中检查并解析"""
 

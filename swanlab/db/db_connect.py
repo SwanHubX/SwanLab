@@ -10,7 +10,7 @@ r"""
 from ..env import get_db_path
 import os
 from peewee import SqliteDatabase
-from .table_config import tables, Tag, Experiment, Namespace
+from .table_config import tables, Tag, Experiment, Namespace, Chart
 from .migrate import *
 
 # 判断是否已经binded了
@@ -57,6 +57,10 @@ def connect(autocreate=False) -> SqliteDatabase:
         swandb.bind(tables)
         swandb.create_tables(tables)
         swandb.close()
+        # 完成数据迁移，如果chart表中没有status字段，则添加
+        if not Chart.field_exists("status"):
+            # 不启用外键约束
+            add_status(SqliteDatabase(path))
         # 完成数据迁移，如果namespace表中没有opened字段，则添加
         if not Namespace.field_exists("opened"):
             # 不启用外键约束

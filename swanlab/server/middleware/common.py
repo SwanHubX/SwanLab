@@ -70,6 +70,7 @@ async def catch_error(request: Request, call_next):
     try:
         return await call_next(request)
     except Exception as e:
+        swl.error(str(e))
         return UNEXPECTED_ERROR_500(str(e))
 
 

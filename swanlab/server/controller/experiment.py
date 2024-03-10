@@ -24,21 +24,19 @@ from ..settings import (
     get_requirements_path,
 )
 from ...utils import get_a_lock
-from ...utils.file import check_desc_format
 from ...utils.time import create_time
 import yaml
 from ...log import swanlog
 from typing import List, Dict
-
-from ...db import connect, NotExistedError
-
-from ...db import (
+from .db import connect, NotExistedError
+from .db import (
     Project,
     Experiment,
     Chart,
     Namespace,
     Tag,
 )
+from .utils import get_exp_charts, clear_field
 
 __to_list = Experiment.search2list
 
@@ -57,28 +55,6 @@ LOGS_CONFIGS = [TAG_SUMMARY_FILE]
 
 
 # ---------------------------------- 工具函数 ----------------------------------
-
-
-def __clear_field(target: List[dict], field: str) -> List[dict]:
-    """遍历字典列表清除某个字段
-
-    Parameters
-    ----------
-    target : List[dict]
-        需要处理的列表
-    field : str
-        需要删除的字段
-
-    Returns
-    -------
-    List[dict]
-        处理后的字典列表
-    """
-
-    for item in target:
-        item.pop(field)
-
-    return target
 
 
 def __get_exp_dir_by_id(experiment_id: int) -> str:
@@ -294,24 +270,7 @@ def get_experiment_status(experiment_id: int):
     """
 
     experiment = Experiment.get(experiment_id)
-    charts = Chart.filter(Chart.experiment_id == experiment_id)
-    chart_list = __clear_field(__to_list(charts), "experiment_id")
-    for index, chart in enumerate(charts):
-        sources = []
-        for source in __to_list(chart.sources):
-            sources.append(source["tag_id"]["name"])
-        chart_list[index]["source"] = sources
-
-    # 当前实验下的命名空间
-    namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
-    namespace_list = __clear_field(__to_list(namespaces), "experiment_id")
-    # 获取每个命名空间对应的 display
-    # display 含有 chart 与 namespace 的对应关系
-    for index, namespace in enumerate(namespaces):
-        displays = []
-        for display in __to_list(namespace.displays):
-            displays.append(display["chart_id"]["id"])
-        namespace_list[index]["charts"] = displays
+    chart_list, namespace_list = get_exp_charts(experiment_id)
 
     return SUCCESS_200(
         {
@@ -319,8 +278,7 @@ def get_experiment_status(experiment_id: int):
             "update_time": experiment.update_time,
             "finish_time": experiment.finish_time,
             "charts": {
-                "_sum": charts.count(),
-                "charts": chart_list,
+                "charts": clear_field(chart_list, "experiment_id"),
                 "namespaces": namespace_list,
             },
         }
@@ -463,36 +421,11 @@ def get_experimet_charts(experiment_id: int):
         charts: List[dict]
         namesapces: List[dict]
     """
-
-    charts = Chart.filter(Chart.experiment_id == experiment_id)
-    chart_list = __to_list(charts)
-    # 获取每个图表对应的数据源
-    for index, chart in enumerate(charts):
-        sources = []
-        error = {}
-        for source in __to_list(chart.sources):
-            sources.append(source["tag_id"]["name"])
-            if source["error"]:
-                error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
-        chart_list[index]["error"] = error
-        chart_list[index]["source"] = sources
-        chart_list[index]["mutli"] = False
-
-    # 当前实验下的命名空间
-    namespaces = Namespace.filter(Namespace.experiment_id == experiment_id)
-    namespace_list = __clear_field(__to_list(namespaces), "experiment_id")
-    # 获取每个命名空间对应的 display
-    # display 含有 chart 与 namespace 的对应关系
-    for index, namespace in enumerate(namespaces):
-        displays = []
-        for display in __to_list(namespace.displays):
-            displays.append(display["chart_id"]["id"])
-        namespace_list[index]["charts"] = displays
+    chart_list, namespace_list = get_exp_charts(experiment_id)
 
     return SUCCESS_200(
         {
-            "_sum": charts.count(),
-            "charts": __clear_field(chart_list, "experiment_id"),
+            "charts": clear_field(chart_list, "experiment_id"),
             "namespaces": namespace_list,
         }
     )
