@@ -1,25 +1,27 @@
 <template>
   <!-- 音频容器，完成响应式 -->
   <div class="audios-container" :class="setGrid()" ref="audiosRef">
-    <div
-      class="audio-container"
-      :ref="(el) => handleAddAudio(index, el)"
-      v-for="(audio, index) in audios"
-      :key="audio.title"
-    >
-      <div class="flex items-center mt-2">
-        <PlayButton
-          v-model="playingList[index]"
-          :color="colors[0]"
-          @play="handlePlay(index)"
-          @pause="handelPause(index)"
-        />
-        <!-- 当前时间 -->
-        <p class="text-sm ml-1" v-if="audioRef[index]">{{ formatTime(index) }}</p>
-        <!-- 文件名称 -->
-        <p class="text-sm w-full text-center -ml-10">{{ audios[index].caption }}</p>
-        <!-- 下载按钮 -->
-        <DownloadButton @click="download(index)" />
+    <div v-for="(audio, index) in audios" :key="audio.title">
+      <!-- 多实验时，展示实验标题 -->
+      <div class="text-xs flex items-center pb-1" :title="audio.exp" v-if="audio.exp">
+        <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: audio.color }"></div>
+        <p class="pl-1 truncate">{{ audio.exp }}</p>
+      </div>
+      <div class="audio-container" :ref="(el) => handleAddAudio(index, el)">
+        <div class="flex items-center mt-2">
+          <PlayButton
+            v-model="playingList[index]"
+            :color="colors[0]"
+            @play="handlePlay(index)"
+            @pause="handelPause(index)"
+          />
+          <!-- 当前时间 -->
+          <p class="text-sm ml-1" v-if="audioRef[index]">{{ formatTime(index) }}</p>
+          <!-- 文件名称 -->
+          <p class="text-sm w-full text-center -ml-10">{{ audios[index].caption }}</p>
+          <!-- 下载按钮 -->
+          <DownloadButton @click="download(index)" />
+        </div>
       </div>
     </div>
   </div>
@@ -37,7 +39,7 @@ import PlayButton from '../components/PlayButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
 const props = defineProps({
-  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, caption: , tag: String, caption: String } ]
+  // 接受的音频数据，格式为 [{ audioBuffer: AudioBuffer, title: String, tag: String, caption: String } ]
   audios: {
     type: Object,
     required: true
