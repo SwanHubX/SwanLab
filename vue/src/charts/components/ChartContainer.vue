@@ -12,8 +12,35 @@
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel" v-if="hover && !unknown && !isAllError">
-        <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
+      <div class="chart-pannel">
+        <!-- 取消置顶的按钮 -->
+        <PannelButton
+          class="!text-positive-default"
+          icon="pinned"
+          :tip="$t('common.chart.unpin')"
+          @click="unpin"
+          v-if="isPinned"
+        />
+        <template v-if="hover && !unknown && !isAllError">
+          <!-- 置顶 -->
+          <PannelButton icon="pin" :tip="$t('common.chart.pin')" @click="pin" v-if="!isPinned" />
+          <!-- 放大功能 -->
+          <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
+          <!-- 更多功能 -->
+          <SLMenu menu-class="flex-shrink-0" class="right-0 top-4">
+            <PannelButton icon="more" :tip="$t('common.chart.more')" />
+            <template #pop>
+              <SLMenuItems>
+                <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
+                  {{ $t('common.chart.unhide') }}
+                </SLMenuItem>
+                <SLMenuItem class="py-1" @click="hide" v-else>
+                  {{ $t('common.chart.hide') }}
+                </SLMenuItem>
+              </SLMenuItems>
+            </template>
+          </SLMenu>
+        </template>
       </div>
       <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
     </template>
@@ -43,6 +70,10 @@ import UnknownChart from '../package/UnknownChart.vue'
 import PannelButton from './PannelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import ImageChart from '../package/ImageChart.vue'
+import SLLoading from '@swanlab-vue/components/SLLoading.vue'
+import SLMenu from '@swanlab-vue/components/menu/SLMenu.vue'
+import SLMenuItems from '@swanlab-vue/components/menu/SLMenuItems.vue'
+import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
 const props = defineProps({
   chart: {
     type: Object,
@@ -51,11 +82,20 @@ const props = defineProps({
   index: {
     type: Number,
     required: true
+  },
+  isPinned: {
+    type: Boolean,
+    required: true
+  },
+  isHidden: {
+    type: Boolean,
+    required: true
   }
 })
 
 const cid = props.chart.id
 const source = props.chart.source
+const emit = defineEmits(['pin', 'unpin', 'hide', 'unhide'])
 
 // ---------------------------------- 判断是否处于hover状态 ----------------------------------
 const hover = ref(false)
@@ -224,6 +264,24 @@ const smooth = (method) => {
   chartRef.value.smooth && chartRef.value.smooth(method)
 }
 
+// ---------------------------------- 图表置顶 ----------------------------------
+const pin = () => {
+  emit('pin')
+}
+const unpin = () => {
+  emit('unpin')
+}
+
+// ---------------------------------- 图表隐藏 ----------------------------------
+
+const hide = () => {
+  emit('hide')
+}
+
+const unhide = () => {
+  emit('unhide')
+}
+
 // ---------------------------------- 暴露组件对象 ----------------------------------
 defineExpose({
   chartRef,
@@ -247,7 +305,7 @@ defineExpose({
 
 .chart-pannel {
   @apply absolute top-1 right-2 h-4;
-  @apply flex justify-end gap-2;
+  @apply flex justify-end items-center gap-2;
 }
 // ---------------------------------- 图表样式 ----------------------------------
 

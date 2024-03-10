@@ -41,7 +41,12 @@
       "default": "Charts"
     },
     "unkonwn": "Unknown chart type: {type}",
-    "zoom": "Zoom In"
+    "zoom": "Zoom In",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "more": "More actions",
+    "hide": "Hide",
+    "unhide": "Unhide"
   },
   "config-editor": {
     "button": "Edit",

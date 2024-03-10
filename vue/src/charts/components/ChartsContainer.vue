@@ -20,6 +20,8 @@
         :key="chart._cid"
         :chart="chart"
         :index="index"
+        :isPinned="isPinned"
+        :isHidden="isHidden"
         :ref="(el) => setChartRefList(el, index)"
       />
     </div>
@@ -47,9 +49,17 @@ const props = defineProps({
   opened: {
     type: Boolean,
     required: true
+  },
+  isPinned: {
+    type: Boolean,
+    required: true
+  },
+  isHidden: {
+    type: Boolean,
+    required: true
   }
 })
-const emit = defineEmits(['switch'])
+const emit = defineEmits(['switch', 'pin', 'unpin', 'hide', 'unhide'])
 // ---------------------------------- 控制展开和关闭的状态 ----------------------------------
 const isExpand = ref(props.opened)
 

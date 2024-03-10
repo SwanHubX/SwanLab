@@ -11,6 +11,8 @@
     :label="getNamespaces(group.name)"
     :charts="getCharts(group)"
     :opened="!!group.opened"
+    :isPinned="group.id === -1"
+    :isHidden="group.id === -2"
     @switch="(opened) => debouncedHandleSwitch(group.id, opened, group)"
   />
 </template>
