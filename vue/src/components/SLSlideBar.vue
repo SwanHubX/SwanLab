@@ -14,7 +14,6 @@
     <!-- 输入框,只有change的时候才会更改置 -->
     <div class="flex items-center relative ml-3" :class="{ 'input-disabled': disabled }" v-if="showInput">
       <input
-        class="silder-input"
         type="number"
         :disabled="disabled"
         :value="props.modelValue"
