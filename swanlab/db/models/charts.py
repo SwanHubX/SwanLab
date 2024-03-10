@@ -8,7 +8,7 @@ r"""
     实验图标表
 """
 from ..model import SwanModel
-from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy
+from peewee import CharField, IntegerField, ForeignKeyField, TextField, IntegrityError, Check, DatabaseProxy, fn
 from ..error import ExistedError, ForeignExpNotExistedError, ForeignProNotExistedError
 from .experiments import Experiment
 from .projects import Project
@@ -173,13 +173,17 @@ class Chart(SwanModel):
         chart: Chart = cls.get(cls.id == id)
         chart.status = 1
         if sort is None:
-            # 判断当前实验/项目下有多少个pinned的chart
-            count = cls.filter(
-                cls.project_id == chart.project_id, cls.experiment_id == chart.experiment_id, cls.status == 1
-            ).count()
-            chart.sort = count
-        else:
-            chart.sort = sort
+            # 判断当前实验/项目下有多少个hidden的chart
+            project_id = None if chart.project_id is None else chart.project_id.id
+            experiment_id = None if chart.experiment_id is None else chart.experiment_id.id
+            # 获取当前namespace下的最大索引,如果没有，则为0
+            sort = (
+                cls.select(fn.Max(cls.sort))
+                .where(cls.project_id == project_id, cls.experiment_id == experiment_id, cls.status == 1)
+                .scalar()
+            )
+            sort = 0 if sort is None else sort + 1
+        chart.sort = sort
         chart.save()
         return chart
 
@@ -226,11 +230,15 @@ class Chart(SwanModel):
         chart.status = -1
         if sort is None:
             # 判断当前实验/项目下有多少个hidden的chart
-            count = cls.filter(
-                cls.project_id == chart.project_id, cls.experiment_id == chart.experiment_id, cls.status == -1
-            ).count()
-            chart.sort = count
-        else:
-            chart.sort = sort
+            project_id = None if chart.project_id is None else chart.project_id.id
+            experiment_id = None if chart.experiment_id is None else chart.experiment_id.id
+            # 获取当前namespace下的最大索引,如果没有，则为0
+            sort = (
+                cls.select(fn.Max(cls.sort))
+                .where(cls.project_id == project_id, cls.experiment_id == experiment_id, cls.status == -1)
+                .scalar()
+            )
+            sort = 0 if sort is None else sort + 1
+        chart.sort = sort
         chart.save()
         return chart
