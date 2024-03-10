@@ -91,7 +91,7 @@ const chartRefListExceptSelf = computed(() => {
   return chartRefList.value.filter((_, i) => i !== props.index)
 })
 // 平滑配置
-let smoothMethod = props.chart.smooth || undefined
+let smoothMethod = inject('smoothMethod').value || undefined
 // ---------------------------------- 图表样式配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
 const colors = inject('colors')

@@ -88,7 +88,7 @@ const getCharts = (group) => {
 }
 
 // ---------------------------------- 处理图表平滑事件 ----------------------------------
-
+const smoothMethod = ref(null)
 const handleSmooth = (method) => {
   // 遍历chartsRefList中的所有chartRefList，调用其smooth方法
   chartsRefList.value.forEach((chartsRef) => {
@@ -96,7 +96,10 @@ const handleSmooth = (method) => {
       chartRef.smooth(method)
     })
   })
+  smoothMethod.value = method
 }
+// 暂时先以provide的方式传递smoothMethod，后续会存储在后端，通过接口获取
+provide('smoothMethod', smoothMethod)
 
 // ---------------------------------- 在此处处理命名空间打开和关闭 ----------------------------------
 const handleSwitch = (id, opened, namespace) => {
@@ -154,7 +157,6 @@ const unhide = (chart) => {
 
 // ---------------------------------- 处理搜索图表事件 ----------------------------------
 const search = (value) => {
-  console.log('search', value)
   if (!value) return (searchChartsGroupList.value = null)
   searchChartsGroupList.value = chartsGroupList.value.filter((group) => {
     return group.charts.some((chart) => {
