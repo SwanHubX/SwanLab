@@ -471,7 +471,7 @@ const render = (data) => {
   // 数据格式化
   changeData2Image(data)
   // console.log('图像数据：', stepsData)
-  currentIndex.value = minIndex.value
+  currentIndex.value = maxIndex.value
 }
 // 重渲染
 const change = (data) => {

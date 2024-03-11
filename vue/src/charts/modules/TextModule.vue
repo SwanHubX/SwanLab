@@ -140,6 +140,12 @@ const indexes = computed(() => {
 const currentPage = ref(pages.value.minIndex)
 const currentIndex = ref(0)
 
+onMounted(() => {
+  currentIndex.value = indexes.value.length - 1
+  currentPage.value = indexes.value[currentIndex.value]
+  emits('getText', props.tag, currentIndex.value)
+})
+
 /**
  * 在翻页时找到有效页码和页码索引
  * @param {int} targetNumber 翻页页码
