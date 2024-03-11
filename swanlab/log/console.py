@@ -105,14 +105,22 @@ class LeverCtl(object):
         return self.__level
 
 
-# Consoler 继承的父类，判断是否在 jupyter 环境
-def __consoler_class():
+# 检测是否在 Jupyter 环境中
+def in_jupyter():
     try:
         get_ipython
+        return True
+    except NameError:
+        return False
+
+
+# Consoler 继承的父类
+def __consoler_class():
+    if in_jupyter():
         from io import StringIO
 
         return StringIO
-    except NameError:
+    else:
         return sys.stdout.__class__
 
 
@@ -125,7 +133,10 @@ class Consoler(__consoler_class(), LeverCtl):
     __previous_message = None
 
     def __init__(self):
-        super().__init__(sys.stdout.buffer)
+        if in_jupyter():
+            super().__init__()
+        else:
+            super().__init__(sys.stdout.buffer)
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
 
     def init(self, path, swanlog_level="debug"):
