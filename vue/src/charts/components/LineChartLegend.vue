@@ -5,9 +5,9 @@
       :style="{ color: item.color }"
       v-for="item in items"
       :key="item.name"
-      @mouseenter="handelMouseenter(item)"
-      @mouseleave="handelMouseleave(item)"
-      @click="handelClick(item)"
+      @mouseenter="handleMouseenter(item)"
+      @mouseleave="handleMouseleave(item)"
+      @click="handleClick(item)"
     >
       <RouterLink :to="'/experiment/' + item.experiment_id">
         {{ item.name }}
@@ -34,15 +34,15 @@ defineProps({
 const emit = defineEmits(['hoverin', 'hoverout'])
 
 // ---------------------------------- 悬浮事件 ----------------------------------
-const handelMouseenter = (item) => {
+const handleMouseenter = (item) => {
   emit('hoverin', item)
 }
-const handelMouseleave = (item) => {
+const handleMouseleave = (item) => {
   emit('hoverout', item)
 }
 
 // ---------------------------------- 点击事件 ----------------------------------
-const handelClick = (item) => {
+const handleClick = (item) => {
   emit('click', item)
 }
 </script>

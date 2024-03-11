@@ -28,7 +28,7 @@
       >
         <div class="image-detail" v-for="(s, index) in stepsData[currentIndex][source[0]]" :key="index">
           <div class="image-container">
-            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
+            <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
@@ -44,7 +44,7 @@
           <div class="image-container">
             <img
               :src="imagesData[s[currentInnerIndex].filename].url"
-              @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+              @click="handleClickZoom(s[currentInnerIndex].filename, name)"
             />
             <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
           </div>
@@ -94,7 +94,7 @@
             :key="index"
           >
             <div class="image-container">
-              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
+              <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
               <DownloadButton class="download-button" @click.stop="download(s.filename)" />
             </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
@@ -110,7 +110,7 @@
             <div class="image-container">
               <img
                 :src="imagesData[s[currentInnerIndex].filename].url"
-                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+                @click="handleClickZoom(s[currentInnerIndex].filename, name)"
               />
               <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
             </div>
@@ -494,7 +494,7 @@ const signleZoomFilename = ref()
 // 当前单个图像的索引
 const currentSingleImageIndex = ref(0)
 // 点击某个图像，放大
-const handelClickZoom = (filename, index) => {
+const handleClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
   currentSingleImageIndex.value = isMulti.value ? visiableSources.value.indexOf(index) : index

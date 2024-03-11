@@ -32,7 +32,7 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
-        @turn="handelTurn"
+        @turn="handleTurn"
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
@@ -70,7 +70,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          @turn="handelTurn"
+          @turn="handleTurn"
           v-if="maxIndex !== minIndex"
           :turn-by-arrow="isZoom"
         />
@@ -247,7 +247,7 @@ const currentIndex = computed({
 /**
  * step 滑块，点击上下按钮翻页
  */
-const handelTurn = (direction, value) => {
+const handleTurn = (direction, value) => {
   const keys = Array.from(Object.keys(stepsData))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {

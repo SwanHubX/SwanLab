@@ -1,5 +1,5 @@
 <template>
-  <SLButton class="p-1 rounded border flex items-center justify-center" :style="{ color }" @click="handelPlay">
+  <SLButton class="p-1 rounded border flex items-center justify-center" :style="{ color }" @click="handlePlay">
     <SLIcon class="h-5 w-5" icon="pause" v-if="modelValue" />
     <SLIcon class="h-5 w-5" icon="play" v-else />
   </SLButton>
@@ -26,7 +26,7 @@ const props = defineProps({
 
 const emit = defineEmits(['play', 'pause', 'update:modelValue'])
 
-const handelPlay = () => {
+const handlePlay = () => {
   if (!props.modelValue) {
     emit('play')
     emit('update:modelValue', true)

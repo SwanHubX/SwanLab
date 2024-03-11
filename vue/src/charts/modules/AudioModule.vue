@@ -13,7 +13,7 @@
             v-model="playingList[index]"
             :color="colors[0]"
             @play="handlePlay(index)"
-            @pause="handelPause(index)"
+            @pause="handlePause(index)"
           />
           <!-- 当前时间 -->
           <p class="text-sm ml-1" v-if="audioRef[index]">{{ formatTime(index) }}</p>
@@ -156,7 +156,7 @@ const draw = (index, r = 2, a = 2 / 3) => {
     ctx = canvas.getContext('2d')
     // 为每个canvas添加一个点击事件，用于控制播放
     canvas.addEventListener('click', (event) => {
-      handelClickCanvas(event, index)
+      handleClickCanvas(event, index)
     })
     // 挂载 canvas
     canvas.style.width = '100%'
@@ -301,8 +301,8 @@ const handlePlay = (index) => {
   audioRef[index].updator.start()
 }
 
-const handelPause = (index) => {
-  // console.log('handelPause')
+const handlePause = (index) => {
+  // console.log('handlePause')
   // console.log(audioRef)
   if (!audioRef[index].source) {
     // console.log('audiosRef.value[tag].source', audiosRef.value[tag].source)
@@ -316,7 +316,7 @@ const handelPause = (index) => {
 }
 
 // ---------------------------------- 点击播放处理 ----------------------------------
-const handelClickCanvas = (event, index) => {
+const handleClickCanvas = (event, index) => {
   // 更新当前点击水平位置的百分比，重新绘制波形图
   audioRef[index].offset = event.offsetX / event.target.offsetWidth
   draw(index)

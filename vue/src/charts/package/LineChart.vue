@@ -512,7 +512,7 @@ const registerTooltipEvent = (dom, zoom) => {
 // 当前tooltip的数据,用于copy
 let nowData = null
 // 全局注册keydown事件，当mac端触发command+c，windows端触发ctrl+c时，且nowData不为null，执行copy操作
-const handelCopy = (e) => {
+const handleCopy = (e) => {
   if (error.value) return
   if (nowData === null) {
     return
@@ -539,9 +539,9 @@ const handelCopy = (e) => {
     copyTextToClipboard(content, () => message.success(t('common.chart.charts.line.copy.success')))
   }
 }
-window.addEventListener('keydown', handelCopy)
+window.addEventListener('keydown', handleCopy)
 onUnmounted(() => {
-  window.removeEventListener('keydown', handelCopy)
+  window.removeEventListener('keydown', handleCopy)
 })
 
 // ---------------------------------- 控制线段加粗 ----------------------------------
