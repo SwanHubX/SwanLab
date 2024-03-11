@@ -105,9 +105,11 @@ class LeverCtl(object):
         return self.__level
 
 
-# 检测是否在 Jupyter 环境中
+# 检测是否在 notebook 环境中
 def in_notebook():
     try:
+        # notebook 中会有 __IPYTHON__，而正常环境没有定义，所以 try
+        # 'type: ignore': 可以让 pylance 忽略对变量定义的检查
         __IPYTHON__  # type: ignore
         return True
     except NameError:
@@ -116,10 +118,12 @@ def in_notebook():
 
 # Consoler 继承的父类
 def __consoler_class():
+    # 如果在 notebook 中，使用 io.StringIO
     if in_notebook():
         from io import StringIO
 
         return StringIO
+    # 正常环境使用标准输出
     else:
         return sys.stdout.__class__
 
@@ -133,6 +137,7 @@ class Consoler(__consoler_class(), LeverCtl):
     __previous_message = None
 
     def __init__(self):
+        # 根据环境进行不同的初始化
         if in_notebook():
             super().__init__()
         else:
