@@ -370,7 +370,7 @@ const handleTurnIndex = (direction, value) => {
 // 渲染
 const render = (data) => {
   changeData2Audio(data)
-  currentIndex.value = minIndex.value
+  currentIndex.value = maxIndex.value
 }
 // 重渲染
 const change = (data) => {
