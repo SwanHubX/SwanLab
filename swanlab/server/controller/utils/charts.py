@@ -32,7 +32,7 @@ def get_exp_charts(id: int):
                 error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
         chart_list[index]["error"] = error
         chart_list[index]["source"] = sources
-        chart_list[index]["mutli"] = False
+        chart_list[index]["multi"] = False
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == id)
     namespace_list = Namespace.search2list(namespaces)
@@ -57,7 +57,7 @@ def get_proj_charts(id: int):
     """
     # 获取当前项目下所有的多实验对比表
     # 暂时只请求chart.type为default或者line的图表
-    allow_types = ["default", "line","image", "audio"]
+    allow_types = ["default", "line", "image", "audio"]
     multi_charts = Chart.filter(Chart.project_id == id, Chart.type.in_(allow_types))
     # 获取图表配置
     charts = []
@@ -72,7 +72,7 @@ def get_proj_charts(id: int):
             if source.error:
                 error[source.tag_id.experiment_id.name] = Chart.json2dict(source.error)
         t = _chart.__dict__()
-        charts.append({**t, "error": error, "source": sources, "mutli": True})
+        charts.append({**t, "error": error, "source": sources, "multi": True})
     # 获取命名空间配置
     namespaces = Namespace.filter(Namespace.project_id == id)
     namespace_list = Namespace.search2list(namespaces)

@@ -104,14 +104,12 @@ import AudioModule from '../modules/AudioModule.vue'
 import { ref, inject } from 'vue'
 import * as UTILS from './utils'
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
-import { useRoute } from 'vue-router'
 import { debounce } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
 
 const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
-const route = useRoute()
 
 const props = defineProps({
   title: {
@@ -139,7 +137,7 @@ const sources = computed(() => {
 
 // 是否为多实验的图表，根据路由名称判断
 const isMulti = computed(() => {
-  return route.name === 'charts'
+  return props.chart.multi
 })
 
 /**

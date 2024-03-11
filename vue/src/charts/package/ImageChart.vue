@@ -195,11 +195,9 @@ import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
-import { useRoute } from 'vue-router'
 
 const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
-const route = useRoute()
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -227,7 +225,7 @@ const source = computed(() => {
 })
 // 是否为多实验的图表，根据路由名称判断
 const isMulti = computed(() => {
-  return route.name === 'charts'
+  return props.chart.multi
 })
 /**
  * 实验名对应的run_id
