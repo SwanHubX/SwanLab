@@ -191,6 +191,10 @@ onMounted(() => {
   window.addEventListener('resize', handleTableWith)
 })
 
+onUnmounted(() => {
+  window.removeEventListener('resize', handleTableWith)
+})
+
 /**
  * 动态计算表格宽度
  */
@@ -199,7 +203,7 @@ const handleTableWith = () => {
   widths.value.forEach(({ value }) => {
     width += value
   })
-  if (wrapper.value.offsetWidth > width) {
+  if (wrapper.value?.offsetWidth > width) {
     if (wrapper.value.offsetWidth) tableWidth.value = wrapper.value.offsetWidth
   } else {
     tableWidth.value = width
