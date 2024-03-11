@@ -1,6 +1,6 @@
 <template>
   <div class="chart-slide">
-    <p>{{ reference }}</p>
+    <p class="w-9">{{ reference }}</p>
     <!-- <p>{{ min }}</p> -->
     <div class="slide">
       <SLSlideBar is-int :max="max" :min="min" v-model="_modelValue" :bar-color="barColor" />
@@ -130,7 +130,7 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .chart-slide {
-  @apply flex items-center justify-center flex-wrap w-full gap-2 text-dimmer select-none;
+  @apply flex items-center justify-center w-full gap-2 text-dimmer select-none flex-nowrap;
   .slide {
     @apply max-w-[230px] w-full;
   }
