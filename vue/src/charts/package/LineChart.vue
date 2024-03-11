@@ -16,7 +16,7 @@
       :key="legend.length"
       @hoverin="(item) => legendHoverin(item, false)"
       @hoverout="(item) => legendHoverout(item, false)"
-      v-if="legend && mutli"
+      v-if="legend && multi"
     />
     <div class="relative">
       <LineChartTooltip ref="tooltipRef" />
@@ -29,7 +29,7 @@
         :items="legend"
         @hoverin="(item) => legendHoverin(item, true)"
         @hoverout="(item) => legendHoverout(item, true)"
-        v-if="legend && mutli"
+        v-if="legend && multi"
       />
       <div class="relative" ref="g2ZoomRef">
         <LineChartTooltip detail ref="tooltipZoomRef" />
@@ -82,8 +82,8 @@ const props = defineProps({
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
 const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
-// 图表模式，mutli或者single
-const mutli = props.chart.mutli
+// 图表模式，multi或者single
+const multi = props.chart.multi
 // 当前命名空间下除了自己的所有chartRef
 const chartRefList = inject('chartRefList')
 const chartRefListExceptSelf = computed(() => {
@@ -374,7 +374,7 @@ const format = (data) => {
   }
   legend.value = items
   console.log('legend', legend.value)
-  return { d, config: mutli || smoothMethod ? { seriesField } : { color: colors[0] } }
+  return { d, config: multi || smoothMethod ? { seriesField } : { color: colors[0] } }
 }
 
 const formatTime = (time) => {
@@ -512,7 +512,7 @@ const registerTooltipEvent = (dom, zoom) => {
 // 当前tooltip的数据,用于copy
 let nowData = null
 // 全局注册keydown事件，当mac端触发command+c，windows端触发ctrl+c时，且nowData不为null，执行copy操作
-const handelCopy = (e) => {
+const handleCopy = (e) => {
   if (error.value) return
   if (nowData === null) {
     return
@@ -539,15 +539,15 @@ const handelCopy = (e) => {
     copyTextToClipboard(content, () => message.success(t('common.chart.charts.line.copy.success')))
   }
 }
-window.addEventListener('keydown', handelCopy)
+window.addEventListener('keydown', handleCopy)
 onUnmounted(() => {
-  window.removeEventListener('keydown', handelCopy)
+  window.removeEventListener('keydown', handleCopy)
 })
 
 // ---------------------------------- 控制线段加粗 ----------------------------------
 /**
  * 当前加粗的tag,需要注意的是当前加粗的tag可能不存在于当前图表的数据中
- * mutli为true时，按照tag加粗，否则按照color加粗
+ * multi为true时，按照tag加粗，否则按照color加粗
  */
 let nowThickenTag = null
 /**
@@ -570,7 +570,7 @@ const thickenByTag = (plot, zoom, tag, color) => {
   const els = plot.chart.getElements()
   for (const e of els) {
     // 多数据模式下，依据tag加粗
-    if (mutli) {
+    if (multi) {
       // 如果是array，取[0],如果是object，取series
       const series = e.model.data[0]?.series || e.model.data.series
       // console.log('series', series)
@@ -608,7 +608,7 @@ const restoreByTag = (plot, zoom, tag, color) => {
   const els = plot.chart.getElements()
   for (const e of els) {
     // 多数据模式下，依据tag恢复
-    if (mutli) {
+    if (multi) {
       const series = e.model.data[0]?.series || e.model.data.series
       if (series === tag) {
         e.update({ ...e.model, style: { lineWidth: lineWidth } })

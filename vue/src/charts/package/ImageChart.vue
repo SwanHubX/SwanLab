@@ -28,7 +28,7 @@
       >
         <div class="image-detail" v-for="(s, index) in stepsData[currentIndex][source[0]]" :key="index">
           <div class="image-container">
-            <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
+            <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
             <DownloadButton class="download-button" @click.stop="download(s.filename)" />
           </div>
           <p class="text-xs">{{ s.caption }}</p>
@@ -44,7 +44,7 @@
           <div class="image-container">
             <img
               :src="imagesData[s[currentInnerIndex].filename].url"
-              @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+              @click="handleClickZoom(s[currentInnerIndex].filename, name)"
             />
             <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
           </div>
@@ -94,7 +94,7 @@
             :key="index"
           >
             <div class="image-container">
-              <img :src="imagesData[s.filename].url" @click="handelClickZoom(s.filename, index)" />
+              <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
               <DownloadButton class="download-button" @click.stop="download(s.filename)" />
             </div>
             <p class="text-xs mt-2">{{ s.caption }}</p>
@@ -110,7 +110,7 @@
             <div class="image-container">
               <img
                 :src="imagesData[s[currentInnerIndex].filename].url"
-                @click="handelClickZoom(s[currentInnerIndex].filename, name)"
+                @click="handleClickZoom(s[currentInnerIndex].filename, name)"
               />
               <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
             </div>
@@ -195,11 +195,9 @@ import SlideBar from '../components/SlideBar.vue'
 import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
-import { useRoute } from 'vue-router'
 
 const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
-const route = useRoute()
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -227,7 +225,7 @@ const source = computed(() => {
 })
 // 是否为多实验的图表，根据路由名称判断
 const isMulti = computed(() => {
-  return route.name === 'charts'
+  return props.chart.multi
 })
 /**
  * 实验名对应的run_id
@@ -473,7 +471,7 @@ const render = (data) => {
   // 数据格式化
   changeData2Image(data)
   // console.log('图像数据：', stepsData)
-  currentIndex.value = minIndex.value
+  currentIndex.value = maxIndex.value
 }
 // 重渲染
 const change = (data) => {
@@ -496,7 +494,7 @@ const signleZoomFilename = ref()
 // 当前单个图像的索引
 const currentSingleImageIndex = ref(0)
 // 点击某个图像，放大
-const handelClickZoom = (filename, index) => {
+const handleClickZoom = (filename, index) => {
   signleZoomFilename.value = filename
   isSingleZoom.value = true
   currentSingleImageIndex.value = isMulti.value ? visiableSources.value.indexOf(index) : index

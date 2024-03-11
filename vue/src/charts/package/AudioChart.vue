@@ -32,7 +32,7 @@
         :min="minIndex"
         :bar-color="barColor"
         :key="slideKey"
-        @turn="handelTurn"
+        @turn="handleTurn"
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
@@ -70,7 +70,7 @@
           :min="minIndex"
           :bar-color="barColor"
           :key="slideKey"
-          @turn="handelTurn"
+          @turn="handleTurn"
           v-if="maxIndex !== minIndex"
           :turn-by-arrow="isZoom"
         />
@@ -104,14 +104,12 @@ import AudioModule from '../modules/AudioModule.vue'
 import { ref, inject } from 'vue'
 import * as UTILS from './utils'
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
-import { useRoute } from 'vue-router'
 import { debounce } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
 
 const experimentStore = useExperimentStore()
 const projectStore = useProjectStore()
-const route = useRoute()
 
 const props = defineProps({
   title: {
@@ -139,7 +137,7 @@ const sources = computed(() => {
 
 // 是否为多实验的图表，根据路由名称判断
 const isMulti = computed(() => {
-  return route.name === 'charts'
+  return props.chart.multi
 })
 
 /**
@@ -249,7 +247,7 @@ const currentIndex = computed({
 /**
  * step 滑块，点击上下按钮翻页
  */
-const handelTurn = (direction, value) => {
+const handleTurn = (direction, value) => {
   const keys = Array.from(Object.keys(stepsData))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
@@ -372,7 +370,7 @@ const handleTurnIndex = (direction, value) => {
 // 渲染
 const render = (data) => {
   changeData2Audio(data)
-  currentIndex.value = minIndex.value
+  currentIndex.value = maxIndex.value
 }
 // 重渲染
 const change = (data) => {
