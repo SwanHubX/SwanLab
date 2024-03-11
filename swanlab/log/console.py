@@ -106,9 +106,9 @@ class LeverCtl(object):
 
 
 # 检测是否在 Jupyter 环境中
-def in_jupyter():
+def in_notebook():
     try:
-        get_ipython
+        __IPYTHON__  # type: ignore
         return True
     except NameError:
         return False
@@ -116,7 +116,7 @@ def in_jupyter():
 
 # Consoler 继承的父类
 def __consoler_class():
-    if in_jupyter():
+    if in_notebook():
         from io import StringIO
 
         return StringIO
@@ -133,7 +133,7 @@ class Consoler(__consoler_class(), LeverCtl):
     __previous_message = None
 
     def __init__(self):
-        if in_jupyter():
+        if in_notebook():
             super().__init__()
         else:
             super().__init__(sys.stdout.buffer)
