@@ -105,7 +105,18 @@ class LeverCtl(object):
         return self.__level
 
 
-class Consoler(sys.stdout.__class__, LeverCtl):
+# Consoler 继承的父类，判断是否在 jupyter 环境
+def __consoler_class():
+    try:
+        get_ipython
+        from io import StringIO
+
+        return StringIO
+    except NameError:
+        return sys.stdout.__class__
+
+
+class Consoler(__consoler_class(), LeverCtl):
     # 记录日志行数
     __sum = 0
 
