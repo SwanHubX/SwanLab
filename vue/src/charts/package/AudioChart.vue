@@ -165,6 +165,7 @@ const audioData = computed(() => {
     return stepData[sources.value[0]].map(({ filename, caption }) => {
       return {
         audioBuffer: audiosData[filename],
+        audioBlob: blobsData[filename],
         title: filename,
         caption
       }
@@ -176,6 +177,7 @@ const audioData = computed(() => {
     const temp = stepData[exp][currentInnerIndex.value]
     data.push({
       audioBuffer: audiosData[temp.filename],
+      audioBlob: blobsData[temp.filename],
       title: temp.filename,
       caption: temp.caption,
       color: projectStore.colorMap[exp],
@@ -263,8 +265,10 @@ const handleTurn = (direction, value) => {
 
 // 关联 step 与数据
 const stepsData = {}
-// 缓存
+// blob 转 audioBuffer 后的缓存
 const audiosData = reactive({})
+// blob缓存
+const blobsData = {}
 
 /**
  * 解析 log 数据
@@ -316,7 +320,10 @@ const debounceGetAudiosData = debounce(async (stepData) => {
       promises.push(
         new Promise((resolve) => {
           const runid = isMulti.value ? run_id.value[source] : run_id.value
-          UTILS.media.get(filename, runid, props.title).then((blob) => resolve(transformBlob(blob, filename)))
+          UTILS.media.get(filename, runid, props.title).then((blob) => {
+            blobsData[filename] = blob
+            resolve(transformBlob(blob, filename))
+          })
         })
       )
     }
