@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full bg-dimmest text-dimmest flex justify-between items-center px-6">
     <!-- logo and version -->
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-1.5 hover:cursor-pointer" @click="$router.push('/')">
       <!-- icon -->
       <HeaderIcon />
       <!-- version -->
