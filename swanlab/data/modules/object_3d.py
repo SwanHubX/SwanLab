@@ -70,11 +70,7 @@ class Object3D(BaseType):
         )
 
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.{self.extension}"
-            if self.caption is not None
-            else f"object3d-step{self.step}-{hash_name}.{self.extension}"
-        )
+        save_name = save_name = f"obj3d-step{self.step}-{hash_name}.{self.format}"
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
@@ -135,7 +131,7 @@ class Object3D(BaseType):
             caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
-        return caption
+        return caption.strip() if caption else None
 
     def __save_numpy(self, save_path):
         """保存 numpy.array 格式的 3D点云资源文件 .pts.json 到指定路径"""

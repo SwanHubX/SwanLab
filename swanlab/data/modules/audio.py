@@ -54,11 +54,7 @@ class Audio(BaseType):
             else get_file_hash_path(self.audio_data)[:16]
         )
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.wav"
-            if self.caption is not None
-            else f"audio-step{self.step}-{hash_name}.wav"
-        )
+        save_name = f"audio-step{self.step}-{hash_name}.wav"
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path = os.path.join(save_dir, save_name)
@@ -83,7 +79,7 @@ class Audio(BaseType):
             caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
-        return caption
+        return caption.strip() if caption else None
 
     def __preprocess(self, data_or_path):
         """

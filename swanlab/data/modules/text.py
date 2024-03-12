@@ -35,11 +35,7 @@ class Text(BaseType):
 
         # 设置文本数据的保存路径
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.txt"
-            if self.caption is not None
-            else f"text-step{self.step}-{hash_name}.txt"
-        )
+        save_name = f"text-step{self.step}-{hash_name}.txt"
 
         # 如果路径不存在，则创建路径
         if not os.path.exists(save_dir):
@@ -88,7 +84,7 @@ class Text(BaseType):
             caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
-        return caption
+        return caption.strip() if caption else None
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
