@@ -84,11 +84,7 @@ class Image(BaseType):
         hash_name = get_file_hash_pil(self.image_data)[:16]
         # 设置保存路径, 保存文件名
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = (
-            f"{self.caption}-step{self.step}-{hash_name}.{self.format}"
-            if self.caption is not None
-            else f"image-step{self.step}-{hash_name}.{self.format}"
-        )
+        save_name = f"image-step{self.step}-{hash_name}.{self.format}"
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
@@ -113,7 +109,7 @@ class Image(BaseType):
             caption = None
         else:
             raise TypeError("caption must be a string, int or float.")
-        return caption
+        return caption.strip() if caption else None
 
     def __convert_boxes(self, boxes):
         """将boxes转换为Dict[str, BoundingBoxes]类型对象, 并返回该对象和总标签"""
