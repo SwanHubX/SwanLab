@@ -49,7 +49,7 @@ class Image(BaseType):
     def __init__(
         self,
         data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]],
-        mode: str = "RGB",
+        mode: str = None,
         caption: str = None,
         file_type: str = None,
         size: Union[int, list, tuple] = None,
