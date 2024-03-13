@@ -164,7 +164,7 @@
         <SLIcon icon="down" class="icon rotate-90" @click="handleSingleChange({ key: 'ArrowLeft' })"></SLIcon>
         <!-- 当前图片 -->
         <div class="relative mx-5 select-none">
-          <img :src="imagesData[signleZoomFilename].url" class="object-contain w-full" />
+          <img :src="imagesData[signleZoomFilename].url" class="min-h-24 w-full" />
           <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
         </div>
         <!-- 下一张图片 -->
@@ -573,7 +573,7 @@ defineExpose({
 .image-content {
   @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
   img {
-    @apply cursor-pointer;
+    @apply min-h-24 cursor-pointer border border-negative-highest;
   }
   .images-container {
     @apply grid gap-2 h-full;
