@@ -573,7 +573,7 @@ defineExpose({
 .image-content {
   @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
   img {
-    @apply min-h-[100px] cursor-pointer border border-negative-highest;
+    @apply min-h-[100px] cursor-pointer;
   }
   .images-container {
     @apply grid gap-2 h-full;
