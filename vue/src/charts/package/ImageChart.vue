@@ -213,6 +213,7 @@ const props = defineProps({
     required: true
   }
 })
+const media = inject('media')
 /**
  * 图表数据来源，为数组
  * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
@@ -347,9 +348,7 @@ const getMultiImagesData = async (stepData) => {
       // 没有缓存，发起请求
       promises.push(
         new Promise((resolve) => {
-          UTILS.media
-            .get(filename, run_id.value[exp], props.title)
-            .then((blob) => resolve(transformBlob(blob, filename)))
+          media.get(filename, run_id.value[exp], props.title).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
@@ -396,7 +395,7 @@ const getSingleImageData = async (stepData) => {
     if (!imagesData[filename]) {
       promises.push(
         new Promise((resolve) => {
-          UTILS.media.get(filename, run_id.value, tag).then((blob) => resolve(transformBlob(blob, filename)))
+          media.get(filename, run_id.value, tag).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }

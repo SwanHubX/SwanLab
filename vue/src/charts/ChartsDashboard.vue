@@ -18,7 +18,7 @@
     :opened="!!group.opened"
     :isPinned="group.id === -1"
     :isHidden="group.id === -2"
-    @switch="(opened) => debouncedHandleSwitch(group.id, opened, group)"
+    @switch="(opened) => debouncedHandleSwitch(opened, group)"
     @pin="pin"
     @unpin="unpin"
     @hide="hide"
@@ -36,12 +36,26 @@ import ChartsContainer from './components/ChartsContainer.vue'
 import { t } from '@swanlab-vue/i18n'
 import SmoothButton from './components/SmoothButton.vue'
 import { debounces } from '@swanlab-vue/utils/common'
-import http from '@swanlab-vue/api/http'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
 const props = defineProps({
   // 整个图表列表集合
   groups: {
     type: Array,
+    required: true
+  },
+  // 更新图表状态
+  updateChartStatus: {
+    type: Function,
+    required: true
+  },
+  // 更新命名空间状态
+  updateNamespaceStatus: {
+    type: Function,
+    required: true
+  },
+  // 媒体获取对象
+  media: {
+    type: Object,
     required: true
   }
 })
@@ -102,22 +116,16 @@ const handleSmooth = (method) => {
 provide('smoothMethod', smoothMethod)
 
 // ---------------------------------- 在此处处理命名空间打开和关闭 ----------------------------------
-const handleSwitch = (id, opened, namespace) => {
-  // console.log('namespace click', id, opened)
+const changeNamespaceStatus = (opened, namespace) => {
+  // console.log('namespace click', opened)
   // 向后端更新展开状态
-  http.patch('/namespace/' + id + '/opened', {
-    experiment_id: namespace?.experiment_id?.id,
-    project_id: namespace?.project_id?.id,
-    opened
-  })
+  props.updateNamespaceStatus(opened, namespace)
 }
 
-const debouncedHandleSwitch = debounces(handleSwitch, 300)
+const debouncedHandleSwitch = debounces(changeNamespaceStatus, 300)
 
-const updateChartStatus = async (chart, status) => {
-  const { data } = await http.patch('/chart/' + chart.id + '/status', {
-    status
-  })
+const changeChartStatus = async (chart, status) => {
+  const data = await props.updateChartStatus(chart, status)
   chartsGroupList.value = data.groups
 }
 
@@ -127,7 +135,7 @@ const updateChartStatus = async (chart, status) => {
  * @param { Object } chart 图表配置
  */
 const pin = (chart) => {
-  updateChartStatus(chart, 1)
+  changeChartStatus(chart, 1)
 }
 
 /**
@@ -135,7 +143,7 @@ const pin = (chart) => {
  * @param { Object } chart 图表配置
  */
 const unpin = (chart) => {
-  updateChartStatus(chart, 0)
+  changeChartStatus(chart, 0)
 }
 
 // ---------------------------------- 处理hide事件 ----------------------------------
@@ -144,7 +152,7 @@ const unpin = (chart) => {
  * @param { Object } chart 图表配置
  */
 const hide = (chart) => {
-  updateChartStatus(chart, -1)
+  changeChartStatus(chart, -1)
 }
 
 /**
@@ -152,7 +160,7 @@ const hide = (chart) => {
  * @param { Object } chart 图表配置
  */
 const unhide = (chart) => {
-  updateChartStatus(chart, 0)
+  changeChartStatus(chart, 0)
 }
 
 // ---------------------------------- 处理搜索图表事件 ----------------------------------
@@ -171,6 +179,9 @@ const search = (value) => {
   })
   searchChartsGroupList.value = newGroup
 }
+
+// ---------------------------------- 依赖注入 ----------------------------------
+provide('media', props.media)
 </script>
 
 <style lang="scss" scoped>

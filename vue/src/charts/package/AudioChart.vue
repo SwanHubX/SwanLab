@@ -123,7 +123,7 @@ const props = defineProps({
     required: true
   }
 })
-
+const media = inject('media')
 /**
  * 图表数据来源，为数组
  * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
@@ -318,7 +318,7 @@ const debounceGetAudiosData = debounce(async (stepData) => {
       promises.push(
         new Promise((resolve) => {
           const runid = isMulti.value ? run_id.value[source] : run_id.value
-          UTILS.media.get(filename, runid, props.title).then((blob) => {
+          media.get(filename, runid, props.title).then((blob) => {
             blobsData[filename] = blob
             resolve(transformBlob(blob, filename))
           })

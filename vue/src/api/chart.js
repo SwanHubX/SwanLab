@@ -39,28 +39,26 @@ export const media = {
 
 /**
  * 更新命名空间展开状态
- * @param { int } id 命名空间id
  * @param { boolean } opened 是否展开
- * @param { int } experiment_id 实验id，与project_id二选一
- * @param { int } project_id 项目id，与experiment_id二选一
+ * @param { object } namespace 命名空间对象
  * @returns { Promise }
  */
-export const updateNamespaceStatus = (id, opened, experiment_id, project_id) => {
-  return http.patch('/namespace/' + id + '/opened', {
-    experiment_id: experiment_id,
-    project_id: project_id,
+export const updateNamespaceStatus = (opened, namespace) => {
+  return http.patch('/namespace/' + namespace.id + '/opened', {
+    experiment_id: namespace.experiment_id?.id,
+    project_id: namespace.project_id?.id,
     opened
   })
 }
 
 /**
  * 更新chart状态，置顶、隐藏或正常显示
- * @param { int } id chart的id
+ * @param { object } chart 图表对象
  * @param { int } status 状态码，0为正常，1为置顶，-1为隐藏
  * @returns { Promise } Promise对象，最终可返回更新后的图表组织结构
  */
-export const updateChartStatus = async (id, status) => {
-  const { data } = await http.patch('/chart/' + id + '/status', {
+export const updateChartStatus = async (chart, status) => {
+  const { data } = await http.patch('/chart/' + chart.id + '/status', {
     status
   })
   return data
