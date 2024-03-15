@@ -6,11 +6,9 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      <span v-if="!isMulti">{{
-        $t('common.chart.charts.audio.error', { type: error['data_class'], tag: source[0] })
-      }}</span>
+      <span v-if="!isMulti">{{ $t('chart.charts.audio.error', { type: error['data_class'], tag: source[0] }) }}</span>
       <span v-else>
-        {{ $t('common.chart.error') }}
+        {{ $t('chart.error') }}
       </span>
     </p>
   </div>

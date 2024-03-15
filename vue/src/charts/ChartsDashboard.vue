@@ -3,7 +3,7 @@
   <div class="charts-pannel">
     <!-- 搜索框 -->
     <div class="w-60 mr-2">
-      <SLSearch :placeholder="$t('common.chart.search.placeholder')" reverse @search="search" @input="search" />
+      <SLSearch :placeholder="$t('chart.search.placeholder')" reverse @search="search" @input="search" />
     </div>
     <SmoothButton @smooth="handleSmooth" :default-method-id="1" />
   </div>
@@ -73,9 +73,9 @@ const setChartsRefList = (el, index) => {
  */
 const getNamespaces = (namespace) => {
   // console.log(name)
-  if (namespace.name === 'default') return t('common.chart.label.default')
-  if (namespace.id === -1) return t('common.chart.label.pinned')
-  if (namespace.id === -2) return t('common.chart.label.hidden')
+  if (namespace.name === 'default') return t('chart.label.default')
+  if (namespace.id === -1) return t('chart.label.pinned')
+  if (namespace.id === -2) return t('chart.label.hidden')
   else return namespace.name
 }
 

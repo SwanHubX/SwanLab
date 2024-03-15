@@ -41,6 +41,7 @@
     "unplugin-auto-import": "^0.15.2",
     "unplugin-vue-components": "^0.24.1",
     "vite": "^5.0.0",
+    "vite-plugin-json5": "^1.1.2",
     "vitest": "^1.1.3"
   }
 }

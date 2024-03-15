@@ -8,7 +8,7 @@
     <!-- 错误 -->
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="status === 'error'">
       <SLIcon class="mx-auto h-5 w-5" icon="error" />
-      <p class="text-center text-xs">{{ $t('common.chart.error') }}</p>
+      <p class="text-center text-xs">{{ $t('chart.error') }}</p>
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
@@ -19,7 +19,7 @@
           icon="pinned"
           click-icon="loading"
           click-class="animate-spin"
-          :tip="$t('common.chart.unpin')"
+          :tip="$t('chart.unpin')"
           @click="unpin"
           v-if="isPinned"
         />
@@ -27,24 +27,24 @@
           <!-- 置顶 -->
           <PannelButton
             icon="pin"
-            :tip="$t('common.chart.pin')"
+            :tip="$t('chart.pin')"
             @click="pin"
             click-icon="loading"
             click-class="animate-spin"
             v-if="!isPinned"
           />
           <!-- 放大功能 -->
-          <PannelButton icon="zoom" :tip="$t('common.chart.zoom')" @click="zoom" />
+          <PannelButton icon="zoom" :tip="$t('chart.zoom')" @click="zoom" />
           <!-- 更多功能 -->
           <SLMenu menu-class="flex-shrink-0" class="right-0 top-4">
-            <PannelButton icon="more" :tip="$t('common.chart.more')" />
+            <PannelButton icon="more" :tip="$t('chart.more')" />
             <template #pop>
               <SLMenuItems>
                 <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
-                  {{ $t('common.chart.unhide') }}
+                  {{ $t('chart.unhide') }}
                 </SLMenuItem>
                 <SLMenuItem class="py-1" @click="hide" v-else>
-                  {{ $t('common.chart.hide') }}
+                  {{ $t('chart.hide') }}
                 </SLMenuItem>
               </SLMenuItems>
             </template>

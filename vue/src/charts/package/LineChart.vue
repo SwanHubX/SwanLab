@@ -4,7 +4,7 @@
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-sm">
-      {{ $t('common.chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
+      {{ $t('chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
   <template v-else>
@@ -536,7 +536,7 @@ const handleCopy = (e) => {
         content += `${d.data.series} ${formatNumber2SN(d.data.data)} ${formatTime(d.data.create_time)}\n`
       }
     }
-    copyTextToClipboard(content, () => message.success(t('common.chart.charts.line.copy.success')))
+    copyTextToClipboard(content, () => message.success(t('chart.charts.line.copy.success')))
   }
 }
 window.addEventListener('keydown', handleCopy)
