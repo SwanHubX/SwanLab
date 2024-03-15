@@ -66,6 +66,7 @@ const props = defineProps({
     required: true
   }
 })
+const media = inject('media')
 
 const original_data = ref()
 const source = ref(props.chart.source)
@@ -110,7 +111,7 @@ const getText = async (tag, currentPage) => {
           resolve(textBuffers[url])
         } else {
           // 请求，并将 blob 以 utf-8 字符串的形式返回
-          UTILS.media.get(url, run_id.value, tag).then((res) => {
+          media.get(url, run_id.value, tag).then((res) => {
             blobToString(res).then((text) => {
               // 记录缓存
               textBuffers[url] = text
