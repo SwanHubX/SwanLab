@@ -12,7 +12,9 @@
           <!-- 编辑按钮 -->
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
           <!-- 实验状态 -->
-          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+          <SLStatusLabel :name="experiment.name" :status="experiment.status">
+            {{ $t('experiment.status.' + experiment.status) }}
+          </SLStatusLabel>
           <slot name="stop-button" v-if="experimentStore.isRunning"></slot>
         </div>
         <!-- 删除按钮 -->

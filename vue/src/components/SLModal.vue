@@ -19,8 +19,8 @@
 
 <script setup>
 import { computed, watch } from 'vue'
-import SLIcon from './SLIcon.vue'
 import { Dialog } from '@headlessui/vue'
+import SLIcon from './SLIcon.vue'
 
 const props = defineProps({
   // 组件挂载时是否显示，默认不显示，值变为true时显示

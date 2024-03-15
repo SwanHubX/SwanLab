@@ -39,7 +39,9 @@
             <ExperimentName :name="row.name" :id="row.id" :color="getExperimentColor(row)" />
           </template>
           <template v-slot:status="{ row }">
-            <SLStatusLabel :id="row.experiment_id" :status="row.status" />
+            <SLStatusLabel :name="row.name" :status="row.status" :url="'/experiment/' + row.id">
+              {{ $t('experiment.status.' + row.status) }}
+            </SLStatusLabel>
           </template>
           <template v-slot:create="{ row }">
             {{ transTime(convertUtcToLocal(row.create_time)) }}

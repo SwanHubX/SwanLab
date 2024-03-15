@@ -1,8 +1,8 @@
 <template>
-  <a class="sl-status-label" :class="config.class" :href="url" @click.prevent="handleClick">
+  <component :is="label" class="sl-status-label" :class="config.class" :href="url" @click.prevent="handleClick">
     <SLIcon :icon="config.icon" />
-    {{ config.label }}
-  </a>
+    <slot></slot>
+  </component>
 </template>
 
 <script setup>
@@ -13,8 +13,6 @@
  * @file: StatusLabel.vue
  * @since: 2023-12-08 20:24:49
  **/
-
-import { t } from '@swanlab-vue/i18n'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
@@ -23,15 +21,15 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  id: {
-    default: null
+  url: {
+    type: String,
+    default: ''
   }
 })
 
 // ---------------------------------- 将status转译为对应的状态提示和class ----------------------------------
 
 const config = computed(() => {
-  const status = t('experiment.status.' + props.status)
   let className, icon
   switch (props.status) {
     case 0:
@@ -50,23 +48,21 @@ const config = computed(() => {
   if (!className) throw new Error('Invalid status:' + props.status + 'in StatusLabel.vue')
 
   return {
-    label: status,
     class: className,
     icon
   }
 })
 
-// ---------------------------------- 将id转译为url ----------------------------------
-
-const url = computed(() => {
-  if (!props.id) return undefined
-  return '/experiment/' + props.id
+// ---------------------------------- 动态选择标签类型 ----------------------------------
+const label = computed(() => {
+  if (props.url) return 'a'
+  return 'div'
 })
 
 // ---------------------------------- 代理a标签点击事件 ----------------------------------
 const handleClick = () => {
-  if (!url.value) return
-  router.push(url.value)
+  if (!props.url) return
+  router.push(props.url)
 }
 </script>
 
