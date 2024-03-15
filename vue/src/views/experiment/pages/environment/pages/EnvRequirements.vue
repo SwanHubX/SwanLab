@@ -10,8 +10,7 @@
         :placeholder="$t('experiment.func-bar.placeholder.requirements')"
       />
     </div>
-
-    <template v-if="requirements.length !== 0">
+    <template v-if="requirements.length !== 0 && requirements[0] !== ''">
       <!-- 如果有依赖项 -->
       <div class="px-6 py-4 bg-higher rounded max-h-[60vh] overflow-y-auto">
         <p v-for="line in lines" :key="line">
