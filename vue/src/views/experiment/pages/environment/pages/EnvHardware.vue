@@ -3,6 +3,9 @@
     <h1 class="w-full text-xl font-semibold pb-4 border-b mb-2">{{ $t(`experiment.env.title.${route.name}`) }}</h1>
     <EnvItems :data="item" v-for="item in environments" :key="item" />
     <EnvGPUItem />
+    <div v-if="Object.keys(experimentStore.experiment.system).length === 0">
+      <p class="text-center pt-5">No hardware information</p>
+    </div>
   </div>
 </template>
 

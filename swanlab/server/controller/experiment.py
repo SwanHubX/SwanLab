@@ -151,9 +151,11 @@ def get_experiment_info(experiment_id: int):
 
     # 加载实验元信息
     meta_path = get_meta_path(experiment["run_id"])
-    if os.path.exists(meta_path):
+    if os.path.exists(meta_path) and not os.stat(meta_path).st_size == 0:
         with get_a_lock(meta_path) as f:
             experiment["system"] = ujson.load(f)
+    else:
+        experiment["system"] = {}
     return SUCCESS_200(experiment)
 
 
