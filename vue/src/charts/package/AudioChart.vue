@@ -100,14 +100,9 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import SlideBar from '../components/SlideBar.vue'
 import AudioModule from '../modules/AudioModule.vue'
 import { ref, inject } from 'vue'
-import * as UTILS from './utils'
-import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { debounce } from '@swanlab-vue/utils/common'
 
 // ---------------------------------- 配置 ----------------------------------
-
-const experimentStore = useExperimentStore()
-const projectStore = useProjectStore()
 
 const props = defineProps({
   title: {
@@ -139,20 +134,6 @@ const isMulti = computed(() => {
 })
 
 /**
- * 实验名对应的run_id
- * 单实验时直接从 experiment pinia 中拿
- * 多实验时通过 project pinia 中的 getExpRunIdByName 获取（传入实验名查询 run_id）
- */
-const run_id = computed(() => {
-  if (!isMulti.value) return experimentStore.experiment?.run_id
-  const run_ids = {}
-  for (const exp of sources.value) {
-    run_ids[exp] = projectStore.getExpRunIdByName(exp)
-  }
-  return run_ids
-})
-
-/**
  * 展示用的音频数据
  */
 const audioData = computed(() => {
@@ -178,7 +159,7 @@ const audioData = computed(() => {
       audioBlob: blobsData[temp.filename],
       title: temp.filename,
       caption: temp.caption,
-      color: projectStore.colorMap[exp],
+      color: colors.getSeriesColor(exp),
       exp
     })
   }
@@ -279,7 +260,7 @@ const changeData2Audio = (data) => {
     // 获取最大和最小索引
     _maxIndex = Math.max(Number(data[source].list[data[source].list.length - 1].index), _maxIndex)
     _minIndex = Math.min(Number(data[source].list[0].index), _minIndex)
-
+    const experiment_id = props.chart.source_map[source]
     for (const item of data[source].list) {
       // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
@@ -289,10 +270,10 @@ const changeData2Audio = (data) => {
       stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
+        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption })
+          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption, experiment_id })
         }
       }
     }
@@ -312,13 +293,13 @@ const debounceGetAudiosData = debounce(async (stepData) => {
     // 如果数据源中没有东西，跳过
     if (stepData[source] === null) continue
     // 遍历该数据源下的数据
-    for (const { filename } of stepData[source]) {
+    for (const { filename, experiment_id } of stepData[source]) {
       if (audiosData[filename]) continue
       // 没有缓存，需要请求
       promises.push(
         new Promise((resolve) => {
-          const runid = isMulti.value ? run_id.value[source] : run_id.value
-          media.get(filename, runid, props.title).then((blob) => {
+          // const runid = isMulti.value ? run_id.value[source] : run_id.value
+          media.get(filename, experiment_id, props.title).then((blob) => {
             blobsData[filename] = blob
             resolve(transformBlob(blob, filename))
           })
