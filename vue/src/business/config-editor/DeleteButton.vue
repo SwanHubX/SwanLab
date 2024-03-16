@@ -21,9 +21,9 @@
  * 3. 取消/确认按钮的回调
  **/
 
-import SLButton from '../SLButton.vue'
-import SLIcon from '../SLIcon.vue'
-import { confirm } from '../comfirm'
+import SLButton from '@swanlab-vue/components/SLButton.vue'
+import SLIcon from '@swanlab-vue/components/SLIcon.vue'
+import { confirm } from '@swanlab-vue/components/comfirm'
 import { t } from '@swanlab-vue/i18n'
 
 const props = defineProps({
