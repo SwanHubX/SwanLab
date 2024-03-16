@@ -1,7 +1,12 @@
 <template>
   <!-- 图表容器 -->
   <div class="chart-page" v-if="status === 'success'">
-    <ChartsDashboard :groups="groups" />
+    <ChartsDashboard
+      :groups="groups"
+      :update-chart-status="updateChartStatus"
+      :update-namespace-status="updateNamespaceStatus"
+      :media="media"
+    />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
   </div>
@@ -18,6 +23,7 @@ import http from '@swanlab-vue/api/http'
 import { ref, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
+import { updateChartStatus, updateNamespaceStatus, media } from '@swanlab-vue/api/chart'
 import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
 const projectStore = useProjectStore()
 const experimentStore = useExperimentStore()

@@ -26,13 +26,18 @@ def get_exp_charts(id: int):
     for index, chart in enumerate(charts):
         sources = []
         error = {}
+        # source->experiment_id
+        source_map = {}
         for source in Chart.search2list(chart.sources):
             sources.append(source["tag_id"]["name"])
+            source_map[source["tag_id"]["name"]] = id
             if source["error"]:
                 error[source["tag_id"]["name"]] = Chart.json2dict(source["error"])
         chart_list[index]["error"] = error
         chart_list[index]["source"] = sources
         chart_list[index]["multi"] = False
+        chart_list[index]["source_map"] = source_map
+
     # 当前实验下的命名空间
     namespaces = Namespace.filter(Namespace.experiment_id == id)
     namespace_list = Namespace.search2list(namespaces)
@@ -61,18 +66,21 @@ def get_proj_charts(id: int):
     multi_charts = Chart.filter(Chart.project_id == id, Chart.type.in_(allow_types))
     # 获取图表配置
     charts = []
+    # source -> experiment_id
+    source_map = {}
     for _chart in multi_charts:
         # 多实验图表的 source 中不是 tag_name，而是 experiment_name
         sources, error = [], {}
         # 单箭头是通过外键反向索引的 chart -> source -> tag -> experiment => experiment_name
         for source in _chart.sources:
             sources.append(source.tag_id.experiment_id.name)
+            source_map[source.tag_id.experiment_id.name] = source.tag_id.experiment_id.id
         # 当前chart的error字段，将所有的error字段转换为dict，key为实验名
         for source in _chart.sources:
             if source.error:
                 error[source.tag_id.experiment_id.name] = Chart.json2dict(source.error)
         t = _chart.__dict__()
-        charts.append({**t, "error": error, "source": sources, "multi": True})
+        charts.append({**t, "error": error, "source": sources, "multi": True, "source_map": source_map})
     # 获取命名空间配置
     namespaces = Namespace.filter(Namespace.project_id == id)
     namespace_list = Namespace.search2list(namespaces)
