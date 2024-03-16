@@ -36,7 +36,7 @@
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
           <div class="text-xs flex items-center pb-1" :title="name">
-            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: colors.getSeriesColor(name) }"></div>
+            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: getColor(name) }"></div>
             <p class="pl-1 truncate">{{ name }}</p>
           </div>
           <div class="image-container">
@@ -102,7 +102,7 @@
         <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
           <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
             <div class="text-xs flex items-center pb-1" :title="name">
-              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: colors.getSeriesColor(name) }"></div>
+              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: getColor(name) }"></div>
               <p class="pl-1 truncate">{{ name }}</p>
             </div>
             <div class="image-container">
@@ -236,11 +236,11 @@ const error = computed(() => {
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-const colors = inject('colors')
-if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+const getColor = inject('getColor')
+const defaultColor = inject('defaultColor')
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 已经滑动部分颜色，应该通过色盘计算得到
-const barColor = inject('colors')[0]
+const barColor = defaultColor
 // 当前滑块索引
 const __currentIndex = ref(0)
 // 最小索引

@@ -6,6 +6,10 @@
       :update-chart-status="updateChartStatus"
       :update-namespace-status="updateNamespaceStatus"
       :media="media"
+      :default-color="defaultColor"
+      :get-color="getColor"
+      :subscribe="on"
+      :unsubscribe="off"
     />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-if="groups.length === 0">Empty Chart</p>
@@ -20,7 +24,7 @@
  **/
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
-import { ref, provide } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { onUnmounted } from 'vue'
 import { updateChartStatus, updateNamespaceStatus, media } from '@swanlab-vue/api/chart'
@@ -30,16 +34,13 @@ const experimentStore = useExperimentStore()
 const route = useRoute()
 
 // ---------------------------------- 颜色配置，注入色盘 ----------------------------------
-const colors = [...projectStore.colors]
-const createGetSeriesColor = () => {
+const defaultColor = projectStore.colors[0]
+const getColor = (() => {
   // 遍历所有实验，实验名称为key，实验颜色为value
   return (_, index) => {
-    return colors[index]
+    return projectStore.colors[index]
   }
-}
-colors.getSeriesColor = createGetSeriesColor()
-// console.log(colors)
-provide('colors', colors)
+})()
 
 // ---------------------------------- 主函数：获取图表配置信息，渲染图表布局 ----------------------------------
 // 基于返回的namespcaes和charts，生成一个映射关系,称之为cnMap
@@ -449,8 +450,8 @@ class EventEmitter {
 const eventEmitter = new EventEmitter()
 
 // 依赖注入，注入订阅函数和取消订阅函数
-provide('$on', (tags, cid, callback) => eventEmitter.$on(tags, cid, callback))
-provide('$off', (tags, cid) => eventEmitter.$off(tags, cid))
+const on = (tags, cid, callback) => eventEmitter.$on(tags, cid, callback)
+const off = (tags, cid) => eventEmitter.$off(tags, cid)
 
 // 当前组件销毁时，取消相关行为
 onUnmounted(() => {

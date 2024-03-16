@@ -87,7 +87,7 @@ const props = defineProps({
 
 const emits = defineEmits(['getText', 'update:modelValue'])
 
-const color = inject('colors')[0]
+const color = inject('defaultColor')
 const skeleton = ref(false)
 
 /**

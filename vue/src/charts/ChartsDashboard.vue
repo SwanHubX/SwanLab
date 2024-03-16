@@ -57,6 +57,26 @@ const props = defineProps({
   media: {
     type: Object,
     required: true
+  },
+  // 图表默认颜色
+  defaultColor: {
+    type: String,
+    required: true
+  },
+  // 获取某一个数据的颜色
+  getColor: {
+    type: Function,
+    required: true
+  },
+  // 订阅数据更新
+  subscribe: {
+    type: Function,
+    required: true
+  },
+  // 取消订阅数据更新
+  unsubscribe: {
+    type: Function,
+    default: () => {}
   }
 })
 const chartsGroupList = ref(props.groups)
@@ -182,6 +202,10 @@ const search = (value) => {
 
 // ---------------------------------- 依赖注入 ----------------------------------
 provide('media', props.media)
+provide('defaultColor', props.defaultColor)
+provide('getColor', props.getColor)
+provide('$on', props.subscribe)
+provide('$off', props.unsubscribe)
 </script>
 
 <style lang="scss" scoped>

@@ -1,6 +1,13 @@
 <template>
   <div class="flex flex-col min-h-full bg-higher">
-    <ChartsPage :groups="groups" :charts="charts" :key="chartsPageKey" v-if="groups.length" />
+    <ChartsPage
+      :groups="groups"
+      :charts="charts"
+      :default-color="defaultColor"
+      :get-color="getColor"
+      :key="chartsPageKey"
+      v-if="groups.length"
+    />
     <!-- 图表不存在 -->
     <p class="font-semibold pt-5 text-center" v-else-if="ready">Empty Charts</p>
   </div>
@@ -16,7 +23,7 @@
  **/
 import http from '@swanlab-vue/api/http'
 import { useProjectStore } from '@swanlab-vue/store'
-import { ref, provide } from 'vue'
+import { ref } from 'vue'
 import ChartsPage from './components/ChartsPage.vue'
 import { onUnmounted } from 'vue'
 const projectStore = useProjectStore()
@@ -76,17 +83,14 @@ onUnmounted(() => {
 })
 
 // ---------------------------------- 色盘注入 ----------------------------------
-const createGetSeriesColor = () => {
+const getColor = (() => {
   // 遍历所有实验，实验名称为key，实验颜色为value
   const colors = projectStore.colorMap
   return (exp_name) => {
     return colors[exp_name]
   }
-}
-const colors = [...projectStore.colors]
-colors.getSeriesColor = createGetSeriesColor()
-// console.log(colors)
-provide('colors', colors)
+})()
+const defaultColor = projectStore.colors[0]
 </script>
 
 <style lang="scss" scoped></style>

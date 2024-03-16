@@ -11,7 +11,7 @@
         <div class="flex items-center mt-2">
           <PlayButton
             v-model="playingList[index]"
-            :color="colors[0]"
+            :color="defaultColor"
             @play="handlePlay(index)"
             @pause="handlePause(index)"
           />
@@ -45,7 +45,9 @@ const props = defineProps({
     required: true
   }
 })
-const colors = inject('colors')
+const defaultColor = inject('defaultColor')
+const getColor = inject('getColor')
+
 // 所有音频容器
 const audiosRef = ref(null)
 // 单个音频容器集合, {index:{audio:channels, dom:HTMLDivElement, ...}}
@@ -129,7 +131,7 @@ const draw = (index, r = 2, a = 2 / 3) => {
   // dom.style.width = audiosRef.value.offsetWidth / 2 + 'px'
   const offset = audioRef[index].offset
   const channels = audioRef[index].channels
-  const color = colors[0]
+  const color = defaultColor
   // 将color变淡一些,代表已经播放过的部分
   const color2 = color + '99'
   // console.log('positives', positives, 'negatives', negatives)

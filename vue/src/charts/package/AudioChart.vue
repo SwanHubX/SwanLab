@@ -159,7 +159,7 @@ const audioData = computed(() => {
       audioBlob: blobsData[temp.filename],
       title: temp.filename,
       caption: temp.caption,
-      color: colors.getSeriesColor(exp),
+      color: getColor(exp),
       exp
     })
   }
@@ -181,13 +181,13 @@ const error = computed(() => {
 // ---------------------------------- 图表颜色配置 ----------------------------------
 
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-const colors = inject('colors')
-if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+const defaultColor = inject('defaultColor')
+const getColor = inject('getColor')
 
 // ---------------------------------- step 滑块 ----------------------------------
 
 // 已经滑动部分颜色，应该通过色盘计算得到
-const barColor = inject('colors')[0]
+const barColor = defaultColor
 // 当前滑块索引
 const __currentIndex = ref(0)
 // 最小索引
