@@ -19,8 +19,8 @@
 
 <script setup>
 import { computed, watch } from 'vue'
-import SLIcon from './SLIcon.vue'
 import { Dialog } from '@headlessui/vue'
+import SLIcon from './SLIcon.vue'
 
 const props = defineProps({
   // 组件挂载时是否显示，默认不显示，值变为true时显示
@@ -105,6 +105,8 @@ watch(
   @apply z-full w-full h-full fixed top-0 left-0;
   @apply py-16 px-8 overflow-y-auto overflow-x-hidden;
   background-color: var(--background-overlay);
+  // 高斯模糊
+  backdrop-filter: blur(10px);
 }
 
 .sl-dialog[data-sl-modal] {

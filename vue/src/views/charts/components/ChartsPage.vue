@@ -1,5 +1,13 @@
 <template>
-  <ChartsDashboard :groups="groups" />
+  <ChartsDashboard
+    :groups="groups"
+    :update-chart-status="updateChartStatus"
+    :update-namespace-status="updateNamespaceStatus"
+    :media="media"
+    :default-color="defaultColor"
+    :get-color="getColor"
+    :subscribe="on"
+  />
 </template>
 
 <script setup>
@@ -10,9 +18,10 @@
  * @since: 2024-02-06 17:17:55
  **/
 import { useProjectStore } from '@swanlab-vue/store'
-import { provide, onUnmounted, onMounted } from 'vue'
+import { onUnmounted } from 'vue'
 import http from '@swanlab-vue/api/http'
 import ChartsDashboard from '@swanlab-vue/charts/ChartsDashboard.vue'
+import { updateChartStatus, updateNamespaceStatus, media } from '@swanlab-vue/api/chart'
 const props = defineProps({
   // 图表组
   groups: {
@@ -22,6 +31,16 @@ const props = defineProps({
   // 图表列表
   charts: {
     type: Array,
+    required: true
+  },
+  // 默认颜色
+  defaultColor: {
+    type: String,
+    required: true
+  },
+  // 获取颜色
+  getColor: {
+    type: Function,
     required: true
   }
 })
@@ -45,7 +64,7 @@ onUnmounted(() => {
 
 // ---------------------------------- 数据驱动 ----------------------------------
 
-provide('$on', (sources, cid, callback) => {
+const on = (sources, cid, callback) => {
   // 获取数据
   sources.map((exp_name) => {
     // 如果exp_name对应的实验的show为0，则跳过
@@ -57,10 +76,7 @@ provide('$on', (sources, cid, callback) => {
       createInterval(exp_name, cid, callback)
     }
   })
-})
-
-// 暂时注销订阅不写任何逻辑
-provide('$off', () => {})
+}
 
 // ---------------------------------- 请求数据 ----------------------------------
 

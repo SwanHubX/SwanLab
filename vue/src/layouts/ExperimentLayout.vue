@@ -12,7 +12,9 @@
           <!-- 编辑按钮 -->
           <ConfigEditor type="experiment" @modify="modifyExperiment" :disabled="experimentStore.isRunning" />
           <!-- 实验状态 -->
-          <SLStatusLabel :name="experiment.name" :id="experiment.id" :status="experiment.status" />
+          <SLStatusLabel :name="experiment.name" :status="experiment.status">
+            {{ $t('experiment.status.' + experiment.status) }}
+          </SLStatusLabel>
           <slot name="stop-button" v-if="experimentStore.isRunning"></slot>
         </div>
         <!-- 删除按钮 -->
@@ -49,8 +51,8 @@
  * @file: ExperimentLayout.vue
  * @since: 2023-12-09 20:22:32
  **/
-import ConfigEditor from '@swanlab-vue/components/config-editor/ConfigEditor.vue'
-import DeleteButton from '@swanlab-vue/components/config-editor/DeleteButton.vue'
+import ConfigEditor from '@swanlab-vue/business/config-editor/ConfigEditor.vue'
+import DeleteButton from '@swanlab-vue/business/config-editor/DeleteButton.vue'
 import http from '@swanlab-vue/api/http'
 import { useProjectStore, useExperimentStore } from '@swanlab-vue/store'
 import { useRouter } from 'vue-router'

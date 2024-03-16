@@ -21,7 +21,7 @@
           <h1 class="font-semibold">{{ $t('common.sidebar.experiments.title') }}</h1>
           <span class="font-semibold px-3 text-sm bg-highest rounded-full">{{ totalExperiments }}</span>
         </div>
-        <SLSearch @input="search" reverse />
+        <SLSearch @input="search" reverse :placeholder="$t('common.search.placeholder')" />
       </div>
       <!-- 实验列表 -->
       <RouterLink

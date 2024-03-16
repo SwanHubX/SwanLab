@@ -15,6 +15,7 @@ from ..settings import get_media_dir
 from fastapi import APIRouter
 from urllib.parse import quote
 from fastapi.responses import FileResponse
+from ...db import Experiment
 import os
 
 router = APIRouter()
@@ -24,10 +25,11 @@ router = APIRouter()
 
 
 @router.get("/{path:path}")
-def _(path: str, tag: str, run_id: str):
+def _(path: str, tag: str, experiment_id: str):
     """获取媒体文件
     通过参数拼接为本地路径，返回二进制数据
     tag需要进行url编码
     """
+    run_id = Experiment.get(Experiment.id == experiment_id).run_id
     media_path = os.path.join(get_media_dir(run_id, quote(tag, safe="")), path)
     return FileResponse(media_path)

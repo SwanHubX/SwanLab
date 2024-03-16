@@ -2,10 +2,10 @@
   <div class="lc-tooltip" ref="toolTipRef" v-show="isShow" :key="key">
     <!-- <div class="lc-tooltip-item-zoom" v-if="detail">
       <p class="lc-tooltip-color font-semibold !text-sm"></p>
-      <p class="lc-tooltip-step font-semibold !text-sm">{{ $t('common.chart.charts.share.step') }}</p>
-      <p class="lc-tooltip-value font-semibold !text-sm">{{ $t('common.chart.charts.share.value') }}</p>
-      <p class="lc-tooltip-time font-semibold !text-sm">{{ $t('common.chart.charts.share.time') }}</p>
-      <p class="lc-tooltip-tag font-semibold !text-sm">{{ $t('common.chart.charts.share.tag') }}</p>
+      <p class="lc-tooltip-step font-semibold !text-sm">{{ $t('chart.charts.share.step') }}</p>
+      <p class="lc-tooltip-value font-semibold !text-sm">{{ $t('chart.charts.share.value') }}</p>
+      <p class="lc-tooltip-time font-semibold !text-sm">{{ $t('chart.charts.share.time') }}</p>
+      <p class="lc-tooltip-tag font-semibold !text-sm">{{ $t('chart.charts.share.tag') }}</p>
     </div> -->
     <template v-if="detail && items.length">
       <div class="lc-tooltip-item-zoom" v-for="item in items" :key="item.color" :style="{ color: item.color }">
@@ -54,7 +54,7 @@ const props = defineProps({
   }
 })
 
-const tip = isApple ? t('common.chart.charts.line.copy.apple') : t('common.chart.charts.line.copy.windows')
+const tip = isApple ? t('chart.charts.line.copy.apple') : t('chart.charts.line.copy.windows')
 // 提示框宽度，用于计算提示框位置，但是不直接使用
 const tooltipWidth = props.detail ? 400 : 256
 // 提示框数据

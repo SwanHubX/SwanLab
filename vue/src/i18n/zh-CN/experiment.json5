@@ -1,0 +1,112 @@
+{
+  env: {
+    empty: {
+      requirements: 'No requirements found'
+    },
+    keys: {
+      OS: 'OS',
+      command: 'Command',
+      cpu: 'CPU count',
+      description: 'Description',
+      duration: 'Duration',
+      executable: 'Python executable',
+      git_branch: 'Git Branch',
+      git_commit: 'Git Commit',
+      git_remote: 'Git Repository',
+      gpu_cores: 'GPU count',
+      gpu_type: 'GPU type',
+      hostname: 'Hostname',
+      logdir: 'Logdir',
+      memory: 'Memory',
+      name: 'Experiment name',
+      python: 'Python Version',
+      start_time: 'Start Time',
+      swanlab: 'SwanLab Version',
+      workspace: 'Run path'
+    },
+    navs: {
+      hardware: 'System Hardware',
+      index: 'Overview',
+      requirements: 'Requirements'
+    },
+    title: {
+      exp_env_dependencies: 'Requirements',
+      exp_env_hardware: 'System Hardware',
+      exp_env_index: 'Overview'
+    }
+  },
+  'func-bar': {
+    copy: 'Copy',
+    'copy-success': 'Copied',
+    download: 'Download',
+    placeholder: {
+      log: 'Search log...',
+      requirements: 'Search requirement...'
+    }
+  },
+  index: {
+    config: {
+      detail: '配置',
+      help: {
+        config: '配置（Config）参数描述你的模型的输入项，在swanlab.init的config参数中配置，点击图标了解更多。',
+        summary: '摘要（Summary）参数描述你记录的指标的最终结果，点击图标了解更多。'
+      },
+      summarize: '摘要',
+      table: {
+        empty: 'No Data',
+        search: 'Search...'
+      },
+      title: '配置信息'
+    },
+    header: {
+      experiment_device: {
+        cpu: 'CPU 核心数: {value}',
+        executable: 'Python可执行文件',
+        gpu: 'GPU 核心数: {value}',
+        hardware: '系统硬件',
+        hostname: 'Hostname',
+        os: '操作系统',
+        python: 'Python版本',
+        type: 'GPU类型：{Value}'
+      },
+      experiment_infos: {
+        git: 'Git存储库',
+        last_time: '持续时间',
+        python: 'Python版本',
+        start_time: '开始时间',
+        status: '状态',
+        tags: 'Tag',
+        time: {
+          day: '天',
+          hour: '小时',
+          minute: '分钟',
+          second: '秒'
+        },
+        version: 'SwanLab 版本号'
+      },
+      stop: {
+        button: 'Confirm',
+        modal: {
+          text: "Once confirmed, the state will be set to 'Crashed', and stop receiving data.",
+          title: 'Has this experiment been stopped?'
+        }
+      },
+      'table-bar': {
+        export: 'Export to CSV',
+        placeholder: 'Search experiments',
+        summary: 'Only summary'
+      }
+    }
+  },
+  navs: {
+    chart: '实验图表',
+    env: '实验环境',
+    index: '概览',
+    log: '日志Log'
+  },
+  status: {
+    '-1': '中断',
+    '0': '正在进行',
+    '1': '完成'
+  }
+}

@@ -1,0 +1,20 @@
+{
+  '404': {
+    message: '没有找到页面',
+    return: '回到首页'
+  },
+  'experiment-error': {
+    reasons: ['1. 未找到对应的日志文件', '2. 对应的日志文件损坏或无法被打开'],
+    title: '此实验无法被查看'
+  },
+  'init-error': {
+    reasons: ['1. 你还没有在日志文件中写入任何数据', '2. SwanLab没有找到你的日志文件', '3.这可能是SwanLab的内部错误'],
+    title: '当前目录下没有可用的实验看板'
+  },
+  wrap: {
+    'error-code': '错误码：',
+    message: ['如果你是SwanLab的初学者，并且想了解如何使用SwanLab查看训练日志，可以查看我们的', '官方文档'],
+    'reason-title': '可能的原因：',
+    time: '加载看板时间：{time}'
+  }
+}

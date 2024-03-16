@@ -22,8 +22,6 @@
 import { ref } from 'vue'
 import SLIcon from './SLIcon.vue'
 import { debounce } from '@swanlab-vue/utils/common'
-import { t } from '@swanlab-vue/i18n'
-
 const emits = defineEmits(['input', 'search', 'update:modelValue'])
 
 const props = defineProps({
@@ -33,7 +31,7 @@ const props = defineProps({
   },
   placeholder: {
     type: String,
-    default: t('common.search.placeholder')
+    required: true
   },
   modelValue: {
     type: String,

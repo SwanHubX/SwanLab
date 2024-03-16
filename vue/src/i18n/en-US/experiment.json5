@@ -1,0 +1,112 @@
+{
+  navs: {
+    index: 'Experiment Card',
+    chart: 'Chart',
+    log: 'Logs',
+    env: 'Environment'
+  },
+  status: {
+    '-1': 'Crashed',
+    '0': 'Running',
+    '1': 'Finished'
+  },
+  index: {
+    header: {
+      'table-bar': {
+        placeholder: 'Search experiments',
+        summary: 'Only summary',
+        export: 'Export'
+      },
+      experiment_infos: {
+        status: 'State',
+        start_time: 'Start Time',
+        last_time: 'Duration',
+        version: 'SwanLab Version',
+        git: 'Git Repository',
+        tags: 'Tags',
+        python: 'Python Version',
+        time: {
+          day: 'd ',
+          hour: 'h ',
+          minute: 'min ',
+          second: 's '
+        }
+      },
+      experiment_device: {
+        hostname: 'Hostname',
+        os: 'OS',
+        python: 'Python Version',
+        executable: 'Python executable',
+        hardware: 'System Hardware',
+        cpu: 'CPU Count: {value}',
+        gpu: 'GPU Count: {value}',
+        type: 'GPU Type: {value}'
+      },
+      stop: {
+        button: 'Confirm',
+        modal: {
+          title: 'Has this experiment been stopped?',
+          text: "Once confirmed, the state will be set to 'Crashed', and stop receiving data."
+        }
+      }
+    },
+    config: {
+      title: 'Configuration Information',
+      detail: 'Config',
+      summarize: 'Summary',
+      help: {
+        config: "The Configuration parameter describes the input options of your model. Configure it in the 'config' parameter of swanlab.init. Click the icon to learn more.",
+        summary: 'The Summary parameter describes the final results of the metrics you record. Click the icon to learn more.'
+      },
+      table: {
+        empty: 'No Data',
+        search: 'Search...'
+      }
+    }
+  },
+  env: {
+    navs: {
+      index: 'Overview',
+      hardware: 'System Hardware',
+      requirements: 'Requirements'
+    },
+    title: {
+      exp_env_index: 'Overview',
+      exp_env_hardware: 'System Hardware',
+      exp_env_dependencies: 'Requirements'
+    },
+    keys: {
+      name: 'Experiment name',
+      description: 'Description',
+      start_time: 'Start Time',
+      duration: 'Duration',
+      python: 'Python Version',
+      executable: 'Python executable',
+      workspace: 'Run path',
+      command: 'Command',
+      hostname: 'Hostname',
+      OS: 'OS',
+      git_remote: 'Git Repository',
+      git_branch: 'Git Branch',
+      git_commit: 'Git Commit',
+      cpu: 'CPU count',
+      memory: 'Memory',
+      gpu_cores: 'GPU count',
+      gpu_type: 'GPU type',
+      logdir: 'Logdir',
+      swanlab: 'SwanLab Version'
+    },
+    empty: {
+      requirements: 'No requirements found'
+    }
+  },
+  'func-bar': {
+    copy: 'Copy',
+    download: 'Download',
+    'copy-success': 'Copied',
+    placeholder: {
+      requirements: 'Search requirement...',
+      log: 'Search log...'
+    }
+  }
+}

@@ -24,9 +24,9 @@
  * @since: 2023-12-30 23:55:02
  **/
 import { ref } from 'vue'
-import SLModal from '../SLModal.vue'
+import SLModal from '@swanlab-vue/components/SLModal.vue'
 import EditorWrap from './EditorWrap.vue'
-import SLIcon from '../SLIcon.vue'
+import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 
 // 是否展示弹窗
 const showModal = ref(false)

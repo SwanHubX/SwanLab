@@ -6,7 +6,7 @@
     <template #pop>
       <div class="flex select-none flex-col w-full px-4 text-sm font-semibold gap-4">
         <div class="flex items-center gap-2">
-          <span class="w-20 flex-shrink-0">{{ $t('common.chart.charts.share.smooth.smoothing') }}</span>
+          <span class="w-20 flex-shrink-0">{{ $t('chart.charts.share.smooth.smoothing') }}</span>
           <SLSlideBar
             show-input
             v-model="_value"
@@ -19,7 +19,7 @@
           />
         </div>
         <div class="flex items-center gap-2">
-          <span class="w-20 flex-shrink-0">{{ $t('common.chart.charts.share.smooth.method') }}</span>
+          <span class="w-20 flex-shrink-0">{{ $t('chart.charts.share.smooth.method') }}</span>
           <SLMenu menu-class="w-full" items-class="overflow-auto bg-default" down down-position="top-2.5 right-2">
             <div class="w-full border p-2 text-left rounded hover:bg-higher">{{ nowMethod.name }}</div>
             <template #pop>

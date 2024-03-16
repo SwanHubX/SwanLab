@@ -4,7 +4,6 @@
   /* 自定义图标关联 */
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
-    "wandb": "database",
     "swanlog": "log",
     ".config": "config",
     "store": "database",
@@ -18,7 +17,8 @@
     "system": "core",
     "data": "guard",
     "unit": "test",
-    "migrate": "Husky"
+    "migrate": "Husky",
+    "business": "components"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
@@ -33,20 +33,6 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "eslint.format.enable": true,
   "eslint.validate": ["javascript", "javascriptreact", "vue", "typescript", "typescriptreact"],
-
-  // sass编译
-  "easysass.excludeRegex": "style.scss", // 提供文件名正则表达式，匹配到的文件会被排除，不会编译为css，默认为空，则功能关闭
-  "easysass.formats": [
-    // {
-    //   "format": "expanded",
-    //   "extension": ".css"
-    // },
-    {
-      "format": "compressed",
-      "extension": ".min.css"
-    }
-  ],
-
   /** 后端代码格式化部分，python格式化 */
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
@@ -96,10 +82,9 @@
   "i18n-ally.localesPaths": ["vue/src/i18n"],
   "i18n-ally.keystyle": "nested", // 翻译路径格式,
   "i18n-ally.namespace": true,
-  "i18n-ally.enabledParsers": ["json", "js"],
+  "i18n-ally.enabledParsers": ["json", "json5"],
   "i18n-ally.sourceLanguage": "zh-CN", // 翻译源语言 是你翻译文件的名字
   "i18n-ally.displayLanguage": "zh-CN", //显示语言
-  "vue-i18n.i18nPaths": "vue/src/i18n",
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],
@@ -122,7 +107,8 @@
     "MD033": false,
     // 允许首行不是level1标题
     "MD041": false
-  }
+  },
+  "vue-i18n.i18nPaths": "vue/src/i18n"
 
   // /** SQLite */
   // "sqlite.databaseExtensions": ["db", "db3", "sdb", "s3db", "sqlite", "sqlite3", "swanlab"]

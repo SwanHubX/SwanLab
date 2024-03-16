@@ -9,6 +9,7 @@
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "lokalise.i18n-ally",
+    "mrmlnc.vscode-json5",
     /**
      * python插件
      */

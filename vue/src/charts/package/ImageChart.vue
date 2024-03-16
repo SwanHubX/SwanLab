@@ -6,10 +6,8 @@
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-xs">
       <!-- 在此处显示错误信息 -->
-      <span v-if="!isMulti">{{
-        $t('common.chart.charts.image.error', { type: error['data_class'], tag: source[0] })
-      }}</span>
-      <span v-else>{{ $t('common.chart.error') }}</span>
+      <span v-if="!isMulti">{{ $t('chart.charts.image.error', { type: error['data_class'], tag: source[0] }) }}</span>
+      <span v-else>{{ $t('chart.error') }}</span>
     </p>
   </div>
   <!-- 如果图表数据正确 -->
@@ -38,7 +36,7 @@
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
         <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
           <div class="text-xs flex items-center pb-1" :title="name">
-            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: getColor(name) }"></div>
             <p class="pl-1 truncate">{{ name }}</p>
           </div>
           <div class="image-container">
@@ -104,7 +102,7 @@
         <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
           <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
             <div class="text-xs flex items-center pb-1" :title="name">
-              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: projectStore.colorMap[name] }"></div>
+              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: getColor(name) }"></div>
               <p class="pl-1 truncate">{{ name }}</p>
             </div>
             <div class="image-container">
@@ -190,14 +188,9 @@
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import { ref, inject, watch, computed } from 'vue'
-import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import SlideBar from '../components/SlideBar.vue'
-import * as UTILS from './utils'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
-
-const experimentStore = useExperimentStore()
-const projectStore = useProjectStore()
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -215,6 +208,7 @@ const props = defineProps({
     required: true
   }
 })
+const media = inject('media')
 /**
  * 图表数据来源，为数组
  * 当isMulti为true时，数组元素为exp，即给该表提供数据的实验的名称
@@ -226,19 +220,6 @@ const source = computed(() => {
 // 是否为多实验的图表，根据路由名称判断
 const isMulti = computed(() => {
   return props.chart.multi
-})
-/**
- * 实验名对应的run_id
- * 单实验时直接从 experiment pinia 中拿
- * 多实验时通过 project pinia 中的 getExpRunIdByName 获取（传入实验名查询 run_id）
- */
-const run_id = computed(() => {
-  if (!isMulti.value) return experimentStore.experiment?.run_id
-  const run_ids = {}
-  for (const exp of source.value) {
-    run_ids[exp] = projectStore.getExpRunIdByName(exp)
-  }
-  return run_ids
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
@@ -255,11 +236,11 @@ const error = computed(() => {
 
 // ---------------------------------- 图表颜色配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-const colors = inject('colors')
-if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
+const getColor = inject('getColor')
+const defaultColor = inject('defaultColor')
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 已经滑动部分颜色，应该通过色盘计算得到
-const barColor = inject('colors')[0]
+const barColor = defaultColor
 // 当前滑块索引
 const __currentIndex = ref(0)
 // 最小索引
@@ -344,14 +325,12 @@ const currentInnerIndex = ref(minInnerIndex.value)
 const getMultiImagesData = async (stepData) => {
   const promises = []
   for (const exp in stepData) {
-    for (const { filename } of stepData[exp]) {
+    for (const { filename, experiment_id } of stepData[exp]) {
       if (imagesData[filename]) continue
       // 没有缓存，发起请求
       promises.push(
         new Promise((resolve) => {
-          UTILS.media
-            .get(filename, run_id.value[exp], props.title)
-            .then((blob) => resolve(transformBlob(blob, filename)))
+          media.get(filename, experiment_id, props.title).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
@@ -394,11 +373,11 @@ const getImagesData = async (stepData) => {
 const getSingleImageData = async (stepData) => {
   const tag = source.value[0]
   const promises = []
-  for (const { filename } of stepData[tag]) {
+  for (const { filename, experiment_id } of stepData[tag]) {
     if (!imagesData[filename]) {
       promises.push(
         new Promise((resolve) => {
-          UTILS.media.get(filename, run_id.value, tag).then((blob) => resolve(transformBlob(blob, filename)))
+          media.get(filename, experiment_id, tag).then((blob) => resolve(transformBlob(blob, filename)))
         })
       )
     }
@@ -444,6 +423,7 @@ const changeData2Image = (data) => {
     // 遍历实验下的数据
     _maxIndex = Math.max(Number(data[source].list[data[source].list.length - 1].index), _maxIndex)
     _minIndex = Math.min(Number(data[source].list[0].index), _minIndex)
+    const experiment_id = props.chart.source_map[source]
     for (const item of data[source].list) {
       // 如果不存在当前 step
       if (!stepsData[item.index]) stepsData[item.index] = {}
@@ -452,10 +432,10 @@ const changeData2Image = (data) => {
       stepsData[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption })
+        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption })
+          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption, experiment_id })
         }
       }
     }

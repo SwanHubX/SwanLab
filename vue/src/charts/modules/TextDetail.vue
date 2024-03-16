@@ -2,11 +2,11 @@
   <div class="text-detail">
     <!-- infos -->
     <div v-for="item in info_list" :key="item" class="sm:flex pb-3">
-      <span class="block w-48 font-semibold shrink-0">{{ $t(`common.chart.charts.text.titles.${item.key}`) }}:</span>
+      <span class="block w-48 font-semibold shrink-0">{{ $t(`chart.charts.text.titles.${item.key}`) }}:</span>
       <span :title="item.value">{{ item.value }}</span>
     </div>
     <!-- text -->
-    <p class="font-semibold pb-2">{{ $t('common.chart.charts.text.titles.text') }}:</p>
+    <p class="font-semibold pb-2">{{ $t('chart.charts.text.titles.text') }}:</p>
     <div class="p-4 min-h-[20vh] max-h-[55vh] overflow-y-auto border rounded bg-default">
       <p v-for="text in data.text.split('\n')" :key="text">
         <span v-if="text != ''">{{ text }}</span>

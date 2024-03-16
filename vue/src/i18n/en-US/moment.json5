@@ -1,0 +1,20 @@
+{
+  relativeTime: {
+    future: '%s from now',
+    past: '%s ago',
+    s: 'a few seconds',
+    ss: '%d seconds',
+    m: '1 min',
+    mm: '%d min',
+    h: '1 hour',
+    hh: '%d hours',
+    d: '1 day',
+    dd: '%d days',
+    w: '1 week',
+    ww: '%d weeks',
+    M: '1 month',
+    MM: '%d months',
+    y: '1 year',
+    yy: '%d years'
+  }
+}

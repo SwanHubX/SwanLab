@@ -4,7 +4,7 @@
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
     <p class="text-center text-sm">
-      {{ $t('common.chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
+      {{ $t('chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
     </p>
   </div>
   <template v-else>
@@ -94,9 +94,8 @@ const chartRefListExceptSelf = computed(() => {
 let smoothMethod = inject('smoothMethod')?.value || undefined
 // ---------------------------------- 图表样式配置 ----------------------------------
 // 后续需要适配不同的颜色，但是Line不支持css变量，考虑自定义主题或者js获取css变量完成计算
-const colors = inject('colors')
-if (!colors) throw new Error('colors is not defined, please provide colors in parent component')
-if (!colors.getSeriesColor) throw new Error('colors.getSeries is not defined, please provide getSeries in colors')
+const getColor = inject('getColor')
+const defaultColor = inject('defaultColor')
 const rootStyle = getComputedStyle(document.documentElement)
 // 边框颜色，通过js获取css变量值
 const borderColor = rootStyle.getPropertyValue('--outline-default')
@@ -161,13 +160,13 @@ const createChart = (dom, data, config = {}, zoom = false) => {
     colorField,
     // 自己写图例
     legend: false,
-    // 多数据的时候颜色通过回调拿到，colors应该自带getSeries方法
+    // 多数据的时候颜色通过回调拿到
     color: ({ series }) => {
       // 是否有&smooth后缀
       const smooth = series.includes('&smooth')
       series = series.replace('&smooth', '')
       // 如果没有&smooth后缀，直接返回颜色
-      const color = colors.getSeriesColor(series, source.indexOf(series))
+      const color = getColor(series, source.indexOf(series))
       if (!smooth) return color
       else return UTILS.transparentColor(color)
     },
@@ -370,11 +369,11 @@ const format = (data) => {
   for (const s of source) {
     if (props.chart.error && props.chart.error[s]) continue
     if (!data[s]) continue
-    items.push({ name: s, color: colors.getSeriesColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
+    items.push({ name: s, color: getColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
   }
   legend.value = items
-  console.log('legend', legend.value)
-  return { d, config: multi || smoothMethod ? { seriesField } : { color: colors[0] } }
+  // console.log('legend', legend.value)
+  return { d, config: multi || smoothMethod ? { seriesField } : { color: defaultColor } }
 }
 
 const formatTime = (time) => {
@@ -536,7 +535,7 @@ const handleCopy = (e) => {
         content += `${d.data.series} ${formatNumber2SN(d.data.data)} ${formatTime(d.data.create_time)}\n`
       }
     }
-    copyTextToClipboard(content, () => message.success(t('common.chart.charts.line.copy.success')))
+    copyTextToClipboard(content, () => message.success(t('chart.charts.line.copy.success')))
   }
 }
 window.addEventListener('keydown', handleCopy)

@@ -1,0 +1,22 @@
+{
+  overview: {
+    create: '创建时间',
+    latest: '最近运行时间',
+    total: '总实验数',
+    logdir: '存储路径'
+  },
+  list: {
+    title: '实验列表',
+    table: {
+      header: {
+        name: '实验名',
+        status: '状态',
+        create: '创建时间',
+        duration: 'Runtime'
+      }
+    }
+  },
+  empty: {
+    table: 'There are no experiments, you can create one by importing SwanLog in your code'
+  }
+}

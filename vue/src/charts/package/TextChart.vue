@@ -47,8 +47,6 @@ import { ref, computed } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 import TextModule from '../modules/TextModule.vue'
-import { useExperimentStore } from '@swanlab-vue/store'
-import * as UTILS from './utils'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -66,12 +64,10 @@ const props = defineProps({
     required: true
   }
 })
+const media = inject('media')
 
 const original_data = ref()
 const source = ref(props.chart.source)
-
-const experimentStore = useExperimentStore()
-const run_id = computed(() => experimentStore.experiment.run_id)
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
@@ -110,7 +106,7 @@ const getText = async (tag, currentPage) => {
           resolve(textBuffers[url])
         } else {
           // 请求，并将 blob 以 utf-8 字符串的形式返回
-          UTILS.media.get(url, run_id.value, tag).then((res) => {
+          media.get(url, props.chart.source_map[source.value[0]], tag).then((res) => {
             blobToString(res).then((text) => {
               // 记录缓存
               textBuffers[url] = text

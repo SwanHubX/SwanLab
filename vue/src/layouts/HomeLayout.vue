@@ -39,6 +39,8 @@ import { computed } from 'vue'
 import { useProjectStore } from '@swanlab-vue/store'
 import http from '@swanlab-vue/api/http'
 import { message } from '@swanlab-vue/components/message'
+import ConfigEditor from '@swanlab-vue/business/config-editor/ConfigEditor.vue'
+import DeleteButton from '@swanlab-vue/business/config-editor/DeleteButton.vue'
 const projectStore = useProjectStore()
 // ---------------------------------- 修改项目信息 ----------------------------------
 

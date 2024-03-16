@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col justify-center grow text-dimmer gap-2">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
-    <p class="text-center text-xs">{{ $t('common.chart.unkonwn', { type: chart.type }) }}</p>
+    <p class="text-center text-xs">{{ $t('chart.unkonwn', { type: chart.type }) }}</p>
   </div>
 </template>
 

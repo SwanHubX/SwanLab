@@ -62,7 +62,7 @@
  **/
 import { useProjectStore, useExperimentStore } from '@swanlab-vue/store'
 import { ref } from 'vue'
-import SLLoading from '../SLLoading.vue'
+import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import { message } from '@swanlab-vue/components/message'
 import { t } from '@swanlab-vue/i18n'
 import { computed } from 'vue'
