@@ -217,18 +217,13 @@ class SwanLabTag:
         sum = len(self.__steps)
         mu = math.ceil(sum / self.__slice_size)
         # 存储路径
-        file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".swanlog")
+        file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
         # 更新实验信息总结
         with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
         # 保存数据
         with open(file_path, "a") as f:
             f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
-
-        # file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".json")
-        # # 方便一些，直接使用w+模式覆盖写入
-        # with get_a_lock(file_path, mode="w+") as f:
-        #     ujson.dump(self.__data, f, ensure_ascii=False)
         return step
 
     @property

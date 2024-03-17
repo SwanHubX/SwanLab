@@ -185,17 +185,17 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     tag_data: list = []
     # ---------------------------------- 读取文件数据 ----------------------------------
     previous_logs = [f for f in files if f.endswith(".json") and not f.endswith("_summary.json")]
-    current_logs = [f for f in files if f.endswith(".swanlog")]
+    current_logs = [f for f in files if f.endswith(".log")]
     current_logs.sort()
-    # COMPAT 如果目标文件夹不存在*.swanlog文件但存在*.json文件，说明是之前的日志格式，需要转换
+    # COMPAT 如果目标文件夹不存在*.log文件但存在*.json文件，说明是之前的日志格式，需要转换
     if len(current_logs) == 0 and len(previous_logs) > 0:
         for file in previous_logs:
             with open(os.path.join(tag_path, file), "r") as f:
                 data = ujson.load(f)
-                with open(os.path.join(tag_path, file.replace(".json", ".swanlog")), "a") as f:
+                with open(os.path.join(tag_path, file.replace(".json", ".log")), "a") as f:
                     for d in data["data"]:
                         f.write(ujson.dumps(d) + "\n")
-        current_logs = [f for f in os.listdir(tag_path) if f.endswith(".swanlog")]
+        current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
     for file in current_logs:
         tag_data = tag_data + read_tag_data(os.path.join(tag_path, file))
     # ---------------------------------- 返回所有数据 ----------------------------------
