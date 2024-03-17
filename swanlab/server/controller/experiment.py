@@ -28,15 +28,15 @@ from ...utils.time import create_time
 import yaml
 from ...log import swanlog
 from typing import List, Dict
-from .db import connect, NotExistedError
 from .db import (
     Project,
     Experiment,
     Chart,
-    Namespace,
     Tag,
+    connect,
+    NotExistedError,
 )
-from .utils import get_exp_charts, clear_field
+from .utils import get_exp_charts, clear_field, read_tag_data
 
 __to_list = Experiment.search2list
 
@@ -182,44 +182,32 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     # 获取目录下存储的所有数据
     # 降序排列，最新的数据在最前面
     files: list = os.listdir(tag_path)
-    # files中去除_summary.json文件
-    files = [f for f in files if not f.endswith("_summary.json")]
-    if len(files) == 0:
-        return []
-    files.sort()
     tag_data: list = []
-    # 最后一个文件代表当前数据量
-    last_file = files[-1]
-    tag_json = None
-    # ---------------------------------- 开始读取最后一个文件 ----------------------------------
-    # 如果最后一个文件内容为空
-    if os.path.getsize(os.path.join(tag_path, last_file)) == 0:
-        tag_json = {"data": []}
-        count = 0
-    else:
-        # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
-        with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
-            # 读取数据
-            tag_json = ujson.load(f)
-            # 倒数第二个文件+当前文件的数据量等于总数据量
-            # 倒数第二个文件可能不存在
-            count = files[-2].split(".")[0] if len(files) > 1 else 0
-            count = int(count) + len(tag_json["data"])
-    # 读取完毕，文件解锁
+    # ---------------------------------- 读取文件数据 ----------------------------------
+    previous_logs = [f for f in files if f.endswith(".json") and not f.endswith("_summary.json")]
+    current_logs = [f for f in files if f.endswith(".swanlog")]
+    current_logs.sort()
+    # COMPAT 如果目标文件夹不存在*.swanlog文件但存在*.json文件，说明是之前的日志格式，需要转换
+    if len(current_logs) == 0 and len(previous_logs) > 0:
+        for file in previous_logs:
+            with open(os.path.join(tag_path, file), "r") as f:
+                data = ujson.load(f)
+                with open(os.path.join(tag_path, file.replace(".json", ".swanlog")), "a") as f:
+                    for d in data["data"]:
+                        f.write(ujson.dumps(d) + "\n")
+        current_logs = [f for f in os.listdir(tag_path) if f.endswith(".swanlog")]
+    for file in current_logs:
+        tag_data = tag_data + read_tag_data(os.path.join(tag_path, file))
     # ---------------------------------- 返回所有数据 ----------------------------------
-    # FIXME: 性能问题
-    # 读取所有数据
-    # tag_json是最后一个文件的数据
-    # 按顺序读取其他文件的数据
-    tag_data_list: List[List[Dict]] = []
-    for path in files[:-1]:
-        # 读取tag数据，由于目前在设计上这些文件不会再被修改，所以不需要加锁
-        with open(os.path.join(tag_path, path), "r") as f:
-            tag_data_list.append(ujson.load(f)["data"])
-    # 将数据合并
-    for data in tag_data_list:
-        tag_data.extend(data)
-    tag_data.extend(tag_json["data"])
+    # 如果数据为空，返回空列表
+    if len(tag_data) == 0:
+        return SUCCESS_200(
+            data={
+                "sum": 0,
+                "list": [],
+                "experiment_id": experiment_id,
+            }
+        )
     # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
     if tag_data[0].get("index") is None:
         for index, data in enumerate(tag_data):

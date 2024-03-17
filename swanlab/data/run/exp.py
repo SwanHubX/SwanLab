@@ -211,19 +211,24 @@ class SwanLabTag:
             self.__data = self.__new_tags()
         # 添加数据
         data = data if not is_nan else "NaN"
-        self.__data["data"].append(self.__new_tag(step, data, more=more))
+        new_data = self.__new_tag(step, data, more=more)
+        self.__data["data"].append(new_data)
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
         sum = len(self.__steps)
         mu = math.ceil(sum / self.__slice_size)
         # 存储路径
-        file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".json")
-        # 方便一些，直接使用w+模式覆盖写入
-        with get_a_lock(file_path, mode="w+") as f:
-            ujson.dump(self.__data, f, ensure_ascii=False)
+        file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".swanlog")
         # 更新实验信息总结
         with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
+        # 保存数据
+        with open(file_path, "a") as f:
+            f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
 
+        # file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".json")
+        # # 方便一些，直接使用w+模式覆盖写入
+        # with get_a_lock(file_path, mode="w+") as f:
+        #     ujson.dump(self.__data, f, ensure_ascii=False)
         return step
 
     @property
