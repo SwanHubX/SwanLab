@@ -70,4 +70,5 @@ def get_tag_files(tag_path: str, exclude: List[str] = []) -> List[str]:
                     for d in data["data"]:
                         f.write(ujson.dumps(d) + "\n")
         current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
+        current_logs.sort()
     return current_logs

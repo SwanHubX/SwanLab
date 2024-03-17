@@ -162,7 +162,9 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             if not os.path.exists(tag_path):
                 experiment_summaries[tag] = "TypeError"
                 continue
+            # 获取所有 tag 文件
             logs = get_tag_files(tag_path, exclude=LOGS_CONFIGS)
+            # 打开最后一个文件，获取最后一行数据
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
                 try:
                     lines = f.readlines()
