@@ -21,6 +21,7 @@ from typing import List
 from ...db.utils.chart import transform_to_multi_exp_charts
 from .db import NotExistedError
 from .utils import get_proj_charts
+from ...log import swanlog
 
 # 自定义响应
 from ..module.resp import (
@@ -45,6 +46,7 @@ from ...db import (
     Chart,
     Namespace,
 )
+from .utils import get_tag_files, LOGS_CONFIGS
 
 # 将查询结果对象转为列表
 __to_list = Project.search2list
@@ -160,14 +162,14 @@ def get_project_summary(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             if not os.path.exists(tag_path):
                 experiment_summaries[tag] = "TypeError"
                 continue
-            logs = sorted([item for item in os.listdir(tag_path) if item != "_summary.json"])
+            logs = get_tag_files(tag_path, exclude=LOGS_CONFIGS)
             with open(os.path.join(tag_path, logs[-1]), mode="r") as f:
                 try:
-                    tag_data = ujson.load(f)
-                    # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
-                    experiment_summaries[tag] = str(tag_data["data"][-1]["data"])
+                    lines = f.readlines()
+                    tag_data = ujson.loads(lines[-1])
+                    experiment_summaries[tag] = tag_data["data"]
                 except Exception as e:
-                    print(f"[expr: {expr['name']} - {tag}] --- {e}")
+                    swanlog.error(f"[expr: {expr['name']} - {tag}] --- {e}")
                     continue
 
         data[expr["name"]] = experiment_summaries

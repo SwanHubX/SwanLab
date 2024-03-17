@@ -9,7 +9,13 @@ r"""
 """
 from typing import List
 import json
+import ujson
 import os
+
+# tag 总结文件名
+TAG_SUMMARY_FILE = "_summary.json"
+# logs 目录下的配置文件
+LOGS_CONFIGS = [TAG_SUMMARY_FILE]
 
 
 def read_tag_data(file_path: str) -> List[dict]:
@@ -32,3 +38,36 @@ def read_tag_data(file_path: str) -> List[dict]:
             if len(lines[i]):
                 data.append(json.loads(lines[i]))
         return data
+
+
+def get_tag_files(tag_path: str, exclude: List[str] = []) -> List[str]:
+    """
+    获取实验数据，并且做向下兼容，在v0.2.4版本以前的实验日志数据将转换为新的格式
+
+    Parameters
+    ----------
+    file_path : str
+        tag的路径
+    exclude : List[str]
+        需要排除的文件列表
+
+    Returns
+    -------
+    List[str]
+        tag文件列表
+    """
+    # 降序排列，最新的数据在最前面
+    files: list = os.listdir(tag_path)
+    previous_logs = [f for f in files if f.endswith(".json") and f not in exclude]
+    current_logs = [f for f in files if f.endswith(".log")]
+    current_logs.sort()
+    # COMPAT 如果目标文件夹不存在*.log文件但存在*.json文件，说明是之前的日志格式，需要转换
+    if len(current_logs) == 0 and len(previous_logs) > 0:
+        for file in previous_logs:
+            with open(os.path.join(tag_path, file), "r") as f:
+                data = ujson.load(f)
+                with open(os.path.join(tag_path, file.replace(".json", ".log")), "a") as f:
+                    for d in data["data"]:
+                        f.write(ujson.dumps(d) + "\n")
+        current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
+    return current_logs

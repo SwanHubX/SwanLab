@@ -27,7 +27,6 @@ from ...utils import get_a_lock
 from ...utils.time import create_time
 import yaml
 from ...log import swanlog
-from typing import List, Dict
 from .db import (
     Project,
     Experiment,
@@ -36,7 +35,7 @@ from .db import (
     connect,
     NotExistedError,
 )
-from .utils import get_exp_charts, clear_field, read_tag_data
+from .utils import get_exp_charts, clear_field, read_tag_data, get_tag_files, LOGS_CONFIGS
 
 __to_list = Experiment.search2list
 
@@ -47,13 +46,6 @@ __to_list = Experiment.search2list
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
-
-# tag 总结文件名
-TAG_SUMMARY_FILE = "_summary.json"
-# logs 目录下的配置文件
-LOGS_CONFIGS = [TAG_SUMMARY_FILE]
-
-
 # ---------------------------------- 工具函数 ----------------------------------
 
 
@@ -180,34 +172,15 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
-    # 降序排列，最新的数据在最前面
-    files: list = os.listdir(tag_path)
     tag_data: list = []
     # ---------------------------------- 读取文件数据 ----------------------------------
-    previous_logs = [f for f in files if f.endswith(".json") and not f.endswith("_summary.json")]
-    current_logs = [f for f in files if f.endswith(".log")]
-    current_logs.sort()
-    # COMPAT 如果目标文件夹不存在*.log文件但存在*.json文件，说明是之前的日志格式，需要转换
-    if len(current_logs) == 0 and len(previous_logs) > 0:
-        for file in previous_logs:
-            with open(os.path.join(tag_path, file), "r") as f:
-                data = ujson.load(f)
-                with open(os.path.join(tag_path, file.replace(".json", ".log")), "a") as f:
-                    for d in data["data"]:
-                        f.write(ujson.dumps(d) + "\n")
-        current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
+    current_logs = get_tag_files(tag_path, LOGS_CONFIGS)
     for file in current_logs:
         tag_data = tag_data + read_tag_data(os.path.join(tag_path, file))
     # ---------------------------------- 返回所有数据 ----------------------------------
     # 如果数据为空，返回空列表
     if len(tag_data) == 0:
-        return SUCCESS_200(
-            data={
-                "sum": 0,
-                "list": [],
-                "experiment_id": experiment_id,
-            }
-        )
+        return SUCCESS_200(data={"sum": 0, "list": [], "experiment_id": experiment_id})
     # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
     if tag_data[0].get("index") is None:
         for index, data in enumerate(tag_data):
@@ -306,22 +279,23 @@ def get_experiment_summary(experiment_id: int) -> dict:
             summaries.append({"key": tag, "value": "TypeError"})
             continue
         tag_path = os.path.join(experiment_path, quote(tag, safe=""))
-        logs = sorted([item for item in os.listdir(tag_path) if not item in LOGS_CONFIGS])
+        # 获取 tag 目录下的所有存储的日志文件
+        logs = get_tag_files(tag_path, LOGS_CONFIGS)
         # 打开 tag 目录下最后一个存储文件，获取最后一条数据
-        with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
-            data = ujson.load(f)
-            # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
-            data = str(data["data"][-1]["data"])
-            summaries.append({"key": tag, "value": data})
+        with open(os.path.join(tag_path, logs[-1])) as f:
+            lines = f.readlines()
+            # 最后一行数据，如果为空，取倒数第二行
+            data = lines[-1] if len(lines[-1]) else lines[-2]
+            last_data = ujson.loads(data)
+            summaries.append({"key": tag, "value": last_data["data"]})
     # 获取数据库记录时在实验下的排序
     sorts = {item["name"]: item["sort"] for item in __to_list(experiment.tags)}
-    # 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
+    # COMPAT 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
     if not all(value == 0 for value in sorts.values()):
         temp = [0] * len(summaries)
         for item in summaries:
             temp[sorts[item["key"]]] = item
         summaries = temp
-
     return SUCCESS_200({"summaries": summaries})
 
 
