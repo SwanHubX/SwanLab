@@ -24,30 +24,33 @@
         :style="setGrid(stepsData[currentIndex][source[0]].length)"
         v-if="!loading && !isMulti"
       >
-        <div class="image-detail" v-for="(s, index) in stepsData[currentIndex][source[0]]" :key="index">
-          <div class="image-container">
-            <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
-            <DownloadButton class="download-button" @click.stop="download(s.filename)" />
-          </div>
-          <p class="text-xs">{{ s.caption }}</p>
-        </div>
+        <ImageModule
+          v-for="(s, index) in stepsData[currentIndex][source[0]]"
+          :key="index"
+          :filename="s.filename"
+          :imagesData="imagesData[s.filename].url"
+          :caption="s.caption"
+          :index="index"
+          @zoom="handleClickZoom"
+          @download="download"
+        />
       </div>
       <!-- 多实验图表 -->
       <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
-        <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-          <div class="text-xs flex items-center pb-1" :title="name">
-            <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: getColor(name) }"></div>
-            <p class="pl-1 truncate">{{ name }}</p>
-          </div>
-          <div class="image-container">
-            <img
-              :src="imagesData[s[currentInnerIndex].filename].url"
-              @click="handleClickZoom(s[currentInnerIndex].filename, name)"
-            />
-            <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
-          </div>
-          <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
-        </div>
+        <!-- 多实验图表 -->
+        <ImageModule
+          v-for="(s, name) in stepsData[currentIndex]"
+          :key="name"
+          :filename="s[currentInnerIndex].filename"
+          :imagesData="imagesData[s[currentInnerIndex].filename].url"
+          :caption="s[currentInnerIndex].caption"
+          :index="name"
+          :name="name"
+          :color="getColor(name)"
+          multi
+          @zoom="handleClickZoom"
+          @download="download"
+        />
       </div>
     </div>
     <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
@@ -81,39 +84,39 @@
           <SLLoading />
         </div>
         <!-- 加载完成 -->
+        <!-- 单实验图表 -->
         <div
           class="images-container"
           :style="setGrid(stepsData[currentIndex][source[0]].length)"
           v-if="!loading && !isMulti"
         >
-          <div
-            class="flex flex-col items-center h-full justify-center"
+          <ImageModule
             v-for="(s, index) in stepsData[currentIndex][source[0]]"
             :key="index"
-          >
-            <div class="image-container">
-              <img :src="imagesData[s.filename].url" @click="handleClickZoom(s.filename, index)" />
-              <DownloadButton class="download-button" @click.stop="download(s.filename)" />
-            </div>
-            <p class="text-xs mt-2">{{ s.caption }}</p>
-          </div>
+            :filename="s.filename"
+            :imagesData="imagesData[s.filename].url"
+            :caption="s.caption"
+            :index="index"
+            @zoom="handleClickZoom"
+            @download="download"
+          />
         </div>
         <!-- 多实验图表 -->
         <div v-if="!loading && isMulti" class="images-container" :style="setGrid(visiableSources.length)">
-          <div class="image-detail" v-for="(s, name) in stepsData[currentIndex]" :key="name">
-            <div class="text-xs flex items-center pb-1" :title="name">
-              <div class="h-2 w-2 rounded-full" :style="{ backgroundColor: getColor(name) }"></div>
-              <p class="pl-1 truncate">{{ name }}</p>
-            </div>
-            <div class="image-container">
-              <img
-                :src="imagesData[s[currentInnerIndex].filename].url"
-                @click="handleClickZoom(s[currentInnerIndex].filename, name)"
-              />
-              <DownloadButton class="download-button" @click.stop="download(s[currentInnerIndex].filename)" />
-            </div>
-            <p class="text-xs text-center truncate" :title="s.caption">{{ s.caption }}</p>
-          </div>
+          <!-- 多实验图表 -->
+          <ImageModule
+            v-for="(s, name) in stepsData[currentIndex]"
+            :key="name"
+            :filename="s[currentInnerIndex].filename"
+            :imagesData="imagesData[s[currentInnerIndex].filename].url"
+            :caption="s[currentInnerIndex].caption"
+            :index="name"
+            :name="name"
+            :color="getColor(name)"
+            multi
+            @zoom="handleClickZoom"
+            @download="download"
+          />
         </div>
       </div>
       <div class="md:h-8 md:flex md:gap-10 items-center justify-center mt-2">
@@ -163,7 +166,7 @@
         <!-- 当前图片 -->
         <div class="relative mx-5 select-none">
           <img :src="imagesData[signleZoomFilename].url" class="w-full" />
-          <DownloadButton class="download-button" @click.stop="download(signleZoomFilename)" />
+          <DownloadButton class="image-download-button" @click.stop="download(signleZoomFilename)" />
         </div>
         <!-- 下一张图片 -->
         <SLIcon icon="down" class="icon -rotate-90" @click="handleSingleChange({ key: 'ArrowRight' })"></SLIcon>
@@ -191,6 +194,7 @@ import { ref, inject, watch, computed } from 'vue'
 import SlideBar from '../components/SlideBar.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import DownloadButton from '../components/DownloadButton.vue'
+import ImageModule from '../modules/ImageModule.vue'
 
 // ---------------------------------- 配置 ----------------------------------
 
@@ -552,32 +556,10 @@ defineExpose({
 <style lang="scss" scoped>
 .image-content {
   @apply mt-1 p-2 w-full rounded-sm relative min-h-[224px];
-  img {
-    @apply min-w-[160px] cursor-pointer;
-  }
   .images-container {
-    @apply grid gap-2 h-full;
-    .image-container {
-      @apply inline-block relative;
-
-      &:hover .download-button {
-        @apply block;
-      }
-    }
-
-    .image-detail {
-      @apply flex flex-col items-center justify-center relative;
-    }
+    @apply grid gap-3 h-full;
   }
 }
-
-.download-button {
-  @apply opacity-75 absolute top-1 right-1 hidden;
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-  padding: 0.125rem !important;
-}
-
 .image-content-no-zoom {
   @apply h-56 overflow-y-auto overflow-x-clip;
 }
@@ -588,7 +570,7 @@ defineExpose({
 
 .image-single-zoom {
   @apply flex items-center justify-between w-full;
-  &:hover .download-button {
+  &:hover .image-download-button {
     @apply block;
   }
 
@@ -599,5 +581,14 @@ defineExpose({
       @apply opacity-100;
     }
   }
+}
+</style>
+
+<style lang="scss">
+.image-download-button {
+  @apply opacity-75 absolute top-1 right-1 hidden;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  padding: 0.125rem !important;
 }
 </style>

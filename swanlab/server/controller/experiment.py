@@ -27,16 +27,15 @@ from ...utils import get_a_lock
 from ...utils.time import create_time
 import yaml
 from ...log import swanlog
-from typing import List, Dict
-from .db import connect, NotExistedError
 from .db import (
     Project,
     Experiment,
     Chart,
-    Namespace,
     Tag,
+    connect,
+    NotExistedError,
 )
-from .utils import get_exp_charts, clear_field
+from .utils import get_exp_charts, clear_field, read_tag_data, get_tag_files, LOGS_CONFIGS
 
 __to_list = Experiment.search2list
 
@@ -47,13 +46,6 @@ __to_list = Experiment.search2list
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
-
-# tag 总结文件名
-TAG_SUMMARY_FILE = "_summary.json"
-# logs 目录下的配置文件
-LOGS_CONFIGS = [TAG_SUMMARY_FILE]
-
-
 # ---------------------------------- 工具函数 ----------------------------------
 
 
@@ -180,46 +172,15 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if not os.path.exists(tag_path):
         return NOT_FOUND_404("tag not found")
     # 获取目录下存储的所有数据
-    # 降序排列，最新的数据在最前面
-    files: list = os.listdir(tag_path)
-    # files中去除_summary.json文件
-    files = [f for f in files if not f.endswith("_summary.json")]
-    if len(files) == 0:
-        return []
-    files.sort()
     tag_data: list = []
-    # 最后一个文件代表当前数据量
-    last_file = files[-1]
-    tag_json = None
-    # ---------------------------------- 开始读取最后一个文件 ----------------------------------
-    # 如果最后一个文件内容为空
-    if os.path.getsize(os.path.join(tag_path, last_file)) == 0:
-        tag_json = {"data": []}
-        count = 0
-    else:
-        # 锁住此文件，不再允许其他进程访问，换句话说，实验日志在log的时候被阻塞
-        with get_a_lock(os.path.join(tag_path, last_file), mode="r") as f:
-            # 读取数据
-            tag_json = ujson.load(f)
-            # 倒数第二个文件+当前文件的数据量等于总数据量
-            # 倒数第二个文件可能不存在
-            count = files[-2].split(".")[0] if len(files) > 1 else 0
-            count = int(count) + len(tag_json["data"])
-    # 读取完毕，文件解锁
+    # ---------------------------------- 读取文件数据 ----------------------------------
+    current_logs = get_tag_files(tag_path, LOGS_CONFIGS)
+    for file in current_logs:
+        tag_data = tag_data + read_tag_data(os.path.join(tag_path, file))
     # ---------------------------------- 返回所有数据 ----------------------------------
-    # FIXME: 性能问题
-    # 读取所有数据
-    # tag_json是最后一个文件的数据
-    # 按顺序读取其他文件的数据
-    tag_data_list: List[List[Dict]] = []
-    for path in files[:-1]:
-        # 读取tag数据，由于目前在设计上这些文件不会再被修改，所以不需要加锁
-        with open(os.path.join(tag_path, path), "r") as f:
-            tag_data_list.append(ujson.load(f)["data"])
-    # 将数据合并
-    for data in tag_data_list:
-        tag_data.extend(data)
-    tag_data.extend(tag_json["data"])
+    # 如果数据为空，返回空列表
+    if len(tag_data) == 0:
+        return SUCCESS_200(data={"sum": 0, "list": [], "experiment_id": experiment_id})
     # COMPAT 如果第一个数据没有index，就循环每个数据，加上index
     if tag_data[0].get("index") is None:
         for index, data in enumerate(tag_data):
@@ -318,22 +279,23 @@ def get_experiment_summary(experiment_id: int) -> dict:
             summaries.append({"key": tag, "value": "TypeError"})
             continue
         tag_path = os.path.join(experiment_path, quote(tag, safe=""))
-        logs = sorted([item for item in os.listdir(tag_path) if not item in LOGS_CONFIGS])
+        # 获取 tag 目录下的所有存储的日志文件
+        logs = get_tag_files(tag_path, LOGS_CONFIGS)
         # 打开 tag 目录下最后一个存储文件，获取最后一条数据
-        with get_a_lock(os.path.join(tag_path, logs[-1]), mode="r") as f:
-            data = ujson.load(f)
-            # str 转化的目的是为了防止有些不合规范的数据导致返回体对象化失败
-            data = str(data["data"][-1]["data"])
-            summaries.append({"key": tag, "value": data})
+        with open(os.path.join(tag_path, logs[-1])) as f:
+            lines = f.readlines()
+            # 最后一行数据，如果为空，取倒数第二行
+            data = lines[-1] if len(lines[-1]) else lines[-2]
+            last_data = ujson.loads(data)
+            summaries.append({"key": tag, "value": last_data["data"]})
     # 获取数据库记录时在实验下的排序
     sorts = {item["name"]: item["sort"] for item in __to_list(experiment.tags)}
-    # 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
+    # COMPAT 如果 sorts 中的值不都为 0，说明是新版添加排序后的 tag，这里进行排序 (如果是旧版没有排序的tag，直接按照数据库顺序即可)
     if not all(value == 0 for value in sorts.values()):
         temp = [0] * len(summaries)
         for item in summaries:
             temp[sorts[item["key"]]] = item
         summaries = temp
-
     return SUCCESS_200({"summaries": summaries})
 
 
