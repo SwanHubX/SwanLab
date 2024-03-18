@@ -161,7 +161,7 @@ class Consoler(__consoler_class(), LeverCtl):
         # 如果日志系统初始化失败
         if not self.init_status:
             with open(console_path, "w", encoding="utf-8") as f:
-                f.write("1 Console recoder init failed")
+                f.write("Console Recoder Init Failed!")
         # 日志文件
         self.console = open(console_path, "a", encoding="utf-8")
 
