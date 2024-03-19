@@ -136,13 +136,22 @@ class Consoler(__consoler_class(), LeverCtl):
     # 只有第一次输入时为None
     __previous_message = None
 
-    def __init__(self):
+    __init_status = True
+
+    def __init__(self, *args, **kwargs):
         # 根据环境进行不同的初始化
-        if in_notebook():
-            super().__init__()
-        else:
-            super().__init__(sys.stdout.buffer)
+        try:
+            if in_notebook():
+                super().__init__()
+            else:
+                super().__init__(sys.stdout.buffer)
+        except:
+            self.__init_status = False
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
+
+    @property
+    def init_status(self) -> bool:
+        return self.__init_status
 
     def init(self, path, swanlog_level="debug"):
         # 通过当前日期生成日志文件名
@@ -153,6 +162,10 @@ class Consoler(__consoler_class(), LeverCtl):
             os.makedirs(path)
         # 日志文件路径
         console_path = os.path.join(path, f"{self.now}.log")
+        # 如果日志系统初始化失败
+        if not self.__init_status:
+            with open(console_path, "w", encoding="utf-8") as f:
+                f.write("Console Recoder Init Failed!")
         # 日志文件
         self.console = open(console_path, "a", encoding="utf-8")
 
@@ -238,7 +251,8 @@ class SwanConsoler:
 
     def init(self, path):
         self.consoler.init(path)
-        sys.stdout = self.consoler
+        if self.consoler.init_status:
+            sys.stdout = self.consoler
 
     def reset(self):
         """重置输出为原本的样子"""

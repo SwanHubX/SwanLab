@@ -122,6 +122,7 @@ const indexWidth = computed(() => {
   if (l) {
     index = lines.value[l - 1].index === '' ? lines.value[l - 2].index : lines.value[l - 1].index
   }
+  if (!index) return '0px'
   return 8 * index.length + 'px'
 })
 
@@ -222,7 +223,9 @@ const computeRange = (e) => {
  * 一般行高是 16px，基本不会出问题，所以目前只在初始化时计算，而没做另外的事件监听
  */
 const computeLineHeight = () => {
-  const line_styles = window.getComputedStyle(document.querySelector('.log-line'))
+  const e = document.querySelector('.log-line')
+  if (!e) return 0
+  const line_styles = window.getComputedStyle(e)
   lineHeight.value = parseFloat(line_styles.getPropertyValue('line-height'))
 }
 
