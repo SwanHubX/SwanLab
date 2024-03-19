@@ -16,6 +16,7 @@ from .utils import (
     check_desc_format,
     get_a_lock,
     json_serializable,
+    FONT,
 )
 from datetime import datetime
 import time
@@ -559,9 +560,6 @@ class SwanLabRun:
         self.__settings.exp_name = exp_name
         # 实验创建成功，执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
-        # 打印信息
-
-        swanlog.info(f"Experiment {experiment_name} has been registered.")
         return SwanLabExp(self.__settings, exp.id, exp=exp)
 
     def __check_log_level(self, log_level: str) -> str:

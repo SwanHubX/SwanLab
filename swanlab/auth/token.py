@@ -5,5 +5,5 @@ r"""
 @File: swanlab/auth/save.py
 @IDE: vscode
 @Description:
-    将用户信息保存到文件中，以便下次登录时读取
+    本文件存储token的相关操作
 """

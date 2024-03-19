@@ -163,3 +163,16 @@ def get_db_path() -> Optional[str]:
     # 否则从环境变量中提取
     _env[DATABASE_PATH] = os.path.join(get_swanlog_dir(), "runs.swanlab")
     return _env.get(DATABASE_PATH)
+
+
+def get_user_token() -> str:
+    """获取用户token，token存储在$HOME/.swanlab/.netrc文件中
+    最终返回str
+    如果没有找到token，报错
+
+    Returns
+    -------
+    Optional[str]
+        用户token
+    """
+    return

@@ -5,7 +5,7 @@ r"""
 @File: swanlab/auth/login.py
 @IDE: vscode
 @Description:
-    用户登录
+    用户登录接口，输入用户的apikey，保存用户token到本地
 """
 
 import asyncio
@@ -14,27 +14,29 @@ from ..utils import FONT, get_package_version
 import sys
 
 
-async def _login(api_key: str):
-    """用户登录，异步被调用
+async def _get_exp_token(user_token: str):
+    """用户登录，异步调用
 
     Parameters
     ----------
-    api_key : str
-        用户的api_key
+    user_token : str
+        用户api_key经过后端验证后的token
     """
     await asyncio.sleep(5)
     return
 
 
-async def login(api_key: str = None):
-    """用户登录
+async def get_exp_token(user_token: str = None):
+    """通过apikey获取实验令牌
+    接下来通过此令牌上传实验日志
+    获取令牌的途中显示转圈圈，表示正在获取
 
     Parameters
     ----------
-    api_key : str
-        用户的api_key
+    user_token : str
+        用户的token
     """
-    login_task = asyncio.create_task(_login(api_key))
+    login_task = asyncio.create_task(_get_exp_token(user_token))
     prefix = FONT.bold(FONT.blue("swanlab: "))
     loading_task = asyncio.create_task(FONT.loading("login...", interval=0.5, prefix=prefix))
     data = await login_task

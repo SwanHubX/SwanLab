@@ -114,7 +114,9 @@ def init(
     # 初始化环境变量
     init_env()
 
-    # 用户登录、格式、权限校验
+    # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
+    # 1. 如果没有登录，提示登录
+    # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
     token = None
     if cloud:
         # 登录成功会返回当前实验的token
@@ -140,16 +142,16 @@ def init(
     # 注册清理函数
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
-    swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
+    swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     # 展示相关信息信息
     swanlog.info("Tracking run with swanlab version " + get_package_version())
     swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
     not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
     cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
-    swanlog.info("🌟 Run `swanlab watch` to view SwanLab Experiment Dashboard")
-    cloud and swanlog.info("🏠 View project at https://www.hao123.com")
-    cloud and swanlog.info("🚀 View run at https://www.hao123.com")
+    swanlog.info("🌟 Run " + FONT.yellow("swanlab watch") + " to view SwanLab Experiment Dashboard")
+    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline("https://www.hao123.com")))
+    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline("https://www.hao123.com")))
     inited = True
     return run
 

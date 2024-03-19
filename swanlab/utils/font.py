@@ -148,6 +148,23 @@ class FONT:
         return f"\033[90m{s}\033[0m"
 
     @staticmethod
+    def underline(s: str) -> str:
+        """在终端中将字符串着色为下划线
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[4m{s}\033[0m"
+
+    @staticmethod
     def green(s: str) -> str:
         """在终端中将字符串着色为绿色
 
