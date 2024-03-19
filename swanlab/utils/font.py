@@ -82,6 +82,11 @@ class FONT:
             await asyncio.sleep(interval)
 
     @staticmethod
+    def swanlab(s: str):
+        """用于为某一条信息添加swanlab前缀"""
+        return FONT.bold(FONT.blue("swanlab")) + ": " + s
+
+    @staticmethod
     def brush(s: str, length: int = 20):
         """
         将当前终端行刷去，替换为新的字符串

@@ -33,3 +33,15 @@ class TokenFileError(Exception):
     """
 
     pass
+
+
+class UnKnownSystemError(Exception):
+    """未知系统错误，此时swanlab运行在未知系统上，这个系统不是windows或者类unix系统
+
+    Parameters
+    ----------
+    Exception : class
+        python内置异常类
+    """
+
+    pass

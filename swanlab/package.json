@@ -2,5 +2,9 @@
 	"name": "swanlab",
 	"version": "0.2.4",
 	"description": "",
-	"python": "true"
+	"python": "true",
+    "host": {
+        "web": "https://swanlab.pro",
+        "api": "https://api.swanlab.pro"
+    }
 }

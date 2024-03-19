@@ -8,4 +8,5 @@ r"""
     用户认证模块，当用户登录时，需要验证用户的身份
     这一块因为可能swanlog模块没有初始化，所以需要自己单独打印一下
 """
-from .login import login
+from .login import terminal_login, code_login
+from .experiment import get_exp_token

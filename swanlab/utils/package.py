@@ -10,6 +10,8 @@ r"""
 import json
 import os
 
+package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
+
 
 def get_package_version() -> str:
     """获取swanlab的版本号
@@ -21,11 +23,75 @@ def get_package_version() -> str:
     """
     try:
         # 读取package.json文件
-        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
-        with open(path, "r") as f:
+        with open(package_path, "r") as f:
             return json.load(f)["version"]
     except:
         return "unknown"
+
+
+def get_host_web() -> str:
+    """获取swanlab网站网址
+
+    Returns
+    -------
+    str
+        swanlab网站的网址
+    """
+    with open(package_path, "r") as f:
+        return json.load(f)["host"]["web"]
+
+
+def get_host_api() -> str:
+    """获取swanlab网站api网址
+
+    Returns
+    -------
+    str
+        swanlab网站的api网址
+    """
+    with open(package_path, "r") as f:
+        return json.load(f)["host"]["api"]
+
+
+USER_SETTING_PATH = get_host_web() + "/settings"
+
+
+def get_project_url(username: str, projname: str) -> str:
+    """获取项目的url
+
+    Parameters
+    ----------
+    username : str
+        用户名
+    projname : str
+        项目名
+
+    Returns
+    -------
+    str
+        项目的url
+    """
+    return get_host_web() + "/" + username + "/" + projname
+
+
+def get_experiment_url(username: str, projname: str, expid: str) -> str:
+    """获取实验的url
+
+    Parameters
+    ----------
+    username : str
+        用户名
+    projname : str
+        项目名
+    expid : str
+        实验id
+
+    Returns
+    -------
+    str
+        实验的url
+    """
+    return get_project_url(username, projname) + "/" + expid
 
 
 def version_limit(path: str, mode: str) -> None:

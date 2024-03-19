@@ -11,16 +11,21 @@ r"""
 import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from ..utils import FONT, version_limit
-from ..env import get_server_host, get_server_port, get_swanlog_dir
+from ..env import get_server_host, get_server_port, get_swanlog_dir, get_user_token
 import time
 from ..db import connect
 from ..utils import get_package_version
+from ..error import TokenFileError
+from ..auth import terminal_login
 
 
 @click.group(invoke_without_command=True)
 @click.version_option(get_package_version(), "--version", "-v", message="SwanLab %(version)s")
 def cli():
     pass
+
+
+# ---------------------------------- watch命令，开启本地后端服务 ----------------------------------
 
 
 @cli.command()
@@ -110,6 +115,38 @@ def watch(log_level: str, **kwargs):
             swl.critical(critical)
         else:
             swl.critical("Unhandled Exit Code: {}".format(code))
+
+
+# ---------------------------------- 登录命令，进行登录 ----------------------------------
+@cli.command()
+@click.option(
+    "--relogin",
+    "-r",
+    is_flag=True,
+    default=False,
+    help="Relogin to the swanlab cloud, it will recover the token file.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    default=None,
+    type=str,
+    help="If you prefer not to engage in command-line interaction to input the api key, this will allow automatic login.",
+)
+def login(api_key: str, relogin: bool, **kwargs):
+    """Login to the swanlab cloud."""
+    # 其实还可以有别的方式，但是现阶段只有输入api key的方式，直接运行login函数即可
+    if not relogin:
+        try:
+            get_user_token()
+            # 此时代表token已经获取，需要打印一条信息：已经登录
+            command = FONT.bold("swanlab login --relogin")
+            tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
+            print(tip)
+        except TokenFileError:
+            pass
+    # 进行登录，此时将直接覆盖本地token文件
+    terminal_login(api_key)
 
 
 if __name__ == "__main__":
