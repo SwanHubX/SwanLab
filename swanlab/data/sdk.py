@@ -150,7 +150,7 @@ def log(data: Dict[str, DataType], step: int = None):
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
     l = run.log(data, step)
-    swanlog.reset_temporary_logging()
+    # swanlog.reset_temporary_logging()
     return l
 
 
