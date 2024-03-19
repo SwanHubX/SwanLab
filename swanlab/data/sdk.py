@@ -45,7 +45,6 @@ def init(
     logdir: str = None,
     suffix: str = "default",
     log_level: str = None,
-    logggings: bool = False,
     cloud: bool = False,
 ) -> SwanLabRun:
     """
@@ -117,7 +116,6 @@ def init(
         config=config,
         log_level=log_level,
         suffix=suffix,
-        loggings=logggings,
     )
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -132,7 +130,7 @@ def init(
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] = None):
+def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
 
@@ -145,19 +143,13 @@ def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] =
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
-    logger : bool or dict, optional
-        Whether to print the data to the console, the default is None.
-        If you pass a bool, you can specify whether to print the data to the console.
-        If you pass a dict, you can specify whether to print the data to the console, the prefix and suffix of the print data, whether to print timestamp.
-        Examples1: swanlab.log({"loss": loss}, logger=True)
-        Examples2: swanlab.log({"loss": loss}, logger={"open": True, "prefix": "[0/200] ", "subfix": None, "time":False})
     """
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
-    l = run.log(data, step, logger)
+    l = run.log(data, step)
     swanlog.reset_temporary_logging()
     return l
 
