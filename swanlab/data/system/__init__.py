@@ -5,7 +5,8 @@ r"""
 @File: swanlab\system\__init__.py
 @IDE: vscode
 @Description:
-    硬件监控模块
+    硬件监控模块与系统信息获取
 """
 
 from .monitor import SwanSystemMonitor
+from .info import get_system_info, get_requirements

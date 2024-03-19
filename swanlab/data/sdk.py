@@ -18,6 +18,8 @@ from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
 from ..utils import version_limit
+from ..auth import login
+import asyncio
 
 
 run: Optional["SwanLabRun"] = None
@@ -44,6 +46,7 @@ def init(
     suffix: str = "default",
     log_level: str = None,
     logggings: bool = False,
+    cloud: bool = False,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -62,7 +65,7 @@ def init(
         Some experiment parameter configurations that can be displayed on the web interface, such as learning rate, batch size, etc.
     log_level : str, optional
         The log level of the current experiment, the default is 'info', you can choose from 'debug', 'info', 'warning', 'error', 'critical'.
-    dir : str, optional
+    logdir : str, optional
         The directory where the log file is stored, the default is current working directory.
         You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
@@ -74,7 +77,7 @@ def init(
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     """
     global run, inited
-
+    # ---------------------------------- 一些变量、格式检查 ----------------------------------
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
@@ -98,6 +101,8 @@ def init(
             raise IOError("logdir must have Write permission.")
     # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(logdir, mode="init")
+    # 用户登录、格式、权限校验
+    asyncio.run(login())
     # 初始化环境变量
     init_env()
     # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建

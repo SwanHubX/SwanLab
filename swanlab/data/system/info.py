@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2023-11-26 16:49:47
-@File: swanlab\database\system.py
+@DATE: 2024-03-19 15:37:02
+@File: swanlab/data/system/info.py
 @IDE: vscode
 @Description:
-    采集系统数据，包括内存、CPU、GPU、硬盘、网络等
-
-该模块中，多数应使用 warning 提出警告信息，某模块出错并不影响实验与日志记录
+    获取系统信息
 """
 import platform
 import socket
@@ -15,7 +13,7 @@ import sys
 import subprocess
 import multiprocessing
 import pynvml
-from ..log import swanlog
+from ...log import swanlog
 
 
 def __replace_second_colon(input_string, replacement):

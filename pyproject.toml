@@ -57,7 +57,7 @@ pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 filename = "requirements.txt"
 
 [tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]  # 动态设置可选依赖
-oauth = ["requirements-swan.txt"]  # 连接swanlab云端的可选依赖
+oauth = ["requirements-cloud.txt"]  # 连接swanlab云端的可选依赖
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"

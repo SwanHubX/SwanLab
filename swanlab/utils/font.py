@@ -8,8 +8,10 @@ r"""
     颜色处理工具
 """
 
-
+import sys
+import asyncio
 import re
+from typing import Callable
 
 light_colors = [
     "#528d59",  # 绿色
@@ -56,6 +58,45 @@ def generate_color(number: int = 1) -> str:
 
 class FONT:
     @staticmethod
+    async def loading(s: str, interval: float = 0.1, out: Callable = sys.stdout.write, prefix: str = ""):
+        """
+        实现终端打印的加载效果，输入的字符串会在开头出现loading效果，这是一个协程函数，需要使用await调用
+
+        Parameters
+        ----------
+        s : str
+            需要打印的字符串
+        interval : float, optional
+            loading的速度，即每个字符的间隔时间，单位为秒
+        out : callable, optional
+            输出函数，默认为sys.stdout.write，或者可以使用其他自定义传入的函数
+        prefix : str, optional
+            前缀字符串，打印在loading效果之前，默认为空字符串
+        """
+        symbols = ["\\", "|", "/", "-"]
+        index = 0
+        while True:
+            out("\r" + prefix + symbols[index % len(symbols)] + " " + s)
+            sys.stdout.flush()
+            index += 1
+            await asyncio.sleep(interval)
+
+    @staticmethod
+    def brush(s: str, length: int = 20):
+        """
+        将当前终端行刷去，替换为新的字符串
+
+        Parameters
+        ----------
+        s : str
+            需要刷去的字符串
+        length : int, optional
+            需要刷去的长度，默认为20，如果当前行的长度大于length，但又需要刷去整行，则需要传入更大的length
+        """
+        sys.stdout.write("\r" + " " * length + "\r" + s)
+        sys.stdout.flush()
+
+    @staticmethod
     def bold(s: str) -> str:
         """在终端中加粗字符串
 
@@ -71,6 +112,23 @@ class FONT:
         """
         # ANSI 转义码用于在终端中改变文本样式
         return f"\033[1m{s}\033[0m"
+
+    @staticmethod
+    def blue(s: str) -> str:
+        """在终端中将字符串着色为蓝色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[34m{s}\033[0m"
 
     @staticmethod
     def grey(s: str) -> str:
