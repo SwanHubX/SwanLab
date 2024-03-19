@@ -44,6 +44,8 @@
 
 ## 更新日志
 
+[24/03/19] 🔧 我们修复了一些问题，并为即将到来的云端版本做准备。（v0.2.4）
+
 [24/03/12] 👽 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入。（v0.2.3）
 
 [24/03/03] 🔧 我们修复了v0.2.1的一些问题，以及支持了通过按键切换多媒体图表的内容。（v0.2.2）
@@ -51,8 +53,6 @@
 [24/03/01] 🚀 依旧是超大杯的更新！我们支持了[文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)以适配NLP、LLM、Agent等场景任务的需求; 我们对折线图的UI、图例、渲染速度做了大量优化，并提高了Logs的渲染性能，200k行的终端打印信息查看也不卡顿。（v0.2.1）
 
 [24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。（v0.2.0）
-
-[24/01/25] 😄 我们发布了新的Config/Summary表格组件，支持参数搜索。此外我们还使用了新的字体和配色。（v0.1.6）
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
