@@ -10,14 +10,14 @@ r"""
 import atexit, sys, traceback, os
 from datetime import datetime
 from .run import SwanLabRun, SwanLabConfig, register
-from typing import Optional, Union
+from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
 from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
-from ..utils import version_limit
+from ..utils import version_limit, FONT, get_package_version
 from ..auth import login
 import asyncio
 
@@ -46,6 +46,8 @@ def init(
     suffix: str = "default",
     log_level: str = None,
     cloud: bool = False,
+    project: str = None,
+    organization: str = None,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -74,6 +76,15 @@ def init(
         If this parameter is None, no suffix will be added.
         If this paramter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
+    cloud : bool, optional
+        Whether to use the cloud mode, the default is False.
+        If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
+        If you are not using cloud mode, the `project` and `organization` fields are invalid.
+    project : str, optional
+        The project name of the current experiment, the default is None, which means the current project name is the same as the current working directory.
+        If you are using cloud mode, you must provide the project name.
+    organization : str, optional
+        The organization name of the current experiment, the default is None, which means the log file will be stored in your personal space.
     """
     global run, inited
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
@@ -100,11 +111,16 @@ def init(
             raise IOError("logdir must have Write permission.")
     # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(logdir, mode="init")
-    # 用户登录、格式、权限校验
-    asyncio.run(login())
     # 初始化环境变量
     init_env()
-    # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
+
+    # 用户登录、格式、权限校验
+    token = None
+    if cloud:
+        # 登录成功会返回当前实验的token
+        token = asyncio.run(login())
+
+    # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
 
     # 初始化项目数据库
@@ -117,15 +133,23 @@ def init(
         log_level=log_level,
         suffix=suffix,
     )
+    # 如果使用云端模式，再次开启其他线程负责同步数据
+
     # 注册异常处理函数
     sys.excepthook = __except_handler
     # 注册清理函数
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
-    swanlog.info("Experiment_name: " + run.settings.exp_name)
-    swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
+    # 展示相关信息信息
+    swanlog.info("Tracking run with swanlab version " + get_package_version())
+    swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
+    not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    # 云端版本有一些额外的信息展示
+    cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
+    swanlog.info("🌟 Run `swanlab watch` to view SwanLab Experiment Dashboard")
+    cloud and swanlog.info("🏠 View project at https://www.hao123.com")
+    cloud and swanlog.info("🚀 View run at https://www.hao123.com")
     inited = True
     return run
 

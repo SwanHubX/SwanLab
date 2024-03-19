@@ -60,7 +60,7 @@ class LeverCtl(object):
         message : string
             打印的信息
         """
-        pattern = re.compile(r".*\[SwanLab-(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]:\s+")
+        pattern = re.compile(r"swanlab:\s")
         match = pattern.match(message)
 
         if match:
@@ -153,7 +153,7 @@ class Consoler(__consoler_class(), LeverCtl):
     def init_status(self) -> bool:
         return self.__init_status
 
-    def init(self, path, swanlog_level="debug"):
+    def init(self, path):
         # 通过当前日期生成日志文件名
         self.now = datetime.now().strftime("%Y-%m-%d")
         self.console_folder = path

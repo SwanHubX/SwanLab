@@ -10,7 +10,7 @@ r"""
 from typing import Optional
 from .log import SwanLog
 
-swanlog: Optional["SwanLog"] = SwanLog("SwanLab")
+swanlog: Optional["SwanLog"] = SwanLog("swanlab")
 
 
 def register(

@@ -199,8 +199,25 @@ class FONT:
         return f"\033[31m{s}\033[0m"
 
     @staticmethod
+    def magenta(s: str) -> str:
+        """在终端中将字符串着色为品红色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[35m{s}\033[0m"
+
+    @staticmethod
     def clear(s: str) -> str:
-        """清除终端中的颜色
+        """清除字符串中的颜色编码
 
         Parameters
         ----------

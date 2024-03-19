@@ -40,4 +40,6 @@ async def login(api_key: str = None):
     data = await login_task
     # 取消加载动画任务
     loading_task.cancel()
-    # 最后需要刷去当前行，替换为新的内容，这将在外部完成
+    # 最后需要刷去当前行, 不再显示加载动画
+    FONT.brush("")
+    return "token"

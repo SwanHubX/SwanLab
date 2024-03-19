@@ -26,6 +26,7 @@ swanlab.init(
         "debug": "这是一串" + "很长" * 100 + "的字符串",
         "verbose": 1,
     },
+    cloud=True,
 )
 # 模拟训练
 for epoch in range(2, epochs):
