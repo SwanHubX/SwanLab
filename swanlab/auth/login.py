@@ -10,32 +10,28 @@ r"""
 import asyncio
 from ..error import ValidationError
 from ..utils import FONT
-from ..utils.package import user_setting_path
+from ..utils.token import save_token
+from ..env import get_api_key_file_path
+from ..utils.package import USER_SETTING_PATH, get_host_api
+import getpass
 
 
-async def _login(user_token: str):
+async def _login(api_key: str):
     """用户登录，异步调用接口完成验证
-
-    Parameters
-    ----------
-    user_token : str
-        用户api_key
-    """
-    await asyncio.sleep(5)
-    return
-
-
-async def _check_key_format(api_key: str):
-    """检查api_key的格式是否正确
+    返回后端内容(dict)，如果后端请求失败，返回None
 
     Parameters
     ----------
     api_key : str
         用户api_key
     """
-    if len(api_key) < 10:
-        raise ValidationError("api_key格式错误")
-    return
+    await asyncio.sleep(5)
+    # api key写入token文件
+    # TODO 作为测试，api_key如果为123456时返回None
+    if api_key == "123456":
+        return None
+    save_token(get_api_key_file_path(), get_host_api(), "user", api_key)
+    return api_key
 
 
 def input_api_key(tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: "):
@@ -48,15 +44,25 @@ def input_api_key(tip: str = "Paste an API key from your profile and hit enter, 
         用户api_key
 
     """
-    print(FONT.swanlab("You can find your API key at: " + user_setting_path()))
+    print(FONT.swanlab("You can find your API key at: " + USER_SETTING_PATH))
+    return getpass.getpass(FONT.swanlab(tip))
 
-    return "token"
 
-
-def code_login():
+async def code_login(api_key: str):
     """
     代码内登录，此时会覆盖本地token文件
     """
+    login_task = asyncio.create_task(_login(api_key))
+    prefix = FONT.bold(FONT.blue("swanlab: "))
+    tip = "Waiting for the swanlab cloud response."
+    loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5, prefix=prefix))
+    data = await login_task
+    # 取消加载动画任务
+    loading_task.cancel()
+    # 最后需要刷去当前行, 不再显示加载动画
+    FONT.brush("", length=100)
+    if data is None:
+        print(FONT.swanlab("Login failed! Please try again.", color="red"))
 
 
 def terminal_login(api_key: str = None):
@@ -66,4 +72,5 @@ def terminal_login(api_key: str = None):
     # 1. api_key存在，跳过输入环节，直接请求登录接口，这与代码内swanlab.login方法一致
     # 2. api_key为None，提示用户输入
     if api_key is None:
-        api_key = input_api_key("Please input your api_key: ")
+        api_key = input_api_key()
+    asyncio.run(code_login(api_key))

@@ -11,7 +11,7 @@ r"""
 import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from ..utils import FONT, version_limit
-from ..env import get_server_host, get_server_port, get_swanlog_dir, get_user_token
+from ..env import get_server_host, get_server_port, get_swanlog_dir, is_login
 import time
 from ..db import connect
 from ..utils import get_package_version
@@ -136,15 +136,11 @@ def watch(log_level: str, **kwargs):
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""
     # 其实还可以有别的方式，但是现阶段只有输入api key的方式，直接运行login函数即可
-    if not relogin:
-        try:
-            get_user_token()
-            # 此时代表token已经获取，需要打印一条信息：已经登录
-            command = FONT.bold("swanlab login --relogin")
-            tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
-            print(tip)
-        except TokenFileError:
-            pass
+    if not relogin and is_login():
+        # 此时代表token已经获取，需要打印一条信息：已经登录
+        command = FONT.bold("swanlab login --relogin")
+        tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
+        return print(tip)
     # 进行登录，此时将直接覆盖本地token文件
     terminal_login(api_key)
 

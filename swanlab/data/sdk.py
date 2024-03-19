@@ -18,7 +18,9 @@ from ..env import init_env, ROOT
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
 from ..utils import version_limit, FONT, get_package_version
-from ..auth import login
+from ..utils.package import get_host_web
+from ..auth import get_exp_token, terminal_login
+from ..error import NotLoginError
 import asyncio
 
 
@@ -117,11 +119,7 @@ def init(
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     # 1. 如果没有登录，提示登录
     # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
-    token = None
-    if cloud:
-        # 登录成功会返回当前实验的token
-        token = asyncio.run(login())
-
+    token = _get_exp_token(cloud=cloud)
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
 
@@ -135,7 +133,7 @@ def init(
         log_level=log_level,
         suffix=suffix,
     )
-    # 如果使用云端模式，再次开启其他线程负责同步数据
+    # 如果使用云端模式，在此开启其他线程负责同步数据
 
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -150,8 +148,10 @@ def init(
     # 云端版本有一些额外的信息展示
     cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info("🌟 Run " + FONT.yellow("swanlab watch") + " to view SwanLab Experiment Dashboard")
-    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline("https://www.hao123.com")))
-    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline("https://www.hao123.com")))
+    project_url = get_host_web() + "/" + "{project_name}"
+    experiment_url = project_url + "/" + token
+    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 
@@ -196,6 +196,25 @@ def finish():
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
+
+
+def _get_exp_token(cloud: bool = False):
+    """获取当前实验的token
+    无论是否使用cloud模式，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
+    如果没有登录，提示登录
+    """
+    token = None
+    if cloud:
+        # 登录成功会返回当前实验的token
+        while True:
+            try:
+                token = asyncio.run(get_exp_token())
+                break
+            except NotLoginError:
+                terminal_login()
+                # TODO 后面删了这个break
+                break
+    return token
 
 
 def __clean_handler():

@@ -28,5 +28,7 @@ def get_token(path: str, host: str):
 
 def save_token(path: str, host: str, username: str, password: str):
     """保存token到token文件"""
-    nrc = netrc.netrc(path)
+    nrc = netrc.netrc()
     nrc.hosts[host] = (username, None, password)
+    with open(path, "w") as f:
+        f.write(nrc.__repr__())

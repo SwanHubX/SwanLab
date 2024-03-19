@@ -11,6 +11,7 @@ from typing import MutableMapping, Optional
 from .utils.file import is_port, is_ipv4
 from .utils.token import get_token
 from .error import UnKnownSystemError, TokenFileError
+from .utils.package import get_host_api
 import sys
 
 Env = Optional[MutableMapping]
@@ -198,7 +199,7 @@ def get_user_home() -> str:
         return os.environ.get("HOME")
 
 
-def get_swanlab_floder() -> str:
+def get_swanlab_folder() -> str:
     """获取用户家目录的.swanlab文件夹路径，如果不存在此文件夹就创建
 
     Returns
@@ -213,7 +214,7 @@ def get_swanlab_floder() -> str:
     return swanlab_floder
 
 
-def get_token_file_path() -> str:
+def get_api_key_file_path() -> str:
     """获取用户token文件路径，token文件存储在$HOME/.swanlab/.netrc文件中
     不保证文件存在
 
@@ -222,11 +223,11 @@ def get_token_file_path() -> str:
     str
         用户token文件路径
     """
-    swanlab_floder = get_swanlab_floder()
+    swanlab_floder = get_swanlab_folder()
     return os.path.join(swanlab_floder, ".netrc")
 
 
-def get_user_token() -> str:
+def get_user_api_key() -> str:
     """获取用户token，token存储在$HOME/.swanlab/.netrc文件中
     最终返回str
     如果没有找到token或者token解析失败，报错 TokenFileError
@@ -241,9 +242,24 @@ def get_user_token() -> str:
     TokenFileError
         token文件错误，此时token文件不存在或者格式错误（解析失败）
     """
-    netrc_file = get_token_file_path()
+    netrc_file = get_api_key_file_path()
     # 解析token文件，可能会报错 TokenFileError
     # 如果文件不存在，报错TokenFileError
     if not os.path.exists(netrc_file):
         raise TokenFileError("The token file is not found, please login first")
-    return get_token(netrc_file)
+    return get_token(netrc_file, get_host_api())
+
+
+def is_login() -> bool:
+    """判断用户是否登录
+
+    Returns
+    -------
+    bool
+        是否登录
+    """
+    try:
+        get_user_api_key()
+        return True
+    except TokenFileError:
+        return False
