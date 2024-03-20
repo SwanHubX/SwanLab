@@ -9,6 +9,7 @@ r"""
 """
 from ..error import TokenFileError
 import netrc
+import os
 
 
 def get_token(path: str, host: str):
@@ -28,7 +29,11 @@ def get_token(path: str, host: str):
 
 def save_token(path: str, host: str, username: str, password: str):
     """保存token到token文件"""
-    nrc = netrc.netrc()
+    # 如果文件不存在，自动创建
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write("")
+    nrc = netrc.netrc(path)
     nrc.hosts[host] = (username, None, password)
     with open(path, "w") as f:
         f.write(nrc.__repr__())

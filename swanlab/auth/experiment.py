@@ -12,6 +12,7 @@ import requests
 from ..utils import FONT
 from ..env import is_login, get_user_api_key
 from ..error import NotLoginError, TokenFileError
+from .info import ExpInfo
 
 
 async def _get_exp_token(user_token: str):
@@ -38,6 +39,8 @@ async def get_exp_token():
         raise NotLoginError("Please login first")
     # 此时get_user_api_key必然成功
     api_key = get_user_api_key()
+    command = FONT.bold("swanlab login --relogin")
+    print(FONT.swanlab("API key is configured. Use` " + command + "` to force relogin"))
     login_task = asyncio.create_task(_get_exp_token(api_key))
     # 显示加载动画
     prefix = FONT.bold(FONT.blue("swanlab: "))

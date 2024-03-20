@@ -14,13 +14,13 @@ from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
-from ..env import init_env, ROOT
+from ..env import init_env, ROOT, is_login, get_user_api_key
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
 from ..utils import version_limit, FONT, get_package_version
 from ..utils.package import get_host_web
-from ..auth import get_exp_token, terminal_login
-from ..error import NotLoginError
+from ..auth import get_exp_token, terminal_login, code_login
+from ..error import NotLoginError, ValidationError
 import asyncio
 
 
@@ -38,6 +38,23 @@ After calling the init() function, swanlab.config is equivalent to run.config.
 Configuration information synchronization is achieved through class variables.
 When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
 """
+
+
+def login(api_key: str):
+    """
+    Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
+
+    Parameters
+    ----------
+    api_key : str
+        authentication key.
+    """
+    # 如果已经登录且保存，判断一下当前api_key是否和本地api_key一致，如果一致，直接返回
+    # 如果不一致，继续下面的步骤
+    if is_login() and api_key == get_user_api_key():
+        return
+    # 否则进行登录
+    code_login(api_key)
 
 
 def init(
@@ -147,7 +164,7 @@ def init(
     not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
     cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
-    swanlog.info("🌟 Run " + FONT.yellow("swanlab watch") + " to view SwanLab Experiment Dashboard")
+    swanlog.info("🌟 Run `" + FONT.bold("swanlab watch") + "` to view SwanLab Experiment Dashboard")
     project_url = get_host_web() + "/" + "{project_name}"
     experiment_url = project_url + "/" + token
     cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
@@ -199,9 +216,9 @@ def finish():
 
 
 def _get_exp_token(cloud: bool = False):
-    """获取当前实验的token
-    无论是否使用cloud模式，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
-    如果没有登录，提示登录
+    """获取当前实验的相关信息
+    可能包含实验的token、实验的id、用户信息等信息
+    无论是否使用cloud模式，此函数都会执行，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
     """
     token = None
     if cloud:
@@ -211,9 +228,8 @@ def _get_exp_token(cloud: bool = False):
                 token = asyncio.run(get_exp_token())
                 break
             except NotLoginError:
+                # 如果没有登录，提示登录
                 terminal_login()
-                # TODO 后面删了这个break
-                break
     return token
 
 

@@ -87,7 +87,7 @@ class FONT:
         return FONT.bold(getattr(FONT, color)("swanlab")) + ": " + s
 
     @staticmethod
-    def brush(s: str, length: int = 20):
+    def brush(s: str, length: int = 20, flush: bool = True) -> None:
         """
         将当前终端行刷去，替换为新的字符串
 
@@ -97,6 +97,8 @@ class FONT:
             需要刷去的字符串
         length : int, optional
             需要刷去的长度，默认为20，如果当前行的长度大于length，但又需要刷去整行，则需要传入更大的length
+        flush : bool, optional
+            是否刷新输出，默认为True
         """
         sys.stdout.write("\r" + " " * length + "\r" + s)
         sys.stdout.flush()
