@@ -1,5 +1,5 @@
 ---
-name: 🤪 Feature request
+name: 🤪 Feature advice
 about: Suggest an idea for this project
 title: '[ADVICE] '
 labels: enhancement
