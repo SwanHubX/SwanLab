@@ -325,6 +325,7 @@ class SwanLabRun:
         experiment_name: str = None,
         description: str = None,
         config: dict = None,
+        config_file: str = None,
         log_level: str = None,
         suffix: str = None,
         loggings: bool = False,
@@ -343,6 +344,9 @@ class SwanLabRun:
         config : dict, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
+        config_file: str, optional
+            实验参数配置文件路径，将被读取为dict。作用与config一致, 且会与config合并
+            路径对应的文件必须是json或yaml文件，否则会报错
         log_level : str, optional
             当前实验的日志等级，默认为'info'，可以从'debug'、'info'、'warning'、'error'、'critical'中选择
             不区分大小写，如果不提供此参数(为None)，则默认为'info'
@@ -364,6 +368,48 @@ class SwanLabRun:
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
+
+        # ---------------------------------- 检查config_file并与config合并 ----------------------------------
+        # 如果config_file不是None，说明用户提供了配置文件，需要读取配置文件
+        if config_file is not None:
+            # 检查config_file的后缀是否是json/yaml，否则报错
+            config_file_suffix = config_file.split(".")[-1]
+            if not config_file.endswith((".json", ".yaml", ".yml")):
+                raise ValueError(
+                    "config_file must be a json or yaml file ('.json', '.yaml', '.yml'), but got {}, please check if the content of config_file is correct.".format(
+                        config_file_suffix
+                    )
+                )
+
+            # 读取配置文件
+            with open(config_file, "r") as f:
+                if config_file_suffix == "json":
+                    # 读取配置文件的内容
+                    config_from_file = ujson.load(f)
+                    # 如果读取的内容不是字典类型，则报错
+                    if not isinstance(config_from_file, dict):
+                        raise TypeError(
+                            "The configuration file must be a dictionary, but got {}".format(type(config_from_file))
+                        )
+                elif config_file_suffix in ["yaml", "yml"]:
+                    # 读取配置文件的内容
+                    config_from_file = yaml.safe_load(f)
+                    # 如果读取的内容不是字典类型，则报错
+                    if not isinstance(config_from_file, dict):
+                        raise TypeError(
+                            "The configuration file must be a dictionary, but got {}".format(type(config_from_file))
+                        )
+
+            # 如果config不是None，说明用户提供了配置，需要合并配置文件和配置
+            if config is not None:
+                # 如果config不是字典类型，则报错
+                if not isinstance(config, dict):
+                    raise TypeError("The configuration must be a dictionary, but got {}".format(type(config)))
+                # 合并配置文件和配置
+                config = {**config, **config_from_file}
+            # 否则config就是配置文件的内容
+            else:
+                config = config_from_file
 
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
