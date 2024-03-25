@@ -40,6 +40,7 @@ def init(
     experiment_name: str = None,
     description: str = None,
     config: dict = None,
+    config_file: str = None,
     logdir: str = None,
     suffix: str = "default",
     log_level: str = None,
@@ -60,6 +61,10 @@ def init(
         If you do not provide this parameter, you can modify it later in the web interface.
     config : dict, optional
         Some experiment parameter configurations that can be displayed on the web interface, such as learning rate, batch size, etc.
+    config_file: str, optional
+        The path to the configuration file, the default is None.
+        If you provide this parameter, SwanLab will read the configuration from the file and update 'config' you provide.
+        The configuration file must be in the format of json or yaml.
     log_level : str, optional
         The log level of the current experiment, the default is 'info', you can choose from 'debug', 'info', 'warning', 'error', 'critical'.
     dir : str, optional
@@ -96,6 +101,14 @@ def init(
                 raise IOError
         except:
             raise IOError("logdir must have Write permission.")
+
+    # 如果传入了config_file，则检查config_file是否是一个字符串，以及转换为绝对路径
+    if config_file is not None:
+        if not isinstance(config_file, str):
+            raise ValueError("config_file must be a string")
+        if not os.path.isabs(config_file):
+            config_file = os.path.abspath(config_file)
+
     # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(logdir, mode="init")
     # 初始化环境变量
@@ -110,6 +123,7 @@ def init(
         experiment_name=experiment_name,
         description=description,
         config=config,
+        config_file=config_file,
         log_level=log_level,
         suffix=suffix,
         loggings=logggings,
