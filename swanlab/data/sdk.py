@@ -179,7 +179,11 @@ def init(
     swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
     # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
-    swanlog.info("🌟 Run `" + FONT.bold("swanlab watch") + "` to view SwanLab Experiment Dashboard")
+    swanlog.info(
+        "🌟 [Offline Dashboard] Run `"
+        + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
+        + "` to view SwanLab Experiment Dashboard locally"
+    )
     # project_url = get_host_web() + "/" + "{project_name}"
     # experiment_url = project_url + "/" + token
     # cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
