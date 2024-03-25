@@ -65,9 +65,9 @@ def init(
     logdir: str = None,
     suffix: str = "default",
     log_level: str = None,
-    cloud: bool = False,
-    project: str = None,
-    organization: str = None,
+    # cloud: bool = False,
+    # project: str = None,
+    # organization: str = None,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -149,7 +149,7 @@ def init(
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     # 1. 如果没有登录，提示登录
     # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
-    token = _get_exp_token(cloud=cloud)
+    # token = _get_exp_token(cloud=cloud)
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
 
@@ -175,14 +175,15 @@ def init(
     # 展示相关信息信息
     swanlog.info("Tracking run with swanlab version " + get_package_version())
     swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
-    not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
-    cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
+    # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info("🌟 Run `" + FONT.bold("swanlab watch") + "` to view SwanLab Experiment Dashboard")
-    project_url = get_host_web() + "/" + "{project_name}"
-    experiment_url = project_url + "/" + token
-    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+    # project_url = get_host_web() + "/" + "{project_name}"
+    # experiment_url = project_url + "/" + token
+    # cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+    # cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 
