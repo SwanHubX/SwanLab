@@ -5,8 +5,10 @@
       <p class="pl-1 truncate max-w-full">{{ name }}</p>
     </div>
     <div class="image-container" @click="$emit('zoom', filename, index)">
-      <img :src="imagesData" />
-      <DownloadButton class="image-download-button" @click.stop="$emit('download', filename)" />
+      <div class="relative">
+        <img :src="imagesData" />
+        <DownloadButton class="image-download-button" @click.stop="$emit('download', filename)" />
+      </div>
     </div>
     <p class="text-xs w-full text-center truncate" v-if="caption">{{ caption }}</p>
   </div>

@@ -1,12 +1,12 @@
 ---
-name: 🤩 Feature request
-about: The iterative goal of this project
-title: '[REQUEST] '
+name: 🤪 Feature advice
+about: Suggest an idea for this project
+title: '[ADVICE] '
 labels: enhancement
 assignees: ''
 ---
 
-## 🤩 Features description [Please make everyone to understand it]
+## 🤪 Features description [Please make everyone to understand it]
 
 Briefly describe this feature
 
