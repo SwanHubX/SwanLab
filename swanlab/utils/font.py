@@ -121,6 +121,23 @@ class FONT:
         return f"\033[1m{s}\033[0m"
 
     @staticmethod
+    def default(s: str) -> str:
+        """在终端中将字符串着色为默认颜色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[39m{s}\033[0m"
+
+    @staticmethod
     def blue(s: str) -> str:
         """在终端中将字符串着色为蓝色
 
@@ -187,6 +204,40 @@ class FONT:
         """
         # ANSI 转义码用于在终端中改变文本样式
         return f"\033[32m{s}\033[0m"
+
+    @staticmethod
+    def dark_green(s: str) -> str:
+        """在终端中将字符串着色为深绿色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[38;5;22m{s}\033[0m"
+
+    @staticmethod
+    def dark_gray(s: str) -> str:
+        """在终端中将字符串着色为深灰色
+
+        Parameters
+        ----------
+        s : str
+            需要着色的字符串
+
+        Returns
+        -------
+        str
+            着色后的字符串
+        """
+        # ANSI 转义码用于在终端中改变文本样式
+        return f"\033[38;5;236m{s}\033[0m"
 
     @staticmethod
     def yellow(s: str) -> str:

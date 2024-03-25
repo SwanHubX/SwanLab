@@ -89,20 +89,29 @@ def is_valid_root_dir(ctx, param, log_dir: str) -> str:
 
 class URL(object):
     # 生成链接提示,先生成各个组件
-    arrow = FONT.green("\t\t\t➜")
-    local = arrow + "  Local:   "
-    netwo = arrow + "  Network: "
+    _arrow = "\t\t\t➜"
+    arrow = FONT.bold(FONT.green(_arrow))
+    local = arrow + FONT.bold("  Local:   ")
+    netwo = arrow + FONT.bold("  Network: ")
 
     def __init__(self, ip, port) -> None:
         self.ip = ip
         self.port = port
 
     def __str__(self) -> str:
-        url = FONT.bold(f"http://{self.ip}:{self.port}")
+        url = FONT.blue(f"http://{self.ip}:{self.port}")
         if self.is_localhost(self.ip):
             return self.local + url
         else:
             return self.netwo + url
+
+    @classmethod
+    def last_tip(cls) -> str:
+        """
+        打印最后一条提示信息
+        """
+        t = FONT.dark_gray("  press ") + FONT.bold(FONT.default("ctrl + c")) + FONT.dark_gray(" to quit")
+        return FONT.dark_green(cls._arrow) + t
 
     @staticmethod
     def is_localhost(ip):
