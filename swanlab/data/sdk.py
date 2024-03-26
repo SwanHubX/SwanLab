@@ -312,7 +312,7 @@ def __except_handler(tp, val, tb):
         return
     swanlog.error("Error happended while training, SwanLab will throw it")
     # 标记实验失败
-    run._success()
+    run._fail()
     swanlog.setError()
     # 记录异常信息
     # 追踪信息
