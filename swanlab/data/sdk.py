@@ -224,7 +224,6 @@ def finish():
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
-    inited = False
 
 
 def _init_logdir(logdir: str) -> str:
