@@ -11,6 +11,8 @@ import portalocker
 from functools import wraps
 from io import TextIOWrapper
 import os, re
+import ujson
+import yaml
 
 
 # 锁定文件，防止多进程写入同一个文件
@@ -200,6 +202,34 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     elif not auto_cut and len(name) > max_len:
         raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
     return name.strip()
+
+
+def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
+    # 检查file_path的后缀是否是json/yaml，否则报错
+    path_suffix = file_path.split(".")[-1]
+    if not file_path.endswith((".json", ".yaml", ".yml")):
+        raise ValueError(
+            "{} must be a json or yaml file ('.json', '.yaml', '.yml'), but got {}, please check if the content of config_file is correct.".format(
+                paramter_name, path_suffix
+            )
+        )
+
+    # 读取配置文件
+    with open(file_path, "r") as f:
+        if path_suffix == "json":
+            # 读取配置文件的内容
+            file_data = ujson.load(f)
+            # 如果读取的内容不是字典类型，则报错
+            if not isinstance(file_data, dict):
+                raise TypeError("The configuration file must be a dictionary, but got {}".format(type(file_data)))
+        elif path_suffix in ["yaml", "yml"]:
+            # 读取配置文件的内容
+            file_data = yaml.safe_load(f)
+            # 如果读取的内容不是字典类型，则报错
+            if not isinstance(file_data, dict):
+                raise TypeError("The configuration file must be a dictionary, but got {}".format(type(file_data)))
+
+    return file_data
 
 
 # ---------------------------------- 一些格式检查的工具函数 ----------------------------------
