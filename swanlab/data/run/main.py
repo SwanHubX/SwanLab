@@ -452,12 +452,12 @@ class SwanLabRun:
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
 
-    def success(self):
-        """标记实验成功"""
+    def _success(self):
+        """Mark the experiment as success. Users should not use this function."""
         self.__set_exp_status(1)
 
-    def fail(self):
-        """标记实验失败"""
+    def _fail(self):
+        """Mark the experiment as failure. Users should not use this function."""
         self.__set_exp_status(-1)
 
     def __str__(self) -> str:

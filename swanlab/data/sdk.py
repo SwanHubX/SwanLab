@@ -220,11 +220,10 @@ def finish():
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
     if run is None:
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
-    run.success()
+    run._success()
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
-    inited = False
 
 
 def _init_logdir(logdir: str) -> str:
@@ -301,7 +300,7 @@ def __clean_handler():
                 run.settings.exp_name
             )
         )
-        run.success()
+        run._success()
         swanlog.setSuccess()
         swanlog.reset_console()
 
@@ -310,10 +309,10 @@ def __clean_handler():
 def __except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
-        return swanlog.warning("SwanLab Runtime has been cleaned manually, the exception will be ignored")
+        return
     swanlog.error("Error happended while training, SwanLab will throw it")
     # 标记实验失败
-    run.fail()
+    run._success()
     swanlog.setError()
     # 记录异常信息
     # 追踪信息
