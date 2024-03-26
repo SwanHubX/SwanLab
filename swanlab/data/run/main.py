@@ -16,6 +16,7 @@ from .utils import (
     check_desc_format,
     get_a_lock,
     json_serializable,
+    FONT,
 )
 from datetime import datetime
 import time
@@ -328,7 +329,6 @@ class SwanLabRun:
         config_file: str = None,
         log_level: str = None,
         suffix: str = None,
-        loggings: bool = False,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -364,7 +364,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
-        register(self.__settings.output_path, self.__settings.console_dir, enable_logging=loggings)
+        register(self.__settings.output_path, self.__settings.console_dir)
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
@@ -443,7 +443,7 @@ class SwanLabRun:
         """
         return self.__config
 
-    def log(self, data: dict, step: int = None, logger: Union[bool, dict] = None):
+    def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run.
         Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
@@ -458,9 +458,6 @@ class SwanLabRun:
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
-        logger_dict : dict, optional
-            The logger_dict is used to customize the log output.
-            The logger_dict is a dict with the following keys: "open", "prefix", "subfix", "time".
         """
         if self.__status != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
@@ -488,49 +485,6 @@ class SwanLabRun:
                 )
             )
             step = None
-
-        # logger_dict的参数为open, prefix, subfix
-        # open: 是否开启打印, 如果为None，则根据init的loggings结果走; 如果为True，则开启打印;如果为False，则关闭打印。log->logger的优先级高于init->loggings。
-        # prefix: 打印的前缀, 必须为str, float or init。
-        # subfix: 打印的后缀, 必须为str, float or init。
-        logger_dict = {
-            "open": None,
-            "prefix": "",
-            "subfix": "",
-            "time": True,
-        }
-
-        # 如果传入的是布尔值且是True，则默认开启打印
-        if isinstance(logger, bool):
-            logger_dict["open"] = logger
-        # 如果传入的是字典，默认开启打印，并将字典中的值赋值给logger_dict
-        elif isinstance(logger, dict):
-            logger_dict["open"] = True
-            logger_dict.update(logger)
-            # 字典内参数类型检查
-            if not isinstance(logger_dict["open"], bool):
-                raise ValueError("logger's open must be a bool")
-            if not isinstance(logger_dict["prefix"], (str, float, int)):
-                raise ValueError("logger's prefix must be a str, float or init")
-            if not isinstance(logger_dict["subfix"], (str, float, int)):
-                raise ValueError("logger's subfix must be a str, float or init")
-            if not isinstance(logger_dict["time"], bool):
-                raise ValueError("logger's time must be a bool")
-        # 如果传入的是None，则与init的loggings结果一致
-        elif logger is None:
-            logger_dict["open"] = None
-        else:
-            raise ValueError("loggings must be a bool or a dict")
-
-        # 如果传入的参数超过了open, prefix, subfix, time则警告
-        if len(logger_dict) > 4:
-            swanlog.warning(
-                "logger's valid key only has 'open', 'prefix' , 'subfix' and 'time', other parameters will not take effect"
-            )
-
-        swanlog.set_temporary_logging(logger_dict["open"])
-
-        loggings_json = dict()
         # 遍历data，记录data
         for key in data:
             # 遍历字典的key，记录到本地文件中
@@ -541,11 +495,6 @@ class SwanLabRun:
                 d = d[0].__class__(d)
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
-            # 将key, data, step记录到loggings_json中
-            loggings_json[key] = d
-
-        # 将内容打印到终端
-        swanlog.log(self.__get_logging_content(loggings_json, logger_dict).strip(), header=False)
 
     def success(self):
         """标记实验成功"""
@@ -657,9 +606,6 @@ class SwanLabRun:
         self.__settings.exp_name = exp_name
         # 实验创建成功，执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
-        # 打印信息
-
-        swanlog.info(f"Experiment {experiment_name} has been registered.")
         return SwanLabExp(self.__settings, exp.id, exp=exp)
 
     def __check_log_level(self, log_level: str) -> str:
@@ -696,30 +642,3 @@ class SwanLabRun:
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(), f)
-
-    def __get_logging_content(self, loggings_json: dict, logger_dict: dict):
-        """得到logging的内容"""
-        # 将loggings_json的内容以"{key1}:{value1}, {key2}:{value2}, ..."的形式记录到loggings_formatted中
-        # 如果value是数值类型，则保留4位小数
-        loggings_formatted = ", ".join(
-            [
-                "{}:{}".format(key, "{:.4f}".format(value) if isinstance(value, (int, float)) else str(value))
-                for key, value in loggings_json.items()
-            ]
-        )
-
-        # 如果time参数为Ture, 设置时间戳
-        if logger_dict["time"]:
-            time_text = ", time: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        else:
-            time_text = ""
-
-        # 设置日志的内容, 并去掉前后空格
-        logging_content = "{} {}{} {}".format(
-            logger_dict["prefix"],
-            loggings_formatted,
-            time_text,
-            logger_dict["subfix"],
-        )
-
-        return logging_content

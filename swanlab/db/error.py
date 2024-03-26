@@ -5,7 +5,7 @@ r"""
 @File: swanlab/db/error.py
 @IDE: vscode
 @Description:
-    在此处定义所有的错误类型，以便于在其他地方引用
+    在此处定义所有的数据错误类型，以便于在其他地方引用
 """
 
 

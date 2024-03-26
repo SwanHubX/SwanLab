@@ -46,7 +46,7 @@ class ColoredFormatter(logging.Formatter, FONT):
         # 打印等级对应的颜色装载器
         self.__color_map = {
             logging.DEBUG: self.grey,
-            logging.INFO: self.green,
+            logging.INFO: self.bold_blue,
             logging.WARNING: self.yellow,
             logging.ERROR: self.red,
             logging.CRITICAL: self.bold_red,
@@ -68,6 +68,21 @@ class ColoredFormatter(logging.Formatter, FONT):
         """
         # ANSI 转义码用于在终端中改变文本样式
         return self.bold(self.red(s))
+
+    def bold_blue(self, s: str) -> str:
+        """在终端中加粗的蓝色字符串
+
+        Parameters
+        ----------
+        s : str
+            需要加粗的字符串
+
+        Returns
+        -------
+        str
+            加粗后的字符串
+        """
+        return self.bold(self.blue(s))
 
     def __get_colored_str(self, levelno, message):
         """获取使用打印等级对应的颜色装载的字符串
@@ -103,10 +118,9 @@ class ColoredFormatter(logging.Formatter, FONT):
         self.__handle(log_message + "\n") if self.__handle else None
         # 分割消息，分别处理头尾
         messages: list = log_message.split(":", 1)
-        target_length = 20
         # 填充空格，统一消息头的长度
-        message_header = messages[0] + ":" + " " * max(0, target_length - len(messages[0]))
-        return f"{self.__get_colored_str(record.levelno, message_header)} {messages[1]}"
+        message_header = messages[0]
+        return f"{self.__get_colored_str(record.levelno, message_header)}:{messages[1]}"
 
 
 # 日志文件格式化类
@@ -142,7 +156,7 @@ class SwanLog(Logsys):
         "name": "COLLECT",
     }
 
-    def __init__(self, name=__name__, level="debug"):
+    def __init__(self, name=__name__.lower(), level="debug"):
         super()
         # 自定义log级别
         logging.addLevelName(self.__LOG_LEVEL["value"], self.__LOG_LEVEL["name"])
@@ -215,7 +229,7 @@ class SwanLog(Logsys):
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler(sys.stdout)
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("[%(name)s-%(levelname)s]: %(message)s")
+        colored_formatter = ColoredFormatter("%(name)s: %(message)s")
         console_handler.setFormatter(colored_formatter)
         console_handler.setLevel(self._getLevel(level))
         self.logger.addHandler(console_handler)

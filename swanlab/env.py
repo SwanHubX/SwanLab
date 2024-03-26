@@ -9,6 +9,10 @@ r"""
 import os
 from typing import MutableMapping, Optional
 from .utils.file import is_port, is_ipv4
+from .utils.token import get_token
+from .error import UnKnownSystemError, TokenFileError
+from .utils.package import get_host_api
+import sys
 
 Env = Optional[MutableMapping]
 
@@ -163,3 +167,99 @@ def get_db_path() -> Optional[str]:
     # 否则从环境变量中提取
     _env[DATABASE_PATH] = os.path.join(get_swanlog_dir(), "runs.swanlab")
     return _env.get(DATABASE_PATH)
+
+
+def is_windows() -> bool:
+    """判断当前操作系统是否是windows还是类unix系统
+    此外的系统会报错为 UnKnownSystemError
+
+    Returns
+    -------
+    bool
+        是否是windows
+    """
+    if sys.platform.startswith("win"):
+        return True
+    elif sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
+        return False
+    raise UnKnownSystemError("Unknown system, not windows or unix-like system")
+
+
+def get_user_home() -> str:
+    """获取用户家目录，需要分为windows和类unix系统
+
+    Returns
+    -------
+    str
+        用户家目录
+    """
+    if is_windows():
+        return os.environ.get("USERPROFILE")
+    else:
+        return os.environ.get("HOME")
+
+
+def get_swanlab_folder() -> str:
+    """获取用户家目录的.swanlab文件夹路径，如果不存在此文件夹就创建
+
+    Returns
+    -------
+    str
+        用户家目录的.swanlab文件夹路径
+    """
+    user_home = get_user_home()
+    swanlab_floder = os.path.join(user_home, ".swanlab")
+    if not os.path.exists(swanlab_floder):
+        os.mkdir(swanlab_floder)
+    return swanlab_floder
+
+
+def get_api_key_file_path() -> str:
+    """获取用户token文件路径，token文件存储在$HOME/.swanlab/.netrc文件中
+    不保证文件存在
+
+    Returns
+    -------
+    str
+        用户token文件路径
+    """
+    swanlab_floder = get_swanlab_folder()
+    return os.path.join(swanlab_floder, ".netrc")
+
+
+def get_user_api_key() -> str:
+    """获取用户token，token存储在$HOME/.swanlab/.netrc文件中
+    最终返回str
+    如果没有找到token或者token解析失败，报错 TokenFileError
+
+    Returns
+    -------
+    Optional[str]
+        用户token
+
+    Raises
+    ------
+    TokenFileError
+        token文件错误，此时token文件不存在或者格式错误（解析失败）
+    """
+    netrc_file = get_api_key_file_path()
+    # 解析token文件，可能会报错 TokenFileError
+    # 如果文件不存在，报错TokenFileError
+    if not os.path.exists(netrc_file):
+        raise TokenFileError("The token file is not found, please login first")
+    return get_token(netrc_file, get_host_api())
+
+
+def is_login() -> bool:
+    """判断用户是否登录
+
+    Returns
+    -------
+    bool
+        是否登录
+    """
+    try:
+        get_user_api_key()
+        return True
+    except TokenFileError:
+        return False

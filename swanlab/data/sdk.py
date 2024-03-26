@@ -10,14 +10,18 @@ r"""
 import atexit, sys, traceback, os
 from datetime import datetime
 from .run import SwanLabRun, SwanLabConfig, register
-from typing import Optional, Union
+from typing import Optional
 from ..log import swanlog
 from .modules import DataType
 from typing import Dict
-from ..env import init_env, ROOT
+from ..env import init_env, ROOT, is_login, get_user_api_key
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
-from ..utils import version_limit
+from ..utils import version_limit, FONT, get_package_version
+from ..utils.package import get_host_web
+from ..auth import get_exp_token, terminal_login, code_login
+from ..error import NotLoginError, ValidationError
+import asyncio
 
 
 run: Optional["SwanLabRun"] = None
@@ -36,6 +40,23 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 """
 
 
+def login(api_key: str):
+    """
+    Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
+
+    Parameters
+    ----------
+    api_key : str
+        authentication key.
+    """
+    # 如果已经登录且保存，判断一下当前api_key是否和本地api_key一致，如果一致，直接返回
+    # 如果不一致，继续下面的步骤
+    if is_login() and api_key == get_user_api_key():
+        return
+    # 否则进行登录
+    code_login(api_key)
+
+
 def init(
     experiment_name: str = None,
     description: str = None,
@@ -44,7 +65,9 @@ def init(
     logdir: str = None,
     suffix: str = "default",
     log_level: str = None,
-    logggings: bool = False,
+    # cloud: bool = False,
+    # project: str = None,
+    # organization: str = None,
 ) -> SwanLabRun:
     """
     Start a new run to track and log.
@@ -67,7 +90,7 @@ def init(
         The configuration file must be in the format of json or yaml.
     log_level : str, optional
         The log level of the current experiment, the default is 'info', you can choose from 'debug', 'info', 'warning', 'error', 'critical'.
-    dir : str, optional
+    logdir : str, optional
         The directory where the log file is stored, the default is current working directory.
         You can also specify a directory to store the log file, whether using an absolute path or a relative path, but you must ensure that the directory exists.
     suffix : str, optional
@@ -77,9 +100,18 @@ def init(
         If this parameter is None, no suffix will be added.
         If this paramter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
+    cloud : bool, optional
+        Whether to use the cloud mode, the default is False.
+        If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
+        If you are not using cloud mode, the `project` and `organization` fields are invalid.
+    project : str, optional
+        The project name of the current experiment, the default is None, which means the current project name is the same as the current working directory.
+        If you are using cloud mode, you must provide the project name.
+    organization : str, optional
+        The organization name of the current experiment, the default is None, which means the log file will be stored in your personal space.
     """
     global run, inited
-
+    # ---------------------------------- 一些变量、格式检查 ----------------------------------
     if inited:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
@@ -113,7 +145,12 @@ def init(
     version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
-    # 连接数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
+
+    # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
+    # 1. 如果没有登录，提示登录
+    # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
+    # token = _get_exp_token(cloud=cloud)
+    # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
 
     # 初始化项目数据库
@@ -126,22 +163,36 @@ def init(
         config_file=config_file,
         log_level=log_level,
         suffix=suffix,
-        loggings=logggings,
     )
+    # 如果使用云端模式，在此开启其他线程负责同步数据
+
     # 注册异常处理函数
     sys.excepthook = __except_handler
     # 注册清理函数
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
-    swanlog.debug("Swanlab will take over all the print information of the terminal from now on")
-    swanlog.info("Run data will be saved locally in " + formate_abs_path(run.settings.run_dir))
-    swanlog.info("Experiment_name: " + run.settings.exp_name)
-    swanlog.info("Run `swanlab watch` to view SwanLab Experiment Dashboard")
+    swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
+    # 展示相关信息信息
+    swanlog.info("Tracking run with swanlab version " + get_package_version())
+    swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
+    # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    # 云端版本有一些额外的信息展示
+    # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
+    swanlog.info(
+        "🌟 [Offline Dashboard] Run `"
+        + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
+        + "` to view SwanLab Experiment Dashboard locally"
+    )
+    # project_url = get_host_web() + "/" + "{project_name}"
+    # experiment_url = project_url + "/" + token
+    # cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+    # cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 
 
-def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] = None):
+def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
 
@@ -154,20 +205,14 @@ def log(data: Dict[str, DataType], step: int = None, logger: Union[bool, dict] =
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
-    logger : bool or dict, optional
-        Whether to print the data to the console, the default is None.
-        If you pass a bool, you can specify whether to print the data to the console.
-        If you pass a dict, you can specify whether to print the data to the console, the prefix and suffix of the print data, whether to print timestamp.
-        Examples1: swanlab.log({"loss": loss}, logger=True)
-        Examples2: swanlab.log({"loss": loss}, logger={"open": True, "prefix": "[0/200] ", "subfix": None, "time":False})
     """
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using log()")
     if inited and run is None:
         return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
 
-    l = run.log(data, step, logger)
-    swanlog.reset_temporary_logging()
+    l = run.log(data, step)
+    # swanlog.reset_temporary_logging()
     return l
 
 
@@ -187,6 +232,24 @@ def finish():
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
+
+
+def _get_exp_token(cloud: bool = False):
+    """获取当前实验的相关信息
+    可能包含实验的token、实验的id、用户信息等信息
+    无论是否使用cloud模式，此函数都会执行，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
+    """
+    token = None
+    if cloud:
+        # 登录成功会返回当前实验的token
+        while True:
+            try:
+                token = asyncio.run(get_exp_token())
+                break
+            except NotLoginError:
+                # 如果没有登录，提示登录
+                terminal_login()
+    return token
 
 
 def __clean_handler():

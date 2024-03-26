@@ -18,7 +18,8 @@
     "data": "guard",
     "unit": "test",
     "migrate": "Husky",
-    "business": "components"
+    "business": "components",
+    "dog": "Husky"
   },
   "material-icon-theme.files.associations": {
     ".env.mock": "Tune"
