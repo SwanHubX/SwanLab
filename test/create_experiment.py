@@ -18,18 +18,17 @@ lr = 0.01
 offset = random.random() / 5
 # 初始化
 swanlab.init(
+    description="这是一个测试实验",
     log_level="debug",
-    config={
-        "epochs": epochs,
-        "learning_rate": lr,
-        "test": 1,
-        "debug": "这是一串" + "很长" * 100 + "的字符串",
-        "verbose": 1,
-    },
+    config="test/config.json",
+    load="test/load.yaml",
     # cloud=True,
 )
+swanlab.config.epoches = epochs
+swanlab.config.learning_rate = lr
+swanlab.config.debug = "这是一串" + "很长" * 100 + "的字符串"
 # 模拟训练
-for epoch in range(2, epochs):
+for epoch in range(2, swanlab.config.epoches):
     acc = 1 - 2**-epoch - random.random() / epoch - offset
     loss = 2**-epoch + random.random() / epoch + offset
     loss2 = 3**-epoch + random.random() / epoch + offset * 3

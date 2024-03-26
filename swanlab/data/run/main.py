@@ -16,8 +16,6 @@ from .utils import (
     check_desc_format,
     get_a_lock,
     json_serializable,
-    check_load_json_yaml,
-    FONT,
 )
 from datetime import datetime
 import time
@@ -327,7 +325,6 @@ class SwanLabRun:
         experiment_name: str = None,
         description: str = None,
         config: dict = None,
-        config_path: str = None,
         log_level: str = None,
         suffix: str = None,
     ):
@@ -369,22 +366,6 @@ class SwanLabRun:
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
-
-        # ---------------------------------- 检查config_file并与config合并 ----------------------------------
-        # 如果config_file不是None，说明用户提供了配置文件，需要读取配置文件
-        if config_path is not None:
-            config_data = check_load_json_yaml(config_path, "config_path")
-
-            # 如果config不是None，说明用户提供了配置，需要合并配置文件和配置
-            if config is not None:
-                # 如果config不是字典类型，则报错
-                if not isinstance(config, dict):
-                    raise TypeError("The configuration must be a dictionary, but got {}".format(type(config)))
-                # 合并配置文件和配置
-                config = {**config, **config_data}
-            # 否则config就是配置文件的内容
-            else:
-                config = config_data
 
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config

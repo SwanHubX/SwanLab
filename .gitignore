@@ -17,6 +17,8 @@ __pycache__/
 test/*
 !test/db/
 !test/_server.py
+!test/load.yaml
+!test/config.json
 
 # C extensions
 *.so

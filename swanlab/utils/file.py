@@ -205,6 +205,9 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
 
 
 def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
+    # 不是字符串
+    if not isinstance(file_path, str):
+        raise TypeError("{} must be a string, but got {}".format(paramter_name, type(file_path)))
     # 检查file_path的后缀是否是json/yaml，否则报错
     path_suffix = file_path.split(".")[-1]
     if not file_path.endswith((".json", ".yaml", ".yml")):
@@ -213,22 +216,25 @@ def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
                 paramter_name, path_suffix
             )
         )
-
     # 读取配置文件
+    # 如果文件不存在或者不是文件
+    if (not os.path.exists(file_path)) or (not os.path.isfile(file_path)):
+        raise FileNotFoundError("{} not found, please check if the file exists.".format(paramter_name))
+    # 为空
+    if os.path.getsize(file_path) == 0:
+        raise ValueError("{} is empty, please check if the content of config_file is correct.".format(paramter_name))
+    # 无权限读取
+    if not os.access(file_path, os.R_OK):
+        raise PermissionError(
+            "No permission to read {}, please check if you have the permission.".format(paramter_name)
+        )
+    load = ujson.load if path_suffix == "json" else yaml.safe_load
     with open(file_path, "r") as f:
-        if path_suffix == "json":
-            # 读取配置文件的内容
-            file_data = ujson.load(f)
-            # 如果读取的内容不是字典类型，则报错
-            if not isinstance(file_data, dict):
-                raise TypeError("The configuration file must be a dictionary, but got {}".format(type(file_data)))
-        elif path_suffix in ["yaml", "yml"]:
-            # 读取配置文件的内容
-            file_data = yaml.safe_load(f)
-            # 如果读取的内容不是字典类型，则报错
-            if not isinstance(file_data, dict):
-                raise TypeError("The configuration file must be a dictionary, but got {}".format(type(file_data)))
-
+        # 读取配置文件的内容
+        file_data = load(f)
+        # 如果读取的内容不是字典类型，则报错
+        if not isinstance(file_data, dict):
+            raise TypeError("The configuration file must be a dictionary, but got {}".format(type(file_data)))
     return file_data
 
 
