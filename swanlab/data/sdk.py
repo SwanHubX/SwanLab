@@ -17,7 +17,7 @@ from typing import Dict
 from ..env import init_env, ROOT, is_login, get_user_api_key
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
-from ..utils import version_limit, FONT, get_package_version
+from ..utils import version_limit, FONT, get_package_version, check_load_json_yaml
 from ..utils.package import get_host_web
 from ..auth import get_exp_token, terminal_login, code_login
 from ..error import NotLoginError, ValidationError
@@ -57,11 +57,34 @@ def login(api_key: str):
     code_login(api_key)
 
 
+def init_from_path(init_path: str):
+    """
+    Start a new experiment according to the configuration file.
+
+    Parameters
+    ----------
+    config_path : str
+        The path to the configuration file, this is a required parameter.
+        If you provide this parameter, SwanLab will read the configuration from the file.
+        The configuration file must be in the format of json or yaml.
+    """
+
+    if not isinstance(init_path, str):
+        raise ValueError("init_path must be a string")
+
+    if not os.path.isabs(init_path):
+        init_path = os.path.abspath(init_path)
+
+    init_data = check_load_json_yaml(init_path, "init_path")
+
+    return init(**init_data)
+
+
 def init(
     experiment_name: str = None,
     description: str = None,
     config: dict = None,
-    config_file: str = None,
+    config_path: str = None,
     logdir: str = None,
     suffix: str = "default",
     log_level: str = None,
@@ -84,7 +107,7 @@ def init(
         If you do not provide this parameter, you can modify it later in the web interface.
     config : dict, optional
         Some experiment parameter configurations that can be displayed on the web interface, such as learning rate, batch size, etc.
-    config_file: str, optional
+    config_path: str, optional
         The path to the configuration file, the default is None.
         If you provide this parameter, SwanLab will read the configuration from the file and update 'config' you provide.
         The configuration file must be in the format of json or yaml.
@@ -135,11 +158,11 @@ def init(
             raise IOError("logdir must have Write permission.")
 
     # 如果传入了config_file，则检查config_file是否是一个字符串，以及转换为绝对路径
-    if config_file is not None:
-        if not isinstance(config_file, str):
+    if config_path is not None:
+        if not isinstance(config_path, str):
             raise ValueError("config_file must be a string")
-        if not os.path.isabs(config_file):
-            config_file = os.path.abspath(config_file)
+        if not os.path.isabs(config_path):
+            config_path = os.path.abspath(config_path)
 
     # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(logdir, mode="init")
@@ -160,7 +183,7 @@ def init(
         experiment_name=experiment_name,
         description=description,
         config=config,
-        config_file=config_file,
+        config_path=config_path,
         log_level=log_level,
         suffix=suffix,
     )
