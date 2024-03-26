@@ -216,6 +216,8 @@ def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
                 paramter_name, path_suffix
             )
         )
+    # 转换为绝对路径
+    file_path = os.path.abspath(file_path)
     # 读取配置文件
     # 如果文件不存在或者不是文件
     if (not os.path.exists(file_path)) or (not os.path.isfile(file_path)):

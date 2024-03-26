@@ -17,7 +17,6 @@ from .modules import (
 )
 from .sdk import (
     init,
-    init_from_path,
     log,
     finish,
     config,

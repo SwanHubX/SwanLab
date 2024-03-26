@@ -57,29 +57,6 @@ def login(api_key: str):
     code_login(api_key)
 
 
-def init_from_path(init_path: str):
-    """
-    Start a new experiment according to the configuration file.
-
-    Parameters
-    ----------
-    config_path : str
-        The path to the configuration file, this is a required parameter.
-        If you provide this parameter, SwanLab will read the configuration from the file.
-        The configuration file must be in the format of json or yaml.
-    """
-
-    if not isinstance(init_path, str):
-        raise ValueError("init_path must be a string")
-
-    if not os.path.isabs(init_path):
-        init_path = os.path.abspath(init_path)
-
-    init_data = check_load_json_yaml(init_path, "init_path")
-
-    return init(**init_data)
-
-
 def init(
     experiment_name: str = None,
     description: str = None,
@@ -238,7 +215,7 @@ def finish():
     but you can also execute it manually and mark the experiment as 'completed'.
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
     """
-    global run
+    global run, inited
     if not inited:
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
     if run is None:
@@ -247,6 +224,7 @@ def finish():
     swanlog.setSuccess()
     swanlog.reset_console()
     run = None
+    inited = False
 
 
 def _init_logdir(logdir: str) -> str:
