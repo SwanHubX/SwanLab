@@ -528,7 +528,7 @@ class SwanLabRun:
             swanlog.warning(tip)
 
         # 如果suffix为None, 则不添加后缀，直接返回
-        if suffix is None:
+        if suffix is None or suffix is False:
             return experiment_name_checked, experiment_name
 
         # suffix必须是字符串
