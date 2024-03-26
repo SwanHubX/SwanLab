@@ -57,6 +57,19 @@ def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIOWrap
     return f
 
 
+def check_string(target: str):
+    """
+    不能全空格，也不能为空字符串
+    """
+    # 利用正则表达式匹配非空格字符
+    if re.match(r"^\s*$", target):
+        return False
+    # 利用正则表达式匹配非空字符串
+    if re.match(r"^\s*$", target) or target == "":
+        return False
+    return True
+
+
 def check_tag_format(key: str, auto_cut=True) -> str:
     """检查tag字符串格式，必须是0-9a-zA-Z _-和/组成的字符串(包含空格)，并且开头必须是0-9a-zA-Z
     最大长度为255字符
@@ -69,21 +82,14 @@ def check_tag_format(key: str, auto_cut=True) -> str:
     max_len = 255
     if not isinstance(key, str):
         raise TypeError(f"tag: {key} is not a string")
-    # 定义正则表达式
-    pattern = re.compile("^[0-9a-zA-Z][0-9a-zA-Z _/-]*$")
-
-    # 检查 key 是否符合规定格式
-    if not pattern.match(key):
-        raise ValueError(
-            f"tag: {key} is not a valid string, which must be composed of 0-9a-zA-Z _- and /, and the first character must be 0-9a-zA-Z"
-        )
-
+    if not check_string(key):
+        raise ValueError(f"tag: {key} is an empty string")
     # 检查长度
     if auto_cut and len(key) > max_len:
         key = key[:max_len]
     elif not auto_cut and len(key) > max_len:
         raise IndexError(f"tag: {key} is too long, which must be less than {max_len} characters")
-    return key
+    return key.strip()
 
 
 def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
@@ -115,19 +121,14 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     max_len = 100
     if not isinstance(name, str) or name == "":
         raise TypeError(f"name: {name} is not a string")
-    # 定义正则表达式
-    pattern = re.compile(r"^[0-9a-zA-Z][0-9a-zA-Z_-]*[0-9a-zA-Z]$")
-    # 检查 name 是否符合规定格式
-    if not pattern.match(name):
-        raise ValueError(
-            f"name: {name} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
-        )
+    if not check_string(name):
+        raise ValueError(f"name: {name} is an empty string")
     # 检查长度
     if auto_cut and len(name) > max_len:
         name = name[:max_len]
     elif not auto_cut and len(name) > max_len:
         raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
-    return name
+    return name.strip()
 
 
 def check_desc_format(description: str, auto_cut: bool = True):
@@ -191,19 +192,14 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     max_len = 100
     if not isinstance(name, str) or name == "":
         raise TypeError(f"name: {name} is not a string")
-    # 定义正则表达式
-    pattern = re.compile(r"^[0-9a-zA-Z\u4e00-\u9fa5]+[0-9a-zA-Z\u4e00-\u9fa5_-]*[0-9a-zA-Z\u4e00-\u9fa5]$")
-    # 检查 name 是否符合规定格式
-    if not pattern.match(name):
-        raise ValueError(
-            f"name: {name} is not a valid string, which must be composed of 0-9a-zA-Z _- and / or Chinese characters, and the first character must be 0-9a-zA-Z or Chinese characters"
-        )
+    if not check_string(name):
+        raise ValueError(f"name: {name} is an empty string")
     # 检查长度
     if auto_cut and len(name) > max_len:
         name = name[:max_len]
     elif not auto_cut and len(name) > max_len:
         raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
-    return name
+    return name.strip()
 
 
 # ---------------------------------- 一些格式检查的工具函数 ----------------------------------

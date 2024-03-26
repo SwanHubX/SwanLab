@@ -11,7 +11,7 @@
         v-model="info.name"
         :placeholder="`edit your ${type} name here`"
         :maxlength="max_name_len"
-        pattern="[a-zA-Z0-9_\-\u4e00-\u9fa5]*"
+        pattern="^(?!\s+$).*$"
         required
       />
       <!-- 数量限制 -->
@@ -95,46 +95,10 @@ const errors = ref({
 const max_name_len = 100
 const max_description_len = 255
 
-/**
- * 校验项目名称：
- * 项目名不能超过100个字符, 只能包含字母、中文、数字、连字符（_和-），不能以连字符开头或结尾
- */
-const checkProjectName = computed(() => {
+const checkName = computed(() => {
   const name = info.value.name
   // 判断字符串长度是否超过100个字符
   if (name.length > max_name_len) return false
-
-  // 判断是否以连字符开头或结尾
-  if (name.startsWith('-') || name.endsWith('-') || name.startsWith('_') || name.endsWith('_')) {
-    return false
-  }
-
-  // 判断是否包含除字母、中文、数字、连字符（_和-）之外的字符
-  const pattern = /^[a-zA-Z0-9_\-\u4e00-\u9fa5]+$/
-  return pattern.test(name)
-})
-
-/**
- * 校验实验名称
- * 实验名不能超过100字符，且只能包含字母、数字、连字符（_和-），不能以连字符开头或结尾
- */
-const checkExperimentName = computed(() => {
-  const name = info.value.name
-  // 判断字符串长度是否超过100个字符
-  if (name.length > max_name_len) {
-    return false
-  }
-
-  // 判断是否以连字符或下划线开头或结尾
-  if (/^[_-]|[_-]$/.test(name)) {
-    return false
-  }
-
-  // 判断是否包含除字母、数字、连字符（_和-）之外的字符
-  if (/[^a-zA-Z0-9_-]/.test(name)) {
-    return false
-  }
-
   return true
 })
 
@@ -171,10 +135,10 @@ const save = async () => {
   }
 
   // 检查格式要求
-  if (props.type === 'project' && !checkProjectName.value) {
+  if (props.type === 'project' && !checkName.value) {
     message.warning('invalid project name')
     return (errors.value.name = 'too long or invalid characters')
-  } else if (!checkExperimentName.value) {
+  } else if (!checkName.value) {
     message.warning('invalid experiment name')
     return (errors.value.name = 'too long or invalid characters')
   }
@@ -184,9 +148,12 @@ const save = async () => {
   }
 
   // 判断是否一点没变
-  if (info.value.name === projectStore.name && info.value.description === projectStore.description) {
+  if (info.value.name.trim() === projectStore.name && info.value.description === projectStore.description) {
     return (errors.value.name = 'nothing changed in project config')
-  } else if (info.value.name === experimentStore.name && info.value.description === experimentStore.description) {
+  } else if (
+    info.value.name.trim() === experimentStore.name &&
+    info.value.description === experimentStore.description
+  ) {
     return (errors.value.name = 'nothing changed in experiment config')
   }
 
