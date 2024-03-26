@@ -263,13 +263,13 @@ def _init_config(config: Union[dict, str]):
 def _load_data(load_data: dict, key: str, value):
     """从load_data中加载数据，如果value不是None"""
     if value is not None:
-        tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), value)
-        print(FONT.swanlab(tip))
+        # tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), value)
+        # print(FONT.swanlab(tip))
         return value
     d = load_data.get(key, None)
-    if d is not None:
-        tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
-        print(FONT.swanlab(tip))
+    # if d is not None:
+    #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
+    #     print(FONT.swanlab(tip))
     return d
 
 

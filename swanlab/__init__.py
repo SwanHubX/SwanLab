@@ -1,7 +1,6 @@
 # 导出初始化函数和log函数
 from .data import (
     init,
-    init_from_path,
     log,
     finish,
     config,
