@@ -16,7 +16,6 @@ from .utils import (
     check_desc_format,
     get_a_lock,
     json_serializable,
-    FONT,
 )
 from datetime import datetime
 import time
@@ -326,7 +325,6 @@ class SwanLabRun:
         experiment_name: str = None,
         description: str = None,
         config: dict = None,
-        config_file: str = None,
         log_level: str = None,
         suffix: str = None,
     ):
@@ -368,48 +366,6 @@ class SwanLabRun:
         # 初始化日志等级
         level = self.__check_log_level(log_level)
         swanlog.setLevel(level)
-
-        # ---------------------------------- 检查config_file并与config合并 ----------------------------------
-        # 如果config_file不是None，说明用户提供了配置文件，需要读取配置文件
-        if config_file is not None:
-            # 检查config_file的后缀是否是json/yaml，否则报错
-            config_file_suffix = config_file.split(".")[-1]
-            if not config_file.endswith((".json", ".yaml", ".yml")):
-                raise ValueError(
-                    "config_file must be a json or yaml file ('.json', '.yaml', '.yml'), but got {}, please check if the content of config_file is correct.".format(
-                        config_file_suffix
-                    )
-                )
-
-            # 读取配置文件
-            with open(config_file, "r") as f:
-                if config_file_suffix == "json":
-                    # 读取配置文件的内容
-                    config_from_file = ujson.load(f)
-                    # 如果读取的内容不是字典类型，则报错
-                    if not isinstance(config_from_file, dict):
-                        raise TypeError(
-                            "The configuration file must be a dictionary, but got {}".format(type(config_from_file))
-                        )
-                elif config_file_suffix in ["yaml", "yml"]:
-                    # 读取配置文件的内容
-                    config_from_file = yaml.safe_load(f)
-                    # 如果读取的内容不是字典类型，则报错
-                    if not isinstance(config_from_file, dict):
-                        raise TypeError(
-                            "The configuration file must be a dictionary, but got {}".format(type(config_from_file))
-                        )
-
-            # 如果config不是None，说明用户提供了配置，需要合并配置文件和配置
-            if config is not None:
-                # 如果config不是字典类型，则报错
-                if not isinstance(config, dict):
-                    raise TypeError("The configuration must be a dictionary, but got {}".format(type(config)))
-                # 合并配置文件和配置
-                config = {**config, **config_from_file}
-            # 否则config就是配置文件的内容
-            else:
-                config = config_from_file
 
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
@@ -496,12 +452,12 @@ class SwanLabRun:
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
 
-    def success(self):
-        """标记实验成功"""
+    def _success(self):
+        """Mark the experiment as success. Users should not use this function."""
         self.__set_exp_status(1)
 
-    def fail(self):
-        """标记实验失败"""
+    def _fail(self):
+        """Mark the experiment as failure. Users should not use this function."""
         self.__set_exp_status(-1)
 
     def __str__(self) -> str:
@@ -553,7 +509,7 @@ class SwanLabRun:
             swanlog.warning(tip)
 
         # 如果suffix为None, 则不添加后缀，直接返回
-        if suffix is None:
+        if suffix is None or suffix is False:
             return experiment_name_checked, experiment_name
 
         # suffix必须是字符串

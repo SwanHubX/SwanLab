@@ -85,6 +85,7 @@ const deleteExperiment = () => {
 const modifyExperiment = async (newV, hideModal) => {
   const id = experimentStore.id
   const { data } = await http.patch(`/experiment/${id}`, newV)
+  data.name = data.name.trim()
   experimentStore.setExperimentPartial(data)
   projectStore.setExperimentInfo(id, newV)
   hideModal()

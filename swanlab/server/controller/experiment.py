@@ -418,6 +418,7 @@ async def update_experiment_info(experiment_id: int, request: Request):
 
     db = connect()
     body = await request.json()
+    body["name"] = body["name"].strip()
     with db.atomic():
         experiment = Experiment.get(experiment_id)
         experiment.name = body.get("name")
