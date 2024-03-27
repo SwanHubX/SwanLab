@@ -1,5 +1,5 @@
 <template>
-  <MainLayout :show-side-bar="!errorCode" :version="version" v-if="ready">
+  <MainLayout :show-side-bar="!errorCode" v-if="ready">
     <router-view v-if="!errorCode" />
     <ErrorView :code="errorCode" :message="errorMessage" v-else />
   </MainLayout>
@@ -28,17 +28,14 @@ const projectStore = useProjectStore()
 const ready = ref()
 
 // ---------------------------------- 在此处请求项目信息 ----------------------------------
-const version = ref()
 http
   .get('/project')
-  .then(({ data, _header }) => {
+  .then(({ data }) => {
     projectStore.setProject(data)
-    version.value = _header['swanlab-version']
   })
   .catch((response) => {
     // console.error(response)
     errorCode.value = response.data?.code || 3000 // 3000 时，后端启动失败
-    version.value = response.headers['swanlab-version']
   })
   .finally(() => {
     ready.value = true
