@@ -1,5 +1,5 @@
 <template>
-  <div class="message-container" :class="message.type">
+  <div class="message-container" :class="[message.type, theme === 'dark' ? 'dark-theme' : '']">
     <!-- 成功图标 -->
     <SLIcon v-if="message.type === 'success'" icon="success" class="text-white-default" />
     <!-- 错误图标 -->
@@ -24,6 +24,10 @@ const props = defineProps({
   message: {
     type: Object,
     required: true
+  },
+  theme: {
+    type: String,
+    default: 'default'
   }
 })
 
@@ -40,6 +44,11 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.dark-theme {
+  background-color: #27282e !important;
+  color: white !important;
+  border-color: #616568 !important;
+}
 .message-container {
   @apply px-3 h-10 border rounded flex items-center gap-2 shadow-md bg-default text-sm;
   svg {
