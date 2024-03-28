@@ -8,6 +8,17 @@ export const message = {
     if (!message._r) console.error('Message组件未注册')
     return message._r.value
   },
+  dark: {
+    error: (text, delay, onClose) => {
+      message._ref.add(text, 'error', delay, onClose, 'dark')
+    },
+    success: (text, delay, onClose) => {
+      message._ref.add(text, 'success', delay, onClose, 'dark')
+    },
+    warning: (text, delay, onClose) => {
+      message._ref.add(text, 'warning', delay, onClose, 'dark')
+    }
+  },
   /**
    * @description 显示错误消息
    * @param {String} text 消息文本

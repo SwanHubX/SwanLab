@@ -1,6 +1,6 @@
 <template>
   <TransitionGroup name="list" tag="ul" class="messages-container">
-    <SLMessage :message="m" v-for="m in messages" :key="m.id" />
+    <SLMessage :message="m" :theme="m.theme" v-for="m in messages" :key="m.id" />
   </TransitionGroup>
 </template>
 
@@ -28,7 +28,7 @@ const maxLength = 10
  * @param { String } type 消息类型，可选值为error、success、processing
  * @param { Function } callback 消息被关闭时的回调函数，可选
  */
-const add = (message, type = 'error', delay = 2000, callback) => {
+const add = (message, type = 'error', delay = 2000, callback, theme = 'default') => {
   const id = uuid()
   // 生成一个函数callback，用于关闭该消息提示，并且将它传入BsMessage组件
   const close = (id, callback) => () => {
@@ -39,7 +39,8 @@ const add = (message, type = 'error', delay = 2000, callback) => {
     text: message,
     type,
     delay,
-    close: close(id, callback)
+    close: close(id, callback),
+    theme
   })
   limitRemoveDebounce()
 }

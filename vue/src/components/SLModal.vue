@@ -1,7 +1,7 @@
 <template>
   <Dialog as="div" class="sl-dialog-mask" data-sl-modal :open="modelValue" @click.prevent="close('mask')">
     <!-- 模态框主体部分 -->
-    <div class="sl-dialog animate-bounce-in" :class="$props.class" :style="{ maxWidth }" data-sl-modal @click.stop>
+    <div class="sl-dialog animate-bounce-in" :class="$props.class" :style="{ maxWidth }" data-sl-modal @click.stop="">
       <!-- 关闭按钮 -->
       <button
         class="absolute z-full !border-none"

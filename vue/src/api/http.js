@@ -27,8 +27,6 @@ http.interceptors.response.use(
     // 打印响应信息
     console.log('[response] ', resp.config.url, resp.data)
     const data = resp.data
-    // 为data添加_header，这里面包含了响应头信息
-    data._header = resp.headers
     return data
   },
   // 失败拦截

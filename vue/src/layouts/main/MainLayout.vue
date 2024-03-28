@@ -40,7 +40,7 @@ import { useRoute } from 'vue-router'
 const props = defineProps({
   version: {
     type: String,
-    default: undefined
+    default: 'unknown'
   },
   showSideBar: {
     type: Boolean,
