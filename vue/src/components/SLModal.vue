@@ -1,7 +1,15 @@
 <template>
-  <Dialog as="div" class="sl-dialog-mask" data-sl-modal :open="modelValue" @click.prevent="close('mask')">
+  <Dialog
+    as="div"
+    class="sl-dialog-mask"
+    data-sl-modal
+    :open="modelValue"
+    @click.prevent
+    @mousedown="handleMouseDown"
+    @mouseup="handleMouseUp"
+  >
     <!-- 模态框主体部分 -->
-    <div class="sl-dialog animate-bounce-in" :class="$props.class" :style="{ maxWidth }" data-sl-modal @click.stop>
+    <div class="sl-dialog animate-bounce-in" :class="$props.class" :style="{ maxWidth }" data-sl-modal @click.stop="">
       <!-- 关闭按钮 -->
       <button
         class="absolute z-full !border-none"
@@ -74,6 +82,34 @@ const close = (type) => {
 const maxWidth = computed(() => {
   return props.maxW + 'px'
 })
+
+// ---------------------------------- 点击mask防止误触，联动mousedown和up事件 ----------------------------------
+let isMaskClick = false
+const handleMouseDown = (e) => {
+  // 如果点击的是sl-dialog以及其子元素，则不关闭弹窗
+  if (e.target.closest('.sl-dialog')) {
+    isMaskClick = false
+    return
+  }
+  if (!props.closeOnOverlayClick) {
+    isMaskClick = false
+    return
+  }
+  isMaskClick = true
+}
+const handleMouseUp = (e) => {
+  if (!isMaskClick) return
+  if (e.target.closest('.sl-dialog')) {
+    isMaskClick = false
+    return
+  }
+  if (!props.closeOnOverlayClick) {
+    isMaskClick = false
+    return
+  }
+  close('mask')
+  isMaskClick = false
+}
 
 // ---------------------------------- 键盘esc关闭弹窗 ----------------------------------
 

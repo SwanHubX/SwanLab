@@ -6,7 +6,7 @@
     <SLIcon v-if="message.type === 'error'" icon="error" class="text-white-default" />
     <!-- 警告图标 -->
     <SLIcon v-if="message.type === 'warning'" icon="info" class="text-white-default" />
-    <p>{{ message.text }}</p>
+    <p class="text-nowrap">{{ message.text }}</p>
   </div>
 </template>
 
