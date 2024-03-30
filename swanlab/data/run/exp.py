@@ -129,7 +129,7 @@ class SwanLabTag:
         """当前tag的图表配置"""
         self.__log_dir = log_dir
         """存储文件夹路径"""
-        self.data_types = [float, int]
+        self.data_types = [float, int, BaseType]
         """默认数据类型，如果tag数据为BaseType的子类，则使用其规定的数据类型"""
         self._summary = {}
         """数据概要总结"""
