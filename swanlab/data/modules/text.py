@@ -119,6 +119,10 @@ class Text(BaseType):
         except Exception as e:
             raise TypeError(f"Could not save the text data to the path: {save_path}") from e
 
+    def get_columns(self) -> list:
+        """返回列名"""
+        return self.columns
+
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
         # 如果传入的是Text类列表
