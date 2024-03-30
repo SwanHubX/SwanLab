@@ -2,6 +2,7 @@
 from .base import BaseType
 import os
 from typing import Union, List
+import csv
 from ..utils.file import get_text_sha256_hash
 
 
@@ -10,32 +11,38 @@ class Text(BaseType):
 
     Parameters
     ----------
+    columns: List[str]
+        columns of text data.
     data: str, float, int
         text data.
-    caption: str
-        caption for the data, it will be displayed in the dashboard.
-        e.g. swanlab.Text("Hello World", caption="This is a caption for the text data.")
     """
 
-    def __init__(self, data: Union[str, List["Text"]], caption: str = None):
+    def __init__(self, columns: List[str], data: List[List[str]]):
+
         super().__init__(data)
+
+        # 对colums做类型检查
+        if not isinstance(columns, list):
+            raise TypeError("columns must be a list.")
+        if not all(isinstance(column, str) for column in columns):
+            raise TypeError("columns must be a list of strings.")
+        if len(columns) == 0:
+            raise TypeError("columns must not be empty.")
+
+        self.columns = columns
+        self.colums_length = len(columns)
         self.text_data = None
-        self.caption = self.__convert_caption(caption)
 
     def get_data(self):
-        # 如果传入的是Text类列表
-        if isinstance(self.value, list):
-            return self.get_data_list()
-
         # 预处理文本数据
         self.__preprocess(self.value)
 
         # 获取文本的hash值
-        hash_name = get_text_sha256_hash(self.text_data)[:16]
+        # hash_name = get_text_sha256_hash(self.text_data)[:16]
 
         # 设置文本数据的保存路径
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"text-step{self.step}-{hash_name}.txt"
+        save_name = f"text-step{self.step}.csv"
 
         # 如果路径不存在，则创建路径
         if not os.path.exists(save_dir):
@@ -47,58 +54,56 @@ class Text(BaseType):
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
-        return ["str", "int", "float"]
+        return ["list"]
 
-    def __preprocess(self, data):
+    def __preprocess(self, data: List[List[str]]):
         """
         根据不同的输入类型进行不同处理
         """
-        if isinstance(data, str):
-            self.text_data = data
-        elif isinstance(data, (int, float)):
-            self.text_data = str(data)
-        else:
-            raise TypeError("data must be a string, int or float.")
+        # 必须是列表
+        if not isinstance(data, list):
+            raise TypeError("data must be a list.")
+        # 必须不为空
+        if len(data) == 0:
+            raise TypeError("data must not be empty.")
+        # 必须是二维数组
+        if not all(isinstance(row, list) for row in data):
+            raise TypeError("data must be a 2D row-oriented array.")
+
+        data_list_convert_string = []
+        data_list_convert_string.append(self.columns)
+        # 遍历二维数组，将元素转换为字符串
+        for row in data:
+            # 检查每一行的长度是否等于columns的长度
+            if len(row) != self.colums_length:
+                raise TypeError("The length of data's row must be equal to the length of columns.")
+            try:
+                # 将每个元素转换为字符串
+                row = [str(item) for item in row]
+                data_list_convert_string.append(row)
+            except Exception as e:
+                raise TypeError(
+                    "Elements within 'data' in swanlab.Text contain values that cannot be converted to strings."
+                ) from e
+
+        self.text_data = data_list_convert_string
 
     def __save(self, save_path):
         """
-        将文本数据写入到指定目录的txt文件
+        将文本数据写入到指定目录的csv文件
         """
         try:
-            with open(save_path, "w+", encoding="utf-8") as f:
+            with open(save_path, "w+", encoding="utf-8", newline="") as f:
                 # 将文本数据写入到指定目录的txt文件
-                f.write(self.text_data)
+                writer = csv.writer(f)
+                writer.writerows(self.text_data)
         except Exception as e:
-            raise ValueError(f"Could not save the text data to the path: {save_path}") from e
-
-    def __convert_caption(self, caption):
-        """将caption转换为字符串"""
-        # 如果类型是字符串，则不做转换
-        if isinstance(caption, str):
-            caption = caption
-        # 如果类型是数字，则转换为字符串
-        elif isinstance(caption, (int, float)):
-            caption = str(caption)
-        # 如果类型是None，则转换为默认字符串
-        elif caption is None:
-            caption = None
-        else:
-            raise TypeError("caption must be a string, int or float.")
-        return caption.strip() if caption else None
+            raise TypeError(f"Could not save the text data to the path: {save_path}") from e
 
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
         # 如果传入的是Text类列表
-        if isinstance(self.value, list):
-            return self.get_more_list()
-        else:
-            return (
-                {
-                    "caption": self.caption,
-                }
-                if self.caption is not None
-                else None
-            )
+        return None
 
     def get_namespace(self, *args, **kwargs) -> str:
         """设定分组名"""
