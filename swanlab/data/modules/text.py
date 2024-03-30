@@ -12,12 +12,18 @@ class Text(BaseType):
     Parameters
     ----------
     columns: List[str]
-        columns of text data.
-    data: str, float, int
-        text data.
+        Names of the columns in the Text.
+    data: List[List[str]]
+        2D row-oriented array of values.
+    dataframe: pd.DataFrame
+        DataFrame object used to create the Text. When set, `data` and `columns` arguments are ignored.
     """
 
-    def __init__(self, columns: List[str], data: List[List[str]]):
+    def __init__(self, columns: List[str] = None, data: List[List[str]] = None, dataframe=None):
+
+        # 如果dataframe存在，那么将无视columns和data, 从dataframe中提取数据
+        if dataframe is not None:
+            columns, data = self.__init_from_pd_dataframe(dataframe)
 
         super().__init__(data)
 
@@ -28,9 +34,9 @@ class Text(BaseType):
             raise TypeError("columns must be a list of strings.")
         if len(columns) == 0:
             raise TypeError("columns must not be empty.")
-
         self.columns = columns
-        self.colums_length = len(columns)
+
+        self.colums_length = len(self.columns)
         self.text_data = None
 
     def get_data(self):
@@ -52,6 +58,22 @@ class Text(BaseType):
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["list"]
+
+    def __init_from_pd_dataframe(self, dataframe):
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise TypeError("swanlab.Text requires pandas when process dataframe. Install with 'pip install pandas'.")
+
+        if not isinstance(dataframe, pd.DataFrame):
+            raise TypeError("data_frame must be a pandas DataFrame.")
+        # 提取列名作为表头
+        columns = dataframe.columns.tolist()
+
+        # 将DataFrame的行转换为列表的列表（二维列表）
+        data = dataframe.values.tolist()
+
+        return columns, data
 
     def __preprocess(self, data: List[List[str]]):
         """
