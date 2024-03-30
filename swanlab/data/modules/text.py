@@ -37,9 +37,6 @@ class Text(BaseType):
         # 预处理文本数据
         self.__preprocess(self.value)
 
-        # 获取文本的hash值
-        # hash_name = get_text_sha256_hash(self.text_data)[:16]
-
         # 设置文本数据的保存路径
         save_dir = os.path.join(self.settings.static_dir, self.tag)
         save_name = f"text-step{self.step}.csv"
