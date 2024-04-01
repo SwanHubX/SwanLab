@@ -59,3 +59,12 @@ class LogCollector:
             await self.upload()
             # 清除容器内容
             self.container.clear()
+
+    async def callback(self, u: ThreadUtil):
+        """
+        回调函数，用于线程结束时的回调
+        :param u: 线程工具类
+        """
+        print("线程" + u.name + "回调执行")
+        self.container.extend(u.queue.get_all())
+        return await self.upload()

@@ -8,8 +8,9 @@ r"""
     日志队列
 """
 from queue import Queue
-from typing import List, Tuple, Callable
+from typing import Tuple, Callable, Coroutine, Any
 import time
+import asyncio
 
 q = Queue()
 """
@@ -102,18 +103,16 @@ class ThreadUtil:
     每个线程都会传入此类的实例，统一管理线程在任务中可访问的资源
     """
 
-    def __init__(self, queue: LogQueue, callbacks: List[Tuple[Callable, Tuple]], name: str):
+    def __init__(self, queue: LogQueue, name: str):
         """
         初始化线程工具类
         :param queue: 线程安全的队列，用于所有线程与主要线程的通信
-        :param callbacks: 回调函数列表，于让当前线程注册线程正常退出时的回调函数任务
         :param name: 线程名称
         """
         self.__queue = queue
         """
         线程安全的队列
         """
-        self.__callbacks = callbacks
         self.__timer = TimerFlag()
         # 此线程是否已经注册了回调函数
         self.__set = False
@@ -131,11 +130,19 @@ class ThreadUtil:
     def timer(self):
         return self.__timer
 
-    def register_callback(self, callback: Callable, args: Tuple):
+    @staticmethod
+    def wrapper_callback(func: Callable, args: Tuple) -> Callable[[], Coroutine[Any, Any, None]]:
         """
-        注册回调函数
-        :param callback: 回调函数
+        回调函数包装器，将回调函数包装成协程函数
+        如果传入的函数本身就是协程函数，也会包装
+        :param func: 回调函数
         :param args: 回调函数参数
         """
-        self.__callbacks.append((callback, args))
-        self.__set = True
+
+        async def wrapper():
+            if asyncio.iscoroutinefunction(func):
+                await func(*args)
+            else:
+                func(*args)
+
+        return wrapper

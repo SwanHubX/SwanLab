@@ -19,7 +19,6 @@ class ThreadPool:
     """
     线程池类，负责管理线程和为线程生成通信管道
     只生成一个管道，用于其他线程与主要线程的通信
-    每一个线程都将是一个死循环，
     """
 
     SLEEP_TIME = 1
@@ -36,18 +35,20 @@ class ThreadPool:
         self.main_thread = None
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
-        self.__callbacks: List[Tuple[Callable, Tuple]] = []
+        self.__callbacks: List[Callable] = []
         # 生成主要线程，主要线程是日志聚合器，负责收集所有线程向主线程发送的日志信息
         self.main_thread = self.create_thread(target=self.collector.task,
                                               args=(),
                                               name=self.MAIN_THREAD_NAME,
-                                              sleep_time=main_sleep_time)
+                                              sleep_time=main_sleep_time,
+                                              callback=self.collector.callback)
 
     def create_thread(self,
                       target: Callable,
                       args: Tuple = (),
                       name: str = None,
-                      sleep_time: float = None
+                      sleep_time: float = None,
+                      callback: Callable = None
                       ) -> threading.Thread:
         """
         创建一个线程
@@ -55,6 +56,7 @@ class ThreadPool:
         :param args: 任务参数
         :param name: 线程名称
         :param sleep_time: 任务休眠时间
+        :param callback: 线程结束时的回调函数
         :return: 线程对象
         """
         if name is None:
@@ -67,11 +69,14 @@ class ThreadPool:
             q = LogQueue(readable=True, writable=False)
         else:
             q = LogQueue(readable=False, writable=True)
-        thread_util = ThreadUtil(q, self.__callbacks, name)
+        thread_util = ThreadUtil(q, name)
+        callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
         thread = threading.Thread(target=self._create_loop,
                                   args=(sleep_time, target, (thread_util, *args)),
                                   name=name)
         self.thread_pool[name] = thread
+        if callback is not None:
+            self.__callbacks.append(callback)
         thread.start()
         return thread
 
@@ -134,3 +139,6 @@ class ThreadPool:
         self.thread_timer[self.MAIN_THREAD_NAME].cancel()
         self.main_thread.join()
         print("线程池结束")
+        # 倒序执行回调函数
+        for cb in self.__callbacks[::-1]:
+            asyncio.run(cb())
