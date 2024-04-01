@@ -8,6 +8,7 @@ vue/auto-imports.d.ts
 swanlog/
 swanlog.bak/
 logs/
+.eslintrc-auto-import.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
