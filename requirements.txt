@@ -2,6 +2,7 @@
 soundfile
 pillow
 numpy
+pandas
 
 # web server
 fastapi

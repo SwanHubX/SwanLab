@@ -2,27 +2,9 @@
   <div class="w-full h-full">
     <!-- title: show in modal -->
     <p class="w-full text-center py-6 text-xl font-semibold" v-if="modal">{{ tag }}</p>
-    <!-- header -->
-    <div class="w-full flex items-center bg-higher border-y">
-      <div class="caption">Caption</div>
-      <div class="text">Text</div>
-    </div>
-
     <!-- body -->
     <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
-      <!-- line -->
-      <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
-        <!-- caption -->
-        <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
-        <!-- text -->
-        <div class="text" :title="text">{{ text }}</div>
-        <!-- zoom icon -->
-        <SLIcon
-          icon="zoom"
-          class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
-          @click="zoom(text, i)"
-        />
-      </div>
+      <ChartTable :header="header" :data="tableData" />
       <!-- 骨架屏 -->
       <div v-if="skeleton && texts[currentIndex]">
         <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
@@ -63,6 +45,7 @@ import { ref, inject, computed, watch } from 'vue'
 import SLModal from '@swanlab-vue/components/SLModal.vue'
 import TextDetail from './TextDetail.vue'
 import SlideBar from '../components/SlideBar.vue'
+import ChartTable from '../components/ChartTable.vue'
 
 const props = defineProps({
   data: {
@@ -90,19 +73,19 @@ const emits = defineEmits(['getText', 'update:modelValue'])
 const color = inject('defaultColor')
 const skeleton = ref(false)
 
-/**
- * 获取 caption
- * @param {*} i
- */
-const getCaption = (i) => {
-  const line = props.data.list[currentIndex.value]
-  // 如果一个 step 只有一个 text
-  if (props.texts[currentIndex.value]?.length == 1) {
-    return line?.more?.caption || '-'
-  }
-  // 多个 text，通过行索引得到 caption
-  return line?.more[i]?.caption || '-'
-}
+const header = computed(() => {
+  const text = props.texts[currentIndex.value]
+  if (!text) return []
+  const header = text[0].split('\r')[0].split(',')
+  return header
+})
+
+const tableData = computed(() => {
+  const text = props.texts[currentIndex.value]
+  if (!text) return []
+  const data = text[0].split('\r').slice(1)
+  return data
+})
 
 // ---------------------------------- 分页 ----------------------------------
 

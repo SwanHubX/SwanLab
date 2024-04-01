@@ -54,7 +54,8 @@ for epoch in range(2, swanlab.config.epoches):
         # 测试text
         swanlab.log(
             {
-                "text": swanlab.Text("这是一段测试文本", caption="test"),
+                # "text": swanlab.Text("这是一段测试文本", caption="test"),
+                "text": swanlab.Text(columns=["Input", "Output"], data=[["input1", "output1"], ["input2", "output2"]]),
             },
             step=epoch,
         )
