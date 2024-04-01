@@ -119,32 +119,32 @@ def watch(log_level: str, **kwargs):
 
 
 # ---------------------------------- 登录命令，进行登录 ----------------------------------
-@cli.command()
-@click.option(
-    "--relogin",
-    "-r",
-    is_flag=True,
-    default=False,
-    help="Relogin to the swanlab cloud, it will recover the token file.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    default=None,
-    type=str,
-    help="If you prefer not to engage in command-line interaction to input the api key, "
-         "this will allow automatic login.",
-)
-def login(api_key: str, relogin: bool, **kwargs):
-    """Login to the swanlab cloud."""
-    # 其实还可以有别的方式，但是现阶段只有输入api key的方式，直接运行login函数即可
-    if not relogin and is_login():
-        # 此时代表token已经获取，需要打印一条信息：已经登录
-        command = FONT.bold("swanlab login --relogin")
-        tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
-        return print(tip)
-    # 进行登录，此时将直接覆盖本地token文件
-    terminal_login(api_key)
+# @cli.command()
+# @click.option(
+#     "--relogin",
+#     "-r",
+#     is_flag=True,
+#     default=False,
+#     help="Relogin to the swanlab cloud, it will recover the token file.",
+# )
+# @click.option(
+#     "--api-key",
+#     "-k",
+#     default=None,
+#     type=str,
+#     help="If you prefer not to engage in command-line interaction to input the api key, "
+#          "this will allow automatic login.",
+# )
+# def login(api_key: str, relogin: bool, **kwargs):
+#     """Login to the swanlab cloud."""
+#     # 其实还可以有别的方式，但是现阶段只有输入api key的方式，直接运行login函数即可
+#     if not relogin and is_login():
+#         # 此时代表token已经获取，需要打印一条信息：已经登录
+#         command = FONT.bold("swanlab login --relogin")
+#         tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
+#         return print(tip)
+#     # 进行登录，此时将直接覆盖本地token文件
+#     terminal_login(api_key)
 
 
 if __name__ == "__main__":
