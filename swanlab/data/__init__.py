@@ -19,7 +19,7 @@ from .sdk import (
     init,
     log,
     finish,
-    config,
+    _config as config,
 )
 
 from .run import (
