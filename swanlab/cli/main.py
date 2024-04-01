@@ -106,7 +106,7 @@ def watch(log_level: str, **kwargs):
 
     # ---------------------------------- 启动服务 ----------------------------------
     # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
-    # 使用try expcept捕获退出，涉及端口占用等
+    # 使用try except 捕获退出，涉及端口占用等
     try:
         uvicorn.run(app, host=host, port=port, log_level="critical")
     except SystemExit as e:
@@ -132,7 +132,8 @@ def watch(log_level: str, **kwargs):
 #     "-k",
 #     default=None,
 #     type=str,
-#     help="If you prefer not to engage in command-line interaction to input the api key, this will allow automatic login.",
+#     help="If you prefer not to engage in command-line interaction to input the api key, "
+#          "this will allow automatic login.",
 # )
 # def login(api_key: str, relogin: bool, **kwargs):
 #     """Login to the swanlab cloud."""

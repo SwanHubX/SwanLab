@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from typing import Any, Union
+from typing import Any
 from ..settings import SwanDataSettings
 from ...log import register, swanlog
 from ..system import get_system_info, get_requirements
@@ -56,7 +56,7 @@ class SwanLabConfig(Mapping):
     def _inited(self):
         return self.__settings.get("save_path") is not None
 
-    def __init__(self, config: dict, settings: SwanDataSettings = None):
+    def __init__(self, config: dict = None, settings: SwanDataSettings = None):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
 
@@ -70,7 +70,8 @@ class SwanLabConfig(Mapping):
         if self._inited:
             self.__save()
 
-    def __check_config(self, config: dict) -> dict:
+    @staticmethod
+    def __check_config(config: dict) -> dict:
         """
         检查配置是否合法，确保它可以被 JSON/YAML 序列化。
         如果传入的是 argparse.Namespace 类型，会先转换为字典。
@@ -89,7 +90,8 @@ class SwanLabConfig(Mapping):
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
         return config
 
-    def __check_private(self, name: str):
+    @staticmethod
+    def __check_private(name: str):
         """
         检查属性名是否是私有属性,如果是私有属性，抛出异常
 
@@ -342,12 +344,9 @@ class SwanLabRun:
         config : dict, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
-        config_file: str, optional
-            实验参数配置文件路径，将被读取为dict。作用与config一致, 且会与config合并
-            路径对应的文件必须是json或yaml文件，否则会报错
         log_level : str, optional
-            当前实验的日志等级，默认为'info'，可以从'debug'、'info'、'warning'、'error'、'critical'中选择
-            不区分大小写，如果不提供此参数(为None)，则默认为'info'
+            当前实验的日志等级，默认为 'info'，可以从 'debug' 、'info'、'warning'、'error'、'critical' 中选择
+            不区分大小写，如果不提供此参数(为None)，则默认为 'info'
             如果提供的日志等级不在上述范围内，默认改为info
         suffix : str, optional
             实验名称后缀，用于区分同名实验，格式为yyyy-mm-dd_HH-MM-SS
@@ -355,9 +354,9 @@ class SwanLabRun:
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.__run_id = "run-{}-{}".format(timestamp, id)
+        self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
@@ -401,9 +400,9 @@ class SwanLabRun:
 
     def log(self, data: dict, step: int = None):
         """
-        Log a row of data to the current run.
-        Unlike `swanlab.log`, this api will be called directly based on the SwanRun instance, removing the initialization process.
-        Of course, after you call the success/fail method, this method will be banned from calling.
+        Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
+        SwanRun instance, removing the initialization process. Of course, after you call the success/fail method,
+        this method will be banned from calling.
 
         Parameters
         ----------
@@ -479,7 +478,8 @@ class SwanLabRun:
         self.__status = status
         self.__exp.db.update_status(status)
 
-    def __get_exp_name(self, experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
+    @staticmethod
+    def __get_exp_name(experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
         """
         预处理实验名称，如果实验名称过长，截断
 
@@ -543,6 +543,7 @@ class SwanLabRun:
         # 这个循环的目的是如果创建失败则等零点五秒重新生成后缀重新创建，直到创建成功
         # 但是由于需要考虑suffix为none不生成后缀的情况，所以需要在except中判断一下
         old = experiment_name
+        exp = None
         while True:
             experiment_name, exp_name = self.__get_exp_name(old, suffix)
             try:
@@ -564,7 +565,8 @@ class SwanLabRun:
         self.__record_exp_config()  # 记录实验配置
         return SwanLabExp(self.__settings, exp.id, exp=exp)
 
-    def __check_log_level(self, log_level: str) -> str:
+    @staticmethod
+    def __check_log_level(log_level: str) -> str:
         """检查日志等级是否合法"""
         valids = ["debug", "info", "warning", "error", "critical"]
         if log_level is None:
@@ -575,7 +577,8 @@ class SwanLabRun:
             swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
             return "info"
 
-    def __check_description(self, description: str) -> str:
+    @staticmethod
+    def __check_description(description: str) -> str:
         """检查实验描述是否合法"""
         if description is None:
             return ""
