@@ -144,7 +144,7 @@ def init(
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
-        load_data = check_load_json_yaml(load, "load")
+        load_data = check_load_json_yaml(load, load)
         # 尝试更改传入的参数为None的情况，如果传入的参数不是None，不做任何操作
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
         description = _load_data(load_data, "description", description)
