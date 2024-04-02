@@ -8,35 +8,35 @@
       <div class="text">Text</div>
     </div>
     <!-- body -->
-    <div
-      class="w-full h-[310px] overflow-y-auto"
-      :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }"
-      v-if="isOld"
-    >
-      <!-- line -->
-      <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
-        <!-- caption -->
-        <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
-        <!-- text -->
-        <div class="text" :title="text">{{ text }}</div>
-        <!-- zoom icon -->
-        <SLIcon
-          icon="zoom"
-          class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
-          @click="zoom(text, i)"
-        />
-      </div>
-    </div>
-    <ChartTable :header="header" :data="tableData" v-else />
-    <!-- 骨架屏 -->
-    <div v-if="skeleton && texts[currentIndex]">
-      <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
-        <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
-          <span class="skeleton w-full h-1/2"></span>
+    <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
+      <template v-if="isOld">
+        <!-- line -->
+        <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
+          <!-- caption -->
+          <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
+          <!-- text -->
+          <div class="text" :title="text">{{ text }}</div>
+          <!-- zoom icon -->
+          <SLIcon
+            icon="zoom"
+            class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
+            @click="zoom(text, i)"
+          />
         </div>
-        <div class="flex items-center w-full h-10 ml-4"><span class="skeleton w-1/2 h-1/2"></span></div>
+      </template>
+      <!-- CSV table -->
+      <ChartTable :column="header" :data="tableData" v-show="!skeleton" v-else />
+      <!-- 骨架屏 -->
+      <div v-if="skeleton && texts[currentIndex]">
+        <div class="flex items-center border-dimmest" v-for="i in [1, 2, 3]" :key="i">
+          <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center">
+            <span class="skeleton w-full h-1/2"></span>
+          </div>
+          <div class="flex items-center w-full h-10 ml-4"><span class="skeleton w-1/2 h-1/2"></span></div>
+        </div>
       </div>
     </div>
+
     <!-- 翻页 -->
     <SlideBar
       class="pt-2"
@@ -87,6 +87,10 @@ const props = defineProps({
   },
   modelValue: {
     type: Boolean
+  },
+  // COMPAT
+  isOld: {
+    type: Boolean
   }
 })
 
@@ -98,15 +102,32 @@ const skeleton = ref(false)
 const header = computed(() => {
   const text = props.texts[currentIndex.value]
   if (!text) return []
-  const header = text[0].split('\r')[0].split(',')
-  return header
+  const header = text[0].split('\n')[0].split(',')
+  return header.map((item) => ({ key: item.trim(), title: item.trim() }))
 })
 
+// 生成新版表格内容
 const tableData = computed(() => {
   const text = props.texts[currentIndex.value]
   if (!text) return []
-  const data = text[0].split('\r').slice(1)
-  return data
+  const columnCount = header.value.length
+  let data = text[0].split('\n').slice(1)
+  // 分割每一行中的每一列
+  data = data.map((item) => {
+    return item.split(',')
+  })
+  // 去除空行
+  data = data.filter((item) => item.length === columnCount)
+  // 和表头对齐
+  const temp = []
+  for (let index in data) {
+    const line = {}
+    for (let i = 0; i < columnCount; i++) {
+      line[header.value[i].key] = data[index][i]
+    }
+    temp.push(line)
+  }
+  return temp
 })
 
 // COMPAT
@@ -123,12 +144,6 @@ const getCaption = (i) => {
   // 多个 text，通过行索引得到 caption
   return line?.more[i]?.caption || '-'
 }
-
-// COMPAT: 是否是旧版本
-const isOld = computed(() => {
-  console.log(props.data.list)
-  return true
-})
 
 // ---------------------------------- 分页 ----------------------------------
 

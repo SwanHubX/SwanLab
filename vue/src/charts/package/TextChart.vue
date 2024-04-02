@@ -17,6 +17,7 @@
       :data="original_data[tag]"
       :texts="texts[tag]"
       :tag="tag"
+      :isOld="isOld"
       @getText="getText"
       v-for="tag in source"
       :key="tag"
@@ -68,6 +69,12 @@ const media = inject('media')
 
 const original_data = ref()
 const source = ref(props.chart.source)
+
+// COMPAT 旧版本使用 txt，新版本使用 csv
+const isOld = computed(() => {
+  const suffix = original_data.value[source.value[0]].min.split('.')[1]
+  return suffix === 'txt'
+})
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
