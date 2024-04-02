@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024-04-03 00:08:50
-@File: test/unit/example.test.py
+@File: test/unit/pytest_example.py
 @IDE: vscode
 @Description:
-    测试用例示例，所有测试用例文件以test_开头
+    测试用例示例，所有测试用例文件以pytest_开头
 """
 
 
