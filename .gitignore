@@ -20,4 +20,4 @@ playground/
 
 # python
 __pycache__
-.pytest_catch/
+.pytest_cache/
