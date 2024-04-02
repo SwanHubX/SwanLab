@@ -20,8 +20,8 @@ offset = random.random() / 5
 swanlab.init(
     description="这是一个测试实验",
     log_level="debug",
-    config="test/config.json",
-    load="test/load.yaml",
+    config="test/config/config.json",
+    load="test/config/load.yaml",
     # cloud=True,
 )
 swanlab.config.epoches = epochs
