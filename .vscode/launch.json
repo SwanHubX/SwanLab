@@ -39,7 +39,7 @@
     },
     // python运行当前文件
     {
-      "name": "Python运行当前文件",
+      "name": "运行当前文件",
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
