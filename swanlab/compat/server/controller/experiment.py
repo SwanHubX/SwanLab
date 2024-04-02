@@ -14,6 +14,7 @@ from swanlab.server.settings import (
     get_tag_dir,
 )
 import os
+import ujson
 
 
 def compat_text(experiment_id: int, tag: str):
@@ -35,5 +36,15 @@ def compat_text(experiment_id: int, tag: str):
     tag_path = get_tag_dir(run_id, tag.name)
     # 列出下面所有文件，除了 _summary.json
     files = [file for file in os.listdir(tag_path) if file != "_summary.json"]
-    print(files)
+    for file in files:
+        __transfer_logs(os.path.join(tag_path, file))
     return True
+
+
+def __transfer_logs(path: str):
+    with open(path, "r") as f:
+        data = f.read().split("\n")
+        # 将每个元素转成dict
+        data = [ujson.loads(line) for line in data if line]
+    # TODO 打开对应的 txt 文件
+    print(data)
