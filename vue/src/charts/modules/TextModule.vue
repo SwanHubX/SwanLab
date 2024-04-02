@@ -109,8 +109,9 @@ const tableData = computed(() => {
   return data
 })
 
+// COMPAT
 /**
- * COMPAT: 获取 caption
+ * 获取 caption
  * @param {*} i
  */
 const getCaption = (i) => {
