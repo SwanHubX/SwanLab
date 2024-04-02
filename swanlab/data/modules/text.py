@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from .base import BaseType
-import os
 from typing import Union, List
-from ..utils.file import get_text_sha256_hash
 
 
 class Text(BaseType):
