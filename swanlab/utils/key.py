@@ -38,11 +38,14 @@ def save_key(path: str, host: str, username: str, password: str):
     :param password: 保存的密码
     :return:
     """
-    # 如果文件不存在，自动创建
-    if not os.path.exists(path):
+    try:
+        # 如果文件不存在，自动创建
+        if not os.path.exists(path):
+            with open(path, "w") as f:
+                f.write("")
+        nrc = netrc.netrc(path)
+        nrc.hosts[host] = (username, None, password)
         with open(path, "w") as f:
-            f.write("")
-    nrc = netrc.netrc(path)
-    nrc.hosts[host] = (username, None, password)
-    with open(path, "w") as f:
-        f.write(nrc.__repr__())
+            f.write(nrc.__repr__())
+    except FileNotFoundError:
+        raise KeyFileError("Failed to save token file") from FileNotFoundError

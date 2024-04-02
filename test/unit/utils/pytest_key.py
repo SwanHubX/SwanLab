@@ -8,6 +8,8 @@ r"""
     token测试
 """
 import os.path
+import pytest
+from swanlab.error import KeyFileError
 from swanlab.utils.key import save_key, get_key
 from utils.test.config import TEMP_PATH
 from typing import Tuple
@@ -26,6 +28,10 @@ def create_key() -> Tuple[str, str, str]:
     return nanoid.generate(size=8), nanoid.generate(size=11), nanoid.generate()
 
 
+def _test_save_key(info, path=netrc_pah):
+    save_key(path, *info)
+
+
 # ---------------------------------- 测试 ----------------------------------
 
 def test_save_key_success():
@@ -33,7 +39,7 @@ def test_save_key_success():
     测试保存key成功
     """
     info = create_key()
-    save_key(netrc_pah, *info)
+    _test_save_key(info)
     # netrc读取
     nrc = netrc.netrc(netrc_pah).authenticators(info[0])
     assert nrc[0] == info[1]
@@ -47,4 +53,5 @@ def test_save_key_path_error():
     """
     _netrc_pah = os.path.join(os.path.dirname(netrc_pah), nanoid.generate(), os.path.basename(netrc_pah))
     info = create_key()
-    save_key(_netrc_pah, *info)
+    with pytest.raises(KeyFileError):
+        _test_save_key(info, _netrc_pah)
