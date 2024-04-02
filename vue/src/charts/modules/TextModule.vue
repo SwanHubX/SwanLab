@@ -2,17 +2,39 @@
   <div class="w-full h-full">
     <!-- title: show in modal -->
     <p class="w-full text-center py-6 text-xl font-semibold" v-if="modal">{{ tag }}</p>
+    <!-- header -->
+    <div class="w-full flex items-center bg-higher border-y" v-if="isOld">
+      <div class="caption">Caption</div>
+      <div class="text">Text</div>
+    </div>
     <!-- body -->
-    <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
-      <ChartTable :header="header" :data="tableData" />
-      <!-- 骨架屏 -->
-      <div v-if="skeleton && texts[currentIndex]">
-        <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
-          <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
-            <span class="skeleton w-full h-1/2"></span>
-          </div>
-          <div class="flex items-center w-full h-10 ml-4"><span class="skeleton w-1/2 h-1/2"></span></div>
+    <div
+      class="w-full h-[310px] overflow-y-auto"
+      :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }"
+      v-if="isOld"
+    >
+      <!-- line -->
+      <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
+        <!-- caption -->
+        <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
+        <!-- text -->
+        <div class="text" :title="text">{{ text }}</div>
+        <!-- zoom icon -->
+        <SLIcon
+          icon="zoom"
+          class="w-5 h-5 p-1 absolute right-3 cursor-pointer bg-default icon hidden transition-all"
+          @click="zoom(text, i)"
+        />
+      </div>
+    </div>
+    <ChartTable :header="header" :data="tableData" v-else />
+    <!-- 骨架屏 -->
+    <div v-if="skeleton && texts[currentIndex]">
+      <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
+        <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
+          <span class="skeleton w-full h-1/2"></span>
         </div>
+        <div class="flex items-center w-full h-10 ml-4"><span class="skeleton w-1/2 h-1/2"></span></div>
       </div>
     </div>
     <!-- 翻页 -->
@@ -85,6 +107,26 @@ const tableData = computed(() => {
   if (!text) return []
   const data = text[0].split('\r').slice(1)
   return data
+})
+
+/**
+ * COMPAT: 获取 caption
+ * @param {*} i
+ */
+const getCaption = (i) => {
+  const line = props.data.list[currentIndex.value]
+  // 如果一个 step 只有一个 text
+  if (props.texts[currentIndex.value]?.length == 1) {
+    return line?.more?.caption || '-'
+  }
+  // 多个 text，通过行索引得到 caption
+  return line?.more[i]?.caption || '-'
+}
+
+// COMPAT: 是否是旧版本
+const isOld = computed(() => {
+  console.log(props.data.list)
+  return true
 })
 
 // ---------------------------------- 分页 ----------------------------------
