@@ -36,6 +36,7 @@ from .db import (
     NotExistedError,
 )
 from .utils import get_exp_charts, clear_field, read_tag_data, get_tag_files, LOGS_CONFIGS
+from ...compat.server.controller.experiment import compat_text
 
 __to_list = Experiment.search2list
 
@@ -189,6 +190,8 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if not isinstance(tag_data[0]["index"], int):
         for data in tag_data:
             data["index"] = int(data["index"])
+    # COMPAT 如果当前tag的类型为text，并且在media文件夹下存在相同名文件夹
+    compat_text(experiment_id, tag)
     # 根据index升序排序
     tag_data.sort(key=lambda x: int(x["index"]))
     # tag_data 的 最后一个数据增加一个字段_last = True

@@ -12,10 +12,10 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="text-table" :data="data || []" />
+    <TextModule class="text-table" :data="data || []" :tag="title" />
     <!-- 放大效果弹窗 -->
     <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
-      <TextModule v-model="isDetailZoom" :data="data" modal />
+      <TextModule v-model="isDetailZoom" :data="data" :tag="title" modal />
     </SLModal>
   </template>
 </template>
