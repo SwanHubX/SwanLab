@@ -89,16 +89,6 @@
 
   /** tailwind */
   "css.customData": [".vscode/tailwind.json"],
-  /** 不显示__pycache__文件夹 */
-  "files.exclude": {
-    "**/.git": true,
-    "**/.svn": true,
-    "**/.hg": true,
-    "**/CVS": true,
-    "**/.DS_Store": true,
-    "**/Thumbs.db": true,
-    "**/__pycache__": true
-  },
   /** python代码注释 */
   "autoDocstring.docstringFormat": "numpy",
 
@@ -109,8 +99,16 @@
     // 允许首行不是level1标题
     "MD041": false
   },
-  "vue-i18n.i18nPaths": "vue/src/i18n"
 
-  // /** SQLite */
-  // "sqlite.databaseExtensions": ["db", "db3", "sdb", "s3db", "sqlite", "sqlite3", "swanlab"]
+  /** 不显示文件夹 */
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/__pycache__": true,
+    ".idea": true
+  }
 }
