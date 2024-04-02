@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from .base import BaseType
-import os
 from typing import Union, List
-from ..utils.file import get_text_sha256_hash
 
 
 class Text(BaseType):
@@ -30,21 +28,7 @@ class Text(BaseType):
         # 预处理文本数据
         self.__preprocess(self.value)
 
-        # 获取文本的hash值
-        hash_name = get_text_sha256_hash(self.text_data)[:16]
-
-        # 设置文本数据的保存路径
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"text-step{self.step}-{hash_name}.txt"
-
-        # 如果路径不存在，则创建路径
-        if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, save_name)
-
-        # 保存文本数据写入到指定目录的指定json文件
-        self.__save(save_path)
-        return save_name
+        return self.text_data
 
     def expect_types(self, *args, **kwargs) -> list:
         return ["str", "int", "float"]
@@ -59,17 +43,6 @@ class Text(BaseType):
             self.text_data = str(data)
         else:
             raise TypeError("data must be a string, int or float.")
-
-    def __save(self, save_path):
-        """
-        将文本数据写入到指定目录的txt文件
-        """
-        try:
-            with open(save_path, "w+", encoding="utf-8") as f:
-                # 将文本数据写入到指定目录的txt文件
-                f.write(self.text_data)
-        except Exception as e:
-            raise ValueError(f"Could not save the text data to the path: {save_path}") from e
 
     def __convert_caption(self, caption):
         """将caption转换为字符串"""
