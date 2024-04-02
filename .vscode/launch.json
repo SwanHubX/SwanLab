@@ -25,35 +25,12 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
-    // 开发调试
-    {
-      "name": "开发调试",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/test_create_experiment.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
     // 模拟实验开启
     {
       "name": "开启一个实验",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/test/create_experiment.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
-    {
-      "name": "模拟命令行watch",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/cli_test.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
