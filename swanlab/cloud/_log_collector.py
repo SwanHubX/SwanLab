@@ -9,11 +9,11 @@ r"""
 """
 
 from typing import List
-from .utils import ThreadUtil
+from .utils import ThreadUtil, ThreadTaskABC
 import asyncio
 
 
-class LogCollector:
+class LogCollector(ThreadTaskABC):
     """
     日志聚合器，负责收集所有线程注册的日志信息
     并且定义日志上传接口
@@ -47,7 +47,7 @@ class LogCollector:
         # 假设上传时间为1秒
         await asyncio.sleep(1)
 
-    async def task(self, u: ThreadUtil):
+    async def task(self, u: ThreadUtil, *args):
         """
         定时任务，定时上传日志信息
         :param u: 线程工具类
@@ -60,7 +60,7 @@ class LogCollector:
             # 清除容器内容
             self.container.clear()
 
-    async def callback(self, u: ThreadUtil):
+    async def callback(self, u: ThreadUtil, *args):
         """
         回调函数，用于线程结束时的回调
         :param u: 线程工具类

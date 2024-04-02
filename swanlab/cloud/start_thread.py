@@ -25,23 +25,24 @@ class ThreadPool:
     """
     默认的任务休眠时间，单位秒
     """
-    MAIN_THREAD_NAME = "MsgUploader"
+    UPLOAD_THREAD_NAME = "MsgUploader"
+    """
+    数据上传线程的名称
+    """
 
-    def __init__(self, main_sleep_time: float = None):
+    def __init__(self, upload_sleep_time: float = None):
         self.thread_pool = {}
         # 日志聚合器
         self.collector = LogCollector()
-        # 主要线程的名称，一个线程池只能有一个主要线程
-        self.main_thread = None
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []
-        # 生成主要线程，主要线程是日志聚合器，负责收集所有线程向主线程发送的日志信息
-        self.main_thread = self.create_thread(target=self.collector.task,
-                                              args=(),
-                                              name=self.MAIN_THREAD_NAME,
-                                              sleep_time=main_sleep_time,
-                                              callback=self.collector.callback)
+        # 生成数据上传线程，此线程包含聚合器和数据上传任务，负责收集所有线程向主线程发送的日志信息
+        self.upload_thread = self.create_thread(target=self.collector.task,
+                                                args=(),
+                                                name=self.UPLOAD_THREAD_NAME,
+                                                sleep_time=upload_sleep_time,
+                                                callback=self.collector.callback)
 
     def create_thread(self,
                       target: Callable,
@@ -65,7 +66,7 @@ class ThreadPool:
             raise Exception(f"Thread name {name} already exists")
         if sleep_time is None:
             sleep_time = self.SLEEP_TIME
-        if name == self.MAIN_THREAD_NAME:
+        if name == self.UPLOAD_THREAD_NAME:
             q = LogQueue(readable=True, writable=False)
         else:
             q = LogQueue(readable=False, writable=True)
@@ -84,7 +85,7 @@ class ThreadPool:
     def sub_threads(self):
         ts = []
         for name, thread in self.thread_pool.items():
-            if name == self.MAIN_THREAD_NAME:
+            if name == self.UPLOAD_THREAD_NAME:
                 continue
             ts.append([name, thread])
         return ts
@@ -136,8 +137,8 @@ class ThreadPool:
             thread.join()
         print("非主要线程结束")
         # 停止主要线程的任务
-        self.thread_timer[self.MAIN_THREAD_NAME].cancel()
-        self.main_thread.join()
+        self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
+        self.upload_thread.join()
         print("线程池结束")
         # 倒序执行回调函数
         for cb in self.__callbacks[::-1]:

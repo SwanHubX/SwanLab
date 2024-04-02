@@ -7,7 +7,7 @@ r"""
 @Description:
     定义认证数据格式
 """
-from ..utils.token import save_token
+from ..utils.key import save_key
 from ..env import get_api_key_file_path
 from ..utils.package import get_host_api
 
@@ -36,7 +36,7 @@ class LoginInfo:
         """
         保存登录信息
         """
-        return save_token(get_api_key_file_path(), get_host_api(), "user", self.api_key)
+        return save_key(get_api_key_file_path(), get_host_api(), "user", self.api_key)
 
 
 class ExpInfo:

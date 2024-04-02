@@ -11,6 +11,7 @@ from queue import Queue
 from typing import Tuple, Callable, Coroutine, Any
 import time
 import asyncio
+from abc import ABC, abstractmethod
 
 q = Queue()
 """
@@ -146,3 +147,17 @@ class ThreadUtil:
                 func(*args)
 
         return wrapper
+
+
+class ThreadTaskABC(ABC):
+    """
+    线程抽象类，规定接入线程池所必须的方法和接口
+    """
+
+    @abstractmethod
+    async def task(self, u: ThreadUtil, **kwargs):
+        pass
+
+    @abstractmethod
+    async def callback(self, u: ThreadUtil, *args):
+        pass

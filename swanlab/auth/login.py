@@ -14,9 +14,10 @@ from ..utils.package import USER_SETTING_PATH
 import sys
 from .info import LoginInfo
 import getpass
+import requests
 
 
-async def _login(api_key: str, timeout: int = 20) -> LoginInfo:
+async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
     """用户登录，异步调用接口完成验证
     返回后端内容(dict)，如果后端请求失败，返回None
 
@@ -43,11 +44,10 @@ def input_api_key(
 
     Parameters
     ----------
-    str : str
-        用户api_key
+    tip : str
+        提示信息
     again : bool, optional
         是否是重新输入api_key，如果是，不显示额外的提示信息
-
     """
     _t = sys.excepthook
     sys.excepthook = _abort_tip
@@ -67,10 +67,8 @@ async def code_login(api_key: str):
     ----------
     api_key : str
         用户api_key
-    save : bool, optional
-        是否保存api_key到本地token文件
     """
-    login_task = asyncio.create_task(_login(api_key))
+    login_task = asyncio.create_task(login_by_key(api_key))
     prefix = FONT.bold(FONT.blue("swanlab: "))
     tip = "Waiting for the swanlab cloud response."
     loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5, prefix=prefix))

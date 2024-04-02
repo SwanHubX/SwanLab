@@ -9,7 +9,7 @@ r"""
 import os
 from typing import MutableMapping, Optional
 from .utils.file import is_port, is_ipv4
-from .utils.token import get_token
+from .utils.key import get_key
 from .error import UnKnownSystemError, TokenFileError
 from .utils.package import get_host_api
 import sys
@@ -149,6 +149,7 @@ def init_env(env: Optional[Env] = None):
 # ---------------------------------- 计算变量 ----------------------------------
 """日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
 DATABASE_PATH = "SWANLAB_DB_PATH"
+
 
 # ---------------------------------- 定义变量访问方法 ----------------------------------
 
