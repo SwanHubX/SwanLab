@@ -11,7 +11,7 @@ import asyncio
 import requests
 from ..utils import FONT
 from ..env import is_login, get_user_api_key
-from ..error import NotLoginError, TokenFileError
+from ..error import NotLoginError, KeyFileError
 from .info import ExpInfo
 
 
@@ -53,7 +53,7 @@ async def get_exp_token():
     FONT.brush("")
     # 在此完成错误处理，比如后端请求失败之类的，直接抛出错误
     if data is None:
-        raise TokenFileError("Failed to get experiment token: 500")
+        raise KeyFileError("Failed to get experiment token: 500")
     # TODO 其他错误就直接返回状态码
 
     return "token"

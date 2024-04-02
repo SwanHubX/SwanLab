@@ -15,7 +15,7 @@ from ..env import get_server_host, get_server_port, get_swanlog_dir, is_login
 import time
 from ..db import connect
 from ..utils import get_package_version
-from ..error import TokenFileError
+from ..error import KeyFileError
 from ..auth import terminal_login
 
 

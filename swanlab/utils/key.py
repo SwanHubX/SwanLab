@@ -7,7 +7,7 @@ r"""
 @Description:
     token文件操作，不作为模块方法暴露，如果需要使用相关方法需要指定此文件
 """
-from ..error import TokenFileError
+from ..error import KeyFileError
 import netrc
 import os
 
@@ -26,11 +26,18 @@ def get_key(path: str, host: str):
     try:
         return nrc.authenticators(host)
     except Exception as e:
-        raise TokenFileError("Failed to read token file") from e
+        raise KeyFileError("Failed to read token file") from e
 
 
 def save_key(path: str, host: str, username: str, password: str):
-    """保存token到token文件"""
+    """
+    保存key到对应的文件
+    :param path: 保存位置
+    :param host: 保存的host
+    :param username: 保存的用户名
+    :param password: 保存的密码
+    :return:
+    """
     # 如果文件不存在，自动创建
     if not os.path.exists(path):
         with open(path, "w") as f:

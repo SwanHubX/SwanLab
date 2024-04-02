@@ -10,7 +10,7 @@ import os
 from typing import MutableMapping, Optional
 from .utils.file import is_port, is_ipv4
 from .utils.key import get_key
-from .error import UnKnownSystemError, TokenFileError
+from .error import UnKnownSystemError, KeyFileError
 from .utils.package import get_host_api
 import sys
 
@@ -209,10 +209,10 @@ def get_swanlab_folder() -> str:
         用户家目录的.swanlab文件夹路径
     """
     user_home = get_user_home()
-    swanlab_floder = os.path.join(user_home, ".swanlab")
-    if not os.path.exists(swanlab_floder):
-        os.mkdir(swanlab_floder)
-    return swanlab_floder
+    swanlab_folder = os.path.join(user_home, ".swanlab")
+    if not os.path.exists(swanlab_folder):
+        os.mkdir(swanlab_folder)
+    return swanlab_folder
 
 
 def get_api_key_file_path() -> str:
@@ -224,14 +224,14 @@ def get_api_key_file_path() -> str:
     str
         用户token文件路径
     """
-    swanlab_floder = get_swanlab_folder()
-    return os.path.join(swanlab_floder, ".netrc")
+    swanlab_folder = get_swanlab_folder()
+    return os.path.join(swanlab_folder, ".netrc")
 
 
 def get_user_api_key() -> str:
     """获取用户token，token存储在$HOME/.swanlab/.netrc文件中
     最终返回str
-    如果没有找到token或者token解析失败，报错 TokenFileError
+    如果没有找到token或者token解析失败，报错 KeyFileError
 
     Returns
     -------
@@ -240,15 +240,15 @@ def get_user_api_key() -> str:
 
     Raises
     ------
-    TokenFileError
+    KeyFileError
         token文件错误，此时token文件不存在或者格式错误（解析失败）
     """
     netrc_file = get_api_key_file_path()
-    # 解析token文件，可能会报错 TokenFileError
-    # 如果文件不存在，报错TokenFileError
+    # 解析token文件，可能会报错 KeyFileError
+    # 如果文件不存在，报错KeyFileError
     if not os.path.exists(netrc_file):
-        raise TokenFileError("The token file is not found, please login first")
-    return get_token(netrc_file, get_host_api())
+        raise KeyFileError("The token file is not found, please login first")
+    return get_key(netrc_file, get_host_api())
 
 
 def is_login() -> bool:
@@ -262,5 +262,5 @@ def is_login() -> bool:
     try:
         get_user_api_key()
         return True
-    except TokenFileError:
+    except KeyFileError:
         return False
