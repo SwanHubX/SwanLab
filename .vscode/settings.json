@@ -110,5 +110,7 @@
     "**/Thumbs.db": true,
     "**/__pycache__": true,
     ".idea": true
-  }
+  },
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }
