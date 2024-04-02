@@ -17,7 +17,7 @@ class ValidationError(Exception):
 
 
 class KeyFileError(Exception):
-    """token文件错误，此时token文件不存在或者格式错误（解析失败）
+    """key存储的文件错误，此时key文件不存在或者格式错误（解析失败）
     """
 
     pass

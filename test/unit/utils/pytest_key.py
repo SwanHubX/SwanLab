@@ -45,3 +45,6 @@ def test_save_key_path_error():
     """
     测试保存key时，输入的path上级文件夹不存在的情况
     """
+    _netrc_pah = os.path.join(os.path.dirname(netrc_pah), nanoid.generate(), os.path.basename(netrc_pah))
+    info = create_key()
+    save_key(_netrc_pah, *info)
