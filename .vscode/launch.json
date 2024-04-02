@@ -25,18 +25,6 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
-    // 开发调试
-    {
-      "name": "开发调试",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/test_create_experiment.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
     // 模拟实验开启
     {
       "name": "开启一个实验",
@@ -49,20 +37,9 @@
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
-    {
-      "name": "模拟命令行watch",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/cli_test.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
     // python运行当前文件
     {
-      "name": "Python运行当前文件",
+      "name": "运行当前文件",
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
@@ -71,6 +48,22 @@
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
       "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "测试当前文件",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "进行所有单元测试",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["test/unit"],
+      "console": "integratedTerminal"
     },
     // 打包命令
     {
