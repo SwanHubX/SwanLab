@@ -133,7 +133,7 @@ def version_limit(path: str, mode: str) -> None:
             if project.get("version") is not None:
                 # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
                 if mode == "watch":
-                    info = ("The version of logdir's file is old (Created by swanlab<=0.1.4), the current version of "
+                    info = ("The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
                             "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
                             "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
                             ".1.4.py'")
