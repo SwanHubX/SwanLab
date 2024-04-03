@@ -45,7 +45,7 @@ def save_key(path: str, host: str, username: str, password: str):
     # 传入的path路径文件名称不是.netrc
     if os.path.basename(path) != ".netrc":
         raise KeyFileError("The file name must be .netrc")
-
+    # 上级文件夹不存在
     if not os.path.exists(os.path.dirname(path)):
         raise KeyFileError("The parent folder does not exist")
     # 如果文件不存在，自动创建

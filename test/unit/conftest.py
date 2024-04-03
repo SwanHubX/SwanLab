@@ -16,7 +16,6 @@ import shutil
 @pytest.fixture(scope="session", autouse=True)
 def setup_before_all():
     # 在整个 pytest 运行之前执行的前置操作
-    print("Setup before pytest session")
     if os.path.exists(TEMP_PATH):
         shutil.rmtree(TEMP_PATH)
     os.mkdir(TEMP_PATH)
