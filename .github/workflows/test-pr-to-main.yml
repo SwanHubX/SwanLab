@@ -1,9 +1,10 @@
 name: Test PR to Main
 
-on:
-  pull_request:
-    branches:
-      - main
+# 还在测试中
+#on:
+#  pull_request:
+#    branches:
+#      - main
 
 jobs:
   build:
