@@ -9,8 +9,8 @@ r"""
     进行一些交互定义和数据请求
 """
 import asyncio
-from ..error import ValidationError
-from ..utils import FONT
+from swanlab.error import ValidationError
+from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from .info import LoginInfo
 import getpass
@@ -93,12 +93,12 @@ async def code_login(api_key: str) -> LoginInfo:
     # 最后需要刷去当前行, 不再显示加载动画
     FONT.brush("", length=100, flush=False)
     if login_info.is_fail:
-        print(FONT.swanlab("Login failed! Please try again.", color="red"))
+        print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
         raise ValidationError("Login failed: " + str(login_info))
     return login_info
 
 
-def terminal_login(api_key: str = None):
+def terminal_login(api_key: str = None) -> LoginInfo:
     """
     终端登录，此时直接覆盖本地token文件，但是新增交互，让用户输入api_key
     运行此函数，如果是认证失败的错误，重新要求用户输入api_key
@@ -110,8 +110,7 @@ def terminal_login(api_key: str = None):
         api_key = input_api_key()
     while True:
         try:
-            asyncio.run(code_login(api_key))
-            break
+            return asyncio.run(code_login(api_key))
         # 如果是登录失败且是输入的api_key，提示重新输入api_key
         except ValidationError as e:
             if input_key:

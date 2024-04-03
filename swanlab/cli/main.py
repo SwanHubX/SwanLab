@@ -15,8 +15,6 @@ from swanlab.package import version_limit, get_package_version
 from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
 from ..db import connect
-from ..error import KeyFileError
-from ..auth import terminal_login
 
 
 @click.group(invoke_without_command=True)

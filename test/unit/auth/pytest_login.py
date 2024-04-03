@@ -7,7 +7,7 @@ r"""
 @Description:
     测试登录
 """
-from swanlab.auth.login import login_by_key
+from swanlab.api.auth.login import login_by_key
 from tutils.config import CONFIG
 import pytest
 
