@@ -9,10 +9,10 @@ r"""
 """
 import json
 import os
-from .env import DEV
+from .env import is_dev
 
 package_path = None
-if DEV:
+if is_dev():
     # 当前运行时的位置
     package_path = os.environ['SWANLAB_PACKAGE_PATH']
 else:
