@@ -10,7 +10,7 @@ r"""
 import asyncio
 from ..error import ValidationError
 from ..utils import FONT
-from ..utils.package import get_user_setting_path
+from ..utils.package import get_user_setting_path, get_host_api
 import sys
 from .info import LoginInfo
 import getpass
@@ -28,9 +28,13 @@ async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
     timeout : int, optional
         请求认证的超时时间，单位秒
     """
-    await asyncio.sleep(5)
+    try:
+        resp = requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+    except requests.exceptions.RequestException:
+        # 请求超时等网络错误
+        raise ValidationError("Network error, please try again.")
     # api key写入token文件
-    login_info = LoginInfo(api_key)
+    login_info = LoginInfo(resp)
     not login_info.is_fail and login_info.save()
     return login_info
 

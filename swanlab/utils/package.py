@@ -10,7 +10,13 @@ r"""
 import json
 import os
 
-package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
+if os.environ.get("SWANLAB_DEV") == "TRUE":
+    # 当前运行时的位置
+    package_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                                'tutils',
+                                "package.mock.json")
+else:
+    package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
 
 
 def get_package_version(p=package_path) -> str:

@@ -10,6 +10,7 @@ r"""
 from ..utils.key import save_key
 from ..env import get_api_key_file_path
 from ..utils.package import get_host_api
+import requests
 
 
 class LoginInfo:
@@ -18,16 +19,15 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, api_key: str, **kwargs):
-        self.api_key = api_key
+    def __init__(self, resp: requests.Response):
+        self.__resp = resp
 
     @property
     def is_fail(self):
         """
         判断登录是否失败
         """
-        # TODO 作为测试，api_key如果为123456时返回None
-        return self.api_key == "123456"
+        return self.__resp.status_code != 200
 
     def __str__(self) -> str:
         return f"LoginInfo"
