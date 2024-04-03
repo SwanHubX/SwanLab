@@ -8,11 +8,11 @@ r"""
     定义认证数据格式
 """
 import os.path
-from ..utils.key import save_key, get_key
+from ..utils.key import save_key
 from ..env import get_swanlab_folder
-from ..error import KeyFileError
 from swanlab.package import get_host_api
 import requests
+from typing import Union
 
 
 class LoginInfo:
@@ -24,6 +24,21 @@ class LoginInfo:
     def __init__(self, resp: requests.Response, api_key: str):
         self.__resp = resp
         self.__api_key = api_key
+        self.__body = resp.json() if resp.status_code == 200 else {}
+
+    @property
+    def sid(self) -> Union[str, None]:
+        """
+        获取sid，如果请求失败则返回None
+        """
+        return self.__body.get("sid")
+
+    @property
+    def expired_at(self) -> Union[str, None]:
+        """
+        获取过期时间，如果请求失败则返回None
+        """
+        return self.__body.get("expiredAt")
 
     @property
     def is_fail(self):

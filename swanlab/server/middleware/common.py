@@ -15,7 +15,6 @@ import time
 from ..module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
 from ...log import swanlog as swl
 from swanlab.package import get_package_version
-from ...db import connect
 from ..settings import ASSETS, INDEX  # 响应路径
 
 version = get_package_version()
@@ -27,7 +26,7 @@ static = StaticFiles(directory=ASSETS)
 
 async def resp_base(request, call_next):
     """基础中间件，调整响应结果，添加处理时间等信息"""
-    # 如果请求路径不以'/api'开头，说明并不是后端服务的请求，直接返回
+    # 如果请求路径不以 '/api' 开头，说明并不是后端服务的请求，直接返回
     if not request.url.path.startswith("/api"):
         return await call_next(request)
     # 记录请求开始时间

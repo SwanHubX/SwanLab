@@ -19,6 +19,11 @@ import requests
 import time
 
 
+def login_request(api_key: str, timeout: int = 20) -> requests.Response:
+    """用户登录，请求后端接口完成验证"""
+    return requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+
+
 async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
     """用户登录，异步调用接口完成验证
     返回后端内容(dict)，如果后端请求失败，返回None
@@ -34,17 +39,19 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     """
     now = time.time()
     try:
-        resp = requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+        resp = login_request(api_key, timeout)
     except requests.exceptions.RequestException:
         # 请求超时等网络错误
         raise ValidationError("Network error, please try again.")
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
+
     # 计算请求时间，等待剩余时间
     remain_time = max(2 - int(time.time() - now), 0)
     if remain_time > 0:
         await asyncio.sleep(remain_time)
+
     return login_info
 
 
