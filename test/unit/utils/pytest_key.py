@@ -11,10 +11,9 @@ import os.path
 import pytest
 from swanlab.error import KeyFileError
 from swanlab.utils.key import save_key, get_key
-from tutils.config import TEMP_PATH
+from tutils.config import TEMP_PATH, nanoid
 from typing import Tuple
 import netrc
-import nanoid
 
 netrc_pah = os.path.join(TEMP_PATH, ".netrc")
 
