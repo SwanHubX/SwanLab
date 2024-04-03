@@ -29,8 +29,7 @@ PORT = "SWANLAB_SERVER_PORT"
 HOST = "SWANLAB_SERVER_HOST"
 """服务端口SWANLAB_SERVER_PORT，服务地址"""
 
-DEV = os.environ.get("SWANLAB_DEV") == "TRUE"
-"""开发模式SWANLAB_DEV，开发模式下在其他地方会使用mock数据而不是真实数据"""
+DEV = "SWANLAB_DEV"
 
 
 def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
@@ -125,6 +124,23 @@ def get_server_host(env: Optional[Env] = None) -> Optional[str]:
     return _env.get(HOST)
 
 
+def is_dev(env: Optional[Env] = None) -> bool:
+    """判断是否是开发模式
+
+    Returns
+    -------
+    bool
+        是否是开发模式
+    """
+    if _env.get(DEV) is not None:
+        return _env.get(DEV) == "TRUE"
+    # 否则从环境变量中提取
+    if env is None:
+        env = os.environ
+    _env[DEV] = env.get(DEV, default=False)
+    return _env.get(DEV) == "TRUE"
+
+
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
@@ -132,6 +148,7 @@ function_list = [
     get_swanlog_dir,
     get_server_port,
     get_server_host,
+    is_dev
 ]
 
 

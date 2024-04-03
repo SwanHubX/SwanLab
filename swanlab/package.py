@@ -9,12 +9,12 @@ r"""
 """
 import json
 import os
+from .env import DEV
 
-if os.environ.get("SWANLAB_DEV") == "TRUE":
+package_path = None
+if DEV:
     # 当前运行时的位置
-    package_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                                'tutils',
-                                "package.mock.json")
+    package_path = os.environ['SWANLAB_PACKAGE_PATH']
 else:
     package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
 

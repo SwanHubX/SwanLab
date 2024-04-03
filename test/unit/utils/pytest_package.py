@@ -7,7 +7,7 @@ r"""
 @Description:
     测试package.py，提供测试时的包管理函数
 """
-from tutils.config import PACKAGE_PATH, nanoid
+from tutils.config import nanoid
 import json
 from swanlab.package import (
     get_package_version,
@@ -17,6 +17,9 @@ from swanlab.package import (
     get_project_url,
     get_experiment_url
 )
+import os
+
+PACKAGE_PATH = os.environ["SWANLAB_PACKAGE_PATH"]
 
 package_data = json.load(open(PACKAGE_PATH))
 

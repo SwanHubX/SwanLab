@@ -6,6 +6,7 @@ r"""
 @IDE: vscode
 @Description:
     用户登录接口，输入用户的apikey，保存用户token到本地
+    进行一些交互定义和数据请求
 """
 import asyncio
 from ..error import ValidationError
