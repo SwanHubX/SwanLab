@@ -66,7 +66,7 @@ def input_api_key(
     return key
 
 
-async def code_login(api_key: str):
+async def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件
 
@@ -87,6 +87,7 @@ async def code_login(api_key: str):
     if login_info.is_fail:
         print(FONT.swanlab("Login failed! Please try again.", color="red"))
         raise ValidationError("Login failed: " + str(login_info))
+    return login_info
 
 
 def terminal_login(api_key: str = None):

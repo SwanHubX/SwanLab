@@ -15,14 +15,12 @@ import traceback
 from datetime import datetime
 from typing import Dict
 from typing import Optional, Union
-
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
-from swanlab.auth import terminal_login, code_login
+from swanlab.auth import code_login
 from ..db import Project, connect
 from ..env import init_env, ROOT
-from ..error import NotLoginError
 from ..log import swanlog
 from swanlab.package import version_limit, get_package_version
 from ..utils import FONT, check_load_json_yaml
@@ -42,22 +40,24 @@ Configuration information synchronization is achieved through class variables.
 When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
 """
 
+login_info = None
+
 
 def login(api_key: str):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
+    Every time you call this function, the previous login information will be overwritten.
+    [Note that] this function should be called before `init`.
 
     Parameters
     ----------
     api_key : str
         authentication key.
     """
-    # 如果已经登录且保存，判断一下当前api_key是否和本地api_key一致，如果一致，直接返回
-    # 如果不一致，继续下面的步骤
-    if is_login() and api_key == get_user_api_key():
-        return
-    # 否则进行登录
-    code_login(api_key)
+    if inited:
+        raise RuntimeError("You must call swanlab.login() before using init()")
+    global login_info
+    login_info = asyncio.run(code_login(api_key))
 
 
 def init(
@@ -66,7 +66,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: str = "default",
-    # cloud: bool = False,
+    cloud: bool = False,
     # project: str = None,
     # organization: str = None,
     load: str = None,
@@ -290,24 +290,6 @@ def _load_data(load_data: dict, key: str, value):
     #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
     #     print(FONT.swanlab(tip))
     return d
-
-
-def _get_exp_token(cloud: bool = False):
-    """获取当前实验的相关信息
-    可能包含实验的token、实验的id、用户信息等信息
-    无论是否使用cloud模式，此函数都会执行，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
-    """
-    token = None
-    if cloud:
-        # 登录成功会返回当前实验的token
-        while True:
-            try:
-                token = asyncio.run(get_exp_token())
-                break
-            except NotLoginError:
-                # 如果没有登录，提示登录
-                terminal_login()
-    return token
 
 
 def __clean_handler():

@@ -16,7 +16,7 @@ if is_dev():
     # 当前运行时的位置
     package_path = os.environ['SWANLAB_PACKAGE_PATH']
 else:
-    package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
+    package_path = os.path.join(os.path.dirname(__file__), "package.json")
 
 
 def get_package_version(p=package_path) -> str:

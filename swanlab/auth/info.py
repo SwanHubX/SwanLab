@@ -8,8 +8,9 @@ r"""
     定义认证数据格式
 """
 import os.path
-from ..utils.key import save_key
+from ..utils.key import save_key, get_key
 from ..env import get_swanlab_folder
+from ..error import KeyFileError
 from swanlab.package import get_host_api
 import requests
 
