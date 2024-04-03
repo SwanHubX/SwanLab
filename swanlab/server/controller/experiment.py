@@ -191,7 +191,10 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
         for data in tag_data:
             data["index"] = int(data["index"])
     # COMPAT 如果当前tag的类型为text，并且在media文件夹下存在相同名文件夹
-    compat_text(experiment_id, tag)
+    texts = compat_text(experiment_id, tag)
+    # 如果需要兼容，进行重新赋值，直接获取文本内容
+    if texts:
+        tag_data = texts
     # 根据index升序排序
     tag_data.sort(key=lambda x: int(x["index"]))
     # tag_data 的 最后一个数据增加一个字段_last = True
