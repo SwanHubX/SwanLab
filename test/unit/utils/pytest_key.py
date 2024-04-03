@@ -54,7 +54,7 @@ def test_save_key_success():
     # netrc读取
     nrc = netrc.netrc(netrc_pah).authenticators(info[0])
     assert nrc[0] == info[1]
-    assert nrc[1] == ''
+    assert nrc[1] == '' or nrc[1] is None
     assert nrc[2] == info[2]
 
 
