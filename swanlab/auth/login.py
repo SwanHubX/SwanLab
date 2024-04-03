@@ -18,7 +18,7 @@ import getpass
 import requests
 
 
-async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
+async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
     """用户登录，异步调用接口完成验证
     返回后端内容(dict)，如果后端请求失败，返回None
 
@@ -28,6 +28,8 @@ async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
         用户api_key
     timeout : int, optional
         请求认证的超时时间，单位秒
+    save : bool, optional
+        是否保存到本地token文件
     """
     try:
         resp = requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
@@ -36,7 +38,7 @@ async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
         raise ValidationError("Network error, please try again.")
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
-    not login_info.is_fail and login_info.save()
+    save and not login_info.is_fail and login_info.save()
     return login_info
 
 

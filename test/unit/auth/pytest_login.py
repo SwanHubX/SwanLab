@@ -17,7 +17,29 @@ async def test_login_success():
     """
     测试登录成功
     """
-    login_info = await login_by_key(CONFIG.get('api-key'))
+    login_info = await login_by_key(CONFIG.get('api-key'), save=False)
     assert not login_info.is_fail
     assert login_info.api_key == CONFIG.get('api-key')
     assert login_info.__str__() == "OK"
+
+
+@pytest.mark.asyncio
+async def test_login_error_key():
+    """
+    测试登录失败, 错误的key
+    """
+    login_info = await login_by_key("wrong-key", save=False)
+    assert login_info.is_fail
+    assert login_info.api_key is None
+    assert login_info.__str__() == "Unauthorized"
+
+
+@pytest.mark.asyncio
+async def test_login_no_key():
+    """
+    测试登录失败, 未输入key
+    """
+    login_info = await login_by_key(None, save=False)
+    assert login_info.is_fail
+    assert login_info.api_key is None
+    assert login_info.__str__() == "Unauthorized"

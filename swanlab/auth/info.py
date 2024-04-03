@@ -22,7 +22,7 @@ class LoginInfo:
 
     def __init__(self, resp: requests.Response, api_key: str):
         self.__resp = resp
-        self.api_key = api_key
+        self.__api_key = api_key
 
     @property
     def is_fail(self):
@@ -30,6 +30,15 @@ class LoginInfo:
         判断登录是否失败
         """
         return self.__resp.status_code != 200
+
+    @property
+    def api_key(self):
+        """
+        获取api_key
+        """
+        if self.is_fail:
+            return None
+        return self.__api_key
 
     def __str__(self) -> str:
         """错误时会返回错误信息"""
