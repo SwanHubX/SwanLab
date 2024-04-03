@@ -9,7 +9,7 @@ r"""
 """
 from ..utils.key import save_key
 from ..env import get_api_key_file_path
-from ..utils.package import get_host_api
+from swanlab.package import get_host_api
 import requests
 
 
@@ -19,8 +19,9 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, resp: requests.Response):
+    def __init__(self, resp: requests.Response, api_key: str):
         self.__resp = resp
+        self.api_key = api_key
 
     @property
     def is_fail(self):
@@ -30,7 +31,8 @@ class LoginInfo:
         return self.__resp.status_code != 200
 
     def __str__(self) -> str:
-        return f"LoginInfo"
+        """错误时会返回错误信息"""
+        return self.__resp.reason
 
     def save(self):
         """

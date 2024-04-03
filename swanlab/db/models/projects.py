@@ -9,7 +9,7 @@ r"""
 """
 from peewee import CharField, IntegerField, DatabaseProxy
 from ..model import SwanModel
-from ...utils.package import get_package_version
+from swanlab.package import get_package_version
 
 
 class Project(SwanModel):

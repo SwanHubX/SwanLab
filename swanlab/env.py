@@ -5,13 +5,12 @@ r"""
 @IDE: vscode
 @Description:
     swanlab全局共用环境变量(运行时环境变量)
+    除了utils和error模块，其他模块都可以使用这个模块
 """
 import os
 from typing import MutableMapping, Optional
 from .utils.file import is_port, is_ipv4
-from .utils.key import get_key
-from .error import UnKnownSystemError, KeyFileError
-from .utils.package import get_host_api
+from .error import UnKnownSystemError
 import sys
 
 Env = Optional[MutableMapping]
@@ -21,7 +20,6 @@ _env = dict()
 
 # '描述' = "key"
 # ---------------------------------- 基础环境变量 ----------------------------------
-
 ROOT = "SWANLAB_LOG_DIR"
 """命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
 
@@ -30,6 +28,9 @@ PORT = "SWANLAB_SERVER_PORT"
 
 HOST = "SWANLAB_SERVER_HOST"
 """服务端口SWANLAB_SERVER_PORT，服务地址"""
+
+DEV = os.environ.get("SWANLAB_DEV") == "TRUE"
+"""开发模式SWANLAB_DEV，开发模式下在其他地方会使用mock数据而不是真实数据"""
 
 
 def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
@@ -55,7 +56,8 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     if not os.path.exists(path):
         if path == default:
             raise ValueError(
-                'The log file was not found in the default path "{path}". Please use the "swanlab watch -l <LOG PATH>" command to specify the location of the log path."'.format(
+                'The log file was not found in the default path "{path}". Please use the "swanlab watch -l <LOG '
+                'PATH>" command to specify the location of the log path."'.format(
                     path=path
                 )
             )
@@ -147,12 +149,11 @@ def init_env(env: Optional[Env] = None):
 
 
 # ---------------------------------- 计算变量 ----------------------------------
-"""日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
 DATABASE_PATH = "SWANLAB_DB_PATH"
+"""日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
 
 
 # ---------------------------------- 定义变量访问方法 ----------------------------------
-
 
 def get_db_path() -> Optional[str]:
     """获取数据库路径，这是一个计算变量，
@@ -213,54 +214,3 @@ def get_swanlab_folder() -> str:
     if not os.path.exists(swanlab_folder):
         os.mkdir(swanlab_folder)
     return swanlab_folder
-
-
-def get_api_key_file_path() -> str:
-    """获取用户token文件路径，token文件存储在$HOME/.swanlab/.netrc文件中
-    不保证文件存在
-
-    Returns
-    -------
-    str
-        用户token文件路径
-    """
-    swanlab_folder = get_swanlab_folder()
-    return os.path.join(swanlab_folder, ".netrc")
-
-
-def get_user_api_key() -> str:
-    """获取用户token，token存储在$HOME/.swanlab/.netrc文件中
-    最终返回str
-    如果没有找到token或者token解析失败，报错 KeyFileError
-
-    Returns
-    -------
-    Optional[str]
-        用户token
-
-    Raises
-    ------
-    KeyFileError
-        token文件错误，此时token文件不存在或者格式错误（解析失败）
-    """
-    netrc_file = get_api_key_file_path()
-    # 解析token文件，可能会报错 KeyFileError
-    # 如果文件不存在，报错KeyFileError
-    if not os.path.exists(netrc_file):
-        raise KeyFileError("The token file is not found, please login first")
-    return get_key(netrc_file, get_host_api())
-
-
-def is_login() -> bool:
-    """判断用户是否登录
-
-    Returns
-    -------
-    bool
-        是否登录
-    """
-    try:
-        get_user_api_key()
-        return True
-    except KeyFileError:
-        return False

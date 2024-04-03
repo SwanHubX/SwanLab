@@ -9,7 +9,7 @@ r"""
 """
 from tutils.config import PACKAGE_PATH, nanoid
 import json
-from swanlab.utils.package import (
+from swanlab.package import (
     get_package_version,
     get_host_web,
     get_user_setting_path,

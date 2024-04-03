@@ -10,7 +10,7 @@ r"""
 import asyncio
 from ..error import ValidationError
 from ..utils import FONT
-from ..utils.package import get_user_setting_path, get_host_api
+from swanlab.package import get_user_setting_path, get_host_api
 import sys
 from .info import LoginInfo
 import getpass
@@ -34,7 +34,7 @@ async def login_by_key(api_key: str, timeout: int = 20) -> LoginInfo:
         # 请求超时等网络错误
         raise ValidationError("Network error, please try again.")
     # api key写入token文件
-    login_info = LoginInfo(resp)
+    login_info = LoginInfo(resp, api_key)
     not login_info.is_fail and login_info.save()
     return login_info
 
