@@ -10,7 +10,7 @@ r"""
 import asyncio
 from ..error import ValidationError
 from ..utils import FONT
-from ..utils.package import USER_SETTING_PATH
+from ..utils.package import get_user_setting_path
 import sys
 from .info import LoginInfo
 import getpass
@@ -53,7 +53,7 @@ def input_api_key(
     sys.excepthook = _abort_tip
     if not again:
         print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + USER_SETTING_PATH))
+        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
     key = getpass.getpass(FONT.swanlab(tip))
     sys.excepthook = _t
     return key

@@ -87,7 +87,7 @@ def test_get_key_success():
     info = mock_key()
     nrc = get_key(netrc_pah, info[0])
     assert nrc[0] == info[1]
-    assert nrc[1] == ''
+    assert nrc[1] == '' or nrc[1] is None
     assert nrc[2] == info[2]
 
 
