@@ -12,9 +12,7 @@ import os
 __test_path = os.path.join(
     os.path.dirname(
         os.path.dirname(
-            os.path.dirname(
-                os.path.abspath(__file__)
-            )
+            os.path.abspath(__file__)
         )
     ),
     "test"

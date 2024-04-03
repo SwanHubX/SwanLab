@@ -11,7 +11,7 @@ import os.path
 import pytest
 from swanlab.error import KeyFileError
 from swanlab.utils.key import save_key, get_key
-from utils.test.config import TEMP_PATH
+from tutils.config import TEMP_PATH
 from typing import Tuple
 import netrc
 import nanoid
@@ -30,7 +30,7 @@ def create_key() -> Tuple[str, str, str]:
 
 def mock_key():
     """
-    模拟一个key
+    模拟存储一个key
     """
     info = create_key()
     nrc = netrc.netrc(netrc_pah)
