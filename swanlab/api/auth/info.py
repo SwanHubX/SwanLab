@@ -41,6 +41,13 @@ class LoginInfo:
         return self.__body.get("expiredAt")
 
     @property
+    def username(self) -> Union[str, None]:
+        """
+        获取用户名，如果请求失败则返回None
+        """
+        return self.__body.get("userInfo", {}).get("username")
+
+    @property
     def is_fail(self):
         """
         判断登录是否失败
@@ -70,7 +77,7 @@ class LoginInfo:
         """
         保存登录信息
         """
-        path = os.path.join(get_swanlab_folder(), '.netrc')
+        path = os.path.join(get_swanlab_folder(), ".netrc")
         return save_key(path, get_host_api(), "user", self.api_key)
 
 

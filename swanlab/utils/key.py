@@ -30,7 +30,10 @@ def get_key(path: str, host: str):
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
-    return nrc.authenticators(host)
+    info = nrc.authenticators(host)
+    if info is None:
+        raise KeyFileError(f"The host {host} does not exist")
+    return info
 
 
 def save_key(path: str, host: str, username: str, password: str):

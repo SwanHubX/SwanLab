@@ -24,7 +24,7 @@ from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
 from swanlab.api.auth import code_login, LoginInfo, terminal_login
-from swanlab.package import version_limit, get_package_version, get_host_api
+from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 
 run: Optional["SwanLabRun"] = None
@@ -178,7 +178,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
     )
-    # 如果使用云端模式，在此开启其他线程负责同步数据
+    # ---------------------------------- 注册实验，开启线程 ----------------------------------
 
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -186,23 +186,22 @@ def init(
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
-    # 展示相关信息信息
-    greeting = "Hi " + login_info.username + ", welcome to SwanLab!"
     swanlog.info("Tracking run with swanlab version " + get_package_version())
     swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
     # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
+    cloud and swanlog.info("👋 Hi " + login_info.username + ", welcome to swanlab!")
     # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info(
         "🌟 Run `"
         + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
         + "` to view SwanLab Experiment Dashboard locally"
     )
-    # project_url = get_host_web() + "/" + "{project_name}"
-    # experiment_url = project_url + "/" + token
-    # cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-    # cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+    project_url = get_host_web() + "/" + "{project_name}"
+    experiment_url = project_url + "/" + "123456"
+    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 

@@ -9,7 +9,9 @@ r"""
 """
 import json
 import os
-from .env import is_dev
+from .env import is_dev, get_swanlab_folder
+from .utils.key import get_key
+from .error import KeyFileError
 
 package_path = None
 if is_dev():
@@ -171,3 +173,18 @@ def version_limit(path: str, mode: str) -> None:
                     info = "version_limit function only support mode in ['watch', 'init']"
                 raise ValueError(info)
     return
+
+
+def is_login() -> bool:
+    """判断是否已经登录
+
+    Returns
+    -------
+    bool
+        是否已经登录，但是不保证登录的key可用
+    """
+    try:
+        _ = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
+        return True
+    except KeyFileError:
+        return False
