@@ -1,0 +1,7 @@
+# pytest
+
+pytest
+
+pytest-asyncio
+
+nanoid

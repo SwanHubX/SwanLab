@@ -6,17 +6,19 @@ r"""
 @IDE: vscode
 @Description:
     用户登录接口，输入用户的apikey，保存用户token到本地
+    进行一些交互定义和数据请求
 """
 import asyncio
 from ..error import ValidationError
 from ..utils import FONT
-from ..utils.package import USER_SETTING_PATH
+from swanlab.package import get_user_setting_path, get_host_api
 import sys
 from .info import LoginInfo
 import getpass
+import requests
 
 
-async def _login(api_key: str, timeout: int = 20) -> LoginInfo:
+async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
     """用户登录，异步调用接口完成验证
     返回后端内容(dict)，如果后端请求失败，返回None
 
@@ -26,11 +28,17 @@ async def _login(api_key: str, timeout: int = 20) -> LoginInfo:
         用户api_key
     timeout : int, optional
         请求认证的超时时间，单位秒
+    save : bool, optional
+        是否保存到本地token文件
     """
-    await asyncio.sleep(5)
+    try:
+        resp = requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+    except requests.exceptions.RequestException:
+        # 请求超时等网络错误
+        raise ValidationError("Network error, please try again.")
     # api key写入token文件
-    login_info = LoginInfo(api_key)
-    not login_info.is_fail and login_info.save()
+    login_info = LoginInfo(resp, api_key)
+    save and not login_info.is_fail and login_info.save()
     return login_info
 
 
@@ -43,17 +51,16 @@ def input_api_key(
 
     Parameters
     ----------
-    str : str
-        用户api_key
+    tip : str
+        提示信息
     again : bool, optional
         是否是重新输入api_key，如果是，不显示额外的提示信息
-
     """
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
         print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + USER_SETTING_PATH))
+        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
     key = getpass.getpass(FONT.swanlab(tip))
     sys.excepthook = _t
     return key
@@ -67,10 +74,8 @@ async def code_login(api_key: str):
     ----------
     api_key : str
         用户api_key
-    save : bool, optional
-        是否保存api_key到本地token文件
     """
-    login_task = asyncio.create_task(_login(api_key))
+    login_task = asyncio.create_task(login_by_key(api_key))
     prefix = FONT.bold(FONT.blue("swanlab: "))
     tip = "Waiting for the swanlab cloud response."
     loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5, prefix=prefix))

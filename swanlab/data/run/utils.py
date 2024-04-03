@@ -7,14 +7,15 @@ r"""
 @Description:
     运行时工具函数
 """
-from ...utils.file import (
+from swanlab.utils.file import (
     check_tag_format,
     get_a_lock,
     check_exp_name_format,
     check_desc_format,
     check_load_json_yaml,
 )
-from ...utils import get_package_version, create_time, generate_color, FONT
+from swanlab.utils import create_time, generate_color, FONT
+from swanlab.package import get_package_version
 import datetime
 
 

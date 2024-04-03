@@ -10,7 +10,7 @@ from .data import (
     Run,
 )
 
-from .utils import get_package_version
+from .package import get_package_version
 
 
 __version__ = get_package_version()

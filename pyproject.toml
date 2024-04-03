@@ -1,9 +1,9 @@
 # 在此处完成python项目的配置以及依赖安装
 [build-system]  # 指定构建系统与一些依赖
 requires = [
-  "hatchling",
-  "hatch-requirements-txt",
-  "hatch-fancy-pypi-readme>=22.5.0",
+    "hatchling",
+    "hatch-requirements-txt",
+    "hatch-fancy-pypi-readme>=22.5.0",
 ]
 build-backend = "hatchling.build"
 
@@ -14,18 +14,18 @@ dynamic = ["version", "dependencies", "optional-dependencies", "readme"] # 动�
 description = "Python library for streamlined tracking and management of AI training processes." # 项目描述
 license = "Apache-2.0" # 项目许可证
 requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
-authors = [  # 项目作者
-  { name = "Cunyue", email = "team@swanhub.co" },
-  { name = "Feudalman", email = "team@swanhub.co" },
-  {name="ZeYi Lin", email = "team@swanhub.co"},
-  {name="KashiwaByte", email="team@swanhub.co"}
+authors = [# 项目作者
+    { name = "Cunyue", email = "team@swanhub.co" },
+    { name = "Feudalman", email = "team@swanhub.co" },
+    { name = "ZeYi Lin", email = "team@swanhub.co" },
+    { name = "KashiwaByte", email = "team@swanhub.co" }
 ]
-keywords = [  # 项目关键词
+keywords = [# 项目关键词
     "machine learning",
     "reproducibility",
     "visualization"
 ]
-classifiers = [  # 项目分类
+classifiers = [# 项目分类
     'Development Status :: 3 - Alpha',
     'License :: OSI Approved :: Apache Software License',
     'Operating System :: OS Independent',
@@ -78,10 +78,10 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
 
 [tool.hatch.build]
-artifacts = [  # 将一些非python文件打包到项目中
-  "/swanlab/template",
-  "*.json",
-  "*.pyi",  # 类型提示文件
+artifacts = [# 将一些非python文件打包到项目中
+    "/swanlab/template",
+    "*.json",
+    "*.pyi", # 类型提示文件
 ]
 
 # [tool.hatch.build.targets.wheel.hooks.custom]  # 构建wheel时，用python执行一些脚本
@@ -90,13 +90,13 @@ artifacts = [  # 将一些非python文件打包到项目中
 
 [tool.hatch.build.targets.sdist]  # 在执行构建之前，将一些必要文件拷贝到虚拟环境中，以便构建，此时已经完成了vue的编译
 include = [
-  "/swanlab",
-  "/test",  # 包含一些测试脚本，确保测试成功
-  "/README.md",  # 包含readme
-  "/requirements.txt",  # 包含依赖
-  "/requirements-swan.txt",  # 包含可选依赖
-  "/.config/copy_frontend.py",  # 包含拷贝前端文件的脚本
-  "/package.json",  # 包含前端的package.json文件
+    "/swanlab",
+    "/test", # 包含一些测试脚本，确保测试成功
+    "/README.md", # 包含readme
+    "/requirements.txt", # 包含依赖
+    "/requirements-swan.txt", # 包含可选依赖
+    "/.config/copy_frontend.py", # 包含拷贝前端文件的脚本
+    "/package.json", # 包含前端的package.json文件
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -110,16 +110,16 @@ exclude = []  # 排除的文件
 target-version = "py37"
 extend-select = ["B", "C", "I", "N", "SIM", "UP"]
 ignore = [
-  "C901",   # function is too complex (TODO: un-ignore this)
-  "B023",   # function definition in loop (TODO: un-ignore this)
-  "B008",   # function call in argument defaults
-  "B017",   # pytest.raises considered evil
-  "B028",   # explicit stacklevel for warnings
-  "E501",   # from scripts/lint_backend.sh
-  "SIM105", # contextlib.suppress (has a performance cost)
-  "SIM117", # multiple nested with blocks (doesn't look good with gr.Row etc)
-  "UP007",  # use X | Y for type annotations (TODO: can be enabled once Pydantic plays nice with them)
-  "UP006",  # use `list` instead of `List` for type annotations (fails for 3.8)
+    "C901", # function is too complex (TODO: un-ignore this)
+    "B023", # function definition in loop (TODO: un-ignore this)
+    "B008", # function call in argument defaults
+    "B017", # pytest.raises considered evil
+    "B028", # explicit stacklevel for warnings
+    "E501", # from scripts/lint_backend.sh
+    "SIM105", # contextlib.suppress (has a performance cost)
+    "SIM117", # multiple nested with blocks (doesn't look good with gr.Row etc)
+    "UP007", # use X | Y for type annotations (TODO: can be enabled once Pydantic plays nice with them)
+    "UP006", # use `list` instead of `List` for type annotations (fails for 3.8)
 ]
 exclude = []
 

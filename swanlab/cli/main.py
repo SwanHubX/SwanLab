@@ -10,12 +10,12 @@ r"""
 
 import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
-from ..utils import FONT, version_limit
-from ..env import get_server_host, get_server_port, get_swanlog_dir, is_login
+from ..utils import FONT
+from swanlab.package import version_limit, get_package_version
+from ..env import get_server_host, get_server_port, get_swanlog_dir
 import time
 from ..db import connect
-from ..utils import get_package_version
-from ..error import TokenFileError
+from ..error import KeyFileError
 from ..auth import terminal_login
 
 

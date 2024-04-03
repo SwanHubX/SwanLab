@@ -10,6 +10,11 @@ swanlog.bak/
 .eslintrc-auto-import.json
 dist/
 
+# test
+test/temp
+tutils/config.json
+tutils/package.mock.json
+
 # playground
 playground/
 

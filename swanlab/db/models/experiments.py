@@ -11,7 +11,7 @@ from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check, DatabaseProxy
 from .projects import Project
 from ..error import ExistedError, NotExistedError, ForeignProNotExistedError
-from ...utils.package import get_package_version
+from swanlab.package import get_package_version
 from ...utils import generate_color
 from ...utils import create_time
 

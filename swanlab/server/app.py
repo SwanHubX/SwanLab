@@ -10,7 +10,7 @@ r"""
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from ..utils import get_package_version
+from swanlab.package import get_package_version
 from .middleware.common import (
     resp_base,
     resp_static,
@@ -21,7 +21,6 @@ from .middleware.common import (
 
 # 响应路径
 from .settings import ASSETS
-
 
 # 服务全局对象
 app = FastAPI()
