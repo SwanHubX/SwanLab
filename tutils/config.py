@@ -5,7 +5,7 @@ r"""
 @File: config.py.py
 @IDE: pycharm
 @Description:
-    存储一些快捷配置
+    存储一些与单元测试有关的快捷配置
 """
 import os
 import json
