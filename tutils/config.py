@@ -24,4 +24,6 @@ TEMP_PATH = os.path.join(__test_path, "temp")
 
 CONFIG: dict = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")))
 
-__all__ = ["TEMP_PATH", "CONFIG", "nanoid"]
+PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
+
+__all__ = ["TEMP_PATH", "CONFIG", "nanoid", "PACKAGE_PATH"]

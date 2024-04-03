@@ -13,6 +13,7 @@ dist/
 # test
 test/temp
 tutils/config.json
+tutils/package.mock.json
 
 # playground
 playground/

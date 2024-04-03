@@ -7,4 +7,4 @@ r"""
 @Description:
     测试package.py，提供测试时的包管理函数
 """
-
+from tutils.config import PACKAGE_PATH
