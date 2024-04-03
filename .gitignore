@@ -12,7 +12,7 @@ dist/
 
 # test
 test/temp
-utils/config.json
+tutils/config.json
 
 # playground
 playground/
