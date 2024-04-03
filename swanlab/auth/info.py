@@ -58,6 +58,12 @@ class LoginInfo:
 
     def __str__(self) -> str:
         """错误时会返回错误信息"""
+        if self.__resp.reason == "OK":
+            return "Login success"
+        if self.__resp.reason == "Unauthorized":
+            return "Error api key"
+        if self.__resp.reason == "Forbidden":
+            return "You need to be verified first"
         return self.__resp.reason
 
     def save(self):

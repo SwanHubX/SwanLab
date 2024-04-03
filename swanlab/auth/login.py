@@ -47,11 +47,6 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
 
-    # 计算请求时间，等待剩余时间
-    remain_time = max(2 - int(time.time() - now), 0)
-    if remain_time > 0:
-        await asyncio.sleep(remain_time)
-
     return login_info
 
 
