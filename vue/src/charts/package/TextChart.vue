@@ -12,27 +12,10 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule
-      class="text-table"
-      :data="original_data[tag]"
-      :texts="texts[tag]"
-      :tag="tag"
-      @getText="getText"
-      v-for="tag in source"
-      :key="tag"
-    />
+    <TextModule class="text-table" :data="data || []" :tag="title" />
     <!-- 放大效果弹窗 -->
     <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
-      <TextModule
-        v-model="isDetailZoom"
-        :data="original_data[tag]"
-        :texts="texts[tag]"
-        :tag="tag"
-        @getText="getText"
-        v-for="tag in source"
-        :key="tag"
-        modal
-      />
+      <TextModule v-model="isDetailZoom" :data="data" :tag="title" modal />
     </SLModal>
   </template>
 </template>
@@ -64,10 +47,13 @@ const props = defineProps({
     required: true
   }
 })
-const media = inject('media')
 
 const original_data = ref()
 const source = ref(props.chart.source)
+const data = computed(() => {
+  if (!original_data.value) return []
+  return original_data.value[source.value[0]]?.list
+})
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
@@ -80,77 +66,12 @@ const error = computed(() => {
   return false
 })
 
-// ---------------------------------- 获取文本 ----------------------------------
-
-// 文本内容，数据结构：{ tag: Array<array || string> }
-const texts = ref({})
-// 文本内容缓存，防止多次请求同一资源
-const textBuffers = {}
-/**
- * 通过 log 中记录的文件名获取文本内容
- * @param {string} tag 标签名
- * @param {int} currentPage 数据在 list 中的索引号 => step 对应的索引，指出了数据在数组中的真实位置
- */
-const getText = async (tag, currentPage) => {
-  // 已经有数据了，不需要重复请求
-  if (texts.value[tag][currentPage] != null) return
-  // 即训练时的 log 内容，保存了文本文件名称
-  let path = original_data.value[tag].list[currentPage].data
-  const promises = []
-  ;(Array.isArray(path) ? path : [path]).map((url) => {
-    promises.push(
-      // 通过 promise 构建单个请求
-      new Promise((resolve) => {
-        // 如果缓存中有，直接用缓存
-        if (textBuffers[url]) {
-          resolve(textBuffers[url])
-        } else {
-          // 请求，并将 blob 以 utf-8 字符串的形式返回
-          media.get(url, props.chart.source_map[source.value[0]], tag).then((res) => {
-            blobToString(res).then((text) => {
-              // 记录缓存
-              textBuffers[url] = text
-              resolve(text)
-            })
-          })
-        }
-      })
-    )
-  })
-  texts.value[tag][currentPage] = await Promise.all(promises)
-}
-
-/**
- * 将 blob 以 utf-8 编码解析成字符串
- * @param {blob} blob 二进制 txt 内容
- */
-const blobToString = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = function (event) {
-      resolve(event.target.result)
-    }
-    reader.onerror = function () {
-      reject(new Error('Failed to read the Blob as UTF-8 string.'))
-    }
-    reader.readAsText(blob, 'UTF-8')
-  })
-}
-
 // ---------------------------------- 渲染、重渲染功能 ----------------------------------
 
 // 渲染
 const render = (data) => {
   // 保存原始数据，其中主要数据结构：{tag: {list: [{data: 'xxx', more: {caption: 'xxx'}}]}}
   original_data.value = data
-  // 遍历 source 获取所有 tag 第一页的文本数据
-  for (let index in source.value) {
-    const tag = source.value[index]
-    // texts 是对象，属性名为 tag，属性值为数组，数组长度为每个 tag 所有数据的总数，未获取的数据位置用 null 填充
-    texts.value[tag] = Array(data[tag].list.length).fill(null)
-    // 第二参数为 0，表示获取 tag 第一页的文本
-    getText(tag, 0)
-  }
 }
 
 // 重渲染

@@ -7,13 +7,12 @@
       <div class="caption">Caption</div>
       <div class="text">Text</div>
     </div>
-
     <!-- body -->
-    <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.list.length > 1 }">
+    <div class="w-full h-[310px] overflow-y-auto" :class="{ 'h-[60vh]': modal, 'border-b': data.length > 1 }">
       <!-- line -->
-      <div class="line" v-for="(text, i) in texts[currentIndex]" :key="text + i" v-show="!skeleton">
+      <div class="line" v-for="(text, i) in tableData[currentIndex]?.data" :key="text + i" v-show="!skeleton">
         <!-- caption -->
-        <div class="caption" :title="getCaption(i)">{{ getCaption(i) }}</div>
+        <div class="caption">{{ tableData[currentIndex]?.more[i].caption }}</div>
         <!-- text -->
         <div class="text" :title="text">{{ text }}</div>
         <!-- zoom icon -->
@@ -24,7 +23,7 @@
         />
       </div>
       <!-- 骨架屏 -->
-      <div v-if="skeleton && texts[currentIndex]">
+      <div v-if="skeleton && data[currentIndex]">
         <div class="flex items-center border-b border-dimmest" v-for="i in [1, 2, 3]" :key="i">
           <div class="md:w-40 w-24 h-10 px-4 shrink-0 flex items-center border-r">
             <span class="skeleton w-full h-1/2"></span>
@@ -43,7 +42,7 @@
       @change="turnPage"
       @turn="clickToTurn"
       :key="pages.maxIndex"
-      v-if="data.list.length > 1"
+      v-if="data.length > 1"
       :turn-by-arrow="modal && !isZoom"
     />
     <!-- 数据详情 -->
@@ -69,10 +68,6 @@ const props = defineProps({
     type: Object,
     default: () => {}
   },
-  texts: {
-    type: Array,
-    default: () => []
-  },
   tag: {
     type: String,
     default: ''
@@ -90,19 +85,16 @@ const emits = defineEmits(['getText', 'update:modelValue'])
 const color = inject('defaultColor')
 const skeleton = ref(false)
 
-/**
- * 获取 caption
- * @param {*} i
- */
-const getCaption = (i) => {
-  const line = props.data.list[currentIndex.value]
-  // 如果一个 step 只有一个 text
-  if (props.texts[currentIndex.value]?.length == 1) {
-    return line?.more?.caption || '-'
-  }
-  // 多个 text，通过行索引得到 caption
-  return line?.more[i]?.caption || '-'
-}
+const tableData = computed(() => {
+  const data = props.data
+  return data.map((item) => {
+    if (!Array.isArray(item.data)) {
+      item.data = [item.data]
+      item.more = [item.more]
+    }
+    return item
+  })
+})
 
 // ---------------------------------- 分页 ----------------------------------
 
@@ -135,7 +127,7 @@ const pages = computed(() => {
  * 而有 currentPage 时，也可以通过找到其在 indexes 中的位置而知道 index,从而通过 props.data.list[index] 获取数据
  */
 const indexes = computed(() => {
-  return props.data.list.map((item) => item.index)
+  return props.data.map((item) => item.index)
 })
 const currentPage = ref(pages.value.minIndex)
 const currentIndex = ref(0)
@@ -143,7 +135,6 @@ const currentIndex = ref(0)
 onMounted(() => {
   currentIndex.value = indexes.value.length - 1
   currentPage.value = indexes.value[currentIndex.value]
-  emits('getText', props.tag, currentIndex.value)
 })
 
 /**
@@ -189,8 +180,6 @@ const turnPage = (p, isClick) => {
   time.value = setTimeout(() => {
     skeleton.value = false
   }, 400)
-  // 获取当前页码对应的数据
-  emits('getText', props.tag, index)
 }
 
 /**
@@ -217,7 +206,7 @@ const current = ref({})
  */
 const zoom = (text, i) => {
   // 当前页面所有的信息
-  const line = props.data?.list[currentIndex.value]
+  const line = props.data[currentIndex.value]
   current.value = {
     tag: props.tag,
     line,
