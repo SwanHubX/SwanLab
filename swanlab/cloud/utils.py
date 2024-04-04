@@ -22,20 +22,26 @@ q = Queue()
 class LogQueue:
     """
     线程安全的日志通信队列，用于线程之间的通信
-    限制了队列的可读可写性
+    限制了队列的可读可写性，标注队列内容
     """
 
-    def __init__(self, readable: bool = True, writable: bool = True):
-        self.q = q
+    def __init__(self, readable: bool = True, writable: bool = True, new: Queue = None):
+        """
+        初始化日志队列，可定义是否可读、可写
+        :param readable: 设置可读性
+        :param writable: 设置可写性
+        :param new: 新的队列，如果传入新的队列，将会使用新的队列，否则将使用全局队列（一般不推荐）
+        """
+        self.q = new if new else q
         """
         线程通信管道
         """
         self.readable = readable
         self.writable = writable
 
-    def put(self, msg: str):
+    def put(self, msg: Callable):
         """
-        向管道中写入日志信息
+        向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
         :param msg: 日志信息
         """
         if not self.writable:
@@ -62,6 +68,16 @@ class LogQueue:
         while not self.q.empty():
             msgs.append(self.q.get())
         return msgs
+
+    def put_all(self, msgs: list):
+        """
+        向管道中写入所有日志信息
+        :param msgs: 日志信息
+        """
+        if not self.writable:
+            raise Exception("The queue is not writable")
+        for msg in msgs:
+            self.q.put(msg)
 
 
 class TimerFlag:

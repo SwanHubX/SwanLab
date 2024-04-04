@@ -242,6 +242,7 @@ def finish():
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
     if run is None:
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
+    # FIXME not a good way to handle this
     run._success()
     swanlog.setSuccess()
     swanlog.reset_console()
@@ -319,6 +320,7 @@ def __clean_handler():
                 run.settings.exp_name
             )
         )
+        # FIXME not a good way to handle this
         run._success()
         swanlog.setSuccess()
         swanlog.reset_console()

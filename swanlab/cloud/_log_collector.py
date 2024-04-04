@@ -35,15 +35,13 @@ class LogCollectorTask(ThreadTaskABC):
 
     async def upload(self):
         """
-        上传日志信息，异步上传
+        将收集到的所有上传事件统一触发，上传日志信息，有几种类型的信息可能会出现
+        1. 异步函数类型，这种直接调用，并且在upload函数末尾等待所哟异步函数执行完毕
+        2. 普通函数类型，这种直接调用，阻塞等待函数执行完毕
+        3.
         """
-        # TODO 上传日志信息
-        # 现在暂时在运行时在本地文件中写入追加的日志信息
-        with open("log.txt", "a") as f:
-            print("开始上传日志信息:", self.container)
-            for msg in self.container:
-                f.write(msg + "\n")
-            f.write('\n\n')
+        tasks = [x() for x in self.container]
+        results = await asyncio.gather(*tasks)
         # 假设上传时间为1秒
         await asyncio.sleep(1)
 
@@ -54,7 +52,7 @@ class LogCollectorTask(ThreadTaskABC):
         """
         # 从管道中获取所有的日志信息，存储到self.container中
         self.container.extend(u.queue.get_all())
-        print("线程" + u.name + "获取到的日志信息: ", self.container)
+        # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
             await self.upload()
             # 清除容器内容
