@@ -191,7 +191,7 @@ def init(
     # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
-    cloud and swanlog.info("👋 Hi " + login_info.username + ", welcome to swanlab!")
+    cloud and swanlog.info("👋 Hi " + FONT.bold(FONT.default(login_info.username)) + ", welcome to swanlab!")
     # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info(
         "🌟 Run `"
