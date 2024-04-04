@@ -14,13 +14,11 @@ from fastapi.staticfiles import StaticFiles
 import time
 from ..module.resp import UNEXPECTED_ERROR_500, PARAMS_ERROR_422
 from ...log import swanlog as swl
-from ...utils import get_package_version
+from swanlab.package import get_package_version
 from ...db import connect
+from ..settings import ASSETS, INDEX  # 响应路径
 
 version = get_package_version()
-
-# 响应路径
-from ..settings import ASSETS, INDEX
 
 # 注册静态文件路径
 static_path = "/assets"

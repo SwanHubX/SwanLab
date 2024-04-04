@@ -19,12 +19,13 @@ from typing import Optional, Union
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
-from ..auth import get_exp_token, terminal_login, code_login
+from swanlab.auth import terminal_login, code_login
 from ..db import Project, connect
-from ..env import init_env, ROOT, is_login, get_user_api_key
+from ..env import init_env, ROOT
 from ..error import NotLoginError
 from ..log import swanlog
-from ..utils import version_limit, FONT, get_package_version, check_load_json_yaml
+from swanlab.package import version_limit, get_package_version
+from ..utils import FONT, check_load_json_yaml
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -144,7 +145,7 @@ def init(
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
-        load_data = check_load_json_yaml(load, "load")
+        load_data = check_load_json_yaml(load, load)
         # 尝试更改传入的参数为None的情况，如果传入的参数不是None，不做任何操作
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
         description = _load_data(load_data, "description", description)

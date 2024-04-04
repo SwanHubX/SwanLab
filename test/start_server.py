@@ -10,7 +10,15 @@ r"""
     增加了实际开发中不会用到的热启动功能
 """
 import uvicorn
+from swanlab.db import connect
+from swanlab.server.app import app
+
+connect()
+
+
+def main():
+    return app
 
 
 if __name__ == "__main__":
-    uvicorn.run("_server:main", host="0.0.0.0", port=6092, reload=True, log_level="critical")
+    uvicorn.run("start_server:main", host="0.0.0.0", port=6092, reload=True, log_level="critical")
