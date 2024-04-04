@@ -13,7 +13,7 @@ from .utils import ThreadUtil, ThreadTaskABC
 import asyncio
 
 
-class LogCollector(ThreadTaskABC):
+class LogCollectorTask(ThreadTaskABC):
     """
     日志聚合器，负责收集所有线程注册的日志信息
     并且定义日志上传接口

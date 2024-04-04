@@ -156,8 +156,10 @@ class ThreadTaskABC(ABC):
 
     @abstractmethod
     async def task(self, u: ThreadUtil, **kwargs):
+        """线程正常执行时的任务"""
         pass
 
     @abstractmethod
     async def callback(self, u: ThreadUtil, *args):
+        """线程执行完毕(被关闭）后的回调函数"""
         pass

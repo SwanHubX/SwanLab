@@ -141,7 +141,8 @@ def login(api_key: str, relogin: bool, **kwargs):
         tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
         return print(tip)
     # 进行登录，此时将直接覆盖本地token文件
-    terminal_login(api_key)
+    login_info = terminal_login(api_key)
+    print(FONT.swanlab("Login successfully, hey " + login_info.username + "!"))
 
 
 if __name__ == "__main__":
