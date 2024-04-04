@@ -8,10 +8,11 @@ r"""
     定义认证数据格式
 """
 import os.path
-from ..utils.key import save_key
-from ..env import get_swanlab_folder
+from swanlab.utils.key import save_key
+from swanlab.env import get_swanlab_folder
 from swanlab.package import get_host_api
 import requests
+from typing import Union
 
 
 class LoginInfo:
@@ -23,6 +24,28 @@ class LoginInfo:
     def __init__(self, resp: requests.Response, api_key: str):
         self.__resp = resp
         self.__api_key = api_key
+        self.__body = resp.json() if resp.status_code == 200 else {}
+
+    @property
+    def sid(self) -> Union[str, None]:
+        """
+        获取sid，如果请求失败则返回None
+        """
+        return self.__body.get("sid")
+
+    @property
+    def expired_at(self) -> Union[str, None]:
+        """
+        获取过期时间，如果请求失败则返回None
+        """
+        return self.__body.get("expiredAt")
+
+    @property
+    def username(self) -> Union[str, None]:
+        """
+        获取用户名，如果请求失败则返回None
+        """
+        return self.__body.get("userInfo", {}).get("username")
 
     @property
     def is_fail(self):
@@ -42,13 +65,19 @@ class LoginInfo:
 
     def __str__(self) -> str:
         """错误时会返回错误信息"""
+        if self.__resp.reason == "OK":
+            return "Login success"
+        if self.__resp.reason == "Unauthorized":
+            return "Error api key"
+        if self.__resp.reason == "Forbidden":
+            return "You need to be verified first"
         return self.__resp.reason
 
     def save(self):
         """
         保存登录信息
         """
-        path = os.path.join(get_swanlab_folder(), '.netrc')
+        path = os.path.join(get_swanlab_folder(), ".netrc")
         return save_key(path, get_host_api(), "user", self.api_key)
 
 

@@ -9,3 +9,4 @@ r"""
     这一块因为可能swanlog模块没有初始化，所以需要自己单独打印一下
 """
 from .login import terminal_login, code_login
+from .info import LoginInfo

@@ -1,5 +1,6 @@
 # 导出初始化函数和log函数
 from .data import (
+    login,
     init,
     log,
     finish,
@@ -11,6 +12,5 @@ from .data import (
 )
 
 from .package import get_package_version
-
 
 __version__ = get_package_version()

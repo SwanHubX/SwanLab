@@ -9,13 +9,19 @@ r"""
     进行一些交互定义和数据请求
 """
 import asyncio
-from ..error import ValidationError
-from ..utils import FONT
+from swanlab.error import ValidationError
+from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
-import sys
 from .info import LoginInfo
 import getpass
+import sys
 import requests
+import time
+
+
+def login_request(api_key: str, timeout: int = 20) -> requests.Response:
+    """用户登录，请求后端接口完成验证"""
+    return requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
 
 
 async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
@@ -31,14 +37,16 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     save : bool, optional
         是否保存到本地token文件
     """
+    now = time.time()
     try:
-        resp = requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+        resp = login_request(api_key, timeout)
     except requests.exceptions.RequestException:
         # 请求超时等网络错误
         raise ValidationError("Network error, please try again.")
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
+
     return login_info
 
 
@@ -66,7 +74,7 @@ def input_api_key(
     return key
 
 
-async def code_login(api_key: str):
+async def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件
 
@@ -85,11 +93,12 @@ async def code_login(api_key: str):
     # 最后需要刷去当前行, 不再显示加载动画
     FONT.brush("", length=100, flush=False)
     if login_info.is_fail:
-        print(FONT.swanlab("Login failed! Please try again.", color="red"))
+        print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
         raise ValidationError("Login failed: " + str(login_info))
+    return login_info
 
 
-def terminal_login(api_key: str = None):
+def terminal_login(api_key: str = None) -> LoginInfo:
     """
     终端登录，此时直接覆盖本地token文件，但是新增交互，让用户输入api_key
     运行此函数，如果是认证失败的错误，重新要求用户输入api_key
@@ -101,8 +110,7 @@ def terminal_login(api_key: str = None):
         api_key = input_api_key()
     while True:
         try:
-            asyncio.run(code_login(api_key))
-            break
+            return asyncio.run(code_login(api_key))
         # 如果是登录失败且是输入的api_key，提示重新输入api_key
         except ValidationError as e:
             if input_key:

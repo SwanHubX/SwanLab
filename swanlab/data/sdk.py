@@ -15,17 +15,17 @@ import traceback
 from datetime import datetime
 from typing import Dict
 from typing import Optional, Union
-
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
-from swanlab.auth import terminal_login, code_login
 from ..db import Project, connect
-from ..env import init_env, ROOT
-from ..error import NotLoginError
+from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
-from swanlab.package import version_limit, get_package_version
 from ..utils import FONT, check_load_json_yaml
+from ..utils.key import get_key
+from swanlab.api.auth import code_login, LoginInfo, terminal_login
+from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
+from swanlab.error import KeyFileError
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -42,22 +42,24 @@ Configuration information synchronization is achieved through class variables.
 When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
 """
 
+login_info = None
+
 
 def login(api_key: str):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
+    Every time you call this function, the previous login information will be overwritten.
+    [Note that] this function should be called before `init`.
 
     Parameters
     ----------
     api_key : str
         authentication key.
     """
-    # 如果已经登录且保存，判断一下当前api_key是否和本地api_key一致，如果一致，直接返回
-    # 如果不一致，继续下面的步骤
-    if is_login() and api_key == get_user_api_key():
-        return
-    # 否则进行登录
-    code_login(api_key)
+    if inited:
+        raise RuntimeError("You must call swanlab.login() before using init()")
+    global login_info
+    login_info = asyncio.run(code_login(api_key))
 
 
 def init(
@@ -66,7 +68,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: str = "default",
-    # cloud: bool = False,
+    cloud: bool = True,
     # project: str = None,
     # organization: str = None,
     load: str = None,
@@ -112,7 +114,7 @@ def init(
         If this parameter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     cloud : bool, optional
-        Whether to use the cloud mode, the default is False.
+        Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
         If you are not using cloud mode, the `project` and `organization` fields are invalid.
     project : str, optional
@@ -161,9 +163,9 @@ def init(
     # 初始化环境变量
     init_env()
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
-    # 1. 如果没有登录，提示登录
-    # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
-    # token = _get_exp_token(cloud=cloud)
+    global login_info
+    if login_info is None and cloud:
+        login_info = _login_in_init()
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
@@ -176,7 +178,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
     )
-    # 如果使用云端模式，在此开启其他线程负责同步数据
+    # ---------------------------------- 注册实验，开启线程 ----------------------------------
 
     # 注册异常处理函数
     sys.excepthook = __except_handler
@@ -184,22 +186,22 @@ def init(
     atexit.register(__clean_handler)
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
-    # 展示相关信息信息
     swanlog.info("Tracking run with swanlab version " + get_package_version())
     swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
     # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
+    cloud and swanlog.info("👋 Hi " + FONT.bold(FONT.default(login_info.username)) + ", welcome to swanlab!")
     # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info(
         "🌟 Run `"
         + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
         + "` to view SwanLab Experiment Dashboard locally"
     )
-    # project_url = get_host_web() + "/" + "{project_name}"
-    # experiment_url = project_url + "/" + token
-    # cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-    # cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+    project_url = get_host_web() + "/" + "{project_name}"
+    experiment_url = project_url + "/" + "123456"
+    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 
@@ -246,6 +248,21 @@ def finish():
     run = None
 
 
+def _login_in_init() -> LoginInfo:
+    """在init函数中登录"""
+    # 1. 如果没有登录，提示登录
+    # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
+    key = None
+    try:
+        key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
+    except KeyFileError:
+        fd = sys.stdin.fileno()
+        # 不是标准终端，无法控制其回显
+        if not os.isatty(fd):
+            raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
+    return terminal_login(key)
+
+
 def _init_logdir(logdir: str) -> str:
     """
     处理通过init传入的logdir存在的一些情况
@@ -290,24 +307,6 @@ def _load_data(load_data: dict, key: str, value):
     #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
     #     print(FONT.swanlab(tip))
     return d
-
-
-def _get_exp_token(cloud: bool = False):
-    """获取当前实验的相关信息
-    可能包含实验的token、实验的id、用户信息等信息
-    无论是否使用cloud模式，此函数都会执行，都会返回token，不使用cloud模式返回None，对于后面代码而言，token如果为None，说明没有登录
-    """
-    token = None
-    if cloud:
-        # 登录成功会返回当前实验的token
-        while True:
-            try:
-                token = asyncio.run(get_exp_token())
-                break
-            except NotLoginError:
-                # 如果没有登录，提示登录
-                terminal_login()
-    return token
 
 
 def __clean_handler():

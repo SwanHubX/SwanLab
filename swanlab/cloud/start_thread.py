@@ -12,7 +12,7 @@ from typing import List, Tuple, Callable, Dict
 import asyncio
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
-from ._log_collector import LogCollector
+from ._log_collector import LogCollectorTask
 
 
 class ThreadPool:
@@ -33,7 +33,7 @@ class ThreadPool:
     def __init__(self, upload_sleep_time: float = None):
         self.thread_pool = {}
         # 日志聚合器
-        self.collector = LogCollector()
+        self.collector = LogCollectorTask()
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []

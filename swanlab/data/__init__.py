@@ -16,6 +16,7 @@ from .modules import (
     Object3D,
 )
 from .sdk import (
+    login,
     init,
     log,
     finish,

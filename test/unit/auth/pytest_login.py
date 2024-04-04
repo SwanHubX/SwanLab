@@ -7,7 +7,7 @@ r"""
 @Description:
     测试登录
 """
-from swanlab.auth.login import login_by_key
+from swanlab.api.auth.login import login_by_key
 from tutils.config import CONFIG
 import pytest
 
@@ -20,7 +20,7 @@ async def test_login_success():
     login_info = await login_by_key(CONFIG.get('api-key'), save=False)
     assert not login_info.is_fail
     assert login_info.api_key == CONFIG.get('api-key')
-    assert login_info.__str__() == "OK"
+    assert login_info.__str__() == "Login success"
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_login_error_key():
     login_info = await login_by_key("wrong-key", save=False)
     assert login_info.is_fail
     assert login_info.api_key is None
-    assert login_info.__str__() == "Unauthorized"
+    assert login_info.__str__() == "Error api key"
 
 
 @pytest.mark.asyncio
@@ -42,4 +42,4 @@ async def test_login_no_key():
     login_info = await login_by_key(None, save=False)
     assert login_info.is_fail
     assert login_info.api_key is None
-    assert login_info.__str__() == "Unauthorized"
+    assert login_info.__str__() == "Error api key"
