@@ -37,7 +37,6 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     save : bool, optional
         是否保存到本地token文件
     """
-    now = time.time()
     try:
         resp = login_request(api_key, timeout)
     except requests.exceptions.RequestException:

@@ -35,13 +35,11 @@ class LogCollectorTask(ThreadTaskABC):
 
     async def upload(self):
         """
-        将收集到的所有上传事件统一触发，上传日志信息，有几种类型的信息可能会出现
-        1. 异步函数类型，这种直接调用，并且在upload函数末尾等待所哟异步函数执行完毕
-        2. 普通函数类型，这种直接调用，阻塞等待函数执行完毕
-        3.
+        将收集到的所有上传事件统一触发，上传日志信息
+        所有的请求都是网络请求，因此需要异步处理，并且在此处统一
         """
         tasks = [x() for x in self.container]
-        results = await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
         # 假设上传时间为1秒
         await asyncio.sleep(1)
 

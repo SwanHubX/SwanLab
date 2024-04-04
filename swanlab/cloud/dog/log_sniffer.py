@@ -16,6 +16,7 @@ from typing import List, Tuple, Callable
 from queue import Queue
 from swanlab.log import swanlog
 from ..types import LogPackageType
+import asyncio
 
 q = Queue()
 
@@ -38,7 +39,7 @@ class LogSnifferHandler(FileSystemEventHandler):
         self.queue = LogQueue(readable=False, writable=True, new=q)
         # 如果是元数据类型，在监听之前向queue中添加上传钩子
         if package_type == LogPackageType.META:
-            self.queue.put(package_type.value.before(watched_path))
+            self.queue.put(package_type.value.before((watched_path, None)))
 
     def on_modified(self, event):
         """
@@ -49,7 +50,7 @@ class LogSnifferHandler(FileSystemEventHandler):
             # print(f"Directory modified: {event.src_path}, watched directory: {self.watched_path}")
             pass
         else:
-            swanlog.debug(f"File modified: {event.src_path}, watched directory: {self.watched_path}")
+            self.queue.put(self.package_type.value.on((self.watched_path, event)))
 
 
 class LogSnifferTask(ThreadTaskABC):
@@ -76,6 +77,8 @@ class LogSnifferTask(ThreadTaskABC):
         self.__observer.start()
 
     async def callback(self, u: ThreadUtil, *args):
+        # 文件事件可能会有延迟，因此需要等待一段时间
+        await asyncio.sleep(1.5)
         self.__observer.stop()
 
     async def task(self, u: ThreadUtil, *args):
