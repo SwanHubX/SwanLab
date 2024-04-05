@@ -11,6 +11,9 @@ r"""
 from typing import List
 from .utils import ThreadUtil, ThreadTaskABC
 import asyncio
+from swanlab.log import swanlog
+from .utils import LogQueue
+from swanlab.error import UpLoadError
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -28,20 +31,30 @@ class LogCollectorTask(ThreadTaskABC):
     """
 
     def __init__(self):
-        self.container: List = []
+        self.container: List[LogQueue.MsgType] = []
         """
         日志容器，存储从管道中获取的日志信息
         """
+        self.lock = False
 
     async def upload(self):
         """
         将收集到的所有上传事件统一触发，上传日志信息
         所有的请求都是网络请求，因此需要异步处理，并且在此处统一
         """
-        tasks = [x() for x in self.container]
-        await asyncio.gather(*tasks)
-        # 假设上传时间为1秒
-        await asyncio.sleep(1)
+        tasks = [x[0].value['upload'](x[1]) for x in self.container]
+        results = await asyncio.gather(*tasks)
+        # 检查每一个结果
+        has_error = False
+        for index, result in enumerate(results):
+            # 如果出现问题
+            if isinstance(result, UpLoadError):
+                has_error = True
+                continue
+            elif isinstance(result, Exception):
+                has_error = True
+                swanlog.error(f"upload logs error: {result}, it might be a swanlab bug, data will be lost!")
+                continue
 
     async def task(self, u: ThreadUtil, *args):
         """
@@ -52,9 +65,13 @@ class LogCollectorTask(ThreadTaskABC):
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
+            if self.lock:
+                return swanlog.debug("upload task still in progressing, passed")
+            self.lock = True
             await self.upload()
             # 清除容器内容
             self.container.clear()
+            self.lock = False
 
     async def callback(self, u: ThreadUtil, *args):
         """

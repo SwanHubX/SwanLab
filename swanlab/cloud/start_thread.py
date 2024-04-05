@@ -13,6 +13,7 @@ import asyncio
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
 from ._log_collector import LogCollectorTask
+from queue import Queue
 
 
 class ThreadPool:
@@ -37,6 +38,7 @@ class ThreadPool:
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []
+        self.queue = Queue()
         # 生成数据上传线程，此线程包含聚合器和数据上传任务，负责收集所有线程向主线程发送的日志信息
         self.upload_thread = self.create_thread(target=self.collector.task,
                                                 args=(),
@@ -67,9 +69,9 @@ class ThreadPool:
         if sleep_time is None:
             sleep_time = self.SLEEP_TIME
         if name == self.UPLOAD_THREAD_NAME:
-            q = LogQueue(readable=True, writable=False)
+            q = LogQueue(queue=self.queue, readable=True, writable=False)
         else:
-            q = LogQueue(readable=False, writable=True)
+            q = LogQueue(queue=self.queue, readable=False, writable=True)
         thread_util = ThreadUtil(q, name)
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
         thread = threading.Thread(target=self._create_loop,

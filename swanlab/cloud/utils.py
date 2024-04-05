@@ -8,20 +8,20 @@ r"""
     日志队列
 """
 from queue import Queue
-from typing import Tuple, Callable, Coroutine, Any, List, Iterable
+from typing import Tuple, Callable, Coroutine, Any, List
 import time
 import asyncio
 from abc import ABC, abstractmethod
-
-q = Queue()
-"""
-线程通信管道，被LogQueue类使用
-"""
+from .files_types import FileType
 
 
-class LogQueueABC(ABC):
+class LogQueue:
     """
-    日志队列抽象类
+    日志队列，定义一些工具和可读可写性质
+    """
+    MsgType = Tuple[FileType, List]
+    """
+    传入日志聚合器的日志信息类型，应该是一个元组，第一个元素是文件类型，第二个元素是日志信息，日志信息应该是一个列表
     """
 
     def __init__(self, queue: Queue, readable: bool = True, writable: bool = True):
@@ -37,7 +37,7 @@ class LogQueueABC(ABC):
     def writable(self):
         return self.__writable
 
-    def put(self, msg):
+    def put(self, msg: MsgType):
         """
         向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
         :param msg: 日志信息
@@ -46,7 +46,7 @@ class LogQueueABC(ABC):
             raise Exception("The queue is not writable")
         self.q.put(msg)
 
-    def get(self):
+    def get(self) -> MsgType:
         """
         从管道中读取日志信息
         :return: 日志信息
@@ -67,7 +67,7 @@ class LogQueueABC(ABC):
             msgs.append(self.q.get())
         return msgs
 
-    def put_all(self, msgs: Iterable):
+    def put_all(self, msgs: List[MsgType]):
         """
         向管道中写入所有日志信息
         :param msgs: 日志信息
@@ -76,49 +76,6 @@ class LogQueueABC(ABC):
             raise Exception("The queue is not writable")
         for msg in msgs:
             self.q.put(msg)
-
-
-class LogQueue(LogQueueABC):
-    """
-    线程安全的日志通信队列，用于线程之间的通信
-    限制了队列的可读可写性，标注队列内容
-    """
-
-    def __init__(self, readable: bool = True, writable: bool = True):
-        """
-        初始化日志队列，可定义是否可读、可写
-        :param readable: 设置可读性
-        :param writable: 设置可写性
-        """
-        super().__init__(q, readable, writable)
-
-    def put(self, msg: Callable):
-        """
-        向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
-        :param msg: 日志信息
-        """
-        super().put(msg)
-
-    def get(self) -> Callable:
-        """
-        从管道中读取日志信息
-        :return: 日志信息
-        """
-        return super().get()
-
-    def get_all(self) -> List[Callable]:
-        """
-        从管道中读取所有的日志信息
-        :return: 日志信息
-        """
-        return super().get_all()
-
-    def put_all(self, msgs: List[Callable]):
-        """
-        向管道中写入所有日志信息
-        :param msgs: 日志信息
-        """
-        super().put_all(msgs)
 
 
 class TimerFlag:
