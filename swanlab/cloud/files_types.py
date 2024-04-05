@@ -30,7 +30,7 @@ def async_error_handler(func):
             result = await func(*args, **kwargs)
             return result
         except RequestException:
-            swanlog.error('network error, swanlab will resume uploads when the network improves')
+            swanlog.warning('network error, swanlab will resume uploads when the network improves')
             return NetworkError()
         except Exception as e:
             return e

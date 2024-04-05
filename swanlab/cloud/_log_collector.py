@@ -45,16 +45,22 @@ class LogCollectorTask(ThreadTaskABC):
         tasks = [x[0].value['upload'](x[1]) for x in self.container]
         results = await asyncio.gather(*tasks)
         # 检查每一个结果
-        has_error = False
+        error_tasks_index = []
         for index, result in enumerate(results):
             # 如果出现问题
             if isinstance(result, UpLoadError):
-                has_error = True
+                error_tasks_index.append(index)
                 continue
             elif isinstance(result, Exception):
-                has_error = True
+                # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
                 swanlog.error(f"upload logs error: {result}, it might be a swanlab bug, data will be lost!")
                 continue
+        # 如果没有错误，清空容器
+        if not len(error_tasks_index) == 0:
+            return self.container.clear()
+        # 如果有错误，只删除错误的部分，等待重新上传
+        for index in error_tasks_index:
+            self.container.pop(index)
 
     async def task(self, u: ThreadUtil, *args):
         """
@@ -62,15 +68,13 @@ class LogCollectorTask(ThreadTaskABC):
         :param u: 线程工具类
         """
         # 从管道中获取所有的日志信息，存储到self.container中
+        if self.lock:
+            return swanlog.debug("upload task still in progressing, passed")
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
-            if self.lock:
-                return swanlog.debug("upload task still in progressing, passed")
             self.lock = True
             await self.upload()
-            # 清除容器内容
-            self.container.clear()
             self.lock = False
 
     async def callback(self, u: ThreadUtil, *args):
