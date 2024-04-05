@@ -42,6 +42,8 @@ class LogCollectorTask(ThreadTaskABC):
         将收集到的所有上传事件统一触发，上传日志信息
         所有的请求都是网络请求，因此需要异步处理，并且在此处统一
         """
+        # TODO 根据日志类型进行降重
+        # TODO 根据类型优先级排序，优先上传重要的日志
         tasks = [x[0].value['upload'](x[1]) for x in self.container]
         results = await asyncio.gather(*tasks)
         # 检查每一个结果
