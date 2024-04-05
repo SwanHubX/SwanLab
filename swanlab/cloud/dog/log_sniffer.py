@@ -8,17 +8,21 @@ r"""
     日志嗅探器
     嗅探不做上传操作，只做采集操作，将采集到的日志、差异信息发送给日志聚合器
 """
-from ..utils import ThreadTaskABC, ThreadUtil, LogQueue
+from ..utils import ThreadTaskABC, ThreadUtil, LogQueueABC
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.utils.dirsnapshot import DirectorySnapshot, DirectorySnapshotDiff
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Dict
 from queue import Queue
-from swanlab.log import swanlog
-from ..types import LogPackageType
 import asyncio
 
 q = Queue()
+
+
+class SnifferQueue(LogQueueABC):
+
+    def __init__(self, readable: bool = True, writable: bool = True):
+        super().__init__(q, readable, writable)
 
 
 class LogSnifferHandler(FileSystemEventHandler):
@@ -26,20 +30,17 @@ class LogSnifferHandler(FileSystemEventHandler):
     日志嗅探处理器，负责处理日志信息的改动，在使用中应该对应到每一个具体类型的文件夹的监听
     由于日志信息的改动可能是十分频繁的，因此需要设置定时器，定时处理一段时间内的所有改动
     处理方式应该由传入的LogType事先定义好的处理函数决定，这里应该只负责收集日志信息
+    Watchdog 默认情况下使用两个线程。一个线程用于监视文件系统事件，另一个线程用于处理这些事件并触发相应的回调函数
+    因此在这里不需要考虑多线程问题
     """
 
-    def __init__(self, watched_path: str, package_type: LogPackageType):
+    def __init__(self, watched_path: str):
         """
         初始化日志嗅探处理器
         :param watched_path: 监听的路径，用作初始对照
-        :param package_type: 日志包装类型，枚举类型，里面包含了不同的日志包装方式和处理方式
         """
         self.watched_path = watched_path
-        self.package_type = package_type
-        self.queue = LogQueue(readable=False, writable=True, new=q)
-        # 如果是元数据类型，在监听之前向queue中添加上传钩子
-        if package_type == LogPackageType.META:
-            self.queue.put(package_type.value.before((watched_path, None)))
+        self.queue = SnifferQueue(readable=False, writable=True)
 
     def on_modified(self, event):
         """
@@ -50,7 +51,7 @@ class LogSnifferHandler(FileSystemEventHandler):
             # print(f"Directory modified: {event.src_path}, watched directory: {self.watched_path}")
             pass
         else:
-            self.queue.put(self.package_type.value.on((self.watched_path, event)))
+            print(f"File modified: {event.src_path}, watched directory: {self.watched_path}")
 
 
 class LogSnifferTask(ThreadTaskABC):
@@ -59,18 +60,18 @@ class LogSnifferTask(ThreadTaskABC):
     """
     SNIFFER_TIMEOUT = 2
 
-    def __init__(self, observer_path: List[Tuple[str, LogPackageType]]):
+    def __init__(self, observer_paths: List[Tuple[str,]]):
         """
         初始化日志嗅探器
-        :param observer_path: 监听的路径和路径下对应的日志类型
+        :param observer_paths: 监听的路径和路径下对应的日志类型
         """
-        self.__sniffer_queue = LogQueue(readable=True, writable=False, new=q)
+        self.__sniffer_queue = SnifferQueue(readable=True, writable=False)
         """
         日志嗅探器队列，用于存放从LogSnifferHandler中收集到的日志信息
         """
         self.__observer = Observer(timeout=self.SNIFFER_TIMEOUT)
-        for watched_path, log_type in observer_path:
-            self.__observer.schedule(LogSnifferHandler(watched_path, log_type),
+        for watched_path, in observer_paths:
+            self.__observer.schedule(LogSnifferHandler(watched_path),
                                      watched_path,
                                      recursive=True)
         # observer，启动！
@@ -78,7 +79,7 @@ class LogSnifferTask(ThreadTaskABC):
 
     async def callback(self, u: ThreadUtil, *args):
         # 文件事件可能会有延迟，因此需要等待一段时间
-        await asyncio.sleep(1.5)
+        # await asyncio.sleep(1.5)
         self.__observer.stop()
 
     async def task(self, u: ThreadUtil, *args):
@@ -86,4 +87,5 @@ class LogSnifferTask(ThreadTaskABC):
         任务执行函数，在此处收集处理的所有日志信息，解析、包装、发送给日志聚合器
         :param u: 线程工具类
         """
-        u.queue.put_all(self.__sniffer_queue.get_all())
+        # 在此处完成日志信息聚合
+        print("日志嗅探器开始执行")

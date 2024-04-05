@@ -8,7 +8,7 @@ r"""
     日志队列
 """
 from queue import Queue
-from typing import Tuple, Callable, Coroutine, Any
+from typing import Tuple, Callable, Coroutine, Any, List, Iterable
 import time
 import asyncio
 from abc import ABC, abstractmethod
@@ -19,27 +19,25 @@ q = Queue()
 """
 
 
-class LogQueue:
+class LogQueueABC(ABC):
     """
-    线程安全的日志通信队列，用于线程之间的通信
-    限制了队列的可读可写性，标注队列内容
+    日志队列抽象类
     """
 
-    def __init__(self, readable: bool = True, writable: bool = True, new: Queue = None):
-        """
-        初始化日志队列，可定义是否可读、可写
-        :param readable: 设置可读性
-        :param writable: 设置可写性
-        :param new: 新的队列，如果传入新的队列，将会使用新的队列，否则将使用全局队列（一般不推荐）
-        """
-        self.q = new if new else q
-        """
-        线程通信管道
-        """
-        self.readable = readable
-        self.writable = writable
+    def __init__(self, queue: Queue, readable: bool = True, writable: bool = True):
+        self.q = queue
+        self.__readable = readable
+        self.__writable = writable
 
-    def put(self, msg: Callable):
+    @property
+    def readable(self):
+        return self.__readable
+
+    @property
+    def writable(self):
+        return self.__writable
+
+    def put(self, msg):
         """
         向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
         :param msg: 日志信息
@@ -69,7 +67,7 @@ class LogQueue:
             msgs.append(self.q.get())
         return msgs
 
-    def put_all(self, msgs: list):
+    def put_all(self, msgs: Iterable):
         """
         向管道中写入所有日志信息
         :param msgs: 日志信息
@@ -78,6 +76,49 @@ class LogQueue:
             raise Exception("The queue is not writable")
         for msg in msgs:
             self.q.put(msg)
+
+
+class LogQueue(LogQueueABC):
+    """
+    线程安全的日志通信队列，用于线程之间的通信
+    限制了队列的可读可写性，标注队列内容
+    """
+
+    def __init__(self, readable: bool = True, writable: bool = True):
+        """
+        初始化日志队列，可定义是否可读、可写
+        :param readable: 设置可读性
+        :param writable: 设置可写性
+        """
+        super().__init__(q, readable, writable)
+
+    def put(self, msg: Callable):
+        """
+        向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
+        :param msg: 日志信息
+        """
+        super().put(msg)
+
+    def get(self) -> Callable:
+        """
+        从管道中读取日志信息
+        :return: 日志信息
+        """
+        return super().get()
+
+    def get_all(self) -> List[Callable]:
+        """
+        从管道中读取所有的日志信息
+        :return: 日志信息
+        """
+        return super().get_all()
+
+    def put_all(self, msgs: List[Callable]):
+        """
+        向管道中写入所有日志信息
+        :param msgs: 日志信息
+        """
+        super().put_all(msgs)
 
 
 class TimerFlag:
