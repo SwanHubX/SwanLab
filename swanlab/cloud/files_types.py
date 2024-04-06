@@ -62,7 +62,7 @@ async def mock_upload_files(files: List[str]):
     # 去重list
     files = list(set(files))
     files = [os.path.basename(x) for x in files]
-    print("上传文件信息: ", files)
+    # print("上传文件信息: ", files)
 
 
 @async_error_handler

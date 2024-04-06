@@ -76,6 +76,7 @@ class ThreadPool:
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
         thread = threading.Thread(target=self._create_loop,
                                   args=(sleep_time, target, (thread_util, *args)),
+                                  daemon=True,
                                   name=name)
         self.thread_pool[name] = thread
         if callback is not None:
@@ -131,7 +132,7 @@ class ThreadPool:
         """
         [在主线程中] 结束线程池中的所有线程，并执行所有线程的结束任务
         """
-        print("线程池准备停止")
+        # print("线程池准备停止")
         # 第一步停止所有非日志上传线程
         for name, _ in self.sub_threads:
             self.thread_timer[name].cancel()
@@ -142,6 +143,5 @@ class ThreadPool:
         await asyncio.gather(*[cb() for cb in self.__callbacks[::-1]])
         # 停止日志上传线程的任务
         self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
-        # TODO 执行日志上传的回调
         self.upload_thread.join()
         # print("线程池结束")

@@ -325,9 +325,9 @@ def _before_exit_in_cloud():
     exit_in_cloud = True
 
     async def _():
-        # 关闭线程池
+        # 展示动画
         loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
-        # 等待上传线程完成
+        # 关闭线程池，等待上传线程完成
         await run.settings.pool.finish()
         loading_task.cancel()
         FONT.brush("", length=100, flush=False)
@@ -342,7 +342,7 @@ def _clean_handler():
     # 如果没有错误
     if not swanlog.isError:
         run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
-        swanlog.info("The  experiment {} has completed".format(run.settings.exp_name))
+        swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
         swanlog.setSuccess()
