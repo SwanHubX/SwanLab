@@ -14,6 +14,7 @@ import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
 from swanlab.error import UpLoadError
+from .files_types import FileType
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -37,32 +38,59 @@ class LogCollectorTask(ThreadTaskABC):
         """
         self.lock = False
 
+    @staticmethod
+    def report_known_error(errors: List[UpLoadError]):
+        """
+        上报错误信息
+        :param errors: 错误信息列表
+        """
+        if len(errors) == 0:
+            return
+        # 去重
+        errors = list(set(errors))
+        for error in errors:
+            swanlog.__getattribute__(error.log_level)(error.message)
+
     async def upload(self):
         """
         将收集到的所有上传事件统一触发，上传日志信息
         所有的请求都是网络请求，因此需要异步处理，并且在此处统一
         """
-        # TODO 根据日志类型进行降重
-        # TODO 根据类型优先级排序，优先上传重要的日志
-        tasks = [x[0].value['upload'](x[1]) for x in self.container]
+        # 根据日志类型进行降重
+        tasks_dict = {x: [] for x in FileType}
+        for msg in self.container:
+            tasks_dict[msg[0]].extend(msg[1])
+        # 此时应该只剩下最多 FileType内部枚举个数 个任务
+        # 媒体类型需要首先上传，后面几个可以一起上传
+        # 检查每一个上传结果
+        success_tasks_type = []
+        # 已知错误列表
+        known_errors = []
+        if len(tasks_dict[FileType.MEDIA]):
+            media_result = await FileType.MEDIA.value['upload'](tasks_dict[FileType.MEDIA])
+            if isinstance(media_result, UpLoadError):
+                known_errors.append(media_result)
+            elif isinstance(media_result, Exception):
+                swanlog.error(f"upload logs error: {media_result}, it might be a swanlab bug, data will be lost!")
+            success_tasks_type.append(FileType.MEDIA)
+        # 上传任务
+        tasks_key_list = [key for key in tasks_dict if len(tasks_dict[key]) > 0 and key != FileType.MEDIA]
+        tasks = [x.value['upload'](tasks_dict[x]) for x in tasks_key_list]
         results = await asyncio.gather(*tasks)
-        # 检查每一个结果
-        error_tasks_index = []
         for index, result in enumerate(results):
-            # 如果出现问题
+            # 如果出现已知问题
             if isinstance(result, UpLoadError):
-                error_tasks_index.append(index)
+                known_errors.append(result)
                 continue
+            # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif isinstance(result, Exception):
-                # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
                 swanlog.error(f"upload logs error: {result}, it might be a swanlab bug, data will be lost!")
                 continue
-        # 如果没有错误，清空容器
-        if not len(error_tasks_index) == 0:
-            return self.container.clear()
-        # 如果有错误，只删除错误的部分，等待重新上传
-        for index in error_tasks_index:
-            self.container.pop(index)
+            # 标记所有已经成功的任务
+            success_tasks_type.append(tasks_key_list[index])
+        # 将不成功的任务加入原本的容器中
+        self.container = [(x, tasks_dict[x]) for x in tasks_dict if x not in success_tasks_type]
+        self.report_known_error(known_errors)
 
     async def task(self, u: ThreadUtil, *args):
         """

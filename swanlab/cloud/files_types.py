@@ -12,11 +12,11 @@ r"""
     4. 媒体类型，文件类型解析
 在本模块针对上述四种方式定义不同的类和不同的处理方式，每种类型对应一个数据上传接口
 """
+import os.path
 from enum import Enum
 from typing import List
 from swanlab.error import NetworkError
 from requests.exceptions import RequestException
-from swanlab.log import swanlog
 
 
 def async_error_handler(func):
@@ -30,7 +30,6 @@ def async_error_handler(func):
             result = await func(*args, **kwargs)
             return result
         except RequestException:
-            swanlog.warning('network error, swanlab will resume uploads when the network improves')
             return NetworkError()
         except Exception as e:
             return e
@@ -60,6 +59,9 @@ async def mock_upload_files(files: List[str]):
     模拟一下，上传日志和实验指标信息
     :param files: 文件列表，内部为文件绝对路径
     """
+    # 去重list
+    files = list(set(files))
+    files = [os.path.basename(x) for x in files]
     print("上传文件信息: ", files)
     raise RequestException()
 
@@ -77,34 +79,16 @@ class FileType(Enum):
     """
     文件类型枚举，在此处定义文件类型以及不同的处理方式
     priority属性表示优先级，数字越大优先级越高，代表在一次数据上传的循环中先上传
-    {
-        "name": 枚举类型名称,
-        "upload": 上传数据的方法,
-        "priority": 优先级,
-        "error": 错误描述
-    }
     """
     LOG = {
-        "name": "log",
         "upload": mock_upload_logs,
-        "priority": 1,
-        "error": "logs upload failed"
     }
     METRIC = {
-        "name": "metric",
         "upload": mock_upload_metrics,
-        "priority": 2,
-        "error": "metrics upload failed"
     }
     FILE = {
-        "name": "file",
         "upload": mock_upload_files,
-        "priority": 1,
-        "error": "files upload failed"
     }
     MEDIA = {
-        "name": "media",
         "upload": mock_upload_media,
-        "priority": 9,  # 最高优先级
-        "error": "media upload failed"
     }

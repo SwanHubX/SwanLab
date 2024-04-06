@@ -39,11 +39,19 @@ class UpLoadError(Exception):
     """
     日志上传有关的错误，在聚合器中将捕获他们
     """
-    pass
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "error"
+        self.message = 'swanlab upload error'
 
 
 class NetworkError(UpLoadError):
     """
     请求时网络错误，断网了
     """
-    pass
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "warning"
+        self.message = "network error, swanlab will resume uploads when the network improves"
