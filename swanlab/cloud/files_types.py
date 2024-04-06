@@ -17,6 +17,7 @@ from enum import Enum
 from typing import List
 from swanlab.error import NetworkError
 from requests.exceptions import RequestException
+import asyncio
 
 
 def async_error_handler(func):
@@ -62,6 +63,7 @@ async def mock_upload_files(files: List[str]):
     # 去重list
     files = list(set(files))
     files = [os.path.basename(x) for x in files]
+    await asyncio.sleep(10)
     # print("上传文件信息: ", files)
 
 

@@ -44,6 +44,14 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 """
 
 login_info = None
+"""
+User login information
+"""
+
+exit_in_cloud = False
+"""
+Indicates whether the program is exiting in the cloud environment.
+"""
 
 
 def login(api_key: str):
@@ -177,7 +185,7 @@ def init(
     if cloud:
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
-        pool.create_thread(sniffer.task, name="sniffer", sleep_time=5)
+        pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
         run.settings.pool = pool
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
@@ -311,9 +319,6 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-exit_in_cloud = False
-
-
 def _before_exit_in_cloud():
     """
     在云端环境下，退出之前的处理，需要依次执行线程池中的回调
@@ -323,16 +328,17 @@ def _before_exit_in_cloud():
         return
     # 标志已经退出（需要在下面的逻辑之前标志）
     exit_in_cloud = True
+    sys.excepthook = except_handler
 
     async def _():
         # 展示动画
         loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
         # 关闭线程池，等待上传线程完成
-        await run.settings.pool.finish()
+        await asyncio.create_task(run.settings.pool.finish())
         loading_task.cancel()
         FONT.brush("", length=100, flush=False)
 
-    asyncio.run(_())
+    return asyncio.run(_())
 
 
 def _clean_handler():
@@ -340,8 +346,8 @@ def _clean_handler():
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     # 如果没有错误
-    if not swanlog.isError:
-        run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
+    if not swanlog.isError and not exit_in_cloud:
+        run.settings.pool and _before_exit_in_cloud()
         swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
@@ -353,11 +359,15 @@ def _clean_handler():
 def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
-        return
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    if exit_in_cloud:
+        # FIXME not a good way to fix '\n' problem
+        print("")
+        swanlog.error('Aborted uploading by user')
+        sys.exit(1)
     # 如果是KeyboardInterrupt异常
     if tp == KeyboardInterrupt:
-        swanlog.error("Aborted by user")
+        swanlog.error("KeyboardInterrupt by user")
     else:
         swanlog.error("Error happened while training")
     # 标记实验失败
@@ -378,5 +388,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     swanlog.reset_console()
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
     if tp != KeyboardInterrupt:
         raise tp(val)

@@ -116,8 +116,8 @@ class LogCollectorTask(ThreadTaskABC):
         回调函数，用于线程结束时的回调
         :param u: 线程工具类
         """
-        if self.lock:
-            await self.__now_task
-        # print("线程" + u.name + "回调执行")
+        # 如果当前上传任务正在进行，等待上传任务结束
+        while self.lock:
+            await asyncio.sleep(0.1)
         self.container.extend(u.queue.get_all())
         return await self.upload()
