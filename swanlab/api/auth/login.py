@@ -45,6 +45,7 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
+    await asyncio.sleep(2)
 
     return login_info
 
@@ -83,9 +84,8 @@ async def code_login(api_key: str) -> LoginInfo:
         用户api_key
     """
     login_task = asyncio.create_task(login_by_key(api_key))
-    prefix = FONT.bold(FONT.blue("swanlab: "))
     tip = "Waiting for the swanlab cloud response."
-    loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5, prefix=prefix))
+    loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5))
     login_info: LoginInfo = await login_task
     # 取消加载动画任务
     loading_task.cancel()

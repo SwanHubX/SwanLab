@@ -58,7 +58,7 @@ def generate_color(number: int = 1) -> str:
 
 class FONT:
     @staticmethod
-    async def loading(s: str, interval: float = 0.1, out: Callable = sys.stdout.write, prefix: str = ""):
+    async def loading(s: str, interval: float = 0.1, out: Callable = sys.stdout.write, prefix: str = None):
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果，这是一个协程函数，需要使用await调用
 
@@ -71,8 +71,10 @@ class FONT:
         out : callable, optional
             输出函数，默认为sys.stdout.write，或者可以使用其他自定义传入的函数
         prefix : str, optional
-            前缀字符串，打印在loading效果之前，默认为空字符串
+            前缀字符串，打印在loading效果之前，默认为swanlab
         """
+        if prefix is None:
+            prefix = FONT.bold(FONT.blue("swanlab")) + ': '
         symbols = ["\\", "|", "/", "-"]
         index = 0
         while True:

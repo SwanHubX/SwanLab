@@ -63,7 +63,6 @@ async def mock_upload_files(files: List[str]):
     files = list(set(files))
     files = [os.path.basename(x) for x in files]
     print("上传文件信息: ", files)
-    raise RequestException()
 
 
 @async_error_handler

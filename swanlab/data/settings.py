@@ -9,6 +9,8 @@ r"""
 """
 import os
 from ..env import get_swanlog_dir
+from swanlab.cloud import ThreadPool
+from typing import Optional
 
 
 class SwanDataSettings:
@@ -23,13 +25,14 @@ class SwanDataSettings:
         run_id : str
             实验运行id，由时间戳生成，用于区分不同实验存储目录
         """
-        self.__exp_name: str = None
+        self.__exp_name = None
         # 日志存放目录
         self.__swanlog_dir: str = get_swanlog_dir()
         # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
         self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
         # 实验运行id
         self.__run_id: str = run_id
+        self.pool: Optional[ThreadPool] = None
 
     @property
     def exp_name(self) -> str:

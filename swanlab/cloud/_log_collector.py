@@ -36,7 +36,7 @@ class LogCollectorTask(ThreadTaskABC):
         """
         日志容器，存储从管道中获取的日志信息
         """
-        self.lock = False
+        self.__now_task = None
 
     @staticmethod
     def report_known_error(errors: List[UpLoadError]):
@@ -103,15 +103,21 @@ class LogCollectorTask(ThreadTaskABC):
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
-            self.lock = True
-            await self.upload()
-            self.lock = False
+            self.__now_task = self.upload()
+            await self.__now_task
+            self.__now_task = None
+
+    @property
+    def lock(self):
+        return self.__now_task is not None
 
     async def callback(self, u: ThreadUtil, *args):
         """
         回调函数，用于线程结束时的回调
         :param u: 线程工具类
         """
-        print("线程" + u.name + "回调执行")
+        if self.lock:
+            await self.__now_task
+        # print("线程" + u.name + "回调执行")
         self.container.extend(u.queue.get_all())
         return await self.upload()

@@ -127,21 +127,21 @@ class ThreadPool:
 
         return loop
 
-    def finish(self):
+    async def finish(self):
         """
         [在主线程中] 结束线程池中的所有线程，并执行所有线程的结束任务
         """
         print("线程池准备停止")
-        # 第一步停止所有非主要线程
+        # 第一步停止所有非日志上传线程
         for name, _ in self.sub_threads:
             self.thread_timer[name].cancel()
         for _, thread in self.sub_threads:
             thread.join()
-        print("非主要线程结束")
-        # 停止主要线程的任务
-        self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
-        self.upload_thread.join()
-        print("线程池结束")
+        # print("非日志上传线程结束")
         # 倒序执行回调函数
-        for cb in self.__callbacks[::-1]:
-            asyncio.run(cb())
+        await asyncio.gather(*[cb() for cb in self.__callbacks[::-1]])
+        # 停止日志上传线程的任务
+        self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
+        # TODO 执行日志上传的回调
+        self.upload_thread.join()
+        # print("线程池结束")
