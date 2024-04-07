@@ -13,7 +13,7 @@ from .utils import ThreadUtil, ThreadTaskABC
 import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
-from swanlab.error import UpLoadError
+from swanlab.error import ApiError
 from .files_types import FileType
 
 
@@ -39,7 +39,7 @@ class LogCollectorTask(ThreadTaskABC):
         self.__now_task = None
 
     @staticmethod
-    def report_known_error(errors: List[UpLoadError]):
+    def report_known_error(errors: List[ApiError]):
         """
         上报错误信息
         :param errors: 错误信息列表
@@ -68,7 +68,7 @@ class LogCollectorTask(ThreadTaskABC):
         known_errors = []
         if len(tasks_dict[FileType.MEDIA]):
             media_result = await FileType.MEDIA.value['upload'](tasks_dict[FileType.MEDIA])
-            if isinstance(media_result, UpLoadError):
+            if isinstance(media_result, ApiError):
                 known_errors.append(media_result)
             elif isinstance(media_result, Exception):
                 swanlog.error(f"upload logs error: {media_result}, it might be a swanlab bug, data will be lost!")
@@ -79,7 +79,7 @@ class LogCollectorTask(ThreadTaskABC):
         results = await asyncio.gather(*tasks)
         for index, result in enumerate(results):
             # 如果出现已知问题
-            if isinstance(result, UpLoadError):
+            if isinstance(result, ApiError):
                 known_errors.append(result)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告

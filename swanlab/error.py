@@ -35,18 +35,18 @@ class UnKnownSystemError(Exception):
     pass
 
 
-class UpLoadError(Exception):
+class ApiError(Exception):
     """
-    日志上传有关的错误，在聚合器中将捕获他们
+    api有关的错误，在聚合器中将捕获他们
     """
 
     def __init__(self, *args):
         super().__init__(*args)
         self.log_level = "error"
-        self.message = 'swanlab upload error'
+        self.message = 'swanlab api error'
 
 
-class NetworkError(UpLoadError):
+class NetworkError(ApiError):
     """
     请求时网络错误，断网了
     """
