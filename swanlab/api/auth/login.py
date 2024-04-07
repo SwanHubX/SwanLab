@@ -90,7 +90,7 @@ async def code_login(api_key: str) -> LoginInfo:
     # 取消加载动画任务
     loading_task.cancel()
     # 最后需要刷去当前行, 不再显示加载动画
-    FONT.brush("", length=100, flush=False)
+    FONT.brush("", length=100)
     if login_info.is_fail:
         print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
         raise ValidationError("Login failed: " + str(login_info))
