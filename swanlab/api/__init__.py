@@ -9,5 +9,6 @@ r"""
 """
 from .auth import LoginInfo
 from .auth.login import terminal_login, code_login
+from .http import create_http
 
-__all__ = ["LoginInfo", "code_login", 'terminal_login']
+__all__ = ["LoginInfo", "code_login", 'terminal_login', 'create_http']

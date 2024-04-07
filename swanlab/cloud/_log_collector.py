@@ -61,20 +61,12 @@ class LogCollectorTask(ThreadTaskABC):
         for msg in self.container:
             tasks_dict[msg[0]].extend(msg[1])
         # 此时应该只剩下最多 FileType内部枚举个数 个任务
-        # 媒体类型需要首先上传，后面几个可以一起上传
         # 检查每一个上传结果
         success_tasks_type = []
         # 已知错误列表
         known_errors = []
-        if len(tasks_dict[FileType.MEDIA]):
-            media_result = await FileType.MEDIA.value['upload'](tasks_dict[FileType.MEDIA])
-            if isinstance(media_result, ApiError):
-                known_errors.append(media_result)
-            elif isinstance(media_result, Exception):
-                swanlog.error(f"upload logs error: {media_result}, it might be a swanlab bug, data will be lost!")
-            success_tasks_type.append(FileType.MEDIA)
         # 上传任务
-        tasks_key_list = [key for key in tasks_dict if len(tasks_dict[key]) > 0 and key != FileType.MEDIA]
+        tasks_key_list = [key for key in tasks_dict if len(tasks_dict[key]) > 0]
         tasks = [x.value['upload'](tasks_dict[x]) for x in tasks_key_list]
         results = await asyncio.gather(*tasks)
         for index, result in enumerate(results):

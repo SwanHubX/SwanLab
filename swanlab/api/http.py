@@ -14,6 +14,7 @@ from datetime import datetime
 from .auth import LoginInfo
 from .auth.login import login_by_key
 from swanlab.error import NetworkError
+from swanlab.package import get_host_api
 import asyncio
 
 
@@ -32,6 +33,7 @@ class HTTP:
         """
         self.__login_info = login_info
         self.__session = self.__create_session()
+        self.base_url = get_host_api()
 
     def expired_at(self):
         """
@@ -59,20 +61,23 @@ class HTTP:
         get请求
         """
         self.__before_request()
+        url = self.base_url + url
         return self.__session.get(url, **kwargs)
 
-    async def post(self, url: str, **kwargs) -> requests.Response:
+    async def post(self, url: str, data: dict = None) -> requests.Response:
         """
         post请求
         """
         self.__before_request()
-        return self.__session.post(url, **kwargs)
+        url = self.base_url + url
+        return self.__session.post(url, json=data)
 
     async def put(self, url: str, **kwargs) -> requests.Response:
         """
         put请求
         """
         self.__before_request()
+        url = self.base_url + url
         return self.__session.put(url, **kwargs)
 
     async def delete(self, url: str, **kwargs) -> requests.Response:
@@ -80,6 +85,7 @@ class HTTP:
         delete请求
         """
         self.__before_request()
+        url = self.base_url + url
         return self.__session.delete(url, **kwargs)
 
 
@@ -89,9 +95,9 @@ http: Optional["HTTP"] = None
 """
 
 
-def init_http(login_info: LoginInfo) -> HTTP:
+def create_http(login_info: LoginInfo) -> HTTP:
     """
-    初始化http请求对象
+    创建http请求对象
     """
     global http
     if http is None:

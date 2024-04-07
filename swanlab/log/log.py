@@ -266,6 +266,9 @@ class SwanLog(LogSys):
         console_handler = self.logger.handlers[0]
         console_handler.setLevel(self._get_level(level))
 
+    def set_pool(self, pool):
+        self.__consoler.consoler.pool = pool
+
     def set_file_level(self, level):
         """
         设置写入日志文件的日志级别。
@@ -292,7 +295,7 @@ class SwanLog(LogSys):
         Parameters:
             level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
         """
-        self.__consoler.setLevel(level)
+        self.__consoler.set_level(level)
 
     def set_temporary_logging(self, temp_logging: bool):
         """设置临时打印权限
@@ -314,7 +317,7 @@ class SwanLog(LogSys):
         Returns:
             str: 日志收集级别。
         """
-        return self.__consoler.getLevel()
+        return self.__consoler.get_level()
 
     # 获取对应等级的logging对象
     def _get_level(self, level):

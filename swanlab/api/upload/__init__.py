@@ -12,6 +12,20 @@ from typing import List, Tuple
 import asyncio
 import os
 
+url = '/house/metrics'
+
+
+def mock_data(metrics: List[dict], metrics_type: str) -> dict:
+    """
+    模拟一下，上传日志和实验指标信息
+    """
+    return {
+        "projectId": "1",
+        "experimentId": "1",
+        "type": metrics_type,
+        "metrics": metrics
+    }
+
 
 @async_error_handler
 async def upload_logs(logs: List[str], level: str = "INFO"):
@@ -20,7 +34,12 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
     :param logs: 日志列表
     :param level: 日志级别，'INFO', 'ERROR'，默认INFO
     """
-    print("上传日志信息: ", logs)
+    http = get_http()
+    # 将logs解析为json格式
+    metrics = [{"level": level, "message": x} for x in logs]
+    data = mock_data(metrics, "log")
+    resp = await http.post(url, data)
+    print(resp)
 
 
 @async_error_handler
@@ -48,5 +67,5 @@ async def upload_files(files: List[str]):
     # 去重list
     files = list(set(files))
     files = [os.path.basename(x) for x in files]
-    await asyncio.sleep(10)
+    await asyncio.sleep(1)
     # print("上传文件信息: ", files)

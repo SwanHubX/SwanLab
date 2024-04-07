@@ -27,6 +27,7 @@ from swanlab.api.auth import code_login, LoginInfo, terminal_login
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
+from swanlab.api import create_http
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -169,6 +170,8 @@ def init(
     global login_info
     if login_info is None and cloud:
         login_info = _login_in_init()
+        create_http(login_info)
+
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
@@ -186,7 +189,10 @@ def init(
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
         pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+        # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
+        swanlog.set_pool(pool)
+
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
