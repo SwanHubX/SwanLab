@@ -45,6 +45,7 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
+    await asyncio.sleep(2)
 
     return login_info
 

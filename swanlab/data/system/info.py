@@ -87,13 +87,14 @@ def __get_git_branch_and_commit():
         return None, None
 
 
-def __get_gpu_info():
+def __get_nvidia_gpu_info():
     """获取 GPU 信息"""
     info = {"cores": None, "type": [], "memory": []}
     try:
         pynvml.nvmlInit()
     except:
-        return info
+        return None
+
     try:
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
@@ -112,6 +113,60 @@ def __get_gpu_info():
         # 结束 NVML
         pynvml.nvmlShutdown()
         return info
+
+
+def __get_apple_gpu_info():
+    import ujson
+
+    info = {"cores": None, "type": [], "memory": []}
+
+    # 使用system_profiler命令以JSON格式获取GPU信息
+    try:
+        result = subprocess.run(["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True)
+        gpu_name = ujson.loads(result.stdout)["SPHardwareDataType"][0]["chip_type"]
+        memory = ujson.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
+        memory = str(memory).lower().replace("gb", "")
+        number_processors = ujson.loads(result.stdout)["SPHardwareDataType"][0]["number_processors"]
+    except:
+        return None
+
+    info["type"].append(gpu_name)
+    info["memory"].append(memory)
+    info["cores"] = number_processors
+
+    # TODO: Apple设备硬件监控时再解除注释，二进制文件apple_gpu_stats来自https://github.com/wandb/wandb/blob/main/wandb/bin/apple_gpu_stats
+    #
+    # MAX_POWER_WATTS = 16.5
+    #
+    # import pathlib
+    # binary_path = (pathlib.Path(sys.modules["swanlab"].__path__[0]) / "bin" / "apple_gpu_stats").resolve()
+    # try:
+    #     command = [str(binary_path), "--json"]
+    #     output = (subprocess.check_output(command, universal_newlines=True).strip().split("\n"))[0]
+    #     raw_stats = ujson.loads(output)
+    #     stats = {
+    #         "gpu": raw_stats["utilization"],
+    #         "memoryAllocated": raw_stats["mem_used"],
+    #         "temp": raw_stats["temperature"],
+    #         "powerWatts": raw_stats["power"],
+    #         "powerPercent": (raw_stats["power"] / MAX_POWER_WATTS) * 100,
+    #     }
+    # except:
+    #     swanlog.debug(f"Apple GPU stats failed to obtain.")
+
+    return info
+
+
+def __get_gpu_info():
+    gpu_info = __get_nvidia_gpu_info()
+    if gpu_info is not None:
+        return gpu_info
+
+    apple_info = __get_apple_gpu_info()
+    if apple_info is not None:
+        return apple_info
+
+    return {"cores": None, "type": [], "memory": []}
 
 
 def __get_command():
