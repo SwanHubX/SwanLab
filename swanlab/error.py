@@ -33,3 +33,25 @@ class UnKnownSystemError(Exception):
     """未知系统错误，此时swanlab运行在未知系统上，这个系统不是windows或者类unix系统
     """
     pass
+
+
+class UpLoadError(Exception):
+    """
+    日志上传有关的错误，在聚合器中将捕获他们
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "error"
+        self.message = 'swanlab upload error'
+
+
+class NetworkError(UpLoadError):
+    """
+    请求时网络错误，断网了
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "warning"
+        self.message = "network error, swanlab will resume uploads when the network improves"

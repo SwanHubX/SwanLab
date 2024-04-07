@@ -26,6 +26,7 @@ from ..utils.key import get_key
 from swanlab.api.auth import code_login, LoginInfo, terminal_login
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
+from swanlab.cloud import LogSnifferTask, ThreadPool
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -43,6 +44,14 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 """
 
 login_info = None
+"""
+User login information
+"""
+
+exit_in_cloud = False
+"""
+Indicates whether the program is exiting in the cloud environment.
+"""
 
 
 def login(api_key: str):
@@ -132,12 +141,6 @@ def init(
         In terms of priority, if the parameters passed to init are `None`,
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
-    log_level : str, optional
-        The default log level for logging to the terminal in SwanLab is "info",
-        but it can be chosen as "debug", "info", "warning", "error", or "critical".
-        This is unrelated to the `swanlab.log` function and is typically used for development and debugging purposes.
-        Therefore, it is only passed implicitly through the `**kwargs` parameter
-        without explicit prompting in this context.
     """
     global run, inited
     # 如果已经初始化过了，直接返回run
@@ -179,11 +182,16 @@ def init(
         suffix=suffix,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
-
-    # 注册异常处理函数
-    sys.excepthook = __except_handler
+    if cloud:
+        pool = ThreadPool()
+        sniffer = LogSnifferTask(run.settings.files_dir)
+        pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+        run.settings.pool = pool
+    # ---------------------------------- 异常处理、程序清理 ----------------------------------
+    sys.excepthook = except_handler
     # 注册清理函数
-    atexit.register(__clean_handler)
+    atexit.register(_clean_handler)
+    # ---------------------------------- 终端输出 ----------------------------------
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())
@@ -242,9 +250,11 @@ def finish():
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
     if run is None:
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
+    # FIXME not a good way to handle this
     run._success()
     swanlog.setSuccess()
     swanlog.reset_console()
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
     run = None
 
 
@@ -309,27 +319,57 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def __clean_handler():
+def _before_exit_in_cloud():
+    """
+    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
+    """
+    global exit_in_cloud
+    if exit_in_cloud or run is None or run.settings.pool is None:
+        return
+    # 标志已经退出（需要在下面的逻辑之前标志）
+    exit_in_cloud = True
+    sys.excepthook = except_handler
+
+    async def _():
+        # 展示动画
+        loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
+        # 关闭线程池，等待上传线程完成
+        await asyncio.create_task(run.settings.pool.finish())
+        loading_task.cancel()
+        FONT.brush("", length=100, flush=False)
+
+    return asyncio.run(_())
+
+
+def _clean_handler():
     """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    if not swanlog.isError:
-        swanlog.info(
-            "The current experiment {} has been completed, SwanLab will close it automatically".format(
-                run.settings.exp_name
-            )
-        )
+    # 如果没有错误
+    if not swanlog.isError and not exit_in_cloud:
+        run.settings.pool and _before_exit_in_cloud()
+        swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
+        # FIXME not a good way to handle this
         run._success()
         swanlog.setSuccess()
         swanlog.reset_console()
 
 
 # 定义异常处理函数
-def __except_handler(tp, val, tb):
+def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
-        return
-    swanlog.error("Error happened while training, SwanLab will throw it")
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    if exit_in_cloud:
+        # FIXME not a good way to fix '\n' problem
+        print("")
+        swanlog.error('Aborted uploading by user')
+        sys.exit(1)
+    # 如果是KeyboardInterrupt异常
+    if tp == KeyboardInterrupt:
+        swanlog.error("KeyboardInterrupt by user")
+    else:
+        swanlog.error("Error happened while training")
     # 标记实验失败
     run._fail()
     swanlog.setError()
@@ -340,7 +380,6 @@ def __except_handler(tp, val, tb):
     html += repr(val) + "\n"
     for line in trace_list:
         html += line + "\n"
-
     if os.path.exists(run.settings.error_path):
         swanlog.warning("Error log file already exists, append error log to it")
     # 写入日志文件
@@ -349,4 +388,6 @@ def __except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     swanlog.reset_console()
-    raise tp(val)
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
+    if tp != KeyboardInterrupt:
+        raise tp(val)

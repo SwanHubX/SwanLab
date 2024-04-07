@@ -8,41 +8,45 @@ r"""
     日志队列
 """
 from queue import Queue
-from typing import Tuple, Callable, Coroutine, Any
+from typing import Tuple, Callable, Coroutine, Any, List
 import time
 import asyncio
 from abc import ABC, abstractmethod
-
-q = Queue()
-"""
-线程通信管道，被LogQueue类使用
-"""
+from .files_types import FileType
 
 
 class LogQueue:
     """
-    线程安全的日志通信队列，用于线程之间的通信
-    限制了队列的可读可写性
+    日志队列，定义一些工具和可读可写性质
+    """
+    MsgType = Tuple[FileType, List]
+    """
+    传入日志聚合器的日志信息类型，应该是一个元组，第一个元素是文件类型，第二个元素是日志信息，日志信息应该是一个列表
     """
 
-    def __init__(self, readable: bool = True, writable: bool = True):
-        self.q = q
-        """
-        线程通信管道
-        """
-        self.readable = readable
-        self.writable = writable
+    def __init__(self, queue: Queue, readable: bool = True, writable: bool = True):
+        self.q = queue
+        self.__readable = readable
+        self.__writable = writable
 
-    def put(self, msg: str):
+    @property
+    def readable(self):
+        return self.__readable
+
+    @property
+    def writable(self):
+        return self.__writable
+
+    def put(self, msg: MsgType):
         """
-        向管道中写入日志信息
+        向管道中写入日志信息，日志信息必须是函数，聚合器会依次执行他们
         :param msg: 日志信息
         """
         if not self.writable:
             raise Exception("The queue is not writable")
         self.q.put(msg)
 
-    def get(self):
+    def get(self) -> MsgType:
         """
         从管道中读取日志信息
         :return: 日志信息
@@ -62,6 +66,16 @@ class LogQueue:
         while not self.q.empty():
             msgs.append(self.q.get())
         return msgs
+
+    def put_all(self, msgs: List[MsgType]):
+        """
+        向管道中写入所有日志信息
+        :param msgs: 日志信息
+        """
+        if not self.writable:
+            raise Exception("The queue is not writable")
+        for msg in msgs:
+            self.q.put(msg)
 
 
 class TimerFlag:

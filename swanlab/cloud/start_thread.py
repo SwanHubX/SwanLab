@@ -8,11 +8,14 @@ r"""
     生成线程池，生成通信管道
 """
 import threading
-from typing import List, Tuple, Callable, Dict
+from asyncio import AbstractEventLoop
+from typing import List, Tuple, Callable, Dict, Any, Coroutine
 import asyncio
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
 from ._log_collector import LogCollectorTask
+from queue import Queue
+from swanlab.log import swanlog
 
 
 class ThreadPool:
@@ -37,6 +40,7 @@ class ThreadPool:
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []
+        self.queue = Queue()
         # 生成数据上传线程，此线程包含聚合器和数据上传任务，负责收集所有线程向主线程发送的日志信息
         self.upload_thread = self.create_thread(target=self.collector.task,
                                                 args=(),
@@ -67,13 +71,15 @@ class ThreadPool:
         if sleep_time is None:
             sleep_time = self.SLEEP_TIME
         if name == self.UPLOAD_THREAD_NAME:
-            q = LogQueue(readable=True, writable=False)
+            q = LogQueue(queue=self.queue, readable=True, writable=False)
         else:
-            q = LogQueue(readable=False, writable=True)
+            q = LogQueue(queue=self.queue, readable=False, writable=True)
         thread_util = ThreadUtil(q, name)
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
-        thread = threading.Thread(target=self._create_loop,
-                                  args=(sleep_time, target, (thread_util, *args)),
+        loop, task = self._create_loop(name, sleep_time, target, (thread_util, *args))
+        thread = threading.Thread(target=loop.run_until_complete,
+                                  args=(task(),),
+                                  daemon=True,
                                   name=name)
         self.thread_pool[name] = thread
         if callback is not None:
@@ -83,27 +89,27 @@ class ThreadPool:
 
     @property
     def sub_threads(self):
-        ts = []
-        for name, thread in self.thread_pool.items():
-            if name == self.UPLOAD_THREAD_NAME:
-                continue
-            ts.append([name, thread])
-        return ts
+        """
+        除了日志上传线程外的所有线程
+        """
+        return {name: thread for name, thread in self.thread_pool.items() if name != self.UPLOAD_THREAD_NAME}
 
     def _create_loop(self,
+                     name: str,
                      sleep_time: float,
                      task: Callable,
                      args: Tuple[ThreadUtil, ...]
-                     ) -> asyncio.AbstractEventLoop:
+                     ) -> tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
         """
         创建一个事件循环，循环执行传入线程池的任务
+        :param name: 线程名称
         :param sleep_time: 任务休眠时间
         :param task: 任务
         :param args: 任务参数
         :return: 新的事件循环函数，用于启动新的线程
         """
         timer: TimerFlag = args[0].timer
-        self.thread_timer[threading.current_thread().name] = timer
+        self.thread_timer[name] = timer
         # 设置事件循环为当前线程的事件循环
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -111,6 +117,7 @@ class ThreadPool:
         # 新的执行函数，执行任务后等待sleep_time时间后再重新执行
         async def new_task():
             while True:
+                swanlog.debug(f"{threading.current_thread().name} is running")
                 # 如果task是同步函数，直接调用，否则使用await调用
                 if asyncio.iscoroutinefunction(task):
                     await task(*args)
@@ -119,27 +126,29 @@ class ThreadPool:
                 await asyncio.sleep(sleep_time)
                 # 如果定时器停止，则退出循环
                 if not timer.running:
-                    return
+                    return swanlog.debug(f"{threading.current_thread().name} is stopped")
 
-        loop.run_until_complete(new_task())
+        return loop, new_task
 
-        return loop
-
-    def finish(self):
+    async def finish(self):
         """
         [在主线程中] 结束线程池中的所有线程，并执行所有线程的结束任务
         """
-        print("线程池准备停止")
-        # 第一步停止所有非主要线程
-        for name, _ in self.sub_threads:
+        # print("线程池准备停止")
+        # 第一步停止所有非日志上传线程
+        for name, _ in self.thread_pool.items():
             self.thread_timer[name].cancel()
-        for _, thread in self.sub_threads:
-            thread.join()
-        print("非主要线程结束")
-        # 停止主要线程的任务
-        self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
-        self.upload_thread.join()
-        print("线程池结束")
+
+        # 由于线程池中的线程是daemon线程，并且已经cancel()，因此不需要等待，因为不会再有新的消息产生
+        # for _, thread in self.thread_pool.items():
+        #     thread.join()
+        #     # print(f"{thread.name} is stopped")
+
+        # print("非日志上传线程结束")
         # 倒序执行回调函数
-        for cb in self.__callbacks[::-1]:
-            asyncio.run(cb())
+        await asyncio.gather(*[cb() for cb in self.__callbacks[::-1]])
+        # 停止日志上传线程的任务
+        self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
+        # 等待日志上传线程结束
+        self.upload_thread.join()
+        # print("线程池结束")
