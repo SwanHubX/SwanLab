@@ -29,9 +29,9 @@ swanlab.config.learning_rate = lr
 swanlab.config.debug = "这是一串" + "很长" * 100 + "的字符串"
 # 模拟训练
 for epoch in range(2, swanlab.config.epoches):
-    acc = 1 - 2 ** -epoch - random.random() / epoch - offset
-    loss = 2 ** -epoch + random.random() / epoch + offset
-    loss2 = 3 ** -epoch + random.random() / epoch + offset * 3
+    acc = 1 - 2**-epoch - random.random() / epoch - offset
+    loss = 2**-epoch + random.random() / epoch + offset
+    loss2 = 3**-epoch + random.random() / epoch + offset * 3
     print(f"epoch={epoch}, accuracy={acc}, loss={loss}")
     if epoch % 10 == 0:
         # 测试audio
