@@ -40,13 +40,17 @@ class ThreadPool:
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []
-        self.queue = Queue()
+        self.__queue = Queue()
         # 生成数据上传线程，此线程包含聚合器和数据上传任务，负责收集所有线程向主线程发送的日志信息
         self.upload_thread = self.create_thread(target=self.collector.task,
                                                 args=(),
                                                 name=self.UPLOAD_THREAD_NAME,
                                                 sleep_time=upload_sleep_time,
                                                 callback=self.collector.callback)
+        self.queue = LogQueue(queue=self.__queue, readable=False, writable=True)
+        """
+        一个线程安全的队列，用于主线程向数据上传线程通信
+        """
 
     def create_thread(self,
                       target: Callable,
@@ -71,9 +75,9 @@ class ThreadPool:
         if sleep_time is None:
             sleep_time = self.SLEEP_TIME
         if name == self.UPLOAD_THREAD_NAME:
-            q = LogQueue(queue=self.queue, readable=True, writable=False)
+            q = LogQueue(queue=self.__queue, readable=True, writable=False)
         else:
-            q = LogQueue(queue=self.queue, readable=False, writable=True)
+            q = LogQueue(queue=self.__queue, readable=False, writable=True)
         thread_util = ThreadUtil(q, name)
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
         loop, task = self._create_loop(name, sleep_time, target, (thread_util, *args))
