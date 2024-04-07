@@ -23,11 +23,11 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
-from swanlab.api.auth import code_login, LoginInfo, terminal_login
+from swanlab.api import create_http, code_login, LoginInfo, terminal_login
+from swanlab.api.upload import upload_logs, mock_data
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
-from swanlab.api import create_http
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -325,7 +325,7 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _before_exit_in_cloud(success: bool):
+def _before_exit_in_cloud(success: bool, error: str = None):
     """
     在云端环境下，退出之前的处理，需要依次执行线程池中的回调
 
@@ -346,6 +346,9 @@ def _before_exit_in_cloud(success: bool):
         loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
         # 关闭线程池，等待上传线程完成
         await asyncio.create_task(run.settings.pool.finish())
+        # 上传错误日志
+        if error is not None:
+            await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
         loading_task.cancel()
         FONT.brush("", length=100)
 
@@ -399,6 +402,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False)
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
     if tp != KeyboardInterrupt:
         raise tp(val)

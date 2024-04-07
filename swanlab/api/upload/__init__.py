@@ -39,7 +39,6 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
     metrics = [{"level": level, "message": x} for x in logs]
     data = mock_data(metrics, "log")
     resp = await http.post(url, data)
-    print(resp)
 
 
 @async_error_handler
