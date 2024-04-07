@@ -364,7 +364,7 @@ class SwanLabRun:
         register(self.__settings.output_path, self.__settings.console_dir)
         # 初始化日志等级
         level = self.__check_log_level(log_level)
-        swanlog.setLevel(level)
+        swanlog.set_level(level)
 
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config

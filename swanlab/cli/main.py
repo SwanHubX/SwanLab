@@ -82,7 +82,7 @@ def watch(log_level: str, **kwargs):
     except FileNotFoundError:
         swl.error("Can not find the swanlab db in: " + FONT.bold(log_dir))
     # ---------------------------------- 日志等级处理 ----------------------------------
-    swl.setLevel(log_level)
+    swl.set_level(log_level)
     # ---------------------------------- 服务地址处理 ----------------------------------
     # 当前服务地址
     host = get_server_host()

@@ -5,6 +5,6 @@
   "python": "true",
   "host": {
     "web": "https://swanlab.cn",
-    "api": "https://api.swanlab.cn"
+    "api": "http://localhost/api"
   }
 }

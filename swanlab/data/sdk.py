@@ -252,9 +252,9 @@ def finish():
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
     # FIXME not a good way to handle this
     run._success()
-    swanlog.setSuccess()
+    swanlog.set_success()
     swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
     run = None
 
 
@@ -319,9 +319,14 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _before_exit_in_cloud():
+def _before_exit_in_cloud(success: bool):
     """
     在云端环境下，退出之前的处理，需要依次执行线程池中的回调
+
+    Parameters
+    ----------
+    success : bool
+        实验是否成功
     """
     global exit_in_cloud
     if exit_in_cloud or run is None or run.settings.pool is None:
@@ -336,7 +341,7 @@ def _before_exit_in_cloud():
         # 关闭线程池，等待上传线程完成
         await asyncio.create_task(run.settings.pool.finish())
         loading_task.cancel()
-        FONT.brush("", length=100, flush=False)
+        FONT.brush("", length=100)
 
     return asyncio.run(_())
 
@@ -346,12 +351,12 @@ def _clean_handler():
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     # 如果没有错误
-    if not swanlog.isError and not exit_in_cloud:
-        run.settings.pool and _before_exit_in_cloud()
+    if not swanlog.is_error and not exit_in_cloud:
+        run.settings.pool and _before_exit_in_cloud(True)
         swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
-        swanlog.setSuccess()
+        swanlog.set_success()
         swanlog.reset_console()
 
 
@@ -372,7 +377,7 @@ def except_handler(tp, val, tb):
         swanlog.error("Error happened while training")
     # 标记实验失败
     run._fail()
-    swanlog.setError()
+    swanlog.set_error()
     # 记录异常信息
     # 追踪信息
     trace_list = traceback.format_tb(tb)
@@ -388,6 +393,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud()
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False)
     if tp != KeyboardInterrupt:
         raise tp(val)
