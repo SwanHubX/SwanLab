@@ -1,7 +1,7 @@
 from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
-from typing import Dict
+from typing import Dict, Tuple, Union
 from .utils import create_time, check_tag_format, get_a_lock
 from urllib.parse import quote
 import ujson
@@ -18,6 +18,12 @@ from .db import (
     ChartTypeError,
 )
 from ...db import add_multi_chart
+
+NewKeyInfo = Union[None, Tuple[str, Union[float, DataType], int, int]]
+"""
+新的key对象、数据类型、步数、行数
+为None代表没有添加新的key
+"""
 
 
 class SwanLabExp:
@@ -73,7 +79,7 @@ class SwanLabExp:
         if isinstance(data, BaseType):
             data.settings = self.settings
         # 判断tag是否存在，如果不存在则创建tag
-        tag_obj = self.tags.get(tag)
+        tag_obj: SwanLabTag = self.tags.get(tag, None)
         """
         数据库创建字段将在chart创建完成后进行
         无论格式是否正确，都会创建chart，但是如果格式不正确，不会写入日志
@@ -95,7 +101,7 @@ class SwanLabExp:
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
-        step = tag_obj.add(data, step)
+        key_info = tag_obj.add(data, step)
 
 
 class SwanLabTag:
@@ -324,9 +330,7 @@ class SwanLabTag:
         try:
             add_multi_chart(tag_id=tag.id, chart_id=self.__chart.id)
         except ChartTypeError:
-            swanlog.warning(
-                f"In the multi-experiment chart, the current type of tag is not as expected and has been ignored"
-            )
+            swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
 
     @staticmethod
     def __new_tag(index, data, more: dict = None) -> dict:
