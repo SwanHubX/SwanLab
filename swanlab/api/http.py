@@ -89,14 +89,24 @@ http: Optional["HTTP"] = None
 """
 
 
-def get_http(login_info: LoginInfo) -> HTTP:
+def init_http(login_info: LoginInfo) -> HTTP:
+    """
+    初始化http请求对象
+    """
+    global http
+    if http is None:
+        http = HTTP(login_info)
+    return http
+
+
+def get_http() -> HTTP:
     """
     创建http请求对象
     :return: http请求对象
     """
     global http
     if http is None:
-        http = HTTP(login_info)
+        raise ValueError("http object is not initialized")
     return http
 
 
