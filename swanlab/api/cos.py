@@ -14,7 +14,7 @@ from qcloud_cos import CosS3Client
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_threadpool import SimpleThreadPool
 from datetime import datetime
-from typing import List
+from typing import List, Dict, Union
 
 
 class CosClient:
@@ -42,7 +42,7 @@ class CosClient:
         :param local_path: 本地文件路径，一般用绝对路径
         """
         key = self.__prefix + key
-        return self.__client.upload_file(
+        self.__client.upload_file(
             Bucket=self.__bucket,
             Key=key,
             LocalFilePath=local_path,
@@ -50,7 +50,7 @@ class CosClient:
             progress_callback=None
         )
 
-    def upload_files(self, keys: List[str], local_paths: List[str]):
+    def upload_files(self, keys: List[str], local_paths: List[str]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param keys: 上传到cos的文件名称集合
@@ -62,7 +62,6 @@ class CosClient:
             pool.add_task(self.__client.upload_file, key, local_path)
         pool.wait_completion()
         result = pool.get_result()
-        # FIXME: 可能需要对原本的结果进行处理
         return result
 
     @property

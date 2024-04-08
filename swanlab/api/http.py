@@ -8,7 +8,7 @@ r"""
     http会话对象
 """
 import httpx
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Union, List
 from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
@@ -104,31 +104,30 @@ class HTTP:
         cos = await self.get(f'/project/{self.__login_info.username}/{self.__proj.name}/runs/{self.__exp.cuid}/sts')
         self.__cos = CosClient(cos, self.__proj.cuid, self.__exp.cuid)
 
-    def upload(self, key: str, local_path):
+    async def upload(self, key: str, local_path):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
         开头不能有/，即使有也会被去掉
-        由于cos的sdk限制，这是一个同步方法
         :param key: 上传到cos的文件名称
         :param local_path: 本地文件路径，一般用绝对路径
         """
         if key.startswith('/'):
             key = key[1:]
         if self.__cos.should_refresh:
-            self.__get_cos()
-        self.__cos.upload(key, local_path)
+            await self.__get_cos()
+        return self.__cos.upload(key, local_path)
 
-    def upload_files(self, keys: list, local_paths: list):
+    async def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
-        由于cos的sdk限制，这是一个同步方法
         :param keys: 上传到cos
         :param local_paths: 本地文件路径，需用绝对路径
+        :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
-            self.__get_cos()
+            await self.__get_cos()
         keys = [key[1:] if key.startswith('/') else key for key in keys]
-        self.__cos.upload_files(keys, local_paths)
+        return self.__cos.upload_files(keys, local_paths)
 
     def mount_project(self, name: str):
         async def _():
