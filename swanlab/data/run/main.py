@@ -560,8 +560,11 @@ class SwanLabRun:
                 else:
                     raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
 
+        # 实验创建成功，设置实验相关信息
         self.__settings.exp_name = exp_name
-        # 实验创建成功，执行一些记录操作
+        self.settings.exp_colors = (exp.light, exp.dark)
+        self.settings.description = description
+        # 执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
         return SwanLabExp(self.__settings, exp.id, exp=exp)
 

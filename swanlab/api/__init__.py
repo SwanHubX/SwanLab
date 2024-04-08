@@ -7,8 +7,8 @@ r"""
 @Description:
     API模块，封装api请求接口
 """
-from .auth import LoginInfo
+from .info import *
 from .auth.login import terminal_login, code_login
-from .http import create_http
+from .http import create_http, get_http
 
-__all__ = ["LoginInfo", "code_login", 'terminal_login', 'create_http']
+__all__ = ["LoginInfo", 'ExperimentInfo', 'ProjectInfo', "code_login", 'terminal_login', 'create_http', 'get_http']

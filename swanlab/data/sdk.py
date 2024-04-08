@@ -23,7 +23,7 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
-from swanlab.api import create_http, code_login, LoginInfo, terminal_login
+from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload import upload_logs
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
@@ -79,8 +79,8 @@ def init(
     logdir: str = None,
     suffix: str = "default",
     cloud: bool = True,
-    # project: str = None,
-    # organization: str = None,
+    project: str = None,
+    organization: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -158,6 +158,9 @@ def init(
         config = _load_data(load_data, "config", config)
         logdir = _load_data(load_data, "logdir", logdir)
         suffix = _load_data(load_data, "suffix", suffix)
+        cloud = _load_data(load_data, "cloud", cloud)
+        project = _load_data(load_data, "project", project)
+        organization = _load_data(load_data, "organization", organization)
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -172,7 +175,9 @@ def init(
         # 用户登录
         login_info = _login_in_init()
         # 初始化会话信息
-        create_http(login_info)
+        http = create_http(login_info)
+        # 获取当前项目信息
+        http.mount_project(project)
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -195,13 +200,17 @@ def init(
         # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
         swanlog.set_pool(pool)
-        # TODO 注册实验信息
-
+        # 注册实验信息
+        get_http().mount_exp(exp_name=run.settings.exp_name,
+                             colors=run.settings.exp_colors,
+                             description=run.settings.description)
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
     atexit.register(_clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
+    if not cloud and not (project is None and organization is None):
+        swanlog.warning("The project or organization parameters are invalid in non-cloud mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())

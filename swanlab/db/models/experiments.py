@@ -129,8 +129,6 @@ class Experiment(SwanModel):
             运行时信息
         description : str
             实验描述，默认为空字符串
-        sort : int
-            实验索引，默认为None，如果为None，则会自动设置为当前项目下的实验数量
         project_id : int, optional
             关联的项目id，由于目前为单项目模式，所以不需要手动设置此字段，默认置为DEFAULT_PROJECT_ID
         more : dict, optional

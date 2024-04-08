@@ -12,11 +12,9 @@ import asyncio
 from swanlab.error import ValidationError
 from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
-from .info import LoginInfo
+from swanlab.api.info import LoginInfo
 import getpass
 import sys
-import requests
-import time
 
 
 def login_request(api_key: str, timeout: int = 20) -> requests.Response:
@@ -45,8 +43,6 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
-    await asyncio.sleep(2)
-
     return login_info
 
 

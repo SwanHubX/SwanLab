@@ -11,7 +11,6 @@ import os.path
 from swanlab.utils.key import save_key
 from swanlab.env import get_swanlab_folder
 from swanlab.package import get_host_api
-import requests
 from typing import Union
 
 
@@ -21,10 +20,10 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, resp: requests.Response, api_key: str):
-        self.__resp = resp
+    def __init__(self, data: dict, status_code, api_key: str):
         self.__api_key = api_key
-        self.__body = resp.json() if resp.status_code == 200 else {}
+        self.__body = data
+        self.__status_code = status_code
 
     @property
     def sid(self) -> Union[str, None]:
@@ -52,7 +51,7 @@ class LoginInfo:
         """
         判断登录是否失败
         """
-        return self.__resp.status_code != 200
+        return self.__status_code != 200
 
     @property
     def api_key(self):
@@ -81,12 +80,28 @@ class LoginInfo:
         return save_key(path, get_host_api(), "user", self.api_key)
 
 
-class ExpInfo:
-    """
-    实验信息类，负责解析实验注册接口返回的信息，并且进行保存
-    包含实验token和实验信息，也会包含其他的信息
-    """
+class ProjectInfo:
+    def __init__(self, data: dict):
+        self.__data = data
 
-    def __init__(self, token: str, **kwargs):
-        self.token = token
-        self.kwargs = kwargs
+    @property
+    def cuid(self):
+        return '1'
+
+    @property
+    def name(self):
+        return '1'
+
+
+class ExperimentInfo:
+
+    def __init__(self, data: dict):
+        self.__data = data
+
+    @property
+    def cuid(self):
+        return '1'
+
+    @property
+    def name(self):
+        return '1'
