@@ -149,6 +149,8 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+    # 默认实验名称为当前目录名
+    project = (project or os.path.basename(os.getcwd())) if cloud else None
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)

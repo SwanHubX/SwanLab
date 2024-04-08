@@ -37,6 +37,11 @@ class SwanDataSettings:
         self.pool: Optional[ThreadPool] = None
 
     @property
+    def is_cloud(self) -> bool:
+        """是否为云端"""
+        return self.pool is not None
+
+    @property
     def exp_name(self) -> str:
         """实验名称"""
         if self.__exp_name is None:

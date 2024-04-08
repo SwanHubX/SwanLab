@@ -1,3 +1,5 @@
+import json
+
 from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
@@ -18,8 +20,9 @@ from .db import (
     ChartTypeError,
 )
 from ...db import add_multi_chart
+from swanlab.cloud import FileType
 
-NewKeyInfo = Union[None, Tuple[str, Union[float, DataType], int, int]]
+NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 """
 新的key对象、数据类型、步数、行数
 为None代表没有添加新的key
@@ -102,6 +105,14 @@ class SwanLabExp:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
         key_info = tag_obj.add(data, step)
+        # 添加成功且为cloud模式, 添加到上传队列中
+        if key_info is not None and self.settings.is_cloud:
+            new_data, data_type, step, epoch = key_info
+            new_data['key'] = tag_obj.tag
+            new_data['index'] = step
+            new_data['epoch'] = epoch
+            if data_type == "default":
+                self.settings.pool.queue.put((FileType.SCALAR_METRIC, [new_data]))
 
 
 class SwanLabTag:
@@ -145,6 +156,8 @@ class SwanLabTag:
         """当前tag自动生成图表的命名空间"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
+        self.data_type = None
+        """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
 
     @property
     def sum(self):
@@ -165,7 +178,7 @@ class SwanLabTag:
         """判断data是否为nan"""
         return isinstance(data, (int, float)) and math.isnan(data)
 
-    def add(self, data: DataType, step: int = None):
+    def add(self, data: DataType, step: int = None) -> NewKeyInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
         并且添加数据，当前的数据保存是直接保存，后面会改成缓存形式
@@ -231,7 +244,8 @@ class SwanLabTag:
         # 保存数据
         with open(file_path, "a") as f:
             f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
-        return step
+        # 深度拷贝，防止数据被修改
+        return json.loads(json.dumps(new_data)), self.data_type, step, epoch
 
     @property
     def save_path(self):
@@ -323,6 +337,7 @@ class SwanLabTag:
             # 如果data是BaseType类型，使用data的小写类名，否则使用default
             type=data_type,
         )
+        self.data_type = data_type
         # 添加一条source记录
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
