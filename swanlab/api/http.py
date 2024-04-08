@@ -139,7 +139,14 @@ class HTTP:
 
     def mount_project(self, name: str):
         async def _():
-            resp = await http.post(f'/project/{http.username}', data={'name': name})
+            try:
+                resp = await http.post(f'/project/{http.username}', data={'name': name})
+            except ApiError as e:
+                # 如果为409，表示已经存在，获取项目信息
+                if e.resp.status_code == 409:
+                    resp = await http.get(f'/project/{http.username}/{name}')
+                else:
+                    raise e
             return ProjectInfo(resp)
 
         project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', _()))

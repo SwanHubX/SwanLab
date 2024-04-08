@@ -37,7 +37,18 @@ class UnKnownSystemError(Exception):
     pass
 
 
-class ApiError(Exception):
+class SyncError(Exception):
+    """
+    上传错误，作为已知错误捕捉
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "error"
+        self.message = "sync error"
+
+
+class ApiError(SyncError):
     """
     api有关的错误，在聚合器中将捕获他们
     """
@@ -51,7 +62,7 @@ class ApiError(Exception):
         )
 
 
-class NetworkError(ApiError):
+class NetworkError(SyncError):
     """
     请求时网络错误，断网了
     """
