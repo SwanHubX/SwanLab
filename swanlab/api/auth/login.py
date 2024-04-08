@@ -14,12 +14,19 @@ from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 import getpass
+import httpx
 import sys
 
 
-def login_request(api_key: str, timeout: int = 20) -> requests.Response:
+async def login_request(api_key: str, timeout: int = 20) -> httpx.Response:
     """用户登录，请求后端接口完成验证"""
-    return requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url=f"{get_host_api()}/login/api_key",
+            headers={'authorization': api_key},
+            timeout=timeout
+        )
+        return resp
 
 
 async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
@@ -36,8 +43,8 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
         是否保存到本地token文件
     """
     try:
-        resp = login_request(api_key, timeout)
-    except requests.exceptions.RequestException:
+        resp = await login_request(api_key, timeout)
+    except httpx.NetworkError:
         # 请求超时等网络错误
         raise ValidationError("Network error, please try again.")
     # api key写入token文件

@@ -12,7 +12,8 @@ from typing import Optional, Tuple
 from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
-from swanlab.error import NetworkError
+from .cos import CosClient
+from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
 import asyncio
@@ -37,9 +38,9 @@ class HTTP:
         # 当前cos信息
         self.__cos = None
         # 当前项目信息
-        self.__proj = None
+        self.__proj: Optional["ProjectInfo"] = None
         # 当前实验信息
-        self.__exp = None
+        self.__exp: Optional["ExperimentInfo"] = None
 
     @property
     def username(self):
@@ -57,32 +58,84 @@ class HTTP:
         创建会话，这将在HTTP类实例化时调用
         """
         session = httpx.AsyncClient(cookies={'sid': self.__login_info.sid})
-        # 响应拦截器
-        session.event_hooks["response"].append(self.response_interceptor)
-        return session
 
-    def __before_request(self):
-        # 判断是否已经达到了过期时间
-        if (self.sid_expired_at - datetime.utcnow()).total_seconds() < self.REFRESH_TIME:
-            # 刷新sid
-            self.__login_info = asyncio.run(login_by_key(self.__login_info.api_key))
-            self.__session = self.__create_session()
+        # 注册请求前的钩子
+        async def request_interceptor(request: httpx.Request):
+            # 判断是否已经达到了过期时间
+            if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
+                # 刷新sid，新建一个会话
+                self.__login_info = await login_by_key(self.__login_info.api_key)
+                self.__session = self.__create_session()
+                # 更新当前请求的cookie
+                request.headers['cookie'] = f'sid={self.__login_info.sid}'
+
+        session.event_hooks['request'].append(request_interceptor)
+
+        # 注册响应钩子
+        async def response_interceptor(response: httpx.Response):
+            """
+            捕获所有的http不为2xx的错误，以ApiError的形式抛出
+            """
+            # 如果是
+            if response.status_code // 100 != 2:
+                raise ApiError(response)
+
+        session.event_hooks['response'].append(response_interceptor)
+
+        return session
 
     async def post(self, url: str, data: dict = None) -> dict:
         """
         post请求
         """
-        self.__before_request()
         url = self.base_url + url
         resp = await self.__session.post(url, json=data)
         return resp.json()
 
-    def mount_project(self, name):
-        async def get_project_info(name: str):
+    async def get(self, url: str, params: dict = None) -> dict:
+        """
+        get请求
+        """
+        url = self.base_url + url
+        resp = await self.__session.get(url, params=params)
+        return resp.json()
+
+    async def __get_cos(self):
+        cos = await self.get(f'/project/{self.__login_info.username}/{self.__proj.name}/runs/{self.__exp.cuid}/sts')
+        self.__cos = CosClient(cos, self.__proj.cuid, self.__exp.cuid)
+
+    def upload(self, key: str, local_path):
+        """
+        上传文件，需要注意的是file_path应该为unix风格而不是windows风格
+        开头不能有/，即使有也会被去掉
+        由于cos的sdk限制，这是一个同步方法
+        :param key: 上传到cos的文件名称
+        :param local_path: 本地文件路径，一般用绝对路径
+        """
+        if key.startswith('/'):
+            key = key[1:]
+        if self.__cos.should_refresh:
+            self.__get_cos()
+        self.__cos.upload(key, local_path)
+
+    def upload_files(self, keys: list, local_paths: list):
+        """
+        批量上传文件，keys和local_paths的长度应该相等
+        由于cos的sdk限制，这是一个同步方法
+        :param keys: 上传到cos
+        :param local_paths: 本地文件路径，需用绝对路径
+        """
+        if self.__cos.should_refresh:
+            self.__get_cos()
+        keys = [key[1:] if key.startswith('/') else key for key in keys]
+        self.__cos.upload_files(keys, local_paths)
+
+    def mount_project(self, name: str):
+        async def _():
             resp = await http.post(f'/project/{http.username}', data={'name': name})
             return ProjectInfo(resp)
 
-        project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', get_project_info(name)))
+        project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', _()))
         self.__proj = project
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None):
@@ -98,21 +151,15 @@ class HTTP:
             创建实验，生成
             :return:
             """
-            data = await self.post(f'/project/{self.__login_info.username}/')
-            return ExperimentInfo(data)
+            data = await self.post(
+                f'/project/{self.__login_info.username}/{self.__proj.name}/runs',
+                {"name": exp_name, "color": list(colors), "description": description}
+            )
+            self.__exp = ExperimentInfo(data)
+            # 获取cos信息
+            await self.__get_cos()
 
-        self.__exp = asyncio.run(FONT.loading('Creating experiment...', _()))
-
-    @staticmethod
-    def response_interceptor(response: httpx.Response):
-        """
-        捕获所有的http不为2xx的错误
-        """
-        # 在装饰器中调用被装饰的异步函数
-        if response.status_code // 100 != 2:
-            raise RuntimeError("http error: {}, reason: {}".format(response.status_code, response.reason_phrase))
-        # 返回结果
-        return response
+        asyncio.run(FONT.loading('Creating experiment...', _()))
 
 
 http: Optional["HTTP"] = None
@@ -144,7 +191,7 @@ def get_http() -> HTTP:
 
 def async_error_handler(func):
     """
-    在使用http对象做请求时，进行统一的错误捕捉
+    在一些接口中我们不希望线程奔溃，而是返回一个错误对象
     """
 
     async def wrapper(*args, **kwargs):
@@ -152,20 +199,9 @@ def async_error_handler(func):
             # 在装饰器中调用被装饰的异步函数
             result = await func(*args, **kwargs)
             return result
-        except RequestException:
+        except httpx.NetworkError:
             return NetworkError()
         except Exception as e:
             return e
-
-    return wrapper
-
-
-def async_refresh_tokens(func):
-    """
-    捕获错误，刷新http凭证
-    """
-
-    async def wrapper(*args, **kwargs):
-        return
 
     return wrapper

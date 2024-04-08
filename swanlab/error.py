@@ -7,6 +7,8 @@ r"""
 @Description:
     swanlab全局错误定义
 """
+import httpx
+from typing import Optional
 
 
 class ValidationError(Exception):
@@ -40,10 +42,13 @@ class ApiError(Exception):
     api有关的错误，在聚合器中将捕获他们
     """
 
-    def __init__(self, *args):
+    def __init__(self, resp: httpx.Response = None, *args):
         super().__init__(*args)
+        self.resp: Optional["httpx.Response"] = resp
         self.log_level = "error"
-        self.message = 'swanlab api error'
+        self.message = 'swanlab api error' if resp is None else 'swanlab api error, status code: {}, reason: {}'.format(
+            resp.status_code, resp.reason_phrase
+        )
 
 
 class NetworkError(ApiError):

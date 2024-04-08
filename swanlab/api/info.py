@@ -12,6 +12,7 @@ from swanlab.utils.key import save_key
 from swanlab.env import get_swanlab_folder
 from swanlab.package import get_host_api
 from typing import Union
+import httpx
 
 
 class LoginInfo:
@@ -20,10 +21,14 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, data: dict, status_code, api_key: str):
+    def __init__(self, resp: httpx.Response, api_key: str):
         self.__api_key = api_key
-        self.__body = data
-        self.__status_code = status_code
+        self.__resp = resp
+        self.__body = resp.json() if resp.status_code == 200 else {}
+        self.__username = None
+        """
+        如果此属性不为None，username返回此属性
+        """
 
     @property
     def sid(self) -> Union[str, None]:
@@ -44,14 +49,23 @@ class LoginInfo:
         """
         获取用户名，如果请求失败则返回None
         """
+        if self.__username is not None:
+            return self.__username
         return self.__body.get("userInfo", {}).get("username")
+
+    @username.setter
+    def username(self, value):
+        """
+        设置用户名
+        """
+        self.__username = value
 
     @property
     def is_fail(self):
         """
         判断登录是否失败
         """
-        return self.__status_code != 200
+        return self.__resp.status_code != 200
 
     @property
     def api_key(self):
@@ -64,13 +78,13 @@ class LoginInfo:
 
     def __str__(self) -> str:
         """错误时会返回错误信息"""
-        if self.__resp.reason == "OK":
+        if self.__resp.reason_phrase == "OK":
             return "Login success"
-        if self.__resp.reason == "Unauthorized":
+        if self.__resp.reason_phrase == "Unauthorized":
             return "Error api key"
-        if self.__resp.reason == "Forbidden":
+        if self.__resp.reason_phrase == "Forbidden":
             return "You need to be verified first"
-        return self.__resp.reason
+        return self.__resp.reason_phrase
 
     def save(self):
         """
@@ -86,11 +100,11 @@ class ProjectInfo:
 
     @property
     def cuid(self):
-        return '1'
+        return self.__data["cuid"]
 
     @property
     def name(self):
-        return '1'
+        return self.__data["name"]
 
 
 class ExperimentInfo:
@@ -100,8 +114,8 @@ class ExperimentInfo:
 
     @property
     def cuid(self):
-        return '1'
+        return self.__data["cuid"]
 
     @property
     def name(self):
-        return '1'
+        return self.__data["name"]
