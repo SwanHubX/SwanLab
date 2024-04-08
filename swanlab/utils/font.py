@@ -11,7 +11,7 @@ r"""
 import sys
 import asyncio
 import re
-from typing import Callable, Any
+from typing import Any, Coroutine
 
 light_colors = [
     "#528d59",  # 绿色
@@ -57,31 +57,42 @@ def generate_color(number: int = 1) -> tuple[str | Any, str | Any]:
 
 
 class FONT:
+
     @staticmethod
-    async def loading(s: str, interval: float = 0.1, out: Callable = sys.stdout.write, prefix: str = None):
+    async def loading(s: str, func: Coroutine, interval: float = 0.1, prefix: str = None, brush_length: int = 100):
         """
-        实现终端打印的加载效果，输入的字符串会在开头出现loading效果，这是一个协程函数，需要使用await调用
+        实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
         Parameters
         ----------
         s : str
             需要打印的字符串
+        func : coroutine
+            执行的协程函数
         interval : float, optional
             loading的速度，即每个字符的间隔时间，单位为秒
-        out : callable, optional
-            输出函数，默认为sys.stdout.write，或者可以使用其他自定义传入的函数
         prefix : str, optional
             前缀字符串，打印在loading效果之前，默认为swanlab
+        brush_length : int, optional
+            刷去的长度，默认为100
         """
         if prefix is None:
             prefix = FONT.bold(FONT.blue("swanlab")) + ': '
         symbols = ["\\", "|", "/", "-"]
-        index = 0
-        while True:
-            out("\r" + prefix + symbols[index % len(symbols)] + " " + s)
-            sys.stdout.flush()
-            index += 1
-            await asyncio.sleep(interval)
+
+        async def _():
+            index = 0
+            while True:
+                sys.stdout.write("\r" + prefix + symbols[index % len(symbols)] + " " + s)
+                sys.stdout.flush()
+                index += 1
+                await asyncio.sleep(interval)
+
+        loading_task = asyncio.create_task(_())
+        result = await func
+        loading_task.cancel()
+        FONT.brush("", length=100)
+        return result
 
     @staticmethod
     def swanlab(s: str, color: str = "blue"):

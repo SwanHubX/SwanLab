@@ -83,14 +83,8 @@ async def code_login(api_key: str) -> LoginInfo:
     api_key : str
         用户api_key
     """
-    login_task = asyncio.create_task(login_by_key(api_key))
     tip = "Waiting for the swanlab cloud response."
-    loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5))
-    login_info: LoginInfo = await login_task
-    # 取消加载动画任务
-    loading_task.cancel()
-    # 最后需要刷去当前行, 不再显示加载动画
-    FONT.brush("", length=100)
+    login_info: LoginInfo = await FONT.loading(tip, login_by_key(api_key), interval=0.5)
     if login_info.is_fail:
         print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
         raise ValidationError("Login failed: " + str(login_info))

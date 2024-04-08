@@ -197,7 +197,6 @@ def init(
         swanlog.set_pool(pool)
         # TODO 注册实验信息
 
-
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
@@ -347,17 +346,15 @@ def _before_exit_in_cloud(success: bool, error: str = None):
     sys.excepthook = except_handler
 
     async def _():
-        # 展示动画
-        loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
         # 关闭线程池，等待上传线程完成
-        await asyncio.create_task(run.settings.pool.finish())
+        await run.settings.pool.finish()
         # 上传错误日志
         if error is not None:
             await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
-        loading_task.cancel()
-        FONT.brush("", length=100)
+        await asyncio.sleep(5)
 
-    return asyncio.run(_())
+    asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
+    return
 
 
 def _clean_handler():
