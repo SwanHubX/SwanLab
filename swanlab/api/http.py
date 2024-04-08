@@ -47,6 +47,14 @@ class HTTP:
         return self.__login_info.username
 
     @property
+    def proj_id(self):
+        return self.__proj.cuid
+
+    @property
+    def exp_id(self):
+        return self.__exp.cuid
+
+    @property
     def sid_expired_at(self):
         """
         获取sid的过期时间，字符串格式转时间
