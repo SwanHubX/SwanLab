@@ -12,16 +12,21 @@ import asyncio
 from swanlab.error import ValidationError
 from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
-from .info import LoginInfo
+from swanlab.api.info import LoginInfo
 import getpass
+import httpx
 import sys
-import requests
-import time
 
 
-def login_request(api_key: str, timeout: int = 20) -> requests.Response:
+async def login_request(api_key: str, timeout: int = 20) -> httpx.Response:
     """用户登录，请求后端接口完成验证"""
-    return requests.post(f"{get_host_api()}/login/api_key", headers={'authorization': api_key}, timeout=timeout)
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url=f"{get_host_api()}/login/api_key",
+            headers={'authorization': api_key},
+            timeout=timeout
+        )
+        return resp
 
 
 async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
@@ -38,15 +43,13 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
         是否保存到本地token文件
     """
     try:
-        resp = login_request(api_key, timeout)
-    except requests.exceptions.RequestException:
+        resp = await login_request(api_key, timeout)
+    except httpx.NetworkError:
         # 请求超时等网络错误
         raise ValidationError("Network error, please try again.")
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
-    await asyncio.sleep(2)
-
     return login_info
 
 
@@ -83,14 +86,8 @@ async def code_login(api_key: str) -> LoginInfo:
     api_key : str
         用户api_key
     """
-    login_task = asyncio.create_task(login_by_key(api_key))
     tip = "Waiting for the swanlab cloud response."
-    loading_task = asyncio.create_task(FONT.loading(tip, interval=0.5))
-    login_info: LoginInfo = await login_task
-    # 取消加载动画任务
-    loading_task.cancel()
-    # 最后需要刷去当前行, 不再显示加载动画
-    FONT.brush("", length=100)
+    login_info: LoginInfo = await FONT.loading(tip, login_by_key(api_key), interval=0.5)
     if login_info.is_fail:
         print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
         raise ValidationError("Login failed: " + str(login_info))

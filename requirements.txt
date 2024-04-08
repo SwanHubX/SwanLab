@@ -4,10 +4,11 @@ pillow
 numpy
 
 # web server
+cos-python-sdk-v5
 fastapi>=0.110.1
 uvicorn>=0.14.0
 click
-requests
+httpx
 
 
 # database
