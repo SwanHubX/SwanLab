@@ -35,7 +35,8 @@ class HTTP:
         self.__session = self.__create_session()
         self.base_url = get_host_api()
 
-    def expired_at(self):
+    @property
+    def sid_expired_at(self):
         """
         获取sid的过期时间，字符串格式转时间
         """
@@ -51,7 +52,7 @@ class HTTP:
 
     def __before_request(self):
         # 判断是否已经达到了过期时间
-        if (self.expired_at() - datetime.utcnow()).total_seconds() < self.REFRESH_TIME:
+        if (self.sid_expired_at - datetime.utcnow()).total_seconds() < self.REFRESH_TIME:
             # 刷新sid
             self.__login_info = asyncio.run(login_by_key(self.__login_info.api_key))
             self.__session = self.__create_session()
@@ -118,7 +119,7 @@ def get_http() -> HTTP:
 
 def async_error_handler(func):
     """
-    用于进行统一的错误捕获
+    在使用http对象做请求时，进行统一的错误捕捉
     """
 
     async def wrapper(*args, **kwargs):
@@ -130,5 +131,16 @@ def async_error_handler(func):
             return NetworkError()
         except Exception as e:
             return e
+
+    return wrapper
+
+
+def async_refresh_tokens(func):
+    """
+    捕获错误，刷新http凭证
+    """
+
+    async def wrapper(*args, **kwargs):
+        return
 
     return wrapper

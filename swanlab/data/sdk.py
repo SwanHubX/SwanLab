@@ -24,7 +24,7 @@ from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
 from swanlab.api import create_http, code_login, LoginInfo, terminal_login
-from swanlab.api.upload import upload_logs, mock_data
+from swanlab.api.upload import upload_logs
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
@@ -169,7 +169,9 @@ def init(
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
     if login_info is None and cloud:
+        # 用户登录
         login_info = _login_in_init()
+        # 初始化会话信息
         create_http(login_info)
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
@@ -186,12 +188,15 @@ def init(
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
+        # 初始化、挂载线程池
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
         pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
         # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
         swanlog.set_pool(pool)
+        # TODO 注册实验信息
+
 
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler

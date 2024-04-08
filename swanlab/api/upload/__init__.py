@@ -15,12 +15,13 @@ import os
 url = '/house/metrics'
 
 
-def mock_data(metrics: List[dict], metrics_type: str) -> dict:
+def create_data(metrics: List[dict], metrics_type: str) -> dict:
     """
-    模拟一下，上传日志和实验指标信息
+    携带上传日志的指标信息
     """
+    http = get_http()
     return {
-        "projectId": "1",
+        "projectId": http.project_id,
         "experimentId": "1",
         "type": metrics_type,
         "metrics": metrics
@@ -37,7 +38,7 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
     http = get_http()
     # 将logs解析为json格式
     metrics = [{"level": level, "message": x} for x in logs]
-    data = mock_data(metrics, "log")
+    data = create_data(metrics, "log")
     resp = await http.post(url, data)
 
 
