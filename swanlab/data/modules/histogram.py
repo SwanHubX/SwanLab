@@ -81,6 +81,12 @@ class Histogram(BaseType):
         except Exception as e:
             raise TypeError(f"Could not save the table data to the path: {save_path}") from e
 
+    def get_hist(self) -> List:
+        return self.histogram
+
+    def get_bins(self) -> List:
+        return self.bins
+
     def get_more(self, *args, **kwargs) -> dict:
         """返回config数据"""
         return None
