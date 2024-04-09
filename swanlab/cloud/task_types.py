@@ -53,3 +53,4 @@ class ApiType(Enum):
     """
     API类型枚举，定义不同的API接口
     """
+    pass

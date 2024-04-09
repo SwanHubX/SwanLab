@@ -375,7 +375,7 @@ def _clean_handler():
     # 如果没有错误
     if not swanlog.is_error and not exit_in_cloud:
         run.settings.pool and _before_exit_in_cloud(True)
-        swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
+        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
         swanlog.set_success()
