@@ -24,3 +24,5 @@ class Chart:
     video = "video", [list, str]
     # 3D点云类型，list代表一步多3D点云
     object3d = "object3d", [list, str]
+    # 直方图类型，list代表一步多直方图
+    histogram = "histogram", [list, str]
