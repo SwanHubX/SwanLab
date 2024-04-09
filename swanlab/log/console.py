@@ -3,7 +3,7 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
-from swanlab.cloud.files_types import FileType
+from swanlab.cloud.upload_types import UploadType
 from typing import Optional
 
 
@@ -251,7 +251,7 @@ class Consoler(__consoler_class(), LeverCtl):
     def upload_message(self, message):
         if self.pool is None:
             return
-        self.pool.queue.put((FileType.LOG, [message]))
+        self.pool.queue.put((UploadType.LOG, [message]))
 
 
 class SwanConsoler:

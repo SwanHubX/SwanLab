@@ -20,7 +20,7 @@ from .db import (
     ChartTypeError,
 )
 from ...db import add_multi_chart
-from swanlab.cloud import FileType
+from swanlab.cloud import UploadType
 
 NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 """
@@ -112,7 +112,7 @@ class SwanLabExp:
             new_data['index'] = step
             new_data['epoch'] = epoch
             if data_type == "default":
-                self.settings.pool.queue.put((FileType.SCALAR_METRIC, [new_data]))
+                self.settings.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
 
 
 class SwanLabTag:

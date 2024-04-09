@@ -14,7 +14,7 @@ import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
 from swanlab.error import SyncError
-from .files_types import FileType
+from .upload_types import UploadType
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -57,7 +57,7 @@ class LogCollectorTask(ThreadTaskABC):
         所有的请求都是网络请求，因此需要异步处理，并且在此处统一
         """
         # 根据日志类型进行降重
-        tasks_dict = {x: [] for x in FileType}
+        tasks_dict = {x: [] for x in UploadType}
         for msg in self.container:
             tasks_dict[msg[0]].extend(msg[1])
         # 此时应该只剩下最多 FileType内部枚举个数 个任务

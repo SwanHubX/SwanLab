@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/5 16:55
-@File: files_types.py
+@File: upload_types.py
 @IDE: pycharm
 @Description:
     文件资源类型，分为四种：
@@ -16,23 +16,34 @@ from enum import Enum
 from swanlab.api.upload import upload_files, upload_scalar_metrics, upload_media_metrics, upload_logs
 
 
-class FileType(Enum):
+class UploadType(Enum):
     """
-    文件类型枚举，在此处定义文件类型以及不同的处理方式
-    priority属性表示优先级，数字越大优先级越高，代表在一次数据上传的循环中先上传
+    上传类型枚举，在此处定义不同的处理方式
     """
     LOG = {
         "upload": upload_logs,
     }
+    """
+    上传日志字符串
+    """
 
     SCALAR_METRIC = {
         "upload": upload_scalar_metrics,
     }
+    """
+    上传标量指标
+    """
 
     MEDIA_METRIC = {
         "upload": upload_media_metrics,
     }
+    """
+    上传媒体指标
+    """
 
     FILE = {
         "upload": upload_files,
     }
+    """
+    上传实验信息配置文件
+    """

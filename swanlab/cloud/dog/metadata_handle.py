@@ -7,7 +7,7 @@ r"""
 @Description:
     元数据处理器，看门狗嗅探元数据文件夹，向聚合器发送元数据信息
 """
-from ..files_types import FileType
+from ..upload_types import UploadType
 from .sniffer_queue import SnifferQueue
 from typing import Union, List
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
@@ -64,7 +64,7 @@ class MetaHandle(FileSystemEventHandler):
         meta_files = self.list_all_meta_files()
         if len(meta_files) == 0:
             return swanlog.warning("empty meta files, it might be a bug?")
-        self.queue.put((self.fmt_file_path(meta_files), FileType.FILE))
+        self.queue.put((self.fmt_file_path(meta_files), UploadType.FILE))
 
     def on_modified(self, event: FileSystemEvent) -> None:
         """
@@ -76,4 +76,4 @@ class MetaHandle(FileSystemEventHandler):
         if file_name not in self.ModifiableFiles:
             # 被忽略
             return swanlog.warning(f"file {file_name} is not allowed to be modified")
-        self.queue.put((self.fmt_file_path(file_name), FileType.FILE))
+        self.queue.put((self.fmt_file_path(file_name), UploadType.FILE))
