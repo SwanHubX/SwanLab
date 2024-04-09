@@ -14,6 +14,7 @@ from .modules import (
     Text,
     Video,
     Object3D,
+    Histogram,
 )
 from .sdk import (
     login,
