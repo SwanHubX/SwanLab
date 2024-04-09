@@ -112,7 +112,14 @@ class SwanLabExp:
             new_data['index'] = step
             new_data['epoch'] = epoch
             if data_type == "default":
-                self.settings.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
+                return self.settings.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
+            # 解析数据，第一个元素为指标信息，第二个元素为指标名称key，第三个元素为指标类型，第四个元素为文件列表
+            # 将指标信息中每个文件的路径改为{key}/{filename}，方便后续上传
+            # 文件列表中的内容为绝对路径
+            key = quote(tag_obj.tag, safe="")
+            return self.settings.pool.queue.put(
+                (UploadType.MEDIA_METRIC, [(new_data, key, data_type, self.settings.static_dir)])
+            )
 
 
 class SwanLabTag:

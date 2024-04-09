@@ -36,7 +36,7 @@ class HTTP:
         self.__session = self.__create_session()
         self.base_url = get_host_api()
         # 当前cos信息
-        self.__cos = None
+        self.__cos: Optional["CosClient"] = None
         # 当前项目信息
         self.__proj: Optional["ProjectInfo"] = None
         # 当前实验信息
@@ -110,7 +110,7 @@ class HTTP:
 
     async def __get_cos(self):
         cos = await self.get(f'/project/{self.__login_info.username}/{self.__proj.name}/runs/{self.__exp.cuid}/sts')
-        self.__cos = CosClient(cos, self.__proj.cuid, self.__exp.cuid)
+        self.__cos = CosClient(cos)
 
     async def upload(self, key: str, local_path):
         """

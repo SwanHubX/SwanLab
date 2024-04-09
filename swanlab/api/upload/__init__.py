@@ -8,7 +8,7 @@ r"""
     上传相关接口
 """
 from ..http import get_http, async_error_handler
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import asyncio
 import os
 
@@ -44,16 +44,39 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
 
 
 @async_error_handler
-async def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, List[str]]]):
+async def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
     """
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据，
         每个元素为元组，第一个元素为指标信息，
-        第二个元素为指标的名称key，
+        第二个元素为指标的名称key，经过URI编码
         第三个元素为指标类型
-        第四个元素为这个指标信息中包含的文件列表，每个元素为文件的绝对路径
+        第四个元素为media文件夹路径
     """
-    print("上传媒体指标信息: ", media_metrics)
+    http = get_http()
+    # 需要上传的文件路径[key, local_path]
+    file_paths: Dict[str, str] = {}
+    for metric, key, data_type, media_folder in media_metrics:
+        if data_type == "text":
+            # 字符串类型没有文件路径
+            continue
+        if isinstance(metric["data"], str):
+            local_path = metric["data"]
+            metric["data"] = "{}/{}".format(key, metric["data"])
+            # 将文件路径添加到files_path中
+            file_paths[metric["data"]] = os.path.join(media_folder, key, local_path)
+        else:
+            local_paths = metric['data']
+            metric['data'] = ["{}/{}".format(key, x) for x in local_paths]
+            for i, local_path in enumerate(local_paths):
+                file_paths[metric['data'][i]] = os.path.join(media_folder, key, local_path)
+    # 上传文件，先上传资源文件，再上传指标信息
+    keys = list(file_paths.keys())
+    local_paths = list(file_paths.values())
+    result = await http.upload_files(keys, local_paths)
+    # result = await http.upload(keys[0], local_paths[0])
+    # 上传指标信息
+    await http.post(url, create_data([x[0] for x in media_metrics], "media"))
 
 
 @async_error_handler

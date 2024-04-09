@@ -20,9 +20,9 @@ from typing import List, Dict, Union
 class CosClient:
     REFRESH_TIME = 60 * 60 * 1.5  # 1.5小时
 
-    def __init__(self, data, proj_id, exp_id):
+    def __init__(self, data):
         self.__expired_time = datetime.fromtimestamp(data["expiredTime"])
-        self.__prefix = data["prefix"] + f"/{proj_id}/{exp_id}/"
+        self.__prefix = data["prefix"]
         self.__bucket = data["bucket"]
         credentials = data["credentials"]
         config = CosConfig(
@@ -41,7 +41,7 @@ class CosClient:
         :param key: 上传到cos的文件名称
         :param local_path: 本地文件路径，一般用绝对路径
         """
-        key = self.__prefix + key
+        key = self.__prefix + '/' + key
         self.__client.upload_file(
             Bucket=self.__bucket,
             Key=key,
@@ -59,7 +59,7 @@ class CosClient:
         assert len(keys) == len(local_paths), "keys and local_paths should have the same length"
         pool = SimpleThreadPool()
         for key, local_path in zip(keys, local_paths):
-            pool.add_task(self.__client.upload_file, key, local_path)
+            pool.add_task(self.upload, key, local_path)
         pool.wait_completion()
         result = pool.get_result()
         return result
