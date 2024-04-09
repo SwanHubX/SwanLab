@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/5 16:55
-@File: upload_types.py
+@File: task_types.py
 @IDE: pycharm
 @Description:
     文件资源类型，分为四种：
@@ -46,4 +46,10 @@ class UploadType(Enum):
     }
     """
     上传实验信息配置文件
+    """
+
+
+class ApiType(Enum):
+    """
+    API类型枚举，定义不同的API接口
     """

@@ -3,7 +3,7 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
-from swanlab.cloud.upload_types import UploadType
+from swanlab.cloud.task_types import UploadType
 from typing import Optional
 
 
