@@ -12,7 +12,7 @@ from typing import Tuple, Callable, Coroutine, Any, List
 import time
 import asyncio
 from abc import ABC, abstractmethod
-from .upload_types import UploadType
+from .task_types import UploadType
 
 
 class LogQueue:

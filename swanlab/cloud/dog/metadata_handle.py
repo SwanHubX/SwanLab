@@ -7,7 +7,7 @@ r"""
 @Description:
     元数据处理器，看门狗嗅探元数据文件夹，向聚合器发送元数据信息
 """
-from ..upload_types import UploadType
+from ..task_types import UploadType
 from .sniffer_queue import SnifferQueue
 from typing import Union, List
 from watchdog.events import FileSystemEventHandler, FileSystemEvent

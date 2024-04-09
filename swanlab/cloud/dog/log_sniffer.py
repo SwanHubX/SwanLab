@@ -14,7 +14,7 @@ from queue import Queue
 from .sniffer_queue import SnifferQueue
 from .metadata_handle import MetaHandle
 from typing import List
-from ..upload_types import UploadType
+from ..task_types import UploadType
 import asyncio
 
 
