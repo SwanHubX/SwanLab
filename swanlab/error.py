@@ -7,6 +7,8 @@ r"""
 @Description:
     swanlab全局错误定义
 """
+import httpx
+from typing import Optional
 
 
 class ValidationError(Exception):
@@ -35,18 +37,32 @@ class UnKnownSystemError(Exception):
     pass
 
 
-class UpLoadError(Exception):
+class SyncError(Exception):
     """
-    日志上传有关的错误，在聚合器中将捕获他们
+    上传错误，作为已知错误捕捉
     """
 
     def __init__(self, *args):
         super().__init__(*args)
         self.log_level = "error"
-        self.message = 'swanlab upload error'
+        self.message = "sync error"
 
 
-class NetworkError(UpLoadError):
+class ApiError(SyncError):
+    """
+    api有关的错误，在聚合器中将捕获他们
+    """
+
+    def __init__(self, resp: httpx.Response = None, *args):
+        super().__init__(*args)
+        self.resp: Optional["httpx.Response"] = resp
+        self.log_level = "error"
+        self.message = 'swanlab api error' if resp is None else 'swanlab api error, status code: {}, reason: {}'.format(
+            resp.status_code, resp.reason_phrase
+        )
+
+
+class NetworkError(SyncError):
     """
     请求时网络错误，断网了
     """

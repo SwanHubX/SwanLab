@@ -14,7 +14,7 @@ from queue import Queue
 from .sniffer_queue import SnifferQueue
 from .metadata_handle import MetaHandle
 from typing import List
-from ..files_types import FileType
+from ..task_types import UploadType
 import asyncio
 
 
@@ -54,12 +54,12 @@ class LogSnifferTask(ThreadTaskABC):
             return
         # 去重，由于现在只有files元数据文件，所以只需要针对它去重就行
         # 遍历所有的消息
-        files = {FileType.FILE: []}
+        files = {UploadType.FILE: []}
         for msg in all_sniffer_msg:
             for path in msg[0]:
-                if path not in files[FileType.FILE]:
-                    files[FileType.FILE].append(path)
-        new_msg = (FileType.FILE, files[FileType.FILE])
+                if path not in files[UploadType.FILE]:
+                    files[UploadType.FILE].append(path)
+        new_msg = (UploadType.FILE, files[UploadType.FILE])
         u.queue.put(new_msg)
 
     async def task(self, u: ThreadUtil, *args):

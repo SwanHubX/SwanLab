@@ -3,7 +3,8 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
-import io
+from swanlab.cloud.task_types import UploadType
+from typing import Optional
 
 
 class LeverCtl(object):
@@ -148,6 +149,7 @@ class Consoler(__consoler_class(), LeverCtl):
         except:
             self.__init_status = False
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
+        self.pool = None
 
     @property
     def init_status(self) -> bool:
@@ -225,6 +227,7 @@ class Consoler(__consoler_class(), LeverCtl):
                     pass
                 else:
                     self.console.write(msg + "\n")
+                    self.upload_message(" ".join(msg.split(' ')[1:]) + "\n")
             self.__previous_message = FONT.clear(message)
             return self.console.flush()
         # 如果是一个头尾不带换行的字符串，需要判断一下前一个message是否带有换行
@@ -236,13 +239,19 @@ class Consoler(__consoler_class(), LeverCtl):
                 message = FONT.clear(message)
         self.__previous_message = FONT.clear(message)
         self.console.write(message)
+        self.upload_message(" ".join(message.split(' ')[1:]))
         self.console.flush()
 
     def setLevel(self, level):
         return super().setLevel(level)
 
-    def getSum(self):
+    def get_sum(self):
         return self.__sum
+
+    def upload_message(self, message):
+        if self.pool is None:
+            return
+        self.pool.queue.put((UploadType.LOG, [message]))
 
 
 class SwanConsoler:
@@ -258,7 +267,7 @@ class SwanConsoler:
         """重置输出为原本的样子"""
         sys.stdout = self.consoler.original_stdout
 
-    def setLevel(self, level):
+    def set_level(self, level):
         """设置控制台打印时，对 swanlog 的收集等级
 
         Parameters
@@ -268,8 +277,7 @@ class SwanConsoler:
         """
         return self.consoler.setLevel(level)
 
-    def getLevel(self):
+    def get_level(self):
         return self.consoler.getLevel()
-
 
 # if __name__ == "__main__":

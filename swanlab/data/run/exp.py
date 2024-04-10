@@ -1,7 +1,9 @@
+import json
+
 from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
-from typing import Dict
+from typing import Dict, Tuple, Union
 from .utils import create_time, check_tag_format, get_a_lock
 from urllib.parse import quote
 import ujson
@@ -18,6 +20,13 @@ from .db import (
     ChartTypeError,
 )
 from ...db import add_multi_chart
+from swanlab.cloud import UploadType
+
+NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
+"""
+新的key对象、数据类型、步数、行数
+为None代表没有添加新的key
+"""
 
 
 class SwanLabExp:
@@ -26,14 +35,14 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanDataSettings, id: int, exp: Experiment) -> None:
+    def __init__(self, settings: SwanDataSettings, expid: int, exp: Experiment) -> None:
         """初始化实验
 
         Parameters
         ----------
         settings : SwanDataSettings
             全局运行时配置
-        id : int
+        expid : int
             实验id
         exp : Experiment
             数据库实例，代表当前实验行
@@ -43,7 +52,7 @@ class SwanLabExp:
             os.mkdir(self.settings.log_dir)
         # 当前实验的所有tag数据字段
         self.tags: Dict[str, SwanLabTag] = {}
-        self.id = id
+        self.id = expid
         """此实验对应的id，实际上就是db.id"""
         self.db: Experiment = exp
         """此实验对应的数据库实例"""
@@ -53,7 +62,7 @@ class SwanLabExp:
 
         Parameters
         ----------
-        tag : str
+        key : str
             tag名称，需要检查数据类型
         data : Union[int, float, BaseType]
             tag数据，可以是浮点型，也可以是SwanLab定义的数据类型，具体与添加的图表类型有关系
@@ -73,7 +82,7 @@ class SwanLabExp:
         if isinstance(data, BaseType):
             data.settings = self.settings
         # 判断tag是否存在，如果不存在则创建tag
-        tag_obj = self.tags.get(tag)
+        tag_obj: SwanLabTag = self.tags.get(tag, None)
         """
         数据库创建字段将在chart创建完成后进行
         无论格式是否正确，都会创建chart，但是如果格式不正确，不会写入日志
@@ -95,7 +104,22 @@ class SwanLabExp:
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
-        step = tag_obj.add(data, step)
+        key_info = tag_obj.add(data, step)
+        # 添加成功且为cloud模式, 添加到上传队列中
+        if key_info is not None and self.settings.is_cloud:
+            new_data, data_type, step, epoch = key_info
+            new_data['key'] = tag_obj.tag
+            new_data['index'] = step
+            new_data['epoch'] = epoch
+            if data_type == "default":
+                return self.settings.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
+            # 解析数据，第一个元素为指标信息，第二个元素为指标名称key，第三个元素为指标类型，第四个元素为文件列表
+            # 将指标信息中每个文件的路径改为{key}/{filename}，方便后续上传
+            # 文件列表中的内容为绝对路径
+            key = quote(tag_obj.tag, safe="")
+            return self.settings.pool.queue.put(
+                (UploadType.MEDIA_METRIC, [(new_data, key, data_type, self.settings.static_dir)])
+            )
 
 
 class SwanLabTag:
@@ -139,6 +163,8 @@ class SwanLabTag:
         """当前tag自动生成图表的命名空间"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
+        self.data_type = None
+        """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
 
     @property
     def sum(self):
@@ -154,11 +180,12 @@ class SwanLabTag:
         """
         return self.__error is None
 
-    def __is_nan(self, data):
+    @staticmethod
+    def __is_nan(data):
         """判断data是否为nan"""
         return isinstance(data, (int, float)) and math.isnan(data)
 
-    def add(self, data: DataType, step: int = None):
+    def add(self, data: DataType, step: int = None) -> NewKeyInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
         并且添加数据，当前的数据保存是直接保存，后面会改成缓存形式
@@ -167,6 +194,8 @@ class SwanLabTag:
         ----------
         data : DataType
             待添加的数据
+        step : int, optional
+            步数，如果不传则默认当前步数为'已添加数据数量+1'
         """
         # 如果step不是None也不是int，设置为None且打印警告
         if step is not None and not isinstance(step, int):
@@ -189,9 +218,7 @@ class SwanLabTag:
         try:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
-            return swanlog.warning(
-                f"Data {data} on tag {self.tag} cannot be converted, SwanLab will ignore it, but the chart still exists."
-            )
+            return swanlog.warning(f"Data {data} on tag {self.tag} cannot be converted.")
         is_nan = self.__is_nan(data)
         if not is_nan:
             # 如果数据比之前的数据小，则更新最小值，否则不更新
@@ -214,8 +241,8 @@ class SwanLabTag:
         new_data = self.__new_tag(step, data, more=more)
         self.__data["data"].append(new_data)
         # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
-        sum = len(self.__steps)
-        mu = math.ceil(sum / self.__slice_size)
+        epoch = len(self.__steps)
+        mu = math.ceil(epoch / self.__slice_size)
         # 存储路径
         file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
         # 更新实验信息总结
@@ -224,7 +251,8 @@ class SwanLabTag:
         # 保存数据
         with open(file_path, "a") as f:
             f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
-        return step
+        # 深度拷贝，防止数据被修改
+        return json.loads(json.dumps(new_data)), self.data_type, step, epoch
 
     @property
     def save_path(self):
@@ -274,7 +302,7 @@ class SwanLabTag:
         # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
         # 需要指定sort，default命名空间的sort为0，其他命名空间的sort为None，表示默认添加到最后
         try:
-            # 对于namesoace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
+            # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
             if len(tag.split("/")) > 1:
                 namespace = tag.split("/")[0]
             self.__namespace = Namespace.create(name=namespace, experiment_id=self.experiment_id, sort=sort)
@@ -316,6 +344,7 @@ class SwanLabTag:
             # 如果data是BaseType类型，使用data的小写类名，否则使用default
             type=data_type,
         )
+        self.data_type = data_type
         # 添加一条source记录
         Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
@@ -323,11 +352,10 @@ class SwanLabTag:
         try:
             add_multi_chart(tag_id=tag.id, chart_id=self.__chart.id)
         except ChartTypeError:
-            swanlog.warning(
-                f"In the multi-experiment chart, the current type of tag is not as expected and has been ignored"
-            )
+            swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
 
-    def __new_tag(self, index, data, more: dict = None) -> dict:
+    @staticmethod
+    def __new_tag(index, data, more: dict = None) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息
 
         Parameters
@@ -402,5 +430,6 @@ class SwanLabTag:
             return self.try_convert(data)
         except ValueError:
             raise ValueError(
-                f"Unable to convert {data} to any of the specified types. This Error means that you have changed the data type of the chart, please check the data type of the chart."
+                f"Unable to convert {data} to any of the specified types. This Error means that you have changed the "
+                f"data type of the chart, please check the data type of the chart."
             )

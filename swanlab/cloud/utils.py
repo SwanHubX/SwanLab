@@ -12,14 +12,14 @@ from typing import Tuple, Callable, Coroutine, Any, List
 import time
 import asyncio
 from abc import ABC, abstractmethod
-from .files_types import FileType
+from .task_types import UploadType
 
 
 class LogQueue:
     """
     日志队列，定义一些工具和可读可写性质
     """
-    MsgType = Tuple[FileType, List]
+    MsgType = Tuple[UploadType, List]
     """
     传入日志聚合器的日志信息类型，应该是一个元组，第一个元素是文件类型，第二个元素是日志信息，日志信息应该是一个列表
     """

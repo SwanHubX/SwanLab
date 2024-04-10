@@ -23,7 +23,8 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
-from swanlab.api.auth import code_login, LoginInfo, terminal_login
+from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
+from swanlab.api.upload import upload_logs
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
@@ -78,8 +79,8 @@ def init(
     logdir: str = None,
     suffix: str = "default",
     cloud: bool = True,
-    # project: str = None,
-    # organization: str = None,
+    project: str = None,
+    organization: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -148,6 +149,8 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+    # 默认实验名称为当前目录名
+    project = (project or os.path.basename(os.getcwd())) if cloud else None
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)
@@ -157,6 +160,9 @@ def init(
         config = _load_data(load_data, "config", config)
         logdir = _load_data(load_data, "logdir", logdir)
         suffix = _load_data(load_data, "suffix", suffix)
+        cloud = _load_data(load_data, "cloud", cloud)
+        project = _load_data(load_data, "project", project)
+        organization = _load_data(load_data, "organization", organization)
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -168,7 +174,13 @@ def init(
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
     if login_info is None and cloud:
+        # 用户登录
         login_info = _login_in_init()
+        # 初始化会话信息
+        http = create_http(login_info)
+        # 获取当前项目信息
+        http.mount_project(project)
+
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
@@ -183,15 +195,24 @@ def init(
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
+        # 初始化、挂载线程池
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
         pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+        # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
+        swanlog.set_pool(pool)
+        # 注册实验信息
+        get_http().mount_exp(exp_name=run.settings.exp_name,
+                             colors=run.settings.exp_colors,
+                             description=run.settings.description)
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
     atexit.register(_clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
+    if not cloud and not (project is None and organization is None):
+        swanlog.warning("The project or organization parameters are invalid in non-cloud mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())
@@ -319,7 +340,7 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _before_exit_in_cloud(success: bool):
+def _before_exit_in_cloud(success: bool, error: str = None):
     """
     在云端环境下，退出之前的处理，需要依次执行线程池中的回调
 
@@ -336,14 +357,15 @@ def _before_exit_in_cloud(success: bool):
     sys.excepthook = except_handler
 
     async def _():
-        # 展示动画
-        loading_task = asyncio.create_task(FONT.loading("Waiting for uploading complete", interval=0.5))
         # 关闭线程池，等待上传线程完成
-        await asyncio.create_task(run.settings.pool.finish())
-        loading_task.cancel()
-        FONT.brush("", length=100)
+        await run.settings.pool.finish()
+        # 上传错误日志
+        if error is not None:
+            await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
+        await asyncio.sleep(5)
 
-    return asyncio.run(_())
+    asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
+    return
 
 
 def _clean_handler():
@@ -353,7 +375,7 @@ def _clean_handler():
     # 如果没有错误
     if not swanlog.is_error and not exit_in_cloud:
         run.settings.pool and _before_exit_in_cloud(True)
-        swanlog.info("The experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
+        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
         swanlog.set_success()
@@ -393,6 +415,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False)
+    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
     if tp != KeyboardInterrupt:
         raise tp(val)

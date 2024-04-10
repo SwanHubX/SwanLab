@@ -13,8 +13,8 @@ from .utils import ThreadUtil, ThreadTaskABC
 import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
-from swanlab.error import UpLoadError
-from .files_types import FileType
+from swanlab.error import SyncError
+from .task_types import UploadType, ApiType
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -39,7 +39,7 @@ class LogCollectorTask(ThreadTaskABC):
         self.__now_task = None
 
     @staticmethod
-    def report_known_error(errors: List[UpLoadError]):
+    def report_known_error(errors: List[SyncError]):
         """
         上报错误信息
         :param errors: 错误信息列表
@@ -51,35 +51,36 @@ class LogCollectorTask(ThreadTaskABC):
         for error in errors:
             swanlog.__getattribute__(error.log_level)(error.message)
 
+    async def api(self):
+        """
+        api事件处理，此任务在upload任务中执行
+        """
+
     async def upload(self):
         """
+        上传事件处理
         将收集到的所有上传事件统一触发，上传日志信息
-        所有的请求都是网络请求，因此需要异步处理，并且在此处统一
+        所有的请求都是网络请求，因此需要异步处理
         """
         # 根据日志类型进行降重
-        tasks_dict = {x: [] for x in FileType}
-        for msg in self.container:
-            tasks_dict[msg[0]].extend(msg[1])
-        # 此时应该只剩下最多 FileType内部枚举个数 个任务
-        # 媒体类型需要首先上传，后面几个可以一起上传
+        upload_tasks_dict = {x: [] for x in UploadType}
+        api_tasks_dict = {x: [] for x in ApiType}
+        # upload任务和api任务处理方式不一样，前者将参数列表聚合，后者将参数列表分发
         # 检查每一个上传结果
         success_tasks_type = []
         # 已知错误列表
         known_errors = []
-        if len(tasks_dict[FileType.MEDIA]):
-            media_result = await FileType.MEDIA.value['upload'](tasks_dict[FileType.MEDIA])
-            if isinstance(media_result, UpLoadError):
-                known_errors.append(media_result)
-            elif isinstance(media_result, Exception):
-                swanlog.error(f"upload logs error: {media_result}, it might be a swanlab bug, data will be lost!")
-            success_tasks_type.append(FileType.MEDIA)
-        # 上传任务
-        tasks_key_list = [key for key in tasks_dict if len(tasks_dict[key]) > 0 and key != FileType.MEDIA]
-        tasks = [x.value['upload'](tasks_dict[x]) for x in tasks_key_list]
+        # ---------------------------------- 处理upload任务 ----------------------------------
+
+        for msg in self.container:
+            if msg[0] in UploadType:
+                upload_tasks_dict[msg[0]].extend(msg[1])
+        tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
+        tasks = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
         results = await asyncio.gather(*tasks)
         for index, result in enumerate(results):
             # 如果出现已知问题
-            if isinstance(result, UpLoadError):
+            if isinstance(result, SyncError):
                 known_errors.append(result)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
@@ -88,8 +89,28 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
-        # 将不成功的任务加入原本的容器中
-        self.container = [(x, tasks_dict[x]) for x in tasks_dict if x not in success_tasks_type]
+
+        # ---------------------------------- 处理api任务 ----------------------------------
+
+        for msg in self.container:
+            if msg[0] in ApiType:
+                api_tasks_dict[msg[0]].extend(msg[1])
+        tasks_key_list = [key for key in api_tasks_dict if len(api_tasks_dict[key]) > 0]
+        tasks = [x.value['api'](y) for x in tasks_key_list for y in api_tasks_dict[x]]
+        results = await asyncio.gather(*tasks)
+        for index, result in enumerate(results):
+            # 如果出现已知问题
+            if isinstance(result, SyncError):
+                known_errors.append(result)
+                continue
+            # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
+            elif isinstance(result, Exception):
+                swanlog.error(f"api task error: {result}, it might be a swanlab bug, data will be lost!")
+                continue
+
+        # ---------------------------------- 最后错误处理 ----------------------------------
+
+        self.container = [(x, upload_tasks_dict[x]) for x in upload_tasks_dict if x not in success_tasks_type]
         self.report_known_error(known_errors)
 
     async def task(self, u: ThreadUtil, *args):

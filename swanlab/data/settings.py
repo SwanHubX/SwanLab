@@ -10,7 +10,7 @@ r"""
 import os
 from ..env import get_swanlog_dir
 from swanlab.cloud import ThreadPool
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class SwanDataSettings:
@@ -26,6 +26,8 @@ class SwanDataSettings:
             实验运行id，由时间戳生成，用于区分不同实验存储目录
         """
         self.__exp_name = None
+        self.__exp_colors = None
+        self.__description = None
         # 日志存放目录
         self.__swanlog_dir: str = get_swanlog_dir()
         # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
@@ -33,6 +35,11 @@ class SwanDataSettings:
         # 实验运行id
         self.__run_id: str = run_id
         self.pool: Optional[ThreadPool] = None
+
+    @property
+    def is_cloud(self) -> bool:
+        """是否为云端"""
+        return self.pool is not None
 
     @property
     def exp_name(self) -> str:
@@ -47,6 +54,30 @@ class SwanDataSettings:
         if self.__exp_name is not None:
             raise ValueError("exp_name can only be set once")
         self.__exp_name = exp_name
+
+    @property
+    def exp_colors(self) -> Tuple[str, str]:
+        """实验颜色"""
+        return self.__exp_colors
+
+    @exp_colors.setter
+    def exp_colors(self, exp_colors: Tuple[str, str]) -> None:
+        """实验颜色"""
+        if self.__exp_colors is not None:
+            raise ValueError("exp_colors can only be set once")
+        self.__exp_colors = exp_colors
+
+    @property
+    def description(self) -> str:
+        """实验描述"""
+        return self.__description
+
+    @description.setter
+    def description(self, description: str) -> None:
+        """实验描述"""
+        if self.__description is not None:
+            raise ValueError("description can only be set once")
+        self.__description = description
 
     @property
     def run_id(self) -> str:
