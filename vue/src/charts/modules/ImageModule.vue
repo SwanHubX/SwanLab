@@ -26,7 +26,7 @@ defineProps({
   imagesData: String,
   // 图像描述
   caption: String,
-  index: Number,
+  index: [Number, String],
   // 实验名称
   name: String,
   color: String,
