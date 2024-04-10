@@ -35,6 +35,7 @@
       />
       <SlideBar
         class="md:!justify-start"
+        :style="{ visibility: maxInnerIndex || 'hidden' }"
         v-model="currentInnerIndex"
         :max="maxInnerIndex"
         :min="minInnerIndex"
@@ -74,6 +75,7 @@
         />
         <SlideBar
           class="md:!justify-start"
+          :style="{ visibility: maxInnerIndex || 'hidden' }"
           v-model="currentInnerIndex"
           :max="maxInnerIndex"
           :min="minInnerIndex"
