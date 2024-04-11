@@ -1,6 +1,6 @@
 <template>
   <!-- 图表标题 -->
-  <p class="text-center font-semibold">{{ title }}</p>
+  <p class="text-center font-semibold pb-1.5">{{ title }}</p>
   <!-- 如果图表数据错误 -->
   <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
     <SLIcon class="mx-auto h-5 w-5" icon="error" />
