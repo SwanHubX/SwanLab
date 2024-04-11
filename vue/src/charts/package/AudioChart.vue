@@ -15,7 +15,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <div class="h-[220px] overflow-y-auto px-2">
+    <div class="h-[230px] overflow-y-auto px-2">
       <AudioModule :audios="audioData" :key="currentIndex" v-if="audioData && !loading" />
       <div class="flex flex-col justify-center items-center h-full" v-if="loading">
         <SLLoading />

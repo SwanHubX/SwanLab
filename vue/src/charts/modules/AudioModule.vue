@@ -1,7 +1,7 @@
 <template>
   <!-- 音频容器，完成响应式 -->
   <div class="audios-container" :class="setGrid()" ref="audiosRef">
-    <div v-for="(audio, index) in audios" :key="audio.title">
+    <div class="border p-2" v-for="(audio, index) in audios" :key="audio.title">
       <!-- 多实验时，展示实验标题 -->
       <div class="text-xs flex items-center pb-1" :title="audio.exp" v-if="audio.exp">
         <div class="h-2 w-2 rounded-full shrink-0" :style="{ backgroundColor: audio.color }"></div>
@@ -46,7 +46,7 @@ const props = defineProps({
   }
 })
 const defaultColor = inject('defaultColor')
-const getColor = inject('getColor')
+// const getColor = inject('getColor')
 
 // 所有音频容器
 const audiosRef = ref(null)
