@@ -34,12 +34,6 @@ class MetaHandle(FileSystemEventHandler):
         """
         self.watched_path = watched_path
         self.queue = SnifferQueue(queue, readable=False)
-        # 元数据文件夹快照
-        self.snapshot = None
-        # 延时处理器
-        self.timer = None
-        # 已上传的文件列表
-        self.uploaded_files = []
         self.on_init_upload()
 
     def list_all_meta_files(self) -> List[str]:
