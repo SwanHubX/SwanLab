@@ -1,8 +1,8 @@
 ---
-name: 🤔 Ask for question
+name: 🙋 Ask for question
 about: Look for some help or ask question
 title: '[QUESTION] '
-labels: help wanted
+labels: 🙋 help wanted
 assignees: ''
 ---
 

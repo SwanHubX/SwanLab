@@ -1,8 +1,8 @@
 ---
-name: 🤪 Feature advice
+name: 🏠 Feature advice
 about: Suggest an idea for this project
 title: '[ADVICE] '
-labels: enhancement
+labels: 🏠 advice
 assignees: ''
 ---
 

@@ -1,8 +1,8 @@
 ---
-name: 🤩 Feature request
+name: 💪 Feature request
 about: The iterative goal of this project
 title: '[REQUEST] '
-labels: enhancement
+labels: 💪 enhancement
 assignees: ''
 ---
 
