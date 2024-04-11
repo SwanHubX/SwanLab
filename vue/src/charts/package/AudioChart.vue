@@ -139,7 +139,7 @@ const isMulti = computed(() => {
  * 展示用的音频数据
  */
 const audioData = computed(() => {
-  const stepData = stepsData[currentIndex.value]
+  const stepData = stepsData.value[currentIndex.value]
   if (!stepData) return []
   // 如果是单源
   if (!isMulti.value) {
@@ -208,12 +208,12 @@ const currentIndex = computed({
   get: () => __currentIndex.value,
   set: (val) => {
     // 如果当前值存在于stepsData的key中，则直接赋值
-    if (val in stepsData) {
+    if (val in stepsData.value) {
       if (val === __currentIndex.value && loading.value === false) return
       __currentIndex.value = val
     } else {
       // 寻找一个最接近的值
-      const keys = Array.from(Object.keys(stepsData))
+      const keys = Array.from(Object.keys(stepsData.value))
       const index = keys.findIndex((item) => item > val)
       const num = Number(index === -1 ? keys[keys.length - 1] : keys[index])
       if (num === __currentIndex.value) return
@@ -223,7 +223,7 @@ const currentIndex = computed({
     // 如果是多实验模式，将内部数据索引置 0
     if (isMulti.value) currentInnerIndex.value = 0
     // 获取数据
-    debounceGetAudiosData(stepsData[__currentIndex.value])
+    debounceGetAudiosData(stepsData.value[__currentIndex.value])
   }
 })
 
@@ -231,7 +231,7 @@ const currentIndex = computed({
  * step 滑块，点击上下按钮翻页
  */
 const handleTurn = (direction, value) => {
-  const keys = Array.from(Object.keys(stepsData))
+  const keys = Array.from(Object.keys(stepsData.value))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
     currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
@@ -245,7 +245,7 @@ const handleTurn = (direction, value) => {
 // ---------------------------------- 数据格式化 ----------------------------------
 
 // 关联 step 与数据
-const stepsData = {}
+const stepsData = ref({})
 // blob 转 audioBuffer 后的缓存
 const audiosData = reactive({})
 // blob缓存
@@ -265,17 +265,21 @@ const changeData2Audio = (data) => {
     const experiment_id = props.chart.source_map[source]
     for (const item of data[source].list) {
       // 如果不存在当前 step
-      if (!stepsData[item.index]) stepsData[item.index] = {}
+      if (!stepsData.value[item.index]) stepsData.value[item.index] = {}
       // 如果当前 step 下已经有该实验的信息，说明这是之前的数据，重复了，不需要额外添加
-      if (stepsData[item.index][source]) continue
+      if (stepsData.value[item.index][source]) continue
       // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
-      stepsData[item.index][source] = []
+      stepsData.value[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
+        stepsData.value[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption, experiment_id })
+          stepsData.value[item.index][source].push({
+            filename: item.data[i],
+            caption: item.more[i]?.caption,
+            experiment_id
+          })
         }
       }
     }
@@ -340,8 +344,8 @@ const transformBlob = async (blob, filename) => {
 // index 进度条配置
 const maxInnerIndex = computed(() => {
   let tempLength = 0
-  for (const exp in stepsData[currentIndex.value]) {
-    const l = stepsData[currentIndex.value][exp].length - 1
+  for (const exp in stepsData.value[currentIndex.value]) {
+    const l = stepsData.value[currentIndex.value][exp].length - 1
     if (l > tempLength) tempLength = l
   }
   return tempLength
