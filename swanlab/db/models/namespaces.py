@@ -30,9 +30,8 @@ class Namespace(SwanModel):
         name 和 experiment_id 和 project_id 组合后需要确保唯一性
         """
 
-        # 命名空间名称可以重复
-        # # 同一个项目/实验下，命名空间名称不能重复
-        # indexes = ((("name", "experiment_id"), True), (("name", "project_id"), True))
+        # 同一个项目/实验下，命名空间名称不能重复
+        indexes = ((("name", "experiment_id"), True), (("name", "project_id"), True))
 
         constraints = [
             # project_id 和 experiment_id 不能同时为空，也不能同时不为空
