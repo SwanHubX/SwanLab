@@ -65,7 +65,8 @@
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
-        class="md:!justify-start"
+        :class="{ 'md:!justify-start': maxIndex !== minIndex }"
+        :style="{ visibility: maxInnerIndex || 'hidden' }"
         v-model="currentInnerIndex"
         :max="maxInnerIndex"
         :min="minInnerIndex"
@@ -132,7 +133,8 @@
           :turn-by-arrow="isZoom && !isSingleZoom"
         />
         <SlideBar
-          class="md:!justify-start"
+          :class="{ 'md:!justify-start': maxIndex !== minIndex }"
+          :style="{ visibility: maxInnerIndex || 'hidden' }"
           v-model="currentInnerIndex"
           :max="maxInnerIndex"
           :min="minInnerIndex"
@@ -264,12 +266,12 @@ const currentIndex = computed({
   get: () => __currentIndex.value,
   set: (val) => {
     // 如果当前值存在于stepsData的key中，则直接赋值
-    if (val in stepsData) {
+    if (val in stepsData.value) {
       if (val === __currentIndex.value && loading.value === false) return
       __currentIndex.value = val
     } else {
       // 寻找一个最接近的值
-      const keys = Array.from(Object.keys(stepsData))
+      const keys = Array.from(Object.keys(stepsData.value))
       const index = keys.findIndex((item) => item > val)
       const num = Number(index === -1 ? keys[keys.length - 1] : keys[index])
       if (num === __currentIndex.value) return
@@ -280,13 +282,13 @@ const currentIndex = computed({
     // 如果是多实验模式，将内部数据索引置 0
     if (isMulti.value) currentInnerIndex.value = 0
     // 获取数据
-    debounceGetImagesData(stepsData[__currentIndex.value])
+    debounceGetImagesData(stepsData.value[__currentIndex.value])
   }
 })
 
 // 事件处理，触发slideBar的turn事件
 const handleTurn = (direction, value) => {
-  const keys = Array.from(Object.keys(stepsData))
+  const keys = Array.from(Object.keys(stepsData.value))
   const index = keys.findIndex((item) => item > value)
   if (direction === 'forward') {
     currentIndex.value = Number(index === -1 ? keys[keys.length - 1] : keys[index])
@@ -316,8 +318,8 @@ const setGrid = (length) => {
 // index 进度条配置
 const maxInnerIndex = computed(() => {
   let tempLength = 0
-  for (const exp in stepsData[currentIndex.value]) {
-    const l = stepsData[currentIndex.value][exp].length - 1
+  for (const exp in stepsData.value[currentIndex.value]) {
+    const l = stepsData.value[currentIndex.value][exp].length - 1
     if (l > tempLength) tempLength = l
   }
   return tempLength
@@ -348,7 +350,7 @@ const getMultiImagesData = async (stepData) => {
  */
 const visiableSources = computed(() => {
   const temp = []
-  for (const key in stepsData[currentIndex.value]) {
+  for (const key in stepsData.value[currentIndex.value]) {
     temp.push(key)
   }
   return temp
@@ -356,7 +358,7 @@ const visiableSources = computed(() => {
 
 // ---------------------------------- 数据格式化 ----------------------------------
 // 前端映射数据，不包含图像，数据格式：{step: {tag: [{filename: string, caption: string}]}}
-const stepsData = {}
+const stepsData = ref({})
 // 图像数据缓存, 数据格式：{String<filename>: {blob: Blob, url: string<base64>}}
 const imagesData = {}
 
@@ -430,16 +432,20 @@ const changeData2Image = (data) => {
     const experiment_id = props.chart.source_map[source]
     for (const item of data[source].list) {
       // 如果不存在当前 step
-      if (!stepsData[item.index]) stepsData[item.index] = {}
+      if (!stepsData.value[item.index]) stepsData.value[item.index] = {}
       // 对当前实验下的数据进行处理,向stepsData中添加数据, 初始化 step 下的实验存储
-      if (stepsData[item.index][source]) continue
-      stepsData[item.index][source] = []
+      if (stepsData.value[item.index][source]) continue
+      stepsData.value[item.index][source] = []
       // 添加数据,如果data是字符串，则直接添加，如果是数组，则遍历添加
       if (typeof item.data === 'string') {
-        stepsData[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
+        stepsData.value[item.index][source].push({ filename: item.data, caption: item.more?.caption, experiment_id })
       } else {
         for (let i = 0; i < item.data.length; i++) {
-          stepsData[item.index][source].push({ filename: item.data[i], caption: item.more[i]?.caption, experiment_id })
+          stepsData.value[item.index][source].push({
+            filename: item.data[i],
+            caption: item.more[i]?.caption,
+            experiment_id
+          })
         }
       }
     }
@@ -500,7 +506,7 @@ const exitByEsc = () => {
 // 方向键切换单图 - 回调
 const handleSingleChange = ({ key }) => {
   const isSingle = !isMulti.value
-  const images = isSingle ? stepsData[currentIndex.value][source.value[0]] : stepsData[currentIndex.value]
+  const images = isSingle ? stepsData.value[currentIndex.value][source.value[0]] : stepsData.value[currentIndex.value]
 
   if (
     (key === 'ArrowRight' &&
