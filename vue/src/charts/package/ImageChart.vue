@@ -65,7 +65,7 @@
         v-if="maxIndex !== minIndex"
       />
       <SlideBar
-        class="md:!justify-start"
+        :class="{ 'md:!justify-start': maxIndex !== minIndex }"
         :style="{ visibility: maxInnerIndex || 'hidden' }"
         v-model="currentInnerIndex"
         :max="maxInnerIndex"
@@ -133,7 +133,7 @@
           :turn-by-arrow="isZoom && !isSingleZoom"
         />
         <SlideBar
-          class="md:!justify-start"
+          :class="{ 'md:!justify-start': maxIndex !== minIndex }"
           :style="{ visibility: maxInnerIndex || 'hidden' }"
           v-model="currentInnerIndex"
           :max="maxInnerIndex"
