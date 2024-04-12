@@ -329,6 +329,7 @@ class SwanLabRun:
         config: dict = None,
         log_level: str = None,
         suffix: str = None,
+        exp_num: int = None
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -351,6 +352,8 @@ class SwanLabRun:
         suffix : str, optional
             实验名称后缀，用于区分同名实验，格式为yyyy-mm-dd_HH-MM-SS
             如果不提供此参数(为None)，不会添加后缀
+        exp_num : int, optional
+            历史实验总数，用于云端颜色与本地颜色的对应
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -376,6 +379,7 @@ class SwanLabRun:
             experiment_name,
             description,
             suffix,
+            num=exp_num
         )
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__status = 0
@@ -536,6 +540,7 @@ class SwanLabRun:
         experiment_name: str,
         description: str = None,
         suffix: str = None,
+        num: int = None
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化

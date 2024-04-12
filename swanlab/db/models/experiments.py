@@ -19,15 +19,6 @@ from ...utils import create_time
 # 定义模型类
 class Experiment(SwanModel):
     """实验表
-
-    Attributes
-    ----------
-    tags: list of Tag
-        由 Tag 表中外键反链接生成的tag数据列表
-    charts: list of Chart
-        由 Chart 表中外键反链接生成的chart数据列表
-    namespaces: list of Namespace
-        由 Namespace 表中外键反链接生成的命名空间数据列表
     """
 
     # 实验运行时状态符
@@ -117,6 +108,7 @@ class Experiment(SwanModel):
         run_id: str,
         description: str = None,
         project_id: int = Project.DEFAULT_PROJECT_ID,
+        num: int = None,
         more: dict = None,
     ) -> "Experiment":
         """覆写继承的create方法，创建一个新的实验
@@ -131,6 +123,8 @@ class Experiment(SwanModel):
             实验描述，默认为空字符串
         project_id : int, optional
             关联的项目id，由于目前为单项目模式，所以不需要手动设置此字段，默认置为DEFAULT_PROJECT_ID
+        num : int, optional
+            实验数量，如果不指定则自动计算
         more : dict, optional
             更多配置，在函数内部会转换为字符串格式
 
@@ -150,9 +144,9 @@ class Experiment(SwanModel):
         if not Project.select().where(Project.id == project_id).exists():
             raise ForeignProNotExistedError("项目不存在")
         # 这个sum是+1以后的值
-        sum = Project.increase_sum(project_id)
+        _sum = Project.increase_sum(project_id)
         # 调用父类的create方法创建实验实例
-        light, dark = generate_color(sum)
+        light, dark = generate_color(_sum if num is None else num)
         try:
             return super().create(
                 name=name,
@@ -160,7 +154,7 @@ class Experiment(SwanModel):
                 project_id=project_id,
                 description=description,
                 more=cls.dict2json(more),
-                sort=sum,
+                sort=_sum,
                 version=get_package_version(),
                 light=light,
                 dark=dark,
