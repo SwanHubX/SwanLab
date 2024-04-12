@@ -22,10 +22,11 @@
 import { ref } from 'vue'
 import SLIcon from './SLIcon.vue'
 import { debounce } from '@swanlab-vue/utils/common'
+
 const emits = defineEmits(['input', 'search', 'update:modelValue'])
 
 const props = defineProps({
-  dealy: {
+  delay: {
     type: String,
     default: '0'
   },
@@ -48,7 +49,7 @@ const value = ref('')
 const input = debounce(() => {
   emits('input', value.value)
   emits('update:modelValue', value.value)
-}, props.dealy)
+}, props.delay)
 </script>
 
 <style lang="scss" scoped>
@@ -69,6 +70,7 @@ const input = debounce(() => {
   input {
     @apply pl-3 pr-7;
   }
+
   .swan-icon {
     @apply right-3 left-auto;
   }
