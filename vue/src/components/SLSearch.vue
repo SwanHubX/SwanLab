@@ -44,7 +44,7 @@ const props = defineProps({
   }
 })
 
-const value = ref('')
+const value = ref(props.modelValue || '')
 
 const input = debounce(() => {
   emits('input', value.value)
