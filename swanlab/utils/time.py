@@ -1,5 +1,4 @@
 from datetime import datetime
-import pytz
 
 
 def create_time():

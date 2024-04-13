@@ -19,7 +19,6 @@ peewee
 
 
 # Information collection
-pytz
 psutil
 pynvml
 watchdog
