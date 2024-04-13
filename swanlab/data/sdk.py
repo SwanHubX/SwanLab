@@ -171,6 +171,8 @@ def init(
     version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
+    # 历史实验总数
+    exp_num = None
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
     if login_info is None and cloud:
@@ -192,6 +194,7 @@ def init(
         config=config,
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
+        exp_num=exp_num,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:

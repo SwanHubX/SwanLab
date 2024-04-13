@@ -167,7 +167,7 @@ class HTTP:
             """
             data = await self.post(
                 f'/project/{self.__login_info.username}/{self.__proj.name}/runs',
-                {"name": exp_name, "color": list(colors), "description": description}
+                {"name": exp_name, "colors": list(colors), "description": description}
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
