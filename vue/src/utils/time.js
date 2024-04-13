@@ -68,11 +68,13 @@ export function convertUtcToLocal(utcTime) {
 
 /**
  * 格式化时间，接收一个时间戳，转化当前浏览器当前时区下的时间，输入时间为UTC时间
- * 例如：上海时区下，2023-12-04T04:44:33.026550转换为"2023/12/04 12:44:33"
+ * 例如：上海时区下，2023-12-04T04:44:33.026550Z转换为"2023/12/04 12:44:33"
+ * @param {string} time - 时间字符串
  */
 
 export const formatTime = (time) => {
-  let { year, month, day, hour, minute, second } = getTimes(time)
+  // 判断是否携带时区信息
+  let { year, month, day, hour, minute, second } = getTimes(time, time.endsWith('Z'))
   /**
    * TO Little SHI:
    * 你需要在这解决时间的bug
@@ -93,12 +95,19 @@ export const formatTime = (time) => {
 
 /**
  * 获取年月日时分秒
+ * @param {string} time - 时间字符串
+ * @param {boolean} zone - 是否需要时区转换，意味着携带时区信息
  */
-export const getTimes = (time) => {
-  const date = new Date(time)
-  const timezoneOffset = new Date().getTimezoneOffset()
-  const localTime = date.getTime() - timezoneOffset * 60 * 1000
-  const localDate = new Date(localTime)
+export const getTimes = (time, zone = true) => {
+  let localDate
+  if (!zone) {
+    const date = new Date(time)
+    const timezoneOffset = new Date().getTimezoneOffset()
+    const localTime = date.getTime() - timezoneOffset * 60 * 1000
+    localDate = new Date(localTime)
+  } else {
+    localDate = new Date(time)
+  }
   const year = localDate.getFullYear()
   let month = localDate.getMonth() + 1
   let day = localDate.getDate()
