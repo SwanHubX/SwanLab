@@ -64,7 +64,7 @@ class HTTP:
         return self.__proj.cuid
 
     @property
-    def proj_name(self):
+    def projname(self):
         return self.__proj.name
 
     @property
@@ -72,7 +72,7 @@ class HTTP:
         return self.__exp.cuid
 
     @property
-    def exp_name(self):
+    def expname(self):
         return self.__exp.name
 
     @property
@@ -107,7 +107,7 @@ class HTTP:
             """
             # 如果是
             if response.status_code // 100 != 2:
-                raise ApiError(response, str(response.request.url), response.status_code, response.reason_phrase)
+                raise ApiError(response, response.status_code, response.reason_phrase)
 
         session.event_hooks['response'].append(response_interceptor)
 
@@ -130,7 +130,7 @@ class HTTP:
         return resp.json()
 
     async def __get_cos(self):
-        cos = await self.get(f'/project/{self.username}/{self.proj_name}/runs/{self.exp_id}/sts')
+        cos = await self.get(f'/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts')
         self.__cos = CosClient(cos)
 
     async def upload(self, key: str, local_path):
@@ -173,7 +173,7 @@ class HTTP:
                     raise ValueError(f"Entity `{http.groupname}` not found")
                 elif e.resp.status_code == 403:
                     # 权限不足
-                    raise ValueError(f"Permission denied")
+                    raise ValueError(f"Entity permission denied: " + http.groupname)
                 else:
                     raise e
             return ProjectInfo(resp)
@@ -191,11 +191,11 @@ class HTTP:
 
         async def _():
             """
-            创建实验，生成
+            先创建实验，后生成cos凭证
             :return:
             """
             data = await self.post(
-                f'/project/{self.__login_info.username}/{self.__proj.name}/runs',
+                f'/project/{self.groupname}/{self.__proj.name}/runs',
                 {"name": exp_name, "colors": list(colors), "description": description}
             )
             self.__exp = ExperimentInfo(data)
