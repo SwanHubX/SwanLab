@@ -80,7 +80,7 @@ def init(
     suffix: str = "default",
     cloud: bool = True,
     project: str = None,
-    organization: str = None,
+    entity: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -126,14 +126,14 @@ def init(
     cloud : bool, optional
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
-        If you are not using cloud mode, the `project` and `organization` fields are invalid.
+        If you are not using cloud mode, the `project` and `entity` fields are invalid.
     project : str, optional
         The project name of the current experiment, the default is None,
         which means the current project name is the same as the current working directory.
         If you are using cloud mode, you must provide the project name.
-    organization : str, optional
-        The organization name of the current experiment, the default is None,
-        which means the log file will be stored in your personal space.
+    entity : str, optional
+        Where the current project is located, it can be an organization or a user (currently only supports yourself).
+        The default is None, which means the current entity is the same as the current user.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -162,7 +162,7 @@ def init(
         suffix = _load_data(load_data, "suffix", suffix)
         cloud = _load_data(load_data, "cloud", cloud)
         project = _load_data(load_data, "project", project)
-        organization = _load_data(load_data, "organization", organization)
+        entity = _load_data(load_data, "entity", entity)
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -175,13 +175,14 @@ def init(
     exp_num = None
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
+    http = None
     if login_info is None and cloud:
         # 用户登录
         login_info = _login_in_init()
         # 初始化会话信息
         http = create_http(login_info)
         # 获取当前项目信息
-        http.mount_project(project)
+        http.mount_project(project, entity)
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -214,24 +215,23 @@ def init(
     # 注册清理函数
     atexit.register(_clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
-    if not cloud and not (project is None and organization is None):
-        swanlog.warning("The project or organization parameters are invalid in non-cloud mode")
+    if not cloud and not (project is None and entity is None):
+        swanlog.warning("The `project` or `entity` parameters are invalid in non-cloud mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())
     swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
-    # not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
-    swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
+    not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
     # 云端版本有一些额外的信息展示
     cloud and swanlog.info("👋 Hi " + FONT.bold(FONT.default(login_info.username)) + ", welcome to swanlab!")
-    # cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
+    cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
     swanlog.info(
         "🌟 Run `"
         + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
         + "` to view SwanLab Experiment Dashboard locally"
     )
-    project_url = get_host_web() + "/" + "{project_name}"
-    experiment_url = project_url + "/" + "123456"
+    project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
+    experiment_url = project_url + f"/runs/{http.exp_id}"
     cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
     cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
@@ -365,7 +365,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         # 上传错误日志
         if error is not None:
             await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
     return
