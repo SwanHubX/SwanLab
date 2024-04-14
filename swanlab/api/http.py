@@ -42,8 +42,21 @@ class HTTP:
         # 当前实验信息
         self.__exp: Optional["ExperimentInfo"] = None
 
+        # 当前项目所属的username
+        self.__username = login_info.username
+
+    @property
+    def groupname(self):
+        """
+        当前项目所属组名
+        """
+        return self.__username
+
     @property
     def username(self):
+        """
+        当前登录的用户名
+        """
         return self.__login_info.username
 
     @property
@@ -51,8 +64,16 @@ class HTTP:
         return self.__proj.cuid
 
     @property
+    def proj_name(self):
+        return self.__proj.name
+
+    @property
     def exp_id(self):
         return self.__exp.cuid
+
+    @property
+    def exp_name(self):
+        return self.__exp.name
 
     @property
     def sid_expired_at(self):
@@ -86,7 +107,7 @@ class HTTP:
             """
             # 如果是
             if response.status_code // 100 != 2:
-                raise ApiError(response)
+                raise ApiError(response, str(response.request.url), response.status_code, response.reason_phrase)
 
         session.event_hooks['response'].append(response_interceptor)
 
@@ -109,7 +130,7 @@ class HTTP:
         return resp.json()
 
     async def __get_cos(self):
-        cos = await self.get(f'/project/{self.__login_info.username}/{self.__proj.name}/runs/{self.__exp.cuid}/sts')
+        cos = await self.get(f'/project/{self.username}/{self.proj_name}/runs/{self.exp_id}/sts')
         self.__cos = CosClient(cos)
 
     async def upload(self, key: str, local_path):
@@ -137,14 +158,16 @@ class HTTP:
         keys = [key[1:] if key.startswith('/') else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
 
-    def mount_project(self, name: str):
+    def mount_project(self, name: str, username: str = None):
+        self.__username = self.__username if username is None else username
+
         async def _():
             try:
-                resp = await http.post(f'/project/{http.username}', data={'name': name})
+                resp = await http.post(f'/project/{self.groupname}', data={'name': name})
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
-                    resp = await http.get(f'/project/{http.username}/{name}')
+                    resp = await http.get(f'/project/{http.groupname}/{name}')
                 else:
                     raise e
             return ProjectInfo(resp)
