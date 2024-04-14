@@ -119,7 +119,7 @@ def _calculate_bucket_capacity(total_data_points, target_bucket_count) -> List[i
     return bucket_capacity_list
 
 
-def lttb(data: List[dict], threshold: int = 500):
+def lttb(data: List[dict], threshold: int = 1500):
     """
     LTTB算法，对数据进行降采样
     最后保留头尾数据，因此桶的数量应该是实际数量-2
