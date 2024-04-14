@@ -10,6 +10,7 @@ r"""
 from typing import List
 import json
 import ujson
+import math
 import os
 
 # tag 总结文件名
@@ -74,3 +75,64 @@ def get_tag_files(tag_path: str, exclude=None) -> List[str]:
         current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
         current_logs.sort()
     return current_logs
+
+
+def _sample_a_bucket(bucket: List[dict]) -> dict:
+    """
+    对一个bucket进行采样，返回采样后的数据
+    :param bucket: 一个桶中的信息
+    :return: 采样后的数据
+    """
+    if len(bucket) <= 2:
+        return bucket[0]
+    # 计算bucket头尾直线表达式
+    tail = bucket[0]
+    head = bucket[-1]
+    # k，b
+    k = (head["data"] - tail["data"]) / (head["index"] - tail["index"])
+    b = head["data"] - k * head["index"]
+    # 计算每个点到直线的距离
+    max_distance_p = (0, 0)  # (d, i)
+    for i in range(1, len(bucket) - 1):
+        distance = abs(k * bucket[i]["index"] + b - bucket[i]["data"]) / math.sqrt(k ** 2 + 1)
+        if distance > max_distance_p[0]:
+            max_distance_p = (distance, i)
+    return bucket[max_distance_p[1]]
+
+
+def lttb(data: List[dict], threshold: int = 1500):
+    """
+    LTTB算法，对数据进行降采样
+    最后保留头尾数据，因此桶的数量应该是实际数量-2
+    桶大小向下取整，保留第一个和最后一个点
+    降采样将优先发生在尾部
+    :param data: 数据
+    :param threshold: 采样后的数据长度，也是降采样阈值
+    """
+    if len(data) <= threshold:
+        return data
+    bucket_n = threshold - 2
+    _data = data[1:-1]
+    # 需要保留第一、最后一个点
+    sampled = [data[0]]
+    # 每个bucket容量，向下取整
+    bucket_v = math.floor(len(_data) / bucket_n)
+    # 当前使用的bucket
+    now_bucket = []
+    # 当前bucket的数量
+    now_bucket_n = 0
+    for _d in _data:
+        now_bucket.append(_d)
+        if len(now_bucket) < bucket_v:
+            continue
+        sampled.append(_sample_a_bucket(now_bucket))
+        now_bucket = []
+        now_bucket_n += 1
+        if now_bucket_n == bucket_n - 1:
+            break
+    # 处理剩下的数据
+    left_data = _data[len(now_bucket) * bucket_v:]
+    if len(left_data) > 0:
+        sampled.append(_sample_a_bucket(left_data))
+    sampled.append(data[-1])
+    return sampled

@@ -230,10 +230,11 @@ def init(
         + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
         + "` to view SwanLab Experiment Dashboard locally"
     )
-    project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
-    experiment_url = project_url + f"/runs/{http.exp_id}"
-    cloud and swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-    cloud and swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+    if cloud:
+        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
+        experiment_url = project_url + f"/runs/{http.exp_id}"
+        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
     inited = True
     return run
 
