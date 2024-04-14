@@ -40,13 +40,13 @@ def read_tag_data(file_path: str) -> List[dict]:
         return data
 
 
-def get_tag_files(tag_path: str, exclude: List[str] = []) -> List[str]:
+def get_tag_files(tag_path: str, exclude=None) -> List[str]:
     """
     获取实验数据，并且做向下兼容，在v0.2.4版本以前的实验日志数据将转换为新的格式
 
     Parameters
     ----------
-    file_path : str
+    tag_path : str
         tag的路径
     exclude : List[str]
         需要排除的文件列表
@@ -57,6 +57,8 @@ def get_tag_files(tag_path: str, exclude: List[str] = []) -> List[str]:
         tag文件列表
     """
     # 降序排列，最新的数据在最前面
+    if exclude is None:
+        exclude = []
     files: list = os.listdir(tag_path)
     previous_logs = [f for f in files if f.endswith(".json") and f not in exclude]
     current_logs = [f for f in files if f.endswith(".log")]
@@ -66,9 +68,9 @@ def get_tag_files(tag_path: str, exclude: List[str] = []) -> List[str]:
         for file in previous_logs:
             with open(os.path.join(tag_path, file), "r") as f:
                 data = ujson.load(f)
-                with open(os.path.join(tag_path, file.replace(".json", ".log")), "a") as f:
+                with open(os.path.join(tag_path, file.replace(".json", ".log")), "a") as i:
                     for d in data["data"]:
-                        f.write(ujson.dumps(d) + "\n")
+                        i.write(ujson.dumps(d) + "\n")
         current_logs = [f for f in os.listdir(tag_path) if f.endswith(".log")]
         current_logs.sort()
     return current_logs
