@@ -18,11 +18,11 @@ class TestLTTB:
         ([{"data": random.random(), "index": i} for i in range(1500)], 1500),
         ([{"data": random.random(), "index": i} for i in range(1502)], 1502),
     ])
-    def test_no_sample(self, data, sample_length):
+    def test_no_sample(self, data):
         """
         测试数据长度小于等于采样长度
         """
-        result = lttb(data, sample_length)
+        result = lttb(data)
         assert len(result) == len(data)
 
     @pytest.mark.parametrize("data, sample_length", [
