@@ -18,7 +18,7 @@ class TestLTTB:
         ([{"data": random.random(), "index": i} for i in range(1500)], 1500),
         ([{"data": random.random(), "index": i} for i in range(1502)], 1502),
     ])
-    def test_no_sample(self, data):
+    def test_no_sample(self, data, sample_length):
         """
         测试数据长度小于等于采样长度
         """

@@ -100,7 +100,26 @@ def _sample_a_bucket(bucket: List[dict]) -> dict:
     return bucket[max_distance_p[1]]
 
 
-def lttb(data: List[dict], threshold: int = 1500):
+def _calculate_bucket_capacity(total_data_points, target_bucket_count) -> List[int]:
+    """
+    计算每个桶的容量
+    :param total_data_points: 总数据点数
+    :param target_bucket_count: 目标桶数量
+    :return: 每个桶的容量
+    """
+    # 计算每个桶的容量
+    bucket_capacity = total_data_points // target_bucket_count  # 整除部分
+    remaining_points = total_data_points % target_bucket_count  # 余数
+
+    # 将余数均匀地分配到前几个桶中
+    bucket_capacity_list = [bucket_capacity] * target_bucket_count
+    for i in range(remaining_points):
+        bucket_capacity_list[i] += 1
+
+    return bucket_capacity_list
+
+
+def lttb(data: List[dict], threshold: int = 500):
     """
     LTTB算法，对数据进行降采样
     最后保留头尾数据，因此桶的数量应该是实际数量-2
@@ -115,24 +134,20 @@ def lttb(data: List[dict], threshold: int = 1500):
     _data = data[1:-1]
     # 需要保留第一、最后一个点
     sampled = [data[0]]
-    # 每个bucket容量，向下取整
-    bucket_v = math.floor(len(_data) / bucket_n)
+    # 计算每一个桶的容量，每个桶容量不尽相同
+    buckets_capacity = _calculate_bucket_capacity(len(_data), bucket_n)
     # 当前使用的bucket
     now_bucket = []
     # 当前bucket的数量
     now_bucket_n = 0
     for _d in _data:
         now_bucket.append(_d)
-        if len(now_bucket) < bucket_v:
+        if len(now_bucket) < buckets_capacity[now_bucket_n]:
             continue
         sampled.append(_sample_a_bucket(now_bucket))
         now_bucket = []
         now_bucket_n += 1
         if now_bucket_n == bucket_n - 1:
             break
-    # 处理剩下的数据
-    left_data = _data[len(now_bucket) * bucket_v:]
-    if len(left_data) > 0:
-        sampled.append(_sample_a_bucket(left_data))
     sampled.append(data[-1])
     return sampled
