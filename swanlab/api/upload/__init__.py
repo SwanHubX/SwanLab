@@ -9,7 +9,8 @@ r"""
 """
 from ..http import get_http, async_error_handler
 from typing import List, Tuple, Dict
-import asyncio
+import json
+import yaml
 import os
 
 url = '/house/metrics'
@@ -40,7 +41,6 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
     metrics = [{"level": level, "message": x} for x in logs]
     data = create_data(metrics, "log")
     await http.post(url, data)
-    await asyncio.sleep(1)
 
 
 @async_error_handler
@@ -87,7 +87,16 @@ async def upload_scalar_metrics(scalar_metrics: List[dict]):
     http = get_http()
     data = create_data(scalar_metrics, "scalar")
     await http.post(url, data)
-    await asyncio.sleep(1)
+
+
+_valid_files = {
+    'config.yaml': ['config', 'yaml'],
+    'requirements.txt': ['requirements', 'txt'],
+    'swanlab-metadata.json': ['metadata', 'json']
+}
+"""
+支持上传的文件列表，filename: key
+"""
 
 
 @async_error_handler
@@ -96,8 +105,21 @@ async def upload_files(files: List[str]):
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
     """
+    http = get_http()
     # 去重list
     files = list(set(files))
-    files = [os.path.basename(x) for x in files]
-    await asyncio.sleep(1)
-    # print("上传文件信息: ", files)
+    files = {os.path.basename(x): x for x in files}
+    # 读取文件配置，生成更新信息
+    data = {}
+    for filename, filepath in files.items():
+        if filename not in _valid_files:
+            continue
+        with open(filepath, 'r') as f:
+            if _valid_files[filename][1] == 'json':
+                data[_valid_files[filename][0]] = json.load(f)
+            elif _valid_files[filename][1] == 'yaml':
+                data[_valid_files[filename][0]] = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                data[_valid_files[filename][0]] = f.read()
+
+    await http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)

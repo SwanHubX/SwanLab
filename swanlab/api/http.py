@@ -120,6 +120,7 @@ class HTTP:
         """
         url = self.base_url + url
         resp = await self.__session.post(url, json=data)
+        await asyncio.sleep(1)
         try:
             return resp.json()
         except json.decoder.JSONDecodeError:

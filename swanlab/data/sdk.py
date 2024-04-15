@@ -199,6 +199,12 @@ def init(
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
+        # 注册实验信息
+        get_http().mount_exp(
+            exp_name=run.settings.exp_name,
+            colors=run.settings.exp_colors,
+            description=run.settings.description
+        )
         # 初始化、挂载线程池
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
@@ -206,10 +212,6 @@ def init(
         # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
         swanlog.set_pool(pool)
-        # 注册实验信息
-        get_http().mount_exp(exp_name=run.settings.exp_name,
-                             colors=run.settings.exp_colors,
-                             description=run.settings.description)
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
