@@ -124,7 +124,7 @@ class Experiment(SwanModel):
         project_id : int, optional
             关联的项目id，由于目前为单项目模式，所以不需要手动设置此字段，默认置为DEFAULT_PROJECT_ID
         num : int, optional
-            实验数量，如果不指定则自动计算
+            历史实验数量，如果不指定则自动计算
         more : dict, optional
             更多配置，在函数内部会转换为字符串格式
 
@@ -146,7 +146,7 @@ class Experiment(SwanModel):
         # 这个sum是+1以后的值
         _sum = Project.increase_sum(project_id)
         # 调用父类的create方法创建实验实例
-        light, dark = generate_color(_sum if num is None else num)
+        light, dark = generate_color(_sum if num is None else num + 1)
         try:
             return super().create(
                 name=name,

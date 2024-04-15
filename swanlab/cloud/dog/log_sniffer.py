@@ -36,9 +36,11 @@ class LogSnifferTask(ThreadTaskABC):
         日志嗅探器队列，用于存放从一系列Handler中收集到的日志信息
         """
         self.__observer = Observer(timeout=self.SNIFFER_TIMEOUT)
-        self.__observer.schedule(MetaHandle(self.__QUEUE, watched_path=meta_path),
-                                 meta_path,
-                                 recursive=True)
+        self.__observer.schedule(
+            MetaHandle(self.__QUEUE, watched_path=meta_path),
+            meta_path,
+            recursive=True
+        )
         # observer，启动！
         self.__observer.start()
 
