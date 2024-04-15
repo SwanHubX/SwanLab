@@ -182,7 +182,7 @@ def init(
         # 初始化会话信息
         http = create_http(login_info)
         # 获取当前项目信息
-        http.mount_project(project, workspace)
+        exp_num = http.mount_project(project, workspace).history_exp_count
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -369,6 +369,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
+    get_http().update_state(success)
     return
 
 

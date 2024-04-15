@@ -16,6 +16,7 @@ from .cos import CosClient
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
+import json
 import asyncio
 
 
@@ -113,13 +114,27 @@ class HTTP:
 
         return session
 
-    async def post(self, url: str, data: dict = None) -> dict:
+    async def post(self, url: str, data: dict = None) -> Union[dict, str]:
         """
         post请求
         """
         url = self.base_url + url
         resp = await self.__session.post(url, json=data)
-        return resp.json()
+        try:
+            return resp.json()
+        except json.decoder.JSONDecodeError:
+            return resp.text
+
+    async def put(self, url: str, data: dict = None) -> Union[dict, str]:
+        """
+        put请求
+        """
+        url = self.base_url + url
+        resp = await self.__session.put(url, json=data)
+        try:
+            return resp.json()
+        except json.decoder.JSONDecodeError:
+            return resp.text
 
     async def get(self, url: str, params: dict = None) -> dict:
         """
@@ -158,7 +173,7 @@ class HTTP:
         keys = [key[1:] if key.startswith('/') else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
 
-    def mount_project(self, name: str, username: str = None):
+    def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username
 
         async def _():
@@ -180,6 +195,7 @@ class HTTP:
 
         project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', _()))
         self.__proj = project
+        return project
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None):
         """
@@ -203,6 +219,20 @@ class HTTP:
             await self.__get_cos()
 
         asyncio.run(FONT.loading('Creating experiment...', _()))
+
+    def update_state(self, success: bool):
+        """
+        更新实验状态
+        :param success: 实验是否成功
+        """
+
+        async def _():
+            await self.put(
+                f'/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state',
+                {"state": 'FINISHED' if success else 'CRASHED'}
+            )
+
+        asyncio.run(FONT.loading('Updating experiment status...', _()))
 
 
 http: Optional["HTTP"] = None
