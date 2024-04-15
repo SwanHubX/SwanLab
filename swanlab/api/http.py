@@ -158,7 +158,7 @@ class HTTP:
         keys = [key[1:] if key.startswith('/') else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
 
-    def mount_project(self, name: str, username: str = None):
+    def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username
 
         async def _():
@@ -180,6 +180,7 @@ class HTTP:
 
         project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', _()))
         self.__proj = project
+        return project
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None):
         """

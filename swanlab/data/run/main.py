@@ -553,7 +553,7 @@ class SwanLabRun:
             experiment_name, exp_name = self.__get_exp_name(old, suffix)
             try:
                 # 获得数据库实例
-                exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description)
+                exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description, num=num)
                 break
             except ExistedError:
                 # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
@@ -576,10 +576,10 @@ class SwanLabRun:
     @staticmethod
     def __check_log_level(log_level: str) -> str:
         """检查日志等级是否合法"""
-        valids = ["debug", "info", "warning", "error", "critical"]
+        valid = ["debug", "info", "warning", "error", "critical"]
         if log_level is None:
             return "info"
-        elif log_level.lower() in valids:
+        elif log_level.lower() in valid:
             return log_level.lower()
         else:
             swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")

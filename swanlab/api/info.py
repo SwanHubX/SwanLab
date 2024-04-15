@@ -106,6 +106,10 @@ class ProjectInfo:
     def name(self):
         return self.__data["name"]
 
+    @property
+    def history_exp_count(self):
+        return self.__data["_count"]["experiments"]
+
 
 class ExperimentInfo:
 
