@@ -80,7 +80,7 @@ def init(
     suffix: str = "default",
     cloud: bool = True,
     project: str = None,
-    entity: str = None,
+    workspace: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -131,7 +131,7 @@ def init(
         The project name of the current experiment, the default is None,
         which means the current project name is the same as the current working directory.
         If you are using cloud mode, you must provide the project name.
-    entity : str, optional
+    workspace : str, optional
         Where the current project is located, it can be an organization or a user (currently only supports yourself).
         The default is None, which means the current entity is the same as the current user.
     load : str, optional
@@ -162,7 +162,7 @@ def init(
         suffix = _load_data(load_data, "suffix", suffix)
         cloud = _load_data(load_data, "cloud", cloud)
         project = _load_data(load_data, "project", project)
-        entity = _load_data(load_data, "entity", entity)
+        workspace = _load_data(load_data, "workspace", workspace)
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -182,7 +182,7 @@ def init(
         # 初始化会话信息
         http = create_http(login_info)
         # 获取当前项目信息
-        http.mount_project(project, entity)
+        http.mount_project(project, workspace)
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -215,8 +215,8 @@ def init(
     # 注册清理函数
     atexit.register(_clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
-    if not cloud and not (project is None and entity is None):
-        swanlog.warning("The `project` or `entity` parameters are invalid in non-cloud mode")
+    if not cloud and not (project is None and workspace is None):
+        swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())
