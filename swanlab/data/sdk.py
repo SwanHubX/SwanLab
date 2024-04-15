@@ -369,6 +369,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
+    get_http().update_state(success)
     return
 
 
