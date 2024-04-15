@@ -74,11 +74,8 @@ export function convertUtcToLocal(utcTime) {
 
 export const formatTime = (time) => {
   // 判断是否携带时区信息
-  let { year, month, day, hour, minute, second } = getTimes(time, time.endsWith('Z'))
-  /**
-   * TO Little SHI:
-   * 你需要在这解决时间的bug
-   */
+  const zone = typeof time === 'string' && time.endsWith('Z')
+  let { year, month, day, hour, minute, second } = getTimes(time, zone)
   // 如果minute是个位数，转换成两位数
   if (month < 10) month = '0' + month
 
@@ -96,7 +93,7 @@ export const formatTime = (time) => {
 /**
  * 获取年月日时分秒
  * @param {string} time - 时间字符串
- * @param {boolean} zone - 是否需要时区转换，意味着携带时区信息
+ * @param {boolean} zone - 是否需要时区转换，为true意味着携带时区信息，不需要时区转换
  */
 export const getTimes = (time, zone = true) => {
   let localDate

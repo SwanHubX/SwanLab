@@ -40,12 +40,13 @@
 <script setup>
 /**
  * @description: 自定义折线图提示框
- * @file: LinChartTooltip.vue
+ * @file: LineChartTooltip.vue
  * @since: 2024-02-24 15:36:59
  **/
 import { ref, inject } from 'vue'
 import { isApple } from '@swanlab-vue/utils/browser'
 import { t } from '@swanlab-vue/i18n'
+
 const props = defineProps({
   // 是否显示详细版
   detail: {
@@ -111,18 +112,22 @@ defineExpose({
   min-width: 180px;
   box-shadow: rgba(21, 24, 31, 0.16) 0px 12px 24px 0px;
   visibility: visible;
+
   p {
     @apply text-xs text-default font-semibold;
   }
+
   .lc-tooltip-item-no-zoom,
   .lc-tooltip-item-zoom {
     @apply flex items-center gap-3;
     &:not(:last-child) {
       @apply mb-1.5;
     }
+
     .lc-tooltip-color {
       @apply w-5 flex items-center flex-shrink-0;
     }
+
     .lc-tooltip-color-rect {
       &::before {
         content: '';
@@ -135,6 +140,7 @@ defineExpose({
       }
     }
   }
+
   .lc-tooltip-tip {
     @apply font-normal text-dimmest text-xs flex-shrink-0;
   }
@@ -149,9 +155,11 @@ defineExpose({
       @apply font-semibold;
     }
   }
+
   .lc-tooltip-value {
     @apply text-left font-semibold;
   }
+
   .lc-tooltip-tag {
     @apply truncate;
   }
@@ -162,9 +170,11 @@ defineExpose({
   .lc-tooltip-step {
     @apply w-7;
   }
+
   .lc-tooltip-value {
     @apply text-left;
   }
+
   .lc-tooltip-time {
     @apply w-32;
   }

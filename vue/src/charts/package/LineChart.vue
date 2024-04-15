@@ -58,7 +58,7 @@ import { isApple } from '@swanlab-vue/utils/browser'
 import { message } from '@swanlab-vue/components/message'
 import makeSmooth from './smooth'
 import { needSmooth } from './smooth'
-import LineChartTooltip from '../components/LinChartTooltip.vue'
+import LineChartTooltip from '../components/LineChartTooltip.vue'
 import LineChartLegend from '../components/LineChartLegend.vue'
 
 // ---------------------------------- 配置 ----------------------------------
@@ -483,9 +483,9 @@ const registerTooltipEvent = (dom, zoom) => {
     point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
-      chartRefListExceptSelf.value?.forEach((chart) => {
-        chart?.showTooltip(point)
-      })
+    chartRefListExceptSelf.value?.forEach((chart) => {
+      chart?.showTooltip(point)
+    })
     manual = true
   })
   chart.on('tooltip:hide', (...args) => {

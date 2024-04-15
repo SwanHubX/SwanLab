@@ -8,7 +8,7 @@ r"""
     共享工具函数
 """
 from .charts import get_exp_charts, get_proj_charts
-from .tag import read_tag_data, get_tag_files, LOGS_CONFIGS
+from .tag import read_tag_data, get_tag_files, LOGS_CONFIGS, lttb
 from typing import List
 
 

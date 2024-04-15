@@ -35,7 +35,7 @@ from .db import (
     connect,
     NotExistedError,
 )
-from .utils import get_exp_charts, clear_field, read_tag_data, get_tag_files, LOGS_CONFIGS
+from .utils import get_exp_charts, clear_field, read_tag_data, get_tag_files, LOGS_CONFIGS, lttb
 from ...compat.server.controller.experiment import compat_text
 
 __to_list = Experiment.search2list
@@ -47,6 +47,8 @@ __to_list = Experiment.search2list
 DEFAULT_PROJECT_ID = Project.DEFAULT_PROJECT_ID
 # 实验运行状态
 RUNNING_STATUS = Experiment.RUNNING_STATUS
+
+
 # ---------------------------------- 工具函数 ----------------------------------
 
 
@@ -221,7 +223,7 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
             "sum": len(tag_data),
             "max": max_value,
             "min": min_value,
-            "list": tag_data,
+            "list": lttb(tag_data),
             # 标注此数据隶属于哪个实验
             "experiment_id": experiment_id,
         }
