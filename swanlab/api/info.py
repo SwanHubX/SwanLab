@@ -108,7 +108,7 @@ class ProjectInfo:
 
     @property
     def history_exp_count(self):
-        return self.__data["_count"]["experiments"]
+        return self.__data.get('_count', {'experiments': 0})["experiments"]
 
 
 class ExperimentInfo:
