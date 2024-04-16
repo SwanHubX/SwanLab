@@ -14,7 +14,7 @@ import subprocess
 import multiprocessing
 import pynvml
 from ...log import swanlog
-from swanlab.package import get_package_version
+from swanlab.data.settings import SwanDataSettings
 
 
 def __replace_second_colon(input_string, replacement):
@@ -223,10 +223,13 @@ def get_requirements() -> str:
         return None
 
 
-def get_system_info():
+def get_system_info(settings: SwanDataSettings):
     """获取系统信息"""
     return {
-        "version": get_package_version(),
+        "swanlab": {
+            "version": settings.version,
+            "logdir": settings.swanlog_dir
+        },
         "hostname": socket.gethostname(),
         "os": platform.platform(),
         "python": platform.python_version(),
@@ -234,7 +237,7 @@ def get_system_info():
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
         "cpu": multiprocessing.cpu_count(),  # cpu 核心数
         "gpu": __get_gpu_info(),  # gpu 相关信息
-        "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commite 信息
+        "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commit 信息
         "command": __get_command(),  # 完整命令行信息
         "memory": __get_memory_size(),  # 内存大小
         "cwd": __get_cwd(),  # 当前工作目录路径

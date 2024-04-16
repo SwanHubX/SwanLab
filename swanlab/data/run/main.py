@@ -608,4 +608,4 @@ class SwanLabRun:
             f.write(get_requirements())
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
-            ujson.dump(get_system_info(), f)
+            ujson.dump(get_system_info(self.__settings), f)
