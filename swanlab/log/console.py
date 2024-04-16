@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
-from typing import Optional
+from swanlab.utils import create_time
 
 
 class LeverCtl(object):
@@ -251,7 +251,7 @@ class Consoler(__consoler_class(), LeverCtl):
     def upload_message(self, message):
         if self.pool is None:
             return
-        self.pool.queue.put((UploadType.LOG, [message]))
+        self.pool.queue.put((UploadType.LOG, [{"message": message, "create_time": create_time()}]))
 
 
 class SwanConsoler:

@@ -30,7 +30,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
 
 
 @async_error_handler
-async def upload_logs(logs: List[str], level: str = "INFO"):
+async def upload_logs(logs: List[dict], level: str = "INFO"):
     """
     模拟一下，上传日志和实验指标信息
     :param logs: 日志列表
@@ -38,7 +38,7 @@ async def upload_logs(logs: List[str], level: str = "INFO"):
     """
     http = get_http()
     # 将logs解析为json格式
-    metrics = [{"level": level, "message": x} for x in logs]
+    metrics = [{"level": level, **x} for x in logs]
     data = create_data(metrics, "log")
     await http.post(url, data)
 
