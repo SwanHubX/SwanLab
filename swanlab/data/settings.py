@@ -11,6 +11,7 @@ import os
 from ..env import get_swanlog_dir
 from swanlab.cloud import ThreadPool
 from typing import Optional, Tuple
+from swanlab.package import get_package_version
 
 
 class SwanDataSettings:
@@ -35,6 +36,11 @@ class SwanDataSettings:
         # 实验运行id
         self.__run_id: str = run_id
         self.pool: Optional[ThreadPool] = None
+        self.__version = get_package_version()
+
+    @property
+    def version(self) -> str:
+        return self.__version
 
     @property
     def is_cloud(self) -> bool:
