@@ -24,3 +24,5 @@ class Chart:
     video = "video", [list, str]
     # 3D点云类型，list代表一步多3D点云
     object3d = "object3d", [list, str]
+    # 生化分子类型，list代表一步多生化分子
+    melocule = "melocule", [list, str]
