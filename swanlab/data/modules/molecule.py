@@ -98,10 +98,10 @@ class Molecule(BaseType):
 
             # 如果没有传入file_type参数
             if ext is None:
-                raise ValueError("When using the io object, the file_type keyword argument must be passed.")
+                raise TypeError("When using the io object, the file_type keyword argument must be passed.")
 
             if ext not in Molecule.SUPPORTED_TYPES:
-                raise ValueError("Molecule 3D only supports files of the type: " + ", ".join(Molecule.SUPPORTED_TYPES))
+                raise TypeError("Molecule 3D only supports files of the type: " + ", ".join(Molecule.SUPPORTED_TYPES))
 
             # 分子数据为IO对象读取的内容
             self.molecule_data = data_or_path
@@ -110,11 +110,11 @@ class Molecule(BaseType):
         elif isinstance(data_or_path, str):
             ext = os.path.splitext(data_or_path)[1][1:]
             if ext not in Molecule.SUPPORTED_TYPES:
-                raise ValueError("Molecule 3D only supports files of the type: " + ", ".join(Molecule.SUPPORTED_TYPES))
+                raise TypeError("Molecule 3D only supports files of the type: " + ", ".join(Molecule.SUPPORTED_TYPES))
             # 分子数据为文件路径
             self.molecule_data = data_or_path
         else:
-            raise ValueError("The data passed to Melocule must be a file name or file object.")
+            raise TypeError("The data passed to Melocule must be a file name or file object.")
 
         return ext
 
