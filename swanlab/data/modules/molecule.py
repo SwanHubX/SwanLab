@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     RDKitDataType = Union[str, "rdkit.Chem.rdchem.Mol"]
 
 
-def generate_id(length: int = 8) -> str:
+def generate_id(length: int = 16) -> str:
     """Generate a random base-36 string of `length` digits."""
     # There are ~2.8T base-36 8-digit strings. If we generate 210k ids,
     # we'll have a ~1% chance of collision.
@@ -71,12 +71,12 @@ class Molecule(BaseType):
         if isinstance(self.value, list):
             return self.get_data_list()
         # 数据预处理
-        self.__preprocess(self.value)
+        ext = self.__preprocess(self.value)
         random_id = generate_id()
 
         # 生成保存路径
         save_dir = os.path.join(self.settings.static_dir, self.tag)
-        save_name = f"Molecule-step{self.step}-{random_id}.{self.file_type}"
+        save_name = f"Molecule-step{self.step}-{random_id}.{ext}"
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path = os.path.join(save_dir, save_name)
@@ -115,6 +115,8 @@ class Molecule(BaseType):
             self.molecule_data = data_or_path
         else:
             raise ValueError("The data passed to Melocule must be a file name or file object.")
+
+        return ext
 
     def __save(self, save_path):
 

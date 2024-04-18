@@ -4,6 +4,8 @@ from .image import Image
 from .text import Text
 from .video import Video
 from .object_3d import Object3D
+from .molecule import Molecule
+
 # from .video import Video
 from typing import Protocol, Union, List
 

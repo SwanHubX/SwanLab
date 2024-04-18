@@ -14,6 +14,7 @@ from .modules import (
     Text,
     Video,
     Object3D,
+    Molecule,
 )
 from .sdk import (
     login,
