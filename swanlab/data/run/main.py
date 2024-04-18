@@ -221,6 +221,20 @@ class SwanLabConfig(Mapping):
             raise AttributeError(f"You have not retrieved '{name}' in the config of the current experiment")
 
     @need_inited
+    def update(self, data: dict):
+        """
+        Update the configuration item with the dict provided and save it.
+
+        Parameters
+        ----------
+        data : dict
+            Dict of the configuration item
+        """
+
+        self.__config.update(self.__check_config(data))
+        self.__save()
+
+    @need_inited
     def __getattr__(self, name: str):
         """
         如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
@@ -329,7 +343,7 @@ class SwanLabRun:
         config: dict = None,
         log_level: str = None,
         suffix: str = None,
-        exp_num: int = None
+        exp_num: int = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -357,7 +371,7 @@ class SwanLabRun:
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
@@ -375,12 +389,7 @@ class SwanLabRun:
         # ---------------------------------- 注册实验 ----------------------------------
         # 校验描述格式
         description = self.__check_description(description)
-        self.__exp: SwanLabExp = self.__register_exp(
-            experiment_name,
-            description,
-            suffix,
-            num=exp_num
-        )
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__status = 0
 
@@ -536,11 +545,7 @@ class SwanLabRun:
         return experiment_name_checked, exp_name
 
     def __register_exp(
-        self,
-        experiment_name: str,
-        description: str = None,
-        suffix: str = None,
-        num: int = None
+        self, experiment_name: str, description: str = None, suffix: str = None, num: int = None
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
