@@ -179,7 +179,7 @@ class Molecule(BaseType):
             path = pathlib.Path(data_or_path)
             ext = path.suffix.split(".")[-1]
             if ext not in Molecule.SUPPORTED_RDKIT_TYPES:
-                raise ValueError(
+                raise TypeError(
                     "swanlab.Molecule.from_rdkit only supports files of the type: "
                     + ", ".join(Molecule.SUPPORTED_RDKIT_TYPES)
                 )
@@ -192,7 +192,7 @@ class Molecule(BaseType):
         elif isinstance(data_or_path, Chem.rdchem.Mol):
             molecule = data_or_path
         else:
-            raise ValueError("Data must be file name or an rdkit.Chem.rdchem.Mol object")
+            raise TypeError("Data must be file name or an rdkit.Chem.rdchem.Mol object")
 
         if convert_to_3d_and_optimize:
             molecule = Chem.AddHs(molecule)
@@ -251,7 +251,7 @@ class Molecule(BaseType):
 
         molecule = Chem.MolFromSmiles(data, sanitize=sanitize)
         if molecule is None:
-            raise ValueError("Unable to parse the SMILES string.")
+            raise TypeError("Unable to parse the SMILES string.")
 
         return cls.from_rdkit(
             data_or_path=molecule,
