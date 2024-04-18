@@ -49,6 +49,7 @@ class SwanLabLogger(Logger):
     def __init__(
         self,
         project: Optional[str] = None,
+        workspace: Optional[str] = None,
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         logdir: Optional[str] = None,
@@ -62,6 +63,7 @@ class SwanLabLogger(Logger):
 
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
+            "workspace": workspace,
             "experiment_name": experiment_name,
             "description": description,
             "logdir": logdir,
@@ -71,6 +73,7 @@ class SwanLabLogger(Logger):
         self._swanlab_init.update(**kwargs)
 
         self._project = self._swanlab_init.get("project")
+        self._workspace = self._swanlab_init.get("workspace")
         self._experiment_name = self._swanlab_init.get("experiment_name")
         self._description = self._swanlab_init.get("decsription")
         self._logdir = self._swanlab_init.get("logdir")
