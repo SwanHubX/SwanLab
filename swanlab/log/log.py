@@ -213,6 +213,13 @@ class SwanLog(LogSys):
         if file_level:
             self.set_file_level(file_level)
 
+    @property
+    def epoch(self):
+        """
+        获取当前日志的 epoch
+        """
+        return self.__consoler.consoler.epoch
+
     # 检测日志处理器是否重复注册
     def _check_init(func):
         """装饰器，防止多次注册处理器"""
