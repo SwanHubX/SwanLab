@@ -1,6 +1,5 @@
 from typing import Optional, List, Dict, Union, Any
 import swanlab
-from ..data.run import SwanLabRun
 
 try:
     from transformers.trainer_callback import TrainerCallback
@@ -36,11 +35,10 @@ class SwanLabCallback(TrainerCallback):
         description: Optional[str] = None,
         logdir: Optional[str] = None,
         cloud: Optional[bool] = True,
-        run: Optional[SwanLabRun] = None,
         **kwargs: Any,
     ):
         self._initialized = False
-        self._experiment = run
+        self._experiment = swanlab
 
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
@@ -67,8 +65,8 @@ class SwanLabCallback(TrainerCallback):
             return
 
         # 如果没有注册过实验
-        if self._experiment is None:
-            self._experiment = swanlab.init(**self._swanlab_init)
+        if self._experiment.sdk.run is None:
+            self._experiment.init(**self._swanlab_init)
 
         if args:
             combined_dict = {**args.to_sanitized_dict()}
