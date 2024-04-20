@@ -177,6 +177,22 @@ SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biase
 
 
 
+## 在论文中引用SwanLab
+
+如果您发现 SwanLab 对您的研究之旅有帮助，如果您能认可 SwanLab 的贡献，我们将非常开心：
+
+```bibtex
+@software{Zeyilin_SwanLab_2023,
+  author = {Zeyi Lin, Shaohong Chen, Kang Li, Qiushan Jiang, Zirui Cai,  Kaifang Ji and {The SwanLab team}},
+  license = {Apache-2.0},
+  title = {{SwanLab}},
+  url = {https://github.com/aimhubio/aim},
+  year = {2023}
+}
+```
+
+
+
 ## 为SwanLab做出贡献
 
 考虑为 Aim 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
@@ -184,44 +200,6 @@ SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biase
 通过提交您的第一个拉取请求来加入 Aim 贡献者。快乐写代码！ 😊
 
 
-
-
-
-## 使用教程
-
-**入门教程**
-- [安装](#安装)
-- [快速上手](https://geektechstudio.feishu.cn/wiki/UInBw9eaziv17IkwfrOcHCZ1nbc)
-- [启动实验看板](https://geektechstudio.feishu.cn/wiki/YsEfwC79viJL2nk5TgPcAOUhn5U)  
-
-**Python API**
-- [init](https://geektechstudio.feishu.cn/wiki/H7Wbwt91LiCJtnkpHOzcar4TnCc)
-- [log](https://geektechstudio.feishu.cn/wiki/RmjXwjmgUi5zGCkBPsTc5ygQn4g)
-- [config](https://geektechstudio.feishu.cn/wiki/HkTOwxLkHiUC84kJNrlcohyGnuh)
-- [Image - 图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)
-- [Audio - 音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)
-- [Text - 文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)
-
-**CLI API**
-- [watch - 开启实验看板](https://geektechstudio.feishu.cn/wiki/Q6I5wdyr9iRYkdkZ2gYcHQkxnCU)
-
-**技巧**
-- [远程访问实验看板](https://geektechstudio.feishu.cn/wiki/Icesw6coTidDsPkN960c0lNtnCb)
-- [将argparse传入swanlab.config](https://geektechstudio.feishu.cn/wiki/CT1Xwo6ehimNH5kz7y9csTGkn0e)
-
-<br>
-
-## 案例
-
-通过以下用例学习如何更有效地使用SwanLab：
-
-| 案例 | 介绍 | 
-| ------- | ------- |
-| [Hello World](https://github.com/SwanHubX/SwanLab-examples/tree/main/Hello_World) | 简单入门 |
-| [MNIST](https://github.com/SwanHubX/SwanLab-examples/tree/main/MNIST) | 基于神经网络的MNIST手写体识别（使用pytorch、swanlab库） |
-| [图像分类](https://github.com/SwanHubX/SwanLab-examples/blob/main/Resnet50) | ResNet50猫狗分类（使用pytorch、swanlab、Gradio库） [图文教程](https://zhuanlan.zhihu.com/p/676430630) |
-| [文本生成](https://github.com/SwanHubX/SwanLab-examples/blob/main/Word_language_model) | 基于自然语言模型的文本生成 (RNN/LSTM/GRU/Transformer) |
-| [微调UIE](https://github.com/SwanHubX/SwanLab-examples/tree/main/UIE) | 如何使用个人数据来微调UIE模型并通过swanlab监控训练过程 |
 
 <br>
 
