@@ -212,12 +212,8 @@ class Consoler(__consoler_class(), LeverCtl):
         # 如果长度为1，说明没有换行符
         if len(messages) == 1:
             self.__buffer = self.__buffer + messages[0]
-        # 如果长度为2，说明只有一个换行符
-        elif len(messages) == 2:
-            self.upload_message(self.__buffer + messages[0])
-            self.__buffer = messages[1]
         # 如果长度大于2，说明其中包含多个换行符
-        elif len(messages) > 2:
+        elif len(messages) > 1:
             self.upload_message(self.__buffer + messages[0])
             self.__buffer = messages[-1]
             for m in messages[1:-1]:
