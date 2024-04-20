@@ -71,7 +71,7 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 pip install swanlab
 ```
 
-## 2. 登录SwanLab
+## 2. 登录并获取API Key
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
 
