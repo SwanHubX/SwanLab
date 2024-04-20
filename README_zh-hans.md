@@ -135,23 +135,19 @@ for i in range(10):
 ### 1.增加参数logdir与cloud
 
 ```python
-import swanlab
+...
 
 swanlab.init(
-  project="my-first-ml",
-  config={'learning-rate': 0.003},
-  # 指定日志文件保存路径
   logdir='./logs',
   cloud=False,
 )
 
-# 记录指标
-for i in range(10):
-    swanlab.log({"loss": i})
+...
 ```
 
-- 参数`cloud`设置为False即可关闭将实验同步到云端
-- 参数`logdir`指定了SwanLab日志文件的保存位置，日志文件会在跟踪实验的过程中被创建和更新，自托管仪表盘是基于这些日志文件实现可视化的。
+参数`cloud`设置为False即可关闭将实验同步到云端，参数`logdir`指定了SwanLab日志文件的保存位置。
+
+日志文件会在跟踪实验的过程中被创建和更新，自托管仪表盘是基于这些日志文件实现可视化的。
 
 
 ### 2.在训练的同时启动SwanLab UI
