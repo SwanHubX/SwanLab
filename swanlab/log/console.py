@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
+from typing import Optional
 from swanlab.utils import create_time
 
 
@@ -71,7 +72,7 @@ class LeverCtl(object):
             # 不符合要求时返回 None
             return False
 
-    def checkLevel(self, message):
+    def check_level(self, message):
         """检查当前记录等级是否大于等于指定等级
 
         Parameters
@@ -149,6 +150,7 @@ class Consoler(__consoler_class(), LeverCtl):
         except:
             self.__init_status = False
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
+        self.__buffer = ""  # 缓存消息
         self.pool = None
         self.__epoch = 0
 
@@ -162,6 +164,10 @@ class Consoler(__consoler_class(), LeverCtl):
     @property
     def init_status(self) -> bool:
         return self.__init_status
+
+    @property
+    def can_upload(self) -> bool:
+        return self.pool is not None
 
     def init(self, path):
         # 通过当前日期生成日志文件名
@@ -201,53 +207,24 @@ class Consoler(__consoler_class(), LeverCtl):
         self.original_stdout.flush()
 
         # 检查记录等级，高于或等于写入等级即可写入日志文件
-        if not self.checkLevel(message):
+        if not self.check_level(message):
             return
 
-        if self.__previous_message is None:
-            self.__sum += 1
-            message = str(self.__sum) + " " + FONT.clear(message)
-            self.__previous_message = ""
-        # 如果直接就是换行
-        elif message == "\n":
-            # 上一个消息也是以 \n 结尾
-            if self.__previous_message.endswith("\n"):
-                self.__sum += 1
-                message = str(self.__sum) + " \n"
-        # 如果在字符串含有 \n
-        elif "\n" in message:
-            # 通过 \n 切割字符串
-            messages = FONT.clear(message).split("\n")
-            for index, msg in enumerate(messages):
-                # 两种情况不需要处理
-                # 为第一个子串，且上一条消息不是以换行结尾，那么不需要添加行号
-                # 为最后一个子串，且该子串为空，那么不需要添加行号
-                if (index == 0 and not self.__previous_message.endswith("\n")) or (
-                    index == len(messages) - 1 and msg == ""
-                ):
-                    pass
-                # 该字串需要单独一行展示，则添加行号
-                else:
-                    self.__sum += 1
-                    msg = str(self.__sum) + " " + msg
-                # 如果最后为空，说明原串以 \n 结尾，略过
-                if index == len(messages) - 1 and msg == "":
-                    pass
-                else:
-                    self.console.write(msg + "\n")
-                    self.upload_message(" ".join(msg.split(' ')[1:]) + "\n")
-            self.__previous_message = FONT.clear(message)
-            return self.console.flush()
-        # 如果是一个头尾不带换行的字符串，需要判断一下前一个message是否带有换行
-        else:
-            if self.__previous_message.endswith("\n"):
-                self.__sum += 1
-                message = str(self.__sum) + " " + FONT.clear(message)
-            else:
-                message = FONT.clear(message)
-        self.__previous_message = FONT.clear(message)
+        message = FONT.clear(message)
+        if self.can_upload:
+            # 上传到云端
+            messages = message.split("\n")
+            # 如果长度为1，说明没有换行符
+            if len(messages) == 1:
+                self.__buffer = self.__buffer + messages[0]
+            # 如果长度大于2，说明其中包含多个换行符
+            elif len(messages) > 1:
+                self.upload_message(self.__buffer + messages[0])
+                self.__buffer = messages[-1]
+                for m in messages[1:-1]:
+                    self.upload_message(m)
+
         self.console.write(message)
-        self.upload_message(" ".join(message.split(' ')[1:]))
         self.console.flush()
 
     def setLevel(self, level):
@@ -257,14 +234,11 @@ class Consoler(__consoler_class(), LeverCtl):
         return self.__sum
 
     def upload_message(self, message):
-        if self.pool is None:
-            return
         self.__epoch += 1
         # 将日志信息放入队列
-        self.pool.queue.put((
-            UploadType.LOG,
-            [{"message": message, "create_time": create_time(), "epoch": self.__epoch}]
-        ))
+        self.pool.queue.put(
+            (UploadType.LOG, [{"message": message, "create_time": create_time(), "epoch": self.__epoch}])
+        )
 
 
 class SwanConsoler:
@@ -292,5 +266,6 @@ class SwanConsoler:
 
     def get_level(self):
         return self.consoler.getLevel()
+
 
 # if __name__ == "__main__":
