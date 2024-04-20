@@ -32,7 +32,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
 @async_error_handler
 async def upload_logs(logs: List[dict], level: str = "INFO"):
     """
-    模拟一下，上传日志和实验指标信息
+    上传日志信息
     :param logs: 日志列表
     :param level: 日志级别，'INFO', 'ERROR'，默认INFO
     """
