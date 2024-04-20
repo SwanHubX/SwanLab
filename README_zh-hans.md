@@ -20,18 +20,18 @@
 </div>
 
 <details>
-<summary><kbd>目录树</kbd></summary>
+<summary>目录树</summary>
 
 #### TOC
 
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [🏁 快速开始](#-快速开始)
-  - [1.安装](#安装)
-  - [2.登录并获取API Key](#登录并获取api-key)
-  - [3.将SwanLab与你的代码集成](#将SwanLab与你的代码集成)
+  - [1.安装](#1.安装)
+  - [2.登录并获取API Key](#2.登录并获取api-key)
+  - [3.将SwanLab与你的代码集成](#3.将SwanLab与你的代码集成)
 - [💻 自托管](#-自托管)
-  - [1.增加参数logdir与cloud](#增加参数logdir与cloud)
-  - [2.启动SwanLab UI](#在训练的同时启动swanlab-ui)
+  - [1.增加参数logdir与cloud](#1.增加参数logdir与cloud)
+  - [2.启动SwanLab UI](#2.在训练的同时启动swanlab-ui)
 - [⚡️ 框架集成](#-框架集成)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
   - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
@@ -88,13 +88,13 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 ## 🏁 快速开始
 
-### 安装
+### 1.安装
 
 ```bash
 pip install swanlab
 ```
 
-### 登录并获取API Key
+### 2.登录并获取API Key
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
 
@@ -108,7 +108,7 @@ swanlab login
 
 出现提示时，输入您的API Key，按下回车，完成登陆。
 
-### 将SwanLab与你的代码集成
+### 3.将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -132,7 +132,7 @@ for i in range(10):
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-### 增加参数logdir与cloud
+### 1.增加参数logdir与cloud
 
 ```python
 import swanlab
@@ -157,7 +157,7 @@ for i in range(10):
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 
-### 在训练的同时启动SwanLab UI
+### 2.在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
