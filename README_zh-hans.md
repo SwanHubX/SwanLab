@@ -24,25 +24,25 @@
 
 #### TOC
 
-- [👋🏻 什么是SwanLab](#👋🏻-什么是swanlab)
-- [🏁 快速开始](#🏁-快速开始)
-  - [安装](#安装)
-  - [登录并获取API Key](#登录并获取api-key)
-  - [将SwanLab与你的代码集成](#将SwanLab与你的代码集成)
-- [💻 自托管](#💻-自托管)
-  - [增加参数logdir与cloud](#增加参数logdir与cloud)
-  - [在训练的同时启动SwanLab UI](#在训练的同时启动swanlab-ui)
-- [框架集成](#框架集成)
-- [🆚 与熟悉的工具的比较](#🆚-与熟悉的工具的比较)
+- [👋🏻 什么是SwanLab](#-什么是swanlab)
+- [🏁 快速开始](#-快速开始)
+  - [1.安装](#安装)
+  - [2.登录并获取API Key](#登录并获取api-key)
+  - [3.将SwanLab与你的代码集成](#将SwanLab与你的代码集成)
+- [💻 自托管](#-自托管)
+  - [1.增加参数logdir与cloud](#增加参数logdir与cloud)
+  - [2.启动SwanLab UI](#在训练的同时启动swanlab-ui)
+- [⚡️ 框架集成](#-框架集成)
+- [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
   - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
   - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
-- [🛣️ Roadmap](#🛣️-roadmap)
-- [👥 社区](#👥-社区)
+- [🛣️ Roadmap](#-roadmap)
+- [👥 社区](#-社区)
   - [社区与支持](#社区与支持)
   - [SwanLab README徽章](#swanlab-readme徽章)
   - [在论文中引用SwanLab](#在论文中引用swanlab)
   - [为SwanLab做出贡献](#为swanlab做出贡献)
-- [协议](#协议)
+- [📃 协议](#-协议)
 
 
 ####
@@ -169,7 +169,7 @@ swanlab watch -l ./logs
  
 <br>
 
-## 框架集成
+## ⚡️ 框架集成
 
 将您最喜欢的框架与SwanLab结合使用，[更多集成](#)。
 
@@ -402,6 +402,6 @@ trainer.train()
 <br>
 
 
-## 协议
+## 📃 协议
 
 本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
