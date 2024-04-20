@@ -72,7 +72,7 @@ class LeverCtl(object):
             # 不符合要求时返回 None
             return False
 
-    def checklevel(self, message):
+    def check_level(self, message):
         """检查当前记录等级是否大于等于指定等级
 
         Parameters
@@ -207,7 +207,7 @@ class Consoler(__consoler_class(), LeverCtl):
         self.original_stdout.flush()
 
         # 检查记录等级，高于或等于写入等级即可写入日志文件
-        if not self.checklevel(message):
+        if not self.check_level(message):
             return
 
         message = FONT.clear(message)
