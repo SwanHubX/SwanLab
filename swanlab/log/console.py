@@ -72,7 +72,7 @@ class LeverCtl(object):
             # 不符合要求时返回 None
             return False
 
-    def checkLevel(self, message):
+    def checklevel(self, message):
         """检查当前记录等级是否大于等于指定等级
 
         Parameters
@@ -165,6 +165,10 @@ class Consoler(__consoler_class(), LeverCtl):
     def init_status(self) -> bool:
         return self.__init_status
 
+    @property
+    def can_upload(self) -> bool:
+        return self.pool is not None
+
     def init(self, path):
         # 通过当前日期生成日志文件名
         self.now = datetime.now().strftime("%Y-%m-%d")
@@ -203,21 +207,22 @@ class Consoler(__consoler_class(), LeverCtl):
         self.original_stdout.flush()
 
         # 检查记录等级，高于或等于写入等级即可写入日志文件
-        if not self.checkLevel(message):
+        if not self.checklevel(message):
             return
 
         message = FONT.clear(message)
-        # 上传到云端
-        messages = message.split("\n")
-        # 如果长度为1，说明没有换行符
-        if len(messages) == 1:
-            self.__buffer = self.__buffer + messages[0]
-        # 如果长度大于2，说明其中包含多个换行符
-        elif len(messages) > 1:
-            self.upload_message(self.__buffer + messages[0])
-            self.__buffer = messages[-1]
-            for m in messages[1:-1]:
-                self.upload_message(m)
+        if self.can_upload:
+            # 上传到云端
+            messages = message.split("\n")
+            # 如果长度为1，说明没有换行符
+            if len(messages) == 1:
+                self.__buffer = self.__buffer + messages[0]
+            # 如果长度大于2，说明其中包含多个换行符
+            elif len(messages) > 1:
+                self.upload_message(self.__buffer + messages[0])
+                self.__buffer = messages[-1]
+                for m in messages[1:-1]:
+                    self.upload_message(m)
 
         self.console.write(message)
         self.console.flush()
@@ -229,8 +234,6 @@ class Consoler(__consoler_class(), LeverCtl):
         return self.__sum
 
     def upload_message(self, message):
-        if self.pool is None:
-            return
         self.__epoch += 1
         # 将日志信息放入队列
         self.pool.queue.put(
