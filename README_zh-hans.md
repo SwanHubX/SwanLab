@@ -32,7 +32,7 @@
 - [💻 自托管](#-自托管)
   - [1.增加参数logdir与cloud](#1增加参数logdir与cloud)
   - [2.启动SwanLab UI](#2在训练的同时启动swanlab-ui)
-- [⚡️ 框架集成](#-框架集成)
+- [🚗 框架集成](#-框架集成)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
   - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
   - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
