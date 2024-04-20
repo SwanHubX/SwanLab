@@ -49,13 +49,13 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 <br>
 
-## ⚡️最近更新了什么
+## 最近更新了什么
 
-**4.25：**waiting
+**4.25:** waiting
 
-**3.19：**我们修复了一些问题，并为即将到来的云端版本做准备
+**3.19:** 我们修复了一些问题，并为即将到来的云端版本做准备
 
-**3.12：**我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
+**3.12:** 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
@@ -103,17 +103,13 @@ for i in range(10):
 
 大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个SwanLab实验。
 
-<div align="center">
-  <img src="readme_files/get-started.png" width="600">
-</div>
-
 <br>
 
 # 💻自托管
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-## 1. 增加参数`logdir`：
+## 1. 增加参数logdir与cloud
 
 ```python
 import swanlab
@@ -122,7 +118,8 @@ swanlab.init(
   project="my-first-ml",
   config={'learning-rate': 0.003},
   # 指定日志文件保存路径
-  logdir='./logs'
+  logdir='./logs',
+  cloud=False,
 )
 
 # 记录指标
@@ -130,7 +127,9 @@ for i in range(10):
     swanlab.log({"loss": i})
 ```
 
-`logdir`指定了SwanLab日志文件的保存位置，日志文件会在跟踪实验的过程中被创建和更新，自托管仪表盘是基于这些日志文件实现可视化的。
+将参数`cloud`设置为False即可关闭将实验同步到云端。
+
+参数`logdir`指定了SwanLab日志文件的保存位置，日志文件会在跟踪实验的过程中被创建和更新，自托管仪表盘是基于这些日志文件实现可视化的。
 
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
@@ -139,15 +138,11 @@ ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
-```bash
+```console
 swanlab watch -l ./logs
 ```
 
-运行完成后，SwanLab会给你1个本地的URL链接（默认是http://127.0.0.1:5092），查看链接，即可在浏览器看到你的第一个实验可视化结果。
-
-<div align="center">
-  <img src="readme_files/get-started.png" width="600">
-</div>
+运行完成后，SwanLab会给你1个本地的URL链接（默认是[http://127.0.0.1:5092](http://127.0.0.1:5092)），查看链接，即可在浏览器看到你的第一个实验可视化结果。
  
 <br>
 
@@ -309,19 +304,21 @@ trainer.train()
 
 - **☁️支持在线使用**：
   通过SwanLab可以方便地将训练实验在云端在线同步与保存，便于远程查看训练进展、管理历史项目、分享实验链接、发送实时消息通知、多端看实验等。而Tensorboard是一个离线的实验跟踪工具。
+
 - **👥多人协作**：
   在进行多人、跨团队的机器学习协作时，通过SwanLab可以轻松管理多人的训练项目、分享实验链接、跨空间交流讨论。而Tensorboard主要为个人设计，难以进行多人协作和分享实验。
+
 - **💻持久、集中的仪表板**：
   无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的GPU实例中，你的结果都会记录到同一个集中式仪表板中。而使用TensorBoard需要花费时间从不同的机器复制和管理 TFEvent文件。
+  
 - **💪更强大的表格**：
   通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。 TensorBoard 不适用于大型项目。  
 
 
 **Weights and Biases vs SwanLab**
 
-云端 vs 自托管+云端
-
 - Weights and Biases 是一个必须联网使用的闭源MLOps平台
+
 - SwanLab 不仅支持联网使用，也支持开源、免费、自托管的版本
 
 <br>
@@ -370,7 +367,9 @@ trainer.train()
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持SwanLab。
 
-**贡献者们**
+<br>
+
+**Contributors**
 
 <a href="https://github.com/swanhubx/swanlab/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=swanhubx/swanlab" />
