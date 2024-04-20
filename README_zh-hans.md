@@ -4,7 +4,7 @@
 <h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
 
 <p align="center">
-跟踪与可视化你的机器学习全流程
+SwanLab是一款开源、自托管的AI实验跟踪工具，旨在加速AI研发团队100倍的研发效率。
 </p>
 
 <p align="center">
@@ -14,7 +14,9 @@
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange" alt= /></a>
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
   <a href="https://github.com/SwanHubX/SwanLab/discussions"><img alt="Github Discussion" src="https://img.shields.io/badge/discussions-GitHub-333333?logo=github"></a>
+  <a href="https://github.com/swanhubx/swanlab/issues"><img alt="issues" src="https://img.shields.io/github/issues/swanhubx/swanlab"></a>
 </p>
+
 
 <p align="center">
   <img alt="SwanLab Head Image" src="readme_files/swanlab-head-image.png" width="800">
@@ -26,6 +28,7 @@
 </p>
 
 
+
 <p align="center">
 <a href="README.md">English</a> | 中文
 </p>
@@ -34,13 +37,30 @@
 
 - [更新日志](#更新日志)
 - [核心功能](#核心功能)
-- [安装](#安装)
-- [快速开始](#快速开始)
-- [使用教程](#使用教程)
-- [案例](#案例)
-- [协议](#协议)
 
 <br>
+
+
+
+## ℹ️关于
+
+SwanLab是一款开源、自托管的AI实验跟踪工具，旨在加速AI研发团队100倍的研发效率。
+
+SwanLab提供了一套UI，用于探索和比较AI训练实验。
+
+
+
+| 在你的机器学习流程中记录元数据 | 通过UI可视化和比较元数据 |
+| ------------------------------ | ------------------------ |
+|                                |                          |
+| **有效地进行机器学习训练**     | **组织你的实验**         |
+|                                |                          |
+
+
+
+
+
+
 
 ## 更新日志
 
@@ -60,105 +80,50 @@
 
 <br>
 
-## 核心功能
-
-- **📊 训练可视化**: 可视化你的机器学习训练全过程
-
-<div align="center">
-  <img src="readme_files/charts-1.gif" width="600">
-</div>
-
-- **🚀 多媒体图表**: 记录训练中的图像/音频/视频/文本/3D模型...
-
-<div align="center">
-  <img src="readme_files/mutilmedia-chart.gif" width="600">
-</div>
 
 
-- **🧪 表格视图**: 对比关键指标，更快获得洞见
+# 🏁 快速开始
 
-<div align="center">
-  <img src="readme_files/experiments-table.png" width="600">
-</div>
+请按照以下步骤开始使用 Aim。
 
-
-- **⚡️ 自动保存环境信息**: 自动保存超参数，配置，指标，终端日志记录，pip环境信息等
-
-- **🥔 离线支持**: SwanLab可以完全离线运行，无需任何对互联网的访问。例如，它可以在您的本地计算机上、企业防火墙后面或数据中心中运行。
-
-<br>
-
-## 安装
-
-### pip安装
-
-环境要求：Python 3.8+
-
-使用[pip](https://pip.pypa.io/en/stable/)将安装我们稳定发布的版本，安装命令如下所示：
+### 1. 在你的环境中安装SwanLab
 
 ```bash
 pip install -U swanlab
 ```
 
-### 源码安装
 
-如果您等不及发布，想体验最新的代码与特性，那么必须[从源代码安装此库](https://geektechstudio.feishu.cn/wiki/DvxSweHUKiAe8yksci3cMflbnwh#SMXHdJ1c1o4jzTxcDticHcwvnHd)。
 
-<br>
+## 2. 将SwanLab与你的代码集成
 
-## 快速开始
-
-1. 首先，使用[pip](https://pip.pypa.io/en/stable/)安装SwanLab SDK:
-
-```bash
-pip install -U swanlab
-```
-
-2. 然后，使用下面的示例代码片段作为模板，将SwanLab集成到您的Python脚本中:
 ```python
 import swanlab
 
-# 初始化swanlab
+# 初始化一个新的swanlab实验
 swanlab.init(
-  config={'epochs': 20, 'learning_rate': 0.01},  # 通过config参数保存输入或超参数
-  logdir="./logs",  # 指定日志文件的保存路径
+  # 记录超参数
+  config={
+    'batch_size': 32,
+    'learning_rate': 0.01
+  },  
+  # 指定日志文件的保存路径
+  logdir="./logs",  
 )
 
-# 把模型训练的代码放到这里...
-...
-
-# 使用swanlab.log记录指标变化的数据
-for epoch in range(1, swanlab.config.epoch):
+# 记录指标
+for i in range(10):
     swanlab.log({"loss": loss})
+    swanlab.log({"acc": loss})
 ```
 
-例如, 我们写1个模拟实验脚本:
-```python
-import swanlab
-import random
 
-offset = random.random() / 5
 
-run = swanlab.init(
-    experiment_name="Example",
-    description="这是一个机器学习模拟实验",
-    config={
-        "learning_rate": 0.01,
-        "epochs": 20,
-    },
-    logdir="./logs"
-)
+### 3. 在训练的同时启动SwanLab UI
 
-# 模拟机器学习训练过程
-for epoch in range(2, run.config.epochs):
-    acc = 1 - 2**-epoch - random.random() / epoch - offset
-    loss = 2**-epoch + random.random() / epoch + offset
-    swanlab.log({"loss": loss, "accuracy": acc})
-```
+打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
-3. 最后，打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 ```bash
-$ swanlab watch -l ./logs
+swanlab watch -l ./logs
 ```
 
 运行完成后，SwanLab会给你1个URL链接（默认是http://127.0.0.1:5092），查看链接，即可在浏览器看到你的第一个实验可视化结果。
@@ -166,8 +131,56 @@ $ swanlab watch -l ./logs
 <div align="center">
   <img src="readme_files/get-started.png" width="600">
 </div>
-
 <br>
+
+
+
+## 🆚与熟悉的工具的比较
+
+**Tensorboard vs SwanLab**
+
+在线协作：在进行多人、跨团队的机器学习协作时，通过SwanLab可以轻松实现管理多人的训练项目、分享实验链接、跨空间交流讨论。
+
+
+
+**Weights and Biases vs SwanLab**
+
+云端 vs 自托管+云端
+
+- Weights and Biases 是一个必须联网使用的闭源MLOps平台
+- SwanLab 不仅支持联网使用，也支持开源、免费、自托管的版本
+
+
+
+# 👥 社区
+
+## 交流群
+
+👋 加入我们的<a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>，一起交流AI，讨论技术，共同成长！
+
+
+
+## SwanLab README徽章
+
+如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的README中：
+
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+
+```
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+```
+
+
+
+## 为SwanLab做出贡献
+
+考虑为 Aim 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
+
+通过提交您的第一个拉取请求来加入 Aim 贡献者。快乐写代码！ 😊
+
+
+
+
 
 ## 使用教程
 
