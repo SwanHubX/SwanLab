@@ -28,19 +28,32 @@ SwanLab提供了友好的API和漂亮的界面，结合了超参数跟踪、指�
 借助SwanLab，科研人员可以沉淀自己的每一次训练经验，与合作者无缝地交流和协作，机器学习工程师可以更快地开发可用于生产的模型。
 
 以下是其核心特性列表：
+</br> </br>
 
-1. **📊实验指标与超参数跟踪**：极简的代码嵌入您的机器学习pipeline，跟踪记录训练关键指标
+**1. 📊实验指标与超参数跟踪**:  
+  极简的代码嵌入您的机器学习pipeline，跟踪记录训练关键指标
    - 自由的超参数与实验配置记录
    - 支持的元数据类型：标量指标、图像、音频、文本、...
    - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
    - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
-2. **⚡️全面的框架集成**：PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace Transformers、Hydra、...
-3. **📦组织实验**：集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
-4. **🆚比较结果**：通过在线表格与对比图表比较不同实验的超参数和结果，挖掘迭代灵感
-5. **👥在线协作**：您可以与团队进行协作式训练，支持将实验实时同步在一个项目下，您可以在线查看团队的训练记录，基于结果发表看法与建议
-6. **✉️分享结果**：复制和发送持久的URL来共享每个实验，方便地发送给伙伴，或嵌入到在线笔记中
-7. **💻支持自托管**：支持不联网使用，自托管的社区版同样可以查看仪表盘与管理实验
 
+**2. ⚡️全面的框架集成**:  
+  PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace Transformers、Hydra、...
+
+**3. 📦组织实验**:  
+  集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
+
+**4. 🆚比较结果**:  
+  通过在线表格与对比图表比较不同实验的超参数和结果，挖掘迭代灵感
+
+**5. 👥在线协作**:  
+  您可以与团队进行协作式训练，支持将实验实时同步在一个项目下，您可以在线查看团队的训练记录，基于结果发表看法与建议
+
+**6. ✉️分享结果**:  
+  复制和发送持久的URL来共享每个实验，方便地发送给伙伴，或嵌入到在线笔记中
+
+**7. 💻支持自托管**:  
+  支持不联网使用，自托管的社区版同样可以查看仪表盘与管理实验
 
 
 ## ⚡️最近更新了什么
@@ -57,25 +70,21 @@ SwanLab提供了友好的API和漂亮的界面，结合了超参数跟踪、指�
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
-<br>
-
-
 
 ## 🏁 快速开始
 
 请按照以下步骤开始使用 SwanLab。
 
-**Step 1**: 安装
+### 1. 安装
 
 ```bash
 pip install swanlab
 ```
 
-<br>
-
-**Step 2**: 登录SwanLab
+### 2. 登录SwanLab
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
+
 2. 登录账号，在用户设置 > [API Key](http://localhost:5173/zh/guide_cloud/.html) 里复制您的API Key
 
 3. 打开终端，输入：
@@ -86,9 +95,7 @@ swanlab login
 
 出现提示时，输入您的API Key，按下回车，完成登陆。
 
-<br>
-
-**Step 3**: 将SwanLab与你的代码集成
+### 3. 将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -111,12 +118,11 @@ for i in range(10):
 </div>
 
 
-
 ## 💻自托管
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-**Step 1**: 在代码片段的`swanlab.init`中增加参数`logdir`：
+### 1. 在代码片段的`swanlab.init`中增加参数`logdir`：
 
 ```python
 import swanlab
@@ -138,8 +144,7 @@ for i in range(10):
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 
-
-**Step 2**: 在训练的同时启动SwanLab UI
+### 2. 在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
@@ -152,9 +157,6 @@ swanlab watch -l ./logs
 <div align="center">
   <img src="readme_files/get-started.png" width="600">
 </div>
-
-<br>
-
  
 
 ## 框架集成
@@ -306,17 +308,21 @@ trainer.train()
 
 </details>
 
+<br>
 
 
 ## 🆚与熟悉的工具的比较
 
 **Tensorboard vs SwanLab**
 
-- **☁️支持在线使用**：通过SwanLab可以方便地将训练实验在云端在线同步与保存，便于远程查看训练进展、管理历史项目、分享实验链接、发送实时消息通知、多端看实验等。而Tensorboard是一个离线的实验跟踪工具。
-- **👥多人协作**：在进行多人、跨团队的机器学习协作时，通过SwanLab可以轻松管理多人的训练项目、分享实验链接、跨空间交流讨论。而Tensorboard主要为个人设计，难以进行多人协作和分享实验。
-- **💻持久、集中的仪表板**：无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的GPU实例中，你的结果都会记录到同一个集中式仪表板中。而使用TensorBoard需要花费时间从不同的机器复制和管理 TFEvent文件。
-- **💪更强大的表格**：通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。 TensorBoard 不适用于大型项目。  
-
+- **☁️支持在线使用**：
+  通过SwanLab可以方便地将训练实验在云端在线同步与保存，便于远程查看训练进展、管理历史项目、分享实验链接、发送实时消息通知、多端看实验等。而Tensorboard是一个离线的实验跟踪工具。
+- **👥多人协作**：
+  在进行多人、跨团队的机器学习协作时，通过SwanLab可以轻松管理多人的训练项目、分享实验链接、跨空间交流讨论。而Tensorboard主要为个人设计，难以进行多人协作和分享实验。
+- **💻持久、集中的仪表板**：
+  无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的GPU实例中，你的结果都会记录到同一个集中式仪表板中。而使用TensorBoard需要花费时间从不同的机器复制和管理 TFEvent文件。
+- **💪更强大的表格**：
+  通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。 TensorBoard 不适用于大型项目。  
 
 
 **Weights and Biases vs SwanLab**
@@ -379,10 +385,6 @@ trainer.train()
 <a href="https://github.com/swanhubx/swanlab/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=swanhubx/swanlab" />
 </a>
-
-<br>
-
-
 
 
 
