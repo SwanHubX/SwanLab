@@ -49,13 +49,11 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 <br>
 
-## 最近更新了什么
+## 更新日志
 
-**4.25:** waiting
+[24/03/19] 我们修复了一些问题，并为即将到来的云端版本做准备
 
-**3.19:** 我们修复了一些问题，并为即将到来的云端版本做准备
-
-**3.12:** 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
+[24/03/12] 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
@@ -65,13 +63,13 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 请按照以下步骤开始使用 SwanLab。
 
-## 1. 安装
+## 安装
 
 ```bash
 pip install swanlab
 ```
 
-## 2. 登录并获取API Key
+## 登录并获取API Key
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
 
@@ -85,7 +83,7 @@ swanlab login
 
 出现提示时，输入您的API Key，按下回车，完成登陆。
 
-## 3. 将SwanLab与你的代码集成
+## 将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -109,7 +107,7 @@ for i in range(10):
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-## 1. 增加参数logdir与cloud
+## 增加参数logdir与cloud
 
 ```python
 import swanlab
@@ -134,7 +132,7 @@ for i in range(10):
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 
-## 2. 在训练的同时启动SwanLab UI
+## 在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
