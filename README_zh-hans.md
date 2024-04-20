@@ -1,13 +1,12 @@
-<p align="center">
-  <img alt="SwanLab Library" src="readme_files/swanlab-logo.svg" width="120" height="120">
-</p>
-<h1 align="center"><a href="https://github.com/SwanHubX/SwanLab/tree/main">SwanLab</a></h1>
+![Frame 2545](/Users/zeyilin/Downloads/Frame 2545.png)
 
 <p align="center">
-SwanLab是一款开源、自托管的AI实验跟踪工具，旨在加速AI研发团队100倍的研发效率。
+<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab在线版</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a>
 </p>
 
 <p align="center">
+  <a href="https://swanlab.cn" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/Product-F04438"></a>
   <a href="https://github.com/SwanHubX/SwanLab/stargazers"><img src="https://img.shields.io/github/stars/SwanHubX/SwanLab?style=social" alt= /></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
   <a href="https://github.com/SwanHubX/SwanLab/commits/main"><img src="https://img.shields.io/github/last-commit/SwanHubX/SwanLab" alt="license"></a>
@@ -18,35 +17,23 @@ SwanLab是一款开源、自托管的AI实验跟踪工具，旨在加速AI研发
 </p>
 
 
-<p align="center">
-  <img alt="SwanLab Head Image" src="readme_files/swanlab-head-image.png" width="800">
-</p>
-
-
-<p align="center">
-👀 查看<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">官方文档</a> | 👋 加入我们的<a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>
-</p>
+<div align="center">
+  <a href="./README.md"><img alt="英文文档" src="https://img.shields.io/badge/英文-d9d9d9"></a>
+  <a href="./README_zh-hans.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
+</div>
 
 
 
-<p align="center">
-<a href="README.md">English</a> | 中文
-</p>
+SwanLab是一款开源的AI实验管理平台。其简洁的API和UI结合了超参数跟踪、指标记录、多人协同训练、实验链接分享、实时消息通知等功能，让您可以快速跟踪ML实验、可视化过程、分享给同伴，旨在加速AI研发团队100倍的研发效率。
 
-## 目录
+我们相信...
 
-- [更新日志](#更新日志)
-- [核心功能](#核心功能)
+SwanLab提供了一套UI，用于探索和比较AI训练实验。以下是其核心功能列表：
 
-<br>
-
-
-
-## ℹ️关于
-
-SwanLab是一款开源、自托管的AI实验跟踪工具，旨在加速AI研发团队100倍的研发效率。
-
-SwanLab提供了一套UI，用于探索和比较AI训练实验。
+1. 123
+2. 234
+3. 345
+4. 
 
 
 
@@ -58,35 +45,19 @@ SwanLab提供了一套UI，用于探索和比较AI训练实验。
 
 
 
+# 🎬 Demo
 
 
 
 
-## 更新日志
-
-[24/03/19] 🔧 我们修复了一些问题，并为即将到来的云端版本做准备。（v0.2.4）
-
-[24/03/12] 👽 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入。（v0.2.3）
-
-[24/03/03] 🔧 我们修复了v0.2.1的一些问题，以及支持了通过按键切换多媒体图表的内容。（v0.2.2）
-
-[24/03/01] 🚀 依旧是超大杯的更新！我们支持了[文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)以适配NLP、LLM、Agent等场景任务的需求; 我们对折线图的UI、图例、渲染速度做了大量优化，并提高了Logs的渲染性能，200k行的终端打印信息查看也不卡顿。（v0.2.1）
-
-[24/02/08] 🔥 超大更新! 我们支持了[图像图表](https://geektechstudio.feishu.cn/wiki/LZFxwTuegiXxPGkhXcpcBUEXnHb)、[音频图表](https://geektechstudio.feishu.cn/wiki/SU6mwcVNbixMf1k95KbcZHDCnJe)、多实验图表以及一系列全面的优化和改进！可通过 `pip install -U swanlab` 升级到最新版本体验新特性。（v0.2.0）
-
-[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
-
-升级到最新版本: `pip install -U swanlab`。
-
-<br>
 
 
 
 # 🏁 快速开始
 
-请按照以下步骤开始使用 Aim。
+请按照以下步骤开始使用 SwanLab。
 
-### 1. 在你的环境中安装SwanLab
+## 1. 在你的环境中安装SwanLab
 
 ```bash
 pip install -U swanlab
@@ -94,7 +65,17 @@ pip install -U swanlab
 
 
 
-## 2. 将SwanLab与你的代码集成
+## 2. 登录SwanLab
+
+...
+
+
+
+ps：如果你想要离线使用，[自托管教程](#🏁 快速开始-自托管)
+
+
+
+## 3. 将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -118,7 +99,7 @@ for i in range(10):
 
 
 
-### 3. 在训练的同时启动SwanLab UI
+### 4. 在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
@@ -135,7 +116,33 @@ swanlab watch -l ./logs
 
 
 
-## 🆚与熟悉的工具的比较
+# 🏁 快速开始-自托管
+
+
+
+
+
+
+
+# ⚡️更新日志
+
+[24/04/...]  ...
+
+[24/03/19] 🔧 我们修复了一些问题，并为即将到来的云端版本做准备。（v0.2.4）
+
+[24/03/12] 👽 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入。（v0.2.3）
+
+[24/03/03] 🔧 我们修复了v0.2.1的一些问题，以及支持了通过按键切换多媒体图表的内容。（v0.2.2）
+
+[24/03/01] 🚀 依旧是超大杯的更新！我们支持了[文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)以适配NLP、LLM、Agent等场景任务的需求; 我们对折线图的UI、图例、渲染速度做了大量优化，并提高了Logs的渲染性能，200k行的终端打印信息查看也不卡顿。（v0.2.1）
+
+[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
+
+<br>
+
+
+
+# 🆚与熟悉的工具的比较
 
 SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biases、MLFlow等工具在ML工具生态的巨大贡献！  
 
@@ -159,9 +166,11 @@ SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biase
 
 # 👥 社区
 
-## 交流群
+## 社区与支持
 
-👋 加入我们的<a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>，一起交流AI，讨论技术，共同成长！
+- [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用SwanLab时遇到的错误和问题
+- [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用SwanLab的问题
+- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>：交流使用SwanLab的问题、分享最新的AI技术
 
 
 
@@ -195,14 +204,22 @@ SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biase
 
 ## 为SwanLab做出贡献
 
-考虑为 Aim 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
+考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
 
-通过提交您的第一个拉取请求来加入 Aim 贡献者。快乐写代码！ 😊
+同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持SwanLab。
 
+**贡献者们**
 
+<a href="https://github.com/swanhubx/swanlab/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=swanhubx/swanlab" />
+</a>
+
+(上图由 [contrib.rocks](https://contrib.rocks) 制作)
 
 <br>
 
+
+
 ## 协议
 
-此项目当前的许可证协议是 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).
+本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
