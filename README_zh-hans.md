@@ -19,7 +19,39 @@
   <a href="./README_zh-hans.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
 </div>
 
-# 👋 什么是SwanLab
+<details>
+<summary><kbd>目录树</kbd></summary>
+
+#### TOC
+
+- [👋🏻 什么是SwanLab](#👋🏻-什么是swanlab)
+- [🏁 快速开始](#🏁-快速开始)
+  - [安装](#安装)
+  - [登录并获取API Key](#登录并获取api-key)
+  - [将SwanLab与你的代码集成](#将SwanLab与你的代码集成)
+- [💻 自托管](#💻-自托管)
+  - [增加参数logdir与cloud](#增加参数logdir与cloud)
+  - [在训练的同时启动SwanLab UI](#在训练的同时启动swanlab-ui)
+- [框架集成](#框架集成)
+- [🆚 与熟悉的工具的比较](#🆚-与熟悉的工具的比较)
+  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
+  - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
+- [🛣️ Roadmap](#🛣️-roadmap)
+- [👥 社区](#👥-社区)
+  - [社区与支持](#社区与支持)
+  - [SwanLab README徽章](#swanlab-readme徽章)
+  - [在论文中引用SwanLab](#在论文中引用swanlab)
+  - [为SwanLab做出贡献](#为swanlab做出贡献)
+- [协议](#协议)
+
+
+####
+
+<br/>
+
+</details>
+
+## 👋🏻 什么是SwanLab
 
 SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
 
@@ -47,29 +79,22 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 **7. 💻支持自托管**: 支持不联网使用，自托管的社区版同样可以查看仪表盘与管理实验
 
-<br>
-
-# 更新日志
-
-[24/03/19] 我们修复了一些问题，并为即将到来的云端版本做准备
-
-[24/03/12] 我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
-
-[完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
+> \[!IMPORTANT]
+>
+> **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～⭐️
 
 <br>
 
-# 🏁 快速开始
 
-请按照以下步骤开始使用 SwanLab。
+## 🏁 快速开始
 
-## 安装
+### 安装
 
 ```bash
 pip install swanlab
 ```
 
-## 登录并获取API Key
+### 登录并获取API Key
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
 
@@ -83,7 +108,7 @@ swanlab login
 
 出现提示时，输入您的API Key，按下回车，完成登陆。
 
-## 将SwanLab与你的代码集成
+### 将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -103,11 +128,11 @@ for i in range(10):
 
 <br>
 
-# 💻自托管
+## 💻 自托管
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-## 增加参数logdir与cloud
+### 增加参数logdir与cloud
 
 ```python
 import swanlab
@@ -132,7 +157,7 @@ for i in range(10):
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 
-## 在训练的同时启动SwanLab UI
+### 在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
@@ -144,7 +169,7 @@ swanlab watch -l ./logs
  
 <br>
 
-# 框架集成
+## 框架集成
 
 将您最喜欢的框架与SwanLab结合使用，[更多集成](#)。
 
@@ -296,9 +321,9 @@ trainer.train()
 <br>
 
 
-# 🆚与熟悉的工具的比较
+## 🆚 与熟悉的工具的比较
 
-**Tensorboard vs SwanLab**
+### Tensorboard vs SwanLab
 
 - **☁️支持在线使用**：
   通过SwanLab可以方便地将训练实验在云端在线同步与保存，便于远程查看训练进展、管理历史项目、分享实验链接、发送实时消息通知、多端看实验等。而Tensorboard是一个离线的实验跟踪工具。
@@ -313,7 +338,7 @@ trainer.train()
   通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。 TensorBoard 不适用于大型项目。  
 
 
-**Weights and Biases vs SwanLab**
+### Weights and Biases vs SwanLab
 
 - Weights and Biases 是一个必须联网使用的闭源MLOps平台
 
@@ -321,21 +346,22 @@ trainer.train()
 
 <br>
 
-# 🛣️Roadmap
+## 🛣️ Roadmap
 
+虚位以待...
 
 <br>
 
 
-# 👥 社区
+## 👥 社区
 
-## 社区与支持
+### 社区与支持
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用SwanLab时遇到的错误和问题
 - [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用SwanLab的问题
 - <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>：交流使用SwanLab的问题、分享最新的AI技术
 
-## SwanLab README徽章
+### SwanLab README徽章
 
 如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的README中：
 
@@ -345,21 +371,21 @@ trainer.train()
 [![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
 ```
 
-## 在论文中引用SwanLab
+### 在论文中引用SwanLab
 
-如果您发现 SwanLab 对您的研究之旅有帮助，如果您能认可 SwanLab 的贡献，我们将非常开心：
+如果您发现 SwanLab 对您的研究之旅有帮助，请考虑以下列格式引用：
 
 ```bibtex
 @software{Zeyilin_SwanLab_2023,
   author = {Zeyi Lin, Shaohong Chen, Kang Li, Qiushan Jiang, Zirui Cai,  Kaifang Ji and {The SwanLab team}},
   license = {Apache-2.0},
   title = {{SwanLab}},
-  url = {https://github.com/aimhubio/aim},
+  url = {https://github.com/swanhubx/swanlab},
   year = {2023}
 }
 ```
 
-## 为SwanLab做出贡献
+### 为SwanLab做出贡献
 
 考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
 
@@ -375,6 +401,7 @@ trainer.train()
 
 <br>
 
-# 协议
+
+## 协议
 
 本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
