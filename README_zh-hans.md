@@ -157,17 +157,15 @@ swanlab watch -l ./logs
 
  
 
-## 🔎框架集成
+## 框架集成
 
 将您最喜欢的框架与SwanLab结合使用，[更多集成](#)。
 
 <details>
-<summary>
-  <strong>⚡️ PyTorch Lightning</strong>
-</summary>
-</details>
-<br>
-
+  <summary>
+    <strong>⚡️ PyTorch Lightning</strong>
+  </summary>
+  <br>
   使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现SwanLab记录训练指标。
 
 ```python
@@ -248,11 +246,10 @@ trainer.test(dataloaders=test_loader)
 <summary>
   <strong> 🤗HuggingFace Transformers</strong>
 </summary>
-</details>
-
-使用`SwanLabCallback`创建示例，并代入`Trainer`的`callbacks`参数中，即可实现SwanLab记录训练指标。
 
 <br>
+
+使用`SwanLabCallback`创建示例，并代入`Trainer`的`callbacks`参数中，即可实现SwanLab记录训练指标。
 
 ```python
 import evaluate
@@ -307,11 +304,11 @@ trainer = Trainer(
 trainer.train()
 ```
 
+</details>
+
 
 
 ## 🆚与熟悉的工具的比较
-
-SwanLab的设计立足在巨人的肩膀，感谢Tensorboard、Weights and Biases、MLFlow等工具在ML工具生态的巨大贡献！  
 
 **Tensorboard vs SwanLab**
 
