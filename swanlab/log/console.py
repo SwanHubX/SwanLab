@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
-from typing import Optional
+from swanlab.utils import create_time
 
 
 class LeverCtl(object):
@@ -150,6 +150,14 @@ class Consoler(__consoler_class(), LeverCtl):
             self.__init_status = False
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
         self.pool = None
+        self.__epoch = 0
+
+    @property
+    def epoch(self):
+        """
+        write 函数调用次数
+        """
+        return self.__epoch
 
     @property
     def init_status(self) -> bool:
@@ -251,7 +259,12 @@ class Consoler(__consoler_class(), LeverCtl):
     def upload_message(self, message):
         if self.pool is None:
             return
-        self.pool.queue.put((UploadType.LOG, [message]))
+        self.__epoch += 1
+        # 将日志信息放入队列
+        self.pool.queue.put((
+            UploadType.LOG,
+            [{"message": message, "create_time": create_time(), "epoch": self.__epoch}]
+        ))
 
 
 class SwanConsoler:

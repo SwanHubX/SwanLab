@@ -28,6 +28,7 @@ from swanlab.api.upload import upload_logs
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
+from swanlab.utils import create_time
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -179,9 +180,8 @@ def init(
     if login_info is None and cloud:
         # 用户登录
         login_info = _login_in_init()
-        # 初始化会话信息
+    if cloud:
         http = create_http(login_info)
-        # 获取当前项目信息
         exp_num = http.mount_project(project, workspace).history_exp_count
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
@@ -367,7 +367,10 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         await run.settings.pool.finish()
         # 上传错误日志
         if error is not None:
-            await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
+            await upload_logs(
+                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
+                level='ERROR'
+            )
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
