@@ -19,11 +19,11 @@
   <a href="./README_zh-hans.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
 </div>
 
-## 👋 什么是SwanLab
+# 👋 什么是SwanLab
 
 SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
 
-SwanLab提供了友好的API和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享、实时消息通知等功能，让您可以快速跟踪ML实验、可视化过程、分享给同伴。
+其提供了友好的API和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享、实时消息通知等功能，让您可以快速跟踪ML实验、可视化过程、分享给同伴。
 
 借助SwanLab，科研人员可以沉淀自己的每一次训练经验，与合作者无缝地交流和协作，机器学习工程师可以更快地开发可用于生产的模型。
 
@@ -51,31 +51,27 @@ SwanLab提供了友好的API和漂亮的界面，结合了超参数跟踪、指�
 
 ## ⚡️最近更新了什么
 
-**24.04.25**：waiting
+**4.25：**waiting
 
-**24.03.19**：我们修复了一些问题，并为即将到来的云端版本做准备
+**3.19：**我们修复了一些问题，并为即将到来的云端版本做准备
 
-**24.03.12**：我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
-
-**24.03.03**：我们修复了v0.2.1的一些问题，以及支持了通过按键切换多媒体图表的内容
-
-**24.03.01**：依旧是超大杯的更新！我们支持了[文本图表](https://geektechstudio.feishu.cn/wiki/T0L7wYfzGiZUCKkxfehcFwYAnIh)以适配NLP、LLM、Agent等场景任务的需求; 我们对折线图的UI、图例、渲染速度做了大量优化，并提高了Logs的渲染性能，200k行的终端打印信息查看也不卡顿
+**3.12：**我们发布了折线图平滑功能，支持3种不同的平滑算法; 我们支持了在多实验图表中对比图像、音频图表; 同时改进了`swanlab.Image`，支持tensor作为输入
 
 [完整更新日志](https://github.com/SwanHubX/SwanLab/releases)
 
 <br>
 
-## 🏁 快速开始
+# 🏁 快速开始
 
 请按照以下步骤开始使用 SwanLab。
 
-### 1. 安装
+## 1. 安装
 
 ```bash
 pip install swanlab
 ```
 
-### 2. 登录SwanLab
+## 2. 登录SwanLab
 
 1. 免费[注册账号](http://localhost:5173/zh/guide_cloud/.html) 
 
@@ -89,7 +85,7 @@ swanlab login
 
 出现提示时，输入您的API Key，按下回车，完成登陆。
 
-### 3. 将SwanLab与你的代码集成
+## 3. 将SwanLab与你的代码集成
 
 ```python
 import swanlab
@@ -113,11 +109,11 @@ for i in range(10):
 
 <br>
 
-## 💻自托管
+# 💻自托管
 
 自托管社区版支持离线查看SwanLab仪表盘。
 
-### 1. 在代码片段的`swanlab.init`中增加参数`logdir`：
+## 1. 增加参数`logdir`：
 
 ```python
 import swanlab
@@ -139,7 +135,7 @@ for i in range(10):
 ps: 如果不设置logdir，则日志文件默认保存在swanlog文件夹下。
 
 
-### 2. 在训练的同时启动SwanLab UI
+## 2. 在训练的同时启动SwanLab UI
 
 打开终端，使用下面的指令，开启一个SwanLab仪表板: 
 
@@ -155,7 +151,7 @@ swanlab watch -l ./logs
  
 <br>
 
-## 框架集成
+# 框架集成
 
 将您最喜欢的框架与SwanLab结合使用，[更多集成](#)。
 
@@ -307,7 +303,7 @@ trainer.train()
 <br>
 
 
-## 🆚与熟悉的工具的比较
+# 🆚与熟悉的工具的比较
 
 **Tensorboard vs SwanLab**
 
@@ -330,21 +326,21 @@ trainer.train()
 
 <br>
 
-## 🛣️Roadmap
+# 🛣️Roadmap
 
 
 <br>
 
 
-## 👥 社区
+# 👥 社区
 
-### 社区与支持
+## 社区与支持
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用SwanLab时遇到的错误和问题
 - [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用SwanLab的问题
 - <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>：交流使用SwanLab的问题、分享最新的AI技术
 
-### SwanLab README徽章
+## SwanLab README徽章
 
 如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的README中：
 
@@ -354,7 +350,7 @@ trainer.train()
 [![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
 ```
 
-### 在论文中引用SwanLab
+## 在论文中引用SwanLab
 
 如果您发现 SwanLab 对您的研究之旅有帮助，如果您能认可 SwanLab 的贡献，我们将非常开心：
 
@@ -368,7 +364,7 @@ trainer.train()
 }
 ```
 
-### 为SwanLab做出贡献
+## 为SwanLab做出贡献
 
 考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
 
@@ -382,6 +378,6 @@ trainer.train()
 
 <br>
 
-## 协议
+# 协议
 
 本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
