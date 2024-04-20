@@ -1,4 +1,4 @@
-![Frame 2545](/Users/zeyilin/Downloads/Frame 2545.png)
+![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
 <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab在线版</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a>
