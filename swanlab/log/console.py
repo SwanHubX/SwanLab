@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
-from typing import Optional
 from swanlab.utils import create_time
 
 
@@ -26,7 +25,7 @@ class LeverCtl(object):
 
         self.__level = level
 
-    def setLevel(self, level):
+    def set_level(self, level):
         """设置记录等级
 
         Parameters
@@ -54,7 +53,8 @@ class LeverCtl(object):
         else:
             return 0
 
-    def __is_swanlog(self, message):
+    @staticmethod
+    def __is_swanlog(message):
         """判断信息是否是 swanlog 类的行为
 
         Parameters
@@ -79,8 +79,6 @@ class LeverCtl(object):
         ----------
         message : string
             打印的信息
-        level : str, optional
-            需要判断的等级，["debug", "info", "warning", "error", "critical"] 其中之一
 
         Returns
         -------
@@ -96,7 +94,7 @@ class LeverCtl(object):
             # 没有匹配到，说明是用户自定义打印，需要记录
             return True
 
-    def getLevel(self):
+    def get_level(self):
         """获取当前记录等级
 
         Returns
@@ -112,7 +110,7 @@ def in_notebook():
     try:
         # notebook 中会有 __IPYTHON__，而正常环境没有定义，所以 try
         # 'type: ignore': 可以让 pylance 忽略对变量定义的检查
-        __IPYTHON__  # type: ignore
+        _ = __IPYTHON__  # type: ignore
         return True
     except NameError:
         return False
@@ -130,29 +128,46 @@ def __consoler_class():
         return sys.stdout.__class__
 
 
+# 检查当前日期是否和控制台日志文件名一致
+def check_file_name(func):
+    """装饰器，判断是否需要根据日期对控制台输出进行分片存储"""
+
+    def wrapper(self, *args, **kwargs):
+        now = datetime.now().strftime("%Y-%m-%d")
+        # 检测now是否和self.now一致
+        if now != self.now:
+            self.now = now
+            if hasattr(self, "console") and not self.file.closed:
+                self.file.close()
+            self.file = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class Consoler(__consoler_class(), LeverCtl):
-    # 记录日志行数
-    __sum = 0
+    __init_state = True
 
-    # 上一次输入到标准输出流的消息，用于判断前一个是否换行，即当前行是否为新一行的开头
-    # 只有第一次输入时为None
-    __previous_message = None
-
-    __init_status = True
-
-    def __init__(self, *args, **kwargs):
-        # 根据环境进行不同的初始化
+    def __init__(self):
+        # noinspection PyBroadException
         try:
+            # 根据环境进行不同的初始化
             if in_notebook():
                 super().__init__()
             else:
                 super().__init__(sys.stdout.buffer)
-        except:
-            self.__init_status = False
+        except Exception:
+            self.__init_state = False
         self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
         self.__buffer = ""  # 缓存消息
         self.pool = None
         self.__epoch = 0
+        self.console_folder = None
+        self.now = None
+        self.file = None
+        """
+        当前正在写入的文件
+        """
 
     @property
     def epoch(self):
@@ -162,46 +177,29 @@ class Consoler(__consoler_class(), LeverCtl):
         return self.__epoch
 
     @property
-    def init_status(self) -> bool:
-        return self.__init_status
+    def init_state(self) -> bool:
+        return self.__init_state
 
     @property
     def can_upload(self) -> bool:
         return self.pool is not None
 
     def init(self, path):
-        # 通过当前日期生成日志文件名
-        self.now = datetime.now().strftime("%Y-%m-%d")
         self.console_folder = path
         # path 是否存在
         if not os.path.exists(path):
             os.makedirs(path)
         # 日志文件路径
+        self.now = datetime.now().strftime("%Y-%m-%d")
         console_path = os.path.join(path, f"{self.now}.log")
         # 如果日志系统初始化失败
-        if not self.__init_status:
+        if not self.__init_state:
             with open(console_path, "w", encoding="utf-8") as f:
                 f.write("Console Recoder Init Failed!")
-        # 日志文件
-        self.console = open(console_path, "a", encoding="utf-8")
+        # 拿到日志文件句柄
+        self.file = open(console_path, "a", encoding="utf-8")
 
-    # 检查当前日期是否和控制台日志文件名一致
-    def __check_file_name(func):
-        """装饰器，判断是否需要根据日期对控制台输出进行分片存储"""
-
-        def wrapper(self, *args, **kwargs):
-            now = datetime.now().strftime("%Y-%m-%d")
-            # 检测now是否和self.now一致
-            if now != self.now:
-                self.now = now
-                if hasattr(self, "console") and not self.console.closed:
-                    self.console.close()
-                self.console = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
-            return func(self, *args, **kwargs)
-
-        return wrapper
-
-    @__check_file_name
+    @check_file_name
     def write(self, message):
         self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
         self.original_stdout.flush()
@@ -227,11 +225,8 @@ class Consoler(__consoler_class(), LeverCtl):
         self.console.write(message)
         self.console.flush()
 
-    def setLevel(self, level):
-        return super().setLevel(level)
-
-    def get_sum(self):
-        return self.__sum
+    def set_level(self, level):
+        return super().set_level(level)
 
     def upload_message(self, message):
         self.__epoch += 1
@@ -253,6 +248,7 @@ class SwanConsoler:
     def reset(self):
         """重置输出为原本的样子"""
         sys.stdout = self.consoler.original_stdout
+        self.consoler.file.close()
 
     def set_level(self, level):
         """设置控制台打印时，对 swanlog 的收集等级
@@ -262,10 +258,9 @@ class SwanConsoler:
         level : string, optional
             需要设置的等级，["debug", "info", "warning", "error", "critical"] 其中之一
         """
-        return self.consoler.setLevel(level)
+        return self.consoler.set_level(level)
 
     def get_level(self):
-        return self.consoler.getLevel()
-
+        return self.consoler.get_level()
 
 # if __name__ == "__main__":

@@ -162,7 +162,7 @@ class SwanLog(LogSys):
         # 设置日志器
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._get_level(level))
-        self.__consoler: Union[SwanConsoler, None] = None
+        self.__consoler = SwanConsoler()
         self.__installed = False
         """
         日志系统初始化状态
@@ -191,12 +191,11 @@ class SwanLog(LogSys):
         if self.installed:
             raise RuntimeError("SwanLog has been installed")
         # 设置日志等级
-        self.set_level(self._get_level(log_level or "info"))
+        self.set_level(log_level or "info")
 
         # 初始化控制台记录器
         if console_dir:
             self.debug("Init consoler")
-            self.__consoler = SwanConsoler()
             self.__consoler.init(console_dir)
         self.__installed = True
         return self
@@ -205,50 +204,11 @@ class SwanLog(LogSys):
         """
         卸载日志系统，卸载后需要重新安装
         """
-        self.set_level(self._get_level("info"))
-        self.__consoler and self.reset_console()
+        if not self.installed:
+            raise RuntimeError("SwanLog has not been installed")
+        self.set_level("info")
+        self.reset_console()
         self.__installed = False
-
-    def init(
-        self,
-        path,
-        level=None,
-        console_level=None,
-        file_level=None,
-        console_path=None,
-    ):
-        """初始化内部打印器
-            初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
-            所以 handlers 列表中，第一个是控制台处理器，第二个是日志文件处理器
-
-        Parameters
-        ----------
-        path : string
-            日志文件的路径，打印会记录到文件
-        level : string, optional
-            全局日志级别，设置该等级会同时影响控制台和文件, by default None
-        console_level : string, optional
-            控制台日志级别，仅影响控制台
-        file_level : string, optional
-            文件日志级别，高于或等于该级别即记录到文件
-        console_path: str, optional
-            控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
-        """
-
-        # 初始化控制台记录器
-        if self.__consoler is None and console_path:
-            self.debug("init consoler")
-            self.__consoler = SwanConsoler()
-            self.__consoler.init(console_path)
-        self._create_console_handler()
-        if path:
-            self._create_file_handler(path)
-        if level:
-            self.logger.setLevel(self._get_level(level))
-        if console_level:
-            self.set_console_level(console_level)
-        if file_level:
-            self.set_file_level(file_level)
 
     @property
     def epoch(self):
@@ -318,24 +278,6 @@ class SwanLog(LogSys):
         """
         self.logger.setLevel(self._get_level(level))
 
-    def set_collection_level(self, level):
-        """
-        设置日志收集级别。
-
-        Parameters:
-            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
-        """
-        self.__consoler.set_level(level)
-
-    def get_collection_level(self):
-        """
-        获取日志收集级别。
-
-        Returns:
-            str: 日志收集级别。
-        """
-        return self.__consoler.get_level()
-
     # 获取对应等级的logging对象
     def _get_level(self, level):
         """私有属性，获取等级对应的 logging 对象
@@ -388,4 +330,3 @@ class SwanLog(LogSys):
     def reset_console(self):
         """重置控制台记录器"""
         self.__consoler.reset()
-        self.__consoler = None
