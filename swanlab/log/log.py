@@ -137,9 +137,6 @@ def concat_messages(func):
     return wrapper
 
 
-_ = None
-
-
 class SwanLog(LogSys):
     # 日志系统支持的输出等级
     __levels = {
