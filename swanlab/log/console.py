@@ -126,7 +126,6 @@ class Consoler(ConsolerParent):
         """
         重写 write 函数，将输出信息写入到控制台和日志文件中
         """
-
         # 先写入原始 sys.stdout，即输出到控制台
         self.stdout.write(message)
         self.stdout.flush()

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/21 16:57
-@File: log.py
+@File: pytest_log.py
 @IDE: pycharm
 @Description:
     测试swanlog类
@@ -38,7 +38,7 @@ class TestSwanLogInstall:
     #     lg.install()
     #     assert lg.installed is True
     #     lg.uninstall()
-    #
+    
     # def test_install_duplicate(self):
     #     lg = SwanLog('tmp')
     #     lg.install()

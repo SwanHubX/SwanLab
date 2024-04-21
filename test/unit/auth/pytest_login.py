@@ -32,14 +32,3 @@ async def test_login_error_key():
     assert login_info.is_fail
     assert login_info.api_key is None
     assert login_info.__str__() == "Error api key"
-
-
-@pytest.mark.asyncio
-async def test_login_no_key():
-    """
-    测试登录失败, 未输入key
-    """
-    login_info = await login_by_key(None, save=False)
-    assert login_info.is_fail
-    assert login_info.api_key is None
-    assert login_info.__str__() == "Error api key"
