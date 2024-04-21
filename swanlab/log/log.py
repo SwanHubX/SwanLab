@@ -51,7 +51,6 @@ class ColoredFormatter(logging.Formatter, FONT):
             logging.WARNING: self.yellow,
             logging.ERROR: self.red,
             logging.CRITICAL: self.bold_red,
-            COLLECT_LEVEL: self.green,
         }
 
     def bold_red(self, s: str) -> str:
@@ -134,7 +133,18 @@ class CustomFileHandler(logging.FileHandler):
         super().emit(record)
 
 
-COLLECT_LEVEL = 60
+def concat_messages(func):
+    """
+    装饰器，当传递打印信息有多个时，拼接为一个
+    """
+
+    def wrapper(self, *args, **kwargs):
+        # 拼接消息，首先将所有参数转换为字符串，然后拼接
+        args = [str(arg) for arg in args]
+        message = " ".join(args)
+        return func(self, message, **kwargs)
+
+    return wrapper
 
 
 class SwanLog(LogSys):
@@ -147,24 +157,57 @@ class SwanLog(LogSys):
         "critical": logging.CRITICAL,
     }
 
-    # 是否打印收集信息
-    __logging = False
-    # 是否临时允许打印
-    __temp_logging = None
-    # 自定义等级
-    __LOG_LEVEL = {
-        "value": COLLECT_LEVEL,
-        "name": "COLLECT",
-    }
-
     def __init__(self, name=__name__.lower(), level="debug"):
         super().__init__()
-        # 自定义log级别
-        logging.addLevelName(self.__LOG_LEVEL["value"], self.__LOG_LEVEL["name"])
         # 设置日志器
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._get_level(level))
         self.__consoler: Union[SwanConsoler, None] = None
+        self.__installed = False
+        """
+        日志系统初始化状态
+        """
+
+    @property
+    def installed(self):
+        return self.__installed
+
+    def install(
+        self,
+        console_dir: str = None,
+        log_level: str = None,
+    ) -> "SwanLog":
+        """
+        初始化安装日志系统，同一实例在没有执行uninstall的情况下，不可重复安装
+        :param console_dir: 控制台日志文件路径文件夹，如果提供，则会将控制台日志记录到对应文件夹，否则不记录，需要保证文件夹存在
+        :param log_level: 日志等级，可以是 "debug", "info", "warning", "error", 或 "critical"，默认为info
+
+        :return: SwanLog实例
+
+        :raises: RuntimeError: 已经安装过日志系统
+        :raises: KeyError: 无效的日志级别
+        :raises: FileNotFoundError: 控制台日志文件夹不存在
+        """
+        if self.installed:
+            raise RuntimeError("SwanLog has been installed")
+        # 设置日志等级
+        self.set_level(self._get_level(log_level or "info"))
+
+        # 初始化控制台记录器
+        if console_dir:
+            self.debug("Init consoler")
+            self.__consoler = SwanConsoler()
+            self.__consoler.init(console_dir)
+        self.__installed = True
+        return self
+
+    def uninstall(self):
+        """
+        卸载日志系统，卸载后需要重新安装
+        """
+        self.set_level(self._get_level("info"))
+        self.__consoler and self.reset_console()
+        self.__installed = False
 
     def init(
         self,
@@ -173,7 +216,6 @@ class SwanLog(LogSys):
         console_level=None,
         file_level=None,
         console_path=None,
-        enable_logging=False,
     ):
         """初始化内部打印器
             初始化的顺序最好别变，下面的一些设置方法没有使用查找式获取处理器，而是直接用索引获取的
@@ -191,18 +233,13 @@ class SwanLog(LogSys):
             文件日志级别，高于或等于该级别即记录到文件
         console_path: str, optional
             控制台日志文件路径，如果提供，则会将控制台日志记录到文件,否则不记录
-        enable_logging: bool, optional
-            是否在全局允许打印, 默认为 False
         """
 
-        # 保存设置
-        self.__logging = enable_logging
         # 初始化控制台记录器
         if self.__consoler is None and console_path:
             self.debug("init consoler")
             self.__consoler = SwanConsoler()
             self.__consoler.init(console_path)
-
         self._create_console_handler()
         if path:
             self._create_file_handler(path)
@@ -220,20 +257,7 @@ class SwanLog(LogSys):
         """
         return self.__consoler.consoler.epoch
 
-    # 检测日志处理器是否重复注册
-    def _check_init(func):
-        """装饰器，防止多次注册处理器"""
-
-        def wrapper(self, *args, **kwargs):
-            if len(self.logger.handlers) == 2:
-                return self.debug("init more than once")
-            result = func(self, *args, **kwargs)
-            return result
-
-        return wrapper
-
     # 创建控制台记录器
-    @_check_init
     def _create_console_handler(self, level="debug"):
         console_handler = logging.StreamHandler(sys.stdout)
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
@@ -243,7 +267,6 @@ class SwanLog(LogSys):
         self.logger.addHandler(console_handler)
 
     # 创建日志文件记录器
-    @_check_init
     def _create_file_handler(self, log_path, level="debug"):
         file_handler = CustomFileHandler(log_path, encoding="utf-8")
         formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
@@ -304,19 +327,6 @@ class SwanLog(LogSys):
         """
         self.__consoler.set_level(level)
 
-    def set_temporary_logging(self, temp_logging: bool):
-        """设置临时打印权限
-
-        Parameters
-        ----------
-        temp_logging : bool
-        """
-        self.__temp_logging = temp_logging
-
-    def reset_temporary_logging(self):
-        """重置临时打印权限"""
-        self.__temp_logging = None
-
     def get_collection_level(self):
         """
         获取日志收集级别。
@@ -348,67 +358,32 @@ class SwanLog(LogSys):
         if level.lower() in self.__levels:
             return self.__levels.get(level.lower())
         else:
-            raise KeyError(
-                "Invalid log level: %s, level must be one of ['debug', 'info', 'warning', 'error', 'critical']" % level
-            )
-
-    def __concat_messages(func):
-        """装饰器，当传递打印信息有多个时，拼接为一个"""
-
-        def wrapper(self, *args, **kwargs):
-            # 拼接消息，首先将所有参数转换为字符串，然后拼接
-            args = [str(arg) for arg in args]
-            message = " ".join(args)
-            return func(self, message, **kwargs)
-
-        return wrapper
+            raise KeyError("log_level must be one of ['debug', 'info', 'warning', 'error', 'critical']: %s" % level)
 
     # 发送调试消息
-    @__concat_messages
+    @concat_messages
     def debug(self, message):
         self.logger.debug(message)
 
     # 发送通知
-    @__concat_messages
+    @concat_messages
     def info(self, message):
         self.logger.info(message)
 
     # 发生警告
-    @__concat_messages
+    @concat_messages
     def warning(self, message):
         self.logger.warning(message)
 
     # 发生错误
-    @__concat_messages
+    @concat_messages
     def error(self, message):
         self.logger.error(message)
 
     # 致命错误
-    @__concat_messages
+    @concat_messages
     def critical(self, message):
         self.logger.critical(message)
-
-    @__concat_messages
-    def log(self, message, header=True):
-        """全局自定义信息打印，级别最高
-        临时打印，为 None 的时候无效
-        1. 临时凭证为 true，通过
-        2. 未设临时凭证，且全局为true，通过
-        """
-
-        if self.__temp_logging is True:
-            # 临时凭证通过
-            pass
-        elif self.__temp_logging is None and self.__logging:
-            # 临时凭证没设置，且全局设置通过，可以打印
-            pass
-        else:
-            # 别的情况都返回
-            return
-
-        if not header:
-            return print(message)
-        self.logger.log(self.__LOG_LEVEL["value"], message)
 
     def reset_console(self):
         """重置控制台记录器"""
