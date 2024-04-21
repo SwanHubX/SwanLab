@@ -165,6 +165,9 @@ class SwanLog(LogSys):
 
     @property
     def installed(self):
+        """
+        判断日志系统是否已经安装，在设计上__handler随着安装而初始化，所以只要__handler不为空，就表示已经安装
+        """
         return self.__handler is not None
 
     def install(self, console_dir: str = None, log_level: str = None) -> "SwanLog":
