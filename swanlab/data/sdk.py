@@ -220,12 +220,13 @@ def init(
             pool.queue.put((UploadType.LOG, [message]))
 
         swanlog.write_callback = _
-        run.settings.pool = pool
 
+        # FIXME not a good way to mount pool
+        run.settings.pool = pool
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
-    atexit.register(_clean_handler)
+    atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
     if not cloud and not (project is None and workspace is None):
         swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
@@ -376,9 +377,8 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         await run.settings.pool.finish()
         # 上传错误日志
         if error is not None:
-            await upload_logs(
-                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}], level="ERROR"
-            )
+            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+            await upload_logs(msg, level="ERROR")
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
@@ -386,7 +386,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
     return
 
 
-def _clean_handler():
+def clean_handler():
     """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
@@ -400,7 +400,6 @@ def _clean_handler():
         swanlog.uninstall()
 
 
-# 定义异常处理函数
 def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
