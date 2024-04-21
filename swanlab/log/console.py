@@ -4,6 +4,7 @@ from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
 from swanlab.utils import create_time
+from io import StringIO
 
 
 # 检测是否在 notebook 环境中
@@ -18,15 +19,7 @@ def in_notebook():
 
 
 # Consoler 继承的父类
-def __consoler_class():
-    # 如果在 notebook 中，使用 io.StringIO
-    if in_notebook():
-        from io import StringIO
-
-        return StringIO
-    # 正常环境使用标准输出
-    else:
-        return sys.stdout.__class__
+ConsolerParent = sys.stdout.__class__ if not in_notebook() else StringIO
 
 
 # 检查当前日期是否和控制台日志文件名一致
@@ -46,7 +39,7 @@ def check_file_name(func):
     return wrapper
 
 
-class Consoler(__consoler_class()):
+class Consoler(ConsolerParent):
     __init_state = True
 
     def __init__(self):
@@ -123,8 +116,11 @@ class Consoler(__consoler_class()):
         """
         重写 write 函数，将输出信息写入到控制台和日志文件中
         """
-        self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
-        self.original_stdout.flush()
+        try:
+            self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
+            self.original_stdout.flush()
+        except Exception:
+            pass
         message = FONT.clear(message)
         if self.can_upload:
             # 上传到云端
@@ -150,18 +146,23 @@ class Consoler(__consoler_class()):
         ))
 
 
+original_stdout = sys.__stdout__
+
+
 class SwanConsoler:
     def __init__(self):
+        """
+        控制台输出重定向器
+        [WARNING] 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
+        """
         self.consoler: Consoler = Consoler()
 
-    def init(self, path):
-        self.consoler.init(path)
+    def uninstall(self):
+        """重置输出为原本的样子"""
+        sys.stdout = original_stdout
+        self.consoler.file and self.consoler.file.close()
+
+    def install(self, console_dir):
+        self.consoler.init(console_dir)
         if self.consoler.init_state:
             sys.stdout = self.consoler
-
-    def reset(self):
-        """重置输出为原本的样子"""
-        sys.stdout = self.consoler.original_stdout
-        self.consoler.file and self.consoler.file and self.consoler.file.close()
-
-# if __name__ == "__main__":

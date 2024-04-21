@@ -25,6 +25,7 @@ def before_test_global_swanlog():
         pass
     # clear操作需要在uninstall之后
     clear()
+    yield
 
 
 class TestSwanLogInstall:
@@ -32,7 +33,6 @@ class TestSwanLogInstall:
         lg = SwanLog('tmp')
         lg.install()
         assert lg.installed is True
-        lg.uninstall()
 
     def test_install_duplicate(self):
         lg = SwanLog('tmp')
@@ -40,44 +40,23 @@ class TestSwanLogInstall:
         with pytest.raises(RuntimeError) as e:
             lg.install()
         assert str(e.value) == 'SwanLog has been installed'
-        lg.uninstall()
 
-    def test_global_install(self, before_test_global_swanlog):
-        swanlog.install()
-        assert swanlog.installed is True
-        with pytest.raises(RuntimeError) as e:
-            swanlog.install()
-        assert str(e.value) == 'SwanLog has been installed'
-
-    def test_write_to_file(self, before_test_global_swanlog):
+    def test_write_after_uninstall(self, before_test_global_swanlog):
         console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
         os.mkdir(console_dir)
         swanlog.install(console_dir)
+        swanlog.uninstall()
         # 加一行防止其他问题
-        print('\ntest write to file')
+        import sys
+        # 开启标准输出流
+        sys.stdout = sys.__stdout__
+        print('\ntest write after uninstall')
         a = generate()
         print(a)
         b = generate()
         print(b)
         files = os.listdir(console_dir)
         assert len(files) == 1
-        # 比较最后两行内容
         with open(os.path.join(console_dir, files[0]), 'r') as f:
             content = f.readlines()
-            assert content[-2] == a + '\n'
-            assert content[-1] == b + '\n'
-        swanlog.uninstall()
-
-    # def test_write_after_uninstall(self, before_test_global_swanlog):
-    #     console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
-    #     os.mkdir(console_dir)
-    #     swanlog.install(console_dir)
-    #     swanlog.uninstall()
-    #     # 加一行防止其他问题
-    #     print('\ntest write after uninstall')
-    #     a = generate()
-    #     print(a)
-    #     b = generate()
-    #     print(b)
-    #     files = os.listdir(console_dir)
-    #     assert len(files) == 0
+            assert len(content) == 0

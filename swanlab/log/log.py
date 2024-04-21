@@ -3,7 +3,8 @@ import logging.config
 import logging.handlers
 import sys
 from .console import SwanConsoler
-from ..utils import FONT
+from swanlab.utils import FONT
+from typing import Union
 
 
 class LogSys:
@@ -148,12 +149,13 @@ class SwanLog(LogSys):
 
     def __init__(self, name=__name__.lower(), level="info"):
         super().__init__()
-        self.logger = logging.getLogger(name)
+        self.__logger = logging.getLogger(name)
         """
         logging日志器
         """
         # 设置日志等级
-        self.logger.setLevel(self._get_level(level))
+        self.__logger.setLevel(self._get_level(level))
+
         self.__consoler = SwanConsoler()
         """
         标准输出流重定向器
@@ -166,7 +168,7 @@ class SwanLog(LogSys):
     @property
     def installed(self):
         """
-        判断日志系统是否已经安装，在设计上__handler随着安装而初始化，所以只要__handler不为空，就表示已经安装
+        判断日志系统是否已经安装
         """
         return self.__handler is not None
 
@@ -186,18 +188,18 @@ class SwanLog(LogSys):
             raise RuntimeError("SwanLog has been installed")
         # 设置日志等级
         log_level = log_level if log_level else "info"
-        self.logger.setLevel(self._get_level(log_level))
+        self.__logger.setLevel(self._get_level(log_level))
         # 初始化文件记录句柄
         self.__handler = logging.StreamHandler(sys.stdout)
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
         colored_formatter = ColoredFormatter("%(name)s: %(message)s")
         self.__handler.setFormatter(colored_formatter)
         self.__handler.setLevel(self._get_level(log_level))
-        self.logger.addHandler(self.__handler)
+        self.__logger.addHandler(self.__handler)
         # 初始化控制台记录器
         if console_dir:
             self.debug("Init consoler to record console log")
-            self.__consoler.init(console_dir)
+            self.__consoler.install(console_dir)
         return self
 
     def uninstall(self):
@@ -208,8 +210,9 @@ class SwanLog(LogSys):
             raise RuntimeError("SwanLog has not been installed")
         self.debug('uninstall swanlog, reset consoler')
         self.set_level("info")
-        self.reset_console()
-        self.logger.removeHandler(self.__handler)
+        self.__logger.removeHandler(self.__handler)
+        self.__handler = None
+        self.__consoler.uninstall()
 
     @property
     def epoch(self):
@@ -234,7 +237,7 @@ class SwanLog(LogSys):
 
         :raises: KeyError: If an invalid level is passed.
         """
-        self.logger.setLevel(self._get_level(level))
+        self.__logger.setLevel(self._get_level(level))
 
     # 获取对应等级的logging对象
     def _get_level(self, level):
@@ -263,29 +266,30 @@ class SwanLog(LogSys):
     # 发送调试消息
     @concat_messages
     def debug(self, message):
-        self.logger.debug(message)
+        self.__logger.debug(message)
 
     # 发送通知
     @concat_messages
     def info(self, message):
-        self.logger.info(message)
+        self.__logger.info(message)
 
     # 发生警告
     @concat_messages
     def warning(self, message):
-        self.logger.warning(message)
+        self.__logger.warning(message)
 
     # 发生错误
     @concat_messages
     def error(self, message):
-        self.logger.error(message)
+        self.__logger.error(message)
 
     # 致命错误
     @concat_messages
     def critical(self, message):
-        self.logger.critical(message)
+        self.__logger.critical(message)
 
     def reset_console(self):
         """重置控制台记录器"""
-        self.__consoler.reset()
-        self.__consoler = None
+        self.__consoler.uninstall()
+        # FIXME 这里设置为None，会在test测试中出现ValueError: I/O operation on closed file.
+        # self.__consoler = None

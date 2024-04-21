@@ -285,8 +285,7 @@ def finish():
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
     # FIXME not a good way to handle this
     run._success()
-    swanlog.set_success()
-    swanlog.reset_console()
+    swanlog.uninstall()
     run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
     run = None
 
@@ -394,7 +393,7 @@ def _clean_handler():
         # FIXME not a good way to handle this
         run._success()
         swanlog.set_success()
-        swanlog.reset_console()
+        swanlog.uninstall()
 
 
 # 定义异常处理函数
@@ -430,6 +429,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
-    swanlog.reset_console()
+    swanlog.uninstall()
     if tp != KeyboardInterrupt:
         raise tp(val)
