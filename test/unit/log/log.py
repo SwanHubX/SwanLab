@@ -32,6 +32,7 @@ class TestSwanLogInstall:
         lg = SwanLog('tmp')
         lg.install()
         assert lg.installed is True
+        lg.uninstall()
 
     def test_install_duplicate(self):
         lg = SwanLog('tmp')
@@ -39,6 +40,7 @@ class TestSwanLogInstall:
         with pytest.raises(RuntimeError) as e:
             lg.install()
         assert str(e.value) == 'SwanLog has been installed'
+        lg.uninstall()
 
     def test_global_install(self, before_test_global_swanlog):
         swanlog.install()

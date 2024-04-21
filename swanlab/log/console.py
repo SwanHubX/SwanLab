@@ -1,108 +1,9 @@
-import re
 import sys
 import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.cloud.task_types import UploadType
 from swanlab.utils import create_time
-
-
-class LeverCtl(object):
-    # swanlog 的记录权重
-    __level_weight = {
-        "debug": 10,
-        "info": 20,
-        "warning": 30,
-        "error": 40,
-        "critical": 50,
-    }
-
-    # 当前记录等级
-    __level = "debug"
-
-    def __init__(self, level="debug"):
-        """默认收集全部等级的"""
-
-        self.__level = level
-
-    def set_level(self, level):
-        """设置记录等级
-
-        Parameters
-        ----------
-        level : str, optional
-            需要设置的等级，["debug", "info", "warning", "error", "critical"] 其中之一
-        """
-        self.__level = level
-
-    def __get_weight(self, level):
-        """获取记录权重
-
-        Parameters
-        ----------
-        level : str, optional
-            需要获取的等级，["debug", "info", "warning", "error", "critical"] 其中之一
-
-        Returns
-        -------
-        int
-            等级对应权重
-        """
-        if level in self.__level_weight:
-            return self.__level_weight[level]
-        else:
-            return 0
-
-    @staticmethod
-    def __is_swanlog(message):
-        """判断信息是否是 swanlog 类的行为
-
-        Parameters
-        ----------
-        message : string
-            打印的信息
-        """
-        pattern = re.compile(r"swanlab:\s")
-        match = pattern.match(message)
-
-        if match:
-            # 返回符合要求的部分的小写形式
-            return match.group(1).lower()
-        else:
-            # 不符合要求时返回 None
-            return False
-
-    def check_level(self, message):
-        """检查当前记录等级是否大于等于指定等级
-
-        Parameters
-        ----------
-        message : string
-            打印的信息
-
-        Returns
-        -------
-        bool
-            当前记录等级是否大于等于指定等级
-        """
-        result = self.__is_swanlog(message)
-
-        if result:
-            # 如果匹配到了，进行等级的判断决定是否写入
-            return self.__get_weight(result) >= self.__get_weight(self.__level)
-        else:
-            # 没有匹配到，说明是用户自定义打印，需要记录
-            return True
-
-    def get_level(self):
-        """获取当前记录等级
-
-        Returns
-        -------
-        str
-            当前记录等级
-        """
-        return self.__level
 
 
 # 检测是否在 notebook 环境中
@@ -145,7 +46,7 @@ def check_file_name(func):
     return wrapper
 
 
-class Consoler(__consoler_class(), LeverCtl):
+class Consoler(__consoler_class()):
     __init_state = True
 
     def __init__(self):
@@ -158,12 +59,30 @@ class Consoler(__consoler_class(), LeverCtl):
                 super().__init__(sys.stdout.buffer)
         except Exception:
             self.__init_state = False
-        self.original_stdout = sys.stdout  # 保存原始的 sys.stdout
-        self.__buffer = ""  # 缓存消息
+        self.original_stdout = sys.stdout
+        """
+        原始输出流
+        """
+        self.__buffer = ""
+        """
+        上传到云端的缓冲区
+        """
         self.pool = None
+        """
+        线程池，用于上传日志
+        """
         self.__epoch = 0
+        """
+        当前函数
+        """
         self.console_folder = None
+        """
+        保存控制台输出文件夹路径
+        """
         self.now = None
+        """
+        当前文件名称（不包含后缀）
+        """
         self.file = None
         """
         当前正在写入的文件
@@ -172,7 +91,7 @@ class Consoler(__consoler_class(), LeverCtl):
     @property
     def epoch(self):
         """
-        write 函数调用次数
+        write 函数调用次数（当前行号）
         """
         return self.__epoch
 
@@ -201,13 +120,11 @@ class Consoler(__consoler_class(), LeverCtl):
 
     @check_file_name
     def write(self, message):
+        """
+        重写 write 函数，将输出信息写入到控制台和日志文件中
+        """
         self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
         self.original_stdout.flush()
-
-        # 检查记录等级，高于或等于写入等级即可写入日志文件
-        if not self.check_level(message):
-            return
-
         message = FONT.clear(message)
         if self.can_upload:
             # 上传到云端
@@ -221,19 +138,16 @@ class Consoler(__consoler_class(), LeverCtl):
                 self.__buffer = messages[-1]
                 for m in messages[1:-1]:
                     self.upload_message(m)
-
-        self.console.write(message)
-        self.console.flush()
-
-    def set_level(self, level):
-        return super().set_level(level)
+        self.file.write(message)
+        self.file.flush()
 
     def upload_message(self, message):
         self.__epoch += 1
         # 将日志信息放入队列
-        self.pool.queue.put(
-            (UploadType.LOG, [{"message": message, "create_time": create_time(), "epoch": self.__epoch}])
-        )
+        self.pool.queue.put((
+            UploadType.LOG,
+            [{"message": message, "create_time": create_time(), "epoch": self.__epoch}]
+        ))
 
 
 class SwanConsoler:
@@ -242,25 +156,12 @@ class SwanConsoler:
 
     def init(self, path):
         self.consoler.init(path)
-        if self.consoler.init_status:
+        if self.consoler.init_state:
             sys.stdout = self.consoler
 
     def reset(self):
         """重置输出为原本的样子"""
         sys.stdout = self.consoler.original_stdout
-        self.consoler.file.close()
-
-    def set_level(self, level):
-        """设置控制台打印时，对 swanlog 的收集等级
-
-        Parameters
-        ----------
-        level : string, optional
-            需要设置的等级，["debug", "info", "warning", "error", "critical"] 其中之一
-        """
-        return self.consoler.set_level(level)
-
-    def get_level(self):
-        return self.consoler.get_level()
+        self.consoler.file and self.consoler.file and self.consoler.file.close()
 
 # if __name__ == "__main__":

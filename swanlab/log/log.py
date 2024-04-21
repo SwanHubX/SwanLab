@@ -2,7 +2,6 @@ import logging
 import logging.config
 import logging.handlers
 import sys
-from typing import Union
 from .console import SwanConsoler
 from ..utils import FONT
 
@@ -39,7 +38,7 @@ class LogSys:
         return self.__status == "running"
 
 
-# 控制台打印格式化类，只负责控制台的相关打印的格式化
+# logging打印格式化类，只负责控制台的相关打印的格式化
 class ColoredFormatter(logging.Formatter, FONT):
     def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
         super().__init__(fmt, datefmt, style)
@@ -123,16 +122,6 @@ class ColoredFormatter(logging.Formatter, FONT):
         return f"{self.__get_colored_str(record.levelno, message_header)}:{messages[1]}"
 
 
-# 日志文件格式化类
-class CustomFileHandler(logging.FileHandler):
-    def emit(self, record):
-        # 在写入日志之前把颜色剔除
-        processed_message = FONT.clear(record.getMessage())
-        record.msg = processed_message
-        # 调用父类的 emit 方法写入日志
-        super().emit(record)
-
-
 def concat_messages(func):
     """
     装饰器，当传递打印信息有多个时，拼接为一个
@@ -157,26 +146,28 @@ class SwanLog(LogSys):
         "critical": logging.CRITICAL,
     }
 
-    def __init__(self, name=__name__.lower(), level="debug"):
+    def __init__(self, name=__name__.lower(), level="info"):
         super().__init__()
-        # 设置日志器
         self.logger = logging.getLogger(name)
+        """
+        logging日志器
+        """
+        # 设置日志等级
         self.logger.setLevel(self._get_level(level))
         self.__consoler = SwanConsoler()
-        self.__installed = False
         """
-        日志系统初始化状态
+        标准输出流重定向器
+        """
+        self.__handler = None
+        """
+        日志输出句柄
         """
 
     @property
     def installed(self):
-        return self.__installed
+        return self.__handler is not None
 
-    def install(
-        self,
-        console_dir: str = None,
-        log_level: str = None,
-    ) -> "SwanLog":
+    def install(self, console_dir: str = None, log_level: str = None) -> "SwanLog":
         """
         初始化安装日志系统，同一实例在没有执行uninstall的情况下，不可重复安装
         :param console_dir: 控制台日志文件路径文件夹，如果提供，则会将控制台日志记录到对应文件夹，否则不记录，需要保证文件夹存在
@@ -191,13 +182,19 @@ class SwanLog(LogSys):
         if self.installed:
             raise RuntimeError("SwanLog has been installed")
         # 设置日志等级
-        self.set_level(log_level or "info")
-
+        log_level = log_level if log_level else "info"
+        self.logger.setLevel(self._get_level(log_level))
+        # 初始化文件记录句柄
+        self.__handler = logging.StreamHandler(sys.stdout)
+        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
+        colored_formatter = ColoredFormatter("%(name)s: %(message)s")
+        self.__handler.setFormatter(colored_formatter)
+        self.__handler.setLevel(self._get_level(log_level))
+        self.logger.addHandler(self.__handler)
         # 初始化控制台记录器
         if console_dir:
-            self.debug("Init consoler")
+            self.debug("Init consoler to record console log")
             self.__consoler.init(console_dir)
-        self.__installed = True
         return self
 
     def uninstall(self):
@@ -206,9 +203,10 @@ class SwanLog(LogSys):
         """
         if not self.installed:
             raise RuntimeError("SwanLog has not been installed")
+        self.debug('uninstall swanlog, reset consoler')
         self.set_level("info")
         self.reset_console()
-        self.__installed = False
+        self.logger.removeHandler(self.__handler)
 
     @property
     def epoch(self):
@@ -217,64 +215,21 @@ class SwanLog(LogSys):
         """
         return self.__consoler.consoler.epoch
 
-    # 创建控制台记录器
-    def _create_console_handler(self, level="debug"):
-        console_handler = logging.StreamHandler(sys.stdout)
-        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("%(name)s: %(message)s")
-        console_handler.setFormatter(colored_formatter)
-        console_handler.setLevel(self._get_level(level))
-        self.logger.addHandler(console_handler)
-
-    # 创建日志文件记录器
-    def _create_file_handler(self, log_path, level="debug"):
-        file_handler = CustomFileHandler(log_path, encoding="utf-8")
-        formatter = logging.Formatter("%(name)s %(levelname)s [%(asctime)s] %(message)s")
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(self._get_level(level))
-        self.logger.addHandler(file_handler)
-
-    def set_output(self, log_path=None, level="debug"):
-        """
-        设置日志文件的存储位置。
-
-        Parameters:
-            log_path (str): 日志文件路径。
-            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
-        """
-        file_handler = self.logger.handlers[1]  # Assuming file handler is the second handler
-        self.logger.removeHandler(file_handler)
-        self._create_file_handler(log_path, level)
-
-    def set_console_level(self, level):
-        """
-        设置控制台输出的日志级别。
-
-        Parameters:
-            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
-        """
-        console_handler = self.logger.handlers[0]
-        console_handler.setLevel(self._get_level(level))
-
     def set_pool(self, pool):
         self.__consoler.consoler.pool = pool
 
-    def set_file_level(self, level):
-        """
-        设置写入日志文件的日志级别。
-
-        Parameters:
-            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
-        """
-        file_handler = self.logger.handlers[1]
-        file_handler.setLevel(self._get_level(level))
-
     def set_level(self, level):
         """
-        设置日志级别。
+        Set the logging level of the logger.
 
-        Parameters:
-            level (str): 日志级别，可以是 "debug", "info", "warning", "error", 或 "critical".
+        :param level: The level to set the logger to. This should be one of the following:
+            - "debug"
+            - "info"
+            - "warning"
+            - "error"
+            - "critical"
+
+        :raises: KeyError: If an invalid level is passed.
         """
         self.logger.setLevel(self._get_level(level))
 
@@ -330,3 +285,4 @@ class SwanLog(LogSys):
     def reset_console(self):
         """重置控制台记录器"""
         self.__consoler.reset()
+        self.__consoler = None
