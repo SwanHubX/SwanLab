@@ -2,7 +2,6 @@ import sys
 import os
 from datetime import datetime
 from ..utils import FONT
-from swanlab.cloud.task_types import UploadType
 from swanlab.utils import create_time
 from io import StringIO
 
@@ -60,13 +59,9 @@ class Consoler(ConsolerParent):
         """
         上传到云端的缓冲区
         """
-        self.pool = None
-        """
-        线程池，用于上传日志
-        """
         self.__epoch = 0
         """
-        当前函数
+        当前write函数回调调用次数
         """
         self.console_folder = None
         """
@@ -79,6 +74,10 @@ class Consoler(ConsolerParent):
         self.file = None
         """
         当前正在写入的文件
+        """
+        self.write_callback = None
+        """
+        上传回调函数
         """
 
     @property
@@ -94,7 +93,7 @@ class Consoler(ConsolerParent):
 
     @property
     def can_upload(self) -> bool:
-        return self.pool is not None
+        return self.write_callback is not None
 
     def init(self, path, stdout):
         self.console_folder = path
@@ -118,8 +117,8 @@ class Consoler(ConsolerParent):
         self.now = None
         self.file and self.file.close()
         self.file = None
-        self.pool = None
         self.console_folder = None
+        self.write_callback = None
 
     @check_file_name
     def write(self, message):
@@ -138,20 +137,17 @@ class Consoler(ConsolerParent):
                 self.__buffer = self.__buffer + messages[0]
             # 如果长度大于2，说明其中包含多个换行符
             elif len(messages) > 1:
-                self.upload_message(self.__buffer + messages[0])
+                self.__write_callback(self.__buffer + messages[0])
                 self.__buffer = messages[-1]
                 for m in messages[1:-1]:
-                    self.upload_message(m)
+                    self.__write_callback(m)
         self.file.write(message)
         self.file.flush()
 
-    def upload_message(self, message):
+    def __write_callback(self, message):
         self.__epoch += 1
         # 将日志信息放入队列
-        self.pool.queue.put((
-            UploadType.LOG,
-            [{"message": message, "create_time": create_time(), "epoch": self.__epoch}]
-        ))
+        self.write_callback({"message": message, "create_time": create_time(), "epoch": self.__epoch})
 
 
 class SwanConsoler:
@@ -178,3 +174,11 @@ class SwanConsoler:
         self.__console_dir = console_dir
         if self.consoler.init_state:
             sys.stdout = self.consoler
+
+    @property
+    def write_callback(self):
+        return self.consoler.write_callback
+
+    @write_callback.setter
+    def write_callback(self, func):
+        self.consoler.write_callback = func

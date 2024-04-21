@@ -29,6 +29,7 @@ from swanlab.package import version_limit, get_package_version, get_host_api, ge
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.utils import create_time
+from swanlab.cloud import UploadType
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -214,9 +215,12 @@ def init(
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
         pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-        # FIXME not a good way to mount a thread pool
+
+        def _(message):
+            pool.queue.put((UploadType.LOG, [message]))
+
+        swanlog.write_callback = _
         run.settings.pool = pool
-        swanlog.set_pool(pool)
 
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
@@ -334,7 +338,7 @@ def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
     if isinstance(config, dict) or config is None:
         return config
-    print(FONT.swanlab("The parameter config is loaded from the configuration file: {}".format(config)))
+    swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
     return check_load_json_yaml(config, "config")
 
 

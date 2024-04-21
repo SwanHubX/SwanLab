@@ -4,7 +4,6 @@ import logging.handlers
 import sys
 from .console import SwanConsoler
 from swanlab.utils import FONT
-from typing import Union
 
 
 class LogSys:
@@ -200,6 +199,7 @@ class SwanLog(LogSys):
         if console_dir:
             self.debug("Init consoler to record console log")
             self.__consoler.install(console_dir)
+        self.write_callback = None
         return self
 
     def uninstall(self):
@@ -213,8 +213,22 @@ class SwanLog(LogSys):
         self.set_level("info")
         self.__logger.removeHandler(self.__handler)
         self.__handler = None
-
         self.__consoler.uninstall()
+        self.write_callback = None
+
+    @property
+    def write_callback(self):
+        """
+        当swanlog触发日志写入文件的操作时，会调用此函数
+        目前在设计上它与install方法绑定，即install、uninstall以后会设置为None
+        不过uninstall以后也无法触发此函数
+        如果此值为None，那么不会触发回调
+        """
+        return self.__consoler.write_callback
+
+    @write_callback.setter
+    def write_callback(self, callback):
+        self.__consoler.write_callback = callback
 
     @property
     def epoch(self):
@@ -222,9 +236,6 @@ class SwanLog(LogSys):
         获取当前日志的 epoch
         """
         return self.__consoler.consoler.epoch
-
-    def set_pool(self, pool):
-        self.__consoler.consoler.pool = pool
 
     def set_level(self, level):
         """
