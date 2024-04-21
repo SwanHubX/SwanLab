@@ -183,6 +183,11 @@ def init(
     if cloud:
         http = create_http(login_info)
         exp_num = http.mount_project(project, workspace).history_exp_count
+    elif cloud:
+        # 初始化会话信息
+        http = create_http(login_info)
+        # 获取当前项目信息
+        exp_num = http.mount_project(project, workspace).history_exp_count
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -203,7 +208,7 @@ def init(
         get_http().mount_exp(
             exp_name=run.settings.exp_name,
             colors=run.settings.exp_colors,
-            description=run.settings.description
+            description=run.settings.description,
         )
         # 初始化、挂载线程池
         pool = ThreadPool()
@@ -212,6 +217,7 @@ def init(
         # FIXME not a good way to mount a thread pool
         run.settings.pool = pool
         swanlog.set_pool(pool)
+
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
@@ -368,8 +374,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         # 上传错误日志
         if error is not None:
             await upload_logs(
-                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
-                level='ERROR'
+                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}], level="ERROR"
             )
         await asyncio.sleep(1)
 
@@ -400,7 +405,7 @@ def except_handler(tp, val, tb):
     if exit_in_cloud:
         # FIXME not a good way to fix '\n' problem
         print("")
-        swanlog.error('Aborted uploading by user')
+        swanlog.error("Aborted uploading by user")
         sys.exit(1)
     # 如果是KeyboardInterrupt异常
     if tp == KeyboardInterrupt:
@@ -424,7 +429,7 @@ def except_handler(tp, val, tb):
         print(datetime.now(), file=fError)
         print(html, file=fError)
     # 重置控制台记录器
-    swanlog.reset_console()
     run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
+    swanlog.reset_console()
     if tp != KeyboardInterrupt:
         raise tp(val)
