@@ -8,7 +8,7 @@ r"""
     测试swanlog类
 """
 import pytest
-from swanlab.log import SwanLog, swanlog
+from swanlab.log import swanlog
 from tutils import clear, SWANLAB_LOG_DIR
 from nanoid import generate
 import os
@@ -29,27 +29,39 @@ def before_test_global_swanlog():
 
 
 class TestSwanLogInstall:
-    def test_install_success(self):
-        lg = SwanLog('tmp')
-        lg.install()
-        assert lg.installed is True
+    """
+    目前在设计上不希望外界实例化SwanLog，所以不提供实例化测试
+    """
 
-    def test_install_duplicate(self):
-        lg = SwanLog('tmp')
-        lg.install()
+    # def test_install_success(self):
+    #     lg = SwanLog('tmp')
+    #     lg.install()
+    #     assert lg.installed is True
+    #     lg.uninstall()
+    #
+    # def test_install_duplicate(self):
+    #     lg = SwanLog('tmp')
+    #     lg.install()
+    #     with pytest.raises(RuntimeError) as e:
+    #         lg.install()
+    #     assert str(e.value) == 'SwanLog has been installed'
+
+    def test_global_install(self):
+        swanlog.install()
+        assert swanlog.installed is True
         with pytest.raises(RuntimeError) as e:
-            lg.install()
+            swanlog.install()
         assert str(e.value) == 'SwanLog has been installed'
+        swanlog.uninstall()
+        swanlog.install()
+        assert swanlog.installed is True
 
-    def test_write_after_uninstall(self, before_test_global_swanlog):
+    def test_write_after_uninstall(self):
         console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
         os.mkdir(console_dir)
         swanlog.install(console_dir)
         swanlog.uninstall()
         # 加一行防止其他问题
-        import sys
-        # 开启标准输出流
-        sys.stdout = sys.__stdout__
         print('\ntest write after uninstall')
         a = generate()
         print(a)
@@ -60,3 +72,21 @@ class TestSwanLogInstall:
         with open(os.path.join(console_dir, files[0]), 'r') as f:
             content = f.readlines()
             assert len(content) == 0
+
+    def test_write_to_file(self):
+        console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
+        os.mkdir(console_dir)
+        swanlog.install(console_dir)
+        # 加一行防止其他问题
+        print('\ntest write to file')
+        a = generate()
+        print(a)
+        b = generate()
+        print(b)
+        files = os.listdir(console_dir)
+        assert len(files) == 1
+        # 比较最后两行内容
+        with open(os.path.join(console_dir, files[0]), 'r') as f:
+            content = f.readlines()
+            assert content[-2] == a + '\n'
+            assert content[-1] == b + '\n'

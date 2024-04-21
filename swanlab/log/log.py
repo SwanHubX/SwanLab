@@ -137,6 +137,9 @@ def concat_messages(func):
     return wrapper
 
 
+_ = None
+
+
 class SwanLog(LogSys):
     # 日志系统支持的输出等级
     __levels = {
@@ -205,6 +208,7 @@ class SwanLog(LogSys):
     def uninstall(self):
         """
         卸载日志系统，卸载后需要重新安装
+        在设计上我们并不希望外界乱用这个函数，所以我们不提供外部调用（不在最外层的__all__中）
         """
         if not self.installed:
             raise RuntimeError("SwanLog has not been installed")
@@ -212,6 +216,7 @@ class SwanLog(LogSys):
         self.set_level("info")
         self.__logger.removeHandler(self.__handler)
         self.__handler = None
+
         self.__consoler.uninstall()
 
     @property

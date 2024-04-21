@@ -16,4 +16,4 @@ install = swanlog.install
 
 uninstall = swanlog.uninstall
 
-__all__ = ["install", "uninstall", "SwanLog", "swanlog"]
+__all__ = ["install", "uninstall", "swanlog"]

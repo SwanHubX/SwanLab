@@ -52,7 +52,7 @@ class Consoler(ConsolerParent):
                 super().__init__(sys.stdout.buffer)
         except Exception:
             self.__init_state = False
-        self.original_stdout = sys.stdout
+        self.stdout = None
         """
         原始输出流
         """
@@ -96,8 +96,9 @@ class Consoler(ConsolerParent):
     def can_upload(self) -> bool:
         return self.pool is not None
 
-    def init(self, path):
+    def init(self, path, stdout):
         self.console_folder = path
+        self.stdout = stdout
         # path 是否存在
         if not os.path.exists(path):
             os.makedirs(path)
@@ -111,16 +112,24 @@ class Consoler(ConsolerParent):
         # 拿到日志文件句柄
         self.file = open(console_path, "a", encoding="utf-8")
 
+    def reset(self):
+        self.__buffer = ""
+        self.__epoch = 0
+        self.now = None
+        self.file and self.file.close()
+        self.file = None
+        self.pool = None
+        self.console_folder = None
+
     @check_file_name
     def write(self, message):
         """
         重写 write 函数，将输出信息写入到控制台和日志文件中
         """
-        try:
-            self.original_stdout.write(message)  # 先写入原始 sys.stdout，即输出到控制台
-            self.original_stdout.flush()
-        except Exception:
-            pass
+
+        # 先写入原始 sys.stdout，即输出到控制台
+        self.stdout.write(message)
+        self.stdout.flush()
         message = FONT.clear(message)
         if self.can_upload:
             # 上传到云端
@@ -146,9 +155,6 @@ class Consoler(ConsolerParent):
         ))
 
 
-original_stdout = sys.__stdout__
-
-
 class SwanConsoler:
     def __init__(self):
         """
@@ -156,13 +162,20 @@ class SwanConsoler:
         [WARNING] 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
         """
         self.consoler: Consoler = Consoler()
+        self.__console_dir = None
+
+    @property
+    def installed(self):
+        return self.__console_dir is not None
 
     def uninstall(self):
         """重置输出为原本的样子"""
-        sys.stdout = original_stdout
-        self.consoler.file and self.consoler.file.close()
+        if self.installed:
+            sys.stdout = sys.__stdout__
+            self.consoler.reset()
 
     def install(self, console_dir):
-        self.consoler.init(console_dir)
+        self.consoler.init(console_dir, sys.__stdout__)
+        self.__console_dir = console_dir
         if self.consoler.init_state:
             sys.stdout = self.consoler
