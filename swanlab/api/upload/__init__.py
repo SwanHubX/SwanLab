@@ -10,7 +10,6 @@ r"""
 from ..http import get_http, async_error_handler
 from .model import ColumnModel
 from typing import List, Tuple, Dict
-import asyncio
 import json
 import yaml
 import os
@@ -134,9 +133,8 @@ async def upload_column(columns: List[ColumnModel]):
     """
     http = get_http()
     url = f'/experiment/{http.exp_id}/column'
-    datas = [column.to_dict() for column in columns]
-    events = [http.post(url, data=column.to_dict()) for column in columns]
-    await asyncio.gather(*events)
+    # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
+    _ = [await http.post(url, data=column.to_dict()) for column in columns]
 
 
 __all__ = [
