@@ -3,7 +3,7 @@ import json
 from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, Callable
 from .utils import create_time, check_tag_format, get_a_lock
 from urllib.parse import quote
 import ujson
@@ -20,7 +20,6 @@ from .db import (
     ChartTypeError,
 )
 from ...db import add_multi_chart
-from swanlab.cloud import UploadType
 
 NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 """
@@ -56,6 +55,36 @@ class SwanLabExp:
         """此实验对应的id，实际上就是db.id"""
         self.db: Experiment = exp
         """此实验对应的数据库实例"""
+        self.__key_callback = None
+        """
+        新的key回调函数，当有新的key添加的时候，会调用这个函数
+        只能设置一次
+        """
+        self.__metric_callback = None
+        """
+        新的metric回调函数，当有新的metric添加的时候，会调用这个函数
+        只能设置一次
+        """
+
+    @property
+    def metric_callback(self):
+        return self.__metric_callback
+
+    @metric_callback.setter
+    def metric_callback(self, value: Callable):
+        if self.__metric_callback is not None:
+            raise ValueError("Metric callback function has been set.")
+        self.__metric_callback = value
+
+    @property
+    def key_callback(self):
+        return self.__key_callback
+
+    @key_callback.setter
+    def key_callback(self, value: Callable):
+        if self.__key_callback is not None:
+            raise ValueError("Key callback function has been set.")
+        self.__key_callback = value
 
     def add(self, key: str, data: DataType, step: int = None):
         """记录一条新的tag数据
@@ -105,21 +134,19 @@ class SwanLabExp:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
         # 添加tag信息
         key_info = tag_obj.add(data, step)
-        # 添加成功且为cloud模式, 添加到上传队列中
-        if key_info is not None and self.settings.is_cloud:
+        # 添加成功且设置了metric_callback，则调用metric_callback
+        if key_info is not None and self.metric_callback is not None:
             new_data, data_type, step, epoch = key_info
             new_data['key'] = tag_obj.tag
             new_data['index'] = step
             new_data['epoch'] = epoch
             if data_type == "default":
-                return self.settings.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
+                return self.metric_callback(True, new_data)
             # 解析数据，第一个元素为指标信息，第二个元素为指标名称key，第三个元素为指标类型，第四个元素为文件列表
             # 将指标信息中每个文件的路径改为{key}/{filename}，方便后续上传
             # 文件列表中的内容为绝对路径
             key = quote(tag_obj.tag, safe="")
-            return self.settings.pool.queue.put(
-                (UploadType.MEDIA_METRIC, [(new_data, key, data_type, self.settings.static_dir)])
-            )
+            return self.metric_callback(False, (new_data, key, data_type, self.settings.static_dir))
 
 
 class SwanLabTag:

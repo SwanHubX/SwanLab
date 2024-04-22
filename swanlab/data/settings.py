@@ -35,17 +35,11 @@ class SwanDataSettings:
         self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
         # 实验运行id
         self.__run_id: str = run_id
-        self.pool: Optional[ThreadPool] = None
         self.__version = get_package_version()
 
     @property
     def version(self) -> str:
         return self.__version
-
-    @property
-    def is_cloud(self) -> bool:
-        """是否为云端"""
-        return self.pool is not None
 
     @property
     def exp_name(self) -> str:

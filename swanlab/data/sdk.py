@@ -13,8 +13,7 @@ import os
 import sys
 import traceback
 from datetime import datetime
-from typing import Dict
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
@@ -25,9 +24,10 @@ from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload import upload_logs
+from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
-from swanlab.cloud import LogSnifferTask, ThreadPool
+from swanlab.cloud import LogSnifferTask, ThreadPool, UploadType
 from swanlab.utils import create_time
 
 run: Optional["SwanLabRun"] = None
@@ -214,8 +214,27 @@ def init(
         pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
         pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-        # FIXME not a good way to mount a thread pool
-        run.settings.pool = pool
+
+        def _metric_callback(is_scalar: dict, data):
+            """
+            上传指标回调函数
+            :param is_scalar: 是否为标量指标
+            :param data: 上传的指标
+            :return:
+            """
+            pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
+
+        def _column_callback(data: dict):
+            """
+            上传列信息回调函数
+            :param data: 列信息
+            :return:
+            """
+            pool.queue.put((UploadType.COLUMN, [data]))
+
+        run.set_metric_callback(_metric_callback)
+        run.set_column_callback(_column_callback)
+
         swanlog.set_pool(pool)
 
     # ---------------------------------- 异常处理、程序清理 ----------------------------------

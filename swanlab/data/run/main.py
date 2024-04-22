@@ -24,7 +24,7 @@ import ujson
 from .exp import SwanLabExp
 from collections.abc import Mapping
 from .db import Experiment, ExistedError, NotExistedError
-from typing import Tuple
+from typing import Tuple, Callable
 import yaml
 import argparse
 from ..modules import BaseType
@@ -371,7 +371,7 @@ class SwanLabRun:
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
@@ -392,6 +392,24 @@ class SwanLabRun:
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__status = 0
+
+    def set_metric_callback(self, callback: Callable):
+        """
+        设置实验指标回调函数，当新指标出现时，会调用此函数，只能设置一次，否则出现ValueError
+        :param callback: 回调函数
+
+        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
+        """
+        self.__exp.metric_callback = callback
+
+    def set_column_callback(self, callback: Callable):
+        """
+        设置实验列回调函数，当新列出现时，会调用此函数，只能设置一次，否则出现ValueError
+        :param callback: 回调函数
+
+        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
+        """
+        self.__exp.column_callback = callback
 
     @property
     def settings(self) -> SwanDataSettings:

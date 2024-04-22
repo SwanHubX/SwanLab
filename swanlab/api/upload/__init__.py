@@ -8,12 +8,14 @@ r"""
     上传相关接口
 """
 from ..http import get_http, async_error_handler
+from .model import ColumnModel
 from typing import List, Tuple, Dict
+import asyncio
 import json
 import yaml
 import os
 
-url = '/house/metrics'
+house_url = '/house/metrics'
 
 
 def create_data(metrics: List[dict], metrics_type: str) -> dict:
@@ -40,7 +42,7 @@ async def upload_logs(logs: List[dict], level: str = "INFO"):
     # 将logs解析为json格式
     metrics = [{"level": level, **x} for x in logs]
     data = create_data(metrics, "log")
-    await http.post(url, data)
+    await http.post(house_url, data)
 
 
 @async_error_handler
@@ -73,10 +75,9 @@ async def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
     # 上传文件，先上传资源文件，再上传指标信息
     keys = list(file_paths.keys())
     local_paths = list(file_paths.values())
-    result = await http.upload_files(keys, local_paths)
-    # result = await http.upload(keys[0], local_paths[0])
+    await http.upload_files(keys, local_paths)
     # 上传指标信息
-    await http.post(url, create_data([x[0] for x in media_metrics], "media"))
+    await http.post(house_url, create_data([x[0] for x in media_metrics], "media"))
 
 
 @async_error_handler
@@ -86,7 +87,7 @@ async def upload_scalar_metrics(scalar_metrics: List[dict]):
     """
     http = get_http()
     data = create_data(scalar_metrics, "scalar")
-    await http.post(url, data)
+    await http.post(house_url, data)
 
 
 _valid_files = {
@@ -126,12 +127,15 @@ async def upload_files(files: List[str]):
 
 
 @async_error_handler
-async def upload_column():
+async def upload_column(columns: List[ColumnModel]):
     """
     上传列信息，需要注意的是一次只能上传一个列，所以函数名不带s
-    :return:
+    但是在设计上是聚合上传的，所以在此处需要进行拆分然后分别上传
     """
-    pass
+    http = get_http()
+    url = f'/experiment/{http.exp_id}/column'
+    events = [http.post(url, data=column.to_dict()) for column in columns]
+    await asyncio.gather(*events)
 
 
 __all__ = [
