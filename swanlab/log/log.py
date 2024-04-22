@@ -131,7 +131,9 @@ def concat_messages(func):
         # 拼接消息，首先将所有参数转换为字符串，然后拼接
         args = [str(arg) for arg in args]
         message = " ".join(args)
-        return func(self, message, **kwargs)
+        can_write = func(self, message, **kwargs)
+        if can_write and self.file:
+            self.file.write(message + "\n")
 
     return wrapper
 
@@ -209,7 +211,7 @@ class SwanLog(LogSys):
         """
         if not self.installed:
             raise RuntimeError("SwanLog has not been installed")
-        self.debug('uninstall swanlog, reset consoler')
+        self.debug("uninstall swanlog, reset consoler")
         self.set_level("info")
         self.__logger.removeHandler(self.__handler)
         self.__handler = None
@@ -276,30 +278,45 @@ class SwanLog(LogSys):
         else:
             raise KeyError("log_level must be one of ['debug', 'info', 'warning', 'error', 'critical']: %s" % level)
 
+    @property
+    def file(self):
+        if self.__consoler.installed:
+            return self.__consoler.consoler.file
+        else:
+            return None
+
+    def can_write(self, level: str) -> bool:
+        return self._get_level(level) >= self.__logger.level
+
     # 发送调试消息
     @concat_messages
     def debug(self, message):
         self.__logger.debug(message)
+        return self.can_write("debug")
 
     # 发送通知
     @concat_messages
     def info(self, message):
         self.__logger.info(message)
+        return self.can_write("info")
 
     # 发生警告
     @concat_messages
     def warning(self, message):
         self.__logger.warning(message)
+        return self.can_write("warning")
 
     # 发生错误
     @concat_messages
     def error(self, message):
         self.__logger.error(message)
+        return self.can_write("error")
 
     # 致命错误
     @concat_messages
     def critical(self, message):
         self.__logger.critical(message)
+        return self.can_write("critical")
 
     def reset_console(self):
         """重置控制台记录器"""
