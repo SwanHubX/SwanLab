@@ -133,8 +133,10 @@ def concat_messages(func):
         message = " ".join(args)
         can_write = func(self, message, **kwargs)
         if can_write and self.file:
-            self.file.write(message + "\n")
+            message = self.prefix + message + '\n'
+            self.file.write(message)
             self.file.flush()
+            self.write_callback and self.write_callback(message)
 
     return wrapper
 
@@ -151,6 +153,7 @@ class SwanLog(LogSys):
 
     def __init__(self, name=__name__.lower(), level="info"):
         super().__init__()
+        self.prefix = name + ':'
         self.__logger = logging.getLogger(name)
         """
         logging日志器
@@ -202,7 +205,6 @@ class SwanLog(LogSys):
         if console_dir:
             self.debug("Init consoler to record console log")
             self.__consoler.install(console_dir)
-        self.write_callback = None
         return self
 
     def uninstall(self):
@@ -217,21 +219,14 @@ class SwanLog(LogSys):
         self.__logger.removeHandler(self.__handler)
         self.__handler = None
         self.__consoler.uninstall()
-        self.write_callback = None
 
     @property
     def write_callback(self):
-        """
-        当swanlog触发日志写入文件的操作时，会调用此函数
-        目前在设计上它与install方法绑定，即install、uninstall以后会设置为None
-        不过uninstall以后也无法触发此函数
-        如果此值为None，那么不会触发回调
-        """
         return self.__consoler.write_callback
 
     @write_callback.setter
-    def write_callback(self, callback):
-        self.__consoler.write_callback = callback
+    def write_callback(self, func):
+        self.__consoler.write_callback = func
 
     @property
     def epoch(self):

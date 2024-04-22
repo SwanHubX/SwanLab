@@ -75,9 +75,13 @@ class Consoler(ConsolerParent):
         """
         当前正在写入的文件
         """
+        self.__write_callback = None
+        """
+        注入的上传回调函数本体
+        """
         self.write_callback = None
         """
-        上传回调函数
+        封装后的上传回调函数
         """
 
     @property
@@ -92,8 +96,8 @@ class Consoler(ConsolerParent):
         return self.__init_state
 
     @property
-    def can_upload(self) -> bool:
-        return self.write_callback is not None
+    def can_callback(self) -> bool:
+        return self.__write_callback is not None
 
     def init(self, path, stdout):
         self.console_folder = path
@@ -129,25 +133,33 @@ class Consoler(ConsolerParent):
         self.stdout.write(message)
         self.stdout.flush()
         message = FONT.clear(message)
-        if self.can_upload:
-            # 上传到云端
-            messages = message.split("\n")
-            # 如果长度为1，说明没有换行符
-            if len(messages) == 1:
-                self.__buffer = self.__buffer + messages[0]
-            # 如果长度大于2，说明其中包含多个换行符
-            elif len(messages) > 1:
-                self.__write_callback(self.__buffer + messages[0])
-                self.__buffer = messages[-1]
-                for m in messages[1:-1]:
-                    self.__write_callback(m)
+        self.write_callback and self.write_callback(message)
         self.file.write(message)
         self.file.flush()
 
-    def __write_callback(self, message):
-        self.__epoch += 1
-        # 将日志信息放入队列
-        self.write_callback({"message": message, "create_time": create_time(), "epoch": self.__epoch})
+    def set_write_callback(self, func):
+
+        # 封装一层func，加入epoch处理逻辑
+        def _func(message):
+            self.__epoch += 1
+            func({"message": FONT.clear(message), "create_time": create_time(), "epoch": self.__epoch})
+
+        # 封装第二层，加入message处理逻辑以及是否调用逻辑
+        def _(message):
+            if self.can_callback:
+                # 上传到云端
+                messages = message.split("\n")
+                # 如果长度为1，说明没有换行符
+                if len(messages) == 1:
+                    self.__buffer = self.__buffer + messages[0]
+                # 如果长度大于2，说明其中包含多个换行符
+                elif len(messages) > 1:
+                    _func(self.__buffer + messages[0])
+                    self.__buffer = messages[-1]
+                    for m in messages[1:-1]:
+                        _func(m)
+
+        self.write_callback = _
 
 
 class SwanConsoler:
@@ -181,4 +193,4 @@ class SwanConsoler:
 
     @write_callback.setter
     def write_callback(self, func):
-        self.consoler.write_callback = func
+        self.consoler.set_write_callback(func)
