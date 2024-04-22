@@ -103,7 +103,7 @@ class ThreadPool:
                      sleep_time: float,
                      task: Callable,
                      args: Tuple[ThreadUtil, ...]
-                     ) -> tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
+                     ) -> Tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
         """
         创建一个事件循环，循环执行传入线程池的任务
         :param name: 线程名称
