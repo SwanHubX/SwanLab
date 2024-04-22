@@ -9,7 +9,7 @@ r"""
 """
 from typing import Any
 from ..settings import SwanDataSettings
-from ...log import register, swanlog
+from ...log import swanlog
 from ..system import get_system_info, get_requirements
 from .utils import (
     check_exp_name_format,
@@ -378,11 +378,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
-        register(self.__settings.output_path, self.__settings.console_dir)
-        # 初始化日志等级
-        level = self.__check_log_level(log_level)
-        swanlog.set_level(level)
-
+        swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
         self.__config = SwanLabConfig(config, self.__settings)

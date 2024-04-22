@@ -11,7 +11,7 @@ r"""
 import sys
 import asyncio
 import re
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Tuple
 
 light_colors = [
     "#528d59",  # 绿色
@@ -38,7 +38,7 @@ COLOR_LIST = {
 }
 
 
-def generate_color(number: int = 1) -> tuple[str | Any, str | Any]:
+def generate_color(number: int = 1):
     """输入数字，在设定好顺序的颜色列表中返回十六进制颜色字符串
 
     Returns

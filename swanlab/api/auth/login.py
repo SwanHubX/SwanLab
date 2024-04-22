@@ -13,6 +13,7 @@ from swanlab.error import ValidationError
 from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
+from swanlab.log import swanlog
 import getpass
 import httpx
 import sys
@@ -70,8 +71,8 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
+        swanlog.info("Logging into swanlab cloud.")
+        swanlog.info("You can find your API key at: " + get_user_setting_path())
     key = getpass.getpass(FONT.swanlab(tip))
     sys.excepthook = _t
     return key
@@ -89,7 +90,7 @@ async def code_login(api_key: str) -> LoginInfo:
     tip = "Waiting for the swanlab cloud response."
     login_info: LoginInfo = await FONT.loading(tip, login_by_key(api_key), interval=0.5)
     if login_info.is_fail:
-        print(FONT.swanlab("Login failed: " + str(login_info).lower(), color="red"))
+        swanlog.error("Login failed: " + str(login_info).lower())
         raise ValidationError("Login failed: " + str(login_info))
     return login_info
 
@@ -118,6 +119,6 @@ def terminal_login(api_key: str = None) -> LoginInfo:
 def _abort_tip(tp, val, tb):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
-        print("\n" + FONT.swanlab("Aborted!", color="red"))
+        swanlog.error("Aborted!")
         sys.exit(0)
     # 如果不是CTRL+C，交给默认的异常处理

@@ -29,6 +29,7 @@ from swanlab.package import version_limit, get_package_version, get_host_api, ge
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool, UploadType
 from swanlab.utils import create_time
+from swanlab.cloud import UploadType
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -235,12 +236,18 @@ def init(
         run.set_metric_callback(_metric_callback)
         run.set_column_callback(_column_callback)
 
-        swanlog.set_pool(pool)
 
+        def _write_call_call(message):
+            pool.queue.put((UploadType.LOG, [message]))
+
+        swanlog.set_write_callback(_write_call_call)
+
+        # FIXME not a good way to mount pool
+        run.settings.pool = pool
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
-    atexit.register(_clean_handler)
+    atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
     if not cloud and not (project is None and workspace is None):
         swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
@@ -304,8 +311,7 @@ def finish():
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
     # FIXME not a good way to handle this
     run._success()
-    swanlog.set_success()
-    swanlog.reset_console()
+    swanlog.uninstall()
     run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
     run = None
 
@@ -354,7 +360,7 @@ def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
     if isinstance(config, dict) or config is None:
         return config
-    print(FONT.swanlab("The parameter config is loaded from the configuration file: {}".format(config)))
+    swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
     return check_load_json_yaml(config, "config")
 
 
@@ -392,9 +398,8 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         await run.settings.pool.finish()
         # 上传错误日志
         if error is not None:
-            await upload_logs(
-                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}], level="ERROR"
-            )
+            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+            await upload_logs(msg, level="ERROR")
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
@@ -402,7 +407,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
     return
 
 
-def _clean_handler():
+def clean_handler():
     """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
@@ -413,10 +418,9 @@ def _clean_handler():
         # FIXME not a good way to handle this
         run._success()
         swanlog.set_success()
-        swanlog.reset_console()
+        swanlog.uninstall()
 
 
-# 定义异常处理函数
 def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
@@ -449,6 +453,6 @@ def except_handler(tp, val, tb):
         print(html, file=fError)
     # 重置控制台记录器
     run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
-    swanlog.reset_console()
+    swanlog.uninstall()
     if tp != KeyboardInterrupt:
         raise tp(val)
