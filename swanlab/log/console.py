@@ -75,10 +75,10 @@ class Consoler(ConsolerParent):
         """
         当前正在写入的文件
         """
-        self.__write_callback = None
-        """
-        注入的上传回调函数本体
-        """
+        # self.__write_callback = None
+        # """
+        # 注入的上传回调函数本体
+        # """
         self.write_callback = None
         """
         封装后的上传回调函数
@@ -97,7 +97,7 @@ class Consoler(ConsolerParent):
 
     @property
     def can_callback(self) -> bool:
-        return self.__write_callback is not None
+        return self.write_callback is not None
 
     def init(self, path, stdout):
         self.console_folder = path
@@ -138,7 +138,6 @@ class Consoler(ConsolerParent):
         self.file.flush()
 
     def set_write_callback(self, func):
-
         # 封装一层func，加入epoch处理逻辑
         def _func(message):
             self.__epoch += 1
@@ -191,6 +190,5 @@ class SwanConsoler:
     def write_callback(self):
         return self.consoler.write_callback
 
-    @write_callback.setter
-    def write_callback(self, func):
+    def set_write_callback(self, func):
         self.consoler.set_write_callback(func)

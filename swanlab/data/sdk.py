@@ -219,7 +219,7 @@ def init(
         def _write_call_call(message):
             pool.queue.put((UploadType.LOG, [message]))
 
-        swanlog.write_callback = _write_call_call
+        swanlog.set_write_callback(_write_call_call)
 
         # FIXME not a good way to mount pool
         run.settings.pool = pool

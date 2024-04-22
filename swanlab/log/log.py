@@ -224,9 +224,8 @@ class SwanLog(LogSys):
     def write_callback(self):
         return self.__consoler.write_callback
 
-    @write_callback.setter
-    def write_callback(self, func):
-        self.__consoler.write_callback = func
+    def set_write_callback(self, func):
+        self.__consoler.set_write_callback(func)
 
     @property
     def epoch(self):
