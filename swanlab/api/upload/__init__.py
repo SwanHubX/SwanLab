@@ -123,3 +123,21 @@ async def upload_files(files: List[str]):
                 data[_valid_files[filename][0]] = f.read()
 
     await http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
+
+
+@async_error_handler
+async def upload_column():
+    """
+    上传列信息，需要注意的是一次只能上传一个列，所以函数名不带s
+    :return:
+    """
+    pass
+
+
+__all__ = [
+    "upload_logs",
+    "upload_media_metrics",
+    "upload_scalar_metrics",
+    "upload_files",
+    "upload_column"
+]
