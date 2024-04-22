@@ -177,18 +177,15 @@ def init(
     exp_num = None
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
-    http = None
+    http, pool = None, None
     if login_info is None and cloud:
         # 用户登录
         login_info = _login_in_init()
     if cloud:
         http = create_http(login_info)
         exp_num = http.mount_project(project, workspace).history_exp_count
-    elif cloud:
-        # 初始化会话信息
-        http = create_http(login_info)
-        # 获取当前项目信息
-        exp_num = http.mount_project(project, workspace).history_exp_count
+        # 初始化、挂载线程池
+        pool = ThreadPool()
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -202,6 +199,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
+        pool=pool,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
@@ -211,10 +209,8 @@ def init(
             colors=run.settings.exp_colors,
             description=run.settings.description,
         )
-        # 初始化、挂载线程池
-        pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
-        pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+        run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
 
         def _metric_callback(is_scalar: dict, data):
             """
@@ -223,7 +219,7 @@ def init(
             :param data: 上传的指标
             :return:
             """
-            pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
+            run.pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
 
         def _column_callback(data: dict):
             """
@@ -231,19 +227,15 @@ def init(
             :param data: 列信息
             :return:
             """
-            pool.queue.put((UploadType.COLUMN, [data]))
+            run.pool.queue.put((UploadType.COLUMN, [data]))
 
         run.set_metric_callback(_metric_callback)
         run.set_column_callback(_column_callback)
-
 
         def _write_call_call(message):
             pool.queue.put((UploadType.LOG, [message]))
 
         swanlog.set_write_callback(_write_call_call)
-
-        # FIXME not a good way to mount pool
-        run.settings.pool = pool
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
@@ -312,7 +304,8 @@ def finish():
     # FIXME not a good way to handle this
     run._success()
     swanlog.uninstall()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
+    if run.cloud and not exit_in_cloud:
+        _before_exit_in_cloud(True)
     run = None
 
 
@@ -387,7 +380,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         实验是否成功
     """
     global exit_in_cloud
-    if exit_in_cloud or run is None or run.settings.pool is None:
+    if exit_in_cloud or run is None or not run.cloud:
         return
     # 标志已经退出（需要在下面的逻辑之前标志）
     exit_in_cloud = True
@@ -395,7 +388,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
 
     async def _():
         # 关闭线程池，等待上传线程完成
-        await run.settings.pool.finish()
+        await run.pool.finish()
         # 上传错误日志
         if error is not None:
             msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
@@ -413,7 +406,8 @@ def clean_handler():
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     # 如果没有错误
     if not swanlog.is_error and not exit_in_cloud:
-        run.settings.pool and _before_exit_in_cloud(True)
+        if run.cloud:
+            _before_exit_in_cloud(True)
         swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
@@ -452,7 +446,8 @@ def except_handler(tp, val, tb):
         print(datetime.now(), file=fError)
         print(html, file=fError)
     # 重置控制台记录器
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
+    if run.cloud and not exit_in_cloud:
+        _before_exit_in_cloud(False, error=str(html))
     swanlog.uninstall()
     if tp != KeyboardInterrupt:
         raise tp(val)
