@@ -3,7 +3,7 @@ import json
 from ..settings import SwanDataSettings
 from ..modules import BaseType, DataType
 from ...log import swanlog
-from typing import Dict, Tuple, Union, Callable
+from typing import Dict, Tuple, Union, Callable, Optional
 from .utils import create_time, check_tag_format, get_a_lock
 from urllib.parse import quote
 import ujson
@@ -55,9 +55,9 @@ class SwanLabExp:
         """此实验对应的id，实际上就是db.id"""
         self.db: Experiment = exp
         """此实验对应的数据库实例"""
-        self.__key_callback = None
+        self.__column_callback = None
         """
-        新的key回调函数，当有新的key添加的时候，会调用这个函数
+        新的列回调函数，当有新的key添加的时候，会调用这个函数
         只能设置一次
         """
         self.__metric_callback = None
@@ -77,14 +77,14 @@ class SwanLabExp:
         self.__metric_callback = value
 
     @property
-    def key_callback(self):
-        return self.__key_callback
+    def column_callback(self):
+        return self.__column_callback
 
-    @key_callback.setter
-    def key_callback(self, value: Callable):
-        if self.__key_callback is not None:
+    @column_callback.setter
+    def column_callback(self, value: Callable):
+        if self.__column_callback is not None:
             raise ValueError("Key callback function has been set.")
-        self.__key_callback = value
+        self.__column_callback = value
 
     def add(self, key: str, data: DataType, step: int = None):
         """记录一条新的tag数据
@@ -128,7 +128,10 @@ class SwanLabExp:
             if isinstance(data, BaseType):
                 data.step = 0 if step is None or not isinstance(step, int) else step
                 data.tag = tag_obj.tag
-            tag_obj.create_chart(tag, data)
+            result = tag_obj.create_chart(tag, data)
+            # 创建新列，生成回调
+            if self.column_callback is not None:
+                self.column_callback(*result)
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
             return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
@@ -295,13 +298,16 @@ class SwanLabTag:
             os.mkdir(path)
         return path
 
-    def create_chart(self, tag: str, data: DataType):
+    def create_chart(self, tag: str, data: DataType) -> Tuple[str, str, Optional[Dict]]:
         """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
         此方法只能执行一次
         具体步骤是：
         1. 创建tag字段
         2. 如果不是baseType类型，
 
+
+        :returns tag, chart_type, error
+        [WARNING] 返回位置需与回调函数入参位置一致
         """
         if self.__namespace is not None or self.__chart is not None:
             raise ValueError(f"Chart {tag} has been created, cannot create again.")
@@ -380,6 +386,7 @@ class SwanLabTag:
             add_multi_chart(tag_id=tag.id, chart_id=self.__chart.id)
         except ChartTypeError:
             swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
+        return tag.name, chart_type, error
 
     @staticmethod
     def __new_tag(index, data, more: dict = None) -> dict:

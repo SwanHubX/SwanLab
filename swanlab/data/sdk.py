@@ -221,13 +221,14 @@ def init(
             """
             run.pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
 
-        def _column_callback(data: dict):
+        def _column_callback(key, data_type: str, error: Optional[Dict] = None):
             """
             上传列信息回调函数
-            :param data: 列信息
-            :return:
+            :param key: 列名
+            :param data_type: 列数据类型
+            :param error: 错误信息
             """
-            run.pool.queue.put((UploadType.COLUMN, [data]))
+            run.pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
 
         run.set_metric_callback(_metric_callback)
         run.set_column_callback(_column_callback)

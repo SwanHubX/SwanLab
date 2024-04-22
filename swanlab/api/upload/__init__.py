@@ -134,6 +134,7 @@ async def upload_column(columns: List[ColumnModel]):
     """
     http = get_http()
     url = f'/experiment/{http.exp_id}/column'
+    datas = [column.to_dict() for column in columns]
     events = [http.post(url, data=column.to_dict()) for column in columns]
     await asyncio.gather(*events)
 
