@@ -134,6 +134,7 @@ def concat_messages(func):
         can_write = func(self, message, **kwargs)
         if can_write and self.file:
             self.file.write(message + "\n")
+            self.file.flush()
 
     return wrapper
 

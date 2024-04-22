@@ -38,7 +38,7 @@ class TestSwanLogInstall:
     #     lg.install()
     #     assert lg.installed is True
     #     lg.uninstall()
-    
+
     # def test_install_duplicate(self):
     #     lg = SwanLog('tmp')
     #     lg.install()
@@ -51,34 +51,34 @@ class TestSwanLogInstall:
         assert swanlog.installed is True
         with pytest.raises(RuntimeError) as e:
             swanlog.install()
-        assert str(e.value) == 'SwanLog has been installed'
+        assert str(e.value) == "SwanLog has been installed"
         swanlog.uninstall()
         swanlog.install()
         assert swanlog.installed is True
 
     def test_write_after_uninstall(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
+        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
         os.mkdir(console_dir)
         swanlog.install(console_dir)
         swanlog.uninstall()
         # 加一行防止其他问题
-        print('\ntest write after uninstall')
+        print("\ntest write after uninstall")
         a = generate()
         print(a)
         b = generate()
         print(b)
         files = os.listdir(console_dir)
         assert len(files) == 1
-        with open(os.path.join(console_dir, files[0]), 'r') as f:
+        with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
             assert len(content) == 0
 
     def test_write_to_file(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, 'console')
+        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
         os.mkdir(console_dir)
         swanlog.install(console_dir)
         # 加一行防止其他问题
-        print('\ntest write to file')
+        print("\ntest write to file")
         a = generate()
         print(a)
         b = generate()
@@ -86,7 +86,41 @@ class TestSwanLogInstall:
         files = os.listdir(console_dir)
         assert len(files) == 1
         # 比较最后两行内容
-        with open(os.path.join(console_dir, files[0]), 'r') as f:
+        with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
-            assert content[-2] == a + '\n'
-            assert content[-1] == b + '\n'
+            assert content[-2] == a + "\n"
+            assert content[-1] == b + "\n"
+
+    def test_write_logging_to_file(self):
+        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
+        os.mkdir(console_dir)
+        swanlog.install(console_dir, log_level="debug")
+        # 加一行防止其他问题
+        print("\ntest write to file")
+        a = generate()
+        swanlog.debug(a)
+        b = generate()
+        swanlog.info(b)
+        files = os.listdir(console_dir)
+        assert len(files) == 1
+        with open(os.path.join(console_dir, files[0]), "r") as f:
+            content = f.readlines()
+            assert content[-2] == a + "\n"
+            assert content[-1] == b + "\n"
+
+    def test_can_write_logging(self):
+        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
+        os.mkdir(console_dir)
+        swanlog.install(console_dir)
+        # 加一行防止其他问题
+        print("\ntest write to file")
+        a = generate()
+        swanlog.debug(a)
+        b = generate()
+        swanlog.info(b)
+        files = os.listdir(console_dir)
+        assert len(files) == 1
+        with open(os.path.join(console_dir, files[0]), "r") as f:
+            content = f.readlines()
+            assert content[-2] != a + "\n"
+            assert content[-1] == b + "\n"
