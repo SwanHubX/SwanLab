@@ -106,11 +106,6 @@ class SwanDataSettings:
         return os.path.join(get_swanlog_dir(), self.run_id)
 
     @property
-    def output_path(self) -> str:
-        """输出文件路径"""
-        return os.path.join(self.run_dir, "output.log")
-
-    @property
     def error_path(self) -> str:
         """错误日志文件路径"""
         return os.path.join(self.console_dir, "error.log")
