@@ -141,7 +141,7 @@ class Consoler(ConsolerParent):
         # 封装一层func，加入epoch处理逻辑
         def _func(message):
             self.__epoch += 1
-            func({"message": FONT.clear(message), "create_time": create_time(), "epoch": self.__epoch})
+            func({"message": message, "create_time": create_time(), "epoch": self.__epoch})
 
         # 封装第二层，加入message处理逻辑以及是否调用逻辑
         def _(message):

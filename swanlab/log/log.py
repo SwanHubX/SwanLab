@@ -133,7 +133,7 @@ def concat_messages(func):
         message = " ".join(args)
         can_write = func(self, message, **kwargs)
         if can_write and self.file:
-            message = self.prefix + message + '\n'
+            message = self.prefix + FONT.clear(message) + '\n'
             self.file.write(message)
             self.file.flush()
             self.write_callback and self.write_callback(message)
