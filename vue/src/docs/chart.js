@@ -4,10 +4,6 @@
 // 开源版对象类型以Open为前缀
 
 /**
- * @typedef {OpenSection[]} OpenSections 一个完整的图表配置，包含了当前页面的所有图表信息
- */
-
-/**
  * @typedef {Object} OpenSection 一个节容器，存放图表，和一些默认情况
  * @property {number | string} id 平常不会使用，用于区别pin的section（-1）和hidden的section（-2），不影响排序，只影响名称显示；另一方面，将使用这个作为v-for时的key
  * @property {string} name section的名称，特别的，如果为default或者id为-1、-2，则按照前端定义的名称显示
