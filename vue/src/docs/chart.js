@@ -42,7 +42,7 @@
 
 /**
  * @callback OpenChartSubscribe 图表本身向父组件传递数据的订阅函数
- * @param {string[]} sources 数据源名称
+ * @param {string[]} sources 数据源名称，代表这个图表使用了哪些数据源
  * @param {string} chartId 图表id
  * @param {OpenChartSubscribeCallback} callback 订阅成功后的回调函数
  */
