@@ -65,8 +65,7 @@ import SlideBar from '../components/SlideBar.vue'
 
 const props = defineProps({
   data: {
-    type: Object,
-    default: () => {}
+    type: Object
   },
   tag: {
     type: String,
