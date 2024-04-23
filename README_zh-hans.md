@@ -517,9 +517,9 @@ trainer.train()
 
 ### 为SwanLab做出贡献
 
-考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 CONTRIBUTING.md 指南。
+考虑为SwanLab做出贡献吗？首先，请花点时间阅读 [贡献指南](CONTRIBUTING.md)。
 
-同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持SwanLab。
+同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持SwanLab，衷心感谢！
 
 <br>
 
