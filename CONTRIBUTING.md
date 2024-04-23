@@ -19,10 +19,13 @@
 ## 标准开发流程
 
 1. 浏览 GitHub 上的[Issues](https://github.com/SwanHubX/SwanLab/issues)，查看你愿意添加的功能或修复的错误，以及它们是否已被 Pull Request。
+
    - 如果没有，请创建一个[新 Issue](https://github.com/SwanHubX/SwanLab/issues/new/choose)——这将帮助项目跟踪功能请求和错误报告，并确保不重复工作。
    
 2. 如果你是第一次为开源项目贡献代码，请转到`https://github.com/SwanHubX/SwanLab`并单击右上角的"Fork"按钮。这将创建你用于开发的仓库的个人副本。
+
    - 将 Fork 的项目克隆到你的计算机，并添加指向`swanlab`项目的远程链接：
+
    ```bash
    git clone https://github.com/<your-username>/swanlab.git
    cd swanlab
@@ -87,7 +90,7 @@ SwanLab仓库已经配好了[VSCode](https://code.visualstudio.com/)的环境、
 
 用VSCode打开项目，进入 [扩展] ，在搜索框输入“@recommended”，会出现一系列推荐插件，推荐全部安装这些插件。
 
-![image (7)](/Users/zeyilin/Downloads/image (7).png)
+![vscode-recommend](/readme_files/contribution_images/vscode_recommend.png)
 
 ### 配置npm与Python环境
 
@@ -146,9 +149,7 @@ npm run build
 
 > 二者区别在于，`build` 不会消除 `swanlab watch` 时浏览器的终端打印信息，而 `build.release` 则会清除。
 
-构建完成后，你的swanlab文件夹内会出现1个template文件夹：
-
-![img](https://geektechstudio.feishu.cn/space/api/box/stream/download/asynccode/?code=ZTNhZjU4MTdlY2EzZDJkNDM0OWEzNDM1MTFlMmU5OTRfNjdNMFU0cUttMkM3V2NZQnFaNGtkT0FsRjhqdHY4SGVfVG9rZW46RTRzV2JnTkxab1N0aWN4ZUo4V2M4NXVabnRoXzE3MTM4NzE5NzE6MTcxMzg3NTU3MV9WNA)
+构建完成后，你的swanlab文件夹内会出现1个`template`文件夹。
 
 
 
@@ -158,16 +159,19 @@ npm run build
 
 在 VSCode-运行和调试 中，项目配置好了一系列调试脚本：
 
-![img](https://geektechstudio.feishu.cn/space/api/box/stream/download/asynccode/?code=ZDk2ZjQwYWUzMmFhN2FhMjAxMmJjZmQ0N2U5NWI5MjdfSUZHMFRSTFRSbHdKdG1Fck9oWWVnT2YydmxrekJWWjdfVG9rZW46UWZwd2JyRW92b3drT014bjh0bGNGWkRwbjhnXzE3MTM4NzE5NzE6MTcxMzg3NTU3MV9WNA)![img](https://geektechstudio.feishu.cn/space/api/box/stream/download/asynccode/?code=Yzg1MzVhZmU4OWJhNTNlMjJlY2E0YjJiMDcwOWYyOGFfU3o1aE5PQlJucllOV0pyeTBqTnpZOWhTMjMwcDFBYXJfVG9rZW46QzUxZGJWZG9Xb0RpRld4ejBEaGMwUmJ0bm9lXzE3MTM4NzE5NzE6MTcxMzg3NTU3MV9WNA)
+![img](/readme_files/contribution_images/debug.png)
 
 - **前端开发:dev** ：开启基于Vite的前端服务，自动唤起1个自动更新的实验看板网页
+
 - **后端开发**：开启后端服务，作为前端服务的后端
+
 - **构建项目**：打包项目为whl文件（pip安装包格式）
+
 - **开启一个实验**：运行`test/create_experiment.py`脚本
+
 - **模拟命令行watch**：模拟命令行开启`swanlab watch`
+
 - **Python运行当前文件**：使用配置好的Python环境运行你选中的文件
-
-
 
 Ps: 如果你不想使用VSCode进行开发，可以前往`.vscode/launch.json`，查看每个调试项对应的命令。
 
@@ -176,8 +180,11 @@ Ps: 如果你不想使用VSCode进行开发，可以前往`.vscode/launch.json`�
 ## 调试流程
 
 - 首次调试时，依次启动脚本：**开启一个实验 -> 后端开发 -> 前端开发**
+
   - 第1次执行“开启一个实验”会在根目录下创建日志文件夹（默认为`swanlog`），“后端开发”将基于这个文件夹开启。
+
 - 后续调试时，依次启动脚本：**后端开发 -> 前端开发 -> 开启一个实验**
+
   - 因为已经存在日志文件夹，所以“后端开发”直接可以启用。
 
 
