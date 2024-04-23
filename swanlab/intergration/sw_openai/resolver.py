@@ -51,6 +51,7 @@ class OpenAIRequestResponseResolver:
         request = kwargs
 
         try:
+            print(f"request是{request}")
             if response.get("object") == "edit":
                 return self._resolve_edit(request, response, time_elapsed)
             elif response.get("object") == "text_completion":
@@ -158,18 +159,40 @@ class OpenAIRequestResponseResolver:
         usage_metrics = self._get_usage_metrics(response, time_elapsed)
 
         usage = []
+
         for result in results:
+            swanlab.log(
+                {
+                    "result": [
+                        swanlab.Text(caption="request", data=str(request["messages"])),
+                        swanlab.Text(caption="response", data=response.choices[0].message.content),
+                        swanlab.Text(caption="request_id", data=response.id),
+                        swanlab.Text(caption="model", data=response.model),
+                        swanlab.Text(caption="completion_tokens", data=response.usage.completion_tokens),
+                        swanlab.Text(caption="prompt_tokens", data=response.usage.prompt_tokens),
+                        swanlab.Text(caption="total_tokens", data=response.usage.total_tokens),
+                        swanlab.Text(
+                            caption="start_time", data=str(datetime.datetime.fromtimestamp(response["created"]))
+                        ),
+                        swanlab.Text(
+                            caption="end_time",
+                            data=str(datetime.datetime.fromtimestamp(response["created"] + time_elapsed)),
+                        ),
+                        swanlab.Text(caption="used_time", data=time_elapsed),
+                    ]
+                }
+            )
 
             row = {
-                "request": result.inputs["request"],
-                "response": result.outputs["response"],
+                # "request": result.inputs["request"],
+                # "response": result.outputs["response"],
                 "model": model,
                 "start_time": datetime.datetime.fromtimestamp(response["created"]),
                 "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
                 "request_id": response.get("id", None),
                 "api_type": response.get("api_type", "openai"),
             }
-            result_text = swanlab.Text(row)
+        result_text = swanlab.Text(str(row))
 
         metrics = Metrics(stats=result_text, usage=usage_metrics)
         return metrics
@@ -179,7 +202,6 @@ class OpenAIRequestResponseResolver:
         """Converts metrics to a dict."""
         metrics_dict = {
             "stats": metrics.stats,
-            "trace": metrics.trace,
         }
         usage_stats = {f"usage/{k}": v for k, v in asdict(metrics.usage).items()}
         metrics_dict.update(usage_stats)

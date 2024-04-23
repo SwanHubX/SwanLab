@@ -91,8 +91,15 @@ class PatchAPI:
         for symbol in self.symbols:
             # split on dots, e.g. "Client.generate" -> ["Client", "generate"]
             symbol_parts = symbol.split(".")
+            print(f"symbol是{symbol_parts}")
+            print(f"Api是{self.set_api}")
             # and get the attribute from the module
             original = functools.reduce(getattr, symbol_parts, self.set_api)
+            print(f"旧方法是{original}")
+            # original_name = getattr(original, "__name__")
+            # setattr(original, "__name__", str(original_name))
+            # original_qualname = getattr(original, "__qualname__")
+            # setattr(original, "__qualname__", str(original_qualname))
 
             def method_factory(original_method: Any):
                 async def async_method(*args, **kwargs):
@@ -100,10 +107,11 @@ class PatchAPI:
 
                     async def callback(coro):
                         try:
+                            print("这是新方法1")
                             result = await coro
                             loggable_dict = self.resolver(args, kwargs, result, timer.start_time, timer.elapsed)
                             if loggable_dict is not None:
-                                run.log(loggable_dict)
+                                swanlab.log(loggable_dict)
                             future.set_result(result)
                         except Exception as e:
                             print(e)
@@ -117,10 +125,12 @@ class PatchAPI:
                 def sync_method(*args, **kwargs):
                     with Timer() as timer:
                         result = original_method(*args, **kwargs)
+                        print("结果是2")
                         try:
+                            print("这是新方法2")
                             loggable_dict = self.resolver(args, kwargs, result, timer.start_time, timer.elapsed)
                             if loggable_dict is not None:
-                                run.log(loggable_dict)
+                                swanlab.log(loggable_dict)
                         except Exception as e:
                             print(e)
                         return result
@@ -173,7 +183,6 @@ class AutologAPI:
         )
         self._name = self._patch_api.name
         self._run: Optional[SwanLabRun] = None
-        self.__run_created_by_autolog: bool = False
 
     @property
     def _is_enabled(self) -> bool:

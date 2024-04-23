@@ -16,15 +16,16 @@ sys.path.append(relative_path)
 
 from intergration_utils.autologging import AutologAPI
 
-from intergration.openai.resolver import OpenAIRequestResponseResolver
+from intergration.sw_openai.resolver import OpenAIRequestResponseResolver
 
 
 autolog = AutologAPI(
     name="OpenAI",
     symbols=(
+        # "OpenAI().Chat.Completion.create",
+        "ChatCompletion.create",
         "Edit.create",
         "Completion.create",
-        "ChatCompletion.create",
         "Edit.acreate",
         "Completion.acreate",
         "ChatCompletion.acreate",
