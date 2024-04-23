@@ -215,3 +215,7 @@ class AutologAPI:
         self._run = None
 
         self._patch_api.unpatch()
+
+
+if __name__ == "__main__":
+    print("This is the main program")
