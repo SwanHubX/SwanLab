@@ -35,6 +35,7 @@
   - [1.安装](#1安装)
   - [2.登录并获取API Key](#2登录并获取api-key)
   - [3.将SwanLab与你的代码集成](#3将SwanLab与你的代码集成)
+- [📃 更多案例](#-更多案例)
 - [💻 自托管](#-自托管)
   - [1.增加参数logdir与cloud](#1增加参数logdir与cloud)
   - [2.启动SwanLab UI](#2在训练的同时启动swanlab-ui)
@@ -128,6 +129,8 @@ for i in range(10):
 ```
 
 大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个SwanLab实验。
+
+<br>
 
 ## 📃 更多案例
 
