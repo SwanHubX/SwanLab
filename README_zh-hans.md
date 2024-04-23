@@ -5,13 +5,19 @@
 </p>
 
 <p align="center">
-  <a href="https://swanlab.cn" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/Product-F04438"></a>
   <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
   <a href="https://github.com/SwanHubX/SwanLab/commits/main"><img src="https://img.shields.io/github/last-commit/SwanHubX/SwanLab" alt="license"></a>
   <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange" alt= /></a>
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab/month"></a>
   <a href="https://github.com/swanhubx/swanlab/issues"><img alt="issues" src="https://img.shields.io/github/issues/swanhubx/swanlab"></a>
+  <br>
+  <a href="https://swanlab.cn" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
+  <a href="https://https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
+  <a href="https://https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/小红书-F04438"></a>
+
 </p>
 
 <div align="center">
@@ -43,9 +49,6 @@
   - [在论文中引用SwanLab](#在论文中引用swanlab)
   - [为SwanLab做出贡献](#为swanlab做出贡献)
 - [📃 协议](#-协议)
-
-
-####
 
 <br/>
 
@@ -126,6 +129,137 @@ for i in range(10):
 
 大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个SwanLab实验。
 
+## 📃 更多案例
+
+<details>
+<summary>MNIST手写体识别</summary>
+
+```python
+import os
+import torch
+from torch import nn, optim, utils
+import torch.nn.functional as F
+from torchvision.datasets import MNIST
+from torchvision.transforms import ToTensor
+import swanlab
+
+
+class ConvNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # 1,28x28
+        self.conv1 = nn.Conv2d(1, 10, 5)  # 10, 24x24
+        self.conv2 = nn.Conv2d(10, 20, 3)  # 128, 10x10
+        self.fc1 = nn.Linear(20 * 10 * 10, 500)
+        self.fc2 = nn.Linear(500, 10)
+
+    def forward(self, x):
+        in_size = x.size(0)
+        out = self.conv1(x)  # 24
+        out = F.relu(out)
+        out = F.max_pool2d(out, 2, 2)  # 12
+        out = self.conv2(out)  # 10
+        out = F.relu(out)
+        out = out.view(in_size, -1)
+        out = self.fc1(out)
+        out = F.relu(out)
+        out = self.fc2(out)
+        out = F.log_softmax(out, dim=1)
+        return out
+
+
+# 捕获并可视化前20张图像
+def log_images(loader, num_images=16):
+    images_logged = 0
+    logged_images = []
+    for images, labels in loader:
+        # images: batch of images, labels: batch of labels
+        for i in range(images.shape[0]):
+            if images_logged < num_images:
+                # 使用swanlab.Image将图像转换为wandb可视化格式
+                logged_images.append(swanlab.Image(images[i], caption=f"Label: {labels[i]}"))
+                images_logged += 1
+            else:
+                break
+        if images_logged >= num_images:
+            break
+    swanlab.log({"MNIST-Preview": logged_images})
+
+
+if __name__ == "__main__":
+
+    # 初始化swanlab
+    run = swanlab.init(
+        project="MNIST-example",
+        experiment_name="ConvNet",
+        description="Train ConvNet on MNIST dataset.",
+        config={
+            "model": "resnet50",
+            "optim": "Adam",
+            "lr": 0.001,
+            "batch_size": 512,
+            "num_epochs": 10,
+            "train_dataset_num": 55000,
+            "val_dataset_num": 5000,
+        },
+    )
+
+    # 设置训练机、验证集和测试集
+    dataset = MNIST(os.getcwd(), train=True, download=True, transform=ToTensor())
+    train_dataset, val_dataset = utils.data.random_split(
+        dataset, [run.config.train_dataset_num, run.config.val_dataset_num]
+    )
+
+    train_loader = utils.data.DataLoader(train_dataset, batch_size=run.config.batch_size, shuffle=True)
+    val_loader = utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
+
+    # 初始化模型、损失函数和优化器
+    model = ConvNet()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=run.config.lr)
+
+    # （可选）看一下数据集的前16张图像
+    log_images(train_loader, 16)
+
+    # 开始训练
+    for epoch in range(1, run.config.num_epochs):
+        swanlab.log({"train/epoch": epoch})
+        # 训练循环
+        for iter, batch in enumerate(train_loader):
+            x, y = batch
+            optimizer.zero_grad()
+            output = model(x)
+            loss = criterion(output, y)
+            loss.backward()
+            optimizer.step()
+
+            print(
+                f"Epoch [{epoch}/{run.config.num_epochs}], Iteration [{iter + 1}/{len(train_loader)}], Loss: {loss.item()}"
+            )
+
+            if iter % 20 == 0:
+                swanlab.log({"train/loss": loss.item()}, step=(epoch - 1) * len(train_loader) + iter)
+
+        # 每4个epoch验证一次
+        if epoch % 2 == 0:
+            model.eval()
+            correct = 0
+            total = 0
+            with torch.no_grad():
+                for batch in val_loader:
+                    x, y = batch
+                    output = model(x)
+                    _, predicted = torch.max(output, 1)
+                    total += y.size(0)
+                    correct += (predicted == y).sum().item()
+
+            accuracy = correct / total
+            swanlab.log({"val/accuracy": accuracy})
+
+```
+
+</details>
+
 <br>
 
 ## 💻 自托管
@@ -161,7 +295,7 @@ swanlab watch -l ./logs
 运行完成后，SwanLab会给你1个本地的URL链接（默认是[http://127.0.0.1:5092](http://127.0.0.1:5092)）
 
 查看链接，即可在浏览器看到你的第一个实验可视化结果
- 
+
 <br>
 
 ## 🚗 框架集成
@@ -341,9 +475,7 @@ trainer.train()
 
 <br>
 
-## 🛣️ Roadmap
 
-虚位以待...
 
 <br>
 
