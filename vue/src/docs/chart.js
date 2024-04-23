@@ -11,7 +11,7 @@
 /**
  * @description 一个节容器，存放图表，和一些默认情况
  * @typedef {Object} OpenSection
- * @property {int} id 平常不会使用，用于区别pin的section（-1）和hidden的section（-2），不影响排序，只影响名称显示；另一方面，将使用这个作为v-for时的key
+ * @property {int | string} id 平常不会使用，用于区别pin的section（-1）和hidden的section（-2），不影响排序，只影响名称显示；另一方面，将使用这个作为v-for时的key
  * @property {string} name section的名称，特别的，如果为default或者id为-1、-2，则按照前端定义的名称显示
  * @property {OpenChart[]} charts 这个section内包含的图表
  */
@@ -19,7 +19,7 @@
 /**
  * @description 一个图表配置，用于标注这个图表是什么类型以及配置是什么，使用了什么数据源
  * @typedef {Object} OpenChart
- * @property {int} id 图表唯一id，用于v-for时的key
+ * @property {int | string} id 图表唯一id，用于v-for时的key
  * @property {boolean} multi 标注是否为多实验图表显示，这涉及到图表组件内部不同的数据处理方式
  * @property {string} name 图表名称
  * @property {string} reference 参考系，目前默认为step
