@@ -13,9 +13,10 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(current_dir, "..")
 sys.path.append(relative_path)
-from utils.autologging import AutologAPI
 
-from .resolver import OpenAIRequestResponseResolver
+from intergration_utils.autologging import AutologAPI
+
+from intergration.openai.resolver import OpenAIRequestResponseResolver
 
 
 autolog = AutologAPI(
@@ -30,7 +31,3 @@ autolog = AutologAPI(
     ),
     resolver=OpenAIRequestResponseResolver(),
 )
-
-
-if __name__ == "__main__":
-    print("This is the main program")

@@ -7,3 +7,6 @@ r"""
 @Description:
     OpenAI集成
 """
+
+from .openai import autolog
+from .resolver import OpenAIRequestResponseResolver

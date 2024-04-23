@@ -13,12 +13,16 @@ import inspect
 import swanlab
 import logging
 import sys
-import Timer
+import os
 from swanlab.data.run import SwanLabRun
 from typing import Any, Dict, Optional, Sequence, TypeVar
 
-sys.path.append("swanlab/utils")
-from swanlab.utils.get_modules import get_module
+current_dir = os.path.dirname(os.path.abspath(__file__))
+relative_path = os.path.join(current_dir, "..", "..")
+sys.path.append(relative_path)
+from utils.get_modules import get_module
+from utils.timer import Timer
+
 
 if sys.version_info >= (3, 8):
     from typing import Protocol
