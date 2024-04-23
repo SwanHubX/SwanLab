@@ -32,7 +32,7 @@
         v-if="legend && multi"
       />
       <div class="relative" ref="g2ZoomRef">
-        <LineChartTooltip detail ref="tooltipZoomRef" />
+        <LineChartTooltip ref="tooltipZoomRef" />
       </div>
       <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
@@ -483,9 +483,9 @@ const registerTooltipEvent = (dom, zoom) => {
     point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
-    chartRefListExceptSelf.value?.forEach((chart) => {
-      chart?.showTooltip(point)
-    })
+      chartRefListExceptSelf.value?.forEach((chart) => {
+        chart?.showTooltip(point)
+      })
     manual = true
   })
   chart.on('tooltip:hide', (...args) => {
