@@ -28,7 +28,16 @@
  */
 
 /**
- *
+ * @typedef {Object} OpenMetricData 一个指标包含的数据
+ * @property {string | number} experiment_id 实验id
+ * @property {OpenMetricDetail[]} list 数据列表
+ */
+
+/**
+ * @typedef {Object} OpenMetricDetail 一个指标包含的数据
+ * @property {number} index 指标步数
+ * @property {number | string | string[]} data 这一步的数据
+ * @property {boolean} _last 是否为最后一条数据，最后一个数据设置为true即可，其他不需要设置
  */
 
 /**
