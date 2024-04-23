@@ -231,6 +231,7 @@ const isMulti = computed(() => {
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
 const error = computed(() => {
+  if (!props.chart.error) return false
   if (!isMulti.value) return props.chart.error[source.value[0]]
   // 如果是多实验，检查每个实验的error
   for (const exp of source.value) {

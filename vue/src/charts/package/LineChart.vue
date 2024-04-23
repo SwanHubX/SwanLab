@@ -81,7 +81,9 @@ const props = defineProps({
 // 数据源 arrya
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
-const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
+const error = ref(
+  props.chart.error && source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null
+)
 // 图表模式，multi或者single
 const multi = props.chart.multi
 // 当前命名空间下除了自己的所有chartRef
