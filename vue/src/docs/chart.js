@@ -24,6 +24,7 @@
  * @property {string} name 图表名称
  * @property {string} reference 参考系，目前默认为step
  * @property {string[]} source 数据源列表，这里是显示在图表上的数据名称
+ * @property {Object} source_map 数据源映射，用于前端显示数据源的名称映射到数据源对应的实验id
  * @property {Object} error 当前图表是否错误，如果不为null说明图表错误，此信息用于显示错误
  * @property {string} error.data_class sdk中上传时的数据类型，用于前端提示
  */
