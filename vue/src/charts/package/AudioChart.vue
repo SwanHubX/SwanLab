@@ -161,7 +161,7 @@ const audioData = computed(() => {
       audioBlob: blobsData[temp.filename],
       title: temp.filename,
       caption: temp.caption,
-      color: getColor(exp),
+      color: getColor(exp, undefined, props.chart.id),
       exp
     })
   }

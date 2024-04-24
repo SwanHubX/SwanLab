@@ -46,7 +46,7 @@
           :caption="s[currentInnerIndex].caption"
           :index="name"
           :name="name"
-          :color="getColor(name)"
+          :color="getColor(name, undefined, chart.id)"
           multi
           @zoom="handleClickZoom"
           @download="download"
@@ -113,7 +113,7 @@
             :caption="s[currentInnerIndex].caption"
             :index="name"
             :name="name"
-            :color="getColor(name)"
+            :color="getColor(name, undefined, chart.id)"
             multi
             @zoom="handleClickZoom"
             @download="download"

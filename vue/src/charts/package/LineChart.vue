@@ -168,7 +168,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       const smooth = series.includes('&smooth')
       series = series.replace('&smooth', '')
       // 如果没有&smooth后缀，直接返回颜色
-      const color = getColor(series, source.indexOf(series))
+      const color = getColor(series, source.indexOf(series), props.chart.id)
       if (!smooth) return color
       else return UTILS.transparentColor(color)
     },
@@ -371,7 +371,7 @@ const format = (data) => {
   for (const s of source) {
     if (props.chart.error && props.chart.error[s]) continue
     if (!data[s]) continue
-    items.push({ name: s, color: getColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
+    items.push({ name: s, color: getColor(s, source.indexOf(s), props.chart.id), experiment_id: data[s].experiment_id })
   }
   legend.value = items
   // console.log('legend', legend.value)
