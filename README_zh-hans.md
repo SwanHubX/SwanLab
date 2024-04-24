@@ -43,7 +43,7 @@
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
   - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
   - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
-- [🛣️ Roadmap](#-roadmap)
+- [🛣️ Roadmap](#🛣️-roadmap)
 - [👥 社区](#-社区)
   - [社区与支持](#社区与支持)
   - [SwanLab README徽章](#swanlab-readme徽章)
@@ -485,8 +485,30 @@ trainer.train()
 <br>
 
 
+## 🛣️ Roadmap
 
-<br>
+工具在迭代与反馈中进化～，欢迎[提交功能建议](feishu.cn)
+
+### 两周内即将上线
+
+- `Table`: 更灵活的多维表格图表，适用于LLM、AIGC、模型评估等场景
+- **邮件通知📧**: 训练意外中断、训练完成、自定义情况等场景触达时，发送通知邮件
+
+### 三个月内规划上线
+
+- `Molecule`: 生物化学分子可视化图表
+- `Plot`: 自由的图表绘制方式
+- `Api`: 通过API访问SwanLab数据
+- **系统硬件记录**: 记录GPU、CPU、磁盘、网络等一系列硬件情况
+- **代码记录**: 记录训练代码
+- **更多集成**: LightGBM、XGBoost、openai、chatglm、mm系列、...）
+- ...
+
+### 长期关注
+
+- 最有利于AI团队创新的协同方式
+- 最友好的UI交互
+- 移动端看实验
 
 
 ## 👥 社区
