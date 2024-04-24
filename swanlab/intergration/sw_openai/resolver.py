@@ -51,7 +51,6 @@ class OpenAIRequestResponseResolver:
         request = kwargs
 
         try:
-            print(f"request是{request}")
             if response.get("object") == "edit":
                 return self._resolve_edit(request, response, time_elapsed)
             elif response.get("object") == "text_completion":
@@ -184,15 +183,15 @@ class OpenAIRequestResponseResolver:
             )
 
             row = {
-                # "request": result.inputs["request"],
-                # "response": result.outputs["response"],
+                "request": str(request["messages"]),
+                "response": response.choices[0].message.content,
                 "model": model,
                 "start_time": datetime.datetime.fromtimestamp(response["created"]),
                 "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
                 "request_id": response.get("id", None),
                 "api_type": response.get("api_type", "openai"),
             }
-        result_text = swanlab.Text(str(row))
+        result_text = swanlab.Text(caption="result_row_dict", data=str(row))
 
         metrics = Metrics(stats=result_text, usage=usage_metrics)
         return metrics
