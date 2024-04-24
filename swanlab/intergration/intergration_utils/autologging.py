@@ -54,17 +54,12 @@ class ArgumentResponseResolver(Protocol):
 
 
 class PatchAPI:
-    def __init__(
-        self,
-        name: str,
-        symbols: Sequence[str],
-        resolver: ArgumentResponseResolver,
-    ) -> None:
+    def __init__(self, name: str, symbols: Sequence[str], resolver: ArgumentResponseResolver, client) -> None:
         """Patches the API to log SwanLab Media or metrics."""
         # name of the LLM provider, e.g. "Cohere" or "OpenAI" or package name like "Transformers"
         self.name = name
         # api library name, e.g. "cohere" or "openai" or "transformers"
-        self._api = None
+        self._api = client
         # dictionary of original methods
         self.original_methods: Dict[str, Any] = {}
         # list of symbols to patch, e.g. ["Client.generate", "Edit.create"] or ["Pipeline.__call__"]
@@ -122,6 +117,7 @@ class PatchAPI:
                     with Timer() as timer:
                         result = original_method(*args, **kwargs)
                         try:
+                            print("新方法启动成功")
                             loggable_dict = self.resolver(args, kwargs, result, timer.start_time, timer.elapsed)
                             if loggable_dict is not None:
                                 swanlab.log(loggable_dict)
@@ -164,17 +160,14 @@ class PatchAPI:
 
 class AutologAPI:
     def __init__(
-        self, name: str, symbols: Sequence[str], resolver: ArgumentResponseResolver, cloud: bool = False
+        self, name: str, symbols: Sequence[str], resolver: ArgumentResponseResolver, client=None, cloud: bool = False
     ) -> None:
         """Autolog API calls to SwanLab."""
-        self._patch_api = PatchAPI(
-            name=name,
-            symbols=symbols,
-            resolver=resolver,
-        )
+        self._patch_api = PatchAPI(name=name, symbols=symbols, resolver=resolver, client=client)
         self._name = self._patch_api.name
         self._run: Optional[SwanLabRun] = None
         self.cloud = cloud
+        self.client = client
 
     @property
     def _is_enabled(self) -> bool:
