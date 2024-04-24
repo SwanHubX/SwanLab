@@ -39,7 +39,7 @@
 - [💻 Self-hosted](#-self-hosted)
   - [Offline Experiment Tracking](#offline-experiment-tracking)
   - [Open Offline Dashboard](#open-offline-board)
-- [🚗 Framework Integration](#-integration)
+- [🚗 Integration](#-integration)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
   - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
   - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
@@ -137,6 +137,7 @@ for i in range(10):
 ```
 
 **All set!** Visit [SwanLab](https://swanlab.cn) to see your first SwanLab experiment.
+
 <br>
 
 ## 📃 More Examples

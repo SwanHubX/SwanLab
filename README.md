@@ -323,7 +323,8 @@ swanlab watch -l ./logs
     <strong>⚡️ PyTorch Lightning</strong>
   </summary>
   <br>
-  使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现SwanLab记录训练指标。
+
+使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现SwanLab记录训练指标。
 
 ```python
 from swanlab.intergration.pytorch_lightning import SwanLabLogger
