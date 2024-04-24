@@ -13,9 +13,9 @@
   <br>
   <a href="https://swanlab.cn" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab Cloud-636a3f"></a>
-  <a href="https://https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
+  <a href="https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
-  <a href="https://https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
+  <a href="https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/小红书-F04438"></a>
 
 </p>
