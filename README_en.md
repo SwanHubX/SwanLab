@@ -524,7 +524,9 @@ Tools evolve in iteration and feedback~, welcome to [submit feature suggestions]
 
 - The most user-friendly UI interaction
 
-- Viewing experiments on mobile端
+- Viewing experiments on mobile
+
+<br>
 
 ## 👥 Community
 
