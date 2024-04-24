@@ -16,7 +16,7 @@ sys.path.append(relative_path)
 
 from intergration_utils.autologging import AutologAPI
 
-from intergration.sw_openai.resolver import OpenAIRequestResponseResolver
+from intergration.openai.resolver import OpenAIRequestResponseResolver
 
 
 autolog = AutologAPI(

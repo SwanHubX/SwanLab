@@ -164,10 +164,7 @@ class PatchAPI:
 
 class AutologAPI:
     def __init__(
-        self,
-        name: str,
-        symbols: Sequence[str],
-        resolver: ArgumentResponseResolver,
+        self, name: str, symbols: Sequence[str], resolver: ArgumentResponseResolver, cloud: bool = False
     ) -> None:
         """Autolog API calls to SwanLab."""
         self._patch_api = PatchAPI(
@@ -177,6 +174,7 @@ class AutologAPI:
         )
         self._name = self._patch_api.name
         self._run: Optional[SwanLabRun] = None
+        self.cloud = cloud
 
     @property
     def _is_enabled(self) -> bool:
@@ -194,7 +192,7 @@ class AutologAPI:
         #    - todo: autolog(init: dict | run = run) would use the user-provided run
         # - autolog() calls swanlab.init()
         if init:
-            self._run = swanlab.init(**init)
+            self._run = swanlab.init(**init, cloud=self.cloud)
 
     def enable(self, init: AutologInitArgs = None) -> None:
         """Enable autologging.
