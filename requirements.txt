@@ -22,4 +22,4 @@ peewee
 psutil
 pynvml
 watchdog
-Timer
+
