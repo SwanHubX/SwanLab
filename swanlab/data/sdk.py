@@ -79,7 +79,7 @@ def init(
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
-    suffix: str = "default",
+    suffix: Union[str, None, bool] = "default",
     cloud: bool = True,
     project: str = None,
     workspace: str = None,
@@ -119,10 +119,10 @@ def init(
         you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
     suffix : str, optional
         The suffix of the experiment name, the default is 'default'.
-        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s_<hostname>'(example:'Feb03_14-45-37_windowsX'),
+        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s'(example:'Feb03_14-45-37'),
         which represents the current time.
-        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37_windowsX';
-        If this parameter is None, no suffix will be added.
+        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37';
+        If this parameter is None or False, no suffix will be added.
         If this parameter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     cloud : bool, optional

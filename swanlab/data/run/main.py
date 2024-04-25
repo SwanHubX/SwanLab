@@ -345,7 +345,7 @@ class SwanLabRun:
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
-        pool: ThreadPool = None
+        pool: ThreadPool = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -375,7 +375,7 @@ class SwanLabRun:
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
@@ -552,6 +552,10 @@ class SwanLabRun:
         if suffix is None or suffix is False:
             return experiment_name_checked, experiment_name
 
+        # 如果suffix为True, 则添加默认后缀
+        if suffix is True:
+            suffix = "default"
+
         # suffix必须是字符串
         if not isinstance(suffix, str):
             raise TypeError("The suffix must be a string, but got {}".format(type(suffix)))
@@ -589,7 +593,7 @@ class SwanLabRun:
                 break
             except ExistedError:
                 # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
-                if suffix.lower().strip() == "default":
+                if isinstance(suffix, str) and suffix.lower().strip() == "default":
                     swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
                     time.sleep(0.5)
                     continue
