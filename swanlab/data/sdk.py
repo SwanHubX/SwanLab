@@ -13,7 +13,7 @@ import os
 import sys
 import traceback
 from datetime import datetime
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, Dict
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
@@ -27,7 +27,7 @@ from swanlab.api.upload import upload_logs
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
-from swanlab.cloud import LogSnifferTask, ThreadPool, UploadType
+from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.utils import create_time
 from swanlab.cloud import UploadType
 
@@ -217,7 +217,6 @@ def init(
             上传指标回调函数
             :param is_scalar: 是否为标量指标
             :param data: 上传的指标
-            :return:
             """
             run.pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
 
