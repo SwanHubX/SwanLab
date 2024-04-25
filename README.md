@@ -138,6 +138,8 @@ for i in range(10):
 
 大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个SwanLab实验。
 
+![MNIST](/readme_files/readme-mnist.png)
+
 <br>
 
 ## 📃 更多案例
