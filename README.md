@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab在线版</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a>
+<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab在线版</a> · <a href="#">更新日志</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a>
 </p>
 
 <p align="center">
@@ -52,6 +52,7 @@
   - [SwanLab README徽章](#swanlab-readme徽章)
   - [在论文中引用SwanLab](#在论文中引用swanlab)
   - [为SwanLab做出贡献](#为swanlab做出贡献)
+  - [下载Icon](#下载icon)
 - [📃 协议](#-协议)
 
 <br/>
@@ -532,10 +533,10 @@ trainer.train()
 
 如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的README中：
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 ```
 
 ### 在论文中引用SwanLab
@@ -557,6 +558,10 @@ trainer.train()
 考虑为SwanLab做出贡献吗？首先，请花点时间阅读 [贡献指南](CONTRIBUTING.md)。
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持SwanLab，衷心感谢！
+
+### 下载Icon
+
+[SwanLab-Icon-SVG](/readme_files/swanlab-logo.svg)
 
 <br>
 

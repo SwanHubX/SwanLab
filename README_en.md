@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab Cloud</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a>
+<a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">SwanLab Cloud</a> · <a href="#">Changelog</a> · <a href="https://geektechstudio.feishu.cn/wiki/MwXmw9yDeiZWyQkPnNgcixwWnwu">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a>
 </p>
 
 <p align="center">
@@ -52,6 +52,7 @@
   - [SwanLab README Badge](#swanlab-readme-badge)
   - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
   - [Contribute to SwanLab](#contribute-to-swanlab)
+  - [Download Icon](#download-icon)
 - [📃 License](#-license)
 
 
@@ -541,10 +542,10 @@ Tools evolve in iteration and feedback~, welcome to [submit feature suggestions]
 
 If you like to use SwanLab in your work, please add the SwanLab badge to your README:
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-%23#b2d3bb)](https://github.com/swanhubx/swanlab)
+[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 ```
 
 ### Citing SwanLab in the paper
@@ -574,6 +575,10 @@ At the same time, we warmly welcome support for SwanLab through social media, ev
 <a href="https://github.com/swanhubx/swanlab/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=swanhubx/swanlab" />
 </a>
+
+### Download Icon
+
+[SwanLab-Icon-SVG](/readme_files/swanlab-logo.svg)
 
 <br>
 
