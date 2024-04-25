@@ -155,7 +155,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import swanlab
 
-
+# CNN网络构建
 class ConvNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -206,7 +206,7 @@ if __name__ == "__main__":
         experiment_name="ConvNet",
         description="Train ConvNet on MNIST dataset.",
         config={
-            "model": "resnet50",
+            "model": "CNN",
             "optim": "Adam",
             "lr": 0.001,
             "batch_size": 512,
@@ -267,7 +267,6 @@ if __name__ == "__main__":
 
             accuracy = correct / total
             swanlab.log({"val/accuracy": accuracy})
-
 ```
 
 </details>
