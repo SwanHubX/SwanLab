@@ -17,7 +17,7 @@ sys.path.append(relative_path)
 
 from intergration_utils.autologging import AutologAPI
 
-from intergration.openai.resolver import OpenAIRequestResponseResolver
+from intergration.openai.resolver import OpenAIRequestResponseResolver, OpenAIClientResponseResolver
 import pkg_resources
 
 
@@ -33,7 +33,8 @@ def get_library_version(library_name):
 library_name = "openai"
 version = get_library_version(library_name)
 
-if version == "0.28.0":
+# 判断openai版本
+if version[0] == "0":
     autolog = AutologAPI(
         name="OpenAI",
         symbols=(
@@ -46,20 +47,21 @@ if version == "0.28.0":
             "ChatCompletion.acreate",
         ),
         resolver=OpenAIRequestResponseResolver(),
+        lib_version=version,
     )
 else:
     # 1.0版本以后的OpenAI
     autolog = AutologAPI(
         name="OpenAI",
         symbols=(
-            # "OpenAI().Chat.Completion.create",
             "chat.completions.create",
-            # "Edit.create",
-            # "Completion.create",
+            "completions.create",
+            # "Asynccompletions.create",
+            # "chat.completions.acreate",
             # "Edit.acreate",
-            # "Completion.acreate",
-            # "ChatCompletion.acreate",
+            # "Edit.create",
         ),
-        resolver=OpenAIRequestResponseResolver(),
+        resolver=OpenAIClientResponseResolver(),
         client=openai.OpenAI(),
+        lib_version=version,
     )
