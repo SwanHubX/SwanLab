@@ -12,7 +12,7 @@
   <!-- 如果图表数据正确 -->
   <template v-else>
     <!-- 在此处完成图表主体定义 -->
-    <TextModule class="text-table" :data="data || []" :tag="title" />
+    <TextModule class="text-table" :data="data" v-if="originalData" :tag="title" />
     <!-- 放大效果弹窗 -->
     <SLModal class="pb-4 overflow-hidden" max-w="-1" v-model="isZoom" @onExit="exitByEsc">
       <TextModule v-model="isDetailZoom" :data="data" :tag="title" modal />
@@ -48,11 +48,11 @@ const props = defineProps({
   }
 })
 
-const original_data = ref()
+const originalData = ref()
 const source = ref(props.chart.source)
 const data = computed(() => {
-  if (!original_data.value) return []
-  return original_data.value[source.value[0]]?.list
+  if (!originalData.value) return []
+  return originalData.value[source.value[0]]?.list
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
@@ -60,7 +60,7 @@ const data = computed(() => {
 const error = computed(() => {
   if (!props.chart.error) {
     return props.chart.error
-  } else if (!original_data.value) {
+  } else if (!originalData.value) {
     return 'No Data'
   }
   return false
@@ -71,15 +71,15 @@ const error = computed(() => {
 // 渲染
 const render = (data) => {
   // 保存原始数据，其中主要数据结构：{tag: {list: [{data: 'xxx', more: {caption: 'xxx'}}]}}
-  original_data.value = data
+  originalData.value = data
 }
 
 // 重渲染
 const change = (data) => {
   // 将发生更新的 tag 数据保存到原始数据中
   for (let key in data) {
-    // original_data.value[key] = data[key] => 这行代码触发不了 props 的响应式，而下面这行可以
-    original_data.value[key] = { ...data[key] }
+    // originalData.value[key] = data[key] => 这行代码触发不了 props 的响应式，而下面这行可以
+    originalData.value[key] = { ...data[key] }
   }
 }
 

@@ -54,7 +54,7 @@
       <component :index="index" ref="chartRef" :is="chartComponent.type" :title="chart.name" :chart="chart" />
     </template>
     <!-- 加载中 -->
-    <div class="h-full w-full top-0 left-0 bg-default flex items-center justify-center absolute" v-if="loading">
+    <div class="h-full w-full top-0 left-0 bg-default flex items-center justify-center absolute rounded" v-if="loading">
       <SLLoading />
     </div>
   </section>

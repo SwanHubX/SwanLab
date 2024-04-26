@@ -13,7 +13,7 @@ r"""
 在本模块针对上述四种方式定义不同的类和不同的处理方式，每种类型对应一个数据上传接口
 """
 from enum import Enum
-from swanlab.api.upload import upload_files, upload_scalar_metrics, upload_media_metrics, upload_logs
+from swanlab.api.upload import *
 
 
 class UploadType(Enum):
@@ -48,9 +48,10 @@ class UploadType(Enum):
     上传实验信息配置文件
     """
 
-
-class ApiType(Enum):
+    COLUMN = {
+        # 一次只能上传一个列，所以函数名不带s
+        "upload": upload_column,
+    }
     """
-    API类型枚举，定义不同的API接口
+    上传列信息
     """
-    pass

@@ -13,8 +13,7 @@ import os
 import sys
 import traceback
 from datetime import datetime
-from typing import Dict
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 from .modules import DataType
 from .run import SwanLabRun, SwanLabConfig, register
 from .utils.file import check_dir_and_create, formate_abs_path
@@ -25,10 +24,12 @@ from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload import upload_logs
+from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.utils import create_time
+from swanlab.cloud import UploadType
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
@@ -78,7 +79,7 @@ def init(
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
-    suffix: str = "default",
+    suffix: Union[str, None, bool] = "default",
     cloud: bool = True,
     project: str = None,
     workspace: str = None,
@@ -118,10 +119,10 @@ def init(
         you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
     suffix : str, optional
         The suffix of the experiment name, the default is 'default'.
-        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s_<hostname>'(example:'Feb03_14-45-37_windowsX'),
+        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s'(example:'Feb03_14-45-37'),
         which represents the current time.
-        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37_windowsX';
-        If this parameter is None, no suffix will be added.
+        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37';
+        If this parameter is None or False, no suffix will be added.
         If this parameter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     cloud : bool, optional
@@ -176,13 +177,15 @@ def init(
     exp_num = None
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
-    http = None
+    http, pool = None, None
     if login_info is None and cloud:
         # 用户登录
         login_info = _login_in_init()
     if cloud:
         http = create_http(login_info)
         exp_num = http.mount_project(project, workspace).history_exp_count
+        # 初始化、挂载线程池
+        pool = ThreadPool()
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
@@ -196,6 +199,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
+        pool=pool,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
@@ -203,19 +207,39 @@ def init(
         get_http().mount_exp(
             exp_name=run.settings.exp_name,
             colors=run.settings.exp_colors,
-            description=run.settings.description
+            description=run.settings.description,
         )
-        # 初始化、挂载线程池
-        pool = ThreadPool()
         sniffer = LogSnifferTask(run.settings.files_dir)
-        pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-        # FIXME not a good way to mount a thread pool
-        run.settings.pool = pool
-        swanlog.set_pool(pool)
+        run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+
+        def _metric_callback(is_scalar: dict, data):
+            """
+            上传指标回调函数
+            :param is_scalar: 是否为标量指标
+            :param data: 上传的指标
+            """
+            run.pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
+
+        def _column_callback(key, data_type: str, error: Optional[Dict] = None):
+            """
+            上传列信息回调函数
+            :param key: 列名
+            :param data_type: 列数据类型
+            :param error: 错误信息
+            """
+            run.pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
+
+        run.set_metric_callback(_metric_callback)
+        run.set_column_callback(_column_callback)
+
+        def _write_call_call(message):
+            pool.queue.put((UploadType.LOG, [message]))
+
+        swanlog.set_write_callback(_write_call_call)
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
-    atexit.register(_clean_handler)
+    atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
     if not cloud and not (project is None and workspace is None):
         swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
@@ -279,9 +303,9 @@ def finish():
         return swanlog.error("After calling finish(), you can no longer close the current experiment")
     # FIXME not a good way to handle this
     run._success()
-    swanlog.set_success()
-    swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
+    swanlog.uninstall()
+    if run.cloud and not exit_in_cloud:
+        _before_exit_in_cloud(True)
     run = None
 
 
@@ -329,7 +353,7 @@ def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
     if isinstance(config, dict) or config is None:
         return config
-    print(FONT.swanlab("The parameter config is loaded from the configuration file: {}".format(config)))
+    swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
     return check_load_json_yaml(config, "config")
 
 
@@ -356,7 +380,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
         实验是否成功
     """
     global exit_in_cloud
-    if exit_in_cloud or run is None or run.settings.pool is None:
+    if exit_in_cloud or run is None or not run.cloud:
         return
     # 标志已经退出（需要在下面的逻辑之前标志）
     exit_in_cloud = True
@@ -364,13 +388,11 @@ def _before_exit_in_cloud(success: bool, error: str = None):
 
     async def _():
         # 关闭线程池，等待上传线程完成
-        await run.settings.pool.finish()
+        await run.pool.finish()
         # 上传错误日志
         if error is not None:
-            await upload_logs(
-                [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
-                level='ERROR'
-            )
+            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+            await upload_logs(msg, level="ERROR")
         await asyncio.sleep(1)
 
     asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
@@ -378,21 +400,21 @@ def _before_exit_in_cloud(success: bool, error: str = None):
     return
 
 
-def _clean_handler():
+def clean_handler():
     """定义清理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     # 如果没有错误
     if not swanlog.is_error and not exit_in_cloud:
-        run.settings.pool and _before_exit_in_cloud(True)
+        if run.cloud:
+            _before_exit_in_cloud(True)
         swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
         # FIXME not a good way to handle this
         run._success()
         swanlog.set_success()
-        swanlog.reset_console()
+        swanlog.uninstall()
 
 
-# 定义异常处理函数
 def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
@@ -400,7 +422,7 @@ def except_handler(tp, val, tb):
     if exit_in_cloud:
         # FIXME not a good way to fix '\n' problem
         print("")
-        swanlog.error('Aborted uploading by user')
+        swanlog.error("Aborted uploading by user")
         sys.exit(1)
     # 如果是KeyboardInterrupt异常
     if tp == KeyboardInterrupt:
@@ -424,7 +446,8 @@ def except_handler(tp, val, tb):
         print(datetime.now(), file=fError)
         print(html, file=fError)
     # 重置控制台记录器
-    swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
+    if run.cloud and not exit_in_cloud:
+        _before_exit_in_cloud(False, error=str(html))
+    swanlog.uninstall()
     if tp != KeyboardInterrupt:
         raise tp(val)

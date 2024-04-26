@@ -9,7 +9,7 @@
       @mouseleave="handleMouseleave(item)"
       @click="handleClick(item)"
     >
-      <RouterLink :to="'/experiment/' + item.experiment_id">
+      <RouterLink :to="experimentPrefix + item.experiment_id">
         {{ item.name }}
       </RouterLink>
     </div>
@@ -17,6 +17,8 @@
 </template>
 
 <script setup>
+import { inject } from 'vue'
+
 /**
  * @description: 折线图图例组件
  * @file: LineChartLegend.vue
@@ -30,6 +32,8 @@ defineProps({
   }
 })
 // console.log('items', props.items)
+
+const experimentPrefix = inject('experimentPrefix')
 
 const emit = defineEmits(['hoverin', 'hoverout'])
 
