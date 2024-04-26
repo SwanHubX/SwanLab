@@ -12,19 +12,26 @@ from ..system import get_system_info, get_requirements
 from swanlab.log import swanlog
 from swanlab.utils.file import (
     check_exp_name_format,
-    check_desc_format
+    check_desc_format,
 )
-from datetime import datetime
+from swanlab.db import Experiment, ExistedError, NotExistedError
+from swanlab.data.modules import BaseType
+from swanlab.data.config import SwanLabConfig
+from swanlab.cloud import ThreadPool
+from swanlab.utils import FONT, create_time
+from swanlab.api import get_http
+from swanlab.api.upload import upload_logs
+import traceback
+import asyncio
+import os
+import sys
 import time
 import random
 import ujson
 from enum import Enum
 from .exp import SwanLabExp
-from swanlab.db import Experiment, ExistedError, NotExistedError
+from datetime import datetime
 from typing import Tuple, Callable, Optional, Dict
-from swanlab.data.modules import BaseType
-from swanlab.data.config import SwanLabConfig
-from swanlab.cloud import ThreadPool
 
 
 class SwanLabRunState(Enum):
@@ -104,6 +111,14 @@ class SwanLabRun:
         # 设置回调函数
         [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
 
+        # 动态定义一个方法，用于修改实验状态
+        def _(state: SwanLabRunState):
+            self.__state = state
+
+        global _change_run_state, run
+        _change_run_state = _
+        run = self
+
     @property
     def cloud(self) -> bool:
         return self.__pool is not None
@@ -112,8 +127,24 @@ class SwanLabRun:
     def pool(self) -> ThreadPool:
         return self.__pool
 
+    @property
+    def state(self) -> SwanLabRunState:
+        return self.__state
+
+    @property
+    def is_error(self) -> bool:
+        return self.__state == SwanLabRunState.CRASHED
+
+    @property
+    def is_success(self) -> bool:
+        return self.__state == SwanLabRunState.SUCCESS
+
+    @property
+    def is_running(self) -> bool:
+        return self.__state == SwanLabRunState.RUNNING
+
     @staticmethod
-    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS):
+    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
         """
         Finish the current run and close the current experiment
         Normally, swanlab will run this function automatically,
@@ -122,6 +153,7 @@ class SwanLabRun:
         After calling this function, you can re-run `swanlab.init` to start a new experiment.
 
         :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
+        :param error: The error message when the experiment is marked as 'CRASHED'. If not 'CRASHED', it should be None.
         """
         global run
         # 分为几步
@@ -131,10 +163,21 @@ class SwanLabRun:
         # 4. 返回_run
         if run is None:
             raise RuntimeError("The run object is None, please call `swanlab.init` first.")
+        if state == SwanLabRunState.CRASHED and error is None:
+            raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
-        if run.cloud:
-            # TODO 关闭线程池
-            pass
+        # 写入错误信息
+        if state == SwanLabRunState.CRASHED:
+            with open(run.settings.error_path, "a") as fError:
+                print(datetime.now(), file=fError)
+                print(error, file=fError)
+        else:
+            error = None
+        # 触发云端退出
+        if run.cloud and not exiting_in_cloud:
+            _before_exit_in_cloud(state, error=error)
+        # 重置控制台记录器
+        swanlog.uninstall()
         _run, run = run, None
         return _run
 
@@ -197,7 +240,7 @@ class SwanLabRun:
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
         """
-        if self.__state != 0:
+        if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
         # 每一次log的时候检查一下数据库中的实验状态
         # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
@@ -296,7 +339,11 @@ class SwanLabRun:
         return experiment_name_checked, exp_name
 
     def __register_exp(
-        self, experiment_name: str, description: str = None, suffix: str = None, num: int = None
+        self,
+        experiment_name: str,
+        description: str = None,
+        suffix: str = None,
+        num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
@@ -369,6 +416,14 @@ class SwanLabRun:
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
+exiting_in_cloud = False
+"""
+Indicates whether the program is exiting in the cloud environment.
+"""
+_change_run_state: Optional["Callable"] = None
+"""
+修改实验状态的函数，用于在实验状态改变时调用
+"""
 
 
 def _set_run_state(state: SwanLabRunState):
@@ -382,13 +437,91 @@ def _set_run_state(state: SwanLabRunState):
         swanlog.warning("Invalid state when set, state must be in SwanLabRunState, but got {}".format(state))
         swanlog.warning("SwanLab will set state to `CRASHED`")
         state = SwanLabRunState.CRASHED
+    # 设置state
+    _change_run_state(state)
     # 更新数据库中的实验状态
     run.exp.db.update_status(state.value)
 
 
-def get_run():
+def get_run() -> Optional["SwanLabRun"]:
     """
     Get the current run object. If the experiment has not been initialized, return None.
     """
     global run
     return run
+
+
+def _before_exit_in_cloud(state: SwanLabRunState, error: str = None):
+    """
+    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
+
+    Parameters
+    ----------
+    state : SwanLabRunState
+        实验状态
+    """
+    global exiting_in_cloud
+    # 如果正在退出或者run对象为None或者不在云端环境下
+    if exiting_in_cloud or run is None or not run.cloud:
+        return
+    # 标志已经退出（需要在下面的逻辑之前标志）
+    exiting_in_cloud = True
+    sys.excepthook = except_handler
+
+    async def _():
+        # 关闭线程池，等待上传线程完成
+        await run.pool.finish()
+        # 上传错误日志
+        if error is not None:
+            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+            await upload_logs(msg, level="ERROR")
+        await asyncio.sleep(1)
+
+    FONT.loading("Waiting for uploading complete", _(), interval=0.5)
+    get_http().update_state(state == SwanLabRunState.SUCCESS)
+    return
+
+
+def clean_handler():
+    """
+    程序执行完毕后，清理资源，用于用户没有调用finish的情况
+    """
+    if run is None:
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    # 如果正在运行，且当前没有正在退出云端环境
+    if run.is_running and not exiting_in_cloud:
+        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
+        run.finish(SwanLabRunState.SUCCESS)
+    else:
+        swanlog.debug("Duplicate finish, ignore it.")
+
+
+def except_handler(tp, val, tb):
+    """
+    定义异常处理函数，用于程序异常退出时的处理
+    此函数触发在clean_handler之前
+    """
+    if run is None:
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    if exiting_in_cloud:
+        # FIXME not a good way to fix '\n' problem
+        print("")
+        swanlog.error("Aborted uploading by user")
+        sys.exit(1)
+    # 如果是KeyboardInterrupt异常
+    if tp == KeyboardInterrupt:
+        swanlog.error("KeyboardInterrupt by user")
+    else:
+        swanlog.error("Error happened while training")
+    # 追踪信息
+    trace_list = traceback.format_tb(tb)
+    html = repr(tp) + "\n"
+    html += repr(val) + "\n"
+    for line in trace_list:
+        html += line + "\n"
+    if os.path.exists(run.settings.error_path):
+        swanlog.warning("Error log file already exists, append error log to it")
+    # 标记实验失败
+    run.finish(SwanLabRunState.CRASHED, error=html)
+    if tp != KeyboardInterrupt:
+        raise tp(val)

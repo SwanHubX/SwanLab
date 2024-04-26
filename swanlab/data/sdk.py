@@ -7,15 +7,19 @@ r"""
 @Description:
     在此处封装swanlab在日志记录模式下的各种接口
 """
-import asyncio
 import atexit
 import os
 import sys
-import traceback
-from datetime import datetime
 from typing import Optional, Union, Dict
 from .modules import DataType
-from .run import SwanLabRun, register
+from .run import (
+    SwanLabRunState,
+    SwanLabRun,
+    register,
+    get_run,
+    except_handler,
+    clean_handler,
+)
 from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
@@ -24,19 +28,11 @@ from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
-from swanlab.api.upload import upload_logs
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError
 from swanlab.cloud import LogSnifferTask, ThreadPool
-from swanlab.utils import create_time
 from swanlab.cloud import UploadType
-
-run: Optional["SwanLabRun"] = None
-"""Global runtime instance. After the user calls finish(), run will be set to None."""
-
-inited: bool = False
-"""Indicates whether init() has been called in the current process."""
 
 _config: Optional["SwanLabConfig"] = SwanLabConfig(None)
 """
@@ -51,11 +47,6 @@ login_info = None
 """
 Record user login information in the cloud environment.
 `swanlab.login` will assign or update this variable.
-"""
-
-exiting_in_cloud = False
-"""
-Indicates whether the program is exiting in the cloud environment.
 """
 
 
@@ -92,6 +83,11 @@ def _create_column_callback(pool: ThreadPool):
     return _column_callback
 
 
+def _is_inited():
+    """检查是否已经初始化"""
+    return get_run() is not None
+
+
 def login(api_key: str):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
@@ -103,7 +99,7 @@ def login(api_key: str):
     api_key : str
         authentication key.
     """
-    if inited:
+    if _is_inited():
         raise RuntimeError("You must call swanlab.login() before using init()")
     global login_info
     login_info = code_login(api_key)
@@ -180,9 +176,9 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    global run, inited
     # 如果已经初始化过了，直接返回run
-    if inited:
+    run = get_run()
+    if run is not None:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
@@ -284,13 +280,13 @@ def init(
         experiment_url = project_url + f"/runs/{http.exp_id}"
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
-    inited = True
     return run
 
 
 def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
+    We recommend that you log data by SwanLabRun.log() method, but you can also use this function to log data.
 
     Parameters
     ----------
@@ -302,34 +298,26 @@ def log(data: Dict[str, DataType], step: int = None):
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
     """
-    if not inited:
-        raise RuntimeError("You must call swanlab.data.init() before using log()")
-    if inited and run is None:
-        return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
-
+    if not _is_inited():
+        raise RuntimeError("You must call swanlab.init() before using log()")
+    run = get_run()
     ll = run.log(data, step)
-    # swanlog.reset_temporary_logging()
     return ll
 
 
-def finish():
+def finish(state: SwanLabRunState, error=None):
     """
     Finish the current run and close the current experiment
     Normally, swanlab will run this function automatically,
     but you can also execute it manually and mark the experiment as 'completed'.
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
     """
-    global run, inited
-    if not inited:
+    run = get_run()
+    if not get_run():
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
-    if run is None:
-        return swanlog.error("After calling finish(), you can no longer close the current experiment")
-    # FIXME not a good way to handle this
-    run._success()
-    swanlog.uninstall()
-    if run.cloud and not exiting_in_cloud:
-        _before_exit_in_cloud(True)
-    run = None
+    if not run.is_running:
+        return swanlog.error("After experiment is finished, you can't call finish() again.")
+    run.finish(state, error)
 
 
 def _login_in_init() -> LoginInfo:
@@ -391,86 +379,3 @@ def _load_data(load_data: dict, key: str, value):
     #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
     #     print(FONT.swanlab(tip))
     return d
-
-
-def _before_exit_in_cloud(success: bool, error: str = None):
-    """
-    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
-
-    Parameters
-    ----------
-    success : bool
-        实验是否成功
-    """
-    global exiting_in_cloud
-    if exiting_in_cloud or run is None or not run.cloud:
-        return
-    # 标志已经退出（需要在下面的逻辑之前标志）
-    exiting_in_cloud = True
-    sys.excepthook = except_handler
-
-    async def _():
-        # 关闭线程池，等待上传线程完成
-        await run.pool.finish()
-        # 上传错误日志
-        if error is not None:
-            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
-            await upload_logs(msg, level="ERROR")
-        await asyncio.sleep(1)
-
-    FONT.loading("Waiting for uploading complete", _(), interval=0.5)
-    get_http().update_state(success)
-    return
-
-
-def clean_handler():
-    """定义清理函数"""
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    # 如果没有错误
-    if not swanlog.is_error and not exiting_in_cloud:
-        if run.cloud:
-            _before_exit_in_cloud(True)
-        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
-        # FIXME not a good way to handle this
-        run._success()
-        swanlog.set_success()
-        swanlog.uninstall()
-
-
-def except_handler(tp, val, tb):
-    """定义异常处理函数"""
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    if exiting_in_cloud:
-        # FIXME not a good way to fix '\n' problem
-        print("")
-        swanlog.error("Aborted uploading by user")
-        sys.exit(1)
-    # 如果是KeyboardInterrupt异常
-    if tp == KeyboardInterrupt:
-        swanlog.error("KeyboardInterrupt by user")
-    else:
-        swanlog.error("Error happened while training")
-    # 标记实验失败
-    run._fail()
-    swanlog.set_error()
-    # 记录异常信息
-    # 追踪信息
-    trace_list = traceback.format_tb(tb)
-    html = repr(tp) + "\n"
-    html += repr(val) + "\n"
-    for line in trace_list:
-        html += line + "\n"
-    if os.path.exists(run.settings.error_path):
-        swanlog.warning("Error log file already exists, append error log to it")
-    # 写入日志文件
-    with open(run.settings.error_path, "a") as fError:
-        print(datetime.now(), file=fError)
-        print(html, file=fError)
-    # 重置控制台记录器
-    if run.cloud and not exiting_in_cloud:
-        _before_exit_in_cloud(False, error=str(html))
-    swanlog.uninstall()
-    if tp != KeyboardInterrupt:
-        raise tp(val)
