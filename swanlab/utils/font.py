@@ -103,15 +103,15 @@ class FONT:
 
         # 新开启一个事件循环
         loop = asyncio.new_event_loop()
-        try:
-            loading_task = loop.create_task(_())
-            func_task = loop.create_task(__())
-            # set event loop
-            asyncio.set_event_loop(loop)
-            done, pending = asyncio.run(asyncio.wait({loading_task, func_task}, return_when=asyncio.ALL_COMPLETED))
-            result = [task for task in done if task == func_task][0].result()
-        finally:
-            loop.close()
+        loading_task = loop.create_task(_())
+        func_task = loop.create_task(__())
+        # set event loop
+        asyncio.set_event_loop(loop)
+        done, pending = asyncio.run(asyncio.wait({loading_task, func_task}, return_when=asyncio.ALL_COMPLETED))
+        result = [task for task in done if task == func_task][0].result()
+        # 恢复原本的事件循环
+        asyncio.set_event_loop(None)
+
         FONT.brush("", length=brush_length)
         return result
 
