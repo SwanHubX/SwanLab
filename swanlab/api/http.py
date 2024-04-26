@@ -20,6 +20,17 @@ import json
 import asyncio
 
 
+def change_exp_name(exp_name):
+    """
+    修改实验名称
+    :param exp_name: 实验名称
+    """
+    if exp_name[-1].isdigit() and exp_name[-2] == "_":
+        return exp_name[:-1] + str(int(exp_name[-1]) + 1)
+    else:
+        return exp_name + "_1"
+
+
 class HTTP:
     """
     封装请求函数，添加get、post、put、delete方法
@@ -212,10 +223,20 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
-            data = await self.post(
-                f"/project/{self.groupname}/{self.__proj.name}/runs",
-                {"name": exp_name, "colors": list(colors), "description": description},
-            )
+            nonlocal exp_name
+            while True:
+                try:
+                    data = await self.post(
+                        f"/project/{self.groupname}/{self.__proj.name}/runs",
+                        {"name": exp_name, "colors": list(colors), "description": description},
+                    )
+                    break
+                except ApiError as e:
+                    if e.resp.status_code == 409:
+                        # 实验已经存在
+                        exp_name = change_exp_name(exp_name)
+                    else:
+                        raise e
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
             await self.__get_cos()
