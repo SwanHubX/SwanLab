@@ -66,9 +66,9 @@ class SwanlabVisBackend(BaseVisBackend):
         if not os.path.exists(self._save_dir):
             os.makedirs(self._save_dir, exist_ok=True)  # type: ignore
         if self._init_kwargs is None:
-            self._init_kwargs = {"dir": self._save_dir}
+            self._init_kwargs = {"logdir": self._save_dir}
         else:
-            self._init_kwargs.setdefault("dir", self._save_dir)
+            self._init_kwargs.setdefault("logdir", self._save_dir)
         try:
             import swanlab
         except ImportError:
