@@ -27,6 +27,7 @@ import os
 import sys
 import time
 import random
+import atexit
 import ujson
 from enum import Enum
 from .exp import SwanLabExp
@@ -179,6 +180,9 @@ class SwanLabRun:
         # 重置控制台记录器
         swanlog.uninstall()
         _run, run = run, None
+        # 删除回调
+        atexit.unregister(clean_handler)
+        sys.excepthook = sys.__excepthook__
         return _run
 
     def set_metric_callback(self, callback: Callable):
@@ -433,8 +437,8 @@ def _set_run_state(state: SwanLabRunState):
     if run is None:
         raise RuntimeError("The run object is None, please call swanlab.init first.")
 
-    if state not in SwanLabRunState:
-        swanlog.warning("Invalid state when set, state must be in SwanLabRunState, but got {}".format(state))
+    if state not in SwanLabRunState or state == SwanLabRunState.RUNNING:
+        swanlog.warning("Invalid state when set, state must be in SwanLabRunState and not be RUNNING")
         swanlog.warning("SwanLab will set state to `CRASHED`")
         state = SwanLabRunState.CRASHED
     # 设置state
@@ -479,6 +483,7 @@ def _before_exit_in_cloud(state: SwanLabRunState, error: str = None):
 
     FONT.loading("Waiting for uploading complete", _(), interval=0.5)
     get_http().update_state(state == SwanLabRunState.SUCCESS)
+    exiting_in_cloud = False
     return
 
 

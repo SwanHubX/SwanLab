@@ -305,12 +305,13 @@ def log(data: Dict[str, DataType], step: int = None):
     return ll
 
 
-def finish(state: SwanLabRunState, error=None):
+def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     """
     Finish the current run and close the current experiment
     Normally, swanlab will run this function automatically,
     but you can also execute it manually and mark the experiment as 'completed'.
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
+    If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
     run = get_run()
     if not get_run():
