@@ -121,3 +121,24 @@ class Project(SwanModel):
         project.sum = project.sum + 1 if project.sum else 1
         project.save()
         return project.sum
+
+    @classmethod
+    def decrease_sum(cls, id=DEFAULT_PROJECT_ID) -> int:
+        """
+        静态方法
+        更新实验统计数量，减少1
+        此方法通常在删除实验时被Experiment类调用
+        Parameters
+        ----------
+        id : int
+            实验id, 默认为DEFAULT_PROJECT_ID
+
+        Returns
+        -------
+        int:
+            当前实验统计数量
+        """
+        project: "Project" = cls.filter(cls.id == id)[0]
+        project.sum = project.sum - 1 if project.sum else 0
+        project.save()
+        return project.sum

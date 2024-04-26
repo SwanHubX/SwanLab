@@ -223,20 +223,10 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
-            nonlocal exp_name
-            while True:
-                try:
-                    data = await self.post(
-                        f"/project/{self.groupname}/{self.__proj.name}/runs",
-                        {"name": exp_name, "colors": list(colors), "description": description},
-                    )
-                    break
-                except ApiError as e:
-                    if e.resp.status_code == 409:
-                        # 实验已经存在
-                        exp_name = change_exp_name(exp_name)
-                    else:
-                        raise e
+            data = await self.post(
+                f"/project/{self.groupname}/{self.__proj.name}/runs",
+                {"name": exp_name, "colors": list(colors), "description": description},
+            )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
             await self.__get_cos()

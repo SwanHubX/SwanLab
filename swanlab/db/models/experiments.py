@@ -7,6 +7,8 @@ r"""
 @Description:
     实验数据表
 """
+import os.path
+
 from ..model import SwanModel
 from peewee import ForeignKeyField, CharField, IntegerField, TextField, IntegrityError, Check, DatabaseProxy
 from .projects import Project
@@ -14,6 +16,8 @@ from ..error import ExistedError, NotExistedError, ForeignProNotExistedError
 from swanlab.package import get_package_version
 from ...utils import generate_color
 from ...utils import create_time
+from swanlab.env import get_swanlog_dir
+import shutil
 
 
 # 定义模型类
@@ -197,3 +201,27 @@ class Experiment(SwanModel):
         self.status = status
         self.finish_time = create_time()
         self.save()
+
+    @classmethod
+    def purely_delete(cls, **kwargs):
+        """
+        删除某一个实验，顺便删除实验的文件夹
+
+        Parameters
+        ----------
+        id : int
+            实验id
+        """
+        # 获取实验实例
+        try:
+            exp = cls.get(**kwargs)
+            # 删除实验
+            exp.delete_instance()
+            # 更新项目的实验数量
+            Project.decrease_sum()
+            # 删除实验文件夹
+            shutil.rmtree(os.path.join(get_swanlog_dir(), exp.run_id.__str__()))
+        except NotExistedError:
+            # 删除实验文件夹
+            if "run_id" in kwargs:
+                shutil.rmtree(os.path.join(get_swanlog_dir(), kwargs["run_id"]))
