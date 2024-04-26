@@ -355,7 +355,7 @@ class OpenAIClientResponseResolver:
 
         usage = []
 
-        if response["object"] == "chat_completion":
+        if response["object"] == "chat.completion":
             for result in results:
                 swanlab.log(
                     {
@@ -380,17 +380,18 @@ class OpenAIClientResponseResolver:
                     }
                 )
 
-            row = {
-                "request": str(request["messages"]),
-                "response": response["choices"][0]["message"]["content"],
-                "lib_version": lib_version,
-                "model": model,
-                "start_time": datetime.datetime.fromtimestamp(response["created"]),
-                "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
-                "request_id": response.get("id", None),
-                "api_type": response.get("api_type", "openai"),
-            }
+                row = {
+                    "request": str(request["messages"]),
+                    "response": response["choices"][0]["message"]["content"],
+                    "lib_version": lib_version,
+                    "model": model,
+                    "start_time": datetime.datetime.fromtimestamp(response["created"]),
+                    "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
+                    "request_id": response.get("id", None),
+                    "api_type": response.get("api_type", "openai"),
+                }
 
+        # elif response["object"] == "text_completion":
         else:
             for result in results:
                 swanlab.log(
@@ -416,16 +417,16 @@ class OpenAIClientResponseResolver:
                     }
                 )
 
-            row = {
-                "request": str(request["prompt"]),
-                "response": response["choices"][0]["text"],
-                "lib_version": lib_version,
-                "model": model,
-                "start_time": datetime.datetime.fromtimestamp(response["created"]),
-                "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
-                "request_id": response.get("id", None),
-                "api_type": response.get("api_type", "openai"),
-            }
+                row = {
+                    "request": str(request["prompt"]),
+                    "response": response["choices"][0]["text"],
+                    "lib_version": lib_version,
+                    "model": model,
+                    "start_time": datetime.datetime.fromtimestamp(response["created"]),
+                    "end_time": datetime.datetime.fromtimestamp(response["created"] + time_elapsed),
+                    "request_id": response.get("id", None),
+                    "api_type": response.get("api_type", "openai"),
+                }
 
         result_text = swanlab.Text(caption="result_row_dict", data=str(row))
 
