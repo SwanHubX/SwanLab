@@ -8,7 +8,6 @@ r"""
     用户登录接口，输入用户的apikey，保存用户token到本地
     进行一些交互定义和数据请求
 """
-import asyncio
 from swanlab.error import ValidationError
 from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
@@ -78,7 +77,7 @@ def input_api_key(
     return key
 
 
-async def code_login(api_key: str) -> LoginInfo:
+def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件
 
@@ -88,7 +87,7 @@ async def code_login(api_key: str) -> LoginInfo:
         用户api_key
     """
     tip = "Waiting for the swanlab cloud response."
-    login_info: LoginInfo = await FONT.loading(tip, login_by_key(api_key), interval=0.5)
+    login_info: LoginInfo = FONT.loading(tip, login_by_key(api_key), interval=0.5)
     if login_info.is_fail:
         swanlog.error("Login failed: " + str(login_info).lower())
         raise ValidationError("Login failed: " + str(login_info))
@@ -107,7 +106,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
         api_key = input_api_key()
     while True:
         try:
-            return asyncio.run(code_login(api_key))
+            return code_login(api_key)
         # 如果是登录失败且是输入的api_key，提示重新输入api_key
         except ValidationError as e:
             if input_key:

@@ -7,328 +7,42 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from typing import Any
 from ..settings import SwanDataSettings
-from ...log import swanlog
 from ..system import get_system_info, get_requirements
-from .utils import (
+from swanlab.log import swanlog
+from swanlab.utils.file import (
     check_exp_name_format,
     check_desc_format,
-    get_a_lock,
-    json_serializable,
 )
-from datetime import datetime
+from swanlab.db import Experiment, ExistedError, NotExistedError
+from swanlab.data.modules import BaseType
+from swanlab.data.config import SwanLabConfig
+from swanlab.cloud import ThreadPool
+from swanlab.utils import FONT, create_time
+from swanlab.api import get_http
+from swanlab.api.upload import upload_logs
+import traceback
+import asyncio
+import os
+import sys
 import time
 import random
+import atexit
 import ujson
+from enum import Enum
 from .exp import SwanLabExp
-from collections.abc import Mapping
-from .db import Experiment, ExistedError, NotExistedError
-from typing import Tuple, Callable
-import yaml
-import argparse
-from ..modules import BaseType
-from swanlab.cloud import ThreadPool
+from datetime import datetime
+from typing import Tuple, Callable, Optional, Dict
 
 
-def need_inited(func):
-    """装饰器，用于检查是否已经初始化"""
-
-    def wrapper(self, *args, **kwargs):
-        if not self._inited:
-            raise RuntimeError("You must call swanlab.init() before using swanlab.log")
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-class SwanLabConfig(Mapping):
+class SwanLabRunState(Enum):
+    """SwanLabRunState is an enumeration class that represents the state of the experiment.
+    We Recommend that you use this enumeration class to represent the state of the experiment.
     """
-    The SwanConfig class is used for realize the invocation method of `run.config.lr`.
-    """
-
-    # 配置字典
-    __config = dict()
-
-    # 运行时设置
-    __settings = dict()
-
-    @property
-    def _inited(self):
-        return self.__settings.get("save_path") is not None
-
-    def __init__(self, config: dict = None, settings: SwanDataSettings = None):
-        """
-        实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
-
-        Parameters
-        ----------
-        settings : SwanDataSettings, optional
-            运行时设置
-        """
-        self.__config.update(self.__check_config(config))
-        self.__settings["save_path"] = settings.config_path if settings is not None else None
-        if self._inited:
-            self.__save()
-
-    @staticmethod
-    def __check_config(config: dict) -> dict:
-        """
-        检查配置是否合法，确保它可以被 JSON/YAML 序列化。
-        如果传入的是 argparse.Namespace 类型，会先转换为字典。
-        """
-        if config is None:
-            return {}
-        # config必须可以被json序列化
-        try:
-            if isinstance(config, argparse.Namespace):
-                config = vars(config)
-            # 将config转换为json序列化的dict
-            config = json_serializable(dict(config))
-            # 尝试序列化，如果还是失败就退出
-            yaml.dump(config)
-        except:
-            raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
-        return config
-
-    @staticmethod
-    def __check_private(name: str):
-        """
-        检查属性名是否是私有属性,如果是私有属性，抛出异常
-
-        Parameters
-        ----------
-        name : str
-            属性名
-
-        Raises
-        ----------
-        AttributeError
-            如果属性名是私有属性，抛出异常
-        """
-        methods = ["set", "get", "pop"]
-        swanlog.debug(f"Check private attribute: {name}")
-        if name.startswith("__") or name.startswith("_SwanLabConfig__") or name in methods:
-            raise AttributeError("You can not get private attribute")
-
-    @need_inited
-    def __setattr__(self, name: str, value: Any) -> None:
-        """
-        自定义属性设置方法。如果属性名不是私有属性，则同时更新配置字典并保存。
-        允许通过点号方式设置属性，但不允许设置私有属性：
-        ```python
-        run.config.lr = 0.01  # 允许
-        run.config._lr = 0.01 # 允许
-        run.config.__lr = 0.01 # 不允许
-        ```
-
-        值得注意的是类属性的设置不会触发此方法
-        """
-        # 判断是否是私有属性
-        self.__check_private(name)
-        # 设置属性，并判断是否已经初始化，如果是，则调用保存方法
-        self.__dict__[name] = value
-        # 同步到配置字典
-        self.__config[name] = value
-        self.__save()
-
-    @need_inited
-    def __setitem__(self, name: str, value: Any) -> None:
-        """
-        以字典方式设置配置项的值，并保存，但不允许设置私有属性：
-        ```python
-        run.config["lr"] = 0.01  # 允许
-        run.config["_lr"] = 0.01 # 允许
-        run.config["__lr"] = 0.01 # 不允许
-        ```
-        """
-        # 判断是否是私有属性
-        self.__check_private(name)
-        self.__config[name] = value
-        self.__save()
-
-    @need_inited
-    def set(self, name: str, value: Any) -> None:
-        """
-        Explicitly set the value of a configuration item and save it. For example:
-
-        ```python
-        run.config.set("lr", 0.01)   # Allowed
-        run.config.set("_lr", 0.01)  # Allowed
-        run.config.set("__lr", 0.01) # Not allowed
-        ```
-
-        Parameters
-        ----------
-        name: str
-            Name of the configuration item
-        value: Any
-            Value of the configuration item
-
-        Raises
-        ----------
-        AttributeError
-            If the attribute name is private, an exception is raised
-        """
-        self.__check_private(name)
-        self.__config[name] = value
-        self.__save()
-
-    @need_inited
-    def pop(self, name: str) -> bool:
-        """
-        Delete a configuration item; if the item does not exist, skip.
-
-        Parameters
-        ----------
-        name : str
-            Name of the configuration item
-
-        Returns
-        ----------
-        bool
-            True if deletion is successful, False otherwise
-        """
-        try:
-            del self.__config[name]
-            self.__save()
-            return True
-        except KeyError:
-            return False
-
-    @need_inited
-    def get(self, name: str):
-        """
-        Get the value of a configuration item. If the item does not exist, raise AttributeError.
-
-        Parameters
-        ----------
-        name : str
-            Name of the configuration item
-
-        Returns
-        ----------
-        value : Any
-            Value of the configuration item
-
-        Raises
-        ----------
-        AttributeError
-            If the configuration item does not exist, an AttributeError is raised
-        """
-        try:
-            return self.__config[name]
-        except KeyError:
-            raise AttributeError(f"You have not retrieved '{name}' in the config of the current experiment")
-
-    @need_inited
-    def update(self, data: dict):
-        """
-        Update the configuration item with the dict provided and save it.
-
-        Parameters
-        ----------
-        data : dict
-            Dict of the configuration item
-        """
-
-        self.__config.update(self.__check_config(data))
-        self.__save()
-
-    @need_inited
-    def __getattr__(self, name: str):
-        """
-        如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
-        """
-        try:
-            return self.__config[name]
-        except KeyError:
-            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
-
-    @need_inited
-    def __getitem__(self, name: str):
-        """
-        以字典方式获取配置项的值。
-        """
-        try:
-            return self.__config[name]
-        except KeyError:
-            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
-
-    @need_inited
-    def __delattr__(self, name: str) -> bool:
-        """
-        删除配置项，如果配置项不存在,跳过
-
-        Parameters
-        ----------
-        name : str
-            配置项名称
-
-        Returns
-        ----------
-        bool
-            是否删除成功
-        """
-        try:
-            del self.__config[name]
-            return True
-        except KeyError:
-            return False
-
-    @need_inited
-    def __delitem__(self, name: str) -> bool:
-        """
-        删除配置项，如果配置项不存在,跳过
-
-        Parameters
-        ----------
-        name : str
-            配置项名称
-
-        Returns
-        ----------
-        bool
-            是否删除成功
-        """
-        try:
-            del self.__config[name]
-            return True
-        except KeyError:
-            return False
-
-    def __save(self):
-        """
-        保存config为json，不必校验config的YAML格式，将在写入时完成校验
-        """
-        swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
-        with get_a_lock(self.__settings.get("save_path"), "w") as f:
-            # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
-            # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
-            config = {
-                key: {
-                    "desc": None,
-                    "sort": index,
-                    "value": value,
-                }
-                for index, (key, value) in enumerate(self.__config.items())
-            }
-            yaml.dump(config, f)
-
-    def __iter__(self):
-        """
-        返回配置字典的迭代器。
-        """
-        return iter(self.__config)
-
-    def __len__(self):
-        """
-        返回配置项的数量。
-        """
-        return len(self.__config)
-
-    def __str__(self):
-        return str(self.__config)
+    NOT_STARTED = -2
+    SUCCESS = 1
+    CRASHED = -1
+    RUNNING = 0
 
 
 class SwanLabRun:
@@ -346,6 +60,7 @@ class SwanLabRun:
         suffix: str = None,
         exp_num: int = None,
         pool: ThreadPool = None,
+        callbacks: Dict[str, Callable] = None
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -372,10 +87,15 @@ class SwanLabRun:
             历史实验总数，用于云端颜色与本地颜色的对应
         pool : ThreadPool
             线程池对象，用于云端同步，传入此对象，run.cloud将被设置为True
+        callbacks : Dict[str, Callable]
+            回调函数字典，key为回调函数名，value为回调函数
         """
+        global run
+        if run is not None:
+            raise RuntimeError("SwanLabRun has been initialized")
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
@@ -391,8 +111,18 @@ class SwanLabRun:
         description = self.__check_description(description)
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
-        self.__status = 0
+        self.__state = SwanLabRunState.RUNNING
         self.__pool = pool
+        # 设置回调函数
+        callbacks is not None and [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
+
+        # 动态定义一个方法，用于修改实验状态
+        def _(state: SwanLabRunState):
+            self.__state = state
+
+        global _change_run_state
+        _change_run_state = _
+        run = self
 
     @property
     def cloud(self) -> bool:
@@ -401,6 +131,71 @@ class SwanLabRun:
     @property
     def pool(self) -> ThreadPool:
         return self.__pool
+
+    @property
+    def state(self) -> SwanLabRunState:
+        return self.__state
+
+    @staticmethod
+    def get_state() -> SwanLabRunState:
+        """
+        获取当前实验状态
+        """
+        global run
+        return run.state if run is not None else SwanLabRunState.NOT_STARTED
+
+    @property
+    def is_crashed(self) -> bool:
+        return self.__state == SwanLabRunState.CRASHED
+
+    @property
+    def is_success(self) -> bool:
+        return self.__state == SwanLabRunState.SUCCESS
+
+    @property
+    def is_running(self) -> bool:
+        return self.__state == SwanLabRunState.RUNNING
+
+    @staticmethod
+    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
+        """
+        Finish the current run and close the current experiment
+        Normally, swanlab will run this function automatically,
+        but you can also execute it manually and mark the experiment as 'completed'.
+        Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
+        After calling this function, you can re-run `swanlab.init` to start a new experiment.
+
+        :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
+        :param error: The error message when the experiment is marked as 'CRASHED'. If not 'CRASHED', it should be None.
+        """
+        global run
+        # 分为几步
+        # 1. 设置数据库实验状态为对应状态
+        # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
+        # 3. 清空run对象，run改为局部变量_run
+        # 4. 返回_run
+        if run is None:
+            raise RuntimeError("The run object is None, please call `swanlab.init` first.")
+        if state == SwanLabRunState.CRASHED and error is None:
+            raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
+        _set_run_state(state)
+        # 写入错误信息
+        if state == SwanLabRunState.CRASHED:
+            with open(run.settings.error_path, "a") as fError:
+                print(datetime.now(), file=fError)
+                print(error, file=fError)
+        else:
+            error = None
+        # 触发云端退出
+        if run.cloud and not exiting_in_cloud:
+            _before_exit_in_cloud(state, error=error)
+        # 重置控制台记录器
+        swanlog.uninstall()
+        _run, run = run, None
+        # 删除回调
+        atexit.unregister(clean_handler)
+        sys.excepthook = sys.__excepthook__
+        return _run
 
     def set_metric_callback(self, callback: Callable):
         """
@@ -438,6 +233,13 @@ class SwanLabRun:
         """
         return self.__config
 
+    @property
+    def exp(self) -> SwanLabExp:
+        """
+        Get the current experiment object. This object is used to log data and control the experiment.
+        """
+        return self.__exp
+
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -454,17 +256,17 @@ class SwanLabRun:
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
         """
-        if self.__status != 0:
+        if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
         # 每一次log的时候检查一下数据库中的实验状态
         # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
         # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
-        swanlog.debug(f"Check experiment and status...")
+        swanlog.debug(f"Check experiment and state...")
         try:
             exp = Experiment.get(self.__exp.id)
         except NotExistedError:
             raise KeyboardInterrupt("The experiment has been deleted by the user")
-        # 此时self.__status == 0，说明是前端主动停止的
+        # 此时self.__state == 0，说明是前端主动停止的
         if exp.status != 0:
             raise KeyboardInterrupt("The experiment has been stopped by the user")
 
@@ -491,32 +293,9 @@ class SwanLabRun:
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
 
-    def _success(self):
-        """Mark the experiment as success. Users should not use this function."""
-        self.__set_exp_status(1)
-
-    def _fail(self):
-        """Mark the experiment as failure. Users should not use this function."""
-        self.__set_exp_status(-1)
-
     def __str__(self) -> str:
         """此类的字符串表示"""
         return self.__run_id
-
-    def __set_exp_status(self, status: int):
-        """更新实验状态
-
-        Parameters
-        ----------
-        status : int
-            实验状态，1代表成功，-1代表失败，0代表未完成，其他值会被自动设置为-1
-        """
-        if status not in [1, -1, 0]:
-            swanlog.warning("Invalid status when set, status must be 1, -1 or 0, but got {}".format(status))
-            swanlog.warning("SwanLab will set status to -1")
-            status = -1
-        self.__status = status
-        self.__exp.db.update_status(status)
 
     @staticmethod
     def __get_exp_name(experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
@@ -576,7 +355,11 @@ class SwanLabRun:
         return experiment_name_checked, exp_name
 
     def __register_exp(
-        self, experiment_name: str, description: str = None, suffix: str = None, num: int = None
+        self,
+        experiment_name: str,
+        description: str = None,
+        suffix: str = None,
+        num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
@@ -645,3 +428,117 @@ class SwanLabRun:
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(self.__settings), f)
+
+
+run: Optional["SwanLabRun"] = None
+"""Global runtime instance. After the user calls finish(), run will be set to None."""
+exiting_in_cloud = False
+"""
+Indicates whether the program is exiting in the cloud environment.
+"""
+_change_run_state: Optional["Callable"] = None
+"""
+修改实验状态的函数，用于在实验状态改变时调用
+"""
+
+
+def _set_run_state(state: SwanLabRunState):
+    """
+    设置实验状态，只能在run对象存在的情况下调用
+    """
+    if run is None:
+        raise RuntimeError("The run object is None, please call swanlab.init first.")
+
+    if state not in SwanLabRunState or state in [SwanLabRunState.NOT_STARTED, SwanLabRunState.RUNNING]:
+        swanlog.warning("Invalid state when set, state must be in SwanLabRunState and not be RUNNING or NOT_STARTED")
+        swanlog.warning("SwanLab will set state to `CRASHED`")
+        state = SwanLabRunState.CRASHED
+    # 设置state
+    _change_run_state(state)
+    # 更新数据库中的实验状态
+    run.exp.db.update_status(state.value)
+
+
+def get_run() -> Optional["SwanLabRun"]:
+    """
+    Get the current run object. If the experiment has not been initialized, return None.
+    """
+    global run
+    return run
+
+
+def _before_exit_in_cloud(state: SwanLabRunState, error: str = None):
+    """
+    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
+
+    Parameters
+    ----------
+    state : SwanLabRunState
+        实验状态
+    """
+    global exiting_in_cloud
+    # 如果正在退出或者run对象为None或者不在云端环境下
+    if exiting_in_cloud or run is None or not run.cloud:
+        return
+    # 标志已经退出（需要在下面的逻辑之前标志）
+    exiting_in_cloud = True
+    sys.excepthook = except_handler
+
+    async def _():
+        # 关闭线程池，等待上传线程完成
+        await run.pool.finish()
+        # 上传错误日志
+        if error is not None:
+            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+            await upload_logs(msg, level="ERROR")
+        await asyncio.sleep(1)
+
+    FONT.loading("Waiting for uploading complete", _(), interval=0.5)
+    get_http().update_state(state == SwanLabRunState.SUCCESS)
+    exiting_in_cloud = False
+    return
+
+
+def clean_handler():
+    """
+    程序执行完毕后，清理资源，用于用户没有调用finish的情况
+    """
+    if run is None:
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    # 如果正在运行，且当前没有正在退出云端环境
+    if run.is_running and not exiting_in_cloud:
+        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
+        run.finish(SwanLabRunState.SUCCESS)
+    else:
+        swanlog.debug("Duplicate finish, ignore it.")
+
+
+def except_handler(tp, val, tb):
+    """
+    定义异常处理函数，用于程序异常退出时的处理
+    此函数触发在clean_handler之前
+    """
+    if run is None:
+        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+    if exiting_in_cloud:
+        # FIXME not a good way to fix '\n' problem
+        print("")
+        swanlog.error("Aborted uploading by user")
+        sys.exit(1)
+    # 如果是KeyboardInterrupt异常
+    if tp == KeyboardInterrupt:
+        swanlog.error("KeyboardInterrupt by user")
+    else:
+        swanlog.error("Error happened while training")
+    # 追踪信息
+    trace_list = traceback.format_tb(tb)
+    html = repr(tp) + "\n"
+    html += repr(val) + "\n"
+    for line in trace_list:
+        html += line + "\n"
+    if os.path.exists(run.settings.error_path):
+        swanlog.warning("Error log file already exists, append error log to it")
+    # 标记实验失败
+    run.finish(SwanLabRunState.CRASHED, error=html)
+    if tp != KeyboardInterrupt:
+        raise tp(val)

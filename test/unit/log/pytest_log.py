@@ -9,7 +9,7 @@ r"""
 """
 import pytest
 from swanlab.log import swanlog
-from tutils import clear, SWANLAB_LOG_DIR
+from tutils import TEMP_PATH
 from nanoid import generate
 import os
 
@@ -23,9 +23,12 @@ def before_test_global_swanlog():
         swanlog.uninstall()
     except RuntimeError:
         pass
-    # clear操作需要在uninstall之后
-    clear()
-    yield
+
+
+# 创建console文件夹
+console_dir = os.path.join(TEMP_PATH, str(generate()))
+if not os.path.exists(console_dir):
+    os.mkdir(console_dir)
 
 
 class TestSwanLogInstall:
@@ -57,8 +60,6 @@ class TestSwanLogInstall:
         assert swanlog.installed is True
 
     def test_write_after_uninstall(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
-        os.mkdir(console_dir)
         swanlog.install(console_dir)
         swanlog.uninstall()
         # 加一行防止其他问题
@@ -74,8 +75,6 @@ class TestSwanLogInstall:
             assert len(content) == 0
 
     def test_write_to_file(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
-        os.mkdir(console_dir)
         swanlog.install(console_dir)
         # 加一行防止其他问题
         print("\ntest write to file")
@@ -92,8 +91,6 @@ class TestSwanLogInstall:
             assert content[-1] == b + "\n"
 
     def test_write_logging_to_file(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
-        os.mkdir(console_dir)
         swanlog.install(console_dir, log_level="debug")
         # 加一行防止其他问题
         print("\ntest write to file")
@@ -109,8 +106,6 @@ class TestSwanLogInstall:
             assert content[-1] == swanlog.prefix + b + "\n"
 
     def test_can_write_logging(self):
-        console_dir = os.path.join(SWANLAB_LOG_DIR, "console")
-        os.mkdir(console_dir)
         swanlog.install(console_dir)
         # 加一行防止其他问题
         print("\ntest write to file")

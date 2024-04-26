@@ -6,38 +6,6 @@ from .console import SwanConsoler
 from swanlab.utils import FONT
 
 
-class LogSys:
-    # 日志系统状态：running / success / error
-    __status = "running"
-
-    def __init__(self):
-        self.__status = "running"
-
-    def set_success(self):
-        if self.is_running:
-            self.__status = "success"
-        else:
-            raise Exception("current status is %s. You can only set success while running" % self.__status)
-
-    def set_error(self):
-        if self.is_running:
-            self.__status = "error"
-        else:
-            raise Exception("current status is %s. You can only set success while running" % self.__status)
-
-    @property
-    def is_success(self) -> bool:
-        return self.__status == "success"
-
-    @property
-    def is_error(self) -> bool:
-        return self.__status == "error"
-
-    @property
-    def is_running(self) -> bool:
-        return self.__status == "running"
-
-
 # logging打印格式化类，只负责控制台的相关打印的格式化
 class ColoredFormatter(logging.Formatter, FONT):
     def __init__(self, fmt=None, datefmt=None, style="%", handle=None):
@@ -141,7 +109,7 @@ def concat_messages(func):
     return wrapper
 
 
-class SwanLog(LogSys):
+class SwanLog:
     # 日志系统支持的输出等级
     __levels = {
         "debug": logging.DEBUG,
