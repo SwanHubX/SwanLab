@@ -330,7 +330,7 @@ swanlab watch -l ./logs
 使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现SwanLab记录训练指标。
 
 ```python
-from swanlab.intergration.pytorch_lightning import SwanLabLogger
+from swanlab.integration.pytorch_lightning import SwanLabLogger
 import importlib.util
 import os
 import pytorch_lightning as pl
@@ -416,7 +416,7 @@ trainer.test(dataloaders=test_loader)
 import evaluate
 import numpy as np
 import swanlab
-from swanlab.intergration.huggingface import SwanLabCallback
+from swanlab.integration.huggingface import SwanLabCallback
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
 

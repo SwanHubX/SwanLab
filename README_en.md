@@ -330,7 +330,7 @@ Combine your favorite framework with SwanLab, [More Integration](#).
 Create an instance using `SwanLabLogger` and pass it into the `logger` parameter of `Trainer` to enable SwanLab to record training metrics.
 
 ```python
-from swanlab.intergration.pytorch_lightning import SwanLabLogger
+from swanlab.integration.pytorch_lightning import SwanLabLogger
 import importlib.util
 import os
 import pytorch_lightning as pl
@@ -416,7 +416,7 @@ Create an instance using `SwanLabCallback` and pass it into the `callbacks` para
 import evaluate
 import numpy as np
 import swanlab
-from swanlab.intergration.huggingface import SwanLabCallback
+from swanlab.integration.huggingface import SwanLabCallback
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
 
