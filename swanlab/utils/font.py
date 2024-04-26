@@ -9,9 +9,10 @@ r"""
 """
 
 import sys
-import asyncio
 import re
-from typing import Any, Coroutine, Tuple
+from typing import Coroutine
+import threading
+import asyncio
 
 light_colors = [
     "#528d59",  # 绿色
@@ -59,7 +60,7 @@ def generate_color(number: int = 1):
 class FONT:
 
     @staticmethod
-    async def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
+    def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
@@ -76,9 +77,11 @@ class FONT:
         brush_length : int, optional
             刷去的长度，默认为100
         """
-        if prefix is None:
-            prefix = FONT.bold(FONT.blue("swanlab")) + ': '
+        # FIXME 因为协程有一些适配性问题，暂时使用线程
+        prefix = FONT.bold(FONT.blue("swanlab")) + ': ' if prefix is None else prefix
         symbols = ["\\", "|", "/", "-"]
+
+        running = True
 
         async def _():
             index = 0
@@ -87,11 +90,31 @@ class FONT:
                 sys.stdout.flush()
                 index += 1
                 await asyncio.sleep(interval)
+                if not running:
+                    break
 
-        loading_task = asyncio.create_task(_())
-        result = await func
-        loading_task.cancel()
-        FONT.brush("", length=100)
+        result, error = None, None
+
+        # 再次封装传入的func，当func执行完毕以后，将running置为False
+        async def __():
+            nonlocal running, result, error
+            try:
+                result = await func
+            except Exception as e:
+                error = e
+            finally:
+                running = False
+
+        # 开启新线程
+        t1 = threading.Thread(target=lambda: asyncio.run(_()))
+        t2 = threading.Thread(target=lambda: asyncio.run(__()))
+        t1.start()
+        t2.start()
+        t2.join()
+        t1.join()
+        if error is not None:
+            raise error
+        FONT.brush("", length=brush_length)
         return result
 
     @staticmethod
