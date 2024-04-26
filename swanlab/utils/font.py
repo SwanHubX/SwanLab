@@ -109,8 +109,7 @@ class FONT:
             # set event loop
             asyncio.set_event_loop(loop)
             done, pending = asyncio.run(asyncio.wait({loading_task, func_task}, return_when=asyncio.ALL_COMPLETED))
-            done.pop()
-            result = done.pop().result()
+            result = [task for task in done if task == func_task][0].result()
         finally:
             loop.close()
         FONT.brush("", length=brush_length)
