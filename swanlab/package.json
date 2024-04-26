@@ -4,7 +4,7 @@
   "description": "",
   "python": "true",
   "host": {
-    "web": "https://swanlab.cn",
-    "api": "http://localhost/api"
+    "web": "http://43.136.136.134",
+    "api": "http://43.136.136.134/api"
   }
 }
