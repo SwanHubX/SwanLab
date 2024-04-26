@@ -14,7 +14,7 @@ import shutil
 from fastapi import Request
 from urllib.parse import quote
 from ...env import get_swanlog_dir
-from ...utils import get_a_lock, COLOR_LIST
+from ...utils import COLOR_LIST
 from ...utils.file import check_desc_format
 import yaml
 from typing import List
@@ -50,7 +50,6 @@ from .utils import get_tag_files, LOGS_CONFIGS
 
 # 将查询结果对象转为列表
 __to_list = Project.search2list
-
 
 # ---------------------------------- 通用 ----------------------------------
 
@@ -96,7 +95,7 @@ def get_project_info(project_id: int = DEFAULT_PROJECT_ID) -> dict:
             config_path = get_config_path(experiment["run_id"])
             if os.path.exists(config_path):
                 # 加载config字段
-                with get_a_lock(config_path) as f:
+                with open(config_path, 'r+') as f:
                     experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
         # 色盘
         data["colors"] = COLOR_LIST
