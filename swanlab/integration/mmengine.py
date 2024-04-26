@@ -61,7 +61,6 @@ class SwanlabVisBackend(BaseVisBackend):
         """
         return self._swanlab
 
-    @force_init_env
     def _init_env(self) -> Any:
         """Setup env for swanlab."""
         if not os.path.exists(self._save_dir):
