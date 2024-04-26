@@ -39,6 +39,7 @@ class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
     We Recommend that you use this enumeration class to represent the state of the experiment.
     """
+    NOT_STARTED = -2
     SUCCESS = 1
     CRASHED = -1
     RUNNING = 0
@@ -135,8 +136,16 @@ class SwanLabRun:
     def state(self) -> SwanLabRunState:
         return self.__state
 
+    @staticmethod
+    def get_state() -> SwanLabRunState:
+        """
+        获取当前实验状态
+        """
+        global run
+        return run.state if run is not None else SwanLabRunState.NOT_STARTED
+
     @property
-    def is_error(self) -> bool:
+    def is_crashed(self) -> bool:
         return self.__state == SwanLabRunState.CRASHED
 
     @property
@@ -440,8 +449,8 @@ def _set_run_state(state: SwanLabRunState):
     if run is None:
         raise RuntimeError("The run object is None, please call swanlab.init first.")
 
-    if state not in SwanLabRunState or state == SwanLabRunState.RUNNING:
-        swanlog.warning("Invalid state when set, state must be in SwanLabRunState and not be RUNNING")
+    if state not in SwanLabRunState or state in [SwanLabRunState.NOT_STARTED, SwanLabRunState.RUNNING]:
+        swanlog.warning("Invalid state when set, state must be in SwanLabRunState and not be RUNNING or NOT_STARTED")
         swanlog.warning("SwanLab will set state to `CRASHED`")
         state = SwanLabRunState.CRASHED
     # 设置state

@@ -17,6 +17,7 @@ class TestSwanLabRun:
     def test_before_init(self):
         run = get_run()
         assert run is None
+        assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
 
     def test_after_init(self):
         run = SwanLabRun(generate())
