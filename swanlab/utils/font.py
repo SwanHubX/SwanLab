@@ -59,7 +59,7 @@ def generate_color(number: int = 1):
 class FONT:
 
     @staticmethod
-    async def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
+    def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
@@ -76,9 +76,10 @@ class FONT:
         brush_length : int, optional
             刷去的长度，默认为100
         """
-        if prefix is None:
-            prefix = FONT.bold(FONT.blue("swanlab")) + ': '
+        prefix = FONT.bold(FONT.blue("swanlab")) + ': ' if prefix is None else prefix
         symbols = ["\\", "|", "/", "-"]
+
+        running = True
 
         async def _():
             index = 0
@@ -87,11 +88,32 @@ class FONT:
                 sys.stdout.flush()
                 index += 1
                 await asyncio.sleep(interval)
+                if not running:
+                    break
 
-        loading_task = asyncio.create_task(_())
-        result = await func
-        loading_task.cancel()
-        FONT.brush("", length=100)
+        # 再次封装传入的func，当func执行完毕以后，将running置为False
+        async def __():
+            nonlocal running
+            try:
+                r = await func
+                running = False
+                return r
+            finally:
+                running = False
+
+        # 新开启一个事件循环
+        loop = asyncio.new_event_loop()
+        try:
+            loading_task = loop.create_task(_())
+            func_task = loop.create_task(__())
+            # set event loop
+            asyncio.set_event_loop(loop)
+            done, pending = asyncio.run(asyncio.wait({loading_task, func_task}, return_when=asyncio.ALL_COMPLETED))
+            done.pop()
+            result = done.pop().result()
+        finally:
+            loop.close()
+        FONT.brush("", length=brush_length)
         return result
 
     @staticmethod

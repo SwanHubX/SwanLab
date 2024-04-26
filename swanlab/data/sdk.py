@@ -71,7 +71,7 @@ def login(api_key: str):
     if inited:
         raise RuntimeError("You must call swanlab.login() before using init()")
     global login_info
-    login_info = asyncio.run(code_login(api_key))
+    login_info = code_login(api_key)
 
 
 def init(
@@ -395,7 +395,7 @@ def _before_exit_in_cloud(success: bool, error: str = None):
             await upload_logs(msg, level="ERROR")
         await asyncio.sleep(1)
 
-    asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
+    FONT.loading("Waiting for uploading complete", _(), interval=0.5)
     get_http().update_state(success)
     return
 
