@@ -37,6 +37,7 @@ import { t } from '@swanlab-vue/i18n'
 import SmoothButton from './components/SmoothButton.vue'
 import { debounces } from '@swanlab-vue/utils/common'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
+import { provide } from 'vue'
 
 const props = defineProps({
   // 整个图表列表集合
@@ -77,8 +78,12 @@ const props = defineProps({
   // 取消订阅数据更新
   unsubscribe: {
     type: Function,
-    default: () => {
-    }
+    default: () => {}
+  },
+  // 图表跳转实验前缀
+  experimentPrefix: {
+    type: String,
+    default: '/experiment/'
   }
 })
 const chartsGroupList = ref(props.groups)
@@ -211,6 +216,9 @@ provide('defaultColor', props.defaultColor)
 provide('getColor', props.getColor)
 provide('$on', props.subscribe)
 provide('$off', props.unsubscribe)
+provide('experimentPrefix', props.experimentPrefix)
+
+console.log(props.experimentPrefix)
 </script>
 
 <style lang="scss" scoped>
