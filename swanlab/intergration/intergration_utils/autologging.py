@@ -14,6 +14,7 @@ import swanlab
 import logging
 import sys
 import os
+import time
 from swanlab.data.run import SwanLabRun
 from typing import Any, Dict, Optional, Sequence, TypeVar
 
@@ -68,7 +69,7 @@ class PatchAPI:
         self.original_methods: Dict[str, Any] = {}
         # list of symbols to patch, e.g. ["Client.generate", "Edit.create"] or ["Pipeline.__call__"]
         self.symbols = symbols
-        # resolver callable to convert args/response into a dictionary of wandb media objects or metrics
+        # resolver callable to convert args/response into a dictionary of SwanLab media objects or metrics
         self.resolver = resolver
 
     @property
@@ -93,9 +94,6 @@ class PatchAPI:
 
             # and get the attribute from the module
             original = functools.reduce(getattr, symbol_parts, self.set_api)
-            # print(f"symbol是{symbol_parts}")
-            # print(f"Api是{self.set_api}")
-            # print(f"旧方法是{original}")
 
             def method_factory(original_method: Any):
                 async def async_method(*args, **kwargs):
@@ -105,7 +103,7 @@ class PatchAPI:
                         try:
                             result = await coro
                             loggable_dict = self.resolver(
-                                args, kwargs, result, self.lib_version, timer.start_time, timer.elapsed
+                                args, kwargs, result, self.lib_version, timer.start_time, time_elapsed
                             )
                             if loggable_dict is not None:
                                 swanlab.log(loggable_dict)
@@ -114,14 +112,20 @@ class PatchAPI:
                             print(e)
 
                     with Timer() as timer:
+                        start_time = time.perf_counter()
                         coro = original_method(*args, **kwargs)
+                        end_time = time.perf_counter()
+                        time_elapsed = int(end_time - start_time + 0.5)
                         asyncio.ensure_future(callback(coro))
 
                     return await future
 
                 def sync_method(*args, **kwargs):
                     with Timer() as timer:
+                        start_time = time.perf_counter()
                         result = original_method(*args, **kwargs)
+                        end_time = time.perf_counter()
+                        time_elapsed = int(end_time - start_time + 0.5)
                         try:
                             loggable_dict = self.resolver(
                                 args,
@@ -129,7 +133,7 @@ class PatchAPI:
                                 result,
                                 self.lib_version,
                                 timer.start_time,
-                                timer.elapsed,
+                                time_elapsed,
                             )
                             if loggable_dict is not None:
                                 swanlab.log(loggable_dict)
@@ -212,7 +216,7 @@ class AutologAPI:
         """Enable autologging.
 
         Args:
-            init: Optional dictionary of arguments to pass to wandb.init().
+            init: Optional dictionary of arguments to pass to SwanLab.init().
 
         """
         if self._is_enabled:
