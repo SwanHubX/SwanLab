@@ -48,10 +48,10 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 
 login_info = None
 """
-User login information
+Record user login information in the cloud environment.
 """
 
-exit_in_cloud = False
+exiting_in_cloud = False
 """
 Indicates whether the program is exiting in the cloud environment.
 """
@@ -304,7 +304,7 @@ def finish():
     # FIXME not a good way to handle this
     run._success()
     swanlog.uninstall()
-    if run.cloud and not exit_in_cloud:
+    if run.cloud and not exiting_in_cloud:
         _before_exit_in_cloud(True)
     run = None
 
@@ -379,11 +379,11 @@ def _before_exit_in_cloud(success: bool, error: str = None):
     success : bool
         实验是否成功
     """
-    global exit_in_cloud
-    if exit_in_cloud or run is None or not run.cloud:
+    global exiting_in_cloud
+    if exiting_in_cloud or run is None or not run.cloud:
         return
     # 标志已经退出（需要在下面的逻辑之前标志）
-    exit_in_cloud = True
+    exiting_in_cloud = True
     sys.excepthook = except_handler
 
     async def _():
@@ -405,7 +405,7 @@ def clean_handler():
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
     # 如果没有错误
-    if not swanlog.is_error and not exit_in_cloud:
+    if not swanlog.is_error and not exiting_in_cloud:
         if run.cloud:
             _before_exit_in_cloud(True)
         swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
@@ -419,7 +419,7 @@ def except_handler(tp, val, tb):
     """定义异常处理函数"""
     if run is None:
         return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    if exit_in_cloud:
+    if exiting_in_cloud:
         # FIXME not a good way to fix '\n' problem
         print("")
         swanlog.error("Aborted uploading by user")
@@ -446,7 +446,7 @@ def except_handler(tp, val, tb):
         print(datetime.now(), file=fError)
         print(html, file=fError)
     # 重置控制台记录器
-    if run.cloud and not exit_in_cloud:
+    if run.cloud and not exiting_in_cloud:
         _before_exit_in_cloud(False, error=str(html))
     swanlog.uninstall()
     if tp != KeyboardInterrupt:
