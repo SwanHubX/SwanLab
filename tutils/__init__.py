@@ -15,7 +15,7 @@ import os
 
 def clear():
     """
-    清空临时文件夹
+    清空临时文件夹, 重新创建
     """
     if os.path.exists(TEMP_PATH):
         shutil.rmtree(TEMP_PATH)

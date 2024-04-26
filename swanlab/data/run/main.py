@@ -89,6 +89,9 @@ class SwanLabRun:
         callbacks : Dict[str, Callable]
             回调函数字典，key为回调函数名，value为回调函数
         """
+        global run
+        if run is not None:
+            raise RuntimeError("SwanLabRun has been initialized")
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
         _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
@@ -110,13 +113,13 @@ class SwanLabRun:
         self.__state = SwanLabRunState.RUNNING
         self.__pool = pool
         # 设置回调函数
-        [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
+        callbacks is not None and [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
 
         # 动态定义一个方法，用于修改实验状态
         def _(state: SwanLabRunState):
             self.__state = state
 
-        global _change_run_state, run
+        global _change_run_state
         _change_run_state = _
         run = self
 
