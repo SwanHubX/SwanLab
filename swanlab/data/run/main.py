@@ -8,8 +8,8 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 from ..settings import SwanDataSettings
-from swanlab.log import swanlog
 from ..system import get_system_info, get_requirements
+from swanlab.log import swanlog
 from swanlab.utils.file import (
     check_exp_name_format,
     check_desc_format
@@ -18,12 +18,22 @@ from datetime import datetime
 import time
 import random
 import ujson
+from enum import Enum
 from .exp import SwanLabExp
 from swanlab.db import Experiment, ExistedError, NotExistedError
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Optional, Dict
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
 from swanlab.cloud import ThreadPool
+
+
+class SwanLabRunState(Enum):
+    """SwanLabRunState is an enumeration class that represents the state of the experiment.
+    We Recommend that you use this enumeration class to represent the state of the experiment.
+    """
+    SUCCESS = 1
+    CRASHED = -1
+    RUNNING = 0
 
 
 class SwanLabRun:
@@ -41,6 +51,7 @@ class SwanLabRun:
         suffix: str = None,
         exp_num: int = None,
         pool: ThreadPool = None,
+        callbacks: Dict[str, Callable] = None
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -67,6 +78,8 @@ class SwanLabRun:
             历史实验总数，用于云端颜色与本地颜色的对应
         pool : ThreadPool
             线程池对象，用于云端同步，传入此对象，run.cloud将被设置为True
+        callbacks : Dict[str, Callable]
+            回调函数字典，key为回调函数名，value为回调函数
         """
         # ---------------------------------- 初始化类内参数 ----------------------------------
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -86,8 +99,10 @@ class SwanLabRun:
         description = self.__check_description(description)
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
-        self.__status = 0
+        self.__state = SwanLabRunState.RUNNING
         self.__pool = pool
+        # 设置回调函数
+        [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
 
     @property
     def cloud(self) -> bool:
@@ -96,6 +111,32 @@ class SwanLabRun:
     @property
     def pool(self) -> ThreadPool:
         return self.__pool
+
+    @staticmethod
+    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS):
+        """
+        Finish the current run and close the current experiment
+        Normally, swanlab will run this function automatically,
+        but you can also execute it manually and mark the experiment as 'completed'.
+        Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
+        After calling this function, you can re-run `swanlab.init` to start a new experiment.
+
+        :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
+        """
+        global run
+        # 分为几步
+        # 1. 设置数据库实验状态为对应状态
+        # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
+        # 3. 清空run对象，run改为局部变量_run
+        # 4. 返回_run
+        if run is None:
+            raise RuntimeError("The run object is None, please call `swanlab.init` first.")
+        _set_run_state(state)
+        if run.cloud:
+            # TODO 关闭线程池
+            pass
+        _run, run = run, None
+        return _run
 
     def set_metric_callback(self, callback: Callable):
         """
@@ -133,6 +174,13 @@ class SwanLabRun:
         """
         return self.__config
 
+    @property
+    def exp(self) -> SwanLabExp:
+        """
+        Get the current experiment object. This object is used to log data and control the experiment.
+        """
+        return self.__exp
+
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -149,17 +197,17 @@ class SwanLabRun:
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
         """
-        if self.__status != 0:
+        if self.__state != 0:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
         # 每一次log的时候检查一下数据库中的实验状态
         # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
         # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
-        swanlog.debug(f"Check experiment and status...")
+        swanlog.debug(f"Check experiment and state...")
         try:
             exp = Experiment.get(self.__exp.id)
         except NotExistedError:
             raise KeyboardInterrupt("The experiment has been deleted by the user")
-        # 此时self.__status == 0，说明是前端主动停止的
+        # 此时self.__state == 0，说明是前端主动停止的
         if exp.status != 0:
             raise KeyboardInterrupt("The experiment has been stopped by the user")
 
@@ -186,32 +234,9 @@ class SwanLabRun:
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             self.__exp.add(key=key, data=d, step=step)
 
-    def _success(self):
-        """Mark the experiment as success. Users should not use this function."""
-        self.__set_exp_status(1)
-
-    def _fail(self):
-        """Mark the experiment as failure. Users should not use this function."""
-        self.__set_exp_status(-1)
-
     def __str__(self) -> str:
         """此类的字符串表示"""
         return self.__run_id
-
-    def __set_exp_status(self, status: int):
-        """更新实验状态
-
-        Parameters
-        ----------
-        status : int
-            实验状态，1代表成功，-1代表失败，0代表未完成，其他值会被自动设置为-1
-        """
-        if status not in [1, -1, 0]:
-            swanlog.warning("Invalid status when set, status must be 1, -1 or 0, but got {}".format(status))
-            swanlog.warning("SwanLab will set status to -1")
-            status = -1
-        self.__status = status
-        self.__exp.db.update_status(status)
 
     @staticmethod
     def __get_exp_name(experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
@@ -340,3 +365,30 @@ class SwanLabRun:
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
             ujson.dump(get_system_info(self.__settings), f)
+
+
+run: Optional["SwanLabRun"] = None
+"""Global runtime instance. After the user calls finish(), run will be set to None."""
+
+
+def _set_run_state(state: SwanLabRunState):
+    """
+    设置实验状态，只能在run对象存在的情况下调用
+    """
+    if run is None:
+        raise RuntimeError("The run object is None, please call swanlab.init first.")
+
+    if state not in SwanLabRunState:
+        swanlog.warning("Invalid state when set, state must be in SwanLabRunState, but got {}".format(state))
+        swanlog.warning("SwanLab will set state to `CRASHED`")
+        state = SwanLabRunState.CRASHED
+    # 更新数据库中的实验状态
+    run.exp.db.update_status(state.value)
+
+
+def get_run():
+    """
+    Get the current run object. If the experiment has not been initialized, return None.
+    """
+    global run
+    return run

@@ -15,7 +15,8 @@ import traceback
 from datetime import datetime
 from typing import Optional, Union, Dict
 from .modules import DataType
-from .run import SwanLabRun, SwanLabConfig, register
+from .run import SwanLabRun, register
+from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect
 from ..env import init_env, ROOT, get_swanlab_folder
@@ -49,12 +50,46 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 login_info = None
 """
 Record user login information in the cloud environment.
+`swanlab.login` will assign or update this variable.
 """
 
 exiting_in_cloud = False
 """
 Indicates whether the program is exiting in the cloud environment.
 """
+
+
+def _create_metric_callback(pool: ThreadPool):
+    """
+    创建指标回调函数
+    """
+
+    def _metric_callback(is_scalar: dict, data):
+        """
+        上传指标回调函数
+        :param is_scalar: 是否为标量指标
+        :param data: 上传的指标
+        """
+        pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
+
+    return _metric_callback
+
+
+def _create_column_callback(pool: ThreadPool):
+    """
+    创建列回调函数
+    """
+
+    def _column_callback(key, data_type: str, error: Optional[Dict] = None):
+        """
+        上传列信息回调函数
+        :param key: 列名
+        :param data_type: 列数据类型
+        :param error: 错误信息
+        """
+        pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
+
+    return _column_callback
 
 
 def login(api_key: str):
@@ -191,6 +226,13 @@ def init(
     connect(autocreate=True)
     # 初始化项目数据库
     Project.init(os.path.basename(os.getcwd()))
+    # ---------------------------------- 实例化实验 ----------------------------------
+    # 如果是云端环境，设置回调函数
+    callbacks = None if not cloud else {
+        "metric_callback": _create_metric_callback,
+        "column_callback": _create_column_callback
+    }
+
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -200,6 +242,7 @@ def init(
         suffix=suffix,
         exp_num=exp_num,
         pool=pool,
+        callbacks=callbacks
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
@@ -211,26 +254,6 @@ def init(
         )
         sniffer = LogSnifferTask(run.settings.files_dir)
         run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-
-        def _metric_callback(is_scalar: dict, data):
-            """
-            上传指标回调函数
-            :param is_scalar: 是否为标量指标
-            :param data: 上传的指标
-            """
-            run.pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
-
-        def _column_callback(key, data_type: str, error: Optional[Dict] = None):
-            """
-            上传列信息回调函数
-            :param key: 列名
-            :param data_type: 列数据类型
-            :param error: 错误信息
-            """
-            run.pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
-
-        run.set_metric_callback(_metric_callback)
-        run.set_column_callback(_column_callback)
 
         def _write_call_call(message):
             pool.queue.put((UploadType.LOG, [message]))
