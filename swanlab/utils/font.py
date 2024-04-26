@@ -9,9 +9,10 @@ r"""
 """
 
 import sys
-import asyncio
 import re
-from typing import Any, Coroutine, Tuple
+from typing import Coroutine
+import threading
+import asyncio
 
 light_colors = [
     "#528d59",  # 绿色
@@ -63,6 +64,8 @@ class FONT:
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
+        使用线程实现，因为协程有一些适配性问题
+
         Parameters
         ----------
         s : str
@@ -91,27 +94,27 @@ class FONT:
                 if not running:
                     break
 
+        result, error = None, None
+
         # 再次封装传入的func，当func执行完毕以后，将running置为False
         async def __():
-            nonlocal running
+            nonlocal running, result, error
             try:
-                r = await func
-                running = False
-                return r
+                result = await func
+            except Exception as e:
+                error = e
             finally:
                 running = False
 
-        # 新开启一个事件循环
-        loop = asyncio.new_event_loop()
-        loading_task = loop.create_task(_())
-        func_task = loop.create_task(__())
-        # set event loop
-        asyncio.set_event_loop(loop)
-        done, pending = asyncio.run(asyncio.wait({loading_task, func_task}, return_when=asyncio.ALL_COMPLETED))
-        result = [task for task in done if task == func_task][0].result()
-        # 恢复原本的事件循环
-        asyncio.set_event_loop(None)
-
+        # 开启新线程
+        t1 = threading.Thread(target=lambda: asyncio.run(_()))
+        t2 = threading.Thread(target=lambda: asyncio.run(__()))
+        t1.start()
+        t2.start()
+        t2.join()
+        t1.join()
+        if error is not None:
+            raise error
         FONT.brush("", length=brush_length)
         return result
 
