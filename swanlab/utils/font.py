@@ -64,8 +64,6 @@ class FONT:
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
-        使用线程实现，因为协程有一些适配性问题
-
         Parameters
         ----------
         s : str
@@ -79,6 +77,7 @@ class FONT:
         brush_length : int, optional
             刷去的长度，默认为100
         """
+        # FIXME 因为协程有一些适配性问题，暂时使用线程
         prefix = FONT.bold(FONT.blue("swanlab")) + ': ' if prefix is None else prefix
         symbols = ["\\", "|", "/", "-"]
 
