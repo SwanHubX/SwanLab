@@ -15,9 +15,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(current_dir, "..")
 sys.path.append(relative_path)
 
-from intergration_utils.autologging import AutologAPI
-
-from intergration.openai.resolver import OpenAIRequestResponseResolver, OpenAIClientResponseResolver
+from integration_utils.autologging import AutologAPI
+from integration.openai.resolver import OpenAIRequestResponseResolver, OpenAIClientResponseResolver
 import pkg_resources
 
 

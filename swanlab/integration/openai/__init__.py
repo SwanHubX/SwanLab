@@ -9,4 +9,3 @@ r"""
 """
 
 from .openai import autolog
-from .resolver import OpenAIRequestResponseResolver

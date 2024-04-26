@@ -19,7 +19,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(current_dir, "..")
 sys.path.append(relative_path)
 
-from intergration_utils.autologging import Response
+from integration_utils.autologging import Response
 
 
 @dataclass
