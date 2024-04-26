@@ -11,12 +11,11 @@ import asyncio
 import functools
 import inspect
 import swanlab
-import logging
 import sys
 import os
 import time
 from swanlab.data.run import SwanLabRun
-from typing import Any, Dict, Optional, Sequence, TypeVar
+from typing import Any, Dict, Optional, Sequence, TypeVar, TYPE_CHECKING
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(current_dir, "..", "..")
@@ -29,6 +28,9 @@ if sys.version_info >= (3, 8):
     from typing import Protocol
 else:
     from typing_extensions import Protocol
+
+if TYPE_CHECKING:
+    import openai
 
 
 AutologInitArgs = Optional[Dict[str, Any]]
@@ -182,16 +184,17 @@ class AutologAPI:
         resolver: ArgumentResponseResolver,
         client=None,
         lib_version=None,
-        cloud: bool = False,
+        cloud: bool = True,
     ) -> None:
         """Autolog API calls to SwanLab."""
+
         self._patch_api = PatchAPI(
             name=name, symbols=symbols, resolver=resolver, client=client, lib_version=lib_version
         )
         self._name = self._patch_api.name
         self._run: Optional[SwanLabRun] = None
         self.cloud = cloud
-        self.client = client
+        self.client: openai.Client = client
         self.lib_version = lib_version
 
     @property
