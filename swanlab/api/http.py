@@ -20,17 +20,6 @@ import json
 import asyncio
 
 
-def change_exp_name(exp_name):
-    """
-    修改实验名称
-    :param exp_name: 实验名称
-    """
-    if exp_name[-1].isdigit() and exp_name[-2] == "_":
-        return exp_name[:-1] + str(int(exp_name[-1]) + 1)
-    else:
-        return exp_name + "_1"
-
-
 class HTTP:
     """
     封装请求函数，添加get、post、put、delete方法
