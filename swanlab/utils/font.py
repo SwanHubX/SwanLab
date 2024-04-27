@@ -89,8 +89,6 @@ class FONT:
             while True:
                 sys.stdout.write("\r" + prefix + symbols[index % len(symbols)] + " " + s)
                 sys.stdout.flush()
-                # 保证缓冲区始终换行
-                sys.stdout.write("\n")
                 index += 1
                 time.sleep(interval)
                 if not running:
