@@ -270,14 +270,14 @@ def sync_error_handler(func):
     在一些接口中我们不希望线程奔溃，而是返回一个错误对象
     """
 
-    async def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> Tuple[Optional[Union[dict, str]], Optional[Exception]]:
         try:
             # 在装饰器中调用被装饰的异步函数
-            result = await func(*args, **kwargs)
-            return result
+            result = func(*args, **kwargs)
+            return result, None
         except requests.exceptions.Timeout:
-            return NetworkError()
+            return None, NetworkError()
         except Exception as e:
-            return e
+            return None, e
 
     return wrapper

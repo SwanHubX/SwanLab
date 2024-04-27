@@ -8,9 +8,8 @@ r"""
     生成线程池，生成通信管道
 """
 import threading
-from asyncio import AbstractEventLoop
-from typing import List, Tuple, Callable, Dict, Any, Coroutine
-import asyncio
+import time
+from typing import List, Tuple, Callable, Dict
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
 from ._log_collector import LogCollectorTask
@@ -82,9 +81,8 @@ class ThreadPool:
             q = LogQueue(queue=self.__queue, readable=False, writable=True)
         thread_util = ThreadUtil(q, name)
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
-        loop, task = self._create_loop(name, sleep_time, target, (thread_util, *args))
-        thread = threading.Thread(target=loop.run_until_complete,
-                                  args=(task(),),
+        task = self._create_loop(name, sleep_time, target, (thread_util, *args))
+        thread = threading.Thread(target=task,
                                   daemon=True,
                                   name=name)
         self.thread_pool[name] = thread
@@ -105,7 +103,7 @@ class ThreadPool:
                      sleep_time: float,
                      task: Callable,
                      args: Tuple[ThreadUtil, ...]
-                     ) -> Tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
+                     ) -> [Callable]:
         """
         创建一个事件循环，循环执行传入线程池的任务
         :param name: 线程名称
@@ -116,27 +114,21 @@ class ThreadPool:
         """
         timer: TimerFlag = args[0].timer
         self.thread_timer[name] = timer
-        # 设置事件循环为当前线程的事件循环
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
         # 新的执行函数，执行任务后等待sleep_time时间后再重新执行
-        async def new_task():
+        def new_task():
             while True:
                 swanlog.debug(f"{threading.current_thread().name} is running")
                 # 如果task是同步函数，直接调用，否则使用await调用
-                if asyncio.iscoroutinefunction(task):
-                    await task(*args)
-                else:
-                    task(*args)
-                await asyncio.sleep(sleep_time)
+                task(*args)
+                time.sleep(sleep_time)
                 # 如果定时器停止，则退出循环
                 if not timer.running:
                     return swanlog.debug(f"{threading.current_thread().name} is stopped")
 
-        return loop, new_task
+        return new_task
 
-    async def finish(self):
+    def finish(self):
         """
         [在主线程中] 结束线程池中的所有线程，并执行所有线程的结束任务
         """
@@ -152,7 +144,8 @@ class ThreadPool:
 
         # print("非日志上传线程结束")
         # 倒序执行回调函数
-        await asyncio.gather(*[cb() for cb in self.__callbacks[::-1]])
+
+        [cb() for cb in self.__callbacks[::-1]]
         # 停止日志上传线程的任务
         self.thread_timer[self.UPLOAD_THREAD_NAME].cancel()
         # 等待日志上传线程结束

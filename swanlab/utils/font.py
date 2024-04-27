@@ -13,7 +13,6 @@ import re
 from typing import Callable, Tuple
 import threading
 import time
-import asyncio
 
 light_colors = [
     "#528d59",  # 绿色
