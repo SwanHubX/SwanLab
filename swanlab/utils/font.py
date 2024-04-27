@@ -113,7 +113,7 @@ class FONT:
         t1.join()
         if error is not None:
             raise error
-        FONT.brush(" ", brush_length)
+        FONT.brush("", brush_length)
         return result
 
     @staticmethod
