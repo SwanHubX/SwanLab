@@ -76,7 +76,7 @@ def input_api_key(
         print(FONT.swanlab(tip))
         key = getpass.getpass("")
     else:
-        key = input(FONT.swanlab(tip))
+        key = getpass.getpass(FONT.swanlab(tip))
 
     sys.excepthook = _t
     return key
