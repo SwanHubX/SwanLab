@@ -1,5 +1,24 @@
 # ⚡️更新日志
 
+## v0.3.0 云端版上线！ - 2024.5.1
+
+**🚀新增功能**
+- [云端版](https://dev101.swanlab.cn)发布
+- `swanlab.init`支持用配置文件初始化
+- “环境”增加对Apple M系列芯片的记录
+
+**👥集成**
+- 与🤗HuggingFace Transformers集成，[指引](/zh/guide_cloud/integration/integration-huggingface-transformers.md)
+- 与PyTorch Lightning集成，[指引](/zh/guide_cloud/integration/integration-pytorch-lightning.md)
+- 与Jupyter Notebook集成
+- 与Hydra集成，[指引](/zh/guide_cloud/integration/integration-hydra.md)
+
+**⚡️改进**
+- 优化折线图在大数据量时的渲染表现
+- 优化在Jupyter使用的表现
+- 修复历史版本的大量问题
+
+
 ## 开源库 v0.2.4 - 2024.3.17
 
 **⚡️改进**
