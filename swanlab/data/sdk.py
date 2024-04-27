@@ -107,14 +107,14 @@ def login(api_key: str):
 
 
 def init(
+    project: str = None,
+    workspace: str = None,
     experiment_name: str = None,
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
     cloud: bool = True,
-    project: str = None,
-    workspace: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -126,6 +126,13 @@ def init(
 
     Parameters
     ----------
+    project : str, optional
+        The project name of the current experiment, the default is None,
+        which means the current project name is the same as the current working directory.
+        If you are using cloud mode, you must provide the project name.
+    workspace : str, optional
+        Where the current project is located, it can be an organization or a user (currently only supports yourself).
+        The default is None, which means the current entity is the same as the current user.
     experiment_name : str, optional
         The experiment name you currently have open. If this parameter is not provided,
         SwanLab will generate one for you by default.
@@ -161,13 +168,6 @@ def init(
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
         If you are not using cloud mode, the `project` and `entity` fields are invalid.
-    project : str, optional
-        The project name of the current experiment, the default is None,
-        which means the current project name is the same as the current working directory.
-        If you are using cloud mode, you must provide the project name.
-    workspace : str, optional
-        Where the current project is located, it can be an organization or a user (currently only supports yourself).
-        The default is None, which means the current entity is the same as the current user.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
