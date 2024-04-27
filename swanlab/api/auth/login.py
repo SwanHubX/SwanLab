@@ -72,11 +72,10 @@ def input_api_key(
         print(FONT.swanlab("Logging into swanlab cloud."))
         print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
 
-    if in_jupyter():
-        print(FONT.swanlab(tip))
-        key = getpass.getpass("")
-    else:
-        key = getpass.getpass(FONT.swanlab(tip))
+    tip = FONT.swanlab(tip)
+    ij = in_jupyter()
+    ij and print(tip)
+    key = getpass.getpass("" if ij else tip)
 
     sys.excepthook = _t
     return key
