@@ -13,6 +13,7 @@ from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
+from swanlab.utils.judgment import in_jupyter
 import getpass
 import httpx
 import sys
@@ -70,7 +71,13 @@ def input_api_key(
     if not again:
         print(FONT.swanlab("Logging into swanlab cloud."))
         print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
-    key = getpass.getpass(FONT.swanlab(tip))
+
+    if in_jupyter():
+        print(FONT.swanlab(tip))
+        key = getpass.getpass("")
+    else:
+        key = input(FONT.swanlab(tip))
+
     sys.excepthook = _t
     return key
 
