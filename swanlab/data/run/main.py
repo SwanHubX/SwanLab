@@ -382,7 +382,8 @@ class SwanLabRun:
                     continue
                 # 其他情况下，说明是用户自定义的后缀，需要报错
                 else:
-                    raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
+                    Experiment.purely_delete(run_id=self.__run_id)
+                    raise ExistedError(f"Experiment {exp_name} has existed in local, please try another name.")
 
         # 实验创建成功，设置实验相关信息
         self.__settings.exp_name = exp_name

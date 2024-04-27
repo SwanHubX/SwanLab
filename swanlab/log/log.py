@@ -92,7 +92,7 @@ class ColoredFormatter(logging.Formatter, FONT):
 
 def concat_messages(func):
     """
-    装饰器，当传递打印信息有多个时，拼接为一个
+    装饰器，当传递打印信息有多个时，拼接为一个，并且拦截记录它们
     """
 
     def wrapper(self, *args, **kwargs):

@@ -22,7 +22,7 @@ from .run import (
 )
 from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
-from ..db import Project, connect
+from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
@@ -30,7 +30,7 @@ from ..utils.key import get_key
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
-from swanlab.error import KeyFileError
+from swanlab.error import KeyFileError, ApiError
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.cloud import UploadType
 
@@ -243,11 +243,18 @@ def init(
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
         # 注册实验信息
-        get_http().mount_exp(
-            exp_name=run.settings.exp_name,
-            colors=run.settings.exp_colors,
-            description=run.settings.description,
-        )
+        try:
+            get_http().mount_exp(
+                exp_name=run.settings.exp_name,
+                colors=run.settings.exp_colors,
+                description=run.settings.description,
+            )
+        except ApiError as e:
+            if e.resp.status_code == 409:
+                FONT.brush("", 50)
+                swanlog.error("The experiment name already exists, please change the experiment name")
+                Experiment.purely_delete(run_id=run.exp.db.run_id)
+                sys.exit(409)
         sniffer = LogSnifferTask(run.settings.files_dir)
         run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
 
