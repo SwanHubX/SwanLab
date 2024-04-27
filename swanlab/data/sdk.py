@@ -224,10 +224,9 @@ def init(
     Project.init(os.path.basename(os.getcwd()))
     # ---------------------------------- 实例化实验 ----------------------------------
     # 如果是云端环境，设置回调函数
-    callbacks = None if not cloud else {
-        "metric_callback": _create_metric_callback,
-        "column_callback": _create_column_callback
-    }
+    callbacks = (
+        None if not cloud else {"metric_callback": _create_metric_callback, "column_callback": _create_column_callback}
+    )
 
     # 注册实验
     run = register(
@@ -238,7 +237,7 @@ def init(
         suffix=suffix,
         exp_num=exp_num,
         pool=pool,
-        callbacks=callbacks
+        callbacks=callbacks,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
@@ -280,6 +279,27 @@ def init(
         experiment_url = project_url + f"/runs/{http.exp_id}"
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+
+        # 在Jupyter Notebook环境下，显示按钮
+        try:
+            import ipywidgets as widgets
+            from IPython.display import display, IFrame
+
+            output = widgets.Output()
+
+            def show_iframe(b):
+                with output:
+                    output.clear_output()
+                    # 在这里定义Iframe的内容，例如一个网站的URL
+                    iframe = IFrame(experiment_url, width="100%", height=500)
+                    display(iframe)
+
+            button = widgets.Button(description="Display SwanLab Dashboard")
+            button.on_click(show_iframe)
+            display(button, output)
+        except ImportError:
+            pass
+
     return run
 
 
