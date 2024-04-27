@@ -290,7 +290,8 @@ def init(
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
 
         # 在Jupyter Notebook环境下，显示按钮
-        show_button_html(experiment_url)
+        if in_jupyter():
+            show_button_html(experiment_url)
 
     return run
 
