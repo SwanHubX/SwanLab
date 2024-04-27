@@ -13,6 +13,7 @@ from swanlab.utils import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
+from swanlab.utils.judgment import in_jupyter
 import getpass
 import httpx
 import sys
@@ -22,9 +23,7 @@ async def login_request(api_key: str, timeout: int = 20) -> httpx.Response:
     """用户登录，请求后端接口完成验证"""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            url=f"{get_host_api()}/login/api_key",
-            headers={'authorization': api_key},
-            timeout=timeout
+            url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
         )
         return resp
 
@@ -70,9 +69,14 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("Logging into swanlab cloud.")
-        swanlog.info("You can find your API key at: " + get_user_setting_path())
-    key = getpass.getpass(FONT.swanlab(tip))
+        print(FONT.swanlab("Logging into swanlab cloud."))
+        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
+
+    tip = FONT.swanlab(tip)
+    ij = in_jupyter()
+    ij and print(tip)
+    key = getpass.getpass("" if ij else tip)
+
     sys.excepthook = _t
     return key
 
@@ -118,6 +122,6 @@ def terminal_login(api_key: str = None) -> LoginInfo:
 def _abort_tip(tp, val, tb):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
-        swanlog.error("Aborted!")
+        print("\n" + FONT.red("Aborted!"))
         sys.exit(0)
     # 如果不是CTRL+C，交给默认的异常处理

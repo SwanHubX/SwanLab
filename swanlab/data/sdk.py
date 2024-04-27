@@ -27,6 +27,7 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
+from ..utils.judgment import in_jupyter
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
@@ -224,10 +225,9 @@ def init(
     Project.init(os.path.basename(os.getcwd()))
     # ---------------------------------- 实例化实验 ----------------------------------
     # 如果是云端环境，设置回调函数
-    callbacks = None if not cloud else {
-        "metric_callback": _create_metric_callback,
-        "column_callback": _create_column_callback
-    }
+    callbacks = (
+        None if not cloud else {"metric_callback": _create_metric_callback, "column_callback": _create_column_callback}
+    )
 
     # 注册实验
     run = register(
@@ -238,7 +238,7 @@ def init(
         suffix=suffix,
         exp_num=exp_num,
         pool=pool,
-        callbacks=callbacks
+        callbacks=callbacks,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
@@ -287,6 +287,27 @@ def init(
         experiment_url = project_url + f"/runs/{http.exp_id}"
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+
+        # 在Jupyter Notebook环境下，显示按钮
+        try:
+            import ipywidgets as widgets
+            from IPython.display import display, IFrame
+
+            output = widgets.Output()
+
+            def show_iframe(b):
+                with output:
+                    output.clear_output()
+                    # 在这里定义Iframe的内容，例如一个网站的URL
+                    iframe = IFrame(experiment_url, width="100%", height=500)
+                    display(iframe)
+
+            button = widgets.Button(description="Display SwanLab Dashboard")
+            button.on_click(show_iframe)
+            display(button, output)
+        except ImportError:
+            pass
+
     return run
 
 
@@ -337,8 +358,8 @@ def _login_in_init() -> LoginInfo:
         key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
     except KeyFileError:
         fd = sys.stdin.fileno()
-        # 不是标准终端，无法控制其回显
-        if not os.isatty(fd):
+        # 不是标准终端，且非jupyter环境，无法控制其回显
+        if not os.isatty(fd) and not in_jupyter():
             raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
     return terminal_login(key)
 
