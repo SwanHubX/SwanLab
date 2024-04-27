@@ -15,20 +15,19 @@ from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
 from swanlab.utils.judgment import in_jupyter
 import getpass
-import httpx
+import requests
 import sys
 
 
-async def login_request(api_key: str, timeout: int = 20) -> httpx.Response:
+def login_request(api_key: str, timeout: int = 20) -> requests.Response:
     """用户登录，请求后端接口完成验证"""
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
-        )
-        return resp
+    resp = requests.post(
+        url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
+    )
+    return resp
 
 
-async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
+def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInfo:
     """用户登录，异步调用接口完成验证
     返回后端内容(dict)，如果后端请求失败，返回None
 
@@ -41,11 +40,7 @@ async def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> Lo
     save : bool, optional
         是否保存到本地token文件
     """
-    try:
-        resp = await login_request(api_key, timeout)
-    except httpx.NetworkError:
-        # 请求超时等网络错误
-        raise ValidationError("Network error, please try again.")
+    resp = login_request(api_key, timeout)
     # api key写入token文件
     login_info = LoginInfo(resp, api_key)
     save and not login_info.is_fail and login_info.save()
@@ -76,7 +71,6 @@ def input_api_key(
     ij = in_jupyter()
     ij and print(tip)
     key = getpass.getpass("" if ij else tip)
-
     sys.excepthook = _t
     return key
 
@@ -91,7 +85,7 @@ def code_login(api_key: str) -> LoginInfo:
         用户api_key
     """
     tip = "Waiting for the swanlab cloud response."
-    login_info: LoginInfo = FONT.loading(tip, login_by_key(api_key), interval=0.5)
+    login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key,), interval=0.5)
     if login_info.is_fail:
         swanlog.error("Login failed: " + str(login_info).lower())
         raise ValidationError("Login failed: " + str(login_info))

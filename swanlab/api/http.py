@@ -7,7 +7,6 @@ r"""
 @Description:
     http会话对象
 """
-import httpx
 from typing import Optional, Tuple, Dict, Union, List
 from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
@@ -18,7 +17,7 @@ from swanlab.package import get_host_api
 from swanlab.utils import FONT
 from swanlab.log import swanlog
 import json
-import asyncio
+import requests
 
 
 class HTTP:
@@ -38,14 +37,17 @@ class HTTP:
         self.__login_info = login_info
         self.base_url = get_host_api()
         # 当前cos信息
-        self.__cos: Optional["CosClient"] = None
+        self.__cos: Optional[CosClient] = None
         # 当前项目信息
-        self.__proj: Optional["ProjectInfo"] = None
+        self.__proj: Optional[ProjectInfo] = None
         # 当前实验信息
-        self.__exp: Optional["ExperimentInfo"] = None
-
+        self.__exp: Optional[ExperimentInfo] = None
+        # 当前进程会话
+        self.__session: Optional[requests.Session] = None
         # 当前项目所属的username
         self.__username = login_info.username
+        # 创建会话
+        self.__create_session()
 
     @property
     def groupname(self):
@@ -84,72 +86,72 @@ class HTTP:
         """
         return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
 
-    def __create_session(self) -> httpx.AsyncClient:
+    def __before_request(self):
+        """
+        请求前的钩子
+        """
+        if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
+            # 刷新sid，新建一个会话
+            swanlog.debug("Refresh sid...")
+            self.__login_info = login_by_key(self.__login_info.api_key)
+            self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
+
+    def __create_session(self):
         """
         创建会话，这将在HTTP类实例化时调用
         """
-        session = httpx.AsyncClient(cookies={"sid": self.__login_info.sid})
-
-        # 注册请求前的钩子
-        async def request_interceptor(request: httpx.Request):
-            # 判断是否已经达到了过期时间
-            if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
-                # 刷新sid，新建一个会话
-                self.__login_info = await login_by_key(self.__login_info.api_key)
-                swanlog.debug("Refresh sid...")
-                # 更新当前请求的cookie
-                request.headers["cookie"] = f"sid={self.__login_info.sid}"
-
-        session.event_hooks["request"].append(request_interceptor)
+        session = requests.Session()
+        session.cookies.update({"sid": self.__login_info.sid})
 
         # 注册响应钩子
-        async def response_interceptor(response: httpx.Response):
+        def response_interceptor(response: requests.Response, *args, **kwargs):
             """
             捕获所有的http不为2xx的错误，以ApiError的形式抛出
             """
             if response.status_code // 100 != 2:
-                raise ApiError(response, response.status_code, response.reason_phrase)
+                raise ApiError(response, response.status_code, response.reason)
 
-        session.event_hooks["response"].append(response_interceptor)
+        session.hooks["response"] = response_interceptor
 
-        return session
+        self.__session = session
 
-    async def post(self, url: str, data: dict = None) -> Union[dict, str]:
+    def post(self, url: str, data: dict = None) -> Union[dict, str]:
         """
         post请求
         """
         url = self.base_url + url
-        resp = await self.__create_session().post(url, json=data)
-        await asyncio.sleep(1)
+        self.__before_request()
+        resp = self.__session.post(url, json=data)
         try:
             return resp.json()
         except json.decoder.JSONDecodeError:
             return resp.text
 
-    async def put(self, url: str, data: dict = None) -> Union[dict, str]:
+    def put(self, url: str, data: dict = None) -> Union[dict, str]:
         """
         put请求
         """
         url = self.base_url + url
-        resp = await self.__create_session().put(url, json=data)
+        self.__before_request()
+        resp = self.__session.put(url, json=data)
         try:
             return resp.json()
         except json.decoder.JSONDecodeError:
             return resp.text
 
-    async def get(self, url: str, params: dict = None) -> dict:
+    def get(self, url: str, params: dict = None) -> dict:
         """
         get请求
         """
         url = self.base_url + url
-        resp = await self.__create_session().get(url, params=params)
+        resp = self.__session.get(url, params=params)
         return resp.json()
 
-    async def __get_cos(self):
-        cos = await self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
+    def __get_cos(self):
+        cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
 
-    async def upload(self, key: str, local_path):
+    def upload(self, key: str, local_path):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
         开头不能有/，即使有也会被去掉
@@ -159,10 +161,10 @@ class HTTP:
         if key.startswith("/"):
             key = key[1:]
         if self.__cos.should_refresh:
-            await self.__get_cos()
+            self.__get_cos()
         return self.__cos.upload(key, local_path)
 
-    async def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param keys: 上传到cos
@@ -170,20 +172,20 @@ class HTTP:
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
-            await self.__get_cos()
+            self.__get_cos()
         keys = [key[1:] if key.startswith("/") else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username
 
-        async def _():
+        def _():
             try:
-                resp = await http.post(f"/project/{self.groupname}", data={"name": name})
+                resp = http.post(f"/project/{self.groupname}", data={"name": name})
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
-                    resp = await http.get(f"/project/{http.groupname}/{name}")
+                    resp = http.get(f"/project/{http.groupname}/{name}")
                 elif e.resp.status_code == 404:
                     # 组织/用户不存在
                     raise ValueError(f"Entity `{http.groupname}` not found")
@@ -194,7 +196,7 @@ class HTTP:
                     raise e
             return ProjectInfo(resp)
 
-        project: ProjectInfo = FONT.loading("Getting project...", _())
+        project: ProjectInfo = FONT.loading("Getting project...", _)
         self.__proj = project
         return project
 
@@ -206,20 +208,20 @@ class HTTP:
         :param description: 实验描述
         """
 
-        async def _():
+        def _():
             """
             先创建实验，后生成cos凭证
             :return:
             """
-            data = await self.post(
+            data = self.post(
                 f"/project/{self.groupname}/{self.__proj.name}/runs",
                 {"name": exp_name, "colors": list(colors), "description": description},
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
-            await self.__get_cos()
+            self.__get_cos()
 
-        FONT.loading("Creating experiment...", _())
+        FONT.loading("Creating experiment...", _)
 
     def update_state(self, success: bool):
         """
@@ -227,13 +229,13 @@ class HTTP:
         :param success: 实验是否成功
         """
 
-        async def _():
-            await self.put(
+        def _():
+            self.put(
                 f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
                 {"state": "FINISHED" if success else "CRASHED"},
             )
 
-        FONT.loading("Updating experiment status...", _())
+        FONT.loading("Updating experiment status...", _)
 
 
 http: Optional["HTTP"] = None
@@ -263,7 +265,7 @@ def get_http() -> HTTP:
     return http
 
 
-def async_error_handler(func):
+def sync_error_handler(func):
     """
     在一些接口中我们不希望线程奔溃，而是返回一个错误对象
     """
@@ -273,7 +275,7 @@ def async_error_handler(func):
             # 在装饰器中调用被装饰的异步函数
             result = await func(*args, **kwargs)
             return result
-        except httpx.NetworkError:
+        except requests.exceptions.Timeout:
             return NetworkError()
         except Exception as e:
             return e

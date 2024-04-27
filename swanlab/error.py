@@ -7,7 +7,7 @@ r"""
 @Description:
     swanlab全局错误定义
 """
-import httpx
+import requests
 from typing import Optional
 
 
@@ -53,12 +53,12 @@ class ApiError(SyncError):
     api有关的错误，在聚合器中将捕获他们
     """
 
-    def __init__(self, resp: httpx.Response = None, *args):
+    def __init__(self, resp: requests.Response = None, *args):
         super().__init__(*args)
-        self.resp: Optional["httpx.Response"] = resp
+        self.resp = resp
         self.log_level = "error"
         self.message = 'swanlab api error' if resp is None else 'swanlab api error, status code: {}, reason: {}'.format(
-            resp.status_code, resp.reason_phrase
+            resp.status_code, resp.reason
         )
 
 

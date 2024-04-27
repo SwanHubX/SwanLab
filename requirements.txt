@@ -7,9 +7,8 @@ numpy
 cos-python-sdk-v5
 fastapi>=0.110.1
 uvicorn>=0.14.0
-nest-asyncio
+requests
 click
-httpx
 
 
 # database
