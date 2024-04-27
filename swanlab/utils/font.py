@@ -79,7 +79,7 @@ class FONT:
             刷去的长度，默认为100
         """
         # FIXME 因为协程有一些适配性问题，暂时使用线程
-        prefix = FONT.bold(FONT.blue("swanlab")) + ': ' if prefix is None else prefix
+        prefix = FONT.bold(FONT.blue("swanlab")) + ": " if prefix is None else prefix
         symbols = ["\\", "|", "/", "-"]
 
         running, result, error = True, None, None
@@ -113,6 +113,7 @@ class FONT:
         t1.join()
         if error is not None:
             raise error
+        FONT.brush(" ", brush_length)
         return result
 
     @staticmethod
