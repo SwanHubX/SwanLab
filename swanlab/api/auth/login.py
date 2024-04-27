@@ -116,6 +116,6 @@ def terminal_login(api_key: str = None) -> LoginInfo:
 def _abort_tip(tp, val, tb):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
-        swanlog.error("Aborted!")
+        print("\n" + FONT.red("Aborted!"))
         sys.exit(0)
     # 如果不是CTRL+C，交给默认的异常处理
