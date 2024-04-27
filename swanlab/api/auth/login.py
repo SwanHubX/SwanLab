@@ -68,8 +68,8 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("Logging into swanlab cloud.")
-        swanlog.info("You can find your API key at: " + get_user_setting_path())
+        print(FONT.swanlab("Logging into swanlab cloud."))
+        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
     key = getpass.getpass(FONT.swanlab(tip))
     sys.excepthook = _t
     return key
