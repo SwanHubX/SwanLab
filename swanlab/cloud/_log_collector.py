@@ -78,7 +78,8 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif isinstance(result, Exception):
-                swanlog.error(f"upload logs error: {result}, it might be a swanlab bug, data will be lost!")
+                swanlog.error(f"upload logs error: {result or 'unknown reason'}, it might be a swanlab bug, data will "
+                              f"be lost!")
                 continue
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
