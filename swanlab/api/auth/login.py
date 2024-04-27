@@ -22,9 +22,7 @@ async def login_request(api_key: str, timeout: int = 20) -> httpx.Response:
     """用户登录，请求后端接口完成验证"""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            url=f"{get_host_api()}/login/api_key",
-            headers={'authorization': api_key},
-            timeout=timeout
+            url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
         )
         return resp
 

@@ -27,6 +27,7 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
+from ..utils.judgment import in_jupyter
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
@@ -350,8 +351,8 @@ def _login_in_init() -> LoginInfo:
         key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
     except KeyFileError:
         fd = sys.stdin.fileno()
-        # 不是标准终端，无法控制其回显
-        if not os.isatty(fd):
+        # 不是标准终端，且非jupyter环境，无法控制其回显
+        if not os.isatty(fd) and not in_jupyter():
             raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
     return terminal_login(key)
 
