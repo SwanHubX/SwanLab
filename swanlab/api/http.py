@@ -195,7 +195,7 @@ class HTTP:
                     raise e
             return ProjectInfo(resp)
 
-        project: ProjectInfo = asyncio.run(FONT.loading("Getting project...", _()))
+        project: ProjectInfo = FONT.loading("Getting project...", _())
         self.__proj = project
         return project
 
@@ -220,7 +220,7 @@ class HTTP:
             # 获取cos信息
             await self.__get_cos()
 
-        asyncio.run(FONT.loading("Creating experiment...", _()))
+        FONT.loading("Creating experiment...", _())
 
     def update_state(self, success: bool):
         """
@@ -234,7 +234,7 @@ class HTTP:
                 {"state": "FINISHED" if success else "CRASHED"},
             )
 
-        asyncio.run(FONT.loading("Updating experiment status...", _()))
+        FONT.loading("Updating experiment status...", _())
 
 
 http: Optional["HTTP"] = None

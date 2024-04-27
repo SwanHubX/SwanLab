@@ -65,8 +65,7 @@ import SlideBar from '../components/SlideBar.vue'
 
 const props = defineProps({
   data: {
-    type: Object,
-    default: () => {}
+    type: Object
   },
   tag: {
     type: String,
@@ -133,7 +132,7 @@ const currentPage = ref(pages.value.minIndex)
 const currentIndex = ref(0)
 
 onMounted(() => {
-  currentIndex.value = indexes.value.length - 1
+  currentIndex.value = Math.max(indexes.value.length - 1, 0)
   currentPage.value = indexes.value[currentIndex.value]
 })
 

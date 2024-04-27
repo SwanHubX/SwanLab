@@ -10,5 +10,9 @@ r"""
 from .info import *
 from .auth.login import terminal_login, code_login
 from .http import create_http, get_http
+import nest_asyncio
+
+# FIXME not a good way to solve the asyncio problem
+nest_asyncio.apply()
 
 __all__ = ["LoginInfo", 'ExperimentInfo', 'ProjectInfo', "code_login", 'terminal_login', 'create_http', 'get_http']

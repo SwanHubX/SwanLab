@@ -8,9 +8,10 @@ r"""
     配置pytest
 """
 import pytest
-from tutils import clear
+from tutils import clear, init_db
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_before_all():
     clear()
+    init_db()

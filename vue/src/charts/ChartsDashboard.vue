@@ -37,6 +37,8 @@ import { t } from '@swanlab-vue/i18n'
 import SmoothButton from './components/SmoothButton.vue'
 import { debounces } from '@swanlab-vue/utils/common'
 import SLSearch from '@swanlab-vue/components/SLSearch.vue'
+import { provide } from 'vue'
+
 const props = defineProps({
   // 整个图表列表集合
   groups: {
@@ -77,6 +79,11 @@ const props = defineProps({
   unsubscribe: {
     type: Function,
     default: () => {}
+  },
+  // 图表跳转实验前缀
+  experimentPrefix: {
+    type: String,
+    default: '/experiment/'
   }
 })
 const chartsGroupList = ref(props.groups)
@@ -186,18 +193,21 @@ const unhide = (chart) => {
 // ---------------------------------- 处理搜索图表事件 ----------------------------------
 const search = (value) => {
   if (!value) return (searchChartsGroupList.value = null)
-  const newGroup = chartsGroupList.value.filter((group) => {
-    return group.charts.some((chart) => {
-      return chart.name.toLowerCase().includes(value.toLowerCase())
-    })
-  })
-  // 然后将newGroup中滤除不包含value的chart
-  newGroup.forEach((group) => {
+  // newGroup中滤除不包含value的chart，需要注意的是不能直接修改原数组，否则会影响到原数组
+  const newGroups = []
+  for (const group of chartsGroupList.value) {
+    if (group.charts.some((chart) => chart.name.toLowerCase().includes(value.toLowerCase()))) {
+      newGroups.push({ ...group, charts: [...group.charts] })
+    }
+  }
+  newGroups.forEach((group) => {
+    group.charts = [...group.charts]
     group.charts = group.charts.filter((chart) => {
       return chart.name.toLowerCase().includes(value.toLowerCase())
     })
   })
-  searchChartsGroupList.value = newGroup
+
+  searchChartsGroupList.value = newGroups
 }
 
 // ---------------------------------- 依赖注入 ----------------------------------
@@ -206,6 +216,9 @@ provide('defaultColor', props.defaultColor)
 provide('getColor', props.getColor)
 provide('$on', props.subscribe)
 provide('$off', props.unsubscribe)
+provide('experimentPrefix', props.experimentPrefix)
+
+console.log(props.experimentPrefix)
 </script>
 
 <style lang="scss" scoped>
