@@ -69,8 +69,8 @@ class LogCollectorTask(ThreadTaskABC):
             if msg[0] in UploadType:
                 upload_tasks_dict[msg[0]].extend(msg[1])
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
-        tasks = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
-        results = await asyncio.gather(*tasks)
+        tasks = [asyncio.create_task(x.value['upload'](upload_tasks_dict[x])) for x in tasks_key_list]
+        results, _ = await asyncio.wait(tasks)
         for index, result in enumerate(results):
             # 如果出现已知问题
             if isinstance(result, SyncError):
@@ -78,8 +78,9 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif isinstance(result, Exception):
-                swanlog.error(f"upload logs error: {result or 'unknown reason'}, it might be a swanlab bug, data will "
-                              f"be lost!")
+                swanlog.error(
+                    f"{tasks_key_list[index].name} error: {result}, it might be a swanlab bug, data will be lost!"
+                )
                 continue
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
