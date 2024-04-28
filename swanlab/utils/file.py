@@ -144,7 +144,7 @@ def _auto_cut(name: str, value: str, max_len: int, cut: bool) -> str:
         if cut:
             value = value[:max_len]
         else:
-            raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
+            raise IndexError(f"Name: {name} is too long, which must be less than {max_len} characters")
     return value
 
 
@@ -177,7 +177,7 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """
     max_len = 100
     if not check_string(name) or not re.match(r"^[0-9a-zA-Z_-]+$", name):
-        raise ValueError(f"name: {name} is not a valid project name, which must be 0-9a-zA-Z_-")
+        raise ValueError(f"Project name `{name}` is invalid, which must be 0-9a-zA-Z_-")
     name = name.strip()
     return _auto_cut("project", name, max_len, auto_cut)
 
@@ -185,6 +185,7 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
 def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     """
     检查实验名称格式，最大长度为100个字符，一个中文字符算一个字符
+    其他不做限制，实验名称可以包含任何字符
 
     Parameters
     ----------
@@ -202,23 +203,17 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     Raises
     ------
     TypeError
-        name不是字符串，或者name为空字符串
+        name不是字符串
     ValueError
-        name不符合规定格式
+        name为空字符串
     IndexError
         name超出长度
     """
     max_len = 100
-    if not isinstance(name, str) or name == "":
-        raise TypeError(f"name: {name} is not a string")
     if not check_string(name):
-        raise ValueError(f"name: {name} is an empty string")
+        raise ValueError(f"Experiment name `{name}` is an empty string.")
     # 检查长度
-    if auto_cut and len(name) > max_len:
-        name = name[:max_len]
-    elif not auto_cut and len(name) > max_len:
-        raise IndexError(f"name: {name} is too long, which must be less than {max_len} characters")
-    return name.strip()
+    return _auto_cut("experiment", name, max_len, auto_cut)
 
 
 def check_desc_format(description: str, auto_cut: bool = True):
@@ -249,7 +244,7 @@ def check_desc_format(description: str, auto_cut: bool = True):
         if auto_cut:
             return description[:max_length]
         else:
-            raise IndexError(f"description too long that exceeds {max_length} characters.")
+            raise IndexError(f"Description too long that exceeds {max_length} characters.")
     return description
 
 

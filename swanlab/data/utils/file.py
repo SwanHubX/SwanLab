@@ -10,7 +10,7 @@ r"""
 import os
 import platform
 import io
-from swanlab.utils.file import check_exp_name_format, check_proj_name_format
+from swanlab.utils.file import check_proj_name_format
 from swanlab.log import swanlog
 
 
