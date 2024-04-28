@@ -8,9 +8,8 @@ r"""
     日志队列
 """
 from queue import Queue
-from typing import Tuple, Callable, Coroutine, Any, List
+from typing import Tuple, Callable, List
 import time
-import asyncio
 from abc import ABC, abstractmethod
 from .task_types import UploadType
 
@@ -146,19 +145,15 @@ class ThreadUtil:
         return self.__timer
 
     @staticmethod
-    def wrapper_callback(func: Callable, args: Tuple) -> Callable[[], Coroutine[Any, Any, None]]:
+    def wrapper_callback(func: Callable, args: Tuple) -> Callable:
         """
-        回调函数包装器，将回调函数包装成协程函数
-        如果传入的函数本身就是协程函数，也会包装
+        回调函数包装器，将回调函数和参数包装成一个函数
         :param func: 回调函数
         :param args: 回调函数参数
         """
 
-        async def wrapper():
-            if asyncio.iscoroutinefunction(func):
-                await func(*args)
-            else:
-                func(*args)
+        def wrapper():
+            func(*args)
 
         return wrapper
 
@@ -169,11 +164,11 @@ class ThreadTaskABC(ABC):
     """
 
     @abstractmethod
-    async def task(self, u: ThreadUtil, **kwargs):
+    def task(self, u: ThreadUtil, **kwargs):
         """线程正常执行时的任务"""
         pass
 
     @abstractmethod
-    async def callback(self, u: ThreadUtil, *args):
+    def callback(self, u: ThreadUtil, *args):
         """线程执行完毕(被关闭）后的回调函数"""
         pass

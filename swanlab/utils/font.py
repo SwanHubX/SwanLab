@@ -10,10 +10,9 @@ r"""
 
 import sys
 import re
-from typing import Coroutine
+from typing import Callable, Tuple
 import threading
 import time
-import asyncio
 
 light_colors = [
     "#528d59",  # 绿色
@@ -61,7 +60,14 @@ def generate_color(number: int = 1):
 class FONT:
 
     @staticmethod
-    def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
+    def loading(
+        s: str,
+        func: Callable,
+        args: Tuple = (),
+        interval: float = 0.4,
+        prefix: str = None,
+        brush_length: int = 100
+    ):
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
@@ -70,7 +76,9 @@ class FONT:
         s : str
             需要打印的字符串
         func : coroutine
-            执行的协程函数
+            执行的同步函数
+        args : Tuple, optional
+            传入函数的参数，默认为空
         interval : float, optional
             loading的速度，即每个字符的间隔时间，单位为秒
         prefix : str, optional
@@ -98,7 +106,7 @@ class FONT:
         def task():
             nonlocal result, error, running
             try:
-                result = asyncio.run(func)
+                result = func(*args)
             except Exception as e:
                 error = e
             finally:
@@ -109,7 +117,11 @@ class FONT:
         t2 = threading.Thread(target=task)
         t1.start()
         t2.start()
-        t2.join()
+        try:
+            t2.join()
+        except KeyboardInterrupt:
+            running = False
+            raise KeyboardInterrupt
         t1.join()
         if error is not None:
             raise error

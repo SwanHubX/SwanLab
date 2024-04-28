@@ -8,11 +8,11 @@ r"""
     定义认证数据格式
 """
 import os.path
+import requests
 from swanlab.utils.key import save_key
 from swanlab.env import get_swanlab_folder
 from swanlab.package import get_host_api
 from typing import Union
-import httpx
 
 
 class LoginInfo:
@@ -21,7 +21,7 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, resp: httpx.Response, api_key: str):
+    def __init__(self, resp: requests.Response, api_key: str):
         self.__api_key = api_key
         self.__resp = resp
         self.__body = resp.json() if resp.status_code == 200 else {}
@@ -78,13 +78,13 @@ class LoginInfo:
 
     def __str__(self) -> str:
         """错误时会返回错误信息"""
-        if self.__resp.reason_phrase == "OK":
+        if self.__resp.reason == "OK":
             return "Login success"
-        if self.__resp.reason_phrase == "Unauthorized":
+        if self.__resp.reason == "Unauthorized":
             return "Error api key"
-        if self.__resp.reason_phrase == "Forbidden":
+        if self.__resp.reason == "Forbidden":
             return "You need to be verified first"
-        return self.__resp.reason_phrase
+        return self.__resp.reason
 
     def save(self):
         """

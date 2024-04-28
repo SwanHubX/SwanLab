@@ -7,10 +7,9 @@ r"""
 @Description:
     日志集合和上传记录器
 """
-
+import time
 from typing import List
 from .utils import ThreadUtil, ThreadTaskABC
-import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
 from swanlab.error import SyncError
@@ -51,7 +50,7 @@ class LogCollectorTask(ThreadTaskABC):
         for error in errors:
             swanlog.__getattribute__(error.log_level)(error.message)
 
-    async def upload(self):
+    def upload(self):
         """
         上传事件处理
         将收集到的所有上传事件统一触发，上传日志信息
@@ -69,18 +68,21 @@ class LogCollectorTask(ThreadTaskABC):
             if msg[0] in UploadType:
                 upload_tasks_dict[msg[0]].extend(msg[1])
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
-        tasks = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
-        results = await asyncio.gather(*tasks)
+        # 同步执行所有的上传任务
+
+        results = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
         for index, result in enumerate(results):
             # 如果出现已知问题
-            if isinstance(result, SyncError):
-                known_errors.append(result)
+            _, e = result
+            if isinstance(e, SyncError):
+                known_errors.append(e)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
-            elif isinstance(result, Exception):
-                swanlog.error(f"upload logs error: {result or 'unknown reason'}, it might be a swanlab bug, data will "
-                              f"be lost!")
-                continue
+            elif e is not None:
+                # error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
+                # swanlog.error(error)
+                # continue
+                raise e
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
 
@@ -89,7 +91,7 @@ class LogCollectorTask(ThreadTaskABC):
         self.container = [(x, upload_tasks_dict[x]) for x in upload_tasks_dict if x not in success_tasks_type]
         self.report_known_error(known_errors)
 
-    async def task(self, u: ThreadUtil, *args):
+    def task(self, u: ThreadUtil, *args):
         """
         定时任务，定时上传日志信息
         :param u: 线程工具类
@@ -100,21 +102,19 @@ class LogCollectorTask(ThreadTaskABC):
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
-            self.__now_task = self.upload()
-            await self.__now_task
-            self.__now_task = None
+            self.upload()
 
     @property
     def lock(self):
         return self.__now_task is not None
 
-    async def callback(self, u: ThreadUtil, *args):
+    def callback(self, u: ThreadUtil, *args):
         """
         回调函数，用于线程结束时的回调
         :param u: 线程工具类
         """
         # 如果当前上传任务正在进行，等待上传任务结束
         while self.lock:
-            await asyncio.sleep(0.1)
+            time.sleep(0.1)
         self.container.extend(u.queue.get_all())
-        return await self.upload()
+        return self.upload()
