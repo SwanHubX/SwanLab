@@ -65,7 +65,7 @@ class SwanLabCallback(TrainerCallback):
             return
 
         # 如果没有注册过实验
-        if self._experiment.sdk.run is None:
+        if self._experiment.get_run() is None:
             self._experiment.init(**self._swanlab_init)
 
         if args:
