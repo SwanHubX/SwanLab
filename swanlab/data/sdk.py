@@ -22,13 +22,12 @@ from .run import (
 )
 from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
-from .utils.jupyter import show_button_html
 from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
-from ..utils.judgment import in_jupyter
+from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
