@@ -9,16 +9,9 @@ r"""
 """
 import datetime
 import io
-import os
-import sys
 import swanlab
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Sequence
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-relative_path = os.path.join(current_dir, "..")
-sys.path.append(relative_path)
-
 from swanlab.integration.integration_utils.autologging import Response
 
 

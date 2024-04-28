@@ -12,14 +12,9 @@ import functools
 import inspect
 import swanlab
 import sys
-import os
 import time
 from swanlab.data.run import SwanLabRun
 from typing import Any, Dict, Optional, Sequence, TypeVar, TYPE_CHECKING
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-relative_path = os.path.join(current_dir, "..", "..")
-sys.path.append(relative_path)
 from swanlab.integration.integration_utils.get_modules import get_module
 from swanlab.integration.integration_utils.timer import Timer
 
