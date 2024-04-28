@@ -42,11 +42,13 @@ class ThreadPool:
         self.__callbacks: List[Callable] = []
         self.__queue = Queue()
         # 生成数据上传线程，此线程包含聚合器和数据上传任务，负责收集所有线程向主线程发送的日志信息
-        self.upload_thread = self.create_thread(target=self.collector.task,
-                                                args=(),
-                                                name=self.UPLOAD_THREAD_NAME,
-                                                sleep_time=upload_sleep_time,
-                                                callback=self.collector.callback)
+        self.upload_thread = self.create_thread(
+            target=self.collector.task,
+            args=(),
+            name=self.UPLOAD_THREAD_NAME,
+            sleep_time=upload_sleep_time,
+            callback=self.collector.callback
+        )
         self.queue = LogQueue(queue=self.__queue, readable=False, writable=True)
         """
         一个线程安全的队列，用于主线程向数据上传线程通信
@@ -103,7 +105,7 @@ class ThreadPool:
                      sleep_time: float,
                      task: Callable,
                      args: Tuple[ThreadUtil, ...]
-                     ) -> tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
+                     ) -> Tuple[AbstractEventLoop, Callable[[], Coroutine[Any, Any, None]]]:
         """
         创建一个事件循环，循环执行传入线程池的任务
         :param name: 线程名称

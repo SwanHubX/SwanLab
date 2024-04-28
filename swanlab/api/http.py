@@ -16,6 +16,7 @@ from .cos import CosClient
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
+from swanlab.log import swanlog
 import json
 import asyncio
 
@@ -24,6 +25,7 @@ class HTTP:
     """
     封装请求函数，添加get、post、put、delete方法
     """
+
     REFRESH_TIME = 60 * 60 * 24 * 7  # 7天
     """
     刷新时间，单位秒，如果sid过期时间减去当前时间小于这个时间，就刷新sid
@@ -34,7 +36,6 @@ class HTTP:
         初始化会话
         """
         self.__login_info = login_info
-        self.__session = self.__create_session()
         self.base_url = get_host_api()
         # 当前cos信息
         self.__cos: Optional["CosClient"] = None
@@ -81,13 +82,13 @@ class HTTP:
         """
         获取sid的过期时间，字符串格式转时间
         """
-        return datetime.strptime(self.__login_info.expired_at, '%Y-%m-%dT%H:%M:%S.%fZ')
+        return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
 
     def __create_session(self) -> httpx.AsyncClient:
         """
         创建会话，这将在HTTP类实例化时调用
         """
-        session = httpx.AsyncClient(cookies={'sid': self.__login_info.sid})
+        session = httpx.AsyncClient(cookies={"sid": self.__login_info.sid})
 
         # 注册请求前的钩子
         async def request_interceptor(request: httpx.Request):
@@ -95,22 +96,21 @@ class HTTP:
             if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
                 # 刷新sid，新建一个会话
                 self.__login_info = await login_by_key(self.__login_info.api_key)
-                self.__session = self.__create_session()
+                swanlog.debug("Refresh sid...")
                 # 更新当前请求的cookie
-                request.headers['cookie'] = f'sid={self.__login_info.sid}'
+                request.headers["cookie"] = f"sid={self.__login_info.sid}"
 
-        session.event_hooks['request'].append(request_interceptor)
+        session.event_hooks["request"].append(request_interceptor)
 
         # 注册响应钩子
         async def response_interceptor(response: httpx.Response):
             """
             捕获所有的http不为2xx的错误，以ApiError的形式抛出
             """
-            # 如果是
             if response.status_code // 100 != 2:
                 raise ApiError(response, response.status_code, response.reason_phrase)
 
-        session.event_hooks['response'].append(response_interceptor)
+        session.event_hooks["response"].append(response_interceptor)
 
         return session
 
@@ -119,7 +119,7 @@ class HTTP:
         post请求
         """
         url = self.base_url + url
-        resp = await self.__session.post(url, json=data)
+        resp = await self.__create_session().post(url, json=data)
         await asyncio.sleep(1)
         try:
             return resp.json()
@@ -131,7 +131,7 @@ class HTTP:
         put请求
         """
         url = self.base_url + url
-        resp = await self.__session.put(url, json=data)
+        resp = await self.__create_session().put(url, json=data)
         try:
             return resp.json()
         except json.decoder.JSONDecodeError:
@@ -142,11 +142,11 @@ class HTTP:
         get请求
         """
         url = self.base_url + url
-        resp = await self.__session.get(url, params=params)
+        resp = await self.__create_session().get(url, params=params)
         return resp.json()
 
     async def __get_cos(self):
-        cos = await self.get(f'/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts')
+        cos = await self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
 
     async def upload(self, key: str, local_path):
@@ -156,7 +156,7 @@ class HTTP:
         :param key: 上传到cos的文件名称
         :param local_path: 本地文件路径，一般用绝对路径
         """
-        if key.startswith('/'):
+        if key.startswith("/"):
             key = key[1:]
         if self.__cos.should_refresh:
             await self.__get_cos()
@@ -171,7 +171,7 @@ class HTTP:
         """
         if self.__cos.should_refresh:
             await self.__get_cos()
-        keys = [key[1:] if key.startswith('/') else key for key in keys]
+        keys = [key[1:] if key.startswith("/") else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
@@ -179,11 +179,11 @@ class HTTP:
 
         async def _():
             try:
-                resp = await http.post(f'/project/{self.groupname}', data={'name': name})
+                resp = await http.post(f"/project/{self.groupname}", data={"name": name})
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
-                    resp = await http.get(f'/project/{http.groupname}/{name}')
+                    resp = await http.get(f"/project/{http.groupname}/{name}")
                 elif e.resp.status_code == 404:
                     # 组织/用户不存在
                     raise ValueError(f"Entity `{http.groupname}` not found")
@@ -194,7 +194,7 @@ class HTTP:
                     raise e
             return ProjectInfo(resp)
 
-        project: ProjectInfo = asyncio.run(FONT.loading('Getting project...', _()))
+        project: ProjectInfo = FONT.loading("Getting project...", _())
         self.__proj = project
         return project
 
@@ -212,14 +212,14 @@ class HTTP:
             :return:
             """
             data = await self.post(
-                f'/project/{self.groupname}/{self.__proj.name}/runs',
-                {"name": exp_name, "colors": list(colors), "description": description}
+                f"/project/{self.groupname}/{self.__proj.name}/runs",
+                {"name": exp_name, "colors": list(colors), "description": description},
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
             await self.__get_cos()
 
-        asyncio.run(FONT.loading('Creating experiment...', _()))
+        FONT.loading("Creating experiment...", _())
 
     def update_state(self, success: bool):
         """
@@ -229,11 +229,11 @@ class HTTP:
 
         async def _():
             await self.put(
-                f'/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state',
-                {"state": 'FINISHED' if success else 'CRASHED'}
+                f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
+                {"state": "FINISHED" if success else "CRASHED"},
             )
 
-        asyncio.run(FONT.loading('Updating experiment status...', _()))
+        FONT.loading("Updating experiment status...", _())
 
 
 http: Optional["HTTP"] = None

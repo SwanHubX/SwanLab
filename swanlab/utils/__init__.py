@@ -3,4 +3,4 @@
 """
 from .font import generate_color, FONT, COLOR_LIST
 from .time import create_time
-from .file import get_a_lock, check_load_json_yaml
+from .file import check_load_json_yaml

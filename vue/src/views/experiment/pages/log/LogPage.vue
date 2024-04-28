@@ -90,14 +90,12 @@ const logs = ref()
 // 分开行号和内容之后的日志
 const lines = computed(() => {
   // 正常日志内容
-  const data = logs.value?.map((line) => {
-    const noIndex = isNaN(line.substring(0, line.indexOf(' ')))
-    const index = noIndex ? null : line.substring(0, line.indexOf(' '))
-    const content = noIndex ? line : line.substring(line.indexOf(' ')).trimStart()
+  const data = logs.value?.map((line, index) => {
+    const content = line
     const isTarget = searchValue.value !== '' && content.toLowerCase().includes(searchValue.value)
     return {
       isTarget,
-      index,
+      index: index + 1,
       value: isTarget ? splitStringBySearch(content, searchValue.value) : content
     }
   })
@@ -136,12 +134,7 @@ const getLastLineIndex = (data) => {
 }
 
 const download = computed(() => {
-  const log_list = logs.value?.map((log) => {
-    const noIndex = isNaN(log.substring(0, log.indexOf(' ')))
-    return noIndex ? log : log.substring(log.indexOf(' ')).trimStart()
-  })
-
-  return log_list?.join('\n') + errorLogs.value.join('\n')
+  return logs.value?.join('\n') + errorLogs.value.join('\n')
 })
 
 const splitStringBySearch = (target, substring) => {
@@ -161,17 +154,10 @@ const errorLogs = ref([])
 // ---------------------------------- 搜索 ----------------------------------
 
 const searchValue = ref('')
-const searchIndex = ref(1)
 
 const search = (value) => {
   searchValue.value = value.toLowerCase()
 }
-
-const searchTargets = computed(() => {
-  return lines.value.filter((line) => {
-    return line.isTarget
-  })
-})
 
 // ---------------------------------- 下载 ----------------------------------
 

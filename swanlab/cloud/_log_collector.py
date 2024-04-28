@@ -14,7 +14,7 @@ import asyncio
 from swanlab.log import swanlog
 from .utils import LogQueue
 from swanlab.error import SyncError
-from .task_types import UploadType, ApiType
+from .task_types import UploadType
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -51,11 +51,6 @@ class LogCollectorTask(ThreadTaskABC):
         for error in errors:
             swanlog.__getattribute__(error.log_level)(error.message)
 
-    async def api(self):
-        """
-        api事件处理，此任务在upload任务中执行
-        """
-
     async def upload(self):
         """
         上传事件处理
@@ -64,8 +59,6 @@ class LogCollectorTask(ThreadTaskABC):
         """
         # 根据日志类型进行降重
         upload_tasks_dict = {x: [] for x in UploadType}
-        api_tasks_dict = {x: [] for x in ApiType}
-        # upload任务和api任务处理方式不一样，前者将参数列表聚合，后者将参数列表分发
         # 检查每一个上传结果
         success_tasks_type = []
         # 已知错误列表
@@ -85,28 +78,11 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif isinstance(result, Exception):
-                swanlog.error(f"upload logs error: {result}, it might be a swanlab bug, data will be lost!")
+                swanlog.error(f"upload logs error: {result or 'unknown reason'}, it might be a swanlab bug, data will "
+                              f"be lost!")
                 continue
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
-
-        # ---------------------------------- 处理api任务 ----------------------------------
-
-        for msg in self.container:
-            if msg[0] in ApiType:
-                api_tasks_dict[msg[0]].extend(msg[1])
-        tasks_key_list = [key for key in api_tasks_dict if len(api_tasks_dict[key]) > 0]
-        tasks = [x.value['api'](y) for x in tasks_key_list for y in api_tasks_dict[x]]
-        results = await asyncio.gather(*tasks)
-        for index, result in enumerate(results):
-            # 如果出现已知问题
-            if isinstance(result, SyncError):
-                known_errors.append(result)
-                continue
-            # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
-            elif isinstance(result, Exception):
-                swanlog.error(f"api task error: {result}, it might be a swanlab bug, data will be lost!")
-                continue
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 

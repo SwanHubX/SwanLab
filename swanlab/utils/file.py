@@ -7,21 +7,10 @@ r"""
 @Description:
     文件操作
 """
-from typing import TextIO
-import portalocker
 import os
 import re
 import ujson
 import yaml
-
-
-def get_a_lock(file_path: str, mode: str = "r+", encoding="utf-8") -> TextIO:
-    """获取一个文件锁,
-    返回文件对象，你需要手动关闭文件
-    """
-    f = open(file_path, mode=mode, encoding=encoding)
-    portalocker.lock(f, portalocker.LOCK_EX)
-    return f
 
 
 def check_string(target: str):

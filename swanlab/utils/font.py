@@ -9,9 +9,11 @@ r"""
 """
 
 import sys
-import asyncio
 import re
-from typing import Any, Coroutine
+from typing import Coroutine
+import threading
+import time
+import asyncio
 
 light_colors = [
     "#528d59",  # 绿色
@@ -38,7 +40,7 @@ COLOR_LIST = {
 }
 
 
-def generate_color(number: int = 1) -> tuple[str | Any, str | Any]:
+def generate_color(number: int = 1):
     """输入数字，在设定好顺序的颜色列表中返回十六进制颜色字符串
 
     Returns
@@ -59,7 +61,7 @@ def generate_color(number: int = 1) -> tuple[str | Any, str | Any]:
 class FONT:
 
     @staticmethod
-    async def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
+    def loading(s: str, func: Coroutine, interval: float = 0.4, prefix: str = None, brush_length: int = 100):
         """
         实现终端打印的加载效果，输入的字符串会在开头出现loading效果以等待传入的函数执行完毕
 
@@ -76,22 +78,42 @@ class FONT:
         brush_length : int, optional
             刷去的长度，默认为100
         """
-        if prefix is None:
-            prefix = FONT.bold(FONT.blue("swanlab")) + ': '
+        # FIXME 因为协程有一些适配性问题，暂时使用线程
+        prefix = FONT.bold(FONT.blue("swanlab")) + ": " if prefix is None else prefix
         symbols = ["\\", "|", "/", "-"]
 
-        async def _():
+        running, result, error = True, None, None
+
+        def loading():
             index = 0
             while True:
                 sys.stdout.write("\r" + prefix + symbols[index % len(symbols)] + " " + s)
                 sys.stdout.flush()
                 index += 1
-                await asyncio.sleep(interval)
+                time.sleep(interval)
+                if not running:
+                    break
 
-        loading_task = asyncio.create_task(_())
-        result = await func
-        loading_task.cancel()
-        FONT.brush("", length=100)
+        # 再次封装传入的func，当func执行完毕以后，将running置为False
+        def task():
+            nonlocal result, error, running
+            try:
+                result = asyncio.run(func)
+            except Exception as e:
+                error = e
+            finally:
+                running = False
+
+        # 开启新线程
+        t1 = threading.Thread(target=loading)
+        t2 = threading.Thread(target=task)
+        t1.start()
+        t2.start()
+        t2.join()
+        t1.join()
+        if error is not None:
+            raise error
+        FONT.brush("", brush_length)
         return result
 
     @staticmethod

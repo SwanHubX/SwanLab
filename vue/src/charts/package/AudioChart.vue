@@ -161,7 +161,7 @@ const audioData = computed(() => {
       audioBlob: blobsData[temp.filename],
       title: temp.filename,
       caption: temp.caption,
-      color: getColor(exp),
+      color: getColor(exp, undefined, props.chart.id),
       exp
     })
   }
@@ -171,6 +171,7 @@ const audioData = computed(() => {
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
 
 const error = computed(() => {
+  if (!props.chart.error) return false
   if (!isMulti.value) return props.chart.error[sources.value[0]]
   // 如果是多实验，检查每个实验的error
   for (const exp of sources.value) {

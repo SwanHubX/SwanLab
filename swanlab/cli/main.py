@@ -131,7 +131,7 @@ def watch(log_level: str, **kwargs):
     default=None,
     type=str,
     help="If you prefer not to engage in command-line interaction to input the api key, "
-         "this will allow automatic login.",
+    "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""

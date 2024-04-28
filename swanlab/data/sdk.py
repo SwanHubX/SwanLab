@@ -7,33 +7,33 @@ r"""
 @Description:
     在此处封装swanlab在日志记录模式下的各种接口
 """
-import asyncio
 import atexit
 import os
 import sys
-import traceback
-from datetime import datetime
-from typing import Dict
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 from .modules import DataType
-from .run import SwanLabRun, SwanLabConfig, register
+from .run import (
+    SwanLabRunState,
+    SwanLabRun,
+    register,
+    get_run,
+    except_handler,
+    clean_handler,
+)
+from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
-from ..db import Project, connect
+from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
+from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
-from swanlab.api.upload import upload_logs
+from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
-from swanlab.error import KeyFileError
+from swanlab.error import KeyFileError, ApiError
 from swanlab.cloud import LogSnifferTask, ThreadPool
-
-run: Optional["SwanLabRun"] = None
-"""Global runtime instance. After the user calls finish(), run will be set to None."""
-
-inited: bool = False
-"""Indicates whether init() has been called in the current process."""
+from swanlab.cloud import UploadType
 
 _config: Optional["SwanLabConfig"] = SwanLabConfig(None)
 """
@@ -46,13 +46,47 @@ When the run object is initialized, it will operate on the SwanLabConfig object 
 
 login_info = None
 """
-User login information
+Record user login information in the cloud environment.
+`swanlab.login` will assign or update this variable.
 """
 
-exit_in_cloud = False
-"""
-Indicates whether the program is exiting in the cloud environment.
-"""
+
+def _create_metric_callback(pool: ThreadPool):
+    """
+    创建指标回调函数
+    """
+
+    def _metric_callback(is_scalar: dict, data):
+        """
+        上传指标回调函数
+        :param is_scalar: 是否为标量指标
+        :param data: 上传的指标
+        """
+        pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
+
+    return _metric_callback
+
+
+def _create_column_callback(pool: ThreadPool):
+    """
+    创建列回调函数
+    """
+
+    def _column_callback(key, data_type: str, error: Optional[Dict] = None):
+        """
+        上传列信息回调函数
+        :param key: 列名
+        :param data_type: 列数据类型
+        :param error: 错误信息
+        """
+        pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
+
+    return _column_callback
+
+
+def _is_inited():
+    """检查是否已经初始化"""
+    return get_run() is not None
 
 
 def login(api_key: str):
@@ -66,21 +100,21 @@ def login(api_key: str):
     api_key : str
         authentication key.
     """
-    if inited:
+    if _is_inited():
         raise RuntimeError("You must call swanlab.login() before using init()")
     global login_info
-    login_info = asyncio.run(code_login(api_key))
+    login_info = code_login(api_key)
 
 
 def init(
+    project: str = None,
+    workspace: str = None,
     experiment_name: str = None,
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
-    suffix: str = "default",
+    suffix: Union[str, None, bool] = "default",
     cloud: bool = True,
-    project: str = None,
-    workspace: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -92,6 +126,13 @@ def init(
 
     Parameters
     ----------
+    project : str, optional
+        The project name of the current experiment, the default is None,
+        which means the current project name is the same as the current working directory.
+        If you are using cloud mode, you must provide the project name.
+    workspace : str, optional
+        Where the current project is located, it can be an organization or a user (currently only supports yourself).
+        The default is None, which means the current entity is the same as the current user.
     experiment_name : str, optional
         The experiment name you currently have open. If this parameter is not provided,
         SwanLab will generate one for you by default.
@@ -117,23 +158,16 @@ def init(
         you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
     suffix : str, optional
         The suffix of the experiment name, the default is 'default'.
-        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s_<hostname>'(example:'Feb03_14-45-37_windowsX'),
+        If this parameter is 'default', suffix will be '%b%d-%h-%m-%s'(example:'Feb03_14-45-37'),
         which represents the current time.
-        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37_windowsX';
-        If this parameter is None, no suffix will be added.
+        example: experiment_name = 'example', suffix = 'default' -> 'example_Feb03_14-45-37';
+        If this parameter is None or False, no suffix will be added.
         If this parameter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
     cloud : bool, optional
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
         If you are not using cloud mode, the `project` and `entity` fields are invalid.
-    project : str, optional
-        The project name of the current experiment, the default is None,
-        which means the current project name is the same as the current working directory.
-        If you are using cloud mode, you must provide the project name.
-    workspace : str, optional
-        Where the current project is located, it can be an organization or a user (currently only supports yourself).
-        The default is None, which means the current entity is the same as the current user.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -143,9 +177,9 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    global run, inited
     # 如果已经初始化过了，直接返回run
-    if inited:
+    run = get_run()
+    if run is not None:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
@@ -175,19 +209,26 @@ def init(
     exp_num = None
     # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
     global login_info
-    http = None
+    http, pool = None, None
     if login_info is None and cloud:
         # 用户登录
         login_info = _login_in_init()
-        # 初始化会话信息
+    if cloud:
         http = create_http(login_info)
-        # 获取当前项目信息
         exp_num = http.mount_project(project, workspace).history_exp_count
+        # 初始化、挂载线程池
+        pool = ThreadPool()
 
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
     Project.init(os.path.basename(os.getcwd()))
+    # ---------------------------------- 实例化实验 ----------------------------------
+    # 如果是云端环境，设置回调函数
+    callbacks = (
+        None if not cloud else {"metric_callback": _create_metric_callback, "column_callback": _create_column_callback}
+    )
+
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -196,26 +237,35 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
+        pool=pool,
+        callbacks=callbacks,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
         # 注册实验信息
-        get_http().mount_exp(
-            exp_name=run.settings.exp_name,
-            colors=run.settings.exp_colors,
-            description=run.settings.description
-        )
-        # 初始化、挂载线程池
-        pool = ThreadPool()
+        try:
+            get_http().mount_exp(
+                exp_name=run.settings.exp_name,
+                colors=run.settings.exp_colors,
+                description=run.settings.description,
+            )
+        except ApiError as e:
+            if e.resp.status_code == 409:
+                FONT.brush("", 50)
+                swanlog.error("The experiment name already exists, please change the experiment name")
+                Experiment.purely_delete(run_id=run.exp.db.run_id)
+                sys.exit(409)
         sniffer = LogSnifferTask(run.settings.files_dir)
-        pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-        # FIXME not a good way to mount a thread pool
-        run.settings.pool = pool
-        swanlog.set_pool(pool)
+        run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+
+        def _write_call_call(message):
+            pool.queue.put((UploadType.LOG, [message]))
+
+        swanlog.set_write_callback(_write_call_call)
     # ---------------------------------- 异常处理、程序清理 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
-    atexit.register(_clean_handler)
+    atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
     if not cloud and not (project is None and workspace is None):
         swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
@@ -237,13 +287,18 @@ def init(
         experiment_url = project_url + f"/runs/{http.exp_id}"
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
-    inited = True
+
+        # 在Jupyter Notebook环境下，显示按钮
+        if in_jupyter():
+            show_button_html(experiment_url)
+
     return run
 
 
 def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
+    We recommend that you log data by SwanLabRun.log() method, but you can also use this function to log data.
 
     Parameters
     ----------
@@ -255,34 +310,27 @@ def log(data: Dict[str, DataType], step: int = None):
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
     """
-    if not inited:
-        raise RuntimeError("You must call swanlab.data.init() before using log()")
-    if inited and run is None:
-        return swanlog.error("After calling finish(), you can no longer log data to the current experiment")
-
+    if not _is_inited():
+        raise RuntimeError("You must call swanlab.init() before using log()")
+    run = get_run()
     ll = run.log(data, step)
-    # swanlog.reset_temporary_logging()
     return ll
 
 
-def finish():
+def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     """
     Finish the current run and close the current experiment
     Normally, swanlab will run this function automatically,
     but you can also execute it manually and mark the experiment as 'completed'.
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
+    If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
-    global run, inited
-    if not inited:
+    run = get_run()
+    if not get_run():
         raise RuntimeError("You must call swanlab.data.init() before using finish()")
-    if run is None:
-        return swanlog.error("After calling finish(), you can no longer close the current experiment")
-    # FIXME not a good way to handle this
-    run._success()
-    swanlog.set_success()
-    swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(True)
-    run = None
+    if not run.is_running:
+        return swanlog.error("After experiment is finished, you can't call finish() again.")
+    run.finish(state, error)
 
 
 def _login_in_init() -> LoginInfo:
@@ -294,8 +342,8 @@ def _login_in_init() -> LoginInfo:
         key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
     except KeyFileError:
         fd = sys.stdin.fileno()
-        # 不是标准终端，无法控制其回显
-        if not os.isatty(fd):
+        # 不是标准终端，且非jupyter环境，无法控制其回显
+        if not os.isatty(fd) and not in_jupyter():
             raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
     return terminal_login(key)
 
@@ -329,7 +377,7 @@ def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
     if isinstance(config, dict) or config is None:
         return config
-    print(FONT.swanlab("The parameter config is loaded from the configuration file: {}".format(config)))
+    swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
     return check_load_json_yaml(config, "config")
 
 
@@ -344,84 +392,3 @@ def _load_data(load_data: dict, key: str, value):
     #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
     #     print(FONT.swanlab(tip))
     return d
-
-
-def _before_exit_in_cloud(success: bool, error: str = None):
-    """
-    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
-
-    Parameters
-    ----------
-    success : bool
-        实验是否成功
-    """
-    global exit_in_cloud
-    if exit_in_cloud or run is None or run.settings.pool is None:
-        return
-    # 标志已经退出（需要在下面的逻辑之前标志）
-    exit_in_cloud = True
-    sys.excepthook = except_handler
-
-    async def _():
-        # 关闭线程池，等待上传线程完成
-        await run.settings.pool.finish()
-        # 上传错误日志
-        if error is not None:
-            await upload_logs([e + '\n' for e in error.split('\n')], level='ERROR')
-        await asyncio.sleep(1)
-
-    asyncio.run(FONT.loading("Waiting for uploading complete", _(), interval=0.5))
-    get_http().update_state(success)
-    return
-
-
-def _clean_handler():
-    """定义清理函数"""
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    # 如果没有错误
-    if not swanlog.is_error and not exit_in_cloud:
-        run.settings.pool and _before_exit_in_cloud(True)
-        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
-        # FIXME not a good way to handle this
-        run._success()
-        swanlog.set_success()
-        swanlog.reset_console()
-
-
-# 定义异常处理函数
-def except_handler(tp, val, tb):
-    """定义异常处理函数"""
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    if exit_in_cloud:
-        # FIXME not a good way to fix '\n' problem
-        print("")
-        swanlog.error('Aborted uploading by user')
-        sys.exit(1)
-    # 如果是KeyboardInterrupt异常
-    if tp == KeyboardInterrupt:
-        swanlog.error("KeyboardInterrupt by user")
-    else:
-        swanlog.error("Error happened while training")
-    # 标记实验失败
-    run._fail()
-    swanlog.set_error()
-    # 记录异常信息
-    # 追踪信息
-    trace_list = traceback.format_tb(tb)
-    html = repr(tp) + "\n"
-    html += repr(val) + "\n"
-    for line in trace_list:
-        html += line + "\n"
-    if os.path.exists(run.settings.error_path):
-        swanlog.warning("Error log file already exists, append error log to it")
-    # 写入日志文件
-    with open(run.settings.error_path, "a") as fError:
-        print(datetime.now(), file=fError)
-        print(html, file=fError)
-    # 重置控制台记录器
-    swanlog.reset_console()
-    run.settings.pool and not exit_in_cloud and _before_exit_in_cloud(False, error=str(html))
-    if tp != KeyboardInterrupt:
-        raise tp(val)

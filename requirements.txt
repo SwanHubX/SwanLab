@@ -7,6 +7,7 @@ numpy
 cos-python-sdk-v5
 fastapi>=0.110.1
 uvicorn>=0.14.0
+nest-asyncio
 click
 httpx
 
@@ -14,7 +15,6 @@ httpx
 # database
 ujson
 PyYAML
-portalocker
 peewee
 
 

@@ -32,7 +32,7 @@
         v-if="legend && multi"
       />
       <div class="relative" ref="g2ZoomRef">
-        <LineChartTooltip detail ref="tooltipZoomRef" />
+        <LineChartTooltip ref="tooltipZoomRef" />
       </div>
       <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
     </SLModal>
@@ -81,7 +81,9 @@ const props = defineProps({
 // 数据源 arrya
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
-const error = ref(source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null)
+const error = ref(
+  props.chart.error && source.length === Object.keys(props.chart.error).length ? props.chart.error[source[0]] : null
+)
 // 图表模式，multi或者single
 const multi = props.chart.multi
 // 当前命名空间下除了自己的所有chartRef
@@ -166,7 +168,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       const smooth = series.includes('&smooth')
       series = series.replace('&smooth', '')
       // 如果没有&smooth后缀，直接返回颜色
-      const color = getColor(series, source.indexOf(series))
+      const color = getColor(series, source.indexOf(series), props.chart.id)
       if (!smooth) return color
       else return UTILS.transparentColor(color)
     },
@@ -369,7 +371,7 @@ const format = (data) => {
   for (const s of source) {
     if (props.chart.error && props.chart.error[s]) continue
     if (!data[s]) continue
-    items.push({ name: s, color: getColor(s, source.indexOf(s)), experiment_id: data[s].experiment_id })
+    items.push({ name: s, color: getColor(s, source.indexOf(s), props.chart.id), experiment_id: data[s].experiment_id })
   }
   legend.value = items
   // console.log('legend', legend.value)
@@ -483,9 +485,9 @@ const registerTooltipEvent = (dom, zoom) => {
     point = { x: evt.data.x, y: evt.data.y }
     // 通知其他图表，当前图表的数据被hover到了
     !zoom &&
-    chartRefListExceptSelf.value?.forEach((chart) => {
-      chart?.showTooltip(point)
-    })
+      chartRefListExceptSelf.value?.forEach((chart) => {
+        chart?.showTooltip(point)
+      })
     manual = true
   })
   chart.on('tooltip:hide', (...args) => {
