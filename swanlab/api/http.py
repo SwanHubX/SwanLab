@@ -7,7 +7,7 @@ r"""
 @Description:
     http会话对象
 """
-from typing import Optional, Tuple, Dict, Union, List
+from typing import Optional, Tuple, Dict, Union, List, AnyStr
 from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
@@ -17,6 +17,16 @@ from swanlab.package import get_host_api
 from swanlab.utils import FONT
 from swanlab.log import swanlog
 import requests
+
+
+def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
+    """
+    解码响应，返回信息
+    """
+    try:
+        return resp.json()
+    except requests.exceptions.JSONDecodeError:
+        return resp.text
 
 
 class HTTP:
@@ -121,10 +131,7 @@ class HTTP:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.post(url, json=data)
-        try:
-            return resp.json()
-        except requests.exceptions.JSONDecodeError:
-            return resp.text
+        return decode_response(resp)
 
     def put(self, url: str, data: dict = None) -> Union[dict, str]:
         """
@@ -133,10 +140,7 @@ class HTTP:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.put(url, json=data)
-        try:
-            return resp.json()
-        except requests.exceptions.JSONDecodeError:
-            return resp.text
+        return decode_response(resp)
 
     def get(self, url: str, params: dict = None) -> dict:
         """
@@ -144,7 +148,7 @@ class HTTP:
         """
         url = self.base_url + url
         resp = self.__session.get(url, params=params)
-        return resp.json()
+        return decode_response(resp)
 
     def __get_cos(self):
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")

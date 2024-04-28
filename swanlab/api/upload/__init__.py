@@ -120,12 +120,13 @@ def upload_files(files: List[str]):
                 if _valid_files[filename][1] == 'json':
                     data[_valid_files[filename][0]] = json.load(f)
                 elif _valid_files[filename][1] == 'yaml':
-                    data[_valid_files[filename][0]] = yaml.load(f, Loader=yaml.FullLoader)
+                    data = yaml.load(f, Loader=yaml.FullLoader)
+                    if data is None:
+                        raise FileError
+                    data[_valid_files[filename][0]] = data
                 else:
                     data[_valid_files[filename][0]] = f.read()
         except json.decoder.JSONDecodeError:
-            raise FileError
-        except yaml.YAMLError:
             raise FileError
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
