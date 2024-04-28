@@ -1,15 +1,15 @@
 import json
-
-from ..settings import SwanDataSettings
-from ..modules import BaseType, DataType
-from ...log import swanlog
+from swanlab.data.settings import SwanDataSettings
+from swanlab.data.modules import BaseType, DataType
+from swanlab.log import swanlog
 from typing import Dict, Tuple, Union, Callable, Optional
-from .utils import create_time, check_tag_format, get_a_lock
+from swanlab.utils import create_time
+from swanlab.utils.file import check_tag_format
 from urllib.parse import quote
 import ujson
 import os
 import math
-from .db import (
+from swanlab.db import (
     Tag,
     Namespace,
     Chart,
@@ -18,8 +18,8 @@ from .db import (
     Display,
     ExistedError,
     ChartTypeError,
+    add_multi_chart
 )
-from ...db import add_multi_chart
 
 NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 """
@@ -276,7 +276,7 @@ class SwanLabTag:
         # 存储路径
         file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
         # 更新实验信息总结
-        with get_a_lock(os.path.join(self.save_path, "_summary.json"), "w+") as f:
+        with open(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
         # 保存数据
         with open(file_path, "a") as f:

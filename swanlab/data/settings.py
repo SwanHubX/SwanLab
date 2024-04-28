@@ -9,8 +9,7 @@ r"""
 """
 import os
 from ..env import get_swanlog_dir
-from swanlab.cloud import ThreadPool
-from typing import Optional, Tuple
+from typing import Tuple
 from swanlab.package import get_package_version
 
 

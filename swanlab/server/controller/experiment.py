@@ -12,7 +12,7 @@ import os
 import ujson
 import shutil
 from datetime import datetime
-from ..module.resp import SUCCESS_200, DATA_ERROR_500, CONFLICT_409, NOT_FOUND_404
+from ..module.resp import SUCCESS_200, DATA_ERROR_500, NOT_FOUND_404
 from fastapi import Request
 from urllib.parse import quote
 from ..settings import (
@@ -23,7 +23,6 @@ from ..settings import (
     get_meta_path,
     get_requirements_path,
 )
-from ...utils import get_a_lock
 from ...utils.time import create_time
 import yaml
 from ...log import swanlog
@@ -141,13 +140,13 @@ def get_experiment_info(experiment_id: int):
     # 加载实验配置
     config_path = get_config_path(experiment["run_id"])
     if os.path.exists(config_path):
-        with get_a_lock(config_path) as f:
+        with open(config_path, 'r+') as f:
             experiment["config"] = yaml.load(f, Loader=yaml.FullLoader)
 
     # 加载实验元信息
     meta_path = get_meta_path(experiment["run_id"])
     if os.path.exists(meta_path) and not os.stat(meta_path).st_size == 0:
-        with get_a_lock(meta_path) as f:
+        with open(meta_path, 'r+') as f:
             experiment["system"] = ujson.load(f)
     else:
         experiment["system"] = {}
@@ -204,7 +203,7 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     # 获取_summary文件
     summary_path = os.path.join(tag_path, "_summary.json")
     if os.path.exists(summary_path):
-        with get_a_lock(summary_path, "r") as f:
+        with open(summary_path, "r") as f:
             summary = ujson.load(f)
             max_value = summary["max"]
             min_value = summary["min"]

@@ -16,6 +16,7 @@ from .cos import CosClient
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
+from swanlab.log import swanlog
 import json
 import asyncio
 
@@ -35,7 +36,6 @@ class HTTP:
         初始化会话
         """
         self.__login_info = login_info
-        self.__session = self.__create_session()
         self.base_url = get_host_api()
         # 当前cos信息
         self.__cos: Optional["CosClient"] = None
@@ -96,7 +96,7 @@ class HTTP:
             if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
                 # 刷新sid，新建一个会话
                 self.__login_info = await login_by_key(self.__login_info.api_key)
-                self.__session = self.__create_session()
+                swanlog.debug("Refresh sid...")
                 # 更新当前请求的cookie
                 request.headers["cookie"] = f"sid={self.__login_info.sid}"
 
@@ -107,7 +107,6 @@ class HTTP:
             """
             捕获所有的http不为2xx的错误，以ApiError的形式抛出
             """
-            # 如果是
             if response.status_code // 100 != 2:
                 raise ApiError(response, response.status_code, response.reason_phrase)
 
@@ -120,7 +119,7 @@ class HTTP:
         post请求
         """
         url = self.base_url + url
-        resp = await self.__session.post(url, json=data)
+        resp = await self.__create_session().post(url, json=data)
         await asyncio.sleep(1)
         try:
             return resp.json()
@@ -132,7 +131,7 @@ class HTTP:
         put请求
         """
         url = self.base_url + url
-        resp = await self.__session.put(url, json=data)
+        resp = await self.__create_session().put(url, json=data)
         try:
             return resp.json()
         except json.decoder.JSONDecodeError:
@@ -143,7 +142,7 @@ class HTTP:
         get请求
         """
         url = self.base_url + url
-        resp = await self.__session.get(url, params=params)
+        resp = await self.__create_session().get(url, params=params)
         return resp.json()
 
     async def __get_cos(self):
@@ -195,7 +194,7 @@ class HTTP:
                     raise e
             return ProjectInfo(resp)
 
-        project: ProjectInfo = asyncio.run(FONT.loading("Getting project...", _()))
+        project: ProjectInfo = FONT.loading("Getting project...", _())
         self.__proj = project
         return project
 
@@ -220,7 +219,7 @@ class HTTP:
             # 获取cos信息
             await self.__get_cos()
 
-        asyncio.run(FONT.loading("Creating experiment...", _()))
+        FONT.loading("Creating experiment...", _())
 
     def update_state(self, success: bool):
         """
@@ -234,7 +233,7 @@ class HTTP:
                 {"state": "FINISHED" if success else "CRASHED"},
             )
 
-        asyncio.run(FONT.loading("Updating experiment status...", _()))
+        FONT.loading("Updating experiment status...", _())
 
 
 http: Optional["HTTP"] = None

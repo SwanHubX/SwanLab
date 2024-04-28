@@ -1,12 +1,14 @@
 <template>
-  <div class="message-container" :class="[message.type, theme === 'dark' ? 'dark-theme' : '']">
-    <!-- 成功图标 -->
-    <SLIcon v-if="message.type === 'success'" icon="success" class="text-white-default" />
-    <!-- 错误图标 -->
-    <SLIcon v-if="message.type === 'error'" icon="error" class="text-white-default" />
-    <!-- 警告图标 -->
-    <SLIcon v-if="message.type === 'warning'" icon="info" class="text-white-default" />
-    <p class="text-nowrap">{{ message.text }}</p>
+  <div class="flex justify-center">
+    <div class="message-container" :class="[message.type, theme === 'dark' ? 'dark-theme' : '']">
+      <!-- 成功图标 -->
+      <SLIcon v-if="message.type === 'success'" icon="success" class="text-white-default" />
+      <!-- 错误图标 -->
+      <SLIcon v-if="message.type === 'error'" icon="error" class="text-white-default" />
+      <!-- 警告图标 -->
+      <SLIcon v-if="message.type === 'warning'" icon="info" class="text-white-default" />
+      <p class="text-nowrap">{{ message.text }}</p>
+    </div>
   </div>
 </template>
 
@@ -50,7 +52,7 @@ onUnmounted(() => {
   border-color: #616568 !important;
 }
 .message-container {
-  @apply px-3 h-10 border rounded flex items-center gap-2 shadow-md bg-default text-sm;
+  @apply px-3 h-10 border rounded inline-flex items-center gap-2 shadow-md bg-default text-sm;
   svg {
     @apply w-5 h-5;
   }
