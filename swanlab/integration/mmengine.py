@@ -1,3 +1,29 @@
+"""
+For adaptation to the mmengine framework, this adaptation also applies to frameworks such as mmdetection, xtuner, etc.
+, which use mmengine as the engine. By setting 'vis_backends' to 'swanlab' in the config file, experiment logs can be
+uploaded to SwanLab or viewed using the local version of SwanLab. Detailed configuration file changes are as follows:
+------config.py in mmengine------
+...
+custom_imports = dict(
+    imports=["swanlab.integration.mmengine"], allow_failed_imports=False
+)
+vis_backends = [
+    dict(
+        type="SwanlabVisBackend",
+        save_dir="./swanlog_save_path",             # swanlab save path
+        init_kwargs={                               # swanlab.init args
+            "project": "YourProject ",              # project name on swanlab
+            "experiment_name": "YourExperiment",    # experiment name on swanlab
+            "description": "have fun",              # experiment description (can be null)
+            "workspace": "YourOrganization",        # Your Organization on swanlab
+            # "cloud": False,                       # Upload to cloud
+        },
+    ),
+]
+...
+---------------------------------
+"""
+
 import os
 from typing import Any, Callable, List, Optional, Sequence, Union
 
@@ -20,7 +46,6 @@ from mmengine.config import Config
 @VISBACKENDS.register_module()
 class SwanlabVisBackend(BaseVisBackend):
     """Swanlab visualization backend class for mmengine.
-
     Examples:
         >>> from mmengine.visualization import SwanlabVisBackend
         >>> import numpy as np
