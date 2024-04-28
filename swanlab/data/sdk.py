@@ -25,7 +25,7 @@ from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
-from ..utils import FONT, check_load_json_yaml
+from ..utils import FONT, check_load_json_yaml, check_proj_name_format
 from ..utils.key import get_key
 from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
@@ -49,6 +49,31 @@ login_info = None
 Record user login information in the cloud environment.
 `swanlab.login` will assign or update this variable.
 """
+
+
+def _check_proj_name(name: str) -> str:
+    """检查项目名称是否合法，如果不合法则抛出ValueError异常
+    项目名称必须是一个非空字符串，长度不能超过255个字符
+
+    Parameters
+    ----------
+    name : str
+        待检查的项目名称
+
+    Returns
+    -------
+    str
+        返回项目名称
+
+    Raises
+    ------
+    ValueError
+        项目名称不合法
+    """
+    _name = check_proj_name_format(name)
+    if len(name) != len(_name):
+        swanlog.warning(f"project name is too long, auto cut to {_name}")
+    return _name
 
 
 def _create_metric_callback(pool: ThreadPool):
@@ -89,7 +114,7 @@ def _is_inited():
     return get_run() is not None
 
 
-def login(api_key: str):
+def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
@@ -98,12 +123,12 @@ def login(api_key: str):
     Parameters
     ----------
     api_key : str
-        authentication key.
+        authentication key, if not provided, the key will be read from the key file.
     """
     if _is_inited():
         raise RuntimeError("You must call swanlab.login() before using init()")
     global login_info
-    login_info = code_login(api_key)
+    login_info = code_login(api_key) if api_key else _login_in_init()
 
 
 def init(
@@ -129,7 +154,6 @@ def init(
     project : str, optional
         The project name of the current experiment, the default is None,
         which means the current project name is the same as the current working directory.
-        If you are using cloud mode, you must provide the project name.
     workspace : str, optional
         Where the current project is located, it can be an organization or a user (currently only supports yourself).
         The default is None, which means the current entity is the same as the current user.
@@ -167,7 +191,7 @@ def init(
     cloud : bool, optional
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
-        If you are not using cloud mode, the `project` and `entity` fields are invalid.
+        If you are not using cloud mode, the `workspace` fields are invalid.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -183,8 +207,6 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    # 默认实验名称为当前目录名
-    project = (project or os.path.basename(os.getcwd())) if cloud else None
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)
@@ -197,6 +219,8 @@ def init(
         cloud = _load_data(load_data, "cloud", cloud)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
+    # 默认实验名称为当前目录名
+    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -218,11 +242,10 @@ def init(
         exp_num = http.mount_project(project, workspace).history_exp_count
         # 初始化、挂载线程池
         pool = ThreadPool()
-
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
-    Project.init(os.path.basename(os.getcwd()))
+    Project.init(project)
     # ---------------------------------- 实例化实验 ----------------------------------
     # 如果是云端环境，设置回调函数
     callbacks = (
@@ -267,8 +290,8 @@ def init(
     # 注册清理函数
     atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
-    if not cloud and not (project is None and workspace is None):
-        swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
+    if not cloud and workspace is not None:
+        swanlog.warning("The `workspace` field is invalid in local mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())
