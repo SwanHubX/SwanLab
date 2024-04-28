@@ -177,7 +177,7 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """
     max_len = 100
     if not check_string(name) or not re.match(r"^[0-9a-zA-Z_-]+$", name):
-        raise ValueError(f"Project name `{name}` is invalid, which must be 0-9a-zA-Z_-")
+        raise ValueError(f"Project name `{name}` is invalid, which must be 0-9, a-z, A-Z, _ , -")
     name = name.strip()
     return _auto_cut("project", name, max_len, auto_cut)
 
