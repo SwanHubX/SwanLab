@@ -109,7 +109,32 @@ class SwanlabVisBackend(BaseVisBackend):
         Args:
             config (Config): The Config object
         """
-        self._swanlab.config.update(config.to_dict())
+        def repack_dict(a, prefix=""):
+            """
+            Unpack Nested Dictionary func
+            """
+            new_dict = dict()
+            for key, value in a.items():
+                key = str(key)
+                if isinstance(value, dict):
+                    if prefix != "":
+                        new_dict.update(repack_dict(value, f"{prefix}/{key}"))
+                    else:
+                        new_dict.update(repack_dict(value, key))
+                elif isinstance(value, list) or isinstance(value, tuple):
+                    if all(not isinstance(element, dict) for element in value):
+                        new_dict[key] = value
+                    else:
+                        for i, item in enumerate(value):
+                            new_dict.update(repack_dict(item, f"{key}[{i}]"))
+                elif prefix != "":
+                    new_dict[f"{prefix}/{key}"] = value
+                else:
+                    new_dict[key] = value
+            return new_dict
+
+        config_dict = config.to_dict()
+        self._swanlab.config.update(repack_dict(config_dict))
 
     @force_init_env
     def add_graph(self, model: torch.nn.Module, data_batch: Sequence[dict], **kwargs) -> None:
