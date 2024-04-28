@@ -238,19 +238,14 @@ def check_desc_format(description: str, auto_cut: bool = True):
         name超出长度
     """
     max_length = 255
+    check_string(description)
     description = description.strip()
-
-    if len(description) > max_length:
-        if auto_cut:
-            return description[:max_length]
-        else:
-            raise IndexError(f"Description too long that exceeds {max_length} characters.")
-    return description
+    return _auto_cut("description", description, max_length, auto_cut)
 
 
 def check_tag_format(key: str, auto_cut=True) -> str:
-    """检查tag字符串格式，必须是0-9a-zA-Z _-和/组成的字符串(包含空格)，并且开头必须是0-9a-zA-Z
-    最大长度为255字符
+    """检查tag字符串格式
+    不能超过255个字符，可以包含任何字符
 
     Parameters
     ----------
@@ -259,6 +254,20 @@ def check_tag_format(key: str, auto_cut=True) -> str:
     auto_cut : bool, optional
         如果超出长度，是否自动截断，默认为True
         如果为False，则超出长度会抛出异常
+
+    Returns
+    -------
+    str
+        检查后的字符串
+
+    Raises
+    ------
+    TypeError
+        key不是字符串，或者key为空字符串
+    ValueError
+        key不符合规定格式
+    IndexError
+        key超出长度,此时auto_cut为False
     """
     max_len = 255
     if not isinstance(key, str):
@@ -266,8 +275,4 @@ def check_tag_format(key: str, auto_cut=True) -> str:
     if not check_string(key):
         raise ValueError(f"tag: {key} is an empty string")
     # 检查长度
-    if auto_cut and len(key) > max_len:
-        key = key[:max_len]
-    elif not auto_cut and len(key) > max_len:
-        raise IndexError(f"tag: {key} is too long, which must be less than {max_len} characters")
-    return key.strip()
+    return _auto_cut("tag", key, max_len, auto_cut)
