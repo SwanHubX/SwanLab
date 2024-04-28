@@ -27,7 +27,7 @@ from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
-from ..utils.judgment import in_jupyter
+from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
@@ -289,24 +289,8 @@ def init(
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
 
         # 在Jupyter Notebook环境下，显示按钮
-        try:
-            import ipywidgets as widgets
-            from IPython.display import display, IFrame
-
-            output = widgets.Output()
-
-            def show_iframe(b):
-                with output:
-                    output.clear_output()
-                    # 在这里定义Iframe的内容，例如一个网站的URL
-                    iframe = IFrame(experiment_url, width="100%", height=500)
-                    display(iframe)
-
-            button = widgets.Button(description="Display SwanLab Dashboard")
-            button.on_click(show_iframe)
-            display(button, output)
-        except ImportError:
-            pass
+        if in_jupyter():
+            show_button_html(experiment_url)
 
     return run
 
