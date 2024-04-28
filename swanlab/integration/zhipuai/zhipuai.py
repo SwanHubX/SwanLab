@@ -17,7 +17,7 @@ sys.path.append(relative_path)
 
 from integration_utils.autologging import AutologAPI
 
-from integration.zhipuai.resolver import ZhipuAIClientResponseResolver
+from swanlab.integration.zhipuai.resolver import ZhipuAIClientResponseResolver
 import pkg_resources
 
 
