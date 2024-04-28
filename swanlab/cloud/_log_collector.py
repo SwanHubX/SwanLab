@@ -79,9 +79,10 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif e is not None:
-                error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
-                swanlog.error(error)
-                continue
+                # error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
+                # swanlog.error(error)
+                # continue
+                raise e
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
 

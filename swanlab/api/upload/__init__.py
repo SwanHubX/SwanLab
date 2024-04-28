@@ -120,10 +120,10 @@ def upload_files(files: List[str]):
                 if _valid_files[filename][1] == 'json':
                     data[_valid_files[filename][0]] = json.load(f)
                 elif _valid_files[filename][1] == 'yaml':
-                    data = yaml.load(f, Loader=yaml.FullLoader)
-                    if data is None:
+                    d = yaml.load(f, Loader=yaml.FullLoader)
+                    if d is None:
                         raise FileError
-                    data[_valid_files[filename][0]] = data
+                    data[_valid_files[filename][0]] = d
                 else:
                     data[_valid_files[filename][0]] = f.read()
         except json.decoder.JSONDecodeError:
