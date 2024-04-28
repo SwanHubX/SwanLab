@@ -20,8 +20,8 @@ from typing import Any, Dict, Optional, Sequence, TypeVar, TYPE_CHECKING
 current_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(current_dir, "..", "..")
 sys.path.append(relative_path)
-from utils.get_modules import get_module
-from utils.timer import Timer
+from swanlab.integration.integration_utils.get_modules import get_module
+from swanlab.integration.integration_utils.timer import Timer
 
 
 if sys.version_info >= (3, 8):
