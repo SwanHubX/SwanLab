@@ -20,7 +20,6 @@ from .sdk import (
     init,
     log,
     finish,
-    run,
     _config as config,
 )
 
