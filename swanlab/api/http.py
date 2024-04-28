@@ -16,7 +16,6 @@ from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
 from swanlab.log import swanlog
-import json
 import requests
 
 
@@ -124,7 +123,7 @@ class HTTP:
         resp = self.__session.post(url, json=data)
         try:
             return resp.json()
-        except json.decoder.JSONDecodeError:
+        except requests.exceptions.JSONDecodeError:
             return resp.text
 
     def put(self, url: str, data: dict = None) -> Union[dict, str]:
@@ -136,7 +135,7 @@ class HTTP:
         resp = self.__session.put(url, json=data)
         try:
             return resp.json()
-        except json.decoder.JSONDecodeError:
+        except requests.exceptions.JSONDecodeError:
             return resp.text
 
     def get(self, url: str, params: dict = None) -> dict:
