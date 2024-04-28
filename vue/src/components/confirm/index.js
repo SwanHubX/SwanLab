@@ -1,4 +1,4 @@
-import SLComfirmVue from './SLComfirm.vue'
+import SLConfirmVue from './SLConfirm.vue'
 
 const confirmObj = {
   // 用于存储组件实例
@@ -21,9 +21,9 @@ const confirmObj = {
  *
  * @returns {Promise} - 返回一个Promise对象，当用户点击确认按钮时，Promise会resolve，否则会reject。
  */
-export const confirm = (text, content, config = {}) => {
+export const confirm = (title, content, config = {}) => {
   return new Promise((resolve, reject) => {
-    confirmObj._ref.show(text, content, config, resolve, reject)
+    confirmObj._ref.show(title, content, config, resolve, reject)
   })
 }
 
@@ -31,4 +31,4 @@ export const installConfirm = (ref) => {
   confirmObj._r = ref
 }
 
-export const SLComfirm = SLComfirmVue
+export const SLConfirm = SLConfirmVue

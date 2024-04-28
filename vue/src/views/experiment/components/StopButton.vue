@@ -12,7 +12,7 @@
  **/
 import { useExperimentStore, useProjectStore } from '@swanlab-vue/store'
 import { computed } from 'vue'
-import { confirm } from '@swanlab-vue/components/comfirm'
+import { confirm } from '@swanlab-vue/components/confirm'
 import http from '@swanlab-vue/api/http'
 import { t } from '@swanlab-vue/i18n'
 import { message } from '@swanlab-vue/components/message'
@@ -33,8 +33,7 @@ const showColor = computed(() => {
 const stop = () => {
   confirm(
     t('experiment.index.header.stop.modal.title'),
-    t('experiment.index.header.stop.modal.text'),
-    t('experiment.index.header.stop.button')
+    t('experiment.index.header.stop.modal.text')
   ).then(stop_experiment)
 }
 

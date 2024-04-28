@@ -6,7 +6,7 @@
   <!-- 全局气泡提示 -->
   <SLMessages ref="messagesRef" />
   <!-- 全局确认弹窗 -->
-  <SLComfirm ref="confirmRef" />
+  <SLConfirm ref="confirmRef" />
 </template>
 
 <script setup>
@@ -19,7 +19,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { watch } from 'vue'
 import { installMessage, SLMessages, message } from '@swanlab-vue/components/message'
-import { installConfirm, SLComfirm } from './components/comfirm'
+import { installConfirm, SLConfirm } from './components/confirm'
 import { onMounted } from 'vue'
 
 // ---------------------------------- state ----------------------------------

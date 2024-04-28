@@ -12,7 +12,7 @@
 <script setup>
 /**
  * @description: 全局确认弹窗，在app创建的、同时实例化此组件
- * @file: SLComfirm.vue
+ * @file: SLConfirm.vue
  * @since: 2024-01-03 19:19:46
  **/
 import { ref } from 'vue'
@@ -36,8 +36,10 @@ const text = reactive({
 })
 
 const callback = {
-  resolve: () => {},
-  reject: () => {}
+  resolve: () => {
+  },
+  reject: () => {
+  }
 }
 
 // ---------------------------------- 控制展示和隐藏 ----------------------------------

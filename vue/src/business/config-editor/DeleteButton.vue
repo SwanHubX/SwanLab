@@ -23,7 +23,7 @@
 
 import SLButton from '@swanlab-vue/components/SLButton.vue'
 import SLIcon from '@swanlab-vue/components/SLIcon.vue'
-import { confirm } from '@swanlab-vue/components/comfirm'
+import { confirm } from '@swanlab-vue/components/confirm'
 import { t } from '@swanlab-vue/i18n'
 
 const props = defineProps({
