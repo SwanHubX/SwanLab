@@ -75,7 +75,7 @@ class LogCollectorTask(ThreadTaskABC):
             # 如果出现已知问题
             _, e = result
             if isinstance(e, SyncError):
-                known_errors.append(result)
+                known_errors.append(e)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif e is not None:

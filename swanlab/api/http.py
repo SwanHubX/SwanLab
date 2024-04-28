@@ -277,6 +277,8 @@ def sync_error_handler(func):
             return result, None
         except requests.exceptions.Timeout:
             return None, NetworkError()
+        except requests.exceptions.ConnectionError:
+            return None, NetworkError()
         except Exception as e:
             return None, e
 
