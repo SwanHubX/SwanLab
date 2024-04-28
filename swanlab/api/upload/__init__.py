@@ -7,9 +7,10 @@ r"""
 @Description:
     上传相关接口
 """
-from ..http import get_http, async_error_handler
+from ..http import get_http, sync_error_handler
 from .model import ColumnModel
 from typing import List, Tuple, Dict
+from swanlab.error import FileError
 import json
 import yaml
 import os
@@ -30,8 +31,8 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     }
 
 
-@async_error_handler
-async def upload_logs(logs: List[dict], level: str = "INFO"):
+@sync_error_handler
+def upload_logs(logs: List[dict], level: str = "INFO"):
     """
     上传日志信息
     :param logs: 日志列表
@@ -41,11 +42,11 @@ async def upload_logs(logs: List[dict], level: str = "INFO"):
     # 将logs解析为json格式
     metrics = [{"level": level, **x} for x in logs]
     data = create_data(metrics, "log")
-    await http.post(house_url, data)
+    http.post(house_url, data)
 
 
-@async_error_handler
-async def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
+@sync_error_handler
+def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
     """
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据，
@@ -74,19 +75,19 @@ async def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
     # 上传文件，先上传资源文件，再上传指标信息
     keys = list(file_paths.keys())
     local_paths = list(file_paths.values())
-    await http.upload_files(keys, local_paths)
+    http.upload_files(keys, local_paths)
     # 上传指标信息
-    await http.post(house_url, create_data([x[0] for x in media_metrics], "media"))
+    http.post(house_url, create_data([x[0] for x in media_metrics], "media"))
 
 
-@async_error_handler
-async def upload_scalar_metrics(scalar_metrics: List[dict]):
+@sync_error_handler
+def upload_scalar_metrics(scalar_metrics: List[dict]):
     """
     上传指标的标量数据
     """
     http = get_http()
     data = create_data(scalar_metrics, "scalar")
-    await http.post(house_url, data)
+    http.post(house_url, data)
 
 
 _valid_files = {
@@ -99,8 +100,8 @@ _valid_files = {
 """
 
 
-@async_error_handler
-async def upload_files(files: List[str]):
+@sync_error_handler
+def upload_files(files: List[str]):
     """
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
@@ -114,19 +115,24 @@ async def upload_files(files: List[str]):
     for filename, filepath in files.items():
         if filename not in _valid_files:
             continue
-        with open(filepath, 'r') as f:
-            if _valid_files[filename][1] == 'json':
-                data[_valid_files[filename][0]] = json.load(f)
-            elif _valid_files[filename][1] == 'yaml':
-                data[_valid_files[filename][0]] = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                data[_valid_files[filename][0]] = f.read()
+        try:
+            with open(filepath, 'r') as f:
+                if _valid_files[filename][1] == 'json':
+                    data[_valid_files[filename][0]] = json.load(f)
+                elif _valid_files[filename][1] == 'yaml':
+                    d = yaml.load(f, Loader=yaml.FullLoader)
+                    if d is None:
+                        raise FileError
+                    data[_valid_files[filename][0]] = d
+                else:
+                    data[_valid_files[filename][0]] = f.read()
+        except json.decoder.JSONDecodeError:
+            raise FileError
+    http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
-    await http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
-
-@async_error_handler
-async def upload_column(columns: List[ColumnModel]):
+@sync_error_handler
+def upload_column(columns: List[ColumnModel]):
     """
     上传列信息，需要注意的是一次只能上传一个列，所以函数名不带s
     但是在设计上是聚合上传的，所以在此处需要进行拆分然后分别上传
@@ -134,7 +140,7 @@ async def upload_column(columns: List[ColumnModel]):
     http = get_http()
     url = f'/experiment/{http.exp_id}/column'
     # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
-    _ = [await http.post(url, data=column.to_dict()) for column in columns]
+    _ = [http.post(url, data=column.to_dict()) for column in columns]
 
 
 __all__ = [

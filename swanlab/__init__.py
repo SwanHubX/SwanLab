@@ -13,6 +13,8 @@ from .data import (
     get_run,
 )
 
+
 from .package import get_package_version
+
 
 __version__ = get_package_version()

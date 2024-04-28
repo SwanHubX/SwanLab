@@ -3,22 +3,12 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.utils import create_time
+from swanlab.utils.judgment import in_jupyter
 from io import StringIO
 
 
-# 检测是否在 notebook 环境中
-def in_notebook():
-    try:
-        # notebook 中会有 __IPYTHON__，而正常环境没有定义，所以 try
-        # 'type: ignore': 可以让 pylance 忽略对变量定义的检查
-        _ = __IPYTHON__  # type: ignore
-        return True
-    except NameError:
-        return False
-
-
 # Consoler 继承的父类
-ConsolerParent = sys.stdout.__class__ if not in_notebook() else StringIO
+ConsolerParent = sys.stdout.__class__ if not in_jupyter() else StringIO
 
 
 # 检查当前日期是否和控制台日志文件名一致
@@ -45,7 +35,7 @@ class Consoler(ConsolerParent):
         # noinspection PyBroadException
         try:
             # 根据环境进行不同的初始化
-            if in_notebook():
+            if in_jupyter():
                 super().__init__()
             else:
                 super().__init__(sys.stdout.buffer)

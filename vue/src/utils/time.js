@@ -131,8 +131,7 @@ export const getDuration = (experiment) => {
   if (!experiment) return null
   const time1 = new Date(experiment.create_time)
   const currentTime = new Date()
-  const time2 =
-    experiment.status === 0 ? new Date(currentTime.getTime() - 8 * 60 * 60 * 1000) : new Date(experiment.finish_time)
+  const time2 = experiment.status === 0 ? new Date(currentTime.getTime()) : new Date(experiment.finish_time)
 
   if (isNaN(time1.getTime()) || isNaN(time2.getTime())) {
     // 处理无效日期的情况

@@ -22,15 +22,16 @@ from .run import (
 )
 from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
-from ..db import Project, connect
+from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
 from ..utils import FONT, check_load_json_yaml
 from ..utils.key import get_key
+from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
 from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
-from swanlab.error import KeyFileError
+from swanlab.error import KeyFileError, ApiError
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.cloud import UploadType
 
@@ -106,14 +107,14 @@ def login(api_key: str):
 
 
 def init(
+    project: str = None,
+    workspace: str = None,
     experiment_name: str = None,
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
     cloud: bool = True,
-    project: str = None,
-    workspace: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -125,6 +126,13 @@ def init(
 
     Parameters
     ----------
+    project : str, optional
+        The project name of the current experiment, the default is None,
+        which means the current project name is the same as the current working directory.
+        If you are using cloud mode, you must provide the project name.
+    workspace : str, optional
+        Where the current project is located, it can be an organization or a user (currently only supports yourself).
+        The default is None, which means the current entity is the same as the current user.
     experiment_name : str, optional
         The experiment name you currently have open. If this parameter is not provided,
         SwanLab will generate one for you by default.
@@ -160,13 +168,6 @@ def init(
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
         If you are not using cloud mode, the `project` and `entity` fields are invalid.
-    project : str, optional
-        The project name of the current experiment, the default is None,
-        which means the current project name is the same as the current working directory.
-        If you are using cloud mode, you must provide the project name.
-    workspace : str, optional
-        Where the current project is located, it can be an organization or a user (currently only supports yourself).
-        The default is None, which means the current entity is the same as the current user.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -224,10 +225,9 @@ def init(
     Project.init(os.path.basename(os.getcwd()))
     # ---------------------------------- 实例化实验 ----------------------------------
     # 如果是云端环境，设置回调函数
-    callbacks = None if not cloud else {
-        "metric_callback": _create_metric_callback,
-        "column_callback": _create_column_callback
-    }
+    callbacks = (
+        None if not cloud else {"metric_callback": _create_metric_callback, "column_callback": _create_column_callback}
+    )
 
     # 注册实验
     run = register(
@@ -238,16 +238,23 @@ def init(
         suffix=suffix,
         exp_num=exp_num,
         pool=pool,
-        callbacks=callbacks
+        callbacks=callbacks,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
     if cloud:
         # 注册实验信息
-        get_http().mount_exp(
-            exp_name=run.settings.exp_name,
-            colors=run.settings.exp_colors,
-            description=run.settings.description,
-        )
+        try:
+            get_http().mount_exp(
+                exp_name=run.settings.exp_name,
+                colors=run.settings.exp_colors,
+                description=run.settings.description,
+            )
+        except ApiError as e:
+            if e.resp.status_code == 409:
+                FONT.brush("", 50)
+                swanlog.error("The experiment name already exists, please change the experiment name")
+                Experiment.purely_delete(run_id=run.exp.db.run_id)
+                sys.exit(409)
         sniffer = LogSnifferTask(run.settings.files_dir)
         run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
 
@@ -280,6 +287,11 @@ def init(
         experiment_url = project_url + f"/runs/{http.exp_id}"
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+
+        # 在Jupyter Notebook环境下，显示按钮
+        if in_jupyter():
+            show_button_html(experiment_url)
+
     return run
 
 
@@ -330,8 +342,8 @@ def _login_in_init() -> LoginInfo:
         key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
     except KeyFileError:
         fd = sys.stdin.fileno()
-        # 不是标准终端，无法控制其回显
-        if not os.isatty(fd):
+        # 不是标准终端，且非jupyter环境，无法控制其回显
+        if not os.isatty(fd) and not in_jupyter():
             raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
     return terminal_login(key)
 

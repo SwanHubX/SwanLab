@@ -7,7 +7,7 @@ r"""
 @Description:
     swanlab全局错误定义
 """
-import httpx
+import requests
 from typing import Optional
 
 
@@ -48,17 +48,29 @@ class SyncError(Exception):
         self.message = "sync error"
 
 
+class FileError(SyncError):
+    """
+    文件错误，文件不存在或者格式错误，此时可能是系统资源数据由于多线程读写导致的文件错误（为空）
+    在下一次事件循环中会重新读取文件
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.log_level = "debug"
+        self.message = "file read error"
+
+
 class ApiError(SyncError):
     """
     api有关的错误，在聚合器中将捕获他们
     """
 
-    def __init__(self, resp: httpx.Response = None, *args):
+    def __init__(self, resp: requests.Response = None, *args):
         super().__init__(*args)
-        self.resp: Optional["httpx.Response"] = resp
+        self.resp = resp
         self.log_level = "error"
         self.message = 'swanlab api error' if resp is None else 'swanlab api error, status code: {}, reason: {}'.format(
-            resp.status_code, resp.reason_phrase
+            resp.status_code, resp.reason
         )
 
 

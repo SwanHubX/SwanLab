@@ -22,7 +22,6 @@ from swanlab.utils import FONT, create_time
 from swanlab.api import get_http
 from swanlab.api.upload import upload_logs
 import traceback
-import asyncio
 import os
 import sys
 import time
@@ -382,7 +381,8 @@ class SwanLabRun:
                     continue
                 # 其他情况下，说明是用户自定义的后缀，需要报错
                 else:
-                    raise ExistedError(f"Experiment {exp_name} has existed, please try another name.")
+                    Experiment.purely_delete(run_id=self.__run_id)
+                    raise ExistedError(f"Experiment {exp_name} has existed in local, please try another name.")
 
         # 实验创建成功，设置实验相关信息
         self.__settings.exp_name = exp_name
@@ -484,16 +484,15 @@ def _before_exit_in_cloud(state: SwanLabRunState, error: str = None):
     exiting_in_cloud = True
     sys.excepthook = except_handler
 
-    async def _():
+    def _():
         # 关闭线程池，等待上传线程完成
-        await run.pool.finish()
+        run.pool.finish()
         # 上传错误日志
         if error is not None:
             msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
-            await upload_logs(msg, level="ERROR")
-        await asyncio.sleep(1)
+            upload_logs(msg, level="ERROR")
 
-    FONT.loading("Waiting for uploading complete", _(), interval=0.5)
+    FONT.loading("Waiting for uploading complete", _)
     get_http().update_state(state == SwanLabRunState.SUCCESS)
     exiting_in_cloud = False
     return

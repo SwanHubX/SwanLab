@@ -15,7 +15,7 @@ from .sniffer_queue import SnifferQueue
 from .metadata_handle import MetaHandle
 from typing import List
 from ..task_types import UploadType
-import asyncio
+import time
 
 
 class LogSnifferTask(ThreadTaskABC):
@@ -44,9 +44,9 @@ class LogSnifferTask(ThreadTaskABC):
         # observer，启动！
         self.__observer.start()
 
-    async def callback(self, u: ThreadUtil, *args):
+    def callback(self, u: ThreadUtil, *args):
         # 文件事件可能会有延迟，因此需要等待一段时间
-        await asyncio.sleep(1.5)
+        time.sleep(self.SNIFFER_TIMEOUT)
         self.__observer.stop()
         self.pass_msg(u)
 
@@ -64,7 +64,7 @@ class LogSnifferTask(ThreadTaskABC):
         new_msg = (UploadType.FILE, files[UploadType.FILE])
         u.queue.put(new_msg)
 
-    async def task(self, u: ThreadUtil, *args):
+    def task(self, u: ThreadUtil, *args):
         """
         任务执行函数，在此处收集处理的所有日志信息，解析、包装、发送给日志聚合器
         :param u: 线程工具类
