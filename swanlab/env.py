@@ -142,7 +142,12 @@ def is_dev(env: Optional[Env] = None) -> bool:
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
-function_list = [get_swanlog_dir, get_server_port, get_server_host, is_dev]
+function_list = [
+    get_swanlog_dir,
+    get_server_port,
+    get_server_host,
+    is_dev
+]
 
 
 # 定义初始化函数
