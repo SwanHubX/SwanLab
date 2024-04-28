@@ -10,8 +10,6 @@ r"""
 import os
 import platform
 import io
-from swanlab.utils.file import check_proj_name_format
-from swanlab.log import swanlog
 
 
 def formate_abs_path(path: str) -> str:
@@ -124,28 +122,3 @@ def get_text_sha256_hash(text):
     # 获取十六进制格式的哈希值
     hex_dig = hash_object.hexdigest()
     return hex_dig
-
-
-def check_proj_name(name: str) -> str:
-    """检查项目名称是否合法，如果不合法则抛出ValueError异常
-    项目名称必须是一个非空字符串，长度不能超过255个字符
-
-    Parameters
-    ----------
-    name : str
-        待检查的项目名称
-
-    Returns
-    -------
-    str
-        返回项目名称
-
-    Raises
-    ------
-    ValueError
-        项目名称不合法
-    """
-    _name = check_proj_name_format(name)
-    if len(name) != len(_name):
-        swanlog.warning(f"project name is too long, auto cut to {_name}")
-    return _name

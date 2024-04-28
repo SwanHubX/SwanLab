@@ -21,11 +21,11 @@ from .run import (
     clean_handler,
 )
 from .config import SwanLabConfig
-from .utils.file import check_dir_and_create, formate_abs_path, check_proj_name
+from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
-from ..utils import FONT, check_load_json_yaml
+from ..utils import FONT, check_load_json_yaml, check_proj_name_format
 from ..utils.key import get_key
 from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
@@ -49,6 +49,31 @@ login_info = None
 Record user login information in the cloud environment.
 `swanlab.login` will assign or update this variable.
 """
+
+
+def _check_proj_name(name: str) -> str:
+    """检查项目名称是否合法，如果不合法则抛出ValueError异常
+    项目名称必须是一个非空字符串，长度不能超过255个字符
+
+    Parameters
+    ----------
+    name : str
+        待检查的项目名称
+
+    Returns
+    -------
+    str
+        返回项目名称
+
+    Raises
+    ------
+    ValueError
+        项目名称不合法
+    """
+    _name = check_proj_name_format(name)
+    if len(name) != len(_name):
+        swanlog.warning(f"project name is too long, auto cut to {_name}")
+    return _name
 
 
 def _create_metric_callback(pool: ThreadPool):
@@ -89,7 +114,7 @@ def _is_inited():
     return get_run() is not None
 
 
-def login(api_key: str):
+def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
@@ -98,12 +123,12 @@ def login(api_key: str):
     Parameters
     ----------
     api_key : str
-        authentication key.
+        authentication key, if not provided, the key will be read from the key file.
     """
     if _is_inited():
         raise RuntimeError("You must call swanlab.login() before using init()")
     global login_info
-    login_info = code_login(api_key)
+    login_info = code_login(api_key) if api_key else _login_in_init()
 
 
 def init(
@@ -195,7 +220,7 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
     # 默认实验名称为当前目录名
-    project = check_proj_name(project if project else os.path.basename(os.getcwd()))
+    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
