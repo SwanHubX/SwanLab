@@ -10,6 +10,7 @@ r"""
 from ..http import get_http, sync_error_handler
 from .model import ColumnModel
 from typing import List, Tuple, Dict
+from swanlab.error import FileError
 import json
 import yaml
 import os
@@ -114,14 +115,18 @@ def upload_files(files: List[str]):
     for filename, filepath in files.items():
         if filename not in _valid_files:
             continue
-        with open(filepath, 'r') as f:
-            if _valid_files[filename][1] == 'json':
-                data[_valid_files[filename][0]] = json.load(f)
-            elif _valid_files[filename][1] == 'yaml':
-                data[_valid_files[filename][0]] = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                data[_valid_files[filename][0]] = f.read()
-
+        try:
+            with open(filepath, 'r') as f:
+                if _valid_files[filename][1] == 'json':
+                    data[_valid_files[filename][0]] = json.load(f)
+                elif _valid_files[filename][1] == 'yaml':
+                    data[_valid_files[filename][0]] = yaml.load(f, Loader=yaml.FullLoader)
+                else:
+                    data[_valid_files[filename][0]] = f.read()
+        except json.decoder.JSONDecodeError:
+            raise FileError
+        except yaml.YAMLError:
+            raise FileError
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
 
