@@ -21,7 +21,7 @@ from .run import (
     clean_handler,
 )
 from .config import SwanLabConfig
-from .utils.file import check_dir_and_create, formate_abs_path
+from .utils.file import check_dir_and_create, formate_abs_path, check_proj_name
 from ..db import Project, connect, Experiment
 from ..env import init_env, ROOT, get_swanlab_folder
 from ..log import swanlog
@@ -129,7 +129,6 @@ def init(
     project : str, optional
         The project name of the current experiment, the default is None,
         which means the current project name is the same as the current working directory.
-        If you are using cloud mode, you must provide the project name.
     workspace : str, optional
         Where the current project is located, it can be an organization or a user (currently only supports yourself).
         The default is None, which means the current entity is the same as the current user.
@@ -167,7 +166,7 @@ def init(
     cloud : bool, optional
         Whether to use the cloud mode, the default is True.
         If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
-        If you are not using cloud mode, the `project` and `entity` fields are invalid.
+        If you are not using cloud mode, the `workspace` fields are invalid.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -183,8 +182,6 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    # 默认实验名称为当前目录名
-    project = (project or os.path.basename(os.getcwd())) if cloud else None
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)
@@ -197,6 +194,8 @@ def init(
         cloud = _load_data(load_data, "cloud", cloud)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
+    # 默认实验名称为当前目录名
+    project = check_proj_name(project if project else os.path.basename(os.getcwd()))
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
     logdir = _init_logdir(logdir)
     # 初始化confi参数
@@ -218,11 +217,10 @@ def init(
         exp_num = http.mount_project(project, workspace).history_exp_count
         # 初始化、挂载线程池
         pool = ThreadPool()
-
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
-    Project.init(os.path.basename(os.getcwd()))
+    Project.init(project)
     # ---------------------------------- 实例化实验 ----------------------------------
     # 如果是云端环境，设置回调函数
     callbacks = (
@@ -267,8 +265,8 @@ def init(
     # 注册清理函数
     atexit.register(clean_handler)
     # ---------------------------------- 终端输出 ----------------------------------
-    if not cloud and not (project is None and workspace is None):
-        swanlog.warning("The `project` or `workspace` parameters are invalid in non-cloud mode")
+    if not cloud and workspace is not None:
+        swanlog.warning("The `workspace` field is invalid in local mode")
     swanlog.debug("SwanLab Runtime has initialized")
     swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
     swanlog.info("Tracking run with swanlab version " + get_package_version())

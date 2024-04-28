@@ -15,15 +15,6 @@ from swanlab.package import get_package_version
 class Project(SwanModel):
     """项目表
     目前，在一个工程中，只有一个项目
-
-    Attributes
-    ----------
-    experiments: list of Experiment
-        由 Experiment 表中外键反链接生成的实验列表
-    charts: list of Chart
-        由 Chart 表中外键反链接生成的图表列表
-    namespaces: list of Namespace
-        由 Namespace 表中外键反链接生成的命名空间数据列表
     """
 
     # 默认的项目id应该是1
