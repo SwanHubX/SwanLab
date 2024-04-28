@@ -66,15 +66,15 @@
 
 SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
 
-It offers a friendly API and a beautiful interface, combining features such as hyperparameter tracking, metric recording, online collaboration, experiment link sharing, real-time message notifications, allowing you to quickly track ML experiments, visualize processes, and share with peers.
+It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording metric, online collaboration, sharing experiment link, real-time message notifications, allowing you to quickly track ML experiments, visualize processes, and share with peers.
 
-With SwanLab's help, researchers can consolidate their training experiences and seamlessly communicate and collaborate with collaborators. Machine learning engineers can develop models for production more quickly.
+By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers. Machine learning engineers can develop models for production more efficiently.
 
 ![](/readme_files/introduction.png)
 
-Here is the English translation of the core feature list for an AI platform:
+Here is the English version of the core feature list for an AI platform:
 
-**1. 📊 Experiment Metrics and Hyperparameter Tracking**: Minimal code integration into your machine learning pipeline to track key training metrics.
+**1. 📊 Experimental Metrics and Tracking Hyperparameter**: Embed your machine learning pipeline with minimalistic code and track key training metrics.
    - Flexible recording of hyperparameters and experiment configurations.
    - **Supported metadata types**: scalar metrics, images, audio, text, etc.
    - **Supported chart types**: line graphs, media charts (images, audio, text), etc.
@@ -82,15 +82,15 @@ Here is the English translation of the core feature list for an AI platform:
 
 **2. ⚡️ Comprehensive Framework Integration**: PyTorch, TensorFlow, PyTorch Lightning, 🤗HuggingFace Transformers, Hydra, etc.
 
-**3. 📦 Organizing Experiments**: Centralized dashboard for quickly managing multiple projects and experiments, providing an overview of training at a glance.
+**3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments, providing an overview of training at a glance.
 
-**4. 🆚 Comparing Results**: Use online tables and comparison charts to compare the hyperparameters and outcomes of different experiments, fostering iterative inspiration.
+**4. 🆚 Comparing Results**: Use online tables and paired charts to compare the hyperparameters and outcomes of different experiments, developing iterative inspiration.
 
-**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of experiments under one project, allowing you to view your team’s training records online and share insights and suggestions based on results.
+**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of experiments under the same project, allowing you to synchronize training records of the team online and share insights and suggestions based on results.
 
-**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, easily send them to colleagues, or embed them in online notes.
+**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, efficiently send them to colleagues, or embed them in online notes.
 
-**7. 💻 Self-hosting Support**: Supports offline use with a self-hosted community version that also allows for dashboard viewing and experiment management.
+**7. 💻 Self-hosting Support**: Supports offline mode with a self-hosted community version that also allows for dashboard viewing and experiment management.
 
 > \[!IMPORTANT]
 >
@@ -767,7 +767,7 @@ If you find SwanLab helpful for your research journey, please consider citing in
 
 Considering contributing to SwanLab? First, please take some time to read the [Contribution Guidelines](CONTRIBUTING.md).
 
-At the same time, we warmly welcome support for SwanLab through social media, events, and conference sharing. Thank you sincerely!
+At the same time, we warmly welcome support for SwanLab through social media, events, and conference sharing. Thank you!
 
 <br>
 
