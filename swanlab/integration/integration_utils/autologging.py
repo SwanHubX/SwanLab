@@ -208,7 +208,7 @@ class AutologAPI:
         #    - todo: autolog(init: dict | run = run) would use the user-provided run
         # - autolog() calls swanlab.init()
         if init:
-            self._run = swanlab.init(**init, cloud=self.cloud)
+            self._run = swanlab.init(**init)
 
     def enable(self, init: AutologInitArgs = None) -> None:
         """Enable autologging.
