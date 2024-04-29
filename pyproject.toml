@@ -65,12 +65,12 @@ fragments = [{ path = "README.md" }]
 
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
-pattern = "(website/homepage|readme_files)/"
+pattern = "(readme_files)/"
 replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置中文README跳转规则
-pattern = "README_zh-hans.md"
-replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_zh-hans.md'
+pattern = "README_en.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_en.md'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置README跳转规则
 pattern = "README.md"

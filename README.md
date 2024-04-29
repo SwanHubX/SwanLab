@@ -21,8 +21,8 @@
 </p>
 
 <div align="center">
-  <a href="./README_en.md"><img alt="英文文档" src="https://img.shields.io/badge/English-d9d9d9"></a>
-  <a href="./README.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
+  <a href="README_en.md"><img alt="英文文档" src="https://img.shields.io/badge/English-d9d9d9"></a>
+  <a href="README.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
 </div>
 
 <details>
@@ -32,27 +32,27 @@
 
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [🏁 快速开始](#-快速开始)
-  - [1.安装](#1安装)
-  - [2.登录并获取API Key](#2登录并获取api-key)
-  - [3.将SwanLab与你的代码集成](#3将SwanLab与你的代码集成)
+    - [1.安装](#1安装)
+    - [2.登录并获取API Key](#2登录并获取api-key)
+    - [3.将SwanLab与你的代码集成](#3将SwanLab与你的代码集成)
 - [📃 更多案例](#-更多案例)
 - [💻 自托管](#-自托管)
-  - [离线实验跟踪](#离线实验跟踪)
-  - [开启离线看板](#开启离线看板)
+    - [离线实验跟踪](#离线实验跟踪)
+    - [开启离线看板](#开启离线看板)
 - [🚗 框架集成](#-框架集成)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
-  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-  - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
+    - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
+    - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
 - [🛣️ Roadmap](#%EF%B8%8F-roadmap)
-  - [两周内即将上线](#两周内即将上线)
-  - [三个月内规划上线](#三个月内规划上线)
-  - [长期关注](#长期关注)
+    - [两周内即将上线](#两周内即将上线)
+    - [三个月内规划上线](#三个月内规划上线)
+    - [长期关注](#长期关注)
 - [👥 社区](#-社区)
-  - [社区与支持](#社区与支持)
-  - [SwanLab README徽章](#swanlab-readme徽章)
-  - [在论文中引用SwanLab](#在论文中引用swanlab)
-  - [为SwanLab做出贡献](#为swanlab做出贡献)
-  - [下载Icon](#下载icon)
+    - [社区与支持](#社区与支持)
+    - [SwanLab README徽章](#swanlab-readme徽章)
+    - [在论文中引用SwanLab](#在论文中引用swanlab)
+    - [为SwanLab做出贡献](#为swanlab做出贡献)
+    - [下载Icon](#下载icon)
 - [📃 协议](#-协议)
 
 <br/>
@@ -61,7 +61,8 @@
 
 ## 👋🏻 什么是SwanLab
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
+SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and
+collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
 
 SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
 
@@ -69,17 +70,19 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 借助SwanLab，科研人员可以沉淀自己的每一次训练经验，与合作者无缝地交流和协作，机器学习工程师可以更快地开发可用于生产的模型。
 
-![](/readme_files/introduction.png)
+![](readme_files/introduction.png)
 
 以下是其核心特性列表：
 
 **1. 📊实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习pipeline，跟踪记录训练关键指标
-   - 自由的超参数与实验配置记录
-   - 支持的元数据类型：标量指标、图像、音频、文本、...
-   - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
-   - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
 
-**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace Transformers、MMEngine、OpenAI、ZhipuAI、Hydra、...
+- 自由的超参数与实验配置记录
+- 支持的元数据类型：标量指标、图像、音频、文本、...
+- 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
+- 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
+
+**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace
+Transformers、MMEngine、OpenAI、ZhipuAI、Hydra、...
 
 **3. 📦组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
 
@@ -95,10 +98,9 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 >
 > **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～⭐️
 
-![star-us](/readme_files/star-us.png)
+![star-us](readme_files/star-us.png)
 
 <br>
-
 
 ## 🏁 快速开始
 
@@ -110,7 +112,7 @@ pip install swanlab
 
 ### 2.登录并获取API Key
 
-1. 免费[注册账号](https://dev101.swanlab.cn) 
+1. 免费[注册账号](https://dev101.swanlab.cn)
 
 2. 登录账号，在用户设置 > [API Key](https://dev101.swanlab.cn/settings) 里复制您的API Key
 
@@ -129,8 +131,8 @@ import swanlab
 
 # 初始化一个新的swanlab实验
 swanlab.init(
-  project="my-first-ml",
-  config={'learning-rate': 0.003}
+    project="my-first-ml",
+    config={'learning-rate': 0.003}
 )
 
 # 记录指标
@@ -140,7 +142,7 @@ for i in range(10):
 
 大功告成！前往[SwanLab](https://dev101.swanlab.cn)查看你的第一个SwanLab实验。
 
-![MNIST](/readme_files/readme-mnist.png)
+![MNIST](readme_files/readme-mnist.png)
 
 <br>
 
@@ -157,6 +159,7 @@ import torch.nn.functional as F
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import swanlab
+
 
 # CNN网络构建
 class ConvNet(nn.Module):
@@ -286,6 +289,7 @@ import torch.nn.functional as F
 from torchvision.datasets import FashionMNIST
 from torchvision.transforms import ToTensor
 import swanlab
+
 
 # ResNet网络构建
 class Basicblock(nn.Module):
@@ -433,7 +437,7 @@ if __name__ == "__main__":
     log_images(train_loader, 16)
 
     # 开始训练
-    for epoch in range(1, run.config.num_epochs+1):
+    for epoch in range(1, run.config.num_epochs + 1):
         swanlab.log({"train/epoch": epoch}, step=epoch)
         # 训练循环
         for iter, batch in enumerate(train_loader):
@@ -486,8 +490,8 @@ if __name__ == "__main__":
 ...
 
 swanlab.init(
-  logdir='./logs',
-  cloud=False,
+    logdir='./logs',
+    cloud=False,
 )
 
 ...
@@ -497,14 +501,13 @@ swanlab.init(
 
 - 参数`logdir`的设置是可选的，它的作用是指定了SwanLab日志文件的保存位置（默认保存在`swanlog`文件夹下）
 
-  - 日志文件会在跟踪实验的过程中被创建和更新，离线看板的启动也将基于这些日志文件
+    - 日志文件会在跟踪实验的过程中被创建和更新，离线看板的启动也将基于这些日志文件
 
 其他部分和云端使用完全一致。
 
-
 ### 开启离线看板
 
-打开终端，使用下面的指令，开启一个SwanLab仪表板: 
+打开终端，使用下面的指令，开启一个SwanLab仪表板:
 
 ```bash
 swanlab watch -l ./logs
@@ -539,6 +542,7 @@ from torchvision.transforms import ToTensor
 
 encoder = nn.Sequential(nn.Linear(28 * 28, 128), nn.ReLU(), nn.Linear(128, 3))
 decoder = nn.Sequential(nn.Linear(3, 128), nn.ReLU(), nn.Linear(128, 28 * 28))
+
 
 class LitAutoEncoder(pl.LightningModule):
     def __init__(self, encoder, decoder):
@@ -668,7 +672,6 @@ trainer.train()
 
 <br>
 
-
 ## 🆚 与熟悉的工具的比较
 
 ### Tensorboard vs SwanLab
@@ -680,11 +683,12 @@ trainer.train()
   在进行多人、跨团队的机器学习协作时，通过SwanLab可以轻松管理多人的训练项目、分享实验链接、跨空间交流讨论。而Tensorboard主要为个人设计，难以进行多人协作和分享实验。
 
 - **💻持久、集中的仪表板**：
-  无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的GPU实例中，你的结果都会记录到同一个集中式仪表板中。而使用TensorBoard需要花费时间从不同的机器复制和管理 TFEvent文件。
-  
-- **💪更强大的表格**：
-  通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。 TensorBoard 不适用于大型项目。  
+  无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的GPU实例中，你的结果都会记录到同一个集中式仪表板中。而使用TensorBoard需要花费时间从不同的机器复制和管理
+  TFEvent文件。
 
+- **💪更强大的表格**：
+  通过SwanLab表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。
+  TensorBoard 不适用于大型项目。
 
 ### Weights and Biases vs SwanLab
 
@@ -693,7 +697,6 @@ trainer.train()
 - SwanLab 不仅支持联网使用，也支持开源、免费、自托管的版本
 
 <br>
-
 
 ## 🛣️ Roadmap
 
@@ -762,7 +765,7 @@ trainer.train()
 
 ### 下载Icon
 
-[SwanLab-Icon-SVG](/readme_files/swanlab-logo.svg)
+[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -773,7 +776,6 @@ trainer.train()
 </a>
 
 <br>
-
 
 ## 📃 协议
 
