@@ -80,7 +80,7 @@ Here is the English version of the core feature list for an AI platform:
    - **Supported chart types**: line graphs, media charts (images, audio, text), etc.
    - **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries, code directory.
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch, TensorFlow, PyTorch Lightning, 🤗HuggingFace Transformers, Hydra, etc.
+**2. ⚡️ Comprehensive Framework Integration**: PyTorch, TensorFlow, PyTorch Lightning, 🤗HuggingFace Transformers, MMEngine, OpenAI, ZhipuAI, Hydra, etc.
 
 **3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments, providing an overview of training at a glance.
 
