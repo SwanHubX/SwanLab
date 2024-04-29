@@ -8,10 +8,13 @@
 - “环境”增加对Apple M系列芯片的记录
 
 **👥集成**
-- 与🤗HuggingFace Transformers集成，[指引](/zh/guide_cloud/integration/integration-huggingface-transformers.md)
-- 与PyTorch Lightning集成，[指引](/zh/guide_cloud/integration/integration-pytorch-lightning.md)
+- 与🤗HuggingFace Transformers集成
+- 与PyTorch Lightning集成
 - 与Jupyter Notebook集成
-- 与Hydra集成，[指引](/zh/guide_cloud/integration/integration-hydra.md)
+- 与MMEngine集成
+- 与openai集成
+- 与zhipuai集成
+- 与Hydra集成
 
 **⚡️改进**
 - 优化折线图在大数据量时的渲染表现
