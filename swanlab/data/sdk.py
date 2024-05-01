@@ -393,8 +393,8 @@ def _init_logdir(logdir: str) -> str:
             # 创建.gitignore文件
             gitignore_path = os.path.join(logdir, ".gitignore")
             try:
-                with open(gitignore_path, "w") as file:
-                    file.write("*")
+                with open(gitignore_path, "r+") as file:
+                    file.write("\n*\n")
             except IOError as e:
                 raise IOError(f"Unable to write .gitignore to {logdir}, error: {e}")
 
