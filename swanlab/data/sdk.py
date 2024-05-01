@@ -393,6 +393,10 @@ def _init_logdir(logdir: str) -> str:
                 raise IOError
         except IOError:
             raise IOError("logdir must have Write permission.")
+    # 如果logdir是空的，创建.gitignore文件，写入*
+    if not os.listdir(logdir):
+        with open(os.path.join(logdir, ".gitignore"), "w") as f:
+            f.write("*")
     return logdir
 
 
