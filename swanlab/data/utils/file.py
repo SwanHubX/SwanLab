@@ -79,8 +79,8 @@ def check_dir_and_create(path: str) -> str:
     if not os.path.exists(gitignore_path):
         # 只有当.gitignore文件不存在时，才创建并写入
         try:
-            with open(gitignore_path, "w") as file:
-                file.write("*")
+            with open(gitignore_path, "r+") as file:
+                file.write("\n*\n")
         except IOError as e:
             raise IOError(f"Unable to write .gitignore to {path}, error: {e}")
 
