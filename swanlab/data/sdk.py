@@ -398,10 +398,11 @@ def _init_logdir(logdir: str) -> str:
 
 def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
-    if isinstance(config, dict) or config is None:
-        return config
-    swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
-    return check_load_json_yaml(config, "config")
+    if isinstance(config, str):
+        swanlog.info("The parameter config is loaded from the configuration file: {}".format(config))
+        return check_load_json_yaml(config, "config")
+
+    return config
 
 
 def _load_data(load_data: dict, key: str, value):
