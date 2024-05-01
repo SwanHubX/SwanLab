@@ -73,6 +73,17 @@ def check_dir_and_create(path: str) -> str:
         os.makedirs(path, exist_ok=True)
     except Exception as e:
         raise IOError(f"create path: {path} failed, error: {e}")
+
+    # 创建.gitignore文件
+    gitignore_path = os.path.join(path, ".gitignore")
+    if not os.path.exists(gitignore_path):
+        # 只有当.gitignore文件不存在时，才创建并写入
+        try:
+            with open(gitignore_path, "w") as file:
+                file.write("*")
+        except IOError as e:
+            raise IOError(f"Unable to write .gitignore to {path}, error: {e}")
+
     if not os.access(path, os.W_OK):
         raise IOError(f"no write permission for path: {path}")
     return path

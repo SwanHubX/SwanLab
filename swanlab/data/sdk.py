@@ -389,6 +389,15 @@ def _init_logdir(logdir: str) -> str:
         logdir = os.path.abspath("swanlog")
         try:
             os.makedirs(logdir, exist_ok=True)
+
+            # 创建.gitignore文件
+            gitignore_path = os.path.join(logdir, ".gitignore")
+            try:
+                with open(gitignore_path, "w") as file:
+                    file.write("*")
+            except IOError as e:
+                raise IOError(f"Unable to write .gitignore to {logdir}, error: {e}")
+
             if not os.access(logdir, os.W_OK):
                 raise IOError
         except IOError:
