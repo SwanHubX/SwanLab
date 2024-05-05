@@ -13,22 +13,43 @@ from typing import Optional, Dict
 from swanlab.api.upload.model import ColumnModel
 from swanlab.cloud import ThreadPool
 from urllib.parse import quote
+from swanlab.api import LoginInfo
+from swanlab.log import swanlog
+from swanlab.utils.font import FONT
+from swanlab.api import get_http
+from swanlab.utils.judgment import in_jupyter, show_button_html
+from swanlab.package import get_host_web
 
 
 class CloudRunCallback(SwanLabRunCallback):
 
-    def __init__(self, pool: ThreadPool):
+    def __init__(self, pool: ThreadPool, login_info: LoginInfo):
+        super(CloudRunCallback, self).__init__()
         self.pool = pool
+        self.login_info = login_info
 
-    @property
-    def cloud(self):
-        return self.pool is not None
+    def _view_web_print(self):
+        self._command_tip_print()
+
+        http = get_http()
+        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
+        experiment_url = project_url + f"/runs/{http.exp_id}"
+        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+        return experiment_url
 
     def on_train_begin(self):
-        pass
+        self._train_begin_print()
+        swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
+        swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
+        experiment_url = self._view_web_print()
+
+        # 在Jupyter Notebook环境下，显示按钮
+        if in_jupyter():
+            show_button_html(experiment_url)
 
     def on_train_end(self):
-        pass
+        self._view_web_print()
 
     def on_metric_create(self, key: str, key_info: NewKeyInfo, static_dir: str):
         """

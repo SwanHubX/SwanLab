@@ -59,7 +59,6 @@ class SwanLabRun:
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
-        pool: ThreadPool = None,
         callbacks: SwanLabRunCallback = None
     ):
         """
@@ -85,8 +84,6 @@ class SwanLabRun:
             如果不提供此参数(为None)，不会添加后缀
         exp_num : int, optional
             历史实验总数，用于云端颜色与本地颜色的对应
-        pool : ThreadPool
-            线程池对象，用于云端同步，传入此对象，run.cloud将被设置为True
         callbacks : Dict[str, Callable]
             回调函数字典，key为回调函数名，value为回调函数
         """
@@ -102,6 +99,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # 初始化回调
         self.__callbacks = callbacks if callbacks is not None else SwanLabRunCallback()
+        self.__callbacks.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
         swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
@@ -114,7 +112,6 @@ class SwanLabRun:
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
-        self.__pool = pool
 
         # 动态定义一个方法，用于修改实验状态
         def _(state: SwanLabRunState):
@@ -123,20 +120,18 @@ class SwanLabRun:
         global _change_run_state
         _change_run_state = _
         run = self
-        # 实验开启，执行回调
-        self.__callbacks.on_train_begin()
 
     @property
     def callbacks(self) -> SwanLabRunCallback:
         return self.__callbacks
 
     @property
-    def cloud(self) -> bool:
-        return self.__pool is not None
+    def pool(self) -> Optional[ThreadPool]:
+        return self.__callbacks.pool
 
     @property
-    def pool(self) -> ThreadPool:
-        return self.__pool
+    def cloud(self) -> bool:
+        return self.pool is not None
 
     @property
     def state(self) -> SwanLabRunState:

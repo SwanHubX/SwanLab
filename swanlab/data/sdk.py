@@ -186,6 +186,8 @@ def init(
         cloud = _load_data(load_data, "cloud", cloud)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
+    if not cloud and workspace is not None:
+        swanlog.warning("The `workspace` field is invalid in local mode")
     # 默认实验名称为当前目录名
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))
     # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
@@ -214,7 +216,7 @@ def init(
     # 初始化项目数据库
     Project.init(project)
     # ---------------------------------- 实例化实验 ----------------------------------
-    callbacks = CloudRunCallback(pool) if cloud else None
+    callbacks = CloudRunCallback(pool, login_info) if cloud else None
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -223,7 +225,6 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
-        pool=pool,
         callbacks=callbacks,
     )
     # ---------------------------------- 注册实验，开启线程 ----------------------------------
@@ -248,36 +249,12 @@ def init(
             pool.queue.put((UploadType.LOG, [message]))
 
         swanlog.set_write_callback(_write_call_call)
-    # ---------------------------------- 异常处理、程序清理 ----------------------------------
+    # ---------------------------------- 异常处理、程序清理回调 ----------------------------------
     sys.excepthook = except_handler
     # 注册清理函数
     atexit.register(clean_handler)
-    # ---------------------------------- 终端输出 ----------------------------------
-    if not cloud and workspace is not None:
-        swanlog.warning("The `workspace` field is invalid in local mode")
-    swanlog.debug("SwanLab Runtime has initialized")
-    swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
-    swanlog.info("Tracking run with swanlab version " + get_package_version())
-    swanlog.info("Run data will be saved locally in " + FONT.magenta(FONT.bold(formate_abs_path(run.settings.run_dir))))
-    not cloud and swanlog.info("Experiment_name: " + FONT.yellow(run.settings.exp_name))
-    # 云端版本有一些额外的信息展示
-    cloud and swanlog.info("👋 Hi " + FONT.bold(FONT.default(login_info.username)) + ", welcome to swanlab!")
-    cloud and swanlog.info("Syncing run " + FONT.yellow(run.settings.exp_name) + " to the cloud")
-    swanlog.info(
-        "🌟 Run `"
-        + FONT.bold("swanlab watch -l {}".format(formate_abs_path(run.settings.swanlog_dir)))
-        + "` to view SwanLab Experiment Dashboard locally"
-    )
-    if cloud:
-        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
-        experiment_url = project_url + f"/runs/{http.exp_id}"
-        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
-
-        # 在Jupyter Notebook环境下，显示按钮
-        if in_jupyter():
-            show_button_html(experiment_url)
-
+    # ---------------------------------- 实验开启，执行回调 ----------------------------------
+    run.callbacks.on_train_begin()
     return run
 
 
