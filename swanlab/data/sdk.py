@@ -386,7 +386,8 @@ def _init_logdir(logdir: str) -> str:
         os.environ[ROOT] = logdir
     # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
     else:
-        logdir = os.path.abspath("swanlog")
+        logdir = os.environ.get(ROOT) or os.path.join(os.getcwd(), "swanlog")
+        logdir = os.path.abspath(logdir)
         try:
             os.makedirs(logdir, exist_ok=True)
             if not os.access(logdir, os.W_OK):
