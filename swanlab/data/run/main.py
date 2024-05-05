@@ -187,6 +187,8 @@ class SwanLabRun:
                 print(error, file=fError)
         else:
             error = None
+        # 本地退出回调
+        run.callbacks.on_train_end()
         # 触发云端退出
         if run.cloud and not exiting_in_cloud:
             _before_exit_in_cloud(state, error=error)
