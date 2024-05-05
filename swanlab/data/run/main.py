@@ -32,6 +32,7 @@ from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Tuple, Callable, Optional, Dict
+from .callback import SwanLabRunCallback
 
 
 class SwanLabRunState(Enum):
@@ -59,7 +60,7 @@ class SwanLabRun:
         suffix: str = None,
         exp_num: int = None,
         pool: ThreadPool = None,
-        callbacks: Dict[str, Callable] = None
+        callbacks: SwanLabRunCallback = None
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -99,6 +100,8 @@ class SwanLabRun:
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
         self.__settings = SwanDataSettings(run_id=self.__run_id)
+        # 初始化回调
+        self.__callbacks = callbacks if callbacks is not None else SwanLabRunCallback()
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
         swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
@@ -112,8 +115,6 @@ class SwanLabRun:
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
         self.__pool = pool
-        # 设置回调函数
-        callbacks is not None and [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
 
         # 动态定义一个方法，用于修改实验状态
         def _(state: SwanLabRunState):
@@ -122,6 +123,12 @@ class SwanLabRun:
         global _change_run_state
         _change_run_state = _
         run = self
+        # 实验开启，执行回调
+        self.__callbacks.on_train_begin()
+
+    @property
+    def callbacks(self) -> SwanLabRunCallback:
+        return self.__callbacks
 
     @property
     def cloud(self) -> bool:
@@ -195,24 +202,6 @@ class SwanLabRun:
         atexit.unregister(clean_handler)
         sys.excepthook = sys.__excepthook__
         return _run
-
-    def set_metric_callback(self, callback: Callable):
-        """
-        设置实验指标回调函数，当新指标出现时，会调用此函数，只能设置一次，否则出现ValueError
-        :param callback: 回调函数
-
-        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
-        """
-        self.__exp.metric_callback = callback
-
-    def set_column_callback(self, callback: Callable):
-        """
-        设置实验列回调函数，当新列出现时，会调用此函数，只能设置一次，否则出现ValueError
-        :param callback: 回调函数
-
-        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
-        """
-        self.__exp.column_callback = callback
 
     @property
     def settings(self) -> SwanDataSettings:
@@ -390,7 +379,7 @@ class SwanLabRun:
         self.settings.description = description
         # 执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
-        return SwanLabExp(self.__settings, exp.id, exp=exp)
+        return SwanLabExp(self.__settings, exp.id, exp=exp, callbacks=self.__callbacks)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:

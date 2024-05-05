@@ -20,6 +20,7 @@ from .run import (
     except_handler,
     clean_handler,
 )
+from .run_callback import CloudRunCallback
 from .config import SwanLabConfig
 from .utils.file import check_dir_and_create, formate_abs_path
 from ..db import Project, connect, Experiment
@@ -29,7 +30,6 @@ from ..utils import FONT, check_load_json_yaml, check_proj_name_format
 from ..utils.key import get_key
 from ..utils.judgment import in_jupyter, show_button_html
 from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
-from swanlab.api.upload.model import ColumnModel
 from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
 from swanlab.error import KeyFileError, ApiError
 from swanlab.cloud import LogSnifferTask, ThreadPool
@@ -74,39 +74,6 @@ def _check_proj_name(name: str) -> str:
     if len(name) != len(_name):
         swanlog.warning(f"project name is too long, auto cut to {_name}")
     return _name
-
-
-def _create_metric_callback(pool: ThreadPool):
-    """
-    创建指标回调函数
-    """
-
-    def _metric_callback(is_scalar: dict, data):
-        """
-        上传指标回调函数
-        :param is_scalar: 是否为标量指标
-        :param data: 上传的指标
-        """
-        pool.queue.put((UploadType.SCALAR_METRIC if is_scalar else UploadType.MEDIA_METRIC, [data]))
-
-    return _metric_callback
-
-
-def _create_column_callback(pool: ThreadPool):
-    """
-    创建列回调函数
-    """
-
-    def _column_callback(key, data_type: str, error: Optional[Dict] = None):
-        """
-        上传列信息回调函数
-        :param key: 列名
-        :param data_type: 列数据类型
-        :param error: 错误信息
-        """
-        pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
-
-    return _column_callback
 
 
 def _is_inited():
@@ -247,11 +214,7 @@ def init(
     # 初始化项目数据库
     Project.init(project)
     # ---------------------------------- 实例化实验 ----------------------------------
-    # 如果是云端环境，设置回调函数
-    callbacks = (
-        None if not cloud else {"metric_callback": _create_metric_callback, "column_callback": _create_column_callback}
-    )
-
+    callbacks = CloudRunCallback(pool) if cloud else None
     # 注册实验
     run = register(
         experiment_name=experiment_name,
