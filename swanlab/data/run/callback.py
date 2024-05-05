@@ -68,4 +68,4 @@ class SwanLabRunCallback:
         pass
 
     def on_train_end(self, *args, **kwargs):
-        pass
+        self._command_tip_print()
