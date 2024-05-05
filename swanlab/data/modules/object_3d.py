@@ -10,7 +10,7 @@ Description:
 from .base import BaseType
 import numpy as np
 from typing import Union, ClassVar, Set, List, Optional
-from ..utils.file import get_file_hash_numpy_array, get_file_hash_path
+from ._utils import get_file_hash_numpy_array, get_file_hash_path
 import os
 import json
 import shutil

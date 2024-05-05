@@ -7,9 +7,7 @@ r"""
 @Description:
     在此处封装swanlab在日志记录模式下的各种接口
 """
-import atexit
 import os
-import sys
 from typing import Optional, Union, Dict
 from .modules import DataType
 from .run import (
@@ -17,23 +15,16 @@ from .run import (
     SwanLabRun,
     register,
     get_run,
-    except_handler,
-    clean_handler,
 )
-from .run_callback import CloudRunCallback
+from .callback_cloud import CloudRunCallback
+from .callback_local import LocalRunCallback
 from .config import SwanLabConfig
-from .utils.file import check_dir_and_create, formate_abs_path
-from ..db import Project, connect, Experiment
-from ..env import init_env, ROOT, get_swanlab_folder
+from ..db import Project, connect
+from ..env import init_env, ROOT
 from ..log import swanlog
-from ..utils import FONT, check_load_json_yaml, check_proj_name_format
-from ..utils.key import get_key
-from ..utils.judgment import in_jupyter, show_button_html
-from swanlab.api import create_http, get_http, code_login, LoginInfo, terminal_login
-from swanlab.package import version_limit, get_package_version, get_host_api, get_host_web
-from swanlab.error import KeyFileError, ApiError
-from swanlab.cloud import LogSnifferTask, ThreadPool
-from swanlab.cloud import UploadType
+from ..utils import check_load_json_yaml, check_proj_name_format
+from swanlab.api import code_login
+from swanlab.package import version_limit
 
 _config: Optional["SwanLabConfig"] = SwanLabConfig(None)
 """
@@ -42,12 +33,6 @@ Before calling the init() function, config cannot be read or written, even if it
 After calling the init() function, swanlab.config is equivalent to run.config.
 Configuration information synchronization is achieved through class variables.
 When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
-"""
-
-login_info = None
-"""
-Record user login information in the cloud environment.
-`swanlab.login` will assign or update this variable.
 """
 
 
@@ -94,8 +79,7 @@ def login(api_key: str = None):
     """
     if _is_inited():
         raise RuntimeError("You must call swanlab.login() before using init()")
-    global login_info
-    login_info = code_login(api_key) if api_key else _login_in_init()
+    CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.get_login_info()
 
 
 def init(
@@ -198,25 +182,16 @@ def init(
     version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
-    # 历史实验总数
-    exp_num = None
-    # ---------------------------------- 用户登录、格式、权限校验 ----------------------------------
-    global login_info
-    http, pool = None, None
-    if login_info is None and cloud:
-        # 用户登录
-        login_info = _login_in_init()
-    if cloud:
-        http = create_http(login_info)
-        exp_num = http.mount_project(project, workspace).history_exp_count
-        # 初始化、挂载线程池
-        pool = ThreadPool()
+    # 定义回调函数
+    callbacks = CloudRunCallback() if cloud else LocalRunCallback()
+    # ---------------------------------- 初始化项目 ----------------------------------
+    # 获取云端历史总数
+    exp_num = callbacks.before_init_project(project, workspace)
     # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
     connect(autocreate=True)
     # 初始化项目数据库
     Project.init(project)
     # ---------------------------------- 实例化实验 ----------------------------------
-    callbacks = CloudRunCallback(pool, login_info) if cloud else None
     # 注册实验
     run = register(
         experiment_name=experiment_name,
@@ -227,34 +202,6 @@ def init(
         exp_num=exp_num,
         callbacks=callbacks,
     )
-    # ---------------------------------- 注册实验，开启线程 ----------------------------------
-    if cloud:
-        # 注册实验信息
-        try:
-            get_http().mount_exp(
-                exp_name=run.settings.exp_name,
-                colors=run.settings.exp_colors,
-                description=run.settings.description,
-            )
-        except ApiError as e:
-            if e.resp.status_code == 409:
-                FONT.brush("", 50)
-                swanlog.error("The experiment name already exists, please change the experiment name")
-                Experiment.purely_delete(run_id=run.exp.db.run_id)
-                sys.exit(409)
-        sniffer = LogSnifferTask(run.settings.files_dir)
-        run.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
-
-        def _write_call_call(message):
-            pool.queue.put((UploadType.LOG, [message]))
-
-        swanlog.set_write_callback(_write_call_call)
-    # ---------------------------------- 异常处理、程序清理回调 ----------------------------------
-    sys.excepthook = except_handler
-    # 注册清理函数
-    atexit.register(clean_handler)
-    # ---------------------------------- 实验开启，执行回调 ----------------------------------
-    run.callbacks.on_train_begin()
     return run
 
 
@@ -296,21 +243,6 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     run.finish(state, error)
 
 
-def _login_in_init() -> LoginInfo:
-    """在init函数中登录"""
-    # 1. 如果没有登录，提示登录
-    # 2. 如果登录了，发起请求，如果请求失败，重新登录，返回步骤1
-    key = None
-    try:
-        key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
-    except KeyFileError:
-        fd = sys.stdin.fileno()
-        # 不是标准终端，且非jupyter环境，无法控制其回显
-        if not os.isatty(fd) and not in_jupyter():
-            raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
-    return terminal_login(key)
-
-
 def _init_logdir(logdir: str) -> str:
     """
     处理通过init传入的logdir存在的一些情况
@@ -318,7 +250,17 @@ def _init_logdir(logdir: str) -> str:
     # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
     if logdir is not None:
         try:
-            logdir = check_dir_and_create(logdir)
+            if not isinstance(logdir, str):
+                raise ValueError("path must be a string")
+            if not os.path.isabs(logdir):
+                logdir = os.path.abspath(logdir)
+            # 如果创建失败，也是抛出IOError
+            try:
+                os.makedirs(logdir, exist_ok=True)
+            except Exception as e:
+                raise IOError(f"create path: {logdir} failed, error: {e}")
+            if not os.access(logdir, os.W_OK):
+                raise IOError(f"no write permission for path: {logdir}")
         except ValueError:
             raise ValueError("logdir must be a str.")
         except IOError:
