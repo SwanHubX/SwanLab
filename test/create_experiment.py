@@ -10,18 +10,14 @@ r"""
     测试后的swanlog文件存放于test/temp/swanlog目录下
     WARNING 请勿随意修改此文件，以免影响测试效果
 """
-from tutils import SWANLAB_LOG_DIR, CONFIG
+from tutils import open_dev_mode
 import swanlab
 import time
 import random
 import numpy as np
-import os
-
-# 创建测试目录
-os.makedirs(SWANLAB_LOG_DIR, exist_ok=True)
 
 # 手动登录，所以要求config内写入的是测试环境的配置
-swanlab.login(api_key=CONFIG["api-key"])
+swanlab.login(api_key=open_dev_mode())
 
 epochs = 50
 lr = 0.01
@@ -32,7 +28,7 @@ swanlab.init(
     log_level="debug",
     config="test/config/config.json",
     load="test/config/load.yaml",
-    cloud=False,
+    cloud=True,
 )
 swanlab.config.epoches = epochs
 swanlab.config.learning_rate = lr

@@ -5,7 +5,7 @@ r"""
 @File: run_callback.py
 @IDE: pycharm
 @Description:
-    SwanLabRun回调函数
+    云端回调
 """
 from .run.callback import SwanLabRunCallback, NewKeyInfo
 from swanlab.cloud import UploadType
