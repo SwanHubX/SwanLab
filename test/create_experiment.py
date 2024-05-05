@@ -6,12 +6,22 @@ r"""
 @IDE: vscode
 @Description:
     创建一个文件，作为测试用例
+    为了不污染正式环境，在测试时需要切到测试/开发环境的配置文件
+    测试后的swanlog文件存放于test/temp/swanlog目录下
     WARNING 请勿随意修改此文件，以免影响测试效果
 """
+from tutils import SWANLAB_LOG_DIR, CONFIG
 import swanlab
 import time
 import random
 import numpy as np
+import os
+
+# 创建测试目录
+os.makedirs(SWANLAB_LOG_DIR, exist_ok=True)
+
+# 手动登录，所以要求config内写入的是测试环境的配置
+swanlab.login(api_key=CONFIG["api-key"])
 
 epochs = 50
 lr = 0.01
