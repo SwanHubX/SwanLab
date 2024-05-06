@@ -8,7 +8,7 @@ r"""
      视频数据解析
 """
 from .base import BaseType
-from ..utils.file import get_file_hash_numpy_array, get_file_hash_path
+from ._utils import get_file_hash_numpy_array, get_file_hash_path
 import os
 from typing import Union, List
 import logging

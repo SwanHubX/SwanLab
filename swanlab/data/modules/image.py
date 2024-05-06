@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image as PILImage
 from .base import BaseType
 from .utils_modules import BoundingBoxes, ImageMask
-from ..utils.file import get_file_hash_pil
+from ._utils import get_file_hash_pil
 from typing import Union, List, Dict, Any
 from io import BytesIO
 import os

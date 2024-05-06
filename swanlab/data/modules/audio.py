@@ -7,11 +7,8 @@ Description:
     音频数据解析
 """
 from .base import BaseType
-from ..utils.file import get_file_hash_numpy_array, get_file_hash_path
-import os
+from ._utils import get_file_hash_numpy_array, get_file_hash_path
 from typing import Union, List
-
-### 以下为音频数据解析的依赖库
 import soundfile as sf
 import numpy as np
 import json

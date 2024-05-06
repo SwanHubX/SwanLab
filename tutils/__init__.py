@@ -31,3 +31,13 @@ def init_db():
     clear()
     connect(autocreate=True)
     Project.init(name="pytest-swanlab", description="测试swanlab")
+
+
+def open_dev_mode() -> str:
+    """
+    开启开发模式，此时会返回开发环境的api-key并且创建测试目录
+    :return: api-key
+    """
+    # 创建测试目录
+    os.makedirs(SWANLAB_LOG_DIR, exist_ok=True)
+    return CONFIG['api-key']

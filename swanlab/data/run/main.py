@@ -17,21 +17,14 @@ from swanlab.utils.file import (
 from swanlab.db import Experiment, ExistedError, NotExistedError
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
-from swanlab.cloud import ThreadPool
-from swanlab.utils import FONT, create_time
-from swanlab.api import get_http
-from swanlab.api.upload import upload_logs
-import traceback
-import os
-import sys
 import time
 import random
-import atexit
 import ujson
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Tuple, Callable, Optional, Dict
+from .callback import SwanLabRunCallback, EmptyCallback
 
 
 class SwanLabRunState(Enum):
@@ -58,8 +51,7 @@ class SwanLabRun:
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
-        pool: ThreadPool = None,
-        callbacks: Dict[str, Callable] = None
+        callbacks: SwanLabRunCallback = None
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -84,8 +76,6 @@ class SwanLabRun:
             如果不提供此参数(为None)，不会添加后缀
         exp_num : int, optional
             历史实验总数，用于云端颜色与本地颜色的对应
-        pool : ThreadPool
-            线程池对象，用于云端同步，传入此对象，run.cloud将被设置为True
         callbacks : Dict[str, Callable]
             回调函数字典，key为回调函数名，value为回调函数
         """
@@ -99,6 +89,10 @@ class SwanLabRun:
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
         self.__settings = SwanDataSettings(run_id=self.__run_id)
+        # 初始化回调
+        self.__callbacks: SwanLabRunCallback = callbacks if callbacks is not None else EmptyCallback()
+        # 注入依赖
+        self.__callbacks.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
         swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
@@ -111,9 +105,6 @@ class SwanLabRun:
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
-        self.__pool = pool
-        # 设置回调函数
-        callbacks is not None and [setattr(self.__exp, key, call(self.pool)) for key, call in callbacks.items()]
 
         # 动态定义一个方法，用于修改实验状态
         def _(state: SwanLabRunState):
@@ -123,13 +114,12 @@ class SwanLabRun:
         _change_run_state = _
         run = self
 
-    @property
-    def cloud(self) -> bool:
-        return self.__pool is not None
+        # ---------------------------------- 初始化完成 ----------------------------------
+        self.__callbacks.on_train_begin()
 
     @property
-    def pool(self) -> ThreadPool:
-        return self.__pool
+    def callbacks(self) -> SwanLabRunCallback:
+        return self.__callbacks
 
     @property
     def state(self) -> SwanLabRunState:
@@ -185,34 +175,11 @@ class SwanLabRun:
                 print(error, file=fError)
         else:
             error = None
-        # 触发云端退出
-        if run.cloud and not exiting_in_cloud:
-            _before_exit_in_cloud(state, error=error)
-        # 重置控制台记录器
+        # 退出回调
+        run.callbacks.on_train_end(error)
         swanlog.uninstall()
         _run, run = run, None
-        # 删除回调
-        atexit.unregister(clean_handler)
-        sys.excepthook = sys.__excepthook__
         return _run
-
-    def set_metric_callback(self, callback: Callable):
-        """
-        设置实验指标回调函数，当新指标出现时，会调用此函数，只能设置一次，否则出现ValueError
-        :param callback: 回调函数
-
-        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
-        """
-        self.__exp.metric_callback = callback
-
-    def set_column_callback(self, callback: Callable):
-        """
-        设置实验列回调函数，当新列出现时，会调用此函数，只能设置一次，否则出现ValueError
-        :param callback: 回调函数
-
-        :raises: ValueError - 如果已经设置过回调函数，再次设置会抛出异常
-        """
-        self.__exp.column_callback = callback
 
     @property
     def settings(self) -> SwanDataSettings:
@@ -390,7 +357,7 @@ class SwanLabRun:
         self.settings.description = description
         # 执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
-        return SwanLabExp(self.__settings, exp.id, exp=exp)
+        return SwanLabExp(self.__settings, exp.id, exp=exp, callbacks=self.__callbacks)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:
@@ -432,10 +399,6 @@ class SwanLabRun:
 
 run: Optional["SwanLabRun"] = None
 """Global runtime instance. After the user calls finish(), run will be set to None."""
-exiting_in_cloud = False
-"""
-Indicates whether the program is exiting in the cloud environment.
-"""
 _change_run_state: Optional["Callable"] = None
 """
 修改实验状态的函数，用于在实验状态改变时调用
@@ -465,79 +428,3 @@ def get_run() -> Optional["SwanLabRun"]:
     """
     global run
     return run
-
-
-def _before_exit_in_cloud(state: SwanLabRunState, error: str = None):
-    """
-    在云端环境下，退出之前的处理，需要依次执行线程池中的回调
-
-    Parameters
-    ----------
-    state : SwanLabRunState
-        实验状态
-    """
-    global exiting_in_cloud
-    # 如果正在退出或者run对象为None或者不在云端环境下
-    if exiting_in_cloud or run is None or not run.cloud:
-        return
-    # 标志已经退出（需要在下面的逻辑之前标志）
-    exiting_in_cloud = True
-    sys.excepthook = except_handler
-
-    def _():
-        # 关闭线程池，等待上传线程完成
-        run.pool.finish()
-        # 上传错误日志
-        if error is not None:
-            msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
-            upload_logs(msg, level="ERROR")
-
-    FONT.loading("Waiting for uploading complete", _)
-    get_http().update_state(state == SwanLabRunState.SUCCESS)
-    exiting_in_cloud = False
-    return
-
-
-def clean_handler():
-    """
-    程序执行完毕后，清理资源，用于用户没有调用finish的情况
-    """
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    # 如果正在运行，且当前没有正在退出云端环境
-    if run.is_running and not exiting_in_cloud:
-        swanlog.info("Experiment {} has completed".format(FONT.yellow(run.settings.exp_name)))
-        run.finish(SwanLabRunState.SUCCESS)
-    else:
-        swanlog.debug("Duplicate finish, ignore it.")
-
-
-def except_handler(tp, val, tb):
-    """
-    定义异常处理函数，用于程序异常退出时的处理
-    此函数触发在clean_handler之前
-    """
-    if run is None:
-        return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-    if exiting_in_cloud:
-        # FIXME not a good way to fix '\n' problem
-        print("")
-        swanlog.error("Aborted uploading by user")
-        sys.exit(1)
-    # 如果是KeyboardInterrupt异常
-    if tp == KeyboardInterrupt:
-        swanlog.error("KeyboardInterrupt by user")
-    else:
-        swanlog.error("Error happened while training")
-    # 追踪信息
-    trace_list = traceback.format_tb(tb)
-    html = repr(tp) + "\n"
-    html += repr(val) + "\n"
-    for line in trace_list:
-        html += line + "\n"
-    if os.path.exists(run.settings.error_path):
-        swanlog.warning("Error log file already exists, append error log to it")
-    # 标记实验失败
-    run.finish(SwanLabRunState.CRASHED, error=html)
-    if tp != KeyboardInterrupt:
-        raise tp(val)
