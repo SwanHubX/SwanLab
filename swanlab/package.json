@@ -4,7 +4,7 @@
   "description": "",
   "python": "true",
   "host": {
-    "web": "https://dev101.swanlab.cn",
-    "api": "https://dev101.swanlab.cn/api"
+    "web": "https://swanlab.cn",
+    "api": "https://swanlab.cn/api"
   }
 }
