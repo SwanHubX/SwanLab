@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://dev101.swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.dev101.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">Changelog</a>
+<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">Changelog</a>
 
 
 </p>
@@ -13,7 +13,7 @@
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab"></a>
   <a href="https://github.com/swanhubx/swanlab/issues"><img alt="issues" src="https://img.shields.io/github/issues/swanhubx/swanlab"></a>
   <br>
-  <a href="https://dev101.swanlab.cn" target="_blank">
+  <a href="https://swanlab.cn" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
   <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
@@ -113,9 +113,9 @@ pip install swanlab
 
 ### 2.Log in and get the API Key
 
-1. **Free [Sign Up](https://dev101.swanlab.cn)** 
+1. **Free [Sign Up](https://swanlab.cn)** 
 
-2. **Log in to your account**, go to User Settings > [API Key](https://dev101.swanlab.cn/settings) and copy your API Key.
+2. **Log in to your account**, go to User Settings > [API Key](https://swanlab.cn/settings) and copy your API Key.
 
 3. **Open your terminal and enter**:
 
@@ -141,7 +141,7 @@ for i in range(10):
     swanlab.log({"loss": i})
 ```
 
-**All set!** Visit [SwanLab](https://dev101.swanlab.cn) to see your first SwanLab experiment.
+**All set!** Visit [SwanLab](https://swanlab.cn) to see your first SwanLab experiment.
 
 ![MNIST](/readme_files/readme-mnist.png)
 
@@ -519,7 +519,7 @@ Visit this link to view the experiment offline in the browser dashboard.
 
 ## 🚗 Integration
 
-Combine your favorite framework with SwanLab, [More Integration](https://docs.dev101.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html).
+Combine your favorite framework with SwanLab, [More Integration](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html).
 
 <details>
   <summary>
@@ -756,6 +756,7 @@ If you find SwanLab helpful for your research journey, please consider citing in
 ```bibtex
 @software{Zeyilin_SwanLab_2023,
   author = {Zeyi Lin, Shaohong Chen, Kang Li, Qiushan Jiang, Zirui Cai,  Kaifang Ji and {The SwanLab team}},
+  doi = {10.5281/zenodo.11100550},
   license = {Apache-2.0},
   title = {{SwanLab}},
   url = {https://github.com/swanhubx/swanlab},

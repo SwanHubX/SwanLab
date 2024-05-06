@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://dev101.swanlab.cn">SwanLab在线版</a> · <a href="https://docs.dev101.swanlab.cn">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a>  · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">更新日志</a>
+<a href="https://swanlab.cn">SwanLab在线版</a> · <a href="https://docs.swanlab.cn">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a>  · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">更新日志</a>
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab"></a>
   <a href="https://github.com/swanhubx/swanlab/issues"><img alt="issues" src="https://img.shields.io/github/issues/swanhubx/swanlab"></a> 
   <br>
-  <a href="https://dev101.swanlab.cn" target="_blank">
+  <a href="https://swanlab.cn" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
   <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
@@ -112,9 +112,9 @@ pip install swanlab
 
 ### 2.登录并获取API Key
 
-1. 免费[注册账号](https://dev101.swanlab.cn)
+1. 免费[注册账号](https://swanlab.cn)
 
-2. 登录账号，在用户设置 > [API Key](https://dev101.swanlab.cn/settings) 里复制您的API Key
+2. 登录账号，在用户设置 > [API Key](https://swanlab.cn/settings) 里复制您的API Key
 
 3. 打开终端，输入：
 
@@ -140,7 +140,7 @@ for i in range(10):
     swanlab.log({"loss": i})
 ```
 
-大功告成！前往[SwanLab](https://dev101.swanlab.cn)查看你的第一个SwanLab实验。
+大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个SwanLab实验。
 
 ![MNIST](readme_files/readme-mnist.png)
 
@@ -521,7 +521,7 @@ swanlab watch -l ./logs
 
 ## 🚗 框架集成
 
-将您最喜欢的框架与SwanLab结合使用，[更多集成](https://docs.dev101.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)。
+将您最喜欢的框架与SwanLab结合使用，[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)。
 
 <details>
   <summary>
@@ -750,6 +750,7 @@ trainer.train()
 ```bibtex
 @software{Zeyilin_SwanLab_2023,
   author = {Zeyi Lin, Shaohong Chen, Kang Li, Qiushan Jiang, Zirui Cai,  Kaifang Ji and {The SwanLab team}},
+  doi = {10.5281/zenodo.11100550},
   license = {Apache-2.0},
   title = {{SwanLab}},
   url = {https://github.com/swanhubx/swanlab},
