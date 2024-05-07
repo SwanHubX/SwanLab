@@ -58,7 +58,7 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
  * @param {number} min 区间最小值，绝对值小于这个区间的值，统一使用科学计数法（不包括0）
  * @returns {string} 格式化后的数据
  */
-export const formatNumber2SN = (value, max = 1e13, min = 1e-7, digits = 4) => {
+export const formatNumber2SN = (value, max = 1e5, min = 1e-5, digits = 4) => {
   // 如果一个传入的数字的小数点后ignore_digits位全为0，那么把这个数当作整数来处理
   const ignore_digits = digits + 6
   // 将传入的数据转换为Number
