@@ -9,17 +9,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from swanlab.db import (
-    Tag,
-    Namespace,
-    Chart,
-    Source,
-    Experiment,
-    Display,
-    ExistedError,
-    ChartTypeError,
-    add_multi_chart
-)
+from swanlab.db import Tag, Namespace, Chart, Source, Experiment, Display, ExistedError, ChartTypeError, add_multi_chart
 from .callback import SwanLabRunCallback, NewKeyInfo
 
 
@@ -98,9 +88,13 @@ class SwanLabExp:
             result = tag_obj.create_chart(tag, data)
             # 创建新列，生成回调
             self.__callbacks.on_column_create(*result)
+
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
-            return swanlog.warning(f"Chart {tag} has been marked as error, ignored.")
+            return swanlog.warning(
+                f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is int ,float or BaseType, but the input type is {type(data)}. "
+            )
+
         # 添加tag信息
         key_info = tag_obj.add(data, step)
         # 调用回调函数
@@ -203,7 +197,9 @@ class SwanLabTag:
         try:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
-            return swanlog.warning(f"Data {data} on tag {self.tag} cannot be converted.")
+            return swanlog.warning(
+                f"Log failed. Reason: Data {data} on tag '{self.tag}' cannot be converted .It should be an int, float, or a DataType, but it is {type(data)}), please check the data type. "
+            )
         is_nan = self.__is_nan(data)
         if not is_nan:
             # 如果数据比之前的数据小，则更新最小值，否则不更新
