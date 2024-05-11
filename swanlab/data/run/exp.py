@@ -198,7 +198,7 @@ class SwanLabTag:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
             return swanlog.warning(
-                f"Log failed. Reason: Data {data} on tag '{self.tag}' cannot be converted .It should be an int, float, or a DataType, but it is {type(data)}), please check the data type. "
+                f"Log failed. Reason: Data {data} on tag '{self.tag}' (step {step}) cannot be converted .It should be an int, float, or a DataType, but it is {type(data)}, please check the data type. "
             )
         is_nan = self.__is_nan(data)
         if not is_nan:
