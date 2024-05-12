@@ -62,7 +62,7 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
 
-    def on_train_begin(self, *args, **kwargs):
+    def on_train_begin(self):
         """
         训练开始，注册系统回调
         """
@@ -87,4 +87,10 @@ class LocalRunCallback(SwanLabRunCallback):
         pass
 
     def on_column_create(self, *args, **kwargs):
+        pass
+
+    def before_init_experiment(self, *args, **kwargs):
+        pass
+
+    def on_log(self, *args, **kwargs):
         pass

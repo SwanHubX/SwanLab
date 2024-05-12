@@ -18,12 +18,13 @@ from .run import (
 )
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
+from .run.operator import SwanLabRunOperator
 from .config import SwanLabConfig
-from ..db import Project, connect
-from ..env import init_env, ROOT
-from ..log import swanlog
-from ..utils import check_load_json_yaml, check_proj_name_format
+from swanlab.env import init_env, ROOT
+from swanlab.log import swanlog
+from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
+from swanlab.db import GlomCallback
 from swanlab.package import version_limit
 
 _config: Optional["SwanLabConfig"] = SwanLabConfig(None)
@@ -182,15 +183,10 @@ def init(
     version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
-    # 定义回调函数
-    callbacks = CloudRunCallback() if cloud else LocalRunCallback()
+    # 定义operator
+    operator = _create_operator(cloud)
     # ---------------------------------- 初始化项目 ----------------------------------
-    # 获取云端历史总数
-    exp_num = callbacks.before_init_project(project, workspace)
-    # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
-    connect(autocreate=True)
-    # 初始化项目数据库
-    Project.init(project)
+    exp_num = operator.before_init_project(project, workspace)
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
@@ -200,7 +196,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
-        callbacks=callbacks,
+        operator=operator,
     )
     return run
 
@@ -303,3 +299,12 @@ def _load_data(load_data: dict, key: str, value):
     #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
     #     print(FONT.swanlab(tip))
     return d
+
+
+def _create_operator(cloud: bool = True):
+    """
+    创建SwanLabRunOperator实例
+    """
+    c = CloudRunCallback() if cloud else LocalRunCallback()
+    callbacks = [c, GlomCallback()]
+    return SwanLabRunOperator(callbacks)

@@ -10,21 +10,15 @@ r"""
 from ..settings import SwanDataSettings
 from ..system import get_system_info, get_requirements
 from swanlab.log import swanlog
-from swanlab.utils.file import (
-    check_exp_name_format,
-    check_desc_format,
-)
-from swanlab.db import Experiment, ExistedError, NotExistedError
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
-import time
 import random
 import ujson
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
-from typing import Tuple, Callable, Optional, Dict
-from .operator import SwanLabRunOperator, SwanLabRunCallback
+from typing import Callable, Optional, Dict
+from .operator import SwanLabRunOperator
 
 
 class SwanLabRunState(Enum):
@@ -51,7 +45,7 @@ class SwanLabRun:
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
-        callbacks: SwanLabRunCallback = None
+        operator: SwanLabRunOperator = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -76,8 +70,8 @@ class SwanLabRun:
             如果不提供此参数(为None)，不会添加后缀
         exp_num : int, optional
             历史实验总数，用于云端颜色与本地颜色的对应
-        callbacks : Dict[str, Callable]
-            回调函数字典，key为回调函数名，value为回调函数
+        operator : SwanLabRunOperator, optional
+            实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
         """
         global run
         if run is not None:
@@ -90,7 +84,7 @@ class SwanLabRun:
         # 初始化配置
         self.__settings = SwanDataSettings(run_id=self.__run_id)
         # 操作员初始化
-        self.__operator = SwanLabRunOperator(callbacks)
+        self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
@@ -99,8 +93,6 @@ class SwanLabRun:
         # 给外部1个config
         self.__config = SwanLabConfig(config, self.__settings)
         # ---------------------------------- 注册实验 ----------------------------------
-        # 校验描述格式
-        description = self.__check_description(description)
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
@@ -223,17 +215,7 @@ class SwanLabRun:
         """
         if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
-        # 每一次log的时候检查一下数据库中的实验状态
-        # 如果实验状态不为0，说明实验已经结束，不允许再次调用log方法
-        # 这意味着每次log都会进行查询，比较消耗性能，后续考虑采用多进程共享内存的方式进行优化
-        swanlog.debug(f"Check experiment and state...")
-        try:
-            exp = Experiment.get(self.__exp.id)
-        except NotExistedError:
-            raise KeyboardInterrupt("The experiment has been deleted by the user")
-        # 此时self.__state == 0，说明是前端主动停止的
-        if exp.status != 0:
-            raise KeyboardInterrupt("The experiment has been stopped by the user")
+        self.__operator.on_log()
 
         if not isinstance(data, dict):
             return swanlog.error(
@@ -262,63 +244,6 @@ class SwanLabRun:
         """此类的字符串表示"""
         return self.__run_id
 
-    @staticmethod
-    def __get_exp_name(experiment_name: str = None, suffix: str = None) -> Tuple[str, str]:
-        """
-        预处理实验名称，如果实验名称过长，截断
-
-        Parameters
-        ----------
-        experiment_name : str
-            实验名称
-        suffix : str
-            实验名称后缀添加方式，可以为None、"default"或自由后缀，前者代表不添加后缀，后者代表添加时间戳后缀
-
-        Returns
-        ----------
-        experiment_name : str
-            校验后的实验名称
-        exp_name : str
-            最终的实验名称
-        """
-        # ---------------------------------- 校验实验名称 ----------------------------------
-        experiment_name = "exp" if experiment_name is None else experiment_name
-        # 校验实验名称
-        experiment_name_checked = check_exp_name_format(experiment_name)
-        # 如果实验名称太长的tip
-        tip = "The experiment name you provided is too long, it has been truncated automatically."
-
-        # 如果前后长度不一样，说明实验名称被截断了，提醒
-        if len(experiment_name_checked) != len(experiment_name) and suffix is None:
-            swanlog.warning(tip)
-
-        # 如果suffix为None, 则不添加后缀，直接返回
-        if suffix is None or suffix is False:
-            return experiment_name_checked, experiment_name
-
-        # 如果suffix为True, 则添加默认后缀
-        if suffix is True:
-            suffix = "default"
-
-        # suffix必须是字符串
-        if not isinstance(suffix, str):
-            raise TypeError("The suffix must be a string, but got {}".format(type(suffix)))
-
-        # 如果suffix_checked为default，则设置为默认后缀
-        if suffix.lower().strip() == "default":
-            # 添加默认后缀
-            default_suffix = "{}".format(datetime.now().strftime("%b%d_%H-%M-%S"))
-            exp_name = "{}_{}".format(experiment_name_checked, default_suffix)
-        else:
-            exp_name = "{}_{}".format(experiment_name_checked, suffix)
-
-        # 校验实验名称，如果实验名称过长，截断
-        experiment_name_checked = check_exp_name_format(exp_name)
-        if len(experiment_name_checked) != len(exp_name):
-            swanlog.warning(tip)
-
-        return experiment_name_checked, exp_name
-
     def __register_exp(
         self,
         experiment_name: str,
@@ -329,34 +254,38 @@ class SwanLabRun:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
         """
-        # 这个循环的目的是如果创建失败则等零点五秒重新生成后缀重新创建，直到创建成功
-        # 但是由于需要考虑suffix为none不生成后缀的情况，所以需要在except中判断一下
-        old = experiment_name
-        exp = None
-        while True:
-            experiment_name, exp_name = self.__get_exp_name(old, suffix)
-            try:
-                # 获得数据库实例
-                exp = Experiment.create(name=exp_name, run_id=self.__run_id, description=description, num=num)
-                break
-            except ExistedError:
-                # 如果suffix名为default，说明是自动生成的后缀，需要重新生成后缀
-                if isinstance(suffix, str) and suffix.lower().strip() == "default":
-                    swanlog.debug(f"Experiment {exp_name} has existed, try another name...")
-                    time.sleep(0.5)
-                    continue
-                # 其他情况下，说明是用户自定义的后缀，需要报错
-                else:
-                    Experiment.purely_delete(run_id=self.__run_id)
-                    raise ExistedError(f"Experiment {exp_name} has existed in local, please try another name.")
 
-        # 实验创建成功，设置实验相关信息
-        self.__settings.exp_name = exp_name
-        self.settings.exp_colors = (exp.light, exp.dark)
-        self.settings.description = description
-        # 执行一些记录操作
-        self.__record_exp_config()  # 记录实验配置
-        return SwanLabExp(self.__settings, exp.id, exp=exp, operator=self.__operator)
+        # ---------------------------------- 初始化实验 ----------------------------------
+
+        def setter(exp_name: str, light_color: str, dark_color: str, desc: str):
+            """
+            设置实验相关信息
+            :param exp_name: 实验名称
+            :param light_color: 亮色
+            :param dark_color: 暗色
+            :param desc: 实验描述
+            :return:
+            """
+            # 实验创建成功，设置实验相关信息
+            self.__settings.exp_name = exp_name
+            self.settings.exp_colors = (light_color, dark_color)
+            self.settings.description = desc
+
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, suffix, setter)
+
+        # ---------------------------------- 记录系统信息 ----------------------------------
+        requirements_path = self.__settings.requirements_path
+        metadata_path = self.__settings.metadata_path
+        # 将实验依赖存入 requirements.txt
+        with open(requirements_path, "w") as f:
+            f.write(get_requirements())
+        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
+        with open(metadata_path, "w") as f:
+            ujson.dump(get_system_info(self.__settings), f)
+
+        # ---------------------------------- 生成运行实例 ----------------------------------
+
+        return SwanLabExp(self.__settings, operator=self.__operator)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:
@@ -369,31 +298,6 @@ class SwanLabRun:
         else:
             swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
             return "info"
-
-    @staticmethod
-    def __check_description(description: str) -> str:
-        """检查实验描述是否合法"""
-        if description is None:
-            return ""
-        desc = check_desc_format(description)
-        if desc != description:
-            swanlog.warning("The description has been truncated automatically.")
-        return desc
-
-    def __record_exp_config(self):
-        """创建实验配置目录 files
-        - 创建 files 目录
-        - 将实验环境写入 files/swanlab-metadata.json 中
-        - 将实验依赖写入 files/requirements.txt 中
-        """
-        requirements_path = self.__settings.requirements_path
-        metadata_path = self.__settings.metadata_path
-        # 将实验依赖存入 requirements.txt
-        with open(requirements_path, "w") as f:
-            f.write(get_requirements())
-        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
-        with open(metadata_path, "w") as f:
-            ujson.dump(get_system_info(self.__settings), f)
 
 
 run: Optional["SwanLabRun"] = None
@@ -417,8 +321,6 @@ def _set_run_state(state: SwanLabRunState):
         state = SwanLabRunState.CRASHED
     # 设置state
     _change_run_state(state)
-    # 更新数据库中的实验状态
-    run.exp.db.update_status(state.value)
 
 
 def get_run() -> Optional["SwanLabRun"]:

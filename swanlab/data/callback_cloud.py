@@ -7,9 +7,8 @@ r"""
 @Description:
     云端回调
 """
-from .run.callback import NewKeyInfo
+from .run.callback import NewKeyInfo, ColumnInfo
 from swanlab.cloud import UploadType
-from typing import Optional, Dict
 from swanlab.error import ApiError
 from swanlab.api.upload.model import ColumnModel
 from urllib.parse import quote
@@ -45,7 +44,7 @@ class CloudRunCallback(LocalRunCallback):
         标记是否正在退出云端环境
         """
 
-    def before_init_project(self, project: str, workspace: str, *args, **kwargs) -> int:
+    def before_init_project(self, project: str, workspace: str) -> int:
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
             self.login_info = self.get_login_info()
@@ -165,8 +164,10 @@ class CloudRunCallback(LocalRunCallback):
         data = (new_data, key, data_type, static_dir)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
 
-    def on_column_create(self, key, data_type: str, error: Optional[Dict] = None):
-        self.pool.queue.put((UploadType.COLUMN, [ColumnModel(key, data_type.upper(), error)]))
+    def on_column_create(self, column_info: ColumnInfo):
+        self.pool.queue.put(
+            (UploadType.COLUMN, [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)])
+        )
 
     @classmethod
     def get_login_info(cls):

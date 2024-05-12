@@ -7,9 +7,27 @@ r"""
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-from typing import List, Union
+from typing import List, Union, Callable
 from .callback import SwanLabRunCallback
 from ..settings import SwanDataSettings
+
+
+def fmt_return(func):
+    """
+    对返回值进行格式化，如果返回值是一个列表，那么就返回最后一个不是None的值，否则直接返回
+    如果所有的值都是None，那么返回None
+    """
+
+    def wrapper(*args, **kwargs):
+        rets = func(*args, **kwargs)
+        if isinstance(rets, list):
+            for ret in rets:
+                if ret is not None:
+                    return ret
+            return None
+        return rets
+
+    return wrapper
 
 
 class SwanLabRunOperator(SwanLabRunCallback):
@@ -27,22 +45,35 @@ class SwanLabRunOperator(SwanLabRunCallback):
 
     def inject(self, settings: SwanDataSettings):
         self.settings = settings
-        [callback.inject(settings) for callback in self.callbacks]
+        return [callback.inject(settings) for callback in self.callbacks]
 
     def add_callback(self, callback: SwanLabRunCallback):
         self.callbacks.append(callback)
 
+    @fmt_return
+    def before_init_experiment(self, *args, **kwargs):
+        return [callback.before_init_experiment(*args, **kwargs) for callback in self.callbacks]
+
+    @fmt_return
     def before_init_project(self, *args, **kwargs):
-        [callback.before_init_project(*args, **kwargs) for callback in self.callbacks]
+        return [callback.before_init_project(*args, **kwargs) for callback in self.callbacks]
 
-    def on_train_begin(self, *args, **kwargs):
-        [callback.on_train_begin(*args, **kwargs) for callback in self.callbacks]
+    @fmt_return
+    def on_log(self, *args, **kwargs):
+        return [callback.on_log(*args, **kwargs) for callback in self.callbacks]
 
+    @fmt_return
+    def on_train_begin(self):
+        return [callback.on_train_begin() for callback in self.callbacks]
+
+    @fmt_return
     def on_train_end(self, *args, **kwargs):
-        [callback.on_train_end(*args, **kwargs) for callback in self.callbacks]
+        return [callback.on_train_end(*args, **kwargs) for callback in self.callbacks]
 
+    @fmt_return
     def on_metric_create(self, *args, **kwargs):
-        [callback.on_metric_create(*args, **kwargs) for callback in self.callbacks]
+        return [callback.on_metric_create(*args, **kwargs) for callback in self.callbacks]
 
+    @fmt_return
     def on_column_create(self, *args, **kwargs):
-        [callback.on_column_create(*args, **kwargs) for callback in self.callbacks]
+        return [callback.on_column_create(*args, **kwargs) for callback in self.callbacks]

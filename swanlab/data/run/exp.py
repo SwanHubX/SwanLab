@@ -2,15 +2,14 @@ import json
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import BaseType, DataType
 from swanlab.log import swanlog
-from typing import Dict, Tuple, Union, Optional
+from typing import Dict, Union, Tuple
 from swanlab.utils import create_time
 from swanlab.utils.file import check_tag_format
 from urllib.parse import quote
 import ujson
 import os
 import math
-from swanlab.db import Tag, Namespace, Chart, Source, Experiment, Display, ExistedError, ChartTypeError, add_multi_chart
-from .callback import NewKeyInfo
+from .callback import NewKeyInfo, ColumnInfo
 from .operator import SwanLabRunOperator
 
 
@@ -20,27 +19,21 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanDataSettings, expid: int, exp: Experiment, operator: SwanLabRunOperator) -> None:
+    def __init__(self, settings: SwanDataSettings, operator: SwanLabRunOperator) -> None:
         """初始化实验
 
         Parameters
         ----------
         settings : SwanDataSettings
             全局运行时配置
-        expid : int
-            实验id
-        exp : Experiment
-            数据库实例，代表当前实验行
+        operator : SwanLabRunOperator
+            操作员
         """
         self.settings = settings
         if not os.path.exists(self.settings.log_dir):
             os.mkdir(self.settings.log_dir)
         # 当前实验的所有tag数据字段
         self.tags: Dict[str, SwanLabTag] = {}
-        self.id = expid
-        """此实验对应的id，实际上就是db.id"""
-        self.db: Experiment = exp
-        """此实验对应的数据库实例"""
         self.__operator = operator
         """回调函数"""
 
@@ -76,7 +69,7 @@ class SwanLabExp:
         """
         if tag_obj is None:
             # 将此tag对象添加到实验列表中
-            tag_obj = SwanLabTag(self.id, tag, self.settings.log_dir)
+            tag_obj = SwanLabTag(tag, self.settings.log_dir)
             self.tags[tag] = tag_obj
             """
             由于添加图表的同时会尝试转换data的类型，但这在注入step之前
@@ -112,26 +105,22 @@ class SwanLabTag:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, experiment_id, tag: str, log_dir: str) -> None:
+    def __init__(self, tag: str, log_dir: str) -> None:
         """
         初始化tag对象
 
         Parameters
         ----------
-        experiment_id : int
-            实验id
         tag : str
             tag名称
         log_dir : str
             log文件夹路径
         """
-        self.experiment_id = experiment_id
         self.tag = tag
         self.__steps = set()
-        """此tag已经包含的steps步骤
         """
-        self.__chart = None
-        """当前tag的图表配置"""
+        此tag已经包含的steps步骤
+        """
         self.__log_dir = log_dir
         """存储文件夹路径"""
         self.data_types = [float, int]
@@ -140,12 +129,11 @@ class SwanLabTag:
         """数据概要总结"""
         self.__data = self.__new_tags()
         """当前tag的数据"""
-        self.__namespace = None
-        """当前tag自动生成图表的命名空间"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
         self.data_type = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
+        self.__created = False
 
     @property
     def sum(self):
@@ -252,7 +240,7 @@ class SwanLabTag:
             os.mkdir(path)
         return path
 
-    def create_chart(self, tag: str, data: DataType) -> Tuple[str, str, Optional[Dict]]:
+    def create_chart(self, tag: str, data: DataType) -> Tuple[ColumnInfo]:
         """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
         此方法只能执行一次
         具体步骤是：
@@ -263,8 +251,9 @@ class SwanLabTag:
         :returns tag, chart_type, error
         [WARNING] 返回位置需与回调函数入参位置一致
         """
-        if self.__namespace is not None or self.__chart is not None:
+        if self.__created:
             raise ValueError(f"Chart {tag} has been created, cannot create again.")
+        self.__created = True
 
         # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
         if not isinstance(data, BaseType):
@@ -278,27 +267,6 @@ class SwanLabTag:
             chart_type, self.data_types = types
             sort = None
             data_type = data.__class__.__name__.lower()
-        # 创建chart
-        self.__chart: Chart = Chart.create(
-            tag,
-            experiment_id=self.experiment_id,
-            type=chart_type,
-            reference=reference,
-            config=config,
-        )
-        # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
-        # 需要指定sort，default命名空间的sort为0，其他命名空间的sort为None，表示默认添加到最后
-        try:
-            # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
-            if len(tag.split("/")) > 1:
-                namespace = tag.split("/")[0]
-            self.__namespace = Namespace.create(name=namespace, experiment_id=self.experiment_id, sort=sort)
-            swanlog.debug(f"Namespace {namespace} created, id: {self.__namespace.id}")
-        except ExistedError:
-            self.__namespace: Namespace = Namespace.get(name=namespace, experiment_id=self.experiment_id)
-            swanlog.debug(f"Namespace {namespace} exists, id: {self.__namespace.id}")
-        # 创建display，这个必然是成功的，因为display是唯一的，直接添加到最后一条即可
-        Display.create(chart_id=self.__chart.id, namespace_id=self.__namespace.id)
         """
         接下来判断tag格式的正确性，判断完毕后往source中添加一条tag记录
         在此函数中，只判断tag的格式是否正确，不记录数据
@@ -325,22 +293,10 @@ class SwanLabTag:
         if self.__is_nan(data):
             """如果data是nan，生成error并保存"""
             error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
-        tag: Tag = Tag.create(
-            experiment_id=self.experiment_id,
-            name=tag,
-            # 如果data是BaseType类型，使用data的小写类名，否则使用default
-            type=data_type,
-        )
         self.data_type = data_type
-        # 添加一条source记录
-        Source.create(tag_id=tag.id, chart_id=self.__chart.id, error=error)
         self.__error = error
-        # 新建多实验对比图表数据
-        try:
-            add_multi_chart(tag_id=tag.id, chart_id=self.__chart.id)
-        except ChartTypeError:
-            swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
-        return tag.name, chart_type, error
+        column_info = ColumnInfo(tag, namespace, data_type, chart_type, sort, error, reference, config)
+        return (column_info,)
 
     @staticmethod
     def __new_tag(index, data, more: dict = None) -> dict:

@@ -7,7 +7,7 @@ r"""
 @Description:
     回调函数注册抽象类
 """
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Callable, Dict
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import DataType
 from abc import ABC, abstractmethod
@@ -24,6 +24,32 @@ NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 新的key对象、数据类型、步数、行数
 为None代表没有添加新的key
 """
+
+
+class ColumnInfo:
+    """
+    列信息
+    """
+
+    def __init__(
+        self,
+        key: str,
+        namespace: str,
+        data_type: str,
+        chart_type: str,
+        sort: int,
+        error: Optional[Dict] = None,
+        reference: Optional[str] = None,
+        config: Optional[Dict] = None
+    ):
+        self.key = key
+        self.namespace = namespace
+        self.data_type = data_type
+        self.chart_type = chart_type
+        self.error = error
+        self.reference = reference if reference is not None else "step"
+        self.sort = sort
+        self.config = config if config is not None else {}
 
 
 class SwanLabRunCallback(ABC):
@@ -122,35 +148,57 @@ class SwanLabRunCallback(ABC):
         pass
 
     @abstractmethod
-    def before_init_project(self, *args, **kwargs):
+    def before_init_project(self, proj_name: str, workspace: str):
         """
         在执行业务逻辑之前调用
         """
         pass
 
     @abstractmethod
-    def on_train_begin(self, *args, **kwargs):
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        suffix: str,
+        setter: Callable[[str, str, str, str], None]
+    ):
+        """
+        在初始化实验之前调用
+        """
+        pass
+
+    @abstractmethod
+    def on_log(self):
+        """
+        每次执行swanlab.log时调用
+        """
+        pass
+
+    @abstractmethod
+    def on_train_begin(self):
         """
         训练开始时的回调函数
         """
         pass
 
     @abstractmethod
-    def on_train_end(self, *args, **kwargs):
+    def on_train_end(self, error: str = None):
         """
         训练结束时的回调函数
         """
         pass
 
     @abstractmethod
-    def on_metric_create(self, *args, **kwargs):
+    def on_metric_create(self, key: str, key_info: NewKeyInfo, static_dir: str):
         """
         指标创建回调函数,新增指标信息时调用
         """
         pass
 
     @abstractmethod
-    def on_column_create(self, *args, **kwargs):
+    def on_column_create(self, column_info: ColumnInfo):
         """
         列创建回调函数,新增列信息时调用
         """
