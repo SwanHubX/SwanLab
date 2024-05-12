@@ -24,7 +24,7 @@ from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Tuple, Callable, Optional, Dict
-from .callback import SwanLabRunCallback, EmptyCallback
+from .operator import SwanLabRunOperator, SwanLabRunCallback
 
 
 class SwanLabRunState(Enum):
@@ -89,10 +89,9 @@ class SwanLabRun:
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 初始化配置
         self.__settings = SwanDataSettings(run_id=self.__run_id)
-        # 初始化回调
-        self.__callbacks: SwanLabRunCallback = callbacks if callbacks is not None else EmptyCallback()
-        # 注入依赖
-        self.__callbacks.inject(self.__settings)
+        # 操作员初始化
+        self.__operator = SwanLabRunOperator(callbacks)
+        self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
         swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
@@ -115,11 +114,11 @@ class SwanLabRun:
         run = self
 
         # ---------------------------------- 初始化完成 ----------------------------------
-        self.__callbacks.on_train_begin()
+        self.__operator.on_train_begin()
 
     @property
-    def callbacks(self) -> SwanLabRunCallback:
-        return self.__callbacks
+    def operator(self) -> SwanLabRunOperator:
+        return self.__operator
 
     @property
     def state(self) -> SwanLabRunState:
@@ -176,7 +175,7 @@ class SwanLabRun:
         else:
             error = None
         # 退出回调
-        run.callbacks.on_train_end(error)
+        run.operator.on_train_end(error)
         swanlog.uninstall()
         _run, run = run, None
         return _run
@@ -357,7 +356,7 @@ class SwanLabRun:
         self.settings.description = description
         # 执行一些记录操作
         self.__record_exp_config()  # 记录实验配置
-        return SwanLabExp(self.__settings, exp.id, exp=exp, callbacks=self.__callbacks)
+        return SwanLabExp(self.__settings, exp.id, exp=exp, operator=self.__operator)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:

@@ -10,7 +10,8 @@ import ujson
 import os
 import math
 from swanlab.db import Tag, Namespace, Chart, Source, Experiment, Display, ExistedError, ChartTypeError, add_multi_chart
-from .callback import SwanLabRunCallback, NewKeyInfo
+from .callback import NewKeyInfo
+from .operator import SwanLabRunOperator
 
 
 class SwanLabExp:
@@ -19,7 +20,7 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanDataSettings, expid: int, exp: Experiment, callbacks: SwanLabRunCallback) -> None:
+    def __init__(self, settings: SwanDataSettings, expid: int, exp: Experiment, operator: SwanLabRunOperator) -> None:
         """初始化实验
 
         Parameters
@@ -40,7 +41,7 @@ class SwanLabExp:
         """此实验对应的id，实际上就是db.id"""
         self.db: Experiment = exp
         """此实验对应的数据库实例"""
-        self.__callbacks = callbacks
+        self.__operator = operator
         """回调函数"""
 
     def add(self, key: str, data: DataType, step: int = None):
@@ -87,18 +88,19 @@ class SwanLabExp:
                 data.tag = tag_obj.tag
             result = tag_obj.create_chart(tag, data)
             # 创建新列，生成回调
-            self.__callbacks.on_column_create(*result)
+            self.__operator.on_column_create(*result)
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
             return swanlog.warning(
-                f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is int ,float or BaseType, but the input type is {type(data)}. "
+                f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is "
+                f"int ,float or BaseType, but the input type is {type(data)}."
             )
 
         # 添加tag信息
         key_info = tag_obj.add(data, step)
         # 调用回调函数
-        self.__callbacks.on_metric_create(tag_obj.tag, key_info, self.settings.static_dir)
+        self.__operator.on_metric_create(tag_obj.tag, key_info, self.settings.static_dir)
 
 
 class SwanLabTag:
@@ -198,7 +200,8 @@ class SwanLabTag:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
             return swanlog.warning(
-                f"Log failed. Reason: Data {data} on tag '{self.tag}' (step {step}) cannot be converted .It should be an int, float, or a DataType, but it is {type(data)}, please check the data type. "
+                f"Log failed. Reason: Data {data} on tag '{self.tag}' (step {step}) cannot be converted .It should be "
+                f"an int, float, or a DataType, but it is {type(data)}, please check the data type."
             )
         is_nan = self.__is_nan(data)
         if not is_nan:

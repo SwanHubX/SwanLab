@@ -155,24 +155,3 @@ class SwanLabRunCallback(ABC):
         列创建回调函数,新增列信息时调用
         """
         pass
-
-
-class EmptyCallback(SwanLabRunCallback):
-    """
-    空回调函数，用于适应不需要回调函数的情况
-    """
-
-    def before_init_project(self, *args, **kwargs):
-        pass
-
-    def on_train_begin(self, *args, **kwargs):
-        pass
-
-    def on_train_end(self, *args, **kwargs):
-        pass
-
-    def on_metric_create(self, *args, **kwargs):
-        pass
-
-    def on_column_create(self, *args, **kwargs):
-        pass
