@@ -40,6 +40,13 @@
             <PannelButton icon="more" :tip="$t('chart.more')" />
             <template #pop>
               <SLMenuItems>
+                <SLMenuItem
+                  class="py-1"
+                  v-if="chart?.type === 'default' || chart?.type === 'line'"
+                  @click="showDownloadModal"
+                >
+                  下载
+                </SLMenuItem>
                 <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
                   {{ $t('chart.unhide') }}
                 </SLMenuItem>
@@ -58,6 +65,15 @@
       <SLLoading />
     </div>
   </section>
+  <SLModal class="pt-5 overflow-hidden" max-w="800" v-model="downloadModal" escExit>
+    <p class="text-lg px-5 font-semibold">导出为图片</p>
+    <div class="relative p-4">
+      <LineChart :index="index" ref="downloadRef" title="123" :chart="chart"></LineChart>
+    </div>
+    <div class="flex justify-end p-5 pt-0">
+      <SLButton theme="primary py-1.5 px-3 rounded">下载图片</SLButton>
+    </div>
+  </SLModal>
 </template>
 
 <script setup>
@@ -83,6 +99,9 @@ import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import SLMenu from '@swanlab-vue/components/menu/SLMenu.vue'
 import SLMenuItems from '@swanlab-vue/components/menu/SLMenuItems.vue'
 import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
+import SLModal from '@swanlab-vue/components/SLModal.vue'
+import SLButton from '@swanlab-vue/components/SLButton.vue'
+
 const props = defineProps({
   chart: {
     type: Object,
@@ -289,6 +308,18 @@ const hide = () => {
 
 const unhide = () => {
   emit('unhide', props.chart)
+}
+
+// ---------------------------------- 下载折线图 ----------------------------------
+
+const downloadRef = ref(null)
+const downloadModal = ref(false)
+
+const showDownloadModal = () => {
+  downloadModal.value = true
+  addTaskToBrowserMainThread(() => {
+    downloadRef.value.render(data)
+  })
 }
 
 // ---------------------------------- 暴露组件对象 ----------------------------------
