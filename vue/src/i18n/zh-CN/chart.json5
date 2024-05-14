@@ -12,7 +12,17 @@
         success: '已复制！',
         windows: '按下CTRL+C拷贝此数据'
       },
-      error: '图表无法被显示，因为"{tag}"是 {type} 类型, 但是折线图并不支持此类型.'
+      error: '图表无法被显示，因为"{tag}"是 {type} 类型, 但是折线图并不支持此类型.',
+      download: {
+        export: '导出为',
+        download: '下载',
+        downloadAs: '下载为{type}',
+        options: {
+          name: '文件名',
+          width: '宽度',
+          height: '高度'
+        }
+      }
     },
     share: {
       smooth: {

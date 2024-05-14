@@ -1,11 +1,37 @@
 <template>
-  <SLModal class="pt-5 overflow-hidden" max-w="800" v-model="downloadModal" escExit>
-    <p class="text-lg px-5 font-semibold">导出为图片</p>
-    <div class="relative p-4">
-      <LineChart :index="index" ref="downloadRef" title="123" :chart="chart"></LineChart>
+  <SLModal class="pt-5" max-w="900" v-model="downloadModal" escExit>
+    <p class="text-lg px-5 font-semibold">
+      {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
+    </p>
+    <div class="flex gap-5 px-5 py-4">
+      <div class="param">
+        <span>{{ $t('chart.charts.line.download.options.name') }}</span>
+        <input type="text" class="max-w-40" v-model="name" />
+      </div>
+      <div class="param">
+        <span>{{ $t('chart.charts.line.download.options.width') }}</span>
+        <input type="number" class="max-w-24" v-model="width" />
+      </div>
+      <div class="param">
+        <span>{{ $t('chart.charts.line.download.options.height') }}</span>
+        <input type="number" class="max-w-24" v-model="height" />
+      </div>
     </div>
-    <div class="flex justify-end p-5 pt-0">
-      <SLButton theme="primary py-1.5 px-3 rounded">下载图片</SLButton>
+    <div class="relative p-4" :id="chart.name">
+      <LineChart :index="index" ref="downloadRef" :title="chart.name" :chart="chart"></LineChart>
+    </div>
+    <div class="flex justify-end p-5 pt-0 gap-5">
+      <SLMenu menu-class="flex-shrink-0" class="right-0 top-10" down>
+        <SLButton class="py-1.5 pl-3 pr-10 rounded">{{ suffix[current].toUpperCase() }}</SLButton>
+        <template #pop>
+          <SLMenuItems>
+            <SLMenuItem v-for="(item, index) in suffix" :key="item" @click="current = index"> {{ item }} </SLMenuItem>
+          </SLMenuItems>
+        </template>
+      </SLMenu>
+      <SLButton theme="primary" class="py-1.5 px-3 rounded" @click="download">{{
+        $t('chart.charts.line.download.downloadAs', { type: suffix[current].toUpperCase() })
+      }}</SLButton>
     </div>
   </SLModal>
 </template>
@@ -17,8 +43,12 @@
  * @since: 2024-05-14 16:22:09
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
+import SLMenu from '@swanlab-vue/components/menu/SLMenu.vue'
+import SLMenuItems from '@swanlab-vue/components/menu/SLMenuItems.vue'
+import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
 import SLButton from '@swanlab-vue/components/SLButton.vue'
 import LineChart from '../package/LineChart.vue'
+import html2canvas from 'html2canvas'
 
 const props = defineProps({
   chart: {
@@ -32,6 +62,10 @@ const props = defineProps({
   modelValue: {
     type: Boolean,
     default: false
+  },
+  smoothMethod: {
+    type: Object,
+    default: null
   }
 })
 const emit = defineEmits(['update:modelValue'])
@@ -40,12 +74,46 @@ const downloadRef = ref(null)
 const downloadModal = computed({
   get() {
     downloadRef.value?.render(data)
+    props.smoothMethod && downloadRef.value?.smooth(props.smoothMethod)
     return props.modelValue
   },
   set(val) {
     emit('update:modelValue', val)
   }
 })
+
+const suffix = ['png']
+const current = ref(0)
+const width = ref(900)
+const height = ref(450)
+const name = ref(`SwanLab-Chart-${props.chart.name}-${props.index}`)
+
+const download = () => {
+  const node = document.getElementById(props.chart.name)
+  console.log(node.offsetHeight, node.offsetWidth)
+  html2canvas(node, {
+    height: height.value || node.offsetHeight,
+    width: width.value || node.offsetWidth,
+    scrollY: 0,
+    scrollX: 0
+    // backgroundColor: 'transparent'
+  }).then(async (canvas) => {
+    let oImg = new Image()
+    oImg.src = canvas.toDataURL()
+    const a = document.createElement('a')
+    a.download = `${name.value}.${suffix[current.value]}`
+    a.href = oImg.src
+    a.click()
+  })
+}
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.param {
+  @apply inline-block;
+
+  input {
+    @apply border px-2 py-1 ml-2 rounded;
+  }
+}
+</style>

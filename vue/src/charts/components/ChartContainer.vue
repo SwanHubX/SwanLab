@@ -40,12 +40,14 @@
             <PannelButton icon="more" :tip="$t('chart.more')" />
             <template #pop>
               <SLMenuItems>
-                <SLMenuItem class="py-1" v-if="isLineChart" @click="downloadModal = true"> 下载 </SLMenuItem>
                 <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
                   {{ $t('chart.unhide') }}
                 </SLMenuItem>
                 <SLMenuItem class="py-1" @click="hide" v-else>
                   {{ $t('chart.hide') }}
+                </SLMenuItem>
+                <SLMenuItem class="py-1" v-if="isLineChart" @click="downloadModal = true">
+                  {{ $t('chart.charts.line.download.export') }}
                 </SLMenuItem>
               </SLMenuItems>
             </template>
@@ -59,7 +61,7 @@
       <SLLoading />
     </div>
   </section>
-  <ExportImage :index="index" :chart="chart" v-model="downloadModal" />
+  <ExportImage :index="index" :chart="chart" :smoothMethod="smoothMethod" v-model="downloadModal" />
 </template>
 
 <script setup>
@@ -273,7 +275,9 @@ const thin = (...args) => {
 }
 
 // ---------------------------------- 图表平滑方法 ----------------------------------
+const smoothMethod = ref(null)
 const smooth = (method) => {
+  smoothMethod.value = method
   chartRef.value.smooth && chartRef.value.smooth(method)
 }
 

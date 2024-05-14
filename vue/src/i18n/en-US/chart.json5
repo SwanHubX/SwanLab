@@ -16,6 +16,16 @@
         windows: 'Press CTRL+C to copy this data.',
         apple: 'Press CMD+C to copy this data.',
         success: 'Copied!'
+      },
+      download: {
+        export: 'Export',
+        download: 'Download',
+        downloadAs: 'Download As {type}',
+        options: {
+          name: 'Name',
+          width: 'Width',
+          height: 'Height'
+        }
       }
     },
     text: {
