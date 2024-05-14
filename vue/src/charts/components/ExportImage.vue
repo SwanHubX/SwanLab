@@ -1,5 +1,5 @@
 <template>
-  <SLModal class="pt-5" max-w="890" v-model="downloadModal" escExit>
+  <SLModal class="pt-5" max-w="900" v-model="downloadModal" escExit>
     <p class="text-lg px-5 font-semibold">
       {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
     </p>
@@ -102,9 +102,10 @@ const download = () => {
   const node = document.getElementById(props.chart.name)
   const legend = node.querySelector('.lc-legend')
   legend?.classList.add('overflow-y-visible')
+  console.log(node.offsetHeight)
   html2canvas(node, {
-    height: height.value || node.offsetHeight,
-    width: width.value || node.offsetWidth,
+    height: node.offsetHeight + 10,
+    width: node.offsetWidth + 10,
     scrollY: 0,
     scrollX: 0
     // backgroundColor: 'transparent'
@@ -114,6 +115,8 @@ const download = () => {
     const a = document.createElement('a')
     a.download = `${name.value}.${suffix[current.value]}`
     a.href = oImg.src
+    a.style.width = `${width.value}`
+    a.style.height = `${height.value}`
     a.click()
   })
 }

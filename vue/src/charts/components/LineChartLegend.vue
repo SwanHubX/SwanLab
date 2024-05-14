@@ -9,8 +9,8 @@
       @mouseleave="handleMouseleave(item)"
       @click="handleClick(item)"
     >
-      <RouterLink class="flex items-center" :to="experimentPrefix + item.experiment_id">
-        <div class="font-black text-2xl w-2 overflow-hidden mr-1">—</div>
+      <RouterLink :to="experimentPrefix + item.experiment_id">
+        <span class="mr-1">—</span>
         {{ item.name }}
       </RouterLink>
     </div>
