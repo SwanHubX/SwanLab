@@ -9,7 +9,8 @@
       @mouseleave="handleMouseleave(item)"
       @click="handleClick(item)"
     >
-      <RouterLink :to="experimentPrefix + item.experiment_id">
+      <RouterLink class="flex items-center" :to="experimentPrefix + item.experiment_id">
+        <div class="font-black text-2xl w-2 overflow-hidden mr-1">—</div>
         {{ item.name }}
       </RouterLink>
     </div>
@@ -59,14 +60,6 @@ const handleClick = (item) => {
   @apply justify-center;
   .lc-legend-item {
     @apply flex flex-shrink-0 items-center hover:brightness-75;
-    &:before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 2px;
-      margin-right: 4px;
-      background-color: currentColor;
-    }
   }
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <SLModal class="pt-5" max-w="900" v-model="downloadModal" escExit>
+  <SLModal class="pt-5" max-w="890" v-model="downloadModal" escExit>
     <p class="text-lg px-5 font-semibold">
       {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
     </p>
@@ -49,6 +49,7 @@ import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
 import SLButton from '@swanlab-vue/components/SLButton.vue'
 import LineChart from '../package/LineChart.vue'
 import html2canvas from 'html2canvas'
+import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
 
 const props = defineProps({
   chart: {
@@ -75,6 +76,14 @@ const downloadModal = computed({
   get() {
     downloadRef.value?.render(data)
     props.smoothMethod && downloadRef.value?.smooth(props.smoothMethod)
+    addTaskToBrowserMainThread(() => {
+      const node = document.getElementById(props.chart.name)
+      const legend = node?.querySelector('.lc-legend')
+      if (legend) {
+        legend.style.overflowY = 'visible'
+        legend.style.maxHeight = 'none'
+      }
+    })
     return props.modelValue
   },
   set(val) {
@@ -85,12 +94,13 @@ const downloadModal = computed({
 const suffix = ['png']
 const current = ref(0)
 const width = ref(900)
-const height = ref(450)
+const height = ref(400)
 const name = ref(`SwanLab-Chart-${props.chart.name}-${props.index}`)
 
 const download = () => {
   const node = document.getElementById(props.chart.name)
-  console.log(node.offsetHeight, node.offsetWidth)
+  const legend = node.querySelector('.lc-legend')
+  legend.classList.add('overflow-y-visible')
   html2canvas(node, {
     height: height.value || node.offsetHeight,
     width: width.value || node.offsetWidth,
