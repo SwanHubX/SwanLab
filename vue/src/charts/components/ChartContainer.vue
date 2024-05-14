@@ -40,13 +40,7 @@
             <PannelButton icon="more" :tip="$t('chart.more')" />
             <template #pop>
               <SLMenuItems>
-                <SLMenuItem
-                  class="py-1"
-                  v-if="chart?.type === 'default' || chart?.type === 'line'"
-                  @click="downloadModal = true"
-                >
-                  下载
-                </SLMenuItem>
+                <SLMenuItem class="py-1" v-if="isLineChart" @click="downloadModal = true"> 下载 </SLMenuItem>
                 <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
                   {{ $t('chart.unhide') }}
                 </SLMenuItem>
@@ -304,6 +298,9 @@ const unhide = () => {
 // ---------------------------------- 下载折线图 ----------------------------------
 
 const downloadModal = ref(false)
+const isLineChart = computed(() => {
+  return props.chart?.type === 'default' || props.chart?.type === 'line'
+})
 
 // ---------------------------------- 暴露组件对象 ----------------------------------
 defineExpose({
