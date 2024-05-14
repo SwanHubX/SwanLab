@@ -43,7 +43,7 @@
                 <SLMenuItem
                   class="py-1"
                   v-if="chart?.type === 'default' || chart?.type === 'line'"
-                  @click="showDownloadModal"
+                  @click="downloadModal = true"
                 >
                   下载
                 </SLMenuItem>
@@ -65,15 +65,7 @@
       <SLLoading />
     </div>
   </section>
-  <SLModal class="pt-5 overflow-hidden" max-w="800" v-model="downloadModal" escExit>
-    <p class="text-lg px-5 font-semibold">导出为图片</p>
-    <div class="relative p-4">
-      <LineChart :index="index" ref="downloadRef" title="123" :chart="chart"></LineChart>
-    </div>
-    <div class="flex justify-end p-5 pt-0">
-      <SLButton theme="primary py-1.5 px-3 rounded">下载图片</SLButton>
-    </div>
-  </SLModal>
+  <ExportImage :index="index" :chart="chart" v-model="downloadModal" />
 </template>
 
 <script setup>
@@ -99,8 +91,7 @@ import SLLoading from '@swanlab-vue/components/SLLoading.vue'
 import SLMenu from '@swanlab-vue/components/menu/SLMenu.vue'
 import SLMenuItems from '@swanlab-vue/components/menu/SLMenuItems.vue'
 import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
-import SLModal from '@swanlab-vue/components/SLModal.vue'
-import SLButton from '@swanlab-vue/components/SLButton.vue'
+import ExportImage from '../components/ExportImage.vue'
 
 const props = defineProps({
   chart: {
@@ -312,15 +303,7 @@ const unhide = () => {
 
 // ---------------------------------- 下载折线图 ----------------------------------
 
-const downloadRef = ref(null)
 const downloadModal = ref(false)
-
-const showDownloadModal = () => {
-  downloadModal.value = true
-  addTaskToBrowserMainThread(() => {
-    downloadRef.value.render(data)
-  })
-}
 
 // ---------------------------------- 暴露组件对象 ----------------------------------
 defineExpose({
