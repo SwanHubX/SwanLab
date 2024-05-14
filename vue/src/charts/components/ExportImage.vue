@@ -3,18 +3,18 @@
     <p class="text-lg px-5 font-semibold">
       {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
     </p>
-    <div class="flex gap-5 px-5 py-4">
+    <div class="flex gap-5 px-5 py-4 md:flex-row flex-col">
       <div class="param">
         <span>{{ $t('chart.charts.line.download.options.name') }}</span>
-        <input type="text" class="max-w-40" v-model="name" />
+        <input type="text" class="max-w-56 md:max-w-40" v-model="name" />
       </div>
       <div class="param">
         <span>{{ $t('chart.charts.line.download.options.width') }}</span>
-        <input type="number" class="max-w-24" v-model="width" />
+        <input type="number" class="max-w-56 md:max-w-24" v-model="width" />
       </div>
       <div class="param">
         <span>{{ $t('chart.charts.line.download.options.height') }}</span>
-        <input type="number" class="max-w-24" v-model="height" />
+        <input type="number" class="max-w-56 md:max-w-24" v-model="height" />
       </div>
     </div>
     <div class="relative p-4" :id="chart.name">
@@ -72,6 +72,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 const data = inject('data')
 const downloadRef = ref(null)
+
 const downloadModal = computed({
   get() {
     downloadRef.value?.render(data)
@@ -100,7 +101,7 @@ const name = ref(`SwanLab-Chart-${props.chart.name}-${props.index}`)
 const download = () => {
   const node = document.getElementById(props.chart.name)
   const legend = node.querySelector('.lc-legend')
-  legend.classList.add('overflow-y-visible')
+  legend?.classList.add('overflow-y-visible')
   html2canvas(node, {
     height: height.value || node.offsetHeight,
     width: width.value || node.offsetWidth,
@@ -120,10 +121,12 @@ const download = () => {
 
 <style lang="scss" scoped>
 .param {
-  @apply inline-block;
-
+  @apply flex items-center;
   input {
     @apply border px-2 py-1 ml-2 rounded;
+  }
+  span {
+    @apply w-20 md:w-auto block;
   }
 }
 </style>
