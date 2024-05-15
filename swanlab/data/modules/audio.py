@@ -7,7 +7,7 @@ Description:
     音频数据解析
 """
 from .base import BaseType
-from swanlab.data.utils.file import get_file_hash_numpy_array, get_file_hash_path
+from ._utils import get_file_hash_numpy_array, get_file_hash_path
 import os
 from typing import Union, List
 
@@ -96,6 +96,13 @@ class Audio(BaseType):
         elif isinstance(data_or_path, np.ndarray):
             # 如果输入为numpy array ，要求输入为 (num_channels, num_frames) 的形式
             # 支持单声道 或 双声道 两种形式
+
+            SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
+
+            if data_or_path.dtype not in SF_SUPPORT_DTYPE:
+                raise TypeError(
+                    f"Invalid numpy array for the audio data, support dtype is {SF_SUPPORT_DTYPE}, but got {data_or_path.dtype}"
+                )
 
             # 如果data_or_path是一维, 则reshape为2维
             if len(data_or_path.shape) == 1:
