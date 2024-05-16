@@ -68,8 +68,8 @@ class LogCollectorTask(ThreadTaskABC):
             if msg[0] in UploadType:
                 upload_tasks_dict[msg[0]].extend(msg[1])
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
+        
         # 同步执行所有的上传任务
-
         results = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
         for index, result in enumerate(results):
             # 如果出现已知问题
