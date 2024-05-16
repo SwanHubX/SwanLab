@@ -6,6 +6,7 @@ import os
 import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
+from swanlab.log import swanlog as swl
 
 
 class TFBConverter:
@@ -25,15 +26,15 @@ class TFBConverter:
         self.config = config
 
     def run(self, depth=3):
-        print("Start converting TFEvent files to SwanLab format...")
+        swl.info("Start converting TFEvent files to SwanLab format...")
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         # 找到所有TFEvent文件, 生成一个路径字典
         path_dict = find_tfevents(self.logdir, depth=depth)
         if path_dict:
-            print("Found TFEvent file path dictionary.")
+            swl.info("Found TFEvent file path dictionary.")
         else:
-            print(f"No TFEvent file found in {self.logdir}, please check the path.")
+            swl.error(f"No TFEvent file found in {self.logdir}, please check the path.")
             return
 
         for dir, paths in path_dict.items():
