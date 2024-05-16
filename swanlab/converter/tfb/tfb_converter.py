@@ -12,29 +12,31 @@ from swanlab.log import swanlog as swl
 class TFBConverter:
     def __init__(
         self,
-        logdir: str,
+        convert_dir: str,
         project: str = None,
         workspace: str = None,
         config: dict = None,
         cloud: bool = True,
+        logdir: str = None,
         **kwargs,
     ):
-        self.logdir = logdir
+        self.convert_dir = convert_dir
         self.project = project
         self.workspace = workspace
         self.cloud = cloud
         self.config = config
+        self.logdir = logdir
 
     def run(self, depth=3):
         swl.info("Start converting TFEvent files to SwanLab format...")
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         # 找到所有TFEvent文件, 生成一个路径字典
-        path_dict = find_tfevents(self.logdir, depth=depth)
+        path_dict = find_tfevents(self.convert_dir, depth=depth)
         if path_dict:
             swl.info("Found TFEvent file path dictionary.")
         else:
-            swl.error(f"No TFEvent file found in {self.logdir}, please check the path.")
+            swl.error(f"No TFEvent file found in {self.convert_dir}, please check the path.")
             return
 
         for dir, paths in path_dict.items():
@@ -56,6 +58,7 @@ class TFBConverter:
                         workspace=self.workspace,
                         config={"tfevent_path": path},
                         cloud=self.cloud,
+                        logdir=self.logdir,
                     )
 
                     if self.config:
