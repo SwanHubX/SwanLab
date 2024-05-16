@@ -8,7 +8,10 @@ Description:
 """
 from .base import BaseType
 from ._utils import get_file_hash_numpy_array, get_file_hash_path
+import os
 from typing import Union, List
+
+### 以下为音频数据解析的依赖库
 import soundfile as sf
 import numpy as np
 import json
@@ -61,7 +64,7 @@ class Audio(BaseType):
         return save_name
 
     def expect_types(self, *args, **kwargs) -> list:
-        return ["str", "numpy.array"]
+        return ["str", "numpy.ndarray"]
 
     def __convert_caption(self, caption):
         """将caption转换为字符串"""
@@ -93,7 +96,21 @@ class Audio(BaseType):
         elif isinstance(data_or_path, np.ndarray):
             # 如果输入为numpy array ，要求输入为 (num_channels, num_frames) 的形式
             # 支持单声道 或 双声道 两种形式
+
+            SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
+
+            if data_or_path.dtype not in SF_SUPPORT_DTYPE:
+                raise TypeError(
+                    f"Invalid numpy array for the audio data, support dtype is {SF_SUPPORT_DTYPE}, but got {data_or_path.dtype}"
+                )
+
+            # 如果data_or_path是一维, 则reshape为2维
+            if len(data_or_path.shape) == 1:
+                data_or_path = data_or_path.reshape(1, -1)
+
+            # 获取通道数
             num_channels = data_or_path.shape[0]
+
             if num_channels != 2 and num_channels != 1:
                 raise TypeError("Invalid numpy array for the audio data, support shape is (num_channels, num_frames)")
             if self.sample_rate is None:
@@ -142,9 +159,10 @@ class Audio(BaseType):
         保存媒体资源文件 .wav 到指定路径
         audio-step{}.wav
         """
+
         try:
             write_audio_data = self.audio_data.T
-            sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
+            sf.write(save_path, write_audio_data, self.sample_rate)
         except Exception as e:
             raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
 
