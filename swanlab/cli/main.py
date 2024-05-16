@@ -144,5 +144,57 @@ def login(api_key: str, relogin: bool, **kwargs):
     login_info = terminal_login(api_key)
     print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")
 
-    if __name__ == "__main__":
-        cli()
+
+# ---------------------------------- 转换命令，用于转换其他实验跟踪工具 ----------------------------------
+@cli.command()
+@click.option(
+    "--logdir",
+    "-l",
+    type=str,
+    help="The directory where the log files are stored.",
+    callback=is_valid_root_dir,
+)
+@click.option(
+    "--type",
+    "-t",
+    default="tensorboard",
+    type=click.Choice(["tensorboard"]),
+    help="The type of the experiment tracking tool you want to convert to.",
+)
+@click.option(
+    "--project",
+    "-p",
+    default=None,
+    type=str,
+    help="SwanLab project name.",
+)
+@click.option(
+    "--workspace",
+    "-w",
+    default=None,
+    type=str,
+    help="swanlab.init workspace parameter.",
+)
+@click.option(
+    "--cloud",
+    default=True,
+    type=bool,
+    help="swanlab.init cloud parameter.",
+)
+def convert(logdir: str, type: str, project: str, cloud: bool, workspace: str, **kwargs):
+    if type == "tensorboard":
+        from swanlab.converter import TFBConverter
+
+        tfb_converter = TFBConverter(
+            logdir=logdir,
+            project=project,
+            workspace=workspace,
+            cloud=cloud,
+        )
+        tfb_converter.run()
+    else:
+        raise ValueError("The type of the experiment tracking tool you want to convert to is not supported.")
+
+
+if __name__ == "__main__":
+    cli()
