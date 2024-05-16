@@ -123,31 +123,30 @@ class SwanLog:
         super().__init__()
         self.prefix = name + ':'
         self.__logger = logging.getLogger(name)
-        """
-        logging日志器
-        """
+        self.__original_level = self._get_level(level)
+        self.__now_level = None
         # 设置日志等级
-        self.__logger.setLevel(self._get_level(level))
-
+        self.__logger.setLevel(self.__original_level)
+        # 初始化控制台日志处理器
+        self.__handler = logging.StreamHandler(sys.stdout)
+        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
+        colored_formatter = ColoredFormatter("%(name)s: %(message)s")
+        self.__handler.setFormatter(colored_formatter)
+        self.__logger.addHandler(self.__handler)
+        # 控制台监控记录器
         self.__consoler = SwanConsoler()
-        """
-        标准输出流重定向器
-        """
-        self.__handler = None
-        """
-        日志输出句柄
-        """
 
     @property
     def installed(self):
         """
-        判断日志系统是否已经安装
+        判断是否已经install
         """
-        return self.__handler is not None
+        return self.__now_level is not None
 
     def install(self, console_dir: str = None, log_level: str = None) -> "SwanLog":
         """
         初始化安装日志系统，同一实例在没有执行uninstall的情况下，不可重复安装
+        功能是开启标准输出流拦截功能，并设置日志等级
         :param console_dir: 控制台日志文件路径文件夹，如果提供，则会将控制台日志记录到对应文件夹，否则不记录，需要保证文件夹存在
         :param log_level: 日志等级，可以是 "debug", "info", "warning", "error", 或 "critical"，默认为info
 
@@ -161,14 +160,8 @@ class SwanLog:
             raise RuntimeError("SwanLog has been installed")
         # 设置日志等级
         log_level = log_level if log_level else "info"
-        self.__logger.setLevel(self._get_level(log_level))
-        # 初始化文件记录句柄
-        self.__handler = logging.StreamHandler(sys.stdout)
-        # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
-        colored_formatter = ColoredFormatter("%(name)s: %(message)s")
-        self.__handler.setFormatter(colored_formatter)
-        self.__handler.setLevel(self._get_level(log_level))
-        self.__logger.addHandler(self.__handler)
+        self.__now_level = self._get_level(log_level)
+        self.__logger.setLevel(self.__now_level)
         # 初始化控制台记录器
         if console_dir:
             self.debug("Init consoler to record console log")
@@ -179,13 +172,13 @@ class SwanLog:
         """
         卸载日志系统，卸载后需要重新安装
         在设计上我们并不希望外界乱用这个函数，所以我们不提供外部调用（不在最外层的__all__中）
+        此时将卸载标准输出流拦截功能，并重置日志等级为初始化时的等级
         """
         if not self.installed:
             raise RuntimeError("SwanLog has not been installed")
         self.debug("uninstall swanlog, reset consoler")
-        self.set_level("info")
-        self.__logger.removeHandler(self.__handler)
-        self.__handler = None
+        self.__logger.setLevel(self.__original_level)
+        self.__now_level = None
         self.__consoler.uninstall()
 
     @property
