@@ -1,10 +1,14 @@
 import os
-import tensorflow as tf
-import os
 from PIL import Image
 import io
 import numpy as np
-import datetime
+
+try:
+    import tensorflow as tf
+except ImportError as e:
+    raise TypeError(
+        "Tensorboard Converter requires tensorflow when process tfevents file. Install with 'pip install tensorflow'."
+    )
 
 
 def get_tf_events_tags_type(tf_event_path: str):
@@ -56,7 +60,8 @@ def get_tf_events_tags_data(tf_event_path: str, tags: dict):
 
     # 再次遍历文件，这次是为了提取数据
     for event in tf.compat.v1.train.summary_iterator(tf_event_path):
-        wall_time = datetime.datetime.fromtimestamp(event.wall_time).strftime("%Y-%m-%d %H:%M:%S")
+        # wall_time = datetime.datetime.fromtimestamp(event.wall_time).strftime("%Y-%m-%d %H:%M:%S")
+        wall_time = int(event.wall_time)
         for value in event.summary.value:
             if value.tag in tag_data:
                 if tags[value.tag] == "scalar":

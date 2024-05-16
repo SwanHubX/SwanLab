@@ -1,1 +1,1 @@
-from tfb_converter import TFBConverter
+from .tfb_converter import TFBConverter
