@@ -152,7 +152,6 @@ def login(api_key: str, relogin: bool, **kwargs):
     "-l",
     type=str,
     help="The directory where the log files are stored.",
-    callback=is_valid_root_dir,
 )
 @click.option(
     "--type",
@@ -182,6 +181,7 @@ def login(api_key: str, relogin: bool, **kwargs):
     help="swanlab.init cloud parameter.",
 )
 def convert(logdir: str, type: str, project: str, cloud: bool, workspace: str, **kwargs):
+    """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":
         from swanlab.converter import TFBConverter
 
