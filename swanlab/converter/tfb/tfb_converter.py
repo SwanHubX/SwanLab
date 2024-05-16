@@ -5,7 +5,6 @@ ISSUE: https://github.com/SwanHubX/SwanLab/issues/437
 import os
 import swanlab
 from datetime import datetime
-
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
 
 
@@ -34,7 +33,7 @@ class TFBConverter:
         if path_dict:
             print("Found TFEvent file path dictionary.")
         else:
-            print("No TFEvent file found in the path, please check the path.")
+            print(f"No TFEvent file found in {self.logdir}, please check the path.")
             return
 
         for dir, paths in path_dict.items():
