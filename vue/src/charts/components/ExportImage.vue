@@ -1,37 +1,40 @@
 <template>
-  <SLModal class="pt-5" max-w="890" v-model="downloadModal" escExit>
-    <p class="text-lg px-5 font-semibold">
-      {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
-    </p>
-    <div class="flex gap-5 px-5 py-4 md:flex-row flex-col">
+  <SLModal max-w="890" class="overflow-hidden" v-model="downloadModal" escExit>
+    <h1 class="text-lg px-5 font-semibold py-4 border-b">
+      {{ $t('chart.charts.share.download.png.title') }}
+    </h1>
+    <div class="flex gap-5 px-5 py-6 md:flex-row flex-col">
       <div class="param">
-        <span>{{ $t('chart.charts.line.download.options.name') }}</span>
-        <input type="text" class="max-w-56 md:max-w-40" v-model="name" />
+        <span>{{ $t('chart.charts.share.download.png.name') }}:</span>
+        <input
+          type="text"
+          class="w-40 text-sm border px-2 py-1 rounded ml-2"
+          :placeholder="placeholder"
+          v-model="name"
+        />
       </div>
       <div class="param">
-        <span>{{ $t('chart.charts.line.download.options.width') }}</span>
-        <input type="number" class="max-w-56 md:max-w-24" v-model="width" />
+        <span>{{ $t('chart.charts.share.download.png.width') }}:</span>
+        <InputSlideBar min="200" max="1200" v-model="width" />
       </div>
       <div class="param">
-        <span>{{ $t('chart.charts.line.download.options.height') }}</span>
-        <input type="number" class="max-w-56 md:max-w-24" v-model="height" />
+        <span>{{ $t('chart.charts.share.download.png.height') }}:</span>
+        <InputSlideBar min="200" max="1200" v-model="height" />
       </div>
     </div>
-    <div class="relative p-4" :id="chart.name">
-      <LineChart :index="index" ref="downloadRef" :title="chart.name" :chart="chart"></LineChart>
+    <!-- 图像主体 -->
+    <div class="mx-auto mb-6 py-4" :style="{ width: `${width}px` }">
+      <div class="relative w-full h-full" ref="chartRef">
+        <LineChart :index="index" ref="lineChartRef" :title="chart.name" :chart="chart" />
+      </div>
     </div>
     <div class="flex justify-end p-5 pt-0 gap-5">
-      <SLMenu menu-class="flex-shrink-0" class="right-0 top-10" down>
-        <SLButton class="py-1.5 pl-3 pr-10 rounded">{{ suffix[current].toUpperCase() }}</SLButton>
-        <template #pop>
-          <SLMenuItems>
-            <SLMenuItem v-for="(item, index) in suffix" :key="item" @click="current = index"> {{ item }} </SLMenuItem>
-          </SLMenuItems>
-        </template>
-      </SLMenu>
-      <SLButton theme="primary" class="py-1.5 px-3 rounded" @click="download">{{
-        $t('chart.charts.line.download.downloadAs', { type: suffix[current].toUpperCase() })
-      }}</SLButton>
+      <SLButton
+        theme="primary"
+        class="py-1.5 px-3 rounded"
+        @click="download"
+        :text="$t('chart.charts.share.download.png.download')"
+      />
     </div>
   </SLModal>
 </template>
@@ -43,13 +46,12 @@
  * @since: 2024-05-14 16:22:09
  **/
 import SLModal from '@swanlab-vue/components/SLModal.vue'
-import SLMenu from '@swanlab-vue/components/menu/SLMenu.vue'
-import SLMenuItems from '@swanlab-vue/components/menu/SLMenuItems.vue'
-import SLMenuItem from '@swanlab-vue/components/menu/SLMenuItem.vue'
 import SLButton from '@swanlab-vue/components/SLButton.vue'
 import LineChart from '../package/LineChart.vue'
+import { generateFileNameWithTime } from '@swanlab-vue/utils/common'
 import html2canvas from 'html2canvas'
 import { addTaskToBrowserMainThread } from '@swanlab-vue/utils/browser'
+import InputSlideBar from './InputSlideBar.vue'
 
 const props = defineProps({
   chart: {
@@ -71,20 +73,22 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 const data = inject('data')
-const downloadRef = ref(null)
+/**
+ * @type {import('vue').Ref} lineChartRef
+ */
+const lineChartRef = ref(null)
+/**
+ * @type {import('vue').Ref<HTMLDivElement>} chartRef
+ */
+const chartRef = ref(null)
 
 const downloadModal = computed({
   get() {
-    downloadRef.value?.render(data)
-    props.smoothMethod && downloadRef.value?.smooth(props.smoothMethod)
-    addTaskToBrowserMainThread(() => {
-      const node = document.getElementById(props.chart.name)
-      const legend = node?.querySelector('.lc-legend')
-      if (legend) {
-        legend.style.overflowY = 'visible'
-        legend.style.maxHeight = 'none'
-      }
-    })
+    // 显示时渲染图表
+    if (props.modelValue) {
+      lineChartRef.value?.render(data)
+      props.smoothMethod && lineChartRef.value?.smooth(props.smoothMethod)
+    }
     return props.modelValue
   },
   set(val) {
@@ -92,41 +96,54 @@ const downloadModal = computed({
   }
 })
 
-const suffix = ['png']
-const current = ref(0)
-const width = ref(900)
-const height = ref(350)
-const name = ref(`SwanLab-Chart-${props.chart.name}-${props.index}`)
+// ---------------------------------- 名称、长宽等属性 ----------------------------------
+
+const placeholder = generateFileNameWithTime('SwanLab-Chart')
+const name = ref('')
+const width = ref(600)
+const height = ref(400)
+
+// ---------------------------------- 设置动态拦截高度设置 ----------------------------------
+
+watch([height, downloadModal, lineChartRef], (newVal) => {
+  // 设置高度
+  if (!lineChartRef.value) return
+  if (!newVal[1]) return
+  const h = newVal[0]
+  console.log(h)
+  /**
+   * @type {setOriginalChartHeight} lineChartRef.value.setHeight
+   */
+  addTaskToBrowserMainThread(() => {
+    lineChartRef.value.setHeight(h)
+  })
+})
+
+// ---------------------------------- 下载按钮 ----------------------------------
 
 const download = () => {
-  const node = document.getElementById(props.chart.name)
-  const legend = node.querySelector('.lc-legend')
-  legend?.classList.add('overflow-y-visible')
-  html2canvas(node, {
-    height: height.value || node.offsetHeight + 10,
-    width: width.value || node.offsetWidth + 10,
-    scrollY: 0,
-    scrollX: 0
-    // backgroundColor: 'transparent'
-  }).then(async (canvas) => {
-    let oImg = new Image()
-    oImg.src = canvas.toDataURL()
-    const a = document.createElement('a')
-    a.download = `${name.value}.${suffix[current.value]}`
-    a.href = oImg.src
-    a.style.width = `${width.value}`
-    a.style.height = `${height.value}`
-    a.click()
+  html2canvas(chartRef.value).then(async (canvas) => {
+    // 新建canvas，为canvas本身增加一圈白色边框
+    const borderWidth = 32
+    const newCanvas = document.createElement('canvas')
+    const ctx = newCanvas.getContext('2d')
+    newCanvas.width = canvas.width + borderWidth * 2
+    newCanvas.height = canvas.height + borderWidth * 2
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height)
+    ctx.drawImage(canvas, borderWidth, borderWidth)
+    // 创建一个临时链接元素
+    const link = document.createElement('a')
+    link.href = newCanvas.toDataURL('image/png')
+    link.download = 'canvas-image.png'
+    link.click()
   })
 }
 </script>
 
 <style lang="scss" scoped>
 .param {
-  @apply flex items-center;
-  input {
-    @apply border px-2 py-1 ml-2 rounded;
-  }
+  @apply flex items-center text-dimmer;
   span {
     @apply w-20 md:w-auto block;
   }

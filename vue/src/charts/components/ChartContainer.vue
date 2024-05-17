@@ -12,9 +12,9 @@
     </div>
     <template v-else>
       <!-- 图表相关控制按钮 -->
-      <div class="chart-pannel">
+      <div class="chart-panel">
         <!-- 取消置顶的按钮 -->
-        <PannelButton
+        <PanelButton
           class="!text-positive-default"
           icon="pinned"
           click-icon="loading"
@@ -25,7 +25,7 @@
         />
         <template v-if="hover && !unknown && !isAllError">
           <!-- 置顶 -->
-          <PannelButton
+          <PanelButton
             icon="pin"
             :tip="$t('chart.pin')"
             @click="pin"
@@ -34,10 +34,11 @@
             v-if="!isPinned"
           />
           <!-- 放大功能 -->
-          <PannelButton icon="zoom" :tip="$t('chart.zoom')" @click="zoom" />
+          <PanelButton icon="zoom" :tip="$t('chart.zoom')" @click="zoom" />
           <!-- 更多功能 -->
+          <ExportImage :index="index" :chart="chart" :smoothMethod="smoothMethod" v-model="downloadModal" />
           <SLMenu menu-class="flex-shrink-0" class="right-0 top-4">
-            <PannelButton icon="more" :tip="$t('chart.more')" />
+            <PanelButton icon="more" :tip="$t('chart.more')" />
             <template #pop>
               <SLMenuItems>
                 <SLMenuItem class="py-1" @click="unhide" v-if="isHidden">
@@ -47,7 +48,7 @@
                   {{ $t('chart.hide') }}
                 </SLMenuItem>
                 <SLMenuItem class="py-1" v-if="isLineChart" @click="downloadModal = true">
-                  {{ $t('chart.charts.line.download.export') }}
+                  {{ $t('chart.charts.share.download.button') }}
                 </SLMenuItem>
               </SLMenuItems>
             </template>
@@ -61,7 +62,6 @@
       <SLLoading />
     </div>
   </section>
-  <ExportImage :index="index" :chart="chart" :smoothMethod="smoothMethod" v-model="downloadModal" />
 </template>
 
 <script setup>
@@ -80,7 +80,7 @@ import LineChart from '../package/LineChart.vue'
 import AudioChart from '../package/AudioChart.vue'
 import TextChart from '../package/TextChart.vue'
 import UnknownChart from '../package/UnknownChart.vue'
-import PannelButton from './PannelButton.vue'
+import PanelButton from './PanelButton.vue'
 import { debounce } from '@swanlab-vue/utils/common'
 import ImageChart from '../package/ImageChart.vue'
 import SLLoading from '@swanlab-vue/components/SLLoading.vue'
@@ -227,8 +227,12 @@ onMounted(() => {
     })
 })
 
+const isChartError = computed(() => {
+  return props.chart.error && Object.keys(props.chart.error).length > 0
+})
+
 // 卸载时取消订阅
-props.chart.error ||
+isChartError.value ||
   onUnmounted(() => {
     $off(source, cid)
   })
@@ -302,7 +306,9 @@ const unhide = () => {
 // ---------------------------------- 下载折线图 ----------------------------------
 
 const downloadModal = ref(false)
+
 const isLineChart = computed(() => {
+  if (isChartError.value) return false
   return props.chart?.type === 'default' || props.chart?.type === 'line'
 })
 
@@ -324,7 +330,7 @@ defineExpose({
   @apply flex-col flex justify-between;
 }
 
-.chart-pannel {
+.chart-panel {
   @apply absolute top-1 right-2 h-4;
   @apply flex justify-end items-center gap-2;
 }

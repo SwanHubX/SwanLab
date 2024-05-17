@@ -1,7 +1,3 @@
-/**
- * @desc English - US: Chart
- * 这部分翻译用于charts组件
- */
 {
   charts: {
     audio: {
@@ -16,16 +12,6 @@
         windows: 'Press CTRL+C to copy this data.',
         apple: 'Press CMD+C to copy this data.',
         success: 'Copied!'
-      },
-      download: {
-        export: 'Export',
-        download: 'Download',
-        downloadAs: 'Download As {type}',
-        options: {
-          name: 'Name',
-          width: 'Width',
-          height: 'Height'
-        }
       }
     },
     text: {
@@ -45,6 +31,16 @@
       smooth: {
         smoothing: 'Smoothing',
         method: 'Method'
+      },
+      download: {
+        button: 'Download',
+        png: {
+          download: 'Download image',
+          height: 'Height',
+          name: 'Name',
+          title: 'Export PNG',
+          width: 'Width'
+        }
       }
     }
   },
