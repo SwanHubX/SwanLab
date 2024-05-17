@@ -1,6 +1,7 @@
 /**
  * 数据、事件处理等公用函数
  */
+import { getTimes } from './time'
 
 /**
  * 基础防抖函数，用于减少函数的调用频率，接收两个参数，第一个是要防抖的函数，第二个是延迟的时间
@@ -131,4 +132,15 @@ export const formatNumber2SN = (value, max = 1e5, min = 1e-4, digits = 4) => {
   }
   // 最后处理和返回的时候需要保证是字符串格式，不然，如果符合js自动转化的条件，会自动变成科学计数法
   return sign + value
+}
+
+/**
+ * 生成文件名，包含时间戳
+ * @param {string} prefix 文件前缀
+ * @param {string} suffix 文件后缀
+ * @returns {string} 文件名
+ */
+export const generateFileNameWithTime = (prefix, suffix) => {
+  const { year, month, day, hour, minute, second } = getTimes(new Date().getTime())
+  return `${prefix}_${year}-${month}-${day}_${hour}-${minute}-${second}.${suffix}`
 }
