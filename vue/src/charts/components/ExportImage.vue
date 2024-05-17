@@ -98,7 +98,7 @@ const downloadModal = computed({
 
 // ---------------------------------- 名称、长宽等属性 ----------------------------------
 
-const placeholder = generateFileNameWithTime('SwanLab-Chart')
+const placeholder = generateFileNameWithTime('SwanLab-Chart').split('.')[0]
 const name = ref('')
 const width = ref(600)
 const height = ref(400)
@@ -135,7 +135,7 @@ const download = () => {
     // 创建一个临时链接元素
     const link = document.createElement('a')
     link.href = newCanvas.toDataURL('image/png')
-    link.download = 'canvas-image.png'
+    link.download = `${name.value || placeholder}.png`
     link.click()
   })
 }
