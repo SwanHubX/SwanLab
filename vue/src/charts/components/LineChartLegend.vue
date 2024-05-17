@@ -64,6 +64,7 @@ const handleClick = (item) => {
       display: inline-block;
       width: 8px;
       height: 2px;
+      margin-top: 2px;
       margin-right: 4px;
       background-color: currentColor;
     }
