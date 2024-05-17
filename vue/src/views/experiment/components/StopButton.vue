@@ -31,10 +31,9 @@ const showColor = computed(() => {
 // ---------------------------------- 确认停止 ----------------------------------
 
 const stop = () => {
-  confirm(
-    t('experiment.index.header.stop.modal.title'),
-    t('experiment.index.header.stop.modal.text')
-  ).then(stop_experiment)
+  confirm(t('experiment.index.header.stop.modal.title'), t('experiment.index.header.stop.modal.text')).then(
+    stop_experiment
+  )
 }
 
 const stop_experiment = async () => {

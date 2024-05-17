@@ -260,6 +260,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       showMarkers: true,
       customContent: () => '',
       domStyles: {
+        // 自己写tooltip的样式
         'g2-tooltip': {
           boxShadow: 'none',
           borderWidth: 'none',
