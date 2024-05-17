@@ -10,8 +10,12 @@ r"""
     增加了实际开发中不会用到的热启动功能
 """
 import uvicorn
+from tutils.config import SWANLAB_LOG_DIR
 from swanlab.db import connect
 from swanlab.server.app import app
+import os
+
+os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
 
 connect()
 

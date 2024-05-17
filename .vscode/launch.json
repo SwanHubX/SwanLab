@@ -6,7 +6,7 @@
   "configurations": [
     // 启动前端开发服务
     {
-      "name": "前端开发:dev",
+      "name": "前端开发",
       "request": "launch",
       "cwd": "${workspaceRoot}",
       "type": "node",

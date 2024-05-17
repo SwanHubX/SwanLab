@@ -9,7 +9,7 @@ import SLIcon from '@swanlab-vue/components/SLIcon.vue'
 
 /**
  * @description: chart的按钮样式
- * @file: PannelButton.vue
+ * @file: PanelButton.vue
  * @since: 2023-12-12 21:43:02
  **/
 

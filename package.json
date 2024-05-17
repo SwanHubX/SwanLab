@@ -16,6 +16,7 @@
     "@antv/g2plot": "^2.4.31",
     "@headlessui/vue": "^1.7.16",
     "axios": "^1.6.2",
+    "html2canvas": "^1.4.1",
     "moment": "^2.29.4",
     "pinia": "^2.1.7",
     "sass": "^1.69.5",

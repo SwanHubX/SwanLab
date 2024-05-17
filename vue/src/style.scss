@@ -69,3 +69,8 @@ div {
     }
   }
 }
+
+// 解决 html2canvas 截图时文字下移的问题
+img {
+  @apply inline-block;
+}
