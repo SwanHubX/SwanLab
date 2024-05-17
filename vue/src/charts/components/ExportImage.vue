@@ -102,7 +102,6 @@ const download = () => {
   const node = document.getElementById(props.chart.name)
   const legend = node.querySelector('.lc-legend')
   legend?.classList.add('overflow-y-visible')
-  console.log(node.offsetHeight)
   html2canvas(node, {
     height: height.value || node.offsetHeight + 10,
     width: width.value || node.offsetWidth + 10,
