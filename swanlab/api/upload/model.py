@@ -17,8 +17,8 @@ class ColumnModel:
     def __init__(self, key, column_type: str, error: dict = None):
         """
         :param key: 列名称
-        :param column_type: 列类型，'FLOAT', 'IMAGE', 'AUDIO', 'TEXT', 'ANY'，必须为大写，如果传入 'DEFAULT'，则会转为 'FLOAT'
-        :param error: 错误信息，如果错误信息不为None，column_type必须为'ANY'
+        :param column_type: 列类型，'FLOAT', 'IMAGE', 'AUDIO', 'TEXT'，必须为大写，如果传入 'DEFAULT'，则会转为 'FLOAT'
+        :param error: 错误信息，如果错误信息不为None
         """
         self.key = key
         if column_type == "DEFAULT":
@@ -27,14 +27,11 @@ class ColumnModel:
         self.error = error
 
     def to_dict(self):
-        if self.error is not None:
-            return {
-                "key": self.key,
-                "type": 'ANY',
-                "error": self.error
-            }
-        else:
-            return {
-                "key": self.key,
-                "type": self.column_type,
-            }
+        return {
+            "key": self.key,
+            "type": self.column_type,
+        } if self.error is None else {
+            "key": self.key,
+            "type": self.column_type,
+            "error": self.error
+        }
