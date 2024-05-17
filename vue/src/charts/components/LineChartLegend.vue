@@ -10,7 +10,6 @@
       @click="handleClick(item)"
     >
       <RouterLink :to="experimentPrefix + item.experiment_id">
-        <span class="mr-1">—</span>
         {{ item.name }}
       </RouterLink>
     </div>
@@ -60,6 +59,14 @@ const handleClick = (item) => {
   @apply justify-center;
   .lc-legend-item {
     @apply flex flex-shrink-0 items-center hover:brightness-75;
+    &:before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 2px;
+      margin-right: 4px;
+      background-color: currentColor;
+    }
   }
 }
 </style>
