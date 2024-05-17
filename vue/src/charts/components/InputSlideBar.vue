@@ -1,7 +1,14 @@
 <template>
   <SLMenu corner-class="left-3" menu-class="ml-2" menu-min-width="200">
     <template #default="{ open }">
-      <input type="number" class="w-16 text-sm" v-model="value" @click="(e) => handleClickInput(e, open)" />
+      <input
+        type="number"
+        class="w-16 text-sm"
+        :value="value"
+        @click="(e) => handleClickInput(e, open)"
+        @change="handleInputChange"
+        @keydown.enter="handleInputChange"
+      />
     </template>
     <template #pop>
       <div class="px-4">
@@ -50,6 +57,18 @@ const value = computed({
     }
   }
 })
+
+// ---------------------------------- handleInputChange ----------------------------------
+const handleInputChange = (e) => {
+  const val = Number(e.target.value)
+  if (val < Number(props.min)) {
+    emit('update:modelValue', Number(props.min))
+  } else if (val > Number(props.max)) {
+    emit('update:modelValue', Number(props.max))
+  } else {
+    emit('update:modelValue', val)
+  }
+}
 
 // ---------------------------------- handleClickInput ----------------------------------
 const handleClickInput = (e, open) => {
