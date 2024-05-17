@@ -1,5 +1,5 @@
 <template>
-  <SLModal class="pt-5" max-w="900" v-model="downloadModal" escExit>
+  <SLModal class="pt-5" max-w="890" v-model="downloadModal" escExit>
     <p class="text-lg px-5 font-semibold">
       {{ $t('chart.charts.line.download.export') }} {{ suffix[current].toUpperCase() }}
     </p>
@@ -95,7 +95,7 @@ const downloadModal = computed({
 const suffix = ['png']
 const current = ref(0)
 const width = ref(900)
-const height = ref(400)
+const height = ref(350)
 const name = ref(`SwanLab-Chart-${props.chart.name}-${props.index}`)
 
 const download = () => {
@@ -104,8 +104,8 @@ const download = () => {
   legend?.classList.add('overflow-y-visible')
   console.log(node.offsetHeight)
   html2canvas(node, {
-    height: node.offsetHeight + 10,
-    width: node.offsetWidth + 10,
+    height: height.value || node.offsetHeight + 10,
+    width: width.value || node.offsetWidth + 10,
     scrollY: 0,
     scrollX: 0
     // backgroundColor: 'transparent'
