@@ -88,6 +88,10 @@ const downloadModal = computed({
     if (props.modelValue) {
       lineChartRef.value?.render(data)
       props.smoothMethod && lineChartRef.value?.smooth(props.smoothMethod)
+    } else {
+      // 关闭时清空长宽数值
+      width.value = originalWidth
+      height.value = originalHeight
     }
     return props.modelValue
   },
@@ -100,8 +104,10 @@ const downloadModal = computed({
 
 const placeholder = generateFileNameWithTime('SwanLab-Chart').split('.')[0]
 const name = ref('')
-const width = ref(600)
-const height = ref(400)
+const originalWidth = 600
+const originalHeight = 400
+const width = ref(originalWidth)
+const height = ref(originalHeight)
 
 // ---------------------------------- 设置动态拦截高度设置 ----------------------------------
 
