@@ -1,5 +1,5 @@
 <template>
-  <div ref="lineChartRef">
+  <div class="flex flex-col justify-between grow" ref="lineChartRef">
     <!-- 图表标题 -->
     <p class="text-center font-semibold select-none">{{ title }}</p>
     <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
@@ -9,8 +9,6 @@
       </p>
     </div>
     <template v-else>
-      <!-- x轴坐标单位 -->
-      <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
       <!-- 图表主体 -->
       <LineChartLegend
         :items="legend"
@@ -20,6 +18,8 @@
         v-if="legend && multi"
       />
       <div class="relative">
+        <!-- x轴坐标单位 -->
+        <p class="absolute right-2 bottom-6 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
         <LineChartTooltip ref="tooltipRef" />
         <div class="overflow-hidden" ref="g2Ref"></div>
       </div>
