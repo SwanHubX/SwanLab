@@ -33,9 +33,9 @@
           v-if="legend && multi"
         />
         <div class="relative" ref="g2ZoomRef">
+          <p class="absolute right-2 bottom-6 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
           <LineChartTooltip ref="tooltipZoomRef" />
         </div>
-        <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
       </SLModal>
     </template>
   </div>
