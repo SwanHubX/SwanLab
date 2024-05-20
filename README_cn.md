@@ -81,7 +81,7 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
 - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
 
-**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace
+**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Tensorboard、
 Transformers、MMEngine、OpenAI、ZhipuAI、Hydra、...
 
 **3. 📦组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
