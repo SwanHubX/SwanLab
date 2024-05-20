@@ -5,7 +5,7 @@ import swanlab
 _processed_plots = {}
 
 
-def _log_plots(plots: dict, step: str, tag: str):
+def _log_plots(plots: dict, step: int, tag: str):
     """记录指标绘图和推理图像"""
     image_list = []
     for (
@@ -38,8 +38,8 @@ def on_pretrain_routine_start(trainer):
 def on_fit_epoch_end(trainer):
     """每个epoch结束记录指标和绘图（含训练和验证）"""
     swanlab.log(trainer.metrics, step=trainer.epoch + 1)
-    _log_plots(trainer.plots, step=trainer.epoch + 1, tag="Plots")
-    _log_plots(trainer.validator.plots, step=trainer.epoch + 1, tag="ValPlots")
+    _log_plots(trainer.plots, step=trainer.epoch + 1, tag="Train/Plots")
+    _log_plots(trainer.validator.plots, step=trainer.epoch + 1, tag="Train/ValPlots")
 
     if trainer.epoch == 0:
         _RUN.log(model_info_for_loggers(trainer), step=trainer.epoch + 1)
@@ -56,6 +56,8 @@ def on_train_epoch_end(trainer):
 
 def on_train_end(trainer):
     """结束训练"""
+    _log_plots(trainer.plots, step=trainer.epoch + 1, tag="TrainEnd/Plots")
+    _log_plots(trainer.validator.plots, step=trainer.epoch + 1, tag="TrainEnd/ValPlots")
     _RUN.finish()
 
 
