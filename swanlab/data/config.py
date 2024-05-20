@@ -40,6 +40,13 @@ def json_serializable(obj: dict):
     return str(obj)
 
 
+def check_keys(d: dict):
+    """检查字典的key是否合法"""
+    allowed_types = (str, int, float, bool, type(None))
+    invalid_keys = [key for key in d.keys() if not isinstance(key, allowed_types)]
+    return invalid_keys
+
+
 def need_inited(func):
     """装饰器，用于检查是否已经初始化"""
 
@@ -94,6 +101,12 @@ class SwanLabConfig(Mapping):
                 config = vars(config)
             # 将config转换为json序列化的dict
             config = json_serializable(dict(config))
+            # 检查config的key是否合法
+            invalid_keys = check_keys(config)
+            if invalid_keys:
+                raise TypeError(
+                    f"swanlab.config has invalid keys {invalid_keys}, keys must be str, int, float, bool or None"
+                )
             # 尝试序列化，如果还是失败就退出
             yaml.dump(config)
         except:
