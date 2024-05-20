@@ -9,6 +9,7 @@ except ImportError:
 
 from typing import Optional
 import swanlab
+from swanlab.log import swanlog as swl
 
 
 class SwanLabCallback(Callback):
@@ -94,7 +95,7 @@ class SwanLabCallback(Callback):
                 {f"input {n+1} dim {i+1}": d for n in range(n_inp) for i, d in enumerate(list(detuplify(xb[n]).shape))}
             )
         except Exception:
-            logger.warning("Failed to gather input dimensions")
+            swl.warning("Failed to gather input dimensions")
         with ignore_exceptions():
             args["batch_size"] = self.dls.bs
             args["batch_per_epoch"] = len(self.dls.train)
