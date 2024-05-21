@@ -32,7 +32,7 @@ else:
         "Please install it with command: \n pip install pytorch-lightning"
         "or \n pip install lightning"
     )
-
+import swanlab
 from ..data.run import SwanLabRun
 from lightning_fabric.utilities.logger import _add_prefix, _convert_params, _sanitize_callable_params
 
@@ -55,11 +55,9 @@ class SwanLabLogger(Logger):
         logdir: Optional[str] = None,
         cloud: Optional[bool] = True,
         save_dir: Union[str, Path] = ".",
-        run: Optional[SwanLabRun] = None,
         **kwargs: Any,
     ):
         super().__init__()
-        self._experiment = run
 
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
@@ -87,10 +85,10 @@ class SwanLabLogger(Logger):
     @rank_zero_experiment
     def experiment(self) -> SwanLabRun:
         """创建实验"""
-        import swanlab
-
-        if self._experiment is None:
+        if swanlab.get_run() is None:
             self._experiment = swanlab.init(**self._swanlab_init)
+        else:
+            self._experiment = swanlab.get_run()
 
         return self._experiment
 
@@ -195,7 +193,7 @@ class SwanLabLogger(Logger):
 
     @rank_zero_only
     def finalize(self, status: str) -> None:
-        pass
+        self.experiment.finish()
 
     @property
     def version(self) -> Optional[str]:
