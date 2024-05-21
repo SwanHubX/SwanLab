@@ -155,7 +155,7 @@ def login(api_key: str, relogin: bool, **kwargs):
     "--type",
     "-t",
     default="tensorboard",
-    type=click.Choice(["tensorboard"]),
+    type=click.Choice(["tensorboard", "wandb"]),
     help="The type of the experiment tracking tool you want to convert to.",
 )
 @click.option(
@@ -184,7 +184,33 @@ def login(api_key: str, relogin: bool, **kwargs):
     type=str,
     help="The directory where the swanlab log files are stored.",
 )
-def convert(convert_dir: str, type: str, project: str, cloud: bool, workspace: str, logdir: str, **kwargs):
+@click.option(
+    "--wb-project",
+    type=str,
+    help="The project name of the wandb runs.",
+)
+@click.option(
+    "--wb-entity",
+    type=str,
+    help="The entity name of the wandb runs.",
+)
+@click.option(
+    "--wb-runid",
+    type=str,
+    help="The run_id of the wandb run.",
+)
+def convert(
+    convert_dir: str,
+    type: str,
+    project: str,
+    cloud: bool,
+    workspace: str,
+    logdir: str,
+    wb_project: str,
+    wb_entity: str,
+    wb_runid: str,
+    **kwargs,
+):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":
         from swanlab.converter import TFBConverter
@@ -197,6 +223,22 @@ def convert(convert_dir: str, type: str, project: str, cloud: bool, workspace: s
             logdir=logdir,
         )
         tfb_converter.run()
+
+    elif type == "wandb":
+        from swanlab.converter import WandbConverter
+
+        wb_converter = WandbConverter(
+            project=project,
+            workspace=workspace,
+            cloud=cloud,
+            logdir=logdir,
+        )
+        wb_converter.run(
+            wb_project=wb_project,
+            wb_entity=wb_entity,
+            wb_run_id=wb_runid,
+        )
+
     else:
         raise ValueError("The type of the experiment tracking tool you want to convert to is not supported.")
 

@@ -24,7 +24,7 @@ class WandbConverter:
         self.cloud = cloud
         self.logdir = logdir
 
-    def parse_wandb_logs(self, wb_project: str, wb_entity: str, wb_run_id=None):
+    def parse_wandb_logs(self, wb_project: str, wb_entity: str, wb_run_id: str = None):
         try:
             import wandb
         except ImportError as e:
@@ -87,7 +87,7 @@ class WandbConverter:
             # 结束此轮实验
             swanlab_run.finish()
 
-    def run(self, wb_project: str, wb_entity: str, wb_run_id=None):
+    def run(self, wb_project: str, wb_entity: str, wb_run_id: str = None):
         swl.info("Start converting Wandb Runs to SwanLab...")
         self.parse_wandb_logs(
             wb_project=wb_project,
