@@ -1,3 +1,19 @@
+"""
+For adaptation to the ultralytics framework. Detailed usage are as follows:
+------trian.py in ultralytics------
+from ultralytics import YOLO
+from swanlab.integration.ultralytics import add_swanlab_callback
+
+model = YOLO("yolov5n.yaml")
+add_swanlab_callback(model)
+
+model.train(
+    data="coco.yaml",
+    epoch=50,
+)
+---------------------------------
+"""
+
 from ultralytics.models import YOLO
 from ultralytics.utils.torch_utils import model_info_for_loggers
 import swanlab
@@ -64,7 +80,7 @@ def on_train_end(trainer):
 def add_swanlab_callback(
     model: YOLO,
 ):
-
+    """给Ultralytics模型添加swanlab回调函数"""
     callbacks = {
         "on_pretrain_routine_start": on_pretrain_routine_start,
         "on_fit_epoch_end": on_fit_epoch_end,
