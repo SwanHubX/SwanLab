@@ -147,10 +147,6 @@ def login(api_key: str, relogin: bool, **kwargs):
 
 # ---------------------------------- 转换命令，用于转换其他实验跟踪工具 ----------------------------------
 @cli.command()
-@click.argument(
-    "convert_dir",
-    type=str,
-)
 @click.option(
     "--type",
     "-t",
@@ -185,6 +181,11 @@ def login(api_key: str, relogin: bool, **kwargs):
     help="The directory where the swanlab log files are stored.",
 )
 @click.option(
+    "--tb_logdir",
+    type=str,
+    help="The directory where the tensorboard log files are stored.",
+)
+@click.option(
     "--wb-project",
     type=str,
     help="The project name of the wandb runs.",
@@ -200,12 +201,12 @@ def login(api_key: str, relogin: bool, **kwargs):
     help="The run_id of the wandb run.",
 )
 def convert(
-    convert_dir: str,
     type: str,
     project: str,
     cloud: bool,
     workspace: str,
     logdir: str,
+    tb_logdir: str,
     wb_project: str,
     wb_entity: str,
     wb_runid: str,
@@ -216,7 +217,7 @@ def convert(
         from swanlab.converter import TFBConverter
 
         tfb_converter = TFBConverter(
-            convert_dir=convert_dir,
+            convert_dir=tb_logdir,
             project=project,
             workspace=workspace,
             cloud=cloud,
@@ -226,6 +227,8 @@ def convert(
 
     elif type == "wandb":
         from swanlab.converter import WandbConverter
+
+        print(wb_project, wb_entity, wb_runid)
 
         wb_converter = WandbConverter(
             project=project,
