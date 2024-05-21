@@ -4,7 +4,7 @@
     :class="{ 'cursor-pointer': !disabled }"
     @click="!disabled && $emit('update:checked', !checked)"
   >
-    <input type="checkbox" class="border cursor-pointer w-4 h-4" :checked="checked && !disabled" :disabled="disabled" />
+    <input type="checkbox" :checked="checked && !disabled" :disabled="disabled" />
     <span class="select-none truncate">{{ label }}</span>
   </div>
 </template>
@@ -34,4 +34,11 @@ defineProps({
 defineEmits(['update:checked'])
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+input[type='checkbox'] {
+  @apply border cursor-pointer w-4 h-4;
+  &:disabled {
+    @apply cursor-not-allowed;
+  }
+}
+</style>
