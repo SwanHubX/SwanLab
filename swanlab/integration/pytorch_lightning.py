@@ -193,7 +193,8 @@ class SwanLabLogger(Logger):
 
     @rank_zero_only
     def finalize(self, status: str) -> None:
-        self.experiment.finish()
+        if status != "success":
+            return
 
     @property
     def version(self) -> Optional[str]:
