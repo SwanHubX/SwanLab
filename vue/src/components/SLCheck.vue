@@ -1,6 +1,12 @@
 <template>
-  <div class="flex items-center gap-2 cursor-pointer" @click="$emit('update:checked', !checked)">
-    <input type="checkbox" class="border cursor-pointer w-4 h-4" :checked="checked" />
+  <div class="flex items-center gap-2 cursor-pointer" @click="!disabled && $emit('update:checked', !checked)">
+    <input
+      type="checkbox"
+      class="border cursor-pointer w-4 h-4"
+      :class="{ disabled }"
+      :checked="checked && !disabled"
+      :disabled="disabled"
+    />
     <span class="select-none truncate">{{ label }}</span>
   </div>
 </template>
@@ -20,10 +26,18 @@ defineProps({
   checked: {
     type: Boolean,
     default: false
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 })
 
 defineEmits(['update:checked'])
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.disabled {
+  @apply cursor-default bg-white-higher relative;
+}
+</style>
