@@ -1,7 +1,3 @@
-"""
-ISSUE: https://github.com/SwanHubX/SwanLab/issues/437
-"""
-
 import os
 import swanlab
 from datetime import datetime
@@ -15,7 +11,6 @@ class TFBConverter:
         convert_dir: str,
         project: str = None,
         workspace: str = None,
-        config: dict = None,
         cloud: bool = True,
         logdir: str = None,
         **kwargs,
@@ -24,7 +19,6 @@ class TFBConverter:
         self.project = project
         self.workspace = workspace
         self.cloud = cloud
-        self.config = config
         self.logdir = logdir
 
     def run(self, depth=3):
@@ -60,9 +54,6 @@ class TFBConverter:
                         cloud=self.cloud,
                         logdir=self.logdir,
                     )
-
-                    if self.config:
-                        run.config.update(self.config)
 
                     """
                     根据tag提取数据, 格式为{tag: [(step, value, wall_time), ...]}, example:
@@ -100,7 +91,7 @@ class TFBConverter:
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)
-                    swanlab.config.update({"RunTime": runtime})
+                    swanlab.config.update({"RunTime(s)": runtime})
 
                     # 结束当前实验
                     run.finish()
