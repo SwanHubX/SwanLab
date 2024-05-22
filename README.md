@@ -293,7 +293,7 @@ if __name__ == "__main__":
 </details>
 
 <details>
-<summary>FashionMNSIT-ResNet34</summary>
+<summary>FashionMNSIT</summary>
 
 ```python
 import os
@@ -688,6 +688,37 @@ trainer.train()
 ```
 
 </details>
+
+<details>
+<summary>
+  <strong> MMEngine(MMDetection etc.)</strong>
+</summary>
+
+Integrate `SwanlabVisBackend` into MMEngine to enable automatic logging of training metrics by SwanLab.
+
+Add the following code snippet to your MM config file to start training:
+
+```python
+custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
+
+vis_backends = [
+    dict(
+        type="SwanlabVisBackend",
+        save_dir="runs/swanlab",
+        init_kwargs={
+            "project": "swanlab-mmengine",
+        },
+    ),
+]
+
+visualizer = dict(
+    type="Visualizer",
+    vis_backends=vis_backends,
+)
+```
+</details>
+
+
 
 <br>
 

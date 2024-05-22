@@ -279,7 +279,7 @@ if __name__ == "__main__":
 </details>
 
 <details>
-<summary>FashionMNSIT-ResNet34</summary>
+<summary>FashionMNSIT</summary>
 
 ```python
 import os
@@ -668,6 +668,35 @@ trainer = Trainer(
 trainer.train()
 ```
 
+</details>
+
+<details>
+<summary>
+  <strong> MMEngine(MMDetection etc.)</strong>
+</summary>
+
+将SwanLab专为MMEngine设计的`SwanlabVisBackend`集成到MMEngine中，即可实现SwanLab自动记录训练指标。
+
+在你的MM配置文件中，加入下面的代码片段，开始训练即可。
+
+```python
+custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
+
+vis_backends = [
+    dict(
+        type="SwanlabVisBackend",
+        save_dir="runs/swanlab",
+        init_kwargs={
+            "project": "swanlab-mmengine",
+        },
+    ),
+]
+
+visualizer = dict(
+    type="Visualizer",
+    vis_backends=vis_backends,
+)
+```
 </details>
 
 <br>
