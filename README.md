@@ -88,8 +88,7 @@ and track key training metrics.
 - **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries,
   code directory.
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch, TensorFlow, PyTorch Lightning, 🤗HuggingFace Transformers, Tensorboard, 
-MMEngine, OpenAI, ZhipuAI, Hydra, etc.
+**2. ⚡️ Comprehensive Framework Integration**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
 **3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments,
 providing an overview of training at a glance.
@@ -693,6 +692,7 @@ trainer.train()
 <summary>
   <strong> MMEngine(MMDetection etc.)</strong>
 </summary>
+<br>
 
 Integrate `SwanlabVisBackend` into MMEngine to enable automatic logging of training metrics by SwanLab.
 
@@ -716,6 +716,32 @@ visualizer = dict(
     vis_backends=vis_backends,
 )
 ```
+</details>
+
+<details>
+<summary>
+  <strong> Ultralytics</strong>
+</summary>
+<br>
+
+Integrating SwanLab into Ultralytics is very simple; you can use the `add_swanlab_callback` function:
+
+```python
+from ultralytics import YOLO
+from swanlab.integration.ultralytics import add_swanlab_callback
+
+model = YOLO("yolov8n.yaml")
+model.load()
+
+add_swanlab_callback(model)
+
+model.train(
+    data="./coco.yaml",
+    epochs=50, 
+    imgsz=320,
+)
+```
+
 </details>
 
 

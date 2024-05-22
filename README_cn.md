@@ -81,8 +81,7 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
 - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
 
-**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Tensorboard、
-Transformers、MMEngine、OpenAI、ZhipuAI、Hydra、...
+**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
 **3. 📦组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
 
@@ -674,6 +673,7 @@ trainer.train()
 <summary>
   <strong> MMEngine(MMDetection etc.)</strong>
 </summary>
+<br>
 
 将SwanLab专为MMEngine设计的`SwanlabVisBackend`集成到MMEngine中，即可实现SwanLab自动记录训练指标。
 
@@ -697,6 +697,34 @@ visualizer = dict(
     vis_backends=vis_backends,
 )
 ```
+
+</details>
+
+<details>
+<summary>
+  <strong> Ultralytics</strong>
+</summary>
+<br>
+
+将SwanLab集成到Ultralytics中非常简单，只需要用`add_swanlab_callback`函数即可实现:
+
+```python
+from ultralytics import YOLO
+from swanlab.integration.ultralytics import add_swanlab_callback
+
+model = YOLO("yolov8n.yaml")
+model.load()
+
+# 添加swanlab回调
+add_swanlab_callback(model)
+
+model.train(
+    data="./coco.yaml",
+    epochs=50, 
+    imgsz=320,
+)
+```
+
 </details>
 
 <br>

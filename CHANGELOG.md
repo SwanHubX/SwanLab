@@ -1,5 +1,12 @@
 # ⚡️更新日志
 
+## v0.3.3 - 2024.5.22
+
+**👥集成**
+- 与Weights & Biases集成，支持将wandb项目转换为`SwanLab`项目，[指引](/zh/guide_cloud/integration/integration-wandb.md)
+- 与Ultralytics集成，[指引](/zh/guide_cloud/integration/integration-ultralytics.md)
+- 与fastai集成，[指引](/zh/guide_cloud/integration/integration-fastai.md)
+
 ## v0.3.2 - 2024.5.17
 
 **👥集成**
