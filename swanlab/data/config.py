@@ -52,7 +52,7 @@ def need_inited(func):
 
     def wrapper(self, *args, **kwargs):
         if not self._inited:
-            raise RuntimeError("You must call swanlab.init() before using swanlab.log")
+            raise RuntimeError("You must call swanlab.init() before using swanlab.config")
         return func(self, *args, **kwargs)
 
     return wrapper
