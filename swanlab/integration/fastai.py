@@ -1,3 +1,7 @@
+"""
+Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-fastai.html
+"""
+
 try:
     from fastai.learner import Callback
     from fastcore.basics import store_attr, detuplify, ignore_exceptions
