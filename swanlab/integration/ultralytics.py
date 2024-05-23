@@ -1,6 +1,6 @@
 """
 For adaptation to the ultralytics framework. Detailed usage are as follows:
-------trian.py in ultralytics------
+------train.py in ultralytics------
 from ultralytics import YOLO
 from swanlab.integration.ultralytics import add_swanlab_callback
 
