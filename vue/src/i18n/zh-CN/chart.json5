@@ -22,7 +22,17 @@
       step: '步数',
       tag: '标签',
       time: '时间',
-      value: '值'
+      value: '值',
+      download: {
+        button: '下载',
+        png: {
+          title: '导出为PNG',
+          name: '名称',
+          width: '宽度',
+          height: '高度',
+          download: '下载图像'
+        }
+      }
     },
     text: {
       titles: {

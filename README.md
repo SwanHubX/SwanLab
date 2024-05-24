@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">Changelog</a>
+<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/main/CHANGELOG.md">Changelog</a>
 
 
 </p>
@@ -34,29 +34,28 @@
 
 - [👋🏻 Introduction](#-Introduction)
 - [🏁 Quick Start](#🏁-quick-start)
-  - [1.Installation](#1installation)
-  - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
-  - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
+    - [1.Installation](#1installation)
+    - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
+    - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
 - [📃 More Examples](#-more-examples)
 - [💻 Self-hosted](#-self-hosted)
-  - [Offline Experiment Tracking](#offline-experiment-tracking)
-  - [Open Offline Dashboard](#open-offline-board)
+    - [Offline Experiment Tracking](#offline-experiment-tracking)
+    - [Open Offline Dashboard](#open-offline-board)
 - [🚗 Integration](#-integration)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
-  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-  - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
+    - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
+    - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
 - [🛣️ Roadmap](#%EF%B8%8F-roadmap)
-  - [In Progress Now](#in-progress-now)
-  - [Next Planned](#next-planned)
-  - [Long Term Concern](#long-term-concern)
+    - [In Progress Now](#in-progress-now)
+    - [Next Planned](#next-planned)
+    - [Long Term Concern](#long-term-concern)
 - [👥 Community](#-community)
-  - [Community and Support](#community-and-support)
-  - [SwanLab README Badge](#swanlab-readme-badge)
-  - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
-  - [Contribute to SwanLab](#contribute-to-swanlab)
-  - [Download Icon](#download-icon)
+    - [Community and Support](#community-and-support)
+    - [SwanLab README Badge](#swanlab-readme-badge)
+    - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
+    - [Contribute to SwanLab](#contribute-to-swanlab)
+    - [Download Icon](#download-icon)
 - [📃 License](#-license)
-
 
 <br/>
 
@@ -64,33 +63,48 @@
 
 ## 👋🏻 Introduction
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
+SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and
+collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
 
-It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording metric, online collaboration, sharing experiment link, real-time message notifications, allowing you to quickly track ML experiments, visualize processes, and share with peers.
+SwanLab是一个开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
 
-By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers. Machine learning engineers can develop models for production more efficiently.
+It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording
+metric, online collaboration, sharing experiment link, real-time message notifications, allowing you to quickly track ML
+experiments, visualize processes, and share with peers.
 
-![](/readme_files/introduction.png)
+By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers.
+Machine learning engineers can develop models for production more efficiently.
+
+![](readme_files/introduction.png)
 
 Here is the English version of the core feature list for an AI platform:
 
-**1. 📊 Experimental Metrics and Tracking Hyperparameter**: Embed your machine learning pipeline with minimalistic code and track key training metrics.
-   - Flexible recording of hyperparameters and experiment configurations.
-   - **Supported metadata types**: scalar metrics, images, audio, text, etc.
-   - **Supported chart types**: line graphs, media charts (images, audio, text), etc.
-   - **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries, code directory.
+**1. 📊 Experimental Metrics and Tracking Hyperparameter**: Embed your machine learning pipeline with minimalistic code
+and track key training metrics.
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch, TensorFlow, PyTorch Lightning, 🤗HuggingFace Transformers, MMEngine, OpenAI, ZhipuAI, Hydra, etc.
+- Flexible recording of hyperparameters and experiment configurations.
+- **Supported metadata types**: scalar metrics, images, audio, text, etc.
+- **Supported chart types**: line graphs, media charts (images, audio, text), etc.
+- **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries,
+  code directory.
 
-**3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments, providing an overview of training at a glance.
+**2. ⚡️ Comprehensive Framework Integration**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
-**4. 🆚 Comparing Results**: Use online tables and paired charts to compare the hyperparameters and outcomes of different experiments, developing iterative inspiration.
+**3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments,
+providing an overview of training at a glance.
 
-**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of experiments under the same project, allowing you to synchronize training records of the team online and share insights and suggestions based on results.
+**4. 🆚 Comparing Results**: Use online tables and paired charts to compare the hyperparameters and outcomes of different
+experiments, developing iterative inspiration.
 
-**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, efficiently send them to colleagues, or embed them in online notes.
+**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of
+experiments under the same project, allowing you to synchronize training records of the team online and share insights
+and suggestions based on results.
 
-**7. 💻 Self-hosting Support**: Supports offline mode with a self-hosted community version that also allows for dashboard viewing and experiment management.
+**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, efficiently send them to colleagues,
+or embed them in online notes.
+
+**7. 💻 Self-hosting Support**: Supports offline mode with a self-hosted community version that also allows for dashboard
+viewing and experiment management.
 
 > \[!IMPORTANT]
 >
@@ -98,10 +112,9 @@ Here is the English version of the core feature list for an AI platform:
 
 
 
-![star-us](/readme_files/star-us.png)
+![star-us](readme_files/star-us.png)
 
 <br>
-
 
 ## 🏁 Quick Start
 
@@ -113,7 +126,7 @@ pip install swanlab
 
 ### 2.Log in and get the API Key
 
-1. **Free [Sign Up](https://swanlab.cn)** 
+1. **Free [Sign Up](https://swanlab.cn)**
 
 2. **Log in to your account**, go to User Settings > [API Key](https://swanlab.cn/settings) and copy your API Key.
 
@@ -132,8 +145,8 @@ import swanlab
 
 # Create a new SwanLab experiment
 swanlab.init(
-  project="my-first-ml",
-  config={'learning-rate': 0.003}
+    project="my-first-ml",
+    config={'learning-rate': 0.003}
 )
 
 # Log metrics
@@ -143,7 +156,7 @@ for i in range(10):
 
 **All set!** Visit [SwanLab](https://swanlab.cn) to see your first SwanLab experiment.
 
-![MNIST](/readme_files/readme-mnist.png)
+![MNIST](readme_files/readme-mnist.png)
 
 <br>
 
@@ -160,6 +173,7 @@ import torch.nn.functional as F
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import swanlab
+
 
 # CNN网络构建
 class ConvNet(nn.Module):
@@ -278,7 +292,7 @@ if __name__ == "__main__":
 </details>
 
 <details>
-<summary>FashionMNSIT-ResNet34</summary>
+<summary>FashionMNSIT</summary>
 
 ```python
 import os
@@ -288,6 +302,7 @@ import torch.nn.functional as F
 from torchvision.datasets import FashionMNIST
 from torchvision.transforms import ToTensor
 import swanlab
+
 
 # ResNet网络构建
 class Basicblock(nn.Module):
@@ -435,7 +450,7 @@ if __name__ == "__main__":
     log_images(train_loader, 16)
 
     # 开始训练
-    for epoch in range(1, run.config.num_epochs+1):
+    for epoch in range(1, run.config.num_epochs + 1):
         swanlab.log({"train/epoch": epoch}, step=epoch)
         # 训练循环
         for iter, batch in enumerate(train_loader):
@@ -481,14 +496,14 @@ The community edition supports offline viewing of SwanLab dashboards.
 
 ### Offline Experiment Tracking
 
-Set the parameters `logir` and `cloud` in swanlab.init to track experiments offline: 
+Set the parameters `logir` and `cloud` in swanlab.init to track experiments offline:
 
 ```python
 ...
 
 swanlab.init(
-  logdir='./logs',
-  cloud=False,
+    logdir='./logs',
+    cloud=False,
 )
 
 ...
@@ -496,12 +511,13 @@ swanlab.init(
 
 - The parameter `cloud` is set to `False`, which disables synchronizing the experiment to the cloud.
 
-- The setting of the parameter `logdir` is optional, and it specifies the location for saving SwanLab log files (by default saved in the `swanlog` folder).
+- The setting of the parameter `logdir` is optional, and it specifies the location for saving SwanLab log files (by
+  default saved in the `swanlog` folder).
 
-- Log files will be created and updated during tracking of experiments, and launching offline dashboards will also be based on these log files.
+- Log files will be created and updated during tracking of experiments, and launching offline dashboards will also be
+  based on these log files.
 
 Other parts are completely consistent with cloud usage.
-
 
 ### Open Offline Board
 
@@ -511,7 +527,8 @@ Open the terminal and use the following command to open a SwanLab dashboard:
 swanlab watch -l ./logs
 ```
 
-After the operation is completed, SwanLab will provide you with a local URL link (default is [http://127.0.0.1:5092](http://127.0.0.1:5092)).
+After the operation is completed, SwanLab will provide you with a local URL link (default
+is [http://127.0.0.1:5092](http://127.0.0.1:5092)).
 
 Visit this link to view the experiment offline in the browser dashboard.
 
@@ -519,7 +536,8 @@ Visit this link to view the experiment offline in the browser dashboard.
 
 ## 🚗 Integration
 
-Combine your favorite framework with SwanLab, [More Integration](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html).
+Combine your favorite framework with
+SwanLab, [More Integration](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html).
 
 <details>
   <summary>
@@ -527,7 +545,8 @@ Combine your favorite framework with SwanLab, [More Integration](https://docs.sw
   </summary>
   <br>
 
-Create an instance using `SwanLabLogger` and pass it into the `logger` parameter of `Trainer` to enable SwanLab to record training metrics.
+Create an instance using `SwanLabLogger` and pass it into the `logger` parameter of `Trainer` to enable SwanLab to
+record training metrics.
 
 ```python
 from swanlab.integration.pytorch_lightning import SwanLabLogger
@@ -540,6 +559,7 @@ from torchvision.transforms import ToTensor
 
 encoder = nn.Sequential(nn.Linear(28 * 28, 128), nn.ReLU(), nn.Linear(128, 3))
 decoder = nn.Sequential(nn.Linear(3, 128), nn.ReLU(), nn.Linear(128, 28 * 28))
+
 
 class LitAutoEncoder(pl.LightningModule):
     def __init__(self, encoder, decoder):
@@ -610,7 +630,8 @@ trainer.test(dataloaders=test_loader)
 
 <br>
 
-Create an instance using `SwanLabCallback` and pass it into the `callbacks` parameter of `Trainer` to enable SwanLab to record training metrics.
+Create an instance using `SwanLabCallback` and pass it into the `callbacks` parameter of `Trainer` to enable SwanLab to
+record training metrics.
 
 ```python
 import evaluate
@@ -667,25 +688,91 @@ trainer.train()
 
 </details>
 
+<details>
+<summary>
+  <strong> MMEngine(MMDetection etc.)</strong>
+</summary>
 <br>
 
+Integrate `SwanlabVisBackend` into MMEngine to enable automatic logging of training metrics by SwanLab.
+
+Add the following code snippet to your MM config file to start training:
+
+```python
+custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
+
+vis_backends = [
+    dict(
+        type="SwanlabVisBackend",
+        save_dir="runs/swanlab",
+        init_kwargs={
+            "project": "swanlab-mmengine",
+        },
+    ),
+]
+
+visualizer = dict(
+    type="Visualizer",
+    vis_backends=vis_backends,
+)
+```
+</details>
+
+<details>
+<summary>
+  <strong> Ultralytics</strong>
+</summary>
+<br>
+
+Integrating SwanLab into Ultralytics is very simple; you can use the `add_swanlab_callback` function:
+
+```python
+from ultralytics import YOLO
+from swanlab.integration.ultralytics import add_swanlab_callback
+
+model = YOLO("yolov8n.yaml")
+model.load()
+
+add_swanlab_callback(model)
+
+model.train(
+    data="./coco.yaml",
+    epochs=50, 
+    imgsz=320,
+)
+```
+
+</details>
+
+
+
+<br>
 
 ## 🆚 Comparison with familiar tools
 
 ### Tensorboard vs SwanLab
 
 - **☁️ Online Usage Support**:
-  With SwanLab, training experiments can be conveniently synchronized and saved in the cloud, allowing for remote monitoring of training progress, managing historical projects, sharing experiment links, sending real-time notification messages, and viewing experiments across multiple devices. In contrast, TensorBoard is an offline experiment tracking tool.
+  With SwanLab, training experiments can be conveniently synchronized and saved in the cloud, allowing for remote
+  monitoring of training progress, managing historical projects, sharing experiment links, sending real-time
+  notification messages, and viewing experiments across multiple devices. In contrast, TensorBoard is an offline
+  experiment tracking tool.
 
 - **👥 Collaborative Multi-user Environment**:
-  SwanLab facilitates easy management of multi-person training projects and sharing of experiment links for collaborative machine learning across teams. It also enables cross-space communication and discussion. On the other hand, TensorBoard is primarily designed for individual use, making it difficult to collaborate and share experiments with multiple users.
+  SwanLab facilitates easy management of multi-person training projects and sharing of experiment links for
+  collaborative machine learning across teams. It also enables cross-space communication and discussion. On the other
+  hand, TensorBoard is primarily designed for individual use, making it difficult to collaborate and share experiments
+  with multiple users.
 
 - **💻 Persistent, Centralized Dashboard**:
-  Regardless of where you are training your models, be it on a local computer, a lab cluster, or on public cloud GPU instances, your results are logged to the same centralized dashboard. Using TensorBoard, on the other hand, requires spending time copying and managing TFEvent files from different machines.
+  Regardless of where you are training your models, be it on a local computer, a lab cluster, or on public cloud GPU
+  instances, your results are logged to the same centralized dashboard. Using TensorBoard, on the other hand, requires
+  spending time copying and managing TFEvent files from different machines.
 
 - **💪 More Powerful Tables**:
-  SwanLab tables allow you to view, search, and filter results from various experiments, making it easy to review thousands of model versions to find the best-performing models for different tasks. TensorBoard is not well-suited for large-scale projects. 
-
+  SwanLab tables allow you to view, search, and filter results from various experiments, making it easy to review
+  thousands of model versions to find the best-performing models for different tasks. TensorBoard is not well-suited for
+  large-scale projects.
 
 ### Weights and Biases vs SwanLab
 
@@ -695,16 +782,17 @@ trainer.train()
 
 <br>
 
-
 ## 🛣️ Roadmap
 
-Tools evolve in iteration and feedback~, welcome to [submit feature suggestions](https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc)
+Tools evolve in iteration and feedback~, welcome
+to [submit feature suggestions](https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc)
 
 ### In Progress Now
 
 - `Table`: More flexible multidimensional table charts, suitable for LLM, AIGC, model evaluation and other scenarios.
 
-- **Email notification📧**: When training is interrupted unexpectedly, when training is completed, and when custom situations occur, send notification emails.
+- **Email notification📧**: When training is interrupted unexpectedly, when training is completed, and when custom
+  situations occur, send notification emails.
 
 ### Next Planned
 
@@ -737,7 +825,8 @@ Tools evolve in iteration and feedback~, welcome to [submit feature suggestions]
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：Errors and issues encountered when using SwanLab
 - [Email support](zeyi.lin@swanhub.co)：Feedback on issues with using SwanLab
-- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>：Discuss issues using SwanLab, share the latest AI technology.
+- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>：Discuss issues using SwanLab,
+  share the latest AI technology.
 
 ### SwanLab README Badge
 
@@ -766,7 +855,8 @@ If you find SwanLab helpful for your research journey, please consider citing in
 
 ### Contribute to SwanLab
 
-Considering contributing to SwanLab? First, please take some time to read the [Contribution Guidelines](CONTRIBUTING.md).
+Considering contributing to SwanLab? First, please take some time to read
+the [Contribution Guidelines](CONTRIBUTING.md).
 
 At the same time, we warmly welcome support for SwanLab through social media, events, and conference sharing. Thank you!
 
@@ -780,11 +870,11 @@ At the same time, we warmly welcome support for SwanLab through social media, ev
 
 ### Download Icon
 
-[SwanLab-Icon-SVG](/readme_files/swanlab-logo.svg)
+[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
-
 ## 📃 License
 
-This repository follows the [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) open source license.
+This repository follows the [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) open source
+license.

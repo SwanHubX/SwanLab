@@ -1,42 +1,44 @@
 <template>
-  <!-- 图表标题 -->
-  <p class="text-center font-semibold select-none">{{ title }}</p>
-  <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
-    <SLIcon class="mx-auto h-5 w-5" icon="error" />
-    <p class="text-center text-sm">
-      {{ $t('chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
-    </p>
-  </div>
-  <template v-else>
-    <!-- x轴坐标单位 -->
-    <p class="absolute right-5 bottom-10 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
-    <!-- 图表主体 -->
-    <LineChartLegend
-      :items="legend"
-      :key="legend.length"
-      @hoverin="(item) => legendHoverin(item, false)"
-      @hoverout="(item) => legendHoverout(item, false)"
-      v-if="legend && multi"
-    />
-    <div class="relative">
-      <LineChartTooltip ref="tooltipRef" />
-      <div class="overflow-hidden" ref="g2Ref"></div>
+  <div class="flex flex-col justify-between grow" ref="lineChartRef">
+    <!-- 图表标题 -->
+    <p class="text-center font-semibold select-none">{{ title }}</p>
+    <div class="flex flex-col justify-center grow text-dimmer gap-2" v-if="error">
+      <SLIcon class="mx-auto h-5 w-5" icon="error" />
+      <p class="text-center text-sm">
+        {{ $t('chart.charts.line.error', { type: error['data_class'], tag: source[0] }) }}
+      </p>
     </div>
-    <!-- 放大效果 -->
-    <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
-      <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+    <template v-else>
+      <!-- 图表主体 -->
       <LineChartLegend
         :items="legend"
-        @hoverin="(item) => legendHoverin(item, true)"
-        @hoverout="(item) => legendHoverout(item, true)"
+        :key="legend.length"
+        @hoverin="(item) => legendHoverin(item, false)"
+        @hoverout="(item) => legendHoverout(item, false)"
         v-if="legend && multi"
       />
-      <div class="relative" ref="g2ZoomRef">
-        <LineChartTooltip ref="tooltipZoomRef" />
+      <div class="relative">
+        <!-- x轴坐标单位 -->
+        <p class="absolute right-2 bottom-6 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
+        <LineChartTooltip ref="tooltipRef" />
+        <div class="overflow-hidden" ref="g2Ref"></div>
       </div>
-      <p class="absolute right-12 bottom-16 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
-    </SLModal>
-  </template>
+      <!-- 放大效果 -->
+      <SLModal class="p-10 pt-0 overflow-hidden" max-w="-1" v-model="isZoom" esc-exit>
+        <p class="text-center mt-4 mb-10 text-2xl font-semibold">{{ title }}</p>
+        <LineChartLegend
+          :items="legend"
+          @hoverin="(item) => legendHoverin(item, true)"
+          @hoverout="(item) => legendHoverout(item, true)"
+          v-if="legend && multi"
+        />
+        <div class="relative" ref="g2ZoomRef">
+          <p class="absolute right-2 bottom-6 text-xs text-dimmer scale-90 select-none">{{ xTitle }}</p>
+          <LineChartTooltip ref="tooltipZoomRef" />
+        </div>
+      </SLModal>
+    </template>
+  </div>
 </template>
 
 <script setup>
@@ -131,6 +133,7 @@ G2.registerShape('point', 'last-point', {
 
 // ---------------------------------- 组件渲染逻辑 ----------------------------------
 // 组件对象
+const lineChartRef = ref()
 const g2Ref = ref()
 const g2ZoomRef = ref()
 const tooltipRef = ref()
@@ -260,6 +263,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       showMarkers: true,
       customContent: () => '',
       domStyles: {
+        // 自己写tooltip的样式
         'g2-tooltip': {
           boxShadow: 'none',
           borderWidth: 'none',
@@ -277,7 +281,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
       }
     },
     // 大小相关
-    height: 220,
+    height: originalHeight,
     width: undefined,
     autoFit: true,
     // 开启一些交互
@@ -678,6 +682,26 @@ const smooth = (method) => {
   render(chartData)
 }
 
+// ---------------------------------- 动态设置原始高度 ----------------------------------
+
+let originalHeight = 220
+/**
+ * @type {setOriginalChartHeight} setLineChartHeight
+ */
+const setLineChartHeight = (height, maxHeight = 800, minHeight = 200) => {
+  if (height > maxHeight) return
+  if (height < minHeight) return
+  const nowLineChartHeight = lineChartRef.value.clientHeight
+  const nowLineChartCanvas = lineChartRef.value.getElementsByTagName('canvas')[0]
+  if (!nowLineChartCanvas) return (originalHeight = height - nowLineChartCanvasHeight)
+  const nowLineChartCanvasHeight = nowLineChartCanvas.clientHeight
+  console.log('nowLineChartHeight', nowLineChartHeight)
+  console.log('nowLineChartCanvasHeight', nowLineChartCanvasHeight)
+  const staticHeight = nowLineChartHeight - nowLineChartCanvasHeight
+  // 设置canvas高度，需要减去静态高度
+  nowLineChartCanvas.style.height = `${height - staticHeight}px`
+}
+
 // ---------------------------------- 暴露api ----------------------------------
 defineExpose({
   render,
@@ -687,7 +711,8 @@ defineExpose({
   showTooltip: lineShowTooltip,
   hideTooltip: lineHideTooltip,
   thicken: thickenByTagLinkage,
-  thin: restoreByTagLinkage
+  thin: restoreByTagLinkage,
+  setHeight: setLineChartHeight
 })
 </script>
 

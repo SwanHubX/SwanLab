@@ -10,7 +10,8 @@ r"""
 from ..http import get_http, sync_error_handler
 from .model import ColumnModel
 from typing import List, Tuple, Dict
-from swanlab.error import FileError
+from swanlab.error import FileError, ApiError
+from swanlab.log import swanlog
 import json
 import yaml
 import os
@@ -140,7 +141,11 @@ def upload_column(columns: List[ColumnModel]):
     http = get_http()
     url = f'/experiment/{http.exp_id}/column'
     # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
-    _ = [http.post(url, data=column.to_dict()) for column in columns]
+    for column in columns:
+        try:
+            http.post(url, column.to_dict())
+        except ApiError as e:
+            swanlog.error(f"Upload column {column.key} failed: {e.resp.status_code}")
 
 
 __all__ = [

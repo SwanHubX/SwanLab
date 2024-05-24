@@ -47,5 +47,14 @@
  * @callback OpenChartSubscribeCallback 图表本身向父组件传递数据的 订阅成功/数据更改 的回调函数，父组件将在订阅成功后调用这个函数
  * @param {string} key 数据源名称
  * @param {string} data 数据源的数据
- * @param {Obejct} error 请求失败的错误信息——如果有的话，没有就是null
+ * @param {Object} error 请求失败的错误信息——如果有的话，没有就是null
+ */
+
+// ---------------------------------- 图表api ----------------------------------
+
+/**
+ * @callback setOriginalChartHeight 设置图表的原始高度，如果在执行前图表还没有被渲染，那么将在图表渲染后立即执行
+ * @param {number} height 图表的高度, 单位px
+ * @param {number} [maxHeight=800] 图表的最大高度, 单位px, 默认为800
+ * @param {number} [minHeight=200] 图表的最小高度, 单位px, 默认为200
  */

@@ -1,4 +1,6 @@
 """
+Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-mmengine.html
+
 For adaptation to the mmengine framework, this adaptation also applies to frameworks such as mmdetection, xtuner, etc.
 , which use mmengine as the engine. By setting 'vis_backends' to 'swanlab' in the config file, experiment logs can be
 uploaded to SwanLab or viewed using the local version of SwanLab. Detailed configuration file changes are as follows:
@@ -109,6 +111,7 @@ class SwanlabVisBackend(BaseVisBackend):
         Args:
             config (Config): The Config object
         """
+
         def repack_dict(a, prefix=""):
             """
             Unpack Nested Dictionary func

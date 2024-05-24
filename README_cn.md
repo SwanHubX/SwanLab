@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://swanlab.cn">SwanLab在线版</a> · <a href="https://docs.swanlab.cn">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a>  · <a href="https://github.com/SwanHubX/SwanLab/blob/README-v0.3.0/CHANGELOG.md">更新日志</a>
+<a href="https://swanlab.cn">SwanLab在线版</a> · <a href="https://docs.swanlab.cn">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a>  · <a href="https://github.com/SwanHubX/SwanLab/blob/main/CHANGELOG.md">更新日志</a>
 </p>
 
 <p align="center">
@@ -81,8 +81,7 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
 - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
 
-**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace
-Transformers、MMEngine、OpenAI、ZhipuAI、Hydra、...
+**2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
 **3. 📦组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
 
@@ -279,7 +278,7 @@ if __name__ == "__main__":
 </details>
 
 <details>
-<summary>FashionMNSIT-ResNet34</summary>
+<summary>FashionMNSIT</summary>
 
 ```python
 import os
@@ -666,6 +665,64 @@ trainer = Trainer(
 )
 
 trainer.train()
+```
+
+</details>
+
+<details>
+<summary>
+  <strong> MMEngine(MMDetection etc.)</strong>
+</summary>
+<br>
+
+将SwanLab专为MMEngine设计的`SwanlabVisBackend`集成到MMEngine中，即可实现SwanLab自动记录训练指标。
+
+在你的MM配置文件中，加入下面的代码片段，开始训练即可。
+
+```python
+custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
+
+vis_backends = [
+    dict(
+        type="SwanlabVisBackend",
+        save_dir="runs/swanlab",
+        init_kwargs={
+            "project": "swanlab-mmengine",
+        },
+    ),
+]
+
+visualizer = dict(
+    type="Visualizer",
+    vis_backends=vis_backends,
+)
+```
+
+</details>
+
+<details>
+<summary>
+  <strong> Ultralytics</strong>
+</summary>
+<br>
+
+将SwanLab集成到Ultralytics中非常简单，只需要用`add_swanlab_callback`函数即可实现:
+
+```python
+from ultralytics import YOLO
+from swanlab.integration.ultralytics import add_swanlab_callback
+
+model = YOLO("yolov8n.yaml")
+model.load()
+
+# 添加swanlab回调
+add_swanlab_callback(model)
+
+model.train(
+    data="./coco.yaml",
+    epochs=50, 
+    imgsz=320,
+)
 ```
 
 </details>

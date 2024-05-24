@@ -1,7 +1,3 @@
-/**
- * @desc English - US: Chart
- * 这部分翻译用于charts组件
- */
 {
   charts: {
     audio: {
@@ -35,6 +31,16 @@
       smooth: {
         smoothing: 'Smoothing',
         method: 'Method'
+      },
+      download: {
+        button: 'Download',
+        png: {
+          download: 'Download image',
+          height: 'Height',
+          name: 'Name',
+          title: 'Export PNG',
+          width: 'Width'
+        }
       }
     }
   },

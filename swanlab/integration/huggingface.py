@@ -1,3 +1,7 @@
+"""
+Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-huggingface-transformers.html
+"""
+
 from typing import Optional, List, Dict, Union, Any
 import swanlab
 
