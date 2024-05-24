@@ -5,12 +5,11 @@ from swanlab.log import swanlog
 from typing import Dict, Union, Tuple
 from swanlab.utils import create_time
 from swanlab.utils.file import check_tag_format
-from urllib.parse import quote
-import ujson
-import os
-import math
 from .callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
+from urllib.parse import quote
+import os
+import math
 
 
 class SwanLabExp:
