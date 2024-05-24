@@ -44,7 +44,7 @@ class CloudRunCallback(LocalRunCallback):
         标记是否正在退出云端环境
         """
 
-    def before_init_project(self, project: str, workspace: str) -> int:
+    def on_init(self, project: str, workspace: str) -> int:
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
             self.login_info = self.get_login_info()
@@ -82,7 +82,7 @@ class CloudRunCallback(LocalRunCallback):
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
         return experiment_url
 
-    def on_train_begin(self):
+    def on_run(self):
         # 注册实验信息
         try:
             get_http().mount_exp(
@@ -119,7 +119,7 @@ class CloudRunCallback(LocalRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
-    def on_train_end(self, error: str = None):
+    def on_stop(self, error: str = None):
         # 打印信息
         self._view_web_print()
         run = get_run()

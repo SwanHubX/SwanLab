@@ -10,7 +10,6 @@ r"""
 from typing import Union, Tuple, Optional, Callable, Dict
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import DataType
-from abc import ABC, abstractmethod
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
@@ -26,9 +25,16 @@ NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
 """
 
 
+class MetricInfo:
+    """
+    指标信息，当新的指标被log时，会生成这个对象
+    """
+    pass
+
+
 class ColumnInfo:
     """
-    列信息
+    列信息，当创建列时，会生成这个对象
     """
 
     def __init__(
@@ -52,9 +58,9 @@ class ColumnInfo:
         self.config = config if config is not None else {}
 
 
-class SwanLabRunCallback(ABC):
+class U:
     """
-    SwanLabRunCallback抽象类
+    工具函数类，隔离SwanLabRunCallback回调与其他工具函数
     """
 
     def __init__(self):
@@ -121,16 +127,26 @@ class SwanLabRunCallback(ABC):
         """
         swanlog.info("Experiment {} has completed".format(FONT.yellow(self.settings.exp_name)))
 
+
+class SwanLabRunCallback(U):
+    """
+    SwanLabRunCallback，回调函数注册类，所有以`on_`和`before_`开头的函数都会在对应的时机被调用
+    为了方便管理：
+    1. `_`开头的函数为内部函数，不会被调用，且写在最开头
+    2. 所有回调按照逻辑上的触发顺序排列
+    3. 所有回调不要求全部实现，只需实现需要的回调即可
+    """
+
     def _register_sys_callback(self):
         """
-        注册系统回调
+        注册系统回调，内部使用
         """
         sys.excepthook = self._except_handler
         atexit.register(self._clean_handler)
 
     def _unregister_sys_callback(self):
         """
-        注销系统回调
+        注销系统回调，内部使用
         """
         sys.excepthook = sys.__excepthook__
         atexit.unregister(self._clean_handler)
@@ -147,14 +163,12 @@ class SwanLabRunCallback(ABC):
         """
         pass
 
-    @abstractmethod
-    def before_init_project(self, proj_name: str, workspace: str):
+    def on_init(self, proj_name: str, workspace: str):
         """
-        在执行业务逻辑之前调用
+        执行`swanlab.init`时调用
         """
         pass
 
-    @abstractmethod
     def before_init_experiment(
         self,
         run_id: str,
@@ -169,37 +183,32 @@ class SwanLabRunCallback(ABC):
         """
         pass
 
-    @abstractmethod
+    def on_run(self):
+        """
+        SwanLabRun初始化完毕时调用
+        """
+        pass
+
     def on_log(self):
         """
         每次执行swanlab.log时调用
         """
         pass
 
-    @abstractmethod
-    def on_train_begin(self):
+    def on_column_create(self, column_info: ColumnInfo):
         """
-        训练开始时的回调函数
-        """
-        pass
-
-    @abstractmethod
-    def on_train_end(self, error: str = None):
-        """
-        训练结束时的回调函数
+        列创建回调函数,新增列信息时调用
         """
         pass
 
-    @abstractmethod
     def on_metric_create(self, key: str, key_info: NewKeyInfo, static_dir: str):
         """
         指标创建回调函数,新增指标信息时调用
         """
         pass
 
-    @abstractmethod
-    def on_column_create(self, column_info: ColumnInfo):
+    def on_stop(self, error: str = None):
         """
-        列创建回调函数,新增列信息时调用
+        训练结束时的回调函数
         """
         pass

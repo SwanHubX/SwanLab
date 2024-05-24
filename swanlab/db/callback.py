@@ -85,7 +85,7 @@ class GlomCallback(SwanLabRunCallback):
 
         return experiment_name_checked, exp_name
 
-    def before_init_project(self, proj_name: str, *args, **kwargs):
+    def on_init(self, proj_name: str, *args, **kwargs):
         # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
         connect(autocreate=True)
         # 初始化项目数据库
@@ -141,10 +141,10 @@ class GlomCallback(SwanLabRunCallback):
         if exp.status != 0:
             raise KeyboardInterrupt("The experiment has been stopped by the user")
 
-    def on_train_begin(self):
+    def on_run(self):
         pass
 
-    def on_train_end(self, error: str = None):
+    def on_stop(self, error: str = None):
         # 更新数据库中的实验状态
         self.exp.update_status(-1 if error is not None else 1)
 

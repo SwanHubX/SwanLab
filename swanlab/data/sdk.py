@@ -186,7 +186,7 @@ def init(
     # 定义operator
     operator = _create_operator(cloud)
     # ---------------------------------- 初始化项目 ----------------------------------
-    exp_num = operator.before_init_project(project, workspace)
+    exp_num = operator.on_init(project, workspace)
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(

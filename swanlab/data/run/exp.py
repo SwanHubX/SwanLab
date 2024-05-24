@@ -94,6 +94,7 @@ class SwanLabExp:
         key_info = tag_obj.add(data, step)
         # 调用回调函数
         self.__operator.on_metric_create(tag_obj.tag, key_info, self.settings.static_dir)
+        return key_info
 
 
 class SwanLabTag:

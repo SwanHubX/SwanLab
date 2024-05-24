@@ -41,7 +41,7 @@ class LocalRunCallback(SwanLabRunCallback):
         else:
             swanlog.error("Error happened while training")
 
-    def before_init_project(self, *args, **kwargs):
+    def on_init(self, *args, **kwargs):
         pass
 
     def _except_handler(self, tp, val, tb):
@@ -62,7 +62,7 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
 
-    def on_train_begin(self):
+    def on_run(self):
         """
         训练开始，注册系统回调
         """
@@ -73,7 +73,7 @@ class LocalRunCallback(SwanLabRunCallback):
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
 
-    def on_train_end(self, error: str = None):
+    def on_stop(self, error: str = None):
         """
         训练结束，取消系统回调
         此函数被`run.finish`调用
@@ -92,5 +92,5 @@ class LocalRunCallback(SwanLabRunCallback):
     def before_init_experiment(self, *args, **kwargs):
         pass
 
-    def on_log(self, *args, **kwargs):
+    def on_log(self):
         pass

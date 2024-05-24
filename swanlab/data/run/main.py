@@ -37,6 +37,14 @@ class SwanLabRun:
     There should be only one instance of the SwanLabRun class for each experiment.
     """
 
+    class SwanLabLogReturn:
+        """
+        用于记录log方法返回的数据
+        """
+
+        def __init__(self):
+            self.data = {}
+
     def __init__(
         self,
         experiment_name: str = None,
@@ -46,6 +54,7 @@ class SwanLabRun:
         suffix: str = None,
         exp_num: int = None,
         operator: SwanLabRunOperator = None,
+        log_return: bool = False,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -72,6 +81,9 @@ class SwanLabRun:
             历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
+        log_return : bool, optional
+            执行log方法的时候是否返回数据，如果为True，则log方法会返回一个对象，代表此次log的数据，如果为False，则不返回
+            设置为False有助于提高性能，但是如果需要对log的数据进行处理，则需要设置为True
         """
         global run
         if run is not None:
@@ -86,6 +98,7 @@ class SwanLabRun:
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__operator.inject(self.__settings)
+        self.__log_return = log_return
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
         swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
@@ -106,7 +119,7 @@ class SwanLabRun:
         run = self
 
         # ---------------------------------- 初始化完成 ----------------------------------
-        self.__operator.on_train_begin()
+        self.__operator.on_run()
 
     @property
     def operator(self) -> SwanLabRunOperator:
@@ -167,7 +180,7 @@ class SwanLabRun:
         else:
             error = None
         # 退出回调
-        run.operator.on_train_end(error)
+        run.operator.on_stop(error)
         swanlog.uninstall()
         _run, run = run, None
         return _run
@@ -229,6 +242,8 @@ class SwanLabRun:
                 )
             )
             step = None
+
+        log_return = self.SwanLabLogReturn()
         # 遍历data，记录data
         for key in data:
             # 遍历字典的key，记录到本地文件中
@@ -238,7 +253,12 @@ class SwanLabRun:
                 # 将d作为输入，构造一个与d相同类型的实例
                 d = d[0].__class__(d)
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            self.__exp.add(key=key, data=d, step=step)
+            _ = self.__exp.add(key=key, data=d, step=step)
+
+            if self.__log_return:
+                log_return.data[key] = _
+
+        return log_return if self.__log_return else None
 
     def __str__(self) -> str:
         """此类的字符串表示"""
