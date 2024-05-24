@@ -132,9 +132,15 @@ class SwanLog:
         # 添加颜色格式化，并在此处设置格式化后的输出流是否可以被其他处理器处理
         colored_formatter = ColoredFormatter("%(name)s: %(message)s")
         self.__handler.setFormatter(colored_formatter)
-        self.__logger.addHandler(self.__handler)
+        self.enable_log()
         # 控制台监控记录器
         self.__consoler = SwanConsoler()
+
+    def disable_log(self):
+        self.__logger.removeHandler(self.__handler)
+
+    def enable_log(self):
+        self.__logger.addHandler(self.__handler)
 
     @property
     def installed(self):

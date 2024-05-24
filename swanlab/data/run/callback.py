@@ -20,66 +20,6 @@ import sys
 import os
 
 
-class MetricInfo:
-    """
-    指标信息，当新的指标被log时，会生成这个对象
-    """
-
-    def __init__(
-        self,
-        key: str,
-        metric: Union[Dict, None] = None,
-        summary: Union[Dict, None] = None,
-        data_type: Union[float, DataType] = None,
-        step: int = None,
-        epoch: int = None,
-        metric_path: str = None,
-        summary_path: str = None,
-        static_dir: str = None,
-        error: bool = True
-    ):
-        self.key = key
-        """
-        指标的key名称
-        """
-        self.metric = metric
-        """
-        指标信息，error时为None
-        """
-        self.summary = summary
-        """
-        摘要信息，error时为None
-        """
-        self.data_type = data_type
-        """
-        当前指标的数据类型，error时为None
-        """
-        self.step = step
-        """
-        当前指标的步数，error时为None
-        """
-        self.epoch = epoch
-        """
-        当前指标对应本地的行数，error时为None
-        """
-        self.metric_path = metric_path
-        """
-        指标文件的路径，error时为None
-        """
-        self.summary_path = summary_path
-        """
-        摘要文件的路径，error时为None
-        """
-        self.static_dir = static_dir
-        """
-        静态文件的根文件夹，error时为None
-        """
-        self.error = error
-        """
-        指标是否有错误
-        """
-
-
 class ColumnInfo:
     """
     列信息，当创建列时，会生成这个对象
@@ -127,6 +67,71 @@ class ColumnInfo:
         self.config = config if config is not None else {}
         """
         列的额外配置信息
+        """
+
+
+class MetricInfo:
+    """
+    指标信息，当新的指标被log时，会生成这个对象
+    """
+
+    def __init__(
+        self,
+        key: str,
+        column_info: ColumnInfo,
+        metric: Union[Dict, None] = None,
+        summary: Union[Dict, None] = None,
+        data_type: Union[float, DataType] = None,
+        step: int = None,
+        epoch: int = None,
+        metric_path: str = None,
+        summary_path: str = None,
+        static_dir: str = None,
+        error: bool = True
+    ):
+        self.key = key
+        """
+        指标的key名称
+        """
+        self.column_info = column_info
+        """
+        指标对应的列信息
+        """
+        self.metric = metric
+        """
+        指标信息，error时为None
+        """
+        self.summary = summary
+        """
+        摘要信息，error时为None
+        """
+        self.data_type = data_type
+        """
+        当前指标的数据类型，error时为None
+        """
+        self.step = step
+        """
+        当前指标的步数，error时为None
+        """
+        self.epoch = epoch
+        """
+        当前指标对应本地的行数，error时为None
+        """
+        self.metric_path = metric_path
+        """
+        指标文件的路径，error时为None
+        """
+        self.summary_path = summary_path
+        """
+        摘要文件的路径，error时为None
+        """
+        self.static_dir = static_dir
+        """
+        静态文件的根文件夹，error时为None
+        """
+        self.error = error
+        """
+        指标是否有错误
         """
 
 

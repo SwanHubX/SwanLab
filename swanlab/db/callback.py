@@ -155,8 +155,7 @@ class GlomCallback(SwanLabRunCallback):
         )
         # 创建命名空间，如果命名空间已经存在，会抛出ExistedError异常，捕获不处理即可
         # 需要指定sort，default命名空间的sort为0，其他命名空间的sort为None，表示默认添加到最后
-        # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
-        namespace = column_info.key.split("/")[0] if column_info.key.split("/")[0] != "" else column_info.namespace
+        namespace = column_info.namespace
         try:
             n = Namespace.create(name=namespace, experiment_id=self.exp.id, sort=column_info.sort)
             swanlog.debug(f"Namespace {namespace} created, id: {n.id}")

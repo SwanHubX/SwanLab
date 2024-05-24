@@ -45,7 +45,7 @@ class SwanLabRun:
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
-        operator: SwanLabRunOperator = None,
+        operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.

@@ -26,8 +26,9 @@ class SwanLabRunOperator(SwanLabRunCallback):
         super(SwanLabRunOperator, self).__init__()
         callbacks = [callbacks] if isinstance(callbacks, SwanLabRunCallback) else callbacks
         self.callbacks = {}
-        for callback in callbacks:
-            self.add_callback(callback)
+        if callbacks is not None:
+            for callback in callbacks:
+                self.add_callback(callback)
 
     def add_callback(self, callback: SwanLabRunCallback):
         if not isinstance(callback, SwanLabRunCallback):
