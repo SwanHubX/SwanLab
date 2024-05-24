@@ -1,3 +1,8 @@
+from tutils import open_dev_mode
+import swanlab
+
+swanlab.login(open_dev_mode())
+
 from ultralytics import YOLO
 from swanlab.integration.ultralytics import add_swanlab_callback
 

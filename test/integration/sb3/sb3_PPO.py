@@ -1,4 +1,8 @@
+from tutils import open_dev_mode
 import swanlab
+
+swanlab.login(open_dev_mode())
+
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor

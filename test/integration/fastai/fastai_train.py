@@ -1,5 +1,11 @@
+from tutils import open_dev_mode
+import swanlab
+
+swanlab.login(open_dev_mode())
+
 from fastai.vision.all import *
 from swanlab.integration.fastai import SwanLabCallback
+
 
 # 加载数据
 path = untar_data(URLs.PETS)

@@ -1,3 +1,8 @@
+from tutils import open_dev_mode
+import swanlab
+
+swanlab.login(open_dev_mode())
+
 import evaluate
 import numpy as np
 from swanlab.integration.huggingface import SwanLabCallback

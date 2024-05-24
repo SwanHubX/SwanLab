@@ -1,8 +1,10 @@
-#!/usr/bin/env python
+from tutils import open_dev_mode
+import swanlab
+
+swanlab.login(open_dev_mode())
 
 import os
 from lightning import Trainer
-import swanlab
 from swanlab.integration.pytorch_lightning import SwanLabLogger
 from tutils import open_dev_mode
 from lightning_base import BoringModel, RandomDataset
