@@ -220,7 +220,8 @@ class SwanLabTag:
             json.loads(json.dumps(new_data)),
             self.data_type,
             step,
-            epoch
+            epoch,
+            error=False
         )
 
     @property
