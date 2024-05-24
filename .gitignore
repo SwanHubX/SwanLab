@@ -11,7 +11,7 @@ swanlog.bak/
 dist/
 
 # test
-test/temp
+temp/
 tutils/config.json
 tutils/package.mock.json
 
