@@ -116,8 +116,8 @@ class SwanLabRun:
     def state(self) -> SwanLabRunState:
         return self.__state
 
-    @staticmethod
-    def get_state() -> SwanLabRunState:
+    @classmethod
+    def get_state(cls) -> SwanLabRunState:
         """
         获取当前实验状态
         """

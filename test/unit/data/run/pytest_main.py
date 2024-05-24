@@ -180,6 +180,18 @@ class TestSwanLabRunLog:
         assert ac.namespace == "default"
         assert ac.reference == "step"
 
+    def test_log_number_use_step_duplicate(self):
+        """
+        测试解析一个数字，使用step，但是重复执行
+        """
+        run = SwanLabRun()
+        run.log({"a": 1}, step=1)
+        metric_dict = run.log({"a": 1}, step=1)
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        assert a.error is True
+
     def test_log_number_use_prefix(self):
         """
         测试解析一个数字，使用prefix
@@ -213,3 +225,29 @@ class TestSwanLabRunLog:
             assert ac.chart_type == "default"
             assert ac.namespace == key.split('/')[0]
             assert ac.reference == "step"
+
+
+class TestSwanLabRunState:
+    """
+    测试SwanLabRun的状态变化
+    """
+
+    def test_not_started(self):
+        assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
+
+    def test_running(self):
+        run = SwanLabRun()
+        assert run.state == SwanLabRunState.RUNNING
+        assert run.is_running is True
+
+    def test_crashed(self):
+        run = SwanLabRun()
+        run.finish(SwanLabRunState.CRASHED, error="error")
+        assert run.state == SwanLabRunState.CRASHED
+        assert run.is_crashed is True
+
+    def test_success(self):
+        run = SwanLabRun()
+        run.finish(SwanLabRunState.SUCCESS)
+        assert run.state == SwanLabRunState.SUCCESS
+        assert run.is_success is True
