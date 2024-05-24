@@ -8,7 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, Tuple
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -183,9 +183,9 @@ def init(
     # 初始化环境变量
     init_env()
     # 定义operator
-    operator = _create_operator(cloud)
+    operator, c = _create_operator(cloud)
     # ---------------------------------- 初始化项目 ----------------------------------
-    exp_num = operator.on_init(project, workspace)
+    exp_num = SwanLabRunOperator.parse_return(operator.on_init(project, workspace), key=c.__str__())
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
@@ -297,10 +297,10 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _create_operator(cloud: bool = True):
+def _create_operator(cloud: bool = True) -> Tuple[SwanLabRunOperator, CloudRunCallback]:
     """
     创建SwanLabRunOperator实例
     """
     c = CloudRunCallback() if cloud else LocalRunCallback()
     callbacks = [c, GlomCallback()]
-    return SwanLabRunOperator(callbacks)
+    return SwanLabRunOperator(callbacks), c

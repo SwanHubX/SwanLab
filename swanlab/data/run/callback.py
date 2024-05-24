@@ -7,7 +7,8 @@ r"""
 @Description:
     回调函数注册抽象类
 """
-from typing import Union, Tuple, Optional, Callable, Dict
+from typing import Union, Optional, Callable, Dict
+from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import DataType
 from swanlab.log import swanlog
@@ -18,18 +19,50 @@ import atexit
 import sys
 import os
 
-NewKeyInfo = Union[None, Tuple[dict, Union[float, DataType], int, int]]
-"""
-新的key对象、数据类型、步数、行数
-为None代表没有添加新的key
-"""
-
 
 class MetricInfo:
     """
     指标信息，当新的指标被log时，会生成这个对象
     """
-    pass
+
+    def __init__(
+        self,
+        key: str,
+        metric: Union[Dict, None] = None,
+        data_type: Union[float, DataType] = None,
+        step: int = None,
+        epoch: int = None,
+        static_dir: str = None,
+        error: bool = True
+    ):
+        self.key = key
+        """
+        指标的key名称
+        """
+        self.metric = metric
+        """
+        指标信息，error时为None
+        """
+        self.data_type = data_type
+        """
+        当前指标的数据类型，error时为None
+        """
+        self.step = step
+        """
+        当前指标的步数，error时为None
+        """
+        self.epoch = epoch
+        """
+        当前指标对应本地的行数，error时为None
+        """
+        self.static_dir = static_dir
+        """
+        静态文件的根文件夹，error时为None
+        """
+        self.error = error
+        """
+        指标是否有错误
+        """
 
 
 class ColumnInfo:
@@ -49,13 +82,37 @@ class ColumnInfo:
         config: Optional[Dict] = None
     ):
         self.key = key
+        """
+        列的key名称
+        """
         self.namespace = namespace
+        """
+        列的命名空间
+        """
         self.data_type = data_type
+        """
+        列的数据类型
+        """
         self.chart_type = chart_type
+        """
+        列的图表类型
+        """
         self.error = error
+        """
+        列的类型错误信息
+        """
         self.reference = reference if reference is not None else "step"
+        """
+        列的参考对象
+        """
         self.sort = sort
+        """
+        列在namespace中的排序
+        """
         self.config = config if config is not None else {}
+        """
+        列的额外配置信息
+        """
 
 
 class U:
@@ -128,7 +185,7 @@ class U:
         swanlog.info("Experiment {} has completed".format(FONT.yellow(self.settings.exp_name)))
 
 
-class SwanLabRunCallback(U):
+class SwanLabRunCallback(ABC, U):
     """
     SwanLabRunCallback，回调函数注册类，所有以`on_`和`before_`开头的函数都会在对应的时机被调用
     为了方便管理：
@@ -201,7 +258,7 @@ class SwanLabRunCallback(U):
         """
         pass
 
-    def on_metric_create(self, key: str, key_info: NewKeyInfo, static_dir: str):
+    def on_metric_create(self, metric_info: MetricInfo):
         """
         指标创建回调函数,新增指标信息时调用
         """
@@ -210,5 +267,13 @@ class SwanLabRunCallback(U):
     def on_stop(self, error: str = None):
         """
         训练结束时的回调函数
+        """
+        pass
+
+    @abstractmethod
+    def __str__(self) -> str:
+        """
+        返回当前回调函数的名称，这条应该是一个全局唯一的标识
+        在operator中会用到这个名称，必须唯一
         """
         pass

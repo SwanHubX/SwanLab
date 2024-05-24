@@ -7,7 +7,7 @@ r"""
 @Description:
     云端回调
 """
-from .run.callback import NewKeyInfo, ColumnInfo
+from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
 from swanlab.error import ApiError
 from swanlab.api.upload.model import ColumnModel
@@ -44,12 +44,29 @@ class CloudRunCallback(LocalRunCallback):
         标记是否正在退出云端环境
         """
 
-    def on_init(self, project: str, workspace: str) -> int:
-        if self.login_info is None:
-            swanlog.debug("Login info is None, get login info.")
-            self.login_info = self.get_login_info()
-        http = create_http(self.login_info)
-        return http.mount_project(project, workspace).history_exp_count
+    @classmethod
+    def get_login_info(cls):
+        """
+        发起登录，获取登录信息，执行此方法会覆盖原有的login_info
+        """
+        key = None
+        try:
+            key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
+        except KeyFileError:
+            fd = sys.stdin.fileno()
+            # 不是标准终端，且非jupyter环境，无法控制其回显
+            if not os.isatty(fd) and not in_jupyter():
+                raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
+        return terminal_login(key)
+
+    def _view_web_print(self):
+        self._watch_tip_print()
+        http = get_http()
+        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
+        experiment_url = project_url + f"/runs/{http.exp_id}"
+        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
+        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
+        return experiment_url
 
     def _clean_handler(self):
         run = get_run()
@@ -73,14 +90,15 @@ class CloudRunCallback(LocalRunCallback):
         if tp != KeyboardInterrupt:
             raise tp(val)
 
-    def _view_web_print(self):
-        self._watch_tip_print()
-        http = get_http()
-        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
-        experiment_url = project_url + f"/runs/{http.exp_id}"
-        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
-        return experiment_url
+    def __str__(self):
+        return "SwanLabCloudRunCallback"
+
+    def on_init(self, project: str, workspace: str) -> int:
+        if self.login_info is None:
+            swanlog.debug("Login info is None, get login info.")
+            self.login_info = self.get_login_info()
+        http = create_http(self.login_info)
+        return http.mount_project(project, workspace).history_exp_count
 
     def on_run(self):
         # 注册实验信息
@@ -119,6 +137,25 @@ class CloudRunCallback(LocalRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
+    def on_column_create(self, column_info: ColumnInfo):
+        self.pool.queue.put((
+            UploadType.COLUMN,
+            [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)]
+        ))
+
+    def on_metric_create(self, metric_info: MetricInfo):
+        if metric_info.error:
+            return
+        new_data = metric_info.metric
+        new_data['key'] = metric_info.key
+        new_data['index'] = metric_info.step
+        new_data['epoch'] = metric_info.epoch
+        if metric_info.data_type == "default":
+            return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
+        key = quote(metric_info.key, safe="")
+        data = (new_data, key, metric_info.data_type, metric_info.static_dir)
+        self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
+
     def on_stop(self, error: str = None):
         # 打印信息
         self._view_web_print()
@@ -144,42 +181,3 @@ class CloudRunCallback(LocalRunCallback):
         # 取消注册系统回调
         self._unregister_sys_callback()
         self.exiting = False
-
-    def on_metric_create(self, key: str, key_info: NewKeyInfo, static_dir: str):
-        """
-        指标创建回调函数,新增指标信息时调用
-        :param key: 指标key名称
-        :param key_info: 指标信息
-        :param static_dir: 媒体文件目录
-        """
-        if key_info is None:
-            return
-        new_data, data_type, step, epoch = key_info
-        new_data['key'] = key
-        new_data['index'] = step
-        new_data['epoch'] = epoch
-        if data_type == "default":
-            return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
-        key = quote(key, safe="")
-        data = (new_data, key, data_type, static_dir)
-        self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
-
-    def on_column_create(self, column_info: ColumnInfo):
-        self.pool.queue.put(
-            (UploadType.COLUMN, [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)])
-        )
-
-    @classmethod
-    def get_login_info(cls):
-        """
-        发起登录，获取登录信息，执行此方法会覆盖原有的login_info
-        """
-        key = None
-        try:
-            key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
-        except KeyFileError:
-            fd = sys.stdin.fileno()
-            # 不是标准终端，且非jupyter环境，无法控制其回显
-            if not os.isatty(fd) and not in_jupyter():
-                raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
-        return terminal_login(key)

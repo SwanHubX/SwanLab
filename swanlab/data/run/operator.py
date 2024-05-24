@@ -7,27 +7,11 @@ r"""
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-from typing import List, Union
-from .callback import SwanLabRunCallback
+from typing import List, Union, Dict, Any, Callable
+from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo
 from ..settings import SwanDataSettings
 
-
-def fmt_return(func):
-    """
-    对返回值进行格式化，如果返回值是一个列表，那么就返回最后一个不是None的值，否则直接返回
-    如果所有的值都是None，那么返回None
-    """
-
-    def wrapper(*args, **kwargs):
-        rets = func(*args, **kwargs)
-        if isinstance(rets, list):
-            for ret in rets:
-                if ret is not None:
-                    return ret
-            return None
-        return rets
-
-    return wrapper
+OperatorReturnType = Dict[str, Any]
 
 
 class SwanLabRunOperator(SwanLabRunCallback):
@@ -41,39 +25,73 @@ class SwanLabRunOperator(SwanLabRunCallback):
     def __init__(self, callbacks: Union[SwanLabRunCallback, List[SwanLabRunCallback]] = None):
         super(SwanLabRunOperator, self).__init__()
         callbacks = [callbacks] if isinstance(callbacks, SwanLabRunCallback) else callbacks
-        self.callbacks: List[SwanLabRunCallback] = callbacks if callbacks is not None else []
-
-    def inject(self, settings: SwanDataSettings):
-        self.settings = settings
-        return [callback.inject(settings) for callback in self.callbacks]
+        self.callbacks = {}
+        for callback in callbacks:
+            self.add_callback(callback)
 
     def add_callback(self, callback: SwanLabRunCallback):
-        self.callbacks.append(callback)
+        if not isinstance(callback, SwanLabRunCallback):
+            raise TypeError(f"Unsupported callback type: {type(callback)}")
+        if str(callback) == str(self) or callback in self.callbacks:
+            raise ValueError(f"Cannot add the same callback instance: {callback}")
+        self.callbacks[str(callback)] = callback
 
-    @fmt_return
-    def before_init_experiment(self, *args, **kwargs):
-        return [callback.before_init_experiment(*args, **kwargs) for callback in self.callbacks]
+    def __str__(self):
+        return "SwanLabRunOperator"
 
-    @fmt_return
-    def on_init(self, *args, **kwargs):
-        return [callback.on_init(*args, **kwargs) for callback in self.callbacks]
+    def __run_all(self, method: str, *args, **kwargs):
+        return {name: getattr(callback, method)(*args, **kwargs) for name, callback in self.callbacks.items()}
 
-    @fmt_return
-    def on_log(self, *args, **kwargs):
-        return [callback.on_log() for callback in self.callbacks]
+    @classmethod
+    def parse_return(cls, ret: OperatorReturnType, key: str = None):
+        """
+        解析返回值，选择不为None的返回值
+        如果key不为None，则返回对应key的返回值
+        :param ret: 返回值
+        :param key: 返回值的key
+        :return:
+        """
+        if key is not None:
+            return ret[key]
+        return next((v for v in ret.values() if v is not None), None)
 
-    @fmt_return
+    def on_init(self, proj_name: str, workspace: str) -> OperatorReturnType:
+        return self.__run_all("on_init", proj_name, workspace)
+
+    def inject(self, settings: SwanDataSettings) -> OperatorReturnType:
+        self.settings = settings
+        return {name: callback.inject(settings) for name, callback in self.callbacks.items()}
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        suffix: str,
+        setter: Callable[[str, str, str, str], None]
+    ):
+        return self.__run_all(
+            "before_init_experiment",
+            run_id,
+            exp_name,
+            description,
+            num,
+            suffix,
+            setter
+        )
+
     def on_run(self):
-        return [callback.on_run() for callback in self.callbacks]
+        return self.__run_all("on_run")
 
-    @fmt_return
-    def on_stop(self, *args, **kwargs):
-        return [callback.on_stop(*args, **kwargs) for callback in self.callbacks]
+    def on_log(self):
+        return self.__run_all("on_log")
 
-    @fmt_return
-    def on_metric_create(self, *args, **kwargs):
-        return [callback.on_metric_create(*args, **kwargs) for callback in self.callbacks]
+    def on_metric_create(self, metric_info: MetricInfo):
+        return self.__run_all("on_metric_create", metric_info)
 
-    @fmt_return
-    def on_column_create(self, *args, **kwargs):
-        return [callback.on_column_create(*args, **kwargs) for callback in self.callbacks]
+    def on_column_create(self, column_info: ColumnInfo):
+        return self.__run_all("on_column_create", column_info)
+
+    def on_stop(self, error: str = None):
+        return self.__run_all("on_stop", error)

@@ -9,7 +9,7 @@ from urllib.parse import quote
 import ujson
 import os
 import math
-from .callback import NewKeyInfo, ColumnInfo
+from .callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
 
 
@@ -37,7 +37,7 @@ class SwanLabExp:
         self.__operator = operator
         """回调函数"""
 
-    def add(self, key: str, data: DataType, step: int = None):
+    def add(self, key: str, data: DataType, step: int = None) -> MetricInfo:
         """记录一条新的tag数据
 
         Parameters
@@ -85,15 +85,14 @@ class SwanLabExp:
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
-            return swanlog.warning(
-                f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is "
-                f"int ,float or BaseType, but the input type is {type(data)}."
+            swanlog.warning(
+                f"Chart '{tag}' creation failed. "
+                f"Reason: The expected value type for the chart '{tag}' is one of int,"
+                f"float or BaseType, but the input type is {type(data)}."
             )
-
-        # 添加tag信息
+            return MetricInfo(key)
         key_info = tag_obj.add(data, step)
-        # 调用回调函数
-        self.__operator.on_metric_create(tag_obj.tag, key_info, self.settings.static_dir)
+        key_info.static_dir = self.settings.static_dir
         return key_info
 
 
@@ -155,7 +154,7 @@ class SwanLabTag:
         """判断data是否为nan"""
         return isinstance(data, (int, float)) and math.isnan(data)
 
-    def add(self, data: DataType, step: int = None) -> NewKeyInfo:
+    def add(self, data: DataType, step: int = None) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
         并且添加数据，当前的数据保存是直接保存，后面会改成缓存形式
@@ -166,35 +165,34 @@ class SwanLabTag:
             待添加的数据
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
+
+        Returns
+        -------
+        metric_info
+            添加数据的信息，如果ok为False，则返回None
+        ok
+            是否添加成功，如果当前step已经存在，或者类型转换失败，返回False
         """
-        # 如果step不是None也不是int，设置为None且打印警告
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
             step = None
-        # 转换step，如果step为None，则改为合适的长度，目前step从0开始
         if step is None:
             step = len(self.__steps)
-        # 如果step已经存在，打印警告并退出
         if step in self.__steps:
-            return swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
-        # 添加数据，首先比较数据，如果数据比之前的数据大，则更新最大值，否则不更新
-        """
-        python环境下data可能是列表、字符串、整型、浮点型等
-        因此下面的summary还需要在未来做好兼容
-        对于整型和浮点型，还存在极大和极小值的问题
-        目前的策略是让python解释器自己处理，在前端完成数据的格式化展示
-        """
+            swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
+            return MetricInfo(self.tag)
         more = None if not isinstance(data, BaseType) else data.get_more()
         try:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
-            return swanlog.warning(
+            swanlog.warning(
                 f"Log failed. Reason: Data {data} on tag '{self.tag}' (step {step}) cannot be converted .It should be "
                 f"an int, float, or a DataType, but it is {type(data)}, please check the data type."
             )
+            return MetricInfo(self.tag)
         is_nan = self.__is_nan(data)
+        # 更新数据概要
         if not is_nan:
-            # 如果数据比之前的数据小，则更新最小值，否则不更新
             if self._summary.get("max") is None or data > self._summary["max"]:
                 self._summary["max"] = data
                 self._summary["max_step"] = step
@@ -205,27 +203,25 @@ class SwanLabTag:
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
         # ---------------------------------- 保存数据 ----------------------------------
-        """添加数据到data中"""
         if len(self.__data["data"]) >= self.__slice_size:
-            # 如果当前数据已经达到了__slice_size，重新创建一个新的data
             self.__data = self.__new_tags()
-        # 添加数据
         data = data if not is_nan else "NaN"
         new_data = self.__new_tag(step, data, more=more)
         self.__data["data"].append(new_data)
-        # 优化文件分片，每__slice_size个tag数据保存为一个文件，通过sum来判断
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
-        # 存储路径
         file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
-        # 更新实验信息总结
         with open(os.path.join(self.save_path, "_summary.json"), "w+") as f:
             ujson.dump(self._summary, f, ensure_ascii=False)
-        # 保存数据
         with open(file_path, "a") as f:
             f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
-        # 深度拷贝，防止数据被修改
-        return json.loads(json.dumps(new_data)), self.data_type, step, epoch
+        return MetricInfo(
+            self.tag,
+            json.loads(json.dumps(new_data)),
+            self.data_type,
+            step,
+            epoch
+        )
 
     @property
     def save_path(self):

@@ -41,8 +41,8 @@ class LocalRunCallback(SwanLabRunCallback):
         else:
             swanlog.error("Error happened while training")
 
-    def on_init(self, *args, **kwargs):
-        pass
+    def __str__(self):
+        return "SwanLabLocalRunCallback"
 
     def _except_handler(self, tp, val, tb):
         """
@@ -82,15 +82,3 @@ class LocalRunCallback(SwanLabRunCallback):
         self._watch_tip_print()
         # 取消注册系统回调
         self._unregister_sys_callback()
-
-    def on_metric_create(self, *args, **kwargs):
-        pass
-
-    def on_column_create(self, *args, **kwargs):
-        pass
-
-    def before_init_experiment(self, *args, **kwargs):
-        pass
-
-    def on_log(self):
-        pass

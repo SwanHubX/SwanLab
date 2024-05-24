@@ -21,7 +21,7 @@ import time
 
 class GlomCallback(SwanLabRunCallback):
     """
-    GlomCallback类
+    GlomCallback类，swanlab本体与数据库的连接回调函数
     """
 
     def __init__(self):
@@ -85,6 +85,9 @@ class GlomCallback(SwanLabRunCallback):
 
         return experiment_name_checked, exp_name
 
+    def __str__(self):
+        return "SwanLabGlomCallback"
+
     def on_init(self, proj_name: str, *args, **kwargs):
         # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
         connect(autocreate=True)
@@ -141,16 +144,6 @@ class GlomCallback(SwanLabRunCallback):
         if exp.status != 0:
             raise KeyboardInterrupt("The experiment has been stopped by the user")
 
-    def on_run(self):
-        pass
-
-    def on_stop(self, error: str = None):
-        # 更新数据库中的实验状态
-        self.exp.update_status(-1 if error is not None else 1)
-
-    def on_metric_create(self, *args, **kwargs):
-        pass
-
     def on_column_create(self, column_info: ColumnInfo):
         # 创建Chart
         chart = Chart.create(
@@ -184,3 +177,7 @@ class GlomCallback(SwanLabRunCallback):
             add_multi_chart(tag_id=tag.id, chart_id=chart.id)
         except ChartTypeError:
             swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
+
+    def on_stop(self, error: str = None):
+        # 更新数据库中的实验状态
+        self.exp.update_status(-1 if error is not None else 1)

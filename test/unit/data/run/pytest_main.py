@@ -73,4 +73,4 @@ class TestSwanLabRunLog:
         测试解析一个正常的数字
         """
         run = SwanLabRun()
-        = run.log({"a": data})
+        metric_dict = run.log({"a": data})

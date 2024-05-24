@@ -168,23 +168,6 @@ class Experiment(SwanModel):
 
     @classmethod
     def get(cls, *args, **kwargs) -> "Experiment":
-        """覆写继承的get方法，通过id获取实验实例
-
-        Parameters
-        ----------
-        id : int
-            实验id
-
-        Returns
-        -------
-        Experiment
-            实验实例
-
-        Raises
-        -------
-        NotExistedError
-            实验不存在
-        """
         try:
             return super().get(*args, **kwargs)
         except:
@@ -203,18 +186,18 @@ class Experiment(SwanModel):
         self.save()
 
     @classmethod
-    def purely_delete(cls, **kwargs):
+    def purely_delete(cls, run_id: str):
         """
         删除某一个实验，顺便删除实验的文件夹
 
         Parameters
         ----------
-        id : int
-            实验id
+        run_id : int
+            实验run_id
         """
         # 获取实验实例
         try:
-            exp = cls.get(**kwargs)
+            exp = cls.get(run_id=run_id)
             # 删除实验
             exp.delete_instance()
             # 更新项目的实验数量
@@ -222,6 +205,4 @@ class Experiment(SwanModel):
             # 删除实验文件夹
             shutil.rmtree(os.path.join(get_swanlog_dir(), exp.run_id.__str__()))
         except NotExistedError:
-            # 删除实验文件夹
-            if "run_id" in kwargs:
-                shutil.rmtree(os.path.join(get_swanlog_dir(), kwargs["run_id"]))
+            shutil.rmtree(os.path.join(get_swanlog_dir(), run_id))
