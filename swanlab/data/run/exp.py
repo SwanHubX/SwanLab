@@ -202,7 +202,6 @@ class SwanLabTag:
         self._summary["num"] = self._summary.get("num", 0) + 1
         self.__steps.add(step)
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
-        # ---------------------------------- 保存数据 ----------------------------------
         if len(self.__data["data"]) >= self.__slice_size:
             self.__data = self.__new_tags()
         data = data if not is_nan else "NaN"
@@ -211,16 +210,15 @@ class SwanLabTag:
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
         file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
-        with open(os.path.join(self.save_path, "_summary.json"), "w+") as f:
-            ujson.dump(self._summary, f, ensure_ascii=False)
-        with open(file_path, "a") as f:
-            f.write(ujson.dumps(new_data, ensure_ascii=False) + "\n")
         return MetricInfo(
             self.tag,
             json.loads(json.dumps(new_data)),
+            json.loads(json.dumps(self._summary)),
             self.data_type,
             step,
             epoch,
+            metric_path=file_path,
+            summary_path=os.path.join(self.save_path, "_summary.json"),
             error=False
         )
 

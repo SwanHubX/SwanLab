@@ -29,9 +29,12 @@ class MetricInfo:
         self,
         key: str,
         metric: Union[Dict, None] = None,
+        summary: Union[Dict, None] = None,
         data_type: Union[float, DataType] = None,
         step: int = None,
         epoch: int = None,
+        metric_path: str = None,
+        summary_path: str = None,
         static_dir: str = None,
         error: bool = True
     ):
@@ -42,6 +45,10 @@ class MetricInfo:
         self.metric = metric
         """
         指标信息，error时为None
+        """
+        self.summary = summary
+        """
+        摘要信息，error时为None
         """
         self.data_type = data_type
         """
@@ -54,6 +61,14 @@ class MetricInfo:
         self.epoch = epoch
         """
         当前指标对应本地的行数，error时为None
+        """
+        self.metric_path = metric_path
+        """
+        指标文件的路径，error时为None
+        """
+        self.summary_path = summary_path
+        """
+        摘要文件的路径，error时为None
         """
         self.static_dir = static_dir
         """

@@ -10,8 +10,9 @@ r"""
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback
+from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo
 import traceback
+import json
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -72,6 +73,14 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print()
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
+
+    def on_metric_create(self, metric_info: MetricInfo):
+        if metric_info.error:
+            return
+        with open(metric_info.summary_path, "w+") as f:
+            json.dump(metric_info.summary, f, ensure_ascii=False)
+        with open(metric_info.metric_path, "a") as f:
+            f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
 
     def on_stop(self, error: str = None):
         """

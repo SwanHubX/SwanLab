@@ -144,6 +144,7 @@ class CloudRunCallback(LocalRunCallback):
         ))
 
     def on_metric_create(self, metric_info: MetricInfo):
+        super(CloudRunCallback, self).on_metric_create(metric_info)
         if metric_info.error:
             return
         new_data = metric_info.metric
