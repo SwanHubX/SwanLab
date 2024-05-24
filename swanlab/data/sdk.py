@@ -162,7 +162,6 @@ def init(
     # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)
-        # 尝试更改传入的参数为None的情况，如果传入的参数不是None，不做任何操作
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
         description = _load_data(load_data, "description", description)
         config = _load_data(load_data, "config", config)
@@ -289,15 +288,12 @@ def _init_config(config: Union[dict, str]):
 
 
 def _load_data(load_data: dict, key: str, value):
-    """从load_data中加载数据，如果value不是None"""
+    """
+    从load_data中加载数据，如果value不是None，则直接返回value，如果为None，则返回load_data中的key
+    """
     if value is not None:
-        # tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), value)
-        # print(FONT.swanlab(tip))
         return value
     d = load_data.get(key, None)
-    # if d is not None:
-    #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
-    #     print(FONT.swanlab(tip))
     return d
 
 
