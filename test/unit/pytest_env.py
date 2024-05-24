@@ -11,7 +11,6 @@ from swanlab.env import (
     SwanLabMode,
     get_mode,
     assert_exist,
-    get_swanlab_folder,
     reset_env,
     STRICT_MODE,
     is_strict_mode,
