@@ -50,9 +50,9 @@ class SwanLabMode(enum.Enum):
     LOCAL = "local"
 
 
-def get_mode(env: Optional[Env] = None) -> Optional[SwanLabMode]:
+def get_mode(env: Optional[Env] = None) -> Optional[str]:
     """
-    获取运行模式，返回值为SwanLabMode枚举类型
+    获取运行模式，返回值为SwanLabMode枚举value
     """
     if _env.get(MODE) is not None:
         return _env.get(MODE)
@@ -87,7 +87,7 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     # 必须是一个绝对路径
     if not os.path.isabs(path):
         raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
-    # 路径必须存在
+    # 严格模式路径必须存在
     assert_exist(
         path,
         target_type="folder",
@@ -295,6 +295,17 @@ def get_swanlab_folder() -> str:
         os.remove(swanlab_folder)
         os.mkdir(swanlab_folder)
     return swanlab_folder
+
+
+def is_disabled_mode() -> bool:
+    """判断是否是禁用模式
+
+    Returns
+    -------
+    bool
+        是否是禁用模式
+    """
+    return get_mode() == SwanLabMode.DISABLED.value
 
 
 def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str = None, t_desc: str = None) -> bool:

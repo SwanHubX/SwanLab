@@ -8,7 +8,7 @@ r"""
     数据收集部分配置，此为运行时生成的配置，
 """
 import os
-from ..env import get_swanlog_dir
+from ..env import get_swanlog_dir, is_disabled_mode
 from typing import Tuple
 from swanlab.package import get_package_version
 
@@ -29,9 +29,9 @@ class SwanDataSettings:
         self.__exp_colors = None
         self.__description = None
         # 日志存放目录
-        self.__swanlog_dir: str = get_swanlog_dir()
+        self.__swanlog_dir: str = get_swanlog_dir() if is_disabled_mode() else None
         # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
-        self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
+        self.__root_dir: str = os.path.dirname(self.__swanlog_dir) if self.__swanlog_dir is not None else None
         # 实验运行id
         self.__run_id: str = run_id
         self.__version = get_package_version()
@@ -117,7 +117,7 @@ class SwanDataSettings:
     def static_dir(self) -> str:
         """静态资源路径"""
         path = os.path.join(self.run_dir, "media")
-        if not os.path.exists(path):
+        if not os.path.exists(path) and not is_disabled_mode():
             os.mkdir(path)
         return path
 
@@ -125,8 +125,9 @@ class SwanDataSettings:
     def files_dir(self) -> str:
         """实验配置信息路径"""
         path = os.path.join(self.run_dir, "files")
-        os.makedirs(path, exist_ok=True)
-        return os.path.join(self.run_dir, "files")
+        if not is_disabled_mode():
+            os.makedirs(path, exist_ok=True)
+        return path
 
     @property
     def requirements_path(self) -> str:

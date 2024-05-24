@@ -12,6 +12,7 @@ from ..system import get_system_info, get_requirements
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
+from swanlab.env import is_disabled_mode
 import random
 import ujson
 from enum import Enum
@@ -282,13 +283,13 @@ class SwanLabRun:
         # ---------------------------------- 记录系统信息 ----------------------------------
         requirements_path = self.__settings.requirements_path
         metadata_path = self.__settings.metadata_path
-        # 将实验依赖存入 requirements.txt
-        with open(requirements_path, "w") as f:
-            f.write(get_requirements())
-        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
-        with open(metadata_path, "w") as f:
-            ujson.dump(get_system_info(self.__settings), f)
-
+        if not is_disabled_mode():
+            # 将实验依赖存入 requirements.txt
+            with open(requirements_path, "w") as f:
+                f.write(get_requirements())
+            # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
+            with open(metadata_path, "w") as f:
+                ujson.dump(get_system_info(self.__settings), f)
         # ---------------------------------- 生成运行实例 ----------------------------------
 
         return SwanLabExp(self.__settings, operator=self.__operator)
