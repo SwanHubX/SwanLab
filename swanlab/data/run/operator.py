@@ -30,6 +30,10 @@ class SwanLabRunOperator(SwanLabRunCallback):
             for callback in callbacks:
                 self.add_callback(callback)
 
+    @property
+    def disabled(self):
+        return len(self.callbacks) == 0
+
     def add_callback(self, callback: SwanLabRunCallback):
         if not isinstance(callback, SwanLabRunCallback):
             raise TypeError(f"Unsupported callback type: {type(callback)}")

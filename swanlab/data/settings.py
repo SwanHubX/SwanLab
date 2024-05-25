@@ -8,13 +8,13 @@ r"""
     数据收集部分配置，此为运行时生成的配置，
 """
 import os
-from ..env import get_swanlog_dir, is_strict_mode
+from ..env import get_swanlog_dir
 from typing import Tuple
 from swanlab.package import get_package_version
 
 
 class SwanDataSettings:
-    def __init__(self, run_id: str) -> None:
+    def __init__(self, run_id: str, should_save: bool) -> None:
         """实验名称
 
         Parameters
@@ -35,14 +35,14 @@ class SwanDataSettings:
         # 实验运行id
         self.__run_id: str = run_id
         self.__version = get_package_version()
-        self.__is_strict_mode = is_strict_mode()
+        self.__should_save = should_save
 
     @property
     def should_save(self):
         """
         是否应该保存实验信息
         """
-        return self.__is_strict_mode
+        return self.__should_save
 
     def mkdir(self, path: str) -> None:
         """创建目录"""
