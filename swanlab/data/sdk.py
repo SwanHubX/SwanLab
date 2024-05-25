@@ -160,12 +160,12 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    if 'cloud' in kwargs:
+    if "cloud" in kwargs:
         swanlog.warning(
-            "The `cloud` parameter is deprecated and will be removed in the future"
+            "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
             "please use `mode='cloud'` instead."
         )
-        mode = 'cloud' if kwargs['cloud'] else mode
+        mode = "cloud" if kwargs["cloud"] else mode
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
@@ -179,8 +179,7 @@ def init(
     operator, c = _create_operator(mode)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
     exp_num = SwanLabRunOperator.parse_return(
-        operator.on_init(project, workspace, logdir=logdir),
-        key=c.__str__() if c else None
+        operator.on_init(project, workspace, logdir=logdir), key=c.__str__() if c else None
     )
     # 初始化confi参数
     config = _init_config(config)
@@ -259,7 +258,7 @@ def _init_mode(mode: str = None):
     mode = m if mode is None else mode
     if mode is not None and mode not in allowed:
         raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
-    mode = 'cloud' if mode is None else mode
+    mode = "cloud" if mode is None else mode
     os.environ[MODE] = mode
     return mode
 
