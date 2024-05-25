@@ -91,7 +91,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
-    mode: str = "cloud",
+    mode: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -256,6 +256,7 @@ def _init_mode(mode: str = None):
     m = os.environ.get(MODE)
     if m is not None and mode is not None:
         swanlog.warning(f"The environment variable {MODE} will be overwritten by the parameter mode")
+    mode = m if mode is None else mode
     if mode is not None and mode not in allowed:
         raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
     mode = 'cloud' if mode is None else mode
