@@ -193,6 +193,7 @@ def init_env(env: Optional[Env] = None):
     env : Optional[Env], optional
         环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
     """
+    reset_env()
     for func in function_list:
         func(env)
 

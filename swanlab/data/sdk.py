@@ -20,7 +20,7 @@ from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
 from .config import SwanLabConfig
-from swanlab.env import init_env, ROOT, get_mode, MODE, SwanLabMode
+from swanlab.env import init_env, get_swanlog_dir, get_mode, MODE, SwanLabMode
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
@@ -178,16 +178,17 @@ def init(
         mode = _load_data(load_data, "mode", mode)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
-    _init_mode(mode)
-    operator, c = _create_operator()
+    operator, c = _create_operator(mode)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
-    exp_num = SwanLabRunOperator.parse_return(operator.on_init(project, workspace), key=c.__str__() if c else None)
+    exp_num = SwanLabRunOperator.parse_return(
+        operator.on_init(project, workspace, logdir=logdir),
+        key=c.__str__() if c else None
+    )
     # 初始化confi参数
     config = _init_config(config)
     # 检查logdir内文件的版本，如果<=0.1.4则报错
-    version_limit(logdir, mode="init")
-    # 初始化环境变量
     init_env()
+    version_limit(get_swanlog_dir(), mode="init")
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
@@ -244,11 +245,15 @@ def _init_mode(mode: str = None):
     """
     初始化mode参数
     """
+    allowed = [m.value for m in SwanLabMode]
     m = os.environ.get(MODE)
     if m is not None and mode is not None:
         swanlog.warning(f"The environment variable {MODE} will be overwritten by the parameter mode")
+    if mode is not None and mode not in allowed:
+        raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
     mode = 'cloud' if mode is None else mode
     os.environ[MODE] = mode
+    return mode
 
 
 def _init_config(config: Union[dict, str]):
@@ -270,11 +275,14 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _create_operator() -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
+def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
     """
     创建SwanLabRunOperator实例
     """
-    mode = get_mode()
+    mode = _init_mode(mode)
+    if mode == SwanLabMode.DISABLED.value:
+        swanlog.warning("The mode is disabled, the data will not be saved or uploaded.")
+        return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
     callbacks = [c, GlomCallback()]
     return SwanLabRunOperator(callbacks), c

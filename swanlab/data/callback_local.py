@@ -133,16 +133,21 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         训练开始，注册系统回调
         """
+        swanlog.install(self.settings.console_dir)
         # 注入系统回调
         self._register_sys_callback()
         # 打印信息
         self._train_begin_print()
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
+        if not os.path.exists(self.settings.log_dir):
+            os.mkdir(self.settings.log_dir)
 
     def on_metric_create(self, metric_info: MetricInfo):
         if metric_info.error:
             return
+        self.settings.mkdir(os.path.dirname(metric_info.metric_path))
+        self.settings.mkdir(os.path.dirname(metric_info.summary_path))
         with open(metric_info.summary_path, "w+") as f:
             json.dump(metric_info.summary, f, ensure_ascii=False)
         with open(metric_info.metric_path, "a") as f:

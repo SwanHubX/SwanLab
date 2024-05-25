@@ -13,6 +13,7 @@ import yaml
 import argparse
 from .settings import SwanDataSettings
 from swanlab.log import swanlog
+from swanlab.env import is_strict_mode
 import datetime
 
 
@@ -320,7 +321,7 @@ class SwanLabConfig(Mapping):
         """
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
-        if is_disabled_mode():
+        if not is_strict_mode():
             return
         swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
         with open(self.__settings.get("save_path"), "w") as f:

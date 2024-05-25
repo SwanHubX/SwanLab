@@ -8,12 +8,10 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 from ..settings import SwanDataSettings
-from ..system import get_system_info, get_requirements
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
 import random
-import ujson
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
@@ -88,7 +86,7 @@ class SwanLabRun:
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置
-        swanlog.install(self.__settings.console_dir, self.__check_log_level(log_level))
+        swanlog.set_level(self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
         self.__config = SwanLabConfig(config, self.__settings)
@@ -168,7 +166,10 @@ class SwanLabRun:
             error = None
         # 退出回调
         run.operator.on_stop(error)
-        swanlog.uninstall()
+        try:
+            swanlog.uninstall()
+        except RuntimeError:
+            pass
         _run, run = run, None
         return _run
 

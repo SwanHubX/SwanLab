@@ -27,21 +27,9 @@ def setup_function():
     在当前测试文件下的每个测试函数执行前后执行
     """
     reset_env()
-    root = os.environ[ROOT]
-    if STRICT_MODE in os.environ:
-        del os.environ[STRICT_MODE]
-    if MODE in os.environ:
-        del os.environ[MODE]
-    del os.environ[ROOT]
     swanlog.disable_log()
     yield
     swanlog.enable_log()
-    reset_env()
-    if STRICT_MODE in os.environ:
-        del os.environ[STRICT_MODE]
-    if MODE in os.environ:
-        del os.environ[MODE]
-    os.environ[ROOT] = root
     get_run().finish()
 
 
@@ -54,6 +42,8 @@ class TestInitMode:
         run = init(mode="disabled", logdir=generate())
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
+        a = run.settings.run_dir
+        assert not os.path.exists(a)
 
     def test_init_local(self):
         run = init(mode="local")

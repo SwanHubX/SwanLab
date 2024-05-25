@@ -29,8 +29,6 @@ class SwanLabExp:
             操作员
         """
         self.settings = settings
-        if not os.path.exists(self.settings.log_dir):
-            os.mkdir(self.settings.log_dir)
         # 当前实验的所有tag数据字段
         self.tags: Dict[str, SwanLabTag] = {}
         self.__operator = operator
@@ -242,8 +240,6 @@ class SwanLabTag:
             保存路径
         """
         path = os.path.join(self.__log_dir, quote(self.tag, safe=""))
-        if not os.path.exists(path):
-            os.mkdir(path)
         return path
 
     def create_chart(self, tag: str, data: DataType) -> ColumnInfo:
