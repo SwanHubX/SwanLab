@@ -48,6 +48,9 @@ class Audio(BaseType):
         if isinstance(self.value, list):
             return self.get_data_list()
         self.__preprocess(self.value)
+        # 判断是否要保存(mode='disabled'时不保存)
+        if not self.settings.static_dir:
+            return
         hash_name = (
             get_file_hash_numpy_array(self.audio_data)[:16]
             if isinstance(self.audio_data, np.ndarray)

@@ -28,6 +28,10 @@ class Text(BaseType):
         # 预处理文本数据
         self.__preprocess(self.value)
 
+        # 判断是否要保存(mode='disabled'时不保存)
+        if not self.settings.static_dir:
+            return
+
         return self.text_data
 
     def expect_types(self, *args, **kwargs) -> list:
