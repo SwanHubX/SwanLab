@@ -170,13 +170,7 @@ class SwanLabRun:
         if state == SwanLabRunState.CRASHED and error is None:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
-        # 写入错误信息
-        if state == SwanLabRunState.CRASHED:
-            with open(run.settings.error_path, "a") as fError:
-                print(datetime.now(), file=fError)
-                print(error, file=fError)
-        else:
-            error = None
+        error = error if state == SwanLabRunState.CRASHED else None
         # 退出回调
         run.operator.on_stop(error)
         try:

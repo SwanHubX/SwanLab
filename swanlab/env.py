@@ -204,49 +204,21 @@ def reset_env():
     _env.clear()
 
 
-# ---------------------------------- 计算变量 ----------------------------------
-
-DATABASE_PATH = "SWANLAB_DB_PATH"
-"""日志目录SWANLAB_LOG_DIR，日志文件存放在这个目录下"""
-STRICT_MODE = "SWANLAB_STRICT_MODE"
-"""是否是严格模式SWANLAB_STRICT_MODE，严格模式下会要求文件路径存在，否则会报错"""
-
-
-# ---------------------------------- 定义变量访问方法 ----------------------------------
+# ---------------------------------- 定义计算变量访问方法 ----------------------------------
 
 
 def is_strict_mode() -> bool:
-    """判断是否是严格模式
-
-    Returns
-    -------
-    bool
-        是否是严格模式
     """
-    if _env.get(STRICT_MODE) is not None:
-        return _env.get(STRICT_MODE) == "TRUE"
-    # 否则从环境变量中提取
-    if get_mode() == SwanLabMode.DISABLED.value:
-        _env[STRICT_MODE] = "FALSE"
-    else:
-        _env[STRICT_MODE] = "TRUE"
-    return _env.get(STRICT_MODE) == "TRUE"
+    是否是严格模式，严格模式下会要求文件路径存在，否则会抛出异常
+    """
+    return get_mode() != SwanLabMode.DISABLED.value
 
 
 def get_db_path() -> Optional[str]:
-    """获取数据库路径，这是一个计算变量，
-    通过`get_swanlog_dir()`返回值得到
-
-    Returns
-    -------
-    Optional[str]
-        数据库文件路径
     """
-    if _env.get(DATABASE_PATH) is not None:
-        return _env.get(DATABASE_PATH)
-    # 否则从环境变量中提取
-    _env[DATABASE_PATH] = os.path.join(get_swanlog_dir(), "runs.swanlab")
-    return _env.get(DATABASE_PATH)
+    获取数据库路径，这是一个计算变量，每次调用都会重新计算
+    """
+    return os.path.join(get_swanlog_dir(), "runs.swanlab")
 
 
 def is_windows() -> bool:

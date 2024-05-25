@@ -12,7 +12,6 @@ from swanlab.env import (
     get_mode,
     assert_exist,
     reset_env,
-    STRICT_MODE,
     is_strict_mode,
     MODE
 )
@@ -27,14 +26,10 @@ def setup_function():
     在当前测试文件下的每个测试函数执行前后执行
     """
     reset_env()
-    if STRICT_MODE in os.environ:
-        del os.environ[STRICT_MODE]
     if MODE in os.environ:
         del os.environ[MODE]
     yield
     reset_env()
-    if STRICT_MODE in os.environ:
-        del os.environ[STRICT_MODE]
     if MODE in os.environ:
         del os.environ[MODE]
 

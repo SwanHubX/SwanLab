@@ -14,6 +14,7 @@ from swanlab.data.run.main import get_run, SwanLabRunState
 from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo
 from swanlab.data.system import get_system_info, get_requirements
 from swanlab.env import ROOT
+from datetime import datetime
 import traceback
 import json
 import os
@@ -155,6 +156,11 @@ class LocalRunCallback(SwanLabRunCallback):
         训练结束，取消系统回调
         此函数被`run.finish`调用
         """
+        # 写入错误信息
+        if error is not None:
+            with open(self.settings.error_path, "a") as fError:
+                print(datetime.now(), file=fError)
+                print(error, file=fError)
         # 打印信息
         self._watch_tip_print()
         # 取消注册系统回调

@@ -124,8 +124,7 @@ class SwanLog:
         self.prefix = name + ':'
         self.__logger = logging.getLogger(name)
         self.__original_level = self._get_level(level)
-        self.__now_level = None
-        # 设置日志等级
+        self.__installed = False
         self.__logger.setLevel(self.__original_level)
         # 初始化控制台日志处理器
         self.__handler = logging.StreamHandler(sys.stdout)
@@ -147,7 +146,7 @@ class SwanLog:
         """
         判断是否已经install
         """
-        return self.__now_level is not None
+        return self.__installed
 
     def install(self, console_dir: str = None, log_level: str = None) -> "SwanLog":
         """
@@ -165,13 +164,13 @@ class SwanLog:
         if self.installed:
             raise RuntimeError("SwanLog has been installed")
         # 设置日志等级
-        log_level = log_level if log_level else "info"
-        self.__now_level = self._get_level(log_level)
-        self.__logger.setLevel(self.__now_level)
+        if log_level is not None:
+            self.set_level(log_level)
         # 初始化控制台记录器
         if console_dir:
             self.debug("Init consoler to record console log")
             self.__consoler.install(console_dir)
+        self.__installed = True
         return self
 
     def uninstall(self):
@@ -184,8 +183,8 @@ class SwanLog:
             raise RuntimeError("SwanLog has not been installed")
         self.debug("uninstall swanlog, reset consoler")
         self.__logger.setLevel(self.__original_level)
-        self.__now_level = None
         self.__consoler.uninstall()
+        self.__installed = False
 
     @property
     def write_callback(self):
