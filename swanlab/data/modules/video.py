@@ -72,7 +72,7 @@ class Video(BaseType):
         self.video_data = self.__preprocess(self.value)
 
         # 判断是否要保存(mode='disabled'时不保存)
-        if not self.settings.static_dir:
+        if not self.settings.should_save:
             return
 
         # 获取视频hash值
