@@ -77,11 +77,11 @@ class SwanLabCallback(TrainerCallback):
             for key, value in combined_dict.items():
                 self._experiment.config.set(key, value)
 
-    def on_run(self, args, state, control, model=None, **kwargs):
+    def on_train_begin(self, args, state, control, model=None, **kwargs):
         if not self._initialized:
             self.setup(args, state, model, **kwargs)
 
-    def on_stop(self, args, state, control, model=None, tokenizer=None, **kwargs):
+    def on_train_end(self, args, state, control, model=None, tokenizer=None, **kwargs):
         pass
 
     def on_log(self, args, state, control, model=None, logs=None, **kwargs):
