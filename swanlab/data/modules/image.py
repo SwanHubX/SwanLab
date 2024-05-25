@@ -63,6 +63,11 @@ class Image(BaseType):
         self.format = self.__convert_file_type(file_type)
         self.size = self.__convert_size(size)
 
+        # 提前预处理maplotlib类型
+        if hasattr(self.value, "savefig"):
+            # 如果输入为matplotlib图像
+            self.value = self.__convert_plt_to_image(self.value)
+
         # TODO: 等前端支持Boxes和Masks后再开启
 
         # self.boxes = None
@@ -198,9 +203,6 @@ class Image(BaseType):
         elif isinstance(data, PILImage.Image):
             # 如果输入为PIL.Image
             image = data.convert(self.mode)
-        elif hasattr(self.value, "savefig"):
-            # 如果输入为matplotlib图像
-            image = self.__convert_plt_to_image(data)
         elif is_pytorch_tensor_typename(get_full_typename(data)):
             # 如果输入为pytorch tensor
             try:
