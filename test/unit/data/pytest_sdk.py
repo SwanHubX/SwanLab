@@ -53,12 +53,14 @@ class TestInitMode:
     def test_init_disabled(self):
         run = init(mode="disabled", logdir=generate())
         assert os.environ[MODE] == "disabled"
-        run.log({"test": 1})
+        run.log({"TestInitMode": 1})  # 不会报错
 
     def test_init_local(self):
-        init(mode="local")
+        run = init(mode="local")
         assert os.environ[MODE] == "local"
+        run.log({"TestInitMode": 1})  # 不会报错
 
     def test_init_cloud(self):
-        init(mode="cloud")
+        run = init(mode="cloud")
         assert os.environ[MODE] == "cloud"
+        run.log({"TestInitMode": 1})  # 不会报错

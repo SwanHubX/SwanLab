@@ -13,7 +13,6 @@ import yaml
 import argparse
 from .settings import SwanDataSettings
 from swanlab.log import swanlog
-from swanlab.env import is_disabled_mode
 import datetime
 
 

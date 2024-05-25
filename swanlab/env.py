@@ -297,17 +297,6 @@ def get_swanlab_folder() -> str:
     return swanlab_folder
 
 
-def is_disabled_mode() -> bool:
-    """判断是否是禁用模式
-
-    Returns
-    -------
-    bool
-        是否是禁用模式
-    """
-    return get_mode() == SwanLabMode.DISABLED.value
-
-
 def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str = None, t_desc: str = None) -> bool:
     """
     检查文件是否存在，严格模式下，文件不存在会抛出异常，或者可以手动通过参数控制，存在则返回True，否则返回False

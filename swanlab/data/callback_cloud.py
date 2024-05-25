@@ -93,7 +93,8 @@ class CloudRunCallback(LocalRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str) -> int:
+    def on_init(self, project: str, workspace: str, logdir: str = None) -> int:
+        super(CloudRunCallback, self).on_init(project, workspace, logdir)
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
             self.login_info = self.get_login_info()

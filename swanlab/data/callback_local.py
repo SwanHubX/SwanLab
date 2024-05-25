@@ -7,12 +7,16 @@ r"""
 @Description:
     基本回调函数注册表，此时不考虑云端情况
 """
+from typing import Callable
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.data.run.main import get_run, SwanLabRunState
 from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo
+from swanlab.data.system import get_system_info, get_requirements
+from swanlab.env import ROOT
 import traceback
 import json
+import os
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -42,6 +46,47 @@ class LocalRunCallback(SwanLabRunCallback):
         else:
             swanlog.error("Error happened while training")
 
+    @staticmethod
+    def _init_logdir(logdir: str = None) -> str:
+        """
+        根据传入的logdir，初始化日志文件夹
+        FIXME shit code
+        """
+        # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+        if logdir is not None:
+            try:
+                if not isinstance(logdir, str):
+                    raise ValueError("path must be a string")
+                if not os.path.isabs(logdir):
+                    logdir = os.path.abspath(logdir)
+                # 如果创建失败，也是抛出IOError
+                try:
+                    os.makedirs(logdir, exist_ok=True)
+                except Exception as e:
+                    raise IOError(f"create path: {logdir} failed, error: {e}")
+                if not os.access(logdir, os.W_OK):
+                    raise IOError(f"no write permission for path: {logdir}")
+            except ValueError:
+                raise ValueError("logdir must be a str.")
+            except IOError:
+                raise IOError("logdir must be a path and have Write permission.")
+            os.environ[ROOT] = logdir
+        # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+        else:
+            logdir = os.environ.get(ROOT) or os.path.join(os.getcwd(), "swanlog")
+            logdir = os.path.abspath(logdir)
+            try:
+                os.makedirs(logdir, exist_ok=True)
+                if not os.access(logdir, os.W_OK):
+                    raise IOError
+            except IOError:
+                raise IOError("logdir must have Write permission.")
+        # 如果logdir是空的，创建.gitignore文件，写入*
+        if not os.listdir(logdir):
+            with open(os.path.join(logdir, ".gitignore"), "w") as f:
+                f.write("*")
+        return logdir
+
     def __str__(self):
         return "SwanLabLocalRunCallback"
 
@@ -62,6 +107,27 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_finish_print()
         # 如果正在运行
         run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
+
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None):
+        self._init_logdir(logdir)
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        suffix: str,
+        setter: Callable[[str, str, str, str], None]
+    ):
+        requirements_path = self.settings.requirements_path
+        metadata_path = self.settings.metadata_path
+        # 将实验依赖存入 requirements.txt
+        with open(requirements_path, "w") as f:
+            f.write(get_requirements())
+        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
+        with open(metadata_path, "w") as f:
+            json.dump(get_system_info(self.settings), f)
 
     def on_run(self):
         """

@@ -240,9 +240,13 @@ class SwanLabRunCallback(ABC, U):
         """
         pass
 
-    def on_init(self, proj_name: str, workspace: str):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None):
         """
         执行`swanlab.init`时调用
+        此时运行时环境变量没有被设置，此时修改环境变量还是有效的
+        :param logdir: str, 用户设置的日志目录
+        :param proj_name: str, 项目名称
+        :param workspace: str, 工作空间
         """
         pass
 

@@ -56,8 +56,8 @@ class SwanLabRunOperator(SwanLabRunCallback):
             return ret[key]
         return next((v for v in ret.values() if v is not None), None)
 
-    def on_init(self, proj_name: str, workspace: str) -> OperatorReturnType:
-        return self.__run_all("on_init", proj_name, workspace)
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None) -> OperatorReturnType:
+        return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
 
     def inject(self, settings: SwanDataSettings) -> OperatorReturnType:
         self.settings = settings

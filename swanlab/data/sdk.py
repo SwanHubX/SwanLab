@@ -20,7 +20,7 @@ from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
 from .config import SwanLabConfig
-from swanlab.env import init_env, ROOT, get_mode, MODE, SwanLabMode, is_disabled_mode
+from swanlab.env import init_env, ROOT, get_mode, MODE, SwanLabMode
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
@@ -179,20 +179,15 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
     _init_mode(mode)
-    # 默认实验名称为当前目录名
-    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))
-    # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
-    logdir = _init_logdir(logdir)
+    operator, c = _create_operator()
+    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
+    exp_num = SwanLabRunOperator.parse_return(operator.on_init(project, workspace), key=c.__str__() if c else None)
     # 初始化confi参数
     config = _init_config(config)
     # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(logdir, mode="init")
     # 初始化环境变量
     init_env()
-    # 定义operator
-    operator, c = _create_operator()
-    # ---------------------------------- 初始化项目 ----------------------------------
-    exp_num = SwanLabRunOperator.parse_return(operator.on_init(project, workspace), key=c.__str__() if c else None)
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
@@ -256,48 +251,6 @@ def _init_mode(mode: str = None):
     os.environ[MODE] = mode
 
 
-def _init_logdir(logdir: str) -> Optional[str]:
-    """
-    处理通过init传入的logdir存在的一些情况
-    """
-    if is_disabled_mode():
-        return None
-    # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-    if logdir is not None:
-        try:
-            if not isinstance(logdir, str):
-                raise ValueError("path must be a string")
-            if not os.path.isabs(logdir):
-                logdir = os.path.abspath(logdir)
-            # 如果创建失败，也是抛出IOError
-            try:
-                os.makedirs(logdir, exist_ok=True)
-            except Exception as e:
-                raise IOError(f"create path: {logdir} failed, error: {e}")
-            if not os.access(logdir, os.W_OK):
-                raise IOError(f"no write permission for path: {logdir}")
-        except ValueError:
-            raise ValueError("logdir must be a str.")
-        except IOError:
-            raise IOError("logdir must be a path and have Write permission.")
-        os.environ[ROOT] = logdir
-    # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-    else:
-        logdir = os.environ.get(ROOT) or os.path.join(os.getcwd(), "swanlog")
-        logdir = os.path.abspath(logdir)
-        try:
-            os.makedirs(logdir, exist_ok=True)
-            if not os.access(logdir, os.W_OK):
-                raise IOError
-        except IOError:
-            raise IOError("logdir must have Write permission.")
-    # 如果logdir是空的，创建.gitignore文件，写入*
-    if not os.listdir(logdir):
-        with open(os.path.join(logdir, ".gitignore"), "w") as f:
-            f.write("*")
-    return logdir
-
-
 def _init_config(config: Union[dict, str]):
     """初始化传入的config参数"""
     if isinstance(config, str):
@@ -322,8 +275,6 @@ def _create_operator() -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
     创建SwanLabRunOperator实例
     """
     mode = get_mode()
-    if is_disabled_mode():
-        return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
     callbacks = [c, GlomCallback()]
     return SwanLabRunOperator(callbacks), c
