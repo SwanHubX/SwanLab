@@ -20,7 +20,7 @@ from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
 from .config import SwanLabConfig
-from swanlab.env import init_env, get_swanlog_dir, get_mode, MODE, SwanLabMode
+from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
@@ -155,7 +155,6 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    # 如果已经初始化过了，直接返回run
     run = get_run()
     if run is not None:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -167,7 +166,6 @@ def init(
             "please use `mode='cloud'` instead."
         )
         mode = 'cloud' if kwargs['cloud'] else mode
-    # 如果传入了load，则加载load文件，如果load文件不存在，报错
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
@@ -186,12 +184,13 @@ def init(
     )
     # 初始化confi参数
     config = _init_config(config)
-    # 检查logdir内文件的版本，如果<=0.1.4则报错
     init_env()
+    # 检查logdir内文件的版本，如果<=0.1.4则报错
     version_limit(get_swanlog_dir(), mode="init")
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
+        project_name=project,
         experiment_name=experiment_name,
         description=description,
         config=config,
@@ -244,6 +243,14 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
 def _init_mode(mode: str = None):
     """
     初始化mode参数
+    从环境变量中提取默认的mode参数，如果传入的mode参数不为None，则使用环境变量中的mode参数，否则使用传入的mode参数
+    传入的mode必须为SwanLabMode枚举中的一个值，否则报错ValueError
+    如果环境变量和传入的mode参数都为None，则默认为cloud
+
+    :param mode: str, optional
+        传入的mode参数
+    :return: str mode
+    :raise ValueError: mode参数不合法
     """
     allowed = [m.value for m in SwanLabMode]
     m = os.environ.get(MODE)
@@ -278,10 +285,15 @@ def _load_data(load_data: dict, key: str, value):
 def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
     """
     创建SwanLabRunOperator实例
+    如果mode为disabled，则返回一个空的SwanLabRunOperator实例和None
+
+    :param mode: str
+        运行模式
+    :return: SwanLabRunOperator, CloudRunCallback
     """
     mode = _init_mode(mode)
     if mode == SwanLabMode.DISABLED.value:
-        swanlog.warning("The mode is disabled, the data will not be saved or uploaded.")
+        swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
     callbacks = [c, GlomCallback()]

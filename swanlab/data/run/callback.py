@@ -260,7 +260,13 @@ class SwanLabRunCallback(ABC, U):
         setter: Callable[[str, str, str, str], None]
     ):
         """
-        在初始化实验之前调用
+        在初始化实验之前调用，此时SwanLabRun已经初始化完毕
+        :param run_id: str, SwanLabRun的运行id
+        :param exp_name: str, 实验名称
+        :param description: str, 实验描述
+        :param num: int, 历史实验数量
+        :param suffix: str, 实验后缀
+        :param setter: Callable[[str, str, str, str], None], 设置实验信息的函数，在这里设置实验信息
         """
         pass
 

@@ -130,9 +130,6 @@ class LocalRunCallback(SwanLabRunCallback):
             json.dump(get_system_info(self.settings), f)
 
     def on_run(self):
-        """
-        训练开始，注册系统回调
-        """
         swanlog.install(self.settings.console_dir)
         # 注入系统回调
         self._register_sys_callback()

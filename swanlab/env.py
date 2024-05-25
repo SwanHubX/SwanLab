@@ -46,7 +46,7 @@ MODE = "SWANLAB_MODE"
 class SwanLabMode(enum.Enum):
     DISABLED = "disabled"
     CLOUD = "cloud"
-    CLOUD_ONLY = "cloud-only"
+    # CLOUD_ONLY = "cloud-only"
     LOCAL = "local"
 
 

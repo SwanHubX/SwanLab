@@ -10,9 +10,7 @@ r"""
 from swanlab import init
 from swanlab.env import (
     reset_env,
-    STRICT_MODE,
     MODE,
-    ROOT
 )
 from swanlab.log import swanlog
 from swanlab.data.run import get_run
@@ -30,12 +28,13 @@ def setup_function():
     swanlog.disable_log()
     yield
     swanlog.enable_log()
-    get_run().finish()
+    if get_run() is not None:
+        get_run().finish()
 
 
 class TestInitMode:
     """
-    测试初始化模式时环境变量的设置
+    测试init时函数的mode参数设置行为
     """
 
     def test_init_disabled(self):
@@ -44,13 +43,42 @@ class TestInitMode:
         run.log({"TestInitMode": 1})  # 不会报错
         a = run.settings.run_dir
         assert not os.path.exists(a)
+        assert get_run() is not None
 
     def test_init_local(self):
         run = init(mode="local")
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})  # 不会报错
+        assert get_run() is not None
 
     def test_init_cloud(self):
         run = init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
+        assert get_run() is not None
+
+    def test_init_error(self):
+        with pytest.raises(ValueError):
+            init(mode="123456")
+        assert get_run() is None
+
+
+class TestInitProject:
+    """
+    测试init时函数的project参数设置行为
+    """
+
+    def test_init_project_none(self):
+        """
+        设置project为None
+        """
+        run = init(project=None, mode="disabled")
+        assert run.project_name == os.path.basename(os.getcwd())
+
+    def test_init_project(self):
+        """
+        设置project为字符串
+        """
+        project = "test_project"
+        run = init(project=project, mode="disabled")
+        assert run.project_name == project

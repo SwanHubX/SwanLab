@@ -17,6 +17,7 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator
+from swanlab.env import get_mode, SwanLabMode
 
 
 class SwanLabRunState(Enum):
@@ -37,6 +38,7 @@ class SwanLabRun:
 
     def __init__(
         self,
+        project_name: str = None,
         experiment_name: str = None,
         description: str = None,
         config: dict = None,
@@ -50,6 +52,8 @@ class SwanLabRun:
 
         Parameters
         ----------
+        project_name : str, optional
+            项目名称，目前单纯做一个记录
         experiment_name : str, optional
             实验名称，实验名称应该唯一，由0-9，a-z，A-Z，" ","_","-","/"组成
             如果不提供此参数(为None)，SwanLab将自动生成一个实验名称
@@ -75,6 +79,7 @@ class SwanLabRun:
         if run is not None:
             raise RuntimeError("SwanLabRun has been initialized")
         # ---------------------------------- 初始化类内参数 ----------------------------------
+        self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
         _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -109,6 +114,14 @@ class SwanLabRun:
     @property
     def operator(self) -> SwanLabRunOperator:
         return self.__operator
+
+    @property
+    def project_name(self) -> str:
+        return self.__project_name
+
+    @property
+    def mode(self) -> str:
+        return get_mode()
 
     @property
     def state(self) -> SwanLabRunState:
@@ -169,6 +182,7 @@ class SwanLabRun:
         try:
             swanlog.uninstall()
         except RuntimeError:
+            # disabled 模式下没有install，所以会报错
             pass
         _run, run = run, None
         return _run

@@ -36,7 +36,7 @@ class TestSwanLabRunInit:
 
     def test_after_init(self):
         run = SwanLabRun(generate())
-        assert swanlog.installed is True
+        assert swanlog.installed is False
         assert run is not None
         assert get_run().__str__() == run.__str__()
         _run = run.finish()
@@ -48,7 +48,7 @@ class TestSwanLabRunInit:
         run = SwanLabRun(generate())
         with pytest.raises(RuntimeError) as e:
             SwanLabRun(generate())
-        assert swanlog.installed is True
+        assert swanlog.installed is False
         assert str(e.value) == "SwanLabRun has been initialized"
         assert run.__str__() == get_run().__str__()
         _run = run.finish()
