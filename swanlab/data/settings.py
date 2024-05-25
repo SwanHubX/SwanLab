@@ -37,10 +37,16 @@ class SwanDataSettings:
         self.__version = get_package_version()
         self.__is_strict_mode = is_strict_mode()
 
-    @staticmethod
-    def mkdir(path: str) -> None:
+    @property
+    def should_save(self):
+        """
+        是否应该保存实验信息
+        """
+        return self.__is_strict_mode
+
+    def mkdir(self, path: str) -> None:
         """创建目录"""
-        if not os.path.exists(path) and is_strict_mode():
+        if not os.path.exists(path) and self.should_save:
             os.makedirs(path, exist_ok=True)
 
     @property
