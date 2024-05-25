@@ -32,6 +32,10 @@ class SwanLabRunOperator(SwanLabRunCallback):
 
     @property
     def disabled(self):
+        """
+        判断是否所有回调函数都已经被禁用
+        FIXME 实际上这里与settings的一些属性有关，目前没问题，但是未来可能要改
+        """
         return len(self.callbacks) == 0
 
     def add_callback(self, callback: SwanLabRunCallback):
