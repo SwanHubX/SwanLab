@@ -84,10 +84,9 @@ class SwanLabRun:
         _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
-        # 初始化配置
-        self.__settings = SwanDataSettings(run_id=self.__run_id)
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
+        self.__settings = SwanDataSettings(run_id=self.__run_id, should_save=not self.__operator.disabled)
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         # output、console_dir等内容不依赖于实验名称的设置

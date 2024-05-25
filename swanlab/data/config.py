@@ -13,7 +13,6 @@ import yaml
 import argparse
 from .settings import SwanDataSettings
 from swanlab.log import swanlog
-from swanlab.env import is_strict_mode
 import datetime
 
 
@@ -85,8 +84,13 @@ class SwanLabConfig(Mapping):
         """
         self.__config.update(self.__check_config(config))
         self.__settings["save_path"] = settings.config_path if settings is not None else None
+        self.__settings["should_save"] = settings.should_save if settings is not None else False
         if self._inited:
             self.__save()
+
+    @property
+    def should_shave(self):
+        return self.__settings.get("should_save")
 
     @staticmethod
     def __check_config(config: dict) -> dict:
@@ -321,7 +325,7 @@ class SwanLabConfig(Mapping):
         """
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
-        if not is_strict_mode():
+        if not self.should_shave:
             return
         swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
         with open(self.__settings.get("save_path"), "w") as f:
