@@ -26,3 +26,13 @@ playground/
 # python
 __pycache__
 .pytest_cache/
+
+# test-integration-ultralytics
+yolov8n-cls.pt
+yolov8n.pt
+yolov8n-pose.pt
+yolov8n-seg.pt
+runs/
+
+# test-integration-lightning
+LightningTest/
