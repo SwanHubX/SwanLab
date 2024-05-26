@@ -8,10 +8,16 @@ r"""
     测试SwanLabRun主类
 """
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
+from swanlab import Image, Audio, Text
 from nanoid import generate
-from tutils import clear
+from tutils import clear, TEMP_PATH
+from PIL import Image
+import torch
+import soundfile as sf
+import numpy as np
 import pytest
 import random
+import os
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -66,11 +72,14 @@ class TestSwanLabRunLog:
     TODO 编写和媒体相关的测试脚本
     """
 
-    @pytest.mark.parametrize("data", [
-        random.randint(1, 100),
-        -random.randint(1, 100),
-        random.random(),
-    ])
+    @pytest.mark.parametrize(
+        "data",
+        [
+            random.randint(1, 100),
+            -random.randint(1, 100),
+            random.random(),
+        ],
+    )
     def test_log_number_ok(self, data):
         """
         测试解析一个正常的数字
@@ -83,10 +92,10 @@ class TestSwanLabRunLog:
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
         assert len(a.metric) == 3
-        assert 'index' in a.metric
-        assert 'create_time' in a.metric
-        assert 'data' in a.metric
-        assert a.metric['data'] == data
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
+        assert a.metric["data"] == data
         assert a.step == 0
         assert a.epoch == 1
         # ---------------------------------- 列信息 ----------------------------------
@@ -114,8 +123,8 @@ class TestSwanLabRunLog:
         assert a.metric is None
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "default"
-        assert ac.error['data_class'] == "NaN"
-        assert ac.error['excepted'] == ['float', 'int']
+        assert ac.error["data_class"] == "NaN"
+        assert ac.error["excepted"] == ["float", "int"]
         # 默认排在最前面
         assert ac.sort == 0
         assert ac.config == {}
@@ -132,7 +141,7 @@ class TestSwanLabRunLog:
         测试解析一个nan
         """
         run = SwanLabRun()
-        metric_dict = run.log({"a": 'abc'})
+        metric_dict = run.log({"a": "abc"})
         assert metric_dict["a"] is not None
         assert len(metric_dict) == 1
         a = metric_dict["a"]
@@ -141,8 +150,8 @@ class TestSwanLabRunLog:
         assert a.metric is None
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "default"
-        assert ac.error['data_class'] == "str"
-        assert ac.error['excepted'] == ['float', 'int']
+        assert ac.error["data_class"] == "str"
+        assert ac.error["excepted"] == ["float", "int"]
         # 默认排在最前面
         assert ac.sort == 0
         assert ac.config == {}
@@ -163,10 +172,10 @@ class TestSwanLabRunLog:
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
         assert len(a.metric) == 3
-        assert 'index' in a.metric
-        assert 'create_time' in a.metric
-        assert 'data' in a.metric
-        assert a.metric['data'] == 1
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
+        assert a.metric["data"] == 1
         assert a.step == 1
         assert a.epoch == 1
         # ---------------------------------- 列信息 ----------------------------------
@@ -198,7 +207,7 @@ class TestSwanLabRunLog:
         """
         run = SwanLabRun()
         prefix_1 = generate()
-        prefix_2 = generate() + '/' + generate()
+        prefix_2 = generate() + "/" + generate()
         key1 = f"{prefix_1}/a"
         key2 = f"{prefix_2}/a"
         metric_dict = run.log({key1: 1, key2: 1})
@@ -209,10 +218,10 @@ class TestSwanLabRunLog:
             ac = a.column_info
             # ---------------------------------- 指标信息 ----------------------------------
             assert len(a.metric) == 3
-            assert 'index' in a.metric
-            assert 'create_time' in a.metric
-            assert 'data' in a.metric
-            assert a.metric['data'] == 1
+            assert "index" in a.metric
+            assert "create_time" in a.metric
+            assert "data" in a.metric
+            assert a.metric["data"] == 1
             assert a.step == 0
             assert a.epoch == 1
             # ---------------------------------- 列信息 ----------------------------------
@@ -223,8 +232,299 @@ class TestSwanLabRunLog:
             assert ac.config == {}
             assert ac.key == key
             assert ac.chart_type == "default"
-            assert ac.namespace == key.split('/')[0]
+            assert ac.namespace == key.split("/")[0]
             assert ac.reference == "step"
+
+    def test_log_image_path(self):
+        """
+        测试解析一个图片, 使用文件路径
+        """
+        # 创建随机图像，并保存到TEMP目录
+        random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+        random_im_pil = Image.fromarray(random_im)
+        save_path = os.path.join(TEMP_PATH, "a.jpg")
+        random_im_pil.save(save_path)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Image(save_path)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_image_np(self):
+        """
+        测试解析一个图片，使用np.ndarray
+        """
+
+        random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Image(random_im)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_image_pil(self):
+        """
+        测试解析一个图片，使用PIL.Image
+        """
+
+        random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+        random_im_pil = Image.fromarray(random_im)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Image(random_im_pil)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_image_plt(self):
+        """
+        测试解析一个图片，使用Matplotlib
+        """
+        import matplotlib.pyplot as plt
+
+        x = [1, 2, 3, 4, 5]
+        y = [2, 3, 5, 7, 11]
+        plt.plot(x, y)
+        plt.title("Examples")
+        plt.xlabel("X-axis")
+        plt.ylabel("Y-axis")
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Image(plt)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_image_tensor(self):
+        """
+        测试解析一个图片，使用pytorch tensor
+        """
+        random_im = torch.randn(4, 3, 64, 64)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Image(random_im)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_image_batch(self):
+        """
+        测试解析一次log一批图片
+        """
+        random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": [Image(random_im)] * 3})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "image"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_audio_path(self):
+        """
+        测试解析一个音频，使用文件路径
+        """
+        random_audio = np.random.randn(2, 100000)
+        save_path = os.path.join(TEMP_PATH, "a.wav")
+        sf.write(save_path, random_audio, 44100)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Audio(save_path)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "audio"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_audio_np(self):
+        """
+        测试解析一个音频，使用np.ndarray
+        """
+        random_audio = np.random.randn(2, 100000)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Audio(random_audio)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "audio"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_audio_batch(self):
+        """
+        测试解析一批音频
+        """
+        random_audio = np.random.randn(2, 100000)
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": [Audio(random_audio)] * 3})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "audio"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_text_str(self):
+        """
+        测试解析单个字符串文本
+        """
+        random_text = "Hello World"
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": Text(random_text)})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "text"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
+    def test_log_text_bacth(self):
+        """
+        测试解析一批文本
+        """
+        random_text = "Hello World"
+
+        run = SwanLabRun()
+        metric_dict = run.log({"a": [Text(random_text)] * 3})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "text"
+        assert ac.error is None
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
 
 
 class TestSwanLabRunState:
