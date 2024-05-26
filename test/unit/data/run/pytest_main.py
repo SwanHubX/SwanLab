@@ -69,7 +69,6 @@ class TestSwanLabRunLog:
     3. 输入的字典的key必须为字符串
     4. 输出解析后的数据对象，包含额外的信息，step等信息
     5. 如果某一个解析失败，对应的key存在，但返回的数据为None
-    TODO 编写和媒体相关的测试脚本
     """
 
     @pytest.mark.parametrize(
