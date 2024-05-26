@@ -14,7 +14,7 @@ from swanlab.package import get_package_version
 
 
 class SwanDataSettings:
-    def __init__(self, run_id: str) -> None:
+    def __init__(self, run_id: str, should_save: bool) -> None:
         """实验名称
 
         Parameters
@@ -35,6 +35,19 @@ class SwanDataSettings:
         # 实验运行id
         self.__run_id: str = run_id
         self.__version = get_package_version()
+        self.__should_save = should_save
+
+    @property
+    def should_save(self):
+        """
+        是否应该保存实验信息
+        """
+        return self.__should_save
+
+    def mkdir(self, path: str) -> None:
+        """创建目录"""
+        if not os.path.exists(path) and self.should_save:
+            os.makedirs(path, exist_ok=True)
 
     @property
     def version(self) -> str:
@@ -117,16 +130,15 @@ class SwanDataSettings:
     def static_dir(self) -> str:
         """静态资源路径"""
         path = os.path.join(self.run_dir, "media")
-        if not os.path.exists(path):
-            os.mkdir(path)
+        self.mkdir(path)
         return path
 
     @property
     def files_dir(self) -> str:
         """实验配置信息路径"""
         path = os.path.join(self.run_dir, "files")
-        os.makedirs(path, exist_ok=True)
-        return os.path.join(self.run_dir, "files")
+        self.mkdir(path)
+        return path
 
     @property
     def requirements_path(self) -> str:

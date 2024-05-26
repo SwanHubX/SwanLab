@@ -8,7 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, Tuple
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -18,12 +18,13 @@ from .run import (
 )
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
+from .run.operator import SwanLabRunOperator
 from .config import SwanLabConfig
-from ..db import Project, connect
-from ..env import init_env, ROOT
-from ..log import swanlog
-from ..utils import check_load_json_yaml, check_proj_name_format
+from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE
+from swanlab.log import swanlog
+from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
+from swanlab.db import GlomCallback
 from swanlab.package import version_limit
 
 _config: Optional["SwanLabConfig"] = SwanLabConfig(None)
@@ -90,7 +91,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
-    cloud: bool = True,
+    mode: str = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
@@ -139,10 +140,12 @@ def init(
         If this parameter is None or False, no suffix will be added.
         If this parameter is a string, the suffix will be the string you provided.
         Attention: experiment_name + suffix must be unique, otherwise the experiment will not be created.
-    cloud : bool, optional
-        Whether to use the cloud mode, the default is True.
-        If you use the cloud mode, the log file will be stored in the cloud, which will still be saved locally.
-        If you are not using cloud mode, the `workspace` fields are invalid.
+    mode : str, optional
+        Allowed values are 'cloud', 'cloud-only', 'local', 'disabled'.
+        If the value is 'cloud', the data will be uploaded to the cloud and the local log will be saved.
+        If the value is 'cloud-only', the data will only be uploaded to the cloud and the local log will not be saved.
+        If the value is 'local', the data will only be saved locally and will not be uploaded to the cloud.
+        If the value is 'disabled', the data will not be saved or uploaded, just parsing the data.
     load : str, optional
         If you pass this parameter,SwanLab will search for the configuration file you specified
         (which must be in JSON or YAML format)
@@ -152,55 +155,48 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    # 如果已经初始化过了，直接返回run
     run = get_run()
     if run is not None:
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return run
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    # 如果传入了load，则加载load文件，如果load文件不存在，报错
+    if "cloud" in kwargs:
+        swanlog.warning(
+            "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
+            "please use `mode='cloud'` instead."
+        )
+        mode = "cloud" if kwargs["cloud"] else mode
     if load:
         load_data = check_load_json_yaml(load, load)
-        # 尝试更改传入的参数为None的情况，如果传入的参数不是None，不做任何操作
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
         description = _load_data(load_data, "description", description)
         config = _load_data(load_data, "config", config)
         logdir = _load_data(load_data, "logdir", logdir)
         suffix = _load_data(load_data, "suffix", suffix)
-        cloud = _load_data(load_data, "cloud", cloud)
+        mode = _load_data(load_data, "mode", mode)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
-    if not cloud and workspace is not None:
-        swanlog.warning("The `workspace` field is invalid in local mode")
-    # 默认实验名称为当前目录名
-    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))
-    # 初始化logdir参数，接下来logdir被设置为绝对路径且当前程序有写权限
-    logdir = _init_logdir(logdir)
+    operator, c = _create_operator(mode)
+    project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
+    exp_num = SwanLabRunOperator.parse_return(
+        operator.on_init(project, workspace, logdir=logdir), key=c.__str__() if c else None
+    )
     # 初始化confi参数
     config = _init_config(config)
-    # 检查logdir内文件的版本，如果<=0.1.4则报错
-    version_limit(logdir, mode="init")
-    # 初始化环境变量
     init_env()
-    # 定义回调函数
-    callbacks = CloudRunCallback() if cloud else LocalRunCallback()
-    # ---------------------------------- 初始化项目 ----------------------------------
-    # 获取云端历史总数
-    exp_num = callbacks.before_init_project(project, workspace)
-    # 连接本地数据库，要求路径必须存在，但是如果数据库文件不存在，会自动创建
-    connect(autocreate=True)
-    # 初始化项目数据库
-    Project.init(project)
+    # 检查logdir内文件的版本，如果<=0.1.4则报错
+    version_limit(get_swanlog_dir(), mode="init")
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
+        project_name=project,
         experiment_name=experiment_name,
         description=description,
         config=config,
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
-        callbacks=callbacks,
+        operator=operator,
     )
     return run
 
@@ -243,44 +239,28 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     run.finish(state, error)
 
 
-def _init_logdir(logdir: str) -> str:
+def _init_mode(mode: str = None):
     """
-    处理通过init传入的logdir存在的一些情况
+    初始化mode参数
+    从环境变量中提取默认的mode参数，如果传入的mode参数不为None，则使用环境变量中的mode参数，否则使用传入的mode参数
+    传入的mode必须为SwanLabMode枚举中的一个值，否则报错ValueError
+    如果环境变量和传入的mode参数都为None，则默认为cloud
+
+    :param mode: str, optional
+        传入的mode参数
+    :return: str mode
+    :raise ValueError: mode参数不合法
     """
-    # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-    if logdir is not None:
-        try:
-            if not isinstance(logdir, str):
-                raise ValueError("path must be a string")
-            if not os.path.isabs(logdir):
-                logdir = os.path.abspath(logdir)
-            # 如果创建失败，也是抛出IOError
-            try:
-                os.makedirs(logdir, exist_ok=True)
-            except Exception as e:
-                raise IOError(f"create path: {logdir} failed, error: {e}")
-            if not os.access(logdir, os.W_OK):
-                raise IOError(f"no write permission for path: {logdir}")
-        except ValueError:
-            raise ValueError("logdir must be a str.")
-        except IOError:
-            raise IOError("logdir must be a path and have Write permission.")
-        os.environ[ROOT] = logdir
-    # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-    else:
-        logdir = os.environ.get(ROOT) or os.path.join(os.getcwd(), "swanlog")
-        logdir = os.path.abspath(logdir)
-        try:
-            os.makedirs(logdir, exist_ok=True)
-            if not os.access(logdir, os.W_OK):
-                raise IOError
-        except IOError:
-            raise IOError("logdir must have Write permission.")
-    # 如果logdir是空的，创建.gitignore文件，写入*
-    if not os.listdir(logdir):
-        with open(os.path.join(logdir, ".gitignore"), "w") as f:
-            f.write("*")
-    return logdir
+    allowed = [m.value for m in SwanLabMode]
+    m = os.environ.get(MODE)
+    if m is not None and mode is not None:
+        swanlog.warning(f"The environment variable {MODE} will be overwritten by the parameter mode")
+    mode = m if mode is None else mode
+    if mode is not None and mode not in allowed:
+        raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
+    mode = "cloud" if mode is None else mode
+    os.environ[MODE] = mode
+    return mode
 
 
 def _init_config(config: Union[dict, str]):
@@ -293,13 +273,28 @@ def _init_config(config: Union[dict, str]):
 
 
 def _load_data(load_data: dict, key: str, value):
-    """从load_data中加载数据，如果value不是None"""
+    """
+    从load_data中加载数据，如果value不是None，则直接返回value，如果为None，则返回load_data中的key
+    """
     if value is not None:
-        # tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), value)
-        # print(FONT.swanlab(tip))
         return value
     d = load_data.get(key, None)
-    # if d is not None:
-    #     tip = "The parameter {} is loaded from the configuration file: {}".format(FONT.bold(key), d)
-    #     print(FONT.swanlab(tip))
     return d
+
+
+def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
+    """
+    创建SwanLabRunOperator实例
+    如果mode为disabled，则返回一个空的SwanLabRunOperator实例和None
+
+    :param mode: str
+        运行模式
+    :return: SwanLabRunOperator, CloudRunCallback
+    """
+    mode = _init_mode(mode)
+    if mode == SwanLabMode.DISABLED.value:
+        swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
+        return SwanLabRunOperator(), None
+    c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
+    callbacks = [c, GlomCallback()]
+    return SwanLabRunOperator(callbacks), c

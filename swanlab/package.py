@@ -9,7 +9,7 @@ r"""
 """
 import json
 import os
-from .env import is_dev, get_swanlab_folder
+from .env import is_dev, get_swanlab_folder, is_strict_mode
 from .utils.key import get_key
 from .error import KeyFileError
 
@@ -149,6 +149,8 @@ def version_limit(path: str, mode: str) -> None:
     ValueError
         如果版本号低于v0.1.5则抛出异常
     """
+    if not is_strict_mode():
+        return
     # 判断文件夹内是否存在runs.swanlog文件
     if os.path.exists(os.path.join(path, "runs.swanlog")):
         return

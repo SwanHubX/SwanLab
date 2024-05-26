@@ -252,8 +252,7 @@ def create_http(login_info: LoginInfo) -> HTTP:
     创建http请求对象
     """
     global http
-    if http is None:
-        http = HTTP(login_info)
+    http = HTTP(login_info)
     return http
 
 

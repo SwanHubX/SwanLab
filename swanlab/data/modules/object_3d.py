@@ -62,6 +62,10 @@ class Object3D(BaseType):
 
         self.object3d_data = self.__preprocess(self.value)
 
+        # 判断是否要保存(mode='disabled'时不保存)
+        if not self.settings.should_save:
+            return
+
         # 根据不同的输入类型进行不同的哈希校验
         hash_name = (
             get_file_hash_numpy_array(self.object3d_data)[:16]

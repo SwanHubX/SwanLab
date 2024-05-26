@@ -80,7 +80,7 @@ class LoginInfo:
         """错误时会返回错误信息"""
         if self.__resp.reason == "OK":
             return "Login success"
-        if self.__resp.reason == "Unauthorized":
+        if self.__resp.reason == "Unauthorized" or self.__resp.reason == "Authorization Required":
             return "Error api key"
         if self.__resp.reason == "Forbidden":
             return "You need to be verified first"

@@ -70,6 +70,11 @@ class Video(BaseType):
             return self.get_data_list()
         # 视频预处理
         self.video_data = self.__preprocess(self.value)
+
+        # 判断是否要保存(mode='disabled'时不保存)
+        if not self.settings.should_save:
+            return
+
         # 获取视频hash值
         hash_name = (
             get_file_hash_numpy_array(self.video_data)[:16]
