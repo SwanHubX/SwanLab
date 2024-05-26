@@ -91,14 +91,9 @@ class SwanLabExp:
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
-            if tag_obj.__error["data_class"] == "list":
-                return swanlog.warning(
-                    f"swanlab: Chart '{tag}' creation failed. Reason: The data type in list of the tag '{tag}' is not as expected, please check the data type. "
-                )
-            else:
-                return swanlog.warning(
-                    f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is int ,float or BaseType, but the input type is {type(data)}. "
-                )
+            return swanlog.warning(
+                f"swanlab: Chart '{tag}' creation failed. Reason: The expected value type for the chart '{tag}' is int ,float or BaseType, but the input type is {type(data)}. "
+            )
 
         # 添加tag信息
         key_info = tag_obj.add(data, step)
@@ -322,13 +317,7 @@ class SwanLabTag:
                 else:
                     class_name = data.__class__.__name__
                     excepted = [i.__name__ for i in self.data_types]
-
-                if class_name == "list":
-                    swanlog.error(
-                        f"Data type error, tag: {tag}, there is element of invalid data type in the list, excepted: {excepted}"
-                    )
-                else:
-                    swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+                swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
             """如果data是nan，生成error并保存"""
