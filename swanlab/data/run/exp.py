@@ -2,7 +2,7 @@ import json
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import BaseType, DataType
 from swanlab.log import swanlog
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 from swanlab.utils import create_time
 from swanlab.utils.file import check_tag_format
 from .callback import MetricInfo, ColumnInfo
@@ -77,27 +77,52 @@ class SwanLabExp:
                 data.step = 0 if step is None or not isinstance(step, int) else step
                 data.tag = tag_obj.tag
             column_info = tag_obj.create_chart(tag, data)
+            self.warn_type_error(tag)
             # 创建新列，生成回调
             self.__operator.on_column_create(column_info)
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
-            if tag_obj.__error is not None and tag_obj.__error.get("data_class") == "list":
-                swanlog.warning(
-                    f"Chart '{tag}' creation failed. "
-                    f"Reason: The data type in list of the tag '{tag}' is not as expected, please check the data type."
-                )
-            else:
-                swanlog.warning(
-                    f"Chart '{tag}' creation failed. "
-                    f"Reason: The expected value type for the chart '{tag}' is one of int,"
-                    f"float or BaseType, but the input type is {type(data)}."
-                )
-
+            self.warn_chart_error(tag)
             return MetricInfo(key, tag_obj.column_info)
         key_info = tag_obj.add(data, step)
         key_info.static_dir = self.settings.static_dir
         return key_info
+
+    def warn_type_error(self, tag: str):
+        """警告类型错误
+        执行此方法时需保证tag已经存在
+        """
+        tag_obj = self.tags[tag]
+        class_name = tag_obj.now_data_type
+        excepted = tag_obj.expect_data_types
+        if tag_obj.is_chart_valid:
+            return
+        if class_name == "list":
+            swanlog.error(f"Data type error, tag: {tag}, there is element of invalid data type in the list.")
+        else:
+            swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+
+    def warn_chart_error(self, tag: str):
+        """
+        警告图表创建错误
+        执行此方法时需保证tag已经存在
+        """
+        tag_obj = self.tags[tag]
+        if tag_obj.is_chart_valid:
+            return
+        class_name = tag_obj.now_data_type
+        if class_name == "list":
+            swanlog.warning(
+                f"Chart '{tag}' creation failed. "
+                f"Reason: The data type in list of the tag '{tag}' is not as expected, please check the data type."
+            )
+        else:
+            swanlog.warning(
+                f"Chart '{tag}' creation failed. "
+                f"Reason: The expected value type for the chart '{tag}' is one of int,"
+                f"float or BaseType, but the input type is {class_name}."
+            )
 
 
 class SwanLabTag:
@@ -138,6 +163,26 @@ class SwanLabTag:
         self.data_type = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
+
+    @property
+    def now_data_type(self) -> Optional[str]:
+        """
+        当is_chart_valid为False时，返回当前数据的类型
+        这指的是用户传入的数据类型，而不是转换后的数据类型
+        """
+        if self.__error is not None:
+            return self.__error.get("data_class")
+        return None
+
+    @property
+    def expect_data_types(self) -> Optional[list]:
+        """
+        当is_chart_valid为False时，返回期望的数据类型
+        如果为True，则返回None
+        """
+        if self.__error is not None:
+            return self.__error.get("excepted")
+        return None
 
     @property
     def sum(self):
@@ -295,12 +340,6 @@ class SwanLabTag:
                 else:
                     class_name = data.__class__.__name__
                     excepted = [i.__name__ for i in self.data_types]
-
-                if class_name == "list":
-                    swanlog.error(f"Data type error, tag: {tag}, there is element of invalid data type in the list.")
-                else:
-                    swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
-
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
             error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
