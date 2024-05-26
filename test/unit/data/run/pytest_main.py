@@ -11,7 +11,7 @@ from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
 from swanlab import Image, Audio, Text
 from nanoid import generate
 from tutils import clear, TEMP_PATH
-from PIL import Image
+from PIL import Image as PILImage
 import torch
 import soundfile as sf
 import numpy as np
@@ -241,7 +241,7 @@ class TestSwanLabRunLog:
         """
         # 创建随机图像，并保存到TEMP目录
         random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
-        random_im_pil = Image.fromarray(random_im)
+        random_im_pil = PILImage.fromarray(random_im)
         save_path = os.path.join(TEMP_PATH, "a.jpg")
         random_im_pil.save(save_path)
 
@@ -252,7 +252,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -260,8 +262,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_image_np(self):
@@ -278,7 +280,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -286,8 +290,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_image_pil(self):
@@ -296,7 +300,7 @@ class TestSwanLabRunLog:
         """
 
         random_im = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
-        random_im_pil = Image.fromarray(random_im)
+        random_im_pil = PILImage.fromarray(random_im)
 
         run = SwanLabRun()
         metric_dict = run.log({"a": Image(random_im_pil)})
@@ -305,7 +309,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -313,8 +319,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_image_plt(self):
@@ -337,7 +343,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -345,8 +353,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_image_tensor(self):
@@ -362,7 +370,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -370,8 +380,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_image_batch(self):
@@ -387,7 +397,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "image"
         assert ac.error is None
@@ -395,17 +407,20 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "image"
+        assert ac.namespace == "Image"
         assert ac.reference == "step"
 
     def test_log_audio_path(self):
         """
         测试解析一个音频，使用文件路径
         """
-        random_audio = np.random.randn(2, 100000)
-        save_path = os.path.join(TEMP_PATH, "a.wav")
-        sf.write(save_path, random_audio, 44100)
+        sample_rate = 44100
+        t = np.linspace(0, 1, sample_rate, False)
+        frequency = 440
+        audio_signal = 0.5 * np.sin(2 * np.pi * frequency * t)
+        save_path = os.path.join(TEMP_PATH, "output.wav")
+        sf.write(save_path, audio_signal, sample_rate)
 
         run = SwanLabRun()
         metric_dict = run.log({"a": Audio(save_path)})
@@ -414,7 +429,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "audio"
         assert ac.error is None
@@ -422,8 +439,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "audio"
+        assert ac.namespace == "Audio"
         assert ac.reference == "step"
 
     def test_log_audio_np(self):
@@ -439,7 +456,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "audio"
         assert ac.error is None
@@ -447,8 +466,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "audio"
+        assert ac.namespace == "Audio"
         assert ac.reference == "step"
 
     def test_log_audio_batch(self):
@@ -464,7 +483,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "audio"
         assert ac.error is None
@@ -472,8 +493,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "audio"
+        assert ac.namespace == "Audio"
         assert ac.reference == "step"
 
     def test_log_text_str(self):
@@ -489,7 +510,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "text"
         assert ac.error is None
@@ -497,8 +520,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "text"
+        assert ac.namespace == "Text"
         assert ac.reference == "step"
 
     def test_log_text_bacth(self):
@@ -514,7 +537,9 @@ class TestSwanLabRunLog:
         a = metric_dict["a"]
         ac = a.column_info
         # ---------------------------------- 指标信息 ----------------------------------
-        assert a.metric is None
+        assert "index" in a.metric
+        assert "create_time" in a.metric
+        assert "data" in a.metric
         # ---------------------------------- 列信息 ----------------------------------
         assert ac.data_type == "text"
         assert ac.error is None
@@ -522,8 +547,8 @@ class TestSwanLabRunLog:
         assert ac.sort == 0
         assert ac.config == {}
         assert ac.key == "a"
-        assert ac.chart_type == "default"
-        assert ac.namespace == "default"
+        assert ac.chart_type == "text"
+        assert ac.namespace == "Text"
         assert ac.reference == "step"
 
 
