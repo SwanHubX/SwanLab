@@ -82,11 +82,18 @@ class SwanLabExp:
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not tag_obj.is_chart_valid:
-            swanlog.warning(
-                f"Chart '{tag}' creation failed. "
-                f"Reason: The expected value type for the chart '{tag}' is one of int,"
-                f"float or BaseType, but the input type is {type(data)}."
-            )
+            if tag_obj.__error is not None and tag_obj.__error.get("data_class") is "list":
+                swanlog.warning(
+                    f"Chart '{tag}' creation failed. "
+                    f"Reason: The data type in list of the tag '{tag}' is not as expected, please check the data type."
+                )
+            else:
+                swanlog.warning(
+                    f"Chart '{tag}' creation failed. "
+                    f"Reason: The expected value type for the chart '{tag}' is one of int,"
+                    f"float or BaseType, but the input type is {type(data)}."
+                )
+
             return MetricInfo(key, tag_obj.column_info)
         key_info = tag_obj.add(data, step)
         key_info.static_dir = self.settings.static_dir
@@ -227,7 +234,7 @@ class SwanLabTag:
             epoch,
             metric_path=file_path,
             summary_path=os.path.join(self.save_path, "_summary.json"),
-            error=False
+            error=False,
         )
 
     @property
@@ -288,7 +295,14 @@ class SwanLabTag:
                 else:
                     class_name = data.__class__.__name__
                     excepted = [i.__name__ for i in self.data_types]
-                swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+
+                if class_name == "list":
+                    swanlog.error(
+                        f"Data type error, tag: {tag}, there is element of invalid data type in the list, excepted: {excepted}"
+                    )
+                else:
+                    swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
             error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
