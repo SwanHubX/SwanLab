@@ -91,11 +91,14 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     assert_exist(
         path,
         target_type="folder",
-        desc='The log file was not found in the default path "{path}". '
-             'Please use the "swanlab watch -l <LOG '
-             'PATH>" command to specify the location of the log path."'.format(path=path)
-        if path == default else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path),
-        t_desc='SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path)
+        desc=(
+            'The log file was not found in the default path "{path}". '
+            'Please use the "swanlab watch -l <LOG '
+            'PATH>" command to specify the location of the log path."'.format(path=path)
+            if path == default
+            else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path)
+        ),
+        t_desc='SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path),
     )
     _env[ROOT] = path
     return path
@@ -176,13 +179,7 @@ def is_dev(env: Optional[Env] = None) -> bool:
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
-function_list = [
-    get_mode,
-    get_swanlog_dir,
-    get_server_port,
-    get_server_host,
-    is_dev
-]
+function_list = [get_mode, get_swanlog_dir, get_server_port, get_server_host, is_dev]
 
 
 def init_env(env: Optional[Env] = None):
@@ -199,8 +196,7 @@ def init_env(env: Optional[Env] = None):
 
 
 def reset_env():
-    """重置
-    """
+    """重置"""
     _env.clear()
 
 
@@ -282,7 +278,7 @@ def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str 
     if not is_strict_mode():
         return os.path.exists(path)
     if not os.path.exists(path):
-        if ra or target_type is not None:
+        if ra:
             raise FileNotFoundError(desc or "{path} not existed".format(path=path))
         else:
             return False
