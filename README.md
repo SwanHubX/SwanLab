@@ -496,20 +496,20 @@ The community edition supports offline viewing of SwanLab dashboards.
 
 ### Offline Experiment Tracking
 
-Set the parameters `logir` and `cloud` in swanlab.init to track experiments offline:
+Set the parameters `logir` and `mode` in swanlab.init to track experiments offline:
 
 ```python
 ...
 
 swanlab.init(
     logdir='./logs',
-    cloud=False,
+    mode='local',
 )
 
 ...
 ```
 
-- The parameter `cloud` is set to `False`, which disables synchronizing the experiment to the cloud.
+- The parameter `mode` is set to `local`, which disables synchronizing the experiment to the cloud.
 
 - The setting of the parameter `logdir` is optional, and it specifies the location for saving SwanLab log files (by
   default saved in the `swanlog` folder).
