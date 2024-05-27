@@ -102,6 +102,7 @@ class CloudRunCallback(LocalRunCallback):
         return http.mount_project(project, workspace).history_exp_count
 
     def on_run(self):
+        swanlog.install(self.settings.console_dir)
         # 注册实验信息
         try:
             get_http().mount_exp(
