@@ -13,7 +13,7 @@ from swanlab.env import (
     MODE,
     ROOT,
 )
-from tutils import TEMP_PATH
+from tutils import TEMP_PATH, SWANLAB_LOG_DIR
 from swanlab.log import swanlog
 from swanlab.data.run import get_run
 from nanoid import generate
@@ -29,9 +29,12 @@ def setup_function():
     reset_env()
     swanlog.disable_log()
     yield
+    # 恢复原状
     swanlog.enable_log()
     if get_run() is not None:
         get_run().finish()
+    reset_env()
+    os.environ[ROOT] = SWANLAB_LOG_DIR
 
 
 class TestInitMode:
@@ -170,5 +173,12 @@ class TestInitLogdir:
 
 class TestLogin:
     """
-    通过
+    测试通过sdk封装的login函数登录
+    不填apikey的部分不太好测
     """
+
+    def test_use_key(self):
+        """
+        需要保证key有效
+        """
+        S.login()

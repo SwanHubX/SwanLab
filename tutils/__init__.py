@@ -21,6 +21,7 @@ def clear():
         shutil.rmtree(TEMP_PATH)
     os.mkdir(TEMP_PATH)
     os.mkdir(SWANLAB_LOG_DIR)
+    os.mkdir(SWANLAB_DIR)
 
 
 def init_db():

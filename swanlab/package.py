@@ -9,16 +9,11 @@ r"""
 """
 import json
 import os
-from .env import is_dev, get_swanlab_folder, is_strict_mode
+from .env import get_package_path, get_swanlab_folder, is_strict_mode
 from .utils.key import get_key
 from .error import KeyFileError
 
-package_path = None
-if is_dev():
-    # 当前运行时的位置
-    package_path = os.environ['SWANLAB_PACKAGE_PATH']
-else:
-    package_path = os.path.join(os.path.dirname(__file__), "package.json")
+package_path = get_package_path()
 
 
 def get_package_version(p=package_path) -> str:

@@ -15,7 +15,7 @@ from swanlab.env import (
 )
 import swanlab.env as E
 from nanoid import generate
-from tutils import SWANLAB_LOG_DIR
+from tutils import SWANLAB_LOG_DIR, PACKAGE_PATH, TEMP_PATH
 import pytest
 import os
 
@@ -28,15 +28,20 @@ def setup_function():
     reset_env()
     if MODE in os.environ:
         del os.environ[MODE]
-    del os.environ[E.ROOT]
+    if E.ROOT in os.environ:
+        del os.environ[E.ROOT]
+    if E.PACKAGE in os.environ:
+        del os.environ[E.PACKAGE]
     if E.DEV in os.environ:
         del os.environ[E.DEV]
     yield
+    # 恢复原状
     reset_env()
     if MODE in os.environ:
         del os.environ[MODE]
     os.environ[E.DEV] = "TRUE"
     os.environ[E.ROOT] = SWANLAB_LOG_DIR
+    os.environ[E.PACKAGE] = PACKAGE_PATH
 
 
 def use_strict_mode():
@@ -140,10 +145,12 @@ def test_db_path():
     """
     测试数据库路径
     """
+    os.environ[E.ROOT] = SWANLAB_LOG_DIR
     assert E.get_db_path() == os.path.join(SWANLAB_LOG_DIR, "runs.swanlab")
 
 
 def test_env_reset():
+    os.environ[E.ROOT] = SWANLAB_LOG_DIR
     E.init_env()
     assert len(E._env) > 0
     reset_env()
@@ -232,3 +239,52 @@ class TestSwanLogDir:
         use_strict_mode()
         with pytest.raises(FileNotFoundError):
             E.get_swanlog_dir()
+
+
+class TestPackagePath:
+    def test_default(self):
+        """
+        测试默认的package路径
+        """
+        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        package_path = os.path.join(project_dir, "swanlab", "package.json")
+        assert E.get_package_path() == package_path
+
+    def test_use_env(self):
+        """
+        非开发模式下使用环境变量
+        """
+        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        package_path = os.path.join(project_dir, "swanlab", "package.json")
+        os.environ[E.PACKAGE] = generate()
+        assert E.get_package_path() != os.environ[E.PACKAGE]
+        assert E.get_package_path() == package_path
+
+    def test_use_env_dev(self):
+        """
+        开发模式下使用环境变量
+        """
+        os.environ[E.DEV] = "TRUE"
+        os.environ[E.PACKAGE] = generate()
+        assert E.get_package_path() == os.environ[E.PACKAGE]
+        # 需要注意的是测试时已经引入了swanlab包，而其默认执行了get_package_path函数
+        from swanlab.package import package_path
+        assert E.get_package_path() != package_path
+        assert package_path == PACKAGE_PATH
+
+
+class TestGetSwanLabFolder:
+    """
+    测试获取.swanlab目录路径
+    """
+
+    def test_use_env(self):
+        _dir = os.path.join(TEMP_PATH, ".swanlab")
+        os.environ[E.HOME] = _dir
+        assert E.get_swanlab_folder() != _dir
+
+    def test_use_env_dev(self):
+        _dir = os.path.join(TEMP_PATH, ".swanlab")
+        os.environ[E.DEV] = "TRUE"
+        os.environ[E.HOME] = _dir
+        assert E.get_swanlab_folder() == _dir

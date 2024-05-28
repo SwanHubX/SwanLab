@@ -9,7 +9,6 @@ r"""
 """
 from swanlab.api.auth.login import login_by_key
 from tutils.config import CONFIG
-import pytest
 
 
 def test_login_success():
