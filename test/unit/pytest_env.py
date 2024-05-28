@@ -279,12 +279,10 @@ class TestGetSwanLabFolder:
     """
 
     def test_use_env(self):
-        _dir = os.path.join(TEMP_PATH, ".swanlab")
-        os.environ[E.HOME] = _dir
-        assert E.get_swanlab_folder() != _dir
+        os.environ[E.HOME] = TEMP_PATH
+        assert TEMP_PATH not in E.get_swanlab_folder()
 
     def test_use_env_dev(self):
-        _dir = os.path.join(TEMP_PATH, ".swanlab")
         os.environ[E.DEV] = "TRUE"
-        os.environ[E.HOME] = _dir
-        assert E.get_swanlab_folder() == _dir
+        os.environ[E.HOME] = TEMP_PATH
+        assert E.get_swanlab_folder() == os.path.join(TEMP_PATH, ".swanlab")

@@ -187,16 +187,8 @@ class TestLogin:
         使用家目录下的key，不需要输入
         如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
         """
-
-        def get_password(prompt: str):
-            # 如果是第一次登录，使用错误的key，会提示重新输入
-            if "Paste" in prompt:
-                return generate()
-            else:
-                return T.KEY
-
         os.environ[HOME] = T.TEMP_PATH
-        monkeypatch.setattr("getpass.getpass", get_password)
+        monkeypatch.setattr("getpass.getpass", T.get_password)
         S.login()
         # 默认保存Key
         assert os.path.exists(os.path.join(get_swanlab_folder(), ".netrc"))

@@ -47,5 +47,6 @@ PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package
 os.environ["SWANLAB_DEV"] = "TRUE"
 os.environ["SWANLAB_PACKAGE_PATH"] = PACKAGE_PATH
 os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
+os.environ["SWANLAB_HOME"] = TEMP_PATH
 
 __all__ = ["TEMP_PATH", "SWANLAB_LOG_DIR", "CONFIG", "nanoid", "PACKAGE_PATH", "SWANLAB_DIR", "KEY"]

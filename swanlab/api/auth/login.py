@@ -96,6 +96,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
     """
     终端登录，此时直接覆盖本地token文件，但是新增交互，让用户输入api_key
     运行此函数，如果是认证失败的错误，重新要求用户输入api_key
+    本地文件上层文件夹不保证存在，需要上层函数保证
     """
     # 1. api_key存在，跳过输入环节，直接请求登录接口，这与代码内swanlab.login方法一致
     # 2. api_key为None，提示用户输入
