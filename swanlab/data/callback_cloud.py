@@ -28,6 +28,7 @@ from swanlab.db import Experiment
 from swanlab.utils import create_time
 import sys
 import os
+import io
 
 
 class CloudRunCallback(LocalRunCallback):
@@ -53,10 +54,15 @@ class CloudRunCallback(LocalRunCallback):
         try:
             key = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
         except KeyFileError:
-            fd = sys.stdin.fileno()
-            # 不是标准终端，且非jupyter环境，无法控制其回显
-            if not os.isatty(fd) and not in_jupyter():
-                raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
+            try:
+                fd = sys.stdin.fileno()
+                # 不是标准终端，且非jupyter环境，无法控制其回显
+                if not os.isatty(fd) and not in_jupyter():
+                    raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
+            # 当使用capsys、capfd或monkeypatch等fixture来捕获或修改标准输入输出时，会抛出io.UnsupportedOperation
+            # 这种情况下为用户自定义情况
+            except io.UnsupportedOperation:
+                pass
         return terminal_login(key)
 
     def _view_web_print(self):

@@ -41,6 +41,13 @@ MODE = "SWANLAB_MODE"
 4. local: 本地模式，不会上传日志到云端，使用swanlab本地版本
 此外，SWANLAB_MODE为disabled时，会开启非严格模式，非严格模式不再要求文件路径存在
 """
+PACKAGE = "SWANLAB_PACKAGE_PATH"
+"""swanlab包路径SWANLAB_PACKAGE_PATH，用于开发模式下指定swanlab包的路径
+当SWANLAB_DEV为TRUE时，必须指定此路径，否则会抛出异常，非开发模式下此环境变量无效
+"""
+HOME = "SWANLAB_HOME"
+"""存放.swanlab文件夹的路径，用于开发模式下的测试，非开发模式下此环境变量无效
+"""
 
 
 class SwanLabMode(enum.Enum):
@@ -161,6 +168,7 @@ def get_server_host(env: Optional[Env] = None) -> Optional[str]:
 
 def is_dev(env: Optional[Env] = None) -> bool:
     """判断是否是开发模式
+    此函数会在一开始就被package.py调用，所以不需要判断是否已经初始化
 
     Returns
     -------
@@ -179,7 +187,7 @@ def is_dev(env: Optional[Env] = None) -> bool:
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
-function_list = [get_mode, get_swanlog_dir, get_server_port, get_server_host, is_dev]
+function_list = [get_mode, get_swanlog_dir, get_server_port, get_server_host]
 
 
 def init_env(env: Optional[Env] = None):
@@ -255,6 +263,12 @@ def get_swanlab_folder() -> str:
     str
         用户家目录的.swanlab文件夹路径
     """
+    if is_dev() and HOME in os.environ:
+        path = os.path.join(os.environ[HOME], ".swanlab")
+        if not assert_exist(path, target_type="folder", ra=False):
+            os.mkdir(path)
+        return path
+
     user_home = get_user_home()
     swanlab_folder = os.path.join(user_home, ".swanlab")
     try:
@@ -266,12 +280,19 @@ def get_swanlab_folder() -> str:
     return swanlab_folder
 
 
+def get_package_path() -> Optional[str]:
+    if is_dev() and PACKAGE in os.environ:
+        return os.environ[PACKAGE]
+    else:
+        return os.path.join(os.path.dirname(__file__), "package.json")
+
+
 def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str = None, t_desc: str = None) -> bool:
     """
     检查文件是否存在，严格模式下，文件不存在会抛出异常，或者可以手动通过参数控制，存在则返回True，否则返回False
     :param path: 文件路径
     :param target_type: 文件类型(folder, file)，如果文件类型与预期不符，会抛出异常，非严格模式下不检测，为None不检测文件类型
-    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效
+    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效，此参数只影响文件是否存在，不影响文件类型判断时抛出异常
     :param desc: 异常描述信息，非严格模式下强制不抛出，此参数无效
     :param t_desc: 文件类型描述信息，非严格模式下强制不抛出，此参数无效
     """
