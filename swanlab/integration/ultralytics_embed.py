@@ -1,3 +1,18 @@
+"""
+当使用Ultralytics做多卡、分布式训练时，需要在ultralytics的源码中添加回调代码。
+在your_env/ultralytics/utils/callbacks/base.py的add_integration_callbacks函数中添加两行代码：
+
+def add_integration_callbacks(instance):
+    ...
+
+    if "Trainer" in instance.__class__.__name__:
+        ...
+        from swanlab.integration.ultralytics_ddp import callbacks as sw_cb
+
+        callbacks_list.extend([ ..., sw_cb])
+        ...
+"""
+
 from ultralytics.utils.torch_utils import model_info_for_loggers
 from collections import Counter
 import swanlab
