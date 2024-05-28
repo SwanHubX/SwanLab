@@ -7,7 +7,7 @@ r"""
 @Description:
     测试sdk的一些api
 """
-from swanlab import init
+import swanlab.data.sdk as S
 from swanlab.env import (
     reset_env,
     MODE,
@@ -40,7 +40,7 @@ class TestInitMode:
     """
 
     def test_init_disabled(self):
-        run = init(mode="disabled", logdir=generate())
+        run = S.init(mode="disabled", logdir=generate())
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
         a = run.settings.run_dir
@@ -48,27 +48,27 @@ class TestInitMode:
         assert get_run() is not None
 
     def test_init_local(self):
-        run = init(mode="local")
+        run = S.init(mode="local")
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
 
     def test_init_cloud(self):
-        run = init(mode="cloud")
+        run = S.init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
 
     def test_init_error(self):
         with pytest.raises(ValueError):
-            init(mode="123456")
+            S.init(mode="123456")
         assert get_run() is None
 
     # ---------------------------------- 测试环境变量输入 ----------------------------------
 
     def test_init_disabled_env(self):
         os.environ[MODE] = "disabled"
-        run = init()
+        run = S.init()
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
         a = run.settings.run_dir
@@ -77,13 +77,13 @@ class TestInitMode:
 
     def test_init_local_env(self):
         os.environ[MODE] = "local"
-        run = init()
+        run = S.init()
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})
 
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
-        run = init()
+        run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
 
@@ -91,7 +91,7 @@ class TestInitMode:
 
     def test_init_disabled_env_mode(self):
         os.environ[MODE] = "local"
-        run = init(mode="disabled")
+        run = S.init(mode="disabled")
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
         a = run.settings.run_dir
@@ -108,7 +108,7 @@ class TestInitProject:
         """
         设置project为None
         """
-        run = init(project=None, mode="disabled")
+        run = S.init(project=None, mode="disabled")
         assert run.project_name == os.path.basename(os.getcwd())
 
     def test_init_project(self):
@@ -116,7 +116,7 @@ class TestInitProject:
         设置project为字符串
         """
         project = "test_project"
-        run = init(project=project, mode="disabled")
+        run = S.init(project=project, mode="disabled")
         assert run.project_name == project
 
 
@@ -130,12 +130,12 @@ class TestInitLogdir:
         disabled模式下设置logdir不生效，采用的是环境变量的设置
         """
         logdir = generate()
-        run = init(logdir=logdir, mode="disabled")
+        run = S.init(logdir=logdir, mode="disabled")
         assert run.settings.swanlog_dir != logdir
         assert run.settings.swanlog_dir == os.environ[ROOT]
         run.finish()
         del os.environ[ROOT]
-        run = init(logdir=logdir, mode="disabled")
+        run = S.init(logdir=logdir, mode="disabled")
         assert run.settings.swanlog_dir != logdir
         assert run.settings.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
 
@@ -144,12 +144,12 @@ class TestInitLogdir:
         其他模式下设置logdir生效
         """
         logdir = os.path.join(TEMP_PATH, generate()).__str__()
-        run = init(logdir=logdir, mode="local")
+        run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
         del os.environ[ROOT]
         logdir = os.path.join(TEMP_PATH, generate()).__str__()
-        run = init(logdir=logdir, mode="local")
+        run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
 
     def test_init_logdir_env(self):
@@ -158,11 +158,17 @@ class TestInitLogdir:
         """
         logdir = os.path.join(TEMP_PATH, generate()).__str__()
         os.environ[ROOT] = logdir
-        run = init(mode="local")
+        run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
         del os.environ[ROOT]
         logdir = os.path.join(TEMP_PATH, generate()).__str__()
         os.environ[ROOT] = logdir
-        run = init(mode="local")
+        run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
+
+
+class TestLogin:
+    """
+    通过
+    """
