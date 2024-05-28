@@ -25,7 +25,6 @@ def setup_function():
     """
     在当前测试文件下的每个测试函数执行前后执行
     """
-    reset_env()
     if MODE in os.environ:
         del os.environ[MODE]
     if E.ROOT in os.environ:
@@ -36,12 +35,8 @@ def setup_function():
         del os.environ[E.DEV]
     yield
     # 恢复原状
-    reset_env()
     if MODE in os.environ:
         del os.environ[MODE]
-    os.environ[E.DEV] = "TRUE"
-    os.environ[E.ROOT] = SWANLAB_LOG_DIR
-    os.environ[E.PACKAGE] = PACKAGE_PATH
 
 
 def use_strict_mode():

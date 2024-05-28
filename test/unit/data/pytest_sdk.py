@@ -29,14 +29,12 @@ def setup_function():
     """
     在当前测试文件下的每个测试函数执行前后执行
     """
-    reset_env()
     swanlog.disable_log()
     yield
     # 恢复原状
     swanlog.enable_log()
     if get_run() is not None:
         get_run().finish()
-    reset_env()
     os.environ[ROOT] = T.SWANLAB_LOG_DIR
     if HOME in os.environ:
         del os.environ[HOME]
