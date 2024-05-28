@@ -271,7 +271,7 @@ def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str 
     检查文件是否存在，严格模式下，文件不存在会抛出异常，或者可以手动通过参数控制，存在则返回True，否则返回False
     :param path: 文件路径
     :param target_type: 文件类型(folder, file)，如果文件类型与预期不符，会抛出异常，非严格模式下不检测，为None不检测文件类型
-    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效
+    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效，此参数只影响文件是否存在，不影响文件类型判断时抛出异常
     :param desc: 异常描述信息，非严格模式下强制不抛出，此参数无效
     :param t_desc: 文件类型描述信息，非严格模式下强制不抛出，此参数无效
     """
