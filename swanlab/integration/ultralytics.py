@@ -6,26 +6,28 @@ For adaptation to the ultralytics framework. Detailed usage are as follows:
 from ultralytics import YOLO
 from swanlab.integration.ultralytics import add_swanlab_callback
 
-model = YOLO("yolov5n.yaml")
+model = YOLO("yolov8n.yaml")
 add_swanlab_callback(model)
 
 model.train(
-    data="coco.yaml",
-    epoch=50,
+    data="coco128.yaml",
+    epoch=3,
 )
 ---------------------------------
 """
 
 from ultralytics.models import YOLO
 from ultralytics.utils.torch_utils import model_info_for_loggers
+from collections import Counter
 import swanlab
+
 
 _processed_plots = {}
 
 
 class UltralyticsSwanlabCallback:
     def __init__(self) -> None:
-        self.final_eval = False
+        self.step_counter = Counter()
         self._run = None
 
     def _log_plots(self, plots: dict, step: int, tag: str):
@@ -65,15 +67,17 @@ class UltralyticsSwanlabCallback:
 
     def on_fit_epoch_end(self, trainer):
         """每个epoch结束记录指标和绘图（含训练和验证）"""
+        self.step_counter[trainer.epoch + 1] += 1
+
+        # final_eval阶段
+        if self.step_counter[trainer.epoch + 1] == 2:
+            for key, value in trainer.metrics.items():
+                swanlab.log({f"FinalValBestModel/{key}": value}, step=trainer.epoch + 1)
         # train阶段
-        if not self.final_eval:
+        else:
             swanlab.log(trainer.metrics, step=trainer.epoch + 1)
             if trainer.epoch + 1 == trainer.epochs:
                 self.final_eval = True
-        # final_eval阶段
-        else:
-            for key, value in trainer.metrics.items():
-                swanlab.log({f"FinalValidationBestModel/{key}": value}, step=trainer.epoch + 1)
 
         self._log_plots(trainer.plots, step=trainer.epoch + 1, tag="Train/Plots")
         self._log_plots(trainer.validator.plots, step=trainer.epoch + 1, tag="Train/ValPlots")
