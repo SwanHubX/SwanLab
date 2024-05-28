@@ -7,13 +7,16 @@ r"""
 @Description:
     测试sdk的一些api
 """
-import swanlab.data.sdk as S
 from swanlab.env import (
     reset_env,
+    get_swanlab_folder,
     MODE,
     ROOT,
+    HOME
 )
-from tutils import TEMP_PATH, SWANLAB_LOG_DIR
+import tutils as T
+import swanlab.data.sdk as S
+import swanlab.error as E
 from swanlab.log import swanlog
 from swanlab.data.run import get_run
 from nanoid import generate
@@ -34,7 +37,9 @@ def setup_function():
     if get_run() is not None:
         get_run().finish()
     reset_env()
-    os.environ[ROOT] = SWANLAB_LOG_DIR
+    os.environ[ROOT] = T.SWANLAB_LOG_DIR
+    if HOME in os.environ:
+        del os.environ[HOME]
 
 
 class TestInitMode:
@@ -146,12 +151,12 @@ class TestInitLogdir:
         """
         其他模式下设置logdir生效
         """
-        logdir = os.path.join(TEMP_PATH, generate()).__str__()
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
         del os.environ[ROOT]
-        logdir = os.path.join(TEMP_PATH, generate()).__str__()
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
 
@@ -159,13 +164,13 @@ class TestInitLogdir:
         """
         通过环境变量设置logdir
         """
-        logdir = os.path.join(TEMP_PATH, generate()).__str__()
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[ROOT] = logdir
         run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
         del os.environ[ROOT]
-        logdir = os.path.join(TEMP_PATH, generate()).__str__()
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[ROOT] = logdir
         run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
@@ -177,8 +182,31 @@ class TestLogin:
     不填apikey的部分不太好测
     """
 
-    def test_use_key(self):
+    def test_use_home_key(self, monkeypatch):
         """
-        需要保证key有效
+        使用家目录下的key，不需要输入
+        如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
         """
+
+        def get_password(prompt: str):
+            # 如果是第一次登录，使用错误的key，会提示重新输入
+            if "Paste" in prompt:
+                return generate()
+            else:
+                return T.KEY
+
+        os.environ[HOME] = T.TEMP_PATH
+        monkeypatch.setattr("getpass.getpass", get_password)
         S.login()
+        # 默认保存Key
+        assert os.path.exists(os.path.join(get_swanlab_folder(), ".netrc"))
+
+    def test_use_input_key(self, monkeypatch):
+        """
+        使用输入的key
+        """
+        key = generate()
+        with pytest.raises(E.ValidationError):
+            S.login(api_key=key)
+        key = T.KEY
+        S.login(api_key=key)

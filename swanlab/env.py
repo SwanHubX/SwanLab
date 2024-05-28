@@ -264,7 +264,7 @@ def get_swanlab_folder() -> str:
         用户家目录的.swanlab文件夹路径
     """
     if is_dev() and HOME in os.environ:
-        return os.environ[HOME]
+        return os.path.join(os.environ[HOME], ".swanlab")
 
     user_home = get_user_home()
     swanlab_folder = os.path.join(user_home, ".swanlab")
