@@ -14,6 +14,24 @@ model.train(
     epoch=3,
 )
 ---------------------------------
+
+当使用Ultralytics做多卡、分布式训练时，需要在ultralytics的源码中添加回调代码。
+在`your_env/ultralytics/utils/callbacks/base.py`的add_integration_callbacks函数中添加三行代码：
+
+------.../ultralytics/utils/callbacks/base.py------
+def add_integration_callbacks(instance):
+    ...
+
+    if "Trainer" in instance.__class__.__name__:
+        ...
+        from swanlab.integration.ultralytics import return_swanlab_callback
+
+        sw_cb = return_swanlab_callback()
+
+        callbacks_list.extend([ ..., sw_cb])
+        ...
+---------------------------------
+
 """
 
 from ultralytics.models import YOLO
@@ -109,3 +127,20 @@ def add_swanlab_callback(
         model.add_callback(event, callback_fn)
 
     return model
+
+
+def return_swanlab_callback():
+    ultralytics_swanlabcallback = UltralyticsSwanlabCallback()
+
+    callbacks = (
+        {
+            "on_pretrain_routine_start": ultralytics_swanlabcallback.on_pretrain_routine_start,
+            "on_train_epoch_end": ultralytics_swanlabcallback.on_train_epoch_end,
+            "on_fit_epoch_end": ultralytics_swanlabcallback.on_fit_epoch_end,
+            "on_train_end": ultralytics_swanlabcallback.on_train_end,
+        }
+        if swanlab
+        else {}
+    )
+
+    return callbacks
