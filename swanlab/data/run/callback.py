@@ -34,7 +34,7 @@ class ColumnInfo:
         sort: int,
         error: Optional[Dict] = None,
         reference: Optional[str] = None,
-        config: Optional[Dict] = None
+        config: Optional[Dict] = None,
     ):
         self.key = key
         """
@@ -87,7 +87,7 @@ class MetricInfo:
         metric_path: str = None,
         summary_path: str = None,
         static_dir: str = None,
-        error: bool = True
+        error: bool = True,
     ):
         self.key = key
         """
@@ -257,7 +257,7 @@ class SwanLabRunCallback(ABC, U):
         description: str,
         num: int,
         suffix: str,
-        setter: Callable[[str, str, str, str], None]
+        setter: Callable[[str, str, str, str], None],
     ):
         """
         在初始化实验之前调用，此时SwanLabRun已经初始化完毕
