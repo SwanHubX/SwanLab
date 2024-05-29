@@ -14,7 +14,7 @@ from swanlab.data.modules import DataType
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
-from swanlab.package import get_package_version, get_package_lastest_version
+from swanlab.package import get_package_version
 import atexit
 import sys
 import os
