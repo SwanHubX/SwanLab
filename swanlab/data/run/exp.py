@@ -213,6 +213,11 @@ class SwanLabTag:
         """判断data是否为nan"""
         return isinstance(data, (int, float)) and math.isnan(data)
 
+    @staticmethod
+    def __is_inf(data):
+        """判断data是否为inf"""
+        return isinstance(data, (int, float)) and math.isinf(data)
+
     def add(self, data: DataType, step: int = None) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
@@ -250,8 +255,9 @@ class SwanLabTag:
             )
             return MetricInfo(self.tag, self.__column_info)
         is_nan = self.__is_nan(data)
+        is_inf = self.__is_inf(data)
         # 更新数据概要
-        if not is_nan:
+        if not is_nan and not is_inf:
             if self._summary.get("max") is None or data > self._summary["max"]:
                 self._summary["max"] = data
                 self._summary["max_step"] = step
@@ -263,7 +269,10 @@ class SwanLabTag:
         swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
         if len(self.__data["data"]) >= self.__slice_size:
             self.__data = self.__new_tags()
+
         data = data if not is_nan else "NaN"
+        data = data if not is_inf else "INF"
+
         new_data = self.__new_tag(step, data, more=more)
         self.__data["data"].append(new_data)
         epoch = len(self.__steps)
@@ -343,6 +352,9 @@ class SwanLabTag:
                 error = {"data_class": class_name, "excepted": excepted}
         if self.__is_nan(data):
             error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
+        if self.__is_inf(data):
+            error = {"data_class": "INF", "excepted": [i.__name__ for i in self.data_types]}
+
         column_info = ColumnInfo(tag, namespace, data_type, chart_type, sort, error, reference, config)
         self.__error = error
         self.data_type = data_type

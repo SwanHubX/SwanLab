@@ -132,6 +132,30 @@ class TestSwanLabRunLog:
         assert ac.namespace == "default"
         assert ac.reference == "step"
 
+    def test_log_number_inf(self):
+        """
+        测试解析一个nan
+        """
+        run = SwanLabRun()
+        metric_dict = run.log({"a": float("inf")})
+        assert metric_dict["a"] is not None
+        assert len(metric_dict) == 1
+        a = metric_dict["a"]
+        ac = a.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a.metric is None
+        # ---------------------------------- 列信息 ----------------------------------
+        assert ac.data_type == "default"
+        assert ac.error["data_class"] == "INF"
+        assert ac.error["excepted"] == ["float", "int"]
+        # 默认排在最前面
+        assert ac.sort == 0
+        assert ac.config == {}
+        assert ac.key == "a"
+        assert ac.chart_type == "default"
+        assert ac.namespace == "default"
+        assert ac.reference == "step"
+
     def test_log_number_str(self):
         """
         测试解析其他字符串
