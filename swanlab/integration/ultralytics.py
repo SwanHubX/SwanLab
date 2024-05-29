@@ -6,7 +6,7 @@ For adaptation to the ultralytics framework. Detailed usage are as follows:
 from ultralytics import YOLO
 from swanlab.integration.ultralytics import add_swanlab_callback
 
-model = YOLO("yolov8n.yaml")
+model = YOLO("yolov8n.pt")
 add_swanlab_callback(model)
 
 model.train(
