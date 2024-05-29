@@ -12,6 +12,8 @@ import os
 from .env import get_package_path, get_swanlab_folder, is_strict_mode
 from .utils.key import get_key
 from .error import KeyFileError
+from typing import Optional
+import requests
 
 package_path = get_package_path()
 
@@ -34,9 +36,7 @@ def get_package_version(p=package_path) -> str:
         return json.load(f)["version"]
 
 
-def get_package_lastest_version() -> str:
-    import requests
-
+def get_package_latest_version() -> Optional[str]:
     url = "https://pypi.org/pypi/swanlab/json"
     response = requests.get(url)
     if response.status_code == 200:

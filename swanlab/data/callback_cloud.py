@@ -26,7 +26,7 @@ from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.db import Experiment
 from swanlab.utils import create_time
-from swanlab.package import get_package_version, get_package_lastest_version
+from swanlab.package import get_package_version, get_package_latest_version
 import sys
 import os
 import io
@@ -66,6 +66,16 @@ class CloudRunCallback(LocalRunCallback):
                 pass
         return terminal_login(key)
 
+    @staticmethod
+    def _get_package_latest_version():
+        """
+        cloud模式训练开始时，检测package是否为最新版本
+        """
+        latest_version = get_package_latest_version()
+        local_version = get_package_version()
+        if latest_version is not None and latest_version != local_version:
+            swanlog.info(f"swanlab version {latest_version} is available!  Upgrade: `pip install -U swanlab`")
+
     def _view_web_print(self):
         self._watch_tip_print()
         http = get_http()
@@ -97,29 +107,18 @@ class CloudRunCallback(LocalRunCallback):
         if tp != KeyboardInterrupt:
             raise tp(val)
 
-    def _lastest_version_print(self):
-        """
-        cloud模式训练开始时，检测package是否为最新版本
-        """
-        lastest_version = get_package_lastest_version()
-        local_version = get_package_version()
-        if lastest_version is not None and lastest_version != local_version:
-            swanlog.info(f"swanlab version {lastest_version} is available!  Upgrade: `pip install -U swanlab`")
-
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
     def on_init(self, project: str, workspace: str, logdir: str = None) -> int:
         super(CloudRunCallback, self).on_init(project, workspace, logdir)
+        # 检测是否有最新的版本
+        self._get_package_latest_version()
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
             self.login_info = self.get_login_info()
 
         http = create_http(self.login_info)
-
-        # 检测是否有最新的版本
-        self._lastest_version_print()
-
         return http.mount_project(project, workspace).history_exp_count
 
     def on_run(self):
