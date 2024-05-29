@@ -14,7 +14,7 @@ from swanlab.data.modules import DataType
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
-from swanlab.package import get_package_version
+from swanlab.package import get_package_version, get_package_lastest_version
 import atexit
 import sys
 import os
@@ -34,7 +34,7 @@ class ColumnInfo:
         sort: int,
         error: Optional[Dict] = None,
         reference: Optional[str] = None,
-        config: Optional[Dict] = None
+        config: Optional[Dict] = None,
     ):
         self.key = key
         """
@@ -87,7 +87,7 @@ class MetricInfo:
         metric_path: str = None,
         summary_path: str = None,
         static_dir: str = None,
-        error: bool = True
+        error: bool = True,
     ):
         self.key = key
         """
@@ -188,6 +188,15 @@ class U:
         local_path = FONT.magenta(FONT.bold(self.formate_abs_path(self.settings.run_dir)))
         swanlog.info("Run data will be saved locally in " + local_path)
 
+    def _lastest_version_print(self):
+        """
+        cloud模式训练开始时，检测package是否为最新版本
+        """
+        lastest_version = get_package_lastest_version()
+        local_version = get_package_version()
+        if lastest_version is not None and lastest_version != local_version:
+            swanlog.info(f"swanlab version {lastest_version} is available!  Upgrade: `pip install -U swanlab`")
+
     def _watch_tip_print(self):
         """
         watch命令提示打印
@@ -257,7 +266,7 @@ class SwanLabRunCallback(ABC, U):
         description: str,
         num: int,
         suffix: str,
-        setter: Callable[[str, str, str, str], None]
+        setter: Callable[[str, str, str, str], None],
     ):
         """
         在初始化实验之前调用，此时SwanLabRun已经初始化完毕

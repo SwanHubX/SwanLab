@@ -133,6 +133,8 @@ class CloudRunCallback(LocalRunCallback):
 
         swanlog.set_write_callback(_write_call_call)
 
+        # 检测是否有最新的版本
+        self._lastest_version_print()
         # 注册系统回调
         self._register_sys_callback()
         # 打印信息
@@ -146,19 +148,18 @@ class CloudRunCallback(LocalRunCallback):
             show_button_html(experiment_url)
 
     def on_column_create(self, column_info: ColumnInfo):
-        self.pool.queue.put((
-            UploadType.COLUMN,
-            [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)]
-        ))
+        self.pool.queue.put(
+            (UploadType.COLUMN, [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)])
+        )
 
     def on_metric_create(self, metric_info: MetricInfo):
         super(CloudRunCallback, self).on_metric_create(metric_info)
         if metric_info.error:
             return
         new_data = metric_info.metric
-        new_data['key'] = metric_info.key
-        new_data['index'] = metric_info.step
-        new_data['epoch'] = metric_info.epoch
+        new_data["key"] = metric_info.key
+        new_data["index"] = metric_info.step
+        new_data["epoch"] = metric_info.epoch
         if metric_info.data_type == "default":
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
         key = quote(metric_info.key, safe="")

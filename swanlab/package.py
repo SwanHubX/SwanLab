@@ -34,6 +34,18 @@ def get_package_version(p=package_path) -> str:
         return json.load(f)["version"]
 
 
+def get_package_lastest_version() -> str:
+    import requests
+
+    url = "https://pypi.org/pypi/swanlab/json"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return data["info"]["version"]
+    else:
+        return None
+
+
 def get_host_web(p: str = package_path) -> str:
     """获取swanlab网站网址
 
@@ -157,15 +169,19 @@ def version_limit(path: str, mode: str) -> None:
             if project.get("version") is not None:
                 # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
                 if mode == "watch":
-                    info = ("The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                            "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
-                            "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
-                            ".1.4.py'")
+                    info = (
+                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
+                        "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
+                        "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
+                        ".1.4.py'"
+                    )
                 elif mode == "init":
-                    info = ("The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                            "SwanLab doesn't support this logfile. If you need to continue train in this logdir, "
-                            "please use the transfer script: "
-                            "https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0.1.4.py'")
+                    info = (
+                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
+                        "SwanLab doesn't support this logfile. If you need to continue train in this logdir, "
+                        "please use the transfer script: "
+                        "https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0.1.4.py'"
+                    )
                 else:
                     info = "version_limit function only support mode in ['watch', 'init']"
                 raise ValueError(info)
