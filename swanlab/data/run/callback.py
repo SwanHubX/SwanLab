@@ -188,15 +188,6 @@ class U:
         local_path = FONT.magenta(FONT.bold(self.formate_abs_path(self.settings.run_dir)))
         swanlog.info("Run data will be saved locally in " + local_path)
 
-    def _lastest_version_print(self):
-        """
-        cloud模式训练开始时，检测package是否为最新版本
-        """
-        lastest_version = get_package_lastest_version()
-        local_version = get_package_version()
-        if lastest_version is not None and lastest_version != local_version:
-            swanlog.info(f"swanlab version {lastest_version} is available!  Upgrade: `pip install -U swanlab`")
-
     def _watch_tip_print(self):
         """
         watch命令提示打印
