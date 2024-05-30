@@ -36,13 +36,16 @@ def get_package_version(p=package_path) -> str:
         return json.load(f)["version"]
 
 
-def get_package_latest_version() -> Optional[str]:
+def get_package_latest_version(timeout=0.5) -> Optional[str]:
     url = "https://pypi.org/pypi/swanlab/json"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return data["info"]["version"]
-    else:
+    try:
+        response = requests.get(url, timeout=timeout)
+        if response.status_code == 200:
+            data = response.json()
+            return data["info"]["version"]
+        else:
+            return None
+    except Exception as e:
         return None
 
 
