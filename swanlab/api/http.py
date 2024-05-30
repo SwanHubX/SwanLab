@@ -235,7 +235,7 @@ class HTTP:
         def _():
             self.put(
                 f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
-                {"state": "FINISHED" if success else "CRASHED"},
+                {"state": "FINISHED" if success else "CRASHED", "from": "sdk"},
             )
 
         FONT.loading("Updating experiment status...", _)
