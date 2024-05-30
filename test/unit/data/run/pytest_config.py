@@ -2,6 +2,8 @@ from swanlab.data.run.main import SwanLabRun, get_run, SwanLabConfig, swanlog
 from tutils import clear, TEMP_PATH
 import pytest
 import swanlab
+import argparse
+import omegaconf
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -26,10 +28,11 @@ class TestSwanLabRunConfig:
             "a": 1,
             "b": "mnist",
             "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": 2},
+            "e/f/h": {"a": 1, "b": {"c": 2}},
         }
         run = SwanLabRun(config=config_data)
         assert isinstance(run.config, SwanLabConfig)
+        assert len(run.config) == 4
 
         assert run.config == config_data
 
@@ -37,8 +40,9 @@ class TestSwanLabRunConfig:
         assert run.config["b"] == "mnist"
         assert run.config["c/d"] == [1, 2, 3]
         assert run.config["c/d"][0] == 1
-        assert run.config["e/f/h"] == {"a": 1, "b": 2}
+        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
         assert run.config["e/f/h"]["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2
 
         assert run.config.a == 1
         assert run.config.b == "mnist"
@@ -47,10 +51,11 @@ class TestSwanLabRunConfig:
         assert run.config.get("b") == "mnist"
         assert run.config.get("c/d") == [1, 2, 3]
         assert run.config.get("c/d")[0] == 1
-        assert run.config.get("e/f/h") == {"a": 1, "b": 2}
+        assert run.config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
         assert run.config.get("e/f/h")["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2
 
-    def test_config_update(self):
+    def test_config_null_update(self):
         """
         测试在init之后通过update的方式添加config参数
         """
@@ -58,24 +63,24 @@ class TestSwanLabRunConfig:
             "a": 1,
             "b": "mnist",
             "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": 2},
+            "e/f/h": {"a": 1, "b": {"c": 2}},
         }
 
         run = SwanLabRun()
         assert isinstance(run.config, SwanLabConfig)
-
-        # 判断为空
         assert len(run.config) == 0
 
         run.config.update(config_data)
         assert run.config == config_data
+        assert len(run.config) == 4
 
         assert run.config["a"] == 1
         assert run.config["b"] == "mnist"
         assert run.config["c/d"] == [1, 2, 3]
         assert run.config["c/d"][0] == 1
-        assert run.config["e/f/h"] == {"a": 1, "b": 2}
+        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
         assert run.config["e/f/h"]["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2
 
         assert run.config.a == 1
         assert run.config.b == "mnist"
@@ -84,5 +89,112 @@ class TestSwanLabRunConfig:
         assert run.config.get("b") == "mnist"
         assert run.config.get("c/d") == [1, 2, 3]
         assert run.config.get("c/d")[0] == 1
-        assert run.config.get("e/f/h") == {"a": 1, "b": 2}
+        assert run.config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
         assert run.config.get("e/f/h")["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2
+
+    def test_config_have_update(self):
+        """
+        测试在init之后通过update的方式添加config参数
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+
+        run = SwanLabRun(config=config_data)
+        assert isinstance(run.config, SwanLabConfig)
+        assert len(run.config) == 4
+
+        update_data = {
+            "a": 2,
+            "e/f/h": [4, 5, 6],
+            "j": 3,
+        }
+
+        run.config.update(update_data)
+        assert len(run.config) == 5
+
+        assert run.config["a"] == 2
+        assert run.config["e/f/h"] == [4, 5, 6]
+        assert run.config["e/f/h"][0] == 4
+        assert run.config["j"] == 3
+
+    def test_config_null_set(self):
+        """
+        测试在没有config初始化时，init之后更新config的参数
+        """
+        run = SwanLabRun()
+
+        run.config.a = 1
+        run.config.b = "mnist"
+        run.config["c/d"] = [1, 2, 3]
+        run.config.set("e/f/h", {"a": 1, "b": {"c": 2}})
+
+        assert len(run.config) == 4
+        assert run.config.a == 1
+        assert run.config.b == "mnist"
+        assert run.config["c/d"] == [1, 2, 3]
+        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
+
+    def test_config_have_set(self):
+        """
+        测试在有config初始化时，init之后更新config的参数
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+        run = SwanLabRun(config=config_data)
+
+        run.config.a = 2
+        run.config.set("e/f/h", [4, 5, 6])
+        run.config["j"] = 3
+
+        assert len(run.config) == 5
+        assert run.config["a"] == 2
+        assert run.config["e/f/h"] == [4, 5, 6]
+        assert run.config["e/f/h"][0] == 4
+        assert run.config["j"] == 3
+
+    def test_config_before_init(self):
+        """
+        测试在init之前设置的情况
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+
+        swanlab.config.update(config_data)
+        run = SwanLabRun()
+
+        assert isinstance(run.config, SwanLabConfig)
+        assert len(run.config) == 4
+
+        assert run.config == config_data
+
+        assert run.config["a"] == 1
+        assert run.config["b"] == "mnist"
+        assert run.config["c/d"] == [1, 2, 3]
+        assert run.config["c/d"][0] == 1
+        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
+        assert run.config["e/f/h"]["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2
+
+        assert run.config.a == 1
+        assert run.config.b == "mnist"
+
+        assert run.config.get("a") == 1
+        assert run.config.get("b") == "mnist"
+        assert run.config.get("c/d") == [1, 2, 3]
+        assert run.config.get("c/d")[0] == 1
+        assert run.config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
+        assert run.config.get("e/f/h")["a"] == 1
+        assert run.config["e/f/h"]["b"]["c"] == 2

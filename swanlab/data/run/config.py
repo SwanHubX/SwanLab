@@ -41,8 +41,8 @@ def json_serializable(obj: dict):
 
 
 def check_keys(d: dict):
-    """检查字典的key是否合法"""
-    allowed_types = (str, int, float, bool, type(None))
+    """检查字典的key是否合法，允许的key类型为str, int, float"""
+    allowed_types = (str, int, float)
     invalid_keys = [key for key in d.keys() if not isinstance(key, allowed_types)]
     return invalid_keys
 
@@ -151,6 +151,9 @@ class SwanLabConfig(Mapping):
 
         值得注意的是类属性的设置不会触发此方法
         """
+        cfg = self.__check_config({name: value})
+        name, value = cfg.popitem()
+
         # 判断是否是私有属性
         self.__check_private(name)
         # 设置属性，并判断是否已经初始化，如果是，则调用保存方法
@@ -169,6 +172,8 @@ class SwanLabConfig(Mapping):
         run.config["__lr"] = 0.01 # 不允许
         ```
         """
+        cfg = self.__check_config({name: value})
+        name, value = cfg.popitem()
         # 判断是否是私有属性
         self.__check_private(name)
         self.__config[name] = value
@@ -197,6 +202,9 @@ class SwanLabConfig(Mapping):
         AttributeError
             If the attribute name is private, an exception is raised
         """
+        cfg = self.__check_config({name: value})
+        name, value = cfg.popitem()
+
         self.__check_private(name)
         self.__config[name] = value
         self.__save()

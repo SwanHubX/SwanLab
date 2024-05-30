@@ -80,6 +80,7 @@ class SwanLabRun:
         global run
         if run is not None:
             raise RuntimeError("SwanLabRun has been initialized")
+
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -182,7 +183,8 @@ class SwanLabRun:
         _run, run = run, None
 
         # 清空config
-        config.clean()
+        if isinstance(config, SwanLabConfig):
+            config.clean()
 
         return _run
 
