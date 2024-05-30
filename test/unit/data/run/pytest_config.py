@@ -166,8 +166,6 @@ class TestSwanLabRunConfig:
         assert isinstance(run.config, SwanLabConfig)
         assert len(run.config) == 4
 
-        assert run.config == config_data
-
         assert run.config["a"] == 1
         assert run.config["b"] == "mnist"
         assert run.config["c/d"] == [1, 2, 3]
@@ -175,6 +173,42 @@ class TestSwanLabRunConfig:
         assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
         assert run.config["e/f/h"]["a"] == 1
         assert run.config["e/f/h"]["b"]["c"] == 2
+
+    def test_config_clean(self):
+        """
+        测试在finish之后config是否置空
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+
+        run = SwanLabRun(config=config_data)
+        run.finish()
+
+        assert isinstance(run.config, SwanLabConfig)
+        assert len(run.config) == 0
+
+    def test_config_get_config(self):
+        """
+        测试在finish之后config是否置空
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+
+        assert isinstance(swanlab.get_config(), SwanLabConfig)
+        assert len(swanlab.get_config()) == 0
+
+        run = SwanLabRun(config=config_data)
+
+        assert isinstance(swanlab.get_config(), SwanLabConfig)
+        assert len(swanlab.get_config()) == 4
 
     def test_config_from_omegaconf(self):
         """

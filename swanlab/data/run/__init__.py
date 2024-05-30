@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处导出SwanLabRun类，一次实验运行应该只有一个SwanLabRun实例
 """
-from .main import SwanLabRun, get_run, SwanLabRunState
+from .main import SwanLabRun, get_run, get_config, SwanLabRunState
 
 
 def register(*args, **kwargs) -> SwanLabRun:

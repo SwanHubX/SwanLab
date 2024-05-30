@@ -27,4 +27,5 @@ from .run import (
     SwanLabRun as Run,
     SwanLabRunState as State,
     get_run,
+    get_config,
 )
