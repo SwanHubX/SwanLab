@@ -47,16 +47,36 @@ class TestSwanLabRunConfig:
         assert run.config.get("e/f/h") == {"a": 1, "b": 2}
         assert run.config.get("e/f/h")["a"] == 1
 
-    # def test_config_set(self):
-    #     """
-    #     测试在init之后添加config参数
-    #     """
-    #     config_data = {
-    #         "a": 1,
-    #         "b": "mnist",
-    #         "c/d": [1, 2, 3],
-    #         "e/f/h": {"a": 1, "b": 2},
-    #     }
+    def test_config_update(self):
+        """
+        测试在init之后通过update的方式添加config参数
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": 2},
+        }
 
-    #     run = SwanLabRun()
-    #     assert len(run.config) == 0
+        run = SwanLabRun()
+        # assert len(run.config) == 0
+
+        run.config.update(config_data)
+        assert run.config == config_data
+
+        assert run.config["a"] == 1
+        assert run.config["b"] == "mnist"
+        assert run.config["c/d"] == [1, 2, 3]
+        assert run.config["c/d"][0] == 1
+        assert run.config["e/f/h"] == {"a": 1, "b": 2}
+        assert run.config["e/f/h"]["a"] == 1
+
+        assert run.config.a == 1
+        assert run.config.b == "mnist"
+
+        assert run.config.get("a") == 1
+        assert run.config.get("b") == "mnist"
+        assert run.config.get("c/d") == [1, 2, 3]
+        assert run.config.get("c/d")[0] == 1
+        assert run.config.get("e/f/h") == {"a": 1, "b": 2}
+        assert run.config.get("e/f/h")["a"] == 1

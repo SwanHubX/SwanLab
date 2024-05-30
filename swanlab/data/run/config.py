@@ -11,7 +11,7 @@ from typing import Any
 from collections.abc import Mapping
 import yaml
 import argparse
-from .settings import SwanDataSettings
+from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
 

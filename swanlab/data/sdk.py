@@ -19,7 +19,6 @@ from .run import (
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
-from .config import SwanLabConfig
 from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
@@ -27,7 +26,6 @@ from swanlab.api import code_login
 from swanlab.db import GlomCallback
 from swanlab.package import version_limit
 
-_config: Optional["SwanLabConfig"] = SwanLabConfig(None)
 """
 Allows users to record experiment configurations through swanlab.config.
 Before calling the init() function, config cannot be read or written, even if it is a SwanLabConfig object.

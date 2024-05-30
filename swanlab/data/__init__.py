@@ -21,7 +21,6 @@ from .sdk import (
     init,
     log,
     finish,
-    _config as config,
 )
 
 from .run import (

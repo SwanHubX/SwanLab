@@ -10,7 +10,7 @@ r"""
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
-from swanlab.data.config import SwanLabConfig
+from swanlab.data.run.config import SwanLabConfig
 import random
 from enum import Enum
 from .exp import SwanLabExp
@@ -24,6 +24,7 @@ class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
     We Recommend that you use this enumeration class to represent the state of the experiment.
     """
+
     NOT_STARTED = -2
     SUCCESS = 1
     CRASHED = -1
@@ -75,13 +76,14 @@ class SwanLabRun:
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
         """
+
         global run
         if run is not None:
             raise RuntimeError("SwanLabRun has been initialized")
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
@@ -307,6 +309,8 @@ _change_run_state: Optional["Callable"] = None
 """
 修改实验状态的函数，用于在实验状态改变时调用
 """
+config: Optional["SwanLabConfig"] = SwanLabConfig()
+"""Global config instance. After the user calls finish(), config will be set to None."""
 
 
 def _set_run_state(state: SwanLabRunState):
@@ -330,3 +334,11 @@ def get_run() -> Optional["SwanLabRun"]:
     """
     global run
     return run
+
+
+def get_config() -> Optional["SwanLabConfig"]:
+    """
+    Get the current config object.
+    """
+    global config
+    return config

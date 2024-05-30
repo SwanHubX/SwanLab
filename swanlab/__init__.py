@@ -4,7 +4,6 @@ from .data import (
     init,
     log,
     finish,
-    config,
     Audio,
     Image,
     Text,
@@ -14,6 +13,7 @@ from .data import (
 )
 
 
+from .data.run.main import config
 from .package import get_package_version
 
 
