@@ -7,6 +7,8 @@ r"""
 @Description:
     测试SwanLabRun主类
 """
+import math
+
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
 from swanlab import Image, Audio, Text
 from nanoid import generate
@@ -131,6 +133,44 @@ class TestSwanLabRunLog:
         assert ac.chart_type == "default"
         assert ac.namespace == "default"
         assert ac.reference == "step"
+
+    def test_log_number_inf(self):
+        """
+        测试解析一个inf
+        """
+        run = SwanLabRun()
+        metric_dict = run.log({"float(inf)": float("inf"), "math.inf": math.inf})
+        assert metric_dict["float(inf)"] is not None and metric_dict["math.inf"] is not None
+        assert len(metric_dict) == 2
+        a1 = metric_dict["float(inf)"]
+        a2 = metric_dict["math.inf"]
+        ac1 = a1.column_info
+        ac2 = a2.column_info
+        # ---------------------------------- 指标信息 ----------------------------------
+        assert a1.metric is None
+        assert a2.metric is None
+        # ---------------------------------- float(inf)信息 ----------------------------------
+        assert ac1.data_type == "default"
+        assert ac1.error["data_class"] == "INF"
+        assert ac1.error["excepted"] == ["float", "int"]
+        # 默认排在最前面
+        assert ac1.sort == 0
+        assert ac1.config == {}
+        assert ac1.key == "float(inf)"
+        assert ac1.chart_type == "default"
+        assert ac1.namespace == "default"
+        assert ac1.reference == "step"
+        # ---------------------------------- math.inf信息 ----------------------------------
+        assert ac2.data_type == "default"
+        assert ac2.error["data_class"] == "INF"
+        assert ac2.error["excepted"] == ["float", "int"]
+        # 默认排在最前面
+        assert ac2.sort == 0
+        assert ac2.config == {}
+        assert ac2.key == "math.inf"
+        assert ac2.chart_type == "default"
+        assert ac2.namespace == "default"
+        assert ac2.reference == "step"
 
     def test_log_number_str(self):
         """

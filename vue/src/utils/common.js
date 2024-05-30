@@ -60,6 +60,9 @@ export const uuid = (now = Math.round(new Date() / 1000)) => {
  * @returns {string} 格式化后的数据
  */
 export const formatNumber2SN = (value, max = 1e5, min = 1e-4, digits = 4) => {
+  if (value === 'NaN' || value === 'INF') {
+    return value
+  }
   // 如果一个传入的数字的小数点后ignore_digits位全为0，那么把这个数当作整数来处理
   const ignore_digits = digits + 6
   // 将传入的数据转换为Number

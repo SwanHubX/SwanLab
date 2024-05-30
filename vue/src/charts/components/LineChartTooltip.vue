@@ -157,7 +157,7 @@ defineExpose({
   }
 
   .lc-tooltip-value {
-    @apply text-left font-semibold;
+    @apply text-left font-semibold whitespace-nowrap;
   }
 
   .lc-tooltip-tag {

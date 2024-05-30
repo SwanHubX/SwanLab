@@ -282,7 +282,7 @@ const thin = (...args) => {
 const smoothMethod = ref(null)
 const smooth = (method) => {
   smoothMethod.value = method
-  chartRef.value.smooth && chartRef.value.smooth(method)
+  chartRef.value?.smooth && chartRef.value.smooth(method)
 }
 
 // ---------------------------------- 图表置顶 ----------------------------------

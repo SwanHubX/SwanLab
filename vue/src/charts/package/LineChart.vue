@@ -62,6 +62,7 @@ import makeSmooth from './smooth'
 import { needSmooth } from './smooth'
 import LineChartTooltip from '../components/LineChartTooltip.vue'
 import LineChartLegend from '../components/LineChartLegend.vue'
+import '@swanlab-vue/docs'
 
 // ---------------------------------- 配置 ----------------------------------
 const props = defineProps({
@@ -80,7 +81,7 @@ const props = defineProps({
 })
 
 // ---------------------------------- 错误处理，如果chart.error存在，则下面的api都将不应该被执行 ----------------------------------
-// 数据源 arrya
+// 数据源 array
 const source = props.chart.source
 // source的长度如果等于error的长度，说明所有数据都有问题,取第一个的error即可
 const error = ref(
@@ -154,6 +155,7 @@ const colorField = 'type'
  * @param { bool } zoom 是否放大
  */
 const createChart = (dom, data, config = {}, zoom = false) => {
+  if (!dom) return
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
@@ -329,7 +331,7 @@ const createChart = (dom, data, config = {}, zoom = false) => {
 /**
  * 为了将数据格式化为图表可用的格式，需要将数据源中的数据进行格式化
  * 遍历data的所有key，合并其中的list为一个数组
- * @param { Object } data 待格式化的数据
+ * @param { OpenChartData } data 待格式化的数据
  * @returns { Object } 格式化后的数据, { d: [{}, {}, ...], config: {} } config是图表的一些其他配置
  */
 const format = (data) => {
@@ -338,6 +340,12 @@ const format = (data) => {
     const smoothData = {}
     for (const key in data) {
       if (!data[key]) continue
+      // data中出现了字符串
+      console.log('data[key]', data[key])
+      if (data[key].list.some((item) => typeof item.data === 'string')) {
+        smoothData[key] = data[key]
+        continue
+      }
       smoothData[key] = {
         ...data[key],
         list: makeSmooth(data[key].list, smoothMethod)
@@ -671,9 +679,13 @@ const legendHoverout = (item, zoom) => {
 }
 
 // ---------------------------------- 图表平滑 ----------------------------------
+/**
+ * @type {OpenChartData} chartData
+ */
 const chartData = inject('data')
 const smooth = (method) => {
-  console.log('smooth by linechart:', method)
+  console.log('smooth by linechart:', chartData)
+  // console.log('smooth by linechart:', method)
   if (!needSmooth(method)) {
     smoothMethod = null
   } else {
