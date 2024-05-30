@@ -15,8 +15,14 @@ swanlab.login(api_key=open_dev_mode())
 swanlab.init(
     description="此实验的图表将出现问题",
     log_level="debug",
-    cloud=True,
+    mode="cloud",
 )
 
 for i in range(10):
     swanlab.log({"success": i, "error": "abc"})
+
+for i in range(10):
+    if i % 2 == 1:
+        swanlab.log({"nan_test": "nan", "inf_test": "inf"})
+    else:
+        swanlab.log({"nan_test": i, "inf_test": i})
