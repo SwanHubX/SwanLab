@@ -161,7 +161,7 @@ class SwanLabRun:
         :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
         :param error: The error message when the experiment is marked as 'CRASHED'. If not 'CRASHED', it should be None.
         """
-        global run, config
+        global run
         # 分为几步
         # 1. 设置数据库实验状态为对应状态
         # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
@@ -180,11 +180,9 @@ class SwanLabRun:
         except RuntimeError:
             # disabled 模式下没有install，所以会报错
             pass
-        _run, run = run, None
 
-        # 清空config
-        if isinstance(config, SwanLabConfig):
-            config.clean()
+        run.config.clean()
+        _run, run = run, None
 
         return _run
 
