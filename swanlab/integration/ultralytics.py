@@ -37,6 +37,7 @@ def add_integration_callbacks(instance):
 from ultralytics.models import YOLO
 from ultralytics.utils.torch_utils import model_info_for_loggers
 from collections import Counter
+from typing import Optional, Dict, Any
 import swanlab
 
 
@@ -44,9 +45,36 @@ _processed_plots = {}
 
 
 class UltralyticsSwanlabCallback:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        project: Optional[str] = None,
+        workspace: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        description: Optional[str] = None,
+        logdir: Optional[str] = None,
+        mode: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> None:
         self.step_counter = Counter()
         self._run = None
+
+        self._swanlab_init: Dict[str, Any] = {
+            "project": project,
+            "workspace": workspace,
+            "experiment_name": experiment_name,
+            "description": description,
+            "logdir": logdir,
+            "mode": mode,
+        }
+
+        self._swanlab_init.update(**kwargs)
+
+        self._project = self._swanlab_init.get("project")
+        self._workspace = self._swanlab_init.get("workspace")
+        self._experiment_name = self._swanlab_init.get("experiment_name")
+        self._description = self._swanlab_init.get("decsription")
+        self._logdir = self._swanlab_init.get("logdir")
+        self._mode = self._swanlab_init.get("mode")
 
     def _log_plots(self, plots: dict, step: int, tag: str):
         """记录指标绘图和推理图像"""
@@ -67,9 +95,13 @@ class UltralyticsSwanlabCallback:
         """初始化实验记录器"""
         if swanlab.get_run() is None:
             self._run = swanlab.init(
-                project=trainer.args.project,
-                experiment_name=trainer.args.name,
+                project=trainer.args.project if self._project is None else self._project,
+                workspace=self._workspace,
+                experiment_name=trainer.args.name if self._experiment_name is None else self._experiment_name,
                 config=vars(trainer.args),
+                description=self._description,
+                logdir=self._logdir,
+                mode=self._mode,
             )
         else:
             self._run = swanlab.get_run()
@@ -112,8 +144,21 @@ class UltralyticsSwanlabCallback:
 
 def add_swanlab_callback(
     model: YOLO,
+    project: Optional[str] = None,
+    workspace: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+    description: Optional[str] = None,
+    logdir: Optional[str] = None,
+    mode: Optional[bool] = None,
 ):
-    ultralytics_swanlabcallback = UltralyticsSwanlabCallback()
+    ultralytics_swanlabcallback = UltralyticsSwanlabCallback(
+        project=project,
+        workspace=workspace,
+        experiment_name=experiment_name,
+        description=description,
+        logdir=logdir,
+        mode=mode,
+    )
 
     """给Ultralytics模型添加swanlab回调函数"""
     callbacks = {
@@ -129,8 +174,22 @@ def add_swanlab_callback(
     return model
 
 
-def return_swanlab_callback():
-    ultralytics_swanlabcallback = UltralyticsSwanlabCallback()
+def return_swanlab_callback(
+    project: Optional[str] = None,
+    workspace: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+    description: Optional[str] = None,
+    logdir: Optional[str] = None,
+    mode: Optional[bool] = None,
+):
+    ultralytics_swanlabcallback = UltralyticsSwanlabCallback(
+        project=project,
+        workspace=workspace,
+        experiment_name=experiment_name,
+        description=description,
+        logdir=logdir,
+        mode=mode,
+    )
 
     callbacks = (
         {

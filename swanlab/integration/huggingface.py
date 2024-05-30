@@ -38,7 +38,7 @@ class SwanLabCallback(TrainerCallback):
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         logdir: Optional[str] = None,
-        cloud: Optional[bool] = True,
+        mode: Optional[str] = None,
         **kwargs: Any,
     ):
         self._initialized = False
@@ -50,7 +50,7 @@ class SwanLabCallback(TrainerCallback):
             "experiment_name": experiment_name,
             "description": description,
             "logdir": logdir,
-            "cloud": cloud,
+            "mode": mode,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -60,7 +60,7 @@ class SwanLabCallback(TrainerCallback):
         self._experiment_name = self._swanlab_init.get("experiment_name")
         self._description = self._swanlab_init.get("decsription")
         self._logdir = self._swanlab_init.get("logdir")
-        self._cloud = self._swanlab_init.get("cloud")
+        self._mode = self._swanlab_init.get("mode")
 
     def setup(self, args, state, model, **kwargs):
         self._initialized = True
