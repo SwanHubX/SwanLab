@@ -248,6 +248,12 @@ class SwanLabConfig(Mapping):
         except KeyError:
             raise AttributeError(f"You have not retrieved '{name}' in the config of the current experiment")
 
+    def clean(self):
+        """
+        清空配置字典
+        """
+        self.__clean()
+
     @need_inited
     def update(self, data: dict):
         """
@@ -340,6 +346,12 @@ class SwanLabConfig(Mapping):
                 for index, (key, value) in enumerate(self.__config.items())
             }
             yaml.dump(config, f)
+
+    def __clean(self):
+        """
+        清空配置字典
+        """
+        self.__config.clear()
 
     def __iter__(self):
         """

@@ -1,6 +1,7 @@
-from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
+from swanlab.data.run.main import SwanLabRun, get_run, SwanLabConfig, swanlog
 from tutils import clear, TEMP_PATH
 import pytest
+import swanlab
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -28,6 +29,8 @@ class TestSwanLabRunConfig:
             "e/f/h": {"a": 1, "b": 2},
         }
         run = SwanLabRun(config=config_data)
+        assert isinstance(run.config, SwanLabConfig)
+
         assert run.config == config_data
 
         assert run.config["a"] == 1
@@ -59,7 +62,10 @@ class TestSwanLabRunConfig:
         }
 
         run = SwanLabRun()
-        # assert len(run.config) == 0
+        assert isinstance(run.config, SwanLabConfig)
+
+        # 判断为空
+        assert len(run.config) == 0
 
         run.config.update(config_data)
         assert run.config == config_data
