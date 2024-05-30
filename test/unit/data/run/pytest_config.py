@@ -2,7 +2,6 @@ from swanlab.data.run.main import SwanLabRun, get_run, SwanLabConfig, swanlog
 from tutils import clear, TEMP_PATH
 import pytest
 import swanlab
-import argparse
 import omegaconf
 
 
@@ -188,13 +187,23 @@ class TestSwanLabRunConfig:
         assert run.config["e/f/h"]["a"] == 1
         assert run.config["e/f/h"]["b"]["c"] == 2
 
-        assert run.config.a == 1
-        assert run.config.b == "mnist"
+    def test_config_from_omegaconf(self):
+        """
+        测试config导入omegaconf的情况
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+        config = omegaconf.OmegaConf.create(config_data)
+        run = SwanLabRun(config=config)
 
-        assert run.config.get("a") == 1
-        assert run.config.get("b") == "mnist"
-        assert run.config.get("c/d") == [1, 2, 3]
-        assert run.config.get("c/d")[0] == 1
-        assert run.config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
-        assert run.config.get("e/f/h")["a"] == 1
-        assert run.config["e/f/h"]["b"]["c"] == 2
+        assert isinstance(run.config, SwanLabConfig)
+        assert len(run.config) == 4
+
+        assert run.config["a"] == 1
+        assert run.config["b"] == "mnist"
+        assert run.config["c/d"] == str([1, 2, 3])
+        assert run.config["e/f/h"] == str({"a": 1, "b": {"c": 2}})
