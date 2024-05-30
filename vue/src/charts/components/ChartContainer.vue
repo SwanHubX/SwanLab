@@ -262,20 +262,20 @@ const zoom = () => {
 // ---------------------------------- 图表显示/隐藏tooltip ----------------------------------
 
 const showTooltip = (...args) => {
-  chartRef.value.showTooltip && chartRef.value.showTooltip(...args)
+  chartRef.value?.showTooltip && chartRef.value.showTooltip(...args)
 }
 
 const hideTooltip = () => {
-  chartRef.value.hideTooltip && chartRef.value.hideTooltip()
+  chartRef.value?.hideTooltip && chartRef.value.hideTooltip()
 }
 
 // ---------------------------------- 图表加粗 ----------------------------------
 const thicken = (...args) => {
-  chartRef.value.thicken && chartRef.value.thicken(...args)
+  chartRef.value?.thicken && chartRef.value.thicken(...args)
 }
 
 const thin = (...args) => {
-  chartRef.value.thin && chartRef.value.thin(...args)
+  chartRef.value?.thin && chartRef.value.thin(...args)
 }
 
 // ---------------------------------- 图表平滑方法 ----------------------------------
