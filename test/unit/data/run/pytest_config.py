@@ -193,7 +193,7 @@ class TestSwanLabRunConfig:
 
     def test_config_get_config(self):
         """
-        测试在finish之后config是否置空
+        测试get_config
         """
         config_data = {
             "a": 1,
