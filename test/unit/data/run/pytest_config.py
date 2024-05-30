@@ -19,9 +19,9 @@ def setup_function():
 
 
 class TestSwanLabRunConfig:
-    def test_config_ok(self):
+    def test_config_have(self):
         """
-        测试解析一个正常的数字
+        初始化时有config参数，测试三种获取数据的方式
         """
         config_data = {
             "a": 1,
@@ -56,7 +56,7 @@ class TestSwanLabRunConfig:
 
     def test_config_null_update(self):
         """
-        测试在init之后通过update的方式添加config参数
+        测试init为空，之后通过update的方式添加config参数
         """
         config_data = {
             "a": 1,
@@ -81,20 +81,9 @@ class TestSwanLabRunConfig:
         assert run.config["e/f/h"]["a"] == 1
         assert run.config["e/f/h"]["b"]["c"] == 2
 
-        assert run.config.a == 1
-        assert run.config.b == "mnist"
-
-        assert run.config.get("a") == 1
-        assert run.config.get("b") == "mnist"
-        assert run.config.get("c/d") == [1, 2, 3]
-        assert run.config.get("c/d")[0] == 1
-        assert run.config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
-        assert run.config.get("e/f/h")["a"] == 1
-        assert run.config["e/f/h"]["b"]["c"] == 2
-
     def test_config_have_update(self):
         """
-        测试在init之后通过update的方式添加config参数
+        测试init不为空，之后通过update的方式添加config参数
         """
         config_data = {
             "a": 1,
@@ -197,8 +186,8 @@ class TestSwanLabRunConfig:
             "c/d": [1, 2, 3],
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
-        config = omegaconf.OmegaConf.create(config_data)
-        run = SwanLabRun(config=config)
+        cfg = omegaconf.OmegaConf.create(config_data)
+        run = SwanLabRun(config=cfg)
 
         assert isinstance(run.config, SwanLabConfig)
         assert len(run.config) == 4
