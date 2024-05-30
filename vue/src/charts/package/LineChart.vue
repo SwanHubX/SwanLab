@@ -154,6 +154,7 @@ const colorField = 'type'
  * @param { bool } zoom 是否放大
  */
 const createChart = (dom, data, config = {}, zoom = false) => {
+  if (!dom) return
   const c = new Line(dom, {
     data,
     // 默认的x轴依据key为step
@@ -673,7 +674,7 @@ const legendHoverout = (item, zoom) => {
 // ---------------------------------- 图表平滑 ----------------------------------
 const chartData = inject('data')
 const smooth = (method) => {
-  console.log('smooth by linechart:', method)
+  // console.log('smooth by linechart:', method)
   if (!needSmooth(method)) {
     smoothMethod = null
   } else {

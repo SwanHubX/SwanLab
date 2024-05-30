@@ -134,7 +134,7 @@ const handleSmooth = (method) => {
   // 遍历chartsRefList中的所有chartRefList，调用其smooth方法
   chartsRefList.value.forEach((chartsRef) => {
     chartsRef.chartRefList.forEach((chartRef) => {
-      chartRef.smooth(method)
+      chartRef?.smooth(method)
     })
   })
   smoothMethod.value = method
