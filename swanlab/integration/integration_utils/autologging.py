@@ -179,7 +179,7 @@ class AutologAPI:
         resolver: ArgumentResponseResolver,
         client=None,
         lib_version=None,
-        cloud: bool = True,
+        mode: str = None,
     ) -> None:
         """Autolog API calls to SwanLab."""
 
@@ -188,7 +188,7 @@ class AutologAPI:
         )
         self._name = self._patch_api.name
         self._run: Optional[SwanLabRun] = None
-        self.cloud = cloud
+        self.mode = mode
         self.client: openai.Client = client
         self.lib_version = lib_version
 

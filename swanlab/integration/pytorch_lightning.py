@@ -57,7 +57,7 @@ class SwanLabLogger(Logger):
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         logdir: Optional[str] = None,
-        cloud: Optional[bool] = True,
+        mode: Optional[str] = None,
         save_dir: Union[str, Path] = ".",
         **kwargs: Any,
     ):
@@ -69,7 +69,7 @@ class SwanLabLogger(Logger):
             "experiment_name": experiment_name,
             "description": description,
             "logdir": logdir,
-            "cloud": cloud,
+            "mode": mode,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -79,7 +79,7 @@ class SwanLabLogger(Logger):
         self._experiment_name = self._swanlab_init.get("experiment_name")
         self._description = self._swanlab_init.get("decsription")
         self._logdir = self._swanlab_init.get("logdir")
-        self._cloud = self._swanlab_init.get("cloud")
+        self._mode = self._swanlab_init.get("mode")
 
         if save_dir is not None:
             save_dir = os.fspath(save_dir)

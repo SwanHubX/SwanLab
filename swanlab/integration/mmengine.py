@@ -18,7 +18,7 @@ vis_backends = [
             "experiment_name": "YourExperiment",    # experiment name on swanlab
             "description": "have fun",              # experiment description (can be null)
             "workspace": "YourOrganization",        # Your Organization on swanlab
-            # "cloud": False,                       # Upload to cloud
+            # "mode": "cloud",                       # Upload to cloud
         },
     ),
 ]
