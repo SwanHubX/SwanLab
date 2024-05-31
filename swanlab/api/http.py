@@ -179,6 +179,7 @@ class HTTP:
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
+            swanlog.debug("Refresh cos...")
             self.__get_cos()
         keys = [key[1:] if key.startswith("/") else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
