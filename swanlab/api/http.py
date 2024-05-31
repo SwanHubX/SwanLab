@@ -73,6 +73,10 @@ class HTTP:
         return self.__login_info.username
 
     @property
+    def cos(self):
+        return self.__cos
+
+    @property
     def proj_id(self):
         return self.__proj.cuid
 
@@ -216,9 +220,11 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
+
             data = self.post(
                 f"/project/{self.groupname}/{self.__proj.name}/runs",
-                {"name": exp_name, "colors": list(colors), "description": description},
+                {"name": exp_name, "colors": list(colors), "description": description} if description else {
+                    "name": exp_name, "colors": list(colors)}
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息

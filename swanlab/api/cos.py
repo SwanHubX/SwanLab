@@ -13,7 +13,7 @@ from qcloud_cos import CosConfig
 from qcloud_cos import CosS3Client
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_threadpool import SimpleThreadPool
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Union
 
 
@@ -21,6 +21,9 @@ class CosClient:
     REFRESH_TIME = 60 * 60 * 1.5  # 1.5小时
 
     def __init__(self, data):
+        """
+        初始化cos客户端
+        """
         self.__expired_time = datetime.fromtimestamp(data["expiredTime"])
         self.__prefix = data["prefix"]
         self.__bucket = data["bucket"]
@@ -66,4 +69,9 @@ class CosClient:
 
     @property
     def should_refresh(self):
-        return (self.__expired_time - datetime.utcnow()).seconds < self.REFRESH_TIME
+        # cos传递的是北京时间，需要添加8小时
+        now = datetime.utcnow() + timedelta(hours=8)
+        # 过期时间减去当前时间小于刷新时间，需要注意为负数的情况
+        if self.__expired_time < now:
+            return True
+        return (self.__expired_time - now).seconds < self.REFRESH_TIME
