@@ -40,7 +40,7 @@ def json_serializable(obj: dict):
     return str(obj)
 
 
-def check_keys(d: dict):
+def check_config_keys(d: dict):
     """检查字典的key是否合法，允许的key类型为str, int, float"""
     allowed_types = (str, int, float)
     invalid_keys = [key for key in d.keys() if not isinstance(key, allowed_types)]
@@ -107,7 +107,7 @@ class SwanLabConfig(Mapping):
             # 将config转换为json序列化的dict
             config = json_serializable(dict(config))
             # 检查config的key是否合法
-            invalid_keys = check_keys(config)
+            invalid_keys = check_config_keys(config)
             if invalid_keys:
                 raise TypeError(
                     f"swanlab.config has invalid keys {invalid_keys}, keys must be str, int, float, bool or None"
