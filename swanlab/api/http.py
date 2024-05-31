@@ -73,6 +73,10 @@ class HTTP:
         return self.__login_info.username
 
     @property
+    def cos(self):
+        return self.__cos
+
+    @property
     def proj_id(self):
         return self.__proj.cuid
 
@@ -175,6 +179,7 @@ class HTTP:
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
+            swanlog.debug("Refresh cos...")
             self.__get_cos()
         keys = [key[1:] if key.startswith("/") else key for key in keys]
         return self.__cos.upload_files(keys, local_paths)
@@ -216,9 +221,11 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
+
             data = self.post(
                 f"/project/{self.groupname}/{self.__proj.name}/runs",
-                {"name": exp_name, "colors": list(colors), "description": description},
+                {"name": exp_name, "colors": list(colors), "description": description} if description else {
+                    "name": exp_name, "colors": list(colors)}
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
