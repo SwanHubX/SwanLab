@@ -12,10 +12,11 @@ import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from swanlab.package import version_limit, get_package_version, is_login
 from swanlab.api.auth import terminal_login
-from ..env import get_server_host, get_server_port, get_swanlog_dir
+from ..env import get_server_host, get_server_port, get_swanlog_dir, get_swanlab_folder
 from ..db import connect
 from ..utils import FONT
 import time
+import shutil
 
 
 @click.group(invoke_without_command=True)
@@ -143,6 +144,28 @@ def login(api_key: str, relogin: bool, **kwargs):
     # 进行登录，此时将直接覆盖本地token文件
     login_info = terminal_login(api_key)
     print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")
+
+
+# ---------------------------------- 退出登录命令 ----------------------------------
+@cli.command()
+def logout(**kwargs):
+    """Logout to the swanlab cloud."""
+    command = FONT.bold("swanlab login")
+    if is_login():
+        # 如果已经是登录状态，那么则询问用户是否确认，如果确认则删除token文件夹
+        confirm = input(FONT.swanlab("Are you sure you want to logout? (y/N): "))
+        if confirm.lower() == "y":
+            try:
+                shutil.rmtree(get_swanlab_folder())
+                return print(FONT.swanlab("Logout successfully. You can use `" + command + "` to login again."))
+            except Exception as e:
+                return print(FONT.swanlab("Logout failed. Please check if you have file operation permissions."))
+        else:
+            return print(FONT.swanlab("Logout canceled."))
+
+    # 如果还未登录，则不做任何处理，并告知用户如何登录
+    tip = FONT.swanlab("You are not logged in. If you want to login in, please use `" + command + "` to login.")
+    return print(tip)
 
 
 # ---------------------------------- 转换命令，用于转换其他实验跟踪工具 ----------------------------------
