@@ -30,9 +30,8 @@ class SwanLabExp:
         """
         self.settings = settings
         # 当前实验的所有tag数据字段
-        self.tags: Dict[str, SwanLabTag] = {}
+        self.keys: Dict[str, SwanLabKey] = {}
         self.__operator = operator
-        """回调函数"""
 
     def add(self, key: str, data: DataType, step: int = None) -> MetricInfo:
         """记录一条新的tag数据
@@ -50,24 +49,25 @@ class SwanLabExp:
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
-        tag = check_tag_format(key, auto_cut=True)
-        if key != tag:
+        _key = key
+        key = check_tag_format(key, auto_cut=True)
+        if key != _key:
             # 超过255字符，截断
-            swanlog.warning(f"Tag {key} is too long, cut to 255 characters.")
+            swanlog.warning(f"Key {_key} is too long, cut to 255 characters.")
 
         # 如果是swanlab自定义的数据类型，注入settings，方便在类内部使用
         if isinstance(data, BaseType):
             data.settings = self.settings
         # 判断tag是否存在，如果不存在则创建tag
-        tag_obj: SwanLabTag = self.tags.get(tag, None)
+        key_obj: SwanLabKey = self.keys.get(key, None)
         """
         数据库创建字段将在chart创建完成后进行
         无论格式是否正确，都会创建chart，但是如果格式不正确，不会写入日志
         """
-        if tag_obj is None:
+        if key_obj is None:
             # 将此tag对象添加到实验列表中
-            tag_obj = SwanLabTag(tag, self.settings.log_dir)
-            self.tags[tag] = tag_obj
+            key_obj = SwanLabKey(key, self.settings.log_dir)
+            self.keys[key] = key_obj
             """
             由于添加图表的同时会尝试转换data的类型，但这在注入step之前
             所以此处需要手动注入依赖
@@ -75,57 +75,58 @@ class SwanLabExp:
             """
             if isinstance(data, BaseType):
                 data.step = 0 if step is None or not isinstance(step, int) else step
-                data.tag = tag_obj.tag
-            column_info = tag_obj.create_chart(tag, data)
-            self.warn_type_error(tag)
+                data.key = key_obj.key
+            # 新建图表，完成数据格式校验
+            column_info = key_obj.create_chart(key, data)
+            self.warn_type_error(key)
             # 创建新列，生成回调
             self.__operator.on_column_create(column_info)
 
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
-        if not tag_obj.is_chart_valid:
-            self.warn_chart_error(tag)
-            return MetricInfo(key, tag_obj.column_info)
-        key_info = tag_obj.add(data, step)
+        if not key_obj.is_chart_valid:
+            self.warn_chart_error(key)
+            return MetricInfo(key, key_obj.column_info)
+        key_info = key_obj.add(data, step)
         key_info.static_dir = self.settings.static_dir
         return key_info
 
-    def warn_type_error(self, tag: str):
+    def warn_type_error(self, key: str):
         """警告类型错误
         执行此方法时需保证tag已经存在
         """
-        tag_obj = self.tags[tag]
+        tag_obj = self.keys[key]
         class_name = tag_obj.now_data_type
         excepted = tag_obj.expect_data_types
         if tag_obj.is_chart_valid:
             return
         if class_name == "list":
-            swanlog.error(f"Data type error, tag: {tag}, there is element of invalid data type in the list.")
+            swanlog.error(f"Data type error, key: {key}, there is element of invalid data type in the list.")
         else:
-            swanlog.error(f"Data type error, tag: {tag}, data type: {class_name}, excepted: {excepted}")
+            swanlog.error(f"Data type error, key: {key}, data type: {class_name}, excepted: {excepted}")
 
-    def warn_chart_error(self, tag: str):
+    def warn_chart_error(self, key: str):
         """
         警告图表创建错误
-        执行此方法时需保证tag已经存在
+        执行此方法时需保证key已经存在
         """
-        tag_obj = self.tags[tag]
+        tag_obj = self.keys[key]
         if tag_obj.is_chart_valid:
             return
         class_name = tag_obj.now_data_type
         if class_name == "list":
             swanlog.warning(
-                f"Chart '{tag}' creation failed. "
-                f"Reason: The data type in list of the tag '{tag}' is not as expected, please check the data type."
+                f"Chart '{key}' creation failed. "
+                f"Reason: The data type in list of the key '{key}' is not as expected, please check the data type."
             )
         else:
             swanlog.warning(
-                f"Chart '{tag}' creation failed. "
-                f"Reason: The expected value type for the chart '{tag}' is one of int,"
+                f"Chart '{key}' creation failed. "
+                f"Reason: The expected value type for the chart '{key}' is one of int,"
                 f"float or BaseType, but the input type is {class_name}."
             )
 
 
-class SwanLabTag:
+class SwanLabKey:
     """
     运行时每个tag的配置，用于记录一些信息
     包括每个tag专属的图表配置
@@ -134,29 +135,29 @@ class SwanLabTag:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, tag: str, log_dir: str) -> None:
+    def __init__(self, key: str, log_dir: str) -> None:
         """
         初始化tag对象
 
         Parameters
         ----------
-        tag : str
-            tag名称
+        key : str
+            列名称
         log_dir : str
             log文件夹路径
         """
-        self.tag = tag
+        self.key = key
         self.__steps = set()
         """
         此tag已经包含的steps步骤
         """
-        self.__log_dir = log_dir
+        self.__save_dir = os.path.join(log_dir, quote(key, safe=""))
         """存储文件夹路径"""
         self.data_types = [float, int]
         """默认数据类型，如果tag数据为BaseType的子类，则使用其规定的数据类型"""
         self._summary = {}
         """数据概要总结"""
-        self.__data = self.__new_tags()
+        self.__collection = self.__new_metric_collection()
         """当前tag的数据"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
@@ -243,17 +244,17 @@ class SwanLabTag:
         if step is None:
             step = len(self.__steps)
         if step in self.__steps:
-            swanlog.warning(f"Step {step} on tag {self.tag} already exists, ignored.")
-            return MetricInfo(self.tag, self.__column_info)
+            swanlog.warning(f"Step {step} on key {self.key} already exists, ignored.")
+            return MetricInfo(self.key, self.__column_info)
         more = None if not isinstance(data, BaseType) else data.get_more()
         try:
             data = self.try_convert_after_add_chart(data, step)
         except ValueError:
             swanlog.warning(
-                f"Log failed. Reason: Data {data} on tag '{self.tag}' (step {step}) cannot be converted .It should be "
+                f"Log failed. Reason: Data {data} on key '{self.key}' (step {step}) cannot be converted .It should be "
                 f"an int, float, or a DataType, but it is {type(data)}, please check the data type."
             )
-            return MetricInfo(self.tag, self.__column_info)
+            return MetricInfo(self.key, self.__column_info)
         is_nan = self.__is_nan(data)
         is_inf = self.__is_inf(data)
         # 更新数据概要
@@ -266,20 +267,20 @@ class SwanLabTag:
                 self._summary["min_step"] = step
         self._summary["num"] = self._summary.get("num", 0) + 1
         self.__steps.add(step)
-        swanlog.debug(f"Add data, tag: {self.tag}, step: {step}, data: {data}")
-        if len(self.__data["data"]) >= self.__slice_size:
-            self.__data = self.__new_tags()
+        swanlog.debug(f"Add data, key: {self.key}, step: {step}, data: {data}")
+        if len(self.__collection["data"]) >= self.__slice_size:
+            self.__collection = self.__new_metric_collection()
 
         data = data if not is_nan else "NaN"
         data = data if not is_inf else "INF"
 
-        new_data = self.__new_tag(step, data, more=more)
-        self.__data["data"].append(new_data)
+        new_data = self.__new_metric(step, data, more=more)
+        self.__collection["data"].append(new_data)
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
-        file_path = os.path.join(self.save_path, str(mu * self.__slice_size) + ".log")
+        file_path = os.path.join(self.save_dir, str(mu * self.__slice_size) + ".log")
         return MetricInfo(
-            self.tag,
+            self.key,
             self.__column_info,
             json.loads(json.dumps(new_data)),
             json.loads(json.dumps(self._summary)),
@@ -287,34 +288,32 @@ class SwanLabTag:
             step,
             epoch,
             metric_path=file_path,
-            summary_path=os.path.join(self.save_path, "_summary.json"),
+            summary_path=os.path.join(self.save_dir, "_summary.json"),
             error=False,
         )
 
     @property
-    def save_path(self):
-        """获取当前tag的保存路径
+    def save_dir(self):
+        """获取当前key的保存文件夹
 
         Returns
         -------
         str
             保存路径
         """
-        path = os.path.join(self.__log_dir, quote(self.tag, safe=""))
-        return path
+        return self.__save_dir
 
-    def create_chart(self, tag: str, data: DataType) -> ColumnInfo:
+    def create_chart(self, key: str, data: DataType) -> ColumnInfo:
         """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
         此方法只能执行一次
         具体步骤是：
-        1. 创建tag字段
+        1. 创建key字段
         2. 如果不是baseType类型，
-        :returns tag, chart_type, error
 
         WARNING 返回位置需与回调函数入参位置一致
         """
         if self.chart_created:
-            raise ValueError(f"Chart {tag} has been created, cannot create again.")
+            raise ValueError(f"Chart {key} has been created, cannot create again.")
         # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
         sort = 0
         if not isinstance(data, BaseType):
@@ -325,8 +324,8 @@ class SwanLabTag:
             chart_type, self.data_types = types
             data_type = data.__class__.__name__.lower()
         # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
-        if "/" in tag and tag[0] != "/":
-            namespace = tag.split("/")[0]
+        if "/" in key and key[0] != "/":
+            namespace = key.split("/")[0]
             sort = None
         """
         接下来判断tag格式的正确性，判断完毕后往source中添加一条tag记录
@@ -355,14 +354,14 @@ class SwanLabTag:
         if self.__is_inf(data):
             error = {"data_class": "INF", "excepted": [i.__name__ for i in self.data_types]}
 
-        column_info = ColumnInfo(tag, namespace, data_type, chart_type, sort, error, reference, config)
+        column_info = ColumnInfo(key, namespace, data_type, chart_type, sort, error, reference, config)
         self.__error = error
         self.data_type = data_type
         self.__column_info = column_info
         return column_info
 
     @staticmethod
-    def __new_tag(index, data, more: dict = None) -> dict:
+    def __new_metric(index, data, more: dict = None) -> dict:
         """创建一个新的data数据，实际上是一个字典，包含一些默认信息
 
         Parameters
@@ -389,8 +388,8 @@ class SwanLabTag:
             }
 
     @staticmethod
-    def __new_tags() -> dict:
-        """创建一个新的tag data数据集合
+    def __new_metric_collection() -> dict:
+        """创建一个新的key data数据集合
 
         Returns
         -------
@@ -427,16 +426,10 @@ class SwanLabTag:
         如果所有类型都尝试过仍然失败，则抛出异常
         调用这个函数代表用户的图表已经创建并且传入了与之前不同的数据类型
         """
-        try:
-            if isinstance(data, BaseType):
-                # 注入内容
-                if data.step is None:
-                    data.step = step
-                if data.tag is None:
-                    data.tag = self.tag
-            return self.try_convert(data)
-        except ValueError:
-            raise ValueError(
-                f"Unable to convert {data} to any of the specified types. This Error means that you have changed the "
-                f"data type of the chart, please check the data type of the chart."
-            )
+        if isinstance(data, BaseType):
+            # 注入内容
+            if data.step is None:
+                data.step = step
+            if data.key is None:
+                data.key = self.key
+        return self.try_convert(data)
