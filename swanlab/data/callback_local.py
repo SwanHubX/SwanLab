@@ -43,9 +43,9 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         # 如果是KeyboardInterrupt异常
         if tp == KeyboardInterrupt:
-            swanlog.error("KeyboardInterrupt by user")
+            swanlog.info("KeyboardInterrupt by user")
         else:
-            swanlog.error("Error happened while training")
+            swanlog.info("Error happened while training")
 
     @staticmethod
     def _init_logdir(logdir: str = None) -> str:
@@ -119,7 +119,7 @@ class LocalRunCallback(SwanLabRunCallback):
         description: str,
         num: int,
         suffix: str,
-        setter: Callable[[str, str, str, str], None]
+        setter: Callable[[str, str, str, str], None],
     ):
         requirements_path = self.settings.requirements_path
         metadata_path = self.settings.metadata_path
