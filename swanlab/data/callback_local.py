@@ -128,7 +128,7 @@ class LocalRunCallback(SwanLabRunCallback):
             f.write(get_requirements())
         # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
         with open(metadata_path, "w") as f:
-            json.dump(get_system_info(self.settings), f)
+            json.dump(get_system_info(self.settings.version, self.settings.swanlog_dir), f)
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)

@@ -13,7 +13,7 @@ import sys
 import subprocess
 import multiprocessing
 import pynvml
-from ...log import swanlog
+from swanlab.log import swanlog
 from swanlab.data.settings import SwanDataSettings
 
 
@@ -223,12 +223,15 @@ def get_requirements() -> str:
         return None
 
 
-def get_system_info(settings: SwanDataSettings):
-    """获取系统信息"""
+def get_system_info(version: str, logdir: str):
+    """获取系统信息
+    :param version: swanlab版本号
+    :param logdir: swanlab日志目录
+    """
     return {
         "swanlab": {
-            "version": settings.version,
-            "logdir": settings.swanlog_dir
+            "version": version,
+            "logdir": logdir
         },
         "hostname": socket.gethostname(),
         "os": platform.platform(),
