@@ -190,7 +190,7 @@ def init(
         project_name=project,
         experiment_name=experiment_name,
         description=description,
-        config=config,
+        run_config=config,
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,

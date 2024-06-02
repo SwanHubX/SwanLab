@@ -42,7 +42,7 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        config: dict = None,
+        run_config: dict = None,
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
@@ -61,7 +61,7 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
-        config : dict, optional
+        run_config : dict, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
         log_level : str, optional
@@ -96,7 +96,7 @@ class SwanLabRun:
         swanlog.set_level(self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
-        self.__config = SwanLabConfig(config, self.__settings)
+        self.__config = SwanLabConfig(run_config, self.__settings)
         # ---------------------------------- 注册实验 ----------------------------------
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
