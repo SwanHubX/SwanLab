@@ -281,12 +281,12 @@ class SwanLabRun:
             :return:
             """
             # 实验创建成功，设置实验相关信息
-            self.__settings.exp_name = exp_name
+            self.settings.exp_name = exp_name
             self.settings.exp_colors = (light_color, dark_color)
             self.settings.description = desc
 
         self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, suffix, setter)
-        return SwanLabExp(self.__settings, operator=self.__operator)
+        return SwanLabExp(self.settings, operator=self.__operator)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:
