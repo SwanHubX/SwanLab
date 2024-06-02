@@ -17,6 +17,7 @@ from typing import Tuple, Callable, Optional
 from swanlab.utils.file import check_exp_name_format, check_desc_format
 from datetime import datetime
 import time
+import sys
 
 
 class GlomCallback(SwanLabRunCallback):
@@ -93,6 +94,12 @@ class GlomCallback(SwanLabRunCallback):
         connect(autocreate=True)
         # 初始化项目数据库
         Project.init(proj_name)
+
+    def on_run_error_from_operator(self, e):
+        # 更新数据库中的实验状态
+        swanlog.error(e)
+        Experiment.purely_delete(run_id=self.settings.run_id)
+        sys.exit(409)
 
     def before_init_experiment(
         self,

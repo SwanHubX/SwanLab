@@ -135,6 +135,24 @@ class MetricInfo:
         """
 
 
+class ErrorInfo:
+    """
+    错误信息，当发生错误时，会生成这个对象
+    """
+
+    def __init__(
+        self,
+        desc: str,
+    ):
+        self.desc = desc
+        """
+        错误描述
+        """
+
+    def __str__(self):
+        return f"SwanLabError: {self.desc}"
+
+
 class U:
     """
     工具函数类，隔离SwanLabRunCallback回调与其他工具函数
@@ -273,6 +291,12 @@ class SwanLabRunCallback(ABC, U):
     def on_run(self):
         """
         SwanLabRun初始化完毕时调用
+        """
+        pass
+
+    def on_run_error_from_operator(self, e: ErrorInfo):
+        """
+        SwanLabRun初始化错误时被操作员调用
         """
         pass
 

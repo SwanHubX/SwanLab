@@ -17,7 +17,7 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator
-from swanlab.env import get_mode, SwanLabMode
+from swanlab.env import get_mode
 
 
 class SwanLabRunState(Enum):

@@ -9,7 +9,6 @@ r"""
 """
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
-from swanlab.error import ApiError
 from swanlab.api.upload.model import ColumnModel
 from urllib.parse import quote
 from swanlab.api import LoginInfo, create_http, terminal_login
@@ -24,7 +23,6 @@ from swanlab.error import KeyFileError
 from swanlab.env import get_swanlab_folder
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 from swanlab.cloud import LogSnifferTask, ThreadPool
-from swanlab.db import Experiment
 from swanlab.utils import create_time
 from swanlab.package import get_package_version, get_package_latest_version
 import sys
@@ -124,18 +122,11 @@ class CloudRunCallback(LocalRunCallback):
     def on_run(self):
         swanlog.install(self.settings.console_dir)
         # 注册实验信息
-        try:
-            get_http().mount_exp(
-                exp_name=self.settings.exp_name,
-                colors=self.settings.exp_colors,
-                description=self.settings.description,
-            )
-        except ApiError as e:
-            if e.resp.status_code == 409:
-                FONT.brush("", 50)
-                swanlog.error("The experiment name already exists, please change the experiment name")
-                Experiment.purely_delete(run_id=self.settings.run_id)
-                sys.exit(409)
+        get_http().mount_exp(
+            exp_name=self.settings.exp_name,
+            colors=self.settings.exp_colors,
+            description=self.settings.description,
+        )
 
         # 资源嗅探器
         sniffer = LogSnifferTask(self.settings.files_dir)
