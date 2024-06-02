@@ -10,6 +10,7 @@ r"""
 from typing import Any
 from collections.abc import Mapping
 import yaml
+import argparse
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
@@ -29,19 +30,20 @@ def json_serializable(obj: dict):
         return obj
 
     # 将日期和时间转换为字符串
-    if isinstance(obj, (datetime.date, datetime.datetime)):
+    elif isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
 
     # 对于列表和元组，递归调用此函数
-    if isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple)):
         return [json_serializable(item) for item in obj]
 
     # 对于字典，递归调用此函数处理值，并将key转换为字典
-    if isinstance(obj, dict):
+    elif isinstance(obj, dict):
         return {str(key): json_serializable(value) for key, value in obj.items()}
 
-    # 对于其他不可序列化的类型，转换为字符串表示
-    return str(obj)
+    else:
+        # 对于其他不可序列化的类型，转换为字符串表示
+        return str(obj)
 
 
 def thirdparty_config_process(data) -> dict:
@@ -54,10 +56,14 @@ def thirdparty_config_process(data) -> dict:
 
         if isinstance(data, omegaconf.DictConfig):
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
-    except:
+    except Exception as e:
         pass
 
-    return
+    # 如果是argparse的Namespace，则转换为字典
+    if isinstance(data, argparse.Namespace):
+        return vars(data)
+
+    return data
 
 
 def need_inited(func):
@@ -114,13 +120,8 @@ class SwanLabConfig(Mapping):
             return {}
         # config必须可以被json序列化
         try:
-
-            # 如果config是一个包含__dict__方法的类，则转换为字典
-            if hasattr(config, "__dict__"):
-                if thirdparty_config_process(config) is not None:
-                    config = thirdparty_config_process(config)
-                else:
-                    config = vars(config)
+            # 第三方配置类型判断与转换
+            config = thirdparty_config_process(config)
 
             # 将config转换为可被json序列化的字典
             config = json_serializable(dict(config))
