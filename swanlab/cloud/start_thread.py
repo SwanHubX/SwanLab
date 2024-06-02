@@ -12,7 +12,7 @@ import time
 from typing import List, Tuple, Callable, Dict
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
-from ._log_collector import LogCollectorTask
+from .log_collector import LogCollectorTask
 from queue import Queue
 from swanlab.log import swanlog
 

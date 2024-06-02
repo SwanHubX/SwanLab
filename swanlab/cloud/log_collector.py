@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/1 19:40
-@File: _log_collector.py
+@File: log_collector.py
 @IDE: pycharm
 @Description:
     日志集合和上传记录器
@@ -30,12 +30,13 @@ class LogCollectorTask(ThreadTaskABC):
     日志上传的地址
     """
 
-    def __init__(self):
+    def __init__(self, upload_type=UploadType):
         self.container: List[LogQueue.MsgType] = []
         """
         日志容器，存储从管道中获取的日志信息
         """
         self.__now_task = None
+        self.upload_type = upload_type
 
     @staticmethod
     def report_known_error(errors: List[SyncError]):
@@ -52,23 +53,27 @@ class LogCollectorTask(ThreadTaskABC):
 
     def upload(self):
         """
+        NOTE 此函数运行在其他线程
         上传事件处理
         将收集到的所有上传事件统一触发，上传日志信息
         所有的请求都是网络请求，因此需要异步处理
+        对于执行的任务，除了column_type为同步执行，其他为并发执行
         """
         # 根据日志类型进行降重
-        upload_tasks_dict = {x: [] for x in UploadType}
+        upload_tasks_dict = {x: [] for x in self.upload_type}
         # 检查每一个上传结果
         success_tasks_type = []
         # 已知错误列表
         known_errors = []
         # ---------------------------------- 处理upload任务 ----------------------------------
 
+        # 聚合所有的上传任务
         for msg in self.container:
-            if msg[0] in UploadType:
+            if msg[0] in self.upload_type:
                 upload_tasks_dict[msg[0]].extend(msg[1])
+
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
-        
+
         # 同步执行所有的上传任务
         results = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
         for index, result in enumerate(results):
@@ -79,10 +84,10 @@ class LogCollectorTask(ThreadTaskABC):
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif e is not None:
-                # error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
-                # swanlog.error(error)
+                error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
+                swanlog.error(error)
                 # continue
-                raise e
+                # raise e
             # 标记所有已经成功的任务
             success_tasks_type.append(tasks_key_list[index])
 
@@ -110,7 +115,8 @@ class LogCollectorTask(ThreadTaskABC):
 
     def callback(self, u: ThreadUtil, *args):
         """
-        回调函数，用于线程结束时的回调
+        回调函数，用于结束时的回调
+        NOTE 此函数运行在主线程
         :param u: 线程工具类
         """
         # 如果当前上传任务正在进行，等待上传任务结束
