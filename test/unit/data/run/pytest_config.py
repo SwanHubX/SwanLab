@@ -230,3 +230,55 @@ class TestSwanLabRunConfig:
         assert run.config["b"] == "mnist"
         assert run.config["c/d"] == str([1, 2, 3])
         assert run.config["e/f/h"] == str({"a": 1, "b": {"c": 2}})
+
+    def test_insert_class(self):
+        """
+        测试插入类
+        """
+        from collections.abc import MutableMapping
+
+        class Test(MutableMapping):
+            def __init__(self, a, b):
+                self.data = {"a": a, "b": b}
+
+            def __setitem__(self, __key, __value):
+                self.data[__key] = __value
+
+            def __delitem__(self, __key):
+                del self.data[__key]
+
+            def __getitem__(self, __key):
+                return self.data.get(__key, None)
+
+            def __len__(self):
+                return len(self.data)
+
+            def __iter__(self):
+                return iter(self.data)
+
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+            "test": Test(1, 2)
+        }
+
+        run = SwanLabRun(run_config=config_data)
+        assert run.config.test.a == 1
+        assert run.config.test.b == 2
+
+    def test_not_json_serializable(self):
+        """
+        测试不可json化的数据
+        """
+        import math, json
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+            "test": math.nan
+        }
+        run = SwanLabRun(run_config=config_data)
+        json_data = json.dumps(SwanLabRun.config)
