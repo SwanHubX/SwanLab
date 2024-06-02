@@ -248,38 +248,35 @@ class TestSwanLabRunConfig:
 
         run = SwanLabRun(run_config=config_data)
 
-        assert run.config.test_nan == "nan"
-        assert run.config.test_inf == "inf"
-
         json_data = json.dumps(dict(run.config))
 
-    # def test_insert_class(self):
-    #     """
-    #     测试插入类
-    #     """
-    #     from collections.abc import MutableMapping
+    def test_insert_class(self):
+        """
+        测试插入类
+        """
+        from collections.abc import MutableMapping
 
-    #     class Test(MutableMapping):
-    #         def __init__(self, a, b):
-    #             self.data = {"a": a, "b": b}
+        class Test(MutableMapping):
+            def __init__(self, a, b):
+                self.data = {"a": a, "b": b}
 
-    #         def __setitem__(self, __key, __value):
-    #             self.data[__key] = __value
+            def __setitem__(self, __key, __value):
+                self.data[__key] = __value
 
-    #         def __delitem__(self, __key):
-    #             del self.data[__key]
+            def __delitem__(self, __key):
+                del self.data[__key]
 
-    #         def __getitem__(self, __key):
-    #             return self.data.get(__key, None)
+            def __getitem__(self, __key):
+                return self.data.get(__key, None)
 
-    #         def __len__(self):
-    #             return len(self.data)
+            def __len__(self):
+                return len(self.data)
 
-    #         def __iter__(self):
-    #             return iter(self.data)
+            def __iter__(self):
+                return iter(self.data)
 
-    #     config_data = {"a": 1, "b": "mnist", "c/d": [1, 2, 3], "e/f/h": {"a": 1, "b": {"c": 2}}, "test": Test(1, 2)}
+        config_data = {"a": 1, "b": "mnist", "c/d": [1, 2, 3], "e/f/h": {"a": 1, "b": {"c": 2}}, "test": Test(1, 2)}
 
-    #     run = SwanLabRun(run_config=config_data)
-    #     assert run.config.test.a == 1
-    #     assert run.config.test.b == 2
+        run = SwanLabRun(run_config=config_data)
+        assert run.config.test.data["a"] == 1
+        assert run.config.test.data["b"] == 2

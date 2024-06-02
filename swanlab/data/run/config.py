@@ -101,7 +101,10 @@ class SwanLabConfig(Mapping):
         settings : SwanDataSettings, optional
             运行时设置
         """
-        self.__config.update(self.__check_config(config))
+        if config is None:
+            config = {}
+
+        self.__config.update(config)
         self.__settings["save_path"] = settings.config_path if settings is not None else None
         self.__settings["should_save"] = settings.should_save if settings is not None else False
         if self._inited:
@@ -167,10 +170,9 @@ class SwanLabConfig(Mapping):
 
         值得注意的是类属性的设置不会触发此方法
         """
-        cfg = self.__check_config({name: value})
-        name, value = cfg.popitem()
 
         # 判断是否是私有属性
+        name = str(name)
         self.__check_private(name)
         # 设置属性，并判断是否已经初始化，如果是，则调用保存方法
         self.__dict__[name] = value
@@ -188,9 +190,8 @@ class SwanLabConfig(Mapping):
         run.config["__lr"] = 0.01 # 不允许
         ```
         """
-        cfg = self.__check_config({name: value})
-        name, value = cfg.popitem()
         # 判断是否是私有属性
+        name = str(name)
         self.__check_private(name)
         self.__config[name] = value
         self.__save()
@@ -218,9 +219,7 @@ class SwanLabConfig(Mapping):
         AttributeError
             If the attribute name is private, an exception is raised
         """
-        cfg = self.__check_config({name: value})
-        name, value = cfg.popitem()
-
+        name = str(name)
         self.__check_private(name)
         self.__config[name] = value
         self.__save()
@@ -286,7 +285,7 @@ class SwanLabConfig(Mapping):
         :param data: dict of configuration items
         """
 
-        self.__config.update(self.__check_config(data))
+        self.__config.update(data)
         self.__save()
 
     @need_inited
@@ -358,6 +357,8 @@ class SwanLabConfig(Mapping):
         if not self.should_shave:
             return
         swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
+
+        serialization_config = self.__check_config(self.__config)
         with open(self.__settings.get("save_path"), "w") as f:
             # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
             # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
@@ -367,7 +368,7 @@ class SwanLabConfig(Mapping):
                     "sort": index,
                     "value": value,
                 }
-                for index, (key, value) in enumerate(self.__config.items())
+                for index, (key, value) in enumerate(serialization_config.items())
             }
             yaml.dump(config, f)
 
