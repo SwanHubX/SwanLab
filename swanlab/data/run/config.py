@@ -108,7 +108,7 @@ class SwanLabConfig(Mapping):
         self.__settings["save_path"] = settings.config_path if settings is not None else None
         self.__settings["should_save"] = settings.should_save if settings is not None else False
         if self._inited:
-            self.__save()
+            self.save()
 
     @property
     def should_shave(self):
@@ -178,7 +178,7 @@ class SwanLabConfig(Mapping):
         self.__dict__[name] = value
         # 同步到配置字典
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def __setitem__(self, name: str, value: Any) -> None:
@@ -194,7 +194,7 @@ class SwanLabConfig(Mapping):
         name = str(name)
         self.__check_private(name)
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def set(self, name: str, value: Any) -> None:
@@ -222,7 +222,7 @@ class SwanLabConfig(Mapping):
         name = str(name)
         self.__check_private(name)
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def pop(self, name: str) -> bool:
@@ -241,7 +241,7 @@ class SwanLabConfig(Mapping):
         """
         try:
             del self.__config[name]
-            self.__save()
+            self.save()
             return True
         except KeyError:
             return False
@@ -286,7 +286,7 @@ class SwanLabConfig(Mapping):
         """
 
         self.__config.update(data)
-        self.__save()
+        self.save()
 
     @need_inited
     def __getattr__(self, name: str):
@@ -350,7 +350,7 @@ class SwanLabConfig(Mapping):
         except KeyError:
             return False
 
-    def __save(self):
+    def save(self):
         """
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
