@@ -10,18 +10,22 @@ r"""
 from typing import Any
 from collections.abc import Mapping
 import yaml
-import argparse
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
+import math
 
 
 def json_serializable(obj: dict):
     """
-    Convert an object into a JSON-serializable format.
+    将传入的字典转换为JSON可序列化格式。
     """
     # 如果对象是基本类型，则直接返回
     if isinstance(obj, (int, float, str, bool, type(None))):
+        if isinstance(obj, float) and math.isnan(obj):
+            return "nan"
+        if isinstance(obj, float) and math.isinf(obj):
+            return "inf"
         return obj
 
     # 将日期和时间转换为字符串
@@ -32,19 +36,28 @@ def json_serializable(obj: dict):
     if isinstance(obj, (list, tuple)):
         return [json_serializable(item) for item in obj]
 
-    # 对于字典，递归调用此函数处理值
+    # 对于字典，递归调用此函数处理值，并将key转换为字典
     if isinstance(obj, dict):
-        return {key: json_serializable(value) for key, value in obj.items()}
+        return {str(key): json_serializable(value) for key, value in obj.items()}
 
     # 对于其他不可序列化的类型，转换为字符串表示
     return str(obj)
 
 
-def check_config_keys(d: dict):
-    """检查字典的key是否合法，允许的key类型为str, int, float"""
-    allowed_types = (str, int, float)
-    invalid_keys = [key for key in d.keys() if not isinstance(key, allowed_types)]
-    return invalid_keys
+def thirdparty_config_process(data) -> dict:
+    """
+    对于一些特殊的第三方库的处理，例如omegaconf
+    """
+    # 如果是omegaconf的DictConfig，则转换为字典
+    try:
+        import omegaconf
+
+        if isinstance(data, omegaconf.DictConfig):
+            return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
+    except:
+        pass
+
+    return
 
 
 def need_inited(func):
@@ -95,27 +108,29 @@ class SwanLabConfig(Mapping):
     @staticmethod
     def __check_config(config: dict) -> dict:
         """
-        检查配置是否合法，确保它可以被 JSON/YAML 序列化。
-        如果传入的是 argparse.Namespace 类型，会先转换为字典。
+        检查配置是否合法，确保它可以被 JSON/YAML 序列化，并返回转换后的配置字典。
         """
         if config is None:
             return {}
         # config必须可以被json序列化
         try:
-            if isinstance(config, argparse.Namespace):
-                config = vars(config)
-            # 将config转换为json序列化的dict
+
+            # 如果config是一个包含__dict__方法的类，则转换为字典
+            if hasattr(config, "__dict__"):
+                if thirdparty_config_process(config) is not None:
+                    config = thirdparty_config_process(config)
+                else:
+                    config = vars(config)
+
+            # 将config转换为可被json序列化的字典
             config = json_serializable(dict(config))
-            # 检查config的key是否合法
-            invalid_keys = check_config_keys(config)
-            if invalid_keys:
-                raise TypeError(
-                    f"swanlab.config has invalid keys {invalid_keys}, keys must be str, int, float, bool or None"
-                )
+
             # 尝试序列化，如果还是失败就退出
             yaml.dump(config)
+
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
+
         return config
 
     @staticmethod
