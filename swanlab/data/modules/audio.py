@@ -90,11 +90,7 @@ class Audio(BaseType):
         """
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
-            # 根据输入是否为 json , 选择不同的加载方式
-            if data_or_path.endswith(".json"):
-                self.__load_from_json(data_or_path)
-            else:
-                self.audio_data, self.sample_rate = self.__load_audio_from_path(data_or_path)
+            self.audio_data, self.sample_rate = self.__load_audio_from_path(data_or_path)
 
         elif isinstance(data_or_path, np.ndarray):
             # 如果输入为numpy array ，要求输入为 (num_channels, num_frames) 的形式
@@ -134,29 +130,6 @@ class Audio(BaseType):
         except Exception as e:
             raise ValueError(f"Invalid audio path: {path}") from e
 
-    def __to_json(self, audio_path, json_path):
-        """将音频元数据转换为json文件"""
-        audio_json = {}
-        audio_json["type"] = "audio"
-        audio_json["file_path"] = audio_path
-        audio_json["sample_rate"] = self.sample_rate
-        audio_json["duration"] = self.audio_data.shape[1]
-
-        with open(json_path, "w") as f:
-            json.dump(audio_json, f)
-
-    def __load_from_json(self, json_path):
-        """从json文件中加载音频元数据"""
-        with open(json_path, "r") as f:
-            audio_json = json.load(f)
-        json_sample_rate = audio_json["sample_rate"]
-        file_path = audio_json["file_path"]
-        audio_data, data_sample_rate = self.__load_audio_from_path(file_path)
-        if json_sample_rate != data_sample_rate:
-            raise TypeError("sample_rate in json file is not equal to the sample_rate of the audio file")
-        self.audio_data = audio_data
-        self.sample_rate = data_sample_rate
-
     def __save(self, save_path):
         """
         保存媒体资源文件 .wav 到指定路径
@@ -164,7 +137,9 @@ class Audio(BaseType):
         """
 
         try:
-            write_audio_data = self.audio_data.T
+            write_audio_data = self.audio_data.T  # type: np.ndarray
+            audio_bytes = write_audio_data.tobytes()  # 字节流
+
             sf.write(save_path, write_audio_data, self.sample_rate)
         except Exception as e:
             raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
@@ -190,50 +165,3 @@ class Audio(BaseType):
     def get_chart_type(self) -> str:
         """设定图表类型"""
         return self.chart.audio
-
-    # The following is a temporary code that may be used in the future.
-
-    # def plot_spectrogram(self, plot_save_path):
-    #     """获取音频的频谱"""
-    #     num_channels = self.audio_data.shape[0]
-    #     sample_rate = self.sample_rate
-    #     figure, axes = plt.subplots(num_channels, 1)
-    #     if num_channels == 1:
-    #         axes = [axes]
-    #     for c in range(num_channels):
-    #         axes[c].specgram(self.audio_data[c], Fs=sample_rate)
-    #         if num_channels > 1:
-    #             axes[c].set_ylabel(f"Channel {c+1}")
-    #     figure.savefig(plot_save_path)
-    #     plt.close()
-
-    # def get_play_audio(self):
-    #     """获取可播放音频类型"""
-    #     from IPython.display import Audio as AudioDisplay
-
-    #     try:
-    #         return AudioDisplay(self.audio_data, rate=self.sample_rate)
-    #     except Exception as e:
-    #         raise ValueError(f"Could not play the audio file") from e
-
-    # def save_all(self, save_path):
-
-    #     """
-    #     保存静态资源文件 .wav 到指定路径
-    #     audio-{tag}-{step}.wav
-    #     audio-{tag}-{step}.json
-    #     """
-    #     try:
-    #         write_audio_data = self.audio_data.T
-    #         sf.write(save_path, write_audio_data, self.sample_rate, subtype="PCM_16")
-
-    #         # 这边存 json 的时候放的是相对路径
-    #         json_path = save_path.replace(".wav", ".json")
-    #         save_relative_path = os.path.relpath(save_path, self.settings.root_dir)
-    #         self.to_json(save_relative_path, json_path)
-
-    #         # 保存频谱图
-    #         spectrogram_save_path = save_path.replace(".wav", "-spectrogram.png")
-    #         self.plot_spectrogram(spectrogram_save_path)
-    #     except Exception as e:
-    #         raise ValueError(f"Could not save the audio file to the path: {save_path}") from e
