@@ -29,7 +29,7 @@ class TestSwanLabRunConfig:
             "c/d": [1, 2, 3],
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
-        run = SwanLabRun(config=config_data)
+        run = SwanLabRun(run_config=config_data)
         assert isinstance(run.config, SwanLabConfig)
         assert len(run.config) == 4
 
@@ -92,7 +92,7 @@ class TestSwanLabRunConfig:
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
 
-        run = SwanLabRun(config=config_data)
+        run = SwanLabRun(run_config=config_data)
         assert isinstance(run.config, SwanLabConfig)
         assert len(run.config) == 4
 
@@ -137,7 +137,7 @@ class TestSwanLabRunConfig:
             "c/d": [1, 2, 3],
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
-        run = SwanLabRun(config=config_data)
+        run = SwanLabRun(run_config=config_data)
 
         run.config.a = 2
         run.config.set("e/f/h", [4, 5, 6])
@@ -185,7 +185,7 @@ class TestSwanLabRunConfig:
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
 
-        run = SwanLabRun(config=config_data)
+        run = SwanLabRun(run_config=config_data)
         run.finish()
 
         assert isinstance(run.config, SwanLabConfig)
@@ -205,7 +205,7 @@ class TestSwanLabRunConfig:
         assert isinstance(swanlab.get_config(), SwanLabConfig)
         assert len(swanlab.get_config()) == 0
 
-        run = SwanLabRun(config=config_data)
+        run = SwanLabRun(run_config=config_data)
 
         assert isinstance(swanlab.get_config(), SwanLabConfig)
         assert len(swanlab.get_config()) == 4
@@ -221,7 +221,7 @@ class TestSwanLabRunConfig:
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
         cfg = omegaconf.OmegaConf.create(config_data)
-        run = SwanLabRun(config=cfg)
+        run = SwanLabRun(run_config=cfg)
 
         assert isinstance(run.config, SwanLabConfig)
         assert len(run.config) == 4

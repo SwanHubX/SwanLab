@@ -15,7 +15,7 @@ import random
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, MutableMapping
 from .operator import SwanLabRunOperator
 from swanlab.env import get_mode, SwanLabMode
 
@@ -42,7 +42,7 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        run_config: dict = None,
+        run_config: MutableMapping = None,
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
@@ -61,7 +61,7 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
-        run_config : dict, optional
+        run_config : MutableMapping, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
         log_level : str, optional
