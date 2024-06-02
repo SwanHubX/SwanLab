@@ -11,13 +11,13 @@ from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
 from swanlab.data.config import SwanLabConfig
-import random
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator
 from swanlab.env import get_mode
+import random
 
 
 class SwanLabRunState(Enum):

@@ -13,45 +13,15 @@ from typing import Tuple
 from swanlab.package import get_package_version
 
 
-class SwanDataSettings:
-    def __init__(self, run_id: str, should_save: bool) -> None:
-        """实验名称
+class LazySettings:
+    """
+    需要外界设置的信息，他们并不在一开始就被赋予意义，如果在设置前访问，返回None
+    """
 
-        Parameters
-        ----------
-        exp_name : str
-            实验名称，实验名称应该唯一，由0-9，a-z，A-Z，" ","_","-","/"组成
-            但此处不做限制
-        run_id : str
-            实验运行id，由时间戳生成，用于区分不同实验存储目录
-        """
+    def __init__(self):
         self.__exp_name = None
         self.__exp_colors = None
         self.__description = None
-        # 日志存放目录
-        self.__swanlog_dir: str = get_swanlog_dir()
-        # 日志存放目录的上一级目录，默认情况下这应该是项目根目录
-        self.__root_dir: str = os.path.dirname(self.__swanlog_dir)
-        # 实验运行id
-        self.__run_id: str = run_id
-        self.__version = get_package_version()
-        self.__should_save = should_save
-
-    @property
-    def should_save(self):
-        """
-        是否应该保存实验信息
-        """
-        return self.__should_save
-
-    def mkdir(self, path: str) -> None:
-        """创建目录"""
-        if not os.path.exists(path) and self.should_save:
-            os.makedirs(path, exist_ok=True)
-
-    @property
-    def version(self) -> str:
-        return self.__version
 
     @property
     def exp_name(self) -> str:
@@ -91,65 +61,126 @@ class SwanDataSettings:
             raise ValueError("description can only be set once")
         self.__description = description
 
+
+class SwanDataSettings(LazySettings):
+    """
+    SwanLabRun的配置信息，包括当前实验路径信息等
+
+    涉及路径的属性都已经自动转换为绝对路径，并且文件夹路径在`should_save=True`时会自动创建
+
+    "几乎"所有属性都为只读属性，只有在初始化时可以设置
+    """
+
+    def __init__(self, run_id: str, should_save: bool) -> None:
+        """
+        初始化
+        :param run_id: 实验运行id
+        :param should_save: 是否应该保存实验相关信息，如果保存，相关文件夹将自动创建（文件不会自动创建）
+        """
+        LazySettings.__init__(self)
+        # ---------------------------------- 静态信息 ----------------------------------
+        self.__should_save = should_save
+        self.__run_id = run_id
+        self.__version = get_package_version()
+        # ---------------------------------- 文件夹信息 ----------------------------------
+        logdir = get_swanlog_dir()
+        self.__root_dir = os.path.dirname(logdir)
+        self.__swanlog_dir = logdir
+        self.__run_dir = os.path.join(logdir, run_id)
+        self.__console_dir = os.path.join(self.run_dir, "console")
+        self.__log_dir = os.path.join(self.run_dir, "logs")
+        self.__files_dir = os.path.join(self.run_dir, "files")
+        self.__static_dir = os.path.join(self.run_dir, "media")
+        # ---------------------------------- 文件信息 ----------------------------------
+        self.__requirements_path = os.path.join(self.files_dir, "requirements.txt")
+        self.__metadata_path = os.path.join(self.files_dir, "swanlab-metadata.json")
+        self.__config_path = os.path.join(self.files_dir, "config.yaml")
+        self.__error_path = os.path.join(self.console_dir, "error.log")
+
+    def mkdir(self, path: str) -> None:
+        """创建目录"""
+        if not os.path.exists(path) and self.should_save:
+            os.makedirs(path, exist_ok=True)
+
+    # ---------------------------------- 静态属性 ----------------------------------
+
+    @property
+    def should_save(self):
+        """
+        是否应该保存实验信息
+        """
+        return self.__should_save
+
+    @property
+    def version(self) -> str:
+        return self.__version
+
     @property
     def run_id(self) -> str:
         """实验运行id"""
         return self.__run_id
 
+    # ---------------------------------- 文件夹属性 ----------------------------------
+
     @property
     def root_dir(self) -> str:
         """根目录"""
+        # 必然存在，不需要创建
         return self.__root_dir
 
     @property
     def swanlog_dir(self) -> str:
         """swanlog目录，存储所有实验的日志目录，也是runs.swanlab数据库的存储目录"""
+        self.mkdir(self.__swanlog_dir)
         return self.__swanlog_dir
 
     @property
     def run_dir(self) -> str:
         """实验日志、信息文件夹路径"""
-        return os.path.join(get_swanlog_dir(), self.run_id)
-
-    @property
-    def error_path(self) -> str:
-        """错误日志文件路径"""
-        return os.path.join(self.console_dir, "error.log")
+        self.mkdir(self.__run_dir)
+        return self.__run_dir
 
     @property
     def log_dir(self) -> str:
         """记录用户日志文件夹路径"""
-        return os.path.join(self.run_dir, "logs")
+        self.mkdir(self.__log_dir)
+        return self.__log_dir
 
     @property
     def console_dir(self) -> str:
         """记录终端日志路径"""
-        return os.path.join(self.run_dir, "console")
+        self.mkdir(self.__console_dir)
+        return self.__console_dir
 
     @property
     def static_dir(self) -> str:
         """静态资源路径"""
-        path = os.path.join(self.run_dir, "media")
-        self.mkdir(path)
-        return path
+        self.mkdir(self.__static_dir)
+        return self.__static_dir
 
     @property
     def files_dir(self) -> str:
         """实验配置信息路径"""
-        path = os.path.join(self.run_dir, "files")
-        self.mkdir(path)
-        return path
+        self.mkdir(self.__files_dir)
+        return self.__files_dir
+
+    # ---------------------------------- 文件属性 ----------------------------------
+
+    @property
+    def error_path(self) -> str:
+        """错误日志文件路径"""
+        return self.__error_path
 
     @property
     def requirements_path(self) -> str:
         """实验依赖的存储文件"""
-        return os.path.join(self.files_dir, "requirements.txt")
+        return self.__requirements_path
 
     @property
     def metadata_path(self) -> str:
         """实验环境存储文件"""
-        return os.path.join(self.files_dir, "swanlab-metadata.json")
+        return self.__metadata_path
 
     @property
     def config_path(self) -> str:
-        return os.path.join(self.files_dir, "config.yaml")
+        return self.__config_path

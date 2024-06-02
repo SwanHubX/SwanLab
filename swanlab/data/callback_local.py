@@ -138,8 +138,6 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print()
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
-        if not os.path.exists(self.settings.log_dir):
-            os.mkdir(self.settings.log_dir)
 
     def on_metric_create(self, metric_info: MetricInfo):
         if metric_info.error:

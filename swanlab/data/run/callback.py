@@ -184,7 +184,7 @@ class U:
         self.settings = settings
 
     @staticmethod
-    def formate_abs_path(path: str) -> str:
+    def formate_windows_path(path: str) -> str:
         """这主要针对windows环境，输入的绝对路径可能不包含盘符，这里进行补充
         主要是用于打印效果
         如果不是windows环境，直接返回path，相当于没有调用这个函数
@@ -217,7 +217,7 @@ class U:
         swanlog.debug("SwanLab Runtime has initialized")
         swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
         swanlog.info("Tracking run with swanlab version " + get_package_version())
-        local_path = FONT.magenta(FONT.bold(self.formate_abs_path(self.settings.run_dir)))
+        local_path = FONT.magenta(FONT.bold(self.formate_windows_path(self.settings.run_dir)))
         swanlog.info("Run data will be saved locally in " + local_path)
 
     def _watch_tip_print(self):
@@ -226,7 +226,7 @@ class U:
         """
         swanlog.info(
             "🌟 Run `"
-            + FONT.bold("swanlab watch -l {}".format(self.formate_abs_path(self.settings.swanlog_dir)))
+            + FONT.bold("swanlab watch -l {}".format(self.formate_windows_path(self.settings.swanlog_dir)))
             + "` to view SwanLab Experiment Dashboard locally"
         )
 
