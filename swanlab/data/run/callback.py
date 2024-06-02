@@ -20,6 +20,20 @@ import sys
 import os
 
 
+class RuntimeInfo:
+    """
+    运行时信息，包括系统信息，依赖信息等
+    """
+
+    def __init__(self, requirements: str = None, system: dict = None, config: dict = None):
+        """
+        :param requirements: python依赖
+        :param system: 系统信息
+        :param config: 上传的配置信息
+        """
+        pass
+
+
 class ColumnInfo:
     """
     列信息，当创建列时，会生成这个对象
@@ -229,7 +243,8 @@ class SwanLabRunCallback(ABC, U):
     为了方便管理：
     1. `_`开头的函数为内部函数，不会被调用，且写在最开头
     2. 所有回调按照逻辑上的触发顺序排列
-    3. 所有回调不要求全部实现，只需实现需要的回调即可
+    3. 带有from_*后缀的回调函数代表调用者来自其他地方，比如config、operator等，这将通过settings对象传递
+    4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
 
     def _register_sys_callback(self):
