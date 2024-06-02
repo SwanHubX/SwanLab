@@ -10,7 +10,7 @@ r"""
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
-from swanlab.data.run.config import SwanLabConfig
+from .config import SwanLabConfig
 import random
 from enum import Enum
 from .exp import SwanLabExp
@@ -84,7 +84,7 @@ class SwanLabRun:
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
