@@ -88,6 +88,7 @@ class MetricInfo:
         summary_path: str = None,
         static_dir: str = None,
         error: bool = True,
+        raw: bytes = None,
     ):
         self.key = key
         """
@@ -132,6 +133,10 @@ class MetricInfo:
         self.error = error
         """
         指标是否有错误
+        """
+        self.raw = raw
+        """
+        需要上传的媒体数据，比特流，error时为None，如果上传为非媒体类型（或Text类型），也为None
         """
 
 
