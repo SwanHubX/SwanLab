@@ -1,5 +1,5 @@
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabConfig, swanlog
-from tutils import clear, TEMP_PATH
+from tutils import clear
 import pytest
 import swanlab
 import omegaconf

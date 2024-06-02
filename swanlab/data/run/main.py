@@ -165,7 +165,7 @@ class SwanLabRun:
         # 分为几步
         # 1. 设置数据库实验状态为对应状态
         # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
-        # 3. 清空run和config对象，run改为局部变量_run
+        # 3. 清空run和config对象，run改为局部变量_run，config被清空
         # 4. 返回_run
         if run is None:
             raise RuntimeError("The run object is None, please call `swanlab.init` first.")
