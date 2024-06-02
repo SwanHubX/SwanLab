@@ -5,7 +5,7 @@ pytest
 pytest-asyncio
 
 nanoid
-
+omegaconf
 ipython
 ipython<8.13; python_version < '3.9'
 ipykernel

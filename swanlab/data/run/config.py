@@ -11,40 +11,59 @@ from typing import Any
 from collections.abc import Mapping
 import yaml
 import argparse
-from .settings import SwanDataSettings
+from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
+import math
 
 
 def json_serializable(obj: dict):
     """
-    Convert an object into a JSON-serializable format.
+    将传入的字典转换为JSON可序列化格式。
     """
     # 如果对象是基本类型，则直接返回
     if isinstance(obj, (int, float, str, bool, type(None))):
+        if isinstance(obj, float) and math.isnan(obj):
+            return "nan"
+        if isinstance(obj, float) and math.isinf(obj):
+            return "inf"
         return obj
 
     # 将日期和时间转换为字符串
-    if isinstance(obj, (datetime.date, datetime.datetime)):
+    elif isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
 
     # 对于列表和元组，递归调用此函数
-    if isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple)):
         return [json_serializable(item) for item in obj]
 
-    # 对于字典，递归调用此函数处理值
-    if isinstance(obj, dict):
-        return {key: json_serializable(value) for key, value in obj.items()}
+    # 对于字典，递归调用此函数处理值，并将key转换为字典
+    elif isinstance(obj, dict):
+        return {str(key): json_serializable(value) for key, value in obj.items()}
 
-    # 对于其他不可序列化的类型，转换为字符串表示
-    return str(obj)
+    else:
+        # 对于其他不可序列化的类型，转换为字符串表示
+        return str(obj)
 
 
-def check_keys(d: dict):
-    """检查字典的key是否合法"""
-    allowed_types = (str, int, float, bool, type(None))
-    invalid_keys = [key for key in d.keys() if not isinstance(key, allowed_types)]
-    return invalid_keys
+def thirdparty_config_process(data) -> dict:
+    """
+    对于一些特殊的第三方库的处理，例如omegaconf
+    """
+    # 如果是omegaconf的DictConfig，则转换为字典
+    try:
+        import omegaconf
+
+        if isinstance(data, omegaconf.DictConfig):
+            return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
+    except Exception as e:
+        pass
+
+    # 如果是argparse的Namespace，则转换为字典
+    if isinstance(data, argparse.Namespace):
+        return vars(data)
+
+    return data
 
 
 def need_inited(func):
@@ -82,11 +101,14 @@ class SwanLabConfig(Mapping):
         settings : SwanDataSettings, optional
             运行时设置
         """
-        self.__config.update(self.__check_config(config))
+        if config is None:
+            config = {}
+
+        self.__config.update(config)
         self.__settings["save_path"] = settings.config_path if settings is not None else None
         self.__settings["should_save"] = settings.should_save if settings is not None else False
         if self._inited:
-            self.__save()
+            self.save()
 
     @property
     def should_shave(self):
@@ -95,27 +117,24 @@ class SwanLabConfig(Mapping):
     @staticmethod
     def __check_config(config: dict) -> dict:
         """
-        检查配置是否合法，确保它可以被 JSON/YAML 序列化。
-        如果传入的是 argparse.Namespace 类型，会先转换为字典。
+        检查配置是否合法，确保它可以被 JSON/YAML 序列化，并返回转换后的配置字典。
         """
         if config is None:
             return {}
         # config必须可以被json序列化
         try:
-            if isinstance(config, argparse.Namespace):
-                config = vars(config)
-            # 将config转换为json序列化的dict
+            # 第三方配置类型判断与转换
+            config = thirdparty_config_process(config)
+
+            # 将config转换为可被json序列化的字典
             config = json_serializable(dict(config))
-            # 检查config的key是否合法
-            invalid_keys = check_keys(config)
-            if invalid_keys:
-                raise TypeError(
-                    f"swanlab.config has invalid keys {invalid_keys}, keys must be str, int, float, bool or None"
-                )
+
             # 尝试序列化，如果还是失败就退出
             yaml.dump(config)
+
         except:
             raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
+
         return config
 
     @staticmethod
@@ -151,13 +170,15 @@ class SwanLabConfig(Mapping):
 
         值得注意的是类属性的设置不会触发此方法
         """
+
         # 判断是否是私有属性
+        name = str(name)
         self.__check_private(name)
         # 设置属性，并判断是否已经初始化，如果是，则调用保存方法
         self.__dict__[name] = value
         # 同步到配置字典
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def __setitem__(self, name: str, value: Any) -> None:
@@ -170,9 +191,10 @@ class SwanLabConfig(Mapping):
         ```
         """
         # 判断是否是私有属性
+        name = str(name)
         self.__check_private(name)
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def set(self, name: str, value: Any) -> None:
@@ -197,9 +219,10 @@ class SwanLabConfig(Mapping):
         AttributeError
             If the attribute name is private, an exception is raised
         """
+        name = str(name)
         self.__check_private(name)
         self.__config[name] = value
-        self.__save()
+        self.save()
 
     @need_inited
     def pop(self, name: str) -> bool:
@@ -218,7 +241,7 @@ class SwanLabConfig(Mapping):
         """
         try:
             del self.__config[name]
-            self.__save()
+            self.save()
             return True
         except KeyError:
             return False
@@ -248,6 +271,12 @@ class SwanLabConfig(Mapping):
         except KeyError:
             raise AttributeError(f"You have not retrieved '{name}' in the config of the current experiment")
 
+    def clean(self):
+        """
+        清空配置字典
+        """
+        self.__config.clear()
+
     @need_inited
     def update(self, data: dict):
         """
@@ -256,8 +285,8 @@ class SwanLabConfig(Mapping):
         :param data: dict of configuration items
         """
 
-        self.__config.update(self.__check_config(data))
-        self.__save()
+        self.__config.update(data)
+        self.save()
 
     @need_inited
     def __getattr__(self, name: str):
@@ -321,13 +350,15 @@ class SwanLabConfig(Mapping):
         except KeyError:
             return False
 
-    def __save(self):
+    def save(self):
         """
         保存config为json，不必校验config的YAML格式，将在写入时完成校验
         """
         if not self.should_shave:
             return
         swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
+
+        serialization_config = self.__check_config(self.__config)
         with open(self.__settings.get("save_path"), "w") as f:
             # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
             # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
@@ -337,7 +368,7 @@ class SwanLabConfig(Mapping):
                     "sort": index,
                     "value": value,
                 }
-                for index, (key, value) in enumerate(self.__config.items())
+                for index, (key, value) in enumerate(serialization_config.items())
             }
             yaml.dump(config, f)
 
