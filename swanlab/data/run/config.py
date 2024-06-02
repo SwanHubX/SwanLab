@@ -260,7 +260,7 @@ class SwanLabConfig(Mapping):
         """
         清空配置字典
         """
-        self.__clean()
+        self.__config.clear()
 
     @need_inited
     def update(self, data: dict):
@@ -354,12 +354,6 @@ class SwanLabConfig(Mapping):
                 for index, (key, value) in enumerate(self.__config.items())
             }
             yaml.dump(config, f)
-
-    def __clean(self):
-        """
-        清空配置字典
-        """
-        self.__config.clear()
 
     def __iter__(self):
         """
