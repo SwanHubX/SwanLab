@@ -127,8 +127,8 @@ class SwanDataSettings:
         return os.path.join(self.run_dir, "console")
 
     @property
-    def static_dir(self) -> str:
-        """静态资源路径"""
+    def media_dir(self) -> str:
+        """媒体文件路径"""
         path = os.path.join(self.run_dir, "media")
         self.mkdir(path)
         return path

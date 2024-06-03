@@ -92,14 +92,13 @@ class DataWrapper:
         result = ParseResult()
         # 挂载step
         result.step = kwargs["step"]
-
+        d = self.__data[0]
+        result.section = d.get_section()
+        result.chart = d.get_chart()
         # ---------------------------------- 特别处理Line类型 ----------------------------------
 
         # [Line]
         if self.type == Line:
-            d = self.__data[0]
-            result.section = d.get_section()
-            result.chart = d.get_chart()
             if len(self.__data) > 1:
                 self.__error = ErrorInfo("Line", "list(Line)", result.chart)
             else:
@@ -113,7 +112,7 @@ class DataWrapper:
 
         # ---------------------------------- 处理其他类型 ----------------------------------
         # [MediaType]
-        data, raw, result.more, result.config = [], [], [], []
+        result.data, raw, more, config = [], [], [], []
         for i in self.__data:
             try:
                 i.inject(**kwargs)
@@ -121,9 +120,15 @@ class DataWrapper:
             except DataTypeError as e:
                 self.__error = ErrorInfo(e.expected, e.got, result.chart)
                 return None
-            data.append(d)
+            result.data.append(d)
             raw.append(r)
-            result.more.append(i.get_more())
-            result.config.append(i.get_config())
+            more.append(i.get_more())
+            config.append(i.get_config())
+        if len(raw):
+            result.raw = raw
+        if len(more):
+            result.more = more
+        if len(config):
+            result.config = config
         self.__result = result
         return self.__result

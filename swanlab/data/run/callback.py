@@ -7,7 +7,7 @@ r"""
 @Description:
     回调函数注册抽象类
 """
-from typing import Union, Optional, Callable, Dict
+from typing import Union, Optional, Callable, Dict, List
 from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
 from swanlab.data.modules import ChartType, ErrorInfo
@@ -82,8 +82,8 @@ class MetricInfo:
         epoch: int = None,
         logdir: str = None,
         metric_file_name: str = None,
-        static_dir: str = None,
-        raw: bytes = None,
+        media_dir: str = None,
+        raw: List[bytes] = None,
     ):
         self.key = quote(key, safe="")
         """
@@ -117,7 +117,7 @@ class MetricInfo:
         """
         摘要文件的路径，error时为None
         """
-        self.static_dir = static_dir
+        self.media_dir = media_dir
         """
         静态文件的根文件夹，error时为None
         """

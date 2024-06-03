@@ -144,12 +144,27 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_metric_create(self, metric_info: MetricInfo):
         if metric_info.error:
             return
+        # ---------------------------------- 保存指标数据 ----------------------------------
+
         self.settings.mkdir(os.path.dirname(metric_info.metric_path))
         self.settings.mkdir(os.path.dirname(metric_info.summary_path))
         with open(metric_info.summary_path, "w+") as f:
             json.dump(metric_info.summary, f, ensure_ascii=False)
         with open(metric_info.metric_path, "a") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
+
+        # ---------------------------------- 保存媒体字节流数据 ----------------------------------
+        if metric_info.raw is None:
+            return
+        for i, r in enumerate(metric_info.raw):
+            if r is None:
+                continue
+            # 组合路径
+            path = os.path.join(self.settings.media_dir, metric_info.key)
+            os.makedirs(path, exist_ok=True)
+            # 写入数据
+            with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
+                f.write(r)
 
     def on_stop(self, error: str = None):
         """

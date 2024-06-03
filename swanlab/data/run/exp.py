@@ -79,7 +79,7 @@ class SwanLabExp:
             return MetricInfo(key, key_obj.column_info)
         key_info = key_obj.add(data)
         key_info.raw = data.parse().raw
-        key_info.static_dir = self.settings.static_dir
+        key_info.media_dir = self.settings.media_dir
         return key_info
 
     def warn_type_error(self, key: str):

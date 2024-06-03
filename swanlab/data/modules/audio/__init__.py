@@ -7,13 +7,13 @@ r"""
 @Description:
     音频模块
 """
-from ..base import BaseType
+from ..base import MediaType
 from typing import Union
 import soundfile as sf
 import numpy as np
 
 
-class Audio(BaseType):
+class Audio(MediaType):
     SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
 
     def __init__(

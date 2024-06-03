@@ -70,7 +70,7 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     local_paths = list(file_paths.values())
     http.upload_files(keys, local_paths)
     # 上传指标信息
-    http.post(house_url, create_data([x[0] for x in media_metrics], "media"))
+    http.post(house_url, create_data([x[0] for x in media_metrics], MediaModel.type.value))
 
 
 @sync_error_handler
@@ -79,7 +79,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     上传指标的标量数据
     """
     http = get_http()
-    data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type)
+    data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     http.post(house_url, data)
 
 

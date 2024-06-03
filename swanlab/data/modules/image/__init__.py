@@ -89,7 +89,7 @@ class Image(BaseType):
         # 获取图像的hash值
         hash_name = get_file_hash_pil(self.image_data)[:16]
         # 设置保存路径, 保存文件名
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_dir = os.path.join(self.settings.media_dir, self.tag)
         save_name = f"image-step{self.step}-{hash_name}.{self.format}"
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:

@@ -13,10 +13,11 @@ r"""
     4. 如果传入Infinity，返回INF字符串，None
 """
 from swanlab.error import DataTypeError
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 from ..base import BaseType
 
 
+@runtime_checkable
 class FloatConvertible(Protocol):
     """
     实现了__float__方法的类

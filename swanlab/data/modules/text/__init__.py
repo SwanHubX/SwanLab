@@ -7,11 +7,11 @@ r"""
 @Description:
     文本模块
 """
-from ..base import BaseType
+from ..base import MediaType
 from typing import Union, Tuple, Optional, ByteString
 
 
-class Text(BaseType):
+class Text(MediaType):
     """Text class constructor
 
     Parameters
