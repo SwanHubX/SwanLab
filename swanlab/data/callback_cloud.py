@@ -168,16 +168,21 @@ class CloudRunCallback(LocalRunCallback):
 
     def on_metric_create(self, metric_info: MetricInfo):
         super(CloudRunCallback, self).on_metric_create(metric_info)
+        # 有错误就不上传
         if metric_info.error:
             return
-        new_data = metric_info.metric
-        new_data["key"] = metric_info.key
-        new_data["index"] = metric_info.step
-        new_data["epoch"] = metric_info.epoch
+        metric = metric_info.metric
+        key = metric_info.column_info.key
+        key_encoded = metric_info.key
+        step = metric_info.step
+        epoch = metric_info.epoch
+        # 标量折线图
         if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
-            return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
-        data = (new_data, key, metric_info.data_type, metric_info.static_dir)
-        self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
+            scalar = ScalarModel(metric, key, step, epoch)
+            return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
+        # 媒体指标数据
+        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.raw)
+        self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None):
         # 打印信息

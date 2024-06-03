@@ -7,7 +7,7 @@ r"""
 @Description:
     http会话对象
 """
-from typing import Optional, Tuple, Dict, Union, List, AnyStr
+from typing import Optional, Tuple, Dict, Union, List, AnyStr, ByteString
 from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
@@ -171,18 +171,18 @@ class HTTP:
             self.__get_cos()
         return self.__cos.upload(key, local_path)
 
-    def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, keys: list, raws: List[ByteString]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param keys: 上传到cos
-        :param local_paths: 本地文件路径，需用绝对路径
+        :param raws: 文件字节流
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
         keys = [key[1:] if key.startswith("/") else key for key in keys]
-        return self.__cos.upload_files(keys, local_paths)
+        return self.__cos.upload_files(keys, raws)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username
