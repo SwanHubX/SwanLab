@@ -116,53 +116,44 @@ class Image(BaseType):
         """将size转换为PIL图像的size"""
         if size is None:
             return None
-        if isinstance(size, int):
+
+        elif isinstance(size, int):
             return size
-        if isinstance(size, (list, tuple)):
-            if len(size) == 2:
-                if size[0] is None and size[1] is None:
-                    return None
-                elif size[0] is None:
-                    return (None, int(size[1]))
-                elif size[1] is None:
-                    return (int(size[0]), None)
-                else:
-                    return (int(size[0]), int(size[1]))
-            if len(size) == 1:
-                if size[0] is None:
-                    return None
-                else:
-                    return int(size[0])
-        raise ValueError("size must be an int, list or tuple with 2 or 1 elements")
+
+        elif isinstance(size, (list, tuple)) and len(size) in [1, 2]:
+            size = tuple(size)
+            width = int(size[0]) if size[0] is not None else None
+            height = int(size[1]) if len(size) > 1 and size[1] is not None else None
+
+            return (width, height) if len(size) == 2 else width
+
+        raise ValueError("swanlab.Image - paramter `size` must be a list (with 2 or 1 elements) or an int")
 
     def __resize(self, image: PILImage.Image, size=None) -> PILImage.Image:
         """将图像调整大小"""
-        # 如果size是None, 则返回原图
         if size is None:
             self.size = image.size
             return image
-        # 如果size是int类型，且图像的最大边长超过了size，则进行缩放
-        if isinstance(size, int):
-            MAX_DIMENSION = size
-            if max(image.size) > MAX_DIMENSION:
-                image.thumbnail((MAX_DIMENSION, MAX_DIMENSION))
-        # 如果size是list或tuple类型
-        elif isinstance(size, (list, tuple)):
-            # 如果size是两个值的list或tuple，如(500, 500)，则进行缩放
-            if None not in size:
-                image = image.resize(size)
-            else:
-                # 如果size中有一个值为None，且图像对应的边长超过了size中的另一个值，则进行缩放
-                if size[0] is not None:
-                    wpercent = size[0] / float(image.size[0])
-                    hsize = int(float(image.size[1]) * float(wpercent))
-                    image = image.resize((size[0], hsize))
-                elif size[1] is not None:
-                    hpercent = size[1] / float(image.size[1])
-                    wsize = int(float(image.size[0]) * float(hpercent))
-                    image = image.resize((wsize, size[1]))
 
-        return image
+        elif isinstance(size, int):
+            if max(image.size) > size:
+                image.thumbnail((size, size))
+            return image
+
+        elif isinstance(size, (list, tuple)):
+            size = tuple(size)
+            if all(size):
+                return image.resize(size)
+            if size[0] is not None:
+                wpercent = size[0] / float(image.size[0])
+                hsize = int(float(image.size[1]) * wpercent)
+                return image.resize((size[0], hsize))
+            if size[1] is not None:
+                hpercent = size[1] / float(image.size[1])
+                wsize = int(float(image.size[0]) * hpercent)
+                return image.resize((wsize, size[1]))
+
+        raise ValueError("swanlab.Image - paramter `size` must be a list (with 2 or 1 elements) or an int")
 
     def is_pytorch_tensor_typename(self, typename: str) -> bool:
         return typename.startswith("torch.") and ("Tensor" in typename or "Variable" in typename)

@@ -183,6 +183,8 @@ def test_image_fail():
     mock = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
     with pytest.raises(ValueError):
         Image(mock, size=(100, 100, 100))
+    with pytest.raises(ValueError):
+        Image(mock, size="hello")
 
 
 @pytest.mark.parametrize("file_type", Image.ACCEPT_FORMAT)
