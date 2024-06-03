@@ -12,7 +12,7 @@ from swanlab.cloud import UploadType
 from swanlab.error import ApiError
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
 from swanlab.api import LoginInfo, create_http, terminal_login
-from swanlab.api.upload import upload_logs, ColumnModel
+from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.api import get_http
