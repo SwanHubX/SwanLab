@@ -1,9 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024/6/3 02:30
+@File: __init__.py.py
+@IDE: pycharm
+@Description:
+    image模块
+"""
 import numpy as np
 from PIL import Image as PILImage
-from .base import BaseType
-from .utils_modules import BoundingBoxes, ImageMask
-from ._utils import get_file_hash_pil
-from typing import Union, List, Dict, Any
+from ..base import MediaType
+from typing import Union, Any, Tuple, Optional, ByteString
 from io import BytesIO
 import os
 
@@ -15,7 +22,7 @@ def is_pytorch_tensor_typename(typename: str) -> bool:
 def get_full_typename(o: Any) -> Any:
     """Determine types based on type names.
 
-    Avoids needing to to import (and therefore depend on) PyTorch, TensorFlow, etc.
+    Avoids needing to import (and therefore depend on) PyTorch, TensorFlow, etc.
     """
     instance_name = o.__class__.__module__ + "." + o.__class__.__name__
     if instance_name in ["builtins.module", "__builtin__.module"]:
@@ -24,31 +31,14 @@ def get_full_typename(o: Any) -> Any:
         return instance_name
 
 
-class Image(BaseType):
+class Image(MediaType):
     """Image class constructor
 
-    Parameters
-    ----------
-    data_or_path: (str or numpy.array or PIL.Image or torch.Tensor or matplotlib figure or List["Image"])
-        Path to the image file, numpy array of image data, PIL.Image data, torch.Tensor data or matplotlib figure data.
-    mode: (str)
-        The PIL Mode for a image. Most commom is 'L', 'RGB', 'RGBA'.
-        More information about the mode can be found at https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
-    caption: (str)
-        Caption for the image.
-    file_type: (str)
-        File type for the image. It is used to save the image in the specified format. The default is 'png'. The supported file types are ['png', 'jpg', 'jpeg', 'bmp'].
-    size: (int or list or tuple)
-        The size of the image can be controlled in four ways:
-        1. If int type, it represents the maximum side length of the image, that is, the width and height cannot exceed this maximum side length. The image will be scaled proportionally to ensure that the maximum side length does not exceed MAX_DIMENSION.
-        2. If list or tuple type with both specified values, e.g. (500, 500), then the image will be scaled to the specified width and height.
-        3. If list or tuple type with only one specified value and another value as None, e.g. (500, None), it means resize the image to the specified width, and the height is scaled proportionally.
-        4. If it is None, it means no scaling for the image.
     """
 
     def __init__(
         self,
-        data_or_path: Union[str, np.ndarray, PILImage.Image, List["Image"]],
+        data_or_path: Union[str, np.ndarray, PILImage.Image],
         mode: str = None,
         caption: str = None,
         file_type: str = None,
@@ -56,28 +46,34 @@ class Image(BaseType):
         # boxes: dict = None,
         # masks: dict = None,
     ):
-        super().__init__(data_or_path)
+        """
+        :param data_or_path: Path to the image file, numpy array of image data, PIL.Image data, torch.
+            Tensor data or matplotlib figure data.
+        :param mode:  The PIL Mode for an image. Most common is 'L', 'RGB', 'RGBA'.
+            More information about the mode can be found at
+            https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
+        :param caption: Caption for the image.
+        :param file_type: File type for the image. It is used to save the image in the specified format.
+            The default is 'png'. The supported file types are ['png', 'jpg', 'jpeg', 'bmp'].
+        :param size: The size of the image can be controlled in four ways:
+            1. If int type, it represents the maximum side length of the image,
+                that is, the width and height cannot exceed this maximum side length.
+                The image will be scaled proportionally to ensure that
+                the maximum side length does not exceed MAX_DIMENSION.
+            2. If list or tuple type with both specified values, e.g. (500, 500),
+                then the image will be scaled to the specified width and height.
+            3. If list or tuple type with only one specified value and another value as None, e.g. (500, None),
+                it means resize the image to the specified width, and the height is scaled proportionally.
+            4. If it is None, it means no scaling for the image.
+        """
+        super().__init__()
+        # 加载图像
+
         self.image_data = None
         self.mode = mode
         self.caption = self.__convert_caption(caption)
         self.format = self.__convert_file_type(file_type)
         self.size = self.__convert_size(size)
-
-        # 提前预处理maplotlib类型
-        if hasattr(self.value, "savefig"):
-            # 如果输入为matplotlib图像
-            self.value = self.__convert_plt_to_image(self.value)
-
-        # TODO: 等前端支持Boxes和Masks后再开启
-
-        # self.boxes = None
-        # self.boxes_total_classes = None
-        # self.masks = None
-        # self.masks_total_classes = None
-        # if boxes:
-        #     self.boxes, self.boxes_total_classes = self.__convert_boxes(boxes)
-        # if masks:
-        #     self.masks, self.masks_total_classes = self.__convert_masks(masks)
 
     def get_data(self):
         # 如果传入的是Image类列表
@@ -89,9 +85,9 @@ class Image(BaseType):
         if not self.settings.should_save:
             return
         # 获取图像的hash值
-        hash_name = get_file_hash_pil(self.image_data)[:16]
+        hash_name = self.get_file_hash_pil(self.image_data)[:16]
         # 设置保存路径, 保存文件名
-        save_dir = os.path.join(self.settings.static_dir, self.tag)
+        save_dir = os.path.join(self.settings.static_dir, self.key)
         save_name = f"image-step{self.step}-{hash_name}.{self.format}"
         # 如果不存在目录则创建
         if os.path.exists(save_dir) is False:
@@ -100,9 +96,6 @@ class Image(BaseType):
         # 保存图像到指定目录
         self.__save(save_path)
         return save_name
-
-    def expect_types(self, *args, **kwargs) -> list:
-        return ["str", "numpy.array", "PIL.Image.Image", "torch.Tensor"]
 
     def __convert_caption(self, caption):
         """将caption转换为字符串"""
@@ -118,46 +111,6 @@ class Image(BaseType):
         else:
             raise TypeError("caption must be a string, int or float.")
         return caption.strip() if caption else None
-
-    def __convert_boxes(self, boxes):
-        """将boxes转换为Dict[str, BoundingBoxes]类型对象, 并返回该对象和总标签"""
-        # 如果boxes的类型不是字典，则报错
-        if not isinstance(boxes, dict):
-            raise TypeError("swanlab.Image 'boxes' argument must be a dictionary")
-
-        boxes_final: Dict[str, BoundingBoxes] = {}
-        total_classes = {}
-
-        # 对于boxes中的每一个key
-        for key in boxes:
-            box_item = boxes[key]
-            if isinstance(box_item, BoundingBoxes):
-                boxes_final[key] = box_item
-            elif isinstance(box_item, dict):
-                boxes_final[key] = BoundingBoxes(box_item, key)
-            total_classes.update(boxes_final[key]._class_labels)
-
-        return boxes_final, total_classes
-
-    def __convert_masks(self, masks):
-        """将masks转换为Dict[str, ImageMask]类型对象, 并返回该对象和总标签"""
-        # 如果masks的类型不是字典，则报错
-        if not isinstance(masks, dict):
-            raise TypeError("swanlab.Image 'masks' argument must be a dictionary")
-
-        masks_final: Dict[str, ImageMask] = {}
-        total_classes = {}
-
-        # 对于masks中的每一个key
-        for key in masks:
-            mask_item = masks[key]
-            if isinstance(mask_item, ImageMask):
-                masks_final[key] = mask_item
-            elif isinstance(mask_item, dict):
-                masks_final[key] = ImageMask(mask_item, key)
-            total_classes.update(masks_final[key]._class_labels)
-
-        return masks_final, total_classes
 
     def __convert_file_type(self, file_type):
         """转换file_type，并检测file_type是否正确"""
@@ -305,35 +258,24 @@ class Image(BaseType):
         except Exception as e:
             raise TypeError(f"Could not save the image to the path: {save_path}") from e
 
-    def get_more(self, *args, **kwargs) -> dict:
+    # ---------------------------------- 覆写 ----------------------------------
+
+    def parse(self) -> Tuple[Union[str, float], Optional[ByteString]]:
+        pass
+
+    def get_more(self, *args, **kwargs):
         """返回config数据"""
         # 如果传入的是Image类列表
-        if isinstance(self.value, list):
-            return self.get_more_list()
-        else:
-            get_more_dict = {}
+        get_more_dict = {}
+        if self.caption is not None:
+            get_more_dict["caption"] = self.caption
 
-            if self.caption is not None:
-                get_more_dict["caption"] = self.caption
+        return get_more_dict if len(get_more_dict) > 0 else None
 
-            # if self.boxes is not None:
-            #     get_more_dict["boxes"] = self.boxes
-
-            # if self.boxes_total_classes is not None:
-            #     get_more_dict["boxes_total_classes"] = self.boxes_total_classes
-
-            # if self.masks is not None:
-            #     get_more_dict["masks"] = self.masks
-
-            # if self.masks_total_classes is not None:
-            #     get_more_dict["masks_total_classes"] = self.masks_total_classes
-
-            return get_more_dict if get_more_dict else None
-
-    def get_namespace(self, *args, **kwargs) -> str:
+    def get_section(self):
         """设定分组名"""
         return "Image"
 
-    def get_chart_type(self) -> str:
+    def get_chart(self):
         """设定图表类型"""
-        return self.chart.image
+        return self.Chart.IMAGE

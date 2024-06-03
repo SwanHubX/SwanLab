@@ -243,7 +243,7 @@ def check_desc_format(description: str, auto_cut: bool = True):
     return _auto_cut("description", description, max_length, auto_cut)
 
 
-def check_tag_format(key: str, auto_cut=True) -> str:
+def check_key_format(key: str, auto_cut=True) -> str:
     """检查tag字符串格式
     不能超过255个字符，可以包含任何字符
 

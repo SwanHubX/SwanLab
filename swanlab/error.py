@@ -83,3 +83,18 @@ class NetworkError(SyncError):
         super().__init__(*args)
         self.log_level = "warning"
         self.message = "network error, swanlab will resume uploads when the network improves"
+
+
+class DataTypeError(Exception):
+    """数据类型错误，此时数据类型不符合预期
+    """
+
+    def __init__(self, expected: str, got: str):
+        """
+        :param expected: 期望的数据类型
+        :param got: 实际的数据类型
+        """
+        super().__init__(f"expected: {expected}, got: {got}")
+        self.expected = expected
+        self.got = got
+

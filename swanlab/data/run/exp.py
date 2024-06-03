@@ -1,10 +1,9 @@
 import json
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import BaseType, DataType
+from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
-from typing import Dict, Union, Optional
+from typing import Dict, Optional
 from swanlab.utils import create_time
-from swanlab.utils.file import check_tag_format
 from .callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
 from urllib.parse import quote
@@ -33,49 +32,43 @@ class SwanLabExp:
         self.keys: Dict[str, SwanLabKey] = {}
         self.__operator = operator
 
-    def add(self, key: str, data: DataType, step: int = None) -> MetricInfo:
+    def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
         """记录一条新的tag数据
 
         Parameters
         ----------
         key : str
-            tag名称，需要检查数据类型
-        data : Union[int, float, BaseType]
-            tag数据，可以是浮点型，也可以是SwanLab定义的数据类型，具体与添加的图表类型有关系
-            如果data是int或者float，添加图表时自动添加默认折线图，如果是BaseType，添加图表时选择对应的图表
-            需要检查数据类型
+            key名称
+        data : DataWrapper
+            包装后的数据，用于数据解析
 
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
-        _key = key
-        key = check_tag_format(key, auto_cut=True)
-        if key != _key:
-            # 超过255字符，截断
-            swanlog.warning(f"Key {_key} is too long, cut to 255 characters.")
-
-        # 如果是swanlab自定义的数据类型，注入settings，方便在类内部使用
-        if isinstance(data, BaseType):
-            data.settings = self.settings
         # 判断tag是否存在，如果不存在则创建tag
         key_obj: SwanLabKey = self.keys.get(key, None)
-        """
-        数据库创建字段将在chart创建完成后进行
-        无论格式是否正确，都会创建chart，但是如果格式不正确，不会写入日志
-        """
+
+        # ---------------------------------- 包装器解析 ----------------------------------
+        # 获取step
+        if step is not None and not isinstance(step, int):
+            swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
+            step = None
+        if key_obj is None:
+            step = 0 if step is None or not isinstance(step, int) else step
+        else:
+            step = len(key_obj.steps) if step is None else step
+            if step in key_obj.steps:
+                swanlog.warning(f"Step {step} on key {key} already exists, ignored.")
+                return MetricInfo(key, key_obj.column_info)
+        data.parse(step=step, settings=self.settings, key=key)
+
+        # ---------------------------------- 图表创建 ----------------------------------
+
         if key_obj is None:
             # 将此tag对象添加到实验列表中
             key_obj = SwanLabKey(key, self.settings.log_dir)
             self.keys[key] = key_obj
-            """
-            由于添加图表的同时会尝试转换data的类型，但这在注入step之前
-            所以此处需要手动注入依赖
-            关于step，如果step格式不正确，会在tag_obj.add的时候被拦截，此处如果格式不正确直接设置为0即可
-            """
-            if isinstance(data, BaseType):
-                data.step = 0 if step is None or not isinstance(step, int) else step
-                data.key = key_obj.key
             # 新建图表，完成数据格式校验
             column_info = key_obj.create_chart(key, data)
             self.warn_type_error(key)
@@ -153,15 +146,13 @@ class SwanLabKey:
         """
         self.__save_dir = os.path.join(log_dir, quote(key, safe=""))
         """存储文件夹路径"""
-        self.data_types = [float, int]
-        """默认数据类型，如果tag数据为BaseType的子类，则使用其规定的数据类型"""
         self._summary = {}
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
         """当前tag的数据"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
-        self.data_type = None
+        self.chart_type = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
 
@@ -196,6 +187,11 @@ class SwanLabKey:
         return self.__column_info
 
     @property
+    def steps(self):
+        """获取当前tag的所有步数"""
+        return self.__steps
+
+    @property
     def chart_created(self):
         """判断当前tag是否已经创建了图表"""
         return self.__column_info is not None
@@ -209,17 +205,7 @@ class SwanLabKey:
         """
         return self.__error is None
 
-    @staticmethod
-    def __is_nan(data):
-        """判断data是否为nan"""
-        return isinstance(data, (int, float)) and math.isnan(data)
-
-    @staticmethod
-    def __is_inf(data):
-        """判断data是否为inf"""
-        return isinstance(data, (int, float)) and math.isinf(data)
-
-    def add(self, data: DataType, step: int = None) -> MetricInfo:
+    def add(self, data: DataWrapper, step: int = None) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
         并且添加数据，当前的数据保存是直接保存，后面会改成缓存形式
@@ -238,27 +224,16 @@ class SwanLabKey:
         ok
             是否添加成功，如果当前step已经存在，或者类型转换失败，返回False
         """
-        if step is not None and not isinstance(step, int):
-            swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
-            step = None
-        if step is None:
-            step = len(self.__steps)
-        if step in self.__steps:
-            swanlog.warning(f"Step {step} on key {self.key} already exists, ignored.")
-            return MetricInfo(self.key, self.__column_info)
-        more = None if not isinstance(data, BaseType) else data.get_more()
-        try:
-            data = self.try_convert_after_add_chart(data, step)
-        except ValueError:
+        result = data.parse()
+        if data.error is not None:
             swanlog.warning(
-                f"Log failed. Reason: Data {data} on key '{self.key}' (step {step}) cannot be converted .It should be "
-                f"an int, float, or a DataType, but it is {type(data)}, please check the data type."
+                f"Log failed. Reason: Data on key '{self.key}' (step {step}) cannot be converted ."
+                f"It should be {data.error.expected}, but it is {data.error.got}, please check the data type."
             )
             return MetricInfo(self.key, self.__column_info)
-        is_nan = self.__is_nan(data)
-        is_inf = self.__is_inf(data)
-        # 更新数据概要
-        if not is_nan and not is_inf:
+
+        # 如果为Line且为NaN或者INF，不更新
+        if not data.type == Line or result.data not in [Line.nan, Line.inf]:
             if self._summary.get("max") is None or data > self._summary["max"]:
                 self._summary["max"] = data
                 self._summary["max_step"] = step
@@ -271,10 +246,7 @@ class SwanLabKey:
         if len(self.__collection["data"]) >= self.__slice_size:
             self.__collection = self.__new_metric_collection()
 
-        data = data if not is_nan else "NaN"
-        data = data if not is_inf else "INF"
-
-        new_data = self.__new_metric(step, data, more=more)
+        new_data = self.__new_metric(step, result.data, more=result.more)
         self.__collection["data"].append(new_data)
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
@@ -284,7 +256,6 @@ class SwanLabKey:
             self.__column_info,
             json.loads(json.dumps(new_data)),
             json.loads(json.dumps(self._summary)),
-            self.data_type,
             step,
             epoch,
             metric_path=file_path,
@@ -303,60 +274,35 @@ class SwanLabKey:
         """
         return self.__save_dir
 
-    def create_chart(self, key: str, data: DataType) -> ColumnInfo:
+    def create_chart(self, key: str, data: DataWrapper) -> ColumnInfo:
         """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
         此方法只能执行一次
         具体步骤是：
         1. 创建key字段
         2. 如果不是baseType类型，
-
-        WARNING 返回位置需与回调函数入参位置一致
         """
         if self.chart_created:
             raise ValueError(f"Chart {key} has been created, cannot create again.")
-        # 如果是非BaseType类型，写入默认命名空间，否则写入BaseType指定的命名空间
-        sort = 0
-        if not isinstance(data, BaseType):
-            namespace, chart_type, reference, config = "default", "default", "step", None
-            data_type = "default"
-        else:
-            namespace, types, reference, config = data.__next__()
-            chart_type, self.data_types = types
-            data_type = data.__class__.__name__.lower()
+        result = data.parse()
+
         # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
         if "/" in key and key[0] != "/":
-            namespace = key.split("/")[0]
-            sort = None
-        """
-        接下来判断tag格式的正确性，判断完毕后往source中添加一条tag记录
-        在此函数中，只判断tag的格式是否正确，不记录数据
-        在逻辑上只有第一次会检查tag的正确性，也就是说前端的error错误只有在第一次添加tag的时候才有可能出现
-        如果第一次添加成功，后续出现错误，只会在添加的时候warning一下然后丢弃这个错误
-        如果第一次添加失败，后续都不会再添加此数据，因此不会出现错误
-        """
-        # 如果data不是期望的data_types中的类型，尝试转换为这两个类型中的一个（优先转换为第一个）
-        # 如果data是BaseType类型，会在try_convert中完成转换，此处不需要管
+            result.section = key.split("/")[0]
+        # 如果出现错误
         error = None
-        if not isinstance(data, tuple(self.data_types)):
-            try:
-                data = self.try_convert(data)
-            except ValueError:
-                # 此时代表数据异常，拿到data的__class__.__name__，生成error并保存
-                if isinstance(data, BaseType):
-                    class_name = data.value.__class__.__name__
-                    excepted = data.expect_types()
-                else:
-                    class_name = data.__class__.__name__
-                    excepted = [i.__name__ for i in self.data_types]
-                error = {"data_class": class_name, "excepted": excepted}
-        if self.__is_nan(data):
-            error = {"data_class": "NaN", "excepted": [i.__name__ for i in self.data_types]}
-        if self.__is_inf(data):
-            error = {"data_class": "INF", "excepted": [i.__name__ for i in self.data_types]}
+        if data.error is not None:
+            error = {"data_class": data.error.got, "excepted": data.error.expected}
 
-        column_info = ColumnInfo(key, namespace, data_type, chart_type, sort, error, reference, config)
+        column_info = ColumnInfo(
+            key=key,
+            namespace=result.section,
+            chart_type=result.chart,
+            error=error,
+            reference=result.reference,
+            config=result.config,
+        )
         self.__error = error
-        self.data_type = data_type
+        self.chart_type = result.chart.value
         self.__column_info = column_info
         return column_info
 
@@ -402,34 +348,3 @@ class SwanLabKey:
             "update_time": time,
             "data": [],
         }
-
-    def try_convert(self, value: DataType):
-        # 如果当前data已经是data_types中的类型，直接返回
-        if isinstance(value, tuple(self.data_types)):
-            return value
-        if isinstance(value, BaseType):
-            value = value.convert
-        for data_type in self.data_types:
-            try:
-                if type(value) in self.data_types:
-                    return value
-                converted_value = data_type(value)
-                return converted_value
-            except (ValueError, TypeError):
-                # 如果转换失败，继续尝试下一种类型
-                continue
-        # 如果所有类型都尝试过仍然失败，则抛出异常
-        raise ValueError(f"Unable to convert {value} to any of the specified types.")
-
-    def try_convert_after_add_chart(self, data, step):
-        """尝试将data转换为data_types中的类型，如果转换失败，返回None
-        如果所有类型都尝试过仍然失败，则抛出异常
-        调用这个函数代表用户的图表已经创建并且传入了与之前不同的数据类型
-        """
-        if isinstance(data, BaseType):
-            # 注入内容
-            if data.step is None:
-                data.step = step
-            if data.key is None:
-                data.key = self.key
-        return self.try_convert(data)

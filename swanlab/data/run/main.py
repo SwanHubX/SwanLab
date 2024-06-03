@@ -9,7 +9,7 @@ r"""
 """
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
-from swanlab.data.modules import BaseType
+from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from swanlab.data.config import SwanLabConfig
 import random
 from enum import Enum
@@ -17,7 +17,8 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator
-from swanlab.env import get_mode, SwanLabMode
+from swanlab.env import get_mode
+from ...utils.file import check_key_format
 
 
 class SwanLabRunState(Enum):
@@ -240,15 +241,21 @@ class SwanLabRun:
 
         log_return = {}
         # 遍历data，记录data
-        for key in data:
-            # 遍历字典的key，记录到本地文件中
-            d = data[key]
-            # 如果d的数据类型是list，且里面的数据全部为Image类型，则需要转换一下
-            if isinstance(d, list) and all([isinstance(i, BaseType) for i in d]) and len(d) > 0:
-                # 将d作为输入，构造一个与d相同类型的实例
-                d = d[0].__class__(d)
+        for k, v in data.items():
+            _k = k
+            k = check_key_format(k, auto_cut=True)
+            if k != _k:
+                # 超过255字符，截断
+                swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
+            # ---------------------------------- 包装数据 ----------------------------------
+            # 转换所有期望的类型为自定义的包装类型
+            if isinstance(v, (int, float, FloatConvertible, Line)):
+                v = DataWrapper(k, v if isinstance(v, Line) else Line(v))
+            elif isinstance(v, list) and all([isinstance(i, MediaType) for i in v]) and len(v) > 0:
+                v = DataWrapper(k, v)
+            # 其余情况被当作是非法的数据类型，这将在add的时候被检查
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            metric_info = self.__exp.add(key=key, data=d, step=step)
+            metric_info = self.__exp.add(key=k, data=v, step=step)
             self.__operator.on_metric_create(metric_info)
             log_return[metric_info.key] = metric_info
 

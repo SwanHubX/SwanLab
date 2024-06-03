@@ -10,7 +10,7 @@ r"""
 from typing import Union, Optional, Callable, Dict
 from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import DataType
+from swanlab.data.modules import DataType, ChartType
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
@@ -29,9 +29,8 @@ class ColumnInfo:
         self,
         key: str,
         namespace: str,
-        data_type: str,
-        chart_type: str,
-        sort: int,
+        chart_type: ChartType,
+        sort: Optional[int] = None,
         error: Optional[Dict] = None,
         reference: Optional[str] = None,
         config: Optional[Dict] = None,
@@ -43,10 +42,6 @@ class ColumnInfo:
         self.namespace = namespace
         """
         列的命名空间
-        """
-        self.data_type = data_type
-        """
-        列的数据类型
         """
         self.chart_type = chart_type
         """
@@ -81,7 +76,6 @@ class MetricInfo:
         column_info: ColumnInfo,
         metric: Union[Dict, None] = None,
         summary: Union[Dict, None] = None,
-        data_type: Union[float, DataType] = None,
         step: int = None,
         epoch: int = None,
         metric_path: str = None,
@@ -105,10 +99,6 @@ class MetricInfo:
         self.summary = summary
         """
         摘要信息，error时为None
-        """
-        self.data_type = data_type
-        """
-        当前指标的数据类型，error时为None
         """
         self.step = step
         """

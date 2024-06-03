@@ -15,7 +15,7 @@ from swanlab.utils.file import (
     check_exp_name_format,
     _auto_cut,
     check_desc_format,
-    check_tag_format,
+    check_key_format,
 )
 
 
@@ -236,7 +236,7 @@ class TestTag:
         """
         测试正常情况
         """
-        assert check_tag_format(value) == value
+        assert check_key_format(value) == value
 
     @pytest.mark.parametrize("value", [
         None,
@@ -249,7 +249,7 @@ class TestTag:
         测试类型错误
         """
         with pytest.raises(TypeError):
-            check_tag_format(value)
+            check_key_format(value)
 
     @pytest.mark.parametrize("value", [
         "",
@@ -261,7 +261,7 @@ class TestTag:
         测试空值
         """
         with pytest.raises(ValueError):
-            check_tag_format(value)
+            check_key_format(value)
 
     @pytest.mark.parametrize("value", [
         generate(size=256),
@@ -272,7 +272,7 @@ class TestTag:
         """
         测试自动截断
         """
-        assert len(check_tag_format(value)) == 255
+        assert len(check_key_format(value)) == 255
 
     @pytest.mark.parametrize("value", [
         generate(size=256),
@@ -284,4 +284,4 @@ class TestTag:
         测试不自动截断
         """
         with pytest.raises(IndexError):
-            check_tag_format(value, auto_cut=False)
+            check_key_format(value, auto_cut=False)
