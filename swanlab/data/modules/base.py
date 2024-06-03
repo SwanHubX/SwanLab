@@ -75,6 +75,26 @@ class U:
         """判断data是否为inf"""
         return isinstance(data, (int, float)) and math.isinf(data)
 
+    @staticmethod
+    def check_caption(caption) -> Optional[str]:
+        """
+        检查caption是否符合要求
+        :param caption: 标题
+        :return: 返回处理后的标题
+        :raises TypeError: caption不符合要求
+        """
+        if isinstance(caption, str):
+            caption = caption
+        # 如果类型是数字，则转换为字符串
+        elif isinstance(caption, (int, float)):
+            caption = str(caption)
+        # 如果类型是None，则转换为默认字符串
+        elif caption is None:
+            caption = None
+        else:
+            raise TypeError("caption must be a string, int or float.")
+        return caption.strip() if caption else None
+
 
 class DynamicProperty:
     """

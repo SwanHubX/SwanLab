@@ -72,23 +72,7 @@ class Audio(BaseType):
         """
         self.raw = self.audio_data.T.tobytes()
         self.sample_rate = sample_rate
-        self.caption = self.__convert_caption(caption)
-
-    @staticmethod
-    def __convert_caption(caption):
-        """将caption转换为字符串"""
-        # 如果类型是字符串，则不做转换
-        if isinstance(caption, str):
-            caption = caption
-        # 如果类型是数字，则转换为字符串
-        elif isinstance(caption, (int, float)):
-            caption = str(caption)
-        # 如果类型是None，则转换为默认字符串
-        elif caption is None:
-            caption = None
-        else:
-            raise TypeError("caption must be a string, int or float.")
-        return caption.strip() if caption else None
+        self.caption = self.check_caption(caption)
 
     # ---------------------------------- 覆写方法 ----------------------------------
     def parse(self):
