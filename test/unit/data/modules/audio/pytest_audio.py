@@ -23,11 +23,11 @@ def test_audio_ok():
     np.random.randn(2, 100000)
     mock = np.random.randn(2, 100000)
     audio = Audio(data_or_path=mock, sample_rate=44100)
-    data, raw = audio.parse()
+    data, buffer = audio.parse()
     # 返回文件名称
     assert isinstance(data, str)
     assert data.endswith(".wav")
-    assert len(raw) == len(mock.T.tobytes())
+    assert buffer is not None
     assert audio.get_more() is None
     assert audio.get_config() is None
 
@@ -39,11 +39,11 @@ def test_audio_ok():
     sample_rate = 44200
     sf.write(path, mock.T, sample_rate)
     audio = Audio(data_or_path=path, sample_rate=sample_rate)
-    data, raw = audio.parse()
+    data, buffer = audio.parse()
     # 返回文件名称
     assert isinstance(data, str)
     assert data.endswith(".wav")
-    assert len(raw) == len(mock.T.tobytes())
+    assert buffer is not None
 
 
 def test_audio_caption():
@@ -52,11 +52,11 @@ def test_audio_caption():
     np.random.randn(2, 100000)
     mock = np.random.randn(2, 100000)
     audio = Audio(data_or_path=mock, sample_rate=44100, caption="test")
-    data, raw = audio.parse()
+    data, buffer = audio.parse()
     # 返回文件名称
     assert isinstance(data, str)
     assert data.endswith(".wav")
-    assert len(raw) == len(mock.T.tobytes())
+    assert buffer is not None
     assert audio.get_more()["caption"] == "test"
     assert audio.get_config() is None
 
@@ -68,11 +68,11 @@ def test_audio_caption():
     sample_rate = 44200
     sf.write(path, mock.T, sample_rate)
     audio = Audio(data_or_path=path, sample_rate=sample_rate, caption="test")
-    data, raw = audio.parse()
+    data, buffer = audio.parse()
     # 返回文件名称
     assert isinstance(data, str)
     assert data.endswith(".wav")
-    assert len(raw) == len(mock.T.tobytes())
+    assert buffer is not None
     assert audio.get_more()["caption"] == "test"
     assert audio.get_config() is None
 

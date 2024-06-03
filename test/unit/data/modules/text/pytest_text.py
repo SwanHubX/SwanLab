@@ -15,25 +15,25 @@ def test_text_ok():
     # ---------------------------------- 字符串输入 ----------------------------------
     mock = "这是一段测试文本"
     text = Text(data=mock)
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == mock
-    assert raw is None
+    assert buffer is None
     assert text.get_more() is None
     assert text.get_config() is None
     # ---------------------------------- float输入 ----------------------------------
     mock = 1.0
     text = Text(data=mock)
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1.0"
-    assert raw is None
+    assert buffer is None
     assert text.get_more() is None
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock)
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more() is None
     assert text.get_config() is None
 
@@ -47,56 +47,56 @@ def test_text_error_type():
 def test_text_caption():
     mock = "这是一段测试文本"
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == mock
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- float输入 ----------------------------------
     mock = 1.0
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1.0"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
-    data, raw = text.parse()
+    data, buffer = text.parse()
     assert data == "1"
-    assert raw is None
+    assert buffer is None
     assert text.get_more()["caption"] == "test"
     assert text.get_config() is None
