@@ -61,12 +61,12 @@ class CosClient:
         批量上传文件，keys和local_paths的长度应该相等
         :param buffers: 本地文件的二进制对象集合
         """
-        # pool = SimpleThreadPool()
+        pool = SimpleThreadPool()
         for buffer in buffers:
             self.upload(buffer)
-        # pool.wait_completion()
-        # result = pool.get_result()
-        return {"success": True}
+        pool.wait_completion()
+        result = pool.get_result()
+        return result
 
     @property
     def should_refresh(self):
