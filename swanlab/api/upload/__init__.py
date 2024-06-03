@@ -9,8 +9,7 @@ r"""
 """
 from ..http import get_http, sync_error_handler
 from .model import ColumnModel, MediaModel, ScalarModel
-from typing import List, Dict
-from swanlab.data.modules import MediaBuffer
+from typing import List
 from swanlab.error import FileError, ApiError
 from swanlab.log import swanlog
 import json
@@ -54,22 +53,10 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     :param media_metrics: 媒体指标数据集合
     """
     http = get_http()
-    # 需要上传的文件[path, raw]
-    file_paths: Dict[str, MediaBuffer] = {}
-    metrics = []
+    buffers = []
     for media in media_metrics:
-        metric = media.to_dict()
-        metrics.append(metric)
-        if media.buffer is None:
-            continue
-        key_encoded = media.key_encoded
-        file_names: List[str] = metric["data"]
-        for file_name in file_names:
-            file_paths["{}/{}".format(key_encoded, file_name)] = media.buffer
-    # 上传文件，先上传资源文件，再上传指标信息
-    keys = list(file_paths.keys())
-    local_paths = list(file_paths.values())
-    http.upload_files(keys, local_paths)
+        media.buffers and buffers.extend(media.buffers)
+    http.upload_files(buffers)
     # 上传指标信息
     http.post(house_url, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 

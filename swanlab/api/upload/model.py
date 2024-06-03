@@ -8,6 +8,7 @@ r"""
     上传请求模型
 """
 from enum import Enum
+from typing import List
 
 from swanlab.data.modules import MediaBuffer
 
@@ -65,11 +66,18 @@ class MediaModel:
     """
     type = MetricType.MEDIA
 
-    def __init__(self, metric: dict, key: str, key_encoded: str, step: int, epoch: int, buffer: MediaBuffer = None):
+    def __init__(
+        self,
+        metric: dict,
+        key: str,
+        key_encoded: str,
+        step: int,
+        epoch: int,
+        buffers: List[MediaBuffer] = None
+    ):
         self.metric = metric
         self.step = step
         self.epoch = epoch
-
         self.key = key
         """
         真实的指标名称
@@ -78,7 +86,7 @@ class MediaModel:
         """
         编码后路径安全的指标名称
         """
-        self.buffer = buffer
+        self.buffers = buffers
         """
         原始数据，可能为None
         """

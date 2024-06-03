@@ -173,18 +173,16 @@ class HTTP:
             self.__get_cos()
         return self.__cos.upload(key, local_path)
 
-    def upload_files(self, keys: list, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
-        :param keys: 上传到cos
         :param buffers: 文件内存对象
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
-        keys = [key[1:] if key.startswith("/") else key for key in keys]
-        return self.__cos.upload_files(keys, buffers)
+        return self.__cos.upload_files(buffers)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username

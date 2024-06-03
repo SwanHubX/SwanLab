@@ -258,6 +258,7 @@ class SwanLabKey:
             metric=json.loads(json.dumps(new_data)),
             summary=json.loads(json.dumps(self.__summary)),
             metric_file_name=str(mu * self.__slice_size) + ".log",
+            buffers=result.buffers,
         )
 
     def create_chart(self, key: str, data: DataWrapper) -> ColumnInfo:

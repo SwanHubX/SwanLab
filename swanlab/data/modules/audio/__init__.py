@@ -7,8 +7,7 @@ r"""
 @Description:
     音频模块
 """
-import io
-from ..base import MediaType
+from ..base import MediaType, MediaBuffer
 from typing import Union
 import soundfile as sf
 import numpy as np
@@ -71,7 +70,7 @@ class Audio(MediaType):
         """
         转换为矩阵后的数据
         """
-        self.buffer = io.BytesIO()
+        self.buffer = MediaBuffer()
         sf.write(self.buffer, audio_data.T, sample_rate, format="wav")
         self.sample_rate = sample_rate
         self.caption = self.check_caption(caption)

@@ -125,6 +125,10 @@ class MetricInfo:
         """
         需要上传的媒体数据，比特流，error时为None，如果上传为非媒体类型（或Text类型），也为None
         """
+        # 写入文件名称
+        if self.buffers is not None:
+            for i, buffer in enumerate(self.buffers):
+                buffer.file_name = "{}/{}".format(self.key, metric["data"][i])
 
     @property
     def error(self):

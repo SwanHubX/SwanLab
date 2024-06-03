@@ -164,7 +164,7 @@ class LocalRunCallback(SwanLabRunCallback):
             os.makedirs(path, exist_ok=True)
             # 写入数据
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
-                f.write(r)
+                f.write(r.getvalue())
 
     def on_stop(self, error: str = None):
         """

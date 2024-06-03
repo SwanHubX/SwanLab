@@ -204,12 +204,23 @@ class MediaType(BaseType):  # noqa
 
 
 class MediaBuffer(BytesIO):
-    def __init__(self, file_name: str):
-        """
-        :param file_name: 文件名称，这决定了保存的文件名
-        """
+    def __init__(self):
         super().__init__()
-        self.file_name = file_name
+        self.__file_name = None
+
+    @property
+    def file_name(self):
+        if self.__file_name is None:
+            raise ValueError("file_name is not set")
+        return self.__file_name
+
+    @file_name.setter
+    def file_name(self, value):
+        if not isinstance(value, str) or not value:
+            raise TypeError(f"Expected str, but got {type(value)}")
+        if self.__file_name is not None:
+            raise ValueError("file_name is already set")
+        self.__file_name = value
 
 
 class ParseResult:

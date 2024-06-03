@@ -7,6 +7,8 @@ r"""
 @Description:
     云端回调
 """
+import json
+
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
 from swanlab.error import ApiError
@@ -181,7 +183,16 @@ class CloudRunCallback(LocalRunCallback):
             scalar = ScalarModel(metric, key, step, epoch)
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据
-        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.raw)
+
+        # -------------------------- 🤡这里是一点小小的💩 --------------------------
+        # 要求上传时的文件路径必须带key_encoded前缀
+        if metric_info.buffers is not None:
+            metric = json.loads(json.dumps(metric))
+            for i, d in enumerate(metric["data"]):
+                metric["data"][i] = "{}/{}".format(key_encoded, d)
+        # ------------------------------------------------------------------------
+
+        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.buffers)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None):
