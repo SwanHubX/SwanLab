@@ -66,17 +66,6 @@ def thirdparty_config_process(data) -> dict:
     return data
 
 
-def need_inited(func):
-    """装饰器，用于检查是否已经初始化"""
-
-    def wrapper(self, *args, **kwargs):
-        if not self._inited:
-            raise RuntimeError("You must call swanlab.init() before using swanlab.config")
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 class SwanLabConfig(Mapping):
     """
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
@@ -157,7 +146,6 @@ class SwanLabConfig(Mapping):
         if name.startswith("__") or name.startswith("_SwanLabConfig__") or name in methods:
             raise AttributeError("You can not get private attribute")
 
-    @need_inited
     def __setattr__(self, name: str, value: Any) -> None:
         """
         自定义属性设置方法。如果属性名不是私有属性，则同时更新配置字典并保存。
@@ -180,7 +168,6 @@ class SwanLabConfig(Mapping):
         self.__config[name] = value
         self.save()
 
-    @need_inited
     def __setitem__(self, name: str, value: Any) -> None:
         """
         以字典方式设置配置项的值，并保存，但不允许设置私有属性：
@@ -196,7 +183,6 @@ class SwanLabConfig(Mapping):
         self.__config[name] = value
         self.save()
 
-    @need_inited
     def set(self, name: str, value: Any) -> None:
         """
         Explicitly set the value of a configuration item and save it. For example:
@@ -224,7 +210,6 @@ class SwanLabConfig(Mapping):
         self.__config[name] = value
         self.save()
 
-    @need_inited
     def pop(self, name: str) -> bool:
         """
         Delete a configuration item; if the item does not exist, skip.
@@ -246,7 +231,6 @@ class SwanLabConfig(Mapping):
         except KeyError:
             return False
 
-    @need_inited
     def get(self, name: str):
         """
         Get the value of a configuration item. If the item does not exist, raise AttributeError.
@@ -277,7 +261,6 @@ class SwanLabConfig(Mapping):
         """
         self.__config.clear()
 
-    @need_inited
     def update(self, data: dict):
         """
         Update the configuration item with the dict provided and save it.
@@ -288,7 +271,6 @@ class SwanLabConfig(Mapping):
         self.__config.update(data)
         self.save()
 
-    @need_inited
     def __getattr__(self, name: str):
         """
         如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
@@ -298,7 +280,6 @@ class SwanLabConfig(Mapping):
         except KeyError:
             raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
 
-    @need_inited
     def __getitem__(self, name: str):
         """
         以字典方式获取配置项的值。
@@ -308,7 +289,6 @@ class SwanLabConfig(Mapping):
         except KeyError:
             raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
 
-    @need_inited
     def __delattr__(self, name: str) -> bool:
         """
         删除配置项，如果配置项不存在,跳过
@@ -329,7 +309,6 @@ class SwanLabConfig(Mapping):
         except KeyError:
             return False
 
-    @need_inited
     def __delitem__(self, name: str) -> bool:
         """
         删除配置项，如果配置项不存在,跳过

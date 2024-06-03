@@ -19,9 +19,9 @@ def setup_function():
 
 
 class TestSwanLabRunConfig:
-    def test_config_have(self):
+    def test_config_normal_haverun(self):
         """
-        初始化时有config参数，测试三种获取数据的方式
+        初始化时有config参数，测试三种获取数据的方式，且使用的run对象
         """
         config_data = {
             "a": 1,
@@ -56,139 +56,9 @@ class TestSwanLabRunConfig:
 
         run.config.save()
 
-    def test_config_null_update(self):
+    def test_config_finish_haverun(self):
         """
-        测试init为空，之后通过update的方式添加config参数
-        """
-        config_data = {
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }
-
-        run = SwanLabRun()
-        assert isinstance(run.config, SwanLabConfig)
-        assert len(run.config) == 0
-
-        run.config.update(config_data)
-        assert run.config == config_data
-        assert len(run.config) == 4
-
-        assert run.config["a"] == 1
-        assert run.config["b"] == "mnist"
-        assert run.config["c/d"] == [1, 2, 3]
-        assert run.config["c/d"][0] == 1
-        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
-        assert run.config["e/f/h"]["a"] == 1
-        assert run.config["e/f/h"]["b"]["c"] == 2
-
-        run.config.save()
-
-    def test_config_have_update(self):
-        """
-        测试init不为空，之后通过update的方式添加config参数
-        """
-        config_data = {
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }
-
-        run = SwanLabRun(run_config=config_data)
-        assert isinstance(run.config, SwanLabConfig)
-        assert len(run.config) == 4
-
-        update_data = {
-            "a": 2,
-            "e/f/h": [4, 5, 6],
-            "j": 3,
-        }
-
-        run.config.update(update_data)
-        assert len(run.config) == 5
-
-        assert run.config["a"] == 2
-        assert run.config["e/f/h"] == [4, 5, 6]
-        assert run.config["e/f/h"][0] == 4
-        assert run.config["j"] == 3
-
-        run.config.save()
-
-    def test_config_null_set(self):
-        """
-        测试在没有config初始化时，init之后更新config的参数
-        """
-        run = SwanLabRun()
-
-        run.config.a = 1
-        run.config.b = "mnist"
-        run.config["c/d"] = [1, 2, 3]
-        run.config.set("e/f/h", {"a": 1, "b": {"c": 2}})
-
-        assert len(run.config) == 4
-        assert run.config.a == 1
-        assert run.config.b == "mnist"
-        assert run.config["c/d"] == [1, 2, 3]
-        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
-
-        run.config.save()
-
-    def test_config_have_set(self):
-        """
-        测试在有config初始化时，init之后更新config的参数
-        """
-        config_data = {
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }
-        run = SwanLabRun(run_config=config_data)
-
-        run.config.a = 2
-        run.config.set("e/f/h", [4, 5, 6])
-        run.config["j"] = 3
-
-        assert len(run.config) == 5
-        assert run.config["a"] == 2
-        assert run.config["e/f/h"] == [4, 5, 6]
-        assert run.config["e/f/h"][0] == 4
-        assert run.config["j"] == 3
-
-        run.config.save()
-
-    def test_config_before_init(self):
-        """
-        测试在init之前设置的情况
-        """
-        config_data = {
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }
-
-        swanlab.config.update(config_data)
-        run = SwanLabRun()
-
-        assert isinstance(run.config, SwanLabConfig)
-        assert len(run.config) == 4
-
-        assert run.config["a"] == 1
-        assert run.config["b"] == "mnist"
-        assert run.config["c/d"] == [1, 2, 3]
-        assert run.config["c/d"][0] == 1
-        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
-        assert run.config["e/f/h"]["a"] == 1
-        assert run.config["e/f/h"]["b"]["c"] == 2
-
-        run.config.save()
-
-    def test_config_clean(self):
-        """
-        测试在finish之后config是否置空
+        测试在run.finish()之后config是否置空
         """
         config_data = {
             "a": 1,
@@ -205,6 +75,91 @@ class TestSwanLabRunConfig:
 
         run.config.save()
 
+    def test_config_normal(self):
+        """
+        初始化时有config参数，测试三种获取数据的方式，直接用全局的config对象
+        """
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+        config = SwanLabConfig(config=config_data)
+
+        assert isinstance(config, SwanLabConfig)
+        assert len(config) == 4
+
+        assert config == config_data
+
+        assert config["a"] == 1
+        assert config["b"] == "mnist"
+        assert config["c/d"] == [1, 2, 3]
+        assert config["c/d"][0] == 1
+        assert config["e/f/h"] == {"a": 1, "b": {"c": 2}}
+        assert config["e/f/h"]["a"] == 1
+        assert config["e/f/h"]["b"]["c"] == 2
+
+        assert config.a == 1
+        assert config.b == "mnist"
+
+        assert config.get("a") == 1
+        assert config.get("b") == "mnist"
+        assert config.get("c/d") == [1, 2, 3]
+        assert config.get("c/d")[0] == 1
+        assert config.get("e/f/h") == {"a": 1, "b": {"c": 2}}
+        assert config.get("e/f/h")["a"] == 1
+        assert config["e/f/h"]["b"]["c"] == 2
+
+        config.save()
+        config.clean()
+
+    def test_config_update(self):
+        """
+        测试config初始为空，之后通过update的方式添加config参数
+        """
+
+        config_data = {
+            "a": 1,
+            "b": "mnist",
+            "c/d": [1, 2, 3],
+            "e/f/h": {"a": 1, "b": {"c": 2}},
+        }
+
+        update_data = {
+            "a": 2,
+            "e/f/h": [4, 5, 6],
+            "j": 3,
+        }
+
+        config = SwanLabConfig()
+        assert len(config) == 0
+
+        # 第一次更新
+        config.update(config_data)
+        assert config == config_data
+        assert len(config) == 4
+
+        assert config["a"] == 1
+        assert config["b"] == "mnist"
+        assert config["c/d"] == [1, 2, 3]
+        assert config["c/d"][0] == 1
+        assert config["e/f/h"] == {"a": 1, "b": {"c": 2}}
+        assert config["e/f/h"]["a"] == 1
+        assert config["e/f/h"]["b"]["c"] == 2
+
+        # 第二次更新
+        config.update(update_data)
+        assert len(config) == 5
+
+        assert config["a"] == 2
+        assert config["e/f/h"] == [4, 5, 6]
+        assert config["e/f/h"][0] == 4
+        assert config["j"] == 3
+
+        config.save()
+        config.clean()
+
     def test_config_get_config(self):
         """
         测试get_config
@@ -219,12 +174,13 @@ class TestSwanLabRunConfig:
         assert isinstance(swanlab.get_config(), SwanLabConfig)
         assert len(swanlab.get_config()) == 0
 
-        run = SwanLabRun(run_config=config_data)
+        config = SwanLabConfig(config=config_data)
 
         assert isinstance(swanlab.get_config(), SwanLabConfig)
         assert len(swanlab.get_config()) == 4
 
-        run.config.save()
+        config.save()
+        config.clean()
 
     def test_config_from_omegaconf(self):
         """
@@ -237,17 +193,18 @@ class TestSwanLabRunConfig:
             "e/f/h": {"a": 1, "b": {"c": 2}},
         }
         cfg = omegaconf.OmegaConf.create(config_data)
-        run = SwanLabRun(run_config=cfg)
+        config = SwanLabConfig(config=config_data)
 
-        assert isinstance(run.config, SwanLabConfig)
-        assert len(run.config) == 4
+        assert isinstance(config, SwanLabConfig)
+        assert len(config) == 4
 
-        assert run.config["a"] == 1
-        assert run.config["b"] == "mnist"
-        assert run.config["c/d"] == [1, 2, 3]
-        assert run.config["e/f/h"] == {"a": 1, "b": {"c": 2}}
+        assert config["a"] == 1
+        assert config["b"] == "mnist"
+        assert config["c/d"] == [1, 2, 3]
+        assert config["e/f/h"] == {"a": 1, "b": {"c": 2}}
 
-        run.config.save()
+        config.save()
+        config.clean()
 
     def test_not_json_serializable(self):
         """
@@ -264,11 +221,12 @@ class TestSwanLabRunConfig:
             "test_inf": math.inf,
         }
 
-        run = SwanLabRun(run_config=config_data)
+        config = SwanLabConfig(config=config_data)
 
-        json_data = json.dumps(dict(run.config))
+        json_data = json.dumps(dict(config))
 
-        run.config.save()
+        config.save()
+        config.clean()
 
     def test_insert_class(self):
         """
@@ -297,8 +255,10 @@ class TestSwanLabRunConfig:
 
         config_data = {"a": 1, "b": "mnist", "c/d": [1, 2, 3], "e/f/h": {"a": 1, "b": {"c": 2}}, "test": Test(1, 2)}
 
-        run = SwanLabRun(run_config=config_data)
-        assert run.config.test.data["a"] == 1
-        assert run.config.test.data["b"] == 2
+        config = SwanLabConfig(config=config_data)
 
-        run.config.save()
+        assert config.test.data["a"] == 1
+        assert config.test.data["b"] == 2
+
+        config.save()
+        config.clean()
