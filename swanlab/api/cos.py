@@ -47,11 +47,14 @@ class CosClient:
         """
         key = "{}/{}".format(self.__prefix, buffer.file_name)
         try:
+            swanlog.debug("Uploading file: {}".format(key))
             self.__client.put_object(
                 Bucket=self.__bucket,
                 Key=key,
                 Body=buffer.getvalue(),
                 EnableMD5=False,
+                # 一年
+                CacheControl="max-age=31536000",
             )
         except Exception as e:
             swanlog.error("Upload error: {}".format(e))
