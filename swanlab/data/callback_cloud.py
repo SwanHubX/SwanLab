@@ -8,7 +8,6 @@ r"""
     云端回调
 """
 import json
-
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
 from swanlab.error import ApiError

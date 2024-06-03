@@ -85,7 +85,7 @@ class Audio(MediaType):
         return save_name, self.buffer
 
     def get_more(self):
-        """返回config数据"""
+        """返回more数据"""
         # 如果传入的是Audio类列表
         return {"caption": self.caption} if self.caption is not None else None
 

@@ -85,7 +85,7 @@ class DataWrapper:
     def parse(self, **kwargs) -> Optional[ParseResult]:
         """
         将数据解析成对应的数据类型
-        *args, **kwargs: 在解析数据类型之前，需要注入的信息
+        **kwargs: 在解析数据类型之前，需要注入的信息
         """
         if self.parsed:
             return self.__result
