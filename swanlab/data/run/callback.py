@@ -10,11 +10,12 @@ r"""
 from typing import Union, Optional, Callable, Dict
 from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import DataType, ChartType
+from swanlab.data.modules import ChartType, ErrorInfo
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
 from swanlab.package import get_package_version
+from urllib.parse import quote
 import atexit
 import sys
 import os
@@ -31,7 +32,7 @@ class ColumnInfo:
         namespace: str,
         chart_type: ChartType,
         sort: Optional[int] = None,
-        error: Optional[Dict] = None,
+        error: Optional[ErrorInfo] = None,
         reference: Optional[str] = None,
         config: Optional[Dict] = None,
     ):
@@ -69,6 +70,7 @@ class MetricInfo:
     """
     指标信息，当新的指标被log时，会生成这个对象
     """
+    __SUMMARY_NAME = "_summary.json"
 
     def __init__(
         self,
@@ -78,15 +80,14 @@ class MetricInfo:
         summary: Union[Dict, None] = None,
         step: int = None,
         epoch: int = None,
-        metric_path: str = None,
-        summary_path: str = None,
+        logdir: str = None,
+        metric_file_name: str = None,
         static_dir: str = None,
-        error: bool = True,
         raw: bytes = None,
     ):
-        self.key = key
+        self.key = quote(key, safe="")
         """
-        指标的key名称
+        指标的key名称，被quote编码
         """
         self.column_info = column_info
         """
@@ -108,11 +109,11 @@ class MetricInfo:
         """
         当前指标对应本地的行数，error时为None
         """
-        self.metric_path = metric_path
+        self.metric_path = os.path.join(logdir, self.key, metric_file_name)
         """
         指标文件的路径，error时为None
         """
-        self.summary_path = summary_path
+        self.summary_path = os.path.join(logdir, self.key, self.__SUMMARY_NAME)
         """
         摘要文件的路径，error时为None
         """
@@ -120,14 +121,17 @@ class MetricInfo:
         """
         静态文件的根文件夹，error时为None
         """
-        self.error = error
-        """
-        指标是否有错误
-        """
         self.raw = raw
         """
         需要上传的媒体数据，比特流，error时为None，如果上传为非媒体类型（或Text类型），也为None
         """
+
+    @property
+    def error(self):
+        """
+        是否有错误
+        """
+        return self.column_info.error
 
 
 class U:

@@ -8,7 +8,7 @@ r"""
     上传相关接口
 """
 from ..http import get_http, sync_error_handler
-from .model import ColumnModel
+from .model import ColumnModel, MetricModel
 from typing import List, Tuple, Dict
 from swanlab.error import FileError, ApiError
 from swanlab.log import swanlog
@@ -153,5 +153,7 @@ __all__ = [
     "upload_media_metrics",
     "upload_scalar_metrics",
     "upload_files",
-    "upload_column"
+    "upload_column",
+    "MetricModel",
+    "ColumnModel"
 ]

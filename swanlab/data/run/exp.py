@@ -6,8 +6,6 @@ from typing import Dict, Optional
 from swanlab.utils import create_time
 from .callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
-from urllib.parse import quote
-import os
 import math
 
 
@@ -80,6 +78,7 @@ class SwanLabExp:
             self.warn_chart_error(key)
             return MetricInfo(key, key_obj.column_info)
         key_info = key_obj.add(data, step)
+        key_info.raw = data.parse().raw
         key_info.static_dir = self.settings.static_dir
         return key_info
 
@@ -144,8 +143,8 @@ class SwanLabKey:
         """
         此tag已经包含的steps步骤
         """
-        self.__save_dir = os.path.join(log_dir, quote(key, safe=""))
-        """存储文件夹路径"""
+        self.__log_dir = log_dir
+        """swanlab 存储文件夹路径"""
         self._summary = {}
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
@@ -232,7 +231,7 @@ class SwanLabKey:
             )
             return MetricInfo(self.key, self.__column_info)
 
-        # 如果为Line且为NaN或者INF，不更新
+        # 如果为Line且为NaN或者INF，不更新summary
         if not data.type == Line or result.data not in [Line.nan, Line.inf]:
             if self._summary.get("max") is None or data > self._summary["max"]:
                 self._summary["max"] = data
@@ -250,29 +249,16 @@ class SwanLabKey:
         self.__collection["data"].append(new_data)
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
-        file_path = os.path.join(self.save_dir, str(mu * self.__slice_size) + ".log")
         return MetricInfo(
             self.key,
-            self.__column_info,
-            json.loads(json.dumps(new_data)),
-            json.loads(json.dumps(self._summary)),
-            step,
-            epoch,
-            metric_path=file_path,
-            summary_path=os.path.join(self.save_dir, "_summary.json"),
-            error=False,
+            step=step,
+            epoch=epoch,
+            logdir=self.__log_dir,
+            column_info=self.__column_info,
+            metric=json.loads(json.dumps(new_data)),
+            summary=json.loads(json.dumps(self._summary)),
+            metric_file_name=str(mu * self.__slice_size) + ".log",
         )
-
-    @property
-    def save_dir(self):
-        """获取当前key的保存文件夹
-
-        Returns
-        -------
-        str
-            保存路径
-        """
-        return self.__save_dir
 
     def create_chart(self, key: str, data: DataWrapper) -> ColumnInfo:
         """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中

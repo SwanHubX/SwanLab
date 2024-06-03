@@ -10,10 +10,9 @@ r"""
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
 from swanlab.error import ApiError
-from swanlab.api.upload.model import ColumnModel
-from urllib.parse import quote
+from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
 from swanlab.api import LoginInfo, create_http, terminal_login
-from swanlab.api.upload import upload_logs
+from swanlab.api.upload import upload_logs, ColumnModel
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.api import get_http
@@ -160,9 +159,12 @@ class CloudRunCallback(LocalRunCallback):
             show_button_html(experiment_url)
 
     def on_column_create(self, column_info: ColumnInfo):
-        self.pool.queue.put(
-            (UploadType.COLUMN, [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)])
+        column = ColumnModel(
+            key=column_info.key,
+            column_type=column_info.chart_type.value.column_type,
+            error=column_info.error
         )
+        self.pool.queue.put((UploadType.COLUMN, [column]))
 
     def on_metric_create(self, metric_info: MetricInfo):
         super(CloudRunCallback, self).on_metric_create(metric_info)
@@ -172,9 +174,8 @@ class CloudRunCallback(LocalRunCallback):
         new_data["key"] = metric_info.key
         new_data["index"] = metric_info.step
         new_data["epoch"] = metric_info.epoch
-        if metric_info.data_type == "default":
+        if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
-        key = quote(metric_info.key, safe="")
         data = (new_data, key, metric_info.data_type, metric_info.static_dir)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
 

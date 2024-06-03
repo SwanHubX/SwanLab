@@ -4,7 +4,7 @@ from .image import Image
 from .text import Text
 from .line import Line, FloatConvertible
 from typing import Union, List
-from .wrapper import DataWrapper
+from .wrapper import DataWrapper, ErrorInfo
 
 DataType = Union[int, float, FloatConvertible, BaseType, List[BaseType]]
 ChartType = BaseType.Chart
@@ -18,5 +18,6 @@ __all__ = [
     "Text",
     "Line",
     "DataType",
-    "ChartType"
+    "ChartType",
+    "ErrorInfo"
 ]

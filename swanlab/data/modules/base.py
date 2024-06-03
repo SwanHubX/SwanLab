@@ -138,16 +138,23 @@ class BaseType(ABC, DynamicProperty, U):
             图表项
             """
 
-            def __init__(self, chart_type: str):
+            def __init__(self, chart_type: str, column_type: str):
                 self.chart_type = chart_type
+                """
+                本地标注的图表类型
+                """
+                self.column_type = column_type
+                """
+                上传列信息时，标注的图表类型
+                """
 
-        LINE = ChartItem("line")
+        LINE = ChartItem("line", "FLOAT")
 
-        IMAGE = ChartItem("image")
+        IMAGE = ChartItem("image", "IMAGE")
 
-        AUDIO = ChartItem("audio")
+        AUDIO = ChartItem("audio", "AUDIO")
 
-        TEXT = ChartItem("text")
+        TEXT = ChartItem("text", "TEXT")
 
     # ---------------------------------- 需要子类实现的方法 ----------------------------------
 

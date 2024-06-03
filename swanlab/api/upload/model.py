@@ -21,12 +21,13 @@ class ColumnModel:
         :param error: 错误信息，如果错误信息不为None
         """
         self.key = key
-        if column_type == "DEFAULT":
-            column_type = "FLOAT"
         self.column_type = column_type
         self.error = error
 
     def to_dict(self):
+        """
+        序列化为Dict
+        """
         return {
             "key": self.key,
             "type": self.column_type,
@@ -35,3 +36,15 @@ class ColumnModel:
             "type": self.column_type,
             "error": self.error
         }
+
+
+class MediaModel:
+    """
+    媒体指标信息上传模型
+    """
+
+
+class ScalarModel:
+    """
+    标量指标信息上传模型
+    """
