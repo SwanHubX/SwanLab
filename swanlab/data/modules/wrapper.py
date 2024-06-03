@@ -97,7 +97,6 @@ class DataWrapper:
             d = self.__data[0]
             result.section = d.get_section()
             result.chart = d.get_chart()
-            result.write_handler = d.get_raw_write_handler()
             if len(self.__data) > 1:
                 self.__error = ErrorInfo("Line", "list(Line)", result.chart)
             else:

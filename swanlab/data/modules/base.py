@@ -187,14 +187,6 @@ class BaseType(ABC, DynamicProperty, U):
         """
         return None
 
-    def get_raw_write_handler(self) -> Optional[Callable[[str], None]]:
-        """
-        获取写入raw的处理函数，约定处理函数的输入仅有一个参数，即存储路径
-        处理函数内不需要对路径做处理，调用时会处理
-        没有特定的写入函数则不需要覆写
-        """
-        pass
-
 
 class MediaType(BaseType):  # noqa
     """
@@ -216,7 +208,6 @@ class ParseResult:
         config: Optional[List[Dict]] = None,
         more: Optional[List[Dict]] = None,
         raw: Optional[List[ByteString]] = None,
-        raw_write_handler: Optional[Callable[[str], None]] = None,
     ):
         """
         :param section: 转换后数据对应的section
@@ -225,7 +216,6 @@ class ParseResult:
         :param config: 存储在.log中的配置
         :param more: 存储在.log中的更多信息
         :param raw: 存储于media文件夹中的原始数据，比特流，特别的，对于某些字符串即原始数据的情况，此处为None
-        :param raw_write_handler: 写入raw的处理函数
         """
         self.data = data
         self.config = config
@@ -233,6 +223,5 @@ class ParseResult:
         self.raw = raw
         self.section = section
         self.chart = chart
-        self.write_handler = raw_write_handler
         # 默认的reference
         self.reference = "step"

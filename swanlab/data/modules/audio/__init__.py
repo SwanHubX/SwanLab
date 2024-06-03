@@ -93,10 +93,3 @@ class Audio(BaseType):
     def get_chart(self):
         """设定图表类型"""
         return self.Chart.AUDIO
-
-    def get_raw_write_handler(self):
-        def write_audio_handler(save_path):
-            write_audio_data = self.audio_data.T
-            sf.write(save_path, write_audio_data, self.sample_rate)
-
-        return write_audio_handler
