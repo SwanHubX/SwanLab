@@ -30,7 +30,7 @@ class ColumnInfo:
         self,
         key: str,
         namespace: str,
-        chart_type: ChartType,
+        chart: ChartType,
         sort: Optional[int] = None,
         error: Optional[ErrorInfo] = None,
         reference: Optional[str] = None,
@@ -44,7 +44,7 @@ class ColumnInfo:
         """
         列的命名空间
         """
-        self.chart_type = chart_type
+        self.chart = chart
         """
         列的图表类型
         """

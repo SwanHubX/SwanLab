@@ -232,3 +232,4 @@ class ParseResult:
         self.chart = chart
         # 默认的reference
         self.reference = "step"
+        self.step = None

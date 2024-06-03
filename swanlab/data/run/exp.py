@@ -48,7 +48,7 @@ class SwanLabExp:
         key_obj: SwanLabKey = self.keys.get(key, None)
 
         # ---------------------------------- 包装器解析 ----------------------------------
-        # 获取step
+
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
             step = None
@@ -77,7 +77,7 @@ class SwanLabExp:
         if not key_obj.is_chart_valid:
             self.warn_chart_error(key)
             return MetricInfo(key, key_obj.column_info)
-        key_info = key_obj.add(data, step)
+        key_info = key_obj.add(data)
         key_info.raw = data.parse().raw
         key_info.static_dir = self.settings.static_dir
         return key_info
@@ -145,13 +145,13 @@ class SwanLabKey:
         """
         self.__log_dir = log_dir
         """swanlab 存储文件夹路径"""
-        self._summary = {}
+        self.__summary = {}
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
         """当前tag的数据"""
         self.__error = None
         """此tag在自动生成chart的时候的错误信息"""
-        self.chart_type = None
+        self.chart = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
 
@@ -204,7 +204,7 @@ class SwanLabKey:
         """
         return self.__error is None
 
-    def add(self, data: DataWrapper, step: int = None) -> MetricInfo:
+    def add(self, data: DataWrapper) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
         并且添加数据，当前的数据保存是直接保存，后面会改成缓存形式
@@ -213,8 +213,6 @@ class SwanLabKey:
         ----------
         data : DataType
             待添加的数据
-        step : int, optional
-            步数，如果不传则默认当前步数为'已添加数据数量+1'
 
         Returns
         -------
@@ -226,37 +224,37 @@ class SwanLabKey:
         result = data.parse()
         if data.error is not None:
             swanlog.warning(
-                f"Log failed. Reason: Data on key '{self.key}' (step {step}) cannot be converted ."
+                f"Log failed. Reason: Data on key '{self.key}' (step {result.step}) cannot be converted ."
                 f"It should be {data.error.expected}, but it is {data.error.got}, please check the data type."
             )
             return MetricInfo(self.key, self.__column_info)
 
         # 如果为Line且为NaN或者INF，不更新summary
         if not data.type == Line or result.data not in [Line.nan, Line.inf]:
-            if self._summary.get("max") is None or data > self._summary["max"]:
-                self._summary["max"] = data
-                self._summary["max_step"] = step
-            if self._summary.get("min") is None or data < self._summary["min"]:
-                self._summary["min"] = data
-                self._summary["min_step"] = step
-        self._summary["num"] = self._summary.get("num", 0) + 1
-        self.__steps.add(step)
-        swanlog.debug(f"Add data, key: {self.key}, step: {step}, data: {data}")
+            if self.__summary.get("max") is None or result.data > self.__summary["max"]:
+                self.__summary["max"] = result.data
+                self.__summary["max_step"] = result.step
+            if self.__summary.get("min") is None or result.data < self.__summary["min"]:
+                self.__summary["min"] = result.data
+                self.__summary["min_step"] = result.step
+        self.__summary["num"] = self.__summary.get("num", 0) + 1
+        self.__steps.add(result.step)
+        swanlog.debug(f"Add data, key: {self.key}, step: {result.step}, data: {result.data}")
         if len(self.__collection["data"]) >= self.__slice_size:
             self.__collection = self.__new_metric_collection()
 
-        new_data = self.__new_metric(step, result.data, more=result.more)
+        new_data = self.__new_metric(result.step, result.data, more=result.more)
         self.__collection["data"].append(new_data)
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
             self.key,
-            step=step,
             epoch=epoch,
+            step=result.step,
             logdir=self.__log_dir,
             column_info=self.__column_info,
             metric=json.loads(json.dumps(new_data)),
-            summary=json.loads(json.dumps(self._summary)),
+            summary=json.loads(json.dumps(self.__summary)),
             metric_file_name=str(mu * self.__slice_size) + ".log",
         )
 
@@ -282,13 +280,13 @@ class SwanLabKey:
         column_info = ColumnInfo(
             key=key,
             namespace=result.section,
-            chart_type=result.chart,
+            chart=result.chart,
             error=error,
             reference=result.reference,
             config=result.config,
         )
         self.__error = error
-        self.chart_type = result.chart.value
+        self.chart = result.chart.value
         self.__column_info = column_info
         return column_info
 

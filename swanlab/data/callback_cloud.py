@@ -161,7 +161,7 @@ class CloudRunCallback(LocalRunCallback):
     def on_column_create(self, column_info: ColumnInfo):
         column = ColumnModel(
             key=column_info.key,
-            column_type=column_info.chart_type.value.column_type,
+            column_type=column_info.chart.value.column_type,
             error=column_info.error
         )
         self.pool.queue.put((UploadType.COLUMN, [column]))
@@ -177,7 +177,7 @@ class CloudRunCallback(LocalRunCallback):
         step = metric_info.step
         epoch = metric_info.epoch
         # 标量折线图
-        if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
+        if metric_info.column_info.chart == metric_info.column_info.chart.LINE:
             scalar = ScalarModel(metric, key, step, epoch)
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据

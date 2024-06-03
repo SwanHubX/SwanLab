@@ -82,7 +82,7 @@ class DataWrapper:
         """
         return self.__error
 
-    def parse(self, *args, **kwargs) -> Optional[ParseResult]:
+    def parse(self, **kwargs) -> Optional[ParseResult]:
         """
         将数据解析成对应的数据类型
         *args, **kwargs: 在解析数据类型之前，需要注入的信息
@@ -90,17 +90,20 @@ class DataWrapper:
         if self.parsed:
             return self.__result
         result = ParseResult()
+        # 挂载step
+        result.step = kwargs["step"]
+
         # ---------------------------------- 特别处理Line类型 ----------------------------------
 
         # [Line]
-        if isinstance(self.type, Line):
+        if self.type == Line:
             d = self.__data[0]
             result.section = d.get_section()
             result.chart = d.get_chart()
             if len(self.__data) > 1:
                 self.__error = ErrorInfo("Line", "list(Line)", result.chart)
             else:
-                d.inject(*args, **kwargs)
+                d.inject(**kwargs)
                 try:
                     result.data, _ = d.parse()
                 except DataTypeError as e:
@@ -113,7 +116,7 @@ class DataWrapper:
         data, raw, result.more, result.config = [], [], [], []
         for i in self.__data:
             try:
-                i.inject(*args, **kwargs)
+                i.inject(**kwargs)
                 d, r = i.parse()
             except DataTypeError as e:
                 self.__error = ErrorInfo(e.expected, e.got, result.chart)
