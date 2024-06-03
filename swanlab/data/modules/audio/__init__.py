@@ -47,8 +47,10 @@ class Audio(MediaType):
             # 支持单声道 或 双声道 两种形式
 
             if data_or_path.dtype not in self.SF_SUPPORT_DTYPE:
-                e = (f"Invalid numpy array for the audio data, support dtype is {self.SF_SUPPORT_DTYPE}, "
-                     f"but got {data_or_path.dtype}")
+                e = (
+                    f"Invalid numpy array for the audio data, support dtype is {self.SF_SUPPORT_DTYPE}, "
+                    f"but got {data_or_path.dtype}"
+                )
                 raise TypeError(e)
 
             # 如果data_or_path是一维, 则reshape为2维
