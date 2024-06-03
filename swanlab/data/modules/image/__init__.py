@@ -193,7 +193,7 @@ class Image(BaseType):
         return save_name, self.buffer
 
     def get_more(self):
-        """返回config数据"""
+        """返回more数据"""
         return {"caption": self.caption} if self.caption is not None else None
 
     def get_section(self) -> str:
