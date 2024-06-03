@@ -1,4 +1,4 @@
-from .base import BaseType, MediaType, ParseResult
+from .base import BaseType, MediaType, ParseResult, MediaBuffer
 from .audio import Audio
 from .image import Image
 from .text import Text
@@ -19,5 +19,6 @@ __all__ = [
     "Line",
     "DataType",
     "ChartType",
-    "ErrorInfo"
+    "ErrorInfo",
+    "MediaBuffer"
 ]

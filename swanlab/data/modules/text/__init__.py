@@ -8,7 +8,7 @@ r"""
     文本模块
 """
 from ..base import MediaType
-from typing import Union, Tuple, Optional, ByteString
+from typing import Union, Tuple, Optional
 
 
 class Text(MediaType):
@@ -49,7 +49,7 @@ class Text(MediaType):
 
     # ---------------------------------- 覆写 ----------------------------------
 
-    def parse(self) -> Tuple[Union[str, float], Optional[ByteString]]:
+    def parse(self):
         return self.text_data, None
 
     def get_more(self, *args, **kwargs) -> dict:

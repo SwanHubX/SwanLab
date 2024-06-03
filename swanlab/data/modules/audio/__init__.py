@@ -7,6 +7,7 @@ r"""
 @Description:
     音频模块
 """
+import io
 from ..base import MediaType
 from typing import Union
 import soundfile as sf
@@ -70,7 +71,8 @@ class Audio(MediaType):
         """
         转换为矩阵后的数据
         """
-        self.raw = self.audio_data.T.tobytes()
+        self.buffer = io.BytesIO()
+        sf.write(self.buffer, audio_data.T, sample_rate, format="wav")
         self.sample_rate = sample_rate
         self.caption = self.check_caption(caption)
 
@@ -79,7 +81,7 @@ class Audio(MediaType):
         # 文件名称
         hash_name = self.get_hash_by_ndarray(self.audio_data)[:16]
         save_name = f"audio-step{self.step}-{hash_name}.wav"
-        return save_name, self.raw
+        return save_name, self.buffer
 
     def get_more(self):
         """返回config数据"""

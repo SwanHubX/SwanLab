@@ -154,9 +154,9 @@ class LocalRunCallback(SwanLabRunCallback):
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
 
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        if metric_info.raw is None:
+        if metric_info.buffers is None:
             return
-        for i, r in enumerate(metric_info.raw):
+        for i, r in enumerate(metric_info.buffers):
             if r is None:
                 continue
             # 组合路径

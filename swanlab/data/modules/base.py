@@ -14,8 +14,9 @@ r"""
 """
 from abc import ABC, abstractmethod
 from ..settings import SwanDataSettings
-from typing import List, Dict, Optional, ByteString, Union, Tuple, Callable
+from typing import List, Dict, Optional, ByteString, Union, Tuple
 from enum import Enum
+from io import BytesIO
 import hashlib
 import math
 import io
@@ -159,7 +160,7 @@ class BaseType(ABC, DynamicProperty, U):
     # ---------------------------------- 需要子类实现的方法 ----------------------------------
 
     @abstractmethod
-    def parse(self) -> Tuple[Union[str, float], Optional[ByteString]]:
+    def parse(self) -> Tuple[Union[str, float], Optional[BytesIO]]:
         """
         解析数据
         :raises DataTypeError: 传入的数据类型不符合要求
@@ -202,6 +203,15 @@ class MediaType(BaseType):  # noqa
     pass
 
 
+class MediaBuffer(BytesIO):
+    def __init__(self, file_name: str):
+        """
+        :param file_name: 文件名称，这决定了保存的文件名
+        """
+        super().__init__()
+        self.file_name = file_name
+
+
 class ParseResult:
     """
     数据解析结果
@@ -214,7 +224,7 @@ class ParseResult:
         data: Union[List[str], float] = None,
         config: Optional[List[Dict]] = None,
         more: Optional[List[Dict]] = None,
-        raw: Optional[List[ByteString]] = None,
+        buffers: Optional[List[MediaBuffer]] = None,
     ):
         """
         :param section: 转换后数据对应的section
@@ -222,14 +232,50 @@ class ParseResult:
         :param data: 存储在.log中的数据
         :param config: 存储在.log中的配置
         :param more: 存储在.log中的更多信息
-        :param raw: 存储于media文件夹中的原始数据，比特流，特别的，对于某些字符串即原始数据的情况，此处为None
+        :param buffers: 存储于media文件夹中的原始数据，比特流，特别的，对于某些字符串即原始数据的情况，此处为None
         """
-        self.data = data
+        self.__data = data
         self.config = config
         self.more = more
-        self.raw = raw
+        self.buffers = buffers
         self.section = section
         self.chart = chart
         # 默认的reference
         self.reference = "step"
         self.step = None
+
+    @property
+    def data(self):
+        """
+        获取数据，如果不确定为何种数据类型，可以使用此属性
+        """
+        return self.__data
+
+    @property
+    def float(self):
+        """
+        当确认数据为float时，可以使用此属性明确为float
+        """
+        return self.__data
+
+    @float.setter
+    def float(self, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"Expected float, but got {type(value)}")
+        self.__data = value
+
+    @property
+    def strings(self):
+        """
+        当确认数据为字符串时，可以使用此属性明确为字符串
+        """
+        return self.__data
+
+    @strings.setter
+    def strings(self, value):
+        if not isinstance(value, list) or not all(isinstance(i, str) for i in value):
+            raise TypeError(f"Expected list(str), but got {type(value)}")
+        # 不允许设置为空列表，目的是希望在设置时就能保证数据的完整性
+        if not len(value):
+            raise ValueError("Expected list(str) with at least one element")
+        self.__data = value

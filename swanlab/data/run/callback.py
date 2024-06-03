@@ -10,7 +10,7 @@ r"""
 from typing import Union, Optional, Callable, Dict, List
 from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import ChartType, ErrorInfo
+from swanlab.data.modules import ChartType, ErrorInfo, MediaBuffer
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
@@ -83,7 +83,7 @@ class MetricInfo:
         logdir: str = None,
         metric_file_name: str = None,
         media_dir: str = None,
-        raw: List[bytes] = None,
+        buffers: List[MediaBuffer] = None,
     ):
         self.key = quote(key, safe="")
         """
@@ -119,9 +119,9 @@ class MetricInfo:
         """
         self.media_dir = media_dir
         """
-        静态文件的根文件夹，error时为None
+        静态文件的根文件夹
         """
-        self.raw = raw
+        self.buffers = buffers
         """
         需要上传的媒体数据，比特流，error时为None，如果上传为非媒体类型（或Text类型），也为None
         """

@@ -78,7 +78,7 @@ class SwanLabExp:
             self.warn_chart_error(key)
             return MetricInfo(key, key_obj.column_info)
         key_info = key_obj.add(data)
-        key_info.raw = data.parse().raw
+        key_info.buffers = data.parse().buffers
         key_info.media_dir = self.settings.media_dir
         return key_info
 
@@ -230,20 +230,22 @@ class SwanLabKey:
             return MetricInfo(self.key, self.__column_info)
 
         # 如果为Line且为NaN或者INF，不更新summary
-        if not data.type == Line or result.data not in [Line.nan, Line.inf]:
-            if self.__summary.get("max") is None or result.data > self.__summary["max"]:
-                self.__summary["max"] = result.data
+        r = result.strings or result.float
+
+        if not data.type == Line or r not in [Line.nan, Line.inf]:
+            if self.__summary.get("max") is None or r > self.__summary["max"]:
+                self.__summary["max"] = r
                 self.__summary["max_step"] = result.step
-            if self.__summary.get("min") is None or result.data < self.__summary["min"]:
-                self.__summary["min"] = result.data
+            if self.__summary.get("min") is None or r < self.__summary["min"]:
+                self.__summary["min"] = r
                 self.__summary["min_step"] = result.step
         self.__summary["num"] = self.__summary.get("num", 0) + 1
         self.__steps.add(result.step)
-        swanlog.debug(f"Add data, key: {self.key}, step: {result.step}, data: {result.data}")
+        swanlog.debug(f"Add data, key: {self.key}, step: {result.step}, data: {r}")
         if len(self.__collection["data"]) >= self.__slice_size:
             self.__collection = self.__new_metric_collection()
 
-        new_data = self.__new_metric(result.step, result.data, more=result.more)
+        new_data = self.__new_metric(result.step, r, more=result.more)
         self.__collection["data"].append(new_data)
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)

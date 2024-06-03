@@ -90,8 +90,7 @@ class DataWrapper:
         if self.parsed:
             return self.__result
         result = ParseResult()
-        # 挂载step
-        result.step = kwargs["step"]
+        result.step = kwargs["step"]  # 挂载step
         d = self.__data[0]
         result.section = d.get_section()
         result.chart = d.get_chart()
@@ -104,7 +103,7 @@ class DataWrapper:
             else:
                 d.inject(**kwargs)
                 try:
-                    result.data, _ = d.parse()
+                    result.float, _ = d.parse()
                 except DataTypeError as e:
                     self.__error = ErrorInfo(e.expected, e.got, result.chart)
             self.__result = result
@@ -112,7 +111,7 @@ class DataWrapper:
 
         # ---------------------------------- 处理其他类型 ----------------------------------
         # [MediaType]
-        result.data, raw, more, config = [], [], [], []
+        data, buffers, more, config = [], [], [], []
         for i in self.__data:
             try:
                 i.inject(**kwargs)
@@ -120,15 +119,23 @@ class DataWrapper:
             except DataTypeError as e:
                 self.__error = ErrorInfo(e.expected, e.got, result.chart)
                 return None
-            result.data.append(d)
-            raw.append(r)
+            data.append(d)
+            buffers.append(r)
             more.append(i.get_more())
             config.append(i.get_config())
-        if len(raw):
-            result.raw = raw
-        if len(more):
-            result.more = more
-        if len(config):
-            result.config = config
+        result.strings = data
+        # 过滤掉空列表
+        result.buffers = self.__filter_list(buffers)
+        result.more = self.__filter_list(more)
+        result.config = self.__filter_list(config)
         self.__result = result
         return self.__result
+
+    @staticmethod
+    def __filter_list(li: List):
+        """
+        如果li长度大于0且如果l内部不全是None，返回l，否则返回None
+        """
+        if len(li) > 0 and any(i is not None for i in li):
+            return li
+        return None

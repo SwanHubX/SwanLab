@@ -9,6 +9,8 @@ r"""
 """
 from enum import Enum
 
+from swanlab.data.modules import MediaBuffer
+
 
 class ColumnModel:
     """
@@ -63,7 +65,7 @@ class MediaModel:
     """
     type = MetricType.MEDIA
 
-    def __init__(self, metric: dict, key: str, key_encoded: str, step: int, epoch: int, raw: bytes = None):
+    def __init__(self, metric: dict, key: str, key_encoded: str, step: int, epoch: int, buffer: MediaBuffer = None):
         self.metric = metric
         self.step = step
         self.epoch = epoch
@@ -76,7 +78,7 @@ class MediaModel:
         """
         编码后路径安全的指标名称
         """
-        self.raw = raw
+        self.buffer = buffer
         """
         原始数据，可能为None
         """

@@ -14,7 +14,8 @@ from qcloud_cos import CosS3Client
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_threadpool import SimpleThreadPool
 from datetime import datetime, timedelta
-from typing import List, Dict, Union, ByteString
+from typing import List, Dict, Union
+from swanlab.data.modules import MediaBuffer
 
 
 class CosClient:
@@ -37,31 +38,31 @@ class CosClient:
         )
         self.__client = CosS3Client(config)
 
-    def upload(self, key: str, raw: ByteString):
+    def upload(self, key: str, buffer: MediaBuffer):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
         开头不能有/
         :param key: 上传到cos的文件名称
-        :param raw: 本地文件的二进制数据
+        :param buffer: 本地文件的二进制数据
         """
         key = self.__prefix + '/' + key
-        self.__client.upload_file(
+        self.__client.upload_file_from_buffer(
             Bucket=self.__bucket,
             Key=key,
-            Body=raw,
+            Body=buffer.getvalue(),
             EnableMD5=False,
             progress_callback=None
         )
 
-    def upload_files(self, keys: List[str], raws: List[ByteString]) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, keys: List[str], buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param keys: 上传到cos的文件名称集合
-        :param raws: 本地文件的二进制数据集合
+        :param buffers: 本地文件的二进制对象集合
         """
-        assert len(keys) == len(raws), "keys and raws should have the same length"
+        assert len(keys) == len(buffers), "keys and raws should have the same length"
         pool = SimpleThreadPool()
-        for key, raw in zip(keys, raws):
+        for key, raw in zip(keys, buffers):
             pool.add_task(self.upload, key, raw)
         pool.wait_completion()
         result = pool.get_result()
