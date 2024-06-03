@@ -8,7 +8,7 @@ r"""
     文本模块
 """
 from ..base import BaseType
-from typing import Union, List, Tuple, Optional, ByteString
+from typing import Union, Tuple, Optional, ByteString
 
 
 class Text(BaseType):
@@ -23,17 +23,18 @@ class Text(BaseType):
         e.g. swanlab.Text("Hello World", caption="This is a caption for the text data.")
     """
 
-    def __init__(self, data: Union[str, List["Text"]], caption: str = None):
+    def __init__(self, data: Union[str, int, float], caption: str = None):
         super().__init__()
-        self.data = data
-        # 预处理文本数据
-        if isinstance(self, str):
+        # 处理文本数据
+
+        if isinstance(data, str):
             self.text_data = data
         elif isinstance(data, (int, float)):
             self.text_data = str(data)
         else:
             raise TypeError("data must be a string, int or float.")
-        # 如果类型是字符串，则不做转换
+
+        # 处理caption
         if isinstance(caption, str):
             caption = caption
         # 如果类型是数字，则转换为字符串

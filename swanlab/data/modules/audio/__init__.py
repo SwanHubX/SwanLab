@@ -14,17 +14,7 @@ import numpy as np
 
 
 class Audio(BaseType):
-    """Audio class constructor
-
-    Parameters
-    ----------
-    data_or_path: str or numpy.ndarray
-        Path to an audio file or numpy array of audio data.
-    sample_rate: int
-            Sample rate of the audio data. Required when input is numpy array.
-    caption: str
-        Caption for the audio.
-    """
+    SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
 
     def __init__(
         self,
@@ -32,7 +22,17 @@ class Audio(BaseType):
         sample_rate: int = 44100,
         caption: str = None,
     ):
-        """Accept a path to an audio file on a numpу array of audio data."""
+        """Audio class constructor
+
+        Parameters
+        ----------
+        data_or_path: str or numpy.ndarray
+            Path to an audio file or numpy array of audio data.
+        sample_rate: int
+                Sample rate of the audio data. Required when input is numpy array.
+        caption: str
+            Caption for the audio.
+        """
         super().__init__()
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
@@ -42,15 +42,13 @@ class Audio(BaseType):
                 audio_data = audio_data.T
             except Exception as e:
                 raise ValueError(f"Invalid audio path: {data_or_path}") from e
-
         elif isinstance(data_or_path, np.ndarray):
             # 如果输入为numpy array ，要求输入为 (num_channels, num_frames) 的形式
             # 支持单声道 或 双声道 两种形式
 
-            sf_support_dtype = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
-
-            if data_or_path.dtype not in sf_support_dtype:
-                e = f"Invalid numpy array for the audio data, support dtype is {sf_support_dtype}, but got {data_or_path.dtype}"
+            if data_or_path.dtype not in self.SF_SUPPORT_DTYPE:
+                e = (f"Invalid numpy array for the audio data, support dtype is {self.SF_SUPPORT_DTYPE}, "
+                     f"but got {data_or_path.dtype}")
                 raise TypeError(e)
 
             # 如果data_or_path是一维, 则reshape为2维
