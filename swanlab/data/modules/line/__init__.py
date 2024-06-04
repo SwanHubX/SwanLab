@@ -14,7 +14,7 @@ r"""
 """
 from swanlab.error import DataTypeError
 from typing import Protocol, runtime_checkable
-from ..base import BaseType
+from ..base import BaseType, DataSuite as D
 
 
 @runtime_checkable
@@ -38,10 +38,10 @@ class Line(BaseType):
         # 如果是nan
         try:
             t = float(self.value)
-            if self.is_nan(t):
+            if D.is_nan(t):
                 return self.nan, None
             # 如果是inf
-            if self.is_inf(t):
+            if D.is_inf(t):
                 return self.inf, None
             return t, None
         except (ValueError, TypeError):

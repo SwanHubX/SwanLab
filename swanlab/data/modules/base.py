@@ -22,9 +22,9 @@ import math
 import io
 
 
-class U:
+class DataSuite:
     """
-    BaseType在处理时的通用工具类
+    BaseType在处理时的通用工具套件
     """
 
     @staticmethod
@@ -123,7 +123,7 @@ class DynamicProperty:
         self.settings = settings
 
 
-class BaseType(ABC, DynamicProperty, U):
+class BaseType(ABC, DynamicProperty):
     """
     SwanLab数据基类，完成数据解析，拿到图表类型、namespace和解析后的数据
     所有的数据类都只负责解析，并返回相应的内容

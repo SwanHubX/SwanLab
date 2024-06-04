@@ -7,8 +7,8 @@ r"""
 @Description:
     文本模块
 """
-from ..base import MediaType
-from typing import Union, Tuple, Optional
+from ..base import MediaType, DataSuite as D
+from typing import Union
 
 
 class Text(MediaType):
@@ -35,17 +35,7 @@ class Text(MediaType):
             raise TypeError("data must be a string, int or float.")
 
         # 处理caption
-        if isinstance(caption, str):
-            caption = caption
-        # 如果类型是数字，则转换为字符串
-        elif isinstance(caption, (int, float)):
-            caption = str(caption)
-        # 如果类型是None，则转换为默认字符串
-        elif caption is None:
-            caption = None
-        else:
-            raise TypeError("caption must be a string, int or float.")
-        self.caption = caption.strip() if caption else None
+        self.caption = D.check_caption(caption)
 
     # ---------------------------------- 覆写 ----------------------------------
 

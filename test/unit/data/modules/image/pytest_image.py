@@ -215,16 +215,16 @@ def test_image_size():
     # 转为PIL图像后，size为(512, 256)
 
     image = Image(mock, size=None)
-    assert image.get_image_size() == (512, 256)
+    assert image.image_size == (512, 256)
 
     image = Image(mock, size=(128, 128))
-    assert image.get_image_size() == (128, 128)
+    assert image.image_size() == (128, 128)
 
     image = Image(mock, size=(128, None))
-    assert image.get_image_size() == (128, 64)
+    assert image.image_size == (128, 64)
 
     image = Image(mock, size=(None, 128))
-    assert image.get_image_size() == (256, 128)
+    assert image.image_size == (256, 128)
 
     image = Image(mock, size=128)
-    assert image.get_image_size() == (128, 64)
+    assert image.image_size == (128, 64)

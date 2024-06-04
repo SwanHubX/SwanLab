@@ -7,7 +7,7 @@ r"""
 @Description:
     音频模块
 """
-from ..base import MediaType, MediaBuffer
+from ..base import MediaType, MediaBuffer, DataSuite as D
 from typing import Union
 import soundfile as sf
 import numpy as np
@@ -75,12 +75,12 @@ class Audio(MediaType):
         self.buffer = MediaBuffer()
         sf.write(self.buffer, audio_data.T, sample_rate, format="wav")
         self.sample_rate = sample_rate
-        self.caption = self.check_caption(caption)
+        self.caption = D.check_caption(caption)
 
     # ---------------------------------- 覆写方法 ----------------------------------
     def parse(self):
         # 文件名称
-        hash_name = self.get_hash_by_ndarray(self.audio_data)[:16]
+        hash_name = D.get_hash_by_ndarray(self.audio_data)[:16]
         save_name = f"audio-step{self.step}-{hash_name}.wav"
         return save_name, self.buffer
 
