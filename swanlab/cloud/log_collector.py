@@ -35,7 +35,7 @@ class LogCollectorTask(ThreadTaskABC):
         """
         日志容器，存储从管道中获取的日志信息
         """
-        self.__now_task = None
+        self.lock = False
         self.upload_type = upload_type
 
     @staticmethod
@@ -107,11 +107,12 @@ class LogCollectorTask(ThreadTaskABC):
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
         if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
-            self.upload()
-
-    @property
-    def lock(self):
-        return self.__now_task is not None
+            self.lock = True
+            try:
+                self.upload()
+            except Exception as e:
+                swanlog.error(f"upload error: {e}")
+            self.lock = False
 
     def callback(self, u: ThreadUtil, *args):
         """
