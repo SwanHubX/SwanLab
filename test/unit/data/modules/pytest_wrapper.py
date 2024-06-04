@@ -16,5 +16,5 @@ class TestWrapperLine:
         正常情况
         """
         data = M.Line(1)
-        wrapper = M.DataWrapper("test", data)
+        wrapper = M.DataWrapper("test", [data])
         assert wrapper.is_line is True
