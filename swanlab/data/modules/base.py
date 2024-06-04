@@ -277,8 +277,10 @@ class ParseResult:
             # 无法被nan或者inf表示的数据，不允许被设置为float
             if not (math.isnan(float(value)) or math.isinf(float(value))):
                 raise TypeError(f"Expected float, but got {type(value)}")
+            elif math.isnan(float(value)):
+                swanlog.warning(f"Your are setting a nan to float")
             else:
-                swanlog.warning(f"Your are setting a nan or inf value to float")
+                swanlog.warning(f"Your are setting a inf to float")
         self.__data = value
 
     @property
