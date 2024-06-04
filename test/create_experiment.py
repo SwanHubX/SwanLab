@@ -28,7 +28,7 @@ swanlab.init(
     log_level="debug",
     config="test/config/config.json",
     load="test/config/load.yaml",
-    mode="cloud",
+    mode="disabled",
 )
 swanlab.config.epoches = epochs
 swanlab.config.learning_rate = lr

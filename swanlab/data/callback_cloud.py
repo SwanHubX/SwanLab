@@ -160,10 +160,13 @@ class CloudRunCallback(LocalRunCallback):
             show_button_html(experiment_url)
 
     def on_column_create(self, column_info: ColumnInfo):
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
         column = ColumnModel(
             key=column_info.key,
             column_type=column_info.chart.value.column_type,
-            error=column_info.error
+            error=error
         )
         self.pool.queue.put((UploadType.COLUMN, [column]))
 

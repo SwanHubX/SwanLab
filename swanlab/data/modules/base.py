@@ -220,7 +220,8 @@ class MediaBuffer(BytesIO):
         if not isinstance(value, str) or not value:
             raise TypeError(f"Expected str, but got {type(value)}")
         if self.__file_name is not None:
-            raise ValueError("file_name is already set")
+            # 此时意味着使用类似 [] * 2 的操作复制了多个相同的实例，这允许，但不推荐
+            swanlog.warning("You are log duplicate and same instance this is not recommended")
         self.__file_name = value
 
 
