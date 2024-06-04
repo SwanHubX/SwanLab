@@ -272,7 +272,9 @@ class ParseResult:
     @float.setter
     def float(self, value):
         if not isinstance(value, (int, float)):
-            raise TypeError(f"Expected float, but got {type(value)}")
+            # 无法被nan或者inf表示的数据，不允许被设置为float
+            if not (math.isnan(float(value)) or math.isinf(float(value))):
+                raise TypeError(f"Expected float, but got {type(value)}")
         self.__data = value
 
     @property

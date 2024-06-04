@@ -160,18 +160,14 @@ class HTTP:
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
 
-    def upload(self, key: str, local_path):
+    def upload(self, buffer: MediaBuffer):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
-        开头不能有/，即使有也会被去掉
-        :param key: 上传到cos的文件名称
-        :param local_path: 本地文件路径，一般用绝对路径
+        :param buffer: 自定义文件内存对象
         """
-        if key.startswith("/"):
-            key = key[1:]
         if self.__cos.should_refresh:
             self.__get_cos()
-        return self.__cos.upload(key, local_path)
+        return self.__cos.upload(buffer)
 
     def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """

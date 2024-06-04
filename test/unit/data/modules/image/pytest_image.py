@@ -19,7 +19,7 @@ from PIL import Image as PILImage
 from matplotlib import pyplot as plt
 
 
-def test_audio_ok():
+def test_image_ok():
     # ---------------------------------- numpy输入 ----------------------------------
 
     np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
@@ -184,7 +184,7 @@ def test_image_fail():
     with pytest.raises(ValueError):
         Image(mock, size=(100, 100, 100))
     with pytest.raises(ValueError):
-        Image(mock, size="hello")
+        Image(mock, size="hello")  # noqa
 
 
 @pytest.mark.parametrize("file_type", Image.ACCEPT_FORMAT)
@@ -218,7 +218,7 @@ def test_image_size():
     assert image.image_size == (512, 256)
 
     image = Image(mock, size=(128, 128))
-    assert image.image_size() == (128, 128)
+    assert image.image_size == (128, 128)
 
     image = Image(mock, size=(128, None))
     assert image.image_size == (128, 64)
