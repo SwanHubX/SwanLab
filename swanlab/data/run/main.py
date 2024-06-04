@@ -10,11 +10,12 @@ r"""
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import BaseType
-from swanlab.data.config import SwanLabConfig
+from .config import SwanLabConfig
+import random
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, MutableMapping
 from .operator import SwanLabRunOperator
 from swanlab.env import get_mode
 import random
@@ -24,6 +25,7 @@ class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
     We Recommend that you use this enumeration class to represent the state of the experiment.
     """
+
     NOT_STARTED = -2
     SUCCESS = 1
     CRASHED = -1
@@ -41,7 +43,7 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        config: dict = None,
+        run_config: MutableMapping = None,
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
@@ -60,7 +62,7 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
-        config : dict, optional
+        run_config : MutableMapping, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
         log_level : str, optional
@@ -75,13 +77,15 @@ class SwanLabRun:
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
         """
+
         global run
         if run is not None:
             raise RuntimeError("SwanLabRun has been initialized")
+
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
@@ -93,7 +97,7 @@ class SwanLabRun:
         swanlog.set_level(self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config
-        self.__config = SwanLabConfig(config, self.__settings)
+        self.__config = SwanLabConfig(run_config, self.__settings)
         # ---------------------------------- 注册实验 ----------------------------------
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
@@ -162,7 +166,7 @@ class SwanLabRun:
         # 分为几步
         # 1. 设置数据库实验状态为对应状态
         # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
-        # 3. 清空run对象，run改为局部变量_run
+        # 3. 清空run和config对象，run改为局部变量_run，config被清空
         # 4. 返回_run
         if run is None:
             raise RuntimeError("The run object is None, please call `swanlab.init` first.")
@@ -177,7 +181,10 @@ class SwanLabRun:
         except RuntimeError:
             # disabled 模式下没有install，所以会报错
             pass
+
+        run.config.clean()
         _run, run = run, None
+
         return _run
 
     @property
@@ -243,7 +250,7 @@ class SwanLabRun:
         for key in data:
             # 遍历字典的key，记录到本地文件中
             d = data[key]
-            # 如果d的数据类型是list，且里面的数据全部为Image类型，则需要转换一下
+            # 如果d的数据类型是list，且里面的数据全部为DataType类型，则需要转换一下
             if isinstance(d, list) and all([isinstance(i, BaseType) for i in d]) and len(d) > 0:
                 # 将d作为输入，构造一个与d相同类型的实例
                 d = d[0].__class__(d)
@@ -307,6 +314,8 @@ _change_run_state: Optional["Callable"] = None
 """
 修改实验状态的函数，用于在实验状态改变时调用
 """
+config: Optional["SwanLabConfig"] = SwanLabConfig()
+"""Global config instance. After the user calls finish(), config will be set to None."""
 
 
 def _set_run_state(state: SwanLabRunState):
@@ -330,3 +339,11 @@ def get_run() -> Optional["SwanLabRun"]:
     """
     global run
     return run
+
+
+def get_config() -> Optional["SwanLabConfig"]:
+    """
+    Get the current config object.
+    """
+    global config
+    return config
