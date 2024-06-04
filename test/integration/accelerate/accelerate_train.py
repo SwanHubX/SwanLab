@@ -33,7 +33,7 @@ def main():
     # hyperparameters
     config = {
         "num_epoch": 5,
-        "batch_num": 16,
+        "batch_num": 64,
         "learning_rate": 1e-3,
     }
 
@@ -87,7 +87,8 @@ def main():
             loss = criterion(outputs, targets)
             accelerator.backward(loss)
             my_optimizer.step()
-            accelerator.log({"training_loss": loss, "epoch_num": ep})
+            if stp % 20 == 0:
+                accelerator.log({"training_loss": loss, "epoch_num": ep}, step=ep * len(my_training_dataloader) + stp)
             if accelerator.is_local_main_process:
                 print(f"train epoch {ep} [{stp}/{len(my_training_dataloader)}] | train loss {loss}")
 
