@@ -8,7 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict, Tuple
+from typing import Optional, Union, Dict, Tuple, Literal
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -81,7 +81,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
-    mode: str = None,
+    mode: Literal["disabled", "cloud", "local"] = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:
