@@ -274,7 +274,7 @@ def check_key_format(key: str, auto_cut=True) -> str:
         raise TypeError(f"tag: {key} is not a string")
     if not check_string(key):
         raise ValueError(f"tag: {key} is an empty string")
-    if key.startswith((".", "/", " ")):
+    if key.startswith((".", "/")):
         raise ValueError(f"tag: {key} can't start with '.' or '/' and blank space")
     # 检查长度
     return _auto_cut("tag", key, max_len, auto_cut)

@@ -250,6 +250,7 @@ class SwanLabRun:
         for k, v in data.items():
             _k = k
             k = check_key_format(k, auto_cut=True)
+            k = k.lstrip().rstrip()
             if k != _k:
                 # 超过255字符，截断
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
@@ -261,8 +262,11 @@ class SwanLabRun:
             elif isinstance(v, (Line, MediaType)):
                 v = DataWrapper(k, [v])
             # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
-            elif isinstance(v, list) and len(v) > 0 and all([isinstance(i, (Line, MediaType)) for i in v]) and all(
-                [i.__class__ == v[0].__class__ for i in v]
+            elif (
+                isinstance(v, list)
+                and len(v) > 0
+                and all([isinstance(i, (Line, MediaType)) for i in v])
+                and all([i.__class__ == v[0].__class__ for i in v])
             ):
                 v = DataWrapper(k, v)
             else:
