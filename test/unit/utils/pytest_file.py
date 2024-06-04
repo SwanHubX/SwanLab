@@ -242,7 +242,7 @@ class TestTag:
         None,
         1,
         [],
-        {}
+        {},
     ])
     def test_tag_type_error(self, value: str):
         """
@@ -254,9 +254,12 @@ class TestTag:
     @pytest.mark.parametrize("value", [
         "",
         "   ",
-        " " * 256
+        " " * 256,
+        " 1122",
+        ".sas"
+        "/asa"
     ])
-    def test_tag_value_empty(self, value: str):
+    def test_tag_value_error(self, value: str):
         """
         测试空值
         """

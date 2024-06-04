@@ -244,8 +244,8 @@ def check_desc_format(description: str, auto_cut: bool = True):
 
 
 def check_key_format(key: str, auto_cut=True) -> str:
-    """检查tag字符串格式
-    不能超过255个字符，可以包含任何字符
+    """检查key字符串格式
+    不能超过255个字符，可以包含任何字符，不允许.和/以及空格开头
 
     Parameters
     ----------
@@ -274,5 +274,7 @@ def check_key_format(key: str, auto_cut=True) -> str:
         raise TypeError(f"tag: {key} is not a string")
     if not check_string(key):
         raise ValueError(f"tag: {key} is an empty string")
+    if key.startswith((".", "/", " ")):
+        raise ValueError(f"tag: {key} can't start with '.' or '/' and blank space")
     # 检查长度
     return _auto_cut("tag", key, max_len, auto_cut)
