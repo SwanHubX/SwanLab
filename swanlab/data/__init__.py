@@ -19,11 +19,11 @@ from .sdk import (
     init,
     log,
     finish,
-    _config as config,
 )
 
 from .run import (
     SwanLabRun as Run,
     SwanLabRunState as State,
     get_run,
+    get_config,
 )
