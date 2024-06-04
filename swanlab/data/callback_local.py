@@ -142,6 +142,7 @@ class LocalRunCallback(SwanLabRunCallback):
             os.mkdir(self.settings.log_dir)
 
     def on_metric_create(self, metric_info: MetricInfo):
+        # 出现任何错误直接返回
         if metric_info.error:
             return
         # ---------------------------------- 保存指标数据 ----------------------------------

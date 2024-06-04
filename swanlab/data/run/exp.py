@@ -1,11 +1,11 @@
-import json
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import DataWrapper, Line
+from swanlab.data.modules import DataWrapper, Line, ErrorInfo
 from swanlab.log import swanlog
 from typing import Dict, Optional
 from swanlab.utils import create_time
 from .callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
+import json
 import math
 
 
@@ -58,7 +58,7 @@ class SwanLabExp:
             step = len(key_obj.steps) if step is None else step
             if step in key_obj.steps:
                 swanlog.warning(f"Step {step} on key {key} already exists, ignored.")
-                return MetricInfo(key, key_obj.column_info)
+                return MetricInfo(key, key_obj.column_info, DataWrapper.create_duplicate_error())
         data.parse(step=step, settings=self.settings, key=key)
 
         # ---------------------------------- 图表创建 ----------------------------------
@@ -76,7 +76,8 @@ class SwanLabExp:
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not key_obj.is_chart_valid:
             self.warn_chart_error(key)
-            return MetricInfo(key, key_obj.column_info)
+            # 这条指标没有被解析，所以也没有必要标注这条只指标是否错误
+            return MetricInfo(key, key_obj.column_info, error=None)
         key_info = key_obj.add(data)
         key_info.buffers = data.parse().buffers
         key_info.media_dir = self.settings.media_dir
@@ -84,17 +85,17 @@ class SwanLabExp:
 
     def warn_type_error(self, key: str):
         """警告类型错误
-        执行此方法时需保证tag已经存在
+        执行此方法时需保证key已经存在
         """
         tag_obj = self.keys[key]
-        class_name = tag_obj.now_data_type
-        excepted = tag_obj.expect_data_types
+        class_name = tag_obj.column_info.got
+        expected = tag_obj.column_info.expected
         if tag_obj.is_chart_valid:
             return
         if class_name == "list":
             swanlog.error(f"Data type error, key: {key}, there is element of invalid data type in the list.")
         else:
-            swanlog.error(f"Data type error, key: {key}, data type: {class_name}, excepted: {excepted}")
+            swanlog.error(f"Data type error, key: {key}, data type: {class_name}, expected: {expected}")
 
     def warn_chart_error(self, key: str):
         """
@@ -104,7 +105,7 @@ class SwanLabExp:
         tag_obj = self.keys[key]
         if tag_obj.is_chart_valid:
             return
-        class_name = tag_obj.now_data_type
+        class_name = tag_obj.column_info.got
         if class_name == "list":
             swanlog.warning(
                 f"Chart '{key}' creation failed. "
@@ -149,31 +150,9 @@ class SwanLabKey:
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
         """当前tag的数据"""
-        self.__error = None
-        """此tag在自动生成chart的时候的错误信息"""
         self.chart = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
-
-    @property
-    def now_data_type(self) -> Optional[str]:
-        """
-        当is_chart_valid为False时，返回当前数据的类型
-        这指的是用户传入的数据类型，而不是转换后的数据类型
-        """
-        if self.__error is not None:
-            return self.__error.get("data_class")
-        return None
-
-    @property
-    def expect_data_types(self) -> Optional[list]:
-        """
-        当is_chart_valid为False时，返回期望的数据类型
-        如果为True，则返回None
-        """
-        if self.__error is not None:
-            return self.__error.get("excepted")
-        return None
 
     @property
     def sum(self):
@@ -181,7 +160,7 @@ class SwanLabKey:
         return len(self.__steps)
 
     @property
-    def column_info(self):
+    def column_info(self) -> Optional[ColumnInfo]:
         """获取当前tag对应的ColumnInfo"""
         return self.__column_info
 
@@ -198,11 +177,8 @@ class SwanLabKey:
     @property
     def is_chart_valid(self) -> bool:
         """判断当前tag对应的自动创建图表是否成功
-        成功则返回False，失败则返回True
-        为True则一切正常
-        为False则tag对应的路径不存在
         """
-        return self.__error is None
+        return self.column_info.error is None
 
     def add(self, data: DataWrapper) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
@@ -227,7 +203,7 @@ class SwanLabKey:
                 f"Log failed. Reason: Data on key '{self.key}' (step {result.step}) cannot be converted ."
                 f"It should be {data.error.expected}, but it is {data.error.got}, please check the data type."
             )
-            return MetricInfo(self.key, self.__column_info)
+            return MetricInfo(self.key, self.__column_info, data.error)
 
         # 如果为Line且为NaN或者INF，不更新summary
         r = result.strings or result.float
@@ -251,10 +227,11 @@ class SwanLabKey:
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
             self.key,
+            self.__column_info,
+            error=None,
             epoch=epoch,
             step=result.step,
             logdir=self.__log_dir,
-            column_info=self.__column_info,
             metric=json.loads(json.dumps(new_data)),
             summary=json.loads(json.dumps(self.__summary)),
             metric_file_name=str(mu * self.__slice_size) + ".log",
@@ -275,20 +252,15 @@ class SwanLabKey:
         # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
         if "/" in key and key[0] != "/":
             result.section = key.split("/")[0]
-        # 如果出现错误
-        error = None
-        if data.error is not None:
-            error = {"data_class": data.error.got, "excepted": data.error.expected}
 
         column_info = ColumnInfo(
             key=key,
             namespace=result.section,
             chart=result.chart,
-            error=error,
+            error=data.error,
             reference=result.reference,
             config=result.config,
         )
-        self.__error = error
         self.chart = result.chart.value
         self.__column_info = column_info
         return column_info

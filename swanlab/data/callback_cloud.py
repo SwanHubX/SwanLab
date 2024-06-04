@@ -7,7 +7,6 @@ r"""
 @Description:
     云端回调
 """
-import json
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
 from swanlab.error import ApiError
@@ -27,6 +26,7 @@ from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.db import Experiment
 from swanlab.utils import create_time
 from swanlab.package import get_package_version, get_package_latest_version
+import json
 import sys
 import os
 import io

@@ -52,7 +52,7 @@ class ColumnInfo:
         """
         列的类型错误信息
         """
-        self.reference = reference if reference is not None else "step"
+        self.reference = reference
         """
         列的参考对象
         """
@@ -65,6 +65,24 @@ class ColumnInfo:
         列的额外配置信息
         """
 
+    @property
+    def got(self):
+        """
+        传入的错误类型，如果列出错，返回错误类型，如果没出错，`暂时`返回None
+        """
+        if self.error is None:
+            return None
+        return self.error.got
+
+    @property
+    def expected(self):
+        """
+        期望的类型，如果列出错，返回期望的类型，如果没出错，`暂时`返回None
+        """
+        if self.error is None:
+            return None
+        return self.error.expected
+
 
 class MetricInfo:
     """
@@ -76,6 +94,7 @@ class MetricInfo:
         self,
         key: str,
         column_info: ColumnInfo,
+        error: Optional[ErrorInfo],
         metric: Union[Dict, None] = None,
         summary: Union[Dict, None] = None,
         step: int = None,
@@ -85,6 +104,8 @@ class MetricInfo:
         media_dir: str = None,
         buffers: List[MediaBuffer] = None,
     ):
+        self.__error = error
+
         self.key = quote(key, safe="")
         """
         指标的key名称，被quote编码
@@ -109,11 +130,11 @@ class MetricInfo:
         """
         当前指标对应本地的行数，error时为None
         """
-        self.metric_path = os.path.join(logdir, self.key, metric_file_name)
+        self.metric_path = None if self.error else os.path.join(logdir, self.key, metric_file_name)
         """
         指标文件的路径，error时为None
         """
-        self.summary_path = os.path.join(logdir, self.key, self.__SUMMARY_NAME)
+        self.summary_path = None if self.error else os.path.join(logdir, self.key, self.__SUMMARY_NAME)
         """
         摘要文件的路径，error时为None
         """
@@ -131,11 +152,44 @@ class MetricInfo:
                 buffer.file_name = "{}/{}".format(self.key, metric["data"][i])
 
     @property
-    def error(self):
+    def error(self) -> bool:
         """
-        是否有错误
+        这条指标信息是否有错误，错误分几种：
+            1. 列错误，列一开始就出现问题
+            2. 重复错误
+            3. 指标错误
+        """
+        return self.error_info is not None or self.column_error_info is not None
+
+    @property
+    def column_error_info(self) -> Optional[ErrorInfo]:
+        """
+        列错误信息
         """
         return self.column_info.error
+
+    @property
+    def error_info(self) -> Optional[ErrorInfo]:
+        """
+        指标错误信息
+        """
+        return self.__error
+
+    @property
+    def duplicated_error(self) -> bool:
+        """
+        是否是重复的指标
+        """
+        return self.__error and self.__error.duplicated
+
+    @property
+    def data(self) -> Union[Dict, None]:
+        """
+        指标数据的data字段
+        """
+        if self.error:
+            return None
+        return self.metric["data"]
 
 
 class U:

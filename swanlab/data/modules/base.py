@@ -15,6 +15,7 @@ r"""
 from abc import ABC, abstractmethod
 from ..settings import SwanDataSettings
 from typing import List, Dict, Optional, ByteString, Union, Tuple
+from swanlab.log import swanlog
 from enum import Enum
 from io import BytesIO
 import hashlib
@@ -275,6 +276,8 @@ class ParseResult:
             # 无法被nan或者inf表示的数据，不允许被设置为float
             if not (math.isnan(float(value)) or math.isinf(float(value))):
                 raise TypeError(f"Expected float, but got {type(value)}")
+            else:
+                swanlog.warning(f"Your are setting a nan or inf value to float")
         self.__data = value
 
     @property

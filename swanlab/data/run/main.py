@@ -249,17 +249,19 @@ class SwanLabRun:
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型
-            if isinstance(v, (int, float, FloatConvertible, Line)):
-                v = DataWrapper(k, v if isinstance(v, Line) else Line(v))
-            # 输入为MediaType类型
-            elif isinstance(v, MediaType):
+            if isinstance(v, (int, float, FloatConvertible)):
+                v = DataWrapper(k, [Line(v)])
+            # 为Line类型或者MediaType类型
+            elif isinstance(v, (Line, MediaType)):
                 v = DataWrapper(k, [v])
-            # 输入为List[MediaType]类型
-            elif isinstance(v, list) and all([isinstance(i, MediaType) for i in v]) and len(v) > 0:
+            # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
+            elif isinstance(v, list) and len(v) > 0 and all([isinstance(i, (Line, MediaType)) for i in v]) and all(
+                [i.__class__ == v[0].__class__ for i in v]
+            ):
                 v = DataWrapper(k, v)
             else:
                 # 其余情况被当作是非法的数据类型，交给Line处理
-                v = DataWrapper(k, Line(v))
+                v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
             self.__operator.on_metric_create(metric_info)
