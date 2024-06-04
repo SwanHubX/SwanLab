@@ -7,19 +7,16 @@ r"""
 @Description:
     测试SwanLabRun主类
 """
-import math
-
 from swanlab.data.modules import Line
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
 from swanlab import Image, Audio, Text
 from nanoid import generate
 from tutils import clear, TEMP_PATH
 from PIL import Image as PILImage
-import torch
 import soundfile as sf
 import numpy as np
+import math
 import pytest
-import random
 import os
 import io
 
@@ -274,3 +271,5 @@ class TestSwanLabRunLog:
         # 通过字节流解码后的图像
         image = PILImage.open(io.BytesIO(buffer.getvalue()))
         assert image.size == (100, 100)
+
+    # 其他类似...
