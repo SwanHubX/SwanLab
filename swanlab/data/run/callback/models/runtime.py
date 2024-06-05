@@ -7,10 +7,10 @@ r"""
 @Description:
     运行时信息模型
 """
-import os.path
 from abc import ABC, abstractmethod
 import json
 import yaml
+import os
 
 
 class InfoWriter(ABC):

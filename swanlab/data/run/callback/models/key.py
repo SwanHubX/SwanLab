@@ -8,7 +8,7 @@ r"""
     与Key相关的回调函数触发时的模型
 """
 from typing import Union, Optional, Dict, List
-from swanlab.data.modules import ChartType, ErrorInfo, MediaBuffer
+from swanlab.data.modules import ChartType, WrapperErrorInfo, MediaBuffer
 from urllib.parse import quote
 import os
 
@@ -24,7 +24,7 @@ class ColumnInfo:
         namespace: str,
         chart: ChartType,
         sort: Optional[int] = None,
-        error: Optional[ErrorInfo] = None,
+        error: Optional[WrapperErrorInfo] = None,
         reference: Optional[str] = None,
         config: Optional[Dict] = None,
     ):
@@ -86,7 +86,7 @@ class MetricInfo:
         self,
         key: str,
         column_info: ColumnInfo,
-        error: Optional[ErrorInfo],
+        error: Optional[WrapperErrorInfo],
         metric: Union[Dict, None] = None,
         summary: Union[Dict, None] = None,
         step: int = None,
@@ -154,14 +154,14 @@ class MetricInfo:
         return self.error_info is not None or self.column_error_info is not None
 
     @property
-    def column_error_info(self) -> Optional[ErrorInfo]:
+    def column_error_info(self) -> Optional[WrapperErrorInfo]:
         """
         列错误信息
         """
         return self.column_info.error
 
     @property
-    def error_info(self) -> Optional[ErrorInfo]:
+    def error_info(self) -> Optional[WrapperErrorInfo]:
         """
         指标错误信息
         """
