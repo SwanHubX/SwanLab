@@ -9,8 +9,8 @@ r"""
 """
 from enum import Enum
 from typing import List
-
 from swanlab.data.modules import MediaBuffer
+from datetime import datetime
 
 
 class ColumnModel:
@@ -125,3 +125,37 @@ class ScalarModel:
             "index": self.step,
             "epoch": self.epoch
         }
+
+
+class FileModel:
+    """
+    运行时文件信息上传模型
+    """
+
+    def __init__(self, requirements: str = None, metadata: dict = None, config: dict = None):
+        self.requirements = requirements
+        self.metadata = metadata
+        self.config = config
+        self.create_time = datetime.now()
+        """
+        主要用于去重，保留最新的文件
+        """
+
+    @classmethod
+    def create(cls, r1: "FileModel", r2: "FileModel") -> "FileModel":
+        """
+        比较两个FileModel，创建一个新的
+        如果新的newer不存在，则使用older的数据，否则使用newer的数据
+        """
+        newer, older = (r1, r2) if r1.create_time > r2.create_time else (r2, r1)
+        rq = newer.requirements if newer.requirements else older.requirements
+        md = newer.metadata if newer.metadata else older.metadata
+        cf = newer.config if newer.config else older.config
+        return cls(rq, md, cf)
+
+    def to_dict(self):
+        """
+        序列化，会删除为None的字段
+        """
+        d = {"requirements": self.requirements, "metadata": self.metadata, "config": self.config}
+        return {k: v for k, v in d.items() if v is not None}

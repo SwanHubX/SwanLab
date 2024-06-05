@@ -7,8 +7,8 @@ r"""
 @Description:
     云端回调
 """
-from .run.callback import MetricInfo, ColumnInfo
-from swanlab.cloud import UploadType
+from .run.callback import MetricInfo, ColumnInfo, RuntimeInfo
+from swanlab.data.cloud import UploadType
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
 from swanlab.api import LoginInfo, create_http, terminal_login
 from swanlab.api.upload import upload_logs
@@ -21,7 +21,7 @@ from swanlab.package import get_host_web, get_host_api
 from swanlab.error import KeyFileError
 from swanlab.env import get_swanlab_folder
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
-from swanlab.cloud import LogSnifferTask, ThreadPool
+from swanlab.data.cloud import ThreadPool
 from swanlab.utils import create_time
 from swanlab.package import get_package_version, get_package_latest_version
 import json
@@ -119,6 +119,11 @@ class CloudRunCallback(LocalRunCallback):
         http = create_http(self.login_info)
         return http.mount_project(project, workspace).history_exp_count
 
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        super(CloudRunCallback, self).on_runtime_info_update(r)
+        # 添加上传任务到线程池
+        self.pool.queue.put((UploadType.FILE, [r]))
+
     def on_run(self):
         swanlog.install(self.settings.console_dir)
         # 注册实验信息
@@ -127,10 +132,6 @@ class CloudRunCallback(LocalRunCallback):
             colors=self.settings.exp_colors,
             description=self.settings.description,
         )
-
-        # 资源嗅探器
-        sniffer = LogSnifferTask(self.settings.files_dir)
-        self.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
 
         # 向swanlog注册输出流回调
         def _write_call_call(message):

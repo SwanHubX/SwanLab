@@ -91,7 +91,6 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id, should_save=not self.__operator.disabled)
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
-        # output、console_dir等内容不依赖于实验名称的设置
         swanlog.set_level(self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
         # 给外部1个config

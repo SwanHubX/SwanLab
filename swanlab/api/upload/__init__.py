@@ -8,7 +8,7 @@ r"""
     上传相关接口
 """
 from ..http import get_http, sync_error_handler
-from .model import ColumnModel, MediaModel, ScalarModel
+from .model import ColumnModel, MediaModel, ScalarModel, FileModel
 from typing import List
 from swanlab.error import FileError, ApiError
 from swanlab.log import swanlog
@@ -82,7 +82,7 @@ _valid_files = {
 
 
 @sync_error_handler
-def upload_files(files: List[str]):
+def upload_files(files: List[FileModel]):
     """
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
