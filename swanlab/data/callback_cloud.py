@@ -9,7 +9,7 @@ r"""
 """
 from .run.callback import MetricInfo, ColumnInfo, RuntimeInfo
 from swanlab.data.cloud import UploadType
-from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
+from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.api import LoginInfo, create_http, terminal_login
 from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
@@ -122,7 +122,12 @@ class CloudRunCallback(LocalRunCallback):
     def on_runtime_info_update(self, r: RuntimeInfo):
         super(CloudRunCallback, self).on_runtime_info_update(r)
         # 添加上传任务到线程池
-        self.pool.queue.put((UploadType.FILE, [r]))
+        rc = r.config.info if r.config is not None else None
+        rr = r.requirements.dumps() if r.requirements is not None else None
+        rm = r.metadata.info if r.metadata is not None else None
+        # 不需要json序列化，上传时会自动序列化
+        f = FileModel(requirements=rr, config=rc, metadata=rm)
+        self.pool.queue.put((UploadType.FILE, [f]))
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)

@@ -8,6 +8,7 @@ r"""
     运行时信息模型
 """
 from abc import ABC, abstractmethod
+from typing import Optional
 import json
 import yaml
 import os
@@ -97,6 +98,14 @@ class RuntimeInfo:
         :param metadata: 系统信息
         :param config: 上传的配置信息
         """
-        self.requirements = RequirementInfo(requirements) if requirements is not None else None
-        self.metadata = MetadataInfo(metadata) if metadata is not None else None
-        self.config = ConfigInfo(config) if config is not None else None
+        self.requirements: Optional[RequirementInfo] = RequirementInfo(
+            requirements
+        ) if requirements is not None else None
+        
+        self.metadata: Optional[MetadataInfo] = MetadataInfo(
+            metadata
+        ) if metadata is not None else None
+
+        self.config: Optional[ConfigInfo] = ConfigInfo(
+            config
+        ) if config is not None else None
