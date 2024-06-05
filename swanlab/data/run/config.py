@@ -7,11 +7,12 @@ r"""
 @Description:
     SwanLabConfig 配置类
 """
+import os.path
 from typing import Any
 from collections.abc import Mapping
 import yaml
 import argparse
-from ..settings import SwanDataSettings
+from swanlab.data.run.settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
 import math
@@ -94,7 +95,7 @@ class SwanLabConfig(Mapping):
             config = {}
 
         self.__config.update(config)
-        self.__settings["save_path"] = settings.config_path if settings is not None else None
+        self.__settings["save_path"] = os.path.join(settings.files_dir, "config.yaml") if settings is not None else None
         self.__settings["should_save"] = settings.should_save if settings is not None else False
         if self._inited:
             self.save()

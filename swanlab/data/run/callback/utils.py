@@ -8,7 +8,7 @@ r"""
     工具类
 """
 from typing import Optional
-from swanlab.data.settings import SwanDataSettings
+from swanlab.data.run.settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows

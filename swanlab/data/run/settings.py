@@ -8,7 +8,7 @@ r"""
     数据收集部分配置，此为运行时生成的配置，
 """
 import os
-from ..env import get_swanlog_dir
+from swanlab.env import get_swanlog_dir
 from typing import Tuple
 from swanlab.package import get_package_version
 
@@ -92,9 +92,6 @@ class SwanDataSettings(LazySettings):
         self.__files_dir = os.path.join(self.run_dir, "files")
         self.__media_dir = os.path.join(self.run_dir, "media")
         # ---------------------------------- 文件信息 ----------------------------------
-        self.__requirements_path = os.path.join(self.files_dir, "requirements.txt")
-        self.__metadata_path = os.path.join(self.files_dir, "swanlab-metadata.json")
-        self.__config_path = os.path.join(self.files_dir, "config.yaml")
         self.__error_path = os.path.join(self.console_dir, "error.log")
 
     def mkdir(self, path: str) -> None:
@@ -170,17 +167,3 @@ class SwanDataSettings(LazySettings):
     def error_path(self) -> str:
         """错误日志文件路径"""
         return self.__error_path
-
-    @property
-    def requirements_path(self) -> str:
-        """实验依赖的存储文件"""
-        return self.__requirements_path
-
-    @property
-    def metadata_path(self) -> str:
-        """实验环境存储文件"""
-        return self.__metadata_path
-
-    @property
-    def config_path(self) -> str:
-        return self.__config_path

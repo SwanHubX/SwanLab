@@ -7,6 +7,7 @@ r"""
 @Description:
     运行时信息模型
 """
+import os.path
 from abc import ABC, abstractmethod
 import json
 import yaml
@@ -43,7 +44,7 @@ class RequirementInfo(InfoWriter):
         self.name = "requirements.txt"
 
     def write(self, path: str):
-        with open(path, "w", encoding="utf-8") as f:
+        with open(os.path.join(path, self.name), "w", encoding="utf-8") as f:
             f.write(self.info)
 
     def dumps(self):
@@ -60,7 +61,7 @@ class MetadataInfo(InfoWriter):
         self.name = "swanlab-metadata.json"
 
     def write(self, path: str):
-        with open(path, "w", encoding="utf-8") as f:
+        with open(os.path.join(path, self.name), "w", encoding="utf-8") as f:
             f.write(self.dumps())
 
     def dumps(self):
@@ -77,7 +78,7 @@ class ConfigInfo(InfoWriter):
         self.name = "config.yaml"
 
     def write(self, path: str):
-        with open(path, "w", encoding="utf-8") as f:
+        with open(os.path.join(path, self.name), "w", encoding="utf-8") as f:
             f.write(self.dumps())
 
     def dumps(self):

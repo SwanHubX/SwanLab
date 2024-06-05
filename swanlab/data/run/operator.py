@@ -9,7 +9,7 @@ r"""
 """
 from typing import List, Union, Dict, Any, Callable
 from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
-from ..settings import SwanDataSettings
+from swanlab.data.run.settings import SwanDataSettings
 import swanlab.error as E
 from swanlab.utils import FONT
 

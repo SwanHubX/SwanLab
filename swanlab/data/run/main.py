@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from ..settings import SwanDataSettings
+from .settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from swanlab.utils.file import check_key_format

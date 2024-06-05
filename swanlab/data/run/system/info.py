@@ -14,7 +14,6 @@ import subprocess
 import multiprocessing
 import pynvml
 from swanlab.log import swanlog
-from swanlab.data.settings import SwanDataSettings
 
 
 def __replace_second_colon(input_string, replacement):
