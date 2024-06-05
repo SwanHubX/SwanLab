@@ -149,7 +149,7 @@ class GlomCallback(SwanLabRunCallback):
         chart = Chart.create(
             column_info.key,
             experiment_id=self.exp,
-            type=column_info.data_type,
+            type=column_info.chart.value.chart_type,
             reference=column_info.reference,
             config=column_info.config,
         )
@@ -167,10 +167,13 @@ class GlomCallback(SwanLabRunCallback):
         tag: Tag = Tag.create(
             experiment_id=self.exp.id,
             name=column_info.key,
-            type=column_info.data_type,
+            type=column_info.chart.value.chart_type,
         )
         # 添加一条source记录
-        Source.create(tag_id=tag.id, chart_id=chart.id, error=column_info.error)
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
+        Source.create(tag_id=tag.id, chart_id=chart.id, error=error)
         # 新建多实验对比图表数据
         try:
             add_multi_chart(tag_id=tag.id, chart_id=chart.id)

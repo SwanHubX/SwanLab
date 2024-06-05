@@ -1,6 +1,7 @@
 # dat process
 soundfile
 pillow
+matplotlib
 numpy
 
 # web server
@@ -13,7 +14,7 @@ click
 
 # database
 ujson
-PyYAML
+pyyaml
 peewee
 
 

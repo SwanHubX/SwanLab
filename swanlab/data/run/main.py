@@ -9,7 +9,7 @@ r"""
 """
 from ..settings import SwanDataSettings
 from swanlab.log import swanlog
-from swanlab.data.modules import BaseType
+from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from .config import SwanLabConfig
 import random
 from enum import Enum
@@ -17,7 +17,8 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict, MutableMapping
 from .operator import SwanLabRunOperator
-from swanlab.env import get_mode, SwanLabMode
+from swanlab.env import get_mode
+from ...utils.file import check_key_format
 
 
 class SwanLabRunState(Enum):
@@ -84,7 +85,7 @@ class SwanLabRun:
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
@@ -246,15 +247,32 @@ class SwanLabRun:
 
         log_return = {}
         # 遍历data，记录data
-        for key in data:
-            # 遍历字典的key，记录到本地文件中
-            d = data[key]
-            # 如果d的数据类型是list，且里面的数据全部为DataType类型，则需要转换一下
-            if isinstance(d, list) and all([isinstance(i, BaseType) for i in d]) and len(d) > 0:
-                # 将d作为输入，构造一个与d相同类型的实例
-                d = d[0].__class__(d)
+        for k, v in data.items():
+            _k = k
+            k = check_key_format(k, auto_cut=True)
+            if k != _k:
+                # 超过255字符，截断
+                swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
+            # ---------------------------------- 包装数据 ----------------------------------
+            # 输入为可转换为float的数据类型
+            if isinstance(v, (int, float, FloatConvertible)):
+                v = DataWrapper(k, [Line(v)])
+            # 为Line类型或者MediaType类型
+            elif isinstance(v, (Line, MediaType)):
+                v = DataWrapper(k, [v])
+            # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
+            elif (
+                isinstance(v, list)
+                and len(v) > 0
+                and all([isinstance(i, (Line, MediaType)) for i in v])
+                and all([i.__class__ == v[0].__class__ for i in v])
+            ):
+                v = DataWrapper(k, v)
+            else:
+                # 其余情况被当作是非法的数据类型，交给Line处理
+                v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            metric_info = self.__exp.add(key=key, data=d, step=step)
+            metric_info = self.__exp.add(key=k, data=v, step=step)
             self.__operator.on_metric_create(metric_info)
             log_return[metric_info.key] = metric_info
 

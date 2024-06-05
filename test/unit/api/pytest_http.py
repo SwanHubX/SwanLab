@@ -13,6 +13,7 @@ import time
 import nanoid
 from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
+from swanlab.data.modules import MediaBuffer
 from tutils import KEY, TEMP_PATH
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
@@ -47,9 +48,13 @@ class TestCosSuite:
         assert self.http.cos is not None
 
     def test_cos_upload(self):
-        self.http.upload("/key", self.file_path)
+        # 新建一个文件对象
+        buffer = MediaBuffer()
+        buffer.write(b"test")
+        buffer.file_name = "test"
+        self.http.upload(buffer)
         # 开发版本设置的过期时间为3s，等待过期
         time.sleep(3)
         # 重新上传，测试刷新
         assert self.http.cos.should_refresh is True
-        self.http.upload("/key", self.file_path)
+        self.http.upload(buffer)

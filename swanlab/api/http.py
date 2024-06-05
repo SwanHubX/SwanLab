@@ -18,6 +18,8 @@ from swanlab.utils import FONT
 from swanlab.log import swanlog
 import requests
 
+from swanlab.data.modules import MediaBuffer
+
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
     """
@@ -158,31 +160,25 @@ class HTTP:
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
 
-    def upload(self, key: str, local_path):
+    def upload(self, buffer: MediaBuffer):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
-        开头不能有/，即使有也会被去掉
-        :param key: 上传到cos的文件名称
-        :param local_path: 本地文件路径，一般用绝对路径
+        :param buffer: 自定义文件内存对象
         """
-        if key.startswith("/"):
-            key = key[1:]
         if self.__cos.should_refresh:
             self.__get_cos()
-        return self.__cos.upload(key, local_path)
+        return self.__cos.upload(buffer)
 
-    def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
-        :param keys: 上传到cos
-        :param local_paths: 本地文件路径，需用绝对路径
+        :param buffers: 文件内存对象
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
-        keys = [key[1:] if key.startswith("/") else key for key in keys]
-        return self.__cos.upload_files(keys, local_paths)
+        return self.__cos.upload_files(buffers)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username

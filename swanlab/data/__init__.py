@@ -12,8 +12,6 @@ from .modules import (
     Audio,
     Image,
     Text,
-    Video,
-    Object3D,
 )
 
 from .sdk import (

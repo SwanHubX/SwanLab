@@ -205,8 +205,8 @@ def get_tag_data(experiment_id: int, tag: str) -> dict:
     if os.path.exists(summary_path):
         with open(summary_path, "r") as f:
             summary = ujson.load(f)
-            max_value = summary["max"]
-            min_value = summary["min"]
+            max_value = summary.get("max", None)
+            min_value = summary.get("min", None)
     else:
         # COMPAT 如果_summary文件不存在，手动获取最大值和最小值
         warn = f"Summary file of tag '{tag}' not found, SwanLab will automatically get the maximum and minimum values."

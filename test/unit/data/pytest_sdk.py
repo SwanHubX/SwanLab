@@ -8,7 +8,6 @@ r"""
     测试sdk的一些api
 """
 from swanlab.env import (
-    reset_env,
     get_swanlab_folder,
     MODE,
     ROOT,
@@ -67,7 +66,7 @@ class TestInitMode:
 
     def test_init_error(self):
         with pytest.raises(ValueError):
-            S.init(mode="123456")
+            S.init(mode="123456")  # noqa
         assert get_run() is None
 
     # ---------------------------------- 测试环境变量输入 ----------------------------------
