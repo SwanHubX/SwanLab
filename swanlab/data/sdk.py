@@ -8,7 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict, Tuple
+from typing import Optional, Union, Dict, Tuple, Literal
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -25,14 +25,6 @@ from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
 from swanlab.db import GlomCallback
 from swanlab.package import version_limit
-
-"""
-Allows users to record experiment configurations through swanlab.config.
-Before calling the init() function, config cannot be read or written, even if it is a SwanLabConfig object.
-After calling the init() function, swanlab.config is equivalent to run.config.
-Configuration information synchronization is achieved through class variables.
-When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
-"""
 
 
 def _check_proj_name(name: str) -> str:
@@ -89,7 +81,7 @@ def init(
     config: Union[dict, str] = None,
     logdir: str = None,
     suffix: Union[str, None, bool] = "default",
-    mode: str = None,
+    mode: Literal["disabled", "cloud", "local"] = None,
     load: str = None,
     **kwargs,
 ) -> SwanLabRun:

@@ -9,8 +9,9 @@ r"""
 """
 from .run.callback import MetricInfo, ColumnInfo
 from swanlab.cloud import UploadType
-from swanlab.api.upload.model import ColumnModel
 from urllib.parse import quote
+from swanlab.error import ApiError
+from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
 from swanlab.api import LoginInfo, create_http, terminal_login
 from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
@@ -25,6 +26,7 @@ from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 from swanlab.cloud import LogSnifferTask, ThreadPool
 from swanlab.utils import create_time
 from swanlab.package import get_package_version, get_package_latest_version
+import json
 import sys
 import os
 import io
@@ -151,23 +153,42 @@ class CloudRunCallback(LocalRunCallback):
             show_button_html(experiment_url)
 
     def on_column_create(self, column_info: ColumnInfo):
-        self.pool.queue.put(
-            (UploadType.COLUMN, [ColumnModel(column_info.key, column_info.data_type.upper(), column_info.error)])
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
+        column = ColumnModel(
+            key=column_info.key,
+            column_type=column_info.chart.value.column_type,
+            error=error
         )
+        self.pool.queue.put((UploadType.COLUMN, [column]))
 
     def on_metric_create(self, metric_info: MetricInfo):
         super(CloudRunCallback, self).on_metric_create(metric_info)
+        # 有错误就不上传
         if metric_info.error:
             return
-        new_data = metric_info.metric
-        new_data["key"] = metric_info.key
-        new_data["index"] = metric_info.step
-        new_data["epoch"] = metric_info.epoch
-        if metric_info.data_type == "default":
-            return self.pool.queue.put((UploadType.SCALAR_METRIC, [new_data]))
-        key = quote(metric_info.key, safe="")
-        data = (new_data, key, metric_info.data_type, metric_info.static_dir)
-        self.pool.queue.put((UploadType.MEDIA_METRIC, [data]))
+        metric = metric_info.metric
+        key = metric_info.column_info.key
+        key_encoded = metric_info.key
+        step = metric_info.step
+        epoch = metric_info.epoch
+        # 标量折线图
+        if metric_info.column_info.chart == metric_info.column_info.chart.LINE:
+            scalar = ScalarModel(metric, key, step, epoch)
+            return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
+        # 媒体指标数据
+
+        # -------------------------- 🤡这里是一点小小的💩 --------------------------
+        # 要求上传时的文件路径必须带key_encoded前缀
+        if metric_info.buffers is not None:
+            metric = json.loads(json.dumps(metric))
+            for i, d in enumerate(metric["data"]):
+                metric["data"][i] = "{}/{}".format(key_encoded, d)
+        # ------------------------------------------------------------------------
+
+        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.buffers)
+        self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None):
         # 打印信息

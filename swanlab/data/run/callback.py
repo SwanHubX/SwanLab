@@ -7,14 +7,15 @@ r"""
 @Description:
     回调函数注册抽象类
 """
-from typing import Union, Optional, Callable, Dict
+from typing import Union, Optional, Callable, Dict, List
 from abc import ABC, abstractmethod
 from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import DataType
+from swanlab.data.modules import ChartType, ErrorInfo, MediaBuffer
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.env import is_windows
 from swanlab.package import get_package_version
+from urllib.parse import quote
 import atexit
 import sys
 import os
@@ -43,10 +44,9 @@ class ColumnInfo:
         self,
         key: str,
         namespace: str,
-        data_type: str,
-        chart_type: str,
-        sort: int,
-        error: Optional[Dict] = None,
+        chart: ChartType,
+        sort: Optional[int] = None,
+        error: Optional[ErrorInfo] = None,
         reference: Optional[str] = None,
         config: Optional[Dict] = None,
     ):
@@ -58,11 +58,7 @@ class ColumnInfo:
         """
         列的命名空间
         """
-        self.data_type = data_type
-        """
-        列的数据类型
-        """
-        self.chart_type = chart_type
+        self.chart = chart
         """
         列的图表类型
         """
@@ -70,7 +66,7 @@ class ColumnInfo:
         """
         列的类型错误信息
         """
-        self.reference = reference if reference is not None else "step"
+        self.reference = reference
         """
         列的参考对象
         """
@@ -83,29 +79,50 @@ class ColumnInfo:
         列的额外配置信息
         """
 
+    @property
+    def got(self):
+        """
+        传入的错误类型，如果列出错，返回错误类型，如果没出错，`暂时`返回None
+        """
+        if self.error is None:
+            return None
+        return self.error.got
+
+    @property
+    def expected(self):
+        """
+        期望的类型，如果列出错，返回期望的类型，如果没出错，`暂时`返回None
+        """
+        if self.error is None:
+            return None
+        return self.error.expected
+
 
 class MetricInfo:
     """
     指标信息，当新的指标被log时，会生成这个对象
     """
+    __SUMMARY_NAME = "_summary.json"
 
     def __init__(
         self,
         key: str,
         column_info: ColumnInfo,
+        error: Optional[ErrorInfo],
         metric: Union[Dict, None] = None,
         summary: Union[Dict, None] = None,
-        data_type: Union[float, DataType] = None,
         step: int = None,
         epoch: int = None,
-        metric_path: str = None,
-        summary_path: str = None,
-        static_dir: str = None,
-        error: bool = True,
+        logdir: str = None,
+        metric_file_name: str = None,
+        media_dir: str = None,
+        buffers: List[MediaBuffer] = None,
     ):
-        self.key = key
+        self.__error = error
+
+        self.key = quote(key, safe="")
         """
-        指标的key名称
+        指标的key名称，被quote编码
         """
         self.column_info = column_info
         """
@@ -119,10 +136,6 @@ class MetricInfo:
         """
         摘要信息，error时为None
         """
-        self.data_type = data_type
-        """
-        当前指标的数据类型，error时为None
-        """
         self.step = step
         """
         当前指标的步数，error时为None
@@ -131,22 +144,66 @@ class MetricInfo:
         """
         当前指标对应本地的行数，error时为None
         """
-        self.metric_path = metric_path
+        self.metric_path = None if self.error else os.path.join(logdir, self.key, metric_file_name)
         """
         指标文件的路径，error时为None
         """
-        self.summary_path = summary_path
+        self.summary_path = None if self.error else os.path.join(logdir, self.key, self.__SUMMARY_NAME)
         """
         摘要文件的路径，error时为None
         """
-        self.static_dir = static_dir
+        self.media_dir = media_dir
         """
-        静态文件的根文件夹，error时为None
+        静态文件的根文件夹
         """
-        self.error = error
+        self.buffers = buffers
         """
-        指标是否有错误
+        需要上传的媒体数据，比特流，error时为None，如果上传为非媒体类型（或Text类型），也为None
         """
+        # 写入文件名称，对应上传时的文件名称
+        if self.buffers is not None:
+            for i, buffer in enumerate(self.buffers):
+                buffer.file_name = "{}/{}".format(self.key, metric["data"][i])
+
+    @property
+    def error(self) -> bool:
+        """
+        这条指标信息是否有错误，错误分几种：
+            1. 列错误，列一开始就出现问题
+            2. 重复错误
+            3. 指标错误
+        """
+        return self.error_info is not None or self.column_error_info is not None
+
+    @property
+    def column_error_info(self) -> Optional[ErrorInfo]:
+        """
+        列错误信息
+        """
+        return self.column_info.error
+
+    @property
+    def error_info(self) -> Optional[ErrorInfo]:
+        """
+        指标错误信息
+        """
+        return self.__error
+
+    @property
+    def duplicated_error(self) -> bool:
+        """
+        是否是重复的指标
+        """
+        return self.__error and self.__error.duplicated
+
+    @property
+    def data(self) -> Union[Dict, None]:
+        """
+        指标数据的data字段
+        """
+        if self.error:
+            return None
+        return self.metric["data"]
 
 
 class ErrorInfo:

@@ -15,6 +15,8 @@ from qcloud_cos import CosS3Client
 from qcloud_cos.cos_threadpool import SimpleThreadPool
 from datetime import datetime, timedelta
 from typing import List, Dict, Union
+from swanlab.data.modules import MediaBuffer
+from swanlab.log import swanlog
 
 
 class CosClient:
@@ -37,32 +39,34 @@ class CosClient:
         )
         self.__client = CosS3Client(config)
 
-    def upload(self, key: str, local_path):
+    def upload(self, buffer: MediaBuffer):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
         开头不能有/
-        :param key: 上传到cos的文件名称
-        :param local_path: 本地文件路径，一般用绝对路径
+        :param buffer: 本地文件的二进制数据
         """
-        key = self.__prefix + '/' + key
-        self.__client.upload_file(
-            Bucket=self.__bucket,
-            Key=key,
-            LocalFilePath=local_path,
-            EnableMD5=False,
-            progress_callback=None
-        )
+        key = "{}/{}".format(self.__prefix, buffer.file_name)
+        try:
+            swanlog.debug("Uploading file: {}".format(key))
+            self.__client.put_object(
+                Bucket=self.__bucket,
+                Key=key,
+                Body=buffer.getvalue(),
+                EnableMD5=False,
+                # 一年
+                CacheControl="max-age=31536000",
+            )
+        except Exception as e:
+            swanlog.error("Upload error: {}".format(e))
 
-    def upload_files(self, keys: List[str], local_paths: List[str]) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
-        :param keys: 上传到cos的文件名称集合
-        :param local_paths: 本地文件路径，需用绝对路径
+        :param buffers: 本地文件的二进制对象集合
         """
-        assert len(keys) == len(local_paths), "keys and local_paths should have the same length"
         pool = SimpleThreadPool()
-        for key, local_path in zip(keys, local_paths):
-            pool.add_task(self.upload, key, local_path)
+        for buffer in buffers:
+            self.upload(buffer)
         pool.wait_completion()
         result = pool.get_result()
         return result

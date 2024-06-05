@@ -90,7 +90,7 @@ class SwanDataSettings(LazySettings):
         self.__console_dir = os.path.join(self.run_dir, "console")
         self.__log_dir = os.path.join(self.run_dir, "logs")
         self.__files_dir = os.path.join(self.run_dir, "files")
-        self.__static_dir = os.path.join(self.run_dir, "media")
+        self.__media_dir = os.path.join(self.run_dir, "media")
         # ---------------------------------- 文件信息 ----------------------------------
         self.__requirements_path = os.path.join(self.files_dir, "requirements.txt")
         self.__metadata_path = os.path.join(self.files_dir, "swanlab-metadata.json")
@@ -153,10 +153,10 @@ class SwanDataSettings(LazySettings):
         return self.__console_dir
 
     @property
-    def static_dir(self) -> str:
+    def media_dir(self) -> str:
         """静态资源路径"""
-        self.mkdir(self.__static_dir)
-        return self.__static_dir
+        self.mkdir(self.__media_dir)
+        return self.__media_dir
 
     @property
     def files_dir(self) -> str:
