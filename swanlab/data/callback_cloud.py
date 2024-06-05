@@ -93,7 +93,7 @@ class CloudRunCallback(LocalRunCallback):
             return swanlog.debug("SwanLab is exiting, please wait.")
         self._train_finish_print()
         # 如果正在运行
-        run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
+        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
     def _except_handler(self, tp, val, tb):
         if self.exiting:

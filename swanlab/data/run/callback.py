@@ -28,11 +28,13 @@ class RuntimeInfo:
 
     def __init__(self, requirements: str = None, system: dict = None, config: dict = None):
         """
-        :param requirements: python依赖
+        :param requirements: python依赖信息
         :param system: 系统信息
         :param config: 上传的配置信息
         """
-        pass
+        self.requirements: Optional[str] = requirements
+        self.system: Optional[str] = system
+        self.config: Optional[str] = config
 
 
 class ColumnInfo:

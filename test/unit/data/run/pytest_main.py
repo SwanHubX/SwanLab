@@ -73,19 +73,19 @@ class TestSwanLabRunState:
     def test_running(self):
         run = SwanLabRun()
         assert run.state == SwanLabRunState.RUNNING
-        assert run.is_running is True
+        assert run.running is True
 
     def test_crashed(self):
         run = SwanLabRun()
         run.finish(SwanLabRunState.CRASHED, error="error")
         assert run.state == SwanLabRunState.CRASHED
-        assert run.is_crashed is True
+        assert run.crashed is True
 
     def test_success(self):
         run = SwanLabRun()
         run.finish(SwanLabRunState.SUCCESS)
         assert run.state == SwanLabRunState.SUCCESS
-        assert run.is_success is True
+        assert run.success is True
 
 
 class TestSwanLabRunLog:

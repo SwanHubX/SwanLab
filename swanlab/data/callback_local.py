@@ -11,7 +11,7 @@ from typing import Callable
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo
+from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo, RuntimeInfo
 from swanlab.data.system import get_system_info, get_requirements
 from swanlab.env import ROOT
 from datetime import datetime
