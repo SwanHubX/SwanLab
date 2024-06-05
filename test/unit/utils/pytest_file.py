@@ -215,13 +215,22 @@ class TestDesc:
 
 class TestTag:
     @pytest.mark.parametrize(
-        "value", [generate(size=255), generate(size=100), generate(size=1), "12/", "-", "_", "👾👾👾👾👾👾", " abc "]
+        "value", [generate(size=255), generate(size=100), generate(size=1), "12/", "-", "_", "👾👾👾👾👾👾"]
     )
     def test_tag_common(self, value):
         """
         测试正常情况
         """
         assert check_key_format(value) == value
+
+    def test_key_blank(self):
+        """
+        测试收尾空格情况
+        """
+        with pytest.raises(ValueError):
+            check_key_format("  ")
+        key = "  " + "abc" + "  "
+        assert check_key_format(key) == "abc"
 
     @pytest.mark.parametrize(
         "value",

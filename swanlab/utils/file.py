@@ -272,6 +272,8 @@ def check_key_format(key: str, auto_cut=True) -> str:
     max_len = 255
     if not isinstance(key, str):
         raise TypeError(f"tag: {key} is not a string")
+    # 删除头尾空格
+    key = key.lstrip().rstrip()
     if not check_string(key):
         raise ValueError(f"tag: {key} is an empty string")
     if key.startswith((".", "/")):

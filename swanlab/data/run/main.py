@@ -85,7 +85,7 @@ class SwanLabRun:
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
@@ -250,7 +250,6 @@ class SwanLabRun:
         for k, v in data.items():
             _k = k
             k = check_key_format(k, auto_cut=True)
-            k = k.lstrip().rstrip()
             if k != _k:
                 # 超过255字符，截断
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
