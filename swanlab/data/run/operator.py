@@ -8,7 +8,7 @@ r"""
     回调函数操作员，批量处理回调函数的调用
 """
 from typing import List, Union, Dict, Any, Callable
-from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, ErrorInfo
+from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
 from ..settings import SwanDataSettings
 import swanlab.error as E
 from swanlab.utils import FONT
@@ -92,13 +92,16 @@ class SwanLabRunOperator(SwanLabRunCallback):
             setter
         )
 
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        return self.__run_all("on_runtime_info_update", r)
+
     def on_run(self):
         try:
             return self.__run_all("on_run")
         except E.ApiError as e:
             FONT.brush("", 50)
             if e.resp.status_code == 409:
-                error = ErrorInfo("The experiment name already exists, please change the experiment name")
+                error = OperateErrorInfo("The experiment name already exists, please change the experiment name")
                 return self.__run_all("on_run_error_from_operator", error)
             else:
                 raise e
