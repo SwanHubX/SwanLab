@@ -120,6 +120,7 @@ class CloudRunCallback(LocalRunCallback):
         return http.mount_project(project, workspace).history_exp_count
 
     def on_runtime_info_update(self, r: RuntimeInfo):
+        # 执行local逻辑，保存文件到本地
         super(CloudRunCallback, self).on_runtime_info_update(r)
         # 添加上传任务到线程池
         rc = r.config.info if r.config is not None else None

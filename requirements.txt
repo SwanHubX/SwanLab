@@ -21,5 +21,3 @@ peewee
 # Information collection
 psutil
 pynvml
-watchdog
-
