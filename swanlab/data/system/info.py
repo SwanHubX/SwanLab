@@ -103,7 +103,10 @@ def __get_nvidia_gpu_info():
         for i in range(info["cores"]):
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             # 获取 GPU 型号
-            info["type"].append(pynvml.nvmlDeviceGetName(handle))
+            gpu_name = pynvml.nvmlDeviceGetName(handle)  # types: bytes | str
+            if isinstance(gpu_name, bytes):  # Fix for pynvml 早期版本，关联 issue: #605
+                gpu_name = gpu_name.decode("utf-8")
+            info["type"].append(gpu_name)
             # 获取 GPU 的总显存, 单位为GB
             info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024 ** 3)))
 
