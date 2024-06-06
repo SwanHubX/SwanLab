@@ -22,7 +22,7 @@ def __replace_second_colon(input_string, replacement):
     if first_colon_index != -1:
         second_colon_index = input_string.find(":", first_colon_index + 1)
         if second_colon_index != -1:
-            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1:]
+            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1 :]
     return input_string
 
 
@@ -102,9 +102,12 @@ def __get_nvidia_gpu_info():
         for i in range(info["cores"]):
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             # 获取 GPU 型号
-            info["type"].append(pynvml.nvmlDeviceGetName(handle))
+            gpu_name = pynvml.nvmlDeviceGetName(handle)  # types: bytes | str
+            if isinstance(gpu_name, bytes):  # Fix for pynvml 早期版本，关联 issue: #605
+                gpu_name = gpu_name.decode("utf-8")
+            info["type"].append(gpu_name)
             # 获取 GPU 的总显存, 单位为GB
-            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024 ** 3)))
+            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
 
     except pynvml.NVMLError as e:
         swanlog.debug(f"An error occurred when getting GPU info: {e}")
@@ -186,7 +189,7 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = round(mem.total / (1024 ** 3))  # 单位为GB
+        total_memory = round(mem.total / (1024**3))  # 单位为GB
         return total_memory
     except Exception as e:
         swanlog.debug(f"An error occurred when getting memory size: {e}")
@@ -228,10 +231,7 @@ def get_system_info(version: str, logdir: str):
     :param logdir: swanlab日志目录
     """
     return {
-        "swanlab": {
-            "version": version,
-            "logdir": logdir
-        },
+        "swanlab": {"version": version, "logdir": logdir},
         "hostname": socket.gethostname(),
         "os": platform.platform(),
         "python": platform.python_version(),
