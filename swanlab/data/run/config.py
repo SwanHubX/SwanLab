@@ -7,8 +7,8 @@ r"""
 @Description:
     SwanLabConfig 配置类
 """
-from typing import Any
-from collections.abc import Mapping
+from typing import Any, Mapping, Union
+from collections.abc import MutableMapping
 import yaml
 import argparse
 from swanlab.log import swanlog
@@ -21,9 +21,10 @@ import re
 import json
 
 
-def json_serializable(obj: dict):
+def json_serializable(obj):
     """
     将传入的字典转换为JSON可序列化格式。
+    :raises TypeError: 对象不是JSON可序列化的
     """
     # 如果对象是基本类型，则直接返回
     if isinstance(obj, (int, float, str, bool, type(None))):
@@ -45,33 +46,33 @@ def json_serializable(obj: dict):
     elif isinstance(obj, dict):
         return {str(key): json_serializable(value) for key, value in obj.items()}
 
-    else:
-        # 对于其他不可序列化的类型，转换为字符串表示
-        return str(obj)
+    # 对于可变映射，递归调用此函数处理值，并将key转换为字典
+    elif isinstance(obj, MutableMapping):
+        return {str(key): json_serializable(value) for key, value in obj.items()}
+    raise TypeError(f"Object {obj} is not JSON serializable")
 
 
 def third_party_config_process(data) -> dict:
     """
     对于一些特殊的第三方库的处理，例如omegaconf
+    :raises TypeError: 适配的写入的第三方库都没有命中，抛出TypeError
     """
     # 如果是omegaconf的DictConfig，则转换为字典
     try:
         import omegaconf  # noqa
         if isinstance(data, omegaconf.DictConfig):
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
-        else:
-            raise TypeError
     except ImportError:
         pass
 
     # 如果是argparse的Namespace，则转换为字典
     if isinstance(data, argparse.Namespace):
         return vars(data)
-    else:
-        raise TypeError
+
+    raise TypeError
 
 
-def parse(config: Mapping) -> dict:
+def parse(config) -> dict:
     """
     Check the configuration item and convert it to a JSON serializable format.
     """
@@ -80,14 +81,12 @@ def parse(config: Mapping) -> dict:
     # 1. 第三方配置类型判断与转换
     try:
         return third_party_config_process(config)
-    except ImportError:
-        pass
     except TypeError:
         pass
     # 2. 将config转换为可被json序列化的字典
     try:
-        return json_serializable(dict(config))
-    except Exception:  # noqa
+        return json_serializable(config)
+    except TypeError:  # noqa
         pass
     # 3. 尝试序列化，序列化成功直接返回
     try:
@@ -97,26 +96,25 @@ def parse(config: Mapping) -> dict:
         raise TypeError(f"config: {config} is not a json serialized dict, error: {e}")
 
 
-class SwanLabConfig(Mapping):
+__config_attr__ = ['_SwanLabConfig__config', '_SwanLabConfig__on_setter']
+
+
+class SwanLabConfig(MutableMapping):
     """
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
 
     Attention:
     The configuration item must be JSON serializable; Cannot set private attributes by `.__xxx`.
     """
-    __dict__ = {
-        "_SwanLabConfig__config": {},
-        "_SwanLabConfig__on_setter": None,
-    }
 
-    def __init__(self, config: Mapping = None, on_setter: Optional[Callable[[RuntimeInfo], Any]] = None):
+    def __init__(self, config: MutableMapping = None, on_setter: Optional[Callable[[RuntimeInfo], Any]] = None):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
         """
-        if config is not None:
-            self.__config.update(parse(config))
         # 每一个实例有自己的config
         self.__config = {}
+        if config is not None:
+            self.__config.update(parse(config))
         self.__on_setter = on_setter
 
     @staticmethod
@@ -135,7 +133,7 @@ class SwanLabConfig(Mapping):
         保存config为dict
         """
         if not self.__on_setter:
-            return
+            return swanlog.debug("The configuration is not saved because the setter is not set.")
         try:
             # 深度拷贝一次，防止引用传递
             data = yaml.load(yaml.dump(self.__config), Loader=yaml.FullLoader)
@@ -166,11 +164,6 @@ class SwanLabConfig(Mapping):
         """
         如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
         """
-        # 如果self.__dict__中有name属性，则返回
-        try:
-            return self.__dict__[name]
-        except KeyError:
-            pass
         try:
             return self.__config[name]
         except KeyError:
@@ -181,9 +174,8 @@ class SwanLabConfig(Mapping):
         Custom setter attribute, user can not set private attributes.
         """
         name = str(name)
-        if name in self.__dict__:
-            self.__dict__[name] = value
-            return
+        if name in __config_attr__:
+            return super().__setattr__(name, value)
         # _*__正则开头的属性不允许设置
         if re.match(r"_.*__", name):
             raise AttributeError(f"Attribute '{name}' is private and cannot be set")
@@ -217,6 +209,8 @@ class SwanLabConfig(Mapping):
         以字典方式获取配置项的值
         """
         # 如果self.__dict__中有name属性，则返回
+        if not isinstance(name, str):
+            raise TypeError(f"Key must be a string, but got {type(name)}")
         # 以_SwanLabConfig__开头，删除
         if name.startswith("_SwanLabConfig__"):
             name = name[15:]
@@ -272,12 +266,15 @@ class SwanLabConfig(Mapping):
         except KeyError:
             return None
 
-    def update(self, data: dict):
+    def update(self, __m: Union[MutableMapping, argparse.Namespace] = None, **kwargs):
         """
-        Update the configuration item with the dict provided and save it.
-        :param data: dict of configuration items
+        Update the configuration with the key/value pairs from __m, overwriting existing keys.
         """
-        self.__config.update(parse(data))
+        if __m is not None:
+            for k, v in parse(__m).items():
+                self.__config[k] = v
+        for k, v in kwargs.items():
+            self.__config[k] = parse(v)
         self.__save()
 
     def clean(self):
