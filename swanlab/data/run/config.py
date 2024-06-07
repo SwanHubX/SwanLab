@@ -144,6 +144,7 @@ class SwanLabConfig(MutableMapping):
         self.__fmt_config(data)
         r = RuntimeInfo(config=self.__config)
         self.__on_setter(r)
+        swanlog.debug(f"Save configuration.")
 
     # ---------------------------------- 实现对象风格 ----------------------------------
 

@@ -15,8 +15,8 @@ from .config import SwanLabConfig
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
-from typing import Callable, Optional, Dict, MutableMapping
-from .operator import SwanLabRunOperator, RuntimeInfo
+from typing import Callable, Optional, Dict
+from .operator import SwanLabRunOperator
 from swanlab.env import get_mode
 import random
 
@@ -112,6 +112,8 @@ class SwanLabRun:
 
         # ---------------------------------- 初始化完成 ----------------------------------
         self.__operator.on_run()
+        # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
+        getattr(config, "_SwanLabConfig__save")()
 
     @property
     def operator(self) -> SwanLabRunOperator:
