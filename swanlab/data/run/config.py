@@ -7,15 +7,18 @@ r"""
 @Description:
     SwanLabConfig 配置类
 """
-import os.path
 from typing import Any
 from collections.abc import Mapping
 import yaml
 import argparse
-from swanlab.data.run.settings import SwanDataSettings
 from swanlab.log import swanlog
 import datetime
 import math
+from typing import Callable, Optional
+from .callback import RuntimeInfo
+from swanlab.data.modules import Line
+import re
+import json
 
 
 def json_serializable(obj: dict):
@@ -25,9 +28,9 @@ def json_serializable(obj: dict):
     # 如果对象是基本类型，则直接返回
     if isinstance(obj, (int, float, str, bool, type(None))):
         if isinstance(obj, float) and math.isnan(obj):
-            return "nan"
+            return Line.nan
         if isinstance(obj, float) and math.isinf(obj):
-            return "inf"
+            return Line.inf
         return obj
 
     # 将日期和时间转换为字符串
@@ -47,310 +50,189 @@ def json_serializable(obj: dict):
         return str(obj)
 
 
-def thirdparty_config_process(data) -> dict:
+def third_party_config_process(data) -> dict:
     """
     对于一些特殊的第三方库的处理，例如omegaconf
     """
     # 如果是omegaconf的DictConfig，则转换为字典
     try:
-        import omegaconf
-
+        import omegaconf  # noqa
         if isinstance(data, omegaconf.DictConfig):
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
-    except Exception as e:
+        else:
+            raise TypeError
+    except ImportError:
         pass
 
     # 如果是argparse的Namespace，则转换为字典
     if isinstance(data, argparse.Namespace):
         return vars(data)
+    else:
+        raise TypeError
 
-    return data
+
+def parse(config: Mapping) -> dict:
+    """
+    Check the configuration item and convert it to a JSON serializable format.
+    """
+    if config is None:
+        return {}
+    # 1. 第三方配置类型判断与转换
+    try:
+        return third_party_config_process(config)
+    except ImportError:
+        pass
+    except TypeError:
+        pass
+    # 2. 将config转换为可被json序列化的字典
+    try:
+        return json_serializable(dict(config))
+    except Exception:  # noqa
+        pass
+    # 3. 尝试序列化，序列化成功直接返回
+    try:
+        return json.loads(json.dumps(config))
+    except Exception as e:  # noqa
+        # 还失败就没办法了，👋
+        raise TypeError(f"config: {config} is not a json serialized dict, error: {e}")
 
 
 class SwanLabConfig(Mapping):
     """
     The SwanConfig class is used for realize the invocation method of `run.config.lr`.
+
+    Attention:
+    The configuration item must be JSON serializable; Cannot set private attributes by `.__xxx`.
     """
+    __dict__ = {
+        "_SwanLabConfig__config": {},
+        "_SwanLabConfig__on_setter": None,
+    }
 
-    # 配置字典
-    __config = dict()
-
-    # 运行时设置
-    __settings = dict()
-
-    @property
-    def _inited(self):
-        return self.__settings.get("save_path") is not None
-
-    def __init__(self, config: dict = None, settings: SwanDataSettings = None):
+    def __init__(self, config: Mapping = None, on_setter: Optional[Callable[[RuntimeInfo], Any]] = None):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
-
-        Parameters
-        ----------
-        settings : SwanDataSettings, optional
-            运行时设置
         """
-        if config is None:
-            config = {}
-
-        self.__config.update(config)
-        self.__settings["save_path"] = os.path.join(settings.files_dir, "config.yaml") if settings is not None else None
-        self.__settings["should_save"] = settings.should_save if settings is not None else False
-        if self._inited:
-            self.save()
-
-    @property
-    def should_shave(self):
-        return self.__settings.get("should_save")
+        if config is not None:
+            self.__config.update(parse(config))
+        # 每一个实例有自己的config
+        self.__config = {}
+        self.__on_setter = on_setter
 
     @staticmethod
-    def __check_config(config: dict) -> dict:
+    def __fmt_config(config: dict):
         """
-        检查配置是否合法，确保它可以被 JSON/YAML 序列化，并返回转换后的配置字典。
+        格式化config，值改为value字段，增加desc和sort字段
         """
-        if config is None:
-            return {}
-        # config必须可以被json序列化
+        # 遍历每一个配置项，值改为value
+        sort = 0
+        for key, value in config.items():
+            config[key] = {"value": value, "desc": "", "sort": sort}
+            sort += 1
+
+    def __save(self):
+        """
+        保存config为dict
+        """
+        if not self.__on_setter:
+            return
         try:
-            # 第三方配置类型判断与转换
-            config = thirdparty_config_process(config)
+            # 深度拷贝一次，防止引用传递
+            data = yaml.load(yaml.dump(self.__config), Loader=yaml.FullLoader)
+        except Exception as e:
+            swanlog.error(f"Error occurred when saving config: {e}")
+            return
+        # 遍历每一个配置项，值改为value，如果是字典，则递归调用
+        self.__fmt_config(data)
+        r = RuntimeInfo(config=self.__config)
+        self.__on_setter(r)
 
-            # 将config转换为可被json序列化的字典
-            config = json_serializable(dict(config))
+    # ---------------------------------- 实现对象风格 ----------------------------------
 
-            # 尝试序列化，如果还是失败就退出
-            yaml.dump(config)
-
-        except:
-            raise TypeError(f"config: {config} is not a valid dict, which can be json serialized")
-
-        return config
-
-    @staticmethod
-    def __check_private(name: str):
+    def __delattr__(self, name: str):
         """
-        检查属性名是否是私有属性,如果是私有属性，抛出异常
-
-        Parameters
-        ----------
-        name : str
-            属性名
-
-        Raises
-        ----------
-        AttributeError
-            如果属性名是私有属性，抛出异常
+        删除配置项，如果配置项不存在
         """
-        methods = ["set", "get", "pop"]
-        swanlog.debug(f"Check private attribute: {name}")
-        if name.startswith("__") or name.startswith("_SwanLabConfig__") or name in methods:
-            raise AttributeError("You can not get private attribute")
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        """
-        自定义属性设置方法。如果属性名不是私有属性，则同时更新配置字典并保存。
-        允许通过点号方式设置属性，但不允许设置私有属性：
-        ```python
-        run.config.lr = 0.01  # 允许
-        run.config._lr = 0.01 # 允许
-        run.config.__lr = 0.01 # 不允许
-        ```
-
-        值得注意的是类属性的设置不会触发此方法
-        """
-
-        # 判断是否是私有属性
-        name = str(name)
-        self.__check_private(name)
-        # 设置属性，并判断是否已经初始化，如果是，则调用保存方法
-        self.__dict__[name] = value
-        # 同步到配置字典
-        self.__config[name] = value
-        self.save()
-
-    def __setitem__(self, name: str, value: Any) -> None:
-        """
-        以字典方式设置配置项的值，并保存，但不允许设置私有属性：
-        ```python
-        run.config["lr"] = 0.01  # 允许
-        run.config["_lr"] = 0.01 # 允许
-        run.config["__lr"] = 0.01 # 不允许
-        ```
-        """
-        # 判断是否是私有属性
-        name = str(name)
-        self.__check_private(name)
-        self.__config[name] = value
-        self.save()
-
-    def set(self, name: str, value: Any) -> None:
-        """
-        Explicitly set the value of a configuration item and save it. For example:
-
-        ```python
-        run.config.set("lr", 0.01)   # Allowed
-        run.config.set("_lr", 0.01)  # Allowed
-        run.config.set("__lr", 0.01) # Not allowed
-        ```
-
-        Parameters
-        ----------
-        name: str
-            Name of the configuration item
-        value: Any
-            Value of the configuration item
-
-        Raises
-        ----------
-        AttributeError
-            If the attribute name is private, an exception is raised
-        """
-        name = str(name)
-        self.__check_private(name)
-        self.__config[name] = value
-        self.save()
-
-    def pop(self, name: str) -> bool:
-        """
-        Delete a configuration item; if the item does not exist, skip.
-
-        Parameters
-        ----------
-        name : str
-            Name of the configuration item
-
-        Returns
-        ----------
-        bool
-            True if deletion is successful, False otherwise
-        """
+        # _*__正则开头的属性不允许删除
+        if re.match(r"_.*__", name):
+            raise AttributeError(f"Attribute '{name}' is private and cannot be deleted")
         try:
             del self.__config[name]
-            self.save()
-            return True
+            self.__save()
         except KeyError:
-            return False
-
-    def get(self, name: str):
-        """
-        Get the value of a configuration item. If the item does not exist, raise AttributeError.
-
-        Parameters
-        ----------
-        name : str
-            Name of the configuration item
-
-        Returns
-        ----------
-        value : Any
-            Value of the configuration item
-
-        Raises
-        ----------
-        AttributeError
-            If the configuration item does not exist, an AttributeError is raised
-        """
-        try:
-            return self.__config[name]
-        except KeyError:
-            raise AttributeError(f"You have not retrieved '{name}' in the config of the current experiment")
-
-    def clean(self):
-        """
-        清空配置字典
-        """
-        self.__config.clear()
-
-    def update(self, data: dict):
-        """
-        Update the configuration item with the dict provided and save it.
-
-        :param data: dict of configuration items
-        """
-
-        self.__config.update(data)
-        self.save()
+            raise AttributeError(f"You have not deleted '{name}' in the config of the current experiment")
 
     def __getattr__(self, name: str):
         """
         如果以点号方式访问属性且属性不存在于类中，尝试从配置字典中获取。
         """
+        # 如果self.__dict__中有name属性，则返回
+        try:
+            return self.__dict__[name]
+        except KeyError:
+            pass
         try:
             return self.__config[name]
         except KeyError:
             raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        Custom setter attribute, user can not set private attributes.
+        """
+        name = str(name)
+        if name in self.__dict__:
+            self.__dict__[name] = value
+            return
+        # _*__正则开头的属性不允许设置
+        if re.match(r"_.*__", name):
+            raise AttributeError(f"Attribute '{name}' is private and cannot be set")
+        # 否则应该设置到配置字典中
+        self.__config[name] = parse(value)
+        self.__save()
+
+    # ---------------------------------- 实现字典风格 ----------------------------------
+
+    def get(self, name: str, default=None):
+        """
+        Get the value of a configuration item. If the item does not exist, raise AttributeError.
+        """
+        try:
+            return self.__config[name]
+        except KeyError:
+            return default
+
+    def __delitem__(self, name: str):
+        """
+        删除配置项，如果配置项不存在,跳过
+        """
+        try:
+            del self.__config[name]
+            self.__save()
+        except KeyError:
+            raise KeyError(f"You have not set '{name}' in the config of the current experiment when deleting")
 
     def __getitem__(self, name: str):
         """
-        以字典方式获取配置项的值。
+        以字典方式获取配置项的值
         """
+        # 如果self.__dict__中有name属性，则返回
+        # 以_SwanLabConfig__开头，删除
+        if name.startswith("_SwanLabConfig__"):
+            name = name[15:]
         try:
             return self.__config[name]
         except KeyError:
-            raise AttributeError(f"You have not get '{name}' in the config of the current experiment")
+            raise KeyError(f"You have not get '{name}' in the config of the current experiment")
 
-    def __delattr__(self, name: str) -> bool:
+    def __setitem__(self, name: str, value: Any) -> None:
         """
-        删除配置项，如果配置项不存在,跳过
-
-        Parameters
-        ----------
-        name : str
-            配置项名称
-
-        Returns
-        ----------
-        bool
-            是否删除成功
+        Set the value of a configuration item. If the item does not exist, create it.
+        User are not allowed to set private attributes.
         """
-        try:
-            del self.__config[name]
-            return True
-        except KeyError:
-            return False
-
-    def __delitem__(self, name: str) -> bool:
-        """
-        删除配置项，如果配置项不存在,跳过
-
-        Parameters
-        ----------
-        name : str
-            配置项名称
-
-        Returns
-        ----------
-        bool
-            是否删除成功
-        """
-        try:
-            del self.__config[name]
-            return True
-        except KeyError:
-            return False
-
-    def save(self):
-        """
-        保存config为json，不必校验config的YAML格式，将在写入时完成校验
-        """
-        if not self.should_shave:
-            return
-        swanlog.debug("Save config to {}".format(self.__settings.get("save_path")))
-
-        serialization_config = self.__check_config(self.__config)
-        with open(self.__settings.get("save_path"), "w") as f:
-            # 将config的每个key的value转换为desc和value两部分，value就是原来的value，desc是None
-            # 这样做的目的是为了在web界面中显示config的内容,desc是用于描述value的
-            config = {
-                key: {
-                    "desc": None,
-                    "sort": index,
-                    "value": value,
-                }
-                for index, (key, value) in enumerate(serialization_config.items())
-            }
-            yaml.dump(config, f)
+        name = str(name)
+        self.__config[name] = parse(value)
+        self.__save()
 
     def __iter__(self):
         """
@@ -366,3 +248,42 @@ class SwanLabConfig(Mapping):
 
     def __str__(self):
         return str(self.__config)
+
+    # ---------------------------------- 其他函数 ----------------------------------
+
+    def set(self, name: str, value: Any):
+        """
+        Explicitly set the value of a configuration item and save it.
+        Private attributes are not allowed to be set.
+        """
+        name = str(name)
+        self.__config[name] = parse(value)
+        self.__save()
+
+    def pop(self, name: str):
+        """
+        Delete a configuration item; if the item does not exist, skip.
+        """
+        try:
+            t = self.__config[name]
+            del self.__config[name]
+            self.__save()
+            return t
+        except KeyError:
+            return None
+
+    def update(self, data: dict):
+        """
+        Update the configuration item with the dict provided and save it.
+        :param data: dict of configuration items
+        """
+        self.__config.update(parse(data))
+        self.__save()
+
+    def clean(self):
+        """
+        Clean the configuration.
+        Attention: This method will reset the instance and instance will not automatically save the configuration.
+        """
+        self.__config.clear()
+        self.__on_setter = None
