@@ -107,7 +107,11 @@ class SwanLabConfig(MutableMapping):
     The configuration item must be JSON serializable; Cannot set private attributes by `.__xxx`.
     """
 
-    def __init__(self, config: MutableMapping = None, on_setter: Optional[Callable[[RuntimeInfo], Any]] = None):
+    def __init__(
+        self,
+        config: Union[MutableMapping, argparse.Namespace] = None,
+        on_setter: Optional[Callable[[RuntimeInfo], Any]] = None
+    ):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
         """
