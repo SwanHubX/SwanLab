@@ -93,8 +93,6 @@ def upload_files(files: List[FileModel]):
         for i in range(1, len(files) - 1):
             file_model = FileModel.create(files[i], file_model)
     data = file_model.to_dict()
-    if len(data) == 0:
-        return swanlog.warning("No files to upload after creating model.")
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
 

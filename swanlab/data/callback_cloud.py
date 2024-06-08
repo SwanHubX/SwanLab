@@ -123,9 +123,9 @@ class CloudRunCallback(LocalRunCallback):
         # 执行local逻辑，保存文件到本地
         super(CloudRunCallback, self).on_runtime_info_update(r)
         # 添加上传任务到线程池
-        rc = r.config.info if r.config is not None else None
-        rr = r.requirements.dumps() if r.requirements is not None else None
-        rm = r.metadata.info if r.metadata is not None else None
+        rc = r.config.to_dict() if r.config is not None else None
+        rr = r.requirements.info if r.requirements is not None else None
+        rm = r.metadata.to_dict() if r.metadata is not None else None
         # 不需要json序列化，上传时会自动序列化
         f = FileModel(requirements=rr, config=rc, metadata=rm)
         self.pool.queue.put((UploadType.FILE, [f]))

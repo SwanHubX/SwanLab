@@ -15,7 +15,7 @@ from .config import SwanLabConfig
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
-from typing import Callable, Optional, Dict, MutableMapping
+from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator
 from swanlab.env import get_mode
 import random
@@ -43,7 +43,7 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        run_config: MutableMapping = None,
+        run_config=None,
         log_level: str = None,
         suffix: str = None,
         exp_num: int = None,
@@ -62,7 +62,7 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
-        run_config : MutableMapping, optional
+        run_config : Any, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
         log_level : str, optional
@@ -93,8 +93,10 @@ class SwanLabRun:
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.set_level(self.__check_log_level(log_level))
         # ---------------------------------- 初始化配置 ----------------------------------
-        # 给外部1个config
-        self.__config = SwanLabConfig(run_config, self.__settings)
+        global config
+        config.update(run_config)
+        setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
+        self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
@@ -110,6 +112,8 @@ class SwanLabRun:
 
         # ---------------------------------- 初始化完成 ----------------------------------
         self.__operator.on_run()
+        # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
+        getattr(config, "_SwanLabConfig__save")()
 
     @property
     def operator(self) -> SwanLabRunOperator:
@@ -175,11 +179,11 @@ class SwanLabRun:
         :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
         :param error: The error message when the experiment is marked as 'CRASHED'. If not 'CRASHED', it should be None.
         """
-        global run
+        global run, config
         # 分为几步
         # 1. 设置数据库实验状态为对应状态
         # 2. 判断是否为云端同步，如果是则开始关闭线程池和同步状态
-        # 3. 清空run和config对象，run改为局部变量_run，config被清空
+        # 3. 清空run和config对象，run改为局部变量_run，新建一个config对象，原本的config对象内容转移到新的config对象，全局config被清空
         # 4. 返回_run
         if run is None:
             raise RuntimeError("The run object is None, please call `swanlab.init` first.")
@@ -195,7 +199,10 @@ class SwanLabRun:
             # disabled 模式下没有install，所以会报错
             pass
 
-        run.config.clean()
+        # ---------------------------------- 清空config和run ----------------------------------
+        _config = SwanLabConfig(config)
+        setattr(run, "_SwanLabRun__config", _config)
+        config.clean()
         _run, run = run, None
 
         return _run
@@ -209,7 +216,7 @@ class SwanLabRun:
         return self.__settings
 
     @property
-    def config(self):
+    def config(self) -> SwanLabConfig:
         """
         This property allows you to access the 'config' content passed through `init`,
         and allows you to modify it. The latest configuration after each modification
@@ -343,8 +350,12 @@ _change_run_state: Optional["Callable"] = None
 """
 修改实验状态的函数，用于在实验状态改变时调用
 """
+
+# 全局唯一的config对象，不应该重新赋值
 config: Optional["SwanLabConfig"] = SwanLabConfig()
-"""Global config instance. After the user calls finish(), config will be set to None."""
+"""
+Global config instance.
+"""
 
 
 def _set_run_state(state: SwanLabRunState):

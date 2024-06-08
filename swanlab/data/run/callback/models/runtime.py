@@ -8,7 +8,7 @@ r"""
     运行时信息模型
 """
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 import json
 import yaml
 import os
@@ -34,6 +34,13 @@ class InfoWriter(ABC):
         """
         pass
 
+    @abstractmethod
+    def to_dict(self):
+        """
+        将信息转换为字典
+        """
+        pass
+
 
 class RequirementInfo(InfoWriter):
     """
@@ -51,6 +58,9 @@ class RequirementInfo(InfoWriter):
     def dumps(self):
         return self.info
 
+    def to_dict(self):
+        raise NotImplementedError("RequirementInfo has no to_dict method")
+
 
 class MetadataInfo(InfoWriter):
     """
@@ -66,7 +76,10 @@ class MetadataInfo(InfoWriter):
             f.write(self.dumps())
 
     def dumps(self):
-        return json.dumps(self.info, ensure_ascii=False)
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+
+    def to_dict(self):
+        return self.info
 
 
 class ConfigInfo(InfoWriter):
@@ -77,13 +90,32 @@ class ConfigInfo(InfoWriter):
     def __init__(self, info: dict):
         super().__init__(info)
         self.name = "config.yaml"
+        self.__data = None
 
     def write(self, path: str):
         with open(os.path.join(path, self.name), "w", encoding="utf-8") as f:
             f.write(self.dumps())
 
     def dumps(self):
-        return yaml.dump(self.info, allow_unicode=True)
+        return yaml.dump(self.to_dict(), allow_unicode=True)
+
+    def to_dict(self):
+        """
+        返回配置信息的字典形式
+        """
+        # 遍历每一个配置项，值改为value，增加desc和sort字段
+        # 原因是序列化时可能会丢失key的排序信息，所以这里增加一个sort字段
+        # 没有在__init__中直接修改是因为可能会有其他地方需要原始数据，并且会丢失一些性能
+        if self.__data is not None:
+            return self.__data
+        self.__data = {
+            k: {
+                "value": v,
+                "sort": i,
+                "desc": ""
+            } for i, (k, v) in enumerate(self.info.items())
+        }
+        return self.__data
 
 
 class RuntimeInfo:
@@ -101,7 +133,7 @@ class RuntimeInfo:
         self.requirements: Optional[RequirementInfo] = RequirementInfo(
             requirements
         ) if requirements is not None else None
-        
+
         self.metadata: Optional[MetadataInfo] = MetadataInfo(
             metadata
         ) if metadata is not None else None

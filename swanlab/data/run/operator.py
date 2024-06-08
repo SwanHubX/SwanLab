@@ -116,4 +116,7 @@ class SwanLabRunOperator(SwanLabRunCallback):
         return self.__run_all("on_column_create", column_info)
 
     def on_stop(self, error: str = None):
-        return self.__run_all("on_stop", error)
+        r = self.__run_all("on_stop", error)
+        # 清空所有注册的回调函数
+        self.callbacks.clear()
+        return r
