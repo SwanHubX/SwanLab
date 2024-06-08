@@ -10,13 +10,15 @@ r"""
 from .settings import SwanDataSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
+from .system import get_system_info, get_requirements
+from swanlab.package import get_package_version
 from swanlab.utils.file import check_key_format
 from .config import SwanLabConfig
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
-from .operator import SwanLabRunOperator
+from .operator import SwanLabRunOperator, RuntimeInfo
 from swanlab.env import get_mode
 import random
 
@@ -114,6 +116,11 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
+        # 系统信息采集
+        self.__operator.on_runtime_info_update(RuntimeInfo(
+            requirements=get_requirements(),
+            metadata=get_system_info(get_package_version(), self.settings.log_dir)
+        ))
 
     @property
     def operator(self) -> SwanLabRunOperator:

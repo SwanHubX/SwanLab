@@ -92,9 +92,6 @@ class SwanLabRunOperator(SwanLabRunCallback):
             setter
         )
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        return self.__run_all("on_runtime_info_update", r)
-
     def on_run(self):
         try:
             return self.__run_all("on_run")
@@ -105,6 +102,9 @@ class SwanLabRunOperator(SwanLabRunCallback):
                 return self.__run_all("on_run_error_from_operator", error)
             else:
                 raise e
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        return self.__run_all("on_runtime_info_update", r)
 
     def on_log(self):
         return self.__run_all("on_log")

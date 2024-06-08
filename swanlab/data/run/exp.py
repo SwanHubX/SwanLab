@@ -5,8 +5,6 @@ from typing import Dict, Optional
 from swanlab.utils import create_time
 from .callback import MetricInfo, ColumnInfo, RuntimeInfo
 from .operator import SwanLabRunOperator
-from .system import get_system_info, get_requirements
-from swanlab.package import get_package_version
 import json
 import math
 
@@ -30,12 +28,8 @@ class SwanLabExp:
         self.settings = settings
         # 当前实验的所有tag数据字段
         self.keys: Dict[str, SwanLabKey] = {}
+        # TODO 操作员不传递给实验
         self.__operator = operator
-        # 实验被挂载，获取信息
-        self.__operator.on_runtime_info_update(RuntimeInfo(
-            requirements=get_requirements(),
-            metadata=get_system_info(get_package_version(), settings.log_dir)
-        ))
 
     def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
         """记录一条新的tag数据

@@ -81,13 +81,6 @@ class SwanLabRunCallback(ABC, U):
         """
         pass
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        """
-        运行时信息更新时调用
-        :param r: RuntimeInfo, 运行时信息
-        """
-        pass
-
     def on_run(self):
         """
         SwanLabRun初始化完毕时调用
@@ -97,6 +90,13 @@ class SwanLabRunCallback(ABC, U):
     def on_run_error_from_operator(self, e: OperateErrorInfo):
         """
         SwanLabRun初始化错误时被操作员调用
+        """
+        pass
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        """
+        运行时信息更新时调用
+        :param r: RuntimeInfo, 运行时信息
         """
         pass
 

@@ -110,15 +110,6 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_init(self, proj_name: str, workspace: str, logdir: str = None):
         self._init_logdir(logdir)
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        # 更新运行时信息
-        if r.requirements is not None:
-            r.requirements.write(self.settings.files_dir)
-        if r.metadata is not None:
-            r.metadata.write(self.settings.files_dir)
-        if r.config is not None:
-            r.config.write(self.settings.files_dir)
-
     def on_run(self):
         swanlog.install(self.settings.console_dir)
         # 注入系统回调
@@ -127,6 +118,15 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print()
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        # 更新运行时信息
+        if r.requirements is not None:
+            r.requirements.write(self.settings.files_dir)
+        if r.metadata is not None:
+            r.metadata.write(self.settings.files_dir)
+        if r.config is not None:
+            r.config.write(self.settings.files_dir)
 
     def on_metric_create(self, metric_info: MetricInfo):
         # 出现任何错误直接返回
