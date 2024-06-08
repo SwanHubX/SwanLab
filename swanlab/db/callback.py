@@ -108,7 +108,7 @@ class GlomCallback(SwanLabRunCallback):
         description: str,
         num: int,
         suffix: str,
-        setter: Callable[[str, str, str, str], None]
+        setter: Callable[[str, str, str, str], None],
     ):
         # ---------------------------------- 实验描述校验 ----------------------------------
         description = description if description is not None else ""
@@ -185,7 +185,7 @@ class GlomCallback(SwanLabRunCallback):
         try:
             add_multi_chart(tag_id=tag.id, chart_id=chart.id)
         except ChartTypeError:
-            swanlog.warning("In the multi-experiment chart, the current type of tag is not as expected.")
+            swanlog.debug("In the multi-experiment chart (Local), the current type of tag is not as expected.")
 
     def on_stop(self, error: str = None):
         # 更新数据库中的实验状态
