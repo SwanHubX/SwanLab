@@ -13,7 +13,6 @@ r"""
     可以看到有两次转换，如果每次都是耗时操作，那么会导致性能问题，所以对于单个类而言，上次转换的结果会被保存
 """
 from abc import ABC, abstractmethod
-from ..settings import SwanDataSettings
 from typing import List, Dict, Optional, ByteString, Union, Tuple
 from swanlab.log import swanlog
 from enum import Enum
@@ -109,19 +108,15 @@ class DynamicProperty:
         self.key: Optional[str] = None
         # 保存的step
         self.step: Optional[int] = None
-        # 当前运行时配置
-        self.settings: Optional[SwanDataSettings] = None
 
-    def inject(self, key: str, step: int, settings: SwanDataSettings):
+    def inject(self, key: str, step: int):
         """
         注入属性
         :param key: key名称
         :param step: 当前步骤
-        :param settings: 当前运行时配置
         """
         self.key = key
         self.step = step
-        self.settings = settings
 
 
 class BaseType(ABC, DynamicProperty):
@@ -219,9 +214,9 @@ class MediaBuffer(BytesIO):
     def file_name(self, value):
         if not isinstance(value, str) or not value:
             raise TypeError(f"Expected str, but got {type(value)}")
-        if self.__file_name is not None:
-            # 此时意味着使用类似 [] * 2 的操作复制了多个相同的实例，这允许，但不推荐
-            swanlog.warning("You are log duplicate and same instance, this is not recommended")
+        # if self.__file_name is not None:
+        #     # 此时意味着使用类似 [] * 2 的操作复制了多个相同的实例，这允许，但不推荐
+        #     swanlog.warning("You are logging a duplicate and same instance, this is not recommended")
         self.__file_name = value
 
 

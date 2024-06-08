@@ -13,7 +13,7 @@ from swanlab.error import DataTypeError
 from .line import Line
 
 
-class ErrorInfo:
+class WrapperErrorInfo:
     """
     DataWrapper转换时的错误信息
     """
@@ -91,7 +91,7 @@ class DataWrapper:
         return self.__result is not None or self.__error is not None
 
     @property
-    def error(self) -> Optional[ErrorInfo]:
+    def error(self) -> Optional[WrapperErrorInfo]:
         """
         解析时候的错误信息
         """
@@ -114,13 +114,13 @@ class DataWrapper:
         # [Line]
         if self.type == Line:
             if len(self.__data) > 1:
-                self.__error = ErrorInfo("float", "list(Line)", result.chart)
+                self.__error = WrapperErrorInfo("float", "list(Line)", result.chart)
             else:
                 d.inject(**kwargs)
                 try:
                     result.float, _ = d.parse()
                 except DataTypeError as e:
-                    self.__error = ErrorInfo(e.expected, e.got, result.chart)
+                    self.__error = WrapperErrorInfo(e.expected, e.got, result.chart)
             self.__result = result
             return self.__result
 
@@ -132,7 +132,7 @@ class DataWrapper:
                 i.inject(**kwargs)
                 d, r = i.parse()
             except DataTypeError as e:
-                self.__error = ErrorInfo(e.expected, e.got, result.chart)
+                self.__error = WrapperErrorInfo(e.expected, e.got, result.chart)
                 return None
             data.append(d)
             buffers.append(r)
@@ -156,8 +156,8 @@ class DataWrapper:
         return None
 
     @classmethod
-    def create_duplicate_error(cls) -> ErrorInfo:
+    def create_duplicate_error(cls) -> WrapperErrorInfo:
         """
         快捷创建一个重复错误
         """
-        return ErrorInfo(None, None, None, duplicated=True)
+        return WrapperErrorInfo(None, None, None, duplicated=True)

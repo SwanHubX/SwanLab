@@ -1,9 +1,9 @@
-from swanlab.data.settings import SwanDataSettings
-from swanlab.data.modules import DataWrapper, Line, ErrorInfo
+from swanlab.data.run.settings import SwanDataSettings
+from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
 from typing import Dict, Optional
 from swanlab.utils import create_time
-from .callback import MetricInfo, ColumnInfo
+from .callback import MetricInfo, ColumnInfo, RuntimeInfo
 from .operator import SwanLabRunOperator
 import json
 import math
@@ -28,6 +28,7 @@ class SwanLabExp:
         self.settings = settings
         # 当前实验的所有tag数据字段
         self.keys: Dict[str, SwanLabKey] = {}
+        # TODO 操作员不传递给实验
         self.__operator = operator
 
     def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
@@ -59,7 +60,7 @@ class SwanLabExp:
             if step in key_obj.steps:
                 swanlog.warning(f"Step {step} on key {key} already exists, ignored.")
                 return MetricInfo(key, key_obj.column_info, DataWrapper.create_duplicate_error())
-        data.parse(step=step, settings=self.settings, key=key)
+        data.parse(step=step, key=key)
 
         # ---------------------------------- 图表创建 ----------------------------------
 

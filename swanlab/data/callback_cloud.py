@@ -7,10 +7,9 @@ r"""
 @Description:
     云端回调
 """
-from .run.callback import MetricInfo, ColumnInfo
-from swanlab.cloud import UploadType
-from swanlab.error import ApiError
-from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel
+from .run.callback import MetricInfo, ColumnInfo, RuntimeInfo
+from swanlab.data.cloud import UploadType
+from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.api import LoginInfo, create_http, terminal_login
 from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
@@ -22,8 +21,7 @@ from swanlab.package import get_host_web, get_host_api
 from swanlab.error import KeyFileError
 from swanlab.env import get_swanlab_folder
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
-from swanlab.cloud import LogSnifferTask, ThreadPool
-from swanlab.db import Experiment
+from swanlab.data.cloud import ThreadPool
 from swanlab.utils import create_time
 from swanlab.package import get_package_version, get_package_latest_version
 import json
@@ -93,7 +91,7 @@ class CloudRunCallback(LocalRunCallback):
             return swanlog.debug("SwanLab is exiting, please wait.")
         self._train_finish_print()
         # 如果正在运行
-        run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
+        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
     def _except_handler(self, tp, val, tb):
         if self.exiting:
@@ -124,22 +122,11 @@ class CloudRunCallback(LocalRunCallback):
     def on_run(self):
         swanlog.install(self.settings.console_dir)
         # 注册实验信息
-        try:
-            get_http().mount_exp(
-                exp_name=self.settings.exp_name,
-                colors=self.settings.exp_colors,
-                description=self.settings.description,
-            )
-        except ApiError as e:
-            if e.resp.status_code == 409:
-                FONT.brush("", 50)
-                swanlog.error("The experiment name already exists, please change the experiment name")
-                Experiment.purely_delete(run_id=self.settings.run_id)
-                sys.exit(409)
-
-        # 资源嗅探器
-        sniffer = LogSnifferTask(self.settings.files_dir)
-        self.pool.create_thread(sniffer.task, name="sniffer", callback=sniffer.callback)
+        get_http().mount_exp(
+            exp_name=self.settings.exp_name,
+            colors=self.settings.exp_colors,
+            description=self.settings.description,
+        )
 
         # 向swanlog注册输出流回调
         def _write_call_call(message):
@@ -158,6 +145,17 @@ class CloudRunCallback(LocalRunCallback):
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
             show_button_html(experiment_url)
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        # 执行local逻辑，保存文件到本地
+        super(CloudRunCallback, self).on_runtime_info_update(r)
+        # 添加上传任务到线程池
+        rc = r.config.to_dict() if r.config is not None else None
+        rr = r.requirements.info if r.requirements is not None else None
+        rm = r.metadata.to_dict() if r.metadata is not None else None
+        # 不需要json序列化，上传时会自动序列化
+        f = FileModel(requirements=rr, config=rc, metadata=rm)
+        self.pool.queue.put((UploadType.FILE, [f]))
 
     def on_column_create(self, column_info: ColumnInfo):
         error = None

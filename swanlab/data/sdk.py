@@ -52,11 +52,6 @@ def _check_proj_name(name: str) -> str:
     return _name
 
 
-def _is_inited():
-    """检查是否已经初始化"""
-    return get_run() is not None
-
-
 def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
@@ -68,7 +63,7 @@ def login(api_key: str = None):
     api_key : str
         authentication key, if not provided, the key will be read from the key file.
     """
-    if _is_inited():
+    if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
     CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.get_login_info()
 
@@ -145,11 +140,11 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    run = get_run()
-    if run is not None:
+    if SwanLabRun.is_started():
         swanlog.warning("You have already initialized a run, the init function will be ignored")
-        return run
+        return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+    # TODO 下个版本删除
     if "cloud" in kwargs:
         swanlog.warning(
             "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
@@ -191,6 +186,23 @@ def init(
     return run
 
 
+def should_call_after_init(text):
+    """
+    装饰器，限制必须在实验初始化后调用
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not SwanLabRun.is_started():
+                raise RuntimeError(text)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+@should_call_after_init("You must call swanlab.init() before using log()")
 def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
@@ -206,13 +218,12 @@ def log(data: Dict[str, DataType], step: int = None):
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
     """
-    if not _is_inited():
-        raise RuntimeError("You must call swanlab.init() before using log()")
     run = get_run()
     ll = run.log(data, step)
     return ll
 
 
+@should_call_after_init("You must call swanlab.init() before using finish()")
 def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     """
     Finish the current run and close the current experiment
@@ -222,9 +233,7 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
     run = get_run()
-    if not get_run():
-        raise RuntimeError("You must call swanlab.data.init() before using finish()")
-    if not run.is_running:
+    if not run.running:
         return swanlog.error("After experiment is finished, you can't call finish() again.")
     run.finish(state, error)
 

@@ -76,7 +76,7 @@ def get_mode(env: Optional[Env] = None) -> Optional[str]:
 
 
 def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
-    """获取swanlog路径
+    """获取swanlog路径，返回值为绝对路径
 
     Returns
     -------

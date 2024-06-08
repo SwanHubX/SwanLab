@@ -42,28 +42,13 @@ for epoch in range(2, swanlab.config.epoches):
     if epoch % 10 == 0:
         # 测试audio
         sample_rate = 44100
-        test_audio_arr = np.random.randn(2, 100000)
-        swanlab.log(
-            {
-                "test/audio": [swanlab.Audio(test_audio_arr, sample_rate, caption="test")] * (epoch // 10),
-            },
-            step=epoch,
-        )
+        audios = [swanlab.Audio(np.random.randn(2, 100000), sample_rate, caption="test") for _ in range(epoch // 10)]
+        swanlab.log({"test/audio": audios}, step=epoch)
         # 测试image
-        test_image = np.random.randint(0, 255, (100, 100, 3))
-        swanlab.log(
-            {
-                "test/image": [swanlab.Image(test_image, caption="test")] * (epoch // 10),
-            },
-            step=epoch,
-        )
+        images = [swanlab.Image(np.random.randint(0, 255, (100, 100, 3)), caption="test") for _ in range(epoch // 10)]
+        swanlab.log({"test/image": images}, step=epoch)
         # 测试text
-        swanlab.log(
-            {
-                "text": swanlab.Text("这是一段测试文本", caption="test"),
-            },
-            step=epoch,
-        )
+        swanlab.log({"text": swanlab.Text("这是一段测试文本", caption="test")}, step=epoch)
         # 测试折线图
         swanlab.log({"t/accuracy": acc, "loss": loss, "loss2": loss2})
     else:

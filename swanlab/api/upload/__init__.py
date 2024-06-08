@@ -8,13 +8,10 @@ r"""
     上传相关接口
 """
 from ..http import get_http, sync_error_handler
-from .model import ColumnModel, MediaModel, ScalarModel
+from .model import ColumnModel, MediaModel, ScalarModel, FileModel
 from typing import List
-from swanlab.error import FileError, ApiError
+from swanlab.error import ApiError
 from swanlab.log import swanlog
-import json
-import yaml
-import os
 
 house_url = '/house/metrics'
 
@@ -82,33 +79,20 @@ _valid_files = {
 
 
 @sync_error_handler
-def upload_files(files: List[str]):
+def upload_files(files: List[FileModel]):
     """
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
     """
     http = get_http()
-    # 去重list
-    files = list(set(files))
-    files = {os.path.basename(x): x for x in files}
-    # 读取文件配置，生成更新信息
-    data = {}
-    for filename, filepath in files.items():
-        if filename not in _valid_files:
-            continue
-        try:
-            with open(filepath, 'r') as f:
-                if _valid_files[filename][1] == 'json':
-                    data[_valid_files[filename][0]] = json.load(f)
-                elif _valid_files[filename][1] == 'yaml':
-                    d = yaml.load(f, Loader=yaml.FullLoader)
-                    if d is None:
-                        raise FileError
-                    data[_valid_files[filename][0]] = d
-                else:
-                    data[_valid_files[filename][0]] = f.read()
-        except json.decoder.JSONDecodeError:
-            raise FileError
+    # 去重所有的FileModel，留下一个
+    if len(files) == 0:
+        return swanlog.warning("No files to upload.")
+    file_model = files[0]
+    if len(files) > 1:
+        for i in range(1, len(files) - 1):
+            file_model = FileModel.create(files[i], file_model)
+    data = file_model.to_dict()
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
 

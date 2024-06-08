@@ -12,13 +12,12 @@ from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
 from .cos import CosClient
+from swanlab.data.modules import MediaBuffer
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
 from swanlab.log import swanlog
 import requests
-
-from swanlab.data.modules import MediaBuffer
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:

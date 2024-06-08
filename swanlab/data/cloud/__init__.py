@@ -9,6 +9,5 @@ r"""
 """
 from .start_thread import ThreadPool
 from .task_types import UploadType
-from .dog.log_sniffer import LogSnifferTask
 
-__all__ = ["UploadType", "LogSnifferTask", "ThreadPool"]
+__all__ = ["UploadType", "ThreadPool"]
