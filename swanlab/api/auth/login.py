@@ -21,9 +21,7 @@ import sys
 
 def login_request(api_key: str, timeout: int = 20) -> requests.Response:
     """用户登录，请求后端接口完成验证"""
-    resp = requests.post(
-        url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
-    )
+    resp = requests.post(url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
     return resp
 
 
@@ -65,7 +63,7 @@ def input_api_key(
     sys.excepthook = _abort_tip
     if not again:
         print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
+        print(FONT.swanlab("You can find your API key at: " + FONT.yellow(get_user_setting_path())))
 
     tip = FONT.swanlab(tip)
     ij = in_jupyter()
