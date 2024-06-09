@@ -23,7 +23,6 @@ from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
-from swanlab.db import GlomCallback
 from swanlab.package import version_limit
 
 
@@ -295,5 +294,6 @@ def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallbac
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
-    callbacks = [c, GlomCallback()]
+    from swanboard import SwanBoardCallback
+    callbacks = [c, SwanBoardCallback()]
     return SwanLabRunOperator(callbacks), c

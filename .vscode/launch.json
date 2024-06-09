@@ -4,27 +4,6 @@
   // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-    // 启动前端开发服务
-    {
-      "name": "前端开发",
-      "request": "launch",
-      "cwd": "${workspaceRoot}",
-      "type": "node",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"]
-    },
-    // 启动后端开发服务
-    {
-      "name": "后端开发",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/start_server.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "cwd": "${workspaceFolder}",
-      //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
-    },
     // 模拟实验开启
     {
       "name": "开启一个实验",
@@ -35,7 +14,9 @@
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
     },
     // python运行当前文件
     {
@@ -47,14 +28,18 @@
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
       //sys.path 会加入顶层目录，影响模块导入查询路径
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
     },
     {
       "name": "测试当前文件",
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["${file}"],
+      "args": [
+        "${file}"
+      ],
       "console": "integratedTerminal"
     },
     {
@@ -62,7 +47,9 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["test/unit"],
+      "args": [
+        "test/unit"
+      ],
       "console": "integratedTerminal"
     },
     // 打包命令

@@ -13,7 +13,6 @@ from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from swanlab.package import version_limit, get_package_version, is_login
 from swanlab.api.auth import terminal_login
 from ..env import get_server_host, get_server_port, get_swanlog_dir, get_swanlab_folder
-from ..db import connect
 from ..utils import FONT
 import time
 import shutil
@@ -70,7 +69,7 @@ def watch(log_level: str, **kwargs):
     start = time.time()
     # 导入必要的模块
     from ..log import swanlog as swl
-    from ..server import app
+    from swanboard import run, connect
     import uvicorn
 
     log_dir = get_swanlog_dir()
@@ -106,15 +105,7 @@ def watch(log_level: str, **kwargs):
     # ---------------------------------- 启动服务 ----------------------------------
     # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
     # 使用try except 捕获退出，涉及端口占用等
-    try:
-        uvicorn.run(app, host=host, port=port, log_level="critical")
-    except SystemExit as e:
-        code = e.code
-        if code == 1:
-            critical = "Error while attempting to bind on address ({}, {}): address already in use".format(host, port)
-            swl.critical(critical)
-        else:
-            swl.critical("Unhandled Exit Code: {}".format(code))
+    run()
 
 
 # ---------------------------------- 登录命令，进行登录 ----------------------------------
@@ -132,7 +123,7 @@ def watch(log_level: str, **kwargs):
     default=None,
     type=str,
     help="If you prefer not to engage in command-line interaction to input the api key, "
-    "this will allow automatic login.",
+         "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""
