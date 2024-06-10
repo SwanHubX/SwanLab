@@ -68,7 +68,7 @@ experiments, visualize processes, and share with peers.
 By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers.
 Machine learning engineers can develop models for production more efficiently.
 
-![](readme_files/introduction.png)
+![](readme_files/overview-2.png)
 
 Here is the English version of the core feature list for an AI platform:
 

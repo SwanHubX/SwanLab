@@ -63,7 +63,7 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 借助SwanLab，科研人员可以沉淀自己的每一次训练经验，与合作者无缝地交流和协作，机器学习工程师可以更快地开发可用于生产的模型。
 
-![](readme_files/introduction.png)
+![](readme_files/overview-2.png)
 
 以下是其核心特性列表：
 
