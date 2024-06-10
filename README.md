@@ -1,7 +1,7 @@
 ![Overview](readme_files/swanlab-overview-new.png)
 
 <p align="center">
-<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/main/CHANGELOG.md">Changelog</a>
+<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
 
 </p>
@@ -17,9 +17,6 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
   <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
-  <a href="https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/小红书-F04438"></a>
-
 </p>
 
 <div align="center">
@@ -33,11 +30,11 @@
 #### TOC
 
 - [👋🏻 Introduction](#-Introduction)
+- [📃 Demo](#demo)
 - [🏁 Quick Start](#🏁-quick-start)
     - [1.Installation](#1installation)
     - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
     - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
-- [📃 More Examples](#-more-examples)
 - [💻 Self-hosted](#-self-hosted)
     - [Offline Experiment Tracking](#offline-experiment-tracking)
     - [Open Offline Dashboard](#open-offline-board)
@@ -45,10 +42,6 @@
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
     - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
     - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
-- [🛣️ Roadmap](#%EF%B8%8F-roadmap)
-    - [In Progress Now](#in-progress-now)
-    - [Next Planned](#next-planned)
-    - [Long Term Concern](#long-term-concern)
 - [👥 Community](#-community)
     - [Community and Support](#community-and-support)
     - [SwanLab README Badge](#swanlab-readme-badge)
@@ -75,7 +68,7 @@ experiments, visualize processes, and share with peers.
 By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers.
 Machine learning engineers can develop models for production more efficiently.
 
-![](readme_files/introduction.png)
+![](readme_files/overview-2.png)
 
 Here is the English version of the core feature list for an AI platform:
 
@@ -113,6 +106,24 @@ viewing and experiment management.
 
 
 ![star-us](readme_files/star-us.png)
+
+<br>
+
+## 📃 Demo
+
+Check out SwanLab's online demo：
+
+| [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
+| Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset. | Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics. |
+
+| [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
+| Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following. | Train a simple LSTM model on the Google stock price dataset to predict future stock prices. |
+
+[More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
 
 <br>
 
@@ -160,142 +171,6 @@ for i in range(10):
 
 <br>
 
-## 📃 More Examples
-
-<details>
-<summary>MNIST</summary>
-
-```python
-import os
-import torch
-from torch import nn, optim, utils
-import torch.nn.functional as F
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-import swanlab
-
-
-# CNN网络构建
-class ConvNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # 1,28x28
-        self.conv1 = nn.Conv2d(1, 10, 5)  # 10, 24x24
-        self.conv2 = nn.Conv2d(10, 20, 3)  # 128, 10x10
-        self.fc1 = nn.Linear(20 * 10 * 10, 500)
-        self.fc2 = nn.Linear(500, 10)
-
-    def forward(self, x):
-        in_size = x.size(0)
-        out = self.conv1(x)  # 24
-        out = F.relu(out)
-        out = F.max_pool2d(out, 2, 2)  # 12
-        out = self.conv2(out)  # 10
-        out = F.relu(out)
-        out = out.view(in_size, -1)
-        out = self.fc1(out)
-        out = F.relu(out)
-        out = self.fc2(out)
-        out = F.log_softmax(out, dim=1)
-        return out
-
-
-# 捕获并可视化前20张图像
-def log_images(loader, num_images=16):
-    images_logged = 0
-    logged_images = []
-    for images, labels in loader:
-        # images: batch of images, labels: batch of labels
-        for i in range(images.shape[0]):
-            if images_logged < num_images:
-                # 使用swanlab.Image将图像转换为wandb可视化格式
-                logged_images.append(swanlab.Image(images[i], caption=f"Label: {labels[i]}"))
-                images_logged += 1
-            else:
-                break
-        if images_logged >= num_images:
-            break
-    swanlab.log({"MNIST-Preview": logged_images})
-
-
-if __name__ == "__main__":
-
-    # 初始化swanlab
-    run = swanlab.init(
-        project="MNIST-example",
-        experiment_name="ConvNet",
-        description="Train ConvNet on MNIST dataset.",
-        config={
-            "model": "CNN",
-            "optim": "Adam",
-            "lr": 0.001,
-            "batch_size": 512,
-            "num_epochs": 10,
-            "train_dataset_num": 55000,
-            "val_dataset_num": 5000,
-        },
-    )
-
-    # 设置训练机、验证集和测试集
-    dataset = MNIST(os.getcwd(), train=True, download=True, transform=ToTensor())
-    train_dataset, val_dataset = utils.data.random_split(
-        dataset, [run.config.train_dataset_num, run.config.val_dataset_num]
-    )
-
-    train_loader = utils.data.DataLoader(train_dataset, batch_size=run.config.batch_size, shuffle=True)
-    val_loader = utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
-
-    # 初始化模型、损失函数和优化器
-    model = ConvNet()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=run.config.lr)
-
-    # （可选）看一下数据集的前16张图像
-    log_images(train_loader, 16)
-
-    # 开始训练
-    for epoch in range(1, run.config.num_epochs):
-        swanlab.log({"train/epoch": epoch})
-        # 训练循环
-        for iter, batch in enumerate(train_loader):
-            x, y = batch
-            optimizer.zero_grad()
-            output = model(x)
-            loss = criterion(output, y)
-            loss.backward()
-            optimizer.step()
-
-            print(
-                f"Epoch [{epoch}/{run.config.num_epochs}], Iteration [{iter + 1}/{len(train_loader)}], Loss: {loss.item()}"
-            )
-
-            if iter % 20 == 0:
-                swanlab.log({"train/loss": loss.item()}, step=(epoch - 1) * len(train_loader) + iter)
-
-        # 每4个epoch验证一次
-        if epoch % 2 == 0:
-            model.eval()
-            correct = 0
-            total = 0
-            with torch.no_grad():
-                for batch in val_loader:
-                    x, y = batch
-                    output = model(x)
-                    _, predicted = torch.max(output, 1)
-                    total += y.size(0)
-                    correct += (predicted == y).sum().item()
-
-            accuracy = correct / total
-            swanlab.log({"val/accuracy": accuracy})
-```
-
-</details>
-
-[BERT-IMDB](https://docs.swanlab.cn/zh/examples/bert.html)
-
-[YOLO](https://docs.swanlab.cn/zh/examples/yolo.html)
-
-<br>
 
 ## 💻 Self-hosted
 
