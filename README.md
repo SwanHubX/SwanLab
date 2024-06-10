@@ -30,11 +30,11 @@
 #### TOC
 
 - [👋🏻 Introduction](#-Introduction)
+- [📃 Demo](#demo)
 - [🏁 Quick Start](#🏁-quick-start)
     - [1.Installation](#1installation)
     - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
     - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
-- [📃 Demo](#demo)
 - [💻 Self-hosted](#-self-hosted)
     - [Offline Experiment Tracking](#offline-experiment-tracking)
     - [Open Offline Dashboard](#open-offline-board)
@@ -109,6 +109,24 @@ viewing and experiment management.
 
 <br>
 
+## 📃 Demo
+
+Check out SwanLab's online demo：
+
+| [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
+| Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset. | Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics. |
+
+| [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
+| Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following. | Train a simple LSTM model on the Google stock price dataset to predict future stock prices. |
+
+[More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
+
+<br>
+
 ## 🏁 Quick Start
 
 ### 1.Installation
@@ -153,23 +171,6 @@ for i in range(10):
 
 <br>
 
-## 📃 Demo
-
-Check out SwanLab's online demo：
-
-| [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
-|:---:|:---:|
-| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-| Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset. | Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics. |
-
-| [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
-|:---:|:---:|
-| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-| Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following. | Train a simple LSTM model on the Google stock price dataset to predict future stock prices. |
-
-[More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
-
-<br>
 
 ## 💻 Self-hosted
 

@@ -28,11 +28,11 @@
 #### TOC
 
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
+- [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
     - [1.安装](#1安装)
     - [2.登录并获取API Key](#2登录并获取api-key)
     - [3.将SwanLab与你的代码集成](#3将SwanLab与你的代码集成)
-- [📃 在线演示](#-在线演示)
 - [💻 自托管](#-自托管)
     - [离线实验跟踪](#离线实验跟踪)
     - [开启离线看板](#开启离线看板)
@@ -94,6 +94,24 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 
 <br>
 
+## 📃 在线演示
+
+来看看SwanLab的在线演示：
+
+| [ResNet50猫狗分类](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128目标检测](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
+| 跟踪一个简单的ResNet50模型在猫狗数据集上训练的图像分类任务。 | 使用Yolov8在COCO128数据集上进行目标检测任务，跟踪训练超参数和指标。 |
+
+| [Qwen2指令微调](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google股票预测](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
+|:---:|:---:|
+| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
+| 跟踪Qwen2大语言模型的指令微调训练，完成简单的指令遵循。 | 使用简单的LSTM模型在Google股价数据集上训练，实现对未来股价的预测。 |
+
+[更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
+
+<br>
+
 ## 🏁 快速开始
 
 ### 1.安装
@@ -138,23 +156,7 @@ for i in range(10):
 
 <br>
 
-## 📃 在线演示
 
-来看看SwanLab的在线演示：
-
-| [ResNet50猫狗分类](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128目标检测](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
-|:---:|:---:|
-| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-| 跟踪一个简单的ResNet50模型在猫狗数据集上训练的图像分类任务。 | 使用Yolov8在COCO128数据集上进行目标检测任务，跟踪训练超参数和指标。 |
-
-| [Qwen2指令微调](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google股票预测](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
-|:---:|:---:|
-| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-| 跟踪Qwen2大语言模型的指令微调训练，完成简单的指令遵循。 | 使用简单的LSTM模型在Google股价数据集上训练，实现对未来股价的预测。 |
-
-[更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
-
-<br>
 
 ## 💻 自托管
 
