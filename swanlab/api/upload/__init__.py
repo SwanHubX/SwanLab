@@ -88,10 +88,7 @@ def upload_files(files: List[FileModel]):
     # 去重所有的FileModel，留下一个
     if len(files) == 0:
         return swanlog.warning("No files to upload.")
-    file_model = files[0]
-    if len(files) > 1:
-        for i in range(1, len(files) - 1):
-            file_model = FileModel.create(files[i], file_model)
+    file_model = FileModel.create(files)
     data = file_model.to_dict()
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
