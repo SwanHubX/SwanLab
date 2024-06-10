@@ -1,4 +1,4 @@
-![Overview](readme_files/swanlab-overview-new.png)
+[![Overview](readme_files/swanlab-overview-new.png)](https://swanlab.cn/)
 
 <p align="center">
 <a href="https://swanlab.cn">🔥SwanLab在线版</a> · <a href="https://docs.swanlab.cn">文档</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a>  · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>

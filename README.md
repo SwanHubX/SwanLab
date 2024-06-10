@@ -1,4 +1,4 @@
-![Overview](readme_files/swanlab-overview-new.png)
+[![Overview](readme_files/swanlab-overview-new.png)](https://swanlab.cn/)
 
 <p align="center">
 <a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
@@ -30,7 +30,7 @@
 #### TOC
 
 - [👋🏻 Introduction](#-Introduction)
-- [📃 Demo](#demo)
+- [📃 Demo](#-demo)
 - [🏁 Quick Start](#🏁-quick-start)
     - [1.Installation](#1installation)
     - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
@@ -461,43 +461,6 @@ model.train(
 - Weights and Biases is an online-only, proprietary MLOps platform.
 
 - Not only does SwanLab support online usage, but it also offers an open-source, free, and self-hosted version.
-
-<br>
-
-## 🛣️ Roadmap
-
-Tools evolve in iteration and feedback~, welcome
-to [submit feature suggestions](https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc)
-
-### In Progress Now
-
-- `Table`: More flexible multidimensional table charts, suitable for LLM, AIGC, model evaluation and other scenarios.
-
-- **Email notification📧**: When training is interrupted unexpectedly, when training is completed, and when custom
-  situations occur, send notification emails.
-
-### Next Planned
-
-- `Molecule`: Visualization charts of biochemistry molecules
-
-- `Plot`: Free chart drawing method
-
-- `Api`: Access SwanLab data through API.
-
-- **System hardware records**: Record a series of hardware conditions such as GPU, CPU, disk, network, etc.
-
-- **Code records**: Record training code
-
-- **More integrations**: LightGBM, XGBoost, openai, chatglm, mm series,...
-- ...
-
-### Long-term Concern
-
-- The most beneficial collaborative way for AI team innovation
-
-- The most user-friendly UI interaction
-
-- Viewing experiments on mobile
 
 <br>
 
