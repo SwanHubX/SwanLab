@@ -54,16 +54,9 @@
 
 ## 👋🏻 什么是SwanLab
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and
-collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
+SwanLab是一款开源、轻量的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台。
 
-SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
-
-其提供了友好的API和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享、实时消息通知等功能，让您可以快速跟踪ML实验、可视化过程、分享给同伴。
-
-借助SwanLab，科研人员可以沉淀自己的每一次训练经验，与合作者无缝地交流和协作，机器学习工程师可以更快地开发可用于生产的模型。
-
-![](readme_files/overview-2.png)
+SwanLab提供了友好的API和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享等功能，让您可以快速跟踪AI实验、可视化过程、记录超参数，并分享给伙伴。
 
 以下是其核心特性列表：
 
@@ -73,6 +66,9 @@ SwanLab是一款开源、轻量级的AI实验跟踪工具，提供了一个跟�
 - 支持的元数据类型：标量指标、图像、音频、文本、...
 - 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
 - 自动记录：控制台logging、GPU硬件、Git信息、Python解释器、Python库列表、代码目录
+
+![](readme_files/overview-2.png)
+
 
 **2. ⚡️全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
