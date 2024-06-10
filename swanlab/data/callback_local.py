@@ -151,7 +151,7 @@ class LocalRunCallback(SwanLabRunCallback):
             path = os.path.join(self.settings.media_dir, metric_info.key)
             os.makedirs(path, exist_ok=True)
             # 写入数据
-            with open(os.path.join(path, metric_info.metric["data"][i]), "wb", encoding="utf-8") as f:
+            with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
                 f.write(r.getvalue())
 
     def on_stop(self, error: str = None):
