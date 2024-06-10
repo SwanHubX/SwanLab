@@ -62,7 +62,7 @@ def get_host_web(p: str = package_path) -> str:
     str
         swanlab网站的网址
     """
-    with open(p, "r") as f:
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["web"]
 
 
@@ -79,7 +79,7 @@ def get_host_api(p: str = package_path) -> str:
     str
         swanlab网站的api网址
     """
-    with open(p, "r") as f:
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["api"]
 
 
