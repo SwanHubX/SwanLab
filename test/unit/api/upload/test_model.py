@@ -33,6 +33,8 @@ class TestFileModel:
             file_models.append(FileModel(lr, lm, lc))
             time.sleep(0.01)
         # 验证
+        # file_models打乱顺序
+        random.shuffle(file_models)
         file_model = FileModel.create(file_models)
         assert file_model.requirements == lr
         assert file_model.metadata == lm
