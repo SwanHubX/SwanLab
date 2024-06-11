@@ -163,13 +163,6 @@ def is_strict_mode() -> bool:
     return get_mode() != SwanLabMode.DISABLED.value
 
 
-def get_db_path() -> Optional[str]:
-    """
-    获取数据库路径，这是一个计算变量，每次调用都会重新计算
-    """
-    return os.path.join(get_swanlog_dir(), "runs.swanlab")
-
-
 def is_windows() -> bool:
     """判断当前操作系统是否是windows还是类unix系统
     此外的系统会报错为 UnKnownSystemError
