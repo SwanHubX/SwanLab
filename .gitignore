@@ -1,8 +1,11 @@
 # frontend
 swanlog/
 swanlog.bak/
-.eslintrc-auto-import.json
+node_modules/
 dist/
+vue/
+package-lock.json
+.eslintrc-auto-import.json
 
 # test
 temp/
