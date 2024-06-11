@@ -53,11 +53,8 @@ swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 path = "swanlab/package.json"  # package.json文件，从中获取版本号
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
-[tool.hatch.metadata.hooks.requirements_txt] # 动态设置依赖
+[tool.hatch.metadata.hooks.requirements_txt]
 filename = "requirements.txt"
-
-[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]  # 动态设置可选依赖
-oauth = ["requirements-cloud.txt"]  # 连接swanlab云端的可选依赖
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"
@@ -83,9 +80,6 @@ artifacts = [# 将一些非python文件打包到项目中
     "*.pyi", # 类型提示文件
 ]
 
-# [tool.hatch.build.targets.wheel.hooks.custom]  # 构建wheel时，用python执行一些脚本
-# path = ".config/copy_frontend.py"  # TODO 拷贝前端文件的脚本
-
 
 [tool.hatch.build.targets.sdist]  # 在执行构建之前，将一些必要文件拷贝到虚拟环境中，以便构建，此时已经完成了vue的编译
 include = [
@@ -94,7 +88,6 @@ include = [
     "/README.md", # 包含readme
     "/requirements.txt", # 包含依赖
     "/requirements-swan.txt", # 包含可选依赖
-    "/.config/copy_frontend.py", # 包含拷贝前端文件的脚本
     "/package.json", # 包含前端的package.json文件
 ]
 
