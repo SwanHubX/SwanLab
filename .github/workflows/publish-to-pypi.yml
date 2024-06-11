@@ -3,7 +3,7 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -20,7 +20,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          npm install
           pip install -r requirements.txt
           pip install build
           pip install twine
