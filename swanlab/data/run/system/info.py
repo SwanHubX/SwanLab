@@ -235,7 +235,8 @@ def get_system_info(version: str, logdir: str):
         "swanlab": {"version": version, "logdir": logdir},  # swanlab 版本号和日志目录
         "hostname": socket.gethostname(),  # 主机名
         "os": platform.platform(),  # 操作系统
-        "python": {"version": platform.python_version(), "verbose": sys.version},  # python版本
+        "python": platform.python_version(),  # python版本
+        "python_verbose": sys.version,  # python详细版本
         "executable": sys.executable,  # python 解释器路径
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
         "cpu": multiprocessing.cpu_count(),  # cpu 核心数
