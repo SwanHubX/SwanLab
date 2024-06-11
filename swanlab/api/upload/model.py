@@ -132,7 +132,13 @@ class FileModel:
     运行时文件信息上传模型
     """
 
-    def __init__(self, requirements: str = None, metadata: dict = None, config: dict = None):
+    def __init__(
+        self,
+        requirements: str = None,
+        metadata: dict = None,
+        config: dict = None,
+        create_time: datetime = None
+    ):
         self.requirements = requirements
         self.metadata = metadata
         self.config = config
@@ -142,16 +148,20 @@ class FileModel:
         """
 
     @classmethod
-    def create(cls, r1: "FileModel", r2: "FileModel") -> "FileModel":
+    def create(cls, file_models: List["FileModel"]) -> "FileModel":
         """
-        比较两个FileModel，创建一个新的
-        如果新的newer不存在，则使用older的数据，否则使用newer的数据
+        比较若干个FileModel，获取最新的FileModel，并且保证其内部属性不为None
         """
-        newer, older = (r1, r2) if r1.create_time > r2.create_time else (r2, r1)
-        rq = newer.requirements if newer.requirements else older.requirements
-        md = newer.metadata if newer.metadata else older.metadata
-        cf = newer.config if newer.config else older.config
-        return cls(rq, md, cf)
+        # 按照时间排序，倒叙排列，这意味着最新的排在第一个
+        file_models = sorted(file_models, key=lambda x: x.create_time, reverse=True)
+        lr, lm, lc = None, None, None
+        for file_model in file_models:
+            lr = file_model.requirements if lr is None else lr
+            lm = file_model.metadata if lm is None else lm
+            lc = file_model.config if lc is None else lc
+            if lr is not None and lm is not None and lc is not None:
+                break
+        return FileModel(lr, lm, lc)
 
     def to_dict(self):
         """

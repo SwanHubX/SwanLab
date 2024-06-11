@@ -82,7 +82,7 @@ class LocalRunCallback(SwanLabRunCallback):
                 raise IOError("logdir must have Write permission.")
         # 如果logdir是空的，创建.gitignore文件，写入*
         if not os.listdir(logdir):
-            with open(os.path.join(logdir, ".gitignore"), "w") as f:
+            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
                 f.write("*")
         return logdir
 
@@ -136,9 +136,9 @@ class LocalRunCallback(SwanLabRunCallback):
 
         self.settings.mkdir(os.path.dirname(metric_info.metric_path))
         self.settings.mkdir(os.path.dirname(metric_info.summary_path))
-        with open(metric_info.summary_path, "w+") as f:
+        with open(metric_info.summary_path, "w+", encoding="utf-8") as f:
             json.dump(metric_info.summary, f, ensure_ascii=False)
-        with open(metric_info.metric_path, "a") as f:
+        with open(metric_info.metric_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
 
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
