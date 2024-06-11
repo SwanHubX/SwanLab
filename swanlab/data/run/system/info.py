@@ -14,6 +14,7 @@ import subprocess
 import multiprocessing
 import pynvml
 from swanlab.log import swanlog
+import os
 
 
 def __replace_second_colon(input_string, replacement):
@@ -231,10 +232,11 @@ def get_system_info(version: str, logdir: str):
     :param logdir: swanlab日志目录
     """
     return {
-        "swanlab": {"version": version, "logdir": logdir},
-        "hostname": socket.gethostname(),
-        "os": platform.platform(),
-        "python": platform.python_version(),
+        "swanlab": {"version": version, "logdir": logdir},  # swanlab 版本号和日志目录
+        "hostname": socket.gethostname(),  # 主机名
+        "os": platform.platform(),  # 操作系统
+        "python": platform.python_version(),  # python版本
+        "python_verbose": sys.version,  # python详细版本
         "executable": sys.executable,  # python 解释器路径
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
         "cpu": multiprocessing.cpu_count(),  # cpu 核心数
@@ -243,4 +245,5 @@ def get_system_info(version: str, logdir: str):
         "command": __get_command(),  # 完整命令行信息
         "memory": __get_memory_size(),  # 内存大小
         "cwd": __get_cwd(),  # 当前工作目录路径
+        "pid": os.getpid(),  # 当前进程ID
     }
