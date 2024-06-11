@@ -11,8 +11,8 @@ r"""
 """
 import uvicorn
 from tutils.config import SWANLAB_LOG_DIR
-from swanlab.db import connect
-from swanlab.server.app import app
+from swanboard.db import connect
+from swanboard.app import app
 import os
 
 os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
