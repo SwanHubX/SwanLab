@@ -111,61 +111,6 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     return path
 
 
-def get_server_port(env: Optional[Env] = None) -> Optional[int]:
-    """获取服务端口
-
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
-
-    Returns
-    -------
-    Optional[int]
-        服务端口
-    """
-    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
-    if _env.get(PORT) is not None:
-        return _env.get(PORT)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    default: Optional[int] = 5092
-    port = env.get(PORT, default=default)
-    # 必须可以转换为整数，且在0-65535之间
-    if not is_port(port):
-        raise ValueError('SWANLAB_SERVER_PORT must be a port, now is "{port}"'.format(port=port))
-    _env[PORT] = int(port)
-    return _env.get(PORT)
-
-
-def get_server_host(env: Optional[Env] = None) -> Optional[str]:
-    """获取服务端口
-
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
-
-    Returns
-    -------
-    Optional[int]
-        服务端口
-    """
-    default: Optional[str] = "127.0.0.1"
-    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
-    if _env.get(HOST) is not None:
-        return _env.get(HOST)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    _env[HOST] = env.get(HOST, default=default)
-    # 必须是一个ipv4地址
-    if not is_ipv4(_env.get(HOST)):
-        raise ValueError('SWANLAB_SERVER_HOST must be an ipv4 address, now is "{host}"'.format(host=_env.get(HOST)))
-    return _env.get(HOST)
-
-
 def is_dev(env: Optional[Env] = None) -> bool:
     """判断是否是开发模式
     此函数会在一开始就被package.py调用，所以不需要判断是否已经初始化
@@ -187,7 +132,7 @@ def is_dev(env: Optional[Env] = None) -> bool:
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
-function_list = [get_mode, get_swanlog_dir, get_server_port, get_server_host]
+function_list = [get_mode, get_swanlog_dir]
 
 
 def init_env(env: Optional[Env] = None):

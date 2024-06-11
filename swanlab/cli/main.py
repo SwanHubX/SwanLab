@@ -10,11 +10,10 @@ r"""
 
 import click
 from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
-from swanlab.package import version_limit, get_package_version, is_login
+from swanlab.package import get_package_version, is_login
 from swanlab.api.auth import terminal_login
-from ..env import get_server_host, get_server_port, get_swanlog_dir, get_swanlab_folder
+from ..env import get_swanlab_folder
 from ..utils import FONT
-import time
 import shutil
 
 
@@ -64,48 +63,9 @@ def cli():
 )
 def watch(log_level: str, **kwargs):
     """Run this command to turn on the swanlab service."""
-    # 本质上此模块用于注入环境变量并启动服务
-    # 这里采用的是动态导入，因为路径的检查交由上面的is_valid_root_dir回调函数完成
-    start = time.time()
-    # 导入必要的模块
-    from ..log import swanlog as swl
-    from swanboard import run, connect
-    import uvicorn
+    from swanboard import run
 
-    log_dir = get_swanlog_dir()
-    version_limit(log_dir, mode="watch")
-
-    # debug一下当前日志文件夹的位置
-    swl.debug("Try to explore the swanlab experiment logs in: " + FONT.bold(log_dir))
-    try:
-        connect()
-    except FileNotFoundError:
-        swl.error("Can not find the swanlab db in: " + FONT.bold(log_dir))
-    # ---------------------------------- 日志等级处理 ----------------------------------
-    swl.set_level(log_level)
-    # ---------------------------------- 服务地址处理 ----------------------------------
-    # 当前服务地址
-    host = get_server_host()
-    # 当前服务端口
-    port = get_server_port()
-    # 所有可用ip
-    ipv4 = URL.get_all_ip()
-    # ---------------------------------- 日志打印 ----------------------------------
-    # 耗时
-    take_time = int((time.time() - start) * 1000).__str__() + "ms\n\n"
-    # 可用URL
-    if URL.is_zero_ip(host):
-        tip = "\n".join([URL(i, port).__str__() for i in ipv4])
-    else:
-        tip = URL(host, port).__str__()
-    tip = tip + "\n" + URL.last_tip() + "\n"
-    v = FONT.bold("v" + get_package_version())
-    swl.info(f"SwanLab Experiment Dashboard " + v + " ready in " + FONT.bold(take_time) + tip)
-
-    # ---------------------------------- 启动服务 ----------------------------------
-    # 使用 uvicorn 启动 FastAPI 应用，关闭原生日志
-    # 使用try except 捕获退出，涉及端口占用等
-    run()
+    run(log_level)
 
 
 # ---------------------------------- 登录命令，进行登录 ----------------------------------
@@ -123,7 +83,7 @@ def watch(log_level: str, **kwargs):
     default=None,
     type=str,
     help="If you prefer not to engage in command-line interaction to input the api key, "
-         "this will allow automatic login.",
+    "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""
