@@ -22,6 +22,11 @@ def get_key(path: str, host: str):
     host : str
         token对应的host
 
+    Returns
+    -------
+    tuple
+        返回一个元组，如果要获取key，应该使用[2]索引
+
     Raises
     ------
     KeyFileError
