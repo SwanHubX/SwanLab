@@ -9,12 +9,12 @@ r"""
 """
 
 import click
-from .utils import is_valid_ip, is_valid_port, is_valid_root_dir, URL
 from swanlab.package import get_package_version, is_login
 from swanlab.api.auth import terminal_login
 from ..env import get_swanlab_folder
 from ..utils import FONT
 import shutil
+from swanboard.run import options_rule
 
 
 @click.group(invoke_without_command=True)
@@ -34,7 +34,7 @@ def cli():
     default=None,
     type=str,
     help="The host of swanlab web, default by 127.0.0.1",
-    callback=is_valid_ip,
+    callback=options_rule.is_valid_ip,
 )
 # 控制服务发布的端口，默认5092
 @click.option(
@@ -43,7 +43,7 @@ def cli():
     default=None,
     type=int,
     help="The port of swanlab web, default by 5092",
-    callback=is_valid_port,
+    callback=options_rule.is_valid_port,
 )
 # 实验文件夹
 @click.option(
@@ -52,7 +52,7 @@ def cli():
     default=None,
     type=str,
     help="Specify the folder to store Swanlog, which is by default the folder where Swanlab Watch is run.",
-    callback=is_valid_root_dir,
+    callback=options_rule.is_valid_root_dir,
 )
 # 日志等级
 @click.option(
