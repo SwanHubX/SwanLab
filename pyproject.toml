@@ -79,6 +79,7 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
 [tool.hatch.build]
 artifacts = [# 将一些非python文件打包到项目中
+    "/swanlab/template",
     "*.json",
     "*.pyi", # 类型提示文件
 ]
