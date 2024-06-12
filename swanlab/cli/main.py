@@ -13,7 +13,8 @@ from swanlab.api.auth import terminal_login
 from ..env import get_swanlab_folder
 from ..utils import FONT
 import shutil
-from swanboard.run import options_rule
+from .utils import board_runner
+from swanlab.log import swanlog as swl
 
 
 @click.group(invoke_without_command=True)
@@ -33,7 +34,7 @@ def cli():
     default=None,
     type=str,
     help="The host of swanlab web, default by 127.0.0.1",
-    callback=options_rule.is_valid_ip,
+    callback=board_runner.is_valid_ip,
 )
 # 控制服务发布的端口，默认5092
 @click.option(
@@ -42,7 +43,7 @@ def cli():
     default=None,
     type=int,
     help="The port of swanlab web, default by 5092",
-    callback=options_rule.is_valid_port,
+    callback=board_runner.is_valid_port,
 )
 # 实验文件夹
 @click.option(
@@ -51,7 +52,7 @@ def cli():
     default=None,
     type=str,
     help="Specify the folder to store Swanlog, which is by default the folder where Swanlab Watch is run.",
-    callback=options_rule.is_valid_root_dir,
+    callback=board_runner.is_valid_root_dir,
 )
 # 日志等级
 @click.option(
@@ -62,9 +63,9 @@ def cli():
 )
 def watch(log_level: str, **kwargs):
     """Run this command to turn on the swanlab service."""
-    from swanboard import run
 
-    run(log_level)
+    swl.set_level(log_level)
+    board_runner.run()
 
 
 # ---------------------------------- 登录命令，进行登录 ----------------------------------
@@ -82,7 +83,7 @@ def watch(log_level: str, **kwargs):
     default=None,
     type=str,
     help="If you prefer not to engage in command-line interaction to input the api key, "
-         "this will allow automatic login.",
+    "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""
@@ -174,16 +175,16 @@ def logout(**kwargs):
     help="The run_id of the wandb run.",
 )
 def convert(
-        type: str,
-        project: str,
-        cloud: bool,
-        workspace: str,
-        logdir: str,
-        tb_logdir: str,
-        wb_project: str,
-        wb_entity: str,
-        wb_runid: str,
-        **kwargs,
+    type: str,
+    project: str,
+    cloud: bool,
+    workspace: str,
+    logdir: str,
+    tb_logdir: str,
+    wb_project: str,
+    wb_entity: str,
+    wb_runid: str,
+    **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":
