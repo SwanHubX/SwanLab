@@ -7,7 +7,6 @@ r"""
 @Description:
     swanlab脚本命令的主入口
 """
-
 import click
 from swanlab.package import get_package_version, is_login
 from swanlab.api.auth import terminal_login
@@ -83,7 +82,7 @@ def watch(log_level: str, **kwargs):
     default=None,
     type=str,
     help="If you prefer not to engage in command-line interaction to input the api key, "
-    "this will allow automatic login.",
+         "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool, **kwargs):
     """Login to the swanlab cloud."""
@@ -175,16 +174,16 @@ def logout(**kwargs):
     help="The run_id of the wandb run.",
 )
 def convert(
-    type: str,
-    project: str,
-    cloud: bool,
-    workspace: str,
-    logdir: str,
-    tb_logdir: str,
-    wb_project: str,
-    wb_entity: str,
-    wb_runid: str,
-    **kwargs,
+        type: str,
+        project: str,
+        cloud: bool,
+        workspace: str,
+        logdir: str,
+        tb_logdir: str,
+        wb_project: str,
+        wb_entity: str,
+        wb_runid: str,
+        **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":

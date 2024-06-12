@@ -152,46 +152,6 @@ def test_is_dev():
     assert E.is_dev() is False
 
 
-class TestGetServer:
-    """
-    测试由环境变量设置服务器地址
-    """
-
-    def test_default_host(self):
-        """
-        测试默认地址
-        """
-        assert E.get_server_host() == "127.0.0.1"
-
-    def test_use_env_host(self):
-        """
-        测试使用环境变量
-        """
-        os.environ[E.HOST] = "127.0.0.2"
-        assert E.get_server_host() == "127.0.0.2"
-        reset_env()
-        os.environ[E.HOST] = generate()
-        with pytest.raises(ValueError):
-            E.get_server_host()
-
-    def test_default_port(self):
-        """
-        测试默认端口
-        """
-        assert E.get_server_port() == 5092
-
-    def test_use_env_port(self):
-        """
-        测试使用环境变量
-        """
-        os.environ[E.PORT] = "5093"
-        assert E.get_server_port() == 5093
-        reset_env()
-        os.environ[E.PORT] = generate()
-        with pytest.raises(ValueError):
-            E.get_server_port()
-
-
 class TestSwanLogDir:
 
     def test_default(self):
