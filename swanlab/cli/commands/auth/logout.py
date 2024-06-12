@@ -12,6 +12,7 @@ from swanlab.package import is_login
 from swanlab.utils import FONT
 from swanlab.env import get_swanlab_folder
 import shutil
+import sys
 
 
 @click.command()
@@ -31,4 +32,5 @@ def logout():
             return print(FONT.swanlab("Logout canceled."))
     # 如果还未登录，则不做任何处理，并告知用户如何登录
     tip = FONT.swanlab("You are not logged in. If you want to login in, please use `" + command + "` to login.")
-    return print(tip)
+    print(tip)
+    return sys.exit(1)
