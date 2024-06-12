@@ -8,3 +8,5 @@ r"""
     暴露子命令
 """
 from .auth import login, logout
+from .dashboard import watch
+from .converter import convert
