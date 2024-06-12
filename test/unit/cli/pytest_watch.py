@@ -7,7 +7,14 @@ r"""
 @Description:
     测试cli的watch命令
 """
-from swanlab.cli.main import watch
+from swanlab.cli import cli
+from click.testing import CliRunner
 
 
-def
+# noinspection PyTypeChecker
+def test_watch_default():
+    """
+    测试watch命令的默认情况
+    """
+    runner = CliRunner()
+    result = runner.invoke(cli, ["watch"])

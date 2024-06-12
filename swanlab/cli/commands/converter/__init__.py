@@ -1,5 +1,3 @@
-from .tfb import TFBConverter
-from .wb import WandbConverter
 import click
 
 
@@ -71,6 +69,7 @@ def convert(
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":
+        from swanlab.cli.commands.converter.tfb import TFBConverter
 
         tfb_converter = TFBConverter(
             convert_dir=tb_logdir,
@@ -82,6 +81,7 @@ def convert(
         tfb_converter.run()
 
     elif type == "wandb":
+        from swanlab.cli.commands.converter.wb import WandbConverter
 
         print(wb_project, wb_entity, wb_runid)
 
