@@ -9,7 +9,6 @@ r"""
 """
 import os
 from typing import MutableMapping, Optional
-from .utils.file import is_port, is_ipv4
 from .error import UnKnownSystemError
 import enum
 import sys
@@ -23,6 +22,12 @@ _env = dict()
 # '描述' = "key"
 ROOT = "SWANLAB_LOG_DIR"
 """命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
+
+PORT = "SWANLAB_SERVER_PORT"
+"""cli 服务端口"""
+
+HOST = "SWANLAB_SERVER_HOST"
+"""cli 服务地址"""
 
 DEV = "SWANLAB_DEV"
 """是否是开发模式SWANLAB_DEV，开发模式下会打印更多的日志信息，并且切换一些配置"""
@@ -94,7 +99,7 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
         target_type="folder",
         desc=(
             'The log file was not found in the default path "{path}". '
-            'Please use the "swanlab watch -l <LOG '
+            'Please use the "swanlab watch <LOG '
             'PATH>" command to specify the location of the log path."'.format(path=path)
             if path == default
             else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path)
@@ -227,6 +232,9 @@ def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str 
     :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效，此参数只影响文件是否存在，不影响文件类型判断时抛出异常
     :param desc: 异常描述信息，非严格模式下强制不抛出，此参数无效
     :param t_desc: 文件类型描述信息，非严格模式下强制不抛出，此参数无效
+    :raises FileNotFoundError: 文件不存在时抛出异常
+    :raises NotADirectoryError: 文件夹是一个文件时抛出异常
+    :raises IsADirectoryError: 文件是一个文件夹时抛出异常
     """
     if not is_strict_mode():
         return os.path.exists(path)

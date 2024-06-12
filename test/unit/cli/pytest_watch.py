@@ -18,3 +18,4 @@ def test_watch_default():
     """
     runner = CliRunner()
     result = runner.invoke(cli, ["watch"])
+    pass
