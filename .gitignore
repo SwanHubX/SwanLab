@@ -4,6 +4,7 @@ swanlog.bak/
 node_modules/
 dist/
 vue/
+swanlab/template/
 package-lock.json
 .eslintrc-auto-import.json
 
