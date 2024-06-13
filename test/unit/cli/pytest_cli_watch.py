@@ -98,3 +98,4 @@ def test_watch_wrong_host_port():
     time.sleep(3)
     result = runner_watch("--port", "5092")
     assert result.exit_code == 7
+    p1.kill()
