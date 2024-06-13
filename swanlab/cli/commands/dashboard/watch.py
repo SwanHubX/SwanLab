@@ -12,6 +12,7 @@ from swanlab.log import swanlog
 from swanboard import SwanBoardRun
 import click
 import os
+import sys
 
 
 @click.command()
@@ -75,27 +76,32 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     if logdir is not None:
         swanlog.warning(
             "The option `--logdir` will be deprecated in the future, "
-            f"you can just use `swanlab watch {logdir}` to specify the path."
+            f"you can just use `swanlab watch [PATH]` to specify the path."
         )
     # logdir 覆盖 path，接下来统一处理path而不再管logdir
     path = logdir if logdir is not None else path
     if path is not None:
         path = os.path.abspath(path)
         os.environ[ROOT] = path
+    # 为None时从环境变量中获取
     try:
         path = get_swanlog_dir()
     except ValueError as e:
-        return click.BadParameter(str(e))
+        click.BadParameter(str(e))
+        return sys.exit(3)
     except NotADirectoryError:
-        return click.BadParameter("SWANLAB_LOG_DIR must be a directory")
+        click.BadParameter("SWANLAB_LOG_DIR must be a directory")
+        return sys.exit(4)
     except FileNotFoundError:
-        return click.BadParameter(f"The log folder `{path}` was not found")
+        click.BadParameter(f"The log folder `{path}` was not found")
+        return sys.exit(5)
     # ----- 校验host和port -----
     try:
         SwanBoardRun.is_valid_port(port)
         SwanBoardRun.is_valid_ip(host)
     except ValueError as e:
-        return click.BadParameter(str(e))
+        click.BadParameter(str(e))
+        return sys.exit(6)
     # ---- 启动服务 ----
     SwanBoardRun.run(
         path=path,
