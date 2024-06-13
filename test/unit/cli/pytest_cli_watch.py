@@ -9,7 +9,6 @@ r"""
 """
 import os
 import time
-
 from swanlab.cli import cli
 from click.testing import CliRunner
 import multiprocessing

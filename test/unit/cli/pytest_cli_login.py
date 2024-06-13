@@ -20,6 +20,7 @@ import os
 # noinspection PyTypeChecker
 def test_login_ok():
     runner = CliRunner()
+
     result = runner.invoke(cli, ["login", "--api-key", KEY])
     assert result.exit_code == 0
     path = os.path.join(get_swanlab_folder(), ".netrc")

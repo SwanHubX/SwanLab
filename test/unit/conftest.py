@@ -8,7 +8,7 @@ r"""
     配置pytest
 """
 import pytest
-from tutils import clear, init_db, SWANLAB_DIR, SWANLAB_LOG_DIR, PACKAGE_PATH
+from tutils import clear, init_db, SWANLAB_DIR, SWANLAB_LOG_DIR, PACKAGE_PATH, TEMP_PATH
 import swanlab.env as E
 import shutil
 import os
@@ -31,3 +31,4 @@ def setup_before_each():
     os.environ[E.DEV] = "TRUE"
     os.environ[E.ROOT] = SWANLAB_LOG_DIR
     os.environ[E.PACKAGE] = PACKAGE_PATH
+    os.environ[E.HOME] = TEMP_PATH
