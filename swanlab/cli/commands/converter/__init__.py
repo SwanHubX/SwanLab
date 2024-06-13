@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+@DATE: 2024/6/14 00:51
+@File: __init__.py.py
+@IDE: pycharm
+@Description:
+    转换命令，来自`swanlab.converter`，兼容其他可视化工具，转换为swanlab格式
+    由于`swanlab.converter`可以被用户调用，所以转换代码作为一个模块封装，这里只是调用 `swanlab.converter` 的代码
+"""
+
 import click
 
 
@@ -69,7 +80,7 @@ def convert(
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if type == "tensorboard":
-        from swanlab.cli.commands.converter.tfb import TFBConverter
+        from swanlab.converter.tfb import TFBConverter
 
         tfb_converter = TFBConverter(
             convert_dir=tb_logdir,
@@ -81,7 +92,7 @@ def convert(
         tfb_converter.run()
 
     elif type == "wandb":
-        from swanlab.cli.commands.converter.wb import WandbConverter
+        from swanlab.converter.wb import WandbConverter
 
         print(wb_project, wb_entity, wb_runid)
 

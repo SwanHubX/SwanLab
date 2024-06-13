@@ -13,9 +13,7 @@ from .data import (
     get_config,
 )
 
-
 from .data.run.main import config
 from .package import get_package_version
-
 
 __version__ = get_package_version()
