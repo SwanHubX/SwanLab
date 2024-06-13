@@ -8,6 +8,8 @@ r"""
     测试cli的watch命令
 """
 import os
+import time
+
 from swanlab.cli import cli
 from click.testing import CliRunner
 import multiprocessing
@@ -28,9 +30,7 @@ def mock_swanlog(path=None):
 
 # 运行任务
 # noinspection PyTypeChecker
-def runner_watch(args=None):
-    if args is None:
-        args = []
+def runner_watch(*args):
     runner = CliRunner()
     runner.invoke(cli, ["watch", *args])
 
@@ -38,6 +38,7 @@ def runner_watch(args=None):
 # 测试能否ping通
 def ping(host="127.0.0.1", port=5092):
     url = f"http://{host}:{port}"  # noqa
+    time.sleep(3)
     response = requests.get(url, timeout=10)
     assert response.status_code == 200
 
@@ -58,6 +59,7 @@ def test_watch_default():
     p2.start()
     p2.join()
     p1.kill()
+    assert p2.exitcode == 0
 
 
 def test_watch_logdir():
@@ -78,3 +80,4 @@ def test_watch_logdir():
     p2.start()
     p2.join()
     p1.kill()
+    assert p2.exitcode == 0
