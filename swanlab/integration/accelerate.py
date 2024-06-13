@@ -87,15 +87,14 @@ class SwanLabTracker(GeneralTracker):
         self._logdir = self._swanlab_init.get("logdir")
         self._mode = self._swanlab_init.get("mode")
 
-        self.project = project
-        self.logdir = os.path.join(logdir, self.project) if logdir is not None else None
+        self.logdir = os.path.join(logdir, self._project) if self._logdir is not None else None
 
         if swanlab.get_run() is None:
             self.writer = swanlab.init(**self._swanlab_init)
         else:
             self.writer = swanlab.get_run()
 
-        logger.debug(f"Initialized swanlab project {self.run_name} logging to {self.logdir}")
+        logger.debug(f"Initialized swanlab project {self._project} logging to {self._logdir}")
         logger.debug(
             "Make sure to log any initial configurations with `self.store_init_configuration` before training!"
         )
