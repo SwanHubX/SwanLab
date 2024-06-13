@@ -24,6 +24,7 @@ from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
 from swanlab.package import version_limit
+from swanboard import SwanBoardCallback
 
 
 def _check_proj_name(name: str) -> str:
@@ -68,16 +69,16 @@ def login(api_key: str = None):
 
 
 def init(
-    project: str = None,
-    workspace: str = None,
-    experiment_name: str = None,
-    description: str = None,
-    config: Union[dict, str] = None,
-    logdir: str = None,
-    suffix: Union[str, None, bool] = "default",
-    mode: Literal["disabled", "cloud", "local"] = None,
-    load: str = None,
-    **kwargs,
+        project: str = None,
+        workspace: str = None,
+        experiment_name: str = None,
+        description: str = None,
+        config: Union[dict, str] = None,
+        logdir: str = None,
+        suffix: Union[str, None, bool] = "default",
+        mode: Literal["disabled", "cloud", "local"] = None,
+        load: str = None,
+        **kwargs,
 ) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
@@ -294,6 +295,5 @@ def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallbac
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
-    from swanboard import SwanBoardCallback
     callbacks = [c, SwanBoardCallback()]
     return SwanLabRunOperator(callbacks), c
