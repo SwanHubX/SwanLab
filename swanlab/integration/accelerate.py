@@ -57,12 +57,45 @@ class SwanLabTracker(GeneralTracker):
     requires_logging_directory = False
 
     @on_main_process
-    def __init__(self, run_name: str, logging_dir: Union[str, os.PathLike] = None, **kwargs):
+    def __init__(
+        self,
+        project: Optional[str] = None,
+        workspace: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        description: Optional[str] = None,
+        logdir: Optional[str] = None,
+        mode: Optional[str] = None,
+        **kwargs,
+    ):
         super().__init__()
-        self.run_name = run_name
-        self.logging_dir = os.path.join(logging_dir, run_name) if logging_dir is not None else None
-        self.writer = swanlab.init(project=run_name, logdir=self.logging_dir, **kwargs)
-        logger.debug(f"Initialized swanlab project {self.run_name} logging to {self.logging_dir}")
+
+        self._swanlab_init: Dict[str, Any] = {
+            "project": project,
+            "workspace": workspace,
+            "experiment_name": experiment_name,
+            "description": description,
+            "logdir": logdir,
+            "mode": mode,
+        }
+
+        self._swanlab_init.update(**kwargs)
+
+        self._project = self._swanlab_init.get("project")
+        self._workspace = self._swanlab_init.get("workspace")
+        self._experiment_name = self._swanlab_init.get("experiment_name")
+        self._description = self._swanlab_init.get("decsription")
+        self._logdir = self._swanlab_init.get("logdir")
+        self._mode = self._swanlab_init.get("mode")
+
+        self.project = project
+        self.logdir = os.path.join(logdir, self.project) if logdir is not None else None
+
+        if swanlab.get_run() is None:
+            self.writer = swanlab.init(**self._swanlab_init)
+        else:
+            self.writer = swanlab.get_run()
+
+        logger.debug(f"Initialized swanlab project {self.run_name} logging to {self.logdir}")
         logger.debug(
             "Make sure to log any initial configurations with `self.store_init_configuration` before training!"
         )
@@ -100,7 +133,7 @@ class SwanLabTracker(GeneralTracker):
                 Additional key word arguments passed along to either `SummaryWriter.add_scaler`,
                 `SummaryWriter.add_text`, or `SummaryWriter.add_scalers` method based on the contents of `values`.
         """
-        self.writer.log(values, step=step, **kwargs)
+        self.writer.log(values, step=step)
         logger.debug("Successfully logged to swanlab")
 
     @on_main_process
@@ -116,8 +149,10 @@ class SwanLabTracker(GeneralTracker):
             kwargs:
                 Additional key word arguments passed along to the `SummaryWriter.add_image` method.
         """
+
         for k, v in values.items():
-            self.writer.add_images(k, v, global_step=step, **kwargs)
+            self.writer.log(k, swanlab.Image(v), step=step)
+
         logger.debug("Successfully logged images to swanlab")
 
     # @on_main_process
