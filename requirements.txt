@@ -16,7 +16,7 @@ click
 ujson
 pyyaml
 peewee
-swanboard==0.1.2
+swanboard==0.1.2b1
 
 
 # Information collection
