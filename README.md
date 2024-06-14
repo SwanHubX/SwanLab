@@ -3,7 +3,6 @@
 <p align="center">
 <a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
-
 </p>
 
 <p align="center">
@@ -32,22 +31,22 @@
 - [👋🏻 Introduction](#-Introduction)
 - [📃 Demo](#-demo)
 - [🏁 Quick Start](#🏁-quick-start)
-    - [1.Installation](#1installation)
-    - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
-    - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
+  - [1.Installation](#1installation)
+  - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
+  - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
 - [💻 Self-hosted](#-self-hosted)
-    - [Offline Experiment Tracking](#offline-experiment-tracking)
-    - [Open Offline Dashboard](#open-offline-board)
+  - [Offline Experiment Tracking](#offline-experiment-tracking)
+  - [Open Offline Dashboard](#open-offline-board)
 - [🚗 Integration](#-integration)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
-    - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-    - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
+  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
+  - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
 - [👥 Community](#-community)
-    - [Community and Support](#community-and-support)
-    - [SwanLab README Badge](#swanlab-readme-badge)
-    - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
-    - [Contribute to SwanLab](#contribute-to-swanlab)
-    - [Download Icon](#download-icon)
+  - [Community and Support](#community-and-support)
+  - [SwanLab README Badge](#swanlab-readme-badge)
+  - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
+  - [Contribute to SwanLab](#contribute-to-swanlab)
+  - [Download Icon](#download-icon)
 - [📃 License](#-license)
 
 <br/>
@@ -95,8 +94,6 @@ viewing and experiment management.
 >
 > **Star Us**, You will receive all release notifications from GitHub without any delay ~ ⭐️
 
-
-
 ![star-us](readme_files/star-us.png)
 
 <br>
@@ -105,15 +102,15 @@ viewing and experiment management.
 
 Check out SwanLab's online demo：
 
-| [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart) | [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)|
-|:---:|:---:|
+|                  [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                  |                     [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                     |
+| :----------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------: |
 | <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-| Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset. | Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics. |
+|                      Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset.                       |        Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics.        |
 
-| [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)| [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts) |
-|:---:|:---:|
+|               [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                |              [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)              |
+| :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
 | <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-| Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following. | Train a simple LSTM model on the Google stock price dataset to predict future stock prices. |
+|        Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following.         |             Train a simple LSTM model on the Google stock price dataset to predict future stock prices.              |
 
 [More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
 
@@ -163,7 +160,6 @@ for i in range(10):
 
 <br>
 
-
 ## 💻 Self-hosted
 
 The community edition supports offline viewing of SwanLab dashboards.
@@ -198,7 +194,7 @@ Other parts are completely consistent with cloud usage.
 Open the terminal and use the following command to open a SwanLab dashboard:
 
 ```bash
-swanlab watch -l ./logs
+swanlab watch ./logs
 ```
 
 After the operation is completed, SwanLab will provide you with a local URL link (default
@@ -390,6 +386,7 @@ visualizer = dict(
     vis_backends=vis_backends,
 )
 ```
+
 </details>
 
 <details>
@@ -411,14 +408,12 @@ add_swanlab_callback(model)
 
 model.train(
     data="./coco.yaml",
-    epochs=50, 
+    epochs=50,
     imgsz=320,
 )
 ```
 
 </details>
-
-
 
 <br>
 
