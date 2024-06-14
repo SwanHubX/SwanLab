@@ -15,7 +15,6 @@ click
 # database
 ujson
 pyyaml
-peewee
 swanboard==0.1.2b3
 
 
