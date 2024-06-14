@@ -8,7 +8,6 @@ r"""
     在此处完成回调注册、swanlog注册，并为外界提供api，提供运行时生成的配置
 """
 from .modules import (
-    BaseType,
     Audio,
     Image,
     Text,

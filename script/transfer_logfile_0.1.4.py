@@ -12,7 +12,7 @@ r"""
 """
 import os
 from swanlab.env import ROOT
-from swanlab.db import connect, Experiment, Project, Chart, Tag, Source, Namespace, Display
+from swanboard.db import connect, Experiment, Project, Chart, Tag, Source, Namespace, Display
 import json
 import yaml
 import argparse

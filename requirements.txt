@@ -1,4 +1,4 @@
-# dat process
+# data process
 soundfile
 pillow
 matplotlib
@@ -15,7 +15,7 @@ click
 # database
 ujson
 pyyaml
-peewee
+swanboard==0.1.2b3
 
 
 # Information collection
