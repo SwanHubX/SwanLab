@@ -14,7 +14,6 @@ r"""
 """
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, ByteString, Union, Tuple
-from swanlab.log import swanlog
 from enum import Enum
 from io import BytesIO
 import hashlib
@@ -214,9 +213,6 @@ class MediaBuffer(BytesIO):
     def file_name(self, value):
         if not isinstance(value, str) or not value:
             raise TypeError(f"Expected str, but got {type(value)}")
-        # if self.__file_name is not None:
-        #     # 此时意味着使用类似 [] * 2 的操作复制了多个相同的实例，这允许，但不推荐
-        #     swanlog.warning("You are logging a duplicate and same instance, this is not recommended")
         self.__file_name = value
 
 
@@ -226,13 +222,13 @@ class ParseResult:
     """
 
     def __init__(
-        self,
-        section: str = None,
-        chart: BaseType.Chart = None,
-        data: Union[List[str], float] = None,
-        config: Optional[List[Dict]] = None,
-        more: Optional[List[Dict]] = None,
-        buffers: Optional[List[MediaBuffer]] = None,
+            self,
+            section: str = None,
+            chart: BaseType.Chart = None,
+            data: Union[List[str], float] = None,
+            config: Optional[List[Dict]] = None,
+            more: Optional[List[Dict]] = None,
+            buffers: Optional[List[MediaBuffer]] = None,
     ):
         """
         :param section: 转换后数据对应的section
@@ -272,10 +268,6 @@ class ParseResult:
             # 无法被nan或者inf表示的数据，不允许被设置为float
             if not (math.isnan(float(value)) or math.isinf(float(value))):
                 raise TypeError(f"Expected float, but got {type(value)}")
-            elif math.isnan(float(value)):
-                swanlog.warning(f"Your are setting a nan to float")
-            else:
-                swanlog.warning(f"Your are setting a inf to float")
         self.__data = value
 
     @property
