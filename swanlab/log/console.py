@@ -4,11 +4,15 @@ from datetime import datetime
 from ..utils import FONT
 from swanlab.utils import create_time
 from swanlab.utils.judgment import in_jupyter
-from io import StringIO
 
-
-# Consoler 继承的父类
-ConsolerParent = sys.stdout.__class__ if not in_jupyter() else StringIO
+try:
+    # noinspection PyPackageRequirements
+    from IPython.core.getipython import get_ipython
+    # noinspection PyPackageRequirements
+    from ipykernel.iostream import OutStream
+except ImportError:
+    get_ipython = None
+    OutStream = None
 
 
 # 检查当前日期是否和控制台日志文件名一致
@@ -28,19 +32,13 @@ def check_file_name(func):
     return wrapper
 
 
-class Consoler(ConsolerParent):
+class StdPrinter:
+    """
+    标准输出流重定向器，拦截标准输出流，在输出的同时写入日志文件
+    """
     __init_state = True
 
     def __init__(self):
-        # noinspection PyBroadException
-        try:
-            # 根据环境进行不同的初始化
-            if in_jupyter():
-                super().__init__()
-            else:
-                super().__init__(sys.stdout.buffer)
-        except Exception:
-            self.__init_state = False
         self.stdout = None
         """
         原始输出流
@@ -151,14 +149,19 @@ class Consoler(ConsolerParent):
         self.write_callback = _
 
 
+class JupiterPrinter:
+    pass
+
+
 class SwanConsoler:
     def __init__(self):
         """
         控制台输出重定向器
-        [WARNING] 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
+        WARNING 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
         """
-        self.consoler: Consoler = Consoler()
+        self.printer = StdPrinter() if not in_jupyter() else JupiterPrinter()
         self.__console_dir = None
+        self.__stdout = None
 
     @property
     def installed(self):
@@ -167,18 +170,21 @@ class SwanConsoler:
     def uninstall(self):
         """重置输出为原本的样子"""
         if self.installed:
-            sys.stdout = sys.__stdout__
-            self.consoler.reset()
+            sys.stdout = self.__stdout
+            self.printer.reset()
 
     def install(self, console_dir):
-        self.consoler.init(console_dir, sys.__stdout__)
-        self.__console_dir = console_dir
-        if self.consoler.init_state:
-            sys.stdout = self.consoler
+        """"""
+        # self.__stdout = sys.stdout
+        # self.printer.init(console_dir, self.__stdout)
+        # self.__console_dir = console_dir
+        # if self.printer.init_state:
+        #     sys.stdout = self.printer
+        pass
 
     @property
     def write_callback(self):
-        return self.consoler.write_callback
+        return self.printer.write_callback
 
     def set_write_callback(self, func):
-        self.consoler.set_write_callback(func)
+        self.printer.set_write_callback(func)
