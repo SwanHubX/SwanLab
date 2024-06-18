@@ -4,15 +4,7 @@ from datetime import datetime
 from ..utils import FONT
 from swanlab.utils import create_time
 from swanlab.utils.judgment import in_jupyter
-
-try:
-    # noinspection PyPackageRequirements
-    from IPython.core.getipython import get_ipython
-    # noinspection PyPackageRequirements
-    from ipykernel.iostream import OutStream
-except ImportError:
-    get_ipython = None
-    OutStream = None
+from abc import ABC, abstractmethod
 
 
 # 检查当前日期是否和控制台日志文件名一致
@@ -32,24 +24,25 @@ def check_file_name(func):
     return wrapper
 
 
-class StdPrinter:
+class SwanWriterProxy:
     """
-    标准输出流重定向器，拦截标准输出流，在输出的同时写入日志文件
+    标准输出流拦截代理
     """
-    __init_state = True
 
     def __init__(self):
-        self.stdout = None
+        self.epoch = 0
+        self.write_callback = None
+        self.file = None
         """
-        原始输出流
+        当前正在写入的文件句柄
+        """
+        self.write_handler = None
+        """
+        标准输出流原始句柄
         """
         self.__buffer = ""
         """
         上传到云端的缓冲区
-        """
-        self.__epoch = 0
-        """
-        当前write函数回调调用次数
         """
         self.console_folder = None
         """
@@ -59,77 +52,16 @@ class StdPrinter:
         """
         当前文件名称（不包含后缀）
         """
-        self.file = None
-        """
-        当前正在写入的文件
-        """
-        # self.__write_callback = None
-        # """
-        # 注入的上传回调函数本体
-        # """
-        self.write_callback = None
-        """
-        封装后的上传回调函数
-        """
-
-    @property
-    def epoch(self):
-        """
-        write 函数调用次数（当前行号）
-        """
-        return self.__epoch
-
-    @property
-    def init_state(self) -> bool:
-        return self.__init_state
 
     @property
     def can_callback(self) -> bool:
         return self.write_callback is not None
 
-    def init(self, path, stdout):
-        self.console_folder = path
-        self.stdout = stdout
-        # path 是否存在
-        if not os.path.exists(path):
-            os.makedirs(path)
-        # 日志文件路径
-        self.now = datetime.now().strftime("%Y-%m-%d")
-        console_path = os.path.join(path, f"{self.now}.log")
-        # 如果日志系统初始化失败
-        if not self.__init_state:
-            with open(console_path, "w", encoding="utf-8") as f:
-                f.write("Console Recoder Init Failed!")
-        # 拿到日志文件句柄
-        self.file = open(console_path, "a", encoding="utf-8")
-
-    def reset(self):
-        self.__buffer = ""
-        self.__epoch = 0
-        self.now = None
-        self.file and self.file.close()
-        self.file = None
-        self.console_folder = None
-        self.write_callback = None
-
-    @check_file_name
-    def write(self, message):
-        """
-        重写 write 函数，将输出信息写入到控制台和日志文件中
-        """
-        # 先写入原始 sys.stdout，即输出到控制台
-        self.stdout.write(message)
-        self.stdout.flush()
-        message = FONT.clear(message)
-        self.write_callback and self.write_callback(message)
-        self.file.write(message)
-        self.file.flush()
-
     def set_write_callback(self, func):
         # 封装一层func，加入epoch处理逻辑
         def _func(message):
-            self.__epoch += 1
-            func({"message": message, "create_time": create_time(), "epoch": self.__epoch})
+            self.epoch += 1
+            func({"message": message, "create_time": create_time(), "epoch": self.epoch})
 
         # 封装第二层，加入message处理逻辑以及是否调用逻辑
         def _(message):
@@ -148,9 +80,34 @@ class StdPrinter:
 
         self.write_callback = _
 
+    def init(self, path):
+        self.console_folder = path
+        # path 是否存在
+        if not os.path.exists(path):
+            os.makedirs(path)
+        # 日志文件路径
+        self.now = datetime.now().strftime("%Y-%m-%d")
+        console_path = os.path.join(path, f"{self.now}.log")
+        # 拿到日志文件句柄
+        self.file = open(console_path, "a", encoding="utf-8")
+        # 封装sys.stdout
+        self.write_handler = sys.stdout.write
 
-class JupiterPrinter:
-    pass
+        def _(message):
+            self.write_handler(message)
+            message = FONT.clear(message)
+            self.write_callback and self.write_callback(message)
+            self.file.write(message)
+            self.file.flush()
+
+        sys.stdout.write = _
+
+    def reset(self):
+        sys.stdout.write = self.write_handler
+        self.file.close()
+        self.file = None
+        self.write_handler = None
+        self.write_callback = None
 
 
 class SwanConsoler:
@@ -159,7 +116,7 @@ class SwanConsoler:
         控制台输出重定向器
         WARNING 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
         """
-        self.printer = StdPrinter() if not in_jupyter() else JupiterPrinter()
+        self.writer = SwanWriterProxy()
         self.__console_dir = None
         self.__stdout = None
 
@@ -169,22 +126,15 @@ class SwanConsoler:
 
     def uninstall(self):
         """重置输出为原本的样子"""
-        if self.installed:
-            sys.stdout = self.__stdout
-            self.printer.reset()
+        self.writer.reset()
 
     def install(self, console_dir):
         """"""
-        # self.__stdout = sys.stdout
-        # self.printer.init(console_dir, self.__stdout)
-        # self.__console_dir = console_dir
-        # if self.printer.init_state:
-        #     sys.stdout = self.printer
-        pass
+        self.writer.init(console_dir)
 
     @property
     def write_callback(self):
-        return self.printer.write_callback
+        return self.writer.write_callback
 
     def set_write_callback(self, func):
-        self.printer.set_write_callback(func)
+        self.writer.set_write_callback(func)

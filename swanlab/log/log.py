@@ -72,7 +72,7 @@ class SwanLog(SwanLabSharedLog):
         if not self.installed:
             raise RuntimeError("SwanLog has not been installed")
         self.debug("uninstall swanlog, reset consoler")
-        self.__logger.setLevel(self.__original_level)
+        self.level = self.__original_level
         self.__consoler.uninstall()
         self.__installed = False
 
@@ -88,12 +88,12 @@ class SwanLog(SwanLabSharedLog):
         """
         获取当前日志的 epoch
         """
-        return self.__consoler.printer.epoch
+        return self.__consoler.writer.epoch
 
     @property
     def file(self):
         if self.__consoler.installed:
-            return self.__consoler.printer.file
+            return self.__consoler.writer.file
         else:
             return None
 
