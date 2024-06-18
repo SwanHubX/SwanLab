@@ -92,9 +92,10 @@ class SwanWriterProxy:
         self.file = open(console_path, "a", encoding="utf-8")
         # 封装sys.stdout
         self.write_handler = sys.stdout.write
+        a = self.write_handler
 
         def _(message):
-            self.write_handler(message)
+            self.write_handler and self.write_handler(message)
             message = FONT.clear(message)
             self.write_callback and self.write_callback(message)
             self.file.write(message)
@@ -104,9 +105,8 @@ class SwanWriterProxy:
 
     def reset(self):
         sys.stdout.write = self.write_handler
-        self.file.close()
+        self.file and self.file.close()
         self.file = None
-        self.write_handler = None
         self.write_callback = None
 
 
@@ -117,20 +117,21 @@ class SwanConsoler:
         WARNING 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
         """
         self.writer = SwanWriterProxy()
-        self.__console_dir = None
-        self.__stdout = None
+        self.__installed = False
 
     @property
     def installed(self):
-        return self.__console_dir is not None
+        return self.__installed
 
     def uninstall(self):
         """重置输出为原本的样子"""
         self.writer.reset()
+        self.__installed = False
 
     def install(self, console_dir):
         """"""
         self.writer.init(console_dir)
+        self.__installed = True
 
     @property
     def write_callback(self):

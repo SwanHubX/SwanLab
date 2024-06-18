@@ -1,25 +1,5 @@
 from .console import SwanConsoler
-from swanlab.utils import FONT
 from swankit.log import SwanLabSharedLog
-
-
-def concat_messages(func):
-    """
-    装饰器，当传递打印信息有多个时，拼接为一个，并且拦截记录它们
-    """
-
-    def wrapper(self, *args, **kwargs):
-        # 拼接消息，首先将所有参数转换为字符串，然后拼接
-        args = [str(arg) for arg in args]
-        message = " ".join(args)
-        can_write = func(self, message, **kwargs)
-        if can_write and self.file:
-            message = self.prefix + FONT.clear(message) + '\n'
-            self.file.write(message)
-            self.file.flush()
-            self.write_callback and self.write_callback(message)
-
-    return wrapper
 
 
 class SwanLog(SwanLabSharedLog):
@@ -73,7 +53,8 @@ class SwanLog(SwanLabSharedLog):
             raise RuntimeError("SwanLog has not been installed")
         self.debug("uninstall swanlog, reset consoler")
         self.level = self.__original_level
-        self.__consoler.uninstall()
+        if self.__consoler.installed:
+            self.__consoler.uninstall()
         self.__installed = False
 
     @property
@@ -96,42 +77,3 @@ class SwanLog(SwanLabSharedLog):
             return self.__consoler.writer.file
         else:
             return None
-
-    def can_write(self, level: str) -> bool:
-        return self.levels[level] >= self.level
-
-    # 发送调试消息
-    @concat_messages
-    def debug(self, message):
-        super().debug(message)
-        return self.can_write("debug")
-
-    # 发送通知
-    @concat_messages
-    def info(self, message):
-        super().info(message)
-        return self.can_write("info")
-
-    # 发生警告
-    @concat_messages
-    def warning(self, message):
-        super().warning(message)
-        return self.can_write("warning")
-
-    # 发生错误
-    @concat_messages
-    def error(self, message):
-        super().error(message)
-        return self.can_write("error")
-
-    # 致命错误
-    @concat_messages
-    def critical(self, message):
-        super().critical(message)
-        return self.can_write("critical")
-
-    def reset_console(self):
-        """重置控制台记录器"""
-        self.__consoler.uninstall()
-        # FIXME 这里设置为None，会在test测试中出现ValueError: I/O operation on closed file.
-        # self.__consoler = None
