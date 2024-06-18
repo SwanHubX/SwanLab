@@ -11,7 +11,7 @@ except ImportError:
         "This module requires `fastai` to be installed. " "Please install it with command: \n pip install fastai"
     )
 
-from typing import Optional
+from typing import Optional, Any
 import swanlab
 from swanlab.log import swanlog as swl
 
@@ -24,8 +24,9 @@ class SwanLabCallback(Callback):
         description: Optional[str] = None,
         workspace: Optional[str] = None,
         config: Optional[dict] = None,
-        cloud: Optional[bool] = True,
+        mode: Optional[str] = None,
         logdir: Optional[str] = None,
+        **kwargs: Any,
     ):
         store_attr()
         self._experiment = swanlab
@@ -35,7 +36,7 @@ class SwanLabCallback(Callback):
         self.workspace = workspace
         self.config = config
         self.description = description
-        self.cloud = cloud
+        self.mode = mode
         self.logdir = logdir
         self.train_suffix = "train"
         self.summary_suffix = "summary"
@@ -48,7 +49,7 @@ class SwanLabCallback(Callback):
                 experiment_name=self.experiment_name,
                 description=self.description,
                 config=self.config,
-                cloud=self.cloud,
+                mode=self.mode,
                 logdir=self.logdir,
             )
 

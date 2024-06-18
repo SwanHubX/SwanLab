@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "swanlab" # 项目名称
-dynamic = ["version", "dependencies", "optional-dependencies", "readme"] # 动态配置版本，依赖，可选依赖，readme
+dynamic = ["version", "dependencies", "readme"] # 动态配置版本，依赖，可选依赖，readme
 description = "Python library for streamlined tracking and management of AI training processes." # 项目描述
 license = "Apache-2.0" # 项目许可证
 requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
@@ -18,7 +18,7 @@ authors = [# 项目作者
     { name = "Cunyue", email = "team@swanhub.co" },
     { name = "Feudalman", email = "team@swanhub.co" },
     { name = "ZeYi Lin", email = "team@swanhub.co" },
-    { name = "KashiwaByte", email = "team@swanhub.co" }
+    { name = "KashiwaByte", email = "team@swanhub.co" },
 ]
 keywords = [# 项目关键词
     "machine learning",
@@ -44,20 +44,17 @@ classifiers = [# 项目分类
 swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 
 [project.urls] # 项目链接
-"Homepage" = "https://swanhub.co"
+"Homepage" = "https://swanlab.cn"
 "Source" = "https://github.com/SwanHubX/SwanLab"
 "Bug Reports" = "https://github.com/SwanHubX/SwanLab/issues"
-"Documentation" = "https://geektechstudio.feishu.cn/wiki/space/7310593325374013444?ccm_open_type=lark_wiki_spaceLink&open_tab_from=wiki_home"
+"Documentation" = "https://docs.swanlab.cn/zh/guide_cloud/general/what-is-swanlab.html"
 
 [tool.hatch.version] # 动态设置项目版本
 path = "swanlab/package.json"  # package.json文件，从中获取版本号
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
-[tool.hatch.metadata.hooks.requirements_txt] # 动态设置依赖
+[tool.hatch.metadata.hooks.requirements_txt]
 filename = "requirements.txt"
-
-[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]  # 动态设置可选依赖
-oauth = ["requirements-cloud.txt"]  # 连接swanlab云端的可选依赖
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"
@@ -78,14 +75,10 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
 
 [tool.hatch.build]
-artifacts = [# 将一些非python文件打包到项目中
-    "/swanlab/template",
+artifacts = [
     "*.json",
     "*.pyi", # 类型提示文件
 ]
-
-# [tool.hatch.build.targets.wheel.hooks.custom]  # 构建wheel时，用python执行一些脚本
-# path = ".config/copy_frontend.py"  # TODO 拷贝前端文件的脚本
 
 
 [tool.hatch.build.targets.sdist]  # 在执行构建之前，将一些必要文件拷贝到虚拟环境中，以便构建，此时已经完成了vue的编译
@@ -95,53 +88,19 @@ include = [
     "/README.md", # 包含readme
     "/requirements.txt", # 包含依赖
     "/requirements-swan.txt", # 包含可选依赖
-    "/.config/copy_frontend.py", # 包含拷贝前端文件的脚本
-    "/package.json", # 包含前端的package.json文件
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["swanlab"]  # 指定项目包名
 
-[tool.pyright]  # 静态类型检查
+[tool.pyright] # 静态类型检查，暂时没有配置
 include = ["swanlab/**/*.py"]  # 检查的文件
 exclude = []  # 排除的文件
 
-[tool.ruff]  # 代码风格检查
+[tool.ruff]  # 代码风格检查，暂时没有配置
 target-version = "py37"
 extend-select = ["B", "C", "I", "N", "SIM", "UP"]
-ignore = [
-    "C901", # function is too complex (TODO: un-ignore this)
-    "B023", # function definition in loop (TODO: un-ignore this)
-    "B008", # function call in argument defaults
-    "B017", # pytest.raises considered evil
-    "B028", # explicit stacklevel for warnings
-    "E501", # from scripts/lint_backend.sh
-    "SIM105", # contextlib.suppress (has a performance cost)
-    "SIM117", # multiple nested with blocks (doesn't look good with gr.Row etc)
-    "UP007", # use X | Y for type annotations (TODO: can be enabled once Pydantic plays nice with them)
-    "UP006", # use `list` instead of `List` for type annotations (fails for 3.8)
-]
-exclude = []
-
-# [tool.ruff.per-file-ignores]  # 指定某些文件的忽略规则，暂时没什么用
-# "目录/*" = [
-#   "E402", # Demos may have imports not at the top
-#   "E741", # Demos may have ambiguous variable names
-#   "F405", # Demos may use star imports
-#   "I",    # Don't care about import order
-# ]
-# "目录/__init__.py" = [
-#   "F401", # "Imported but unused" (TODO: it would be better to be explicit and use __all__)
-# ]
-# "目录/routes.py" = [
-#   "UP006", # Pydantic on Python 3.7 requires old-style type annotations (TODO: drop when Python 3.7 is dropped)
-# ]
-# "目录/cli/commands/files/NoTemplateComponent.py" = ["ALL"]
-
-# 可以在此处指定一些环境变量
-[tool.pytest.ini_options]
-
-
+ignore = []
 
 
 # black配置，与构建无关

@@ -7,12 +7,10 @@ r"""
 @Description:
     基本回调函数注册表，此时不考虑云端情况
 """
-from typing import Callable
 from swanlab.log import swanlog
 from swanlab.utils.font import FONT
 from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo
-from swanlab.data.system import get_system_info, get_requirements
+from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo, RuntimeInfo
 from swanlab.env import ROOT
 from datetime import datetime
 import traceback
@@ -43,9 +41,9 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         # 如果是KeyboardInterrupt异常
         if tp == KeyboardInterrupt:
-            swanlog.error("KeyboardInterrupt by user")
+            swanlog.info("KeyboardInterrupt by user")
         else:
-            swanlog.error("Error happened while training")
+            swanlog.info("Error happened while training")
 
     @staticmethod
     def _init_logdir(logdir: str = None) -> str:
@@ -84,7 +82,7 @@ class LocalRunCallback(SwanLabRunCallback):
                 raise IOError("logdir must have Write permission.")
         # 如果logdir是空的，创建.gitignore文件，写入*
         if not os.listdir(logdir):
-            with open(os.path.join(logdir, ".gitignore"), "w") as f:
+            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
                 f.write("*")
         return logdir
 
@@ -107,28 +105,10 @@ class LocalRunCallback(SwanLabRunCallback):
             return swanlog.debug("SwanLab Runtime has been cleaned manually.")
         self._train_finish_print()
         # 如果正在运行
-        run.finish() if run.is_running else swanlog.debug("Duplicate finish, ignore it.")
+        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
     def on_init(self, proj_name: str, workspace: str, logdir: str = None):
         self._init_logdir(logdir)
-
-    def before_init_experiment(
-        self,
-        run_id: str,
-        exp_name: str,
-        description: str,
-        num: int,
-        suffix: str,
-        setter: Callable[[str, str, str, str], None]
-    ):
-        requirements_path = self.settings.requirements_path
-        metadata_path = self.settings.metadata_path
-        # 将实验依赖存入 requirements.txt
-        with open(requirements_path, "w") as f:
-            f.write(get_requirements())
-        # 将实验环境(硬件信息、git信息等等)存入 swanlab-metadata.json
-        with open(metadata_path, "w") as f:
-            json.dump(get_system_info(self.settings), f)
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)
@@ -138,18 +118,41 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print()
         swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
-        if not os.path.exists(self.settings.log_dir):
-            os.mkdir(self.settings.log_dir)
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        # 更新运行时信息
+        if r.requirements is not None:
+            r.requirements.write(self.settings.files_dir)
+        if r.metadata is not None:
+            r.metadata.write(self.settings.files_dir)
+        if r.config is not None:
+            r.config.write(self.settings.files_dir)
 
     def on_metric_create(self, metric_info: MetricInfo):
+        # 出现任何错误直接返回
         if metric_info.error:
             return
+        # ---------------------------------- 保存指标数据 ----------------------------------
+
         self.settings.mkdir(os.path.dirname(metric_info.metric_path))
         self.settings.mkdir(os.path.dirname(metric_info.summary_path))
-        with open(metric_info.summary_path, "w+") as f:
+        with open(metric_info.summary_path, "w+", encoding="utf-8") as f:
             json.dump(metric_info.summary, f, ensure_ascii=False)
-        with open(metric_info.metric_path, "a") as f:
+        with open(metric_info.metric_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
+
+        # ---------------------------------- 保存媒体字节流数据 ----------------------------------
+        if metric_info.buffers is None:
+            return
+        for i, r in enumerate(metric_info.buffers):
+            if r is None:
+                continue
+            # 组合路径
+            path = os.path.join(self.settings.media_dir, metric_info.key)
+            os.makedirs(path, exist_ok=True)
+            # 写入数据
+            with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
+                f.write(r.getvalue())
 
     def on_stop(self, error: str = None):
         """

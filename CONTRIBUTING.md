@@ -29,7 +29,7 @@
    ```bash
    git clone https://github.com/<your-username>/swanlab.git
    cd swanlab
-   git remote add upstream https://github.com/swanhubx/wandb.git
+   git remote add upstream https://github.com/swanhubx/swanlab.git
    ```
    
 3. 开发你的贡献

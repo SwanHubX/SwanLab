@@ -9,7 +9,6 @@ r"""
 """
 import os
 from typing import MutableMapping, Optional
-from .utils.file import is_port, is_ipv4
 from .error import UnKnownSystemError
 import enum
 import sys
@@ -25,10 +24,10 @@ ROOT = "SWANLAB_LOG_DIR"
 """命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
 
 PORT = "SWANLAB_SERVER_PORT"
-"""服务端口SWANLAB_SERVER_PORT，服务端口"""
+"""cli 服务端口"""
 
 HOST = "SWANLAB_SERVER_HOST"
-"""服务端口SWANLAB_SERVER_PORT，服务地址"""
+"""cli 服务地址"""
 
 DEV = "SWANLAB_DEV"
 """是否是开发模式SWANLAB_DEV，开发模式下会打印更多的日志信息，并且切换一些配置"""
@@ -40,6 +39,13 @@ MODE = "SWANLAB_MODE"
 3. cloud-only: 云端模式，只会上传日志到云端，不会记录日志到本地，但是会生成一些临时文件
 4. local: 本地模式，不会上传日志到云端，使用swanlab本地版本
 此外，SWANLAB_MODE为disabled时，会开启非严格模式，非严格模式不再要求文件路径存在
+"""
+PACKAGE = "SWANLAB_PACKAGE_PATH"
+"""swanlab包路径SWANLAB_PACKAGE_PATH，用于开发模式下指定swanlab包的路径
+当SWANLAB_DEV为TRUE时，必须指定此路径，否则会抛出异常，非开发模式下此环境变量无效
+"""
+HOME = "SWANLAB_HOME"
+"""存放.swanlab文件夹的路径，用于开发模式下的测试，非开发模式下此环境变量无效
 """
 
 
@@ -69,7 +75,7 @@ def get_mode(env: Optional[Env] = None) -> Optional[str]:
 
 
 def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
-    """获取swanlog路径
+    """获取swanlog路径，返回值为绝对路径
 
     Returns
     -------
@@ -91,73 +97,22 @@ def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
     assert_exist(
         path,
         target_type="folder",
-        desc='The log file was not found in the default path "{path}". '
-             'Please use the "swanlab watch -l <LOG '
-             'PATH>" command to specify the location of the log path."'.format(path=path)
-        if path == default else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path),
-        t_desc='SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path)
+        desc=(
+            'The log file was not found in the default path "{path}". '
+            'Please use the "swanlab watch <LOG '
+            'PATH>" command to specify the location of the log path."'.format(path=path)
+            if path == default
+            else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path)
+        ),
+        t_desc='SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path),
     )
     _env[ROOT] = path
     return path
 
 
-def get_server_port(env: Optional[Env] = None) -> Optional[int]:
-    """获取服务端口
-
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
-
-    Returns
-    -------
-    Optional[int]
-        服务端口
-    """
-    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
-    if _env.get(PORT) is not None:
-        return _env.get(PORT)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    default: Optional[int] = 5092
-    port = env.get(PORT, default=default)
-    # 必须可以转换为整数，且在0-65535之间
-    if not is_port(port):
-        raise ValueError('SWANLAB_SERVER_PORT must be a port, now is "{port}"'.format(port=port))
-    _env[PORT] = int(port)
-    return _env.get(PORT)
-
-
-def get_server_host(env: Optional[Env] = None) -> Optional[str]:
-    """获取服务端口
-
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
-
-    Returns
-    -------
-    Optional[int]
-        服务端口
-    """
-    default: Optional[str] = "127.0.0.1"
-    # 第一次调用时，从环境变量中提取，之后就不再提取，而是从缓存中提取
-    if _env.get(HOST) is not None:
-        return _env.get(HOST)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    _env[HOST] = env.get(HOST, default=default)
-    # 必须是一个ipv4地址
-    if not is_ipv4(_env.get(HOST)):
-        raise ValueError('SWANLAB_SERVER_HOST must be an ipv4 address, now is "{host}"'.format(host=_env.get(HOST)))
-    return _env.get(HOST)
-
-
 def is_dev(env: Optional[Env] = None) -> bool:
     """判断是否是开发模式
+    此函数会在一开始就被package.py调用，所以不需要判断是否已经初始化
 
     Returns
     -------
@@ -176,13 +131,7 @@ def is_dev(env: Optional[Env] = None) -> bool:
 # ---------------------------------- 初始化基础环境变量 ----------------------------------
 
 # 所有的初始化函数
-function_list = [
-    get_mode,
-    get_swanlog_dir,
-    get_server_port,
-    get_server_host,
-    is_dev
-]
+function_list = [get_mode, get_swanlog_dir]
 
 
 def init_env(env: Optional[Env] = None):
@@ -199,8 +148,7 @@ def init_env(env: Optional[Env] = None):
 
 
 def reset_env():
-    """重置
-    """
+    """重置"""
     _env.clear()
 
 
@@ -212,13 +160,6 @@ def is_strict_mode() -> bool:
     是否是严格模式，严格模式下会要求文件路径存在，否则会抛出异常
     """
     return get_mode() != SwanLabMode.DISABLED.value
-
-
-def get_db_path() -> Optional[str]:
-    """
-    获取数据库路径，这是一个计算变量，每次调用都会重新计算
-    """
-    return os.path.join(get_swanlog_dir(), "runs.swanlab")
 
 
 def is_windows() -> bool:
@@ -259,6 +200,12 @@ def get_swanlab_folder() -> str:
     str
         用户家目录的.swanlab文件夹路径
     """
+    if is_dev() and HOME in os.environ:
+        path = os.path.join(os.environ[HOME], ".swanlab")
+        if not assert_exist(path, target_type="folder", ra=False):
+            os.mkdir(path)
+        return path
+
     user_home = get_user_home()
     swanlab_folder = os.path.join(user_home, ".swanlab")
     try:
@@ -270,19 +217,29 @@ def get_swanlab_folder() -> str:
     return swanlab_folder
 
 
+def get_package_path() -> Optional[str]:
+    if is_dev() and PACKAGE in os.environ:
+        return os.environ[PACKAGE]
+    else:
+        return os.path.join(os.path.dirname(__file__), "package.json")
+
+
 def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str = None, t_desc: str = None) -> bool:
     """
     检查文件是否存在，严格模式下，文件不存在会抛出异常，或者可以手动通过参数控制，存在则返回True，否则返回False
     :param path: 文件路径
     :param target_type: 文件类型(folder, file)，如果文件类型与预期不符，会抛出异常，非严格模式下不检测，为None不检测文件类型
-    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效
+    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效，此参数只影响文件是否存在，不影响文件类型判断时抛出异常
     :param desc: 异常描述信息，非严格模式下强制不抛出，此参数无效
     :param t_desc: 文件类型描述信息，非严格模式下强制不抛出，此参数无效
+    :raises FileNotFoundError: 文件不存在时抛出异常
+    :raises NotADirectoryError: 文件夹是一个文件时抛出异常
+    :raises IsADirectoryError: 文件是一个文件夹时抛出异常
     """
     if not is_strict_mode():
         return os.path.exists(path)
     if not os.path.exists(path):
-        if ra or target_type is not None:
+        if ra:
             raise FileNotFoundError(desc or "{path} not existed".format(path=path))
         else:
             return False

@@ -22,6 +22,11 @@ __test_path = os.path.join(
 
 TEMP_PATH = os.path.join(__test_path, "temp")
 
+SWANLAB_DIR = os.path.join(TEMP_PATH, ".swanlab")
+"""
+测试时.swanlab文件夹存放的位置
+"""
+
 SWANLAB_LOG_DIR = os.path.join(TEMP_PATH, "swanlog")
 """
 测试时swanlog文件夹存放的位置
@@ -31,6 +36,10 @@ CONFIG: dict = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__fil
 """
 开发快捷配置
 """
+KEY: str = CONFIG["api-key"]
+"""
+测试时使用的api-key
+"""
 
 PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
 
@@ -38,5 +47,6 @@ PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package
 os.environ["SWANLAB_DEV"] = "TRUE"
 os.environ["SWANLAB_PACKAGE_PATH"] = PACKAGE_PATH
 os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
+os.environ["SWANLAB_HOME"] = TEMP_PATH
 
-__all__ = ["TEMP_PATH", "SWANLAB_LOG_DIR", "CONFIG", "nanoid"]
+__all__ = ["TEMP_PATH", "SWANLAB_LOG_DIR", "CONFIG", "nanoid", "PACKAGE_PATH", "SWANLAB_DIR", "KEY"]

@@ -3,7 +3,7 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -18,14 +18,8 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Set Nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.15.0
-
       - name: Install Dependencies
         run: |
-          npm install
           pip install -r requirements.txt
           pip install build
           pip install twine
@@ -36,7 +30,6 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
         run: |
-          npm run build.release
           python -m build
           python -m twine upload dist/*
 

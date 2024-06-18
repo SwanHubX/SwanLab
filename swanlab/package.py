@@ -9,16 +9,13 @@ r"""
 """
 import json
 import os
-from .env import is_dev, get_swanlab_folder, is_strict_mode
+from .env import get_package_path, get_swanlab_folder, is_strict_mode
 from .utils.key import get_key
 from .error import KeyFileError
+from typing import Optional
+import requests
 
-package_path = None
-if is_dev():
-    # 当前运行时的位置
-    package_path = os.environ['SWANLAB_PACKAGE_PATH']
-else:
-    package_path = os.path.join(os.path.dirname(__file__), "package.json")
+package_path = get_package_path()
 
 
 def get_package_version(p=package_path) -> str:
@@ -39,6 +36,19 @@ def get_package_version(p=package_path) -> str:
         return json.load(f)["version"]
 
 
+def get_package_latest_version(timeout=0.5) -> Optional[str]:
+    url = "https://pypi.org/pypi/swanlab/json"
+    try:
+        response = requests.get(url, timeout=timeout)
+        if response.status_code == 200:
+            data = response.json()
+            return data["info"]["version"]
+        else:
+            return None
+    except Exception as e:
+        return None
+
+
 def get_host_web(p: str = package_path) -> str:
     """获取swanlab网站网址
 
@@ -52,7 +62,7 @@ def get_host_web(p: str = package_path) -> str:
     str
         swanlab网站的网址
     """
-    with open(p, "r") as f:
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["web"]
 
 
@@ -69,7 +79,7 @@ def get_host_api(p: str = package_path) -> str:
     str
         swanlab网站的api网址
     """
-    with open(p, "r") as f:
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["api"]
 
 
@@ -162,15 +172,19 @@ def version_limit(path: str, mode: str) -> None:
             if project.get("version") is not None:
                 # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
                 if mode == "watch":
-                    info = ("The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                            "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
-                            "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
-                            ".1.4.py'")
+                    info = (
+                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
+                        "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
+                        "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
+                        ".1.4.py'"
+                    )
                 elif mode == "init":
-                    info = ("The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                            "SwanLab doesn't support this logfile. If you need to continue train in this logdir, "
-                            "please use the transfer script: "
-                            "https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0.1.4.py'")
+                    info = (
+                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
+                        "SwanLab doesn't support this logfile. If you need to continue train in this logdir, "
+                        "please use the transfer script: "
+                        "https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0.1.4.py'"
+                    )
                 else:
                     info = "version_limit function only support mode in ['watch', 'init']"
                 raise ValueError(info)

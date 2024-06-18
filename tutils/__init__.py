@@ -9,6 +9,7 @@ r"""
 """
 
 from .config import *
+from .utils import *
 import shutil
 import os
 
@@ -21,15 +22,16 @@ def clear():
         shutil.rmtree(TEMP_PATH)
     os.mkdir(TEMP_PATH)
     os.mkdir(SWANLAB_LOG_DIR)
+    os.mkdir(SWANLAB_DIR)
 
 
 def init_db():
     """
     初始化数据库
     """
-    from swanlab.db import connect, Project
+    from swanboard.db import connect, Project
     clear()
-    connect(autocreate=True)
+    connect(autocreate=True, path=SWANLAB_LOG_DIR)
     Project.init(name="pytest-swanlab", description="测试swanlab")
 
 

@@ -8,13 +8,10 @@ r"""
     上传相关接口
 """
 from ..http import get_http, sync_error_handler
-from .model import ColumnModel
-from typing import List, Tuple, Dict
-from swanlab.error import FileError, ApiError
+from .model import ColumnModel, MediaModel, ScalarModel, FileModel
+from typing import List
+from swanlab.error import ApiError
 from swanlab.log import swanlog
-import json
-import yaml
-import os
 
 house_url = '/house/metrics'
 
@@ -47,47 +44,27 @@ def upload_logs(logs: List[dict], level: str = "INFO"):
 
 
 @sync_error_handler
-def upload_media_metrics(media_metrics: List[Tuple[dict, str, str, str]]):
+def upload_media_metrics(media_metrics: List[MediaModel]):
     """
     上传指标的媒体数据
-    :param media_metrics: 媒体指标数据，
-        每个元素为元组，第一个元素为指标信息，
-        第二个元素为指标的名称key，经过URI编码
-        第三个元素为指标类型
-        第四个元素为media文件夹路径
+    :param media_metrics: 媒体指标数据集合
     """
     http = get_http()
-    # 需要上传的文件路径[key, local_path]
-    file_paths: Dict[str, str] = {}
-    for metric, key, data_type, media_folder in media_metrics:
-        if data_type == "text":
-            # 字符串类型没有文件路径
-            continue
-        if isinstance(metric["data"], str):
-            local_path = metric["data"]
-            metric["data"] = "{}/{}".format(key, metric["data"])
-            # 将文件路径添加到files_path中
-            file_paths[metric["data"]] = os.path.join(media_folder, key, local_path)
-        else:
-            local_paths = metric['data']
-            metric['data'] = ["{}/{}".format(key, x) for x in local_paths]
-            for i, local_path in enumerate(local_paths):
-                file_paths[metric['data'][i]] = os.path.join(media_folder, key, local_path)
-    # 上传文件，先上传资源文件，再上传指标信息
-    keys = list(file_paths.keys())
-    local_paths = list(file_paths.values())
-    http.upload_files(keys, local_paths)
+    buffers = []
+    for media in media_metrics:
+        media.buffers and buffers.extend(media.buffers)
+    http.upload_files(buffers)
     # 上传指标信息
-    http.post(house_url, create_data([x[0] for x in media_metrics], "media"))
+    http.post(house_url, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
 @sync_error_handler
-def upload_scalar_metrics(scalar_metrics: List[dict]):
+def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     """
     上传指标的标量数据
     """
     http = get_http()
-    data = create_data(scalar_metrics, "scalar")
+    data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     http.post(house_url, data)
 
 
@@ -102,33 +79,17 @@ _valid_files = {
 
 
 @sync_error_handler
-def upload_files(files: List[str]):
+def upload_files(files: List[FileModel]):
     """
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
     """
     http = get_http()
-    # 去重list
-    files = list(set(files))
-    files = {os.path.basename(x): x for x in files}
-    # 读取文件配置，生成更新信息
-    data = {}
-    for filename, filepath in files.items():
-        if filename not in _valid_files:
-            continue
-        try:
-            with open(filepath, 'r') as f:
-                if _valid_files[filename][1] == 'json':
-                    data[_valid_files[filename][0]] = json.load(f)
-                elif _valid_files[filename][1] == 'yaml':
-                    d = yaml.load(f, Loader=yaml.FullLoader)
-                    if d is None:
-                        raise FileError
-                    data[_valid_files[filename][0]] = d
-                else:
-                    data[_valid_files[filename][0]] = f.read()
-        except json.decoder.JSONDecodeError:
-            raise FileError
+    # 去重所有的FileModel，留下一个
+    if len(files) == 0:
+        return swanlog.warning("No files to upload.")
+    file_model = FileModel.create(files)
+    data = file_model.to_dict()
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
 
 
@@ -153,5 +114,8 @@ __all__ = [
     "upload_media_metrics",
     "upload_scalar_metrics",
     "upload_files",
-    "upload_column"
+    "upload_column",
+    "ScalarModel",
+    "MediaModel",
+    "ColumnModel"
 ]

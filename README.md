@@ -1,8 +1,7 @@
-![Overview](readme_files/swanlab-overview-new.png)
+[![Overview](readme_files/swanlab-overview-new.png)](https://swanlab.cn/)
 
 <p align="center">
-<a href="https://swanlab.cn">SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://github.com/SwanHubX/SwanLab/blob/main/CHANGELOG.md">Changelog</a>
-
+<a href="https://swanlab.cn">🔥SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">📃Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
 </p>
 
@@ -17,9 +16,6 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
   <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
-  <a href="https://www.xiaohongshu.com/user/profile/605786b90000000001003a81" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/小红书-F04438"></a>
-
 </p>
 
 <div align="center">
@@ -33,28 +29,24 @@
 #### TOC
 
 - [👋🏻 Introduction](#-Introduction)
+- [📃 Demo](#-demo)
 - [🏁 Quick Start](#🏁-quick-start)
-    - [1.Installation](#1installation)
-    - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
-    - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
-- [📃 More Examples](#-more-examples)
+  - [1.Installation](#1installation)
+  - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
+  - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
 - [💻 Self-hosted](#-self-hosted)
-    - [Offline Experiment Tracking](#offline-experiment-tracking)
-    - [Open Offline Dashboard](#open-offline-board)
+  - [Offline Experiment Tracking](#offline-experiment-tracking)
+  - [Open Offline Dashboard](#open-offline-board)
 - [🚗 Integration](#-integration)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
-    - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-    - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
-- [🛣️ Roadmap](#%EF%B8%8F-roadmap)
-    - [In Progress Now](#in-progress-now)
-    - [Next Planned](#next-planned)
-    - [Long Term Concern](#long-term-concern)
+  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
+  - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
 - [👥 Community](#-community)
-    - [Community and Support](#community-and-support)
-    - [SwanLab README Badge](#swanlab-readme-badge)
-    - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
-    - [Contribute to SwanLab](#contribute-to-swanlab)
-    - [Download Icon](#download-icon)
+  - [Community and Support](#community-and-support)
+  - [SwanLab README Badge](#swanlab-readme-badge)
+  - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
+  - [Contribute to SwanLab](#contribute-to-swanlab)
+  - [Download Icon](#download-icon)
 - [📃 License](#-license)
 
 <br/>
@@ -63,19 +55,9 @@
 
 ## 👋🏻 Introduction
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and
-collaborating on experiments, aiming to accelerate the research and development efficiency of AI teams by 100 times.
+SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments.
 
-SwanLab是一个开源、轻量级的AI实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台，旨在加速AI研发团队100倍的研发效率。
-
-It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording
-metric, online collaboration, sharing experiment link, real-time message notifications, allowing you to quickly track ML
-experiments, visualize processes, and share with peers.
-
-By using, researchers can accumulate their training experiences and seamlessly communicate and collaborate with peers.
-Machine learning engineers can develop models for production more efficiently.
-
-![](readme_files/introduction.png)
+It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording metric, online collaboration, and sharing experiment link.
 
 Here is the English version of the core feature list for an AI platform:
 
@@ -87,6 +69,8 @@ and track key training metrics.
 - **Supported chart types**: line graphs, media charts (images, audio, text), etc.
 - **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries,
   code directory.
+
+![](readme_files/overview-2.png)
 
 **2. ⚡️ Comprehensive Framework Integration**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
@@ -110,9 +94,25 @@ viewing and experiment management.
 >
 > **Star Us**, You will receive all release notifications from GitHub without any delay ~ ⭐️
 
-
-
 ![star-us](readme_files/star-us.png)
+
+<br>
+
+## 📃 Demo
+
+Check out SwanLab's online demo：
+
+|                  [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                  |                     [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                     |
+| :----------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------: |
+| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
+|                      Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset.                       |        Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics.        |
+
+|               [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                |              [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)              |
+| :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
+| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
+|        Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following.         |             Train a simple LSTM model on the Google stock price dataset to predict future stock prices.              |
+
+[More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
 
 <br>
 
@@ -160,356 +160,26 @@ for i in range(10):
 
 <br>
 
-## 📃 More Examples
-
-<details>
-<summary>MNIST</summary>
-
-```python
-import os
-import torch
-from torch import nn, optim, utils
-import torch.nn.functional as F
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-import swanlab
-
-
-# CNN网络构建
-class ConvNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # 1,28x28
-        self.conv1 = nn.Conv2d(1, 10, 5)  # 10, 24x24
-        self.conv2 = nn.Conv2d(10, 20, 3)  # 128, 10x10
-        self.fc1 = nn.Linear(20 * 10 * 10, 500)
-        self.fc2 = nn.Linear(500, 10)
-
-    def forward(self, x):
-        in_size = x.size(0)
-        out = self.conv1(x)  # 24
-        out = F.relu(out)
-        out = F.max_pool2d(out, 2, 2)  # 12
-        out = self.conv2(out)  # 10
-        out = F.relu(out)
-        out = out.view(in_size, -1)
-        out = self.fc1(out)
-        out = F.relu(out)
-        out = self.fc2(out)
-        out = F.log_softmax(out, dim=1)
-        return out
-
-
-# 捕获并可视化前20张图像
-def log_images(loader, num_images=16):
-    images_logged = 0
-    logged_images = []
-    for images, labels in loader:
-        # images: batch of images, labels: batch of labels
-        for i in range(images.shape[0]):
-            if images_logged < num_images:
-                # 使用swanlab.Image将图像转换为wandb可视化格式
-                logged_images.append(swanlab.Image(images[i], caption=f"Label: {labels[i]}"))
-                images_logged += 1
-            else:
-                break
-        if images_logged >= num_images:
-            break
-    swanlab.log({"MNIST-Preview": logged_images})
-
-
-if __name__ == "__main__":
-
-    # 初始化swanlab
-    run = swanlab.init(
-        project="MNIST-example",
-        experiment_name="ConvNet",
-        description="Train ConvNet on MNIST dataset.",
-        config={
-            "model": "CNN",
-            "optim": "Adam",
-            "lr": 0.001,
-            "batch_size": 512,
-            "num_epochs": 10,
-            "train_dataset_num": 55000,
-            "val_dataset_num": 5000,
-        },
-    )
-
-    # 设置训练机、验证集和测试集
-    dataset = MNIST(os.getcwd(), train=True, download=True, transform=ToTensor())
-    train_dataset, val_dataset = utils.data.random_split(
-        dataset, [run.config.train_dataset_num, run.config.val_dataset_num]
-    )
-
-    train_loader = utils.data.DataLoader(train_dataset, batch_size=run.config.batch_size, shuffle=True)
-    val_loader = utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
-
-    # 初始化模型、损失函数和优化器
-    model = ConvNet()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=run.config.lr)
-
-    # （可选）看一下数据集的前16张图像
-    log_images(train_loader, 16)
-
-    # 开始训练
-    for epoch in range(1, run.config.num_epochs):
-        swanlab.log({"train/epoch": epoch})
-        # 训练循环
-        for iter, batch in enumerate(train_loader):
-            x, y = batch
-            optimizer.zero_grad()
-            output = model(x)
-            loss = criterion(output, y)
-            loss.backward()
-            optimizer.step()
-
-            print(
-                f"Epoch [{epoch}/{run.config.num_epochs}], Iteration [{iter + 1}/{len(train_loader)}], Loss: {loss.item()}"
-            )
-
-            if iter % 20 == 0:
-                swanlab.log({"train/loss": loss.item()}, step=(epoch - 1) * len(train_loader) + iter)
-
-        # 每4个epoch验证一次
-        if epoch % 2 == 0:
-            model.eval()
-            correct = 0
-            total = 0
-            with torch.no_grad():
-                for batch in val_loader:
-                    x, y = batch
-                    output = model(x)
-                    _, predicted = torch.max(output, 1)
-                    total += y.size(0)
-                    correct += (predicted == y).sum().item()
-
-            accuracy = correct / total
-            swanlab.log({"val/accuracy": accuracy})
-```
-
-</details>
-
-<details>
-<summary>FashionMNSIT</summary>
-
-```python
-import os
-import torch
-from torch import nn, optim, utils
-import torch.nn.functional as F
-from torchvision.datasets import FashionMNIST
-from torchvision.transforms import ToTensor
-import swanlab
-
-
-# ResNet网络构建
-class Basicblock(nn.Module):
-    def __init__(self, in_planes, planes, stride=1):
-        super(Basicblock, self).__init__()
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_planes, out_channels=planes, kernel_size=3, stride=stride, padding=1, bias=False),
-            nn.BatchNorm2d(planes),
-            nn.ReLU()
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=planes, out_channels=planes, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(planes),
-        )
-
-        if stride != 1 or in_planes != planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels=in_planes, out_channels=planes, kernel_size=3, stride=stride, padding=1),
-                nn.BatchNorm2d(planes)
-            )
-        else:
-            self.shortcut = nn.Sequential()
-
-    def forward(self, x):
-        out = self.conv1(x)
-        out = self.conv2(out)
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-
-class ResNet(nn.Module):
-    def __init__(self, block, num_block, num_classes):
-        super(ResNet, self).__init__()
-        self.in_planes = 16
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU()
-        )
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-
-        self.block1 = self._make_layer(block, 16, num_block[0], stride=1)
-        self.block2 = self._make_layer(block, 32, num_block[1], stride=2)
-        self.block3 = self._make_layer(block, 64, num_block[2], stride=2)
-        # self.block4 = self._make_layer(block, 512, num_block[3], stride=2)
-
-        self.outlayer = nn.Linear(64, num_classes)
-
-    def _make_layer(self, block, planes, num_block, stride):
-        layers = []
-        for i in range(num_block):
-            if i == 0:
-                layers.append(block(self.in_planes, planes, stride))
-            else:
-                layers.append(block(planes, planes, 1))
-        self.in_planes = planes
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.maxpool(self.conv1(x))
-        x = self.block1(x)  # [200, 64, 28, 28]
-        x = self.block2(x)  # [200, 128, 14, 14]
-        x = self.block3(x)  # [200, 256, 7, 7]
-        # out = self.block4(out)
-        x = F.avg_pool2d(x, 7)  # [200, 256, 1, 1]
-        x = x.view(x.size(0), -1)  # [200,256]
-        out = self.outlayer(x)
-        return out
-
-
-# 捕获并可视化前20张图像
-def log_images(loader, num_images=16):
-    images_logged = 0
-    logged_images = []
-    for images, labels in loader:
-        # images: batch of images, labels: batch of labels
-        for i in range(images.shape[0]):
-            if images_logged < num_images:
-                # 使用swanlab.Image将图像转换为wandb可视化格式
-                logged_images.append(swanlab.Image(images[i], caption=f"Label: {labels[i]}", size=(128, 128)))
-                images_logged += 1
-            else:
-                break
-        if images_logged >= num_images:
-            break
-    swanlab.log({"Preview/MNIST": logged_images})
-
-
-if __name__ == "__main__":
-    # 设置device
-    try:
-        use_mps = torch.backends.mps.is_available()
-    except AttributeError:
-        use_mps = False
-
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif use_mps:
-        device = "mps"
-    else:
-        device = "cpu"
-
-    # 初始化swanlab
-    run = swanlab.init(
-        project="FashionMNIST",
-        workspace="SwanLab",
-        experiment_name="Resnet18-Adam",
-        config={
-            "model": "Resnet34",
-            "optim": "Adam",
-            "lr": 0.001,
-            "batch_size": 32,
-            "num_epochs": 10,
-            "train_dataset_num": 55000,
-            "val_dataset_num": 5000,
-            "device": device,
-            "num_classes": 10,
-        },
-    )
-
-    # 设置训练机、验证集和测试集
-    dataset = FashionMNIST(os.getcwd(), train=True, download=True, transform=ToTensor())
-    train_dataset, val_dataset = utils.data.random_split(
-        dataset, [run.config.train_dataset_num, run.config.val_dataset_num]
-    )
-
-    train_loader = utils.data.DataLoader(train_dataset, batch_size=run.config.batch_size, shuffle=True)
-    val_loader = utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
-
-    # 初始化模型、损失函数和优化器
-    if run.config.model == "Resnet18":
-        model = ResNet(Basicblock, [1, 1, 1, 1], 10)
-    elif run.config.model == "Resnet34":
-        model = ResNet(Basicblock, [2, 3, 5, 2], 10)
-    elif run.config.model == "Resnet50":
-        model = ResNet(Basicblock, [3, 4, 6, 3], 10)
-
-    model.to(torch.device(device))
-
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=run.config.lr)
-
-    # （可选）看一下数据集的前16张图像
-    log_images(train_loader, 16)
-
-    # 开始训练
-    for epoch in range(1, run.config.num_epochs + 1):
-        swanlab.log({"train/epoch": epoch}, step=epoch)
-        # 训练循环
-        for iter, batch in enumerate(train_loader):
-            x, y = batch
-            x, y = x.to(device), y.to(device)
-            optimizer.zero_grad()
-            output = model(x)
-            loss = criterion(output, y)
-            loss.backward()
-            optimizer.step()
-
-            if iter % 40 == 0:
-                print(
-                    f"Epoch [{epoch}/{run.config.num_epochs}], Iteration [{iter + 1}/{len(train_loader)}], Loss: {loss.item()}"
-                )
-                swanlab.log({"train/loss": loss.item()}, step=(epoch - 1) * len(train_loader) + iter)
-
-        # 每4个epoch验证一次
-        if epoch % 2 == 0:
-            model.eval()
-            correct = 0
-            total = 0
-            with torch.no_grad():
-                for batch in val_loader:
-                    x, y = batch
-                    x, y = x.to(device), y.to(device)
-                    output = model(x)
-                    _, predicted = torch.max(output, 1)
-                    total += y.size(0)
-                    correct += (predicted == y).sum().item()
-
-            accuracy = correct / total
-            swanlab.log({"val/accuracy": accuracy}, step=epoch)
-```
-
-</details>
-
-<br>
-
 ## 💻 Self-hosted
 
 The community edition supports offline viewing of SwanLab dashboards.
 
 ### Offline Experiment Tracking
 
-Set the parameters `logir` and `cloud` in swanlab.init to track experiments offline:
+Set the parameters `logir` and `mode` in swanlab.init to track experiments offline:
 
 ```python
 ...
 
 swanlab.init(
     logdir='./logs',
-    cloud=False,
+    mode='local',
 )
 
 ...
 ```
 
-- The parameter `cloud` is set to `False`, which disables synchronizing the experiment to the cloud.
+- The parameter `mode` is set to `local`, which disables synchronizing the experiment to the cloud.
 
 - The setting of the parameter `logdir` is optional, and it specifies the location for saving SwanLab log files (by
   default saved in the `swanlog` folder).
@@ -524,7 +194,7 @@ Other parts are completely consistent with cloud usage.
 Open the terminal and use the following command to open a SwanLab dashboard:
 
 ```bash
-swanlab watch -l ./logs
+swanlab watch ./logs
 ```
 
 After the operation is completed, SwanLab will provide you with a local URL link (default
@@ -716,6 +386,7 @@ visualizer = dict(
     vis_backends=vis_backends,
 )
 ```
+
 </details>
 
 <details>
@@ -737,14 +408,12 @@ add_swanlab_callback(model)
 
 model.train(
     data="./coco.yaml",
-    epochs=50, 
+    epochs=50,
     imgsz=320,
 )
 ```
 
 </details>
-
-
 
 <br>
 
@@ -779,43 +448,6 @@ model.train(
 - Weights and Biases is an online-only, proprietary MLOps platform.
 
 - Not only does SwanLab support online usage, but it also offers an open-source, free, and self-hosted version.
-
-<br>
-
-## 🛣️ Roadmap
-
-Tools evolve in iteration and feedback~, welcome
-to [submit feature suggestions](https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc)
-
-### In Progress Now
-
-- `Table`: More flexible multidimensional table charts, suitable for LLM, AIGC, model evaluation and other scenarios.
-
-- **Email notification📧**: When training is interrupted unexpectedly, when training is completed, and when custom
-  situations occur, send notification emails.
-
-### Next Planned
-
-- `Molecule`: Visualization charts of biochemistry molecules
-
-- `Plot`: Free chart drawing method
-
-- `Api`: Access SwanLab data through API.
-
-- **System hardware records**: Record a series of hardware conditions such as GPU, CPU, disk, network, etc.
-
-- **Code records**: Record training code
-
-- **More integrations**: LightGBM, XGBoost, openai, chatglm, mm series,...
-- ...
-
-### Long-term Concern
-
-- The most beneficial collaborative way for AI team innovation
-
-- The most user-friendly UI interaction
-
-- Viewing experiments on mobile
 
 <br>
 

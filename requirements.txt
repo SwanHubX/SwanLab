@@ -1,6 +1,11 @@
-# dat process
+# for swanlab
+swankit==0.1.0b5
+swanboard==0.1.2b3
+
+# data process
 soundfile
 pillow
+matplotlib
 numpy
 
 # web server
@@ -13,12 +18,9 @@ click
 
 # database
 ujson
-PyYAML
-peewee
+pyyaml
 
 
 # Information collection
 psutil
 pynvml
-watchdog
-

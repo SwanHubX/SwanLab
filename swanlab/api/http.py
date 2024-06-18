@@ -12,6 +12,7 @@ from datetime import datetime
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 from .auth.login import login_by_key
 from .cos import CosClient
+from swanlab.data.modules import MediaBuffer
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
 from swanlab.utils import FONT
@@ -71,6 +72,10 @@ class HTTP:
         当前登录的用户名
         """
         return self.__login_info.username
+
+    @property
+    def cos(self):
+        return self.__cos
 
     @property
     def proj_id(self):
@@ -154,30 +159,25 @@ class HTTP:
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
 
-    def upload(self, key: str, local_path):
+    def upload(self, buffer: MediaBuffer):
         """
         上传文件，需要注意的是file_path应该为unix风格而不是windows风格
-        开头不能有/，即使有也会被去掉
-        :param key: 上传到cos的文件名称
-        :param local_path: 本地文件路径，一般用绝对路径
+        :param buffer: 自定义文件内存对象
         """
-        if key.startswith("/"):
-            key = key[1:]
         if self.__cos.should_refresh:
             self.__get_cos()
-        return self.__cos.upload(key, local_path)
+        return self.__cos.upload(buffer)
 
-    def upload_files(self, keys: list, local_paths: list) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
         """
         批量上传文件，keys和local_paths的长度应该相等
-        :param keys: 上传到cos
-        :param local_paths: 本地文件路径，需用绝对路径
+        :param buffers: 文件内存对象
         :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
         """
         if self.__cos.should_refresh:
+            swanlog.debug("Refresh cos...")
             self.__get_cos()
-        keys = [key[1:] if key.startswith("/") else key for key in keys]
-        return self.__cos.upload_files(keys, local_paths)
+        return self.__cos.upload_files(buffers)
 
     def mount_project(self, name: str, username: str = None) -> ProjectInfo:
         self.__username = self.__username if username is None else username
@@ -216,9 +216,11 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
+
             data = self.post(
                 f"/project/{self.groupname}/{self.__proj.name}/runs",
-                {"name": exp_name, "colors": list(colors), "description": description},
+                {"name": exp_name, "colors": list(colors), "description": description} if description else {
+                    "name": exp_name, "colors": list(colors)}
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
@@ -235,7 +237,7 @@ class HTTP:
         def _():
             self.put(
                 f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
-                {"state": "FINISHED" if success else "CRASHED"},
+                {"state": "FINISHED" if success else "CRASHED", "from": "sdk"},
             )
 
         FONT.loading("Updating experiment status...", _)

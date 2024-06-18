@@ -8,7 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict, Tuple
+from typing import Optional, Union, Dict, Tuple, Literal
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -19,22 +19,12 @@ from .run import (
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
-from .config import SwanLabConfig
-from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE
+from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE, ROOT
 from swanlab.log import swanlog
 from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
-from swanlab.db import GlomCallback
 from swanlab.package import version_limit
-
-_config: Optional["SwanLabConfig"] = SwanLabConfig(None)
-"""
-Allows users to record experiment configurations through swanlab.config.
-Before calling the init() function, config cannot be read or written, even if it is a SwanLabConfig object.
-After calling the init() function, swanlab.config is equivalent to run.config.
-Configuration information synchronization is achieved through class variables.
-When the run object is initialized, it will operate on the SwanLabConfig object to write the configuration.
-"""
+from swanboard import SwanBoardCallback
 
 
 def _check_proj_name(name: str) -> str:
@@ -62,11 +52,6 @@ def _check_proj_name(name: str) -> str:
     return _name
 
 
-def _is_inited():
-    """检查是否已经初始化"""
-    return get_run() is not None
-
-
 def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
@@ -78,22 +63,22 @@ def login(api_key: str = None):
     api_key : str
         authentication key, if not provided, the key will be read from the key file.
     """
-    if _is_inited():
+    if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
     CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.get_login_info()
 
 
 def init(
-    project: str = None,
-    workspace: str = None,
-    experiment_name: str = None,
-    description: str = None,
-    config: Union[dict, str] = None,
-    logdir: str = None,
-    suffix: Union[str, None, bool] = "default",
-    mode: str = None,
-    load: str = None,
-    **kwargs,
+        project: str = None,
+        workspace: str = None,
+        experiment_name: str = None,
+        description: str = None,
+        config: Union[dict, str] = None,
+        logdir: str = None,
+        suffix: Union[str, None, bool] = "default",
+        mode: Literal["disabled", "cloud", "local"] = None,
+        load: str = None,
+        **kwargs,
 ) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
@@ -155,11 +140,11 @@ def init(
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
     """
-    run = get_run()
-    if run is not None:
+    if SwanLabRun.is_started():
         swanlog.warning("You have already initialized a run, the init function will be ignored")
-        return run
+        return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+    # TODO 下个版本删除
     if "cloud" in kwargs:
         swanlog.warning(
             "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
@@ -192,7 +177,7 @@ def init(
         project_name=project,
         experiment_name=experiment_name,
         description=description,
-        config=config,
+        run_config=config,
         log_level=kwargs.get("log_level", "info"),
         suffix=suffix,
         exp_num=exp_num,
@@ -201,6 +186,23 @@ def init(
     return run
 
 
+def should_call_after_init(text):
+    """
+    装饰器，限制必须在实验初始化后调用
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not SwanLabRun.is_started():
+                raise RuntimeError(text)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+@should_call_after_init("You must call swanlab.init() before using log()")
 def log(data: Dict[str, DataType], step: int = None):
     """
     Log a row of data to the current run.
@@ -216,13 +218,12 @@ def log(data: Dict[str, DataType], step: int = None):
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
     """
-    if not _is_inited():
-        raise RuntimeError("You must call swanlab.init() before using log()")
     run = get_run()
     ll = run.log(data, step)
     return ll
 
 
+@should_call_after_init("You must call swanlab.init() before using finish()")
 def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     """
     Finish the current run and close the current experiment
@@ -232,9 +233,7 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
     run = get_run()
-    if not get_run():
-        raise RuntimeError("You must call swanlab.data.init() before using finish()")
-    if not run.is_running:
+    if not run.running:
         return swanlog.error("After experiment is finished, you can't call finish() again.")
     run.finish(state, error)
 
@@ -296,5 +295,5 @@ def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallbac
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
     c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
-    callbacks = [c, GlomCallback()]
+    callbacks = [c, SwanBoardCallback()]
     return SwanLabRunOperator(callbacks), c

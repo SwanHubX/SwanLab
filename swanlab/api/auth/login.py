@@ -21,9 +21,7 @@ import sys
 
 def login_request(api_key: str, timeout: int = 20) -> requests.Response:
     """用户登录，请求后端接口完成验证"""
-    resp = requests.post(
-        url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout
-    )
+    resp = requests.post(url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
     return resp
 
 
@@ -65,7 +63,7 @@ def input_api_key(
     sys.excepthook = _abort_tip
     if not again:
         print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + get_user_setting_path()))
+        print(FONT.swanlab("You can find your API key at: " + FONT.yellow(get_user_setting_path())))
 
     tip = FONT.swanlab(tip)
     ij = in_jupyter()
@@ -96,6 +94,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
     """
     终端登录，此时直接覆盖本地token文件，但是新增交互，让用户输入api_key
     运行此函数，如果是认证失败的错误，重新要求用户输入api_key
+    本地文件上层文件夹不保证存在，需要上层函数保证
     """
     # 1. api_key存在，跳过输入环节，直接请求登录接口，这与代码内swanlab.login方法一致
     # 2. api_key为None，提示用户输入
