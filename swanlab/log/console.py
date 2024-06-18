@@ -3,8 +3,6 @@ import os
 from datetime import datetime
 from ..utils import FONT
 from swanlab.utils import create_time
-from swanlab.utils.judgment import in_jupyter
-from abc import ABC, abstractmethod
 
 
 # 检查当前日期是否和控制台日志文件名一致
