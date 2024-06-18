@@ -71,7 +71,7 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     """
     Run this commands to turn on the swanlab service.
     """
-    swanlog.set_level(log_level)
+    swanlog.level = log_level
     # ----- 校验path，path如果被输入，已经由上层校验已存在，可读，是一个文件夹 -----
     if logdir is not None:
         swanlog.warning(

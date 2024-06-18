@@ -102,8 +102,8 @@ class TestSwanLogInstall:
         assert len(files) == 1
         with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
-            assert content[-2] == swanlog.prefix + a + "\n"
-            assert content[-1] == swanlog.prefix + b + "\n"
+            assert content[-2] == swanlog.prefix + " " + a + "\n"
+            assert content[-1] == swanlog.prefix + " " + b + "\n"
 
     def test_can_write_logging(self):
         swanlog.install(console_dir)
@@ -117,5 +117,5 @@ class TestSwanLogInstall:
         assert len(files) == 1
         with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
-            assert content[-2] != swanlog.prefix + a + "\n"
-            assert content[-1] == swanlog.prefix + b + "\n"
+            assert content[-2] != swanlog.prefix + " " + a + "\n"
+            assert content[-1] == swanlog.prefix + " " + b + "\n"
