@@ -1,7 +1,8 @@
 import numpy as np
 from PIL import Image as PILImage
 from matplotlib import pyplot as plt
-from ..base import MediaType, MediaBuffer, DataSuite as D
+from swankit.core.data import MediaType
+from swankit.core import MediaBuffer, DataSuite as D
 from typing import Union, Any
 from io import BytesIO
 
@@ -44,12 +45,12 @@ class Image(MediaType):
     ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
     def __init__(
-        self,
-        data_or_path: Union[str, np.ndarray, PILImage.Image, plt.plot],
-        mode: str = None,
-        caption: str = None,
-        file_type: str = None,
-        size: Union[int, list, tuple] = None,
+            self,
+            data_or_path: Union[str, np.ndarray, PILImage.Image, plt.plot],
+            mode: str = None,
+            caption: str = None,
+            file_type: str = None,
+            size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 

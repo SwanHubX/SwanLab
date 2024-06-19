@@ -14,7 +14,7 @@ r"""
 """
 from swanlab.error import DataTypeError
 from typing import Protocol, runtime_checkable
-from ..base import BaseType, DataSuite as D
+from swankit.core import BaseType, DataSuite as D
 
 
 @runtime_checkable

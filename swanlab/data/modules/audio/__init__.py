@@ -7,7 +7,8 @@ r"""
 @Description:
     音频模块
 """
-from ..base import MediaType, MediaBuffer, DataSuite as D
+from swankit.core.data import MediaType
+from swankit.core import MediaBuffer, DataSuite as D
 from typing import Union
 import soundfile as sf
 import numpy as np
@@ -17,10 +18,10 @@ class Audio(MediaType):
     SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
 
     def __init__(
-        self,
-        data_or_path: Union[str, np.ndarray],
-        sample_rate: int = 44100,
-        caption: str = None,
+            self,
+            data_or_path: Union[str, np.ndarray],
+            sample_rate: int = 44100,
+            caption: str = None,
     ):
         """Audio class constructor
 

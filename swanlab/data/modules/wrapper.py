@@ -7,44 +7,11 @@ r"""
 @Description:
     包装器
 """
-from .base import BaseType, MediaType, ParseResult
+from swankit.core import ParseResult, ParseErrorInfo
+from swankit.core.data import MediaType
 from typing import Union, List, Optional
 from swanlab.error import DataTypeError
 from .line import Line
-
-
-class WrapperErrorInfo:
-    """
-    DataWrapper转换时的错误信息
-    """
-
-    def __init__(
-        self,
-        expected: Optional[str],
-        got: Optional[str],
-        chart: Optional[BaseType.Chart],
-        duplicated: bool = False
-    ):
-        """
-        :param expected: 期望的数据类型
-        :param got: 实际的数据类型
-        :param chart: 当前错误数据对应的图表类型
-        :param duplicated: 是否是重复错误,如果为是，expected和got和chart都为None
-        """
-        self.expected = expected if not duplicated else None
-        self.got = got if not duplicated else None
-        self.chart = chart if not duplicated else None
-        self.__duplicated = duplicated
-
-    def dict(self):
-        return {"expected": self.expected, "got": self.got}
-
-    @property
-    def duplicated(self) -> bool:
-        """
-        是否是重复错误，重复错误时，got和expected为None
-        """
-        return self.__duplicated
 
 
 class DataWrapper:
@@ -91,7 +58,7 @@ class DataWrapper:
         return self.__result is not None or self.__error is not None
 
     @property
-    def error(self) -> Optional[WrapperErrorInfo]:
+    def error(self) -> Optional[ParseErrorInfo]:
         """
         解析时候的错误信息
         """
@@ -114,13 +81,13 @@ class DataWrapper:
         # [Line]
         if self.type == Line:
             if len(self.__data) > 1:
-                self.__error = WrapperErrorInfo("float", "list(Line)", result.chart)
+                self.__error = ParseErrorInfo("float", "list(Line)", result.chart)
             else:
                 d.inject(**kwargs)
                 try:
                     result.float, _ = d.parse()
                 except DataTypeError as e:
-                    self.__error = WrapperErrorInfo(e.expected, e.got, result.chart)
+                    self.__error = ParseErrorInfo(e.expected, e.got, result.chart)
             self.__result = result
             return self.__result
 
@@ -132,7 +99,7 @@ class DataWrapper:
                 i.inject(**kwargs)
                 d, r = i.parse()
             except DataTypeError as e:
-                self.__error = WrapperErrorInfo(e.expected, e.got, result.chart)
+                self.__error = ParseErrorInfo(e.expected, e.got, result.chart)
                 return None
             data.append(d)
             buffers.append(r)
@@ -156,8 +123,8 @@ class DataWrapper:
         return None
 
     @classmethod
-    def create_duplicate_error(cls) -> WrapperErrorInfo:
+    def create_duplicate_error(cls) -> ParseErrorInfo:
         """
         快捷创建一个重复错误
         """
-        return WrapperErrorInfo(None, None, None, duplicated=True)
+        return ParseErrorInfo(None, None, None, duplicated=True)
