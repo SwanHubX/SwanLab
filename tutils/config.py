@@ -10,6 +10,7 @@ r"""
 import os
 import json
 import nanoid
+from swanlab.env import SwanLabEnv
 
 __test_path = os.path.join(
     os.path.dirname(
@@ -22,31 +23,18 @@ __test_path = os.path.join(
 
 TEMP_PATH = os.path.join(__test_path, "temp")
 
-SWANLAB_DIR = os.path.join(TEMP_PATH, ".swanlab")
-"""
-测试时.swanlab文件夹存放的位置
-"""
+_ = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")))
 
-SWANLAB_LOG_DIR = os.path.join(TEMP_PATH, "swanlog")
-"""
-测试时swanlog文件夹存放的位置
-"""
-
-CONFIG: dict = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")))
-"""
-开发快捷配置
-"""
-KEY: str = CONFIG["api-key"]
+KEY: str = _["api-key"]
 """
 测试时使用的api-key
 """
 
-PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
+_ = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
 
 # 注入环境变量
-os.environ["SWANLAB_DEV"] = "TRUE"
-os.environ["SWANLAB_PACKAGE_PATH"] = PACKAGE_PATH
-os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
-os.environ["SWANLAB_HOME"] = TEMP_PATH
+os.environ[SwanLabEnv.SWANLAB_PACKAGE.value] = _
+os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = os.path.join(TEMP_PATH, "swanlog")
+os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = os.path.join(TEMP_PATH, ".swanlab")
 
-__all__ = ["TEMP_PATH", "SWANLAB_LOG_DIR", "CONFIG", "nanoid", "PACKAGE_PATH", "SWANLAB_DIR", "KEY"]
+__all__ = ["TEMP_PATH", "nanoid", "KEY"]

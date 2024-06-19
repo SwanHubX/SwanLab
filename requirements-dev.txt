@@ -1,9 +1,4 @@
-# pytest
-
 pytest
-
-pytest-asyncio
-
 nanoid
 omegaconf
 ipython
