@@ -36,6 +36,10 @@ def show_button_ipy(experiment_url):
 
 
 def show_button_html(experiment_url):
+    """
+    用于在jupyter前端显示云端的环境iframe和按钮
+    :param experiment_url: 实验链接
+    """
     try:
         # noinspection PyPackageRequirements
         from IPython.display import HTML, display
