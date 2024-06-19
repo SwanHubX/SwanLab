@@ -30,17 +30,19 @@ KEY: str = _["api-key"]
 测试时使用的api-key
 """
 
-_ = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
+PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
 
-# 注入环境变量
+SWANLOG_FOLDER = os.path.join(TEMP_PATH, "swanlog")
 
-__all__ = ["TEMP_PATH", "nanoid", "KEY", "reset_env"]
+SWANLAB_FOLDER = os.path.join(TEMP_PATH, ".swanlab")
 
 
 def reset_env():
-    os.environ[SwanLabEnv.SWANLAB_PACKAGE.value] = _
-    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = os.path.join(TEMP_PATH, "swanlog")
-    os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = os.path.join(TEMP_PATH, ".swanlab")
+    os.environ[SwanLabEnv.SWANLAB_PACKAGE.value] = PACKAGE_PATH
+    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
+    os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
 
 
 reset_env()
+
+__all__ = ["TEMP_PATH", "nanoid", "KEY", "SWANLOG_FOLDER", "SWANLAB_FOLDER", "PACKAGE_PATH", "reset_env"]
