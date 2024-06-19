@@ -8,7 +8,7 @@ r"""
     配置pytest
 """
 import pytest
-from tutils import clear, init_db, SWANLAB_DIR, SWANLAB_LOG_DIR, PACKAGE_PATH, TEMP_PATH
+from tutils import TEMP_PATH, reset_env
 import swanlab.env as E
 import shutil
 import os
@@ -34,9 +34,7 @@ def count_files_in_directory(directory, exclude_prefixes=("__", ".", "~")):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_before_all():
-    clear()
-    init_db()
+def setup():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # 记住当前文件夹下的所有文件数量，用于测试结束后比较，确保测试结束后没有多余文件
     pre_file_count, pre_folder_count = count_files_in_directory(current_dir)
@@ -48,14 +46,17 @@ def setup_before_all():
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_before_each():
-    E.reset_env()
-    if os.path.exists(SWANLAB_DIR):
-        shutil.rmtree(SWANLAB_DIR)
+def setup_each():
+    """
+    对每一个测试函数进行设置
+    对于每一个测试函数，将环境变量恢复原状，清空temp文件夹后重新创建一个新的
+    """
+    for key in E.SwanLabEnv.list():
+        if key in os.environ:
+            del os.environ[key]
+    reset_env()
+    # 清空temp文件夹
+    if os.path.exists(TEMP_PATH):
+        shutil.rmtree(TEMP_PATH)
+    os.mkdir(TEMP_PATH)
     yield
-    E.reset_env()
-    shutil.rmtree(SWANLAB_DIR, ignore_errors=True)
-    os.environ[E.DEV] = "TRUE"
-    os.environ[E.ROOT] = SWANLAB_LOG_DIR
-    os.environ[E.PACKAGE] = PACKAGE_PATH
-    os.environ[E.HOME] = TEMP_PATH
