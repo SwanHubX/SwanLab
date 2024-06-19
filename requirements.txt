@@ -1,5 +1,5 @@
 # for swanlab
-swankit==0.1.0b5
+swankit==0.1.0b7
 swanboard==0.1.2b3
 
 # data process
