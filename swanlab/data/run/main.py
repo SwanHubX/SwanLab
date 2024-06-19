@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from .settings import SwanDataSettings
+from swankit.core import SwanLabSharedSettings
 from swanlab.log import swanlog
 from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from .system import get_system_info, get_requirements
@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator, RuntimeInfo
 from ..formater import check_key_format
-from swanlab.env import get_mode
+from swanlab.env import get_mode, get_swanlog_dir
 import random
 
 
@@ -90,7 +90,12 @@ class SwanLabRun:
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
-        self.__settings = SwanDataSettings(run_id=self.__run_id, should_save=not self.__operator.disabled)
+        self.__settings = SwanLabSharedSettings(
+            logdir=get_swanlog_dir(),
+            run_id=self.__run_id,
+            should_save=not self.__operator.disabled,
+            version=get_package_version(),
+        )
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.level = self.__check_log_level(log_level)
@@ -215,7 +220,7 @@ class SwanLabRun:
         return _run
 
     @property
-    def settings(self) -> SwanDataSettings:
+    def settings(self) -> SwanLabSharedSettings:
         """
         This property allows you to access the 'settings' content passed through `init`,
         and runtime settings can not be modified.

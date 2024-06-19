@@ -9,7 +9,7 @@ r"""
 """
 from typing import List, Union, Dict, Any, Callable
 from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
-from swanlab.data.run.settings import SwanDataSettings
+from swankit.core import SwanLabSharedSettings
 import swanlab.error as E
 from swankit.log import FONT
 
@@ -69,7 +69,7 @@ class SwanLabRunOperator(SwanLabRunCallback):
     def on_init(self, proj_name: str, workspace: str, logdir: str = None) -> OperatorReturnType:
         return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
 
-    def inject(self, settings: SwanDataSettings) -> OperatorReturnType:
+    def inject(self, settings: SwanLabSharedSettings) -> OperatorReturnType:
         self.settings = settings
         return {name: callback.inject(settings) for name, callback in self.callbacks.items()}
 

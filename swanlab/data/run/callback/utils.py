@@ -8,7 +8,7 @@ r"""
     工具类
 """
 from typing import Optional
-from swanlab.data.run.settings import SwanDataSettings
+from swankit.core import SwanLabSharedSettings
 from swanlab.log import swanlog
 from swankit.log import FONT
 from swanlab.env import is_windows
@@ -22,12 +22,12 @@ class U:
     """
 
     def __init__(self):
-        self.settings: Optional[SwanDataSettings] = None
+        self.settings: Optional[SwanLabSharedSettings] = None
 
-    def inject(self, settings: SwanDataSettings):
+    def inject(self, settings: SwanLabSharedSettings):
         """
         为SwanLabRunCallback注入settings等一些依赖，因为实例化可能在SwanLabRun之前发生
-        :param settings: SwanDataSettings, 数据配置
+        :param settings: SwanLabSharedSettings, 数据配置
         :return:
         """
         self.settings = settings
