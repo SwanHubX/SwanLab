@@ -1,3 +1,7 @@
+# for swanlab
+swankit==0.1.0b7
+swanboard==0.1.2b3
+
 # data process
 soundfile
 pillow
@@ -15,7 +19,6 @@ click
 # database
 ujson
 pyyaml
-swanboard==0.1.2b3
 
 
 # Information collection
