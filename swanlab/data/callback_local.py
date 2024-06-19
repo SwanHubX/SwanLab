@@ -7,6 +7,7 @@ r"""
 @Description:
     基本回调函数注册表，此时不考虑云端情况
 """
+from swankit.core import SwanLabSharedSettings
 from swanlab.log import swanlog
 from swanlab.data.run.main import get_run, SwanLabRunState
 from swanlab.data.run.callback import SwanLabRunCallback
@@ -110,6 +111,9 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs):
         self._init_logdir(logdir)
+
+    def before_run(self, settings: SwanLabSharedSettings):
+        self.settings = settings
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)

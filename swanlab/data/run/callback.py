@@ -27,14 +27,6 @@ class U:
     def __init__(self):
         self.settings: Optional[SwanLabSharedSettings] = None
 
-    def inject(self, settings: SwanLabSharedSettings):
-        """
-        为SwanLabRunCallback注入settings等一些依赖，因为实例化可能在SwanLabRun之前发生
-        :param settings: SwanLabSharedSettings, 数据配置
-        :return:
-        """
-        self.settings = settings
-
     @staticmethod
     def fmt_windows_path(path: str) -> str:
         """这主要针对windows环境，输入的绝对路径可能不包含盘符，这里进行补充

@@ -8,6 +8,8 @@ r"""
     云端回调
 """
 from swankit.callback import RuntimeInfo, MetricInfo, ColumnInfo
+from swankit.core import SwanLabSharedSettings
+
 from swanlab.data.cloud import UploadType
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.api import LoginInfo, create_http, terminal_login
@@ -196,6 +198,9 @@ class CloudRunCallback(LocalRunCallback):
 
         http = create_http(self.login_info)
         return http.mount_project(project, workspace).history_exp_count
+
+    def before_run(self, settings: SwanLabSharedSettings):
+        self.settings = settings
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)

@@ -96,7 +96,7 @@ class SwanLabRun:
             should_save=not self.__operator.disabled,
             version=get_package_version(),
         )
-        self.__operator.inject(self.__settings)
+        self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.level = self.__check_log_level(log_level)
         # ---------------------------------- 初始化配置 ----------------------------------

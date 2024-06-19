@@ -69,9 +69,8 @@ class SwanLabRunOperator(SwanKitCallback):
     def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs) -> OperatorReturnType:
         return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
 
-    def inject(self, settings: SwanLabSharedSettings) -> OperatorReturnType:
-        self.settings = settings
-        return {name: callback.inject(settings) for name, callback in self.callbacks.items()}
+    def before_run(self, settings: SwanLabSharedSettings):
+        return self.__run_all("before_run", settings)
 
     def before_init_experiment(
             self,
