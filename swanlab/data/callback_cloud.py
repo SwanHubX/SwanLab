@@ -7,7 +7,7 @@ r"""
 @Description:
     云端回调
 """
-from .run.callback import MetricInfo, ColumnInfo, RuntimeInfo
+from swankit.callback import RuntimeInfo, MetricInfo, ColumnInfo
 from swanlab.data.cloud import UploadType
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.api import LoginInfo, create_http, terminal_login
@@ -186,7 +186,7 @@ class CloudRunCallback(LocalRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None) -> int:
+    def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
         super(CloudRunCallback, self).on_init(project, workspace, logdir)
         # 检测是否有最新的版本
         self._get_package_latest_version()

@@ -7,7 +7,7 @@ r"""
 @Description:
     SwanLabConfig 配置类
 """
-from typing import Any, Mapping, Union
+from typing import Any, Union
 from collections.abc import MutableMapping
 import yaml
 import argparse
@@ -15,7 +15,7 @@ from swanlab.log import swanlog
 import datetime
 import math
 from typing import Callable, Optional
-from .callback import RuntimeInfo
+from swankit.callback import RuntimeInfo
 from swanlab.data.modules import Line
 import re
 import json
@@ -108,9 +108,9 @@ class SwanLabConfig(MutableMapping):
     """
 
     def __init__(
-        self,
-        config: Union[MutableMapping, argparse.Namespace] = None,
-        on_setter: Optional[Callable[[RuntimeInfo], Any]] = None
+            self,
+            config: Union[MutableMapping, argparse.Namespace] = None,
+            on_setter: Optional[Callable[[RuntimeInfo], Any]] = None
     ):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的

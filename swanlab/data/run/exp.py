@@ -2,7 +2,7 @@ from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
 from typing import Dict, Optional
 from swankit.env import create_time
-from .callback import MetricInfo, ColumnInfo
+from swankit.callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
 from swankit.core import SwanLabSharedSettings
 import json

@@ -9,7 +9,8 @@ r"""
 """
 from swanlab.log import swanlog
 from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo, RuntimeInfo
+from swanlab.data.run.callback import SwanLabRunCallback
+from swankit.callback import RuntimeInfo, MetricInfo
 from swankit.log import FONT
 from swanlab.env import SwanLabEnv
 from datetime import datetime
@@ -107,7 +108,7 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs):
         self._init_logdir(logdir)
 
     def on_run(self):

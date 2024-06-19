@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2024/6/5 16:34
-@File: utils.py
+@DATE: 2024/6/19 16:46
+@File: callback.py
 @IDE: pycharm
 @Description:
-    工具类
+    回调函数注册抽象模块
 """
 from typing import Optional
 from swankit.core import SwanLabSharedSettings
+from swankit.callback import SwanKitCallback
 from swanlab.log import swanlog
 from swankit.log import FONT
 from swanlab.env import is_windows
 from swanlab.package import get_package_version
+import atexit
+import sys
 import os
 
 
@@ -84,3 +87,43 @@ class U:
         打印结束信息
         """
         swanlog.info("Experiment {} has completed".format(FONT.yellow(self.settings.exp_name)))
+
+
+class SwanLabRunCallback(SwanKitCallback, U):
+    """
+    SwanLabRunCallback，回调函数注册类，所有以`on_`和`before_`开头的函数都会在对应的时机被调用
+    为了方便管理：
+    1. `_`开头的函数为内部函数，不会被调用，且写在最开头
+    2. 所有回调按照逻辑上的触发顺序排列
+    3. 带有from_*后缀的回调函数代表调用者来自其他地方，比如config、operator等，这将通过settings对象传递
+    4. 所有回调不要求全部实现，只需实现需要的回调即可
+    """
+
+    def _register_sys_callback(self):
+        """
+        注册系统回调，内部使用
+        """
+        sys.excepthook = self._except_handler
+        atexit.register(self._clean_handler)
+
+    def _unregister_sys_callback(self):
+        """
+        注销系统回调，内部使用
+        """
+        sys.excepthook = sys.__excepthook__
+        atexit.unregister(self._clean_handler)
+
+    def _clean_handler(self):
+        """
+        正常退出清理函数，此函数调用`run.finish`
+        """
+        pass
+
+    def _except_handler(self, tp, val, tb):
+        """
+        异常退出清理函数
+        """
+        pass
+
+    def __str__(self):
+        raise NotImplementedError("Please implement this method")

@@ -1,6 +1,6 @@
 # for swanlab
 swankit==0.1.0b8
-swanboard==0.1.2b3
+swanboard==0.1.2b4
 
 # data process
 soundfile
