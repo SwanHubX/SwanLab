@@ -32,16 +32,17 @@ def check_string(target: str) -> bool:
     return True
 
 
-def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
+def check_load_json_yaml(file_path: str, param_name):
     # 不是字符串
     if not isinstance(file_path, str):
-        raise TypeError("{} must be a string, but got {}".format(paramter_name, type(file_path)))
+        raise TypeError("{} must be a string, but got {}".format(param_name, type(file_path)))
     # 检查file_path的后缀是否是json/yaml，否则报错
     path_suffix = file_path.split(".")[-1]
     if not file_path.endswith((".json", ".yaml", ".yml")):
         raise ValueError(
-            "{} must be a json or yaml file ('.json', '.yaml', '.yml'), but got {}, please check if the content of config_file is correct.".format(
-                paramter_name, path_suffix
+            "{} must be a json or yaml file ('.json', '.yaml', '.yml'), "
+            "but got {}, please check if the content of config_file is correct.".format(
+                param_name, path_suffix
             )
         )
     # 转换为绝对路径
@@ -49,14 +50,14 @@ def check_load_json_yaml(file_path: str, paramter_name: str = "init_path"):
     # 读取配置文件
     # 如果文件不存在或者不是文件
     if (not os.path.exists(file_path)) or (not os.path.isfile(file_path)):
-        raise FileNotFoundError("{} not found, please check if the file exists.".format(paramter_name))
+        raise FileNotFoundError("{} not found, please check if the file exists.".format(param_name))
     # 为空
     if os.path.getsize(file_path) == 0:
-        raise ValueError("{} is empty, please check if the content of config_file is correct.".format(paramter_name))
+        raise ValueError("{} is empty, please check if the content of config_file is correct.".format(param_name))
     # 无权限读取
     if not os.access(file_path, os.R_OK):
         raise PermissionError(
-            "No permission to read {}, please check if you have the permission.".format(paramter_name)
+            "No permission to read {}, please check if you have the permission.".format(param_name)
         )
     load = ujson.load if path_suffix == "json" else yaml.safe_load
     with open(file_path, "r") as f:

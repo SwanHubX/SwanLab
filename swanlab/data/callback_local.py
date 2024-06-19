@@ -8,10 +8,10 @@ r"""
     基本回调函数注册表，此时不考虑云端情况
 """
 from swanlab.log import swanlog
-from swanlab.utils.font import FONT
 from swanlab.data.run.main import get_run, SwanLabRunState
 from swanlab.data.run.callback import SwanLabRunCallback, MetricInfo, RuntimeInfo
-from swanlab.env import ROOT
+from swankit.log import FONT
+from swanlab.env import SwanLabEnv
 from datetime import datetime
 import traceback
 import json
@@ -69,10 +69,10 @@ class LocalRunCallback(SwanLabRunCallback):
                 raise ValueError("logdir must be a str.")
             except IOError:
                 raise IOError("logdir must be a path and have Write permission.")
-            os.environ[ROOT] = logdir
+            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
         # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
         else:
-            logdir = os.environ.get(ROOT) or os.path.join(os.getcwd(), "swanlog")
+            logdir = os.environ.get(SwanLabEnv.SWANLOG_FOLDER.value) or os.path.join(os.getcwd(), "swanlog")
             logdir = os.path.abspath(logdir)
             try:
                 os.makedirs(logdir, exist_ok=True)

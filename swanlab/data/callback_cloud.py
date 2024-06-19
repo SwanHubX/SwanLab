@@ -15,13 +15,12 @@ from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
 from swanlab.api import get_http
 from swanlab.env import in_jupyter
-from swanlab.package import get_host_web, get_host_api, get_key
+from swanlab.package import get_host_web, get_key
 from swanlab.error import KeyFileError
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 from swanlab.data.cloud import ThreadPool
 from swanlab.package import get_package_version, get_package_latest_version
 from swankit.log import FONT
-from swanlab.env import get_save_dir
 from swankit.env import create_time
 import json
 import sys
@@ -130,7 +129,7 @@ class CloudRunCallback(LocalRunCallback):
         """
         key = None
         try:
-            key = get_key(os.path.join(get_save_dir(), ".netrc"), get_host_api())[2]
+            key = get_key()
         except KeyFileError:
             try:
                 fd = sys.stdin.fileno()

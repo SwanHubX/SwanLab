@@ -97,37 +97,31 @@ def get_experiment_url(username: str, projname: str, expid: str) -> str:
 # ---------------------------------- 登录相关 ----------------------------------
 
 
-def get_key(path: str, host: str):
+def get_key():
     """使用标准netrc库解析token文件，获取token
-    :param path: token文件路径
-    :param host: token对应的host
     :raise KeyFileError: 文件不存在或者host不存在
     :return: token
     """
+    path = os.path.join(get_save_dir(), ".netrc")
+    host = get_host_web()
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
     info = nrc.authenticators(host)
     if info is None:
         raise KeyFileError(f"The host {host} does not exist")
-    return info
+    return info[2]
 
 
-def save_key(path: str, host: str, username: str, password: str):
+def save_key(username: str, password: str):
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
-    :param path: 保存位置，必须是文件夹
-    :param host: 保存的host
     :param username: 保存的用户名
     :param password: 保存的密码
     :raises KeyFileError 传入的path路径文件名称不是.netrc或上级文件夹不存在
     """
-    # 传入的path路径文件名称不是.netrc
-    if os.path.basename(path) != ".netrc":
-        raise KeyFileError("The file name must be .netrc")
-    # 上级文件夹不存在
-    if not os.path.exists(os.path.dirname(path)):
-        raise KeyFileError("The parent folder does not exist")
+    path = os.path.join(get_save_dir(), ".netrc")
+    host = get_host_web()
     # 如果文件不存在，自动创建
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -143,7 +137,7 @@ def is_login() -> bool:
     :return: 是否已经登录
     """
     try:
-        _ = get_key(os.path.join(get_save_dir(), ".netrc"), get_host_api())[2]
+        _ = get_key()
         return True
     except KeyFileError:
         return False

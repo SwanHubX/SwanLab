@@ -10,7 +10,7 @@ r"""
 import click
 from swanlab.package import is_login
 from swanlab.api.auth import terminal_login
-from swanlab.utils import FONT
+from swankit.log import FONT
 
 
 @click.command()

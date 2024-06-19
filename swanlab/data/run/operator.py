@@ -11,7 +11,7 @@ from typing import List, Union, Dict, Any, Callable
 from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
 from swanlab.data.run.settings import SwanDataSettings
 import swanlab.error as E
-from swanlab.utils import FONT
+from swankit.log import FONT
 
 OperatorReturnType = Dict[str, Any]
 
@@ -74,13 +74,13 @@ class SwanLabRunOperator(SwanLabRunCallback):
         return {name: callback.inject(settings) for name, callback in self.callbacks.items()}
 
     def before_init_experiment(
-        self,
-        run_id: str,
-        exp_name: str,
-        description: str,
-        num: int,
-        suffix: str,
-        setter: Callable[[str, str, str, str], None]
+            self,
+            run_id: str,
+            exp_name: str,
+            description: str,
+            num: int,
+            suffix: str,
+            setter: Callable[[str, str, str, str], None]
     ):
         return self.__run_all(
             "before_init_experiment",

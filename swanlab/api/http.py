@@ -15,7 +15,7 @@ from .cos import CosClient
 from swanlab.data.modules import MediaBuffer
 from swanlab.error import NetworkError, ApiError
 from swanlab.package import get_host_api
-from swanlab.utils import FONT
+from swankit.log import FONT
 from swanlab.log import swanlog
 import requests
 
