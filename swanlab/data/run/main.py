@@ -12,13 +12,13 @@ from swanlab.log import swanlog
 from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from .system import get_system_info, get_requirements
 from swanlab.package import get_package_version
-from swanlab.utils.file import check_key_format
 from .config import SwanLabConfig
 from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator, RuntimeInfo
+from ..formater import check_key_format
 from swanlab.env import get_mode
 import random
 

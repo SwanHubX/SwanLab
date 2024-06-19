@@ -8,7 +8,6 @@ r"""
     swanlab全局错误定义
 """
 import requests
-from typing import Optional
 
 
 class ValidationError(Exception):
@@ -27,12 +26,6 @@ class KeyFileError(Exception):
 
 class NotLoginError(Exception):
     """未登录错误，此时用户未登录
-    """
-    pass
-
-
-class UnKnownSystemError(Exception):
-    """未知系统错误，此时swanlab运行在未知系统上，这个系统不是windows或者类unix系统
     """
     pass
 
@@ -97,4 +90,3 @@ class DataTypeError(Exception):
         super().__init__(f"expected: {expected}, got: {got}")
         self.expected = expected
         self.got = got
-
