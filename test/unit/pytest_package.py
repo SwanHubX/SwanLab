@@ -1,7 +1,8 @@
-from tutils.config import nanoid
+import pytest
 import swanlab.package as P
-from swanlab.env import SwanLabEnv
+from swanlab.env import SwanLabEnv, get_save_dir
 import nanoid
+import netrc
 import json
 import os
 
@@ -85,4 +86,94 @@ def test_get_experiment_url():
         expid
     ) == P.get_host_web() + "/" + username + "/" + projname + "/" + expid
 
-# TODO 有关key的测试
+
+# ---------------------------------- 登录部分 ----------------------------------
+
+class TestGetKey:
+
+    def test_ok(self):
+        """
+        获取key成功
+        """
+        # 首先需要登录
+        file = os.path.join(get_save_dir(), ".netrc")
+        with open(file, "w"):
+            pass
+        nrc = netrc.netrc(file)
+        key = nanoid.generate()
+        nrc.hosts[P.get_host_web()] = ("user", "", key)
+        with open(file, "w") as f:
+            f.write(nrc.__repr__())
+        assert P.get_key() == key
+
+    def test_no_file(self):
+        """
+        文件不存在
+        """
+        from swanlab.error import KeyFileError
+        with pytest.raises(KeyFileError) as e:
+            P.get_key()
+        assert str(e.value) == "The file does not exist"
+
+    def test_no_host(self):
+        from swanlab.error import KeyFileError
+        self.test_ok()
+        host = nanoid.generate()
+        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = host
+        assert P.get_host_web() == host
+        with pytest.raises(KeyFileError) as e:
+            P.get_key()
+        assert str(e.value) == f"The host {host} does not exist"
+
+
+class TestSaveKey:
+
+    @staticmethod
+    def get_key(path, host):
+        nrc = netrc.netrc(path)
+        info = nrc.authenticators(host)
+        return info[2]
+
+    def test_ok(self):
+        """
+        保存key成功
+        """
+        path = os.path.join(get_save_dir(), ".netrc")
+        password = nanoid.generate()
+        host = P.get_host_web()
+        P.save_key("user", password, host=host)
+        assert self.get_key(path, host) == password
+
+
+class TestIsLogin:
+    @staticmethod
+    def login():
+        path = os.path.join(get_save_dir(), ".netrc")
+        with open(path, "w"):
+            pass
+        nrc = netrc.netrc(path)
+        key = nanoid.generate()
+        nrc.hosts[P.get_host_web()] = ("user", "", key)
+        with open(path, "w") as f:
+            f.write(nrc.__repr__())
+
+    def test_ok(self):
+        """
+        已经登录
+        """
+        self.login()
+        assert P.is_login()
+
+    def test_no_file(self):
+        """
+        文件不存在
+        """
+        assert not P.is_login()
+
+    def test_wrong_host(self):
+        """
+        host不匹配
+        """
+        self.login()
+        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = nanoid.generate()
+        assert not P.is_login()
