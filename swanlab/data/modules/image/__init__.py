@@ -91,7 +91,7 @@ class Image(MediaType):
         if PILImage is None or np is None or plt is None:
             raise ImportError(
                 "pillow、numpy and matplotlib are required for Image class, "
-                'you can install them by `pip install "swanlab[process]"`'
+                'you can install them by `pip install "swanlab[media]"`'
             )
         super().__init__()
         self.format = self.__convert_file_type(file_type)
