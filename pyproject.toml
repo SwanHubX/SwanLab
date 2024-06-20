@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "swanlab" # 项目名称
-dynamic = ["version", "dependencies", "readme"] # 动态配置版本，依赖，可选依赖，readme
+dynamic = ["version", "dependencies", "optional-dependencies", "readme"] # 动态配置版本，依赖，可选依赖，readme
 description = "Python library for streamlined tracking and management of AI training processes." # 项目描述
 license = "Apache-2.0" # 项目许可证
 requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
@@ -55,6 +55,9 @@ pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
 [tool.hatch.metadata.hooks.requirements_txt]
 filename = "requirements.txt"
+
+[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
+oauth = ["requirements-cloud.txt"]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"

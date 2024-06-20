@@ -9,7 +9,7 @@ r"""
 """
 import os
 import re
-import ujson
+import json
 import yaml
 
 
@@ -59,7 +59,7 @@ def check_load_json_yaml(file_path: str, param_name):
         raise PermissionError(
             "No permission to read {}, please check if you have the permission.".format(param_name)
         )
-    load = ujson.load if path_suffix == "json" else yaml.safe_load
+    load = json.load if path_suffix == "json" else yaml.safe_load
     with open(file_path, "r") as f:
         # 读取配置文件的内容
         file_data = load(f)

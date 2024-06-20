@@ -23,7 +23,7 @@ def __replace_second_colon(input_string, replacement):
     if first_colon_index != -1:
         second_colon_index = input_string.find(":", first_colon_index + 1)
         if second_colon_index != -1:
-            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1 :]
+            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1:]
     return input_string
 
 
@@ -108,7 +108,7 @@ def __get_nvidia_gpu_info():
                 gpu_name = gpu_name.decode("utf-8")
             info["type"].append(gpu_name)
             # 获取 GPU 的总显存, 单位为GB
-            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
+            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024 ** 3)))
 
     except pynvml.NVMLError as e:
         swanlog.debug(f"An error occurred when getting GPU info: {e}")
@@ -120,17 +120,17 @@ def __get_nvidia_gpu_info():
 
 
 def __get_apple_gpu_info():
-    import ujson
+    import json
 
     info = {"cores": None, "type": [], "memory": []}
 
     # 使用system_profiler命令以JSON格式获取GPU信息
     try:
         result = subprocess.run(["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True)
-        gpu_name = ujson.loads(result.stdout)["SPHardwareDataType"][0]["chip_type"]
-        memory = ujson.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
+        gpu_name = json.loads(result.stdout)["SPHardwareDataType"][0]["chip_type"]
+        memory = json.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
         memory = str(memory).lower().replace("gb", "")
-        number_processors = ujson.loads(result.stdout)["SPHardwareDataType"][0]["number_processors"]
+        number_processors = json.loads(result.stdout)["SPHardwareDataType"][0]["number_processors"]
     except:
         return None
 
@@ -147,7 +147,7 @@ def __get_apple_gpu_info():
     # try:
     #     command = [str(binary_path), "--json"]
     #     output = (subprocess.check_output(command, universal_newlines=True).strip().split("\n"))[0]
-    #     raw_stats = ujson.loads(output)
+    #     raw_stats = json.loads(output)
     #     stats = {
     #         "gpu": raw_stats["utilization"],
     #         "memoryAllocated": raw_stats["mem_used"],
@@ -190,7 +190,7 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = round(mem.total / (1024**3))  # 单位为GB
+        total_memory = round(mem.total / (1024 ** 3))  # 单位为GB
         return total_memory
     except Exception as e:
         swanlog.debug(f"An error occurred when getting memory size: {e}")
