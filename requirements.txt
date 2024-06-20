@@ -1,5 +1,5 @@
 # for swanlab
-swankit==0.1.0b8
+swankit==0.1.0b9
 swanboard==0.1.2b4
 
 # http

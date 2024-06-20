@@ -57,7 +57,7 @@ pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 filename = "requirements.txt"
 
 [tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
-oauth = ["requirements-cloud.txt"]
+process = ["requirements-data.txt"]  # pip install "swanlab[process]"
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"
@@ -90,7 +90,7 @@ include = [
     "/test", # 包含一些测试脚本，确保测试成功
     "/README.md", # 包含readme
     "/requirements.txt", # 包含依赖
-    "/requirements-swan.txt", # 包含可选依赖
+    "/requirements-data.txt", # 包含可选依赖
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -1,10 +1,16 @@
-import numpy as np
-from PIL import Image as PILImage
-from matplotlib import pyplot as plt
-from swankit.core.data import MediaType
-from swankit.core import MediaBuffer, DataSuite as D
+from swankit.core import MediaBuffer, DataSuite as D, MediaType
 from typing import Union, Any
 from io import BytesIO
+
+try:
+    # noinspection PyPackageRequirements
+    import numpy as np
+    # noinspection PyPackageRequirements
+    from PIL import Image as PILImage
+    # noinspection PyPackageRequirements
+    from matplotlib import pyplot as plt
+except ImportError:
+    np, PILImage, plt = None, None, None
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -82,7 +88,11 @@ class Image(MediaType):
 
             If it is None, it means no scaling for the image.
         """
-
+        if PILImage is None or np is None or plt is None:
+            raise ImportError(
+                "pillow、numpy and matplotlib are required for Image class, "
+                'you can install them by `pip install "swanlab[process]"`'
+            )
         super().__init__()
         self.format = self.__convert_file_type(file_type)
         self.size = convert_size(size)
