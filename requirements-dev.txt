@@ -4,7 +4,3 @@ omegaconf
 ipython
 ipython<8.13; python_version < '3.9'
 ipykernel
-soundfile
-pillow
-matplotlib
-numpy

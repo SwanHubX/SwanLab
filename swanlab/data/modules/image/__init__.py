@@ -1,13 +1,10 @@
+import numpy as np
+from PIL import Image as PILImage
+from matplotlib import pyplot as plt
 from swankit.core.data import MediaType
 from swankit.core import MediaBuffer, DataSuite as D
-from typing import Union, Any, TYPE_CHECKING
+from typing import Union, Any
 from io import BytesIO
-from swanlab.data.modules.utils import check_library_installed
-
-if TYPE_CHECKING:
-    from PIL import Image as PILImage
-    import numpy as np
-    from matplotlib import pyplot as plt
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -48,12 +45,12 @@ class Image(MediaType):
     ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
     def __init__(
-        self,
-        data_or_path: Union[str, "np.ndarray", "PILImage.Image", "plt.plot"],
-        mode: str = None,
-        caption: str = None,
-        file_type: str = None,
-        size: Union[int, list, tuple] = None,
+            self,
+            data_or_path: Union[str, np.ndarray, PILImage.Image, plt.plot],
+            mode: str = None,
+            caption: str = None,
+            file_type: str = None,
+            size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 
@@ -90,22 +87,36 @@ class Image(MediaType):
         self.format = self.__convert_file_type(file_type)
         self.size = convert_size(size)
 
-        check_library_installed("PIL", "pillow")
-        from PIL import Image as PILImage
-
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
             try:
                 image_data = PILImage.open(data_or_path).convert(mode)
             except Exception as e:
                 raise ValueError(f"Invalid image path: {data_or_path}") from e
+        elif isinstance(data_or_path, np.ndarray):
+            # 如果输入为numpy array
+            try:
+                if data_or_path.ndim == 2 or (data_or_path.ndim == 3 and data_or_path.shape[2] in [3, 4]):
+                    image_data = PILImage.fromarray(
+                        np.clip(data_or_path, 0, 255).astype(np.uint8),
+                        mode=mode
+                    )
+                else:
+                    raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
+            except Exception as e:
+                raise TypeError("Invalid numpy array for the image") from e
         elif isinstance(data_or_path, PILImage.Image):
             # 如果输入为PIL.Image
             image_data = data_or_path.convert(mode)
         elif is_pytorch_tensor_typename(get_full_typename(data_or_path)):
             # 如果输入为pytorch tensor
-            check_library_installed("torchvision")
-            import torchvision
+            try:
+                import torchvision  # noqa
+            except ImportError:
+                raise TypeError(
+                    "swanlab.Image requires `torchvision` when process torch.tensor data. "
+                    "Install with 'pip install torchvision'."
+                )
 
             if hasattr(data_or_path, "requires_grad") and data_or_path.requires_grad:
                 data_or_path = data_or_path.detach()  # noqa
@@ -113,7 +124,8 @@ class Image(MediaType):
                 data_or_path = data_or_path.to(float)
             data_or_path = torchvision.utils.make_grid(data_or_path, normalize=True)
             image_data = PILImage.fromarray(
-                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(), mode=mode
+                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(),
+                mode=mode
             )
         elif hasattr(data_or_path, "savefig"):
             # 如果输入为matplotlib图像
@@ -126,21 +138,13 @@ class Image(MediaType):
             except Exception as e:
                 raise TypeError("Invalid matplotlib figure for the image") from e
         else:
-            check_library_installed("numpy")
-            import numpy as np
-
-            try:
-                if hasattr(data_or_path, "numpy"):
-                    data_or_path = data_or_path.numpy()
-                if data_or_path.ndim == 2 or (data_or_path.ndim == 3 and data_or_path.shape[2] in [3, 4]):
-                    image_data = PILImage.fromarray(np.clip(data_or_path, 0, 255).astype(np.uint8), mode=mode)
-                else:
-                    raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
-            except Exception as e:
-                raise TypeError("Invalid numpy array for the image") from e
+            # 以上都不是，则报错
+            raise TypeError(
+                "Unsupported image type. Please provide a valid path, numpy array, PIL.Image, torch."
+                "Tensor or matplotlib figure."
+            )
 
         self.image_data = self.resize(image_data, self.size)
-
         """
         转换为矩阵后的数据
         """
@@ -158,7 +162,7 @@ class Image(MediaType):
 
         return file_type
 
-    def resize(self, image: "PILImage.Image", size=None) -> "PILImage.Image":
+    def resize(self, image: PILImage.Image, size=None) -> PILImage.Image:
         """将图像调整大小"""
         if size is None:
             self.size = image.size
