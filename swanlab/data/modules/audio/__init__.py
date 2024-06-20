@@ -10,6 +10,10 @@ r"""
 from swankit.core.data import MediaType
 from swankit.core import MediaBuffer, DataSuite as D
 from typing import Union
+from swanlab.data.modules.utils import check_library_installed
+
+check_library_installed("soundfile")
+check_library_installed("numpy")
 import soundfile as sf
 import numpy as np
 
@@ -18,10 +22,10 @@ class Audio(MediaType):
     SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
 
     def __init__(
-            self,
-            data_or_path: Union[str, np.ndarray],
-            sample_rate: int = 44100,
-            caption: str = None,
+        self,
+        data_or_path: Union[str, np.ndarray],
+        sample_rate: int = 44100,
+        caption: str = None,
     ):
         """Audio class constructor
 
