@@ -7,8 +7,7 @@ r"""
 @Description:
     包装器
 """
-from swankit.core import ParseResult, ParseErrorInfo
-from swankit.core.data import MediaType
+from swankit.core import ParseResult, ParseErrorInfo, MediaType
 from typing import Union, List, Optional
 from swanlab.error import DataTypeError
 from .line import Line

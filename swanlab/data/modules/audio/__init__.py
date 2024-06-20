@@ -7,11 +7,16 @@ r"""
 @Description:
     音频模块
 """
-from swankit.core.data import MediaType
-from swankit.core import MediaBuffer, DataSuite as D
+from swankit.core import MediaBuffer, DataSuite as D, MediaType
 from typing import Union
-import soundfile as sf
-import numpy as np
+
+try:
+    # noinspection PyPackageRequirements
+    import soundfile as sf
+    # noinspection PyPackageRequirements
+    import numpy as np
+except ImportError:
+    sf, np = None, None
 
 
 class Audio(MediaType):
@@ -34,6 +39,11 @@ class Audio(MediaType):
         caption: str
             Caption for the audio.
         """
+        if sf is None or np is None:
+            raise ImportError(
+                "soundfile and numpy are required for Audio class, "
+                'you can install them by `pip install "swanlab[media]"`'
+            )
         super().__init__()
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
