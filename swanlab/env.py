@@ -35,12 +35,24 @@ class SwanLabEnv(enum.Enum):
     大小写不敏感
     """
     SWANLAB_PORT = "SWANLAB_SERVER_PORT"
-    """cli 服务端口"""
+    """
+    cli 服务端口
+    """
     SWANLAB_HOST = "SWANLAB_SERVER_HOST"
-    """cli 服务地址"""
+    """
+    cli 服务地址
+    """
     SWANLAB_PACKAGE = "SWANLAB_PACKAGE_PATH"
     """
     swanlab的包路径，即package.json文件路径，可以设置为相对路径，但最终会转换为绝对路径
+    """
+    SWANLAB_WEB_HOST = "SWANLAB_SERVER_HOST"
+    """
+    swanlab云端环境的web地址，优先级高于SWANLAB_PACKAGE_PATH配置中指定的地址
+    """
+    SWANLAB_API_HOST = "SWANLAB_API_HOST"
+    """
+    swanlab云端环境的api地址，优先级高于SWANLAB_PACKAGE_PATH配置中指定的地址
     """
 
     @classmethod
@@ -90,7 +102,3 @@ def get_package_path() -> str:
     if os.path.isdir(path):
         raise IsADirectoryError(f"{path} is a directory")
     return os.path.abspath(path)
-
-############################################
-# port和host不会在这里设置，而是在cli模块中设置
-############################################

@@ -7,7 +7,7 @@ r"""
 @Description:
     用于管理swanlab的包管理器的模块，做一些封装
 """
-from .env import get_package_path, get_save_dir
+from .env import get_package_path, get_save_dir, SwanLabEnv
 from .error import KeyFileError
 from typing import Optional
 import requests
@@ -55,6 +55,8 @@ def get_host_web() -> str:
     :return: swanlab网站的网址
     """
     package_path = get_package_path()
+    if SwanLabEnv.SWANLAB_WEB_HOST.value in os.environ:
+        return os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value]
     with open(package_path, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["web"]
 
@@ -63,6 +65,8 @@ def get_host_api() -> str:
     """获取swanlab网站api网址
     :return: swanlab网站的api网址
     """
+    if SwanLabEnv.SWANLAB_API_HOST.value in os.environ:
+        return os.environ[SwanLabEnv.SWANLAB_API_HOST.value]
     package_path = get_package_path()
     with open(package_path, "r", encoding="utf-8") as f:
         return json.load(f)["host"]["api"]

@@ -5,7 +5,7 @@ r"""
 @File: pytest_log.py
 @IDE: pycharm
 @Description:
-    测试swanlog类
+    测试swanlog类，只需测试其日志监听功能
 """
 import pytest
 from swanlab.log import swanlog

@@ -1,5 +1,7 @@
 from tutils.config import nanoid
 import swanlab.package as P
+from swanlab.env import SwanLabEnv
+import nanoid
 import json
 import os
 
@@ -32,11 +34,27 @@ def test_get_host_web():
     assert P.get_host_web() == package_data["host"]["web"]
 
 
+def test_get_host_web_env():
+    """
+    通过环境变量指定web地址
+    """
+    os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = nanoid.generate()
+    assert P.get_host_web() == os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value]
+
+
 def test_get_host_api():
     """
     测试获取api地址
     """
     assert P.get_host_api() == package_data["host"]["api"]
+
+
+def test_get_host_api_env():
+    """
+    通过环境变量指定api地址
+    """
+    os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = nanoid.generate()
+    assert P.get_host_api() == os.environ[SwanLabEnv.SWANLAB_API_HOST.value]
 
 
 def test_get_user_setting_path():
