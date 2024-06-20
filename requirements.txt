@@ -1,6 +1,6 @@
 # for swanlab
 swankit==0.1.0b9
-swanboard==0.1.2b4
+swanboard==0.1.2b5
 
 # http
 cos-python-sdk-v5
