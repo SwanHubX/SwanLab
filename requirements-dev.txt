@@ -9,3 +9,7 @@ omegaconf
 ipython
 ipython<8.13; python_version < '3.9'
 ipykernel
+
+# Packages used in unit test scripts
+torch
+torchvision

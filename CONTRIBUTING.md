@@ -124,7 +124,10 @@ pnpm install
 同样在项目根目录启动终端，运行以下命令安装依赖：
 
 ```Bash
+# 开发和编译swanlab所需的包
 pip install -r requirements.txt
+# 单元测试等功能需要使用的包
+pip install -r requirements-dev.txt
 ```
 
 
