@@ -43,15 +43,6 @@ class SwanLabLogger(MetricLoggerInterface):
             resolved = OmegaConf.to_container(config, resolve=True)
             self._swanlab.config.update(resolved)
 
-            output_config_fname = Path(
-                os.path.join(
-                    config.checkpointer.checkpoint_dir,
-                    "torchtune_config.yaml",
-                )
-            )
-
-            OmegaConf.save(config, output_config_fname)
-
     def log(self, name: str, data: Scalar, step: int) -> None:
         if self._swanlab.get_run():
             self._swanlab.log({name: data}, step=step)
