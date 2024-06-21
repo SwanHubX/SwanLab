@@ -29,9 +29,9 @@ def init_db():
     """
     初始化数据库
     """
-    from swanlab.db import connect, Project
+    from swanboard.db import connect, Project
     clear()
-    connect(autocreate=True)
+    connect(autocreate=True, path=SWANLAB_LOG_DIR)
     Project.init(name="pytest-swanlab", description="测试swanlab")
 
 

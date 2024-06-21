@@ -1,4 +1,8 @@
-# dat process
+# for swanlab
+swankit==0.1.0b7
+swanboard==0.1.2b3
+
+# data process
 soundfile
 pillow
 matplotlib
@@ -15,7 +19,6 @@ click
 # database
 ujson
 pyyaml
-peewee
 
 
 # Information collection

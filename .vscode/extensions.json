@@ -1,16 +1,6 @@
 {
   "recommendations": [
     /**
-     * 前端相关插件
-     */
-    "Vue.volar",
-    "esbenp.prettier-vscode",
-    "bradlc.vscode-tailwindcss",
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
-    "lokalise.i18n-ally",
-    "mrmlnc.vscode-json5",
-    /**
      * python插件
      */
     "ms-python.black-formatter",
@@ -23,7 +13,7 @@
      */
     // 代码风格统一
     "editorconfig.editorconfig",
-    // 代码标记,TODO FIXME等
+    // 代码标记,比如TODO FIXME等
     "gruntfuggly.todo-tree",
     // 代码协作，git协作
     "eamodio.gitlens",

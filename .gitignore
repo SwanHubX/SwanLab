@@ -1,14 +1,12 @@
 # frontend
-node_modules
-template
-package-lock.json
-pnpm-lock.yaml
-vue/components.d.ts
-vue/auto-imports.d.ts
 swanlog/
 swanlog.bak/
-.eslintrc-auto-import.json
+node_modules/
 dist/
+vue/
+swanlab/template/
+package-lock.json
+.eslintrc-auto-import.json
 
 # test
 temp/

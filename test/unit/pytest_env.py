@@ -7,12 +7,7 @@ r"""
 @Description:
     测试swanlab/env.py中的环境变量和工具函数
 """
-from swanlab.env import (
-    SwanLabMode,
-    get_mode,
-    reset_env,
-    MODE
-)
+from swanlab.env import SwanLabMode, get_mode, reset_env, MODE
 import swanlab.env as E
 from nanoid import generate
 from tutils import SWANLAB_LOG_DIR, PACKAGE_PATH, TEMP_PATH
@@ -136,14 +131,6 @@ class TestAssertExist:
             E.assert_exist(os.path.dirname(__file__), target_type="file", ra=False)
 
 
-def test_db_path():
-    """
-    测试数据库路径
-    """
-    os.environ[E.ROOT] = SWANLAB_LOG_DIR
-    assert E.get_db_path() == os.path.join(SWANLAB_LOG_DIR, "runs.swanlab")
-
-
 def test_env_reset():
     os.environ[E.ROOT] = SWANLAB_LOG_DIR
     E.init_env()
@@ -163,46 +150,6 @@ def test_is_dev():
     # 大小写敏感
     os.environ[E.DEV] = "true"
     assert E.is_dev() is False
-
-
-class TestGetServer:
-    """
-    测试由环境变量设置服务器地址
-    """
-
-    def test_default_host(self):
-        """
-        测试默认地址
-        """
-        assert E.get_server_host() == "127.0.0.1"
-
-    def test_use_env_host(self):
-        """
-        测试使用环境变量
-        """
-        os.environ[E.HOST] = "127.0.0.2"
-        assert E.get_server_host() == "127.0.0.2"
-        reset_env()
-        os.environ[E.HOST] = generate()
-        with pytest.raises(ValueError):
-            E.get_server_host()
-
-    def test_default_port(self):
-        """
-        测试默认端口
-        """
-        assert E.get_server_port() == 5092
-
-    def test_use_env_port(self):
-        """
-        测试使用环境变量
-        """
-        os.environ[E.PORT] = "5093"
-        assert E.get_server_port() == 5093
-        reset_env()
-        os.environ[E.PORT] = generate()
-        with pytest.raises(ValueError):
-            E.get_server_port()
 
 
 class TestSwanLogDir:
@@ -264,6 +211,7 @@ class TestPackagePath:
         assert E.get_package_path() == os.environ[E.PACKAGE]
         # 需要注意的是测试时已经引入了swanlab包，而其默认执行了get_package_path函数
         from swanlab.package import package_path
+
         assert E.get_package_path() != package_path
         assert package_path == PACKAGE_PATH
 

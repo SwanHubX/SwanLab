@@ -59,6 +59,7 @@ class TestInitMode:
         assert get_run() is not None
 
     def test_init_cloud(self):
+        S.login(T.KEY)
         run = S.init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
@@ -88,6 +89,7 @@ class TestInitMode:
 
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
+        S.login(T.KEY)
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})

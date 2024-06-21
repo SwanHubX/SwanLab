@@ -41,15 +41,15 @@ class SwanLabRun:
     """
 
     def __init__(
-        self,
-        project_name: str = None,
-        experiment_name: str = None,
-        description: str = None,
-        run_config=None,
-        log_level: str = None,
-        suffix: str = None,
-        exp_num: int = None,
-        operator: SwanLabRunOperator = SwanLabRunOperator(),
+            self,
+            project_name: str = None,
+            experiment_name: str = None,
+            description: str = None,
+            run_config=None,
+            log_level: str = None,
+            suffix: str = None,
+            exp_num: int = None,
+            operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -93,7 +93,7 @@ class SwanLabRun:
         self.__settings = SwanDataSettings(run_id=self.__run_id, should_save=not self.__operator.disabled)
         self.__operator.inject(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
-        swanlog.set_level(self.__check_log_level(log_level))
+        swanlog.level = self.__check_log_level(log_level)
         # ---------------------------------- 初始化配置 ----------------------------------
         global config
         config.update(run_config)
@@ -289,10 +289,10 @@ class SwanLabRun:
                 v = DataWrapper(k, [v])
             # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
             elif (
-                isinstance(v, list)
-                and len(v) > 0
-                and all([isinstance(i, (Line, MediaType)) for i in v])
-                and all([i.__class__ == v[0].__class__ for i in v])
+                    isinstance(v, list)
+                    and len(v) > 0
+                    and all([isinstance(i, (Line, MediaType)) for i in v])
+                    and all([i.__class__ == v[0].__class__ for i in v])
             ):
                 v = DataWrapper(k, v)
             else:
@@ -310,11 +310,11 @@ class SwanLabRun:
         return self.__run_id
 
     def __register_exp(
-        self,
-        experiment_name: str,
-        description: str = None,
-        suffix: str = None,
-        num: int = None,
+            self,
+            experiment_name: str,
+            description: str = None,
+            suffix: str = None,
+            num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化

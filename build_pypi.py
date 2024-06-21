@@ -11,12 +11,6 @@ import subprocess
 import shutil
 import os
 
-# 如果node_modules文件夹存在则不运行npm install
-if not os.path.exists("node_modules"):
-    # 安装依赖
-    subprocess.run("npm install", shell=True)
-# 构建node项目
-subprocess.run("npm run build.release", shell=True)
 # 如果dist文件夹存在则删除
 if os.path.exists("dist"):
     shutil.rmtree("dist")

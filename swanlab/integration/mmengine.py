@@ -70,7 +70,7 @@ class SwanlabVisBackend(BaseVisBackend):
 
     def __init__(
         self,
-        save_dir: str,
+        save_dir: str = None,
         init_kwargs: Optional[dict] = None,
     ):
         self._save_dir = save_dir
@@ -90,8 +90,9 @@ class SwanlabVisBackend(BaseVisBackend):
 
     def _init_env(self) -> Any:
         """Setup env for swanlab."""
-        if not os.path.exists(self._save_dir):
-            os.makedirs(self._save_dir, exist_ok=True)  # type: ignore
+        if self._save_dir is not None:
+            if not os.path.exists(self._save_dir):
+                os.makedirs(self._save_dir, exist_ok=True)  # type: ignore
         if self._init_kwargs is None:
             self._init_kwargs = {"logdir": self._save_dir}
         else:
