@@ -90,14 +90,19 @@ SwanLab仓库已经配好了[VSCode](https://code.visualstudio.com/)的环境、
 
 SwanLab项目环境需要`python>=3.8`的支持。
 
-必须性的 python 依赖集中记录在项目根目录下的 `requirements.txt`。单元测
+必须性的 python 依赖集中记录在项目根目录下的 `requirements.txt`。
 
 同样在项目根目录启动终端，运行以下命令安装依赖：
 
 ```Bash
-# 开发和编译swanlab所需的包
+# swanlab所依赖的包
 pip install -r requirements.txt
-# 单元测试等功能需要使用的包
+```
+
+编译、开发、单元测试等工作需要使用以下命令额外安装依赖：
+
+```Bash
+# 编译、单元测试等功能需要使用的包
 pip install -r requirements-dev.txt
 ```
 
