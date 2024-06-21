@@ -115,7 +115,7 @@ pip install -r requirements-dev.txt
 
 - **测试当前文件**：使用debug模式测试你选中的文件
 
-- **进行所有单元测试**：运行test中的脚本对swanlab基础功能进行完整单元测试
+- **进行所有单元测试**：运行`test/unit`中的脚本对swanlab基础功能进行完整单元测试
 
 - **构建项目**：打包项目为whl文件（pip安装包格式）
 
