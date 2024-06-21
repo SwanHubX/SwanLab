@@ -2,7 +2,6 @@
 
 有兴趣为 SwanLab 做出贡献吗？我们欢迎社区的贡献！本指南讨论`swanlab`的开发工作流和内部结构。
 
-
 ## 📦 目录
 
 - [标准开发流程](#标准开发流程)
@@ -13,15 +12,12 @@
   - [调试流程](#调试流程)
 - [FAQ](#FAQ)
 
-
-
-
 ## 标准开发流程
 
 1. 浏览 GitHub 上的[Issues](https://github.com/SwanHubX/SwanLab/issues)，查看你愿意添加的功能或修复的错误，以及它们是否已被 Pull Request。
 
    - 如果没有，请创建一个[新 Issue](https://github.com/SwanHubX/SwanLab/issues/new/choose)——这将帮助项目跟踪功能请求和错误报告，并确保不重复工作。
-   
+
 2. 如果你是第一次为开源项目贡献代码，请转到`https://github.com/SwanHubX/SwanLab`并单击右上角的"Fork"按钮。这将创建你用于开发的仓库的个人副本。
 
    - 将 Fork 的项目克隆到你的计算机，并添加指向`swanlab`项目的远程链接：
@@ -31,7 +27,7 @@
    cd swanlab
    git remote add upstream https://github.com/swanhubx/swanlab.git
    ```
-   
+
 3. 开发你的贡献
 
    - 确保您的 Fork 与主存储库同步：
@@ -76,8 +72,6 @@
 
    - 一旦您的拉取请求被审阅者批准，它将被合并到存储库的主分支中。
 
-
-
 ## 本地调试
 
 ### IDE与插件
@@ -92,66 +86,25 @@ SwanLab仓库已经配好了[VSCode](https://code.visualstudio.com/)的环境、
 
 ![vscode-recommend](/readme_files/contribution_images/vscode_recommend.png)
 
-### 配置npm与Python环境
+### 配置Python环境
 
-SwanLab项目环境需要`nodejs>=18`和`python>=3.8`的支持。
-
-所以在此之前，请提前安装好nodejs和python。
-
-1. **安装npm环境**
-
-因为我们使用到了 Vue，且基于 vite 构建，所以第一步为安装 JavaScript 部分所需依赖。在根目录下 `package.json` 中可以看到各部分依赖。
-
-在项目根目录启动终端，运行命令：
-
-```Bash
-npm install
-```
-
-或运行：
-
-```Bash
-npm install -g pnpm
-pnpm install
-```
-
-
-
-2. **安装Python环境**
+SwanLab项目环境需要`python>=3.8`的支持。
 
 必须性的 python 依赖集中记录在项目根目录下的 `requirements.txt`。
 
 同样在项目根目录启动终端，运行以下命令安装依赖：
 
 ```Bash
+# swanlab所依赖的包
 pip install -r requirements.txt
 ```
 
-
-
-
-
-## 构建前端服务
-
-Vue 项目最后需要经过构建，通过 vite 打包生成最终的 h5 项目。
-
-为此，需打开命令行，进入项目根目录，运行构建命令：
+编译、开发、单元测试等工作需要使用以下命令额外安装依赖：
 
 ```Bash
-npm run build.release
+# 编译、单元测试等功能需要使用的包
+pip install -r requirements-dev.txt
 ```
-
-或
-
-```Bash
-npm run build
-```
-
-> 二者区别在于，`build` 不会消除 `swanlab watch` 时浏览器的终端打印信息，而 `build.release` 则会清除。
-
-构建完成后，你的swanlab文件夹内会出现1个`template`文件夹。
-
-
 
 ## 调试脚本
 
@@ -161,23 +114,21 @@ npm run build
 
 ![img](/readme_files/contribution_images/debug.png)
 
-- **前端开发:dev** ：开启基于Vite的前端服务，自动唤起1个自动更新的实验看板网页
+- **开启一个实验**：运行`test/create_experiment.py`脚本
 
-- **后端开发**：开启后端服务，作为前端服务的后端
+- **运行当前文件**：使用配置好的Python环境运行你选中的文件
+
+- **测试当前文件**：使用debug模式测试你选中的文件
+
+- **进行所有单元测试**：运行`test/unit`中的脚本对swanlab基础功能进行完整单元测试
 
 - **构建项目**：打包项目为whl文件（pip安装包格式）
 
-- **开启一个实验**：运行`test/create_experiment.py`脚本
-
-- **模拟命令行watch**：模拟命令行开启`swanlab watch`
-
-- **Python运行当前文件**：使用配置好的Python环境运行你选中的文件
-
 Ps: 如果你不想使用VSCode进行开发，可以前往`.vscode/launch.json`，查看每个调试项对应的命令。
 
-
-
 ## 调试流程
+
+<=================== 已过期，记得更改 ===================>
 
 - 首次调试时，依次启动脚本：**开启一个实验 -> 后端开发 -> 前端开发**
 
@@ -186,36 +137,3 @@ Ps: 如果你不想使用VSCode进行开发，可以前往`.vscode/launch.json`�
 - 后续调试时，依次启动脚本：**后端开发 -> 前端开发 -> 开启一个实验**
 
   - 因为已经存在日志文件夹，所以“后端开发”直接可以启用。
-
-
-
-# F&Q
-
-Q：在VSCode启动调试脚本“后端开发”时，遇到报错`“RuntimeError: Directory '...\SwanLab\swanlab\template\assets' does not exist”`
-
-A：这是因为没有进行前端服务的构建，在根目录运行`npm run build.release`即可。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
