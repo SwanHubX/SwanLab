@@ -150,7 +150,7 @@ class TestTag:
     @pytest.mark.parametrize("value", ["", "   ", " " * 256, ".sas", "/asa"])
     def test_tag_value_error(self, value: str):
         """
-        测试空值
+        测试不合法值
         """
         with pytest.raises(ValueError):
             check_key_format(value)

@@ -11,21 +11,7 @@ from swanlab.api.auth.login import login_by_key, terminal_login, code_login
 from swanlab.error import ValidationError
 from swanlab.package import is_login
 import tutils as T
-from swanlab.env import reset_env, HOME
 import pytest
-import os
-
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_function():
-    """
-    在当前测试文件下的每个测试函数执行前后执行
-    """
-    reset_env()
-    yield
-    reset_env()
-    if HOME in os.environ:
-        del os.environ[HOME]
 
 
 def test_login_success():
@@ -52,7 +38,6 @@ def test_terminal_login(monkeypatch):
     """
     测试终端登录
     """
-    os.environ[HOME] = T.TEMP_PATH
     monkeypatch.setattr("getpass.getpass", T.get_password)
     login_info = terminal_login(T.KEY)
     assert not login_info.is_fail

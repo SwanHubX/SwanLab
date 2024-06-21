@@ -7,16 +7,11 @@ r"""
 @Description:
     测试sdk的一些api
 """
-from swanlab.env import (
-    get_swanlab_folder,
-    MODE,
-    ROOT,
-    HOME
-)
 import tutils as T
 import swanlab.data.sdk as S
-import swanlab.error as E
+import swanlab.error as Err
 from swanlab.log import swanlog
+from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.data.run import get_run
 from nanoid import generate
 import pytest
@@ -30,13 +25,13 @@ def setup_function():
     """
     swanlog.disable_log()
     yield
-    # 恢复原状
+    run = get_run()
+    if run is not None:
+        run.finish()
     swanlog.enable_log()
-    if get_run() is not None:
-        get_run().finish()
-    os.environ[ROOT] = T.SWANLAB_LOG_DIR
-    if HOME in os.environ:
-        del os.environ[HOME]
+
+
+MODE = SwanLabEnv.SWANLAB_MODE.value
 
 
 class TestInitMode:
@@ -127,6 +122,9 @@ class TestInitProject:
         assert run.project_name == project
 
 
+LOG_DIR = SwanLabEnv.SWANLOG_FOLDER.value
+
+
 class TestInitLogdir:
     """
     测试init时函数的logdir参数设置行为
@@ -139,9 +137,9 @@ class TestInitLogdir:
         logdir = generate()
         run = S.init(logdir=logdir, mode="disabled")
         assert run.settings.swanlog_dir != logdir
-        assert run.settings.swanlog_dir == os.environ[ROOT]
+        assert run.settings.swanlog_dir == os.environ[LOG_DIR]
         run.finish()
-        del os.environ[ROOT]
+        del os.environ[LOG_DIR]
         run = S.init(logdir=logdir, mode="disabled")
         assert run.settings.swanlog_dir != logdir
         assert run.settings.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
@@ -154,7 +152,7 @@ class TestInitLogdir:
         run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
-        del os.environ[ROOT]
+        del os.environ[LOG_DIR]
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(logdir=logdir, mode="local")
         assert run.settings.swanlog_dir == logdir
@@ -164,13 +162,13 @@ class TestInitLogdir:
         通过环境变量设置logdir
         """
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
-        os.environ[ROOT] = logdir
+        os.environ[LOG_DIR] = logdir
         run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
         run.finish()
-        del os.environ[ROOT]
+        del os.environ[LOG_DIR]
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
-        os.environ[ROOT] = logdir
+        os.environ[LOG_DIR] = logdir
         run = S.init(mode="local")
         assert run.settings.swanlog_dir == logdir
 
@@ -186,18 +184,18 @@ class TestLogin:
         使用家目录下的key，不需要输入
         如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
         """
-        os.environ[HOME] = T.TEMP_PATH
+        os.environ[LOG_DIR] = T.TEMP_PATH
         monkeypatch.setattr("getpass.getpass", T.get_password)
         S.login()
         # 默认保存Key
-        assert os.path.exists(os.path.join(get_swanlab_folder(), ".netrc"))
+        assert os.path.exists(os.path.join(get_save_dir(), ".netrc"))
 
     def test_use_input_key(self, monkeypatch):
         """
         使用输入的key
         """
         key = generate()
-        with pytest.raises(E.ValidationError):
+        with pytest.raises(Err.ValidationError):
             S.login(api_key=key)
         key = T.KEY
         S.login(api_key=key)

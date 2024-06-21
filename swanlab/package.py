@@ -117,7 +117,7 @@ def get_key():
     return info[2]
 
 
-def save_key(username: str, password: str, host: str = get_host_web()):
+def save_key(username: str, password: str, host: str = None):
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
     此函数不考虑上层文件存在的清空，但是会在调用的get_save_dir()函数中进行检查
@@ -125,6 +125,8 @@ def save_key(username: str, password: str, host: str = get_host_web()):
     :param password: 保存的密码
     :param host: 保存的host
     """
+    if host is None:
+        host = get_host_web()
     path = os.path.join(get_save_dir(), ".netrc")
     if not os.path.exists(path):
         with open(path, "w") as f:

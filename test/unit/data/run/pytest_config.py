@@ -2,7 +2,6 @@ import math
 import yaml
 from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
 from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
-from tutils import clear
 import pytest
 import omegaconf
 import argparse
@@ -17,7 +16,6 @@ def setup_function():
         get_run().finish()
     swanlog.disable_log()
     yield
-    clear()
     swanlog.enable_log()
 
 

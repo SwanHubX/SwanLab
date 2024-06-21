@@ -16,14 +16,14 @@ import multiprocessing
 import requests
 import swanlab
 from tutils import TEMP_PATH
-from swanlab.env import get_swanlog_dir, reset_env, ROOT
+from swanlab.env import get_swanlog_dir, SwanLabEnv
 
 
 def mock_swanlog(path=None):
     if path is None:
         path = get_swanlog_dir()
     os.makedirs(path, exist_ok=True)
-    reset_env()
+    del os.environ[SwanLabEnv.SWANLOG_FOLDER.value]
     swanlab.init(logdir=path, mode="local")
     swanlab.log({"test": 1})
     swanlab.finish()
@@ -36,12 +36,24 @@ def runner_watch(*args):
     return runner.invoke(cli, ["watch", *args])
 
 
+def runner_watch_wrapper(*args):
+    logdir_key = SwanLabEnv.SWANLOG_FOLDER.value
+    if logdir_key in os.environ:
+        del os.environ[logdir_key]
+    r = runner_watch(*args)
+    if r.exit_code != 0:
+        raise Exception(r.output)
+
+
 # 测试能否ping通
 def ping(host="127.0.0.1", port=5092):
     url = f"http://{host}:{port}"  # noqa
     time.sleep(3)
-    response = requests.get(url, timeout=10)
-    assert response.status_code == 200
+    try:
+        response = requests.get(url, timeout=10)
+        assert response.status_code == 200
+    except Exception as e:
+        raise Exception("ping failed", str(e))
 
 
 @pytest.mark.parametrize("logdir, ping_args, args", [
@@ -59,7 +71,7 @@ def test_watch_ok(logdir, ping_args, args):
     测试watch命令，正常情况
     """
     mock_swanlog(logdir)
-    p1 = multiprocessing.Process(target=runner_watch, args=args)
+    p1 = multiprocessing.Process(target=runner_watch_wrapper, args=args)
     p2 = multiprocessing.Process(target=ping, args=ping_args)
     p1.start()
     p2.start()
@@ -76,8 +88,7 @@ def test_watch_wrong_logdir():
     assert result.exit_code == 2
     result = runner_watch("--logdir", "wrong_logdir")
     assert result.exit_code == 2
-    reset_env()
-    os.environ[ROOT] = "wrong_logdir"
+    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = "wrong_logdir"
     result = runner_watch()
     assert result.exit_code == 2
 
@@ -86,6 +97,7 @@ def test_watch_wrong_host_port():
     """
     测试watch命令，host和port错误
     """
+    mock_swanlog()
     result = runner_watch("--host", "")
     assert result.exit_code == 6
     result = runner_watch("--port", "0")
@@ -93,7 +105,7 @@ def test_watch_wrong_host_port():
     result = runner_watch("--port", "65536")
     assert result.exit_code == 2
     # 如果ip被占用，会报错
-    p1 = multiprocessing.Process(target=runner_watch, args=["--port", "5092"])
+    p1 = multiprocessing.Process(target=runner_watch_wrapper, args=[get_swanlog_dir(), "--port", "5092"])
     p1.start()
     time.sleep(3)
     result = runner_watch("--port", "5092")
