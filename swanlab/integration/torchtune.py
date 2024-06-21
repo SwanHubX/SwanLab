@@ -2,13 +2,10 @@
 swanlab.integration.torchtune.SwanLabLogger
 """
 
-from pathlib import Path
 from typing import Mapping, Optional
 from omegaconf import DictConfig, OmegaConf
 from torchtune.utils.metric_logging import MetricLoggerInterface, Scalar, get_world_size_and_rank
 import swanlab
-import os
-from torchtune.utils.metric_logging import WandBLogger
 
 
 class SwanLabLogger(MetricLoggerInterface):
