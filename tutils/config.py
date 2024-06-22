@@ -12,6 +12,8 @@ import json
 import nanoid
 from swanlab.env import SwanLabEnv
 
+# ---------------------------------- 路径配置 ----------------------------------
+
 __test_path = os.path.join(
     os.path.dirname(
         os.path.dirname(
@@ -46,3 +48,10 @@ def reset_env():
 reset_env()
 
 __all__ = ["TEMP_PATH", "nanoid", "KEY", "SWANLOG_FOLDER", "SWANLAB_FOLDER", "PACKAGE_PATH", "reset_env"]
+
+# ---------------------------------- 测试用变量 ----------------------------------
+
+SkipTest = None
+"""
+在某些情况下，我们需要跳过测试，这个变量用于跳过某些测试
+"""

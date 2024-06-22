@@ -7,7 +7,7 @@ r"""
 @Description:
     tutils模块的初始化文件
 """
-
+from .check import *
 from .config import *
 from .utils import *
 
