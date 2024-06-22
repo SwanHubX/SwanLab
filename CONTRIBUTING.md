@@ -135,7 +135,7 @@ Ps: 如果你不想使用VSCode进行开发，可以前往`.vscode/launch.json`�
 进行测试的前提是你已经安装完毕所有的所需依赖，然后可以通过[VSCode脚本](#调试脚本)或者在项目根目录下运行以下命令进行测试：
 
 ```Bash
-pytest test/unit
+export PYTHONPATH=. && pytest test/unit
 ```
 
 由于swanlab涉及与云端的交互，而云端部分是闭源的，所以如果你是第一次贡献代码，可能无法进行完整的测试。
