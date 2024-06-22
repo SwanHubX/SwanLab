@@ -185,7 +185,7 @@ class TestLogin:
         if "Paste" in prompt:
             return generate()
         else:
-            return TEST_CLOUD_KEY
+            return T.TEST_CLOUD_KEY
 
     def test_use_home_key(self, monkeypatch):
         """
@@ -193,7 +193,7 @@ class TestLogin:
         如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
         """
         os.environ[LOG_DIR] = T.TEMP_PATH
-        monkeypatch.setattr("getpass.getpass", T.get_password)
+        monkeypatch.setattr("getpass.getpass", self.get_password)
         S.login()
         # 默认保存Key
         assert os.path.exists(os.path.join(get_save_dir(), ".netrc"))
