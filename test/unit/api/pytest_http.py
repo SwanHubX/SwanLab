@@ -14,11 +14,13 @@ import nanoid
 from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
 from swanlab.data.modules import MediaBuffer
-from tutils import TEST_CLOUD_KEY, TEMP_PATH
+from tutils import TEST_CLOUD_KEY, TEMP_PATH, TEST_CLOUD_SKIP
+import pytest
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
 
+@pytest.mark.skipif(TEST_CLOUD_SKIP, reason="skip cloud test")
 class TestCosSuite:
     http: HTTP = None
     project_name = nanoid.generate(alphabet)

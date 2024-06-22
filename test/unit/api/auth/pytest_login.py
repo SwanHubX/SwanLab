@@ -23,6 +23,7 @@ def get_password(prompt: str):
         return T.TEST_CLOUD_KEY
 
 
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_login_success():
     """
     测试登录成功
@@ -33,6 +34,7 @@ def test_login_success():
     assert login_info.__str__() == "Login success"
 
 
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_login_error_key():
     """
     测试登录失败, 错误的key
@@ -43,6 +45,7 @@ def test_login_error_key():
     assert login_info.__str__() == "Error api key"
 
 
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_terminal_login(monkeypatch):
     """
     测试终端登录
@@ -55,6 +58,7 @@ def test_terminal_login(monkeypatch):
     assert is_login()
 
 
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_code_login():
     """
     测试code登录

@@ -53,6 +53,7 @@ class TestInitMode:
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
 
+    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
     def test_init_cloud(self):
         S.login(T.TEST_CLOUD_KEY)
         run = S.init(mode="cloud")
@@ -82,6 +83,7 @@ class TestInitMode:
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})
 
+    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
         S.login(T.TEST_CLOUD_KEY)
@@ -173,6 +175,7 @@ class TestInitLogdir:
         assert run.settings.swanlog_dir == logdir
 
 
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 class TestLogin:
     """
     测试通过sdk封装的login函数登录

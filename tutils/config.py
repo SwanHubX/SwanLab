@@ -48,7 +48,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 TEST_CLOUD_SKIP = os.getenv("TEST_CLOUD_SKIP") is not None
 """
-在某些情况下，我们需要跳过测试，这个变量用于跳过某些测试
+是否跳过云测试
 """
 
 TEST_CLOUD_KEY = os.getenv("TEST_CLOUD_KEY")

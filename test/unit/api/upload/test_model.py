@@ -22,7 +22,6 @@ class TestFileModel:
         """
         # 生成一系列的FileModel
         file_models = []
-        count = 10
         lr = None  # 最后一个requirements, str
         lm = None  # 最后一个metadata, dict
         lc = None  # 最后一个config, dict

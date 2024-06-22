@@ -9,30 +9,34 @@ r"""
 """
 from click.testing import CliRunner
 from swanlab.cli import cli
-from tutils import TEST_CLOUD_KEY
+import tutils as T
+import pytest
 
 
 # noinspection PyTypeChecker
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_logout_ok(monkeypatch):
     runner = CliRunner()
     # 先登录
-    runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
+    runner.invoke(cli, ["login", "--api-key", T.TEST_CLOUD_KEY])
     monkeypatch.setattr("builtins.input", lambda x: "y")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0
 
 
 # noinspection PyTypeChecker
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_logout_cancel(monkeypatch):
     runner = CliRunner()
     # 先登录
-    runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
+    runner.invoke(cli, ["login", "--api-key", T.TEST_CLOUD_KEY])
     monkeypatch.setattr("builtins.input", lambda x: "n")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0
 
 
 # noinspection PyTypeChecker
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_logout_no_login():
     runner = CliRunner()
     result = runner.invoke(cli, ["logout"])
