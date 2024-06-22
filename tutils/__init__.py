@@ -7,9 +7,18 @@ r"""
 @Description:
     tutils模块的初始化文件
 """
+from swanlab.env import SwanLabEnv
 from .check import *
 from .config import *
-from .utils import *
+
+
+def reset_some_env():
+    os.environ[SwanLabEnv.SWANLAB_PACKAGE.value] = PACKAGE_PATH
+    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
+    os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
+
+
+reset_some_env()
 
 
 def open_dev_mode() -> str:
@@ -18,4 +27,4 @@ def open_dev_mode() -> str:
     在上层config部分已经执行了环境变量注入
     :return: api-key
     """
-    return KEY
+    return TEST_CLOUD_KEY

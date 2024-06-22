@@ -8,7 +8,7 @@ r"""
     配置pytest
 """
 import pytest
-from tutils import TEMP_PATH, reset_env
+from tutils import TEMP_PATH, reset_some_env
 import swanlab.env as E
 import shutil
 import os
@@ -54,7 +54,7 @@ def setup_each():
     for key in E.SwanLabEnv.list():
         if key in os.environ:
             del os.environ[key]
-    reset_env()
+    reset_some_env()
     # 清空temp文件夹
     if os.path.exists(TEMP_PATH):
         shutil.rmtree(TEMP_PATH)

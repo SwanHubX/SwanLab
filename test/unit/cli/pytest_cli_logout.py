@@ -9,14 +9,14 @@ r"""
 """
 from click.testing import CliRunner
 from swanlab.cli import cli
-from tutils import KEY
+from tutils import TEST_CLOUD_KEY
 
 
 # noinspection PyTypeChecker
 def test_logout_ok(monkeypatch):
     runner = CliRunner()
     # 先登录
-    runner.invoke(cli, ["login", "--api-key", KEY])
+    runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
     monkeypatch.setattr("builtins.input", lambda x: "y")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0
@@ -26,7 +26,7 @@ def test_logout_ok(monkeypatch):
 def test_logout_cancel(monkeypatch):
     runner = CliRunner()
     # 先登录
-    runner.invoke(cli, ["login", "--api-key", KEY])
+    runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
     monkeypatch.setattr("builtins.input", lambda x: "n")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0

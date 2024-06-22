@@ -10,16 +10,16 @@ r"""
 from swanlab.package import get_key
 from click.testing import CliRunner
 from swanlab.cli.main import cli
-from tutils import KEY
+from tutils import TEST_CLOUD_KEY
 from swanlab.error import ValidationError
 
 
 # noinspection PyTypeChecker
 def test_login_ok():
     runner = CliRunner()
-    result = runner.invoke(cli, ["login", "--api-key", KEY])
+    result = runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
     assert result.exit_code == 0
-    assert get_key() == KEY
+    assert get_key() == TEST_CLOUD_KEY
 
 
 # noinspection PyTypeChecker

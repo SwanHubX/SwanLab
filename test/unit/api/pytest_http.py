@@ -14,7 +14,7 @@ import nanoid
 from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
 from swanlab.data.modules import MediaBuffer
-from tutils import KEY, TEMP_PATH
+from tutils import TEST_CLOUD_KEY, TEMP_PATH
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
@@ -31,7 +31,7 @@ class TestCosSuite:
     def setup_class(cls):
         CosClient.REFRESH_TIME = cls.now_refresh_time
         # 这里不测试保存token的功能
-        login_info = login_by_key(KEY, save=False)
+        login_info = login_by_key(TEST_CLOUD_KEY, save=False)
         cls.http = create_http(login_info)
         cls.http.mount_project(cls.project_name)
         cls.http.mount_exp(cls.experiment_name, ('#ffffff', '#ffffff'))

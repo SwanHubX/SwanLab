@@ -8,9 +8,8 @@ r"""
     存储一些与单元测试有关的快捷配置
 """
 import os
-import json
 import nanoid
-from swanlab.env import SwanLabEnv
+from dotenv import load_dotenv
 
 # ---------------------------------- 路径配置 ----------------------------------
 
@@ -24,34 +23,46 @@ __test_path = os.path.join(
 )
 
 TEMP_PATH = os.path.join(__test_path, "temp")
-
-_ = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")))
-
-KEY: str = _["api-key"]
 """
-测试时使用的api-key
+临时文件夹，每一个测试函数在执行前都会清空这个文件夹
 """
 
-PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
+PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "package.mock.json")
+"""
+package的路径，区分测试和正式环境
+"""
 
 SWANLOG_FOLDER = os.path.join(TEMP_PATH, "swanlog")
+"""
+默认情况下，swanlog保存的文件夹
+"""
 
 SWANLAB_FOLDER = os.path.join(TEMP_PATH, ".swanlab")
-
-
-def reset_env():
-    os.environ[SwanLabEnv.SWANLAB_PACKAGE.value] = PACKAGE_PATH
-    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
-    os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
-
-
-reset_env()
-
-__all__ = ["TEMP_PATH", "nanoid", "KEY", "SWANLOG_FOLDER", "SWANLAB_FOLDER", "PACKAGE_PATH", "reset_env"]
+"""
+默认情况下，系统信息保存的文件夹
+"""
 
 # ---------------------------------- 测试用变量 ----------------------------------
 
-SkipTest = None
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+
+TEST_CLOUD_SKIP = os.getenv("TEST_CLOUD_SKIP") is not None
 """
 在某些情况下，我们需要跳过测试，这个变量用于跳过某些测试
 """
+
+TEST_CLOUD_KEY = os.getenv("TEST_CLOUD_KEY")
+"""
+云测试的key
+"""
+
+# ---------------------------------- 导出 ----------------------------------
+__all__ = [
+    "TEMP_PATH",
+    "nanoid",
+    "TEST_CLOUD_SKIP",
+    "SWANLOG_FOLDER",
+    "SWANLAB_FOLDER",
+    "PACKAGE_PATH",
+    "TEST_CLOUD_KEY"
+]

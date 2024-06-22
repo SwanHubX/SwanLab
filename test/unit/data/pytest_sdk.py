@@ -54,7 +54,7 @@ class TestInitMode:
         assert get_run() is not None
 
     def test_init_cloud(self):
-        S.login(T.KEY)
+        S.login(T.TEST_CLOUD_KEY)
         run = S.init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
@@ -84,7 +84,7 @@ class TestInitMode:
 
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
-        S.login(T.KEY)
+        S.login(T.TEST_CLOUD_KEY)
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
@@ -179,6 +179,14 @@ class TestLogin:
     不填apikey的部分不太好测
     """
 
+    @staticmethod
+    def get_password(prompt: str):
+        # 如果是第一次登录，使用错误的key，会提示重新输入
+        if "Paste" in prompt:
+            return generate()
+        else:
+            return TEST_CLOUD_KEY
+
     def test_use_home_key(self, monkeypatch):
         """
         使用家目录下的key，不需要输入
@@ -197,5 +205,5 @@ class TestLogin:
         key = generate()
         with pytest.raises(Err.ValidationError):
             S.login(api_key=key)
-        key = T.KEY
+        key = T.TEST_CLOUD_KEY
         S.login(api_key=key)
