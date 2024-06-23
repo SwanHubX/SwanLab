@@ -21,9 +21,9 @@ def count_files_in_directory(directory, exclude_prefixes=("__", ".", "~")):
     file_count, folder_count = 0, 0
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
+        if any(filename.startswith(prefix) for prefix in exclude_prefixes):
+            continue
         if os.path.isfile(file_path):
-            if any(filename.startswith(prefix) for prefix in exclude_prefixes):
-                continue
             file_count += 1
         elif os.path.isdir(file_path):
             folder_count += 1
