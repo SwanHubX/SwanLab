@@ -86,6 +86,8 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     # 为None时从环境变量中获取
     try:
         path = get_swanlog_dir()
+        if not os.path.exists(path):
+            raise FileNotFoundError
     except ValueError as e:
         click.BadParameter(str(e))
         return sys.exit(3)
