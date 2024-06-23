@@ -9,7 +9,6 @@ r"""
 """
 import os
 import nanoid
-from dotenv import load_dotenv
 
 # ---------------------------------- 路径配置 ----------------------------------
 
@@ -38,8 +37,6 @@ SWANLAB_FOLDER = os.path.join(TEMP_PATH, ".swanlab")
 """
 
 # ---------------------------------- 测试用变量 ----------------------------------
-
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 TEST_CLOUD_SKIP = os.getenv("TEST_CLOUD_SKIP") is not None
 """

@@ -5,11 +5,13 @@ r"""
 @File: check.py.py
 @IDE: pycharm
 @Description:
-    用于检查requirements.txt中的包是否都已经安装
+    开发/测试运行前检查，并加载.env文件设置的环境变量
+    此文件应该在顶部导入
 """
 import os
 import subprocess
 import sys
+from dotenv import load_dotenv
 
 swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -31,5 +33,17 @@ for i in packages:
         sys.exit(2)
 
 # ---------------------------------- 检查是否跳过云测试，如果没跳过，相关环境变量需要指定----------------------------------
-is_pytest_env = 'PYTEST_CURRENT_TEST' in os.environ
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+
+is_pytest_env = 'PYTEST_VERSION' in os.environ
 is_skip_test = os.getenv("TEST_CLOUD_SKIP") is not None
+is_cloud_dev_env = os.getenv("SWANLAB_API_HOST") is not None and os.getenv("SWANLAB_WEB_HOST") is not None
+if not is_cloud_dev_env:
+    # 测试环境
+    if is_pytest_env and not is_skip_test:
+        print("请设置开发云服务环境变量，或者设置环境变量TEST_CLOUD_SKIP以跳过云测试", file=sys.stderr)
+        sys.exit(2)
+    # 开发环境
+    elif not is_pytest_env:
+        print("请设置开发云服务环境变量以运行开发测试脚本", file=sys.stderr)
+        sys.exit(2)

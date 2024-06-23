@@ -19,8 +19,9 @@ def reset_some_env():
     os.environ[SwanLabEnv.SWANLAB_VERSION.value] = "development"
     os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
     os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
-    os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = api
-    os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
+    if not TEST_CLOUD_SKIP:
+        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = api
+        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
 
 
 reset_some_env()
