@@ -7,11 +7,8 @@ r"""
 @Description:
     定义认证数据格式
 """
-import os.path
 import requests
-from swanlab.utils.key import save_key
-from swanlab.env import get_swanlab_folder
-from swanlab.package import get_host_api
+from swanlab.package import save_key
 from typing import Union
 
 
@@ -90,8 +87,7 @@ class LoginInfo:
         """
         保存登录信息
         """
-        path = os.path.join(get_swanlab_folder(), ".netrc")
-        return save_key(path, get_host_api(), "user", self.api_key)
+        return save_key("user", self.api_key)
 
 
 class ProjectInfo:

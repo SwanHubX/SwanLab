@@ -9,8 +9,8 @@ r"""
 """
 import click
 from swanlab.package import is_login
-from swanlab.utils import FONT
-from swanlab.env import get_swanlab_folder
+from swankit.log import FONT
+from swanlab.env import get_save_dir
 import shutil
 import sys
 
@@ -24,7 +24,7 @@ def logout():
         confirm = input(FONT.swanlab("Are you sure you want to logout? (y/N): "))
         if confirm.lower() == "y":
             try:
-                shutil.rmtree(get_swanlab_folder())
+                shutil.rmtree(get_save_dir())
                 return print(FONT.swanlab("Logout successfully. You can use `" + command + "` to login again."))
             except Exception as e:
                 return print(FONT.swanlab("Logout failed. Reason:" + str(e)))

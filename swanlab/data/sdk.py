@@ -16,14 +16,14 @@ from .run import (
     register,
     get_run,
 )
+from .formater import check_load_json_yaml, check_proj_name_format
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
 from .run.operator import SwanLabRunOperator
-from swanlab.env import init_env, get_swanlog_dir, SwanLabMode, MODE, ROOT
 from swanlab.log import swanlog
-from swanlab.utils import check_load_json_yaml, check_proj_name_format
 from swanlab.api import code_login
-from swanlab.package import version_limit
+from swanlab.env import SwanLabEnv
+from swankit.env import SwanLabMode
 from swanboard import SwanBoardCallback
 
 
@@ -168,9 +168,6 @@ def init(
     )
     # 初始化confi参数
     config = _init_config(config)
-    init_env()
-    # 检查logdir内文件的版本，如果<=0.1.4则报错
-    version_limit(get_swanlog_dir(), mode="init")
     # ---------------------------------- 实例化实验 ----------------------------------
     # 注册实验
     run = register(
@@ -251,14 +248,15 @@ def _init_mode(mode: str = None):
     :raise ValueError: mode参数不合法
     """
     allowed = [m.value for m in SwanLabMode]
-    m = os.environ.get(MODE)
-    if m is not None and mode is not None:
-        swanlog.warning(f"The environment variable {MODE} will be overwritten by the parameter mode")
-    mode = m if mode is None else mode
+    mode_key = SwanLabEnv.SWANLAB_MODE.value
+    mode_value = os.environ.get(mode_key)
+    if mode_value is not None and mode is not None:
+        swanlog.warning(f"The environment variable {mode_key} will be overwritten by the parameter mode")
+    mode = mode_value if mode is None else mode
     if mode is not None and mode not in allowed:
         raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
     mode = "cloud" if mode is None else mode
-    os.environ[MODE] = mode
+    os.environ[mode_key] = mode
     return mode
 
 

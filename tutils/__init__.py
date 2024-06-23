@@ -7,39 +7,30 @@ r"""
 @Description:
     tutils模块的初始化文件
 """
-
+from swanlab.env import SwanLabEnv
+from .check import *
 from .config import *
-from .utils import *
-import shutil
-import os
+
+api = os.getenv("SWANLAB_API_HOST")
+web = os.getenv("SWANLAB_WEB_HOST")
 
 
-def clear():
-    """
-    清空临时文件夹, 重新创建
-    """
-    if os.path.exists(TEMP_PATH):
-        shutil.rmtree(TEMP_PATH)
-    os.mkdir(TEMP_PATH)
-    os.mkdir(SWANLAB_LOG_DIR)
-    os.mkdir(SWANLAB_DIR)
+def reset_some_env():
+    os.environ[SwanLabEnv.SWANLAB_VERSION.value] = "development"
+    os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
+    os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
+    if not TEST_CLOUD_SKIP:
+        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = api
+        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
 
 
-def init_db():
-    """
-    初始化数据库
-    """
-    from swanboard.db import connect, Project
-    clear()
-    connect(autocreate=True, path=SWANLAB_LOG_DIR)
-    Project.init(name="pytest-swanlab", description="测试swanlab")
+reset_some_env()
 
 
 def open_dev_mode() -> str:
     """
     开启开发模式，此时会返回开发环境的api-key并且创建测试目录
+    在上层config部分已经执行了环境变量注入
     :return: api-key
     """
-    # 创建测试目录
-    os.makedirs(SWANLAB_LOG_DIR, exist_ok=True)
-    return CONFIG['api-key']
+    return TEST_CLOUD_KEY

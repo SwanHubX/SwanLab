@@ -1,0 +1,4 @@
+soundfile
+pillow
+matplotlib
+numpy

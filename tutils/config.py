@@ -8,8 +8,9 @@ r"""
     存储一些与单元测试有关的快捷配置
 """
 import os
-import json
 import nanoid
+
+# ---------------------------------- 路径配置 ----------------------------------
 
 __test_path = os.path.join(
     os.path.dirname(
@@ -21,32 +22,38 @@ __test_path = os.path.join(
 )
 
 TEMP_PATH = os.path.join(__test_path, "temp")
-
-SWANLAB_DIR = os.path.join(TEMP_PATH, ".swanlab")
 """
-测试时.swanlab文件夹存放的位置
+临时文件夹，每一个测试函数在执行前都会清空这个文件夹
 """
 
-SWANLAB_LOG_DIR = os.path.join(TEMP_PATH, "swanlog")
+SWANLOG_FOLDER = os.path.join(TEMP_PATH, "swanlog")
 """
-测试时swanlog文件夹存放的位置
-"""
-
-CONFIG: dict = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")))
-"""
-开发快捷配置
-"""
-KEY: str = CONFIG["api-key"]
-"""
-测试时使用的api-key
+默认情况下，swanlog保存的文件夹
 """
 
-PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "package.mock.json")
+SWANLAB_FOLDER = os.path.join(TEMP_PATH, ".swanlab")
+"""
+默认情况下，系统信息保存的文件夹
+"""
 
-# 注入环境变量
-os.environ["SWANLAB_DEV"] = "TRUE"
-os.environ["SWANLAB_PACKAGE_PATH"] = PACKAGE_PATH
-os.environ["SWANLAB_LOG_DIR"] = SWANLAB_LOG_DIR
-os.environ["SWANLAB_HOME"] = TEMP_PATH
+# ---------------------------------- 测试用变量 ----------------------------------
 
-__all__ = ["TEMP_PATH", "SWANLAB_LOG_DIR", "CONFIG", "nanoid", "PACKAGE_PATH", "SWANLAB_DIR", "KEY"]
+TEST_CLOUD_SKIP = os.getenv("TEST_CLOUD_SKIP") is not None
+"""
+是否跳过云测试
+"""
+
+TEST_CLOUD_KEY = os.getenv("TEST_CLOUD_KEY")
+"""
+云测试的key
+"""
+
+# ---------------------------------- 导出 ----------------------------------
+__all__ = [
+    "TEMP_PATH",
+    "nanoid",
+    "TEST_CLOUD_SKIP",
+    "SWANLOG_FOLDER",
+    "SWANLAB_FOLDER",
+    "TEST_CLOUD_KEY",
+]

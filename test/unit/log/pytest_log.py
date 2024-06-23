@@ -5,7 +5,7 @@ r"""
 @File: pytest_log.py
 @IDE: pycharm
 @Description:
-    测试swanlog类
+    测试swanlog类，只需测试其日志监听功能
 """
 import pytest
 from swanlab.log import swanlog
@@ -25,29 +25,17 @@ def before_test_global_swanlog():
         pass
 
 
-# 创建console文件夹
-console_dir = os.path.join(TEMP_PATH, str(generate()))
-if not os.path.exists(console_dir):
-    os.mkdir(console_dir)
-
-
 class TestSwanLogInstall:
     """
     目前在设计上不希望外界实例化SwanLog，所以不提供实例化测试
     """
 
-    # def test_install_success(self):
-    #     lg = SwanLog('tmp')
-    #     lg.install()
-    #     assert lg.installed is True
-    #     lg.uninstall()
-
-    # def test_install_duplicate(self):
-    #     lg = SwanLog('tmp')
-    #     lg.install()
-    #     with pytest.raises(RuntimeError) as e:
-    #         lg.install()
-    #     assert str(e.value) == 'SwanLog has been installed'
+    @staticmethod
+    def create_console_dir():
+        # 创建console文件夹
+        console_dir = os.path.join(TEMP_PATH, str(generate()))
+        os.mkdir(console_dir)
+        return console_dir
 
     def test_global_install(self):
         swanlog.install()
@@ -60,6 +48,7 @@ class TestSwanLogInstall:
         assert swanlog.installed is True
 
     def test_write_after_uninstall(self):
+        console_dir = self.create_console_dir()
         swanlog.install(console_dir)
         swanlog.uninstall()
         # 加一行防止其他问题
@@ -75,6 +64,7 @@ class TestSwanLogInstall:
             assert len(content) == 0
 
     def test_write_to_file(self):
+        console_dir = self.create_console_dir()
         swanlog.install(console_dir)
         # 加一行防止其他问题
         print("\ntest write to file")
@@ -91,6 +81,7 @@ class TestSwanLogInstall:
             assert content[-1] == b + "\n"
 
     def test_write_logging_to_file(self):
+        console_dir = self.create_console_dir()
         swanlog.install(console_dir, log_level="debug")
         # 加一行防止其他问题
         print("\ntest write to file")
@@ -102,10 +93,11 @@ class TestSwanLogInstall:
         assert len(files) == 1
         with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
-            assert content[-2] == "swanlab:" + " " + a + "\n"
-            assert content[-1] == "swanlab:" + " " + b + "\n"
+            assert content[-2] == "swanlab: " + a + "\n"
+            assert content[-1] == "swanlab: " + b + "\n"
 
     def test_can_write_logging(self):
+        console_dir = self.create_console_dir()
         swanlog.install(console_dir)
         # 加一行防止其他问题
         print("\ntest write to file")
@@ -117,5 +109,5 @@ class TestSwanLogInstall:
         assert len(files) == 1
         with open(os.path.join(console_dir, files[0]), "r") as f:
             content = f.readlines()
-            assert content[-2] != "swanlab:" + " " + a + "\n"
-            assert content[-1] == "swanlab:" + " " + b + "\n"
+            assert content[-2] != "swanlab: " + a + "\n"
+            assert content[-1] == "swanlab: " + b + "\n"

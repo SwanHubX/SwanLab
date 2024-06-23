@@ -7,7 +7,7 @@ r"""
 @Description:
     watch命令
 """
-from swanlab.env import get_swanlog_dir, ROOT, PORT, HOST
+from swanlab.env import get_swanlog_dir, SwanLabEnv
 from swanlab.log import swanlog
 from swanboard import SwanBoardRun
 import click
@@ -18,7 +18,7 @@ import sys
 @click.command()
 @click.argument(
     "path",
-    envvar=ROOT,
+    envvar=SwanLabEnv.SWANLOG_FOLDER.value,
     type=click.Path(
         exists=True,
         dir_okay=True,
@@ -32,7 +32,7 @@ import sys
 @click.option(
     "--host",
     "-h",
-    default=lambda: os.environ.get(HOST, "127.0.0.1"),
+    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_HOST.value, "127.0.0.1"),
     type=str,
     nargs=1,
     help="The host of swanlab web, default by 127.0.0.1",
@@ -40,7 +40,7 @@ import sys
 @click.option(
     "--port",
     "-p",
-    default=lambda: os.environ.get(PORT, 5092),
+    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_PROT.value, 5092),
     nargs=1,
     type=click.IntRange(1, 65535),
     help="The port of swanlab web, default by 5092",
@@ -48,7 +48,7 @@ import sys
 @click.option(
     "--logdir",
     "-l",
-    default=lambda: os.environ.get(ROOT, None),
+    default=lambda: os.environ.get(SwanLabEnv.SWANLOG_FOLDER.value, None),
     nargs=1,
     type=click.Path(
         exists=True,
@@ -82,10 +82,13 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     path = logdir if logdir is not None else path
     if path is not None:
         path = os.path.abspath(path)
-        os.environ[ROOT] = path
+        os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = path
     # 为None时从环境变量中获取
     try:
         path = get_swanlog_dir()
+        # 产品经理要求无论日志文件夹是否存在都不报错 🤡 ，给用户以开启web服务的“爽感”
+        # if not os.path.exists(path):
+        #     raise FileNotFoundError
     except ValueError as e:
         click.BadParameter(str(e))
         return sys.exit(3)

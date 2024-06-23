@@ -1,26 +1,8 @@
-# for swanlab
-swankit==0.1.0b7
-swanboard==0.1.2b3
-
-# data process
-soundfile
-pillow
-matplotlib
-numpy
-
-# web server
+swankit==0.1.0b10
+swanboard==0.1.2b8
 cos-python-sdk-v5
-fastapi>=0.110.1
-uvicorn>=0.14.0
 requests
 click
-
-
-# database
-ujson
 pyyaml
-
-
-# Information collection
 psutil
 pynvml

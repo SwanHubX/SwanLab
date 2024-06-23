@@ -7,248 +7,82 @@ r"""
     swanlab全局共用环境变量(运行时环境变量)
     除了utils和error模块，其他模块都可以使用这个模块
 """
-import os
-from typing import MutableMapping, Optional
-from .error import UnKnownSystemError
+from typing import List
+import swankit.env as E
+from swankit.env import SwanLabSharedEnv
 import enum
-import sys
-
-Env = Optional[MutableMapping]
-
-_env = dict()
-"""运行时环境变量参数存储，实际上就是一个字典"""
-
-# ---------------------------------- 基础环境变量 ----------------------------------
-# '描述' = "key"
-ROOT = "SWANLAB_LOG_DIR"
-"""命令执行目录SWANLAB_LOG_DIR，日志文件存放在这个目录下，如果自动生成，则最后的目录名为swanlog，第一次调用时如果路径不存在，会自动创建路径"""
-
-PORT = "SWANLAB_SERVER_PORT"
-"""cli 服务端口"""
-
-HOST = "SWANLAB_SERVER_HOST"
-"""cli 服务地址"""
-
-DEV = "SWANLAB_DEV"
-"""是否是开发模式SWANLAB_DEV，开发模式下会打印更多的日志信息，并且切换一些配置"""
-
-MODE = "SWANLAB_MODE"
-"""运行模式SWANLAB_MODE，有cloud、local、disabled等模式，针对Callback回调的不同实例化方式，具体效果为：
-1. disabled: 禁用模式，不会上传日志到云端，也不会记录日志，swanlab只会执行解析log的功能，不会输出任何内容到本地
-2. cloud: 云端模式，是云端与本地的混合模式，会上传日志到云端，也会记录日志到本地
-3. cloud-only: 云端模式，只会上传日志到云端，不会记录日志到本地，但是会生成一些临时文件
-4. local: 本地模式，不会上传日志到云端，使用swanlab本地版本
-此外，SWANLAB_MODE为disabled时，会开启非严格模式，非严格模式不再要求文件路径存在
-"""
-PACKAGE = "SWANLAB_PACKAGE_PATH"
-"""swanlab包路径SWANLAB_PACKAGE_PATH，用于开发模式下指定swanlab包的路径
-当SWANLAB_DEV为TRUE时，必须指定此路径，否则会抛出异常，非开发模式下此环境变量无效
-"""
-HOME = "SWANLAB_HOME"
-"""存放.swanlab文件夹的路径，用于开发模式下的测试，非开发模式下此环境变量无效
-"""
 
 
-class SwanLabMode(enum.Enum):
-    DISABLED = "disabled"
-    CLOUD = "cloud"
-    # CLOUD_ONLY = "cloud-only"
-    LOCAL = "local"
+# ---------------------------------- 环境变量枚举类 ----------------------------------
 
 
-def get_mode(env: Optional[Env] = None) -> Optional[str]:
+class SwanLabEnv(enum.Enum):
     """
-    获取运行模式，返回值为SwanLabMode枚举value
+    swanlab环境变量枚举类，包含swankit的共享环境变量
     """
-    if _env.get(MODE) is not None:
-        return _env.get(MODE)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    default: Optional[str] = "cloud"
-    mode = env.get(MODE, default)
-    allowed = [mode.value for mode in SwanLabMode]
-    if mode not in allowed:
-        raise ValueError('SWANLAB_MODE must be one of {allowed}, now is "{mode}"'.format(allowed=allowed, mode=mode))
-    _env[MODE] = mode
-    return mode
-
-
-def get_swanlog_dir(env: Optional[Env] = None) -> Optional[str]:
-    """获取swanlog路径，返回值为绝对路径
-
-    Returns
-    -------
-    Optional[str]
-        swanlog目录路径
+    SWANLAB_FOLDER = SwanLabSharedEnv.SWANLAB_FOLDER.value
     """
-    if _env.get(ROOT) is not None:
-        return _env.get(ROOT)
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    # 默认为当前目录下的swanlog目录
-    default: Optional[str] = os.path.join(os.getcwd(), "swanlog")
-    path = env.get(ROOT, default=default)
-    # 必须是一个绝对路径
-    if not os.path.isabs(path):
-        raise ValueError('SWANLAB_LOG_DIR must be an absolute path, now is "{path}"'.format(path=path))
-    # 严格模式路径必须存在
-    assert_exist(
-        path,
-        target_type="folder",
-        desc=(
-            'The log file was not found in the default path "{path}". '
-            'Please use the "swanlab watch <LOG '
-            'PATH>" command to specify the location of the log path."'.format(path=path)
-            if path == default
-            else 'SWANLAB_LOG_DIR must be an existing path, now is "{path}"'.format(path=path)
-        ),
-        t_desc='SWANLAB_LOG_DIR must be a directory, now is "{path}"'.format(path=path),
-    )
-    _env[ROOT] = path
-    return path
-
-
-def is_dev(env: Optional[Env] = None) -> bool:
-    """判断是否是开发模式
-    此函数会在一开始就被package.py调用，所以不需要判断是否已经初始化
-
-    Returns
-    -------
-    bool
-        是否是开发模式
+    swanlab全局文件夹保存的路径，默认为用户主目录下的.swanlab文件夹
     """
-    if _env.get(DEV) is not None:
-        return _env.get(DEV) == "TRUE"
-    # 否则从环境变量中提取
-    if env is None:
-        env = os.environ
-    _env[DEV] = env.get(DEV, default=False)
-    return _env.get(DEV) == "TRUE"
-
-
-# ---------------------------------- 初始化基础环境变量 ----------------------------------
-
-# 所有的初始化函数
-function_list = [get_mode, get_swanlog_dir]
-
-
-def init_env(env: Optional[Env] = None):
-    """初始化环境变量
-
-    Parameters
-    ----------
-    env : Optional[Env], optional
-        环境变量map,可以是任意实现了MutableMapping的对象, 默认将使用os.environ
+    SWANLOG_FOLDER = SwanLabSharedEnv.SWANLOG_FOLDER.value
     """
-    reset_env()
-    for func in function_list:
-        func(env)
-
-
-def reset_env():
-    """重置"""
-    _env.clear()
-
-
-# ---------------------------------- 定义计算变量访问方法 ----------------------------------
-
-
-def is_strict_mode() -> bool:
+    swanlab解析日志文件保存的路径，默认为当前运行目录的swanlog文件夹
     """
-    是否是严格模式，严格模式下会要求文件路径存在，否则会抛出异常
+    SWANLAB_MODE = SwanLabSharedEnv.SWANLAB_MODE.value
     """
-    return get_mode() != SwanLabMode.DISABLED.value
-
-
-def is_windows() -> bool:
-    """判断当前操作系统是否是windows还是类unix系统
-    此外的系统会报错为 UnKnownSystemError
-
-    Returns
-    -------
-    bool
-        是否是windows
+    swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
+    大小写不敏感
     """
-    if sys.platform.startswith("win"):
-        return True
-    elif sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
-        return False
-    raise UnKnownSystemError("Unknown system, not windows or unix-like system")
-
-
-def get_user_home() -> str:
-    """获取用户家目录，需要分为windows和类unix系统
-
-    Returns
-    -------
-    str
-        用户家目录
+    SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
     """
-    if is_windows():
-        return os.environ.get("USERPROFILE")
-    else:
-        return os.environ.get("HOME")
-
-
-def get_swanlab_folder() -> str:
-    """获取用户家目录的.swanlab文件夹路径，如果不存在此文件夹就创建
-
-    Returns
-    -------
-    str
-        用户家目录的.swanlab文件夹路径
+    cli swanboard 服务端口
     """
-    if is_dev() and HOME in os.environ:
-        path = os.path.join(os.environ[HOME], ".swanlab")
-        if not assert_exist(path, target_type="folder", ra=False):
-            os.mkdir(path)
-        return path
+    SWANBOARD_HOST = "SWANLAB_BOARD_HOST"
+    """
+    cli swanboard 服务地址
+    """
+    SWANLAB_WEB_HOST = "SWANLAB_WEB_HOST"
+    """
+    swanlab云端环境的web地址
+    """
+    SWANLAB_API_HOST = "SWANLAB_API_HOST"
+    """
+    swanlab云端环境的api地址
+    """
+    SWANLAB_VERSION = "SWANLAB_VERSION"
+    """
+    swanlab的版本号，主要用于开发者调试
+    """
 
-    user_home = get_user_home()
-    swanlab_folder = os.path.join(user_home, ".swanlab")
+    @classmethod
+    def list(cls) -> List[str]:
+        """
+        获取所有的枚举值
+        :return: 所有的枚举值
+        """
+        return [item.value for item in cls]
+
+
+# ---------------------------------- API ----------------------------------
+
+is_windows = E.is_windows
+
+get_mode = E.get_mode
+
+get_swanlog_dir = E.get_swanlog_dir
+
+get_save_dir = E.get_save_dir
+
+
+def in_jupyter() -> bool:
+    """
+    用于检测是否在 notebook jupyter 中运行
+    :return: bool 是否在 notebook 中运行
+    """
     try:
-        if not assert_exist(swanlab_folder, ra=False, target_type="folder"):
-            os.mkdir(swanlab_folder)
-    except NotADirectoryError:
-        os.remove(swanlab_folder)
-        os.mkdir(swanlab_folder)
-    return swanlab_folder
-
-
-def get_package_path() -> Optional[str]:
-    if is_dev() and PACKAGE in os.environ:
-        return os.environ[PACKAGE]
-    else:
-        return os.path.join(os.path.dirname(__file__), "package.json")
-
-
-def assert_exist(path: str, target_type: str = None, ra: bool = True, desc: str = None, t_desc: str = None) -> bool:
-    """
-    检查文件是否存在，严格模式下，文件不存在会抛出异常，或者可以手动通过参数控制，存在则返回True，否则返回False
-    :param path: 文件路径
-    :param target_type: 文件类型(folder, file)，如果文件类型与预期不符，会抛出异常，非严格模式下不检测，为None不检测文件类型
-    :param ra: 文件不存在时是否抛出异常，非严格模式下强制不抛出，此参数无效，此参数只影响文件是否存在，不影响文件类型判断时抛出异常
-    :param desc: 异常描述信息，非严格模式下强制不抛出，此参数无效
-    :param t_desc: 文件类型描述信息，非严格模式下强制不抛出，此参数无效
-    :raises FileNotFoundError: 文件不存在时抛出异常
-    :raises NotADirectoryError: 文件夹是一个文件时抛出异常
-    :raises IsADirectoryError: 文件是一个文件夹时抛出异常
-    """
-    if not is_strict_mode():
-        return os.path.exists(path)
-    if not os.path.exists(path):
-        if ra:
-            raise FileNotFoundError(desc or "{path} not existed".format(path=path))
-        else:
-            return False
-    # 检查文件类型
-    if target_type is not None:
-        if target_type == "folder":
-            if not os.path.isdir(path):
-                raise NotADirectoryError(t_desc or "{path} is not a folder".format(path=path))
-        elif target_type == "file":
-            if not os.path.isfile(path):
-                raise IsADirectoryError(t_desc or "{path} is not a file".format(path=path))
-    return True
+        # notebook 中会有 __IPYTHON__，而正常环境没有定义，所以 try
+        # 'type: ignore': 可以让 pylance 忽略对变量定义的检查
+        _ = __IPYTHON__  # type: ignore
+        return True
+    except NameError:
+        return False

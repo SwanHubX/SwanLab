@@ -1,10 +1,10 @@
-from swanlab.data.run.settings import SwanDataSettings
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
 from typing import Dict, Optional
-from swanlab.utils import create_time
-from .callback import MetricInfo, ColumnInfo, RuntimeInfo
+from swankit.env import create_time
+from swankit.callback import MetricInfo, ColumnInfo
 from .operator import SwanLabRunOperator
+from swankit.core import SwanLabSharedSettings
 import json
 import math
 
@@ -15,12 +15,12 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanDataSettings, operator: SwanLabRunOperator) -> None:
+    def __init__(self, settings: SwanLabSharedSettings, operator: SwanLabRunOperator) -> None:
         """初始化实验
 
         Parameters
         ----------
-        settings : SwanDataSettings
+        settings : SwanLabSharedSettings
             全局运行时配置
         operator : SwanLabRunOperator
             操作员

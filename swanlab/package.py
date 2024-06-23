@@ -7,37 +7,38 @@ r"""
 @Description:
     用于管理swanlab的包管理器的模块，做一些封装
 """
-import json
-import os
-from .env import get_package_path, get_swanlab_folder, is_strict_mode
-from .utils.key import get_key
+from .env import get_save_dir, SwanLabEnv
 from .error import KeyFileError
 from typing import Optional
 import requests
+import netrc
+import json
+import os
 
-package_path = get_package_path()
+package_path = os.path.join(os.path.dirname(__file__), "package.json")
 
 
-def get_package_version(p=package_path) -> str:
+# ---------------------------------- 版本号相关 ----------------------------------
+
+def get_package_version() -> str:
     """获取swanlab的版本号
-
-    Parameters
-    ----------
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        swanlab的版本号
+    :return: swanlab的版本号
     """
+    if SwanLabEnv.SWANLAB_VERSION.value in os.environ:
+        return os.environ[SwanLabEnv.SWANLAB_VERSION.value]
     # 读取package.json文件
-    with open(p, "r") as f:
+    with open(package_path, "r") as f:
         return json.load(f)["version"]
 
 
 def get_package_latest_version(timeout=0.5) -> Optional[str]:
+    """
+    获取swanlab的最新版本号
+    :param timeout: 请求超时时间
+    :return: 最新版本号
+    """
     url = "https://pypi.org/pypi/swanlab/json"
+    # noinspection PyBroadException
     try:
         response = requests.get(url, timeout=timeout)
         if response.status_code == 200:
@@ -45,162 +46,99 @@ def get_package_latest_version(timeout=0.5) -> Optional[str]:
             return data["info"]["version"]
         else:
             return None
-    except Exception as e:
+    except Exception:
         return None
 
 
-def get_host_web(p: str = package_path) -> str:
+# ---------------------------------- 云端url相关 ----------------------------------
+
+
+def get_host_web() -> str:
     """获取swanlab网站网址
-
-    Parameters
-    ----------
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        swanlab网站的网址
+    :return: swanlab网站的网址
     """
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)["host"]["web"]
+    return os.getenv(SwanLabEnv.SWANLAB_WEB_HOST.value, "https://swanlab.cn")
 
 
-def get_host_api(p: str = package_path) -> str:
+def get_host_api() -> str:
     """获取swanlab网站api网址
-
-    Parameters
-    ----------
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        swanlab网站的api网址
+    :return: swanlab网站的api网址
     """
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)["host"]["api"]
+    return os.getenv(SwanLabEnv.SWANLAB_API_HOST.value, "https://swanlab.cn/api")
 
 
-def get_user_setting_path(p: str = package_path) -> str:
+def get_user_setting_path() -> str:
     """获取用户设置的url
-
-    Parameters
-    ----------
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        用户设置的url
+    :return: 用户设置的url
     """
-    return get_host_web(p) + "/settings"
+    return get_host_web() + "/settings"
 
 
-def get_project_url(username: str, projname: str, p: str = package_path) -> str:
+def get_project_url(username: str, projname: str) -> str:
     """获取项目的url
-
-    Parameters
-    ----------
-    username : str
-        用户名
-    projname : str
-        项目名
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        项目的url
+    :param username: 用户名
+    :param projname: 项目名
+    :return: 项目的url
     """
-    return get_host_web(p) + "/" + username + "/" + projname
+    return get_host_web() + "/" + username + "/" + projname
 
 
-def get_experiment_url(username: str, projname: str, expid: str, p: str = package_path) -> str:
+def get_experiment_url(username: str, projname: str, expid: str) -> str:
     """获取实验的url
-
-    Parameters
-    ----------
-    username : str
-        用户名
-    projname : str
-        项目名
-    expid : str
-        实验id
-    p : str, optional
-        package.json文件路径，默认为项目的package.json
-
-    Returns
-    -------
-    str
-        实验的url
+    :param username: 用户名
+    :param projname: 项目名
+    :param expid: 实验id
+    :return: 实验的url
     """
-    return get_project_url(username, projname, p) + "/" + expid
+    return get_project_url(username, projname) + "/" + expid
 
 
-def version_limit(path: str, mode: str) -> None:
-    """限制版本号在v0.1.5之后
-    主要原因是因为在v0.1.5之后使用了数据库连接，而在之前的版本中并没有使用数据库连接
-    本函数用于检查swanlog文件夹内容是否是v0.1.5之后的版本
+# ---------------------------------- 登录相关 ----------------------------------
 
-    Parameters
-    ----------
-    path : str
-        swanlog目录
-    mode : str
-        模式，只能是['watch', 'init']中的一个，分别对应swanlab watch和swanlab init
-        主要是显示不同的错误信息
 
-    Raises
-    ------
-    ValueError
-        如果版本号低于v0.1.5则抛出异常
+def get_key():
+    """使用标准netrc库解析token文件，获取token
+    :raise KeyFileError: 文件不存在或者host不存在
+    :return: token
     """
-    if not is_strict_mode():
-        return
-    # 判断文件夹内是否存在runs.swanlog文件
-    if os.path.exists(os.path.join(path, "runs.swanlog")):
-        return
-    # 不存在则进一步判断，如果存在project.json文件，且可以被json读取，并且存在version字段，则说明版本号小于v0.1.5
-    if os.path.exists(os.path.join(path, "project.json")):
-        with open(os.path.join(path, "project.json"), "r") as f:
-            project = json.load(f)
-            # print(project.get("version"))
-            if project.get("version") is not None:
-                # 报错，当前目录只允许v0.1.5之前的版本，请降级到v0.1.4
-                if mode == "watch":
-                    info = (
-                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                        "SwanLab doesn't support this logfile. If you need to watch this logfile, please use the "
-                        "transfer script: https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0"
-                        ".1.4.py'"
-                    )
-                elif mode == "init":
-                    info = (
-                        "The version of logdir is old (Created by swanlab<=0.1.4), the current version of "
-                        "SwanLab doesn't support this logfile. If you need to continue train in this logdir, "
-                        "please use the transfer script: "
-                        "https://github.com/SwanHubX/SwanLab/blob/main/script/transfer_logfile_0.1.4.py'"
-                    )
-                else:
-                    info = "version_limit function only support mode in ['watch', 'init']"
-                raise ValueError(info)
-    return
+    path = os.path.join(get_save_dir(), ".netrc")
+    host = get_host_api()
+    if not os.path.exists(path):
+        raise KeyFileError("The file does not exist")
+    nrc = netrc.netrc(path)
+    info = nrc.authenticators(host)
+    if info is None:
+        raise KeyFileError(f"The host {host} does not exist")
+    return info[2]
+
+
+def save_key(username: str, password: str, host: str = None):
+    """
+    保存key到对应的文件目录下，文件名称为.netrc（basename）
+    此函数不考虑上层文件存在的清空，但是会在调用的get_save_dir()函数中进行检查
+    :param username: 保存的用户名
+    :param password: 保存的密码
+    :param host: 保存的host
+    """
+    if host is None:
+        host = get_host_api()
+    path = os.path.join(get_save_dir(), ".netrc")
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write("")
+    nrc = netrc.netrc(path)
+    nrc.hosts[host] = (username, None, password)
+    with open(path, "w") as f:
+        f.write(nrc.__repr__())
 
 
 def is_login() -> bool:
-    """判断是否已经登录
-
-    Returns
-    -------
-    bool
-        是否已经登录，但是不保证登录的key可用
+    """判断是否已经登录，与当前的host相关
+    但不会检查key的有效性
+    :return: 是否已经登录
     """
     try:
-        _ = get_key(os.path.join(get_swanlab_folder(), ".netrc"), get_host_api())[2]
+        _ = get_key()
         return True
     except KeyFileError:
         return False

@@ -7,28 +7,26 @@ r"""
 @Description:
     测试命令登录
 """
-
-from swanlab.env import get_swanlab_folder
-from swanlab.package import get_key, get_host_api
+from swanlab.package import get_key
 from click.testing import CliRunner
 from swanlab.cli.main import cli
-from tutils import KEY
+from tutils import TEST_CLOUD_KEY
 from swanlab.error import ValidationError
-import os
+import tutils as T
+import pytest
 
 
 # noinspection PyTypeChecker
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_login_ok():
     runner = CliRunner()
-
-    result = runner.invoke(cli, ["login", "--api-key", KEY])
+    result = runner.invoke(cli, ["login", "--api-key", TEST_CLOUD_KEY])
     assert result.exit_code == 0
-    path = os.path.join(get_swanlab_folder(), ".netrc")
-    assert os.path.exists(path)
-    assert get_key(path, get_host_api())[2] == KEY
+    assert get_key() == TEST_CLOUD_KEY
 
 
 # noinspection PyTypeChecker
+@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
 def test_login_fail():
     runner = CliRunner()
     result = runner.invoke(cli, ["login", "--api-key", "123"])

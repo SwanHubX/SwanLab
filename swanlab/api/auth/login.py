@@ -9,11 +9,11 @@ r"""
     进行一些交互定义和数据请求
 """
 from swanlab.error import ValidationError
-from swanlab.utils import FONT
+from swankit.log import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
-from swanlab.utils.judgment import in_jupyter
+from swanlab.env import in_jupyter
 import getpass
 import requests
 import sys
@@ -46,8 +46,8 @@ def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInf
 
 
 def input_api_key(
-    tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: ",
-    again: bool = False,
+        tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: ",
+        again: bool = False,
 ) -> str:
     """让用户输入apikey
     此时有两条消息，第一条消息为固定格式，第二条消息
@@ -112,7 +112,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
                 raise e
 
 
-def _abort_tip(tp, val, tb):
+def _abort_tip(tp, _, __):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
         print("\n" + FONT.red("Aborted!"))

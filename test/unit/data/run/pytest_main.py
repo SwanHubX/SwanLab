@@ -11,7 +11,7 @@ from swanlab.data.modules import Line
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
 from swanlab import Image, Audio, Text
 from nanoid import generate
-from tutils import clear, TEMP_PATH
+from tutils import TEMP_PATH
 from PIL import Image as PILImage
 import soundfile as sf
 import numpy as np
@@ -30,7 +30,6 @@ def setup_function():
         get_run().finish()
     swanlog.disable_log()
     yield
-    clear()
     swanlog.enable_log()
 
 

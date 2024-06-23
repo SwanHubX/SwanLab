@@ -1,8 +1,8 @@
 import sys
 import os
 from datetime import datetime
-from ..utils import FONT
-from swanlab.utils import create_time
+from swankit.log import FONT
+from swankit.env import create_time
 
 
 # 检查当前日期是否和控制台日志文件名一致

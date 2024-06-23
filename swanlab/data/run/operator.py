@@ -8,15 +8,15 @@ r"""
     回调函数操作员，批量处理回调函数的调用
 """
 from typing import List, Union, Dict, Any, Callable
-from .callback import SwanLabRunCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
-from swanlab.data.run.settings import SwanDataSettings
+from swankit.callback import SwanKitCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
+from swankit.core import SwanLabSharedSettings
 import swanlab.error as E
-from swanlab.utils import FONT
+from swankit.log import FONT
 
 OperatorReturnType = Dict[str, Any]
 
 
-class SwanLabRunOperator(SwanLabRunCallback):
+class SwanLabRunOperator(SwanKitCallback):
     """
     The SwanLabRunOperator is used to batch process callback instances, triggering them respectively in the order of
     injection when each occasion occurs. In design, we aim for isolation between each instance. However, if there are
@@ -24,9 +24,9 @@ class SwanLabRunOperator(SwanLabRunCallback):
     as SwanLabRunOperator itself will not address these situations for now.
     """
 
-    def __init__(self, callbacks: Union[SwanLabRunCallback, List[SwanLabRunCallback]] = None):
+    def __init__(self, callbacks: Union[SwanKitCallback, List[SwanKitCallback]] = None):
         super(SwanLabRunOperator, self).__init__()
-        callbacks = [callbacks] if isinstance(callbacks, SwanLabRunCallback) else callbacks
+        callbacks = [callbacks] if isinstance(callbacks, SwanKitCallback) else callbacks
         self.callbacks = {}
         if callbacks is not None:
             for callback in callbacks:
@@ -40,8 +40,8 @@ class SwanLabRunOperator(SwanLabRunCallback):
         """
         return len(self.callbacks) == 0
 
-    def add_callback(self, callback: SwanLabRunCallback):
-        if not isinstance(callback, SwanLabRunCallback):
+    def add_callback(self, callback: SwanKitCallback):
+        if not isinstance(callback, SwanKitCallback):
             raise TypeError(f"Unsupported callback type: {type(callback)}")
         if str(callback) == str(self) or callback in self.callbacks:
             raise ValueError(f"Cannot add the same callback instance: {callback}")
@@ -66,21 +66,20 @@ class SwanLabRunOperator(SwanLabRunCallback):
             return ret[key]
         return next((v for v in ret.values() if v is not None), None)
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None) -> OperatorReturnType:
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs) -> OperatorReturnType:
         return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
 
-    def inject(self, settings: SwanDataSettings) -> OperatorReturnType:
-        self.settings = settings
-        return {name: callback.inject(settings) for name, callback in self.callbacks.items()}
+    def before_run(self, settings: SwanLabSharedSettings):
+        return self.__run_all("before_run", settings)
 
     def before_init_experiment(
-        self,
-        run_id: str,
-        exp_name: str,
-        description: str,
-        num: int,
-        suffix: str,
-        setter: Callable[[str, str, str, str], None]
+            self,
+            run_id: str,
+            exp_name: str,
+            description: str,
+            num: int,
+            suffix: str,
+            setter: Callable[[str, str, str, str], None]
     ):
         return self.__run_all(
             "before_init_experiment",
