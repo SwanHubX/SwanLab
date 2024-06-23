@@ -121,7 +121,7 @@ def save_key(username: str, password: str, host: str = None):
     :param host: 保存的host
     """
     if host is None:
-        host = get_host_web()
+        host = get_host_api()
     path = os.path.join(get_save_dir(), ".netrc")
     if not os.path.exists(path):
         with open(path, "w") as f:
