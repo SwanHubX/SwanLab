@@ -102,7 +102,7 @@ def get_key():
     :return: token
     """
     path = os.path.join(get_save_dir(), ".netrc")
-    host = get_host_web()
+    host = get_host_api()
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
