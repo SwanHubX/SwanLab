@@ -24,6 +24,8 @@ def test_get_package_version():
     """
     测试获取版本号
     """
+    assert P.get_package_version() == os.getenv(SwanLabEnv.SWANLAB_VERSION.value)
+    del os.environ[SwanLabEnv.SWANLAB_VERSION.value]
     assert P.get_package_version() == package_data["version"]
 
 
