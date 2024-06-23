@@ -88,7 +88,7 @@ class TestGetKey:
             pass
         nrc = netrc.netrc(file)
         key = nanoid.generate()
-        nrc.hosts[P.get_host_web()] = ("user", "", key)
+        nrc.hosts[P.get_host_api()] = ("user", "", key)
         with open(file, "w") as f:
             f.write(nrc.__repr__())
         assert P.get_key() == key
@@ -106,8 +106,8 @@ class TestGetKey:
         from swanlab.error import KeyFileError
         self.test_ok()
         host = nanoid.generate()
-        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = host
-        assert P.get_host_web() == host
+        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = host
+        assert P.get_host_api() == host
         with pytest.raises(KeyFileError) as e:
             P.get_key()
         assert str(e.value) == f"The host {host} does not exist"
@@ -127,7 +127,7 @@ class TestSaveKey:
         """
         path = os.path.join(get_save_dir(), ".netrc")
         password = nanoid.generate()
-        host = P.get_host_web()
+        host = P.get_host_api()
         P.save_key("user", password, host=host)
         assert self.get_key(path, host) == password
 
@@ -140,7 +140,7 @@ class TestIsLogin:
             pass
         nrc = netrc.netrc(path)
         key = nanoid.generate()
-        nrc.hosts[P.get_host_web()] = ("user", "", key)
+        nrc.hosts[P.get_host_api()] = ("user", "", key)
         with open(path, "w") as f:
             f.write(nrc.__repr__())
 
@@ -162,5 +162,5 @@ class TestIsLogin:
         host不匹配
         """
         self.login()
-        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = nanoid.generate()
+        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = nanoid.generate()
         assert not P.is_login()
