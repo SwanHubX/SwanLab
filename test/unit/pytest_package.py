@@ -6,9 +6,8 @@ import netrc
 import json
 import os
 
-PACKAGE_PATH = os.environ["SWANLAB_PACKAGE_PATH"]
-
-package_data = json.load(open(PACKAGE_PATH))
+_ = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+package_data = json.load(open(os.path.join(_, "swanlab", "package.json")))
 
 
 def test_package_latest_version():
@@ -28,26 +27,12 @@ def test_get_package_version():
     assert P.get_package_version() == package_data["version"]
 
 
-def test_get_host_web():
-    """
-    测试获取web地址
-    """
-    assert P.get_host_web() == package_data["host"]["web"]
-
-
 def test_get_host_web_env():
     """
     通过环境变量指定web地址
     """
     os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = nanoid.generate()
     assert P.get_host_web() == os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value]
-
-
-def test_get_host_api():
-    """
-    测试获取api地址
-    """
-    assert P.get_host_api() == package_data["host"]["api"]
 
 
 def test_get_host_api_env():

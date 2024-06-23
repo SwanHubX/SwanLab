@@ -29,3 +29,7 @@ for i in packages:
     if "swankit" in i and swankit_version not in i:
         print(f'swankit过时，运行 pip install -r requirements.txt 进行更新.', file=sys.stderr)
         sys.exit(2)
+
+# ---------------------------------- 检查是否跳过云测试，如果没跳过，相关环境变量需要指定----------------------------------
+is_pytest_env = 'PYTEST_CURRENT_TEST' in os.environ
+is_skip_test = os.getenv("TEST_CLOUD_SKIP") is not None

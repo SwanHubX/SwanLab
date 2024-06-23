@@ -7,7 +7,6 @@ r"""
     swanlab全局共用环境变量(运行时环境变量)
     除了utils和error模块，其他模块都可以使用这个模块
 """
-import os
 from typing import List
 import swankit.env as E
 from swankit.env import SwanLabSharedEnv
@@ -34,25 +33,25 @@ class SwanLabEnv(enum.Enum):
     swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
     大小写不敏感
     """
-    SWANLAB_PORT = "SWANLAB_SERVER_PORT"
+    SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
     """
-    cli 服务端口
+    cli swanboard 服务端口
     """
-    SWANLAB_HOST = "SWANLAB_SERVER_HOST"
+    SWANBOARD_HOST = "SWANLAB_BOARD_HOST"
     """
-    cli 服务地址
+    cli swanboard 服务地址
     """
-    SWANLAB_PACKAGE = "SWANLAB_PACKAGE_PATH"
+    SWANLAB_WEB_HOST = "SWANLAB_WEB_HOST"
     """
-    swanlab的包路径，即package.json文件路径，可以设置为相对路径，但最终会转换为绝对路径
-    """
-    SWANLAB_WEB_HOST = "SWANLAB_SERVER_HOST"
-    """
-    swanlab云端环境的web地址，优先级高于SWANLAB_PACKAGE_PATH配置中指定的地址
+    swanlab云端环境的web地址
     """
     SWANLAB_API_HOST = "SWANLAB_API_HOST"
     """
-    swanlab云端环境的api地址，优先级高于SWANLAB_PACKAGE_PATH配置中指定的地址
+    swanlab云端环境的api地址
+    """
+    SWANLAB_VERSION = "SWANLAB_VERSION"
+    """
+    swanlab的版本号，主要用于开发者调试
     """
 
     @classmethod
@@ -87,18 +86,3 @@ def in_jupyter() -> bool:
         return True
     except NameError:
         return False
-
-
-def get_package_path() -> str:
-    """
-    获取swanlab的包路径，即package.json文件路径
-    :raise FileNotFoundError: 文件不存在时抛出异常
-    :raise IsADirectoryError: 文件是一个文件夹时抛出异常
-    :return: swanlab的包路径，是一个绝对路径
-    """
-    path = os.getenv(SwanLabEnv.SWANLAB_PACKAGE.value) or os.path.join(os.path.dirname(__file__), "package.json")
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"package.json not found in {path}")
-    if os.path.isdir(path):
-        raise IsADirectoryError(f"{path} is a directory")
-    return os.path.abspath(path)

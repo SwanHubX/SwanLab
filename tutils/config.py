@@ -27,11 +27,6 @@ TEMP_PATH = os.path.join(__test_path, "temp")
 临时文件夹，每一个测试函数在执行前都会清空这个文件夹
 """
 
-PACKAGE_PATH = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "package.mock.json")
-"""
-package的路径，区分测试和正式环境
-"""
-
 SWANLOG_FOLDER = os.path.join(TEMP_PATH, "swanlog")
 """
 默认情况下，swanlog保存的文件夹
@@ -63,6 +58,5 @@ __all__ = [
     "TEST_CLOUD_SKIP",
     "SWANLOG_FOLDER",
     "SWANLAB_FOLDER",
-    "PACKAGE_PATH",
-    "TEST_CLOUD_KEY"
+    "TEST_CLOUD_KEY",
 ]

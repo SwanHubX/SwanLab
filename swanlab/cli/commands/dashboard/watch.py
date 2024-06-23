@@ -32,7 +32,7 @@ import sys
 @click.option(
     "--host",
     "-h",
-    default=lambda: os.environ.get(SwanLabEnv.SWANLAB_HOST.value, "127.0.0.1"),
+    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_HOST.value, "127.0.0.1"),
     type=str,
     nargs=1,
     help="The host of swanlab web, default by 127.0.0.1",
@@ -40,7 +40,7 @@ import sys
 @click.option(
     "--port",
     "-p",
-    default=lambda: os.environ.get(SwanLabEnv.SWANLAB_PORT.value, 5092),
+    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_PROT.value, 5092),
     nargs=1,
     type=click.IntRange(1, 65535),
     help="The port of swanlab web, default by 5092",
