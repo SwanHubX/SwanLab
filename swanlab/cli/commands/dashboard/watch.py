@@ -86,8 +86,9 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     # 为None时从环境变量中获取
     try:
         path = get_swanlog_dir()
-        if not os.path.exists(path):
-            raise FileNotFoundError
+        # 产品经理要求无论日志文件夹是否存在都不报错 🤡 ，给用户以开启web服务的“爽感”
+        # if not os.path.exists(path):
+        #     raise FileNotFoundError
     except ValueError as e:
         click.BadParameter(str(e))
         return sys.exit(3)
