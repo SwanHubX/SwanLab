@@ -48,7 +48,7 @@ def convert_size(size=None):
 
 
 class Image(MediaType):
-    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
+    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"] if PILImage else []
 
     def __init__(
             self,

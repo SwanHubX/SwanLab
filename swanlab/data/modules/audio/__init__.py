@@ -20,7 +20,7 @@ except ImportError:
 
 
 class Audio(MediaType):
-    SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
+    SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]] if sf else []
 
     def __init__(
             self,
