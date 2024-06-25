@@ -3,23 +3,7 @@ import os
 from datetime import datetime
 from swankit.log import FONT
 from swankit.env import create_time
-
-
-# 检查当前日期是否和控制台日志文件名一致
-def check_file_name(func):
-    """装饰器，判断是否需要根据日期对控制台输出进行分片存储"""
-
-    def wrapper(self, *args, **kwargs):
-        now = datetime.now().strftime("%Y-%m-%d")
-        # 检测now是否和self.now一致
-        if now != self.now:
-            self.now = now
-            if hasattr(self, "console") and not self.file.closed:
-                self.file.close()
-            self.file = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
-        return func(self, *args, **kwargs)
-
-    return wrapper
+import re
 
 
 class SwanWriterProxy:
@@ -90,12 +74,24 @@ class SwanWriterProxy:
         self.file = open(console_path, "a", encoding="utf-8")
         # 封装sys.stdout
         self.write_handler = sys.stdout.write
-        a = self.write_handler
 
         def _(message):
-            self.write_handler and self.write_handler(message)
+            try:
+                self.write_handler and self.write_handler(message)
+            except UnicodeEncodeError:
+                # 遇到编码问题，直接pass，此时表现为终端不输出
+                pass
             message = FONT.clear(message)
             self.write_callback and self.write_callback(message)
+
+            # 检查文件分片
+            now = datetime.now().strftime("%Y-%m-%d")
+            if now != self.now:
+                self.now = now
+                if hasattr(self, "console") and not self.file.closed:
+                    self.file.close()
+                self.file = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
+
             self.file.write(message)
             self.file.flush()
 
@@ -112,7 +108,6 @@ class SwanConsoler:
     def __init__(self):
         """
         控制台输出重定向器
-        WARNING 一旦此类被初始化，不能将其设置为None，否则会导致输出流无法正常恢复
         """
         self.writer = SwanWriterProxy()
         self.__installed = False
