@@ -24,6 +24,8 @@ def reset_some_env():
         os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
 
 
+if not os.path.exists(TEMP_PATH):
+    os.mkdir(TEMP_PATH)
 reset_some_env()
 
 
@@ -33,6 +35,4 @@ def open_dev_mode() -> str:
     在上层config部分已经执行了环境变量注入
     :return: api-key
     """
-    if not os.path.exists(TEMP_PATH):
-        os.mkdir(TEMP_PATH)
     return TEST_CLOUD_KEY
