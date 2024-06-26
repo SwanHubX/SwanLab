@@ -5,8 +5,10 @@ from io import BytesIO
 try:
     # noinspection PyPackageRequirements
     import numpy as np
+
     # noinspection PyPackageRequirements
     from PIL import Image as PILImage
+
     # noinspection PyPackageRequirements
     from matplotlib import pyplot as plt
 
@@ -55,12 +57,12 @@ class Image(MediaType):
     ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"] if PILImage else []
 
     def __init__(
-            self,
-            data_or_path: InputType,
-            mode: str = None,
-            caption: str = None,
-            file_type: str = None,
-            size: Union[int, list, tuple] = None,
+        self,
+        data_or_path: InputType,
+        mode: str = None,
+        caption: str = None,
+        file_type: str = None,
+        size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 
@@ -111,10 +113,7 @@ class Image(MediaType):
             # 如果输入为numpy array
             try:
                 if data_or_path.ndim == 2 or (data_or_path.ndim == 3 and data_or_path.shape[2] in [3, 4]):
-                    image_data = PILImage.fromarray(
-                        np.clip(data_or_path, 0, 255).astype(np.uint8),
-                        mode=mode
-                    )
+                    image_data = PILImage.fromarray(np.clip(data_or_path, 0, 255).astype(np.uint8), mode=mode)
                 else:
                     raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
             except Exception as e:
@@ -138,8 +137,7 @@ class Image(MediaType):
                 data_or_path = data_or_path.to(float)
             data_or_path = torchvision.utils.make_grid(data_or_path, normalize=True)
             image_data = PILImage.fromarray(
-                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(),
-                mode=mode
+                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(), mode=mode
             )
         elif hasattr(data_or_path, "savefig"):
             # 如果输入为matplotlib图像

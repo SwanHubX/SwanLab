@@ -27,14 +27,15 @@ class LocalRunCallback(SwanLabRunCallback):
         super(LocalRunCallback, self).__init__()
 
     @staticmethod
-    def _traceback_error(tb):
+    def _traceback_error(tb, val):
         """
         获取traceback信息
         """
         trace_list = traceback.format_tb(tb)
         html = ""
         for line in trace_list:
-            html += line + "\n"
+            html += line
+        html += str(val)
         return html
 
     @staticmethod
@@ -98,10 +99,9 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         self._error_print(tp)
         # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb))
+        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb, tp(val)))
         if tp != KeyboardInterrupt:
-            print(self._traceback_error(tb), file=sys.stderr)
-            print(tp(val), file=sys.stderr)
+            print(self._traceback_error(tb, tp(val)), file=sys.stderr)
 
     def _clean_handler(self):
         run = get_run()

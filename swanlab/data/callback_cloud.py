@@ -175,16 +175,14 @@ class CloudRunCallback(LocalRunCallback):
 
     def _except_handler(self, tp, val, tb):
         if self.exiting:
-            # FIXME not a good way to fix '\n' problem
             print("")
             swanlog.error("Aborted uploading by user")
             sys.exit(1)
         self._error_print(tp)
         # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb))
+        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb, tp(val)))
         if tp != KeyboardInterrupt:
-            print(self._traceback_error(tb), file=sys.stderr)
-            print(tp(val), file=sys.stderr)
+            print(self._traceback_error(tb, tp(val)), file=sys.stderr)
 
     def __str__(self):
         return "SwanLabCloudRunCallback"
@@ -245,11 +243,7 @@ class CloudRunCallback(LocalRunCallback):
         error = None
         if column_info.error is not None:
             error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
-        column = ColumnModel(
-            key=column_info.key,
-            column_type=column_info.chart.value.column_type,
-            error=error
-        )
+        column = ColumnModel(key=column_info.key, column_type=column_info.chart.value.column_type, error=error)
         self.pool.queue.put((UploadType.COLUMN, [column]))
 
     def on_metric_create(self, metric_info: MetricInfo):
