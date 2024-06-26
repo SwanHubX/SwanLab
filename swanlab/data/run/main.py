@@ -307,7 +307,7 @@ class SwanLabRun:
                         raise ValueError(
                             f"Key {_k} unsupport on windows and auto fix it failed. Please change a key name instead"
                         )
-                    swanlog.warning(f"Key {_k} unsupport on windows, auto used {k} instead")
+                    # swanlog.warning(f"Key {_k} unsupport on windows, auto used {k} instead")  # todo: 每次都打很烦，暂时先注释掉，回头最好弄成只打一次warning
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
