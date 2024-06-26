@@ -7,11 +7,13 @@ r"""
 @Description:
     测试swanlog类，只需测试其日志监听功能
 """
+import os
+import sys
 import pytest
 from swanlab.log import swanlog
 from tutils import TEMP_PATH
 from nanoid import generate
-import os
+from freezegun import freeze_time
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -111,3 +113,18 @@ class TestSwanLogInstall:
             content = f.readlines()
             assert content[-2] != "swanlab: " + a + "\n"
             assert content[-1] == "swanlab: " + b + "\n"
+
+    def test_write_sharding(self, monkeypatch):
+        """
+        测试日志文件分片
+        """
+        console_dir = self.create_console_dir()
+        with freeze_time('2020-10-06'):
+            swanlog.install(console_dir)
+            print("1234")
+            assert os.path.exists(os.path.join(console_dir, "2020-10-06.log"))
+        with freeze_time('2020-10-07'):
+            p = os.path.join(console_dir, "2020-10-07.log")
+            assert not os.path.exists(p)
+            print("1234")
+            assert os.path.exists(p)

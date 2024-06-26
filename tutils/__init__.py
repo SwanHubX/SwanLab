@@ -24,6 +24,8 @@ def reset_some_env():
         os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
 
 
+if not os.path.exists(TEMP_PATH):
+    os.mkdir(TEMP_PATH)
 reset_some_env()
 
 

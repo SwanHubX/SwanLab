@@ -19,8 +19,8 @@ swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 swanboard = subprocess.run("pip show swanboard", shell=True, capture_output=True).stdout.decode()
 swankit = subprocess.run("pip show swankit", shell=True, capture_output=True).stdout.decode()
-swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0]
-swankit_version = [i.split(": ")[1] for i in swankit.split("\n") if i.startswith("Version")][0]
+swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0].split('\r')[0]
+swankit_version = [i.split(": ")[1] for i in swankit.split("\n") if i.startswith("Version")][0].split('\r')[0]
 with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
     packages = f.read().split("\n")
 packages = [i for i in packages if "swanboard" in i or "swankit" in i]
