@@ -8,26 +8,24 @@ r"""
     音频模块
 """
 from swankit.core import MediaBuffer, DataSuite as D, MediaType
-from typing import Union
+from typing import Union, Any
 
 try:
     # noinspection PyPackageRequirements
     import soundfile as sf
     # noinspection PyPackageRequirements
     import numpy as np
+
+    InputType = Union[str, np.ndarray]
 except ImportError:
     sf, np = None, None
+    InputType = Union[str, Any]
 
 
 class Audio(MediaType):
-    SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]]
+    SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]] if sf else []
 
-    def __init__(
-            self,
-            data_or_path: Union[str, np.ndarray],
-            sample_rate: int = 44100,
-            caption: str = None,
-    ):
+    def __init__(self, data_or_path: InputType, sample_rate: int = 44100, caption: str = None):
         """Audio class constructor
 
         Parameters

@@ -9,8 +9,12 @@ try:
     from PIL import Image as PILImage
     # noinspection PyPackageRequirements
     from matplotlib import pyplot as plt
+
+    InputType = Union[str, np.ndarray, PILImage.Image, plt.plot]
+
 except ImportError:
     np, PILImage, plt = None, None, None
+    InputType = Union[str, Any]
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -48,11 +52,11 @@ def convert_size(size=None):
 
 
 class Image(MediaType):
-    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
+    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"] if PILImage else []
 
     def __init__(
             self,
-            data_or_path: Union[str, np.ndarray, PILImage.Image, plt.plot],
+            data_or_path: InputType,
             mode: str = None,
             caption: str = None,
             file_type: str = None,
@@ -154,7 +158,7 @@ class Image(MediaType):
                 "Tensor or matplotlib figure."
             )
 
-        self.image_data = self.resize(image_data, self.size)
+        self.image_data = self.__resize(image_data, self.size)
         """
         转换为矩阵后的数据
         """
@@ -172,7 +176,7 @@ class Image(MediaType):
 
         return file_type
 
-    def resize(self, image: PILImage.Image, size=None) -> PILImage.Image:
+    def __resize(self, image, size=None):
         """将图像调整大小"""
         if size is None:
             self.size = image.size
