@@ -100,7 +100,7 @@ class Image(MediaType):
             import numpy as np
         except ImportError:
             raise ImportError(
-                "pillow and numpy are required for Image class, you can install it by `pip install pillow numpy`"
+                "pillow and numpy are required for Image class, you can install them by `pip install pillow numpy`"
             )
 
         super().__init__()
