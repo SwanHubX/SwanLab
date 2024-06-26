@@ -9,8 +9,11 @@ try:
     from PIL import Image as PILImage
     # noinspection PyPackageRequirements
     from matplotlib import pyplot as plt
+
+    InputType = Union[str, np.ndarray, PILImage.Image, plt.plot]
 except ImportError:
     np, PILImage, plt = None, None, None
+    InputType = Union[str, Any]
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -52,7 +55,7 @@ class Image(MediaType):
 
     def __init__(
             self,
-            data_or_path,
+            data_or_path: InputType,
             mode: str = None,
             caption: str = None,
             file_type: str = None,
