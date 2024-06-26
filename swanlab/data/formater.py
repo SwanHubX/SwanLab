@@ -11,6 +11,7 @@ import os
 import re
 import json
 import yaml
+from typing import List
 
 
 def check_string(target: str) -> bool:
@@ -159,5 +160,67 @@ def check_key_format(key: str, auto_cut=True) -> str:
         raise ValueError(f"tag: {key} is an empty string")
     if key.startswith((".", "/")):
         raise ValueError(f"tag: {key} can't start with '.' or '/' and blank space")
+    if key.endswith(".", "/"):  # cannot create folder end with '.' or '/'
+        raise ValueError(f"tag: {key} can't end with '.' or '/' and blank space")
     # 检查长度
     return _auto_cut("tag", key, max_len, auto_cut)
+
+
+def check_unique_on_case_insensitive(names: List[str]):
+    """
+    Ensure that the names are unique in case-insensitive.
+
+    Parameters
+    ----------
+    names : List[str]
+        List of names.
+
+    Returns
+    -------
+    bool
+        True if names are unique
+
+    Raises
+    ------
+    ValueError
+        names are not unique
+    """
+    lower_names_set = set([n.lower() for n in names])
+
+    for n in names:
+        if n in lower_names_set:
+            raise ValueError(f'tag: Windows is case insensitive, find same name: "{n}"')
+    return True
+
+
+def check_win_reserved_folder_name(folder_name: str, auto_fix=True) -> str:
+    """
+    Check if a folder name is reserved or not support to Windows.
+
+    Parameters
+    ----------
+    folder_name : str
+        Name of the folder to check.
+    auto_fix : bool, optional
+        auto fix unsupport folder_name, default True
+        If the value is False, try to throw an ValueError
+
+    Returns
+    -------
+    bool
+        return fix name
+
+    Raises
+    ------
+    ValueError
+        key not support to Windows.
+    """
+    # Regular expression to match reserved names optionally followed by a dot (.) and any character
+    reserved_pattern = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$", re.IGNORECASE)
+
+    # Check if the cleaned folder name is in the reserved names list
+    if bool(reserved_pattern.match(folder_name)):
+        if not auto_fix:
+            raise ValueError(f"tag: {folder_name} is reserved names in windows")
+        folder_name = "_" + folder_name
+    return folder_name
