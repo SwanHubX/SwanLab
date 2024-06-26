@@ -2,15 +2,19 @@ from swankit.core import MediaBuffer, DataSuite as D, MediaType
 from typing import Union, Any, TYPE_CHECKING
 from io import BytesIO
 
-if TYPE_CHECKING:  # pragma: no cover
-    import matplotlib  # type: ignore
-    import numpy as np
-    import torch  # type: ignore
-    from PIL.Image import Image as PILImage
+if TYPE_CHECKING:
+    # noinspection PyPackageRequirements
+    import matplotlib as _matplotlib  # type: ignore
+    # noinspection PyPackageRequirements
+    import numpy as _numpy  # type: ignore
+    # noinspection PyPackageRequirements
+    import torch as _torch  # type: ignore
+    # noinspection PyPackageRequirements
+    from PIL.Image import Image as _PILImage  # type: ignore
 
-    ImageDataType = Union["matplotlib.artist.Artist", "PILImage", "TorchTensorType", "np.ndarray"]
-    ImageDataOrPathType = Union[str, "Image", ImageDataType]
-    TorchTensorType = Union["torch.Tensor", "torch.Variable"]
+    TorchTensorType = Union["_torch.Tensor", "_torch.Variable"]
+    ImageDataType = Union["_matplotlib.artist.Artist", "_PILImage", "TorchTensorType", "_numpy.ndarray"]
+    ImageDataOrPathType = Union[str, "_PILImage", ImageDataType]
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -51,12 +55,12 @@ class Image(MediaType):
     ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
     def __init__(
-        self,
-        data_or_path: "ImageDataOrPathType",
-        mode: str = None,
-        caption: str = None,
-        file_type: str = None,
-        size: Union[int, list, tuple] = None,
+            self,
+            data_or_path: "ImageDataOrPathType",
+            mode: str = None,
+            caption: str = None,
+            file_type: str = None,
+            size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 
@@ -90,7 +94,9 @@ class Image(MediaType):
         """
 
         try:
+            # noinspection PyPackageRequirements
             from PIL import Image as PILImage
+            # noinspection PyPackageRequirements
             import numpy as np
         except ImportError:
             raise ImportError(
@@ -122,7 +128,7 @@ class Image(MediaType):
             if hasattr(data_or_path, "requires_grad") and data_or_path.requires_grad:
                 data_or_path = data_or_path.detach()  # noqa
             if hasattr(data_or_path, "detype") and str(data_or_path.type) == "torch.uint8":
-                data_or_path = data_or_path.to(float)
+                data_or_path = data_or_path.to(float)  # type: ignore
             data_or_path = torchvision.utils.make_grid(data_or_path, normalize=True)
             image_data = PILImage.fromarray(
                 data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(), mode=mode
@@ -130,6 +136,7 @@ class Image(MediaType):
         elif hasattr(data_or_path, "savefig"):
             # 如果输入为matplotlib图像
             try:
+                # noinspection PyPackageRequirements
                 import matplotlib
             except ImportError:
                 raise ImportError(
