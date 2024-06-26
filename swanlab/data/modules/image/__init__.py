@@ -1,20 +1,16 @@
 from swankit.core import MediaBuffer, DataSuite as D, MediaType
-from typing import Union, Any
+from typing import Union, Any, TYPE_CHECKING
 from io import BytesIO
 
-try:
-    # noinspection PyPackageRequirements
+if TYPE_CHECKING:  # pragma: no cover
+    import matplotlib  # type: ignore
     import numpy as np
-    # noinspection PyPackageRequirements
-    from PIL import Image as PILImage
-    # noinspection PyPackageRequirements
-    from matplotlib import pyplot as plt
+    import torch  # type: ignore
+    from PIL.Image import Image as PILImage
 
-    InputType = Union[str, np.ndarray, PILImage.Image, plt.plot]
-
-except ImportError:
-    np, PILImage, plt = None, None, None
-    InputType = Union[str, Any]
+    ImageDataType = Union["matplotlib.artist.Artist", "PILImage", "TorchTensorType", "np.ndarray"]
+    ImageDataOrPathType = Union[str, "Image", ImageDataType]
+    TorchTensorType = Union["torch.Tensor", "torch.Variable"]
 
 
 def is_pytorch_tensor_typename(typename: str) -> bool:
@@ -52,15 +48,15 @@ def convert_size(size=None):
 
 
 class Image(MediaType):
-    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"] if PILImage else []
+    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
     def __init__(
-            self,
-            data_or_path: InputType,
-            mode: str = None,
-            caption: str = None,
-            file_type: str = None,
-            size: Union[int, list, tuple] = None,
+        self,
+        data_or_path: "ImageDataOrPathType",
+        mode: str = None,
+        caption: str = None,
+        file_type: str = None,
+        size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 
@@ -92,11 +88,15 @@ class Image(MediaType):
 
             If it is None, it means no scaling for the image.
         """
-        if PILImage is None or np is None or plt is None:
+
+        try:
+            from PIL import Image as PILImage
+            import numpy as np
+        except ImportError:
             raise ImportError(
-                "pillow、numpy and matplotlib are required for Image class, "
-                'you can install them by `pip install "swanlab[media]"`'
+                "pillow and numpy are required for Image class, you can install it by `pip install pillow numpy`"
             )
+
         super().__init__()
         self.format = self.__convert_file_type(file_type)
         self.size = convert_size(size)
@@ -107,18 +107,6 @@ class Image(MediaType):
                 image_data = PILImage.open(data_or_path).convert(mode)
             except Exception as e:
                 raise ValueError(f"Invalid image path: {data_or_path}") from e
-        elif isinstance(data_or_path, np.ndarray):
-            # 如果输入为numpy array
-            try:
-                if data_or_path.ndim == 2 or (data_or_path.ndim == 3 and data_or_path.shape[2] in [3, 4]):
-                    image_data = PILImage.fromarray(
-                        np.clip(data_or_path, 0, 255).astype(np.uint8),
-                        mode=mode
-                    )
-                else:
-                    raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
-            except Exception as e:
-                raise TypeError("Invalid numpy array for the image") from e
         elif isinstance(data_or_path, PILImage.Image):
             # 如果输入为PIL.Image
             image_data = data_or_path.convert(mode)
@@ -131,18 +119,24 @@ class Image(MediaType):
                     "swanlab.Image requires `torchvision` when process torch.tensor data. "
                     "Install with 'pip install torchvision'."
                 )
-
             if hasattr(data_or_path, "requires_grad") and data_or_path.requires_grad:
                 data_or_path = data_or_path.detach()  # noqa
             if hasattr(data_or_path, "detype") and str(data_or_path.type) == "torch.uint8":
                 data_or_path = data_or_path.to(float)
             data_or_path = torchvision.utils.make_grid(data_or_path, normalize=True)
             image_data = PILImage.fromarray(
-                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(),
-                mode=mode
+                data_or_path.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy(), mode=mode
             )
         elif hasattr(data_or_path, "savefig"):
             # 如果输入为matplotlib图像
+            try:
+                import matplotlib
+            except ImportError:
+                raise ImportError(
+                    "swanlab.Image requires `matplotlib` when process matplotlib.artist.Artist data. "
+                    "you can install them by `pip install matplotlib`"
+                )
+
             try:
                 buf = BytesIO()
                 data_or_path.savefig(buf, format=self.format)  # 将图像保存到BytesIO对象
@@ -151,6 +145,17 @@ class Image(MediaType):
                 buf.close()  # 关闭缓冲区
             except Exception as e:
                 raise TypeError("Invalid matplotlib figure for the image") from e
+
+        elif isinstance(data_or_path, np.ndarray):
+            # 如果输入为numpy array
+            try:
+                if data_or_path.ndim == 2 or (data_or_path.ndim == 3 and data_or_path.shape[2] in [3, 4]):
+                    image_data = PILImage.fromarray(np.clip(data_or_path, 0, 255).astype(np.uint8), mode=mode)
+                else:
+                    raise TypeError("Invalid numpy array: the numpy array must be 2D or 3D with 3 or 4 channels.")
+            except Exception as e:
+                raise TypeError("Invalid numpy array for the image") from e
+
         else:
             # 以上都不是，则报错
             raise TypeError(
