@@ -185,11 +185,13 @@ def check_unique_on_case_insensitive(names: List[str]):
     ValueError
         names are not unique
     """
-    lower_names_set = set([n.lower() for n in names])
-
+    exist_names_set = set()
     for n in names:
-        if n in lower_names_set:
+        n_lower = n.lower()
+        if n_lower in exist_names_set:
             raise ValueError(f'tag: Windows is case insensitive, find same name: "{n}"')
+        exist_names_set.add(n_lower)
+
     return True
 
 
