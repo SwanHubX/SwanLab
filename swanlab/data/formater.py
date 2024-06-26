@@ -160,7 +160,7 @@ def check_key_format(key: str, auto_cut=True) -> str:
         raise ValueError(f"tag: {key} is an empty string")
     if key.startswith((".", "/")):
         raise ValueError(f"tag: {key} can't start with '.' or '/' and blank space")
-    if key.endswith(".", "/"):  # cannot create folder end with '.' or '/'
+    if key.endswith((".", "/")):  # cannot create folder end with '.' or '/'
         raise ValueError(f"tag: {key} can't end with '.' or '/' and blank space")
     # 检查长度
     return _auto_cut("tag", key, max_len, auto_cut)
