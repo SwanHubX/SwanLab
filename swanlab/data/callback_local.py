@@ -18,6 +18,7 @@ from datetime import datetime
 import traceback
 import json
 import os
+import sys
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -99,7 +100,8 @@ class LocalRunCallback(SwanLabRunCallback):
         # 结束运行
         get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb))
         if tp != KeyboardInterrupt:
-            raise tp(val)
+            print(self._traceback_error(tb), file=sys.stderr)
+            print(tp(val), file=sys.stderr)
 
     def _clean_handler(self):
         run = get_run()

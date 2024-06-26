@@ -183,7 +183,8 @@ class CloudRunCallback(LocalRunCallback):
         # 结束运行
         get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb))
         if tp != KeyboardInterrupt:
-            raise tp(val)
+            print(self._traceback_error(tb), file=sys.stderr)
+            print(tp(val), file=sys.stderr)
 
     def __str__(self):
         return "SwanLabCloudRunCallback"
