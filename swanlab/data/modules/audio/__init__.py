@@ -13,6 +13,7 @@ from typing import Union, Any
 try:
     # noinspection PyPackageRequirements
     import soundfile as sf
+
     # noinspection PyPackageRequirements
     import numpy as np
 
@@ -40,7 +41,7 @@ class Audio(MediaType):
         if sf is None or np is None:
             raise ImportError(
                 "soundfile and numpy are required for Audio class, "
-                'you can install them by `pip install "swanlab[media]"`'
+                "you can install them by `pip install soundfile numpy`"
             )
         super().__init__()
         if isinstance(data_or_path, str):
