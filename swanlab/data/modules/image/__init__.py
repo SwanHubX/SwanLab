@@ -11,6 +11,7 @@ try:
     from matplotlib import pyplot as plt
 
     InputType = Union[str, np.ndarray, PILImage.Image, plt.plot]
+
 except ImportError:
     np, PILImage, plt = None, None, None
     InputType = Union[str, Any]
@@ -157,7 +158,7 @@ class Image(MediaType):
                 "Tensor or matplotlib figure."
             )
 
-        self.image_data = self.resize(image_data, self.size)
+        self.image_data = self.__resize(image_data, self.size)
         """
         转换为矩阵后的数据
         """
@@ -175,7 +176,7 @@ class Image(MediaType):
 
         return file_type
 
-    def resize(self, image: PILImage.Image, size=None) -> PILImage.Image:
+    def __resize(self, image, size=None):
         """将图像调整大小"""
         if size is None:
             self.size = image.size
