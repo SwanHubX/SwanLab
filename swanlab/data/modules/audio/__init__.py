@@ -22,12 +22,7 @@ except ImportError:
 class Audio(MediaType):
     SF_SUPPORT_DTYPE = [np.dtype(d) for d in ["float32", "float64", "int16", "int32"]] if sf else []
 
-    def __init__(
-            self,
-            data_or_path: Union[str, np.ndarray],
-            sample_rate: int = 44100,
-            caption: str = None,
-    ):
+    def __init__(self, data_or_path, sample_rate: int = 44100, caption: str = None):
         """Audio class constructor
 
         Parameters

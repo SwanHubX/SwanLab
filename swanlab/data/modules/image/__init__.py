@@ -52,7 +52,7 @@ class Image(MediaType):
 
     def __init__(
             self,
-            data_or_path: Union[str, np.ndarray, PILImage.Image, plt.plot],
+            data_or_path,
             mode: str = None,
             caption: str = None,
             file_type: str = None,
