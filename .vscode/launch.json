@@ -37,19 +37,26 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "${file}"
-      ],
+      "args": ["${file}"],
       "console": "integratedTerminal"
+    },
+    {
+      "name": "（跳过云）进行所有单元测试",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["test/unit"],
+      "console": "integratedTerminal",
+      "env": {
+        "TEST_CLOUD_SKIP": "true"
+      }
     },
     {
       "name": "进行所有单元测试",
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "test/unit"
-      ],
+      "args": ["test/unit"],
       "console": "integratedTerminal"
     },
     // 打包命令

@@ -18,10 +18,10 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .operator import SwanLabRunOperator, RuntimeInfo
-from ..formater import check_key_format
+from ..formater import check_key_format, check_win_reserved_folder_name, check_unique_on_case_insensitive
 from swanlab.env import get_mode, get_swanlog_dir
 import random
-
+from swankit.env import is_windows
 
 class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
@@ -259,6 +259,11 @@ class SwanLabRun:
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
+
+        Raise
+        ----------
+        ValueError:
+            Unsupported key names.
         """
         if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
@@ -278,6 +283,9 @@ class SwanLabRun:
             step = None
 
         log_return = {}
+        if is_windows():
+            # 在windows不区分大小写的情况下需要检查key是否大小写不敏感独一
+            check_unique_on_case_insensitive(data.keys())
         # 遍历data，记录data
         for k, v in data.items():
             _k = k
@@ -285,6 +293,21 @@ class SwanLabRun:
             if k != _k:
                 # 超过255字符，截断
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
+                if k in data.keys():
+                    raise ValueError(f'tag: Unsupport too long Key "{_k}" and auto cut failed')
+            if is_windows():
+                # windows 中要增加保留文件夹名的判断
+                _k = k
+                k = check_win_reserved_folder_name(k)
+                if k != _k:
+                    # key名为windows保留文件名
+                    lower_key_name = [k.lower() in data.keys()]
+                    if k.lower() in lower_key_name:
+                        # 修复后又和原先key重名（大小写不区分情况下）
+                        raise ValueError(
+                            f"Key {_k} unsupport on windows and auto fix it failed. Please change a key name instead"
+                        )
+                    # swanlog.warning(f"Key {_k} unsupport on windows, auto used {k} instead")  # todo: 每次都打很烦，暂时先注释掉，回头最好弄成只打一次warning
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
