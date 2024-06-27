@@ -5,10 +5,13 @@ from io import BytesIO
 if TYPE_CHECKING:
     # noinspection PyPackageRequirements
     import matplotlib as _matplotlib  # type: ignore
+
     # noinspection PyPackageRequirements
     import numpy as _numpy  # type: ignore
+
     # noinspection PyPackageRequirements
     import torch as _torch  # type: ignore
+
     # noinspection PyPackageRequirements
     from PIL.Image import Image as _PILImage  # type: ignore
 
@@ -55,12 +58,12 @@ class Image(MediaType):
     ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
     def __init__(
-            self,
-            data_or_path: "ImageDataOrPathType",
-            mode: str = None,
-            caption: str = None,
-            file_type: str = None,
-            size: Union[int, list, tuple] = None,
+        self,
+        data_or_path: "ImageDataOrPathType",
+        mode: str = None,
+        caption: str = None,
+        file_type: str = None,
+        size: Union[int, list, tuple] = None,
     ):
         """Image class constructor
 
@@ -96,6 +99,7 @@ class Image(MediaType):
         try:
             # noinspection PyPackageRequirements
             from PIL import Image as PILImage
+
             # noinspection PyPackageRequirements
             import numpy as np
         except ImportError:
