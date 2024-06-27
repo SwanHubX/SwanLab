@@ -16,6 +16,7 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
   <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
+  <a href="https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
 </p>
 
 <div align="center">
