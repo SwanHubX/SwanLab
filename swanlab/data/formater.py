@@ -198,6 +198,7 @@ def check_unique_on_case_insensitive(names: List[str]):
 def check_win_reserved_folder_name(folder_name: str, auto_fix=True) -> str:
     """
     Check if a folder name is reserved or not support to Windows.
+    see detail: https://learn.microsoft.com/zh-cn/biztalk/core/restrictions-when-configuring-the-file-adapter
 
     Parameters
     ----------
@@ -218,7 +219,7 @@ def check_win_reserved_folder_name(folder_name: str, auto_fix=True) -> str:
         key not support to Windows.
     """
     # Regular expression to match reserved names optionally followed by a dot (.) and any character
-    reserved_pattern = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$", re.IGNORECASE)
+    reserved_pattern = re.compile(r"^(CON|PRN|AUX|CLOCK\$|NUL|COM[1-9]|LPT[1-9])(\..*)?$", re.IGNORECASE)
 
     # Check if the cleaned folder name is in the reserved names list
     if bool(reserved_pattern.match(folder_name)):
