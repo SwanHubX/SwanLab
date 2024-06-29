@@ -19,23 +19,21 @@ swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 swanboard = subprocess.run("pip show swanboard", shell=True, capture_output=True).stdout.decode()
 swankit = subprocess.run("pip show swankit", shell=True, capture_output=True).stdout.decode()
-swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0].split('\r')[0]
-swankit_version = [i.split(": ")[1] for i in swankit.split("\n") if i.startswith("Version")][0].split('\r')[0]
+swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0].split("\r")[0]
+swankit_version = [i.split(": ")[1] for i in swankit.split("\n") if i.startswith("Version")][0].split("\r")[0]
 with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
     packages = f.read().split("\n")
 packages = [i for i in packages if "swanboard" in i or "swankit" in i]
 for i in packages:
     if "swanboard" in i and swanboard_version not in i:
-        print(f'swanboard过时，运行 pip install -r requirements.txt 进行更新.', file=sys.stderr)
-        sys.exit(2)
+        raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.", file=sys.stderr)
     if "swankit" in i and swankit_version not in i:
-        print(f'swankit过时，运行 pip install -r requirements.txt 进行更新.', file=sys.stderr)
-        sys.exit(2)
+        raise Exception(f"swankit过时，运行 pip install -r requirements.txt 进行更新.", file=sys.stderr)
 
 # ---------------------------------- 检查是否跳过云测试，如果没跳过，相关环境变量需要指定----------------------------------
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
-is_pytest_env = 'PYTEST_VERSION' in os.environ
+is_pytest_env = "PYTEST_VERSION" in os.environ
 is_skip_test = os.getenv("TEST_CLOUD_SKIP") is not None
 is_cloud_dev_env = os.getenv("SWANLAB_API_HOST") is not None and os.getenv("SWANLAB_WEB_HOST") is not None
 if not is_cloud_dev_env:
