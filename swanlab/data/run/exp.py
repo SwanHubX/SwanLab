@@ -65,11 +65,12 @@ class SwanLabExp:
         # ---------------------------------- 图表创建 ----------------------------------
 
         if key_obj is None:
+            num = len(self.keys)
             # 将此tag对象添加到实验列表中
             key_obj = SwanLabKey(key, self.settings.log_dir)
             self.keys[key] = key_obj
             # 新建图表，完成数据格式校验
-            column_info = key_obj.create_chart(key, data)
+            column_info = key_obj.create_column(key, data, num)
             self.warn_type_error(key)
             # 创建新列，生成回调
             self.__operator.on_column_create(column_info)
@@ -239,12 +240,12 @@ class SwanLabKey:
             buffers=result.buffers,
         )
 
-    def create_chart(self, key: str, data: DataWrapper) -> ColumnInfo:
-        """在第一次添加tag的时候，自动创建图表和namespaces，同时写入tag和数据库信息，将创建的信息保存到数据库中
-        此方法只能执行一次
-        具体步骤是：
-        1. 创建key字段
-        2. 如果不是baseType类型，
+    def create_column(self, key: str, data: DataWrapper, num: int) -> ColumnInfo:
+        """
+        创建列信息，对当前key的基本信息做一个记录
+        :param key: str, key名称
+        :param data: DataType, 数据
+        :param num: 创建此列之前的列数量
         """
         if self.chart_created:
             raise ValueError(f"Chart {key} has been created, cannot create again.")
@@ -255,6 +256,7 @@ class SwanLabKey:
             result.section = key.split("/")[0]
 
         column_info = ColumnInfo(
+            key_id=str(num),
             key=key,
             namespace=result.section,
             chart=result.chart,
