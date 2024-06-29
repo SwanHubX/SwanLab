@@ -155,7 +155,7 @@ class LocalRunCallback(SwanLabRunCallback):
             if r is None:
                 continue
             # 组合路径
-            path = os.path.join(self.settings.media_dir, metric_info.key)
+            path = os.path.join(self.settings.media_dir, metric_info.column_info.id)
             os.makedirs(path, exist_ok=True)
             # 写入数据
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
