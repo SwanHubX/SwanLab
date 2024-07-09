@@ -95,6 +95,19 @@ class TestSwanLabRunLog:
     3. 一开始输入正确的类型，然后输入错误的类型
     """
 
+    # ---------------------------------- 返回的列信息将包含id ----------------------------------
+
+    def test_log_column_with_id(self):
+        """
+        id为当前创建列前历史列数量
+        """
+        run = SwanLabRun()
+        data = {"a": 1, "b": 2}
+        ll = run.log(data)
+        assert len(ll) == 2
+        assert ll["a"].column_info.id == "0"
+        assert ll["b"].column_info.id == "1"
+
     # ---------------------------------- 解析log数字/Line ----------------------------------
     def test_log_number_ok(self):
         run = SwanLabRun()

@@ -1,5 +1,5 @@
-swankit==0.1.0b10
-swanboard==0.1.2b8
+swankit==0.1.1b1
+swanboard==0.1.3b1
 cos-python-sdk-v5
 requests
 click

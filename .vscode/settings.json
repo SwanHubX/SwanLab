@@ -5,26 +5,19 @@
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
     "swanlog": "log",
-    ".config": "config",
-    "store": "database",
-    "help": "java",
-    "experiment": "benchMark",
-    "chart": "app",
-    "charts": "app",
-    "index": "home",
     "readme_files": "custom",
     "run": "core",
     "system": "core",
     "data": "guard",
     "unit": "test",
-    "migrate": "Husky",
-    "business": "components",
-    "dog": "Husky"
+    "converter": "log",
+    "tutils": "utils"
   },
   "material-icon-theme.files.associations": {
-    ".env.mock": "Tune"
+    ".env.mock": "Tune",
+    "requirements-dev.txt": "python-misc",
+    "requirements-media.txt": "python-misc"
   },
-
   /** 前端代码格式化部分，eslint和prettier */
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
@@ -33,7 +26,6 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "eslint.format.enable": true,
-  "eslint.validate": ["javascript", "javascriptreact", "vue", "typescript", "typescriptreact"],
   /** 后端代码格式化部分，python格式化 */
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
@@ -111,6 +103,5 @@
     "**/__pycache__": true,
     ".idea": true
   },
-  "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true
 }
