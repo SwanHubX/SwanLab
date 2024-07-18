@@ -26,13 +26,12 @@ with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
 packages = [i for i in packages if "swanboard" in i or "swankit" in i]
 for i in packages:
     if "swanboard" in i and swanboard_version not in i:
-        raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.", file=sys.stderr)
+        raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.")
     if "swankit" in i and swankit_version not in i:
-        raise Exception(f"swankit过时，运行 pip install -r requirements.txt 进行更新.", file=sys.stderr)
+        raise Exception(f"swankit过时，运行 pip install -r requirements.txt 进行更新.")
 
 # ---------------------------------- 检查是否跳过云测试，如果没跳过，相关环境变量需要指定----------------------------------
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
-
 is_pytest_env = "PYTEST_VERSION" in os.environ
 is_skip_test = os.getenv("TEST_CLOUD_SKIP") is not None
 is_cloud_dev_env = os.getenv("SWANLAB_API_HOST") is not None and os.getenv("SWANLAB_WEB_HOST") is not None

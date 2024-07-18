@@ -31,7 +31,7 @@ def setup_function():
     swanlog.enable_log()
 
 
-MODE = SwanLabEnv.SWANLAB_MODE.value
+MODE = SwanLabEnv.MODE.value
 
 
 class TestInitMode:

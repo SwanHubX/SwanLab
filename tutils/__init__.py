@@ -7,21 +7,22 @@ r"""
 @Description:
     tutils模块的初始化文件
 """
-from swanlab.env import SwanLabEnv
 from .check import *
 from .config import *
+from swanlab.env import SwanLabEnv
 
 api = os.getenv("SWANLAB_API_HOST")
 web = os.getenv("SWANLAB_WEB_HOST")
 
 
 def reset_some_env():
-    os.environ[SwanLabEnv.SWANLAB_VERSION.value] = "development"
     os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
     os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
+    SwanLabEnv.set_default()
+    SwanLabEnv.check()
     if not TEST_CLOUD_SKIP:
-        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = api
-        os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = web
+        os.environ[SwanLabEnv.API_HOST.value] = api
+        os.environ[SwanLabEnv.WEB_HOST.value] = web
 
 
 if not os.path.exists(TEMP_PATH):

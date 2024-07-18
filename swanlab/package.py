@@ -24,8 +24,6 @@ def get_package_version() -> str:
     """获取swanlab的版本号
     :return: swanlab的版本号
     """
-    if SwanLabEnv.SWANLAB_VERSION.value in os.environ:
-        return os.environ[SwanLabEnv.SWANLAB_VERSION.value]
     # 读取package.json文件
     with open(package_path, "r") as f:
         return json.load(f)["version"]
@@ -57,14 +55,14 @@ def get_host_web() -> str:
     """获取swanlab网站网址
     :return: swanlab网站的网址
     """
-    return os.getenv(SwanLabEnv.SWANLAB_WEB_HOST.value, "https://swanlab.cn")
+    return os.getenv(SwanLabEnv.WEB_HOST.value)
 
 
 def get_host_api() -> str:
     """获取swanlab网站api网址
     :return: swanlab网站的api网址
     """
-    return os.getenv(SwanLabEnv.SWANLAB_API_HOST.value, "https://swanlab.cn/api")
+    return os.getenv(SwanLabEnv.API_HOST.value, "https://swanlab.cn/api")
 
 
 def get_user_setting_path() -> str:
