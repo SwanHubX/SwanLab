@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/26 16:03
-@File: pytest_sdk.py
+@File: test_sdk.py
 @IDE: pycharm
 @Description:
     测试sdk的一些api
@@ -210,3 +210,18 @@ class TestLogin:
             S.login(api_key=key)
         key = T.TEST_CLOUD_KEY
         S.login(api_key=key)
+
+    def test_use_env_key(self, monkeypatch):
+        """
+        测试code登录，使用环境变量key
+        """
+
+        def _():
+            raise RuntimeError("this function should not be called")
+
+        monkeypatch.setattr("getpass.getpass", _)
+        os.environ[SwanLabEnv.API_KEY.value] = "1234"
+        with pytest.raises(Err.ValidationError):
+            S.login()
+        os.environ[SwanLabEnv.API_KEY.value] = T.TEST_CLOUD_KEY
+        S.login()

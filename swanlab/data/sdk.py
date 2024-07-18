@@ -58,10 +58,10 @@ def login(api_key: str = None):
     Every time you call this function, the previous login information will be overwritten.
     [Note that] this function should be called before `init`.
 
-    Parameters
-    ----------
-    api_key : str
+    :param api_key: str, optional
         authentication key, if not provided, the key will be read from the key file.
+
+    :return: LoginInfo
     """
     if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
