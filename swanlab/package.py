@@ -99,6 +99,9 @@ def get_key():
     :raise KeyFileError: 文件不存在或者host不存在
     :return: token
     """
+    env_key = os.getenv(SwanLabEnv.API_KEY.value)
+    if env_key is not None:
+        return env_key
     path = os.path.join(get_save_dir(), ".netrc")
     host = get_host_api()
     if not os.path.exists(path):

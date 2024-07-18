@@ -34,3 +34,6 @@ def test_check():
     os.environ[SwanLabEnv.MODE.value] = "124345"
     with pytest.raises(ValueError):
         SwanLabEnv.check()
+    os.environ[SwanLabEnv.RUNTIME.value] = "124"
+    with pytest.raises(ValueError):
+        SwanLabEnv.check()

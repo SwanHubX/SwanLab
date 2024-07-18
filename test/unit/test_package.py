@@ -110,6 +110,15 @@ class TestGetKey:
             P.get_key()
         assert str(e.value) == f"The host {host} does not exist"
 
+    def test_use_env(self):
+        """
+        使用环境变量，优先级高于本地文件
+        """
+        self.test_ok()
+        key = nanoid.generate()
+        os.environ[SwanLabEnv.API_KEY.value] = key
+        assert P.get_key() == key
+
 
 class TestSaveKey:
 
