@@ -56,6 +56,7 @@ def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
+
     [Note that] this function should be called before `init`.
 
     :param api_key: str, optional
@@ -144,13 +145,6 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    # TODO 下个版本删除
-    if "cloud" in kwargs:
-        swanlog.warning(
-            "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
-            "please use `mode='cloud'` instead."
-        )
-        mode = "cloud" if kwargs["cloud"] else mode
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
