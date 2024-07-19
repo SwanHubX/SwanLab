@@ -93,7 +93,7 @@ def _auto_cut(name: str, value: str, max_len: int, cut: bool) -> str:
 
 def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """
-    检查项目名格式，必须是0-9a-zA-Z以及连字符(_-)
+    检查项目名格式，必须是0-9a-zA-Z以及连字符(_-.)
     最大长度为100个字符
 
     Parameters
@@ -119,8 +119,8 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
         name超出长度
     """
     max_len = 100
-    if not check_string(name) or not re.match(r"^[0-9a-zA-Z_-]+$", name):
-        raise ValueError(f"Project name `{name}` is invalid, which must be 0-9, a-z, A-Z, _ , -")
+    if not check_string(name) or not re.match(r"^[0-9a-zA-Z_\-.]+$", name):
+        raise ValueError(f"Project name `{name}` is invalid, which must be 0-9, a-z, A-Z, _ , -, .")
     name = name.strip()
     return _auto_cut("project", name, max_len, auto_cut)
 

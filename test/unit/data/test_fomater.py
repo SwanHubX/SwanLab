@@ -58,6 +58,10 @@ class TestProjName:
             generate(size=1),
             "-",
             "_",
+            ".12",
+            "1",
+            "1.b",
+            "a.b",
         ],
     )
     def test_proj_name_common(self, value):
