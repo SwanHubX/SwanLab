@@ -62,6 +62,8 @@ class TestProjName:
             "1",
             "1.b",
             "a.b",
+            "+",
+            "1+1"
         ],
     )
     def test_proj_name_common(self, value):
