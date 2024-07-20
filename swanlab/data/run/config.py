@@ -61,18 +61,19 @@ def third_party_config_process(data) -> dict:
     # 如果是omegaconf的DictConfig，则转换为字典
     try:
         import omegaconf  # noqa
+
         if isinstance(data, omegaconf.DictConfig):
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
     except ImportError:
         pass
 
-    # 如果是dataclass类，转换为字典
-    if is_dataclass(data):
-        return asdict(data)
-
     # 如果是argparse的Namespace，则转换为字典
     if isinstance(data, argparse.Namespace):
         return vars(data)
+
+    # 如果是dataclass类，转换为字典
+    if is_dataclass(data):
+        return asdict(data)
 
     raise TypeError
 
@@ -101,7 +102,7 @@ def parse(config) -> dict:
         raise TypeError(f"config: {config} is not a json serialized dict, error: {e}")
 
 
-__config_attr__ = ['_SwanLabConfig__config', '_SwanLabConfig__on_setter']
+__config_attr__ = ["_SwanLabConfig__config", "_SwanLabConfig__on_setter"]
 
 
 class SwanLabConfig(MutableMapping):
@@ -113,9 +114,9 @@ class SwanLabConfig(MutableMapping):
     """
 
     def __init__(
-            self,
-            config: Union[MutableMapping, argparse.Namespace] = None,
-            on_setter: Optional[Callable[[RuntimeInfo], Any]] = None
+        self,
+        config: Union[MutableMapping, argparse.Namespace] = None,
+        on_setter: Optional[Callable[[RuntimeInfo], Any]] = None,
     ):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
