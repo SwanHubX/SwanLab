@@ -19,6 +19,7 @@ from swankit.callback import RuntimeInfo
 from swanlab.data.modules import Line
 import re
 import json
+from dataclasses import is_dataclass, asdict
 
 
 def json_serializable(obj):
@@ -64,6 +65,10 @@ def third_party_config_process(data) -> dict:
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
     except ImportError:
         pass
+
+    # 如果是dataclass类，转换为字典
+    if is_dataclass(data):
+        return asdict(data)
 
     # 如果是argparse的Namespace，则转换为字典
     if isinstance(data, argparse.Namespace):
