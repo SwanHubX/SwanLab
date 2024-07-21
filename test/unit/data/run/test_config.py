@@ -4,6 +4,7 @@ from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
 from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
 import pytest
 import omegaconf
+from dataclasses import dataclass
 import argparse
 
 
@@ -67,6 +68,16 @@ def test_parse():
     config = parse(config_data)
     assert config["inf"] == Line.inf
     assert config["nan"] == Line.nan
+    # ---------------------------------- dataclass support ----------------------------------
+    @dataclass
+    class MyData:
+        a: int
+        b: float
+
+    config_data = MyData(10, 20.0)
+    config = parse(config_data)
+    assert config["a"] == 10
+    assert config["b"] == 20.0
     # ---------------------------------- argparse.Namespace ----------------------------------
     config_data = argparse.Namespace(a=1, b="mnist", c=[1, 2, 3], d={"a": 1, "b": {"c": 2}})
     config = parse(config_data)
