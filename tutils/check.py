@@ -39,6 +39,12 @@ if not is_cloud_dev_env:
     # 测试环境
     if is_pytest_env and not is_skip_test:
         print("请设置开发云服务环境变量，或者设置环境变量TEST_CLOUD_SKIP以跳过云测试", file=sys.stderr)
+        """
+        可以根据不同版本选择需要的命令
+        WINDOWS CMD COMMAND: set TEST_CLOUD_SKIP=1
+        WINDOWS POWERSHELL COMMAND: $env:TEST_CLOUD_SKIP="1"
+        MAC & LINUX COMMAND: export TEST_CLOUD_SKIP=1
+        """
         sys.exit(2)
     # 开发环境
     elif not is_pytest_env:

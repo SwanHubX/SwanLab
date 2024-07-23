@@ -129,6 +129,8 @@ pip install -r requirements-dev.txt
 
 - **进行所有单元测试**：运行`test/unit`中的脚本对 swanlab 基础功能进行完整单元测试
 
+- **(跳过云)进行所有单元测试**：运行`test/unit`中的脚本对 swanlab 基础功能进行完整单元测试，但是跳过云测试
+
 - **构建项目**：打包项目为 whl 文件（pip 安装包格式）
 
 Ps: 如果你不想使用 VSCode 进行开发，可以前往`.vscode/launch.json`，查看每个调试项对应的命令，了解其配置。
