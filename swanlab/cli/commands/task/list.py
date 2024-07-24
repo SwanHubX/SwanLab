@@ -33,7 +33,6 @@ from swanlab.package import get_experiment_url
 def list(max_num: int):  # noqa
     # 获取访问凭证，生成http会话对象
     login_info = login_init_sid()
-    print(FONT.swanlab("You are logging as " + FONT.bold(FONT.default(login_info.username))) + ".")
     # 获取任务列表
     ltm = ListTasksModel(num=max_num, username=login_info.username)
     layout = ListTaskLayout(ltm)
@@ -105,6 +104,7 @@ class ListTasksModel:
             header_style="bold",
             title="[magenta][b]Now Tasks![/b]",
             highlight=True,
+            border_style="magenta",
         )
         st.add_column("Task Name", justify="right")
         st.add_column("Status", justify="center")
@@ -123,7 +123,6 @@ class ListTasksModel:
                 tlm.started_at,
                 tlm.finished_at,
             )
-        time.sleep(10)
         return st
 
 
@@ -150,14 +149,48 @@ class ListTaskLayout:
     """
 
     def __init__(self, ltm: ListTasksModel):
+        self.event = []
+        self.add_event(f"👏Welcome, [b]{ltm.username}[/b].")
+        self.add_event("⌛️Task board is loading...")
         self.layout = Layout()
         self.layout.split(
             Layout(name="header", size=3),
             Layout(name="main")
         )
+        self.layout["main"].split_row(
+            Layout(name="task_table", ratio=5),
+            Layout(name="term_output", ratio=2, )
+        )
         self.layout["header"].update(ListTaskHeader())
-        self.layout["main"].update(Panel(ltm.table(), border_style="magenta"))
+        self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
         self.ltm = ltm
+        self.add_event("🍺Task board is loaded.")
+        self.redraw_term_output()
+
+    @property
+    def term_output(self):
+        to = Table(
+            expand=True,
+            show_header=False,
+            header_style="bold",
+            title="[blue][b]Log Messages[/b]",
+            highlight=True,
+            border_style="blue",
+        )
+        to.add_column("Log Output")
+        return to
+
+    def redraw_term_output(self, ):
+        term_output = self.term_output
+        for row in self.event:
+            term_output.add_row(row)
+        self.layout["term_output"].update(Panel(term_output, border_style="blue"))
+
+    def add_event(self, info: str, max_length=15):
+        # 事件格式：yyyy-mm-dd hh:mm:ss - info
+        self.event.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {info}")
+        while len(self.event) > max_length:
+            self.event.pop(0)
 
     def show(self):
         with Live(self.layout, refresh_per_second=10, screen=True) as live:
@@ -167,5 +200,7 @@ class ListTaskLayout:
                 self.layout["header"].update(ListTaskHeader())
                 if time.time() - now > 5:
                     now = time.time()
-                    self.layout["main"].update(Panel(self.ltm.table(), border_style="magenta"))
+                    self.add_event("🔍Searching for new tasks...")
+                    self.layout["task_table"].update(Panel(self.ltm.table(), border_style="magenta"))
+                    self.redraw_term_output()
                 live.refresh()
