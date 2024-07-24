@@ -8,7 +8,7 @@ r"""
     打包、上传、开启任务
 """
 import click
-from .utils import login_init_sid, TaskModel
+from .utils import login_init_sid, LoginInfo
 from swanlab.api import get_http
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
@@ -90,22 +90,8 @@ def launch(path: str, entry: str, python: str, name: str):
     # 上传文件
     src = upload_memory_file(memory_file)
     # 发布任务
-
-    # TODO 部署完毕接入正式环境
-    import requests
-    TaskModel(login_info.username, src, login_info.api_key, python, name, entry).__dict__()
-    resp = requests.post(
-        "http://172.16.42.24:1323/api/task",
-        json={"name": "test",
-              "src": "https://foo.bar/package.zip",
-              "index": "main.py",
-              "python": "python3.9",
-              "combo": "FREE-H800-1"
-              },
-        headers={"payload": '{"uid": 1, "username": "' + str(login_info.username) + '"}'}
-    )
-    if resp.status_code != 201:
-        raise ValueError(f"Error: {resp.json()}")
+    ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry)
+    ctm.create()
     swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
 
 
@@ -220,3 +206,42 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
     src = cos.upload(buffer)["Location"]
     t.join()
     return src
+
+
+class CreateTaskModel:
+    def __init__(self, username, src, key, python, name, index):
+        """
+        :param username: 用户username
+        :param key: 用户的api_key
+        :param src: 任务zip文件路径
+        :param python: 任务的python版本
+        :param name: 任务名称
+        :param index: 任务入口文件
+        """
+        self.username = username
+        self.src = src
+        self.key = key
+        self.python = python
+        self.name = name
+        self.index = index
+
+    def __dict__(self):
+        return {
+            "username": self.username,
+            "src": self.src,
+            "index": self.index,
+            "python": self.python,
+            "conf": {"key": self.key},
+            "name": self.name
+        }
+
+    def create(self):
+        # TODO 部署完毕接入http
+        import requests
+        resp = requests.post(
+            "http://172.16.42.24:1323/api/task",
+            json=self.__dict__(),
+            headers={"payload": '{"uid": 1, "username": "' + str(self.username) + '"}'}
+        )
+        if resp.status_code != 201:
+            raise ValueError(f"Error: {resp.json()}")

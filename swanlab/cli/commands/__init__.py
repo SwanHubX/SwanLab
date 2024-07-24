@@ -10,4 +10,4 @@ r"""
 from .auth import login, logout
 from .dashboard import watch
 from .converter import convert
-from .job import job
+from .task import task
