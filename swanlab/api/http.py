@@ -53,7 +53,7 @@ class HTTP:
         # 当前实验信息
         self.__exp: Optional[ExperimentInfo] = None
         # 当前进程会话
-        self.__session: Optional[requests.Session] = None
+        self.session: Optional[requests.Session] = None
         # 当前项目所属的username
         self.__username = login_info.username
         # 创建会话
@@ -108,7 +108,7 @@ class HTTP:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
             self.__login_info = login_by_key(self.__login_info.api_key)
-            self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
+            self.session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
     def __create_session(self):
         """
@@ -127,7 +127,7 @@ class HTTP:
 
         session.hooks["response"] = response_interceptor
 
-        self.__session = session
+        self.session = session
 
     def post(self, url: str, data: dict = None) -> Union[dict, str]:
         """
@@ -135,7 +135,7 @@ class HTTP:
         """
         url = self.base_url + url
         self.__before_request()
-        resp = self.__session.post(url, json=data)
+        resp = self.session.post(url, json=data)
         return decode_response(resp)
 
     def put(self, url: str, data: dict = None) -> Union[dict, str]:
@@ -144,7 +144,7 @@ class HTTP:
         """
         url = self.base_url + url
         self.__before_request()
-        resp = self.__session.put(url, json=data)
+        resp = self.session.put(url, json=data)
         return decode_response(resp)
 
     def get(self, url: str, params: dict = None) -> dict:
@@ -152,7 +152,7 @@ class HTTP:
         get请求
         """
         url = self.base_url + url
-        resp = self.__session.get(url, params=params)
+        resp = self.session.get(url, params=params)
         return decode_response(resp)
 
     def __get_cos(self):
