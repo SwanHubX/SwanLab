@@ -9,18 +9,18 @@ r"""
     beta版
 """
 from .launch import launch
-from .status import status
+from .list import list
 import click
 
-__all__ = ["job"]
+__all__ = ["task"]
 
 
 @click.group()
-def job():
+def task():
     pass
 
 
 # noinspection PyTypeChecker
-job.add_command(launch)
+task.add_command(launch)
 # noinspection PyTypeChecker
-job.add_command(status)
+task.add_command(list)

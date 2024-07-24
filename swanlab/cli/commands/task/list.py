@@ -11,5 +11,5 @@ import click
 
 
 @click.command()
-def status():
+def list():  # noqa
     pass

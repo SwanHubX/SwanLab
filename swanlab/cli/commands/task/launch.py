@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/7/17 19:30
-@File: job.py
+@File: task.py
 @IDE: pycharm
 @Description:
     打包、上传、开启任务
@@ -56,22 +56,22 @@ import os
         resolve_path=True,
         readable=True,
     ),
-    help="The entry file of the job, default by main.py",
+    help="The entry file of the task, default by main.py",
 )
 @click.option(
     "--python",
     default="python3.10",
     nargs=1,
     type=click.Choice(["python3.8", "python3.9", "python3.10"]),
-    help="The python version of the job, default by python3.10",
+    help="The python version of the task, default by python3.10",
 )
 @click.option(
     "--name",
     "-n",
-    default="Job_{}".format(datetime.now().strftime("%b%d_%H-%M-%S")),
+    default="Task_{}".format(datetime.now().strftime("%b%d_%H-%M-%S")),
     nargs=1,
     type=str,
-    help="The name of the job, default by Job_{current_time}",
+    help="The name of the task, default by Task_{current_time}",
 )
 def launch(path: str, entry: str, python: str, name: str):
     if not entry.startswith(path):
@@ -90,11 +90,23 @@ def launch(path: str, entry: str, python: str, name: str):
     # 上传文件
     src = upload_memory_file(memory_file)
     # 发布任务
-    http = get_http()
-    http.base_url = "http://172.16.42.24"
-    http.session.headers.update({'payload': str({'uid': 1, 'username': 'cunyue'})})
-    get_http().post("/task", TaskModel(login_info.username, src, login_info.api_key, python, name, entry).__dict__())
-    swanlog.info(f"Job launched successfully. You can use {FONT.yellow('swanlab job list')} to view the job.")
+
+    # TODO 部署完毕接入正式环境
+    import requests
+    TaskModel(login_info.username, src, login_info.api_key, python, name, entry).__dict__()
+    resp = requests.post(
+        "http://172.16.42.24:1323/api/task",
+        json={"name": "test",
+              "src": "https://foo.bar/package.zip",
+              "index": "main.py",
+              "python": "python3.9",
+              "combo": "FREE-H800-1"
+              },
+        headers={"payload": '{"uid": 1, "username": "' + str(login_info.username) + '"}'}
+    )
+    if resp.status_code != 201:
+        raise ValueError(f"Error: {resp.json()}")
+    swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
 
 
 def zip_folder(dirpath: str) -> io.BytesIO:
@@ -120,14 +132,14 @@ def zip_folder(dirpath: str) -> io.BytesIO:
                 # 构建文件的完整路径
                 file_path = os.path.join(root, file)
                 # 构建在压缩文件中的路径
-                arcname = os.path.relpath(file_path.__str__(), start=dirpath)
+                arc_name = os.path.relpath(file_path.__str__(), start=dirpath)
                 # 将文件添加到压缩文件中
-                z.write(file_path.__str__(), arcname)
+                z.write(file_path.__str__(), arc_name)
     memory_file.seek(0)
     return memory_file
 
 
-class CosClientForJob:
+class CosClientForTask:
     def __init__(self, sts):
         region = sts["region"]
         self.bucket = sts["bucket"]
@@ -136,10 +148,9 @@ class CosClientForJob:
         secret_key = sts["credentials"]["tmpSecretKey"]
         config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme="https")
         self.client = CosS3Client(config)
-        self.key = sts["prefix"] + "/jobs/" + f"{int(time.time() * 1000)}.zip"
+        self.key = sts["prefix"] + "/tasks/" + f"{int(time.time() * 1000)}.zip"
 
     def upload(self, buffer: io.BytesIO):
-        time.sleep(1)  # cos那边的密钥甚至不是立即生效，需要等一下子，否则有机率出问题
         return self.client.upload_file_from_buffer(
             Bucket=self.bucket,
             Key=self.key,
@@ -150,7 +161,7 @@ class CosClientForJob:
         )
 
 
-class JobBytesIO(io.BytesIO):
+class TaskBytesIO(io.BytesIO):
 
     def __init__(self, read_callback, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -161,7 +172,7 @@ class JobBytesIO(io.BytesIO):
         return super().read(*args)
 
 
-class JobProgressBar:
+class TaskProgressBar:
     def __init__(self, total_size: int):
         """
         :param total_size: 总大小（bytes）
@@ -200,10 +211,10 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
     :returns 上传成功后的文件路径
     """
     sts = get_http().get("/user/codes/sts")
-    cos = CosClientForJob(sts)
+    cos = CosClientForTask(sts)
     val = memory_file.getvalue()
-    progress = JobProgressBar(len(val))
-    buffer = JobBytesIO(progress.update, val)
+    progress = TaskProgressBar(len(val))
+    buffer = TaskBytesIO(progress.update, val)
     t = threading.Thread(target=progress.start)
     t.start()
     src = cos.upload(buffer)["Location"]
