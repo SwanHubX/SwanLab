@@ -236,12 +236,7 @@ class CreateTaskModel:
         }
 
     def create(self):
-        # TODO 部署完毕接入http
-        import requests
-        resp = requests.post(
-            "http://172.16.42.24:1323/api/task",
-            json=self.__dict__(),
-            headers={"payload": '{"uid": 1, "username": "' + str(self.username) + '"}'}
-        )
-        if resp.status_code != 201:
-            raise ValueError(f"Error: {resp.json()}")
+        """
+        创建任务
+        """
+        get_http().post("/task", self.__dict__())

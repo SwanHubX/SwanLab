@@ -12,12 +12,12 @@ import time
 import click
 from typing import List
 from .utils import login_init_sid
-from swankit.log import FONT
 from rich.layout import Layout
 from datetime import datetime
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
+from swanlab.api import get_http
 from swanlab.package import get_experiment_url
 
 
@@ -81,21 +81,14 @@ class ListTasksModel:
         """
         self.num = num
         self.username = username
+        self.http = get_http()
 
     def __dict__(self):
         return {"num": self.num}
 
     def list(self) -> List[TaskListModel]:
-        # TODO 部署完毕接入http
-        import requests
-        resp = requests.get(
-            "http://172.16.42.24:1323/api/task",
-            json=self.__dict__(),
-            headers={"payload": '{"uid": 1, "username": "' + str(self.username) + '"}'}
-        )
-        if resp.status_code != 200:
-            raise ValueError(f"Error: {resp.json()}")
-        return [self.TaskListModel(self.username, task) for task in resp.json()]
+        tasks = self.http.get("/task", self.__dict__())
+        return [self.TaskListModel(self.username, task) for task in tasks]
 
     def table(self):
         st = Table(
