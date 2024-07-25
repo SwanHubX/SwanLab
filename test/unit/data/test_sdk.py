@@ -86,9 +86,9 @@ class TestInitMode:
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
 
-    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):
-        S.login(T.TEST_CLOUD_KEY)
+        S.login(T.is_skip_cloud_test)
         run = S.init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
@@ -116,10 +116,10 @@ class TestInitMode:
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})
 
-    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
-        S.login(T.TEST_CLOUD_KEY)
+        S.login(T.is_skip_cloud_test)
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
@@ -208,7 +208,7 @@ class TestInitLogdir:
         assert run.settings.swanlog_dir == logdir
 
 
-@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 class TestLogin:
     """
     测试通过sdk封装的login函数登录
@@ -221,7 +221,7 @@ class TestLogin:
         if "Paste" in prompt:
             return generate()
         else:
-            return T.TEST_CLOUD_KEY
+            return T.is_skip_cloud_test
 
     def test_use_home_key(self, monkeypatch):
         """
@@ -241,7 +241,7 @@ class TestLogin:
         key = generate()
         with pytest.raises(Err.ValidationError):
             S.login(api_key=key)
-        key = T.TEST_CLOUD_KEY
+        key = T.API_KEY
         S.login(api_key=key)
 
     def test_use_env_key(self, monkeypatch):
@@ -256,5 +256,5 @@ class TestLogin:
         os.environ[SwanLabEnv.API_KEY.value] = "1234"
         with pytest.raises(Err.ValidationError):
             S.login()
-        os.environ[SwanLabEnv.API_KEY.value] = T.TEST_CLOUD_KEY
+        os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
         S.login()

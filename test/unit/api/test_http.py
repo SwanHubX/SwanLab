@@ -14,13 +14,13 @@ import nanoid
 from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
 from swanlab.data.modules import MediaBuffer
-from tutils import TEST_CLOUD_KEY, TEMP_PATH, TEST_CLOUD_SKIP
+from tutils import API_KEY, TEMP_PATH, is_skip_cloud_test
 import pytest
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
 
-@pytest.mark.skipif(TEST_CLOUD_SKIP, reason="skip cloud test")
+@pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
 class TestCosSuite:
     http: HTTP = None
     project_name = nanoid.generate(alphabet)
@@ -33,7 +33,7 @@ class TestCosSuite:
     def setup_class(cls):
         CosClient.REFRESH_TIME = cls.now_refresh_time
         # 这里不测试保存token的功能
-        login_info = login_by_key(TEST_CLOUD_KEY, save=False)
+        login_info = login_by_key(API_KEY, save=False)
         cls.http = create_http(login_info)
         cls.http.mount_project(cls.project_name)
         cls.http.mount_exp(cls.experiment_name, ('#ffffff', '#ffffff'))

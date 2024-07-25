@@ -37,7 +37,9 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["${file}"],
+      "args": [
+        "${file}"
+      ],
       "console": "integratedTerminal"
     },
     {
@@ -45,10 +47,12 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["test/unit"],
+      "args": [
+        "test/unit"
+      ],
       "console": "integratedTerminal",
       "env": {
-        "TEST_CLOUD_SKIP": "true"
+        "is_skip_cloud_test": "true"
       }
     },
     {
@@ -56,7 +60,9 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["test/unit"],
+      "args": [
+        "test/unit"
+      ],
       "console": "integratedTerminal"
     },
     // 打包命令

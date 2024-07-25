@@ -52,13 +52,13 @@ class SwanLabEnv(enum.Enum):
     """
     RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的运行时环境，"user" "develop" "test" "cloud-test" "task"
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud" "task"
     """
     API_KEY = "SWANLAB_API_KEY"
     """
     云端api key，登录时会首先查找此环境变量，如果不存在，判断用户是否已登录，未登录则进入登录流程
     
-    * 如果login接口传入字符串，此环境变量无效
+    * 如果login接口传入字符串，此环境变量无效，此时相当于绕过 get_key 接口
     * 如果用户已登录，此环境变量的优先级高于本地存储登录信息
     """
 
@@ -83,7 +83,7 @@ class SwanLabEnv(enum.Enum):
         """
         envs = {
             cls.MODE.value: ["local", "cloud", "disabled"],
-            cls.RUNTIME.value: ["user", "develop", "test", "cloud-test", "task"],
+            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud", "task"],
         }
         for k, vs in envs.items():
             if k in os.environ and os.environ[k] not in vs:

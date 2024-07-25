@@ -80,6 +80,7 @@ class TestGetKey:
         """
         获取key成功
         """
+        del os.environ[SwanLabEnv.API_KEY.value]
         # 首先需要登录
         file = os.path.join(get_save_dir(), ".netrc")
         with open(file, "w"):
@@ -95,6 +96,7 @@ class TestGetKey:
         """
         文件不存在
         """
+        del os.environ[SwanLabEnv.API_KEY.value]
         from swanlab.error import KeyFileError
         with pytest.raises(KeyFileError) as e:
             P.get_key()
@@ -102,7 +104,7 @@ class TestGetKey:
 
     def test_no_host(self):
         from swanlab.error import KeyFileError
-        self.test_ok()
+        self.test_ok()  # 此时删除了环境变量
         host = nanoid.generate()
         os.environ[SwanLabEnv.API_HOST.value] = host
         assert P.get_host_api() == host

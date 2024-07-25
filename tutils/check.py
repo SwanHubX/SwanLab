@@ -30,23 +30,34 @@ for i in packages:
     if "swankit" in i and swankit_version not in i:
         raise Exception(f"swankit过时，运行 pip install -r requirements.txt 进行更新.")
 
-# ---------------------------------- 检查是否跳过云测试，如果没跳过，相关环境变量需要指定----------------------------------
+# ---------------------------------- 检查是否跳过云测试 ----------------------------------
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+runtime = os.getenv("SWANLAB_RUNTIME")
+# pytest测试环境
 is_pytest_env = "PYTEST_VERSION" in os.environ
-is_skip_test = os.getenv("TEST_CLOUD_SKIP") is not None
-is_cloud_dev_env = os.getenv("SWANLAB_API_HOST") is not None and os.getenv("SWANLAB_WEB_HOST") is not None
-if not is_cloud_dev_env:
-    # 测试环境
-    if is_pytest_env and not is_skip_test:
-        print("请设置开发云服务环境变量，或者设置环境变量TEST_CLOUD_SKIP以跳过云测试", file=sys.stderr)
-        """
-        可以根据不同版本选择需要的命令
-        WINDOWS CMD COMMAND: set TEST_CLOUD_SKIP=1
-        WINDOWS POWERSHELL COMMAND: $env:TEST_CLOUD_SKIP="1"
-        MAC & LINUX COMMAND: export TEST_CLOUD_SKIP=1
-        """
+# 是否跳过部分云端测试
+is_skip_cloud_test = runtime == 'test-no-cloud'
+# 是否为测试环境
+is_test_runtime = os.getenv("SWANLAB_RUNTIME") in ['test', 'test-no-cloud']
+# 如果为pytest测试环境，环境变量SWANLAB_RUNTIME必须为['test', 'test-no-cloud']之一
+# 如果没有跳过部分云端测试，必须设置SWANLAB_WEB_HOST、SWANLAB_API_HOST、SWANLAB_API_KEY
+"""
+* 推荐在项目根目录下设置.env文件完成环境变量的设置，具体代码为：
+    
+    SWANLAB_RUNTIME=test-no-cloud
+
+* 如果使用终端，也可以根据不同操作系统版本选择需要的命令
+
+    WINDOWS CMD COMMAND: set SWANLAB_RUNTIME="test-no-cloud"
+    WINDOWS POWERSHELL COMMAND: $env:SWANLAB_RUNTIME="test-no-cloud"
+    MAC & LINUX COMMAND: export SWANLAB_RUNTIME="test-no-cloud"
+"""
+if is_pytest_env:
+    if not is_test_runtime:
+        print("请设置SWANLAB_RUNTIME环境变量为 test 或 test-no-cloud 以运行云测试", file=sys.stderr)
         sys.exit(2)
-    # 开发环境
-    elif not is_pytest_env:
-        print("请设置开发云服务环境变量以运行开发测试脚本", file=sys.stderr)
-        sys.exit(2)
+    if not is_skip_cloud_test:
+        envs = ["SWANLAB_WEB_HOST", "SWANLAB_API_HOST", "SWANLAB_API_KEY"]
+        if not all([os.getenv(i) for i in envs]):
+            print("请设置云测试相关环境变量以运行云测试", file=sys.stderr)
+            sys.exit(2)
