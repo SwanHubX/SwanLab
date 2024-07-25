@@ -32,7 +32,7 @@ class SwanLabEnv(enum.Enum):
     MODE = SwanLabSharedEnv.SWANLAB_MODE.value
     """
     swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
-    大小写不敏感
+    大小写敏感
     """
     SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
     """

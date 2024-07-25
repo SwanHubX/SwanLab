@@ -34,13 +34,46 @@ def setup_function():
 MODE = SwanLabEnv.MODE.value
 
 
+class TestInitModeFunc:
+
+    def test_init_error_mode(self):
+        """
+        初始化时mode参数错误
+        """
+        with pytest.raises(ValueError):
+            S._init_mode("123456")  # noqa
+
+    @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
+    def test_init_mode(self, mode):
+        """
+        初始化时mode参数正确
+        """
+        S._init_mode(mode)
+        assert os.environ[MODE] == mode
+        del os.environ[MODE]
+        # # 大写
+        # S._init_mode(mode.upper())
+        # assert os.environ[MODE] == mode
+
+    @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
+    def test_overwrite_mode(self, mode):
+        """
+        初始化时mode参数正确，覆盖环境变量
+        """
+        os.environ[MODE] = "123456"
+        S._init_mode(mode)
+        assert os.environ[MODE] == mode
+
+
 class TestInitMode:
     """
     测试init时函数的mode参数设置行为
     """
 
     def test_init_disabled(self):
-        run = S.init(mode="disabled", logdir=generate())
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
+        run = S.init(mode="disabled", logdir=logdir)
+        assert not os.path.exists(logdir)
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
         a = run.settings.run_dir
