@@ -55,14 +55,14 @@ def get_host_web() -> str:
     """获取swanlab网站网址
     :return: swanlab网站的网址
     """
-    return os.getenv(SwanLabEnv.WEB_HOST.value)
+    return os.getenv(SwanLabEnv.WEB_HOST.value, "https://swanlab.cn")
 
 
 def get_host_api() -> str:
     """获取swanlab网站api网址
     :return: swanlab网站的api网址
     """
-    return os.getenv(SwanLabEnv.API_HOST.value, "https://swanlab.cn/api")
+    return os.getenv(SwanLabEnv.API_HOST.value, "https://api.swanlab.cn/api")
 
 
 def get_user_setting_path() -> str:
