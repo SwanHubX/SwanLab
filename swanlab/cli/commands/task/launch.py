@@ -8,7 +8,7 @@ r"""
     打包、上传、开启任务
 """
 import click
-from .utils import login_init_sid, LoginInfo
+from .utils import login_init_sid
 from swanlab.api import get_http
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
@@ -203,9 +203,9 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
     buffer = TaskBytesIO(progress.update, val)
     t = threading.Thread(target=progress.start)
     t.start()
-    src = cos.upload(buffer)["Location"]
+    cos.upload(buffer)
     t.join()
-    return src
+    return cos.key
 
 
 class CreateTaskModel:
