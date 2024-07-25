@@ -152,7 +152,17 @@ class HTTP:
         get请求
         """
         url = self.base_url + url
+        self.__before_request()
         resp = self.__session.get(url, params=params)
+        return decode_response(resp)
+
+    def patch(self, url: str, data: dict = None) -> Union[dict, str]:
+        """
+        patch请求
+        """
+        url = self.base_url + url
+        self.__before_request()
+        resp = self.__session.patch(url, json=data)
         return decode_response(resp)
 
     def __get_cos(self):
