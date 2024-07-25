@@ -56,12 +56,13 @@ def login(api_key: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
+
     [Note that] this function should be called before `init`.
 
-    Parameters
-    ----------
-    api_key : str
+    :param api_key: str, optional
         authentication key, if not provided, the key will be read from the key file.
+
+    :return: LoginInfo
     """
     if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
@@ -69,16 +70,16 @@ def login(api_key: str = None):
 
 
 def init(
-    project: str = None,
-    workspace: str = None,
-    experiment_name: str = None,
-    description: str = None,
-    config: Union[dict, str] = None,
-    logdir: str = None,
-    suffix: Union[str, None, bool] = "default",
-    mode: Literal["disabled", "cloud", "local"] = None,
-    load: str = None,
-    **kwargs,
+        project: str = None,
+        workspace: str = None,
+        experiment_name: str = None,
+        description: str = None,
+        config: Union[dict, str] = None,
+        logdir: str = None,
+        suffix: Union[str, None, bool] = "default",
+        mode: Literal["disabled", "cloud", "local"] = None,
+        load: str = None,
+        **kwargs,
 ) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
@@ -144,13 +145,6 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
-    # TODO 下个版本删除
-    if "cloud" in kwargs:
-        swanlog.warning(
-            "The `cloud` parameter in swanlab.init is deprecated and will be removed in the future"
-            "please use `mode='cloud'` instead."
-        )
-        mode = "cloud" if kwargs["cloud"] else mode
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
@@ -248,7 +242,7 @@ def _init_mode(mode: str = None):
     :raise ValueError: mode参数不合法
     """
     allowed = [m.value for m in SwanLabMode]
-    mode_key = SwanLabEnv.SWANLAB_MODE.value
+    mode_key = SwanLabEnv.MODE.value
     mode_value = os.environ.get(mode_key)
     if mode_value is not None and mode is not None:
         swanlog.warning(f"The environment variable {mode_key} will be overwritten by the parameter mode")

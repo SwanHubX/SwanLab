@@ -24,8 +24,6 @@ def test_get_package_version():
     """
     测试获取版本号
     """
-    assert P.get_package_version() == os.getenv(SwanLabEnv.SWANLAB_VERSION.value)
-    del os.environ[SwanLabEnv.SWANLAB_VERSION.value]
     assert P.get_package_version() == package_data["version"]
 
 
@@ -33,16 +31,16 @@ def test_get_host_web_env():
     """
     通过环境变量指定web地址
     """
-    os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value] = nanoid.generate()
-    assert P.get_host_web() == os.environ[SwanLabEnv.SWANLAB_WEB_HOST.value]
+    os.environ[SwanLabEnv.WEB_HOST.value] = nanoid.generate()
+    assert P.get_host_web() == os.environ[SwanLabEnv.WEB_HOST.value]
 
 
 def test_get_host_api_env():
     """
     通过环境变量指定api地址
     """
-    os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = nanoid.generate()
-    assert P.get_host_api() == os.environ[SwanLabEnv.SWANLAB_API_HOST.value]
+    os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
+    assert P.get_host_api() == os.environ[SwanLabEnv.API_HOST.value]
 
 
 def test_get_user_setting_path():
@@ -82,6 +80,7 @@ class TestGetKey:
         """
         获取key成功
         """
+        del os.environ[SwanLabEnv.API_KEY.value]
         # 首先需要登录
         file = os.path.join(get_save_dir(), ".netrc")
         with open(file, "w"):
@@ -97,6 +96,7 @@ class TestGetKey:
         """
         文件不存在
         """
+        del os.environ[SwanLabEnv.API_KEY.value]
         from swanlab.error import KeyFileError
         with pytest.raises(KeyFileError) as e:
             P.get_key()
@@ -104,13 +104,22 @@ class TestGetKey:
 
     def test_no_host(self):
         from swanlab.error import KeyFileError
-        self.test_ok()
+        self.test_ok()  # 此时删除了环境变量
         host = nanoid.generate()
-        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = host
+        os.environ[SwanLabEnv.API_HOST.value] = host
         assert P.get_host_api() == host
         with pytest.raises(KeyFileError) as e:
             P.get_key()
         assert str(e.value) == f"The host {host} does not exist"
+
+    def test_use_env(self):
+        """
+        使用环境变量，优先级高于本地文件
+        """
+        self.test_ok()
+        key = nanoid.generate()
+        os.environ[SwanLabEnv.API_KEY.value] = key
+        assert P.get_key() == key
 
 
 class TestSaveKey:
@@ -162,5 +171,5 @@ class TestIsLogin:
         host不匹配
         """
         self.login()
-        os.environ[SwanLabEnv.SWANLAB_API_HOST.value] = nanoid.generate()
+        os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
         assert not P.is_login()

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/26 16:03
-@File: pytest_sdk.py
+@File: test_sdk.py
 @IDE: pycharm
 @Description:
     测试sdk的一些api
@@ -31,7 +31,38 @@ def setup_function():
     swanlog.enable_log()
 
 
-MODE = SwanLabEnv.SWANLAB_MODE.value
+MODE = SwanLabEnv.MODE.value
+
+
+class TestInitModeFunc:
+
+    def test_init_error_mode(self):
+        """
+        初始化时mode参数错误
+        """
+        with pytest.raises(ValueError):
+            S._init_mode("123456")  # noqa
+
+    @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
+    def test_init_mode(self, mode):
+        """
+        初始化时mode参数正确
+        """
+        S._init_mode(mode)
+        assert os.environ[MODE] == mode
+        del os.environ[MODE]
+        # # 大写
+        # S._init_mode(mode.upper())
+        # assert os.environ[MODE] == mode
+
+    @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
+    def test_overwrite_mode(self, mode):
+        """
+        初始化时mode参数正确，覆盖环境变量
+        """
+        os.environ[MODE] = "123456"
+        S._init_mode(mode)
+        assert os.environ[MODE] == mode
 
 
 class TestInitMode:
@@ -40,7 +71,9 @@ class TestInitMode:
     """
 
     def test_init_disabled(self):
-        run = S.init(mode="disabled", logdir=generate())
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
+        run = S.init(mode="disabled", logdir=logdir)
+        assert not os.path.exists(logdir)
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
         a = run.settings.run_dir
@@ -53,9 +86,9 @@ class TestInitMode:
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
 
-    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):
-        S.login(T.TEST_CLOUD_KEY)
+        S.login(T.is_skip_cloud_test)
         run = S.init(mode="cloud")
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
@@ -83,10 +116,10 @@ class TestInitMode:
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})
 
-    @pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud_env(self):
         os.environ[MODE] = "cloud"
-        S.login(T.TEST_CLOUD_KEY)
+        S.login(T.is_skip_cloud_test)
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
@@ -175,7 +208,7 @@ class TestInitLogdir:
         assert run.settings.swanlog_dir == logdir
 
 
-@pytest.mark.skipif(T.TEST_CLOUD_SKIP, reason="skip cloud test")
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 class TestLogin:
     """
     测试通过sdk封装的login函数登录
@@ -188,7 +221,7 @@ class TestLogin:
         if "Paste" in prompt:
             return generate()
         else:
-            return T.TEST_CLOUD_KEY
+            return T.is_skip_cloud_test
 
     def test_use_home_key(self, monkeypatch):
         """
@@ -208,5 +241,20 @@ class TestLogin:
         key = generate()
         with pytest.raises(Err.ValidationError):
             S.login(api_key=key)
-        key = T.TEST_CLOUD_KEY
+        key = T.API_KEY
         S.login(api_key=key)
+
+    def test_use_env_key(self, monkeypatch):
+        """
+        测试code登录，使用环境变量key
+        """
+
+        def _():
+            raise RuntimeError("this function should not be called")
+
+        monkeypatch.setattr("getpass.getpass", _)
+        os.environ[SwanLabEnv.API_KEY.value] = "1234"
+        with pytest.raises(Err.ValidationError):
+            S.login()
+        os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
+        S.login()

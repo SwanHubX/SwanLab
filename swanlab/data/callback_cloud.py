@@ -9,14 +9,13 @@ r"""
 """
 from swankit.callback import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.core import SwanLabSharedSettings
-
 from swanlab.data.cloud import UploadType
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.api import LoginInfo, create_http, terminal_login
 from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
 from swanlab.api import get_http
-from swanlab.env import in_jupyter
+from swanlab.env import in_jupyter, SwanLabEnv
 from swanlab.package import get_host_web, get_key
 from swanlab.error import KeyFileError
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
@@ -203,8 +202,9 @@ class CloudRunCallback(LocalRunCallback):
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)
+        http = get_http()
         # 注册实验信息
-        get_http().mount_exp(
+        http.mount_exp(
             exp_name=self.settings.exp_name,
             colors=self.settings.exp_colors,
             description=self.settings.description,
@@ -227,6 +227,17 @@ class CloudRunCallback(LocalRunCallback):
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
             show_button_html(experiment_url)
+
+        # task环境下，同步实验信息回调
+        if SwanLabEnv.RUNTIME.value == "task":
+            cuid = os.environ["SWANLAB_TASK_ID"]
+            info = {
+                "cuid": cuid,
+                "pId": http.proj_id,
+                "eId": http.exp_id,
+                "pName": http.projname
+            }
+            http.patch("/task/experiment", info)
 
     def on_runtime_info_update(self, r: RuntimeInfo):
         # 执行local逻辑，保存文件到本地

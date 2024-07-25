@@ -76,11 +76,9 @@ def input_api_key(
 def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件
-
-    Parameters
-    ----------
-    api_key : str
-        用户api_key
+    :param api_key: 用户的api_key
+    :return: 登录信息
+    :raises ValidationError: 登录失败
     """
     tip = "Waiting for the swanlab cloud response."
     login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key,), interval=0.5)

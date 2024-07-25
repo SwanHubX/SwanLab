@@ -11,6 +11,7 @@ from typing import List
 import swankit.env as E
 from swankit.env import SwanLabSharedEnv
 import enum
+import os
 
 
 # ---------------------------------- 环境变量枚举类 ----------------------------------
@@ -28,10 +29,10 @@ class SwanLabEnv(enum.Enum):
     """
     swanlab解析日志文件保存的路径，默认为当前运行目录的swanlog文件夹
     """
-    SWANLAB_MODE = SwanLabSharedEnv.SWANLAB_MODE.value
+    MODE = SwanLabSharedEnv.SWANLAB_MODE.value
     """
     swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
-    大小写不敏感
+    大小写敏感
     """
     SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
     """
@@ -41,18 +42,52 @@ class SwanLabEnv(enum.Enum):
     """
     cli swanboard 服务地址
     """
-    SWANLAB_WEB_HOST = "SWANLAB_WEB_HOST"
+    WEB_HOST = "SWANLAB_WEB_HOST"
     """
     swanlab云端环境的web地址
     """
-    SWANLAB_API_HOST = "SWANLAB_API_HOST"
+    API_HOST = "SWANLAB_API_HOST"
     """
     swanlab云端环境的api地址
     """
-    SWANLAB_VERSION = "SWANLAB_VERSION"
+    RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的版本号，主要用于开发者调试
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud" "task"
     """
+    API_KEY = "SWANLAB_API_KEY"
+    """
+    云端api key，登录时会首先查找此环境变量，如果不存在，判断用户是否已登录，未登录则进入登录流程
+    
+    * 如果login接口传入字符串，此环境变量无效，此时相当于绕过 get_key 接口
+    * 如果用户已登录，此环境变量的优先级高于本地存储登录信息
+    """
+
+    @classmethod
+    def set_default(cls):
+        """
+        设置默认的环境变量值
+        """
+        envs = {
+            cls.WEB_HOST.value: "https://swanlab.cn",
+            cls.API_HOST.value: "https://api.swanlab.cn/api",
+            cls.RUNTIME.value: "user",
+        }
+        for k, v in envs.items():
+            os.environ.setdefault(k, v)
+
+    @classmethod
+    def check(cls):
+        """
+        检查环境变量的值是否为预期值中的一个
+        :raises ValueError: 如果环境变量的值不在预期值中
+        """
+        envs = {
+            cls.MODE.value: ["local", "cloud", "disabled"],
+            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud", "task"],
+        }
+        for k, vs in envs.items():
+            if k in os.environ and os.environ[k] not in vs:
+                raise ValueError(f"Unknown value for {k}: {os.environ[k]}")
 
     @classmethod
     def list(cls) -> List[str]:

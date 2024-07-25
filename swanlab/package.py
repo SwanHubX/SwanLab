@@ -24,8 +24,6 @@ def get_package_version() -> str:
     """获取swanlab的版本号
     :return: swanlab的版本号
     """
-    if SwanLabEnv.SWANLAB_VERSION.value in os.environ:
-        return os.environ[SwanLabEnv.SWANLAB_VERSION.value]
     # 读取package.json文件
     with open(package_path, "r") as f:
         return json.load(f)["version"]
@@ -57,14 +55,14 @@ def get_host_web() -> str:
     """获取swanlab网站网址
     :return: swanlab网站的网址
     """
-    return os.getenv(SwanLabEnv.SWANLAB_WEB_HOST.value, "https://swanlab.cn")
+    return os.getenv(SwanLabEnv.WEB_HOST.value, "https://swanlab.cn")
 
 
 def get_host_api() -> str:
     """获取swanlab网站api网址
     :return: swanlab网站的api网址
     """
-    return os.getenv(SwanLabEnv.SWANLAB_API_HOST.value, "https://swanlab.cn/api")
+    return os.getenv(SwanLabEnv.API_HOST.value, "https://api.swanlab.cn/api")
 
 
 def get_user_setting_path() -> str:
@@ -101,6 +99,9 @@ def get_key():
     :raise KeyFileError: 文件不存在或者host不存在
     :return: token
     """
+    env_key = os.getenv(SwanLabEnv.API_KEY.value)
+    if env_key is not None:
+        return env_key
     path = os.path.join(get_save_dir(), ".netrc")
     host = get_host_api()
     if not os.path.exists(path):
@@ -132,13 +133,44 @@ def save_key(username: str, password: str, host: str = None):
         f.write(nrc.__repr__())
 
 
+class LoginCheckContext:
+    """
+    进入上下文时，会删除环境变量中的api key，退出上下文时会恢复原来的值
+    """
+
+    def __init__(self):
+        self.__tmp_key = None
+        """
+        临时保存的key
+        """
+        self.is_login = False
+        """
+        标注是否已经登录
+        """
+
+    def __enter__(self):
+        self.__tmp_key = os.environ.get(SwanLabEnv.API_KEY.value)
+        if self.__tmp_key is not None:
+            del os.environ[SwanLabEnv.API_KEY.value]
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 恢复原来的值
+        if self.__tmp_key is not None:
+            os.environ[SwanLabEnv.API_KEY.value] = self.__tmp_key
+        if exc_type is KeyFileError:  # 未登录
+            return True
+        elif exc_type is not None:  # 其他错误
+            return False
+        self.is_login = True
+        return True
+
+
 def is_login() -> bool:
-    """判断是否已经登录，与当前的host相关
+    """判断是否已经登录，与当前的host相关，与get_key不同，不考虑环境变量的因素
     但不会检查key的有效性
     :return: 是否已经登录
     """
-    try:
+    with LoginCheckContext() as checker:
         _ = get_key()
-        return True
-    except KeyFileError:
-        return False
+    return checker.is_login

@@ -6,3 +6,4 @@ click
 pyyaml
 psutil
 pynvml
+rich

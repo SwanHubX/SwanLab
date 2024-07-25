@@ -28,32 +28,17 @@ TEMP_PATH = os.path.join(__test_path, "temp")
 
 SWANLOG_FOLDER = os.path.join(TEMP_PATH, "swanlog")
 """
-默认情况下，swanlog保存的文件夹
+默认情况下，swanlog保存的文件夹，对应SWANLAB_SAVE_DIR环境变量
 """
 
 SWANLAB_FOLDER = os.path.join(TEMP_PATH, ".swanlab")
 """
-默认情况下，系统信息保存的文件夹
+默认情况下，系统信息保存的文件夹，对应SWANLAB_LOG_DIR环境变量
 """
-
-# ---------------------------------- 测试用变量 ----------------------------------
-
-TEST_CLOUD_SKIP = os.getenv("TEST_CLOUD_SKIP") is not None
-"""
-是否跳过云测试
-"""
-
-TEST_CLOUD_KEY = os.getenv("TEST_CLOUD_KEY")
-"""
-云测试的key
-"""
-
 # ---------------------------------- 导出 ----------------------------------
 __all__ = [
     "TEMP_PATH",
     "nanoid",
-    "TEST_CLOUD_SKIP",
     "SWANLOG_FOLDER",
     "SWANLAB_FOLDER",
-    "TEST_CLOUD_KEY",
 ]
