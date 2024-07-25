@@ -84,7 +84,7 @@ def launch(path: str, entry: str, python: str, name: str):
     text = f"The target folder {FONT.yellow(path)} will be packaged and uploaded, "
     text += f"and you have specified {FONT.yellow(entry)} as the task entry point. "
     swanlog.info(text)
-    # click.confirm(FONT.swanlab("Do you wish to proceed?"))
+    click.confirm(FONT.swanlab("Do you wish to proceed?"))
     # 压缩文件夹
     memory_file = zip_folder(path)
     # 上传文件
