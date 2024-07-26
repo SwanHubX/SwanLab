@@ -76,7 +76,7 @@ import os
 def launch(path: str, entry: str, python: str, name: str):
     if not entry.startswith(path):
         raise ValueError(f"Error: Entry file '{entry}' must be in directory '{path}'")
-    entry = entry[len(path):]
+    entry = os.path.relpath(entry, path)
     # 获取访问凭证，生成http会话对象
     login_info = login_init_sid()
     print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")
@@ -93,6 +93,14 @@ def launch(path: str, entry: str, python: str, name: str):
     ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry)
     ctm.create()
     swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
+
+
+def fmt_entry(entry: str) -> str:
+    """
+    格式化入口文件路径
+    :param entry:
+    :return:
+    """
 
 
 def zip_folder(dirpath: str) -> io.BytesIO:
