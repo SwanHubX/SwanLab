@@ -230,7 +230,7 @@ class CloudRunCallback(LocalRunCallback):
             show_button_html(experiment_url)
 
         # task环境下，同步实验信息回调
-        if SwanLabEnv.RUNTIME.value == "task":
+        if os.environ.get(SwanLabEnv.RUNTIME.value) == "task":
             cuid = os.environ["SWANLAB_TASK_ID"]
             info = {
                 "cuid": cuid,
