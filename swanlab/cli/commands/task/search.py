@@ -52,4 +52,4 @@ def search(cuid):
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")
-    tm.msg is not None and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}\n")
+    tm.status == 'CRASHED' and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}\n")
