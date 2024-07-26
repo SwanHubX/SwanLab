@@ -189,19 +189,19 @@ class HTTP:
             self.__get_cos()
         return self.__cos.upload_files(buffers)
 
-    def mount_project(self, name: str, username: str = None, private: bool = None) -> ProjectInfo:
+    def mount_project(self, name: str, username: str = None, public: bool = None) -> ProjectInfo:
         """
         创建项目，如果项目已存在，则获取项目信息
         :param name: 项目名称
         :param username: 项目所属的用户名
-        :param private: 项目是否私有
+        :param public: 项目是否公开
         :return: 项目信息
         """
         self.__username = self.__username if username is None else username
 
         def _():
             try:
-                visibility = "PRIVATE" if private else "PUBLIC"
+                visibility = "PUBLIC" if public else "PRIVATE"
                 resp = http.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息

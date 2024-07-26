@@ -115,14 +115,14 @@ class CloudRunCallback(LocalRunCallback):
     用户登录信息
     """
 
-    def __init__(self, private: bool):
+    def __init__(self, public: bool):
         super(CloudRunCallback, self).__init__()
         self.pool = ThreadPool()
         self.exiting = False
         """
         标记是否正在退出云端环境
         """
-        self.private = private
+        self.public = public
 
     @classmethod
     def get_login_info(cls):
@@ -196,7 +196,7 @@ class CloudRunCallback(LocalRunCallback):
             self.login_info = self.get_login_info()
 
         http = create_http(self.login_info)
-        return http.mount_project(project, workspace, self.private).history_exp_count
+        return http.mount_project(project, workspace, self.public).history_exp_count
 
     def before_run(self, settings: SwanLabSharedSettings):
         self.settings = settings
