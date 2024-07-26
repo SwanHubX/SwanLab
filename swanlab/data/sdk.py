@@ -79,6 +79,7 @@ def init(
         suffix: Union[str, None, bool] = "default",
         mode: Literal["disabled", "cloud", "local"] = None,
         load: str = None,
+        public: bool = None,
         **kwargs,
 ) -> SwanLabRun:
     """
@@ -140,6 +141,9 @@ def init(
         In terms of priority, if the parameters passed to init are `None`,
         SwanLab will attempt to replace them from the configuration file you provided;
         otherwise, it will use the parameters you passed as the definitive ones.
+    public : bool, optional
+        Whether the project can be seen by anyone, the default is None, which means the project is private.
+        Only available in cloud mode while the first time you create the project.
     """
     if SwanLabRun.is_started():
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -155,7 +159,8 @@ def init(
         mode = _load_data(load_data, "mode", mode)
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
-    operator, c = _create_operator(mode)
+        public = _load_data(load_data, "private", public)
+    operator, c = _create_operator(mode, public)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
     exp_num = SwanLabRunOperator.parse_return(
         operator.on_init(project, workspace, logdir=logdir), key=c.__str__() if c else None
@@ -273,19 +278,19 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _create_operator(mode) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
+def _create_operator(mode: str, public: bool) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
     """
     创建SwanLabRunOperator实例
     如果mode为disabled，则返回一个空的SwanLabRunOperator实例和None
 
-    :param mode: str
-        运行模式
+    :param mode: 运行模式
+    :param public: 是否公开
     :return: SwanLabRunOperator, CloudRunCallback
     """
     mode = _init_mode(mode)
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
-    c = CloudRunCallback() if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
+    c = CloudRunCallback(public) if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
     callbacks = [c, SwanBoardCallback()]
     return SwanLabRunOperator(callbacks), c
