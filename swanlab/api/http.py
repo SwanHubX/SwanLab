@@ -14,7 +14,7 @@ from .auth.login import login_by_key
 from .cos import CosClient
 from swanlab.data.modules import MediaBuffer
 from swanlab.error import NetworkError, ApiError
-from swanlab.package import get_host_api
+from swanlab.package import get_host_api, get_package_version
 from swankit.log import FONT
 from swanlab.log import swanlog
 import requests
@@ -56,6 +56,7 @@ class HTTP:
         self.__session: Optional[requests.Session] = None
         # 当前项目所属的username
         self.__username = login_info.username
+        self.__version = get_package_version()
         # 创建会话
         self.__create_session()
 
@@ -115,6 +116,7 @@ class HTTP:
         创建会话，这将在HTTP类实例化时调用
         """
         session = requests.Session()
+        session.headers["swanlab-sdk"] = self.__version
         session.cookies.update({"sid": self.__login_info.sid})
 
         # 注册响应钩子

@@ -10,6 +10,7 @@ r"""
 """
 from .launch import launch
 from .list import list
+from .search import search
 import click
 
 __all__ = ["task"]
@@ -17,6 +18,9 @@ __all__ = ["task"]
 
 @click.group()
 def task():
+    """
+    Beta Function: launch a task to train on the cloud!
+    """
     pass
 
 
@@ -24,3 +28,5 @@ def task():
 task.add_command(launch)
 # noinspection PyTypeChecker
 task.add_command(list)
+# noinspection PyTypeChecker
+task.add_command(search)

@@ -8,7 +8,6 @@ r"""
     列出任务状态
 """
 import time
-
 import click
 from typing import List
 from .utils import login_init_sid
@@ -18,7 +17,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
 from swanlab.api import get_http
-from swanlab.package import get_experiment_url
+from .utils import TaskModel
 
 
 @click.command()
@@ -40,41 +39,6 @@ def list(max_num: int):  # noqa
 
 
 class ListTasksModel:
-    class TaskListModel:
-        """
-        获取到的任务列表模型
-        """
-
-        def __init__(self, username: str, task: dict, ):
-            self.username = username
-            self.name = task["name"]
-            """
-            任务名称
-            """
-            self.python = task["python"]
-            """
-            任务的python版本
-            """
-            self.project_name = task.get("pName", None)
-            """
-            项目名称
-            """
-            self.experiment_id = task.get("eId", None)
-            """
-            实验ID
-            """
-            self.created_at = task["createdAt"]
-            self.started_at = task.get("startedAt", None)
-            self.finished_at = task.get("finishedAt", None)
-            self.status = task["status"]
-            self.msg = task.get("msg", None)
-
-        @property
-        def url(self):
-            if self.project_name is None or self.experiment_id is None:
-                return None
-            return get_experiment_url(self.username, self.project_name, self.experiment_id)
-
     def __init__(self, num: int, username: str):
         """
         :param num: 最大显示的任务数
@@ -86,33 +50,35 @@ class ListTasksModel:
     def __dict__(self):
         return {"num": self.num}
 
-    def list(self) -> List[TaskListModel]:
+    def list(self) -> List[TaskModel]:
         tasks = self.http.get("/task", self.__dict__())
-        return [self.TaskListModel(self.username, task) for task in tasks]
+        return [TaskModel(self.username, task) for task in tasks]
 
     def table(self):
         st = Table(
             expand=True,
             show_header=True,
-            header_style="bold",
-            title="[magenta][b]Now Tasks![/b]",
+            title="[magenta][b]Now Task[/b]",
             highlight=True,
             border_style="magenta",
         )
-        st.add_column("Task Name", justify="right")
+        st.add_column("Task ID", justify="right")
+        st.add_column("Task Name", justify="center")
         st.add_column("Status", justify="center")
         st.add_column("URL", justify="center")
-        st.add_column("Python Version", justify="center"),
-        st.add_column("Created Time", justify="center")
         st.add_column("Started Time", justify="center")
         st.add_column("Finished Time", justify="center")
         for tlm in self.list():
+            status = tlm.status
+            if status == "COMPLETED":
+                status = f"[green]{status}[/green]"
+            elif status == "CRASHED":
+                status = f"[red]{status}[/red]"
             st.add_row(
+                tlm.cuid,
                 tlm.name,
-                tlm.status,
+                status,
                 tlm.url,
-                tlm.python,
-                tlm.created_at,
                 tlm.started_at,
                 tlm.finished_at,
             )
@@ -169,8 +135,13 @@ class ListTaskLayout:
             title="[blue][b]Log Messages[/b]",
             highlight=True,
             border_style="blue",
+            show_footer=True,
+            footer_style="bold",
         )
-        to.add_column("Log Output")
+        to.add_column(
+            "Log Output",
+            "Run [b][white]swanlab task search [Task ID][/white][/b] to get more task info"
+        )
         return to
 
     def redraw_term_output(self, ):
