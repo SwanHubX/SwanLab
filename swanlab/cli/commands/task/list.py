@@ -69,10 +69,15 @@ class ListTasksModel:
         st.add_column("Started Time", justify="center")
         st.add_column("Finished Time", justify="center")
         for tlm in self.list():
+            status = tlm.status
+            if status == "COMPLETED":
+                status = f"[green]{status}[/green]"
+            elif status == "CRASHED":
+                status = f"[red]{status}[/red]"
             st.add_row(
                 tlm.cuid,
                 tlm.name,
-                tlm.status,
+                status,
                 tlm.url,
                 tlm.started_at,
                 tlm.finished_at,
