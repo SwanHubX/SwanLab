@@ -115,8 +115,8 @@ class ListTaskLayout:
             Layout(name="main")
         )
         self.layout["main"].split_row(
-            Layout(name="task_table", ratio=4),
-            Layout(name="term_output", ratio=1)
+            Layout(name="task_table", ratio=16),
+            Layout(name="term_output", ratio=5)
         )
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
