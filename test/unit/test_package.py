@@ -56,7 +56,7 @@ def test_get_project_url():
     """
     username = nanoid.generate()
     projname = nanoid.generate()
-    assert P.get_project_url(username, projname) == P.get_host_web() + "/" + username + "/" + projname
+    assert P.get_project_url(username, projname) == P.get_host_web() + "/@" + username + "/" + projname
 
 
 def test_get_experiment_url():
@@ -69,7 +69,7 @@ def test_get_experiment_url():
     assert P.get_experiment_url(
         username, projname,
         expid
-    ) == P.get_host_web() + "/" + username + "/" + projname + "/" + expid
+    ) == P.get_host_web() + "/@" + username + "/" + projname + "/runs/" + expid
 
 
 # ---------------------------------- 登录部分 ----------------------------------
