@@ -8,8 +8,7 @@ r"""
     打包、上传、开启任务
 """
 import click
-from .utils import login_init_sid
-from swanlab.api import get_http
+from .utils import login_init_sid, UseTaskHttp
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
 from swanlab.log import swanlog
@@ -198,7 +197,8 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
     上传内存文件
     :returns 上传成功后的文件路径
     """
-    sts = get_http().get("/user/codes/sts")
+    with UseTaskHttp() as http:
+        sts = http.get("/user/codes/sts")
     cos = CosClientForTask(sts)
     val = memory_file.getvalue()
     progress = TaskProgressBar(len(val))
@@ -241,4 +241,5 @@ class CreateTaskModel:
         """
         创建任务
         """
-        get_http().post("/task", self.__dict__())
+        with UseTaskHttp() as http:
+            http.post("/task", self.__dict__())

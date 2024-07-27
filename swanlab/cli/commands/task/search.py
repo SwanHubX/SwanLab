@@ -8,8 +8,7 @@ r"""
     根据cuid获取任务详情
 """
 import click
-from swanlab.api import get_http
-from .utils import TaskModel, login_init_sid
+from .utils import TaskModel, login_init_sid, UseTaskHttp
 from rich.syntax import Console, Syntax
 
 
@@ -30,8 +29,8 @@ def search(cuid):
     Get task detail by cuid
     """
     login_info = login_init_sid()
-    http = get_http()
-    data = http.get(f"/task/{cuid}")
+    with UseTaskHttp() as http:
+        data = http.get(f"/task/{cuid}")
     tm = TaskModel(login_info.username, data)
     """
     任务名称，python版本，入口文件，任务状态，URL，创建时间，执行时间，结束时间，错误信息

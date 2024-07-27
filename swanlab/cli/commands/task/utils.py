@@ -8,9 +8,11 @@ r"""
     任务相关工具函数
 """
 from swanlab.package import get_key, get_experiment_url
-from swanlab.api import terminal_login, create_http, LoginInfo
-from swanlab.error import KeyFileError
+from swanlab.api import terminal_login, create_http, LoginInfo, get_http
+from swanlab.error import KeyFileError, ApiError
 from datetime import datetime
+from typing import Optional
+import sys
 
 
 def login_init_sid() -> LoginInfo:
@@ -70,3 +72,24 @@ class TaskModel:
             return None
         date = date.replace("Z", "+00:00")
         return datetime.fromisoformat(date).strftime("%Y-%m-%d %H:%M:%S")
+
+
+class UseTaskHttp:
+    """
+    主要用于检测http响应是否为3xx字段，如果是则要求用户更新版本
+    使用此类之前需要先调用login_init_sid()函数完成全局http对象的初始化
+    """
+
+    def __init__(self):
+        self.http = get_http()
+
+    def __enter__(self):
+        return self.http
+
+    def __exit__(self, exc_type, exc_val: Optional[ApiError], exc_tb):
+        if exc_type is ApiError:
+            # api已过期，需要更新swanlab版本
+            if exc_val.resp.status_code // 100 == 3:
+                print("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
+                sys.exit(1)
+        return False

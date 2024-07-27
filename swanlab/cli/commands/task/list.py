@@ -10,14 +10,12 @@ r"""
 import time
 import click
 from typing import List
-from .utils import login_init_sid
 from rich.layout import Layout
 from datetime import datetime
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from swanlab.api import get_http
-from .utils import TaskModel
+from .utils import TaskModel, UseTaskHttp, login_init_sid
 
 
 @click.command()
@@ -45,13 +43,13 @@ class ListTasksModel:
         """
         self.num = num
         self.username = username
-        self.http = get_http()
 
     def __dict__(self):
         return {"num": self.num}
 
     def list(self) -> List[TaskModel]:
-        tasks = self.http.get("/task", self.__dict__())
+        with UseTaskHttp() as http:
+            tasks = http.get("/task", self.__dict__())
         return [TaskModel(self.username, task) for task in tasks]
 
     def table(self):
