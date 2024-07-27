@@ -10,8 +10,7 @@ r"""
 import click
 from swanlab.api import get_http
 from .utils import TaskModel, login_init_sid
-from rich.syntax import Syntax, Console
-import json
+from rich.syntax import Console
 
 
 def validate_six_char_string(_, __, value):
