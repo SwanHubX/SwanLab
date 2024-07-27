@@ -91,5 +91,5 @@ class UseTaskHttp:
             # api已过期，需要更新swanlab版本
             if exc_val.resp.status_code // 100 == 3:
                 print("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
-                sys.exit(1)
+                sys.exit(3)
         return False

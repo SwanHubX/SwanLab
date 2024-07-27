@@ -289,6 +289,14 @@ def get_http() -> HTTP:
     return http
 
 
+def reset_http():
+    """
+    重置http对象
+    """
+    global http
+    http = None
+
+
 def sync_error_handler(func):
     """
     在一些接口中我们不希望线程奔溃，而是返回一个错误对象
