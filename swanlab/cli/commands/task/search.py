@@ -53,5 +53,5 @@ def search(cuid):
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")
     if tm.status == 'CRASHED':
         console.print(f"[bold][red]Task Error[/red]:[/bold]\n")
-        console.print(Syntax(tm.msg, 'python', background_color="default"))
+        console.print(Syntax(tm.msg, 'python'))
     print("")  # 加一行空行，与开头一致
