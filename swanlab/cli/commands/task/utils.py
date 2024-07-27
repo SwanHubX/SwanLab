@@ -12,6 +12,7 @@ from swanlab.api import terminal_login, create_http, LoginInfo, get_http
 from swanlab.error import KeyFileError, ApiError
 from datetime import datetime
 from typing import Optional
+from swanlab.log import swanlog
 import sys
 
 
@@ -90,6 +91,6 @@ class UseTaskHttp:
         if exc_type is ApiError:
             # api已过期，需要更新swanlab版本
             if exc_val.resp.status_code // 100 == 3:
-                print("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
+                swanlog.info("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
                 sys.exit(3)
         return False
