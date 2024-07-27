@@ -65,7 +65,7 @@ class ListTasksModel:
         st.add_column("Task ID", justify="right")
         st.add_column("Task Name", justify="center")
         st.add_column("Status", justify="center")
-        st.add_column("URL", justify="center")
+        st.add_column("URL", justify="center", no_wrap=True)
         st.add_column("Started Time", justify="center")
         st.add_column("Finished Time", justify="center")
         for tlm in self.list():
@@ -117,8 +117,8 @@ class ListTaskLayout:
             Layout(name="main")
         )
         self.layout["main"].split_row(
-            Layout(name="task_table", ratio=5),
-            Layout(name="term_output", ratio=2, )
+            Layout(name="task_table", ratio=4),
+            Layout(name="term_output", ratio=1)
         )
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
