@@ -78,7 +78,7 @@ def get_project_url(username: str, projname: str) -> str:
     :param projname: 项目名
     :return: 项目的url
     """
-    return get_host_web() + "/" + username + "/" + projname
+    return get_host_web() + "/@" + username + "/" + projname
 
 
 def get_experiment_url(username: str, projname: str, expid: str) -> str:
@@ -88,7 +88,7 @@ def get_experiment_url(username: str, projname: str, expid: str) -> str:
     :param expid: 实验id
     :return: 实验的url
     """
-    return get_project_url(username, projname) + "/" + expid
+    return get_project_url(username, projname) + "/runs/" + expid
 
 
 # ---------------------------------- 登录相关 ----------------------------------
