@@ -68,4 +68,5 @@ class TaskModel:
     def fmt_time(date: str = None):
         if date is None:
             return None
+        date = date.replace("Z", "+00:00")
         return datetime.fromisoformat(date).strftime("%Y-%m-%d %H:%M:%S")
