@@ -10,7 +10,7 @@ r"""
 import click
 from swanlab.api import get_http
 from .utils import TaskModel, login_init_sid
-from rich.syntax import Console
+from rich.syntax import Console, Syntax
 
 
 def validate_six_char_string(_, __, value):
@@ -52,5 +52,7 @@ def search(cuid):
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")
-    tm.status == 'CRASHED' and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}")
+    if tm.status == 'CRASHED':
+        console.print(f"[bold][red]Task Error[/red]:[/bold]\n")
+        console.print(Syntax(tm.msg, 'python', background_color="default"))
     print("")  # 加一行空行，与开头一致
