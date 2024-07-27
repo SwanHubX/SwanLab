@@ -108,7 +108,7 @@ class HTTP:
         if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
-            self.__login_info = login_by_key(self.__login_info.api_key)
+            self.__login_info = login_by_key(self.__login_info.api_key, save=False)
             self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
     def __create_session(self):

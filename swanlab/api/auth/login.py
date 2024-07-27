@@ -13,10 +13,11 @@ from swankit.log import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
-from swanlab.env import in_jupyter
+from swanlab.env import in_jupyter, SwanLabEnv
 import getpass
 import requests
 import sys
+import os
 
 
 def login_request(api_key: str, timeout: int = 20) -> requests.Response:
@@ -75,13 +76,14 @@ def input_api_key(
 
 def code_login(api_key: str) -> LoginInfo:
     """
-    代码内登录，此时会覆盖本地token文件
+    代码内登录，此时会覆盖本地token文件（非task模式下）
     :param api_key: 用户的api_key
     :return: 登录信息
     :raises ValidationError: 登录失败
     """
     tip = "Waiting for the swanlab cloud response."
-    login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key,), interval=0.5)
+    save_key = os.environ.get(SwanLabEnv.RUNTIME.value) != 'task'
+    login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key, 20, save_key), interval=0.5)
     if login_info.is_fail:
         swanlog.error("Login failed: " + str(login_info).lower())
         raise ValidationError("Login failed: " + str(login_info))
