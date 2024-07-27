@@ -37,7 +37,8 @@ def search(cuid):
     任务名称，python版本，入口文件，任务状态，URL，创建时间，执行时间，结束时间，错误信息
     """
     console = Console()
-    console.print("\n[bold]Task Info[/bold]")
+    print("")
+    console.print("[bold]Task Info[/bold]")
     console.print(f"[bold]Task Name:[/bold] [yellow]{tm.name}[/yellow]")
     console.print(f"[bold]Python Version:[/bold] [white]{tm.python}[white]")
     console.print(f"[bold]Entry File:[/bold] [white]{tm.index}[white]")
@@ -51,4 +52,5 @@ def search(cuid):
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")
-    tm.status == 'CRASHED' and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}\n")
+    tm.status == 'CRASHED' and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}")
+    print("")  # 加一行空行，与开头一致
