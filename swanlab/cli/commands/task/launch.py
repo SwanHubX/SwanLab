@@ -84,7 +84,9 @@ def launch(path: str, entry: str, python: str, name: str):
     text = f"The target folder {FONT.yellow(path)} will be packaged and uploaded, "
     text += f"and you have specified {FONT.yellow(entry)} as the task entry point. "
     swanlog.info(text)
-    click.confirm(FONT.swanlab("Do you wish to proceed?"))
+    ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
+    if not ok:
+        return
     # 压缩文件夹
     memory_file = zip_folder(path)
     # 上传文件
@@ -93,14 +95,6 @@ def launch(path: str, entry: str, python: str, name: str):
     ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry)
     ctm.create()
     swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
-
-
-def fmt_entry(entry: str) -> str:
-    """
-    格式化入口文件路径
-    :param entry:
-    :return:
-    """
 
 
 def zip_folder(dirpath: str) -> io.BytesIO:
