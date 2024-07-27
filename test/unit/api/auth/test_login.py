@@ -7,6 +7,8 @@ r"""
 @Description:
     测试登录
 """
+import os
+from swanlab.env import SwanLabEnv
 from swanlab.api.auth.login import login_by_key, terminal_login, code_login
 from swanlab.error import ValidationError
 from swanlab.package import is_login
@@ -69,3 +71,15 @@ def test_code_login():
     assert login_info.__str__() == "Login success"
     with pytest.raises(ValidationError):
         _ = code_login("wrong-key")
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_code_login_task_runtime():
+    # task模式下不保存token
+    os.environ[SwanLabEnv.RUNTIME.value] = 'task'
+    login_info = code_login(T.API_KEY)
+    assert not login_info.is_fail
+    # 没有保存在本地
+    del os.environ[SwanLabEnv.API_KEY.value]
+    assert not is_login()
+    

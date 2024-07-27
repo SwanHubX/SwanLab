@@ -167,8 +167,10 @@ class LoginCheckContext:
 
 
 def is_login() -> bool:
-    """判断是否已经登录，与当前的host相关，与get_key不同，不考虑环境变量的因素
+    """判断是否已经登录，与当前的host相关
+    如果环境变量中有api key，则认为已经登录
     但不会检查key的有效性
+    FIXME 目前存在一些bug，此函数只能在未登录前判断，登录后判断会有一些bug
     :return: 是否已经登录
     """
     with LoginCheckContext() as checker:
