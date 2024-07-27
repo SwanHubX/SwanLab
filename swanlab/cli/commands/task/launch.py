@@ -8,8 +8,7 @@ r"""
     打包、上传、开启任务
 """
 import click
-from .utils import login_init_sid
-from swanlab.api import get_http
+from .utils import login_init_sid, UseTaskHttp
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
 from swanlab.log import swanlog
@@ -84,7 +83,9 @@ def launch(path: str, entry: str, python: str, name: str):
     text = f"The target folder {FONT.yellow(path)} will be packaged and uploaded, "
     text += f"and you have specified {FONT.yellow(entry)} as the task entry point. "
     swanlog.info(text)
-    click.confirm(FONT.swanlab("Do you wish to proceed?"))
+    ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
+    if not ok:
+        return
     # 压缩文件夹
     memory_file = zip_folder(path)
     # 上传文件
@@ -93,14 +94,6 @@ def launch(path: str, entry: str, python: str, name: str):
     ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry)
     ctm.create()
     swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
-
-
-def fmt_entry(entry: str) -> str:
-    """
-    格式化入口文件路径
-    :param entry:
-    :return:
-    """
 
 
 def zip_folder(dirpath: str) -> io.BytesIO:
@@ -204,7 +197,8 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
     上传内存文件
     :returns 上传成功后的文件路径
     """
-    sts = get_http().get("/user/codes/sts")
+    with UseTaskHttp() as http:
+        sts = http.get("/user/codes/sts")
     cos = CosClientForTask(sts)
     val = memory_file.getvalue()
     progress = TaskProgressBar(len(val))
@@ -247,4 +241,5 @@ class CreateTaskModel:
         """
         创建任务
         """
-        get_http().post("/task", self.__dict__())
+        with UseTaskHttp() as http:
+            http.post("/task", self.__dict__())

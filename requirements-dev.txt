@@ -10,3 +10,4 @@ torchvision
 python-dotenv
 freezegun
 build
+requests-mock

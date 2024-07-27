@@ -8,10 +8,8 @@ r"""
     根据cuid获取任务详情
 """
 import click
-from swanlab.api import get_http
-from .utils import TaskModel, login_init_sid
-from rich.syntax import Syntax, Console
-import json
+from .utils import TaskModel, login_init_sid, UseTaskHttp
+from rich.syntax import Console, Syntax
 
 
 def validate_six_char_string(_, __, value):
@@ -31,14 +29,15 @@ def search(cuid):
     Get task detail by cuid
     """
     login_info = login_init_sid()
-    http = get_http()
-    data = http.get(f"/task/{cuid}")
+    with UseTaskHttp() as http:
+        data = http.get(f"/task/{cuid}")
     tm = TaskModel(login_info.username, data)
     """
     任务名称，python版本，入口文件，任务状态，URL，创建时间，执行时间，结束时间，错误信息
     """
     console = Console()
-    console.print("\n[bold]Task Info[/bold]")
+    print("")
+    console.print("[bold]Task Info[/bold]")
     console.print(f"[bold]Task Name:[/bold] [yellow]{tm.name}[/yellow]")
     console.print(f"[bold]Python Version:[/bold] [white]{tm.python}[white]")
     console.print(f"[bold]Entry File:[/bold] [white]{tm.index}[white]")
@@ -52,4 +51,7 @@ def search(cuid):
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")
-    tm.status == 'CRASHED' and console.print(f"[bold][red]Task Error[/red]:[/bold] \n\n{tm.msg}\n")
+    if tm.status == 'CRASHED':
+        console.print(f"[bold][red]Task Error[/red]:[/bold]\n")
+        console.print(Syntax(tm.msg, 'python', background_color="default"))
+    print("")  # 加一行空行，与开头一致

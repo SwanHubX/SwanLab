@@ -16,11 +16,16 @@ from swanlab.api.upload import upload_logs
 from swanlab.log import swanlog
 from swanlab.api import get_http
 from swanlab.env import in_jupyter, SwanLabEnv
-from swanlab.package import get_host_web, get_key
 from swanlab.error import KeyFileError
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 from swanlab.data.cloud import ThreadPool
-from swanlab.package import get_package_version, get_package_latest_version
+from swanlab.package import (
+    get_package_version,
+    get_package_latest_version,
+    get_experiment_url,
+    get_project_url,
+    get_key
+)
 from swankit.log import FONT
 from swankit.env import create_time
 import json
@@ -157,8 +162,8 @@ class CloudRunCallback(LocalRunCallback):
     def _view_web_print(self):
         self._watch_tip_print()
         http = get_http()
-        project_url = get_host_web() + f"/@{http.groupname}/{http.projname}"
-        experiment_url = project_url + f"/runs/{http.exp_id}"
+        project_url = get_project_url(http.groupname, http.projname)
+        experiment_url = get_experiment_url(http.groupname, http.projname, http.exp_id)
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
         return experiment_url
