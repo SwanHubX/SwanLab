@@ -188,4 +188,6 @@ class SwanSystemMonitor:
 if __name__ == "__main__":
     # 测试脚本
     m = SwanSystemMonitor()
+    # 获取当前时间的全部硬件数据
+    # 例如：{'gpu': None, 'network': {'network_receive_kbs': '0.000', 'network_send_kbs': '0.000'}, 'disk_io': {'disk_read_mbs': '224801.238', 'disk_write_mbs': '199629.906'}, 'disk_usage': '2.700', 'memory': {'memory_free_gbs': '28.493', 'memory_used_gbs': '30.112', 'memory_utilization': '55.500'}, 'system_cpu_usage': 26.4, 'process_cpu_usage': 0.0, 'timestamp': '2024-07-29 01:52:05'}
     print(m.get_all())
