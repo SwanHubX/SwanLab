@@ -59,6 +59,7 @@ class ListTasksModel:
             title="[magenta][b]Now Task[/b]",
             highlight=True,
             border_style="magenta",
+            show_lines=True,
         )
         st.add_column("Task ID", justify="right")
         st.add_column("Task Name", justify="center")
@@ -116,7 +117,15 @@ class ListTaskLayout:
         )
         self.layout["main"].split_row(
             Layout(name="task_table", ratio=16),
-            Layout(name="term_output", ratio=5)
+            Layout(name="info_side", ratio=5)
+        )
+        self.layout["info_side"].split_column(
+            Layout(name="global_info", ratio=5),
+            Layout(name="term_output", ratio=2)
+        )
+        self.layout["global_info"].split_column(
+            Layout(name="queue_info", ratio=1),
+            Layout(name="combo_info", ratio=3)
         )
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
@@ -142,13 +151,13 @@ class ListTaskLayout:
         )
         return to
 
-    def redraw_term_output(self, ):
+    def redraw_term_output(self):
         term_output = self.term_output
         for row in self.event:
             term_output.add_row(row)
         self.layout["term_output"].update(Panel(term_output, border_style="blue"))
 
-    def add_event(self, info: str, max_length=15):
+    def add_event(self, info: str, max_length=3):
         # 事件格式：yyyy-mm-dd hh:mm:ss - info
         self.event.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {info}")
         while len(self.event) > max_length:
