@@ -58,6 +58,11 @@ import os
     help="The entry file of the task, default by main.py",
 )
 @click.option(
+    "-y",
+    is_flag=True,
+    help="Skip the confirmation prompt and proceed with the task launch",
+)
+@click.option(
     "--python",
     default="python3.10",
     nargs=1,
@@ -72,7 +77,7 @@ import os
     type=str,
     help="The name of the task, default by Task_{current_time}",
 )
-def launch(path: str, entry: str, python: str, name: str):
+def launch(path: str, entry: str, python: str, name: str, y: bool):
     if not entry.startswith(path):
         raise ValueError(f"Error: Entry file '{entry}' must be in directory '{path}'")
     entry = os.path.relpath(entry, path)
@@ -83,9 +88,10 @@ def launch(path: str, entry: str, python: str, name: str):
     text = f"The target folder {FONT.yellow(path)} will be packaged and uploaded, "
     text += f"and you have specified {FONT.yellow(entry)} as the task entry point. "
     swanlog.info(text)
-    ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
-    if not ok:
-        return
+    if not y:
+        ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
+        if not ok:
+            return
     # 压缩文件夹
     memory_file = zip_folder(path)
     # 上传文件
