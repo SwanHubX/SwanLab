@@ -151,6 +151,32 @@ class ListTaskLayout:
         )
         return to
 
+    @property
+    def queue_info(self):
+        qi = Table(
+            expand=True,
+            show_header=False,
+            header_style="bold",
+            title="[blue][b]Now Global Queue[/b]",
+            highlight=True,
+            border_style="blue",
+        )
+        qi.add_column("Queue Info", "Queue Info")
+        return qi
+
+    @property
+    def combo_info(self):
+        ci = Table(
+            expand=True,
+            show_header=False,
+            header_style="bold",
+            title="[blue][b]Now Plan[/b]",
+            highlight=True,
+            border_style="blue",
+        )
+        ci.add_column("Combo Info", "Combo Info")
+        return ci
+
     def redraw_term_output(self):
         term_output = self.term_output
         for row in self.event:
