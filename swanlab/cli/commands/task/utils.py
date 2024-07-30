@@ -10,11 +10,12 @@ r"""
 from swanlab.package import get_key, get_experiment_url
 from swanlab.api import terminal_login, create_http, LoginInfo, get_http
 from swanlab.error import KeyFileError, ApiError
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from swanlab.log import swanlog
 import sys
 import click
+import time
 
 
 def validate_six_char_string(_, __, value):
@@ -84,7 +85,12 @@ class TaskModel:
         if date is None:
             return None
         date = date.replace("Z", "+00:00")
-        return datetime.fromisoformat(date).strftime("%Y-%m-%d %H:%M:%S")
+        # 获取当前计算机时区的时差（以秒为单位）
+        local_time_offset = time.altzone if time.localtime().tm_isdst else time.timezone
+        local_time_offset = timedelta(seconds=-local_time_offset)
+        local_time = datetime.fromisoformat(date) + local_time_offset
+        # 将 UTC 时间转换为本地时间
+        return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class UseTaskHttp:
