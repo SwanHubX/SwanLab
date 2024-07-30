@@ -14,6 +14,17 @@ from datetime import datetime
 from typing import Optional
 from swanlab.log import swanlog
 import sys
+import click
+
+
+def validate_six_char_string(_, __, value):
+    if value is None:
+        raise click.BadParameter('Parameter is required')
+    if not isinstance(value, str):
+        raise click.BadParameter('Value must be a string')
+    if len(value) != 6:
+        raise click.BadParameter('String must be exactly 6 characters long')
+    return value
 
 
 def login_init_sid() -> LoginInfo:
@@ -32,7 +43,7 @@ class TaskModel:
     获取到的任务列表模型
     """
 
-    def __init__(self, username: str, task: dict, ):
+    def __init__(self, username: str, task: dict):
         self.cuid = task["cuid"]
         self.username = username
         self.name = task["name"]
@@ -60,6 +71,7 @@ class TaskModel:
         self.finished_at = self.fmt_time(task.get("finishedAt", None))
         self.status = task["status"]
         self.msg = task.get("msg", None)
+        self.combo = task["combo"]
 
     @property
     def url(self):

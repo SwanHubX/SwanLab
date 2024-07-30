@@ -28,12 +28,40 @@ from .utils import TaskModel, UseTaskHttp, login_init_sid
     help="The maximum number of tasks to display, default by 10, maximum by 100",
 )
 def list(max_num: int):  # noqa
+    """
+    List tasks
+    """
     # 获取访问凭证，生成http会话对象
     login_info = login_init_sid()
     # 获取任务列表
     ltm = ListTasksModel(num=max_num, username=login_info.username)
-    layout = ListTaskLayout(ltm)
+    aqm = AskQueueModel()
+    layout = ListTaskLayout(ltm, aqm)
     layout.show()
+
+
+class AskQueueModel:
+    def __init__(self):
+        self.num = None
+
+    def ask(self):
+        with UseTaskHttp() as http:
+            queue_info = http.get("/task/queuing")
+            self.num = queue_info["sum"]
+
+    def table(self):
+        qi = Table(
+            expand=True,
+            show_header=False,
+            header_style="bold",
+            title="[blue][b]Now Global Queue[/b]",
+            highlight=True,
+            border_style="blue",
+        )
+        qi.add_column("Queue Info", "Queue Info")
+        self.ask()
+        qi.add_row(f"📦[b]Task Queuing count: {self.num}[/b]")
+        return qi
 
 
 class ListTasksModel:
@@ -59,6 +87,7 @@ class ListTasksModel:
             title="[magenta][b]Now Task[/b]",
             highlight=True,
             border_style="magenta",
+            show_lines=True,
         )
         st.add_column("Task ID", justify="right")
         st.add_column("Task Name", justify="center")
@@ -105,7 +134,7 @@ class ListTaskLayout:
     任务列表展示
     """
 
-    def __init__(self, ltm: ListTasksModel):
+    def __init__(self, ltm: ListTasksModel, aqm: AskQueueModel):
         self.event = []
         self.add_event(f"👏Welcome, [b]{ltm.username}[/b].")
         self.add_event("⌛️Task board is loading...")
@@ -116,11 +145,17 @@ class ListTaskLayout:
         )
         self.layout["main"].split_row(
             Layout(name="task_table", ratio=16),
+            Layout(name="info_side", ratio=5)
+        )
+        self.layout["info_side"].split_column(
+            Layout(name="queue_info", ratio=1),
             Layout(name="term_output", ratio=5)
         )
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
+        self.layout["queue_info"].update(Panel(aqm.table(), border_style="blue"))
         self.ltm = ltm
+        self.aqm = aqm
         self.add_event("🍺Task board is loaded.")
         self.redraw_term_output()
 
@@ -142,13 +177,16 @@ class ListTaskLayout:
         )
         return to
 
-    def redraw_term_output(self, ):
+    def redraw_term_output(self):
         term_output = self.term_output
         for row in self.event:
             term_output.add_row(row)
         self.layout["term_output"].update(Panel(term_output, border_style="blue"))
 
-    def add_event(self, info: str, max_length=15):
+    def redraw_queue_info(self):
+        pass
+
+    def add_event(self, info: str, max_length=10):
         # 事件格式：yyyy-mm-dd hh:mm:ss - info
         self.event.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {info}")
         while len(self.event) > max_length:
@@ -156,13 +194,19 @@ class ListTaskLayout:
 
     def show(self):
         with Live(self.layout, refresh_per_second=10, screen=True) as live:
-            now = time.time()
+            search_now = time.time()
+            queue_now = time.time()
             while True:
                 time.sleep(1)
                 self.layout["header"].update(ListTaskHeader())
-                if time.time() - now > 5:
-                    now = time.time()
+                if time.time() - search_now > 5:
+                    search_now = time.time()
                     self.add_event("🔍Searching for new tasks...")
                     self.layout["task_table"].update(Panel(self.ltm.table(), border_style="magenta"))
+                    self.redraw_term_output()
+                if time.time() - queue_now > 3:
+                    queue_now = time.time()
+                    self.add_event("📦Asking queue info...")
+                    self.layout["queue_info"].update(Panel(self.aqm.table(), border_style="blue"))
                     self.redraw_term_output()
                 live.refresh()

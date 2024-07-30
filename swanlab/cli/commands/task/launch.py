@@ -11,6 +11,7 @@ import click
 from .utils import login_init_sid, UseTaskHttp
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
+from swanlab.error import ApiError
 from swanlab.log import swanlog
 from swankit.log import FONT
 import zipfile
@@ -58,11 +59,25 @@ import os
     help="The entry file of the task, default by main.py",
 )
 @click.option(
+    "-y",
+    is_flag=True,
+    help="Skip the confirmation prompt and proceed with the task launch",
+)
+@click.option(
     "--python",
     default="python3.10",
     nargs=1,
     type=click.Choice(["python3.8", "python3.9", "python3.10"]),
     help="The python version of the task, default by python3.10",
+)
+@click.option(
+    "--combo",
+    "-c",
+    default=None,
+    nargs=1,
+    type=str,
+    help="The plan of the task. Swanlab will use the default plan if not specified. "
+         "You can check the plans in the official documentation.",
 )
 @click.option(
     "--name",
@@ -72,26 +87,31 @@ import os
     type=str,
     help="The name of the task, default by Task_{current_time}",
 )
-def launch(path: str, entry: str, python: str, name: str):
+def launch(path: str, entry: str, python: str, name: str, combo: str, y: bool):
+    """
+    Launch a task!
+    """
     if not entry.startswith(path):
         raise ValueError(f"Error: Entry file '{entry}' must be in directory '{path}'")
     entry = os.path.relpath(entry, path)
     # 获取访问凭证，生成http会话对象
     login_info = login_init_sid()
     print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")
-    # 上传文件
-    text = f"The target folder {FONT.yellow(path)} will be packaged and uploaded, "
-    text += f"and you have specified {FONT.yellow(entry)} as the task entry point. "
-    swanlog.info(text)
-    ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
-    if not ok:
-        return
+    # 确认
+    if not y:
+        swanlog.info("Please confirm the following information:")
+        swanlog.info(f"The target folder {FONT.yellow(path)} will be packaged and uploaded")
+        swanlog.info(f"You have specified {FONT.yellow(entry)} as the task entry point. ")
+        combo and swanlog.info(f"The task will use the combo {FONT.yellow(combo)}")
+        ok = click.confirm(FONT.swanlab("Do you wish to proceed?"), abort=False)
+        if not ok:
+            return
     # 压缩文件夹
     memory_file = zip_folder(path)
     # 上传文件
     src = upload_memory_file(memory_file)
     # 发布任务
-    ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry)
+    ctm = CreateTaskModel(login_info.username, src, login_info.api_key, python, name, entry, combo)
     ctm.create()
     swanlog.info(f"Task launched successfully. You can use {FONT.yellow('swanlab task list')} to view the task.")
 
@@ -211,7 +231,7 @@ def upload_memory_file(memory_file: io.BytesIO) -> str:
 
 
 class CreateTaskModel:
-    def __init__(self, username, src, key, python, name, index):
+    def __init__(self, username, src, key, python, name, index, combo):
         """
         :param username: 用户username
         :param key: 用户的api_key
@@ -219,6 +239,7 @@ class CreateTaskModel:
         :param python: 任务的python版本
         :param name: 任务名称
         :param index: 任务入口文件
+        :param combo: 任务的套餐类型
         """
         self.username = username
         self.src = src
@@ -226,8 +247,19 @@ class CreateTaskModel:
         self.python = python
         self.name = name
         self.index = index
+        self.combo = combo
 
     def __dict__(self):
+        if self.combo is not None:
+            return {
+                "username": self.username,
+                "src": self.src,
+                "index": self.index,
+                "python": self.python,
+                "conf": {"key": self.key},
+                "combo": self.combo,
+                "name": self.name
+            }
         return {
             "username": self.username,
             "src": self.src,
@@ -241,5 +273,12 @@ class CreateTaskModel:
         """
         创建任务
         """
-        with UseTaskHttp() as http:
-            http.post("/task", self.__dict__())
+        try:
+            with UseTaskHttp() as http:
+                http.post("/task", self.__dict__())
+        except ApiError as e:
+            if e.resp.status_code == 406:
+                raise click.exceptions.UsageError("You have reached the maximum number of tasks")
+            elif e.resp.status_code == 400:
+                raise click.exceptions.UsageError("Incorrect combo name, please check it")
+            raise e
