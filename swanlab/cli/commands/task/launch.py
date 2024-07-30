@@ -276,4 +276,6 @@ class CreateTaskModel:
         except ApiError as e:
             if e.resp.status_code == 406:
                 raise click.exceptions.UsageError("You have reached the maximum number of tasks")
+            elif e.resp.status_code == 400:
+                raise click.exceptions.UsageError("Incorrect combo name, please check it")
             raise e
