@@ -28,6 +28,9 @@ from .utils import TaskModel, UseTaskHttp, login_init_sid
     help="The maximum number of tasks to display, default by 10, maximum by 100",
 )
 def list(max_num: int):  # noqa
+    """
+    List tasks
+    """
     # 获取访问凭证，生成http会话对象
     login_info = login_init_sid()
     # 获取任务列表

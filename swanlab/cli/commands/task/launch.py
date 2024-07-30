@@ -88,6 +88,9 @@ import os
     help="The name of the task, default by Task_{current_time}",
 )
 def launch(path: str, entry: str, python: str, name: str, combo: str, y: bool):
+    """
+    Launch a task!
+    """
     if not entry.startswith(path):
         raise ValueError(f"Error: Entry file '{entry}' must be in directory '{path}'")
     entry = os.path.relpath(entry, path)

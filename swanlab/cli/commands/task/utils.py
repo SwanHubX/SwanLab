@@ -14,6 +14,17 @@ from datetime import datetime
 from typing import Optional
 from swanlab.log import swanlog
 import sys
+import click
+
+
+def validate_six_char_string(_, __, value):
+    if value is None:
+        raise click.BadParameter('Parameter is required')
+    if not isinstance(value, str):
+        raise click.BadParameter('Value must be a string')
+    if len(value) != 6:
+        raise click.BadParameter('String must be exactly 6 characters long')
+    return value
 
 
 def login_init_sid() -> LoginInfo:

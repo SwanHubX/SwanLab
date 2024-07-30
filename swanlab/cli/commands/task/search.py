@@ -35,7 +35,7 @@ def search(cuid):
             data = http.get(f"/task/{cuid}")
         except ApiError as e:
             if e.resp.status_code == 500:
-                raise click.ClickException("Task not found")
+                raise click.BadParameter("Task not found")
     tm = TaskModel(login_info.username, data)
     """
     任务名称，python版本，入口文件，任务状态，URL，创建时间，执行时间，结束时间，错误信息
@@ -49,6 +49,8 @@ def search(cuid):
     icon = '✅'
     if tm.status == 'CRASHED':
         icon = '❌'
+    elif tm.status == 'STOPPED':
+        icon = '🛑'
     elif tm.status != 'COMPLETED':
         icon = '🏃'
     console.print(f"[bold]Status:[/bold] {icon} {tm.status}")

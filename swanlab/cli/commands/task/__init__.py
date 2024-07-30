@@ -11,6 +11,7 @@ r"""
 from .launch import launch
 from .list import list
 from .search import search
+from .stop import stop
 import click
 
 __all__ = ["task"]
@@ -30,3 +31,5 @@ task.add_command(launch)
 task.add_command(list)
 # noinspection PyTypeChecker
 task.add_command(search)
+# noinspection PyTypeChecker
+task.add_command(stop)
