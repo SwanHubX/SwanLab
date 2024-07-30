@@ -11,6 +11,7 @@ import click
 from .utils import login_init_sid, UseTaskHttp
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
+from swanlab.error import ApiError
 from swanlab.log import swanlog
 from swankit.log import FONT
 import zipfile
@@ -269,5 +270,10 @@ class CreateTaskModel:
         """
         创建任务
         """
-        with UseTaskHttp() as http:
-            http.post("/task", self.__dict__())
+        try:
+            with UseTaskHttp() as http:
+                http.post("/task", self.__dict__())
+        except ApiError as e:
+            if e.resp.status_code == 406:
+                raise click.exceptions.UsageError("You have reached the maximum number of tasks")
+            raise e
