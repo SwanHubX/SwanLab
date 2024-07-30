@@ -14,7 +14,20 @@ import asyncio
 
 
 class SwanSystemMonitor:
-    """监控硬件数据类"""
+    """监控硬件数据类
+    使用方法：
+        m = SwanSystemMonitor()
+        m.get_all()
+    返回值为一个dict，包含16种硬件参数：
+        gpu: GPU信息，包含GPU数量，每个GPU的显存使用情况，显存剩余情况，显存使用率，功耗，温度，负载率
+        network: 网络IO数据，包含接收速度和发送速度
+        disk_io: 磁盘IO数据，包含读速度和写速度
+        disk_usage: 磁盘占用率
+        memory: 内存数据，包含内存剩余量，使用量和使用率
+        system_cpu_usage: 系统CPU使用率
+        process_cpu_usage: 当前进程CPU使用率
+        timestamp: 当前时间
+    """
 
     def __init__(self) -> None:
         """初始化nvml实例，并计算GPU数量"""
@@ -188,4 +201,6 @@ class SwanSystemMonitor:
 if __name__ == "__main__":
     # 测试脚本
     m = SwanSystemMonitor()
+    # 获取当前时间的全部硬件数据
+    # 例如：{'gpu': None, 'network': {'network_receive_kbs': '0.000', 'network_send_kbs': '0.000'}, 'disk_io': {'disk_read_mbs': '224801.238', 'disk_write_mbs': '199629.906'}, 'disk_usage': '2.700', 'memory': {'memory_free_gbs': '28.493', 'memory_used_gbs': '30.112', 'memory_utilization': '55.500'}, 'system_cpu_usage': 26.4, 'process_cpu_usage': 0.0, 'timestamp': '2024-07-29 01:52:05'}
     print(m.get_all())
