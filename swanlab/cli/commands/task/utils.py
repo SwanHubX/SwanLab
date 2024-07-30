@@ -32,7 +32,7 @@ class TaskModel:
     获取到的任务列表模型
     """
 
-    def __init__(self, username: str, task: dict, ):
+    def __init__(self, username: str, task: dict):
         self.cuid = task["cuid"]
         self.username = username
         self.name = task["name"]
@@ -60,6 +60,7 @@ class TaskModel:
         self.finished_at = self.fmt_time(task.get("finishedAt", None))
         self.status = task["status"]
         self.msg = task.get("msg", None)
+        self.combo = task["combo"]
 
     @property
     def url(self):

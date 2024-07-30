@@ -52,6 +52,7 @@ def search(cuid):
     elif tm.status != 'COMPLETED':
         icon = '🏃'
     console.print(f"[bold]Status:[/bold] {icon} {tm.status}")
+    console.print(f"[bold]Combo:[/bold] [white]{tm.combo}[/white]")
     tm.url is not None and console.print(f"[bold]SwanLab URL:[/bold] {tm.url}")
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
