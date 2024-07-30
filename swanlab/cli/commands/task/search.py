@@ -34,7 +34,7 @@ def search(cuid):
         try:
             data = http.get(f"/task/{cuid}")
         except ApiError as e:
-            if e.resp.status_code == 500:
+            if e.resp.status_code == 404:
                 raise click.BadParameter("Task not found")
     tm = TaskModel(login_info.username, data)
     """

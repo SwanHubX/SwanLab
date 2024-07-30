@@ -23,6 +23,6 @@ def stop(cuid):
         try:
             http.patch(f"/task/status", {"cuid": cuid, "status": "STOPPED", "msg": "User stopped by sdk"})
         except ApiError as e:
-            if e.resp.status_code == 500:
+            if e.resp.status_code == 404:
                 raise click.BadParameter("Task not found")
     click.echo("Task stopped successfully, there may be a few minutes of delay online.")
