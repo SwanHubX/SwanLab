@@ -10,6 +10,7 @@ r"""
 import click
 from .utils import TaskModel, login_init_sid, UseTaskHttp
 from rich.syntax import Console, Syntax
+from swanlab.error import ApiError
 
 
 def validate_six_char_string(_, __, value):
@@ -30,7 +31,11 @@ def search(cuid):
     """
     login_info = login_init_sid()
     with UseTaskHttp() as http:
-        data = http.get(f"/task/{cuid}")
+        try:
+            data = http.get(f"/task/{cuid}")
+        except ApiError as e:
+            if e.resp.status_code == 500:
+                raise click.ClickException("Task not found")
     tm = TaskModel(login_info.username, data)
     """
     任务名称，python版本，入口文件，任务状态，URL，创建时间，执行时间，结束时间，错误信息
