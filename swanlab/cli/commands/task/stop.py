@@ -16,7 +16,7 @@ from swanlab.error import ApiError
 @click.argument("cuid", type=str, callback=validate_six_char_string)
 def stop(cuid):
     """
-    Get task detail by cuid
+    Stop a task by cuid
     """
     login_init_sid()
     with UseTaskHttp() as http:
@@ -25,4 +25,4 @@ def stop(cuid):
         except ApiError as e:
             if e.resp.status_code == 500:
                 raise click.BadParameter("Task not found")
-    click.echo("Task stopped successfully")
+    click.echo("Task stopped successfully, there may be a few minutes of delay online.")
