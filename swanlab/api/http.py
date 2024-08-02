@@ -18,6 +18,7 @@ from swanlab.package import get_host_api, get_package_version
 from swankit.log import FONT
 from swanlab.log import swanlog
 import requests
+import json
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
@@ -26,7 +27,7 @@ def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
     """
     try:
         return resp.json()
-    except requests.exceptions.JSONDecodeError:
+    except json.decoder.JSONDecodeError:
         return resp.text
 
 
