@@ -15,9 +15,21 @@ from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
 from swanlab.data.modules import MediaBuffer
 from tutils import API_KEY, TEMP_PATH, is_skip_cloud_test
+from tutils.setup import UseMocker, UseSetupHttp
 import pytest
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+
+def test_decode_response():
+    with UseMocker() as mocker:
+        mocker.post("/json", json={"test": "test"})
+        mocker.post("/text", text="test")
+        with UseSetupHttp() as http:
+            data = http.post("/json")
+            assert data == {"test": "test"}
+            data = http.post("/text")
+            assert data == "test"
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
