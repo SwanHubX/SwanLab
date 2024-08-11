@@ -26,6 +26,8 @@ class SwanSystemMonitor:
         memory: 内存数据，包含内存剩余量，使用量和使用率
         system_cpu_usage: 系统CPU使用率
         process_cpu_usage: 当前进程CPU使用率
+        system_temperature: 当前系统所有传感器的温度
+        system_cpu_freq: 当前系统CPU的频率
         timestamp: 当前时间
     """
 
@@ -182,6 +184,41 @@ class SwanSystemMonitor:
 
         return process_cpu_usage
 
+
+    def get_system_cpu_freq(self):
+        """
+        得到当前时间系统CPU的频率
+        ---
+        信息:
+            单位:   Mhz
+            精确度: 不确定
+            可用性: Linux,macOS,Windows,FreeBSD,OpenBSD
+        
+        WARNING:在linux上,current获取实时值,其他平台上则是固定值
+        """
+        cpu_freq = psutil.cpu_freq(percpu=False)
+        return cpu_freq
+
+    def get_system_temperature(self):
+        """
+        得到当前时间系统各传感器的温度
+        ---
+        信息:
+            单位:   摄氏度℃
+            精确度: 小数点后两位
+            可用性: Linux,FreeBSD
+        
+        Return:
+            temperatures: {"device1":[],"device2":[],...}
+        
+        TODO:传感器可能的返回参数https://www.kernel.org/doc/html/latest/subsystem-apis.html
+        已知:k10temp(AMD CPU 10th~16th Opteron~zen3)
+        """
+        if not hasattr(psutil, "sensors_temperatures"):return "platform not supported" 
+        temperatures = psutil.sensors_temperatures()
+        if not temperatures:return "can't read any temperature" 
+        return temperatures
+                    
     def get_all(self):
         """获取全部硬件数据"""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -194,6 +231,8 @@ class SwanSystemMonitor:
             "memory": self.get_memory_usage(),
             "system_cpu_usage": self.get_system_cpu_usage(),
             "process_cpu_usage": self.get_process_cpu_usage(),
+            "system_temperature":self.get_system_temperature(),
+            'system_cpu_freq':self.get_system_cpu_freq(),
             "timestamp": timestamp,
         }
 

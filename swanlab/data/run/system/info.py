@@ -90,13 +90,15 @@ def __get_git_branch_and_commit():
 
 def __get_nvidia_gpu_info():
     """获取 GPU 信息"""
-    info = {"cores": None, "type": [], "memory": []}
+    info = {'driver':None,"cores": None, "type": [], "memory": []}
     try:
         pynvml.nvmlInit()
     except:
         return None
 
     try:
+        # 获取 NVIDIA 驱动版本信息
+        info['driver'] = pynvml.nvmlSystemGetDriverVersion()
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
         # 遍历每个 GPU，获取 GPU 信息
@@ -223,6 +225,22 @@ def get_requirements() -> str:
             return None
     except Exception as e:
         swanlog.debug(f"An error occurred: {e}")
+        return None
+    
+def get_conda_env() -> str:
+    """获取当前项目下conda环境"""
+    try:
+        # 运行pip命令获取当前环境下的环境目录
+        result = subprocess.run(["conda",'list'], stdout=subprocess.PIPE, text=True)
+
+        # 检查命令是否成功运行
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            swanlog.debug(f"An error occurred when getting conda env:{result.stderr}")
+            return None
+    except Exception as e:
+        swanlog.debug(f"An error occurred when getting conda env: {e}")
         return None
 
 
