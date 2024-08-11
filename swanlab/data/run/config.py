@@ -98,6 +98,8 @@ def parse(config) -> dict:
         _config_json = json_serializable(config)
         if isinstance(_config_json, dict):
             return _config_json
+        else:
+            raise TypeError(f"config: {config} is not a json serialized dict")
     except TypeError:  # noqa
         pass
     # 3. 尝试序列化，序列化成功直接返回
