@@ -51,7 +51,10 @@ def json_serializable(obj):
     elif isinstance(obj, MutableMapping):
         return {str(key): json_serializable(value) for key, value in obj.items()}
 
-    return str(obj)
+    try:
+        return str(obj)
+    except Exception:
+        raise TypeError(f"Object: {obj} is not JSON serializable")
 
 
 def third_party_config_process(data) -> dict:
