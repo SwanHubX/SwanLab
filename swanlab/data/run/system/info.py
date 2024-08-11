@@ -23,7 +23,7 @@ def __replace_second_colon(input_string, replacement):
     if first_colon_index != -1:
         second_colon_index = input_string.find(":", first_colon_index + 1)
         if second_colon_index != -1:
-            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1:]
+            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1 :]
     return input_string
 
 
@@ -90,7 +90,7 @@ def __get_git_branch_and_commit():
 
 def __get_nvidia_gpu_info():
     """获取 GPU 信息"""
-    info = {'driver':None,"cores": None, "type": [], "memory": []}
+    info = {"driver": None, "cores": None, "type": [], "memory": []}
     try:
         pynvml.nvmlInit()
     except:
@@ -98,7 +98,7 @@ def __get_nvidia_gpu_info():
 
     try:
         # 获取 NVIDIA 驱动版本信息
-        info['driver'] = pynvml.nvmlSystemGetDriverVersion()
+        info["driver"] = pynvml.nvmlSystemGetDriverVersion()
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
         # 遍历每个 GPU，获取 GPU 信息
@@ -110,7 +110,7 @@ def __get_nvidia_gpu_info():
                 gpu_name = gpu_name.decode("utf-8")
             info["type"].append(gpu_name)
             # 获取 GPU 的总显存, 单位为GB
-            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024 ** 3)))
+            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
 
     except pynvml.NVMLError as e:
         swanlog.debug(f"An error occurred when getting GPU info: {e}")
@@ -192,7 +192,7 @@ def __get_memory_size():
     try:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
-        total_memory = round(mem.total / (1024 ** 3))  # 单位为GB
+        total_memory = round(mem.total / (1024**3))  # 单位为GB
         return total_memory
     except Exception as e:
         swanlog.debug(f"An error occurred when getting memory size: {e}")
@@ -226,12 +226,13 @@ def get_requirements() -> str:
     except Exception as e:
         swanlog.debug(f"An error occurred: {e}")
         return None
-    
+
+
 def get_conda_env() -> str:
     """获取当前项目下conda环境"""
     try:
         # 运行pip命令获取当前环境下的环境目录
-        result = subprocess.run(["conda",'list'], stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(["conda", "list"], stdout=subprocess.PIPE, text=True)
 
         # 检查命令是否成功运行
         if result.returncode == 0:
