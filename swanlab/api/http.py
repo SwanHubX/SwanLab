@@ -24,10 +24,13 @@ import json
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
     """
     解码响应，返回信息
+    低版本requests库没有JSONDecodeError，所以需要捕获两种异常
     """
     try:
         return resp.json()
     except json.decoder.JSONDecodeError:
+        return resp.text
+    except requests.JSONDecodeError:
         return resp.text
 
 
