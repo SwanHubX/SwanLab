@@ -50,7 +50,8 @@ def json_serializable(obj):
     # 对于可变映射，递归调用此函数处理值，并将key转换为字典
     elif isinstance(obj, MutableMapping):
         return {str(key): json_serializable(value) for key, value in obj.items()}
-    raise TypeError(f"Object {obj} is not JSON serializable")
+
+    return str(obj)
 
 
 def third_party_config_process(data) -> dict:
