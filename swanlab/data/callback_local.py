@@ -19,6 +19,7 @@ import traceback
 import json
 import os
 import sys
+from typing import Union 
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -50,45 +51,41 @@ class LocalRunCallback(SwanLabRunCallback):
             swanlog.info("Error happened while training")
 
     @staticmethod
-    def _init_logdir(logdir: str = None) -> str:
+    def _init_logdir(logdir: Union[str,None] = None) -> None:
         """
-        根据传入的logdir，初始化日志文件夹
-        FIXME shit code
+        根据传入的logdir,初始化日志文件夹
+        ---
+        Args:
+            logdir: 日志文件夹路径
+        
+        Return:
+            None
+        
+        Step:
+            1: 参数检查
+            2: 环境变量设置
+            3: 默认路径
+            4: .gitignore        
         """
         # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-        if logdir is not None:
-            try:
-                if not isinstance(logdir, str):
-                    raise ValueError("path must be a string")
-                if not os.path.isabs(logdir):
-                    logdir = os.path.abspath(logdir)
-                # 如果创建失败，也是抛出IOError
-                try:
-                    os.makedirs(logdir, exist_ok=True)
-                except Exception as e:
-                    raise IOError(f"create path: {logdir} failed, error: {e}")
-                if not os.access(logdir, os.W_OK):
-                    raise IOError(f"no write permission for path: {logdir}")
-            except ValueError:
-                raise ValueError("logdir must be a str.")
-            except IOError:
-                raise IOError("logdir must be a path and have Write permission.")
-            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
         # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-        else:
+        if logdir is None:
             logdir = os.environ.get(SwanLabEnv.SWANLOG_FOLDER.value) or os.path.join(os.getcwd(), "swanlog")
-            logdir = os.path.abspath(logdir)
-            try:
-                os.makedirs(logdir, exist_ok=True)
-                if not os.access(logdir, os.W_OK):
-                    raise IOError
-            except IOError:
-                raise IOError("logdir must have Write permission.")
+        
+        logdir = os.path.abspath(logdir)    
+        try:
+            os.makedirs(logdir, exist_ok=True)
+            if not os.access(logdir, os.W_OK):
+                raise IOError(f"no write permission for path: {logdir}")
+        except Exception as error:
+            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+        else:
+            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
+
         # 如果logdir是空的，创建.gitignore文件，写入*
         if not os.listdir(logdir):
             with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
                 f.write("*")
-        return logdir
 
     def __str__(self):
         return "SwanLabLocalRunCallback"
