@@ -13,7 +13,29 @@ from swanboard import SwanBoardRun
 import click
 import os
 import sys
+import socket
 
+def get_free_port(address='0.0.0.0')->int:
+    """
+    获取一个可用端口
+    ---
+    Args:
+        address: 主机(host)地址
+
+    Return:
+        port: 一个可用端口
+        
+    NOTE: 如果获取失败,则返回5092
+    WARNING: 不能保证独占,极稀有情况下两个程序占用到此端口
+    """
+    sock = socket.socket()
+    try:
+        sock.bind((address, 0))
+        ip, port = sock.getsockname()
+        sock.close()
+    except IndexError as error:
+        return 5092
+    return port
 
 @click.command()
 @click.argument(
@@ -40,10 +62,10 @@ import sys
 @click.option(
     "--port",
     "-p",
-    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_PROT.value, 5092),
+    default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_PROT.value, get_free_port()),
     nargs=1,
     type=click.IntRange(1, 65535),
-    help="The port of swanlab web, default by 5092",
+    help="The port of swanlab web, If None, the available ports are automatically searched",
 )
 @click.option(
     "--logdir",
