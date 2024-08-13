@@ -68,6 +68,7 @@ def test_parse():
     config = parse(config_data)
     assert config["inf"] == Line.inf
     assert config["nan"] == Line.nan
+
     # ---------------------------------- dataclass support ----------------------------------
     @dataclass
     class MyData:
@@ -294,12 +295,14 @@ class TestSwanLabConfigWithRun:
         """
         正常流程，输入字典
         """
-        run = SwanLabRun(run_config={
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        })
+        run = SwanLabRun(
+            run_config={
+                "a": 1,
+                "b": "mnist",
+                "c/d": [1, 2, 3],
+                "e/f/h": {"a": 1, "b": {"c": 2}},
+            }
+        )
         config = run.config
         _config = get_config()
         assert config["a"] == _config["a"] == 1
@@ -310,12 +313,16 @@ class TestSwanLabConfigWithRun:
         """
         正常流程，输入OmegaConf
         """
-        run = SwanLabRun(run_config=omegaconf.OmegaConf.create({
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }))
+        run = SwanLabRun(
+            run_config=omegaconf.OmegaConf.create(
+                {
+                    "a": 1,
+                    "b": "mnist",
+                    "c/d": [1, 2, 3],
+                    "e/f/h": {"a": 1, "b": {"c": 2}},
+                }
+            )
+        )
         config = run.config
         _config = get_config()
         assert config["a"] == _config["a"] == 1
@@ -337,12 +344,16 @@ class TestSwanLabConfigWithRun:
         """
         正常流程，输入SwanLabConfig
         """
-        run = SwanLabRun(run_config=SwanLabConfig({
-            "a": 1,
-            "b": "mnist",
-            "c": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        }))
+        run = SwanLabRun(
+            run_config=SwanLabConfig(
+                {
+                    "a": 1,
+                    "b": "mnist",
+                    "c": [1, 2, 3],
+                    "e/f/h": {"a": 1, "b": {"c": 2}},
+                }
+            )
+        )
         config = run.config
         _config = get_config()
         assert config["a"] == _config["a"] == 1
@@ -353,14 +364,27 @@ class TestSwanLabConfigWithRun:
         """
         测试在finish之后config的变化
         """
-        run = SwanLabRun(run_config={
-            "a": 1,
-            "b": "mnist",
-            "c/d": [1, 2, 3],
-            "e/f/h": {"a": 1, "b": {"c": 2}},
-        })
+        run = SwanLabRun(
+            run_config={
+                "a": 1,
+                "b": "mnist",
+                "c/d": [1, 2, 3],
+                "e/f/h": {"a": 1, "b": {"c": 2}},
+            }
+        )
         run.finish()
         config = run.config
         _config = get_config()
         assert len(config) == 4
         assert len(_config) == 0
+
+    def test_error_config_input(self):
+        """
+        测试错误的输入
+        """
+        with pytest.raises(TypeError):
+            SwanLabRun(run_config=1)
+        with pytest.raises(TypeError):
+            SwanLabRun(run_config="1")
+        with pytest.raises(TypeError):
+            SwanLabRun(run_config=[1, 2, 3])

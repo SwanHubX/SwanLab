@@ -88,20 +88,19 @@ def parse(config) -> dict:
     """
     if config is None:
         return {}
+
     # 1. 第三方配置类型判断与转换
     try:
         return third_party_config_process(config)
     except TypeError:
         pass
+
     # 2. 将config转换为可被json序列化的字典
     try:
-        _config_json = json_serializable(config)
-        if isinstance(_config_json, dict):
-            return _config_json
-        else:
-            raise TypeError(f"config: {config} is not a json serialized dict")
+        return json_serializable(config)
     except TypeError:  # noqa
         pass
+
     # 3. 尝试序列化，序列化成功直接返回
     try:
         return json.loads(json.dumps(config))
