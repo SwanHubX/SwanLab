@@ -50,7 +50,11 @@ def json_serializable(obj):
     # 对于可变映射，递归调用此函数处理值，并将key转换为字典
     elif isinstance(obj, MutableMapping):
         return {str(key): json_serializable(value) for key, value in obj.items()}
-    raise TypeError(f"Object {obj} is not JSON serializable")
+
+    try:
+        return str(obj)
+    except Exception:
+        raise TypeError(f"Object: {obj} is not JSON serializable")
 
 
 def third_party_config_process(data) -> dict:
@@ -84,16 +88,19 @@ def parse(config) -> dict:
     """
     if config is None:
         return {}
+
     # 1. 第三方配置类型判断与转换
     try:
         return third_party_config_process(config)
     except TypeError:
         pass
+
     # 2. 将config转换为可被json序列化的字典
     try:
         return json_serializable(config)
     except TypeError:  # noqa
         pass
+
     # 3. 尝试序列化，序列化成功直接返回
     try:
         return json.loads(json.dumps(config))

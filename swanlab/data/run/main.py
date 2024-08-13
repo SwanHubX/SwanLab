@@ -42,15 +42,15 @@ class SwanLabRun:
     """
 
     def __init__(
-            self,
-            project_name: str = None,
-            experiment_name: str = None,
-            description: str = None,
-            run_config=None,
-            log_level: str = None,
-            suffix: str = None,
-            exp_num: int = None,
-            operator: SwanLabRunOperator = SwanLabRunOperator(),
+        self,
+        project_name: str = None,
+        experiment_name: str = None,
+        description: str = None,
+        run_config=None,
+        log_level: str = None,
+        suffix: str = None,
+        exp_num: int = None,
+        operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -86,7 +86,7 @@ class SwanLabRun:
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2 ** 32 - 1))[2:].zfill(8)
+        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
@@ -101,6 +101,11 @@ class SwanLabRun:
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.level = self.__check_log_level(log_level)
         # ---------------------------------- 初始化配置 ----------------------------------
+        # 如果config是以下几个类别之一，则抛出异常
+        if isinstance(run_config, (int, float, str, bool, list, tuple, set)):
+            raise TypeError(
+                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict (Surpport type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+            )
         global config
         config.update(run_config)
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
@@ -123,10 +128,11 @@ class SwanLabRun:
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
         # 系统信息采集
-        self.__operator.on_runtime_info_update(RuntimeInfo(
-            requirements=get_requirements(),
-            metadata=get_system_info(get_package_version(), self.settings.log_dir)
-        ))
+        self.__operator.on_runtime_info_update(
+            RuntimeInfo(
+                requirements=get_requirements(), metadata=get_system_info(get_package_version(), self.settings.log_dir)
+            )
+        )
 
     @property
     def operator(self) -> SwanLabRunOperator:
@@ -302,10 +308,10 @@ class SwanLabRun:
                 v = DataWrapper(k, [v])
             # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
             elif (
-                    isinstance(v, list)
-                    and len(v) > 0
-                    and all([isinstance(i, (Line, MediaType)) for i in v])
-                    and all([i.__class__ == v[0].__class__ for i in v])
+                isinstance(v, list)
+                and len(v) > 0
+                and all([isinstance(i, (Line, MediaType)) for i in v])
+                and all([i.__class__ == v[0].__class__ for i in v])
             ):
                 v = DataWrapper(k, v)
             else:
@@ -323,11 +329,11 @@ class SwanLabRun:
         return self.__run_id
 
     def __register_exp(
-            self,
-            experiment_name: str,
-            description: str = None,
-            suffix: str = None,
-            num: int = None,
+        self,
+        experiment_name: str,
+        description: str = None,
+        suffix: str = None,
+        num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
