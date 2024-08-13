@@ -388,3 +388,7 @@ class TestSwanLabConfigWithRun:
             SwanLabRun(run_config="1")
         with pytest.raises(TypeError):
             SwanLabRun(run_config=[1, 2, 3])
+        with pytest.raises(TypeError):
+            SwanLabRun(run_config=(1, 2, 3))
+        with pytest.raises(TypeError):
+            SwanLabRun(run_config=True)
