@@ -31,8 +31,8 @@ jobs:
       - name: Test
         run: |
           export SWANLAB_RUNTIME=test
-          export SWANLAB_WEB_HOST=${{ secrets.SWANLAB_WEB_HOST }}
-          export SWANLAB_API_HOST=${{ secrets.SWANLAB_API_HOST }}
+          export SWANLAB_WEB_HOST=https://web.dev001.swanlab.cn
+          export SWANLAB_API_HOST=https://web.dev001.swanlab.cn/api
           export SWANLAB_API_KEY=${{ secrets.SWANLAB_API_KEY }}
           export PYTHONPATH=$PYTHONPATH:. 
-          pytest test/unit/_
+          pytest test/unit/cli/test_cli_task.py

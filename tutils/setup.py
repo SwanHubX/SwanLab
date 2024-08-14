@@ -93,8 +93,9 @@ class UseMocker(requests_mock.Mocker):
     使用request_mock库进行mock测试，由于现在绝大部分请求都在get_host_api上，所以封装一层
     """
 
-    def __init__(self, base_url=get_host_api()):
+    def __init__(self, base_url: str = None):
         super().__init__()
+        base_url = base_url or get_host_api()
         self.base_url = base_url
 
     def get(self, router, *args, **kwargs):
