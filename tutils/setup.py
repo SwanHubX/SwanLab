@@ -46,7 +46,7 @@ def mock_login_info(
             m.post(f"{get_host_api()}/login/api_key", status_code=status_code, reason=error_reason)
         else:
             expired_at = datetime.now().isoformat()
-            # 过期时间为当前时间加8天
+            # 过期时间为当前时间加8天，主要是时区问题，所以不能7天以内
             expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=8)).isoformat() + 'Z'
             m.post(f"{get_host_api()}/login/api_key", json={
                 "sid": nanoid.generate(),
