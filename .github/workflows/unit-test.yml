@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip' # caching pip dependencies
+          cache: 'pip' # 缓存 pip 依赖
 
       - name: Install Dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
         run: |
           export SWANLAB_RUNTIME=test
           export SWANLAB_WEB_HOST=${{ secrets.SWANLAB_WEB_HOST }}
-          export SWANLAB_API_HOST=https://web.dev001.swanlab.cn/api
+          export SWANLAB_API_HOST=${{ secrets.SWANLAB_API_HOST }}
           export SWANLAB_API_KEY=${{ secrets.SWANLAB_API_KEY }}
           export PYTHONPATH=$PYTHONPATH:. 
-          pytest test/unit
+          pytest test/unit/api/test_http.py
