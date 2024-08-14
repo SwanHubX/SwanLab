@@ -12,12 +12,6 @@ jobs:
       matrix:
         python-version: ["3.10"]
 
-    env:
-      SWANLAB_RUNTIME: "test"
-      SWANLAB_WEB_HOST: ""
-      SWANLAB_API_HOST: ""
-      SWANLAB_API_KEY: ""
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,5 +28,9 @@ jobs:
 
       - name: Test
         run: |
+          export SWANLAB_RUNTIME="test"
+          export SWANLAB_WEB_HOST=""
+          export SWANLAB_API_HOST=""
+          export SWANLAB_API_KEY=""
           export PYTHONPATH=$PYTHONPATH:. 
           pytest test/unit
