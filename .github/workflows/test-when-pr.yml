@@ -32,8 +32,9 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Test
+        # 部分环境变量没有用到，不过后续可能会用到，所以先保留
         run: |
-          export SWANLAB_RUNTIME=test
+          export SWANLAB_RUNTIME=cloud-test
           export SWANLAB_WEB_HOST=${{ secrets.SWANLAB_WEB_HOST }}
           export SWANLAB_API_HOST=${{ secrets.SWANLAB_API_HOST }}
           export SWANLAB_API_KEY=${{ secrets.SWANLAB_API_KEY }}
