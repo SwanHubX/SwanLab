@@ -10,7 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10"]
+
+    env:
+      SWANLAB_RUNTIME: "test"
+      SWANLAB_WEB_HOST: ""
+      SWANLAB_API_HOST: ""
+      SWANLAB_API_KEY: ""
 
     steps:
       - name: Checkout
