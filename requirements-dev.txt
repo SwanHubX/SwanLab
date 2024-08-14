@@ -10,4 +10,4 @@ torchvision
 python-dotenv
 freezegun
 build
-requests-mock
+requests-mock==1.12.1
