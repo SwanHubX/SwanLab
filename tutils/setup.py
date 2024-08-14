@@ -46,10 +46,10 @@ def mock_login_info(
             m.post(f"{get_host_api()}/login/api_key", status_code=status_code, reason=error_reason)
         else:
             expired_at = datetime.now().isoformat()
-            expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=7)).isoformat() + 'Z'
+            # 过期时间为当前时间加8天
+            expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=8)).isoformat() + 'Z'
             m.post(f"{get_host_api()}/login/api_key", json={
                 "sid": nanoid.generate(),
-                # 时间为当前时间加7天
                 "expiredAt": expired_at,
                 "userInfo": {
                     "username": username
