@@ -10,4 +10,5 @@ torchvision
 python-dotenv
 freezegun
 build
-requests-mock
+responses
+requests-mock==1.12.1 # 不太好用，即将删除

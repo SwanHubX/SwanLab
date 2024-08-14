@@ -46,10 +46,10 @@ def mock_login_info(
             m.post(f"{get_host_api()}/login/api_key", status_code=status_code, reason=error_reason)
         else:
             expired_at = datetime.now().isoformat()
-            expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=7)).isoformat() + 'Z'
+            # 过期时间为当前时间加8天，主要是时区问题，所以不能7天以内
+            expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=8)).isoformat() + 'Z'
             m.post(f"{get_host_api()}/login/api_key", json={
                 "sid": nanoid.generate(),
-                # 时间为当前时间加7天
                 "expiredAt": expired_at,
                 "userInfo": {
                     "username": username
@@ -62,7 +62,7 @@ def mock_login_info(
 
 class UseSetupHttp:
     """
-    用于全局使用的http对象
+    用于全局使用的http对象，模拟登录，退出时重置http
     使用with关键字，自动登录，退出时自动重置http
     也可以使用del手动释放
     """
@@ -93,8 +93,9 @@ class UseMocker(requests_mock.Mocker):
     使用request_mock库进行mock测试，由于现在绝大部分请求都在get_host_api上，所以封装一层
     """
 
-    def __init__(self, base_url=get_host_api()):
+    def __init__(self, base_url: str = None):
         super().__init__()
+        base_url = base_url or get_host_api()
         self.base_url = base_url
 
     def get(self, router, *args, **kwargs):
