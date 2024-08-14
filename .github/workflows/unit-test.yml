@@ -35,4 +35,4 @@ jobs:
           export SWANLAB_API_HOST=${{ secrets.SWANLAB_API_HOST }}
           export SWANLAB_API_KEY=${{ secrets.SWANLAB_API_KEY }}
           export PYTHONPATH=$PYTHONPATH:. 
-          pytest test/unit/api/test_http.py
+          pytest test/unit/_
