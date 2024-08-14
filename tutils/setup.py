@@ -62,7 +62,7 @@ def mock_login_info(
 
 class UseSetupHttp:
     """
-    用于全局使用的http对象
+    用于全局使用的http对象，模拟登录，退出时重置http
     使用with关键字，自动登录，退出时自动重置http
     也可以使用del手动释放
     """

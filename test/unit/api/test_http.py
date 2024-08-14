@@ -9,7 +9,6 @@ r"""
     开发环境下存储凭证过期时间为3s
 """
 import os
-import time
 import nanoid
 from swanlab.api.http import create_http, HTTP, CosClient
 from swanlab.api.auth.login import login_by_key
@@ -17,6 +16,8 @@ from swanlab.data.modules import MediaBuffer
 from tutils import API_KEY, TEMP_PATH, is_skip_cloud_test
 from tutils.setup import UseMocker, UseSetupHttp
 import pytest
+import responses
+from responses import registries
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
@@ -30,6 +31,26 @@ def test_decode_response():
             assert data == {"test": "test"}
             data = http.post("/text")
             assert data == "test"
+
+
+@responses.activate(registry=registries.OrderedRegistry)
+def test_retry():
+    """
+    测试重试机制
+    """
+    from swanlab.package import get_host_api
+    url = get_host_api() + "/retry"
+    rsp1 = responses.get(url, body="Error", status=500)
+    rsp2 = responses.get(url, body="Error", status=500)
+    rsp3 = responses.get(url, body="Error", status=500)
+    rsp4 = responses.get(url, body="OK", status=200)
+    with UseSetupHttp() as http:
+        data = http.get("/retry")
+        assert data == "OK"
+        assert rsp1.call_count == 1
+        assert rsp2.call_count == 1
+        assert rsp3.call_count == 1
+        assert rsp4.call_count == 1
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")

@@ -18,6 +18,8 @@ from swanlab.package import get_host_api, get_package_version
 from swankit.log import FONT
 from swanlab.log import swanlog
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 
 
@@ -118,8 +120,18 @@ class HTTP:
     def __create_session(self):
         """
         创建会话，这将在HTTP类实例化时调用
+        添加了重试策略
         """
         session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=0.1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+
         session.headers["swanlab-sdk"] = self.__version
         session.cookies.update({"sid": self.__login_info.sid})
 

@@ -13,8 +13,6 @@ import tutils.setup as SU
 
 
 def test_use_task_http_ok():
-    from swanlab.package import get_host_api
-    print(get_host_api())
     with SU.UseMocker() as m:
         m.post("/test", text="mock")
         with SU.UseSetupHttp():
