@@ -15,27 +15,35 @@ import os
 import sys
 import socket
 
-def get_free_port(address='0.0.0.0')->int:
+
+def get_free_port(address='0.0.0.0', default_port=5092) -> int:
     """
     获取一个可用端口
+    NOTE: 默认情况下，返回5092端口，如果端口被占用，返回一个随机可用端口
+    WARNING: 不能保证独占,极稀有情况下两个程序占用到此端口
     ---
     Args:
         address: 主机(host)地址
+        default_port: 默认端口号
 
     Return:
         port: 一个可用端口
-        
-    NOTE: 如果获取失败,则返回5092
-    WARNING: 不能保证独占,极稀有情况下两个程序占用到此端口
     """
+    # 判断是否占用
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((address, default_port))
+        except OSError:
+            pass
+        else:
+            return default_port
+    # 如果占用就返回一个随机可用端口
     sock = socket.socket()
-    try:
-        sock.bind((address, 0))
-        ip, port = sock.getsockname()
-        sock.close()
-    except IndexError as error:
-        return 5092
+    sock.bind((address, 0))
+    ip, port = sock.getsockname()
+    sock.close()
     return port
+
 
 @click.command()
 @click.argument(
@@ -65,7 +73,7 @@ def get_free_port(address='0.0.0.0')->int:
     default=lambda: os.environ.get(SwanLabEnv.SWANBOARD_PROT.value, get_free_port()),
     nargs=1,
     type=click.IntRange(1, 65535),
-    help="The port of swanlab web, If None, the available ports are automatically searched",
+    help="The port of swanlab web, default by 5092",
 )
 @click.option(
     "--logdir",
