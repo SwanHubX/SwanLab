@@ -75,12 +75,16 @@ def test_get_experiment_url():
 # ---------------------------------- 登录部分 ----------------------------------
 
 class TestGetKey:
+    @staticmethod
+    def remove_env_key():
+        if SwanLabEnv.API_KEY.value in os.environ:
+            del os.environ[SwanLabEnv.API_KEY.value]
 
     def test_ok(self):
         """
         获取key成功
         """
-        del os.environ[SwanLabEnv.API_KEY.value]
+        self.remove_env_key()
         # 首先需要登录
         file = os.path.join(get_save_dir(), ".netrc")
         with open(file, "w"):
@@ -96,7 +100,7 @@ class TestGetKey:
         """
         文件不存在
         """
-        del os.environ[SwanLabEnv.API_KEY.value]
+        self.remove_env_key()
         from swanlab.error import KeyFileError
         with pytest.raises(KeyFileError) as e:
             P.get_key()
