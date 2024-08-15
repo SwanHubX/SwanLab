@@ -81,7 +81,7 @@ class LoginInfo:
             return "Error api key"
         if self.__resp.reason == "Forbidden":
             return "You need to be verified first"
-        return self.__resp.reason
+        return str(self.__resp.status_code) + " " + self.__resp.reason
 
     def save(self):
         """

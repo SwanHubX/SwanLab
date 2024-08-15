@@ -70,17 +70,17 @@ def login(api_key: str = None):
 
 
 def init(
-        project: str = None,
-        workspace: str = None,
-        experiment_name: str = None,
-        description: str = None,
-        config: Union[dict, str] = None,
-        logdir: str = None,
-        suffix: Union[str, None, bool] = "default",
-        mode: Literal["disabled", "cloud", "local"] = None,
-        load: str = None,
-        public: bool = None,
-        **kwargs,
+    project: str = None,
+    workspace: str = None,
+    experiment_name: str = None,
+    description: str = None,
+    config: Union[dict, str] = None,
+    logdir: str = None,
+    suffix: Union[str, None, bool] = "default",
+    mode: Literal["disabled", "cloud", "local"] = None,
+    load: str = None,
+    public: bool = None,
+    **kwargs,
 ) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
