@@ -70,7 +70,7 @@ class U:
         """
         swanlog.info(
             "🌟 Run `"
-            + FONT.bold("swanlab watch -l {}".format(self.fmt_windows_path(self.settings.swanlog_dir)))
+            + FONT.bold("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)))
             + "` to view SwanLab Experiment Dashboard locally"
         )
 
