@@ -70,7 +70,7 @@
       "name": "构建项目",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/build_pypi.py",
+      "program": "${workspaceFolder}/script/build_pypi.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}"
