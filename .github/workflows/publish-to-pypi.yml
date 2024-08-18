@@ -18,6 +18,10 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Checkout Version
+        run: |
+          export VERSION=$(echo $GITHUB_REF | sed -n 's/refs\/tags\/v//p')
+
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
@@ -30,14 +34,17 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
         run: |
-          python -m build
-          python -m twine upload dist/*
+          python -m build_pypi.py
+      #          python -m twine upload dist/*
 
-      # - run: cp dist/*.whl .
-      # - name: Release
-      #   uses: softprops/action-gh-release@v1
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   with:
-      #     body: ${{ github.event.head_commit.message }}
-      #     files: |
-      #       *.whl
+      - run: cp dist/*.whl .
+
+      - run: cat swanlab/package.json
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: ${{ github.event.head_commit.message }}
+          files: |
+            *.whl
