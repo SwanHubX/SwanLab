@@ -23,7 +23,9 @@ if not version:
 with open("swanlab/package.json", 'r+') as f:
     p = json.load(f)
     p["version"] = version
+    f.seek(0)
     json.dump(p, f, indent=4)
+    f.truncate()
 
 # 构建python项目
 subprocess.run("python -m build", shell=True)
