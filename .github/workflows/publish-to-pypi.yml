@@ -34,7 +34,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
         run: |
-          python -m script/build_pypi.py
+          python script/build_pypi.py
       #          python -m twine upload dist/*
 
       - run: cp dist/*.whl .
