@@ -20,7 +20,7 @@ jobs:
 
       - name: Checkout Version
         run: |
-          export VERSION=$(echo $GITHUB_REF | sed -n 's/refs\/tags\/v//p')
+          echo "VERSION=$(echo $GITHUB_REF | sed -n 's/refs\/tags\/v//p')" >> $GITHUB_ENV
 
       - name: Install Dependencies
         run: |
