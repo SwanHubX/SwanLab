@@ -13,14 +13,14 @@ import json
 import os
 
 # 如果dist文件夹存在则删除
-if os.path.exists("dist"):
-    shutil.rmtree("dist")
+if os.path.exists("../dist"):
+    shutil.rmtree("../dist")
 
 # 设置版本号
 version = os.getenv("VERSION")
 if not version:
     raise ValueError("尚未指定构建版本号")
-with open("swanlab/package.json", 'r+') as f:
+with open("../swanlab/package.json", 'r+') as f:
     p = json.load(f)
     p["version"] = version
     json.dump(p, f, indent=4)
