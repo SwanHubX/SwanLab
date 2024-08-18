@@ -35,11 +35,9 @@ jobs:
 
         run: |
           python script/build_pypi.py
-      #          python -m twine upload dist/*
+          python -m twine upload dist/*
 
       - run: cp dist/*.whl .
-
-      - run: cat swanlab/package.json
 
       - name: Release
         uses: softprops/action-gh-release@v2
