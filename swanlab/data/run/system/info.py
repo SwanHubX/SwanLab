@@ -98,7 +98,11 @@ def __get_nvidia_gpu_info():
 
     try:
         # 获取 NVIDIA 驱动版本信息
-        info["driver"] = pynvml.nvmlSystemGetDriverVersion()
+        nv_driver = pynvml.nvmlSystemGetDriverVersion()
+        if isinstance(nv_driver, bytes):
+            nv_driver = nv_driver.decode("utf-8")
+        info["driver"] = nv_driver
+
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
         # 遍历每个 GPU，获取 GPU 信息

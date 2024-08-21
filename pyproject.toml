@@ -109,3 +109,5 @@ ignore = []
 # black配置，与构建无关
 [tool.black]
 line-length = 120
+skip-string-normalization = true
+
