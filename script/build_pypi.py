@@ -20,7 +20,7 @@ if os.path.exists("../dist"):
 version = os.getenv("VERSION")
 if not version:
     raise ValueError("尚未指定构建版本号")
-with open("swanlab/package.json", 'r+') as f:
+with open("swanlab/package.json", "r+") as f:
     p = json.load(f)
     p["version"] = version
     f.seek(0)
