@@ -96,7 +96,7 @@ def __get_cpu_info():
         try:
             # 使用 WMIC 命令获取 CPU 品牌
             result = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True)
-            cpu_brand = result.stdout.strip().split("\n")[1].strip()
+            cpu_brand = result.stdout.strip().split("\n")[-1].strip()
             return cpu_brand
         except Exception as e:
             return None
