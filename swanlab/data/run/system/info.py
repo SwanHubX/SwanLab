@@ -90,7 +90,7 @@ def __get_git_branch_and_commit():
 
 def __get_cpu_info():
     """获取 CPU 信息"""
-    info = {"brand": None}
+    info = {"brand": None, "cores": None}
 
     def get_cpu_brand_windows():
         try:
@@ -129,6 +129,12 @@ def __get_cpu_info():
         info["brand"] = get_cpu_brand_linux()
     elif platform.system() == "Darwin":
         info["brand"] = get_cpu_brand_macos()
+
+    try:
+        # 获取 CPU 核心数
+        info["cores"] = multiprocessing.cpu_count()
+    except Exception:
+        pass
 
     return info
 
@@ -307,7 +313,6 @@ def get_system_info(version: str, logdir: str):
         "python_verbose": sys.version,  # python详细版本
         "executable": sys.executable,  # python 解释器路径
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
-        "cpu": multiprocessing.cpu_count(),  # cpu 核心数
         "cpu_info": __get_cpu_info(),  # cpu 相关信息
         "gpu": __get_gpu_info(),  # gpu 相关信息
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commit 信息
