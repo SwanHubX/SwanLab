@@ -88,6 +88,57 @@ def __get_git_branch_and_commit():
         return None, None
 
 
+def __get_cpu_info():
+    """获取 CPU 信息"""
+    info = {"brand": None, "cores": None}
+
+    def get_cpu_brand_windows():
+        try:
+            # 使用 WMIC 命令获取 CPU 品牌
+            result = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True)
+            cpu_brand = result.stdout.strip().split("\n")[-1].strip()
+            return cpu_brand
+        except Exception as e:
+            return None
+
+    def get_cpu_brand_linux():
+        try:
+            # 使用 lscpu 命令获取 CPU 品牌
+            result = subprocess.run(["lscpu"], capture_output=True, text=True)
+            for line in result.stdout.split("\n"):
+                if "Model name:" in line:
+                    cpu_brand = line.split(":")[1].strip()
+                    return cpu_brand
+            return "无法获取 CPU 品牌"
+        except Exception as e:
+            return None
+
+    def get_cpu_brand_macos():
+        try:
+            # 使用 sysctl 命令获取 CPU 品牌
+            result = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True)
+            cpu_brand = result.stdout.strip()
+            return cpu_brand
+        except Exception as e:
+            return None
+
+    # 获取 CPU 品牌, 根据不同操作系统调用不同的函数
+    if platform.system() == "Windows":
+        info["brand"] = get_cpu_brand_windows()
+    elif platform.system() == "Linux":
+        info["brand"] = get_cpu_brand_linux()
+    elif platform.system() == "Darwin":
+        info["brand"] = get_cpu_brand_macos()
+
+    try:
+        # 获取 CPU 核心数
+        info["cores"] = multiprocessing.cpu_count()
+    except Exception:
+        pass
+
+    return info
+
+
 def __get_nvidia_gpu_info():
     """获取 GPU 信息"""
     info = {"driver": None, "cores": None, "type": [], "memory": []}
@@ -258,15 +309,15 @@ def get_system_info(version: str, logdir: str):
         "swanlab": {"version": version, "logdir": logdir},  # swanlab 版本号和日志目录
         "hostname": socket.gethostname(),  # 主机名
         "os": platform.platform(),  # 操作系统
+        "command": __get_command(),  # 完整命令行信息
+        "cpu": __get_cpu_info(),  # cpu 相关信息
+        "gpu": __get_gpu_info(),  # gpu 相关信息
+        "memory": __get_memory_size(),  # 内存大小
+        "cwd": __get_cwd(),  # 当前工作目录路径
+        "pid": os.getpid(),  # 当前进程ID
         "python": platform.python_version(),  # python版本
         "python_verbose": sys.version,  # python详细版本
         "executable": sys.executable,  # python 解释器路径
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
-        "cpu": multiprocessing.cpu_count(),  # cpu 核心数
-        "gpu": __get_gpu_info(),  # gpu 相关信息
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commit 信息
-        "command": __get_command(),  # 完整命令行信息
-        "memory": __get_memory_size(),  # 内存大小
-        "cwd": __get_cwd(),  # 当前工作目录路径
-        "pid": os.getpid(),  # 当前进程ID
     }
