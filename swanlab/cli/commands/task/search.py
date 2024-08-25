@@ -8,7 +8,8 @@ r"""
     根据cuid获取任务详情
 """
 import click
-from .utils import TaskModel, login_init_sid, UseTaskHttp
+from .utils import TaskModel, login_init_sid
+from ..utils import UseTaskHttp
 from rich.syntax import Console, Syntax
 from swanlab.error import ApiError
 

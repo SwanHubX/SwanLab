@@ -8,7 +8,8 @@ r"""
     打包、上传、开启任务
 """
 import click
-from .utils import login_init_sid, UseTaskHttp
+from .utils import login_init_sid
+from ..utils import UseTaskHttp
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
 from swanlab.error import ApiError

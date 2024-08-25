@@ -8,7 +8,8 @@ r"""
     停止任务
 """
 import click
-from .utils import login_init_sid, UseTaskHttp, validate_six_char_string
+from .utils import login_init_sid, validate_six_char_string
+from ..utils import UseTaskHttp
 from swanlab.error import ApiError
 
 

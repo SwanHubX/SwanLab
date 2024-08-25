@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2024/7/27 14:51
-@File: test_cli_task.py
+@DATE: 2024/8/22 14:30
+@File: test_cli_utils.py
 @IDE: pycharm
 @Description:
-    测试cli/task
+    测试cli相关工具函数
 """
 import pytest
-from swanlab.cli.commands.task.utils import UseTaskHttp
+from cli.commands.utils import UseTaskHttp
 import tutils.setup as SU
 
 

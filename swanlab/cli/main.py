@@ -35,5 +35,8 @@ cli.add_command(C.convert)  # 转换命令，用于转换其他实验跟踪工�
 # noinspection PyTypeChecker
 cli.add_command(C.task)  # 任务式作业
 
+# noinspection PyTypeChecker
+cli.add_command(C.launch)  # 启动任务
+
 if __name__ == "__main__":
     cli()

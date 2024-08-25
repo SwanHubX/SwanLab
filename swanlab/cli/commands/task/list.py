@@ -15,7 +15,8 @@ from datetime import datetime
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from .utils import TaskModel, UseTaskHttp, login_init_sid
+from .utils import TaskModel, login_init_sid
+from ..utils import UseTaskHttp
 
 
 @click.command()
