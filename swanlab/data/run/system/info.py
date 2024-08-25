@@ -309,15 +309,15 @@ def get_system_info(version: str, logdir: str):
         "swanlab": {"version": version, "logdir": logdir},  # swanlab 版本号和日志目录
         "hostname": socket.gethostname(),  # 主机名
         "os": platform.platform(),  # 操作系统
+        "command": __get_command(),  # 完整命令行信息
+        "cpu": __get_cpu_info(),  # cpu 相关信息
+        "gpu": __get_gpu_info(),  # gpu 相关信息
+        "memory": __get_memory_size(),  # 内存大小
+        "cwd": __get_cwd(),  # 当前工作目录路径
+        "pid": os.getpid(),  # 当前进程ID
         "python": platform.python_version(),  # python版本
         "python_verbose": sys.version,  # python详细版本
         "executable": sys.executable,  # python 解释器路径
         "git_remote": __get_remote_url(),  # 获取远程仓库的链接
-        "cpu_info": __get_cpu_info(),  # cpu 相关信息
-        "gpu": __get_gpu_info(),  # gpu 相关信息
         "git_info": __get_git_branch_and_commit(),  # git 分支和最新 commit 信息
-        "command": __get_command(),  # 完整命令行信息
-        "memory": __get_memory_size(),  # 内存大小
-        "cwd": __get_cwd(),  # 当前工作目录路径
-        "pid": os.getpid(),  # 当前进程ID
     }
