@@ -6,6 +6,7 @@ r"""
 @IDE: pycharm
 @Description:
     测试启动
+    主要是配置文件的解析
 """
 from swanlab.cli.commands import launcher as L
 import tutils as T
@@ -40,7 +41,7 @@ class TestParse:
         }
         with pytest.raises(click.UsageError) as e:
             L.parse(config, '')
-        assert str(e.value) == 'Unknown kind: 12345'
+        assert str(e.value) == 'Unknown kind: folder'
 
     def test_get_folder_v1(self):
         """
@@ -102,7 +103,7 @@ class TestFolderParserMetadata:
 
     def test_no_combo(self):
         """
-        测试没有desc
+        测试没有combo
         """
         config = {
             'apiVersion': 'swanlab/v1',
@@ -111,10 +112,9 @@ class TestFolderParserMetadata:
                 'name': 'test',
             },
         }
-        with pytest.raises(click.BadParameter) as e:
-            parser = L.parse(config, '')
-            parser.parse()
-        assert str(e.value) == 'metadata.combo should not be None'
+        parser = L.parse(config, '')
+        parser.parse_metadata(config['metadata'])
+        assert parser.metadata['combo'] == None  # noqa
 
     def test_no_desc(self):
         """
@@ -204,7 +204,7 @@ class TestFolderParserSpec:
         }
         parser = L.parse(config, f)
         parser.parse()
-        assert parser.spec['python'] == '3.8'  # noqa
+        assert parser.spec['python'] == 'python3.8'  # noqa
 
     def test_error_python(self):
         f = self.mock_entry()
@@ -237,7 +237,7 @@ class TestFolderParserSpec:
         }
         parser = L.parse(config, f)
         parser.parse()
-        assert parser.spec['python'] == '3.10'  # noqa
+        assert parser.spec['python'] == 'python3.10'  # noqa
 
     def test_no_entry(self):
         """
@@ -294,7 +294,6 @@ class TestFolderParserSpec:
         with pytest.raises(click.FileError) as e:
             parser = L.parse(config, f)
             parser.parse()
-        a = str(e.value)
         assert str(e.value) == f'spec.entry should be a file: {os.path.join(T.TEMP_PATH, err_entry)}'
 
     def test_volumes(self):
@@ -318,6 +317,41 @@ class TestFolderParserSpec:
             parser = L.parse(config, f)
             parser.parse()
         assert str(e.value) == 'Only one volume is supported'
+        config['spec']['volumes'] = [{'id': 'test'}]  # noqa
+        parser = L.parse(config, f)
+        parser.parse()
+        assert parser.spec['volumes'] == [{'id': 'test'}]  # noqa
+        config['spec']['volumes'] = [{'name': 'test'}]  # noqa
+        with pytest.raises(click.BadParameter) as e:
+            parser = L.parse(config, f)
+            parser.parse()
+        assert str(e.value) == 'volume.id should not be None'
+
+    def test_error_volumes_type(self):
+        f = self.mock_entry()
+        config = {
+            'apiVersion': 'swanlab/v1',
+            'kind': 'Folder',
+            "metadata": {"name": "test", "desc": "test", "combo": "test"},
+            'spec': {
+                'entry': 'train.py',
+                'volumes': 'test',
+            },
+        }
+        with pytest.raises(click.BadParameter) as e:
+            parser = L.parse(config, f)
+            parser.parse()
+        assert str(e.value) == 'spec.volumes should be <class \'list\'>, not <class \'str\'>'
+        config['spec']['volumes'] = [{'name': 'test', 'id': 123}]  # noqa
+        with pytest.raises(click.BadParameter) as e:
+            parser = L.parse(config, f)
+            parser.parse()
+        assert str(e.value) == 'volume.id should be <class \'str\'>, not <class \'int\'>'
+        config['spec']['volumes'] = [{'name': 'test', 'id': 'test', 'error': 1}]  # noqa
+        with pytest.raises(click.BadParameter) as e:
+            parser = L.parse(config, f)
+            parser.parse()
+        assert str(e.value) == 'Unknown key: volume.error'
 
     def test_exclude(self):
         f = self.mock_entry()

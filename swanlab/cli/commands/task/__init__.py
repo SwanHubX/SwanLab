@@ -8,7 +8,6 @@ r"""
     启动！
     beta版
 """
-from .launch import launch
 from .list import list
 from .search import search
 from .stop import stop
@@ -25,8 +24,6 @@ def task():
     pass
 
 
-# noinspection PyTypeChecker
-task.add_command(launch)
 # noinspection PyTypeChecker
 task.add_command(list)
 # noinspection PyTypeChecker

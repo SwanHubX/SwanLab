@@ -15,8 +15,8 @@ from datetime import datetime
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from .utils import TaskModel, login_init_sid
-from ..utils import UseTaskHttp
+from .utils import TaskModel
+from swanlab.cli.utils import login_init_sid, UseTaskHttp
 
 
 @click.command()
@@ -140,18 +140,9 @@ class ListTaskLayout:
         self.add_event(f"👏Welcome, [b]{ltm.username}[/b].")
         self.add_event("⌛️Task board is loading...")
         self.layout = Layout()
-        self.layout.split(
-            Layout(name="header", size=3),
-            Layout(name="main")
-        )
-        self.layout["main"].split_row(
-            Layout(name="task_table", ratio=16),
-            Layout(name="info_side", ratio=5)
-        )
-        self.layout["info_side"].split_column(
-            Layout(name="queue_info", ratio=1),
-            Layout(name="term_output", ratio=5)
-        )
+        self.layout.split(Layout(name="header", size=3), Layout(name="main"))
+        self.layout["main"].split_row(Layout(name="task_table", ratio=16), Layout(name="info_side", ratio=5))
+        self.layout["info_side"].split_column(Layout(name="queue_info", ratio=1), Layout(name="term_output", ratio=5))
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
         self.layout["queue_info"].update(Panel(aqm.table(), border_style="blue"))
@@ -172,10 +163,7 @@ class ListTaskLayout:
             show_footer=True,
             footer_style="bold",
         )
-        to.add_column(
-            "Log Output",
-            "Run [b][white]swanlab task search [Task ID][/white][/b] to get more task info"
-        )
+        to.add_column("Log Output", "Run [b][white]swanlab task search [Task ID][/white][/b] to get more task info")
         return to
 
     def redraw_term_output(self):

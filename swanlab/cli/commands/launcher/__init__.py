@@ -10,6 +10,7 @@ r"""
 import click
 import yaml
 from .parser import parse
+import os
 
 __all__ = ['launch']
 
@@ -20,24 +21,24 @@ __all__ = ['launch']
     '-f',
     default='swanlab.yml',
     type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
-    help='Designated file to launch'
+    help='Designated file to launch',
 )
 @click.option(
     '--dry-run',
     is_flag=True,
     default=False,
-    help='Execute commands without applying changes, only outputting the operations that would be performed.'
+    help='Execute commands without applying changes, only outputting the operations that would be performed.',
 )
 def launch(file: str, dry_run: bool):
     """
     Launch a task
     """
+    file = os.path.abspath(file)
     config = yaml.safe_load(open(file, 'r'))
     if not isinstance(config, dict):
         raise click.FileError(file, hint='Invalid configuration file')
-    parser = parse(config, file)
-    parser.parse()
+    p = parse(config, file)
+    p.parse()
     if dry_run:
-        return parser.dry_run()
-    parser.run()
-    # 发布任务
+        return p.dry_run()
+    p.run()

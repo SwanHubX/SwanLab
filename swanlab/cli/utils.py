@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2024/8/22 14:27
+@DATE: 2024/8/25 14:33
 @File: utils.py
 @IDE: pycharm
 @Description:
-    
+    一些工具函数
 """
-import sys
 from typing import Optional
-from swanlab.api import get_http
-from swanlab.error import ApiError
 from swanlab.log import swanlog
+from swanlab.package import get_key
+from swanlab.api import terminal_login, create_http, LoginInfo, get_http
+from swanlab.error import KeyFileError, ApiError
+import sys
 
 
 class UseTaskHttp:
@@ -33,3 +34,14 @@ class UseTaskHttp:
                 swanlog.info("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
                 sys.exit(3)
         return False
+
+
+def login_init_sid() -> LoginInfo:
+    key = None
+    try:
+        key = get_key()
+    except KeyFileError:
+        pass
+    login_info = terminal_login(key)
+    create_http(login_info)
+    return login_info

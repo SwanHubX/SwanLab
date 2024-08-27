@@ -7,9 +7,7 @@ r"""
 @Description:
     任务相关工具函数
 """
-from swanlab.package import get_key, get_experiment_url
-from swanlab.api import terminal_login, create_http, LoginInfo
-from swanlab.error import KeyFileError
+from swanlab.package import get_experiment_url
 from datetime import datetime, timedelta
 import click
 import time
@@ -23,17 +21,6 @@ def validate_six_char_string(_, __, value):
     if len(value) != 6:
         raise click.BadParameter('String must be exactly 6 characters long')
     return value
-
-
-def login_init_sid() -> LoginInfo:
-    key = None
-    try:
-        key = get_key()
-    except KeyFileError:
-        pass
-    login_info = terminal_login(key)
-    create_http(login_info)
-    return login_info
 
 
 class TaskModel:

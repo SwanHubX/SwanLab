@@ -8,7 +8,7 @@ r"""
     测试cli相关工具函数
 """
 import pytest
-from cli.commands.utils import UseTaskHttp
+from cli.utils import UseTaskHttp
 import tutils.setup as SU
 
 

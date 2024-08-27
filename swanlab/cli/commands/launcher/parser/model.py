@@ -20,9 +20,9 @@ class LaunchParser(ABC):
         """
         配置文件内容
         """
-        self.path = path
+        self.dirpath = os.path.dirname(path)
         """
-        配置文件路径
+        配置文件所在目录
         """
 
     @staticmethod
@@ -48,7 +48,7 @@ class LaunchParser(ABC):
         :param n: 参数名
         :param p: 文件路径
         """
-        p = os.path.join(os.path.dirname(self.path), p)
+        p = os.path.join(self.dirpath, p)
         if not os.path.exists(p):
             raise click.FileError(p, hint=f'{n} not found: {p}')
         if not os.path.isfile(p):
@@ -122,7 +122,7 @@ class LaunchParser(ABC):
     @abstractmethod
     def run(self):
         """
-        执行在发布任务之前的一系列操作
+        执行具体的操作
         """
         pass
 
