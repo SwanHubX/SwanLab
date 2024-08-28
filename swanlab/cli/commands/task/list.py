@@ -61,7 +61,7 @@ class AskQueueModel:
         )
         qi.add_column("Queue Info", "Queue Info")
         self.ask()
-        qi.add_row(f"📦[b]Task Queuing count: {self.num}[/b]")
+        qi.add_row(f"[b]Task Queuing count: {self.num}[/b]")
         return qi
 
 
@@ -137,8 +137,8 @@ class ListTaskLayout:
 
     def __init__(self, ltm: ListTasksModel, aqm: AskQueueModel):
         self.event = []
-        self.add_event(f"👏Welcome, [b]{ltm.username}[/b].")
-        self.add_event("⌛️Task board is loading...")
+        self.add_event(f"Welcome, [b]{ltm.username}[/b].")
+        self.add_event("Task board is loading...")
         self.layout = Layout()
         self.layout.split(Layout(name="header", size=3), Layout(name="main"))
         self.layout["main"].split_row(Layout(name="task_table", ratio=16), Layout(name="info_side", ratio=5))
@@ -148,7 +148,7 @@ class ListTaskLayout:
         self.layout["queue_info"].update(Panel(aqm.table(), border_style="blue"))
         self.ltm = ltm
         self.aqm = aqm
-        self.add_event("🍺Task board is loaded.")
+        self.add_event("Task board is loaded.")
         self.redraw_term_output()
 
     @property
@@ -190,12 +190,12 @@ class ListTaskLayout:
                 self.layout["header"].update(ListTaskHeader())
                 if time.time() - search_now > 5:
                     search_now = time.time()
-                    self.add_event("🔍Searching for new tasks...")
+                    self.add_event("Searching for new tasks...")
                     self.layout["task_table"].update(Panel(self.ltm.table(), border_style="magenta"))
                     self.redraw_term_output()
                 if time.time() - queue_now > 3:
                     queue_now = time.time()
-                    self.add_event("📦Asking queue info...")
+                    self.add_event("Asking queue info...")
                     self.layout["queue_info"].update(Panel(self.aqm.table(), border_style="blue"))
                     self.redraw_term_output()
                 live.refresh()
