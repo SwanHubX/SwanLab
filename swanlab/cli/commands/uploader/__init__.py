@@ -45,6 +45,8 @@ class FolderProgress:
     def start(self, description: str):
         with self.progress as progress:
             for i in progress.track(range(self.total_size), description=description):
+                if not self.running:
+                    break
                 if self.current > i:
                     continue
                 time.sleep(0.5)
@@ -59,6 +61,9 @@ class FolderProgress:
         self.running = False
 
 
+import random
+
+
 class UploadFolderHandler:
     def __init__(self, uploader: CosUploader, progress: FolderProgress, retry=10):
         self.uploader = uploader
@@ -67,17 +72,13 @@ class UploadFolderHandler:
         self.error = None
 
     def __call__(self, path: str, key: str):
-        if self.error is None:
+        if self.error is not None:
             return
         if self.uploader.should_refresh:
             self.uploader.refresh()
         error = None
         for i in range(self.retry):
             try:
-                import random
-
-                if random.random() < 0.1:
-                    raise Exception("Test")
                 self.uploader.client.upload_file(
                     Bucket=self.uploader.bucket,
                     Key=key,
@@ -93,32 +94,6 @@ class UploadFolderHandler:
         if error is not None:
             self.error = error
             raise error
-
-
-def upload_file(uploader: CosUploader, progress: FolderProgress, path: str, key: str, retry=10):
-    """
-    上传文件
-    :param uploader: 上传器
-    :param path: 本地路径
-    :param progress: 进度条
-    :param key: 上传路径
-    :param retry: 重试次数
-    """
-    # 重试机制
-    error = None
-    # 使用高级接口断点续传，失败重试时不会上传已成功的分块
-    for i in range(retry):
-        try:
-            uploader.client.upload_file(
-                Bucket=uploader.bucket,
-                Key=key,
-                LocalFilePath=path,
-            )
-            return progress.increase()
-        except CosClientError or CosServiceError as e:
-            error = e
-            continue
-    print(f"Upload {path} failed: {error}", file=sys.stderr)
 
 
 @click.command()
@@ -173,7 +148,7 @@ def upload(path, name: str, desc: str):
         progress.stop()
         t.join()
         if not result['success_all']:
-            print("Not all files upload success. you should retry: {}".format(handler.error), file=sys.stderr)
+            print("Not all files upload success. you should retry, Error: {}".format(handler.error), file=sys.stderr)
             status = "FAILURE"
         else:
             status = "SUCCESS"
