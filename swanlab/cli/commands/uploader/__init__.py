@@ -17,7 +17,7 @@ from qcloud_cos.cos_threadpool import SimpleThreadPool
 
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_exception import CosClientError, CosServiceError
-from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader, UploadBytesIO
+from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader
 from rich.progress import (
     BarColumn,
     Progress,
@@ -138,6 +138,7 @@ def upload(path, name: str, desc: str):
     with UseTaskHttp() as http:
         data = {"name": name, "desc": desc} if desc else {"name": name}
         dataset = http.post("/task/dataset", data=data)
+
     # 创建上传对象
     uploader = CosUploader()
     cuid = dataset['cuid']
