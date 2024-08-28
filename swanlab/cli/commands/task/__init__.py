@@ -19,7 +19,7 @@ __all__ = ["task"]
 @click.group()
 def task():
     """
-    Beta Function: launch a task to train on the cloud!
+    Beta Function: List, modify, query task information.
     """
     pass
 

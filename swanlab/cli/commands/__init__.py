@@ -12,3 +12,4 @@ from .dashboard import watch
 from .converter import convert
 from .task import task
 from .launcher import launch
+from .uploader import upload

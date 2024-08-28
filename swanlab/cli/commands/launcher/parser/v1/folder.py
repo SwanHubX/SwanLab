@@ -9,19 +9,13 @@ r"""
 """
 from typing import List, Tuple
 from ..model import LaunchParser
-
-# noinspection PyPackageRequirements
-from qcloud_cos import CosConfig, CosS3Client
-from swanlab.cli.utils import login_init_sid, UseTaskHttp
+from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader, UploadBytesIO
 import zipfile
-import threading
 from rich.progress import (
     BarColumn,
-    DownloadColumn,
     Progress,
     TextColumn,
     TimeRemainingColumn,
-    TransferSpeedColumn,
 )
 from swankit.log import FONT
 from rich import print as rprint
@@ -31,50 +25,6 @@ import time
 import glob
 import os
 import io
-
-
-class TaskProgressBar:
-    def __init__(self, total_size: int):
-        """
-        :param total_size: 总大小（bytes）
-        """
-        self.total_size = total_size
-        self.current = 0
-        self.progress = Progress(
-            TextColumn("{task.description}", justify="left"),
-            BarColumn(),
-            "[progress.percentage]{task.percentage:>3.1f}%",
-            "•",
-            DownloadColumn(),
-            "•",
-            TransferSpeedColumn(),
-            "•",
-            TimeRemainingColumn(),
-        )
-
-    def update(self, *args):
-        self.current += args[0]
-
-    def start(self):
-        with self.progress as progress:
-            for i in progress.track(range(self.total_size), description=FONT.swanlab("Uploading...")):
-                if self.current > i:
-                    continue
-                time.sleep(0.5)
-                while True:
-                    if self.current > i:
-                        break
-
-
-class TaskBytesIO(io.BytesIO):
-
-    def __init__(self, read_callback, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.read_callback = read_callback
-
-    def read(self, *args):
-        self.read_callback(*args)
-        return super().read(*args)
 
 
 class FolderParser(LaunchParser):
@@ -190,30 +140,17 @@ class FolderParser(LaunchParser):
         上传压缩文件
         """
         val = memory_file.getvalue()
-        progress = TaskProgressBar(len(val))
-        buffer = TaskBytesIO(progress.update, val)
-
-        with UseTaskHttp() as http:
-            sts = http.get("/user/codes/sts")
-        region = sts["region"]
-        bucket = sts["bucket"]
-        token = sts["credentials"]["sessionToken"]
-        secret_id = sts["credentials"]["tmpSecretId"]
-        secret_key = sts["credentials"]["tmpSecretKey"]
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme="https")
-        client = CosS3Client(config)
-        self.key = sts["prefix"] + "/tasks/" + f"{int(time.time() * 1000)}.zip"
-        t = threading.Thread(target=progress.start)
-        t.start()
-        client.upload_file_from_buffer(
-            Bucket=bucket,
-            Key=self.key,
-            Body=buffer,
-            MAXThread=5,
-            MaxBufferSize=5,
-            PartSize=1,
-        )
-        t.join()
+        client, sts = CosUploader.create()
+        self.key = sts['prefix'] + "/tasks/" + f"{int(time.time() * 1000)}.zip"
+        with UploadBytesIO(FONT.swanlab("Uploading..."), val) as buffer:
+            client.upload_file_from_buffer(
+                Bucket=sts['bucket'],
+                Key=self.key,
+                Body=buffer,
+                MAXThread=5,
+                MaxBufferSize=5,
+                PartSize=1,
+            )
 
     def run(self):
         login_info = login_init_sid()
