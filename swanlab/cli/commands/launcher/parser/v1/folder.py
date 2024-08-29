@@ -76,7 +76,7 @@ class FolderParser(LaunchParser):
     def parse_spec(self, spec: dict):
         python = self.should_be('spec.python', spec.get('python'), str, none=True) or '3.10'
         python = self.should_in_values('spec.python', python, ['3.11', '3.10', '3.9', '3.8'])
-        entry = self.should_be('spec.entry', spec.get('entry'), str) or 'train.py'
+        entry = self.should_be('spec.entry', spec.get('entry'), str, none=True) or 'train.py'
         self.should_file_exist('spec.entry', entry)
         volumes = self.should_be('spec.volumes', spec.get('volumes'), list, none=True) or []
         # NOTE 当前后端只支持一个volume

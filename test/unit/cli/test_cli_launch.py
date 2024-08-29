@@ -252,10 +252,9 @@ class TestFolderParserSpec:
                 'python': '3.8',
             },
         }
-        with pytest.raises(click.BadParameter) as e:
-            parser = L.parse(config, f)
-            parser.parse()
-        assert str(e.value) == 'spec.entry should not be None'
+        parser = L.parse(config, f)
+        parser.parse()
+        parser.spec['entry'] == 'train.py'  # noqa
 
     def test_no_entry_file(self):
         """
