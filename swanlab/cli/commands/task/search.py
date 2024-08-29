@@ -8,7 +8,8 @@ r"""
     根据cuid获取任务详情
 """
 import click
-from .utils import TaskModel, login_init_sid, UseTaskHttp
+from .utils import TaskModel
+from swanlab.cli.utils import login_init_sid, UseTaskHttp
 from rich.syntax import Console, Syntax
 from swanlab.error import ApiError
 
@@ -55,6 +56,10 @@ def search(cuid):
         icon = '🏃'
     console.print(f"[bold]Status:[/bold] {icon} {tm.status}")
     console.print(f"[bold]Combo:[/bold] [white]{tm.combo}[/white]")
+    # dataset
+    for dataset in data.get("datasets", []):
+        console.print(f"[bold]Dataset ID:[/bold] [white]{dataset['cuid']}[/white]")
+
     tm.url is not None and console.print(f"[bold]SwanLab URL:[/bold] {tm.url}")
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")

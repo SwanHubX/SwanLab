@@ -7,13 +7,8 @@ r"""
 @Description:
     任务相关工具函数
 """
-from swanlab.package import get_key, get_experiment_url
-from swanlab.api import terminal_login, create_http, LoginInfo, get_http
-from swanlab.error import KeyFileError, ApiError
+from swanlab.package import get_experiment_url
 from datetime import datetime, timedelta
-from typing import Optional
-from swanlab.log import swanlog
-import sys
 import click
 import time
 
@@ -26,17 +21,6 @@ def validate_six_char_string(_, __, value):
     if len(value) != 6:
         raise click.BadParameter('String must be exactly 6 characters long')
     return value
-
-
-def login_init_sid() -> LoginInfo:
-    key = None
-    try:
-        key = get_key()
-    except KeyFileError:
-        pass
-    login_info = terminal_login(key)
-    create_http(login_info)
-    return login_info
 
 
 class TaskModel:
@@ -91,24 +75,3 @@ class TaskModel:
         local_time = datetime.fromisoformat(date) + local_time_offset
         # 将 UTC 时间转换为本地时间
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-class UseTaskHttp:
-    """
-    主要用于检测http响应是否为3xx字段，如果是则要求用户更新版本
-    使用此类之前需要先调用login_init_sid()函数完成全局http对象的初始化
-    """
-
-    def __init__(self):
-        self.http = get_http()
-
-    def __enter__(self):
-        return self.http
-
-    def __exit__(self, exc_type, exc_val: Optional[ApiError], exc_tb):
-        if exc_type is ApiError:
-            # api已过期，需要更新swanlab版本
-            if exc_val.resp.status_code // 100 == 3:
-                swanlog.info("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
-                sys.exit(3)
-        return False

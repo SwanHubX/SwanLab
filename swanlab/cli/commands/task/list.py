@@ -15,7 +15,8 @@ from datetime import datetime
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from .utils import TaskModel, UseTaskHttp, login_init_sid
+from .utils import TaskModel
+from swanlab.cli.utils import login_init_sid, UseTaskHttp
 
 
 @click.command()
@@ -60,7 +61,7 @@ class AskQueueModel:
         )
         qi.add_column("Queue Info", "Queue Info")
         self.ask()
-        qi.add_row(f"📦[b]Task Queuing count: {self.num}[/b]")
+        qi.add_row(f"[b]Task Queuing count: {self.num}[/b]")
         return qi
 
 
@@ -135,62 +136,46 @@ class ListTaskLayout:
     """
 
     def __init__(self, ltm: ListTasksModel, aqm: AskQueueModel):
-        self.event = []
-        self.add_event(f"👏Welcome, [b]{ltm.username}[/b].")
-        self.add_event("⌛️Task board is loading...")
         self.layout = Layout()
-        self.layout.split(
-            Layout(name="header", size=3),
-            Layout(name="main")
-        )
-        self.layout["main"].split_row(
-            Layout(name="task_table", ratio=16),
-            Layout(name="info_side", ratio=5)
-        )
-        self.layout["info_side"].split_column(
-            Layout(name="queue_info", ratio=1),
-            Layout(name="term_output", ratio=5)
-        )
+        self.layout.split(Layout(name="header", size=3), Layout(name="main"))
+        self.layout["main"].split_row(Layout(name="task_table", ratio=16), Layout(name="info_side", ratio=7))
+        self.layout["info_side"].split_column(Layout(name="queue_info", ratio=1), Layout(name="datasets_list", ratio=5))
         self.layout["header"].update(ListTaskHeader())
         self.layout["task_table"].update(Panel(ltm.table(), border_style="magenta"))
         self.layout["queue_info"].update(Panel(aqm.table(), border_style="blue"))
         self.ltm = ltm
         self.aqm = aqm
-        self.add_event("🍺Task board is loaded.")
-        self.redraw_term_output()
+        self.redraw_datasets_list()
 
     @property
-    def term_output(self):
+    def datasets_list(self):
         to = Table(
             expand=True,
-            show_header=False,
+            show_header=True,
             header_style="bold",
-            title="[blue][b]Log Messages[/b]",
+            title="[blue][b]Datasets[/b]",
             highlight=True,
+            show_lines=True,
             border_style="blue",
-            show_footer=True,
-            footer_style="bold",
         )
-        to.add_column(
-            "Log Output",
-            "Run [b][white]swanlab task search [Task ID][/white][/b] to get more task info"
-        )
+        to.add_column("Dataset ID", justify="right")
+        to.add_column("Dataset Name", justify="center")
+        to.add_column("Dataset Desc", justify="center")
+        to.add_column("Created Time", justify="center")
         return to
 
-    def redraw_term_output(self):
-        term_output = self.term_output
-        for row in self.event:
-            term_output.add_row(row)
-        self.layout["term_output"].update(Panel(term_output, border_style="blue"))
-
-    def redraw_queue_info(self):
-        pass
-
-    def add_event(self, info: str, max_length=10):
-        # 事件格式：yyyy-mm-dd hh:mm:ss - info
-        self.event.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {info}")
-        while len(self.event) > max_length:
-            self.event.pop(0)
+    def redraw_datasets_list(self):
+        datasets_list = self.datasets_list
+        with UseTaskHttp() as http:
+            datasets = http.get("/task/datasets")
+        for dataset in datasets:
+            datasets_list.add_row(
+                dataset["cuid"],
+                dataset["name"],
+                dataset.get("desc", ""),
+                TaskModel.fmt_time(dataset["createdAt"]),
+            )
+        self.layout["datasets_list"].update(Panel(datasets_list, border_style="blue"))
 
     def show(self):
         with Live(self.layout, refresh_per_second=10, screen=True) as live:
@@ -201,12 +186,9 @@ class ListTaskLayout:
                 self.layout["header"].update(ListTaskHeader())
                 if time.time() - search_now > 5:
                     search_now = time.time()
-                    self.add_event("🔍Searching for new tasks...")
                     self.layout["task_table"].update(Panel(self.ltm.table(), border_style="magenta"))
-                    self.redraw_term_output()
+                    self.redraw_datasets_list()
                 if time.time() - queue_now > 3:
                     queue_now = time.time()
-                    self.add_event("📦Asking queue info...")
                     self.layout["queue_info"].update(Panel(self.aqm.table(), border_style="blue"))
-                    self.redraw_term_output()
                 live.refresh()
