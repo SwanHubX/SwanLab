@@ -12,7 +12,7 @@ import requests
 
 class APIKeyFormatError(Exception):
     """错误的api key格式，此类承担解析api key的任务
-    目前的错误有两种，一种是长度不符合，一种是字符串含有非法字符
+    错误：类型错误、长度错误、字符错误
     """
 
     API_KEY_LENGTH = 21
