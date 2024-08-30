@@ -59,9 +59,9 @@ class FolderParser(LaunchParser):
             "conf": {"key": self.api_key},
             "name": self.metadata['name'],
         }
-        if not self.metadata.get("desc"):
+        if self.metadata.get("desc"):
             data["desc"] = self.metadata['desc']
-        if not self.metadata.get("combo"):
+        if self.metadata.get("combo"):
             data["combo"] = self.metadata['combo']
         if len(self.spec["volumes"]) > 0:
             data['datasets'] = [v['id'] for v in self.spec['volumes']]
