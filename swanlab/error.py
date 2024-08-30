@@ -10,33 +10,27 @@ r"""
 import requests
 
 
-class APIKeyFormatError(ValueError):
-    """Exception raised for errors in the format of an API key."""
+class APIKeyFormatError(Exception):
+    """错误的api key格式，此类承担解析api key的任务
+    目前的错误有两种，一种是长度不符合，一种是字符串含有非法字符
+    """
 
-    def __init__(self, message="Invalid key format."):
-        self.message = message
-        super().__init__(self.message)
+    API_KEY_LENGTH = 21
 
-
-class WindowsPasteAPIKeyError(APIKeyFormatError):
-    """Exception raised for errors in the API key due to incorrect pasting on Windows."""
-
-    def __init__(
-        self,
-        message="Received api_key contains '\\x16', which typically indicates an incorrect paste operation on Windows.",
-    ):
-        self.message = message
-        super().__init__(self.message)
-
-
-class APIKeyLenError(APIKeyFormatError):
-    """Exception raised for errors in the API key length."""
-
-    def __init__(self, received_length, expected_length=21):
-        message = f"API key length must be {expected_length} characters, but received {received_length} characters."
-        super().__init__(message)
-        self.expected_length = expected_length
-        self.received_length = received_length
+    @classmethod
+    def check(cls, api_key: str):
+        """
+        判断是否抛出异常，先检查长度，再检查类型
+        """
+        if not isinstance(api_key, str):
+            raise cls("Api key must be a string")
+        for c in api_key:
+            # 0-9, A-Z, a-z
+            if ord(c) not in range(48, 58) and ord(c) not in range(65, 91) and ord(c) not in range(97, 123):
+                raise cls("Invalid character in api key: {}".format(repr(c)))
+        if len(api_key) != 21:
+            raise cls("Api key length must be 21 characters long, yours was {}".format(len(api_key)))
+        return api_key
 
 
 class ValidationError(Exception):
@@ -47,12 +41,6 @@ class ValidationError(Exception):
 
 class KeyFileError(Exception):
     """key存储的文件错误，此时key文件不存在或者格式错误（解析失败）"""
-
-    pass
-
-
-class NotLoginError(Exception):
-    """未登录错误，此时用户未登录"""
 
     pass
 

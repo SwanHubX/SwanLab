@@ -8,8 +8,9 @@ r"""
     用户登录接口，输入用户的apikey，保存用户token到本地
     进行一些交互定义和数据请求
 """
-from swanlab.error import ValidationError, WindowsPasteAPIKeyError, APIKeyLenError, APIKeyFormatError
+from swanlab.error import ValidationError, APIKeyFormatError
 from swankit.log import FONT
+from swankit.env import is_windows
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
 from swanlab.log import swanlog
@@ -47,7 +48,7 @@ def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInf
 
 
 def input_api_key(
-    tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: ",
+    tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL + C' to quit",
     again: bool = False,
 ) -> str:
     """让用户输入apikey
@@ -63,9 +64,16 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        print(FONT.swanlab("Logging into swanlab cloud."))
-        print(FONT.swanlab("You can find your API key at: " + FONT.yellow(get_user_setting_path())))
-
+        swanlog.info("Logging into swanlab cloud.")
+        swanlog.info("You can find your API key at: " + FONT.yellow(get_user_setting_path()))
+    # windows 额外打印提示信息
+    if is_windows():
+        tip += (
+            '\nOn Windows, '
+            f'use {FONT.yellow("Ctrl + Shift + V")} or {FONT.yellow("right-click")} '
+            f'to paste the API key'
+        )
+    tip += ': '
     tip = FONT.swanlab(tip)
     ij = in_jupyter()
     ij and print(tip)
@@ -74,41 +82,19 @@ def input_api_key(
     return key
 
 
-def check_key_format(api_key: str) -> None:
-    """
-    檢查api key的格式問題
-    :param api_key: 用户的api_key
-    :return: None
-    :raises WindowsPasteAPIKeyError: windows錯誤粘貼操作引起
-    :raises APIKeyLenError: key長度不正確
-    :raises APIKeyFormatError: key格式不正確
-    """
-    if api_key == "\x16":
-        raise WindowsPasteAPIKeyError()
-    expected_key_length = 21
-    if len(api_key) != expected_key_length:
-        raise APIKeyLenError(len(api_key), expected_length=expected_key_length)
-    for char in api_key:
-        if ord(char) <= 32:
-            raise APIKeyFormatError
-
-
 def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件（非task模式下）
     :param api_key: 用户的api_key
     :return: 登录信息
-    :raises WindowsPasteAPIKeyError: windows錯誤粘貼操作引起
-    :raises APIKeyLenError: key長度不正確
-    :raises ValidationError: 登录失败
-    :raises APIKeyFormatError: key格式不正確
+    :raise ValidationError: 登录失败
+    :raise APIKeyFormatError: api_key格式错误
     """
-    check_key_format(api_key)
+    APIKeyFormatError.check(api_key)
     tip = "Waiting for the swanlab cloud response."
     save_key = os.environ.get(SwanLabEnv.RUNTIME.value) != 'task'
     login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key, 20, save_key), interval=0.5)
     if login_info.is_fail:
-        swanlog.error("Login failed: " + str(login_info).lower())
         raise ValidationError("Login failed: " + str(login_info))
     return login_info
 
@@ -121,34 +107,27 @@ def terminal_login(api_key: str = None) -> LoginInfo:
     """
     # 1. api_key存在，跳过输入环节，直接请求登录接口，这与代码内swanlab.login方法一致
     # 2. api_key为None，提示用户输入
-    input_key = api_key is None
-    if api_key is None:
-        api_key = input_api_key()
+    is_input_key = api_key is None
+    api_key = input_api_key() if api_key is None else api_key
+    # 3. api_key校验失败且是输入的api_key，重新输入api_key，否则raise
+    # 4. 登录失败且是输入的api_key，提示重新输入api_key，否则raise
+
+    def login_again(error: Exception):
+        swanlog.error(error)
+        return input_api_key("Please try again, or press 'CTRL-C' to quit", True)
+
     while True:
         try:
             return code_login(api_key)
-        # 如果是登录失败且是输入的api_key，提示重新输入api_key
-        except WindowsPasteAPIKeyError as e:
-            print(
-                "API key format error. On older Windows systems, please use Ctrl+Shift+V or right-click to paste the API key."
-            )
-            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
-        except APIKeyLenError as e:
-            print(e.message)
-            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
-        except APIKeyFormatError as e:
-            print(e.message, " Please check the input key")
-            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
-        except ValidationError as e:
-            if input_key:
-                api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
-            else:
+        # 登录失败且是输入的api_key，重新输入api_key
+        except (APIKeyFormatError, ValidationError) as e:
+            if not is_input_key:
                 raise e
+            login_again(e)
 
 
 def _abort_tip(tp, _, __):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
-        print("\n" + FONT.red("Aborted!"))
         sys.exit(0)
     # 如果不是CTRL+C，交给默认的异常处理
