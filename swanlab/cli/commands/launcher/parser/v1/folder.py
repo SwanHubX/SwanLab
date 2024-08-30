@@ -8,6 +8,9 @@ r"""
     文件夹上传模型
 """
 from typing import List, Tuple
+
+import click
+
 from ..model import LaunchParser
 from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader, UploadBytesIO
 import zipfile
@@ -97,22 +100,31 @@ class FolderParser(LaunchParser):
         self.spec['volumes'] = volumes
         self.spec['exclude'] = exclude
 
-    def walk(self) -> Tuple[List[str], List[str]]:
+    def walk(self, path: str = None) -> Tuple[List[str], List[str]]:
         """
         遍历path，生成文件列表，注意排除exclude中的文件
+        此函数为递归调用函数
+        返回所有命中的文件列表和排除的文件列表
         """
-        files = glob.glob(os.path.join(self.dirpath, '**/*'), recursive=True)
+        path = path or self.dirpath
+        all_files = glob.glob(os.path.join(path, '**'))
         exclude_files = []
-        split_len = len(self.dirpath)
-
-        def match(f, fs):
-            return any([f[split_len:] == fs[i][split_len:] for i in range(len(fs))])
-
         for g in self.spec['exclude']:
-            efs = glob.glob(os.path.join(self.dirpath, g), recursive=True)
-            files = [f for f in files if not match(f, efs)]
+            efs = glob.glob(os.path.join(path, g))
             exclude_files.extend(efs)
         exclude_files = list(set(exclude_files))
+        files = []
+        for f in all_files:
+            if os.path.isdir(f):
+                if f in exclude_files:
+                    continue
+                fs, efs = self.walk(f)
+                files.extend(fs)
+                exclude_files.extend(efs)
+            else:
+                if f in exclude_files:
+                    continue
+                files.append(f)
         return files, exclude_files
 
     def zip(self, files: List[str]) -> io.BytesIO:
@@ -153,11 +165,13 @@ class FolderParser(LaunchParser):
             )
 
     def run(self):
+        # 剔除、压缩、上传、发布任务
+        files, _ = self.walk()
+        if len(files) == 0:
+            raise click.BadParameter(self.dirpath + " is empty")
         login_info = login_init_sid()
         print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")
         self.api_key = login_info.api_key
-        # 剔除、压缩、上传、发布任务
-        files, _ = self.walk()
         memory_file = self.zip(files)
         self.upload(memory_file)
         with UseTaskHttp() as http:
