@@ -34,7 +34,7 @@ def launch(file: str, dry_run: bool):
     Launch a task
     """
     file = os.path.abspath(file)
-    config = yaml.safe_load(open(file, 'r'))
+    config = yaml.safe_load(open(file, 'r', encoding='uft-8'))
     if not isinstance(config, dict):
         raise click.FileError(file, hint='Invalid configuration file')
     p = parse(config, file)

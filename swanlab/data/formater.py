@@ -42,9 +42,7 @@ def check_load_json_yaml(file_path: str, param_name):
     if not file_path.endswith((".json", ".yaml", ".yml")):
         raise ValueError(
             "{} must be a json or yaml file ('.json', '.yaml', '.yml'), "
-            "but got {}, please check if the content of config_file is correct.".format(
-                param_name, path_suffix
-            )
+            "but got {}, please check if the content of config_file is correct.".format(param_name, path_suffix)
         )
     # 转换为绝对路径
     file_path = os.path.abspath(file_path)
@@ -57,11 +55,9 @@ def check_load_json_yaml(file_path: str, param_name):
         raise ValueError("{} is empty, please check if the content of config_file is correct.".format(param_name))
     # 无权限读取
     if not os.access(file_path, os.R_OK):
-        raise PermissionError(
-            "No permission to read {}, please check if you have the permission.".format(param_name)
-        )
+        raise PermissionError("No permission to read {}, please check if you have the permission.".format(param_name))
     load = json.load if path_suffix == "json" else yaml.safe_load
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding='utf-8') as f:
         # 读取配置文件的内容
         file_data = load(f)
         # 如果读取的内容不是字典类型，则报错
