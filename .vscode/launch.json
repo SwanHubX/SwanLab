@@ -52,7 +52,7 @@
       ],
       "console": "integratedTerminal",
       "env": {
-        "is_skip_cloud_test": "true"
+        "SWANLAB_RUNTIME": "test-no-cloud"
       }
     },
     {
