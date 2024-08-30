@@ -8,10 +8,9 @@ r"""
     文件夹上传模型
 """
 from typing import List, Tuple
-
 import click
-
 from ..model import LaunchParser
+from swanlab.error import ApiError
 from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader, UploadBytesIO
 import zipfile
 from rich.progress import (
@@ -175,7 +174,15 @@ class FolderParser(LaunchParser):
         memory_file = self.zip(files)
         self.upload(memory_file)
         with UseTaskHttp() as http:
-            http.post("/task", data=self.__dict__())
+            try:
+                http.post("/task", data=self.__dict__())
+            except ApiError as e:
+                if e.resp.status_code not in [404, 401]:
+                    raise e
+                elif e.resp.status_code == 404:
+                    raise click.BadParameter("The dataset does not exist")
+                else:
+                    raise click.BadParameter("The combo does not exist")
 
     def dry_run(self):
         # 剔除、显示即将发布的任务的相关信息
