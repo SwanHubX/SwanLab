@@ -8,7 +8,7 @@ r"""
     用户登录接口，输入用户的apikey，保存用户token到本地
     进行一些交互定义和数据请求
 """
-from swanlab.error import ValidationError
+from swanlab.error import ValidationError, WindowsPasteAPIKeyError, APIKeyLenError, APIKeyFormatError
 from swankit.log import FONT
 from swanlab.package import get_user_setting_path, get_host_api
 from swanlab.api.info import LoginInfo
@@ -47,8 +47,8 @@ def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInf
 
 
 def input_api_key(
-        tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: ",
-        again: bool = False,
+    tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL-C' to quit: ",
+    again: bool = False,
 ) -> str:
     """让用户输入apikey
     此时有两条消息，第一条消息为固定格式，第二条消息
@@ -74,13 +74,36 @@ def input_api_key(
     return key
 
 
+def check_key_format(api_key: str) -> None:
+    """
+    檢查api key的格式問題
+    :param api_key: 用户的api_key
+    :return: None
+    :raises WindowsPasteAPIKeyError: windows錯誤粘貼操作引起
+    :raises APIKeyLenError: key長度不正確
+    :raises APIKeyFormatError: key格式不正確
+    """
+    if api_key == "\x16":
+        raise WindowsPasteAPIKeyError()
+    expected_key_length = 21
+    if len(api_key) != expected_key_length:
+        raise APIKeyLenError(len(api_key), expected_length=expected_key_length)
+    for char in api_key:
+        if ord(char) <= 32:
+            raise APIKeyFormatError
+
+
 def code_login(api_key: str) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件（非task模式下）
     :param api_key: 用户的api_key
     :return: 登录信息
+    :raises WindowsPasteAPIKeyError: windows錯誤粘貼操作引起
+    :raises APIKeyLenError: key長度不正確
     :raises ValidationError: 登录失败
+    :raises APIKeyFormatError: key格式不正確
     """
+    check_key_format(api_key)
     tip = "Waiting for the swanlab cloud response."
     save_key = os.environ.get(SwanLabEnv.RUNTIME.value) != 'task'
     login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key, 20, save_key), interval=0.5)
@@ -105,6 +128,17 @@ def terminal_login(api_key: str = None) -> LoginInfo:
         try:
             return code_login(api_key)
         # 如果是登录失败且是输入的api_key，提示重新输入api_key
+        except WindowsPasteAPIKeyError as e:
+            print(
+                "API key format error. On older Windows systems, please use Ctrl+Shift+V or right-click to paste the API key."
+            )
+            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
+        except APIKeyLenError as e:
+            print(e.message)
+            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
+        except APIKeyFormatError as e:
+            print(e.message, " Please check the input key")
+            api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
         except ValidationError as e:
             if input_key:
                 api_key = input_api_key("Please try again, or press 'CTRL-C' to quit: ", True)
