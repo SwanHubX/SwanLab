@@ -238,7 +238,7 @@ class TestLogin:
         """
         使用输入的key
         """
-        key = generate()
+        key = generate(size=21, alphabet="12345")
         with pytest.raises(Err.ValidationError):
             S.login(api_key=key)
         key = T.API_KEY
@@ -253,7 +253,7 @@ class TestLogin:
             raise RuntimeError("this function should not be called")
 
         monkeypatch.setattr("getpass.getpass", _)
-        os.environ[SwanLabEnv.API_KEY.value] = "1234"
+        os.environ[SwanLabEnv.API_KEY.value] = generate(size=21, alphabet="12345")
         with pytest.raises(Err.ValidationError):
             S.login()
         os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
