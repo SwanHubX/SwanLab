@@ -8,9 +8,12 @@ r"""
     测试登录
 """
 import os
+
+import nanoid
+
 from swanlab.env import SwanLabEnv
 from swanlab.api.auth.login import login_by_key, terminal_login, code_login
-from swanlab.error import ValidationError
+from swanlab.error import ValidationError, APIKeyFormatError
 from swanlab.package import is_login
 from nanoid import generate
 import tutils as T
@@ -69,8 +72,26 @@ def test_code_login():
     assert not login_info.is_fail
     assert login_info.api_key == T.API_KEY
     assert login_info.__str__() == "Login success"
-    with pytest.raises(ValidationError):
+    with pytest.raises(APIKeyFormatError):
         _ = code_login("wrong-key")
+
+
+def test_api_key_format_error():
+    """
+    测试api_key格式错误: 类型、长度、非法字符
+    """
+    key = "123456"
+    with pytest.raises(APIKeyFormatError) as e:
+        _ = code_login(key)
+    assert e.value.__str__() == "Api key length must be 21 characters long, yours was {}".format(len(key))
+    key = nanoid.generate(size=20, alphabet="abcdefg") + '\x16'
+    with pytest.raises(APIKeyFormatError) as e:
+        _ = code_login(key)
+    assert e.value.__str__() == "Invalid character in api key: '\\x16'"
+    key = 123456
+    with pytest.raises(APIKeyFormatError) as e:
+        _ = code_login(key)  # type: ignore
+    assert e.value.__str__() == "Api key must be a string"
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
@@ -82,4 +103,3 @@ def test_code_login_task_runtime():
     # 没有保存在本地
     del os.environ[SwanLabEnv.API_KEY.value]
     assert not is_login()
-    
