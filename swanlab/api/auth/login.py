@@ -123,7 +123,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
         except (APIKeyFormatError, ValidationError) as e:
             if not is_input_key:
                 raise e
-            login_again(e)
+            api_key = login_again(e)
 
 
 def _abort_tip(tp, _, __):
