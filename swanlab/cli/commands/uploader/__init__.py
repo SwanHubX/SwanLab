@@ -7,17 +7,17 @@ r"""
 @Description:
     上传模块
 """
-import sys
-import click
 import os
 import pathlib
+import sys
+import threading
+import time
 
-# noinspection PyPackageRequirements
-from qcloud_cos.cos_threadpool import SimpleThreadPool
-
+import click
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_exception import CosClientError, CosServiceError
-from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader
+# noinspection PyPackageRequirements
+from qcloud_cos.cos_threadpool import SimpleThreadPool
 from rich.progress import (
     BarColumn,
     Progress,
@@ -25,8 +25,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from swankit.log import FONT
-import threading
-import time
+
+from swanlab.cli.utils import login_init_sid, UseTaskHttp, CosUploader
 
 
 class FolderProgress:
@@ -59,9 +59,6 @@ class FolderProgress:
 
     def stop(self):
         self.running = False
-
-
-import random
 
 
 class UploadFolderHandler:
@@ -117,7 +114,7 @@ def upload(path, name: str, desc: str):
     # 创建上传对象
     uploader = CosUploader()
     cuid = dataset['cuid']
-    prefix = uploader.prefix + '/datasets/' + cuid
+    prefix = f"{uploader.prefix}/datasets/{cuid}/{name}"
 
     # 上传文件夹
     if os.path.isdir(path):
