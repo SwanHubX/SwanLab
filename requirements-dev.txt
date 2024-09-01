@@ -11,4 +11,4 @@ python-dotenv
 freezegun
 build
 responses
-requests-mock==1.12.1 # 不太好用，即将删除
+requests-mock==1.12.1 # Inconvenient to use, soon will be deleted
