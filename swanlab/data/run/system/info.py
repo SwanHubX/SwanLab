@@ -139,9 +139,21 @@ def __get_cpu_info():
     return info
 
 
+def __get_cuda_version():
+    """获取 CUDA 版本"""
+    try:
+        output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
+        for line in output.split('\n'):
+            if "release" in line:
+                version = line.split("release")[-1].strip().split(" ")[0][:-1]
+                return version
+    except Exception:
+        return None
+
+
 def __get_nvidia_gpu_info():
     """获取 GPU 信息"""
-    info = {"driver": None, "cores": None, "type": [], "memory": []}
+    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None}
     try:
         pynvml.nvmlInit()
     except:
@@ -153,6 +165,9 @@ def __get_nvidia_gpu_info():
         if isinstance(nv_driver, bytes):
             nv_driver = nv_driver.decode("utf-8")
         info["driver"] = nv_driver
+
+        # 获取 CUDA 版本
+        info["cuda"] = __get_cuda_version()
 
         # 获取 NVIDIA GPU 数量
         info["cores"] = pynvml.nvmlDeviceGetCount()
