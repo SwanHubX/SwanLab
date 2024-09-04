@@ -72,10 +72,17 @@ class SwanLabCallback(TrainerCallback):
         if self._experiment.get_run() is None:
             self._experiment.init(**self._swanlab_init)
 
+        combined_dict = {}
+
         if args:
             combined_dict = {**args.to_sanitized_dict()}
-            for key, value in combined_dict.items():
-                self._experiment.config.set(key, value)
+
+        # 设置
+        if hasattr(model, "config") and model.config is not None:
+            model_config = model.config if isinstance(model.config, dict) else model.config.to_dict()
+            combined_dict = {**model_config, **combined_dict}
+
+        self._experiment.config.update(combined_dict)
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
         if not self._initialized:
