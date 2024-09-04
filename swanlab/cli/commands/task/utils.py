@@ -89,7 +89,7 @@ class OutputModel:
     def __init__(self, cuid: str, output: dict):
         self.cuid = cuid
         self.path = output.get('path', None)
-        self.size = output.get('size', None)
+        self.size = self.fmt_size(output.get('size', None))
 
     @property
     def output_url(self):
@@ -99,3 +99,14 @@ class OutputModel:
         uploader = CosUploader()
         key = f"{uploader.prefix}/outputs/{self.cuid}/{self.path}"
         return uploader.client.get_presigned_download_url(Bucket=uploader.bucket, Key=key)
+
+    @staticmethod
+    def fmt_size(size: int = None):
+        if size is None:
+            return None
+        units = ['Byte', 'KB', 'MB', 'GB', 'TB']
+        unit = 0
+        while size >= 1024:
+            size /= 1024
+            unit += 1
+        return f"{size:.2f} {units[unit]}"
