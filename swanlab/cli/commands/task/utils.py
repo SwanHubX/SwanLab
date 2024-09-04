@@ -60,8 +60,7 @@ class TaskModel:
         self.status = task["status"]
         self.msg = task.get("msg", None)
         self.combo = task["combo"]
-        self.output_path = task.get("oPath", None)
-        self.output_size = task.get("oSize", None)
+        self.output = OutputModel(self.cuid, task.get("output", {}))
 
     @property
     def url(self):
@@ -81,11 +80,22 @@ class TaskModel:
         # 将 UTC 时间转换为本地时间
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
+
+class OutputModel:
+    """
+    任务输出模型
+    """
+
+    def __init__(self, cuid: str, output: dict):
+        self.cuid = cuid
+        self.path = output.get('path', None)
+        self.size = output.get('size', None)
+
     @property
     def output_url(self):
         """获取预签名的输出下载 url"""
-        if self.output_path is None:
+        if self.path is None:
             return None
         uploader = CosUploader()
-        key = f"{uploader.prefix}/outputs/{self.cuid}/{self.output_path}"
+        key = f"{uploader.prefix}/outputs/{self.cuid}/{self.path}"
         return uploader.client.get_presigned_download_url(Bucket=uploader.bucket, Key=key)

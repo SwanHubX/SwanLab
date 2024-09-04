@@ -96,7 +96,8 @@ class ListTasksModel:
         st.add_column("Task Name", justify="center")
         st.add_column("Status", justify="center")
         st.add_column("URL", justify="center", no_wrap=True)
-        st.add_column("Output", justify="center", no_wrap=True)
+        st.add_column("Output URL", justify="center", no_wrap=True)
+        st.add_column("Output Size", justify="center")
         st.add_column("Started Time", justify="center")
         st.add_column("Finished Time", justify="center")
         for tlm in self.list():
@@ -110,7 +111,8 @@ class ListTasksModel:
                 tlm.name,
                 status,
                 tlm.url,
-                tlm.output_url,
+                tlm.output.output_url,
+                tlm.output.size,
                 tlm.started_at,
                 tlm.finished_at,
             )
