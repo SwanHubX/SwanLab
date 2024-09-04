@@ -8,15 +8,17 @@ r"""
     列出任务状态
 """
 import time
-import click
-from typing import List
-from rich.layout import Layout
 from datetime import datetime
+from typing import List
+
+import click
+from rich.layout import Layout
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-from rich.live import Live
-from .utils import TaskModel
+
 from swanlab.cli.utils import login_init_sid, UseTaskHttp
+from .utils import TaskModel
 
 
 @click.command()
@@ -94,6 +96,7 @@ class ListTasksModel:
         st.add_column("Task Name", justify="center")
         st.add_column("Status", justify="center")
         st.add_column("URL", justify="center", no_wrap=True)
+        st.add_column("Output", justify="center", no_wrap=True)
         st.add_column("Started Time", justify="center")
         st.add_column("Finished Time", justify="center")
         for tlm in self.list():
@@ -107,6 +110,7 @@ class ListTasksModel:
                 tlm.name,
                 status,
                 tlm.url,
+                tlm.output_url,
                 tlm.started_at,
                 tlm.finished_at,
             )

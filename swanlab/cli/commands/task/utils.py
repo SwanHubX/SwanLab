@@ -7,10 +7,13 @@ r"""
 @Description:
     任务相关工具函数
 """
-from swanlab.package import get_experiment_url
-from datetime import datetime, timedelta
-import click
 import time
+from datetime import datetime, timedelta
+
+import click
+
+from swanlab.cli.utils import CosUploader
+from swanlab.package import get_experiment_url
 
 
 def validate_six_char_string(_, __, value):
@@ -57,6 +60,8 @@ class TaskModel:
         self.status = task["status"]
         self.msg = task.get("msg", None)
         self.combo = task["combo"]
+        self.output_path = task.get("oPath", None)
+        self.output_size = task.get("oSize", None)
 
     @property
     def url(self):
@@ -75,3 +80,12 @@ class TaskModel:
         local_time = datetime.fromisoformat(date) + local_time_offset
         # 将 UTC 时间转换为本地时间
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+    @property
+    def output_url(self):
+        """获取预签名的输出下载 url"""
+        if self.output_path is None:
+            return None
+        uploader = CosUploader()
+        key = f"{uploader.prefix}/outputs/{self.cuid}/{self.output_path}"
+        return uploader.client.get_presigned_download_url(Bucket=uploader.bucket, Key=key)
