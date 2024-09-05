@@ -97,7 +97,7 @@ class ListTasksModel:
         st.add_column("Task Name", justify="center", ratio=1)
         st.add_column("Status", justify="center", ratio=1)
         st.add_column("URL", justify="center", no_wrap=True, ratio=2)
-        st.add_column("Output URL", justify="center", no_wrap=True, ratio=1)
+        st.add_column("Output URL", justify="center", ratio=1)
         st.add_column("Output Size", justify="center", ratio=1)
         st.add_column("Started Time", justify="center", ratio=2)
         st.add_column("Finished Time", justify="center", ratio=2)
