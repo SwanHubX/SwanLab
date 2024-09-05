@@ -1,0 +1,6 @@
+transformers
+datasets
+swanlab
+evaluate
+accelerate
+scikit-learn
