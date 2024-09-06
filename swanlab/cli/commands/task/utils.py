@@ -97,8 +97,10 @@ class OutputModel:
         if self.path is None:
             return None
         uploader = CosUploader()
-        key = f"{uploader.prefix}/outputs/{self.cuid}/{self.path}"
-        return uploader.client.get_presigned_download_url(Bucket=uploader.bucket, Key=key)
+        key = f"{uploader.prefix}/outputs/{self.path}"
+        return uploader.client.get_presigned_download_url(
+            Bucket=uploader.bucket, Key=key, Params={'x-cos-security-token': uploader.token}
+        )
 
     @staticmethod
     def fmt_size(size: int = None):
