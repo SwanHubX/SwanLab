@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 9/6/24 3:37 PM
+@DATE: 2024/9/6 16:34
 @File: test_cli_task.py
 @IDE: pycharm
 @Description:
