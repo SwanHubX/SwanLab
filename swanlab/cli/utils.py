@@ -131,10 +131,16 @@ class CosUploader:
         self.bucket = sts["bucket"]
         self.client = client
         self.__updating = False
-        self.token = sts["credentials"]["sessionToken"]  # 临时密钥使用的 token
         """
         标记是否正在更新sts
         """
+        self.__token = sts["credentials"]["sessionToken"]  # 临时密钥使用的 token
+
+    @property
+    def token(self):
+        if self.should_refresh:
+            self.refresh()
+        return self.__token
 
     @property
     def should_refresh(self):
@@ -173,4 +179,4 @@ class CosUploader:
         self.__expired_time = datetime.fromtimestamp(sts["expiredTime"])
         self.prefix = sts["prefix"]
         self.bucket = sts["bucket"]
-        self.token = sts["credentials"]["sessionToken"]
+        self.__token = sts["credentials"]["sessionToken"]
