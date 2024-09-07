@@ -7,10 +7,13 @@ r"""
 @Description:
     任务相关工具函数
 """
-from swanlab.package import get_experiment_url
-from datetime import datetime, timedelta
-import click
 import time
+from datetime import datetime, timedelta
+
+import click
+
+from swanlab.cli.utils import CosUploader
+from swanlab.package import get_experiment_url
 
 
 def validate_six_char_string(_, __, value):
@@ -57,6 +60,7 @@ class TaskModel:
         self.status = task["status"]
         self.msg = task.get("msg", None)
         self.combo = task["combo"]
+        self.output = OutputModel(self.cuid, task.get("output", {}))
 
     @property
     def url(self):
@@ -75,3 +79,36 @@ class TaskModel:
         local_time = datetime.fromisoformat(date) + local_time_offset
         # 将 UTC 时间转换为本地时间
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+class OutputModel:
+    """
+    任务输出模型
+    """
+
+    def __init__(self, cuid: str, output: dict):
+        self.cuid = cuid
+        self.path = output.get('path', None)
+        self.size = self.fmt_size(output.get('size', None))
+
+    @property
+    def output_url(self):
+        """获取预签名的输出下载 url"""
+        if self.path is None:
+            return None
+        uploader = CosUploader()
+        key = f"{uploader.prefix}/outputs/{self.path}"
+        return uploader.client.get_presigned_download_url(
+            Bucket=uploader.bucket, Key=key, Params={'x-cos-security-token': uploader.token}
+        )
+
+    @staticmethod
+    def fmt_size(size: int = None):
+        if size is None:
+            return None
+        units = ['Byte', 'KB', 'MB', 'GB', 'TB']
+        unit = 0
+        while size >= 1024:
+            size /= 1024
+            unit += 1
+        return f"{size:.2f} {units[unit]}"

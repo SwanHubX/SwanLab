@@ -8,15 +8,18 @@ r"""
     列出任务状态
 """
 import time
-import click
-from typing import List
-from rich.layout import Layout
 from datetime import datetime
+from typing import List
+
+import click
+from rich.layout import Layout
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
-from rich.live import Live
-from .utils import TaskModel
+
 from swanlab.cli.utils import login_init_sid, UseTaskHttp
+from .utils import TaskModel
 
 
 @click.command()
@@ -90,23 +93,30 @@ class ListTasksModel:
             border_style="magenta",
             show_lines=True,
         )
-        st.add_column("Task ID", justify="right")
-        st.add_column("Task Name", justify="center")
-        st.add_column("Status", justify="center")
-        st.add_column("URL", justify="center", no_wrap=True)
-        st.add_column("Started Time", justify="center")
-        st.add_column("Finished Time", justify="center")
+        st.add_column("Task ID", justify="right", ratio=1)
+        st.add_column("Task Name", justify="center", ratio=1)
+        st.add_column("Status", justify="center", ratio=1)
+        st.add_column("URL", justify="center", no_wrap=True, ratio=2)
+        st.add_column("Output URL", justify="center", ratio=1)
+        st.add_column("Output Size", justify="center", ratio=1)
+        st.add_column("Started Time", justify="center", ratio=2)
+        st.add_column("Finished Time", justify="center", ratio=2)
         for tlm in self.list():
             status = tlm.status
             if status == "COMPLETED":
                 status = f"[green]{status}[/green]"
             elif status == "CRASHED":
                 status = f"[red]{status}[/red]"
+            output_url = tlm.output.output_url
+            if output_url is not None:
+                output_url = Markdown(f"[{tlm.output.path}]({output_url})", justify="center")
             st.add_row(
                 tlm.cuid,
                 tlm.name,
                 status,
                 tlm.url,
+                output_url,
+                tlm.output.size,
                 tlm.started_at,
                 tlm.finished_at,
             )
@@ -132,7 +142,7 @@ class ListTaskHeader:
 
 class ListTaskLayout:
     """
-    任务列表展示
+    任务列表展示例如，如果有 3 列，总比率为 6，而比率=2，那么列的大小将是可用大小的三分之一。
     """
 
     def __init__(self, ltm: ListTasksModel, aqm: AskQueueModel):

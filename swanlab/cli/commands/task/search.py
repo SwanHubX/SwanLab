@@ -8,10 +8,12 @@ r"""
     根据cuid获取任务详情
 """
 import click
-from .utils import TaskModel
-from swanlab.cli.utils import login_init_sid, UseTaskHttp
+from rich.markdown import Markdown
 from rich.syntax import Console, Syntax
+
+from swanlab.cli.utils import login_init_sid, UseTaskHttp
 from swanlab.error import ApiError
+from .utils import TaskModel
 
 
 def validate_six_char_string(_, __, value):
@@ -61,6 +63,9 @@ def search(cuid):
         console.print(f"[bold]Dataset ID:[/bold] [white]{dataset['cuid']}[/white]")
 
     tm.url is not None and console.print(f"[bold]SwanLab URL:[/bold] {tm.url}")
+    if tm.output.path is not None:
+        console.print(Markdown(f"**Output URL**: [{tm.output.path}]({tm.output.output_url})"))
+        console.print(f"[bold]Output Size:[/bold] {tm.output.size}")
     console.print(f"[bold]Created At:[/bold] {tm.created_at}")
     tm.started_at is not None and console.print(f"[bold]Started At:[/bold] {tm.started_at}")
     tm.finished_at is not None and console.print(f"[bold]Finished At:[/bold] {tm.finished_at}")

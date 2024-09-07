@@ -7,16 +7,15 @@ r"""
 @Description:
     一些工具函数
 """
+import io
+import sys
+import threading
+import time
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
-from swanlab.log import swanlog
-from swanlab.package import get_key
-from swanlab.api import terminal_login, create_http, LoginInfo, get_http
 
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig, CosS3Client
-from swanlab.error import KeyFileError, ApiError
-from datetime import datetime, timedelta
-import threading
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -25,9 +24,11 @@ from rich.progress import (
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
-import time
-import io
-import sys
+
+from swanlab.api import terminal_login, create_http, LoginInfo, get_http
+from swanlab.error import KeyFileError, ApiError
+from swanlab.log import swanlog
+from swanlab.package import get_key
 
 
 class UseTaskHttp:
@@ -123,6 +124,7 @@ class CosUploader:
     REFRESH_TIME = 60 * 60 * 1.5  # 1.5小时
 
     def __init__(self):
+        """初始化 cos"""
         client, sts = self.create()
         self.__expired_time = datetime.fromtimestamp(sts["expiredTime"])
         self.prefix = sts["prefix"]
@@ -132,6 +134,13 @@ class CosUploader:
         """
         标记是否正在更新sts
         """
+        self.__token = sts["credentials"]["sessionToken"]  # 临时密钥使用的 token
+
+    @property
+    def token(self):
+        if self.should_refresh:
+            self.refresh()
+        return self.__token
 
     @property
     def should_refresh(self):
@@ -170,3 +179,4 @@ class CosUploader:
         self.__expired_time = datetime.fromtimestamp(sts["expiredTime"])
         self.prefix = sts["prefix"]
         self.bucket = sts["bucket"]
+        self.__token = sts["credentials"]["sessionToken"]
