@@ -173,3 +173,4 @@ class CosUploader:
         self.__expired_time = datetime.fromtimestamp(sts["expiredTime"])
         self.prefix = sts["prefix"]
         self.bucket = sts["bucket"]
+        self.token = sts["credentials"]["sessionToken"]
