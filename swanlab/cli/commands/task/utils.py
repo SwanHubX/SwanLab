@@ -93,13 +93,13 @@ class OutputModel:
 
     @property
     def output_url(self):
-        """获取预签名的输出下载 url"""
+        """获取预签名的输出下载 url (过期时间 1 小时)"""
         if self.path is None:
             return None
         uploader = CosUploader()
         key = f"{uploader.prefix}/outputs/{self.path}"
         return uploader.client.get_presigned_download_url(
-            Bucket=uploader.bucket, Key=key, Params={'x-cos-security-token': uploader.token}
+            Bucket=uploader.bucket, Key=key, Params={'x-cos-security-token': uploader.token}, Expired=3600
         )
 
     @staticmethod
