@@ -110,11 +110,14 @@ class ListTasksModel:
             output_url = tlm.output.output_url
             if output_url is not None:
                 output_url = Markdown(f"[{tlm.output.path}]({output_url})", justify="center")
+            url = tlm.url
+            if url is not None:
+                url = Markdown(f"[{tlm.project_name}]({url})", justify="center")
             st.add_row(
                 tlm.cuid,
                 tlm.name,
                 status,
-                tlm.url,
+                url,
                 output_url,
                 tlm.output.size,
                 tlm.started_at,
