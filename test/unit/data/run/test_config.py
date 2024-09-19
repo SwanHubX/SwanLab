@@ -94,6 +94,15 @@ def test_parse_base_class():
         pass
 
     value = parse(StrChild("abc"))
+    assert value == "abc"
+    assert yaml.safe_dump({"value": value})
+
+    class IntChild(int):
+        pass
+
+    value = parse(IntChild(1))
+    assert value == 1
+    assert value != "1"
     assert yaml.safe_dump({"value": value})
 
 

@@ -30,7 +30,7 @@ def json_serializable(obj):
     :raises TypeError: 对象不是JSON可序列化的
     """
     # 如果对象是基本类型，则直接返回
-    # 不可以使用isinstance，详见issue: https://github.com/SwanHubX/SwanLab/issues/702
+    # 不可以直接使用isinstance，详见issue: https://github.com/SwanHubX/SwanLab/issues/702
     if obj is None:
         return None
     if type(obj) is float and math.isnan(obj):
@@ -41,16 +41,12 @@ def json_serializable(obj):
     for t in BASE_TYPE:
         if type(obj) is t:
             return obj
-
-    if isinstance(obj, (int, float, str, bool, type(None))):
-        if isinstance(obj, float) and math.isnan(obj):
-            return Line.nan
-        if isinstance(obj, float) and math.isinf(obj):
-            return Line.inf
-        return obj
+        # 继承的子类需要转译
+        if isinstance(obj, t):
+            return t(obj)
 
     # 将日期和时间转换为字符串
-    elif isinstance(obj, (datetime.date, datetime.datetime)):
+    if isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
 
     # 对于列表和元组，递归调用此函数
