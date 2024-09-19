@@ -34,6 +34,7 @@ def json_serializable(obj):
         if isinstance(obj, float) and math.isinf(obj):
             return Line.inf
         return obj
+    
 
     # 将日期和时间转换为字符串
     elif isinstance(obj, (datetime.date, datetime.datetime)):
