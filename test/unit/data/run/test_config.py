@@ -85,6 +85,18 @@ def test_parse():
     assert yaml.dump(config) == yaml.dump(vars(config_data))
 
 
+def test_parse_base_class():
+    """
+    继承自基础的类不能绕过parse函数
+    """
+
+    class StrChild(str):
+        pass
+
+    value = parse(StrChild("abc"))
+    assert yaml.safe_dump({"value": value})
+
+
 class TestSwanLabConfigOperation:
     """
     单独测试TestSwanLabRunConfig这个类
