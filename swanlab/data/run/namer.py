@@ -41,9 +41,12 @@ def generate_name(index: Optional[int] = None) -> str:
         "zebra-",   # 斑马
     ]
     
-    index = int(index)
-    prefix = prefix_list[index % len(prefix_list)]
-    return prefix + str(index+1)
+    if index is None:
+        prefix = random.choice(prefix_list)
+        return prefix
+    else:
+        prefix = prefix_list[index % len(prefix_list)]
+        return prefix + str(index+1)
 
 
 def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
