@@ -19,7 +19,7 @@ def generate_name(index: Optional[int] = None) -> str:
     pass
 
 
-def generate_color(index: Optional[int] = None) -> Tuple[str, str]:
+def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
     """
     生成颜色
     :param index: 生成颜色的索引，约定为历史实验数，可以为None
