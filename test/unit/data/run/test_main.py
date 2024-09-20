@@ -199,6 +199,9 @@ class TestSwanLabRunLog:
         # list
         ll3 = run.log({"a": [Text("abc"), Text("def")]})
         assert ll3["a"].data == ["abc", "def"]
+        data = {"a": [Text("abc")] * 109}
+        ll4 = run.log(data, step=4)
+        assert ll4["a"].data == ["abc"] * 108
 
     # ---------------------------------- 解析log Audio ----------------------------------
 

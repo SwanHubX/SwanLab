@@ -82,6 +82,18 @@ class TestSwanLogInstall:
             assert content[-2] == a + "\n"
             assert content[-1] == b + "\n"
 
+    def test_write_to_file_long_test(self):
+        console_dir = self.create_console_dir()
+        swanlog.install(console_dir)
+        # 加一行防止其他问题
+        print("\ntest write to file")
+        a = generate(size=201)
+        print(a)
+        files = os.listdir(console_dir)
+        with open(os.path.join(console_dir, files[0]), "r") as f:
+            content = f.readlines()
+            assert content[-1] == a[:200] + "\n"
+
     def test_write_logging_to_file(self):
         console_dir = self.create_console_dir()
         swanlog.install(console_dir, log_level="debug")
