@@ -6,7 +6,7 @@ on:
       - swanlab/**
       - test/**
     branches:
-      - main
+      - *
 
 jobs:
   test:
