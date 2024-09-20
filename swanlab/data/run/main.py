@@ -21,7 +21,9 @@ from .helper import SwanLabRunOperator, RuntimeInfo
 from ..formater import check_key_format
 from swanlab.env import get_mode, get_swanlog_dir
 import random
-from swankit.env import is_windows
+
+
+MAX_LIST_LENGTH = 108
 
 
 class SwanLabRunState(Enum):
@@ -313,6 +315,9 @@ class SwanLabRun:
                 and all([isinstance(i, (Line, MediaType)) for i in v])
                 and all([i.__class__ == v[0].__class__ for i in v])
             ):
+                if len(v) > MAX_LIST_LENGTH:
+                    swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
+                    v = v[:MAX_LIST_LENGTH]
                 v = DataWrapper(k, v)
             else:
                 # 其余情况被当作是非法的数据类型，交给Line处理

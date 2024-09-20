@@ -6,6 +6,9 @@ from swankit.env import create_time
 import re
 
 
+MAX_UPLOAD_LEN = 200
+
+
 class SwanWriterProxy:
     """
     标准输出流拦截代理
@@ -81,7 +84,8 @@ class SwanWriterProxy:
             except UnicodeEncodeError:
                 # 遇到编码问题，直接pass，此时表现为终端不输出
                 pass
-            message = FONT.clear(message)
+            # 限制上传长度
+            message = FONT.clear(message)[:MAX_UPLOAD_LEN]
             self.write_callback and self.write_callback(message)
 
             # 检查文件分片
