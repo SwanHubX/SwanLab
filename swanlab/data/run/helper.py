@@ -7,7 +7,7 @@ r"""
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-from typing import List, Union, Dict, Any, Callable
+from typing import List, Union, Dict, Any, Tuple
 from swankit.callback import SwanKitCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
 from swankit.core import SwanLabSharedSettings
 import swanlab.error as E
@@ -56,7 +56,7 @@ class SwanLabRunOperator(SwanKitCallback):
     @classmethod
     def parse_return(cls, ret: OperatorReturnType, key: str = None):
         """
-        解析返回值，选择不为None的返回值
+        解析返回值，选择不为None的返回值，如果都为None，则返回None
         如果key不为None，则返回对应key的返回值
         :param ret: 返回值
         :param key: 返回值的key
@@ -78,10 +78,9 @@ class SwanLabRunOperator(SwanKitCallback):
         exp_name: str,
         description: str,
         num: int,
-        suffix: str,
-        setter: Callable[[str, str, str, str], None],
+        colors: Tuple[str, str],
     ):
-        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, suffix, setter)
+        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, colors)
 
     def on_run(self):
         try:

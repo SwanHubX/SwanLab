@@ -18,8 +18,9 @@ from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
 from .helper import SwanLabRunOperator, RuntimeInfo
-from ..formater import check_key_format
+from ..formater import check_key_format, check_exp_name_format, check_desc_format
 from swanlab.env import get_mode, get_swanlog_dir
+from . import namer as N
 import random
 
 
@@ -50,7 +51,6 @@ class SwanLabRun:
         description: str = None,
         run_config=None,
         log_level: str = None,
-        suffix: str = None,
         exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
@@ -74,9 +74,6 @@ class SwanLabRun:
             当前实验的日志等级，默认为 'info'，可以从 'debug' 、'info'、'warning'、'error'、'critical' 中选择
             不区分大小写，如果不提供此参数(为None)，则默认为 'info'
             如果提供的日志等级不在上述范围内，默认改为info
-        suffix : str, optional
-            实验名称后缀，用于区分同名实验，格式为yyyy-mm-dd_HH-MM-SS
-            如果不提供此参数(为None)，不会添加后缀
         exp_num : int, optional
             历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
@@ -106,14 +103,15 @@ class SwanLabRun:
         # 如果config是以下几个类别之一，则抛出异常
         if isinstance(run_config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(
-                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict (Surpport type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict "
+                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
             )
         global config
         config.update(run_config)
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -132,7 +130,8 @@ class SwanLabRun:
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements(), metadata=get_system_info(get_package_version(), self.settings.log_dir)
+                requirements=get_requirements(),
+                metadata=get_system_info(get_package_version(), self.settings.log_dir),
             )
         )
 
@@ -335,31 +334,30 @@ class SwanLabRun:
 
     def __register_exp(
         self,
-        experiment_name: str,
+        experiment_name: str = None,
         description: str = None,
-        suffix: str = None,
         num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
         """
-
-        def setter(exp_name: str, light_color: str, dark_color: str, desc: str):
-            """
-            设置实验相关信息的函数
-            :param exp_name: 实验名称
-            :param light_color: 亮色
-            :param dark_color: 暗色
-            :param desc: 实验描述
-            :return:
-            """
-            # 实验创建成功，设置实验相关信息
-            self.settings.exp_name = exp_name
-            self.settings.exp_colors = (light_color, dark_color)
-            self.settings.description = desc
-
-        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, suffix, setter)
-
+        if experiment_name:
+            e = check_exp_name_format(experiment_name)
+            if experiment_name != e:
+                swanlog.warning("The experiment name has been truncated automatically.")
+                experiment_name = e
+        if description:
+            d = check_desc_format(description)
+            if description != d:
+                swanlog.warning("The description has been truncated automatically.")
+                description = d
+        experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
+        description = "" if description is None else description
+        colors = N.generate_colors(num)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
+        self.settings.exp_name = experiment_name
+        self.settings.exp_colors = colors
+        self.settings.description = description
         return SwanLabExp(self.settings, operator=self.__operator)
 
     @staticmethod
