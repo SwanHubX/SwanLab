@@ -183,6 +183,11 @@ class FolderParser(LaunchParser):
                     raise click.BadParameter("The dataset does not exist")
                 else:
                     raise click.BadParameter("The combo does not exist")
+        print(
+            FONT.swanlab(
+                f"Launch task successfully, use {FONT.bold(FONT.default('swanlab task list'))} to view the task"
+            )
+        )
 
     def dry_run(self):
         # 剔除、显示即将发布的任务的相关信息
