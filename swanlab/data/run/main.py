@@ -17,7 +17,7 @@ from enum import Enum
 from .exp import SwanLabExp
 from datetime import datetime
 from typing import Callable, Optional, Dict
-from .operator import SwanLabRunOperator, RuntimeInfo
+from .helper import SwanLabRunOperator, RuntimeInfo
 from ..formater import check_key_format
 from swanlab.env import get_mode, get_swanlog_dir
 import random
