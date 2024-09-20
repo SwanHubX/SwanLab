@@ -3,7 +3,7 @@ from swanlab.log import swanlog
 from typing import Dict, Optional
 from swankit.env import create_time
 from swankit.callback import MetricInfo, ColumnInfo
-from .operator import SwanLabRunOperator
+from .helper import SwanLabRunOperator
 from swankit.core import SwanLabSharedSettings
 import json
 import math
@@ -178,8 +178,7 @@ class SwanLabKey:
 
     @property
     def is_chart_valid(self) -> bool:
-        """判断当前tag对应的自动创建图表是否成功
-        """
+        """判断当前tag对应的自动创建图表是否成功"""
         return self.column_info.error is None
 
     def add(self, data: DataWrapper) -> MetricInfo:

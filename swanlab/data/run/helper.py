@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/5/12 14:20
-@File: operator.py
+@File: helper.py
 @IDE: pycharm
 @Description:
     回调函数操作员，批量处理回调函数的调用
@@ -73,23 +73,15 @@ class SwanLabRunOperator(SwanKitCallback):
         return self.__run_all("before_run", settings)
 
     def before_init_experiment(
-            self,
-            run_id: str,
-            exp_name: str,
-            description: str,
-            num: int,
-            suffix: str,
-            setter: Callable[[str, str, str, str], None]
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        suffix: str,
+        setter: Callable[[str, str, str, str], None],
     ):
-        return self.__run_all(
-            "before_init_experiment",
-            run_id,
-            exp_name,
-            description,
-            num,
-            suffix,
-            setter
-        )
+        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, suffix, setter)
 
     def on_run(self):
         try:

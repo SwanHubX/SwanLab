@@ -19,7 +19,7 @@ from .run import (
 from .formater import check_load_json_yaml, check_proj_name_format
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
-from .run.operator import SwanLabRunOperator
+from .run.helper import SwanLabRunOperator
 from swanlab.log import swanlog
 from swanlab.api import code_login
 from swanlab.env import SwanLabEnv
