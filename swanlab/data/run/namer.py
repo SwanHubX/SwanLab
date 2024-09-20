@@ -42,7 +42,6 @@ def generate_name(index: Optional[int] = None) -> str:
     :param index: 生成名称的索引，约定为历史实验数，可以为None
     :return: 生成的名称
     """
-
     if index is None:
         prefix = random.choice(prefix_list)
         return prefix
