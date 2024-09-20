@@ -21,6 +21,8 @@ import re
 import json
 from dataclasses import is_dataclass, asdict
 
+BASE_TYPE = (int, float, str, bool)
+
 
 def json_serializable(obj):
     """
@@ -28,15 +30,23 @@ def json_serializable(obj):
     :raises TypeError: 对象不是JSON可序列化的
     """
     # 如果对象是基本类型，则直接返回
-    if isinstance(obj, (int, float, str, bool, type(None))):
-        if isinstance(obj, float) and math.isnan(obj):
-            return Line.nan
-        if isinstance(obj, float) and math.isinf(obj):
-            return Line.inf
-        return obj
+    # 不可以直接使用isinstance，详见issue: https://github.com/SwanHubX/SwanLab/issues/702
+    if obj is None:
+        return None
+    if type(obj) is float and math.isnan(obj):
+        return Line.nan
+    if type(obj) is float and math.isinf(obj):
+        return Line.inf
+
+    for t in BASE_TYPE:
+        if type(obj) is t:
+            return obj
+        # 继承的子类需要转译
+        if isinstance(obj, t):
+            return t(obj)
 
     # 将日期和时间转换为字符串
-    elif isinstance(obj, (datetime.date, datetime.datetime)):
+    if isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
 
     # 对于列表和元组，递归调用此函数
@@ -121,9 +131,9 @@ class SwanLabConfig(MutableMapping):
     """
 
     def __init__(
-        self,
-        config: Union[MutableMapping, argparse.Namespace] = None,
-        on_setter: Optional[Callable[[RuntimeInfo], Any]] = None,
+            self,
+            config: Union[MutableMapping, argparse.Namespace] = None,
+            on_setter: Optional[Callable[[RuntimeInfo], Any]] = None,
     ):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的
