@@ -7,3 +7,20 @@ r"""
 @Description:
     测试命名器、取色器
 """
+from swanlab.data.run import namer
+
+
+def test_name_no_index():
+    pass
+
+
+def test_name_with_index():
+    pass
+
+
+def test_color_no_index():
+    pass
+
+
+def test_color_with_index():
+    pass
