@@ -1,4 +1,4 @@
-swankit==0.1.1b3
+swankit==0.1.1b1
 swanboard==0.1.3b5
 cos-python-sdk-v5
 urllib3>=1.26.0
