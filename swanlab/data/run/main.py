@@ -23,9 +23,7 @@ from swanlab.env import get_mode, get_swanlog_dir
 from . import namer as N
 import random
 
-
 MAX_LIST_LENGTH = 108
-
 
 class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.

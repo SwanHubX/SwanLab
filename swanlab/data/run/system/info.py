@@ -109,7 +109,7 @@ def __get_cpu_info():
                 if "Model name:" in line:
                     cpu_brand = line.split(":")[1].strip()
                     return cpu_brand
-            return "无法获取 CPU 品牌"
+            return None
         except Exception as e:
             return None
 
