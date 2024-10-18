@@ -22,7 +22,7 @@
 
 - [👋🏻 Introduction](#-Introduction)
 - [📃 Demo](#-demo)
-- [🏁 Quick Start](#🏁-quick-start)
+- [🏁 Quick Start](#-quick-start)
 - [💻 Self-hosted](#-self-hosted)
 - [🚗 Integration](#-integration)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
