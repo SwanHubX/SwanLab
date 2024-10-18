@@ -22,30 +22,18 @@
 
 ## 目录
 
-- [👋🏻 什么是 SwanLab](#-什么是swanlab)
+- [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
-  - [1.安装](#1安装)
-  - [2.登录并获取 API Key](#2登录并获取api-key)
-  - [3.将 SwanLab 与你的代码集成](#3将SwanLab与你的代码集成)
 - [💻 自托管](#-自托管)
-  - [离线实验跟踪](#离线实验跟踪)
-  - [开启离线看板](#开启离线看板)
 - [🚗 框架集成](#-框架集成)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
-  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-  - [W&B vs SwanLab](#weights-and-biases-vs-swanlab)
 - [👥 社区](#-社区)
-  - [社区与支持](#社区与支持)
-  - [SwanLab README 徽章](#swanlab-readme徽章)
-  - [在论文中引用 SwanLab](#在论文中引用swanlab)
-  - [为 SwanLab 做出贡献](#为swanlab做出贡献)
-  - [下载 Icon](#下载icon)
 - [📃 协议](#-协议)
 
 <br/>
 
-## 👋🏻 什么是 SwanLab
+## 👋🏻 什么是SwanLab
 
 SwanLab 是一款开源、轻量的 AI 实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台。
 
