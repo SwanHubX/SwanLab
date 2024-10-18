@@ -1,173 +1,144 @@
 [![Overview](readme_files/swanlab-overview-new.png)](https://swanlab.cn/)
 
-<p align="center">
-<a href="https://swanlab.cn">🔥SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">📃Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
-
-</p>
-
-<p align="center">
-  <a href="https://github.com/SwanHubX/SwanLab/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen" alt="license"></a>
-  <a href="https://github.com/SwanHubX/SwanLab/commits/main"><img src="https://img.shields.io/github/last-commit/SwanHubX/SwanLab" alt="license"></a>
-  <a href="https://pypi.python.org/pypi/swanlab"><img src="https://img.shields.io/pypi/v/swanlab?color=orange" alt= /></a>
-  <a href="https://pepy.tech/project/swanlab"><img alt="pypi Download" src="https://static.pepy.tech/badge/swanlab"></a>
-  <a href="https://github.com/swanhubx/swanlab/issues"><img alt="issues" src="https://img.shields.io/github/issues/swanhubx/swanlab"></a>
-  <br>
-  <a href="https://swanlab.cn" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/Product-SwanLab云端版-636a3f"></a>
-  <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-微信-4cb55e"></a>
-  <a href="https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
-</p>
-
 <div align="center">
-  <a href="./README.md"><img alt="英文文档" src="https://img.shields.io/badge/English-d9d9d9"></a>
-  <a href="./README_cn.md"><img alt="中文文档" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
+
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
+
+[![license][license-shield]][license-shield-link]
+[![last-commit][last-commit-shield]][last-commit-shield-link]
+[![pypi-version][pypi-version-shield]][pypi-version-shield-link]
+[![pypi-downloads][pypi-downloads-shield]][pypi-downloads-shield-link]
+[![issues][issues-shield]][issues-shield-link]
+<br>
+[![swanlab-cloud][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![wechat][wechat-shield]][wechat-shield-link]
+[![colab][colab-shield]][colab-shield-link]
+
+中文 / [English](README_EN.md)
+
+👋 加入我们的[微信群](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)
+
 </div>
 
-<details>
-<summary>Table of contents</summary>
+## 目录
 
-#### TOC
-
-- [👋🏻 Introduction](#-Introduction)
-- [📃 Demo](#-demo)
-- [🏁 Quick Start](#🏁-quick-start)
-  - [1.Installation](#1installation)
-  - [2.Log In and Get the API Key](#2log-in-and-get-the-api-key)
-  - [3.Integrate SwanLab with Your Code](#3-integrate-swanlab-with-your-code)
-- [💻 Self-hosted](#-self-hosted)
-  - [Offline Experiment Tracking](#offline-experiment-tracking)
-  - [Open Offline Dashboard](#open-offline-board)
-- [🚗 Integration](#-integration)
-- [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
-  - [Tensorboard vs SwanLab](#tensorboard-vs-swanlab)
-  - [Weights & Biases vs SwanLab](#weights-and-biases-vs-swanlab)
-- [👥 Community](#-community)
-  - [Community and Support](#community-and-support)
-  - [SwanLab README Badge](#swanlab-readme-badge)
-  - [Citing SwanLab in the Paper](#citing-swanlab-in-the-paper)
-  - [Contribute to SwanLab](#contribute-to-swanlab)
-  - [Download Icon](#download-icon)
-- [📃 License](#-license)
+- [👋🏻 什么是SwanLab](#-什么是swanlab)
+- [📃 在线演示](#-在线演示)
+- [🏁 快速开始](#-快速开始)
+- [💻 自托管](#-自托管)
+- [🚗 框架集成](#-框架集成)
+- [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
+- [👥 社区](#-社区)
+- [📃 协议](#-协议)
 
 <br/>
 
-</details>
+## 👋🏻 什么是SwanLab
 
-## 👋🏻 Introduction
+SwanLab 是一款开源、轻量的 AI 实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台。
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments.
+SwanLab 提供了友好的 API 和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享等功能，让您可以快速跟踪 AI 实验、可视化过程、记录超参数，并分享给伙伴。
 
-It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording metric, online collaboration, and sharing experiment link.
+以下是其核心特性列表：
 
-Here is the English version of the core feature list for an AI platform:
+**1. 📊 实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习 pipeline，跟踪记录训练关键指标
 
-**1. 📊 Experimental Metrics and Tracking Hyperparameter**: Embed your machine learning pipeline with minimalistic code
-and track key training metrics.
-
-- Flexible recording of hyperparameters and experiment configurations.
-- **Supported metadata types**: scalar metrics, images, audio, text, etc.
-- **Supported chart types**: line graphs, media charts (images, audio, text), etc.
-- **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries,
-  code directory.
+- 自由的超参数与实验配置记录
+- 支持的元数据类型：标量指标、图像、音频、文本、...
+- 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
+- 自动记录：控制台 logging、GPU 硬件、Git 信息、Python 解释器、Python 库列表、代码目录
 
 ![](readme_files/overview-2.png)
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
+**2. ⚡️ 全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
 
-**3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments,
-providing an overview of training at a glance.
+**3. 📦 组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
 
-**4. 🆚 Comparing Results**: Use online tables and paired charts to compare the hyperparameters and outcomes of different
-experiments, developing iterative inspiration.
+**4. 🆚 比较结果**: 通过在线表格与对比图表比较不同实验的超参数和结果，挖掘迭代灵感
 
-**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of
-experiments under the same project, allowing you to synchronize training records of the team online and share insights
-and suggestions based on results.
+**5. 👥 在线协作**: 您可以与团队进行协作式训练，支持将实验实时同步在一个项目下，您可以在线查看团队的训练记录，基于结果发表看法与建议
 
-**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, efficiently send them to colleagues,
-or embed them in online notes.
+**6. ✉️ 分享结果**: 复制和发送持久的 URL 来共享每个实验，方便地发送给伙伴，或嵌入到在线笔记中
 
-**7. 💻 Self-hosting Support**: Supports offline mode with a self-hosted community version that also allows for dashboard
-viewing and experiment management.
+**7. 💻 支持自托管**: 支持不联网使用，自托管的社区版同样可以查看仪表盘与管理实验
 
 > \[!IMPORTANT]
 >
-> **Star Us**, You will receive all release notifications from GitHub without any delay ~ ⭐️
+> **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～ ⭐️
 
 ![star-us](readme_files/star-us.png)
 
 <br>
 
-## 📃 Demo
+## 📃 在线演示
 
-Check out SwanLab's online demo：
+来看看 SwanLab 的在线演示：
 
-|                  [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                  |                     [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                     |
+|                    [ResNet50 猫狗分类](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                    |                [Yolov8-COCO128 目标检测](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                 |
 | :----------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------: |
 | <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-|                      Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset.                       |        Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics.        |
+|                                          跟踪一个简单的 ResNet50 模型在猫狗数据集上训练的图像分类任务。                                          |                             使用 Yolov8 在 COCO128 数据集上进行目标检测任务，跟踪训练超参数和指标。                              |
 
-|               [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                |              [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)              |
+|                     [Qwen2 指令微调](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                      |                  [LSTM Google 股票预测](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)                  |
 | :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
 | <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-|        Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following.         |             Train a simple LSTM model on the Google stock price dataset to predict future stock prices.              |
+|                                       跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。                                       |                        使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。                        |
 
-[More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
+[更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
 
 <br>
 
-## 🏁 Quick Start
+## 🏁 快速开始
 
-### 1.Installation
+### 1.安装
 
 ```bash
 pip install swanlab
 ```
 
-### 2.Log in and get the API Key
+### 2.登录并获取 API Key
 
-1. **Free [Sign Up](https://swanlab.cn)**
+1. 免费[注册账号](https://swanlab.cn)
 
-2. **Log in to your account**, go to User Settings > [API Key](https://swanlab.cn/settings) and copy your API Key.
+2. 登录账号，在用户设置 > [API Key](https://swanlab.cn/settings) 里复制您的 API Key
 
-3. **Open your terminal and enter**:
+3. 打开终端，输入：
 
 ```bash
 swanlab login
 ```
 
-When prompted, enter your API Key and press Enter to complete the login.
+出现提示时，输入您的 API Key，按下回车，完成登陆。
 
-### 3. Integrate SwanLab with Your Code
+### 3.将 SwanLab 与你的代码集成
 
 ```python
 import swanlab
 
-# Create a new SwanLab experiment
+# 初始化一个新的swanlab实验
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003}
+    config={'learning-rate': 0.003},
 )
 
-# Log metrics
+# 记录指标
 for i in range(10):
-    swanlab.log({"loss": i})
+    swanlab.log({"loss": i, "acc": i})
 ```
 
-**All set!** Visit [SwanLab](https://swanlab.cn) to see your first SwanLab experiment.
+大功告成！前往[SwanLab](https://swanlab.cn)查看你的第一个 SwanLab 实验。
 
 ![MNIST](readme_files/readme-mnist.png)
 
 <br>
 
-## 💻 Self-hosted
+## 💻 自托管
 
-The community edition supports offline viewing of SwanLab dashboards.
+自托管社区版支持离线查看 SwanLab 仪表盘。
 
-### Offline Experiment Tracking
+### 离线实验跟踪
 
-Set the parameters `logir` and `mode` in swanlab.init to track experiments offline:
+在 swanlab.init 中设置`logir`和`mode`这两个参数，即可离线跟踪实验：
 
 ```python
 ...
@@ -180,35 +151,31 @@ swanlab.init(
 ...
 ```
 
-- The parameter `mode` is set to `local`, which disables synchronizing the experiment to the cloud.
+- 参数`mode`设置为`local`，关闭将实验同步到云端
 
-- The setting of the parameter `logdir` is optional, and it specifies the location for saving SwanLab log files (by
-  default saved in the `swanlog` folder).
+- 参数`logdir`的设置是可选的，它的作用是指定了 SwanLab 日志文件的保存位置（默认保存在`swanlog`文件夹下）
 
-- Log files will be created and updated during tracking of experiments, and launching offline dashboards will also be
-  based on these log files.
+  - 日志文件会在跟踪实验的过程中被创建和更新，离线看板的启动也将基于这些日志文件
 
-Other parts are completely consistent with cloud usage.
+其他部分和云端使用完全一致。
 
-### Open Offline Board
+### 开启离线看板
 
-Open the terminal and use the following command to open a SwanLab dashboard:
+打开终端，使用下面的指令，开启一个 SwanLab 仪表板:
 
 ```bash
 swanlab watch ./logs
 ```
 
-After the operation is completed, SwanLab will provide you with a local URL link (default
-is [http://127.0.0.1:5092](http://127.0.0.1:5092)).
+运行完成后，SwanLab 会给你 1 个本地的 URL 链接（默认是[http://127.0.0.1:5092](http://127.0.0.1:5092)）
 
-Visit this link to view the experiment offline in the browser dashboard.
+访问该链接，就可以在浏览器用离线看板查看实验了。
 
 <br>
 
-## 🚗 Integration
+## 🚗 框架集成
 
-Combine your favorite framework with
-SwanLab, [More Integration](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html).
+将您最喜欢的框架与 SwanLab 结合使用，[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)。
 
 <details>
   <summary>
@@ -216,8 +183,7 @@ SwanLab, [More Integration](https://docs.swanlab.cn/zh/guide_cloud/integration/i
   </summary>
   <br>
 
-Create an instance using `SwanLabLogger` and pass it into the `logger` parameter of `Trainer` to enable SwanLab to
-record training metrics.
+使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现 SwanLab 记录训练指标。
 
 ```python
 from swanlab.integration.pytorch_lightning import SwanLabLogger
@@ -301,8 +267,7 @@ trainer.test(dataloaders=test_loader)
 
 <br>
 
-Create an instance using `SwanLabCallback` and pass it into the `callbacks` parameter of `Trainer` to enable SwanLab to
-record training metrics.
+使用`SwanLabCallback`创建示例，并代入`Trainer`的`callbacks`参数中，即可实现 SwanLab 记录训练指标。
 
 ```python
 import evaluate
@@ -365,9 +330,9 @@ trainer.train()
 </summary>
 <br>
 
-Integrate `SwanlabVisBackend` into MMEngine to enable automatic logging of training metrics by SwanLab.
+将 SwanLab 专为 MMEngine 设计的`SwanlabVisBackend`集成到 MMEngine 中，即可实现 SwanLab 自动记录训练指标。
 
-Add the following code snippet to your MM config file to start training:
+在你的 MM 配置文件中，加入下面的代码片段，开始训练即可。
 
 ```python
 custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
@@ -396,7 +361,7 @@ visualizer = dict(
 </summary>
 <br>
 
-Integrating SwanLab into Ultralytics is very simple; you can use the `add_swanlab_callback` function:
+将 SwanLab 集成到 Ultralytics 中非常简单，只需要用`add_swanlab_callback`函数即可实现:
 
 ```python
 from ultralytics import YOLO
@@ -405,6 +370,7 @@ from swanlab.integration.ultralytics import add_swanlab_callback
 model = YOLO("yolov8n.yaml")
 model.load()
 
+# 添加swanlab回调
 add_swanlab_callback(model)
 
 model.train(
@@ -418,52 +384,43 @@ model.train(
 
 <br>
 
-## 🆚 Comparison with familiar tools
+## 🆚 与熟悉的工具的比较
 
 ### Tensorboard vs SwanLab
 
-- **☁️ Online Usage Support**:
-  With SwanLab, training experiments can be conveniently synchronized and saved in the cloud, allowing for remote
-  monitoring of training progress, managing historical projects, sharing experiment links, sending real-time
-  notification messages, and viewing experiments across multiple devices. In contrast, TensorBoard is an offline
-  experiment tracking tool.
+- **☁️ 支持在线使用**：
+  通过 SwanLab 可以方便地将训练实验在云端在线同步与保存，便于远程查看训练进展、管理历史项目、分享实验链接、发送实时消息通知、多端看实验等。而 Tensorboard 是一个离线的实验跟踪工具。
 
-- **👥 Collaborative Multi-user Environment**:
-  SwanLab facilitates easy management of multi-person training projects and sharing of experiment links for
-  collaborative machine learning across teams. It also enables cross-space communication and discussion. On the other
-  hand, TensorBoard is primarily designed for individual use, making it difficult to collaborate and share experiments
-  with multiple users.
+- **👥 多人协作**：
+  在进行多人、跨团队的机器学习协作时，通过 SwanLab 可以轻松管理多人的训练项目、分享实验链接、跨空间交流讨论。而 Tensorboard 主要为个人设计，难以进行多人协作和分享实验。
 
-- **💻 Persistent, Centralized Dashboard**:
-  Regardless of where you are training your models, be it on a local computer, a lab cluster, or on public cloud GPU
-  instances, your results are logged to the same centralized dashboard. Using TensorBoard, on the other hand, requires
-  spending time copying and managing TFEvent files from different machines.
+- **💻 持久、集中的仪表板**：
+  无论你在何处训练模型，无论是在本地计算机上、在实验室集群还是在公有云的 GPU 实例中，你的结果都会记录到同一个集中式仪表板中。而使用 TensorBoard 需要花费时间从不同的机器复制和管理
+  TFEvent 文件。
 
-- **💪 More Powerful Tables**:
-  SwanLab tables allow you to view, search, and filter results from various experiments, making it easy to review
-  thousands of model versions to find the best-performing models for different tasks. TensorBoard is not well-suited for
-  large-scale projects.
+- **💪 更强大的表格**：
+  通过 SwanLab 表格可以查看、搜索、过滤来自不同实验的结果，可以轻松查看数千个模型版本并找到适合不同任务的最佳性能模型。
+  TensorBoard 不适用于大型项目。
 
 ### Weights and Biases vs SwanLab
 
-- Weights and Biases is an online-only, proprietary MLOps platform.
+- Weights and Biases 是一个必须联网使用的闭源 MLOps 平台
 
-- Not only does SwanLab support online usage, but it also offers an open-source, free, and self-hosted version.
+- SwanLab 不仅支持联网使用，也支持开源、免费、自托管的版本
 
 <br>
 
-## 👥 Community
+## 👥 社区
 
-### Community and support
+### 社区与支持
 
-- [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：Errors and issues encountered when using SwanLab
-- [Email support](zeyi.lin@swanhub.co)：Feedback on issues with using SwanLab
-- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>：Discuss issues using SwanLab,
-  share the latest AI technology.
+- [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用 SwanLab 时遇到的错误和问题
+- [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用 SwanLab 的问题
+- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>：交流使用 SwanLab 的问题、分享最新的 AI 技术
 
-### SwanLab README Badge
+### SwanLab README 徽章
 
-If you like to use SwanLab in your work, please add the SwanLab badge to your README:
+如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的 README 中：
 
 [![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 
@@ -471,9 +428,9 @@ If you like to use SwanLab in your work, please add the SwanLab badge to your RE
 [![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
 ```
 
-### Citing SwanLab in the paper
+### 在论文中引用 SwanLab
 
-If you find SwanLab helpful for your research journey, please consider citing in the following format:
+如果您发现 SwanLab 对您的研究之旅有帮助，请考虑以下列格式引用：
 
 ```bibtex
 @software{Zeyilin_SwanLab_2023,
@@ -486,12 +443,15 @@ If you find SwanLab helpful for your research journey, please consider citing in
 }
 ```
 
-### Contribute to SwanLab
+### 为 SwanLab 做出贡献
 
-Considering contributing to SwanLab? First, please take some time to read
-the [Contribution Guidelines](CONTRIBUTING.md).
+考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 [贡献指南](CONTRIBUTING.md)。
 
-At the same time, we warmly welcome support for SwanLab through social media, events, and conference sharing. Thank you!
+同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持 SwanLab，衷心感谢！
+
+### 下载 Icon
+
+[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -501,13 +461,27 @@ At the same time, we warmly welcome support for SwanLab through social media, ev
   <img src="https://contrib.rocks/image?repo=swanhubx/swanlab" />
 </a>
 
-### Download Icon
-
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
-
 <br>
 
-## 📃 License
+## 📃 协议
 
-This repository follows the [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) open source
-license.
+本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
+
+<!-- link -->
+
+[license-shield]: https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen
+[license-shield-link]: https://github.com/SwanHubX/SwanLab/blob/main/LICENSE
+[last-commit-shield]: https://img.shields.io/github/last-commit/SwanHubX/SwanLab
+[last-commit-shield-link]: https://github.com/SwanHubX/SwanLab/commits/main
+[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange
+[pypi-version-shield-link]: https://pypi.org/project/swanlab/
+[pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab
+[pypi-downloads-shield-link]: https://pepy.tech/project/swanlab
+[issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab
+[issues-shield-link]: https://github.com/swanhubx/swanlab/issues
+[swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f
+[swanlab-cloud-shield-link]: https://swanlab.cn/
+[wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e
+[wechat-shield-link]: https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic
+[colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
+[colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
