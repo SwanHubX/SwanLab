@@ -15,12 +15,17 @@ from .utils import LogQueue
 from swanlab.error import SyncError
 from .task_types import UploadType
 
+from psutil import cpu_percent
+from swanlab.data.run.main import get_run
+from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
+
 
 class LogCollectorTask(ThreadTaskABC):
     """
     日志聚合器，负责收集所有线程注册的日志信息
     并且定义日志上传接口
     """
+
     UPLOAD_TIME = 1
     """
     每隔多少秒上传一次日志
@@ -113,6 +118,21 @@ class LogCollectorTask(ThreadTaskABC):
             except Exception as e:
                 swanlog.error(f"upload error: {e}")
             self.lock = False
+
+    def hardware_task(self, u: ThreadUtil, *args):
+        """
+        定时任务，读取硬件信息添加到记录
+        :param u: 线程工具类
+        """
+        cpu_percent_now = float(cpu_percent())
+        run = get_run()
+        if run == None:
+            return
+        else:
+            exp = run.exp
+            print(f'My exp = {exp}')
+            exp.add(key="CPU", data=DataWrapper("CPU", [Line(cpu_percent_now)]), step=None)
+        print(f'Now CPU usage: {cpu_percent_now}%')
 
     def callback(self, u: ThreadUtil, *args):
         """
