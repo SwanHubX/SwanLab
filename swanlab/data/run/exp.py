@@ -1,6 +1,6 @@
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable, Any
 from swankit.env import create_time
 from swankit.callback import MetricInfo, ColumnInfo
 from .helper import SwanLabRunOperator
@@ -31,8 +31,8 @@ class SwanLabExp:
         # TODO 操作员不传递给实验
         self.__operator = operator
 
-    def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
-        """记录一条新的tag数据
+    def __add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
+        """记录一条新的key数据
 
         Parameters
         ----------
@@ -84,6 +84,23 @@ class SwanLabExp:
         key_info.buffers = data.parse().buffers
         key_info.media_dir = self.settings.media_dir
         return key_info
+
+    def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
+        """记录一条新的key数据
+        Parameters
+        ----------
+        key : str
+            key名称
+        data : DataWrapper
+            包装后的数据，用于数据解析
+
+        step : int, optional
+            步数，如果不传则默认当前步数为'已添加数据数量+1'
+            在log函数中已经做了处理，此处不需要考虑数值类型等情况
+        """
+        m = self.__add(key, data, step)
+        self.__operator.on_metric_create(m)
+        return m
 
     def warn_type_error(self, key: str):
         """警告类型错误
