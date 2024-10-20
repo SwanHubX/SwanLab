@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExportableFileTemplateSettings">
+    <j2ee_templates>
+      <template name="qt.CMakeLists.txt" reformat="true" live-template-enabled="false" enabled="false" />
+    </j2ee_templates>
+    <internal_templates>
+      <template name="Python Script.py" reformat="true" live-template-enabled="true" enabled="true" />
+    </internal_templates>
+  </component>
+</project>

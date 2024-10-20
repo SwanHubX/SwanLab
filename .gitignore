@@ -17,9 +17,7 @@ package.mock.json
 # playground
 playground/
 
-
-# Jetbrains
-.idea/
+# misc
 .DS_Store
 
 # python

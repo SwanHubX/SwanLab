@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="No JSON schema">
+          <value>
+            <SchemaInfo>
+              <option name="ignoredFile" value="true" />
+              <option name="name" value="No JSON schema" />
+              <option name="relativePathToSchema" value="" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="file://$PROJECT_DIR$/.vscode/launch.json" />
+                  </Item>
+                </list>
+              </option>
+              <option name="isIgnoredFile" value="true" />
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>
