@@ -14,7 +14,7 @@
 [![wechat][wechat-shield]][wechat-shield-link]
 [![colab][colab-shield]][colab-shield-link]
 
-中文 / [English](README_EN.md)
+中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
 👋 加入我们的[微信群](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)
 
@@ -212,7 +212,7 @@ class LitAutoEncoder(pl.LightningModule):
         z = self.encoder(x)
         x_hat = self.decoder(z)
         loss = nn.functional.mse_loss(x_hat, x)
-        # Logging to TensorBoard (if installed) by default
+        # Logging to SwanLab (if installed) by default
         self.log("train_loss", loss)
         return loss
 
@@ -224,7 +224,7 @@ class LitAutoEncoder(pl.LightningModule):
         z = self.encoder(x)
         x_hat = self.decoder(z)
         loss = nn.functional.mse_loss(x_hat, x)
-        # Logging to TensorBoard (if installed) by default
+        # Logging to SwanLab (if installed) by default
         self.log("test_loss", loss)
         return loss
 
