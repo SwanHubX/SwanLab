@@ -21,12 +21,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     携带上传日志的指标信息
     """
     http = get_http()
-    return {
-        "projectId": http.proj_id,
-        "experimentId": http.exp_id,
-        "type": metrics_type,
-        "metrics": metrics
-    }
+    return {"projectId": http.proj_id, "experimentId": http.exp_id, "type": metrics_type, "metrics": metrics}
 
 
 @sync_error_handler
@@ -71,7 +66,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
 _valid_files = {
     'config.yaml': ['config', 'yaml'],
     'requirements.txt': ['requirements', 'txt'],
-    'swanlab-metadata.json': ['metadata', 'json']
+    'swanlab-metadata.json': ['metadata', 'json'],
 }
 """
 支持上传的文件列表，filename: key
@@ -104,6 +99,7 @@ def upload_column(columns: List[ColumnModel]):
     # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
     for column in columns:
         try:
+            a = column.to_dict()
             http.post(url, column.to_dict())
         except ApiError as e:
             swanlog.error(f"Upload column {column.key} failed: {e.resp.status_code}")
@@ -117,5 +113,5 @@ __all__ = [
     "upload_column",
     "ScalarModel",
     "MediaModel",
-    "ColumnModel"
+    "ColumnModel",
 ]

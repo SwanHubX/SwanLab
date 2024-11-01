@@ -24,7 +24,7 @@ from swanlab.package import (
     get_package_latest_version,
     get_experiment_url,
     get_project_url,
-    get_key
+    get_key,
 )
 from swankit.log import FONT
 from swankit.env import create_time
@@ -237,13 +237,9 @@ class CloudRunCallback(LocalRunCallback):
         # task环境下，同步实验信息回调
         if os.environ.get(SwanLabEnv.RUNTIME.value) == "task":
             cuid = os.environ["SWANLAB_TASK_ID"]
-            info = {
-                "cuid": cuid,
-                "pId": http.proj_id,
-                "eId": http.exp_id,
-                "pName": http.projname
-            }
+            info = {"cuid": cuid, "pId": http.proj_id, "eId": http.exp_id, "pName": http.projname}
             http.patch("/task/experiment", info)
+        self.pool.create_thread(lambda _: print("121"), (), "monitor")
 
     def on_runtime_info_update(self, r: RuntimeInfo):
         # 执行local逻辑，保存文件到本地
@@ -260,34 +256,42 @@ class CloudRunCallback(LocalRunCallback):
         error = None
         if column_info.error is not None:
             error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
-        column = ColumnModel(key=column_info.key, column_type=column_info.chart.value.column_type, error=error)
+        column = ColumnModel(
+            key=column_info.key,
+            column_class=column_info.key_class,
+            column_name=column_info.key_name,
+            column_type=column_info.chart_type.value.column_type,
+            section_name=column_info.section_name,
+            error=error,
+        )
         self.pool.queue.put((UploadType.COLUMN, [column]))
 
     def on_metric_create(self, metric_info: MetricInfo):
         super(CloudRunCallback, self).on_metric_create(metric_info)
         # 有错误就不上传
-        if metric_info.error:
+        if metric_info.is_error:
             return
         metric = metric_info.metric
         key = metric_info.column_info.key
-        key_encoded = metric_info.key
-        step = metric_info.step
-        epoch = metric_info.epoch
+        key_encoded = metric_info.column_info.key_encode
+        step = metric_info.metric_step
+        epoch = metric_info.metric_epoch
+        chart_type = metric_info.column_info.chart_type
         # 标量折线图
-        if metric_info.column_info.chart == metric_info.column_info.chart.LINE:
+        if chart_type == chart_type.LINE:
             scalar = ScalarModel(metric, key, step, epoch)
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据
 
         # -------------------------- 🤡这里是一点小小的💩 --------------------------
         # 要求上传时的文件路径必须带key_encoded前缀
-        if metric_info.buffers is not None:
+        if metric_info.metric_buffers is not None:
             metric = json.loads(json.dumps(metric))
             for i, d in enumerate(metric["data"]):
                 metric["data"][i] = "{}/{}".format(key_encoded, d)
         # ------------------------------------------------------------------------
 
-        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.buffers)
+        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None):

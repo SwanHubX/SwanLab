@@ -8,7 +8,7 @@ r"""
     上传请求模型
 """
 from enum import Enum
-from typing import List
+from typing import List, Literal, Optional
 from swanlab.data.modules import MediaBuffer
 from datetime import datetime
 
@@ -18,34 +18,49 @@ class ColumnModel:
     列信息上传模型
     """
 
-    def __init__(self, key, column_type: str, error: dict = None):
+    def __init__(
+        self,
+        key,
+        column_type: str,
+        column_class: Literal["CUSTOM", "SYSTEM"],
+        column_name: Optional[str],
+        section_name: Optional[str],
+        error: dict = None,
+    ):
         """
         :param key: 列名称
         :param column_type: 列类型，'FLOAT', 'IMAGE', 'AUDIO', 'TEXT'，必须为大写，如果传入 'DEFAULT'，则会转为 'FLOAT'
+        :param column_class: 列的类型，CUSTOM为自定义列，SYSTEM为系统生成列
+        :param column_name: 列的别名
         :param error: 错误信息，如果错误信息不为None
         """
         self.key = key
-        self.column_type = column_type
+        self.column_type = column_type if column_type != "DEFAULT" else "FLOAT"
+        self.column_class = column_class
+        self.column_name = column_name
+        self.section_name = section_name
         self.error = error
 
     def to_dict(self):
         """
         序列化为Dict
         """
-        return {
-            "key": self.key,
-            "type": self.column_type,
-        } if self.error is None else {
-            "key": self.key,
-            "type": self.column_type,
-            "error": self.error
-        }
+        d = {"key": self.key, "type": self.column_type, "class": self.column_class}
+        if self.error is not None:
+            d["error"] = self.error
+        if self.column_name is not None:
+            d["name"] = self.column_name
+        if self.section_name is not None:
+            d["sectionName"] = self.section_name
+
+        return d
 
 
 class MetricType(Enum):
     """
     指标类型枚举
     """
+
     SCALAR = "scalar"
     """
     标量指标
@@ -64,6 +79,7 @@ class MediaModel:
     """
     媒体指标信息上传模型
     """
+
     type = MetricType.MEDIA
 
     def __init__(
@@ -73,7 +89,7 @@ class MediaModel:
         key_encoded: str,
         step: int,
         epoch: int,
-        buffers: List[MediaBuffer] = None
+        buffers: List[MediaBuffer] = None,
     ):
         self.metric = metric
         self.step = step
@@ -95,18 +111,14 @@ class MediaModel:
         """
         序列化
         """
-        return {
-            **self.metric,
-            "key": self.key,
-            "index": self.step,
-            "epoch": self.epoch
-        }
+        return {**self.metric, "key": self.key, "index": self.step, "epoch": self.epoch}
 
 
 class ScalarModel:
     """
     标量指标信息上传模型
     """
+
     type = MetricType.SCALAR
 
     def __init__(self, metric: dict, key: str, step: int, epoch: int):
@@ -119,12 +131,7 @@ class ScalarModel:
         """
         序列化
         """
-        return {
-            **self.metric,
-            "key": self.key,
-            "index": self.step,
-            "epoch": self.epoch
-        }
+        return {**self.metric, "key": self.key, "index": self.step, "epoch": self.epoch}
 
 
 class FileModel:
@@ -133,11 +140,7 @@ class FileModel:
     """
 
     def __init__(
-        self,
-        requirements: str = None,
-        metadata: dict = None,
-        config: dict = None,
-        create_time: datetime = None
+        self, requirements: str = None, metadata: dict = None, config: dict = None, create_time: datetime = None
     ):
         self.requirements = requirements
         self.metadata = metadata

@@ -25,6 +25,7 @@ import random
 
 MAX_LIST_LENGTH = 108
 
+
 class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
     We Recommend that you use this enumeration class to represent the state of the experiment.
@@ -243,13 +244,6 @@ class SwanLabRun:
         """
         return self.__config
 
-    @property
-    def exp(self) -> SwanLabExp:
-        """
-        Get the current experiment object. This object is used to log data and control the experiment.
-        """
-        return self.__exp
-
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -297,7 +291,7 @@ class SwanLabRun:
                 # 超过255字符，截断
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
                 if k in data.keys():
-                    raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
+                    raise ValueError(f'Key: Not supported too long Key "{_k}" and auto cut failed')
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
@@ -321,8 +315,7 @@ class SwanLabRun:
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            self.__operator.on_metric_create(metric_info)
-            log_return[metric_info.key] = metric_info
+            log_return[metric_info.column_info.key] = metric_info
 
         return log_return
 

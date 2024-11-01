@@ -1,7 +1,8 @@
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
-from typing import Dict, Optional
+from typing import Dict, Optional, Literal
 from swankit.env import create_time
+from swankit.callback.models import MetricErrorInfo
 from swankit.callback import MetricInfo, ColumnInfo
 from .helper import SwanLabRunOperator
 from swankit.core import SwanLabSharedSettings
@@ -28,10 +29,16 @@ class SwanLabExp:
         self.settings = settings
         # 当前实验的所有tag数据字段
         self.keys: Dict[str, SwanLabKey] = {}
-        # TODO 操作员不传递给实验
         self.__operator = operator
 
-    def add(self, key: str, data: DataWrapper, step: int = None) -> MetricInfo:
+    def __add(
+        self,
+        data: DataWrapper,
+        key: str,
+        key_class: Literal["CUSTOM", "SYSTEM"] = "CUSTOM",
+        key_name: str = None,
+        step: int = None,
+    ) -> MetricInfo:
         """记录一条新的tag数据
 
         Parameters
@@ -40,12 +47,16 @@ class SwanLabExp:
             key名称
         data : DataWrapper
             包装后的数据，用于数据解析
+        key_class : Literal["CUSTOM", "SYSTEM"]
+            key的类型，CUSTOM为自定义列，SYSTEM为系统生成列
+        key_name : str, optional
+            key的别名，如果不传则默认为key
 
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
-            在log函数中已经做了处理，此处不需要考虑数值类型等情况
+            在log函数中已经做了处理，此处不需要考虑数值类型错误
         """
-        # 判断tag是否存在，如果不存在则创建tag
+        # 判断tag是否存在，如果不存在则创建key
         key_obj: SwanLabKey = self.keys.get(key, None)
 
         # ---------------------------------- 包装器解析 ----------------------------------
@@ -59,18 +70,18 @@ class SwanLabExp:
             step = len(key_obj.steps) if step is None else step
             if step in key_obj.steps:
                 swanlog.warning(f"Step {step} on key {key} already exists, ignored.")
-                return MetricInfo(key, key_obj.column_info, DataWrapper.create_duplicate_error())
+                return MetricErrorInfo(key_obj.column_info, DataWrapper.create_duplicate_error())
         data.parse(step=step, key=key)
 
-        # ---------------------------------- 图表创建 ----------------------------------
+        # ---------------------------------- 列对象创建 ----------------------------------
 
         if key_obj is None:
             num = len(self.keys)
-            # 将此tag对象添加到实验列表中
-            key_obj = SwanLabKey(key, self.settings.log_dir)
+            # 将此列对象添加到实验列表中
+            key_obj = SwanLabKey(key, self.settings.log_dir, self.settings.media_dir)
             self.keys[key] = key_obj
             # 新建图表，完成数据格式校验
-            column_info = key_obj.create_column(key, data, num)
+            column_info = key_obj.create_column(key, data, key_class, key_name, num)
             self.warn_type_error(key)
             # 创建新列，生成回调
             self.__operator.on_column_create(column_info)
@@ -78,12 +89,29 @@ class SwanLabExp:
         # 检查tag创建时图表是否创建成功，如果失败则也没有写入数据的必要了，直接退出
         if not key_obj.is_chart_valid:
             self.warn_chart_error(key)
-            # 这条指标没有被解析，所以也没有必要标注这条只指标是否错误
-            return MetricInfo(key, key_obj.column_info, error=None)
-        key_info = key_obj.add(data)
-        key_info.buffers = data.parse().buffers
-        key_info.media_dir = self.settings.media_dir
-        return key_info
+            return MetricErrorInfo(key_obj.column_info, key_obj.column_info.error)
+        return key_obj.add(data)
+
+    def add(
+        self,
+        data: DataWrapper,
+        key: str,
+        key_class: Literal["CUSTOM", "SYSTEM"] = "CUSTOM",
+        key_name: str = None,
+        step: int = None,
+    ):
+        """
+        添加数据
+        :param data: 数据
+        :param key: key名称
+        :param key_class: key类型
+        :param key_name: key别名
+        :param step: 步数
+        :return: MetricInfo
+        """
+        m = self.__add(data, key, key_class, key_name, step)
+        self.__operator.on_metric_create(m)
+        return m
 
     def warn_type_error(self, key: str):
         """警告类型错误
@@ -130,7 +158,7 @@ class SwanLabKey:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, key: str, log_dir: str) -> None:
+    def __init__(self, key: str, log_dir: str, media_dir: str) -> None:
         """
         初始化tag对象
 
@@ -148,6 +176,8 @@ class SwanLabKey:
         """
         self.__log_dir = log_dir
         """swanlab 存储文件夹路径"""
+        self.__media_dir = media_dir
+        """swanlab 媒体文件夹路径"""
         self.__summary = {}
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
@@ -204,7 +234,7 @@ class SwanLabKey:
                 f"Log failed. Reason: Data on key '{self.key}' (step {result.step}) cannot be converted ."
                 f"It should be {data.error.expected}, but it is {data.error.got}, please check the data type."
             )
-            return MetricInfo(self.key, self.__column_info, data.error)
+            return MetricErrorInfo(self.__column_info, data.error)
 
         # 如果为Line且为NaN或者INF，不更新summary
         r = result.strings or result.float
@@ -227,40 +257,50 @@ class SwanLabKey:
         epoch = len(self.__steps)
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
-            self.key,
             self.__column_info,
-            error=None,
-            epoch=epoch,
-            step=result.step,
-            logdir=self.__log_dir,
             metric=json.loads(json.dumps(new_data)),
-            summary=json.loads(json.dumps(self.__summary)),
+            metric_buffers=result.buffers,
+            metric_summary=json.loads(json.dumps(self.__summary)),
+            metric_step=result.step,
+            metric_epoch=epoch,
             metric_file_name=str(mu * self.__slice_size) + ".log",
-            buffers=result.buffers,
+            swanlab_logdir=self.__log_dir,
+            swanlab_media_dir=self.__media_dir,
         )
 
-    def create_column(self, key: str, data: DataWrapper, num: int) -> ColumnInfo:
+    def create_column(
+        self,
+        key: str,
+        data: DataWrapper,
+        key_class: Literal["CUSTOM", "SYSTEM"],
+        key_name: Optional[str],
+        num: int,
+    ) -> ColumnInfo:
         """
         创建列信息，对当前key的基本信息做一个记录
         :param key: str, key名称
         :param data: DataType, 数据
+        :param key_class: Literal["CUSTOM", "SYSTEM"], key的类型
+        :param key_name: str, key的别名
         :param num: 创建此列之前的列数量
         """
         if self.chart_created:
             raise ValueError(f"Chart {key} has been created, cannot create again.")
         result = data.parse()
 
-        # 对于namespace，如果tag的名称存在斜杠，则使用斜杠前的部分作为namespace的名称
+        # 对于section，如果tag的名称存在斜杠，则使用斜杠前的部分作为section的名称
         if "/" in key and key[0] != "/":
             result.section = key.split("/")[0]
 
         column_info = ColumnInfo(
-            key_id=str(num),
             key=key,
-            namespace=result.section,
-            chart=result.chart,
+            key_id=str(num),
+            key_name=key_name,
+            key_class=key_class,
+            section_name=result.section,
+            chart_type=result.chart,
+            chart_reference=result.reference,
             error=data.error,
-            reference=result.reference,
             config=result.config,
         )
         self.chart = result.chart.value
