@@ -10,6 +10,8 @@ r"""
 import threading
 import time
 from typing import List, Tuple, Callable, Dict
+
+from .sysmetrics_collector import SysmetricsCollectorTask
 from .utils import ThreadUtil
 from .utils import LogQueue, TimerFlag
 from .log_collector import LogCollectorTask
@@ -36,6 +38,8 @@ class ThreadPool:
         self.thread_pool = {}
         # 日志聚合器
         self.collector = LogCollectorTask()
+        # 系统指标收集器
+        self.sysmetrics_uploader = SysmetricsCollectorTask()
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []
@@ -48,6 +52,7 @@ class ThreadPool:
             sleep_time=upload_sleep_time,
             callback=self.collector.callback
         )
+
         self.queue = LogQueue(queue=self.__queue, readable=False, writable=True)
         """
         一个线程安全的队列，用于主线程向数据上传线程通信
