@@ -230,6 +230,14 @@ class CloudRunCallback(LocalRunCallback):
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
 
+        # 生成系统指标上传线程，负责收集系统指标信息，并上传
+        self.pool.create_thread(
+            target=self.pool.sysmetrics_uploader.task,
+            args=(get_run().exp, ),
+            name="SysmetricsUploader",
+            callback=self.pool.sysmetrics_uploader.callback,
+        )
+
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
             show_button_html(experiment_url)
