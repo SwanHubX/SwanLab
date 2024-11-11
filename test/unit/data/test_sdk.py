@@ -87,6 +87,7 @@ class TestInitMode:
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
+        assert run.public.cloud.project_name is None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):
@@ -95,6 +96,8 @@ class TestInitMode:
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
+        for key in run.public.json()['cloud']:
+            assert run.public.json()['cloud'][key] is not None
 
     def test_init_error(self):
         with pytest.raises(ValueError):

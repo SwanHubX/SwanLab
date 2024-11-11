@@ -59,7 +59,7 @@ class SwanlabCloudConfig:
         """
         The name of the experiment. It may be different from the name of swanboard.
         """
-        return self.__get_property_from_http("exp_name")
+        return self.__get_property_from_http("expname")
 
     @property
     def experiment_url(self):
