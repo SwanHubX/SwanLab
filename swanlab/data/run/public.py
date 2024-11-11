@@ -59,7 +59,7 @@ class SwanlabCloudConfig:
         """
         The name of the experiment. It may be different from the name of swanboard.
         """
-        return self.__get_property_from_http("exp_name")
+        return self.__get_property_from_http("expname")
 
     @property
     def experiment_url(self):
@@ -83,6 +83,25 @@ class SwanLabPublicConfig:
         self.__project_name = project_name
         self.__cloud = SwanlabCloudConfig()
         self.__settings = settings
+
+    def json(self):
+        """
+        Return a dict of the public config.
+        This method is used to serialize the public config to json.
+        """
+        return {
+            "project_name": self.project_name,
+            "version": self.version,
+            "run_id": self.run_id,
+            "swanlog_dir": self.swanlog_dir,
+            "run_dir": self.run_dir,
+            "cloud": {
+                "project_name": self.cloud.project_name,
+                "project_url": self.cloud.project_url,
+                "experiment_name": self.cloud.experiment_name,
+                "experiment_url": self.cloud.experiment_url,
+            },
+        }
 
     @property
     def cloud(self):
