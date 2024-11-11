@@ -16,7 +16,7 @@
 
 中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
-👋 加入我们的[微信群](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)
+👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
 
 </div>
 

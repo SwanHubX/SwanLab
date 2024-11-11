@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<a href="https://swanlab.cn">🔥SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">📃Document</a> · <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
+<a href="https://swanlab.cn">🔥SwanLab Cloud</a> · <a href="https://docs.swanlab.cn">📃Document</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issue</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
 [![license][license-shield]][license-shield-link]
 [![last-commit][last-commit-shield]][last-commit-shield-link]
@@ -15,6 +15,8 @@
 [![colab][colab-shield]][colab-shield-link]
 
 [中文](README.md) / English / [日本語](README_JP.md) / [Русский](README_RU.md)
+
+👋 Join our [WeChat group](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
 
 </div>
 
