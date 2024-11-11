@@ -84,6 +84,25 @@ class SwanLabPublicConfig:
         self.__cloud = SwanlabCloudConfig()
         self.__settings = settings
 
+    def json(self):
+        """
+        Return a dict of the public config.
+        This method is used to serialize the public config to json.
+        """
+        return {
+            "project_name": self.project_name,
+            "version": self.version,
+            "run_id": self.run_id,
+            "swanlog_dir": self.swanlog_dir,
+            "run_dir": self.run_dir,
+            "cloud": {
+                "project_name": self.cloud.project_name,
+                "project_url": self.cloud.project_url,
+                "experiment_name": self.cloud.experiment_name,
+                "experiment_url": self.cloud.experiment_url,
+            },
+        }
+
     @property
     def cloud(self):
         """
