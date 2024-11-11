@@ -7,23 +7,27 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from swankit.core import SwanLabSharedSettings
-from swanlab.log import swanlog
-from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
-from .system import get_system_info, get_requirements
-from swanlab.package import get_package_version
-from .config import SwanLabConfig
-from enum import Enum
-from .exp import SwanLabExp
-from datetime import datetime
-from typing import Callable, Optional, Dict
-from .helper import SwanLabRunOperator, RuntimeInfo
-from ..formater import check_key_format, check_exp_name_format, check_desc_format
-from swanlab.env import get_mode, get_swanlog_dir
-from . import namer as N
 import random
+from datetime import datetime
+from enum import Enum
+from typing import Callable, Optional, Dict
+
+from swankit.core import SwanLabSharedSettings
+
+from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
+from swanlab.env import get_mode, get_swanlog_dir
+from swanlab.log import swanlog
+from swanlab.package import get_package_version
+from . import namer as N
+from .config import SwanLabConfig
+from .exp import SwanLabExp
+from .helper import SwanLabRunOperator, RuntimeInfo
+from .public import SwanLabPublicConfig
+from .system import get_system_info, get_requirements
+from ..formater import check_key_format, check_exp_name_format, check_desc_format
 
 MAX_LIST_LENGTH = 108
+
 
 class SwanLabRunState(Enum):
     """SwanLabRunState is an enumeration class that represents the state of the experiment.
@@ -94,6 +98,7 @@ class SwanLabRun:
             should_save=not self.__operator.disabled,
             version=get_package_version(),
         )
+        self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.level = self.__check_log_level(log_level)
@@ -129,17 +134,13 @@ class SwanLabRun:
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
                 requirements=get_requirements(),
-                metadata=get_system_info(get_package_version(), self.settings.log_dir),
+                metadata=get_system_info(get_package_version(), self.__settings.log_dir),
             )
         )
 
     @property
-    def operator(self) -> SwanLabRunOperator:
-        return self.__operator
-
-    @property
-    def project_name(self) -> str:
-        return self.__project_name
+    def public(self):
+        return self.__public
 
     @property
     def mode(self) -> str:
@@ -210,7 +211,7 @@ class SwanLabRun:
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
         # 退出回调
-        run.operator.on_stop(error)
+        getattr(run, "_SwanLabRun__operator").on_stop(error)
         try:
             swanlog.uninstall()
         except RuntimeError:
@@ -224,14 +225,6 @@ class SwanLabRun:
         _run, run = run, None
 
         return _run
-
-    @property
-    def settings(self) -> SwanLabSharedSettings:
-        """
-        This property allows you to access the 'settings' content passed through `init`,
-        and runtime settings can not be modified.
-        """
-        return self.__settings
 
     @property
     def config(self) -> SwanLabConfig:
@@ -353,10 +346,10 @@ class SwanLabRun:
         description = "" if description is None else description
         colors = N.generate_colors(num)
         self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
-        self.settings.exp_name = experiment_name
-        self.settings.exp_colors = colors
-        self.settings.description = description
-        return SwanLabExp(self.settings, operator=self.__operator)
+        self.__settings.exp_name = experiment_name
+        self.__settings.exp_colors = colors
+        self.__settings.description = description
+        return SwanLabExp(self.__settings, operator=self.__operator)
 
     @staticmethod
     def __check_log_level(log_level: str) -> str:

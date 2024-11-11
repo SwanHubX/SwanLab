@@ -7,15 +7,17 @@ r"""
 @Description:
     测试sdk的一些api
 """
-import tutils as T
+import os
+
+import pytest
+from nanoid import generate
+
 import swanlab.data.sdk as S
 import swanlab.error as Err
-from swanlab.log import swanlog
-from swanlab.env import SwanLabEnv, get_save_dir
+import tutils as T
 from swanlab.data.run import get_run
-from nanoid import generate
-import pytest
-import os
+from swanlab.env import SwanLabEnv, get_save_dir
+from swanlab.log import swanlog
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -76,7 +78,7 @@ class TestInitMode:
         assert not os.path.exists(logdir)
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
-        a = run.settings.run_dir
+        a = run.public.run_dir
         assert not os.path.exists(a)
         assert get_run() is not None
 
@@ -85,6 +87,7 @@ class TestInitMode:
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
+        assert run.public.cloud.project_name is None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):
@@ -93,6 +96,8 @@ class TestInitMode:
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})  # 不会报错
         assert get_run() is not None
+        for key in run.public.json()['cloud']:
+            assert run.public.json()['cloud'][key] is not None
 
     def test_init_error(self):
         with pytest.raises(ValueError):
@@ -106,7 +111,7 @@ class TestInitMode:
         run = S.init()
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
-        a = run.settings.run_dir
+        a = run.public.run_dir
         assert not os.path.exists(a)
         assert get_run() is not None
 
@@ -131,7 +136,7 @@ class TestInitMode:
         run = S.init(mode="disabled")
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
-        a = run.settings.run_dir
+        a = run.public.run_dir
         assert not os.path.exists(a)
         assert get_run() is not None
 
@@ -146,7 +151,7 @@ class TestInitProject:
         设置project为None
         """
         run = S.init(project=None, mode="disabled")
-        assert run.project_name == os.path.basename(os.getcwd())
+        assert run.public.project_name == os.path.basename(os.getcwd())
 
     def test_init_project(self):
         """
@@ -154,7 +159,7 @@ class TestInitProject:
         """
         project = "test_project"
         run = S.init(project=project, mode="disabled")
-        assert run.project_name == project
+        assert run.public.project_name == project
 
 
 LOG_DIR = SwanLabEnv.SWANLOG_FOLDER.value
@@ -171,13 +176,13 @@ class TestInitLogdir:
         """
         logdir = generate()
         run = S.init(logdir=logdir, mode="disabled")
-        assert run.settings.swanlog_dir != logdir
-        assert run.settings.swanlog_dir == os.environ[LOG_DIR]
+        assert run.public.swanlog_dir != logdir
+        assert run.public.swanlog_dir == os.environ[LOG_DIR]
         run.finish()
         del os.environ[LOG_DIR]
         run = S.init(logdir=logdir, mode="disabled")
-        assert run.settings.swanlog_dir != logdir
-        assert run.settings.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
+        assert run.public.swanlog_dir != logdir
+        assert run.public.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
 
     def test_init_logdir_enabled(self):
         """
@@ -185,12 +190,12 @@ class TestInitLogdir:
         """
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(logdir=logdir, mode="local")
-        assert run.settings.swanlog_dir == logdir
+        assert run.public.swanlog_dir == logdir
         run.finish()
         del os.environ[LOG_DIR]
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(logdir=logdir, mode="local")
-        assert run.settings.swanlog_dir == logdir
+        assert run.public.swanlog_dir == logdir
 
     def test_init_logdir_env(self):
         """
@@ -199,13 +204,13 @@ class TestInitLogdir:
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[LOG_DIR] = logdir
         run = S.init(mode="local")
-        assert run.settings.swanlog_dir == logdir
+        assert run.public.swanlog_dir == logdir
         run.finish()
         del os.environ[LOG_DIR]
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[LOG_DIR] = logdir
         run = S.init(mode="local")
-        assert run.settings.swanlog_dir == logdir
+        assert run.public.swanlog_dir == logdir
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
