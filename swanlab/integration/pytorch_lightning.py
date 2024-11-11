@@ -203,4 +203,4 @@ class SwanLabLogger(Logger):
     @property
     def version(self) -> Optional[str]:
         # don't create an experiment if we don't have one
-        return self.experiment.settings.run_id if self._experiment is not None else None
+        return self.experiment.public.run_id if self._experiment is not None else None
