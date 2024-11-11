@@ -16,7 +16,7 @@
 
 [中文](README.md) / [English](README_EN.md) / [日本語](README_JP.md) / Русский
 
-👋 Присоединяйтесь к нашему [чату в WeChat](https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic)
+👋 Присоединяйтесь к нашему [чату в WeChat](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
 
 </div>
 
