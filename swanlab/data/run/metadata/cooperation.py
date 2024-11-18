@@ -15,10 +15,10 @@ from swanlab.package import get_package_version
 
 
 def get_cooperation_info():
-    qin_cloud = get_qing_cloud_info()
+    qing_cloud = get_qing_cloud_info()
     coop = {"swanlab": get_swanlab_info()}
-    if qin_cloud:
-        coop.update(qin_cloud)
+    if qing_cloud:
+        coop.update({"qing_cloud": qing_cloud})
     return coop
 
 

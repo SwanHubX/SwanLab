@@ -155,7 +155,7 @@ def get_nvidia_gpu_info():
             # 获取 GPU 的总显存, 单位为GB
             info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
 
-    except pynvml.NVMLError as e:
+    except pynvml.NVMLError:
         pass
     finally:
         # 结束 NVML
