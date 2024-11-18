@@ -26,6 +26,7 @@ def get_swanlab_info():
     data = {
         "version": get_package_version(),
         "mode": os.getenv(SwanLabEnv.MODE.value),
+        "swanlog_dir": os.getenv(SwanLabEnv.SWANLOG_FOLDER.value),
     }
     try:
         http = get_http()
