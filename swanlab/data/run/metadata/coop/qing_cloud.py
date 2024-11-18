@@ -26,7 +26,7 @@ def get_qing_cloud_info():
     plat = os.getenv("AICP_PLATFORM")
     if not plat:
         return None
-    return {**get_envs_by_keys(BASE_KEYS), **get_envs_by_keys(RESOURCES_KEYS)}
+    return {**get_envs_by_keys(BASE_KEYS), "resources": get_envs_by_keys(RESOURCES_KEYS)}
 
 
 def get_envs_by_keys(keys: list):
