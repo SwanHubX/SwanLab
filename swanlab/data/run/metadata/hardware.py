@@ -18,7 +18,16 @@ def get_hardware_info():
     """
     采集硬件信息，包括CPU、GPU、内存、硬盘等
     """
-    info = {"cpu": get_cpu_info(), "memory": get_memory_size(), "gpu": get_gpu_info()}
+    info = {
+        "memory": get_memory_size(),
+        "cpu": get_cpu_info(),
+        "gpu": {
+            "nvidia": get_nvidia_gpu_info(),
+        },
+        "soc": {
+            "apple": get_apple_chip_info(),
+        },
+    }
     return info
 
 
@@ -34,9 +43,10 @@ def get_cpu_info():
         info["brand"] = get_cpu_brand_windows()
     elif platform.system() == "Linux":
         info["brand"] = get_cpu_brand_linux()
-    elif platform.system() == "Darwin":
-        info["brand"] = get_cpu_brand_macos()
-
+    else:
+        # 其他情况，暂时不支持
+        # 苹果芯片单独处理
+        return None
     try:
         # 获取 CPU 核心数
         info["cores"] = multiprocessing.cpu_count()
@@ -69,16 +79,6 @@ def get_cpu_brand_linux():
         return None
 
 
-def get_cpu_brand_macos():
-    try:
-        # 使用 sysctl 命令获取 CPU 品牌
-        result = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True)
-        cpu_brand = result.stdout.strip()
-        return cpu_brand
-    except Exception:  # noqa
-        return None
-
-
 # ---------------------------------- 内存信息 ----------------------------------
 
 
@@ -94,22 +94,6 @@ def get_memory_size():
 
 
 # ---------------------------------- gpu信息 ----------------------------------
-
-
-def get_gpu_info():
-    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None, "provider": "unknown"}
-    # nvidia
-    gpu_info = get_nvidia_gpu_info()
-    if gpu_info:
-        info.update(gpu_info)
-        info["provider"] = "NVIDIA"
-        return info
-    # apple
-    gpu_info = get_apple_gpu_info()
-    if gpu_info:
-        info.update(gpu_info)
-        info["provider"] = "APPLE"
-        return info
 
 
 def get_nvidia_gpu_info():
@@ -163,9 +147,13 @@ def get_nvidia_gpu_info():
         return info
 
 
-def get_apple_gpu_info():
+# ---------------------------------- apple信息 ----------------------------------
 
-    info = {"cores": None, "type": [], "memory": []}
+
+def get_apple_chip_info():
+    if "mac" not in platform.platform().lower():
+        return None
+    info = {"cpu": None, "gpu": None, "memory": None, "type": None}
 
     # 使用system_profiler命令以JSON格式获取GPU信息
     try:
@@ -173,12 +161,13 @@ def get_apple_gpu_info():
         gpu_name = json.loads(result.stdout)["SPHardwareDataType"][0]["chip_type"]
         memory = json.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
         memory = str(memory).lower().replace("gb", "")
-        number_processors = json.loads(result.stdout)["SPHardwareDataType"][0]["number_processors"]
+        # TODO: 获取GPU信息
+        info["type"] = gpu_name
+        info["memory"] = memory
     except Exception:  # noqa
         return None
-
-    info["type"].append(gpu_name)
-    info["memory"].append(memory)
-    info["cores"] = number_processors
-
+    try:
+        info["cpu"] = multiprocessing.cpu_count()
+    except Exception:  # noqa
+        pass
     return info
