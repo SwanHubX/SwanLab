@@ -7,8 +7,8 @@ r"""
 @Description:
     命名器、取色器
 """
-from typing import Tuple, Optional
 import random
+from typing import Tuple, Optional
 
 prefix_list = [
     "swan-",  # 天鹅
@@ -23,7 +23,7 @@ prefix_list = [
     "monkey-",  # 猴
     "rooster-",  # 鸡
     "dog-",  # 狗
-    "pig-"  # 猪
+    "pig-",  # 猪
     "cat-",  # 猫
     "elephant-",  # 象
     "penguin-",  # 企鹅

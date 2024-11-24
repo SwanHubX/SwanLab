@@ -7,18 +7,20 @@ r"""
 @Description:
     基本回调函数注册表，此时不考虑云端情况
 """
-from swankit.core import SwanLabSharedSettings
-from swanlab.log import swanlog
-from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback
-from swankit.callback import RuntimeInfo, MetricInfo
-from swankit.log import FONT
-from swanlab.env import SwanLabEnv
-from datetime import datetime
-import traceback
 import json
 import os
 import sys
+import traceback
+from datetime import datetime
+
+from swankit.callback import RuntimeInfo, MetricInfo
+from swankit.core import SwanLabSharedSettings
+from swankit.log import FONT
+
+from swanlab.data.run.callback import SwanLabRunCallback
+from swanlab.data.run.main import get_run, SwanLabRunState
+from swanlab.env import SwanLabEnv
+from swanlab.log import swanlog
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -55,6 +57,7 @@ class LocalRunCallback(SwanLabRunCallback):
         根据传入的logdir，初始化日志文件夹
         FIXME shit code
         """
+        env_key = SwanLabEnv.SWANLOG_FOLDER.value
         # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
         if logdir is not None:
             try:
@@ -73,7 +76,6 @@ class LocalRunCallback(SwanLabRunCallback):
                 raise ValueError("logdir must be a str.")
             except IOError:
                 raise IOError("logdir must be a path and have Write permission.")
-            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
         # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
         else:
             logdir = os.environ.get(SwanLabEnv.SWANLOG_FOLDER.value) or os.path.join(os.getcwd(), "swanlog")
@@ -84,6 +86,8 @@ class LocalRunCallback(SwanLabRunCallback):
                     raise IOError
             except IOError:
                 raise IOError("logdir must have Write permission.")
+        # 同步环境变量
+        os.environ[env_key] = logdir
         # 如果logdir是空的，创建.gitignore文件，写入*
         if not os.listdir(logdir):
             with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:

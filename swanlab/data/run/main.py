@@ -22,8 +22,8 @@ from . import namer as N
 from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo
+from .metadata import get_requirements, get_metadata
 from .public import SwanLabPublicConfig
-from .system import get_system_info, get_requirements
 from ..formater import check_key_format, check_exp_name_format, check_desc_format
 
 MAX_LIST_LENGTH = 108
@@ -134,7 +134,7 @@ class SwanLabRun:
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
                 requirements=get_requirements(),
-                metadata=get_system_info(get_package_version(), self.__settings.log_dir),
+                metadata=get_metadata(self.__settings.log_dir),
             )
         )
 
