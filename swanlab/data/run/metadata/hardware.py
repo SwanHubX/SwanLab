@@ -7,28 +7,43 @@
 
 import json
 import multiprocessing
+import os
 import platform
 import subprocess
 
 import psutil
 import pynvml
 
+from .utils import ascend
+
 
 def get_hardware_info():
     """
     采集硬件信息，包括CPU、GPU、内存、硬盘等
     """
+    gpu = filter_none({"nvidia": get_nvidia_gpu_info()})
+    npu = filter_none({"ascend": get_ascend_npu_info()})
+    soc = filter_none({"apple": get_apple_chip_info()})
+
     info = {
         "memory": get_memory_size(),
         "cpu": get_cpu_info(),
-        "gpu": {
-            "nvidia": get_nvidia_gpu_info(),
-        },
-        "soc": {
-            "apple": get_apple_chip_info(),
-        },
+        "gpu": gpu,
+        "npu": npu,
+        "soc": soc,
     }
-    return info
+    return filter_none(info, fallback={})
+
+
+def filter_none(data, fallback=None):
+    """
+    过滤掉字典中值为None的键值对，只对字典有效
+    """
+    if isinstance(data, dict):
+        data = {k: v for k, v in data.items() if v is not None}
+        if all(v is None for v in data.values()):
+            return fallback
+    return data
 
 
 # ---------------------------------- cpu信息 ----------------------------------
@@ -145,6 +160,42 @@ def get_nvidia_gpu_info():
         # 结束 NVML
         pynvml.nvmlShutdown()
         return info
+
+
+# ---------------------------------- npu信息 ----------------------------------
+
+
+def get_ascend_npu_info():
+    """
+    获取华为昇腾NPU信息，包括驱动版本、设备信息等
+    目前的信息统计粒度只到NPU ID级别，没有到Chip ID级别
+    """
+    # ascend芯片只支持Linux系统
+    if platform.system() != "Linux":
+        return None
+    # /dev目录下没有davinci*设备文件，跳过
+    # 其实理论上davinci后接数字，代表此设备id，但是官方文档也没明确写，以防万一还是不这么干了
+    if not list(filter(lambda x: x.startswith("davinci"), os.listdir("/dev"))):
+        return None
+    info = {"driver": None, "npu": None}
+    try:
+        # 获取NPU驱动版本
+        info["driver"] = ascend.get_version()
+        # 获取所有NPU设备ID
+        npu_map = ascend.map_npu()
+        for npu_id in npu_map:
+            for chip_id in npu_map[npu_id]:
+                chip_info = npu_map[npu_id][chip_id]
+                usage = ascend.get_chip_usage(npu_id, chip_id)
+                if info["npu"] is None:
+                    info["npu"] = {}
+                if npu_id not in info["npu"]:
+                    info["npu"][npu_id] = {}
+                info["npu"][npu_id][chip_id] = {**chip_info, "usage": usage}
+    except Exception:  # noqa
+        if all(v is None for v in info.values()):
+            return None
+    return info
 
 
 # ---------------------------------- apple信息 ----------------------------------
