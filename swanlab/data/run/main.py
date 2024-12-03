@@ -314,7 +314,7 @@ class SwanLabRun:
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            self.__operator.on_metric_create(metric_info)
+            #self.__operator.on_metric_create(metric_info)
             log_return[metric_info.key] = metric_info
 
         return log_return
