@@ -130,11 +130,12 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
+        metadata, self.__monitor_funcs = get_metadata(self.__settings.log_dir)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
                 requirements=get_requirements(),
-                metadata=get_metadata(self.__settings.log_dir),
+                metadata=metadata,
             )
         )
 
@@ -314,7 +315,7 @@ class SwanLabRun:
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            #self.__operator.on_metric_create(metric_info)
+            # self.__operator.on_metric_create(metric_info)
             log_return[metric_info.key] = metric_info
 
         return log_return
@@ -322,6 +323,12 @@ class SwanLabRun:
     def __str__(self) -> str:
         """此类的字符串表示"""
         return self.__run_id
+
+    def __collect_monitoring_data(self):
+        """
+        采集监控信息，用于监控硬件信息
+        """
+        monitor_info_list = [f() for f in self.__monitor_funcs]
 
     def __register_exp(
         self,
