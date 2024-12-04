@@ -130,7 +130,7 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
-        metadata, self.__monitor_funcs = get_metadata(self.__settings.log_dir)
+        metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
@@ -328,7 +328,7 @@ class SwanLabRun:
         """
         采集监控信息，用于监控硬件信息
         """
-        monitor_info_list = [f() for f in self.__monitor_funcs]
+        monitor_info_list = [f() for f in self.monitor_funcs]
 
     def __register_exp(
         self,

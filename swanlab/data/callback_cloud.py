@@ -7,31 +7,35 @@ r"""
 @Description:
     云端回调
 """
+import io
+import json
+import os
+import sys
+import threading
+from typing import Callable, Optional
+
 from swankit.callback import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.core import SwanLabSharedSettings
-from swanlab.data.cloud import UploadType
-from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
+from swankit.env import create_time
+from swankit.log import FONT
+
 from swanlab.api import LoginInfo, create_http, terminal_login
-from swanlab.api.upload import upload_logs
-from swanlab.log import swanlog
 from swanlab.api import get_http
+from swanlab.api.upload import upload_logs
+from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
+from swanlab.data.cloud import ThreadPool
+from swanlab.data.cloud import UploadType
 from swanlab.env import in_jupyter, SwanLabEnv
 from swanlab.error import KeyFileError
-from .callback_local import LocalRunCallback, get_run, SwanLabRunState
-from swanlab.data.cloud import ThreadPool
+from swanlab.log import swanlog
 from swanlab.package import (
     get_package_version,
     get_package_latest_version,
     get_experiment_url,
     get_project_url,
-    get_key
+    get_key,
 )
-from swankit.log import FONT
-from swankit.env import create_time
-import json
-import sys
-import os
-import io
+from .callback_local import LocalRunCallback, get_run, SwanLabRunState
 
 
 def show_button_html(experiment_url):
@@ -114,6 +118,27 @@ def show_button_html(experiment_url):
         pass
 
 
+class MonitorCron:
+    """
+    用于定时采集系统信息
+    """
+
+    SLEEP_TIME = 30
+
+    def __init__(self, monitor_func: Callable):
+        def _():
+            monitor_func()
+            self.timer = threading.Timer(self.SLEEP_TIME, _)
+            self.timer.start()
+
+        self.timer = threading.Timer(self.SLEEP_TIME, _)
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer is not None:
+            self.timer.cancel()
+
+
 class CloudRunCallback(LocalRunCallback):
     login_info: LoginInfo = None
     """
@@ -128,6 +153,7 @@ class CloudRunCallback(LocalRunCallback):
         标记是否正在退出云端环境
         """
         self.public = public
+        self.monitor_cron: Optional[MonitorCron] = None
 
     @classmethod
     def get_login_info(cls):
@@ -229,15 +255,7 @@ class CloudRunCallback(LocalRunCallback):
         swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
-
-        # 生成系统指标上传线程，负责收集系统指标信息，并上传
-        self.pool.create_thread(
-            target=self.pool.sysmetrics_uploader.task,
-            args=(get_run().exp, ),
-            name="SysmetricsUploader",
-            callback=self.pool.sysmetrics_uploader.callback,
-        )
-
+        self.monitor_cron = MonitorCron(getattr(get_run(), "_SwanLabRun__collect_monitoring_data"))
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
             show_button_html(experiment_url)
@@ -245,12 +263,7 @@ class CloudRunCallback(LocalRunCallback):
         # task环境下，同步实验信息回调
         if os.environ.get(SwanLabEnv.RUNTIME.value) == "task":
             cuid = os.environ["SWANLAB_TASK_ID"]
-            info = {
-                "cuid": cuid,
-                "pId": http.proj_id,
-                "eId": http.exp_id,
-                "pName": http.projname
-            }
+            info = {"cuid": cuid, "pId": http.proj_id, "eId": http.exp_id, "pName": http.projname}
             http.patch("/task/experiment", info)
 
     def on_runtime_info_update(self, r: RuntimeInfo):
@@ -302,6 +315,8 @@ class CloudRunCallback(LocalRunCallback):
         # 打印信息
         self._view_web_print()
         run = get_run()
+        if self.monitor_cron is not None:
+            self.monitor_cron.cancel()
         # 如果正在退出或者run对象为None或者不在云端环境下
         if self.exiting or run is None:
             return swanlog.debug("SwanLab is exiting or run is None, ignore it.")
