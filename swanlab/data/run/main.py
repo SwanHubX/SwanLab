@@ -237,13 +237,6 @@ class SwanLabRun:
         """
         return self.__config
 
-    @property
-    def exp(self) -> SwanLabExp:
-        """
-        Get the current experiment object. This object is used to log data and control the experiment.
-        """
-        return self.__exp
-
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -315,8 +308,7 @@ class SwanLabRun:
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            # self.__operator.on_metric_create(metric_info)
-            log_return[metric_info.key] = metric_info
+            log_return[metric_info.column_info.key] = metric_info
 
         return log_return
 
