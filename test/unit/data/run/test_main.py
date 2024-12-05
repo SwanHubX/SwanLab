@@ -107,8 +107,8 @@ class TestSwanLabRunLog:
         data = {"a": 1, "b": 2}
         ll = run.log(data)
         assert len(ll) == 2
-        assert ll["a"].column_info.key_id == "0"
-        assert ll["b"].column_info.key_id == "1"
+        assert ll["a"].column_info.kid == "0"
+        assert ll["b"].column_info.kid == "1"
 
     # ---------------------------------- 解析log数字/Line ----------------------------------
     def test_log_number_ok(self):

@@ -309,11 +309,11 @@ class CloudRunCallback(LocalRunCallback):
             section_name = None
         column = ColumnModel(
             key=column_info.key,
-            key_name=column_info.key_name,
-            key_class=column_info.key_class,
+            name=column_info.name,
+            cls=column_info.cls,
+            typ=column_info.chart_type.value.column_type,
             section_name=section_name,
             section_type=column_info.section_type,
-            column_type=column_info.chart_type.value.column_type,
             error=error,
         )
         self.pool.queue.put((UploadType.COLUMN, [column]))

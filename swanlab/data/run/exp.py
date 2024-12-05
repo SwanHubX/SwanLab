@@ -2,7 +2,7 @@ import json
 import math
 from typing import Dict, Optional
 
-from swankit.callback.models import MetricInfo, ColumnInfo, MetricErrorInfo, KeyClass, SectionType
+from swankit.callback.models import MetricInfo, ColumnInfo, MetricErrorInfo, ColumnClass, SectionType, ColumnConfig
 from swankit.core import SwanLabSharedSettings
 from swankit.env import create_time
 
@@ -37,7 +37,7 @@ class SwanLabExp:
         self,
         key: str,
         key_name: Optional[str],
-        key_class: KeyClass,
+        key_class: ColumnClass,
         section_type: SectionType,
         data: DataWrapper,
         step: int = None,
@@ -105,9 +105,10 @@ class SwanLabExp:
         data: DataWrapper,
         key: str,
         key_name: str = None,
-        key_class: KeyClass = 'CUSTOM',
+        key_class: ColumnClass = 'CUSTOM',
         section_type: SectionType = "PUBLIC",
         step: int = None,
+        column_config: Optional[ColumnConfig] = None,
     ) -> MetricInfo:
         """记录一条新的key数据
         Parameters
@@ -125,6 +126,8 @@ class SwanLabExp:
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
+        column_config : Optional[ColumnConfig], optional
+            列的额外配置信息
         """
         m = self.__add(key, key_name, key_class, section_type, data, step)
         self.__operator.on_metric_create(m)
@@ -289,7 +292,7 @@ class SwanLabKey:
         self,
         key: str,
         key_name: Optional[str],
-        key_class: KeyClass,
+        key_class: ColumnClass,
         section_type: SectionType,
         data: DataWrapper,
         num: int,
@@ -316,9 +319,9 @@ class SwanLabKey:
 
         column_info = ColumnInfo(
             key=key,
-            key_id=str(num),
-            key_name=key_name,
-            key_class=key_class,
+            kid=str(num),
+            name=key_name,
+            cls=key_class,
             chart_type=result.chart,
             section_name=result.section,
             section_type=section_type,

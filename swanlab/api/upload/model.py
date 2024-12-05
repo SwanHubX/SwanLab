@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from swankit.callback.models import KeyClass
+from swankit.callback.models import ColumnClass
 
 from swanlab.data.modules import MediaBuffer
 
@@ -24,9 +24,9 @@ class ColumnModel:
     def __init__(
         self,
         key,
-        key_name: Optional[str],
-        key_class: KeyClass,
-        column_type: str,
+        name: Optional[str],
+        cls: ColumnClass,
+        typ: str,
         section_name: Optional[str],
         section_type: Optional[str],
         error: dict = None,
@@ -34,17 +34,17 @@ class ColumnModel:
         """
         Args:
             key: 键
-            key_name: 键的名称
-            key_class: 键的类别
-            column_type: 键的类型
+            name: 键的名称
+            cls: 键的类别
+            typ: 键的类型
             section_name: 键所在的section的名称
             section_type: 键所在的section的类型
             error: 错误信息
         """
         self.key = key
-        self.key_name = key_name
-        self.key_class = key_class
-        self.column_type = column_type
+        self.name = name
+        self.cls = cls
+        self.typ = typ
         self.section_name = section_name
         self.section_type = section_type
         self.error = error
@@ -54,15 +54,15 @@ class ColumnModel:
         序列化为Dict
         """
         d = {
-            "class": self.key_class,
-            "type": self.column_type,
+            "class": self.cls,
+            "type": self.typ,
             "key": self.key,
-            "name": self.key_name,
+            "name": self.name,
             "error": self.error,
             "sectionName": self.section_name,
             "sectionType": self.section_type,
         }
-        if self.key_name is None:
+        if self.name is None:
             d.pop("name")
         if self.error is None:
             d.pop("error")
