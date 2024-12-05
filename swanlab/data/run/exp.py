@@ -324,7 +324,6 @@ class SwanLabKey:
             section_type=section_type,
             section_sort=None,
             chart_reference=result.reference,
-            config=result.config,
             error=data.error,
         )
         self.chart = result.chart.value

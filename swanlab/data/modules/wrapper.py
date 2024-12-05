@@ -100,7 +100,7 @@ class DataWrapper:
 
         # ---------------------------------- 处理其他类型 ----------------------------------
         # [MediaType]
-        data, buffers, more, config = [], [], [], []
+        data, buffers, more = [], [], []
         for i in self.__data:
             try:
                 i.inject(**kwargs)
@@ -111,12 +111,10 @@ class DataWrapper:
             data.append(d)
             buffers.append(r)
             more.append(i.get_more())
-            config.append(i.get_config())
         result.strings = data
         # 过滤掉空列表
         result.buffers = self.__filter_list(buffers)
         result.more = self.__filter_list(more)
-        result.config = self.__filter_list(config)
         self.__result = result
         return self.__result
 

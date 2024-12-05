@@ -9,12 +9,13 @@ r"""
 """
 import os.path
 
+import numpy as np
+import pytest
+import soundfile as sf
+from nanoid import generate
+
 from swanlab.data.modules import Audio
 from tutils import TEMP_PATH
-from nanoid import generate
-import numpy as np
-import soundfile as sf
-import pytest
 
 
 def test_audio_ok():
@@ -29,7 +30,6 @@ def test_audio_ok():
     assert data.endswith(".wav")
     assert buffer is not None
     assert audio.get_more() is None
-    assert audio.get_config() is None
 
     # ---------------------------------- 路径输入 ----------------------------------
 
@@ -58,7 +58,6 @@ def test_audio_caption():
     assert data.endswith(".wav")
     assert buffer is not None
     assert audio.get_more()["caption"] == "test"
-    assert audio.get_config() is None
 
     # ---------------------------------- 路径输入 ----------------------------------
 
@@ -74,7 +73,6 @@ def test_audio_caption():
     assert data.endswith(".wav")
     assert buffer is not None
     assert audio.get_more()["caption"] == "test"
-    assert audio.get_config() is None
 
 
 @pytest.mark.parametrize("dtype", Audio.SF_SUPPORT_DTYPE)
