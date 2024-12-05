@@ -13,7 +13,7 @@ class HardwareInfo(TypedDict):
     # 硬件信息键
     key: str
     # 硬件信息值
-    value: Union[str | int | float]
+    value: Union[str, int, float]
     # 硬件信息名称
     name: str
 
