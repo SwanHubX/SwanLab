@@ -9,12 +9,13 @@ r"""
 """
 import threading
 import time
-from typing import List, Tuple, Callable, Dict
-from .utils import ThreadUtil
-from .utils import LogQueue, TimerFlag
-from .log_collector import LogCollectorTask
 from queue import Queue
+from typing import List, Tuple, Callable, Dict
+
 from swanlab.log import swanlog
+from .log_collector import LogCollectorTask
+from .utils import LogQueue, TimerFlag
+from .utils import ThreadUtil
 
 
 class ThreadPool:
@@ -46,8 +47,9 @@ class ThreadPool:
             args=(),
             name=self.UPLOAD_THREAD_NAME,
             sleep_time=upload_sleep_time,
-            callback=self.collector.callback
+            callback=self.collector.callback,
         )
+
         self.queue = LogQueue(queue=self.__queue, readable=False, writable=True)
         """
         一个线程安全的队列，用于主线程向数据上传线程通信
@@ -59,7 +61,7 @@ class ThreadPool:
         args: Tuple = (),
         name: str = None,
         sleep_time: float = None,
-        callback: Callable = None
+        callback: Callable = None,
     ) -> threading.Thread:
         """
         创建一个线程
@@ -83,11 +85,7 @@ class ThreadPool:
         thread_util = ThreadUtil(q, name)
         callback = ThreadUtil.wrapper_callback(callback, (thread_util, *args)) if callback is not None else None
         task = self._create_loop(name, sleep_time, target, (thread_util, *args))
-        thread = threading.Thread(
-            target=task,
-            daemon=True,
-            name=name
-        )
+        thread = threading.Thread(target=task, daemon=True, name=name)
         self.thread_pool[name] = thread
         if callback is not None:
             self.__callbacks.append(callback)
@@ -101,13 +99,7 @@ class ThreadPool:
         """
         return {name: thread for name, thread in self.thread_pool.items() if name != self.UPLOAD_THREAD_NAME}
 
-    def _create_loop(
-        self,
-        name: str,
-        sleep_time: float,
-        task: Callable,
-        args: Tuple[ThreadUtil, ...]
-    ) -> [Callable]:
+    def _create_loop(self, name: str, sleep_time: float, task: Callable, args: Tuple[ThreadUtil, ...]) -> [Callable]:
         """
         创建一个事件循环，循环执行传入线程池的任务
         :param name: 线程名称

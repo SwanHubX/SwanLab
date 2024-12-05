@@ -130,11 +130,12 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
+        metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
                 requirements=get_requirements(),
-                metadata=get_metadata(self.__settings.log_dir),
+                metadata=metadata,
             )
         )
 
@@ -236,13 +237,6 @@ class SwanLabRun:
         """
         return self.__config
 
-    @property
-    def exp(self) -> SwanLabExp:
-        """
-        Get the current experiment object. This object is used to log data and control the experiment.
-        """
-        return self.__exp
-
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -314,14 +308,33 @@ class SwanLabRun:
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            self.__operator.on_metric_create(metric_info)
-            log_return[metric_info.key] = metric_info
+            log_return[metric_info.column_info.key] = metric_info
 
         return log_return
 
     def __str__(self) -> str:
         """此类的字符串表示"""
         return self.__run_id
+
+    def __collect_monitoring_data(self):
+        """
+        采集监控信息，用于监控硬件信息
+        """
+        monitor_info_list = [f() for f in self.monitor_funcs]
+        # 剔除其中为None的数据
+        for monitor_info in monitor_info_list:
+            if monitor_info is None:
+                swanlog.debug("Hardware info is empty. Skip it.")
+                continue
+            key, name, value = monitor_info['key'], monitor_info['name'], monitor_info['value']
+            v = DataWrapper(key, [Line(value)])
+            self.__exp.add(
+                data=v,
+                key=key,
+                key_name=name,
+                key_class="SYSTEM",
+                section_type="SYSTEM",
+            )
 
     def __register_exp(
         self,

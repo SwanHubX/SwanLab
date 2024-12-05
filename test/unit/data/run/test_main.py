@@ -7,18 +7,20 @@ r"""
 @Description:
     测试SwanLabRun主类
 """
+import io
+import math
+import os
+
+import numpy as np
+import pytest
+import soundfile as sf
+from PIL import Image as PILImage
+from nanoid import generate
+
+from swanlab import Image, Audio, Text
 from swanlab.data.modules import Line
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
-from swanlab import Image, Audio, Text
-from nanoid import generate
 from tutils import TEMP_PATH
-from PIL import Image as PILImage
-import soundfile as sf
-import numpy as np
-import math
-import pytest
-import os
-import io
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -105,8 +107,8 @@ class TestSwanLabRunLog:
         data = {"a": 1, "b": 2}
         ll = run.log(data)
         assert len(ll) == 2
-        assert ll["a"].column_info.id == "0"
-        assert ll["b"].column_info.id == "1"
+        assert ll["a"].column_info.kid == "0"
+        assert ll["b"].column_info.kid == "1"
 
     # ---------------------------------- 解析log数字/Line ----------------------------------
     def test_log_number_ok(self):
@@ -115,29 +117,29 @@ class TestSwanLabRunLog:
         ll = run.log(data)
         assert len(ll) == 4
         # 都没有错误
-        assert all([ll[k].error is False for k in ll])
+        assert all([ll[k].is_error is False for k in ll])
         assert ll["a"].data == 1
         assert ll["b"].data == 0.1
         assert ll["math.nan"].data == Line.nan
         assert ll["math.inf"].data == Line.inf
-        assert all([ll[k].column_info.chart == ll[k].column_info.chart.LINE for k in ll])
+        assert all([ll[k].column_info.chart_type == ll[k].column_info.chart_type.LINE for k in ll])
         # 没有其他多余的内容
         assert all([ll[k].buffers is None for k in ll])
         assert all([ll[k].data is not None for k in ll])
         # 没有指定step的话从0开始
-        assert all([ll[k].step == 0 for k in ll])
+        assert all([ll[k].metric_step == 0 for k in ll])
         ll2 = run.log(data, step=3)
-        assert all(ll2[k].step == 3 for k in ll2)
+        assert all(ll2[k].metric_step == 3 for k in ll2)
         # 重复的step会被忽略
         ll3 = run.log(data, step=3)
-        assert all(ll3[k].error for k in ll3)
-        assert all(ll3[k].duplicated_error for k in ll3)
-        assert all(ll3[k].column_error_info is None for k in ll3)
-        assert all(ll3[k].error_info is not None for k in ll3)
+        assert all(ll3[k].is_error for k in ll3)
+        assert all(ll3[k].error.duplicated for k in ll3)
+        assert all(ll3[k].column_error is None for k in ll3)
+        assert all(ll3[k].error is not None for k in ll3)
         # 如果是新的key的重复step，会被添加
         ll4 = run.log({"tmp": 1}, step=3)
-        assert all(ll4[k].error is False for k in ll4)
-        assert all(ll4[k].step == 3 for k in ll4)
+        assert all(ll4[k].is_error is False for k in ll4)
+        assert all(ll4[k].metric_step == 3 for k in ll4)
 
     def test_log_number_use_line(self):
         """
@@ -152,9 +154,9 @@ class TestSwanLabRunLog:
         assert ll2["a"].data == ll["a"].data
         # Line类型不允许多个元素
         ll3 = run.log({"a": [Line(1), Line(2)]})
-        assert ll3["a"].error is True
-        assert ll3["a"].column_error_info is None
-        assert ll3["a"].error_info.expected == 'float'
+        assert ll3["a"].is_error is True
+        assert ll3["a"].column_error is None
+        assert ll3["a"].error.expected == 'float'
 
     def test_log_number_error_type(self):
         """
@@ -165,20 +167,20 @@ class TestSwanLabRunLog:
         ll = run.log(data)
         assert len(ll) == 3
         # 前两个错误，最后一个正确
-        assert ll["a"].error is True
-        assert ll["b"].error is True
-        assert ll["c"].error is False
+        assert ll["a"].is_error is True
+        assert ll["b"].is_error is True
+        assert ll["c"].is_error is False
 
-        assert ll["a"].column_error_info is not None
-        assert ll["b"].column_error_info is not None
-        assert ll["c"].column_error_info is None
+        assert ll["a"].column_error is not None
+        assert ll["b"].column_error is not None
+        assert ll["c"].column_error is None
 
-        assert ll["a"].column_error_info.expected == 'float'
-        assert ll["b"].column_error_info.expected == 'float'
+        assert ll["a"].column_error.expected == 'float'
+        assert ll["b"].column_error.expected == 'float'
         assert ll["c"].data == 1
 
-        assert ll["a"].error_info is None
-        assert ll["b"].error_info is None
+        assert ll["a"].error == ll['a'].column_error
+        assert ll["b"].error == ll['b'].column_error
 
     # ---------------------------------- 解析log文字 ----------------------------------
 
@@ -187,15 +189,15 @@ class TestSwanLabRunLog:
         data = {"a": Text("abc"), "b": Text("def")}
         ll = run.log(data)
         assert len(ll) == 2
-        assert all([ll[k].error is False for k in ll])
+        assert all([ll[k].is_error is False for k in ll])
         assert ll["a"].data == ["abc"]
         assert ll["b"].data == ["def"]
-        assert all([ll[k].column_info.chart == ll[k].column_info.chart.TEXT for k in ll])
+        assert all([ll[k].column_info.chart_type == ll[k].column_info.chart_type.TEXT for k in ll])
         assert all([ll[k].buffers is None for k in ll])
         assert all([ll[k].data is not None for k in ll])
-        assert all([ll[k].step == 0 for k in ll])
+        assert all([ll[k].metric_step == 0 for k in ll])
         ll2 = run.log(data, step=3)
-        assert all(ll2[k].step == 3 for k in ll2)
+        assert all(ll2[k].metric_step == 3 for k in ll2)
         # list
         ll3 = run.log({"a": [Text("abc"), Text("def")]})
         assert ll3["a"].data == ["abc", "def"]
@@ -204,6 +206,15 @@ class TestSwanLabRunLog:
         assert ll4["a"].data == ["abc"] * 108
 
     # ---------------------------------- 解析log Audio ----------------------------------
+
+    @staticmethod
+    def check_audio(ll: dict, key: str):
+        assert len(ll[key].buffers) == 1
+        buffer = ll[key].buffers[0]
+        audio, _samplerate = sf.read(io.BytesIO(buffer.getvalue()))
+        assert _samplerate == 5000
+        # FIXME 一维的？
+        assert len(audio.shape) == 1
 
     def test_log_audio_path(self):
         """
@@ -216,11 +227,7 @@ class TestSwanLabRunLog:
         sf.write(path, np.random.rand(1000), samplerate)
         data = {"a": Audio(path)}
         ll = run.log(data)
-        assert len(ll["a"].buffers) == 1
-        buffer = ll["a"].buffers[0]
-        # 通过字节流解码后的采样点数
-        audio, _samplerate = sf.read(io.BytesIO(buffer.getvalue()))
-        assert _samplerate == samplerate
+        self.check_audio(ll, "a")
 
     def test_log_audio_numpy(self):
         """
@@ -230,13 +237,7 @@ class TestSwanLabRunLog:
         samplerate = 5000
         data = {"a": Audio(np.random.rand(1000), samplerate)}
         ll = run.log(data)
-        assert len(ll["a"].buffers) == 1
-        buffer = ll["a"].buffers[0]
-        # 通过字节流解码后的采样点数
-        audio, _samplerate = sf.read(io.BytesIO(buffer.getvalue()))
-        assert _samplerate == samplerate
-        # FIXME 一维的？
-        assert len(audio.shape) == 1
+        self.check_audio(ll, "a")
 
     def test_log_audio_error(self):
         """
@@ -257,6 +258,12 @@ class TestSwanLabRunLog:
             run.log({"a": Audio(np.random.rand(1000, 5))})
 
     # ---------------------------------- 图像 ----------------------------------
+    @staticmethod
+    def check_image(ll: dict, key: str):
+        assert len(ll[key].buffers) == 1
+        buffer = ll[key].buffers[0]
+        image = PILImage.open(io.BytesIO(buffer.getvalue()))
+        assert image.size == (100, 100)
 
     def test_log_image_path(self):
         """
@@ -268,11 +275,7 @@ class TestSwanLabRunLog:
         PILImage.new("RGB", (100, 100)).save(path)
         data = {"a": Image(path)}
         ll = run.log(data)
-        assert len(ll["a"].buffers) == 1
-        buffer = ll["a"].buffers[0]
-        # 通过字节流解码后的图像
-        image = PILImage.open(io.BytesIO(buffer.getvalue()))
-        assert image.size == (100, 100)
+        self.check_image(ll, "a")
 
     def test_log_image_numpy(self):
         """
@@ -281,10 +284,6 @@ class TestSwanLabRunLog:
         run = SwanLabRun()
         data = {"a": Image(np.random.rand(100, 100, 3))}
         ll = run.log(data)
-        assert len(ll["a"].buffers) == 1
-        buffer = ll["a"].buffers[0]
-        # 通过字节流解码后的图像
-        image = PILImage.open(io.BytesIO(buffer.getvalue()))
-        assert image.size == (100, 100)
+        self.check_image(ll, "a")
 
     # 其他类似...

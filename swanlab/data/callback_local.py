@@ -13,7 +13,7 @@ import sys
 import traceback
 from datetime import datetime
 
-from swankit.callback import RuntimeInfo, MetricInfo
+from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
 from swankit.log import FONT
 
@@ -144,22 +144,21 @@ class LocalRunCallback(SwanLabRunCallback):
         if metric_info.error:
             return
         # ---------------------------------- 保存指标数据 ----------------------------------
-
-        self.settings.mkdir(os.path.dirname(metric_info.metric_path))
-        self.settings.mkdir(os.path.dirname(metric_info.summary_path))
-        with open(metric_info.summary_path, "w+", encoding="utf-8") as f:
-            json.dump(metric_info.summary, f, ensure_ascii=False)
-        with open(metric_info.metric_path, "a", encoding="utf-8") as f:
+        self.settings.mkdir(os.path.dirname(metric_info.metric_file_path))
+        self.settings.mkdir(os.path.dirname(metric_info.summary_file_path))
+        with open(metric_info.summary_file_path, "w+", encoding="utf-8") as f:
+            f.write(json.dumps(metric_info.metric_summary, ensure_ascii=False))
+        with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
 
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        if metric_info.buffers is None:
+        if metric_info.metric_buffers is None:
             return
-        for i, r in enumerate(metric_info.buffers):
+        for i, r in enumerate(metric_info.metric_buffers):
             if r is None:
                 continue
             # 组合路径
-            path = os.path.join(self.settings.media_dir, metric_info.column_info.id)
+            path = os.path.join(metric_info.swanlab_media_dir, metric_info.column_info.kid)
             os.makedirs(path, exist_ok=True)
             # 写入数据
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:

@@ -7,10 +7,13 @@ r"""
 @Description:
     上传请求模型
 """
-from enum import Enum
-from typing import List
-from swanlab.data.modules import MediaBuffer
 from datetime import datetime
+from enum import Enum
+from typing import List, Optional
+
+from swankit.callback.models import ColumnClass
+
+from swanlab.data.modules import MediaBuffer
 
 
 class ColumnModel:
@@ -18,34 +21,63 @@ class ColumnModel:
     列信息上传模型
     """
 
-    def __init__(self, key, column_type: str, error: dict = None):
+    def __init__(
+        self,
+        key,
+        name: Optional[str],
+        cls: ColumnClass,
+        typ: str,
+        section_name: Optional[str],
+        section_type: Optional[str],
+        error: dict = None,
+    ):
         """
-        :param key: 列名称
-        :param column_type: 列类型，'FLOAT', 'IMAGE', 'AUDIO', 'TEXT'，必须为大写，如果传入 'DEFAULT'，则会转为 'FLOAT'
-        :param error: 错误信息，如果错误信息不为None
+        Args:
+            key: 键
+            name: 键的名称
+            cls: 键的类别
+            typ: 键的类型
+            section_name: 键所在的section的名称
+            section_type: 键所在的section的类型
+            error: 错误信息
         """
         self.key = key
-        self.column_type = column_type
+        self.name = name
+        self.cls = cls
+        self.typ = typ
+        self.section_name = section_name
+        self.section_type = section_type
         self.error = error
 
     def to_dict(self):
         """
         序列化为Dict
         """
-        return {
+        d = {
+            "class": self.cls,
+            "type": self.typ,
             "key": self.key,
-            "type": self.column_type,
-        } if self.error is None else {
-            "key": self.key,
-            "type": self.column_type,
-            "error": self.error
+            "name": self.name,
+            "error": self.error,
+            "sectionName": self.section_name,
+            "sectionType": self.section_type,
         }
+        if self.name is None:
+            d.pop("name")
+        if self.error is None:
+            d.pop("error")
+        if self.section_name is None:
+            d.pop("sectionName")
+        if self.section_type is None:
+            d.pop("sectionType")
+        return d
 
 
 class MetricType(Enum):
     """
     指标类型枚举
     """
+
     SCALAR = "scalar"
     """
     标量指标
@@ -64,6 +96,7 @@ class MediaModel:
     """
     媒体指标信息上传模型
     """
+
     type = MetricType.MEDIA
 
     def __init__(
@@ -73,7 +106,7 @@ class MediaModel:
         key_encoded: str,
         step: int,
         epoch: int,
-        buffers: List[MediaBuffer] = None
+        buffers: List[MediaBuffer] = None,
     ):
         self.metric = metric
         self.step = step
@@ -99,7 +132,7 @@ class MediaModel:
             **self.metric,
             "key": self.key,
             "index": self.step,
-            "epoch": self.epoch
+            "epoch": self.epoch,
         }
 
 
@@ -107,6 +140,7 @@ class ScalarModel:
     """
     标量指标信息上传模型
     """
+
     type = MetricType.SCALAR
 
     def __init__(self, metric: dict, key: str, step: int, epoch: int):
@@ -123,7 +157,7 @@ class ScalarModel:
             **self.metric,
             "key": self.key,
             "index": self.step,
-            "epoch": self.epoch
+            "epoch": self.epoch,
         }
 
 
@@ -137,7 +171,7 @@ class FileModel:
         requirements: str = None,
         metadata: dict = None,
         config: dict = None,
-        create_time: datetime = None
+        create_time: datetime = None,
     ):
         self.requirements = requirements
         self.metadata = metadata
