@@ -135,15 +135,17 @@ class MonitorCron:
     用于定时采集系统信息
     """
 
-    SLEEP_TIME = 30
+    SLEEP_TIME = 1
 
     def __init__(self, monitor_func: Callable):
         def _():
             monitor_func()
             self.timer = threading.Timer(self.SLEEP_TIME, _)
+            self.timer.daemon = True
             self.timer.start()
 
         self.timer = threading.Timer(self.SLEEP_TIME, _)
+        self.timer.daemon = True
         self.timer.start()
 
     def cancel(self):
@@ -293,7 +295,27 @@ class CloudRunCallback(LocalRunCallback):
         error = None
         if column_info.error is not None:
             error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
-        column = ColumnModel(key=column_info.key, column_type=column_info.chart_type.value.column_type, error=error)
+        # 这里有些比较抽象的地方：
+        # 云端版会自动处理不同类型的数据放在不同的组中，所以如果key没有设置成 {section}/{name} 之类的样式，不需要传递section的名称
+        # 但是本地版不会，本地版依靠swanlab的处理结果指定列，所以在Data类型上必须定义获取section_name的方法
+        # 云端版不需要这样做，因为云端版会自动处理
+        # 因为云端版的设计更加先进，云端版对“列”（本地版叫namespace）做了不同的类型标注，但是本地版没有这个概念
+        # 所以这里需要判断一下，如果列类型不为SYSTEM且不是 {section}/{name} 之类的格式，就不传递section_name
+        if column_info.section_type == "PUBLIC":
+            section_name = None if "/" not in column_info.key else column_info.section_name
+        elif column_info.section_type == "SYSTEM":
+            section_name = column_info.section_name
+        else:
+            section_name = None
+        column = ColumnModel(
+            key=column_info.key,
+            key_name=column_info.key_name,
+            key_class=column_info.key_class,
+            section_name=section_name,
+            section_type=column_info.section_type,
+            column_type=column_info.chart_type.value.column_type,
+            error=error,
+        )
         self.pool.queue.put((UploadType.COLUMN, [column]))
 
     def on_metric_create(self, metric_info: MetricInfo):

@@ -13,7 +13,7 @@ import sys
 import traceback
 from datetime import datetime
 
-from swankit.callback import RuntimeInfo, MetricInfo
+from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
 from swankit.log import FONT
 
@@ -158,7 +158,7 @@ class LocalRunCallback(SwanLabRunCallback):
             if r is None:
                 continue
             # 组合路径
-            path = os.path.join(self.settings.media_dir, metric_info.column_info.id)
+            path = os.path.join(metric_info.swanlab_media_dir, metric_info.column_info.key_id)
             os.makedirs(path, exist_ok=True)
             # 写入数据
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:

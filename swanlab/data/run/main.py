@@ -321,6 +321,20 @@ class SwanLabRun:
         采集监控信息，用于监控硬件信息
         """
         monitor_info_list = [f() for f in self.monitor_funcs]
+        # 剔除其中为None的数据
+        for monitor_info in monitor_info_list:
+            if monitor_info is None:
+                swanlog.debug("Hardware info is empty. Skip it.")
+                continue
+            key, name, value = monitor_info['key'], monitor_info['name'], monitor_info['value']
+            v = DataWrapper(key, [Line(value)])
+            self.__exp.add(
+                data=v,
+                key=key,
+                key_name=name,
+                key_class="SYSTEM",
+                section_type="SYSTEM",
+            )
 
     def __register_exp(
         self,
