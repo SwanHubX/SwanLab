@@ -11,24 +11,30 @@ from swanlab.data.run.metadata.cooperation import get_cooperation_info
 from swanlab.data.run.metadata.hardware import *
 from swanlab.data.run.metadata.requirements import get_requirements
 from swanlab.data.run.metadata.runtime import get_runtime_info
+from swanlab.package import get_package_version
 
 
 def get_metadata(logdir: str) -> Tuple[dict, List[HardwareMonitorFunc]]:
     """
     采集实验的全部信息
     """
-    coop = get_cooperation_info()
     hardware_info, monitor_funcs = get_hardware_info()
-
-    return {
+    coop = get_cooperation_info()
+    metadata = {
         **hardware_info,
         **get_runtime_info(),
         "swanlab": {
-            "version": coop["swanlab"]["version"],
+            "version": get_package_version(),
             "logdir": logdir,
+            "_monitor": len(monitor_funcs),
             "_coop": coop,
         },
-    }, monitor_funcs
+    }
+    if not metadata['swanlab'].get("_coop"):
+        metadata['swanlab'].pop("_coop")
+    if not metadata['swanlab'].get("_monitor"):
+        metadata['swanlab'].pop("_monitor")
+    return metadata, monitor_funcs
 
 
 __all__ = ["get_metadata", "get_requirements", "get_cooperation_info", "HardwareInfo", "HardwareMonitorFunc"]

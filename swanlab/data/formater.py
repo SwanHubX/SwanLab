@@ -7,11 +7,11 @@ r"""
 @Description:
     入参格式化器
 """
+import json
 import os
 import re
-import json
+
 import yaml
-from typing import List
 
 
 def check_string(target: str) -> bool:

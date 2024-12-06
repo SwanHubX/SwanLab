@@ -11,8 +11,6 @@ import io
 import json
 import os
 import sys
-import threading
-from typing import Callable, Optional
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.core import SwanLabSharedSettings
@@ -130,29 +128,6 @@ def show_button_html(experiment_url):
         pass
 
 
-class MonitorCron:
-    """
-    用于定时采集系统信息
-    """
-
-    SLEEP_TIME = 1
-
-    def __init__(self, monitor_func: Callable):
-        def _():
-            monitor_func()
-            self.timer = threading.Timer(self.SLEEP_TIME, _)
-            self.timer.daemon = True
-            self.timer.start()
-
-        self.timer = threading.Timer(self.SLEEP_TIME, _)
-        self.timer.daemon = True
-        self.timer.start()
-
-    def cancel(self):
-        if self.timer is not None:
-            self.timer.cancel()
-
-
 class CloudRunCallback(LocalRunCallback):
     login_info: LoginInfo = None
     """
@@ -167,7 +142,6 @@ class CloudRunCallback(LocalRunCallback):
         标记是否正在退出云端环境
         """
         self.public = public
-        self.monitor_cron: Optional[MonitorCron] = None
 
     @classmethod
     def get_login_info(cls):
@@ -269,7 +243,6 @@ class CloudRunCallback(LocalRunCallback):
         swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
-        self.monitor_cron = MonitorCron(getattr(get_run(), "_SwanLabRun__collect_monitoring_data"))
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
             show_button_html(experiment_url)
@@ -349,8 +322,6 @@ class CloudRunCallback(LocalRunCallback):
         # 打印信息
         self._view_web_print()
         run = get_run()
-        if self.monitor_cron is not None:
-            self.monitor_cron.cancel()
         # 如果正在退出或者run对象为None或者不在云端环境下
         if self.exiting or run is None:
             return swanlog.debug("SwanLab is exiting or run is None, ignore it.")

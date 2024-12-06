@@ -10,7 +10,10 @@ import multiprocessing
 import platform
 import subprocess
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult
+import psutil
+
+from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareInfo
+from swanlab.data.run.metadata.hardware.utils import hardware
 
 
 def get_apple_chip_info() -> HardwareFuncResult:
@@ -33,4 +36,12 @@ def get_apple_chip_info() -> HardwareFuncResult:
         info["cpu"] = multiprocessing.cpu_count()
     except Exception:  # noqa
         pass
-    return info, []
+    return info, [
+        # get_cpu_usage
+    ]
+
+
+@hardware
+def get_cpu_usage() -> HardwareInfo:
+    usage = psutil.cpu_percent(interval=1)
+    return {"key": "cpu_usage", "value": usage, "name": "System CPU Utilization (%)"}

@@ -7,12 +7,16 @@ r"""
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-from typing import List, Union, Dict, Any, Tuple
+import threading
+from enum import Enum
+from typing import List, Union, Dict, Any, Tuple, Callable, Optional
 
-from swankit.callback import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo
+from swankit.callback import SwanKitCallback
+from swankit.callback.models import MetricInfo, ColumnInfo, RuntimeInfo
 from swankit.core import SwanLabSharedSettings
 
 from swanlab.data.run.webhook import try_send_webhook
+from swanlab.log import swanlog
 
 OperatorReturnType = Dict[str, Any]
 
@@ -104,3 +108,49 @@ class SwanLabRunOperator(SwanKitCallback):
         # 清空所有注册的回调函数
         self.callbacks.clear()
         return r
+
+
+class SwanLabRunState(Enum):
+    """SwanLabRunState is an enumeration class that represents the state of the experiment.
+    We Recommend that you use this enumeration class to represent the state of the experiment.
+    """
+
+    NOT_STARTED = -2
+    SUCCESS = 1
+    CRASHED = -1
+    RUNNING = 0
+
+
+class MonitorCron:
+    """
+    用于定时采集系统信息
+    """
+
+    SLEEP_TIME = 30
+
+    def __init__(self, monitor_func: Callable):
+        def _():
+            monitor_func()
+            self.timer = threading.Timer(self.SLEEP_TIME, _)
+            self.timer.daemon = True
+            self.timer.start()
+
+        self.timer = threading.Timer(0, _)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer is not None:
+            self.timer.cancel()
+
+
+def check_log_level(log_level: Optional[str]) -> str:
+    """检查日志等级是否合法"""
+    valid = ["debug", "info", "warning", "error", "critical"]
+    if log_level is None:
+        return "info"
+    elif log_level.lower() in valid:
+        return log_level.lower()
+    else:
+        swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
+        return "info"
