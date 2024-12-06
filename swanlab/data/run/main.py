@@ -133,7 +133,7 @@ class SwanLabRun:
                 swanlog.debug("Monitor on.")
                 self.monitor_cron = MonitorCron(self.__get_monitor_func())
             else:
-                swanlog.debug("Monitor off because of no monitor funcs.")
+                swanlog.debug("Monitor off because of no monitor func.")
         else:
             swanlog.debug("Monitor off.")
 
