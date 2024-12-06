@@ -21,7 +21,7 @@ def try_send_webhook():
     webhook = os.getenv(SwanLabEnv.WEBHOOK.value)
     if not webhook:
         return
-    data = get_cooperation_info()
+    data = get_cooperation_info(swanlab=True)
     try:
         requests.post(webhook, json=data)
     except Exception as e:  # noqa

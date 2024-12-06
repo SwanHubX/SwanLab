@@ -5,11 +5,12 @@
 @description: 合作信息采集
 """
 
-import os
-from typing import TypedDict
+from typing import TypedDict, Optional
+
+from swankit.env import get_swanlog_dir
 
 from swanlab.api import get_http
-from swanlab.env import SwanLabEnv, get_mode
+from swanlab.env import get_mode
 from swanlab.package import get_experiment_url
 from swanlab.package import get_package_version
 from .qing_cloud import get_qing_cloud_info
@@ -20,7 +21,6 @@ class SwanLabInfo(TypedDict):
     mode: str
     swanlog_dir: str
     exp_url: str
-    monitor: int
 
 
 class CoopInfo(TypedDict):
@@ -28,21 +28,22 @@ class CoopInfo(TypedDict):
     qing_cloud: dict
 
 
-def get_cooperation_info() -> CoopInfo:
+def get_cooperation_info(swanlab: bool = False) -> Optional[CoopInfo]:
     """获取第三方合作信息"""
     qc = get_qing_cloud_info()
-    coop = {"swanlab": get_swanlab_info()}
+    coop = {}
+    if swanlab:
+        coop.update({"swanlab": get_swanlab_info()})
     if qc:
         coop.update({"qing_cloud": qc})
-    return coop
+    return coop if len(coop) > 0 else None
 
 
 def get_swanlab_info() -> SwanLabInfo:
     data: SwanLabInfo = {
         "version": get_package_version(),
         "mode": get_mode(),
-        "swanlog_dir": os.environ[SwanLabEnv.SWANLOG_FOLDER.value],
-        "monitor": 0,
+        "swanlog_dir": get_swanlog_dir(),
     }
     try:
         http = get_http()
