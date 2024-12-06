@@ -6,6 +6,7 @@
 """
 
 import os
+from typing import TypedDict
 
 from swanlab.api import get_http
 from swanlab.env import SwanLabEnv, get_mode
@@ -14,7 +15,21 @@ from swanlab.package import get_package_version
 from .qing_cloud import get_qing_cloud_info
 
 
-def get_cooperation_info():
+class SwanLabInfo(TypedDict):
+    version: str
+    mode: str
+    swanlog_dir: str
+    exp_url: str
+    monitor: int
+
+
+class CoopInfo(TypedDict):
+    swanlab: SwanLabInfo
+    qing_cloud: dict
+
+
+def get_cooperation_info() -> CoopInfo:
+    """获取第三方合作信息"""
     qc = get_qing_cloud_info()
     coop = {"swanlab": get_swanlab_info()}
     if qc:
@@ -22,11 +37,12 @@ def get_cooperation_info():
     return coop
 
 
-def get_swanlab_info():
-    data = {
+def get_swanlab_info() -> SwanLabInfo:
+    data: SwanLabInfo = {
         "version": get_package_version(),
         "mode": get_mode(),
-        "swanlog_dir": os.getenv(SwanLabEnv.SWANLOG_FOLDER.value),
+        "swanlog_dir": os.environ[SwanLabEnv.SWANLOG_FOLDER.value],
+        "monitor": 0,
     }
     try:
         http = get_http()

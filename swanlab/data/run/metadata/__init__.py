@@ -12,13 +12,17 @@ from swanlab.data.run.metadata.hardware import *
 from swanlab.data.run.metadata.requirements import get_requirements
 from swanlab.data.run.metadata.runtime import get_runtime_info
 
+coop = None
+
 
 def get_metadata(logdir: str) -> Tuple[dict, List[HardwareMonitorFunc]]:
     """
     采集实验的全部信息
     """
-    coop = get_cooperation_info()
+    global coop
     hardware_info, monitor_funcs = get_hardware_info()
+    coop = get_cooperation_info()
+    coop["swanlab"]["monitor"] = len(monitor_funcs)
 
     return {
         **hardware_info,
