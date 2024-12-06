@@ -1,12 +1,11 @@
-import sys
 import os
+import sys
 from datetime import datetime
-from swankit.log import FONT
+
 from swankit.env import create_time
-import re
+from swankit.log import FONT
 
-
-MAX_UPLOAD_LEN = 200
+MAX_UPLOAD_LEN = 500
 
 
 class SwanWriterProxy:
