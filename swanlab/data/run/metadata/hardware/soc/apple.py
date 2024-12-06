@@ -36,7 +36,9 @@ def get_apple_chip_info() -> HardwareFuncResult:
         info["cpu"] = multiprocessing.cpu_count()
     except Exception:  # noqa
         pass
-    return info, [get_cpu_usage]
+    return info, [
+        # get_cpu_usage
+    ]
 
 
 @hardware
