@@ -8,12 +8,13 @@ r"""
     测试swanlog类，只需测试其日志监听功能
 """
 import os
-import sys
+
 import pytest
+from freezegun import freeze_time
+from nanoid import generate
+
 from swanlab.log import swanlog
 from tutils import TEMP_PATH
-from nanoid import generate
-from freezegun import freeze_time
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -81,6 +82,18 @@ class TestSwanLogInstall:
             content = f.readlines()
             assert content[-2] == a + "\n"
             assert content[-1] == b + "\n"
+
+    def test_write_to_file_long_test(self):
+        console_dir = self.create_console_dir()
+        swanlog.install(console_dir)
+        # 加一行防止其他问题
+        print("\ntest write to file")
+        a = generate(size=501)
+        print(a)
+        files = os.listdir(console_dir)
+        with open(os.path.join(console_dir, files[0]), "r") as f:
+            content = f.readlines()
+            assert content[-1] == a[:500] + "\n"
 
     def test_write_logging_to_file(self):
         console_dir = self.create_console_dir()

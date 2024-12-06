@@ -5,7 +5,7 @@ swanlab.login(open_dev_mode())
 
 import evaluate
 import numpy as np
-from swanlab.integration.huggingface import SwanLabCallback
+from swanlab.integration.transformers import SwanLabCallback
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
 

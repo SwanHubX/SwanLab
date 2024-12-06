@@ -7,8 +7,9 @@ r"""
 @Description:
     测试文本处理模块
 """
-from swanlab.data.modules import Text
 import pytest
+
+from swanlab.data.modules import Text
 
 
 def test_text_ok():
@@ -19,7 +20,6 @@ def test_text_ok():
     assert data == mock
     assert buffer is None
     assert text.get_more() is None
-    assert text.get_config() is None
     # ---------------------------------- float输入 ----------------------------------
     mock = 1.0
     text = Text(data=mock)
@@ -27,7 +27,6 @@ def test_text_ok():
     assert data == "1.0"
     assert buffer is None
     assert text.get_more() is None
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock)
@@ -35,7 +34,6 @@ def test_text_ok():
     assert data == "1"
     assert buffer is None
     assert text.get_more() is None
-    assert text.get_config() is None
 
 
 def test_text_error_type():
@@ -51,7 +49,6 @@ def test_text_caption():
     assert data == mock
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- float输入 ----------------------------------
     mock = 1.0
     text = Text(data=mock, caption="test")
@@ -59,7 +56,6 @@ def test_text_caption():
     assert data == "1.0"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
@@ -67,7 +63,6 @@ def test_text_caption():
     assert data == "1"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
@@ -75,7 +70,6 @@ def test_text_caption():
     assert data == "1"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
@@ -83,7 +77,6 @@ def test_text_caption():
     assert data == "1"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
@@ -91,7 +84,6 @@ def test_text_caption():
     assert data == "1"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None
     # ---------------------------------- int输入 ----------------------------------
     mock = 1
     text = Text(data=mock, caption="test")
@@ -99,4 +91,3 @@ def test_text_caption():
     assert data == "1"
     assert buffer is None
     assert text.get_more()["caption"] == "test"
-    assert text.get_config() is None

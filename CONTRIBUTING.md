@@ -152,11 +152,22 @@ Ps: 如果你不想使用 VSCode 进行开发，可以前往`.vscode/launch.json
 export PYTHONPATH=. && pytest test/unit
 ```
 
-由于 swanlab 涉及与云端的交互，而云端部分是闭源的，所以如果你是第一次贡献代码，可能无法进行完整的测试。
+由于 swanlab 涉及与云端的交互，而云端部分是闭源的，所以如果你是第一次贡献代码，最简单的方式是只进行本地测试。
 针对这种情况，请在本地根目录下创建`.env`文件，并填写如下环境变量配置：
 
 ```dotenv
 SWANLAB_RUNTIME=test-no-cloud
 ```
 
-这样就可以跳过云端测试，只进行本地的部分功能测试。 如果想进行完整的测试，请联系项目维护者，我们会提供测试环境的配置。
+这样就可以跳过云端测试，只进行本地的部分功能测试。 如果想进行完整的测试，请在`.env`中补充如下信息：
+
+```dotenv
+SWANLAB_RUNTIME=test
+SWANLAB_API_KEY=<你的API KEY>
+SWANLAB_API_HOST=https://swanlab.cn/api
+SWANLAB_WEB_HOST=https://swanlab.cn
+```
+
+*注意：在进行云端版测试时会在您的云端账号下生成一些无用的测试实验数据，需要手动删除*
+
+配置完后即可运行完整测试

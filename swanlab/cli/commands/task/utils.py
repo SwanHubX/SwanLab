@@ -7,15 +7,13 @@ r"""
 @Description:
     任务相关工具函数
 """
-from swanlab.package import get_key, get_experiment_url
-from swanlab.api import terminal_login, create_http, LoginInfo, get_http
-from swanlab.error import KeyFileError, ApiError
-from datetime import datetime, timedelta
-from typing import Optional
-from swanlab.log import swanlog
-import sys
-import click
 import time
+from datetime import datetime, timedelta
+
+import click
+
+from swanlab.cli.utils import CosUploader
+from swanlab.package import get_experiment_url
 
 
 def validate_six_char_string(_, __, value):
@@ -26,17 +24,6 @@ def validate_six_char_string(_, __, value):
     if len(value) != 6:
         raise click.BadParameter('String must be exactly 6 characters long')
     return value
-
-
-def login_init_sid() -> LoginInfo:
-    key = None
-    try:
-        key = get_key()
-    except KeyFileError:
-        pass
-    login_info = terminal_login(key)
-    create_http(login_info)
-    return login_info
 
 
 class TaskModel:
@@ -73,6 +60,7 @@ class TaskModel:
         self.status = task["status"]
         self.msg = task.get("msg", None)
         self.combo = task["combo"]
+        self.output = OutputModel(self.cuid, task.get("output", {}))
 
     @property
     def url(self):
@@ -93,22 +81,34 @@ class TaskModel:
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-class UseTaskHttp:
+class OutputModel:
     """
-    主要用于检测http响应是否为3xx字段，如果是则要求用户更新版本
-    使用此类之前需要先调用login_init_sid()函数完成全局http对象的初始化
+    任务输出模型
     """
 
-    def __init__(self):
-        self.http = get_http()
+    def __init__(self, cuid: str, output: dict):
+        self.cuid = cuid
+        self.path = output.get('path', None)
+        self.size = self.fmt_size(output.get('size', None))
 
-    def __enter__(self):
-        return self.http
+    @property
+    def output_url(self):
+        """获取预签名的输出下载 url (过期时间 1 小时)"""
+        if self.path is None:
+            return None
+        uploader = CosUploader()
+        key = f"{uploader.prefix}/outputs/{self.path}"
+        return uploader.client.get_presigned_download_url(
+            Bucket=uploader.bucket, Key=key, Params={'x-cos-security-token': uploader.token}, Expired=3600
+        )
 
-    def __exit__(self, exc_type, exc_val: Optional[ApiError], exc_tb):
-        if exc_type is ApiError:
-            # api已过期，需要更新swanlab版本
-            if exc_val.resp.status_code // 100 == 3:
-                swanlog.info("SwanLab in your environment is outdated. Upgrade: `pip install -U swanlab`")
-                sys.exit(3)
-        return False
+    @staticmethod
+    def fmt_size(size: int = None):
+        if size is None:
+            return None
+        units = ['Byte', 'KB', 'MB', 'GB', 'TB']
+        unit = 0
+        while size >= 1024:
+            size /= 1024
+            unit += 1
+        return f"{size:.2f} {units[unit]}"

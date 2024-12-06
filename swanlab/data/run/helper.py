@@ -2,16 +2,21 @@
 # -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/5/12 14:20
-@File: operator.py
+@File: helper.py
 @IDE: pycharm
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-from typing import List, Union, Dict, Any, Callable
-from swankit.callback import SwanKitCallback, MetricInfo, ColumnInfo, OperateErrorInfo, RuntimeInfo
+import threading
+from enum import Enum
+from typing import List, Union, Dict, Any, Tuple, Callable, Optional
+
+from swankit.callback import SwanKitCallback
+from swankit.callback.models import MetricInfo, ColumnInfo, RuntimeInfo
 from swankit.core import SwanLabSharedSettings
-import swanlab.error as E
-from swankit.log import FONT
+
+from swanlab.data.run.webhook import try_send_webhook
+from swanlab.log import swanlog
 
 OperatorReturnType = Dict[str, Any]
 
@@ -56,7 +61,7 @@ class SwanLabRunOperator(SwanKitCallback):
     @classmethod
     def parse_return(cls, ret: OperatorReturnType, key: str = None):
         """
-        解析返回值，选择不为None的返回值
+        解析返回值，选择不为None的返回值，如果都为None，则返回None
         如果key不为None，则返回对应key的返回值
         :param ret: 返回值
         :param key: 返回值的key
@@ -73,34 +78,18 @@ class SwanLabRunOperator(SwanKitCallback):
         return self.__run_all("before_run", settings)
 
     def before_init_experiment(
-            self,
-            run_id: str,
-            exp_name: str,
-            description: str,
-            num: int,
-            suffix: str,
-            setter: Callable[[str, str, str, str], None]
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        colors: Tuple[str, str],
     ):
-        return self.__run_all(
-            "before_init_experiment",
-            run_id,
-            exp_name,
-            description,
-            num,
-            suffix,
-            setter
-        )
+        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, colors)
 
     def on_run(self):
-        try:
-            return self.__run_all("on_run")
-        except E.ApiError as e:
-            FONT.brush("", 50)
-            if e.resp.status_code == 409:
-                error = OperateErrorInfo("The experiment name already exists, please change the experiment name")
-                return self.__run_all("on_run_error_from_operator", error)
-            else:
-                raise e
+        self.__run_all("on_run")
+        try_send_webhook()
 
     def on_runtime_info_update(self, r: RuntimeInfo):
         return self.__run_all("on_runtime_info_update", r)
@@ -119,3 +108,49 @@ class SwanLabRunOperator(SwanKitCallback):
         # 清空所有注册的回调函数
         self.callbacks.clear()
         return r
+
+
+class SwanLabRunState(Enum):
+    """SwanLabRunState is an enumeration class that represents the state of the experiment.
+    We Recommend that you use this enumeration class to represent the state of the experiment.
+    """
+
+    NOT_STARTED = -2
+    SUCCESS = 1
+    CRASHED = -1
+    RUNNING = 0
+
+
+class MonitorCron:
+    """
+    用于定时采集系统信息
+    """
+
+    SLEEP_TIME = 30
+
+    def __init__(self, monitor_func: Callable):
+        def _():
+            monitor_func()
+            self.timer = threading.Timer(self.SLEEP_TIME, _)
+            self.timer.daemon = True
+            self.timer.start()
+
+        self.timer = threading.Timer(0, _)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer is not None:
+            self.timer.cancel()
+
+
+def check_log_level(log_level: Optional[str]) -> str:
+    """检查日志等级是否合法"""
+    valid = ["debug", "info", "warning", "error", "critical"]
+    if log_level is None:
+        return "info"
+    elif log_level.lower() in valid:
+        return log_level.lower()
+    else:
+        swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
+        return "info"

@@ -7,19 +7,21 @@ r"""
 @Description:
     基本回调函数注册表，此时不考虑云端情况
 """
-from swankit.core import SwanLabSharedSettings
-from swanlab.log import swanlog
-from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.data.run.callback import SwanLabRunCallback
-from swankit.callback import RuntimeInfo, MetricInfo
-from swankit.log import FONT
-from swanlab.env import SwanLabEnv
-from datetime import datetime
-import traceback
 import json
 import os
 import sys
-from typing import Union 
+import traceback
+from datetime import datetime
+from typing import Union
+
+from swankit.callback.models import RuntimeInfo, MetricInfo
+from swankit.core import SwanLabSharedSettings
+from swankit.log import FONT
+
+from swanlab.data.run.callback import SwanLabRunCallback
+from swanlab.data.run.main import get_run, SwanLabRunState
+from swanlab.env import SwanLabEnv
+from swanlab.log import swanlog
 
 
 class LocalRunCallback(SwanLabRunCallback):
@@ -51,36 +53,37 @@ class LocalRunCallback(SwanLabRunCallback):
             swanlog.info("Error happened while training")
 
     @staticmethod
-    def _init_logdir(logdir: Union[str,None] = None) -> None:
+    def _init_logdir(logdir: Union[str, None] = None) -> None:
         """
         根据传入的logdir,初始化日志文件夹
         ---
         Args:
             logdir: 日志文件夹路径
-        
+
         Return:
             None
-        
+
         Step:
             1: 参数检查
             2: 环境变量设置
             3: 默认路径
-            4: .gitignore        
+            4: .gitignore
         """
+        env_key = SwanLabEnv.SWANLOG_FOLDER.value
         # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
         # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
         if logdir is None:
-            logdir = os.environ.get(SwanLabEnv.SWANLOG_FOLDER.value) or os.path.join(os.getcwd(), "swanlog")
-        
-        logdir = os.path.abspath(logdir)    
+            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+
+        logdir = os.path.abspath(logdir)
         try:
             os.makedirs(logdir, exist_ok=True)
             if not os.access(logdir, os.W_OK):
                 raise IOError(f"no write permission for path: {logdir}")
         except Exception as error:
             raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-        else:
-            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
+
+        os.environ[env_key] = logdir
 
         # 如果logdir是空的，创建.gitignore文件，写入*
         if not os.listdir(logdir):
@@ -136,23 +139,25 @@ class LocalRunCallback(SwanLabRunCallback):
         # 出现任何错误直接返回
         if metric_info.error:
             return
+        # 屏蔽非自定义指标，因为现在本地不支持系统指标
+        if metric_info.column_info.cls != "CUSTOM":
+            return
         # ---------------------------------- 保存指标数据 ----------------------------------
-
-        self.settings.mkdir(os.path.dirname(metric_info.metric_path))
-        self.settings.mkdir(os.path.dirname(metric_info.summary_path))
-        with open(metric_info.summary_path, "w+", encoding="utf-8") as f:
-            json.dump(metric_info.summary, f, ensure_ascii=False)
-        with open(metric_info.metric_path, "a", encoding="utf-8") as f:
+        self.settings.mkdir(os.path.dirname(metric_info.metric_file_path))
+        self.settings.mkdir(os.path.dirname(metric_info.summary_file_path))
+        with open(metric_info.summary_file_path, "w+", encoding="utf-8") as f:
+            f.write(json.dumps(metric_info.metric_summary, ensure_ascii=False))
+        with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
 
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        if metric_info.buffers is None:
+        if metric_info.metric_buffers is None:
             return
-        for i, r in enumerate(metric_info.buffers):
+        for i, r in enumerate(metric_info.metric_buffers):
             if r is None:
                 continue
             # 组合路径
-            path = os.path.join(self.settings.media_dir, metric_info.column_info.id)
+            path = os.path.join(metric_info.swanlab_media_dir, metric_info.column_info.kid)
             os.makedirs(path, exist_ok=True)
             # 写入数据
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:

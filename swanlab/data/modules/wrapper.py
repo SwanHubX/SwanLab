@@ -7,8 +7,10 @@ r"""
 @Description:
     包装器
 """
-from swankit.core import ParseResult, ParseErrorInfo, MediaType
 from typing import Union, List, Optional
+
+from swankit.core import ParseResult, ParseErrorInfo, MediaType, ChartReference
+
 from swanlab.error import DataTypeError
 from .line import Line
 
@@ -20,7 +22,12 @@ class DataWrapper:
     一个数据包装器对应swanlab.log字典内的一个key的值
     """
 
-    def __init__(self, key: str, data: Union[List[Line], List[MediaType]]):
+    def __init__(
+        self,
+        key: str,
+        data: Union[List[Line], List[MediaType]],
+        reference: ChartReference = "STEP",
+    ):
         """
         :param key: key名称，为编码前的名称
         :param data: log的数据
@@ -29,6 +36,7 @@ class DataWrapper:
         self.__data = data
         self.__error = None
         self.__result: Optional[ParseResult] = None
+        self.__reference = reference
         # 保证data内所有数据类型相同，否则返回TypeError
         t = self.__data[0].__class__
         for i in self.__data:
@@ -66,11 +74,11 @@ class DataWrapper:
     def parse(self, **kwargs) -> Optional[ParseResult]:
         """
         将数据解析成对应的数据类型
-        **kwargs: 在解析数据类型之前，需要注入的信息
+        :param kwargs: 传入的参数,必须包含step
         """
         if self.parsed:
             return self.__result
-        result = ParseResult()
+        result = ParseResult(reference=self.__reference)
         result.step = kwargs["step"]  # 挂载step
         d = self.__data[0]
         result.section = d.get_section()
@@ -92,7 +100,7 @@ class DataWrapper:
 
         # ---------------------------------- 处理其他类型 ----------------------------------
         # [MediaType]
-        data, buffers, more, config = [], [], [], []
+        data, buffers, more = [], [], []
         for i in self.__data:
             try:
                 i.inject(**kwargs)
@@ -103,12 +111,10 @@ class DataWrapper:
             data.append(d)
             buffers.append(r)
             more.append(i.get_more())
-            config.append(i.get_config())
         result.strings = data
         # 过滤掉空列表
         result.buffers = self.__filter_list(buffers)
         result.more = self.__filter_list(more)
-        result.config = self.__filter_list(config)
         self.__result = result
         return self.__result
 

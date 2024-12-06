@@ -7,32 +7,25 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
-from swankit.core import SwanLabSharedSettings
-from swanlab.log import swanlog
-from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
-from .system import get_system_info, get_requirements
-from swanlab.package import get_package_version
-from .config import SwanLabConfig
-from enum import Enum
-from .exp import SwanLabExp
+import random
 from datetime import datetime
 from typing import Callable, Optional, Dict
-from .operator import SwanLabRunOperator, RuntimeInfo
-from ..formater import check_key_format
+
+from swankit.core import SwanLabSharedSettings
+
+from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
 from swanlab.env import get_mode, get_swanlog_dir
-import random
-from swankit.env import is_windows
+from swanlab.log import swanlog
+from swanlab.package import get_package_version
+from . import namer as N
+from .config import SwanLabConfig
+from .exp import SwanLabExp
+from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
+from .metadata import get_requirements, get_metadata
+from .public import SwanLabPublicConfig
+from ..formater import check_key_format, check_exp_name_format, check_desc_format
 
-
-class SwanLabRunState(Enum):
-    """SwanLabRunState is an enumeration class that represents the state of the experiment.
-    We Recommend that you use this enumeration class to represent the state of the experiment.
-    """
-
-    NOT_STARTED = -2
-    SUCCESS = 1
-    CRASHED = -1
-    RUNNING = 0
+MAX_LIST_LENGTH = 108
 
 
 class SwanLabRun:
@@ -48,7 +41,6 @@ class SwanLabRun:
         description: str = None,
         run_config=None,
         log_level: str = None,
-        suffix: str = None,
         exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
@@ -72,9 +64,6 @@ class SwanLabRun:
             当前实验的日志等级，默认为 'info'，可以从 'debug' 、'info'、'warning'、'error'、'critical' 中选择
             不区分大小写，如果不提供此参数(为None)，则默认为 'info'
             如果提供的日志等级不在上述范围内，默认改为info
-        suffix : str, optional
-            实验名称后缀，用于区分同名实验，格式为yyyy-mm-dd_HH-MM-SS
-            如果不提供此参数(为None)，不会添加后缀
         exp_num : int, optional
             历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
@@ -97,21 +86,23 @@ class SwanLabRun:
             should_save=not self.__operator.disabled,
             version=get_package_version(),
         )
+        self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
-        swanlog.level = self.__check_log_level(log_level)
+        swanlog.level = check_log_level(log_level)
         # ---------------------------------- 初始化配置 ----------------------------------
         # 如果config是以下几个类别之一，则抛出异常
         if isinstance(run_config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(
-                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict (Surpport type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict "
+                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
             )
         global config
         config.update(run_config)
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, suffix, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -127,20 +118,94 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
+        metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements(), metadata=get_system_info(get_package_version(), self.settings.log_dir)
+                requirements=get_requirements(),
+                metadata=metadata,
             )
         )
+        # 定时采集系统信息，目前仅cloud模式支持
+        self.monitor_cron = None
+        if self.mode == "cloud":
+            if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
+                swanlog.debug("Monitor on.")
+                self.monitor_cron = MonitorCron(self.__get_monitor_func())
+            else:
+                swanlog.debug("Monitor off because of no monitor func.")
+        else:
+            swanlog.debug("Monitor off.")
+
+    def __get_monitor_func(self):
+        """
+        获取监控函数
+        """
+        if self.monitor_funcs is None or len(self.monitor_funcs) == 0:
+            return None
+
+        def monitor_func():
+            monitor_info_list = [f() for f in self.monitor_funcs]
+            # 剔除其中为None的数据
+            for monitor_info in monitor_info_list:
+                if monitor_info is None:
+                    swanlog.debug("Hardware info is empty. Skip it.")
+                    continue
+                key, name, value = monitor_info['key'], monitor_info['name'], monitor_info['value']
+                v = DataWrapper(key, [Line(value)])
+                self.__exp.add(
+                    data=v,
+                    key=key,
+                    key_name=name,
+                    key_class="SYSTEM",
+                    section_type="SYSTEM",
+                )
+
+        return monitor_func
+
+    def __register_exp(
+        self,
+        experiment_name: str = None,
+        description: str = None,
+        num: int = None,
+    ) -> SwanLabExp:
+        """
+        注册实验，将实验配置写入数据库中，完成实验配置的初始化
+        """
+        if experiment_name:
+            e = check_exp_name_format(experiment_name)
+            if experiment_name != e:
+                swanlog.warning("The experiment name has been truncated automatically.")
+                experiment_name = e
+        if description:
+            d = check_desc_format(description)
+            if description != d:
+                swanlog.warning("The description has been truncated automatically.")
+                description = d
+        experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
+        description = "" if description is None else description
+        colors = N.generate_colors(num)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
+        self.__settings.exp_name = experiment_name
+        self.__settings.exp_colors = colors
+        self.__settings.description = description
+        return SwanLabExp(self.__settings, operator=self.__operator)
+
+    def __cleanup(self, error: str = None):
+        """
+        停止部分功能，内部清理时调用
+        """
+        if self.monitor_cron is not None:
+            self.monitor_cron.cancel()
+        self.__operator.on_stop(error)
+
+    def __str__(self) -> str:
+        """此类的字符串表示"""
+        return self.__run_id
 
     @property
-    def operator(self) -> SwanLabRunOperator:
-        return self.__operator
-
-    @property
-    def project_name(self) -> str:
-        return self.__project_name
+    def public(self):
+        return self.__public
 
     @property
     def mode(self) -> str:
@@ -211,7 +276,7 @@ class SwanLabRun:
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
         # 退出回调
-        run.operator.on_stop(error)
+        getattr(run, "_SwanLabRun__cleanup")(error)
         try:
             swanlog.uninstall()
         except RuntimeError:
@@ -227,14 +292,6 @@ class SwanLabRun:
         return _run
 
     @property
-    def settings(self) -> SwanLabSharedSettings:
-        """
-        This property allows you to access the 'settings' content passed through `init`,
-        and runtime settings can not be modified.
-        """
-        return self.__settings
-
-    @property
     def config(self) -> SwanLabConfig:
         """
         This property allows you to access the 'config' content passed through `init`,
@@ -243,13 +300,6 @@ class SwanLabRun:
         enabled the web service, you will notice the changes after refreshing.
         """
         return self.__config
-
-    @property
-    def exp(self) -> SwanLabExp:
-        """
-        Get the current experiment object. This object is used to log data and control the experiment.
-        """
-        return self.__exp
 
     def log(self, data: dict, step: int = None):
         """
@@ -313,61 +363,18 @@ class SwanLabRun:
                 and all([isinstance(i, (Line, MediaType)) for i in v])
                 and all([i.__class__ == v[0].__class__ for i in v])
             ):
+                if len(v) > MAX_LIST_LENGTH:
+                    swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
+                    v = v[:MAX_LIST_LENGTH]
                 v = DataWrapper(k, v)
             else:
                 # 其余情况被当作是非法的数据类型，交给Line处理
                 v = DataWrapper(k, [Line(v)])
             # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
             metric_info = self.__exp.add(key=k, data=v, step=step)
-            self.__operator.on_metric_create(metric_info)
-            log_return[metric_info.key] = metric_info
+            log_return[metric_info.column_info.key] = metric_info
 
         return log_return
-
-    def __str__(self) -> str:
-        """此类的字符串表示"""
-        return self.__run_id
-
-    def __register_exp(
-        self,
-        experiment_name: str,
-        description: str = None,
-        suffix: str = None,
-        num: int = None,
-    ) -> SwanLabExp:
-        """
-        注册实验，将实验配置写入数据库中，完成实验配置的初始化
-        """
-
-        def setter(exp_name: str, light_color: str, dark_color: str, desc: str):
-            """
-            设置实验相关信息的函数
-            :param exp_name: 实验名称
-            :param light_color: 亮色
-            :param dark_color: 暗色
-            :param desc: 实验描述
-            :return:
-            """
-            # 实验创建成功，设置实验相关信息
-            self.settings.exp_name = exp_name
-            self.settings.exp_colors = (light_color, dark_color)
-            self.settings.description = desc
-
-        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, suffix, setter)
-
-        return SwanLabExp(self.settings, operator=self.__operator)
-
-    @staticmethod
-    def __check_log_level(log_level: str) -> str:
-        """检查日志等级是否合法"""
-        valid = ["debug", "info", "warning", "error", "critical"]
-        if log_level is None:
-            return "info"
-        elif log_level.lower() in valid:
-            return log_level.lower()
-        else:
-            swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
-            return "info"
 
 
 run: Optional["SwanLabRun"] = None

@@ -7,11 +7,11 @@ r"""
 @Description:
     入参格式化器
 """
+import json
 import os
 import re
-import json
+
 import yaml
-from typing import List
 
 
 def check_string(target: str) -> bool:
@@ -42,9 +42,7 @@ def check_load_json_yaml(file_path: str, param_name):
     if not file_path.endswith((".json", ".yaml", ".yml")):
         raise ValueError(
             "{} must be a json or yaml file ('.json', '.yaml', '.yml'), "
-            "but got {}, please check if the content of config_file is correct.".format(
-                param_name, path_suffix
-            )
+            "but got {}, please check if the content of config_file is correct.".format(param_name, path_suffix)
         )
     # 转换为绝对路径
     file_path = os.path.abspath(file_path)
@@ -57,11 +55,9 @@ def check_load_json_yaml(file_path: str, param_name):
         raise ValueError("{} is empty, please check if the content of config_file is correct.".format(param_name))
     # 无权限读取
     if not os.access(file_path, os.R_OK):
-        raise PermissionError(
-            "No permission to read {}, please check if you have the permission.".format(param_name)
-        )
+        raise PermissionError("No permission to read {}, please check if you have the permission.".format(param_name))
     load = json.load if path_suffix == "json" else yaml.safe_load
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding='utf-8') as f:
         # 读取配置文件的内容
         file_data = load(f)
         # 如果读取的内容不是字典类型，则报错
@@ -93,8 +89,8 @@ def _auto_cut(name: str, value: str, max_len: int, cut: bool) -> str:
 
 def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """
-    检查项目名格式，必须是0-9a-zA-Z以及连字符(_-.+)
-    最大长度为100个字符
+    检查实验名称格式，最大长度为95个字符，一个中文字符算一个字符
+    其他不做限制，实验名称可以包含任何字符
 
     Parameters
     ----------
@@ -123,6 +119,32 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
         raise ValueError(f"Project name `{name}` is invalid, which must be 0-9, a-z, A-Z, _ , -, +, .")
     name = name.strip()
     return _auto_cut("project", name, max_len, auto_cut)
+
+
+def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
+    """
+    检查实验名称格式，最大长度为95个字符，一个中文字符算一个字符
+    其他不做限制，实验名称可以包含任何字符
+    :param name: 实验名称
+    :param auto_cut: 是否自动截断，默认为True
+    :return: str 检查后的字符串
+    """
+    max_len = 95
+    if not check_string(name):
+        raise ValueError("Experiment name is an empty string")
+    name = name.strip()
+    return _auto_cut("experiment", name, max_len, auto_cut)
+
+
+def check_desc_format(desc: str, auto_cut: bool = True) -> str:
+    """
+    检查描述格式，最大长度为255个字符，一个中文字符算一个字符
+    :param desc: 描述信息
+    :param auto_cut: 是否自动截断，默认为True
+    :return: str 检查后的字符串
+    """
+    max_len = 255
+    return _auto_cut("description", desc, max_len, auto_cut)
 
 
 def check_key_format(key: str, auto_cut=True) -> str:

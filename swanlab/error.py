@@ -10,23 +10,38 @@ r"""
 import requests
 
 
-class ValidationError(Exception):
-    """验证错误，此时后端验证用户的token或者api key失败
+class APIKeyFormatError(Exception):
+    """错误的api key格式，此类承担解析api key的任务
+    错误：类型错误、长度错误、字符错误
     """
+
+    API_KEY_LENGTH = 21
+
+    @classmethod
+    def check(cls, api_key: str):
+        """
+        判断是否抛出异常，先检查长度，再检查类型
+        """
+        if not isinstance(api_key, str):
+            raise cls("Api key must be a string")
+        for c in api_key:
+            # 0-9, A-Z, a-z
+            if ord(c) not in range(48, 58) and ord(c) not in range(65, 91) and ord(c) not in range(97, 123):
+                raise cls("Invalid character in api key: {}".format(repr(c)))
+        if len(api_key) != 21:
+            raise cls("Api key length must be 21 characters long, yours was {}".format(len(api_key)))
+        return api_key
+
+
+class ValidationError(Exception):
+    """验证错误，此时后端验证用户的token或者api key失败"""
 
     pass
 
 
 class KeyFileError(Exception):
-    """key存储的文件错误，此时key文件不存在或者格式错误（解析失败）
-    """
+    """key存储的文件错误，此时key文件不存在或者格式错误（解析失败）"""
 
-    pass
-
-
-class NotLoginError(Exception):
-    """未登录错误，此时用户未登录
-    """
     pass
 
 
@@ -50,8 +65,10 @@ class ApiError(SyncError):
         super().__init__(*args)
         self.resp = resp
         self.log_level = "error"
-        self.message = 'swanlab api error' if resp is None else 'swanlab api error, status code: {}, reason: {}'.format(
-            resp.status_code, resp.reason
+        self.message = (
+            'swanlab api error'
+            if resp is None
+            else 'swanlab api error, status code: {}, reason: {}'.format(resp.status_code, resp.reason)
         )
 
 
@@ -67,8 +84,7 @@ class NetworkError(SyncError):
 
 
 class DataTypeError(Exception):
-    """数据类型错误，此时数据类型不符合预期
-    """
+    """数据类型错误，此时数据类型不符合预期"""
 
     def __init__(self, expected: str, got: str):
         """

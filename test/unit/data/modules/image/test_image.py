@@ -9,14 +9,15 @@ r"""
 """
 import os.path
 
-from swanlab.data.modules import Image
-from tutils import TEMP_PATH
-from nanoid import generate
 import numpy as np
 import pytest
 import torch
 from PIL import Image as PILImage
 from matplotlib import pyplot as plt
+from nanoid import generate
+
+from swanlab.data.modules import Image
+from tutils import TEMP_PATH
 
 
 def test_image_ok():
@@ -31,7 +32,6 @@ def test_image_ok():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more() is None
-    assert image.get_config() is None
 
     # ---------------------------------- pil输入 ----------------------------------
 
@@ -43,7 +43,6 @@ def test_image_ok():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more() is None
-    assert image.get_config() is None
 
     # ---------------------------------- 路径输入 ----------------------------------
     mock = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
@@ -65,7 +64,6 @@ def test_image_ok():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more() is None
-    assert image.get_config() is None
 
     # ---------------------------------- plt输入 ----------------------------------
     x = [1, 2, 3]
@@ -77,7 +75,6 @@ def test_image_ok():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more() is None
-    assert image.get_config() is None
 
 
 def test_image_caption():
@@ -92,7 +89,6 @@ def test_image_caption():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more()["caption"] == "test"
-    assert image.get_config() is None
 
     # ---------------------------------- pil输入 ----------------------------------
 
@@ -104,7 +100,6 @@ def test_image_caption():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more()["caption"] == "test"
-    assert image.get_config() is None
 
     # ---------------------------------- 路径输入 ----------------------------------
     mock = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
@@ -118,7 +113,6 @@ def test_image_caption():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more()["caption"] == "test"
-    assert image.get_config() is None
 
     # ---------------------------------- pytorch tensor输入 ----------------------------------
     mock = torch.randn(4, 3, 256, 256)
@@ -128,7 +122,6 @@ def test_image_caption():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more()["caption"] == "test"
-    assert image.get_config() is None
 
     # ---------------------------------- plt输入 ----------------------------------
     x = [1, 2, 3]
@@ -140,7 +133,6 @@ def test_image_caption():
     assert data.endswith(".png")
     assert buffer is not None
     assert image.get_more()["caption"] == "test"
-    assert image.get_config() is None
 
 
 def test_image_fail():
@@ -204,7 +196,6 @@ def test_image_file_type(file_type):
     assert data.endswith(f".{file_type}")
     assert buffer is not None
     assert image.get_more() is None
-    assert image.get_config() is None
 
 
 def test_image_size():
