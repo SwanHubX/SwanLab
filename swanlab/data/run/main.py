@@ -126,10 +126,16 @@ class SwanLabRun:
                 metadata=metadata,
             )
         )
-        # 定时采集系统信息
+        # 定时采集系统信息，目前仅cloud模式支持
         self.monitor_cron = None
-        if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
-            self.monitor_cron = MonitorCron(self.__get_monitor_func())
+        if self.mode == "cloud":
+            if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
+                swanlog.debug("Monitor on.")
+                self.monitor_cron = MonitorCron(self.__get_monitor_func())
+            else:
+                swanlog.debug("Monitor off because of no monitor funcs.")
+        else:
+            swanlog.debug("Monitor off.")
 
     def __get_monitor_func(self):
         """
@@ -185,7 +191,7 @@ class SwanLabRun:
         self.__settings.description = description
         return SwanLabExp(self.__settings, operator=self.__operator)
 
-    def __stop(self, error: str = None):
+    def __cleanup(self, error: str = None):
         """
         停止部分功能，内部清理时调用
         """
@@ -270,7 +276,7 @@ class SwanLabRun:
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
         # 退出回调
-        getattr(run, "_SwanLabRun__stop")(error)
+        getattr(run, "_SwanLabRun__cleanup")(error)
         try:
             swanlog.uninstall()
         except RuntimeError:

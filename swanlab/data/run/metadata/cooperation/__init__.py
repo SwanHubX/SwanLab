@@ -8,7 +8,7 @@
 import os
 
 from swanlab.api import get_http
-from swanlab.env import SwanLabEnv
+from swanlab.env import SwanLabEnv, get_mode
 from swanlab.package import get_experiment_url
 from swanlab.package import get_package_version
 from .qing_cloud import get_qing_cloud_info
@@ -25,7 +25,7 @@ def get_cooperation_info():
 def get_swanlab_info():
     data = {
         "version": get_package_version(),
-        "mode": os.getenv(SwanLabEnv.MODE.value),
+        "mode": get_mode(),
         "swanlog_dir": os.getenv(SwanLabEnv.SWANLOG_FOLDER.value),
     }
     try:

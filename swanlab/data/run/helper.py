@@ -9,7 +9,7 @@ r"""
 """
 import threading
 from enum import Enum
-from typing import List, Union, Dict, Any, Tuple, Callable
+from typing import List, Union, Dict, Any, Tuple, Callable, Optional
 
 from swankit.callback import SwanKitCallback
 from swankit.callback.models import MetricInfo, ColumnInfo, RuntimeInfo
@@ -135,15 +135,16 @@ class MonitorCron:
             self.timer.daemon = True
             self.timer.start()
 
-        self.timer = None
-        _()
+        self.timer = threading.Timer(0, _)
+        self.timer.daemon = True
+        self.timer.start()
 
     def cancel(self):
         if self.timer is not None:
             self.timer.cancel()
 
 
-def check_log_level(log_level: str) -> str:
+def check_log_level(log_level: Optional[str]) -> str:
     """检查日志等级是否合法"""
     valid = ["debug", "info", "warning", "error", "critical"]
     if log_level is None:

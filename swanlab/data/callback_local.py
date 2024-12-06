@@ -143,6 +143,9 @@ class LocalRunCallback(SwanLabRunCallback):
         # 出现任何错误直接返回
         if metric_info.error:
             return
+        # 屏蔽非自定义指标，因为现在本地不支持系统指标
+        if metric_info.column_info.cls != "CUSTOM":
+            return
         # ---------------------------------- 保存指标数据 ----------------------------------
         self.settings.mkdir(os.path.dirname(metric_info.metric_file_path))
         self.settings.mkdir(os.path.dirname(metric_info.summary_file_path))
