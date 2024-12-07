@@ -16,6 +16,6 @@ def get_memory_size() -> HardwareFuncResult:
         # 获取系统总内存大小
         mem = psutil.virtual_memory()
         total_memory = round(mem.total / (1024**3))  # 单位为GB
-        return total_memory, []
+        return total_memory, None
     except Exception:  # noqa
-        return None, []
+        return None, None

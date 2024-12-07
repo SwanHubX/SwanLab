@@ -5,19 +5,19 @@
 @description: 硬件信息采集
 """
 
-from typing import Callable, List, Any, Optional
+from typing import Callable, List, Any, Optional, Tuple
 
 from .cpu import get_cpu_info
 from .gpu.nvidia import get_nvidia_gpu_info
 from .memory import get_memory_size
 from .npu.ascend import get_ascend_npu_info
 from .soc.apple import get_apple_chip_info
-from .type import HardwareFuncResult, HardwareMonitorFunc, HardwareInfo
+from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 
-__all__ = ["get_hardware_info", "HardwareMonitorFunc", "HardwareInfo"]
+__all__ = ["get_hardware_info", "HardwareCollector", "HardwareInfo"]
 
 
-def get_hardware_info() -> HardwareFuncResult:
+def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     """
     采集硬件信息，包括CPU、GPU、内存、硬盘等
     """
@@ -46,13 +46,14 @@ def get_hardware_info() -> HardwareFuncResult:
 
 def dec_hardware_func(
     func: Callable[[], HardwareFuncResult],
-    monitor_funcs: List[HardwareMonitorFunc],
+    monitor_funcs: List[HardwareCollector],
 ) -> Optional[Any]:
     """
     装饰器，用于记录硬件信息采集函数
     """
     x, y = func()
-    monitor_funcs.extend(y)
+    if y:
+        monitor_funcs.append(y)
     return x
 
 

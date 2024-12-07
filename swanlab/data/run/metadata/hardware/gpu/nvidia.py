@@ -30,7 +30,7 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
     try:
         pynvml.nvmlInit()
     except Exception:  # noqa
-        return None, []
+        return None, None
 
     try:
         # 获取 NVIDIA 驱动版本信息
@@ -60,4 +60,4 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
     finally:
         # 结束 NVML
         pynvml.nvmlShutdown()
-        return info, []
+        return info, None

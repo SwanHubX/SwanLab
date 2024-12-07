@@ -24,14 +24,14 @@ def get_cpu_info() -> HardwareFuncResult:
     else:
         # 其他情况，暂时不支持
         # 苹果芯片单独处理
-        return None, []
+        return None, None
     try:
         # 获取 CPU 核心数
         info["cores"] = multiprocessing.cpu_count()
     except Exception:  # noqa
         pass
 
-    return info, []
+    return info, None
 
 
 def get_cpu_brand_windows():

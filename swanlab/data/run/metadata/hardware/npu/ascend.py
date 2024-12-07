@@ -19,11 +19,11 @@ def get_ascend_npu_info() -> HardwareFuncResult:
     """
     # ascend芯片只支持Linux系统
     if platform.system() != "Linux":
-        return None, []
+        return None, None
     # /dev目录下没有davinci*设备文件，跳过
     # 其实理论上davinci后接数字，代表此设备id，但是官方文档也没明确写，以防万一还是不这么干了
     if not list(filter(lambda x: x.startswith("davinci"), os.listdir("/dev"))):
-        return None, []
+        return None, None
     info = {"driver": None, "npu": None}
     try:
         # 获取NPU驱动版本
@@ -41,8 +41,8 @@ def get_ascend_npu_info() -> HardwareFuncResult:
                 info["npu"][npu_id][chip_id] = {**chip_info, "usage": usage}
     except Exception:  # noqa
         if all(v is None for v in info.values()):
-            return None, []
-    return info, []
+            return None, None
+    return info, None
 
 
 def get_version() -> str:

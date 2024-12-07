@@ -5,7 +5,12 @@
 @description: 硬件信息采集类型定义
 """
 
-from typing import TypedDict, Callable, Tuple, Optional, Any, List, Union
+from abc import ABC, abstractmethod
+from typing import TypedDict, Tuple, Optional, Any, List, Union
+
+from swankit.callback.models import ColumnConfig
+
+from swanlab.log import swanlog
 
 
 # 定义硬件信息类型
@@ -16,10 +21,24 @@ class HardwareInfo(TypedDict):
     value: Union[str, int, float]
     # 硬件信息名称
     name: str
+    # 相关配置
+    config: Optional[ColumnConfig]
 
 
-# 定义硬件信息采集函数类型
-HardwareMonitorFunc = Callable[[], Optional[HardwareInfo]]
+class HardwareCollector(ABC):
+    @abstractmethod
+    def collect(self) -> List[HardwareInfo]:
+        pass
+
+    def __call__(self):
+        try:
+            return self.collect()
+        except NotImplementedError as n:
+            raise n
+        except Exception as e:
+            swanlog.error("Hardware info collection failed: %s, %s", self.__class__.__name__, str(e))
+            return None
+
 
 # 定义硬件信息执行函数的返回结果
-HardwareFuncResult = Tuple[Optional[Any], List[HardwareMonitorFunc]]
+HardwareFuncResult = Tuple[Optional[Any], Optional[HardwareCollector]]

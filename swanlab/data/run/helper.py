@@ -126,7 +126,7 @@ class MonitorCron:
     用于定时采集系统信息
     """
 
-    SLEEP_TIME = 30
+    SLEEP_TIME = 1
 
     def __init__(self, monitor_func: Callable):
         def _():
