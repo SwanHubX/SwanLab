@@ -70,6 +70,10 @@ def map_npu() -> dict:
         # 如果chip_logic_id不是数字，说明是Mcu芯片，不参与计算
         if not chip_logic_id.isdigit():
             continue
+        # for 910B3 -> 910A2
+        if chip_name[-1] == "910B3":
+            chip_name[-1] = "910A2"
+
         chip_name = " ".join(chip_name)
         if npu_id not in npu_map:
             npu_map[npu_id] = {}
