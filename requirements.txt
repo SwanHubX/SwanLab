@@ -6,6 +6,5 @@ requests>=2.25.0
 click
 pyyaml
 psutil>=5.0.0
-gputil==1.4.0
 pynvml
 rich
