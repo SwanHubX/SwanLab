@@ -9,22 +9,12 @@ import subprocess
 
 import pynvml
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult
+from ..utils import generate_key, ColumnConfig, random_index
+from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList, HardwareInfo
 
 
 def get_nvidia_gpu_info() -> HardwareFuncResult:
     """获取 GPU 信息"""
-
-    def get_cuda_version():
-        """获取 CUDA 版本"""
-        try:
-            output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
-            for line in output.split('\n'):
-                if "release" in line:
-                    version = line.split("release")[-1].strip().split(" ")[0][:-1]
-                    return version
-        except Exception:  # noqa
-            return None
 
     info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None}
     try:
@@ -58,6 +48,107 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
     except pynvml.NVMLError:
         pass
     finally:
-        # 结束 NVML
+        if info['cores'] is None:
+            # 结束 NVML
+            pynvml.nvmlShutdown()
+            return info, None
+        return info, GpuCollector()
+
+def get_cuda_version():
+    """获取 CUDA 版本"""
+    try:
+        output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
+        for line in output.split('\n'):
+            if "release" in line:
+                version = line.split("release")[-1].strip().split(" ")[0][:-1]
+                return version
+    except Exception:  # noqa
+        return None
+
+class GpuCollector(HardwareCollector):
+    
+    def __init__(self):
+        super().__init__()
+        count = int(pynvml.nvmlDeviceGetCount())
+        self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.ptc")
+        mem_pct_config = ColumnConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
+        self.gpu_temp_key = generate_key("gpu.{idx}.temp")
+        tem_config = ColumnConfig(chart_name="GPU Temperature (℃)", chart_index=random_index())
+        self.gpu_power_key = generate_key("gpu.{idx}.power")
+        power_config = ColumnConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
+        self.per_gpu_configs = {
+            self.gpu_mem_pct_key: [],
+            self.gpu_temp_key: [],
+            self.gpu_power_key: []
+        }
+        self.handles = []
+        for idx in range(count):
+            metric_name = "GPU {idx}".format(idx=idx)
+            self.per_gpu_configs[self.gpu_mem_pct_key].append(mem_pct_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_temp_key].append(tem_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
+            self.handles.append(pynvml.nvmlDeviceGetHandleByIndex(idx))
+        self.count = count
+    
+    def get_gpu_config(self, key: str, idx:int) -> ColumnConfig:
+        """
+        获取 某个GPU的某个配置信息
+        """
+        return self.per_gpu_configs[key][idx]
+        
+    
+    def get_gpu_mem_pct(self, idx: int, handle) -> HardwareInfo:
+        """
+        获取 GPU 内存使用率
+        """
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        mem_pct = mem_info.used / mem_info.total * 100
+        return {
+            "key": self.gpu_mem_pct_key.format(idx=idx),
+            "value": mem_pct,
+            "name": "GPU {idx} Utilization (%)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_mem_pct_key, idx)
+        }
+
+
+    def get_gpu_temp(self, idx: int, handle) -> HardwareInfo:
+        """
+        获取 GPU 温度
+        """
+        temp_info = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+        return {
+            "key": self.gpu_temp_key.format(idx=idx),
+            "value": temp_info,
+            "name": "GPU {idx} Temperature (℃)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_temp_key, idx)
+        }
+
+
+    def get_gpu_power(self, idx: int, handle) -> HardwareInfo:
+        """
+        获取 GPU 功耗
+        """
+        # 功耗单位为mW，转换为W
+        power_info = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000
+        return {
+            "key": self.gpu_power_key.format(idx=idx),
+            "value": power_info,
+            "name": "GPU {idx} Power Usage (W)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_power_key, idx)
+        }
+    
+    def collect(self) -> HardwareInfoList:
+        """
+        采集信息
+        """
+        info_list: HardwareInfoList = []
+        for idx, handle in enumerate(self.handles):
+            info_list.append(self.get_gpu_mem_pct(idx, handle))
+            info_list.append(self.get_gpu_temp(idx, handle))
+            info_list.append(self.get_gpu_power(idx, handle))
+        return info_list
+
+    def __del__(self):
         pynvml.nvmlShutdown()
-        return info, None
+        
+        
