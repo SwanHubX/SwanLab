@@ -5,13 +5,25 @@
 @description: 测试硬件信息采集工具
 """
 
-from swanlab.data.run.metadata.hardware.utils import random_index, CpuCollector
+from swanlab.data.run.metadata.hardware.utils import random_index, CpuCollector, generate_key
 
 
 def test_random_index():
     s = random_index()
     assert len(s) == 8
     assert s.isalnum()
+    s = random_index(10)
+    assert len(s) == 10
+    assert s.isalnum()
+
+
+def test_generate_key():
+    s = generate_key("test")
+    assert len(s) == 9
+    assert s.endswith(".test")
+    s = generate_key("test", 10)
+    assert len(s) == 15
+    assert s.endswith(".test")
 
 
 def test_cpu_usage():

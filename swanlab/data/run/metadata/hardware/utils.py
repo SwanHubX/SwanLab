@@ -15,11 +15,18 @@ from .type import HardwareInfo, HardwareInfoList
 ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 
-def random_index():
+def random_index(length: int = 8) -> str:
     """
     随机生成八位字符串，用于标识图表的index
     """
-    return "".join(random.choices(ALPHABET, k=8))
+    return "".join(random.choices(ALPHABET, k=length))
+
+
+def generate_key(suffix: str, length: int = 4) -> str:
+    """
+    生成key，用于标识系统列，避免与用户输入的key冲突
+    """
+    return "".join(random.choices(ALPHABET, k=length)) + "." + suffix
 
 
 class CpuCollector:
@@ -34,14 +41,17 @@ class CpuCollector:
     def __init__(self):
         self.per_cpu_configs = []
         # 随机生成一个index，用于标识图表
-        self.per_cpu_usage_index = random_index()
+        self.per_cpu_usage_chart_index = random_index()
+        self.cpu_usage_key = generate_key("cpu.pct")
+        self.per_cpu_usage_key = generate_key("cpu.{idx}.pct")
+        self.proc_thds_key = generate_key("cpu.thds")
 
     def get_cpu_usage(self) -> HardwareInfo:
         """
         获取当前 CPU 使用率
         """
         return {
-            "key": "cpu.pct",
+            "key": self.cpu_usage_key,
             "name": "CPU Utilization (%)",
             "value": psutil.cpu_percent(interval=1),
             "config": self.CPU_CONFIG,
@@ -56,12 +66,12 @@ class CpuCollector:
         # 避免每次调用都创建新的配置
         if len(self.per_cpu_configs) != len(per_cpu_usage):
             self.per_cpu_configs = [
-                self.PER_CPU_CONFIG.clone(metric_name=f"CPU {idx}", chart_index=self.per_cpu_usage_index)
+                self.PER_CPU_CONFIG.clone(metric_name=f"CPU {idx}", chart_index=self.per_cpu_usage_chart_index)
                 for idx in range(len(per_cpu_usage))
             ]
         for idx, value in enumerate(per_cpu_usage):
             info: HardwareInfo = {
-                "key": f"cpu.{idx}.pct",
+                "key": self.per_cpu_usage_key.format(idx=idx),
                 "name": f"CPU {idx} Utilization (%)",
                 "value": value,
                 "config": self.per_cpu_configs[idx],
@@ -74,7 +84,7 @@ class CpuCollector:
         获取当前进程的线程数
         """
         return {
-            "key": "cpu.thds",
+            "key": self.proc_thds_key,
             "name": "Process CPU Threads",
             "value": proc.num_threads(),
             "config": self.THDS_CONFIG,
@@ -90,12 +100,18 @@ class MemoryCollector:
     MEM_CONFIG = ColumnConfig(y_range=(0, 100))
     PROC_MEM_PCT_CONFIG = ColumnConfig(y_range=(0, 100))
 
+    def __init__(self):
+        self.mem_usage_key = generate_key("mem.pct")
+        self.mem_proc_key = generate_key("mem.proc")
+        self.mem_proc_pct_key = generate_key("mem.proc.pct")
+        self.mem_proc_avail_key = generate_key("mem.proc.avail")
+
     def get_mem_usage(self) -> HardwareInfo:
         """
         获取当前系统内存使用率
         """
         return {
-            "key": "mem.pct",
+            "key": self.mem_usage_key,
             "name": "System Memory Utilization (%)",
             "value": psutil.virtual_memory().percent,
             "config": self.MEM_CONFIG,
@@ -108,19 +124,19 @@ class MemoryCollector:
         mem_info = proc.memory_info()
         virtual_memory = psutil.virtual_memory()
         mem_proc: HardwareInfo = {
-            "key": "mem.proc",
+            "key": self.mem_proc_key,
             "name": "Process Memory In Use (non-swap) (MB)",
             "value": mem_info.rss / self.MB,
             "config": None,
         }
         mem_proc_pct: HardwareInfo = {
-            "key": "mem.proc.pct",
+            "key": self.mem_proc_pct_key,
             "name": "Process Memory Utilization (%)",
             "value": proc.memory_percent(),
             "config": self.PROC_MEM_PCT_CONFIG,
         }
         mem_proc_avail: HardwareInfo = {
-            "key": "mem.proc.avail",
+            "key": self.mem_proc_avail_key,
             "name": "Process Memory Available (MB)",
             "value": virtual_memory.available / self.MB,
             "config": None,
