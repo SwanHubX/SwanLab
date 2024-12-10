@@ -9,7 +9,10 @@ import multiprocessing
 import platform
 import subprocess
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult
+import psutil
+
+from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList
+from .utils import CpuCollector as C
 
 
 def get_cpu_info() -> HardwareFuncResult:
@@ -55,3 +58,12 @@ def get_cpu_brand_linux():
         return None
     except Exception:  # noqa
         return None
+
+
+class CpuCollector(HardwareCollector, C):
+    def __init__(self):
+        super().__init__()
+        self.current_process = psutil.Process()
+
+    def collect(self) -> HardwareInfoList:
+        return [self.get_cpu_usage(), *self.get_per_cpu_usage(), self.get_cur_proc_thds_num(self.current_process)]

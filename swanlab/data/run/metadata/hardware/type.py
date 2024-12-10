@@ -25,18 +25,21 @@ class HardwareInfo(TypedDict):
     config: Optional[ColumnConfig]
 
 
+HardwareInfoList = List[HardwareInfo]
+
+
 class HardwareCollector(ABC):
     @abstractmethod
-    def collect(self) -> List[HardwareInfo]:
+    def collect(self) -> HardwareInfoList:
         pass
 
-    def __call__(self):
+    def __call__(self) -> Optional[HardwareInfoList]:
         try:
             return self.collect()
         except NotImplementedError as n:
             raise n
         except Exception as e:
-            swanlog.error("Hardware info collection failed: %s, %s", self.__class__.__name__, str(e))
+            swanlog.error(f"Hardware info collection failed: {self.__class__.__name__}, {str(e)}")
             return None
 
 
