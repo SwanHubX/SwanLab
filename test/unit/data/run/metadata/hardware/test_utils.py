@@ -19,11 +19,7 @@ def test_random_index():
 
 def test_generate_key():
     s = generate_key("test")
-    assert len(s) == 9
-    assert s.endswith(".test")
-    s = generate_key("test", 10)
-    assert len(s) == 15
-    assert s.endswith(".test")
+    assert s == "__swanlab__.test"
 
 
 def test_cpu_usage():

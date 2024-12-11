@@ -8,8 +8,10 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict, Tuple, Optional, Any, List, Union
 
+from swankit.callback import YRange
 from swankit.callback.models import ColumnConfig
 
+from swanlab.data.run.namer import generate_colors
 from swanlab.log import swanlog
 
 
@@ -26,6 +28,54 @@ class HardwareInfo(TypedDict):
 
 
 HardwareInfoList = List[HardwareInfo]
+
+
+class HardwareConfig(ColumnConfig):
+    """
+    继承自ColumnConfig的硬件配置类
+    每clone一次，metric_color都会自动生成一个
+    如果不指定，初次生成的metric_color为None
+    """
+
+    def __init__(self, y_range=None, chart_name=None, chart_index=None, metric_name=None, metric_color=None):
+        self.__cloned = 0
+        super().__init__(
+            y_range=y_range,
+            chart_name=chart_name,
+            chart_index=chart_index,
+            metric_name=metric_name,
+            metric_color=metric_color,
+        )
+
+    def clone(
+        self,
+        y_range: YRange = None,
+        chart_name: Optional[str] = None,
+        chart_index: Optional[str] = None,
+        metric_name: Optional[str] = None,
+        metric_color: Optional[Tuple[str, str]] = None,
+    ):
+        """
+        重写clone方法，每次clone都会生成一个新的metric_color
+        :param y_range: y轴范围
+        :param chart_name: 图表名称
+        :param chart_index: 图表索引
+        :param metric_name: 指标名称
+        :param metric_color: 指标颜色
+        :return: 新的HardwareConfig对象
+        """
+        try:
+            if metric_color is None:
+                metric_color = generate_colors(self.__cloned)
+            return HardwareConfig(
+                y_range=y_range if y_range is not None else self.y_range,
+                chart_name=chart_name if chart_name is not None else self.chart_name,
+                metric_name=metric_name if metric_name is not None else self.metric_name,
+                chart_index=chart_index if chart_index is not None else self.chart_index,
+                metric_color=metric_color,
+            )
+        finally:
+            self.__cloned += 1
 
 
 class CollectGuard:
@@ -69,7 +119,6 @@ class CollectGuard:
 
 
 class HardwareCollector(CollectGuard, ABC):
-
     @abstractmethod
     def collect(self) -> HardwareInfoList:
         pass

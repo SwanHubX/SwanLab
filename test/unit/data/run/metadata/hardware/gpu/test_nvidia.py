@@ -10,18 +10,16 @@ import pytest
 
 from swanlab.data.run.metadata.hardware.gpu.nvidia import GpuCollector
 
-handles = []
 try:
     pynvml.nvmlInit()
     count = pynvml.nvmlDeviceGetCount()
-    handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(count)]
 except Exception:  # noqa
     count = 0
 
 
 @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
 def test_get_mem():
-    collector = GpuCollector(handles)
+    collector = GpuCollector(count)
     # 获取handle
     idx = 0
     mem = collector.get_gpu_mem_pct(idx=idx)
@@ -33,7 +31,7 @@ def test_get_mem():
 
 @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
 def test_get_temp():
-    collector = GpuCollector(handles)
+    collector = GpuCollector(count)
     # 获取handle
     idx = 0
     temp = collector.get_gpu_temp(idx=idx)
@@ -46,7 +44,7 @@ def test_get_temp():
 
 @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
 def test_get_power():
-    collector = GpuCollector(handles)
+    collector = GpuCollector(count)
     # 获取handle
     idx = 0
     power = collector.get_gpu_power(idx=idx)

@@ -12,7 +12,7 @@ import subprocess
 
 import psutil
 
-from ..type import HardwareFuncResult, HardwareCollector as H, HardwareInfoList
+from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
 from ..utils import CpuCollector as C, MemoryCollector as M
 
 

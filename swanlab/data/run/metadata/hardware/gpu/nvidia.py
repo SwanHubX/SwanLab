@@ -11,13 +11,17 @@ import pynvml
 
 from swanlab.log import swanlog
 from ..type import HardwareFuncResult, HardwareCollector, HardwareInfoList, HardwareInfo
-from ..utils import generate_key, ColumnConfig, random_index
+from ..utils import generate_key, HardwareConfig, random_index
 
 
 def get_nvidia_gpu_info() -> HardwareFuncResult:
     """获取 GPU 信息"""
 
     info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None}
+    try:
+        pynvml.nvmlInit()
+    except Exception:  # noqa
+        return None, None
     try:
         pynvml.nvmlInit()
         # 获取 NVIDIA 驱动版本信息
@@ -43,8 +47,6 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
             info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
     except pynvml.NVMLError:
         pass
-    except Exception:  # noqa
-        return None, None
     finally:
         pynvml.nvmlShutdown()
     count = info["cores"]
@@ -68,11 +70,11 @@ class GpuCollector(HardwareCollector):
     def __init__(self, count: int):
         super().__init__()
         self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.ptc")
-        mem_pct_config = ColumnConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
+        mem_pct_config = HardwareConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
         self.gpu_temp_key = generate_key("gpu.{idx}.temp")
-        tem_config = ColumnConfig(chart_name="GPU Temperature (℃)", chart_index=random_index())
+        tem_config = HardwareConfig(chart_name="GPU Temperature (℃)", chart_index=random_index())
         self.gpu_power_key = generate_key("gpu.{idx}.power")
-        power_config = ColumnConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
+        power_config = HardwareConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
         self.per_gpu_configs = {self.gpu_mem_pct_key: [], self.gpu_temp_key: [], self.gpu_power_key: []}
         self.handles = []
         for idx in range(count):
@@ -81,7 +83,7 @@ class GpuCollector(HardwareCollector):
             self.per_gpu_configs[self.gpu_temp_key].append(tem_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
 
-    def get_gpu_config(self, key: str, idx: int) -> ColumnConfig:
+    def get_gpu_config(self, key: str, idx: int) -> HardwareConfig:
         """
         获取 某个GPU的某个配置信息
         """
