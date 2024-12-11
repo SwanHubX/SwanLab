@@ -47,14 +47,14 @@ def test_collect_guard():
     assert t.collect_num == 1
     t.after_collect()
     assert t.before_count == 1
-    assert t.after_count == 1
+    assert t.after_count == 0
     assert t.collect_num == 1
     # 60>count>0, 不执行
     t.collect_num = 30
     t.before_collect()
     t.after_collect()
     assert t.before_count == 1
-    assert t.after_count == 1
+    assert t.after_count == 0
     assert t.collect_num == 31
     # 60>count>0, 不执行
     t.collect_num = 59
@@ -63,6 +63,7 @@ def test_collect_guard():
     assert t.before_count == 1
     assert t.after_count == 1
     assert t.collect_num == 60
+    # count=60，不执行，但是after执行
     t.before_collect()
     t.after_collect()
     assert t.before_count == 2

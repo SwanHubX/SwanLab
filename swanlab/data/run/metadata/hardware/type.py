@@ -52,12 +52,12 @@ class CollectGuard:
             self.collect_num += 1
 
     def after_collect(self):
-        # count=1, 执行一次
-        if self.collect_num == 1:
-            return self.after_collect_impl()
-        # 61>count>1, 不执行
-        elif self.collect_num < 61:
+        # 60>count>0, 不执行
+        if self.collect_num < 60:
             return
+        # count=60，执行一次
+        elif self.collect_num == 60:
+            return self.after_collect_impl()
         else:
             return self.after_collect_impl()
 
@@ -77,14 +77,14 @@ class HardwareCollector(CollectGuard, ABC):
     def __call__(self) -> Optional[HardwareInfoList]:
         try:
             self.before_collect()
-            self.collect()
-            self.after_collect()
-            return
+            return self.collect()
         except NotImplementedError as n:
             raise n
         except Exception as e:
             swanlog.error(f"Hardware info collection failed: {self.__class__.__name__}, {str(e)}")
             return None
+        finally:
+            self.after_collect()
 
 
 # 定义硬件信息执行函数的返回结果

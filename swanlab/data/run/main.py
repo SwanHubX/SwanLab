@@ -164,8 +164,8 @@ class SwanLabRun:
                         key=key,
                         name=name,
                         column_config=cfg,
-                        # column_class="SYSTEM",
-                        # section_type="SYSTEM",
+                        column_class="SYSTEM",
+                        section_type="SYSTEM",
                     )
 
         return monitor_func
