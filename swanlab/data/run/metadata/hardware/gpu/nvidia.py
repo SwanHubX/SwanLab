@@ -9,6 +9,7 @@ import subprocess
 
 import pynvml
 
+from swanlab.log import swanlog
 from ..type import HardwareFuncResult, HardwareCollector, HardwareInfoList, HardwareInfo
 from ..utils import generate_key, ColumnConfig, random_index
 
@@ -132,17 +133,22 @@ class GpuCollector(HardwareCollector):
         采集信息
         """
         info_list: HardwareInfoList = []
-        # 信息采集为低频需求，大概每半分钟到一分钟采集一次
-        # 因此每次采集前初始化一次，这样可以避免内存泄漏
-        try:
-            pynvml.nvmlInit()
-            for idx, handle in enumerate(self.handles):
-                info_list.append(self.get_gpu_mem_pct(idx, handle))
-                info_list.append(self.get_gpu_temp(idx, handle))
-                info_list.append(self.get_gpu_power(idx, handle))
-        finally:
-            pynvml.nvmlShutdown()
+        # 低频采集下（30s以下），应该每次采集时都执行pynvml.nvmlInit()
+        # 高频采集下（30s以上），应该在初始化时执行pynvml.nvmlInit()，在最后一次采集时执行pynvml.nvmlShutdown()
+        # 在外部定时任务处，超过10次即变为低频采集，因此需要判断一下
+        for idx, handle in enumerate(self.handles):
+            info_list.append(self.get_gpu_mem_pct(idx, handle))
+            info_list.append(self.get_gpu_temp(idx, handle))
+            info_list.append(self.get_gpu_power(idx, handle))
         return info_list
 
     def __del__(self):
         pynvml.nvmlShutdown()
+
+    def before_collect_impl(self):
+        pynvml.nvmlInit()
+        swanlog.debug("NVIDIA GPU nvml inited.")
+
+    def after_collect_impl(self):
+        pynvml.nvmlShutdown()
+        swanlog.debug("NVIDIA GPU nvml shutdown.")

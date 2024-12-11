@@ -38,13 +38,12 @@ class CpuCollector:
     PER_CPU_CONFIG = ColumnConfig(y_range=(0, 100), chart_name="CPU Utilization (per core) (%)")
     THDS_CONFIG = ColumnConfig(y_range=(0, None), chart_name="Process CPU Threads")
 
-    def __init__(self):
-        self.per_cpu_configs = []
-        # 随机生成一个index，用于标识图表
-        self.per_cpu_usage_chart_index = random_index()
-        self.cpu_usage_key = generate_key("cpu.pct")
-        self.per_cpu_usage_key = generate_key("cpu.{idx}.pct")
-        self.proc_thds_key = generate_key("cpu.thds")
+    per_cpu_configs = []
+    # 随机生成一个index，用于标识图表
+    per_cpu_usage_chart_index = random_index()
+    cpu_usage_key = generate_key("cpu.pct")
+    per_cpu_usage_key = generate_key("cpu.{idx}.pct")
+    proc_thds_key = generate_key("cpu.thds")
 
     def get_cpu_usage(self) -> HardwareInfo:
         """
@@ -100,11 +99,10 @@ class MemoryCollector:
     MEM_CONFIG = ColumnConfig(y_range=(0, 100))
     PROC_MEM_PCT_CONFIG = ColumnConfig(y_range=(0, 100))
 
-    def __init__(self):
-        self.mem_usage_key = generate_key("mem.pct")
-        self.mem_proc_key = generate_key("mem.proc")
-        self.mem_proc_pct_key = generate_key("mem.proc.pct")
-        self.mem_proc_avail_key = generate_key("mem.proc.avail")
+    mem_usage_key = generate_key("mem.pct")
+    mem_proc_key = generate_key("mem.proc")
+    mem_proc_pct_key = generate_key("mem.proc.pct")
+    mem_proc_avail_key = generate_key("mem.proc.avail")
 
     def get_mem_usage(self) -> HardwareInfo:
         """

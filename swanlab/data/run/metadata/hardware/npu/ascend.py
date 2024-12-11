@@ -53,7 +53,6 @@ def get_version() -> str:
 def map_npu() -> dict:
     """
     列出所有NPU设备，并包含芯片的映射关系
-
     """
     output = subprocess.run(["npu-smi", "info", "-m"], capture_output=True, check=True, text=True).stdout
     # npu_id -> chip_id -> {"id": chip_logic_id, "name": chip_name}
@@ -80,7 +79,6 @@ def map_npu() -> dict:
 def get_chip_usage(npu_id: str, chip_id: str):
     """
     获取某个NPU设备的芯片信息
-    不再需要获取chip的名称
     """
     output = subprocess.run(
         ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],

@@ -12,7 +12,7 @@ import subprocess
 
 import psutil
 
-from ..type import HardwareFuncResult, HardwareCollector, HardwareInfoList
+from ..type import HardwareFuncResult, HardwareCollector as H, HardwareInfoList
 from ..utils import CpuCollector as C, MemoryCollector as M
 
 
@@ -39,7 +39,7 @@ def get_apple_chip_info() -> HardwareFuncResult:
     return info, AppleChipCollector()
 
 
-class AppleChipCollector(HardwareCollector, C, M):
+class AppleChipCollector(H, C, M):
     def __init__(self):
         super().__init__()
         self.current_process = psutil.Process()
