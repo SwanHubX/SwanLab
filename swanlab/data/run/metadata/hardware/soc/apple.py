@@ -7,17 +7,17 @@
 
 import json
 import multiprocessing
-import platform
 import subprocess
 
 import psutil
+from swankit.env import is_macos
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
 from ..utils import CpuCollector as C, MemoryCollector as M
 
 
 def get_apple_chip_info() -> HardwareFuncResult:
-    if "mac" not in platform.platform().lower():
+    if not is_macos():
         return None, None
     info = {"cpu": None, "gpu": None, "memory": None, "type": None}
 

@@ -125,7 +125,7 @@ MEM_PROC_PCT_CONFIG = HardwareConfig(
 PROC_MEM_AVAIL_KEY = generate_key("mem.proc.avail")
 PROC_MEM_AVAIL_CONFIG = HardwareConfig(
     y_range=(0, None),
-    chart_name="Process Memory Available (MB)",
+    chart_name="Process Memory Available (non-swap) (MB)",
 ).clone()
 
 
@@ -157,7 +157,7 @@ class MemoryCollector:
             "key": MEM_PROC_KEY,
             "name": "Process Memory In Use (non-swap) (MB)",
             "value": mem_info.rss / 1024 / 1024,
-            "config": None,
+            "config": MEM_PROC_CONFIG,
         }
         mem_proc_pct: HardwareInfo = {
             "key": MEM_PROC_PCT_KEY,
@@ -167,7 +167,7 @@ class MemoryCollector:
         }
         mem_proc_avail: HardwareInfo = {
             "key": PROC_MEM_AVAIL_KEY,
-            "name": "Process Memory Available (MB)",
+            "name": "Process Memory Available (non-swap) (MB)",
             "value": virtual_memory.available / 1024 / 1024,
             "config": PROC_MEM_AVAIL_CONFIG,
         }

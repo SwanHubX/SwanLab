@@ -72,8 +72,19 @@ class ColumnModel:
             d.pop("sectionName")
         if self.section_type is None:
             d.pop("sectionType")
+        if self.config is None:
+            return d
         # 将额外的图表配置信息加入
-
+        if self.config.y_range is not None:
+            d["yRange"] = self.config.y_range
+        if self.config.chart_name is not None:
+            d["chartName"] = self.config.chart_name
+        if self.config.chart_index is not None:
+            d["chartIndex"] = self.config.chart_index
+        if self.config.metric_name is not None:
+            d["metricName"] = self.config.metric_name
+        if self.config.metric_color is not None:
+            d["metricColors"] = self.config.metric_color
         return d
 
 

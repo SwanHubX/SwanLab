@@ -10,6 +10,7 @@ import platform
 import subprocess
 
 import psutil
+from swankit.env import is_macos
 
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList
 from .utils import CpuCollector as C
@@ -17,6 +18,8 @@ from .utils import CpuCollector as C
 
 def get_cpu_info() -> HardwareFuncResult:
     """获取 CPU 信息"""
+    if is_macos():
+        return None, None
     info = {"brand": None, "cores": None}
 
     # 获取 CPU 品牌, 根据不同操作系统调用不同的函数
@@ -26,7 +29,6 @@ def get_cpu_info() -> HardwareFuncResult:
         info["brand"] = get_cpu_brand_linux()
     else:
         # 其他情况，暂时不支持
-        # 苹果芯片单独处理
         return None, None
     try:
         # 获取 CPU 核心数
@@ -34,7 +36,7 @@ def get_cpu_info() -> HardwareFuncResult:
     except Exception:  # noqa
         pass
 
-    return info, None
+    return info, CpuCollector()
 
 
 def get_cpu_brand_windows():

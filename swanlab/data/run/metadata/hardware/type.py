@@ -125,6 +125,7 @@ class HardwareCollector(CollectGuard, ABC):
 
     def __call__(self) -> Optional[HardwareInfoList]:
         try:
+            self.before_collect()
             return self.collect()
         except NotImplementedError as n:
             raise n

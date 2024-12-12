@@ -8,6 +8,7 @@
 from typing import List
 
 import psutil
+from swankit.env import is_macos
 
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import MemoryCollector as M
@@ -15,6 +16,8 @@ from .utils import MemoryCollector as M
 
 def get_memory_size() -> HardwareFuncResult:
     """获取内存大小"""
+    if is_macos():
+        return None, None
     try:
         # 获取系统总内存大小
         total = psutil.virtual_memory().total
