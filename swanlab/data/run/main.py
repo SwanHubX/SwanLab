@@ -158,7 +158,7 @@ class SwanLabRun:
                         info['value'],
                         info['config'],
                     )
-                    v = DataWrapper(key, [Line(value)])
+                    v = DataWrapper(key, [Line(value)], reference="TIME")
                     self.__exp.add(
                         data=v,
                         key=key,

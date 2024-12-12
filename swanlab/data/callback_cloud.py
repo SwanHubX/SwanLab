@@ -284,6 +284,7 @@ class CloudRunCallback(LocalRunCallback):
             key=column_info.key,
             name=column_info.name,
             cls=column_info.cls,
+            config=column_info.config,
             typ=column_info.chart_type.value.column_type,
             section_name=section_name,
             section_type=column_info.section_type,

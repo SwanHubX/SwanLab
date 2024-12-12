@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from swankit.callback.models import ColumnClass
+from swankit.callback.models import ColumnClass, ColumnConfig
 
 from swanlab.data.modules import MediaBuffer
 
@@ -27,31 +27,33 @@ class ColumnModel:
         name: Optional[str],
         cls: ColumnClass,
         typ: str,
+        config: Optional[ColumnConfig],
         section_name: Optional[str],
         section_type: Optional[str],
         error: dict = None,
     ):
         """
-        Args:
-            key: 键
-            name: 键的名称
-            cls: 键的类别
-            typ: 键的类型
-            section_name: 键所在的section的名称
-            section_type: 键所在的section的类型
-            error: 错误信息
+        key: 键
+        name: 键的名称
+        cls: 键的类别
+        typ: 键的类型
+        config: 键的配置
+        section_name: 键所在的section的名称
+        section_type: 键所在的section的类型
+        error: 错误信息
         """
         self.key = key
         self.name = name
         self.cls = cls
         self.typ = typ
+        self.config = config
         self.section_name = section_name
         self.section_type = section_type
         self.error = error
 
     def to_dict(self):
         """
-        序列化为Dict
+        序列化为Dict,传递给后端
         """
         d = {
             "class": self.cls,
@@ -70,6 +72,8 @@ class ColumnModel:
             d.pop("sectionName")
         if self.section_type is None:
             d.pop("sectionType")
+        # 将额外的图表配置信息加入
+
         return d
 
 
