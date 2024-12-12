@@ -5,11 +5,13 @@
 @description: 华为昇腾NPU信息采集
 """
 
+import math
 import os
 import platform
 import subprocess
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult
+from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
+from ..utils import generate_key, random_index
 
 
 def get_ascend_npu_info() -> HardwareFuncResult:
@@ -25,6 +27,7 @@ def get_ascend_npu_info() -> HardwareFuncResult:
     if not list(filter(lambda x: x.startswith("davinci"), os.listdir("/dev"))):
         return None, None
     info = {"driver": None, "npu": None}
+    collector = None
     try:
         # 获取NPU驱动版本
         info["driver"] = get_version()
@@ -39,10 +42,11 @@ def get_ascend_npu_info() -> HardwareFuncResult:
                 if npu_id not in info["npu"]:
                     info["npu"][npu_id] = {}
                 info["npu"][npu_id][chip_id] = {**chip_info, "usage": usage}
+        collector = AscendCollector(npu_map)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
-    return info, None
+    return info, collector
 
 
 def get_version() -> str:
@@ -96,3 +100,88 @@ def get_chip_usage(npu_id: str, chip_id: str):
                 usage["hbm"] = str(round(int(hbm) / 1024))
             break
     return usage
+
+
+class AscendCollector(H):
+    def __init__(self, npu_map):
+        super().__init__()
+        self.npu_map = npu_map
+        # HBM Usage Rate(%)
+        self.hbm_rate_key = generate_key("npu.{npu_index}.mem.ptc")
+        hbm_rate_config = HardwareConfig(
+            y_range=(0, 100),
+            chart_index=random_index(),
+            chart_name="NPU Utilization (%)",
+        )
+        self.per_hbm_configs = {}
+        # NPU Temperature (℃)
+        self.temp_key = generate_key("npu.{npu_index}.temp")
+        temp_config = HardwareConfig(
+            y_range=(0, None),
+            chart_index=random_index(),
+            chart_name="NPU Temperature (℃)",
+        )
+        self.per_temp_configs = {}
+
+        for npu_id in npu_map:
+            for chip_id in npu_map[npu_id]:
+                metric_name = f"NPU {npu_id}-{chip_id}"
+                self.per_hbm_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
+                self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
+
+    def collect(self) -> HardwareInfoList:
+        result: HardwareInfoList = []
+        for npu_id in self.npu_map:
+            for chip_id in self.npu_map[npu_id]:
+                result.append(self.get_hbm_rate(npu_id, chip_id))
+                result.append(self.get_chip_temp(npu_id, chip_id))
+        return result
+
+    def get_hbm_rate(self, npu_id: str, chip_id: str) -> HardwareInfo:
+        """
+        获取指定NPU设备的芯片HBM的用量信息
+        """
+        output = subprocess.run(
+            ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],
+            capture_output=True,
+            text=True,
+        ).stdout
+        rate = math.nan
+        for line in output.split("\n"):
+            if "hbm usage rate" in line.lower():
+                line = line.split(":")
+                # HBM Capacity的值在最后一个
+                hbm = line[-1].strip()
+                if hbm.isdigit():
+                    rate = float(hbm)
+                break
+        _id, metric_name = self.get_label(npu_id, chip_id)
+        return {
+            "key": self.hbm_rate_key.format(npu_index=_id),
+            "name": f"{metric_name} Utilization (%)",
+            "value": rate,
+            "config": self.per_hbm_configs[metric_name],
+        }
+
+    def get_chip_temp(self, npu_id: str, chip_id: str) -> HardwareInfo:
+        """
+        获取芯片温度
+        """
+        output = subprocess.run(
+            ["npu-smi", "info", "-t", "temp", "-i", npu_id, "-c", chip_id],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        temp = float(output.split(":")[-1].strip())
+        _id, metric_name = self.get_label(npu_id, chip_id)
+        return {
+            "key": self.temp_key.format(npu_index=_id),
+            "name": f"{metric_name} Temperature (℃)",
+            "value": temp,
+            "config": self.per_temp_configs[metric_name],
+        }
+
+    @staticmethod
+    def get_label(npu_id: str, chip_id: str):
+        _id = f"{npu_id}-{chip_id}"
+        return _id, f"NPU {_id}"

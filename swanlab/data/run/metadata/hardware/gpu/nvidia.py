@@ -134,15 +134,15 @@ class GpuCollector(HardwareCollector):
         """
         采集信息
         """
-        info_list: HardwareInfoList = []
+        result: HardwareInfoList = []
         # 低频采集下（30s以下），应该每次采集时都执行pynvml.nvmlInit()
         # 高频采集下（30s以上），应该在初始化时执行pynvml.nvmlInit()，在最后一次采集时执行pynvml.nvmlShutdown()
         # 在外部定时任务处，超过10次即变为低频采集，因此需要判断一下
         for idx, handle in enumerate(self.handles):
-            info_list.append(self.get_gpu_mem_pct(idx))
-            info_list.append(self.get_gpu_temp(idx))
-            info_list.append(self.get_gpu_power(idx))
-        return info_list
+            result.append(self.get_gpu_mem_pct(idx))
+            result.append(self.get_gpu_temp(idx))
+            result.append(self.get_gpu_power(idx))
+        return result
 
     def __del__(self):
         pynvml.nvmlShutdown()
