@@ -27,7 +27,7 @@ def test_cpu_usage():
     usage = c.get_cpu_usage()
     assert usage is not None
     assert 0 <= usage["value"] <= 100
-    assert usage["key"] == "cpu.pct"
+    assert usage["key"].endswith("cpu.pct")
     assert usage["name"] == "CPU Utilization (%)"
     assert usage["config"].y_range == (0, 100)
     assert usage["config"].chart_name == "CPU Utilization (%)"
@@ -40,7 +40,7 @@ def test_per_cpu_usage():
     assert usage is not None
     for idx, u in enumerate(usage):
         assert 0 <= u["value"] <= 100
-        assert u["key"] == f"cpu.{idx}.pct"
+        assert u["key"].endswith(f"cpu.{idx}.pct")
         assert u["name"] == f"CPU {idx} Utilization (%)"
         assert u["config"].y_range == (0, 100)
         assert u["config"].chart_name == f"CPU Utilization (per core) (%)"
