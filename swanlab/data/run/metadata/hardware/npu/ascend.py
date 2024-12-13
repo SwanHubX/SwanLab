@@ -5,11 +5,10 @@
 @description: 华为昇腾NPU信息采集
 """
 
+import math
 import os
 import platform
 import subprocess
-
-import math
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
 from ..utils import generate_key, random_index
@@ -178,6 +177,7 @@ class AscendCollector(H):
                 util = line[-1].strip()
                 if util.isdigit():
                     util_info['value'] = float(util)
+                continue
 
             if "hbm usage rate" in line.lower():
                 line = line.split(":")
@@ -185,6 +185,7 @@ class AscendCollector(H):
                 hbm = line[-1].strip()
                 if hbm.isdigit():
                     hbm_info['value'] = float(hbm)
+                continue
         return [util_info, hbm_info]
 
     def get_chip_temp(self, npu_id: str, chip_id: str) -> HardwareInfo:
