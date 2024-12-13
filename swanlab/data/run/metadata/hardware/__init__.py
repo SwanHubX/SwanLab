@@ -22,11 +22,12 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     采集硬件信息，包括CPU、GPU、内存、硬盘等
     """
     monitor_funcs = []
-    m = dec_hardware_func(get_memory_size, monitor_funcs)
-    c = dec_hardware_func(get_cpu_info, monitor_funcs)
+    # 我们希望计算芯片的信息放在最前面，前端展示用
     nvidia = dec_hardware_func(get_nvidia_gpu_info, monitor_funcs)
     ascend = dec_hardware_func(get_ascend_npu_info, monitor_funcs)
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
+    c = dec_hardware_func(get_cpu_info, monitor_funcs)
+    m = dec_hardware_func(get_memory_size, monitor_funcs)
 
     info = {
         "memory": m,

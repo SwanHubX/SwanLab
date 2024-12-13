@@ -5,10 +5,11 @@
 @description: 华为昇腾NPU信息采集
 """
 
-import math
 import os
 import platform
 import subprocess
+
+import math
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
 from ..utils import generate_key, random_index
@@ -106,12 +107,20 @@ class AscendCollector(H):
     def __init__(self, npu_map):
         super().__init__()
         self.npu_map = npu_map
-        # HBM Usage Rate(%)
+        # NPU Utilization (%)
+        self.util_key = generate_key("npu.{npu_index}.ptc")
+        util_config = HardwareConfig(
+            y_range=(0, 100),
+            chart_index=random_index(),
+            chart_name="NPU Utilization (%)",
+        )
+        self.per_util_configs = {}
+        # NPU Memory Allocated (%)
         self.hbm_rate_key = generate_key("npu.{npu_index}.mem.ptc")
         hbm_rate_config = HardwareConfig(
             y_range=(0, 100),
             chart_index=random_index(),
-            chart_name="NPU Utilization (%)",
+            chart_name="NPU Memory Allocated (%)",
         )
         self.per_hbm_configs = {}
         # NPU Temperature (℃)
@@ -126,6 +135,7 @@ class AscendCollector(H):
         for npu_id in npu_map:
             for chip_id in npu_map[npu_id]:
                 metric_name = f"NPU {npu_id}-{chip_id}"
+                self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
                 self.per_hbm_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
                 self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
 
@@ -133,35 +143,49 @@ class AscendCollector(H):
         result: HardwareInfoList = []
         for npu_id in self.npu_map:
             for chip_id in self.npu_map[npu_id]:
-                result.append(self.get_hbm_rate(npu_id, chip_id))
+                result.extend(self.get_usage(npu_id, chip_id))
                 result.append(self.get_chip_temp(npu_id, chip_id))
         return result
 
-    def get_hbm_rate(self, npu_id: str, chip_id: str) -> HardwareInfo:
+    def get_usage(self, npu_id: str, chip_id: str) -> HardwareInfoList:
         """
-        获取指定NPU设备的芯片HBM的用量信息
+        获取指定NPU设备的芯片HBM的用量信息和利用率
         """
         output = subprocess.run(
             ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],
             capture_output=True,
             text=True,
         ).stdout
-        rate = math.nan
+        # 格式化获取NPU ID和芯片ID
+        _id, metric_name = self.get_label(npu_id, chip_id)
+        # 获取信息
+        util_info = {
+            "key": self.util_key.format(npu_index=_id),
+            "name": f"{metric_name} Utilization (%)",
+            "value": math.nan,
+            "config": self.per_util_configs[metric_name],
+        }
+        hbm_info = {
+            "key": self.hbm_rate_key.format(npu_index=_id),
+            "name": f"{metric_name} Memory Allocated (%)",
+            "value": math.nan,
+            "config": self.per_hbm_configs[metric_name],
+        }
         for line in output.split("\n"):
+            if "aicore usage rate" in line.lower():
+                line = line.split(":")
+                # 利用率的值在最后一个
+                util = line[-1].strip()
+                if util.isdigit():
+                    util_info['value'] = float(util)
+
             if "hbm usage rate" in line.lower():
                 line = line.split(":")
                 # HBM Capacity的值在最后一个
                 hbm = line[-1].strip()
                 if hbm.isdigit():
-                    rate = float(hbm)
-                break
-        _id, metric_name = self.get_label(npu_id, chip_id)
-        return {
-            "key": self.hbm_rate_key.format(npu_index=_id),
-            "name": f"{metric_name} Utilization (%)",
-            "value": rate,
-            "config": self.per_hbm_configs[metric_name],
-        }
+                    hbm_info['value'] = float(hbm)
+        return [util_info, hbm_info]
 
     def get_chip_temp(self, npu_id: str, chip_id: str) -> HardwareInfo:
         """

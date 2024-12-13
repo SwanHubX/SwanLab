@@ -68,25 +68,53 @@ class GpuCollector(HardwareCollector):
 
     def __init__(self, count: int):
         super().__init__()
+        # GPU 利用率
+        self.gpu_util_key = generate_key("gpu.{idx}.ptc")
+        util_config = HardwareConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
+        # GPU 内存使用率
         self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.ptc")
-        mem_pct_config = HardwareConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
+        mem_pct_config = HardwareConfig(
+            y_range=(0, 100), chart_name="GPU Memory Allocated (%)", chart_index=random_index()
+        )
+        # GPU 温度
         self.gpu_temp_key = generate_key("gpu.{idx}.temp")
         tem_config = HardwareConfig(chart_name="GPU Temperature (℃)", chart_index=random_index())
+        # GPU 功耗
         self.gpu_power_key = generate_key("gpu.{idx}.power")
         power_config = HardwareConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
-        self.per_gpu_configs = {self.gpu_mem_pct_key: [], self.gpu_temp_key: [], self.gpu_power_key: []}
+        # 每个GPU的配置信息
+        self.per_gpu_configs = {
+            self.gpu_mem_pct_key: [],
+            self.gpu_temp_key: [],
+            self.gpu_power_key: [],
+            self.gpu_util_key: [],
+        }
         self.handles = []
         for idx in range(count):
             metric_name = "GPU {idx}".format(idx=idx)
             self.per_gpu_configs[self.gpu_mem_pct_key].append(mem_pct_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_temp_key].append(tem_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_util_key].append(util_config.clone(metric_name=metric_name))
 
     def get_gpu_config(self, key: str, idx: int) -> HardwareConfig:
         """
         获取 某个GPU的某个配置信息
         """
         return self.per_gpu_configs[key][idx]
+
+    def get_gpu_util(self, idx: int) -> HardwareInfo:
+        """
+        获取 GPU 利用率
+        """
+        handle = self.handles[idx]
+        util_info = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        return {
+            "key": self.gpu_util_key.format(idx=idx),
+            "value": util_info.gpu,
+            "name": "GPU {idx} Utilization (%)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_util_key, idx),
+        }
 
     def get_gpu_mem_pct(self, idx: int) -> HardwareInfo:
         """
@@ -98,7 +126,7 @@ class GpuCollector(HardwareCollector):
         return {
             "key": self.gpu_mem_pct_key.format(idx=idx),
             "value": mem_pct,
-            "name": "GPU {idx} Utilization (%)".format(idx=idx),
+            "name": "GPU {idx} Memory Allocated (%)".format(idx=idx),
             "config": self.get_gpu_config(self.gpu_mem_pct_key, idx),
         }
 
@@ -135,6 +163,7 @@ class GpuCollector(HardwareCollector):
         """
         result: HardwareInfoList = []
         for idx, handle in enumerate(self.handles):
+            result.append(self.get_gpu_util(idx))
             result.append(self.get_gpu_mem_pct(idx))
             result.append(self.get_gpu_temp(idx))
             result.append(self.get_gpu_power(idx))
