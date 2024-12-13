@@ -151,11 +151,11 @@ class MonitorCron:
         # 采集10次到50次，每次间隔30秒
         # 采集50次以上，每次间隔60秒
         if self.count < 10:
-            return 1
+            return 10
         elif self.count < 50:
-            return 3
+            return 30
         else:
-            return 6
+            return 60
 
 
 def check_log_level(log_level: Optional[str]) -> str:
