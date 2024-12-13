@@ -68,4 +68,8 @@ class CpuCollector(HardwareCollector, C):
         self.current_process = psutil.Process()
 
     def collect(self) -> HardwareInfoList:
-        return [self.get_cpu_usage(), *self.get_per_cpu_usage(), self.get_cur_proc_thds_num(self.current_process)]
+        return [
+            self.get_cpu_usage(),
+            # *self.get_per_cpu_usage(),
+            self.get_cur_proc_thds_num(self.current_process),
+        ]

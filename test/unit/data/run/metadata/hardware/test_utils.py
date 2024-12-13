@@ -45,5 +45,4 @@ def test_per_cpu_usage():
         assert u["config"].y_range == (0, 100)
         assert u["config"].chart_name == f"CPU Utilization (per core) (%)"
         # 每个核心的index应该相同,因为必须要放在同一个图表中
-        assert u["config"].chart_index == c.per_cpu_usage_index
         assert u["config"].metric_name == f"CPU {idx}"

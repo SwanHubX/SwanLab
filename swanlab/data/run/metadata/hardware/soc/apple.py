@@ -51,7 +51,7 @@ class AppleChipCollector(H, C, M):
     def collect(self) -> HardwareInfoList:
         return [
             self.get_cpu_usage(),
-            *self.get_per_cpu_usage(),
+            # *self.get_per_cpu_usage(),
             self.get_cur_proc_thds_num(self.current_process),
             self.get_mem_usage(),
             *self.get_cur_proc_mem(self.current_process),
