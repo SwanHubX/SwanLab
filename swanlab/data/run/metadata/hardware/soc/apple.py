@@ -23,16 +23,17 @@ def get_apple_chip_info() -> HardwareFuncResult:
     # 使用system_profiler命令以JSON格式获取GPU信息
     try:
         result = subprocess.run(["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True)
-        chip_name = json.loads(result.stdout)["SPHardwareDataType"][0].get("chip_name", None)
+        hardware_info = json.loads(result.stdout)["SPHardwareDataType"][0]
+        chip_type = hardware_info.get("chip_type", None)
         # 早期intel芯片的机器
-        if chip_name is None:
-            chip_name = json.loads(result.stdout)["SPHardwareDataType"][0].get("cpu_type", None)
-        if chip_name is None:
+        if chip_type is None:
+            chip_type = hardware_info.get("cpu_type", None)
+        if chip_type is None:
             raise Exception("Can't get apple chip name")
-        memory = json.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
+        memory = hardware_info["physical_memory"]
         memory = str(memory).lower().replace("gb", "")
         # TODO: 获取GPU信息
-        info["type"] = chip_name
+        info["type"] = chip_type
         info["memory"] = memory
     except Exception:  # noqa
         return None, None
