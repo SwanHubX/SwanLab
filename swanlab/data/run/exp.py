@@ -36,8 +36,9 @@ class SwanLabExp:
     def __add(
         self,
         key: str,
-        key_name: Optional[str],
-        key_class: ColumnClass,
+        name: Optional[str],
+        column_class: ColumnClass,
+        column_config: Optional[ColumnConfig],
         section_type: SectionType,
         data: DataWrapper,
         step: int = None,
@@ -48,19 +49,19 @@ class SwanLabExp:
         ----------
         key : str
             key的云端唯一标识
-        data : DataWrapper
-            包装后的数据，用于数据解析
-        key_class : str
-            key的类型，CUSTOM为自定义key，SYSTEM为系统key
-        key_name : str
+        name : str
             key的实际名称
+        column_class : str
+            列类型，CUSTOM为自定义key，SYSTEM为系统key
         section_type : str
             key的组类型
+        data : DataWrapper
+            包装后的数据，用于数据解析
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
-        key_index = f"{key_class}-{key}"
+        key_index = f"{column_class}-{key}"
         # 判断tag是否存在，如果不存在则创建tag
         key_obj: SwanLabKey = self.keys.get(key_index, None)
 
@@ -86,7 +87,15 @@ class SwanLabExp:
             key_obj = SwanLabKey(key, self.settings)
             self.keys[key_index] = key_obj
             # 新建图表，完成数据格式校验
-            column_info = key_obj.create_column(key, key_name, key_class, section_type, data, num)
+            column_info = key_obj.create_column(
+                key,
+                name,
+                column_class,
+                column_config,
+                section_type,
+                data,
+                num,
+            )
             self.warn_type_error(key_index, key)
             # 创建新列，生成回调
             self.__operator.on_column_create(column_info)
@@ -104,11 +113,11 @@ class SwanLabExp:
         self,
         data: DataWrapper,
         key: str,
-        key_name: str = None,
-        key_class: ColumnClass = 'CUSTOM',
+        name: str = None,
+        column_class: ColumnClass = 'CUSTOM',
+        column_config: Optional[ColumnConfig] = None,
         section_type: SectionType = "PUBLIC",
         step: int = None,
-        column_config: Optional[ColumnConfig] = None,
     ) -> MetricInfo:
         """记录一条新的key数据
         Parameters
@@ -116,20 +125,20 @@ class SwanLabExp:
         data : DataWrapper
             包装后的数据，用于数据解析
         key : str
-            key的云端唯一标识
-        key_name : str
-            key的实际名称, 默认与key相同
-        key_class : str, optional
-            key的类型
+            列的云端唯一标识
+        name : str
+            列的实际名称, 默认与key相同
+        column_class : str, optional
+            列的类型
+        column_config : Optional[ColumnConfig], optional
+            列的额外配置信息
         section_type : str, optional
             key的组类型
         step : int, optional
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
-        column_config : Optional[ColumnConfig], optional
-            列的额外配置信息
         """
-        m = self.__add(key, key_name, key_class, section_type, data, step)
+        m = self.__add(key, name, column_class, column_config, section_type, data, step)
         self.__operator.on_metric_create(m)
         return m
 
@@ -291,8 +300,9 @@ class SwanLabKey:
     def create_column(
         self,
         key: str,
-        key_name: Optional[str],
-        key_class: ColumnClass,
+        name: Optional[str],
+        column_class: ColumnClass,
+        column_config: Optional[ColumnConfig],
         section_type: SectionType,
         data: DataWrapper,
         num: int,
@@ -300,8 +310,9 @@ class SwanLabKey:
         """
         创建列信息，对当前key的基本信息做一个记录
         :param key: str, key名称
-        :param key_name: str, key的实际名称
-        :param key_class: str, key的类型，CUSTOM为自定义key，SYSTEM为系统key
+        :param name: str, key的实际名称
+        :param column_class: str, key的类型
+        :param column_config: ColumnConfig, key的配置
         :param section_type: str, key的组类型
         :param data: DataType, 数据
         :param num: 创建此列之前的列数量
@@ -320,8 +331,9 @@ class SwanLabKey:
         column_info = ColumnInfo(
             key=key,
             kid=str(num),
-            name=key_name,
-            cls=key_class,
+            name=name,
+            cls=column_class,
+            config=column_config,
             chart_type=result.chart,
             section_name=result.section,
             section_type=section_type,

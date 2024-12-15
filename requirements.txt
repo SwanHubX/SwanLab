@@ -1,4 +1,4 @@
-swankit==0.1.2b2
+swankit==0.1.2b6
 swanboard==0.1.7b1
 cos-python-sdk-v5
 urllib3>=1.26.0
@@ -6,6 +6,5 @@ requests>=2.25.0
 click
 pyyaml
 psutil>=5.0.0
-gputil==1.4.0
 pynvml
 rich

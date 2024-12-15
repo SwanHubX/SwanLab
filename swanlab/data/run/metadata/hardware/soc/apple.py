@@ -7,41 +7,53 @@
 
 import json
 import multiprocessing
-import platform
 import subprocess
 
 import psutil
+from swankit.env import is_macos
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareInfo
-from swanlab.data.run.metadata.hardware.utils import hardware
+from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
+from ..utils import CpuCollector as C, MemoryCollector as M
 
 
 def get_apple_chip_info() -> HardwareFuncResult:
-    if "mac" not in platform.platform().lower():
-        return None, []
+    if not is_macos():
+        return None, None
     info = {"cpu": None, "gpu": None, "memory": None, "type": None}
-
     # 使用system_profiler命令以JSON格式获取GPU信息
     try:
         result = subprocess.run(["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True)
-        gpu_name = json.loads(result.stdout)["SPHardwareDataType"][0]["chip_type"]
-        memory = json.loads(result.stdout)["SPHardwareDataType"][0]["physical_memory"]
+        hardware_info = json.loads(result.stdout)["SPHardwareDataType"][0]
+        chip_type = hardware_info.get("chip_type", None)
+        # 早期intel芯片的机器
+        if chip_type is None:
+            chip_type = hardware_info.get("cpu_type", None)
+        if chip_type is None:
+            raise Exception("Can't get apple chip name")
+        memory = hardware_info["physical_memory"]
         memory = str(memory).lower().replace("gb", "")
         # TODO: 获取GPU信息
-        info["type"] = gpu_name
+        info["type"] = chip_type
         info["memory"] = memory
     except Exception:  # noqa
-        return None, []
+        return None, None
     try:
         info["cpu"] = multiprocessing.cpu_count()
     except Exception:  # noqa
         pass
-    return info, [
-        # get_cpu_usage
-    ]
+    return info, AppleChipCollector()
 
 
-@hardware
-def get_cpu_usage() -> HardwareInfo:
-    usage = psutil.cpu_percent(interval=1)
-    return {"key": "cpu_usage", "value": usage, "name": "System CPU Utilization (%)"}
+class AppleChipCollector(H, C, M):
+    def __init__(self):
+        super().__init__()
+        self.current_process = psutil.Process()
+
+    def collect(self) -> HardwareInfoList:
+        return [
+            self.get_cpu_usage(),
+            # *self.get_per_cpu_usage(),
+            self.get_cur_proc_thds_num(self.current_process),
+            self.get_mem_usage(),
+            *self.get_cur_proc_mem(self.current_process),
+        ]

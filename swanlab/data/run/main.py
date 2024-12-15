@@ -151,15 +151,22 @@ class SwanLabRun:
                 if monitor_info is None:
                     swanlog.debug("Hardware info is empty. Skip it.")
                     continue
-                key, name, value = monitor_info['key'], monitor_info['name'], monitor_info['value']
-                v = DataWrapper(key, [Line(value)])
-                self.__exp.add(
-                    data=v,
-                    key=key,
-                    key_name=name,
-                    key_class="SYSTEM",
-                    section_type="SYSTEM",
-                )
+                for info in monitor_info:
+                    key, name, value, cfg = (
+                        info['key'],
+                        info['name'],
+                        info['value'],
+                        info['config'],
+                    )
+                    v = DataWrapper(key, [Line(value)], reference="TIME")
+                    self.__exp.add(
+                        data=v,
+                        key=key,
+                        name=name,
+                        column_config=cfg,
+                        column_class="SYSTEM",
+                        section_type="SYSTEM",
+                    )
 
         return monitor_func
 
