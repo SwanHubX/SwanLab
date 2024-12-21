@@ -130,7 +130,7 @@ class HardwareCollector(CollectGuard, ABC):
         except NotImplementedError as n:
             raise n
         except Exception as e:
-            swanlog.error(f"Hardware info collection failed: {self.__class__.__name__}, {str(e)}")
+            swanlog.debug(f"Hardware info collection failed: {self.__class__.__name__}, {str(e)}")
             return None
         finally:
             self.after_collect()

@@ -44,6 +44,8 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
             info["type"].append(gpu_name)
             # 获取 GPU 的总显存, 单位为GB
             info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
+    except UnicodeDecodeError:  # 部分GPU型号无法解码
+        return None, None
     except pynvml.NVMLError:
         pass
     finally:
