@@ -29,6 +29,7 @@
 
 ## 目录
 
+- [🌟 最近更新](#-最近更新)
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
@@ -39,6 +40,21 @@
 - [📃 协议](#-协议)
 
 <br/>
+
+## 🌟 最近更新
+
+- 2024.12.22：我们与 **[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)** 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
+
+- 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU、GPU的系统级信息记录与监控，包括
+  - CPU：利用率、线程数
+  - 内存：利用率、进程利用率、可用内存
+  - Nvidia GPU：利用率、显存分配、温度、功耗
+  - Ascend NPU：利用率、HBM分配、温度
+
+- 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
+
+- 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别**青云基石智算（Coreshub）**。
+
 
 ## 👋🏻 什么是SwanLab
 
