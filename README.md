@@ -29,6 +29,7 @@
 
 ## 目录
 
+- [🌟 最近更新](#-最近更新)
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
@@ -39,6 +40,22 @@
 - [📃 协议](#-协议)
 
 <br/>
+
+## 🌟 最近更新
+
+- 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
+
+- 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
+
+- 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
+
+- 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别青云**基石智算**。
+
+- 2024.11.24：重构设计语言的**全新UI上线**，优化大量交互细节，并支持黑夜模式。
+
+- 2024.11.11：[VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview) 插件上线；新增与[Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)框架的集成；新增`run.public`方法，支持获取实验的项目名、实验名、链接等信息，[#732](https://github.com/swanhubx/swanlab/issues/732)
+
+<br>
 
 ## 👋🏻 什么是SwanLab
 
