@@ -13,6 +13,19 @@ from typing import List
 
 import swankit.env as E
 from swankit.env import SwanLabSharedEnv
+import requests
+
+
+DOMAIN = 'swanlab.cn'
+DOMAIN1 = 'swanlab.115.zone' # temporary domain
+
+# domain state detection
+try:
+    response = requests.get(f'https://{DOMAIN}/api', timeout=3)
+    if response.status_code != 200:
+        DOMAIN = DOMAIN1
+except Exception:
+    DOMAIN = DOMAIN1
 
 
 # ---------------------------------- 环境变量枚举类 ----------------------------------
@@ -73,9 +86,13 @@ class SwanLabEnv(enum.Enum):
         """
         设置默认的环境变量值
         """
+        api_host = f'https://api.{DOMAIN}/api'
+        if DOMAIN == DOMAIN1:
+            api_host = f'https://{DOMAIN}/api'
+
         envs = {
-            cls.WEB_HOST.value: "https://swanlab.cn",
-            cls.API_HOST.value: "https://api.swanlab.cn/api",
+            cls.WEB_HOST.value: f"https://{DOMAIN}",
+            cls.API_HOST.value: api_host,
             cls.RUNTIME.value: "user",
         }
         for k, v in envs.items():
