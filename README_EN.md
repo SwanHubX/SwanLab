@@ -22,6 +22,7 @@
 
 ## TOC
 
+- [🌟 Recent Updates](#-recent-updates)
 - [👋🏻 Introduction](#-Introduction)
 - [📃 Demo](#-demo)
 - [🏁 Quick Start](#-quick-start)
@@ -32,6 +33,22 @@
 - [📃 License](#-license)
 
 <br/>
+
+## 🌟 Recent Updates
+
+- 2024.12.22: We have completed integration with [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), now you can use SwanLab in LLaMA Factory to **track and visualize large model fine-tuning experiments**, [Usage Guide](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
+
+- 2024.12.15: **Hardware Monitoring (0.4.0)** feature launched, supporting system-level information recording and monitoring for CPU, NPU (Ascend), and GPU (Nvidia).
+
+- 2024.12.06: Added integration with [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html) and [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html); increased the line length limit for log recording.
+
+- 2024.11.26: Environment tab - Hardware section now supports recognition of **Huawei Ascend NPU** and **Kunpeng CPU**; Cloud vendor section supports recognition of QingCloud **GritStone**.
+
+- 2024.11.24: **Brand new UI launched** with redesigned design language, optimized interaction details, and dark mode support.
+
+- 2024.11.11: [VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview) plugin launched; Added integration with [Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html) framework; Added `run.public` method to support retrieving project name, experiment name, link and other information, [#732](https://github.com/swanhubx/swanlab/issues/732)
+
+<br>
 
 ## 👋🏻 Introduction
 
