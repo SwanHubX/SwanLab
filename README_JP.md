@@ -22,6 +22,7 @@
 
 ## 目次
 
+- [🌟 最近の更新](#-最近の更新)
 - [👋🏻 SwanLabとは](#-swanlabとは)
 - [📃 オンラインデモ](#-オンラインデモ)
 - [🏁 はじめに](#-はじめに)
@@ -32,6 +33,22 @@
 - [📃 ライセンス](#-ライセンス)
 
 <br/>
+
+## 🌟 最近の更新
+
+- 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合が完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルの微調整実験を追跡および可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
+
+- 2024.12.15：**ハードウェアモニタリング（0.4.0）**機能がリリースされ、CPU、NPU（Ascend）、GPU（Nvidia）のシステムレベル情報の記録とモニタリングをサポートします。
+
+- 2024.12.06：[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)との統合を追加。ログ記録の1行あたりの長さ制限を向上。
+
+- 2024.11.26：環境タブ - ハードウェアセクションで**Huawei Ascend NPU**と**Kunpeng CPU**の認識をサポート。クラウドベンダーセクションでQingCloud**GritStone**の認識をサポート。
+
+- 2024.11.24：デザイン言語を再構築した**新しいUIをリリース**。多くのインタラクションの詳細を最適化し、ダークモードをサポート。
+
+- 2024.11.11：[VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview)プラグインをリリース。[Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)フレームワークとの統合を追加。`run.public`メソッドを追加し、プロジェクト名、実験名、リンクなどの情報の取得をサポート、[#732](https://github.com/swanhubx/swanlab/issues/732)
+
+<br>
 
 ## 👋🏻 SwanLabとは
 
