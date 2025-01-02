@@ -101,10 +101,10 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 | [![][demo-cats-dogs-image]][demo-cats-dogs] | [![][demo-yolo-image]][demo-yolo] |
 | 跟踪一个简单的 ResNet50 模型在猫狗数据集上训练的图像分类任务。 | 使用 Yolov8 在 COCO128 数据集上进行目标检测任务，跟踪训练超参数和指标。 |
 
-|                     [Qwen2 指令微调](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                      |                  [LSTM Google 股票预测](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)                  |
-| :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
-| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-|                                       跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。                                       |                        使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。                        |                      |
+| [Qwen2 指令微调][demo-qwen2-sft] | [LSTM Google 股票预测][demo-google-stock] |
+| :--------: | :--------: |
+| [![][demo-qwen2-sft-image]][demo-qwen2-sft] | [![][demo-google-stock-image]][demo-google-stock] |
+| 跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。 | 使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。 |
 
 
 [更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
@@ -510,6 +510,10 @@ model.train(
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
 
 [demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
-[demo-cats-dogs-image]: readme_files/example-mnist.png
+[demo-cats-dogs-image]: readme_files/example-catsdogs.png
 [demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
 [demo-yolo-image]: readme_files/example-yolo.png
+[demo-qwen2-sft]: https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart
+[demo-qwen2-sft-image]: readme_files/example-qwen2.png
+[demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-google-stock-image]: readme_files/example-lstm.png
