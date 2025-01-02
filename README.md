@@ -37,6 +37,8 @@
 
 ## 🌟 最近更新
 
+- 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
+
 - 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
 
 - 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
@@ -53,24 +55,27 @@
 
 ## 👋🏻 什么是SwanLab
 
-SwanLab 是一款开源、轻量的 AI 实验跟踪工具，提供了一个跟踪、比较、和协作实验的平台。
+SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，提供了一个跟踪、记录、比较、和协作实验的平台。
 
-SwanLab 提供了友好的 API 和漂亮的界面，结合了超参数跟踪、指标记录、在线协作、实验链接分享等功能，让您可以快速跟踪 AI 实验、可视化过程、记录超参数，并分享给伙伴。
+SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
 
 以下是其核心特性列表：
 
 **1. 📊 实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习 pipeline，跟踪记录训练关键指标
 
-- 自由的超参数与实验配置记录
-- 支持的元数据类型：标量指标、图像、音频、文本、...
-- 支持的图表类型：折线图、媒体图（图像、音频、文本）、...
-- 自动记录：控制台 logging、GPU 硬件、Git 信息、Python 解释器、Python 库列表、代码目录
+- 支持**云端**使用（类似Weights & Biases），随时随地查看训练进展。[手机看实验的方法](https://docs.swanlab.cn/guide_cloud/general/app.html)
+- 支持**超参数记录**与表格展示
+- **支持的元数据类型**：标量指标、图像、音频、文本、...
+- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、...
+- **后台自动记录**：日志logging、硬件环境、Git 仓库、Python 环境、Python 库列表、项目运行目录
 
 ![](readme_files/overview-2.png)
 
-**2. ⚡️ 全面的框架集成**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
+**2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetetion、LightGBM、XGBoost、Keras、Tensorboard、Weights&Biases、OpenAI、Swift、XTuner、Stable Baseline3、Hydra 在内的 **30+** 框架
 
-**3. 📦 组织实验**: 集中式仪表板，快速管理多个项目与实验，通过整体视图速览训练全局
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（昇腾Ascend）、GPU（英伟达Nvidia）、内存的系统级硬件指标
+
+**4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
 **4. 🆚 比较结果**: 通过在线表格与对比图表比较不同实验的超参数和结果，挖掘迭代灵感
 
@@ -78,7 +83,7 @@ SwanLab 提供了友好的 API 和漂亮的界面，结合了超参数跟踪、�
 
 **6. ✉️ 分享结果**: 复制和发送持久的 URL 来共享每个实验，方便地发送给伙伴，或嵌入到在线笔记中
 
-**7. 💻 支持自托管**: 支持不联网使用，自托管的社区版同样可以查看仪表盘与管理实验
+**7. 💻 支持自托管**: 支持离线环境使用，自托管的社区版同样可以查看仪表盘与管理实验
 
 > \[!IMPORTANT]
 >
@@ -434,7 +439,7 @@ model.train(
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用 SwanLab 时遇到的错误和问题
 - [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用 SwanLab 的问题
-- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">微信交流群</a>：交流使用 SwanLab 的问题、分享最新的 AI 技术
+- <a href="https://docs.swanlab.cn/guide_cloud/community/online-support.html">微信交流群</a>：交流使用 SwanLab 的问题、分享最新的 AI 技术
 
 ### SwanLab README 徽章
 
