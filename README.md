@@ -106,6 +106,11 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 | [![][demo-qwen2-sft-image]][demo-qwen2-sft] | [![][demo-google-stock-image]][demo-google-stock] |
 | 跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。 | 使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。 |
 
+| [ResNeXt101 音频分类][demo-audio-classification] | [Qwen2-VL COCO数据集微调][demo-qwen2-vl] |
+| :--------: | :--------: |
+| [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
+| 从ResNet到ResNeXt在音频分类任务上的渐进式实验过程 | 基于Qwen2-VL多模态大模型，在COCO2014数据集上进行Lora微调。 |
+
 
 [更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
 
@@ -517,3 +522,7 @@ model.train(
 [demo-qwen2-sft-image]: readme_files/example-qwen2.png
 [demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-google-stock-image]: readme_files/example-lstm.png
+[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-audio-classification-image]: readme_files/example-audio-classification.png
+[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
