@@ -36,6 +36,8 @@
 
 ## 🌟 Recent Updates
 
+- 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, enhancing the chart browsing experience.
+
 - 2024.12.22: We have completed integration with [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), now you can use SwanLab in LLaMA Factory to **track and visualize large model fine-tuning experiments**, [Usage Guide](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
 
 - 2024.12.15: **Hardware Monitoring (0.4.0)** feature launched, supporting system-level information recording and monitoring for CPU, NPU (Ascend), and GPU (Nvidia).
@@ -52,40 +54,35 @@
 
 ## 👋🏻 Introduction
 
-SwanLab is an open-source, lightweight AI experiment tracking tool that provides a platform for tracking, comparing, and collaborating on experiments.
+SwanLab is an open-source, lightweight AI model training tracking and visualization tool, offering a platform for tracking, recording, comparing, and collaborating on experiments.
 
-It offers a user-friendly API and a decent interface, combining features such as tracking hyperparameter, recording metric, online collaboration, and sharing experiment link.
+Designed for artificial intelligence researchers, SwanLab features a user-friendly Python API and an elegant UI interface, providing functionalities such as **training visualization, automatic logging, hyperparameter recording, experiment comparison, and multi-user collaboration**. With SwanLab, researchers can identify training issues through intuitive visual charts, find research inspiration by comparing multiple experiments, and break down team communication barriers through **online web sharing** and **organization-based collaborative training**, thereby enhancing organizational training efficiency.
 
-Here is the English version of the core feature list for an AI platform:
+Here is a list of its core features:
 
-**1. 📊 Experimental Metrics and Tracking Hyperparameter**: Embed your machine learning pipeline with minimalistic code
-and track key training metrics.
+**1. 📊 Experiment Metrics & Hyperparameter Tracking**: Minimal code integration into your machine learning pipeline to track and record key training metrics.
 
-- Flexible recording of hyperparameters and experiment configurations.
-- **Supported metadata types**: scalar metrics, images, audio, text, etc.
-- **Supported chart types**: line graphs, media charts (images, audio, text), etc.
-- **Automatic logging**: console logging, GPU hardware, Git information, Python interpreter, list of Python libraries,
-  code directory.
+- Supports **cloud** usage (similar to Weights & Biases), allowing you to view training progress anytime, anywhere. [How to view experiments on mobile](https://docs.swanlab.cn/guide_cloud/general/app.html)
+- Supports **hyperparameter recording** and tabular display
+- **Supported metadata types**: Scalar metrics, images, audio, text, ...
+- **Supported chart types**: Line charts, media charts (images, audio, text), ...
+- **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project run directory
 
 ![](readme_files/overview-2.png)
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch、Tensorflow、PyTorch Lightning、🤗HuggingFace、Transformers、MMEngine、Ultralytics、fastai、Tensorboard、OpenAI、ZhipuAI、Hydra、...
+**2. ⚡️ Comprehensive Framework Integration**: Over **30+** frameworks including PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetection, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, and Hydra.
 
-**3. 📦 Organizing Experiments**: Centralized dashboard for efficiently managing multiple projects and experiments,
-providing an overview of training at a glance.
+**3. 💻 Hardware Monitoring**: Supports real-time recording and monitoring of system-level hardware metrics for CPU, NPU (Ascend), GPU (Nvidia), and memory.
 
-**4. 🆚 Comparing Results**: Use online tables and paired charts to compare the hyperparameters and outcomes of different
-experiments, developing iterative inspiration.
+**4. 📦 Experiment Management**: Through a centralized dashboard designed for training scenarios, quickly get an overview and manage multiple projects and experiments.
 
-**5. 👥 Online Collaboration**: Collaborate with your team on training projects, supporting real-time synchronization of
-experiments under the same project, allowing you to synchronize training records of the team online and share insights
-and suggestions based on results.
+**4. 🆚 Result Comparison**: Compare hyperparameters and results of different experiments through online tables and comparison charts to uncover iteration insights.
 
-**6. ✉️ Sharing Results**: Copy and send persistent URLs to share each experiment, efficiently send them to colleagues,
-or embed them in online notes.
+**5. 👥 Online Collaboration**: Collaborate with your team on training, supporting real-time synchronization of experiments under one project. You can view your team's training records online and provide feedback and suggestions based on results.
 
-**7. 💻 Self-hosting Support**: Supports offline mode with a self-hosted community version that also allows for dashboard
-viewing and experiment management.
+**6. ✉️ Share Results**: Copy and send persistent URLs to share each experiment, easily send to partners, or embed in online notes.
+
+**7. 💻 Self-Hosting Support**: Supports offline environment usage; the self-hosted community edition also allows viewing dashboards and managing experiments.
 
 > \[!IMPORTANT]
 >
@@ -99,15 +96,21 @@ viewing and experiment management.
 
 Check out SwanLab's online demo：
 
-|                  [ResNet50 Cats vs Dogs](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                  |                     [Yolov8-COCO128](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                     |
-| :----------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------: |
-| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-|                      Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset.                       |        Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics.        |
+| [ResNet50 Cats vs Dogs][demo-cats-dogs] | [Yolov8-COCO128][demo-yolo] |
+| :--------: | :--------: |
+| [![][demo-cats-dogs-image]][demo-cats-dogs] | [![][demo-yolo-image]][demo-yolo] |
+| Track the image classification task of training a simple ResNet50 model on the cats and dogs dataset. | Perform object detection tasks using Yolov8 on the COCO128 dataset, tracking training hyperparameters and metrics. |
 
-|               [Qwen2 Instruction Finetune](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                |              [LSTM Google Stock Prediction](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)              |
-| :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
-| <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-|        Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following.         |             Train a simple LSTM model on the Google stock price dataset to predict future stock prices.              |
+| [Qwen2 Instruction Finetune][demo-qwen2-sft] | [LSTM Google Stock Prediction][demo-google-stock] |
+| :--------: | :--------: |
+| [![][demo-qwen2-sft-image]][demo-qwen2-sft] | [![][demo-google-stock-image]][demo-google-stock] |
+| Track the instruction fine-tuning training of the Qwen2 large language model, completing simple instruction following. | Train a simple LSTM model on the Google stock price dataset to predict future stock prices. |
+
+| [ResNeXt101 Audio Classification][demo-audio-classification] | [Qwen2-VL-COCO2014][demo-qwen2-vl] |
+| :--------: | :--------: |
+| [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
+| Progressive Experimental Process from ResNet to ResNeXt in Audio Classification Tasks | Fine-tuning Qwen2-VL Multimodal Large Model on the COCO2014 Dataset Using LoRA |
+
 
 [More examples](https://docs.swanlab.cn/zh/examples/mnist.html)
 
@@ -454,7 +457,7 @@ model.train(
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：Errors and issues encountered when using SwanLab
 - [Email support](zeyi.lin@swanhub.co)：Feedback on issues with using SwanLab
-- <a href="https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic">WeChat</a>：Discuss issues using SwanLab,
+- <a href="https://docs.swanlab.cn/guide_cloud/community/online-support.html">WeChat</a>：Discuss issues using SwanLab,
   share the latest AI technology.
 
 ### SwanLab README Badge
@@ -524,3 +527,16 @@ license.
 [wechat-shield-link]: https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
+
+[demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
+[demo-cats-dogs-image]: readme_files/example-catsdogs.png
+[demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
+[demo-yolo-image]: readme_files/example-yolo.png
+[demo-qwen2-sft]: https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart
+[demo-qwen2-sft-image]: readme_files/example-qwen2.png
+[demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-google-stock-image]: readme_files/example-lstm.png
+[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-audio-classification-image]: readme_files/example-audio-classification.png
+[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
