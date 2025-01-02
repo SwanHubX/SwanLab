@@ -4,15 +4,8 @@
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
 
-[![license][license-shield]][license-shield-link]
-[![last-commit][last-commit-shield]][last-commit-shield-link]
-[![pypi-version][pypi-version-shield]][pypi-version-shield-link]
-[![pypi-downloads][pypi-downloads-shield]][pypi-downloads-shield-link]
-[![issues][issues-shield]][issues-shield-link]
-<br>
-[![swanlab-cloud][swanlab-cloud-shield]][swanlab-cloud-shield-link]
-[![wechat][wechat-shield]][wechat-shield-link]
-[![colab][colab-shield]][colab-shield-link]
+[![license][license-shield]][license-shield-link] [![last-commit][last-commit-shield]][last-commit-shield-link] [![pypi-version][pypi-version-shield]][pypi-version-shield-link] [![pypi-downloads][pypi-downloads-shield]][pypi-downloads-shield-link] [![issues][issues-shield]][issues-shield-link]
+[![swanlab-cloud][swanlab-cloud-shield]][swanlab-cloud-shield-link] [![wechat][wechat-shield]][wechat-shield-link] [![colab][colab-shield]][colab-shield-link]
 
 中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
@@ -97,15 +90,16 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 
 来看看 SwanLab 的在线演示：
 
-|                    [ResNet50 猫狗分类](https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart)                    |                [Yolov8-COCO128 目标检测](https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart)                 |
-| :----------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------: |
-| <a href="https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart"> <img src="readme_files/example-mnist.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart"> <img src="readme_files/example-yolo.png"> </a> |
-|                                          跟踪一个简单的 ResNet50 模型在猫狗数据集上训练的图像分类任务。                                          |                             使用 Yolov8 在 COCO128 数据集上进行目标检测任务，跟踪训练超参数和指标。                              |
+| [ResNet50 猫狗分类][demo-cats-dogs] | [Yolov8-COCO128 目标检测][demo-yolo] |
+| :--------: | :--------: |
+| [![][demo-cats-dogs-image]][demo-cats-dogs] | [![][demo-yolo-image]][demo-yolo] |
+| 跟踪一个简单的 ResNet50 模型在猫狗数据集上训练的图像分类任务。 | 使用 Yolov8 在 COCO128 数据集上进行目标检测任务，跟踪训练超参数和指标。 |
 
 |                     [Qwen2 指令微调](https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart)                      |                  [LSTM Google 股票预测](https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts)                  |
 | :-----------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
 | <a href="https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart"> <img src="readme_files/example-qwen2.png"> </a> | <a href="https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts"> <img src="readme_files/example-lstm.png"> </a> |
-|                                       跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。                                       |                        使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。                        |
+|                                       跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。                                       |                        使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。                        |                      |
+
 
 [更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
 
@@ -508,3 +502,8 @@ model.train(
 [wechat-shield-link]: https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
+
+[demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
+[demo-cats-dogs-image]: readme_files/example-mnist.png
+[demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
+[demo-yolo-image]: readme_files/example-yolo.png
