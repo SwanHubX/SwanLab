@@ -88,7 +88,7 @@ class Video(MediaType):
         super().__init__()
 
         # 检查格式是否正确, 默认格式为gif
-        self._format = self.__convert_file_type(format)
+        self._format = self.__convert_format(format)
         self._width = None
         self._height = None
         self._channels = None
@@ -135,14 +135,14 @@ class Video(MediaType):
 
         self.caption = D.check_caption(caption)
 
-    def __convert_file_type(self, file_type: str = None):
-        """转换file_type，并检测file_type是否正确"""
-        file_type = file_type or "gif"
+    def __convert_format(self, format: str = None):
+        """转换format，并检测format是否正确"""
+        format = format or "gif"
 
-        if file_type not in self.ACCEPT_FORMAT:
+        if format not in self.ACCEPT_FORMAT:
             raise ValueError(f"swanlab.Video accepts {', '.join(self.ACCEPT_FORMAT)} formats")
 
-        return file_type
+        return format
     
 
     def encode(self, fps: int = 4) -> None:
