@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     
 
 def generate_video_filename(format: str) -> str:
-    # 生成临时文件路径
+    """生成临时文件路径"""
     MEDIA_TMP = tempfile.TemporaryDirectory("swanlab-media")
     random_id = generate_id()
     filename = os.path.join(
@@ -26,8 +26,6 @@ def generate_video_filename(format: str) -> str:
 
 def generate_id(length: int = 8) -> str:
     """生成一个随机base-36字符串"""
-    # There are ~2.8T base-36 8-digit strings. If we generate 210k ids,
-    # we'll have a ~1% chance of collision.
     alphabet = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
@@ -227,6 +225,8 @@ class Video(MediaType):
         4. 如果视频维度为4，则将视频的维度调整为1, *video.shape
         5. 获取视频的batch大小、时间步数、通道数、高度和宽度
         6. 如果视频的数据类型不是uint8，则将视频数据类型转换为uint8
+        7. 一次性填充到最近的2的幂次方
+        8. 将视频的维度调整为(t, n_rows * h, n_cols * w, c)
         """
         try:
             import numpy as np
