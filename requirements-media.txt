@@ -2,3 +2,5 @@ soundfile
 pillow
 matplotlib
 numpy
+moviepy
+imageio
