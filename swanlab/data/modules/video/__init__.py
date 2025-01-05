@@ -174,13 +174,15 @@ class Video(MediaType):
         8. 最后保存生成的视频文件路径
         """
         try:
-            # noinspection PyPackageRequirements
-            import moviepy.editor as mpy
+            import moviepy.video.io.ImageSequenceClip as mpy
         except ImportError:
-            raise ImportError(
-                "swanlab.Video requires moviepy when passing raw data.  Install with `pip install moviepy`"
-            )
-            
+            try:
+                import moviepy.editor as mpy
+            except ImportError:
+                raise ImportError(
+                    "swanlab.Video requires moviepy when passing raw data. Install with `pip install moviepy`"
+                )
+
         # 准备视频数据
         tensor = self._prepare_video(self.video_data)
         _, self._height, self._width, self._channels = tensor.shape  # type: ignore

@@ -3,4 +3,4 @@ pillow
 matplotlib
 numpy
 moviepy
-imageio
+imageio[ffmpeg]
