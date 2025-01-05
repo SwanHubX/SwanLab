@@ -15,14 +15,14 @@ if TYPE_CHECKING:
     VideoDataOrPathType = Union["_numpy.ndarray", str, "TextIO", "BytesIO"]
     
 
-def generate_video_filename(format: str) -> str:
-    """生成临时文件路径"""
-    MEDIA_TMP = tempfile.TemporaryDirectory("swanlab-media")
-    random_id = generate_id()
-    filename = os.path.join(
-        MEDIA_TMP.name, random_id + "." + format
-    )
-    return filename
+# def generate_video_filename(format: str) -> str:
+#     """生成临时文件路径"""
+#     MEDIA_TMP = tempfile.TemporaryDirectory("swanlab-media")
+#     random_id = generate_id()
+#     filename = os.path.join(
+#         MEDIA_TMP.name, random_id + "." + format
+#     )
+#     return filename
 
 def generate_id(length: int = 8) -> str:
     """生成一个随机base-36字符串"""
@@ -32,7 +32,11 @@ def generate_id(length: int = 8) -> str:
 
 def is_numpy_array(obj: Any) -> bool:
     """检查传入对象是否为numpy数组"""
-    return _numpy and isinstance(obj, _numpy.ndarray)
+    try:
+        import numpy as np
+        return isinstance(obj, np.ndarray)
+    except:
+        return False
 
 
 def write_gif_with_image_io(clip: Any, filename: str, fps: int = None) -> None:
@@ -47,7 +51,7 @@ def write_gif_with_image_io(clip: Any, filename: str, fps: int = None) -> None:
             "swanlab.Video requires imageio when passing raw data. Install with `pip install imageio`"
         )
 
-    writer = imageio.save(filename, fps=clip.fps, quantizer=0, palettesize=256, loop=0)
+    writer = imageio.save(filename, duration=int(1000*(1/clip.fps)), quantizer=0, palettesize=256, loop=0)
 
     for frame in clip.iter_frames(fps=fps, dtype="uint8"):
         writer.append_data(frame)
@@ -114,9 +118,13 @@ class Video(MediaType):
                 self.buffer.write(f.read())
         # 如果data_or_path是BytesIO
         elif isinstance(data_or_path, BytesIO):
-            filename = generate_video_filename(self._format)
-            with open(filename, "wb") as f:
-                f.write(data_or_path.read())
+            with tempfile.TemporaryDirectory("swanlab-media") as MEDIA_TMP:
+                random_id = generate_id()
+                filename = os.path.join(
+                    MEDIA_TMP, random_id + "." + format
+                )
+                with open(filename, "wb") as f:
+                    f.write(data_or_path.read())
         else:
             # 如果data_or_path是numpy或torch tensor
             if hasattr(data_or_path, "numpy"):  # TF data eager tensors
@@ -181,37 +189,40 @@ class Video(MediaType):
         clip = mpy.ImageSequenceClip(list(tensor), fps=fps)
 
         # 生成临时文件路径
-        filename = generate_video_filename(self._format)
-        
-        if TYPE_CHECKING:
-            kwargs: Dict[str, Optional[bool]] = {}
-            
-        # 尝试不同的moviepy参数组合写入视频
-        try:  # 新版本moviepy支持logger参数
-            kwargs = {"logger": None}
-            if self._format == "gif":
-                write_gif_with_image_io(clip, filename)
-            else:
-                clip.write_videofile(filename, **kwargs)
-        except TypeError:
-            try:  # 较老版本moviepy支持progress_bar参数
-                kwargs = {"verbose": False, "progress_bar": False}
+        with tempfile.TemporaryDirectory("swanlab-media") as MEDIA_TMP:
+            random_id = generate_id()
+            filename = os.path.join(
+                MEDIA_TMP, random_id + "." + self._format
+            )
+            if TYPE_CHECKING:
+                kwargs: Dict[str, Optional[bool]] = {}
+                
+            # 尝试不同的moviepy参数组合写入视频
+            try:  # 新版本moviepy支持logger参数
+                kwargs = {"logger": None}
                 if self._format == "gif":
-                    clip.write_gif(filename, **kwargs)
+                    write_gif_with_image_io(clip, filename)
                 else:
                     clip.write_videofile(filename, **kwargs)
-            except TypeError:  # 最老版本moviepy只支持verbose参数
-                kwargs = {
-                    "verbose": False,
-                }
-                if self._format == "gif":
-                    clip.write_gif(filename, **kwargs)
-                else:
-                    clip.write_videofile(filename, **kwargs)
-                    
-        # 将生成的视频文件写入buffer
-        with open(filename, "rb") as f:
-            self.buffer.write(f.read())
+            except TypeError:
+                try:  # 较老版本moviepy支持progress_bar参数
+                    kwargs = {"verbose": False, "progress_bar": False}
+                    if self._format == "gif":
+                        clip.write_gif(filename, **kwargs)
+                    else:
+                        clip.write_videofile(filename, **kwargs)
+                except TypeError:  # 最老版本moviepy只支持verbose参数
+                    kwargs = {
+                        "verbose": False,
+                    }
+                    if self._format == "gif":
+                        clip.write_gif(filename, **kwargs)
+                    else:
+                        clip.write_videofile(filename, **kwargs)
+                        
+            # 将生成的视频文件写入buffer
+            with open(filename, "rb") as f:
+                self.buffer.write(f.read())
 
     def _prepare_video(self, video: "_numpy.ndarray") -> "_numpy.ndarray":
         """This logic was mostly taken from tensorboardX."""
@@ -270,7 +281,7 @@ class Video(MediaType):
     def parse(self):
         # 文件名称
         hash_name = D.get_hash_by_bytes(self.buffer.getvalue())
-        save_name = f"video-step{self.step}-{hash_name}.{self.format}"
+        save_name = f"video-step{self.step}-{hash_name}.{self._format}"
         return save_name, self.buffer
 
     def get_more(self):
