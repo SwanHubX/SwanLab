@@ -100,7 +100,8 @@ class Video(MediaType):
         # 检查fps是否正确, 当提供文件路径或原始字节时，fps参数不影响视频的帧率
         if isinstance(data_or_path, (BytesIO, str)) and fps:
             msg = (
-                "`fps` argument does not affect the frame rate of the video " "when providing a file path or raw bytes."
+                "`fps` argument does not affect the frame rate of the video " 
+                "when providing a file path or raw bytes."
             )
             print(msg)  # 使用Warning也许更好一些
 
@@ -268,7 +269,7 @@ class Video(MediaType):
 
     def parse(self):
         # 文件名称
-        hash_name = D.get_hash_by_pil(self.image_data)[:16]
+        hash_name = D.get_hash_by_bytes(self.buffer.getvalue())
         save_name = f"video-step{self.step}-{hash_name}.{self.format}"
         return save_name, self.buffer
 
