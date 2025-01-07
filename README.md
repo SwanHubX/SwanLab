@@ -3,7 +3,7 @@
 
 <img src="readme_files/swanlab-logo.svg" alt="SwanLab" width="300">
 
-<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
+中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
 [![][license-shield]][license-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
@@ -14,7 +14,10 @@
 [![][wechat-shield]][wechat-shield-link]
 [![][colab-shield]][colab-shield-link]
 
-中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
+![](readme_files/swanlab-overview.png)
+
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
+
 
 👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
 
