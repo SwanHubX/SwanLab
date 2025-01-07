@@ -1,6 +1,6 @@
-[![Overview](readme_files/swanlab-overview-new.png)](https://swanlab.cn/)
-
 <div align="center">
+
+[![Overview](readme_files/swanlab-logo.svg)](https://swanlab.cn/)
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
 
@@ -58,6 +58,8 @@ SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，�
 
 SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
 
+![](readme_files/swanlab-overview.png)
+
 以下是其核心特性列表：
 
 **1. 📊 实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习 pipeline，跟踪记录训练关键指标
@@ -67,12 +69,6 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 - **支持的元数据类型**：标量指标、图像、音频、文本、...
 - **支持的图表类型**：折线图、媒体图（图像、音频、文本）、...
 - **后台自动记录**：日志logging、硬件环境、Git 仓库、Python 环境、Python 库列表、项目运行目录
-
-![](readme_files/desktop-phone.png)
-
-![](readme_files/overview-2.png)
-
-
 
 **2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetetion、LightGBM、XGBoost、Keras、Tensorboard、Weights&Biases、OpenAI、Swift、XTuner、Stable Baseline3、Hydra 在内的 **30+** 框架
 
