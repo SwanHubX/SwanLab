@@ -19,6 +19,8 @@
 [![][colab-shield]][colab-shield-link]
 [![][license-shield]][license-shield-link]
 
+![](readme_files/swanlab-overview.png)
+
 中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
 👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
@@ -59,8 +61,6 @@
 <br>
 
 ## 👋🏻 什么是SwanLab
-
-![](readme_files/swanlab-overview.png)
 
 SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，提供了一个跟踪、记录、比较、和协作实验的平台。
 
