@@ -497,20 +497,27 @@ model.train(
 
 <!-- link -->
 
-[license-shield]: https://img.shields.io/github/license/SwanHubX/SwanLab.svg?color=brightgreen
+[license-shield]: https://img.shields.io/badge/license-apache%202.0-white?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/SwanHubX/SwanLab/blob/main/LICENSE
-[last-commit-shield]: https://img.shields.io/github/last-commit/SwanHubX/SwanLab
+
+[last-commit-shield]: https://img.shields.io/github/last-commit/SwanHubX/SwanLab?labelColor=black&style=flat-square
 [last-commit-shield-link]: https://github.com/SwanHubX/SwanLab/commits/main
-[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange
+
+[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange&labelColor=black&style=flat-square
 [pypi-version-shield-link]: https://pypi.org/project/swanlab/
-[pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab
+
+[pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab?labelColor=black&style=flat-square
 [pypi-downloads-shield-link]: https://pepy.tech/project/swanlab
-[issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab
+
+[issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab?labelColor=black&style=flat-square
 [issues-shield-link]: https://github.com/swanhubx/swanlab/issues
-[swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f
+
+[swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f?labelColor=black&style=flat-square
 [swanlab-cloud-shield-link]: https://swanlab.cn/
-[wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e
+
+[wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e?labelColor=black&style=flat-square
 [wechat-shield-link]: https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic
+
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
 
