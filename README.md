@@ -1,23 +1,25 @@
 <div align="center">
 
+<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="120">
 
-![](readme_files/swanlab-overview.png)
+<h1>SwanLab</h1>
 
-中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
 
-[![][license-shield]][license-shield-link]
+[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][issues-shield]][issues-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
 [![][wechat-shield]][wechat-shield-link]
 [![][colab-shield]][colab-shield-link]
+[![][license-shield]][license-shield-link]
 
-<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
-
+中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
 👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
+
+![](readme_files/swanlab-overview.png)
 
 </div>
 
@@ -59,8 +61,6 @@
 SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，提供了一个跟踪、记录、比较、和协作实验的平台。
 
 SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
-
-![](readme_files/swanlab-overview.png)
 
 以下是其核心特性列表：
 
