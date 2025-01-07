@@ -10,14 +10,18 @@
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
 
+[![][release-shield]][release-link]
+[![][github-stars-shield]][github-stars-link]
+[![][github-issues-shield]][github-issues-shield-link]
+[![][github-contributors-shield]][github-contributors-link]
+[![][license-shield]][license-shield-link]  
 [![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
-[![][issues-shield]][issues-shield-link]  
 [![][wechat-shield]][wechat-shield-link]
 [![][colab-shield]][colab-shield-link]
-[![][license-shield]][license-shield-link]
+
 
 ![](readme_files/swanlab-overview.png)
 
@@ -505,20 +509,20 @@ model.train(
 
 <!-- link -->
 
+[release-shield]: https://img.shields.io/github/v/release/swanhubx/swanlab?color=369eff&labelColor=black&logo=github&style=flat-square
+[release-link]: https://github.com/swanhubx/swanlab/releases
+
 [license-shield]: https://img.shields.io/badge/license-apache%202.0-white?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/SwanHubX/SwanLab/blob/main/LICENSE
 
-[last-commit-shield]: https://img.shields.io/github/last-commit/SwanHubX/SwanLab?labelColor=black&style=flat-square
-[last-commit-shield-link]: https://github.com/SwanHubX/SwanLab/commits/main
+[last-commit-shield]: https://img.shields.io/github/last-commit/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
+[last-commit-shield-link]: https://github.com/swanhubx/swanlab/commits/main
 
 [pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange&labelColor=black&style=flat-square
 [pypi-version-shield-link]: https://pypi.org/project/swanlab/
 
 [pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab?labelColor=black&style=flat-square
 [pypi-downloads-shield-link]: https://pepy.tech/project/swanlab
-
-[issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab?labelColor=black&style=flat-square
-[issues-shield-link]: https://github.com/swanhubx/swanlab/issues
 
 [swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f?labelColor=black&style=flat-square
 [swanlab-cloud-shield-link]: https://swanlab.cn/
@@ -528,6 +532,15 @@ model.train(
 
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
+
+[github-stars-shield]: https://img.shields.io/github/stars/swanhubx/swanlab?labelColor&style=flat-square&color=ffcb47
+[github-stars-link]: https://github.com/swanhubx/swanlab
+
+[github-issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab?labelColor=black&style=flat-square&color=ff80eb
+[github-issues-shield-link]: https://github.com/swanhubx/swanlab/issues
+
+[github-contributors-shield]: https://img.shields.io/github/contributors/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
+[github-contributors-link]: https://github.com/swanhubx/swanlab/graphs/contributors
 
 [demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
 [demo-cats-dogs-image]: readme_files/example-catsdogs.png
