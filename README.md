@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="120">
+<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="80" height="80">
 
 <h1>SwanLab</h1>
 
