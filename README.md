@@ -215,7 +215,9 @@ swanlab watch ./logs
 
 ## 🚗 框架集成
 
-将您最喜欢的框架与 SwanLab 结合使用，[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)。
+将您最喜欢的框架与 SwanLab 结合使用，加速机器学习实验的开发与迭代。
+
+下面是我们已支持的部分框架列表，如果想要 SwanLab 支持您的框架，欢迎提交[Issue](https://github.com/swanhubx/swanlab/issues)。
 
 **基础框架**
 - [PyTorch](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch.html)
@@ -255,6 +257,8 @@ swanlab watch ./logs
 - [Omegaconf](https://docs.swanlab.cn/guide_cloud/integration/integration-omegaconf.html)
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
+
+[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)
 
 <br>
 
