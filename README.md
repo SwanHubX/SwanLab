@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="80" height="80">
+<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="70" height="70">
 
 <h1>SwanLab</h1>
 
@@ -18,8 +18,8 @@
 [![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
-[![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][wechat-shield]][wechat-shield-link]
+[![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][colab-shield]][colab-shield-link]
 
 
@@ -217,210 +217,49 @@ swanlab watch ./logs
 
 将您最喜欢的框架与 SwanLab 结合使用，[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)。
 
-<details>
-  <summary>
-    <strong>⚡️ PyTorch Lightning</strong>
-  </summary>
-  <br>
+**基础框架**
+- [PyTorch](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch.html)
+- [MindSpore](https://docs.swanlab.cn/guide_cloud/integration/integration-ascend.html)
+- [Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)
 
-使用`SwanLabLogger`创建示例，并代入`Trainer`的`logger`参数中，即可实现 SwanLab 记录训练指标。
-
-```python
-from swanlab.integration.pytorch_lightning import SwanLabLogger
-import importlib.util
-import os
-import pytorch_lightning as pl
-from torch import nn, optim, utils
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-
-encoder = nn.Sequential(nn.Linear(28 * 28, 128), nn.ReLU(), nn.Linear(128, 3))
-decoder = nn.Sequential(nn.Linear(3, 128), nn.ReLU(), nn.Linear(128, 28 * 28))
-
-
-class LitAutoEncoder(pl.LightningModule):
-    def __init__(self, encoder, decoder):
-        super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-
-    def training_step(self, batch, batch_idx):
-        # training_step defines the train loop.
-        # it is independent of forward
-        x, y = batch
-        x = x.view(x.size(0), -1)
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
-        loss = nn.functional.mse_loss(x_hat, x)
-        # Logging to SwanLab (if installed) by default
-        self.log("train_loss", loss)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        # test_step defines the test loop.
-        # it is independent of forward
-        x, y = batch
-        x = x.view(x.size(0), -1)
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
-        loss = nn.functional.mse_loss(x_hat, x)
-        # Logging to SwanLab (if installed) by default
-        self.log("test_loss", loss)
-        return loss
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+**专有/微调框架**
+- [PyTorch Lightning](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html)
+- [HuggingFace Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html)
+- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
+- [LLaMA Factory](https://docs.swanlab.cn/guide_cloud/integration/integration-llama-factory.html)
+- [Modelscope Swift](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)
+- [Sentence Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-sentence-transformers.html)
+- [Torchtune](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html)
+- [XTuner](https://docs.swanlab.cn/guide_cloud/integration/integration-xtuner.html)
+- [MMEngine](https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html)
+- [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
+- [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
+- [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
 
 
-# init the autoencoder
-autoencoder = LitAutoEncoder(encoder, decoder)
+**计算机视觉**
+- [Ultralytics](https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html)
+- [MMDetection](https://docs.swanlab.cn/guide_cloud/integration/integration-mmdetection.html)
+- [MMSegmentation](https://docs.swanlab.cn/guide_cloud/integration/integration-mmsegmentation.html)
+- [PaddleDetection](https://docs.swanlab.cn/guide_cloud/integration/integration-paddledetection.html)
+- [PaddleYOLO](https://docs.swanlab.cn/guide_cloud/integration/integration-paddleyolo.html)
 
-# setup data
-dataset = MNIST(os.getcwd(), train=True, download=True, transform=ToTensor())
-train_dataset, val_dataset = utils.data.random_split(dataset, [55000, 5000])
-test_dataset = MNIST(os.getcwd(), train=False, download=True, transform=ToTensor())
+**强化学习**
+- [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 
-train_loader = utils.data.DataLoader(train_dataset)
-val_loader = utils.data.DataLoader(val_dataset)
-test_loader = utils.data.DataLoader(test_dataset)
-
-swanlab_logger = SwanLabLogger(
-    project="swanlab_example",
-    experiment_name="example_experiment",
-    cloud=False,
-)
-
-trainer = pl.Trainer(limit_train_batches=100, max_epochs=5, logger=swanlab_logger)
-
-trainer.fit(model=autoencoder, train_dataloaders=train_loader, val_dataloaders=val_loader)
-trainer.test(dataloaders=test_loader)
-
-```
-
-</details>
-
-<details>
-<summary>
-  <strong> 🤗HuggingFace Transformers</strong>
-</summary>
-
-<br>
-
-使用`SwanLabCallback`创建示例，并代入`Trainer`的`callbacks`参数中，即可实现 SwanLab 记录训练指标。
-
-```python
-import evaluate
-import numpy as np
-import swanlab
-from swanlab.integration.huggingface import SwanLabCallback
-from datasets import load_dataset
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
+**其他框架：**
+- [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
+- [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
+- [Omegaconf](https://docs.swanlab.cn/guide_cloud/integration/integration-omegaconf.html)
+- [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
+- [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
 
-def tokenize_function(examples):
-    return tokenizer(examples["text"], padding="max_length", truncation=True)
 
-
-def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
-
-
-dataset = load_dataset("yelp_review_full")
-
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-
-tokenized_datasets = dataset.map(tokenize_function, batched=True)
-
-small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
-
-metric = evaluate.load("accuracy")
-
-model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
-
-training_args = TrainingArguments(
-    output_dir="test_trainer",
-    report_to="none",
-    num_train_epochs=3,
-    logging_steps=50,
-)
-
-swanlab_callback = SwanLabCallback(experiment_name="TransformersTest", cloud=False)
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=small_train_dataset,
-    eval_dataset=small_eval_dataset,
-    compute_metrics=compute_metrics,
-    callbacks=[swanlab_callback],
-)
-
-trainer.train()
-```
-
-</details>
-
-<details>
-<summary>
-  <strong> MMEngine(MMDetection etc.)</strong>
-</summary>
-<br>
-
-将 SwanLab 专为 MMEngine 设计的`SwanlabVisBackend`集成到 MMEngine 中，即可实现 SwanLab 自动记录训练指标。
-
-在你的 MM 配置文件中，加入下面的代码片段，开始训练即可。
-
-```python
-custom_imports = dict(imports=["swanlab.integration.mmengine"], allow_failed_imports=False)
-
-vis_backends = [
-    dict(
-        type="SwanlabVisBackend",
-        save_dir="runs/swanlab",
-        init_kwargs={
-            "project": "swanlab-mmengine",
-        },
-    ),
-]
-
-visualizer = dict(
-    type="Visualizer",
-    vis_backends=vis_backends,
-)
-```
-
-</details>
-
-<details>
-<summary>
-  <strong> Ultralytics</strong>
-</summary>
-<br>
-
-将 SwanLab 集成到 Ultralytics 中非常简单，只需要用`add_swanlab_callback`函数即可实现:
-
-```python
-from ultralytics import YOLO
-from swanlab.integration.ultralytics import add_swanlab_callback
-
-model = YOLO("yolov8n.yaml")
-model.load()
-
-# 添加swanlab回调
-add_swanlab_callback(model)
-
-model.train(
-    data="./coco.yaml",
-    epochs=50,
-    imgsz=320,
-)
-```
-
-</details>
+从其他工具迁移：
+- 
 
 <br>
 
@@ -528,7 +367,7 @@ model.train(
 [swanlab-cloud-shield-link]: https://swanlab.cn/
 
 [wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e?labelColor=black&style=flat-square
-[wechat-shield-link]: https://geektechstudio.feishu.cn/wiki/NIZ9wp5LRiSqQykizbGcVzUKnic
+[wechat-shield-link]: https://docs.swanlab.cn/guide_cloud/community/online-support.html
 
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
