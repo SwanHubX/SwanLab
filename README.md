@@ -99,7 +99,7 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 >
 > **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～ ⭐️
 
-![star-us](readme_files/star-us-new.png)
+![star-us](readme_files/star-us.png)
 
 <br>
 
