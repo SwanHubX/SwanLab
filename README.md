@@ -384,13 +384,18 @@ swanlab watch ./logs
 
 [demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
 [demo-cats-dogs-image]: readme_files/example-catsdogs.png
+
 [demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
 [demo-yolo-image]: readme_files/example-yolo.png
+
 [demo-qwen2-sft]: https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart
 [demo-qwen2-sft-image]: readme_files/example-qwen2.png
+
 [demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-google-stock-image]: readme_files/example-lstm.png
+
 [demo-audio-classification]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-audio-classification-image]: readme_files/example-audio-classification.png
+
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
