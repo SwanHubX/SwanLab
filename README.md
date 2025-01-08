@@ -215,9 +215,8 @@ swanlab watch ./logs
 
 ## 🚗 框架集成
 
-将您最喜欢的框架与 SwanLab 结合使用，加速机器学习实验的开发与迭代。
-
-下面是我们已支持的部分框架列表，如果想要 SwanLab 支持您的框架，欢迎提交[Issue](https://github.com/swanhubx/swanlab/issues)。
+将您最喜欢的框架与 SwanLab 结合使用，加速机器学习实验的开发与迭代。  
+下面是我们已集成的框架列表，欢迎提交[Issue](https://github.com/swanhubx/swanlab/issues)来反馈你想要集成的框架。
 
 **基础框架**
 - [PyTorch](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch.html)
