@@ -5,7 +5,6 @@
 <h1>SwanLab</h1>
 
 一个开源、现代化设计的深度学习训练跟踪与可视化工具  
-支持训练过程可视化、日志记录、超参数记录、实验对比、硬件监控、多人协作  
 同时支持云端/离线使用，适配30+主流框架，与你的实验代码轻松集成
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
@@ -215,8 +214,8 @@ swanlab watch ./logs
 
 ## 🚗 框架集成
 
-将您最喜欢的框架与 SwanLab 结合使用！  
-下面是我们已集成的框架列表，欢迎提交[Issue](https://github.com/swanhubx/swanlab/issues)来反馈你想要集成的框架。
+将你最喜欢的框架与 SwanLab 结合使用！  
+下面是我们已集成的框架列表，欢迎提交 [Issue](https://github.com/swanhubx/swanlab/issues) 来反馈你想要集成的框架。
 
 **基础框架**
 - [PyTorch](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch.html)
