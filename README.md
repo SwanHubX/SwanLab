@@ -256,11 +256,6 @@ swanlab watch ./logs
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
-
-
-从其他工具迁移：
-- 
-
 <br>
 
 ## 🆚 与熟悉的工具的比较
