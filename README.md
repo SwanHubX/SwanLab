@@ -47,6 +47,8 @@
 
 ## 🌟 最近更新
 
+- 2025.01.11 云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
+
 - 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
 
 - 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
@@ -58,8 +60,6 @@
 - 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别青云**基石智算**。
 
 - 2024.11.24：重构设计语言的**全新UI上线**，优化大量交互细节，并支持黑夜模式。
-
-- 2024.11.11：[VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview) 插件上线；新增与[Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)框架的集成；新增`run.public`方法，支持获取实验的项目名、实验名、链接等信息，[#732](https://github.com/swanhubx/swanlab/issues/732)
 
 <br>
 

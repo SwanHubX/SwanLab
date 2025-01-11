@@ -47,6 +47,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.01.11 クラウド版はプロジェクトテーブルのパフォーマンスを大幅に最適化し、ドラッグ＆ドロップ、並べ替え、フィルタリングなどのインタラクションをサポートしました。
+
 - 2025.01.01：折れ線グラフの**永続的スムージング**、折れ線グラフのドラッグによるサイズ変更を追加し、チャート閲覧体験を最適化
 
 - 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合を完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルのファインチューニング実験を追跡・可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)
@@ -58,8 +60,6 @@
 - 2024.11.26：環境タブのハードウェアセクションで**華為昇騰NPU**と**鯤鵬CPU**の識別をサポート；クラウドプロバイダーセクションで**青雲基石智算**の識別をサポート
 
 - 2024.11.24：デザイン言語をリニューアルした**新UIをリリース**し、多くのインタラクションを最適化し、ダークモードをサポート
-
-- 2024.11.11：[VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview)プラグインをリリース；[Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)フレームワークとの統合を追加；`run.public`メソッドを追加し、実験のプロジェクト名、実験名、リンクなどの情報を取得可能に、[#732](https://github.com/swanhubx/swanlab/issues/732)
 
 <br>
 

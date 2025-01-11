@@ -47,6 +47,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
+
 - 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, improving chart browsing experience.
 
 - 2024.12.22: We completed integration with [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory). Now you can use SwanLab in LLaMA Factory to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
@@ -58,8 +60,6 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - 2024.11.26: Environment tab - Hardware section now supports identifying **Huawei Ascend NPU** and **Kunpeng CPU**; cloud provider section now supports identifying **QingCloud Jishi Computing**.
 
 - 2024.11.24: A **new UI** with redesigned language is live, optimizing numerous interaction details and supporting dark mode.
-
-- 2024.11.11: [VSCode](https://marketplace.visualstudio.com/items?itemName=SwanLab.swanlab&ssr=false#overview) plugin is live; added integration with [Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html) framework; added `run.public` method to support retrieving project name, experiment name, and links, [#732](https://github.com/swanhubx/swanlab/issues/732).
 
 <br>
 
