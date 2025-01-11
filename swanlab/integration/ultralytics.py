@@ -93,6 +93,7 @@ class UltralyticsSwanlabCallback:
 
     def on_pretrain_routine_start(self, trainer):
         """初始化实验记录器"""
+        swanlab.config["FRAMEWORK"] = "ultralytics"
         if swanlab.get_run() is None:
             self._run = swanlab.init(
                 project=trainer.args.project if self._project is None else self._project,

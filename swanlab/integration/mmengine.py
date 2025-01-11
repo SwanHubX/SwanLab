@@ -102,6 +102,7 @@ class SwanlabVisBackend(BaseVisBackend):
         except ImportError:
             raise ImportError('Please run "pip install swanlab" to install swanlab')
 
+        swanlab.config["FRAMEWORK"] = "mmengine"
         swanlab.init(**self._init_kwargs)
         self._swanlab = swanlab
 

@@ -29,6 +29,7 @@ class SwanLabCallback:
         self.log_params = log_params
 
     def _init(self, env: "CallbackEnv") -> None:
+        swanlab.config["FRAMEWORK"] = "lightgbm"
         if self.log_params:
             swanlab.config.update(env.params)
 
