@@ -8,6 +8,7 @@ import swanlab
 class SwanLabCallback(xgb.callback.TrainingCallback):
     def __init__(self):
         # 如果没有注册过实验
+        swanlab.config["FRAMEWORK"] = "xgboost"
         if swanlab.get_run() is None:
             raise RuntimeError("You must call swanlab.init() before SwanLabCallback(). 你必须在SwanLabCallback()之前，调用swanlab.init().")
         

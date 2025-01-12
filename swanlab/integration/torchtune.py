@@ -47,6 +47,7 @@ class SwanLabLogger(MetricLoggerInterface):
                 "``swanlab`` package not found. Please install swanlab using `pip install swanlab` to use SwanLabLogger."
             ) from e
         self._swanlab = swanlab
+        swanlab.config["FRAMEWORK"] = "torchtune"
 
         # Use dir if specified, otherwise use log_dir.
         self.log_dir = kwargs.pop("dir", log_dir)

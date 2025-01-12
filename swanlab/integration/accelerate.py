@@ -89,6 +89,7 @@ class SwanLabTracker(GeneralTracker):
 
         self.logdir = os.path.join(logdir, self._project) if self._logdir is not None else None
 
+        swanlab.config["FRAMEWORK"] = "accelerate"
         if swanlab.get_run() is None:
             self.writer = swanlab.init(**self._swanlab_init)
         else:

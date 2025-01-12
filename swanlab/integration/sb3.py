@@ -119,6 +119,7 @@ class SwanLabCallback(BaseCallback):
         return self._run
 
     def setup(self, config=None):
+        swanlab.config["FRAMEWORK"] = "🤖stable_baselines3"
         if swanlab.get_run() is None:
             self._run = swanlab.init(**self._swanlab_init)
         else:

@@ -89,6 +89,8 @@ class SwanLabLogger(Logger):
     @rank_zero_experiment
     def experiment(self) -> SwanLabRun:
         """创建实验"""
+        swanlab.config["FRAMEWORK"] = "⚡️pytorch_lightning"
+        
         if swanlab.get_run() is None:
             self._experiment = swanlab.init(**self._swanlab_init)
         else:
