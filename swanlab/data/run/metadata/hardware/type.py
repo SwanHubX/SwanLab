@@ -8,8 +8,7 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict, Tuple, Optional, Any, List, Union
 
-from swankit.callback import YRange
-from swankit.callback.models import ColumnConfig
+from swankit.callback.models import ColumnConfig, YRange
 
 from swanlab.data.run.namer import generate_colors
 from swanlab.log import swanlog
