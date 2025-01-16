@@ -267,7 +267,7 @@ def _init_mode(mode: str = None):
         # 判断当前进程是否在交互模式下
         if is_interactive():
             swanlog.info(
-                "Using SwanLab to track your experiments. Please refer to https://docs.swanlab.cn for more information."
+                f"Using SwanLab to track your experiments. Please refer to {FONT.yellow('https://docs.swanlab.cn')} for more information."
             )
             swanlog.info("(1) Create a SwanLab account.")
             swanlog.info("(2) Use an existing SwanLab account.")
@@ -282,12 +282,12 @@ def _init_mode(mode: str = None):
             if code == "3":
                 mode = "local"
             elif code == "2":
-                swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + get_host_web() + "/login")
+                swanlog.info("You chose 'Use an existing swanlab account'")
+                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
                 login_info = terminal_login()
             elif code == "1":
-                swanlog.info("You chose 'Use an existing swanlab account'")
-                swanlog.info("Logging into " + get_host_web())
+                swanlog.info("You chose 'Create a swanlab account'")
+                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
                 login_info = terminal_login()
             else:
                 raise ValueError("Invalid choice")
