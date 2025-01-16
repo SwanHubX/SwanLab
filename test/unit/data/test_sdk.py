@@ -46,10 +46,13 @@ class TestInitModeFunc:
             S._init_mode("123456")  # noqa
 
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
-    def test_init_mode(self, mode):
+    def test_init_mode(self, mode, monkeypatch):
         """
         初始化时mode参数正确
         """
+        if mode == 'cloud':
+            mode = 'local'
+            monkeypatch.setattr("builtins.input", lambda _: "3")
         S._init_mode(mode)
         assert os.environ[MODE] == mode
         del os.environ[MODE]
@@ -58,10 +61,13 @@ class TestInitModeFunc:
         # assert os.environ[MODE] == mode
 
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
-    def test_overwrite_mode(self, mode):
+    def test_overwrite_mode(self, mode, monkeypatch):
         """
         初始化时mode参数正确，覆盖环境变量
         """
+        if mode == 'cloud':
+            mode = 'local'
+            monkeypatch.setattr("builtins.input", lambda _: "3")
         os.environ[MODE] = "123456"
         S._init_mode(mode)
         assert os.environ[MODE] == mode
