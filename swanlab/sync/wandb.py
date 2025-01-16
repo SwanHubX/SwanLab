@@ -1,14 +1,34 @@
 """
-swanlab.init(sync_wandb=True)
+import wandb
+import random
+import swanlab
+
+swanlab.sync_wandb()
+# swanlab.init(project="sync_wandb")
+
+wandb.init(
+  project="test",
+  config={"a": 1, "b": 2},
+  name="test",
+  )
+
+epochs = 10
+offset = random.random() / 5
+for epoch in range(2, epochs):
+  acc = 1 - 2 ** -epoch - random.random() / epoch - offset
+  loss = 2 ** -epoch + random.random() / epoch + offset
+
+  wandb.log({"acc": acc, "loss": loss})
 """
 import swanlab
-try:
-    import wandb
-    from wandb import sdk as wandb_sdk
-except ImportError:
-    raise ImportError("please install wandb first, command: `pip install wandb`")
 
 def sync_wandb():
+    try:
+        import wandb
+        from wandb import sdk as wandb_sdk
+    except ImportError:
+        raise ImportError("please install wandb first, command: `pip install wandb`")
+    
     original_init = wandb.init
     original_log = wandb_sdk.wandb_run.Run.log
     original_finish = wandb_sdk.finish
@@ -53,6 +73,7 @@ def sync_wandb():
 
 if __name__ == "__main__":
     import random
+    import wandb
     
     # 在使用前调用sync_wandb
     sync_wandb()
