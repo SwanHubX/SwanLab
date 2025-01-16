@@ -283,11 +283,11 @@ def _init_mode(mode: str = None):
                 mode = "local"
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
+                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
                 login_info = terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
+                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
                 login_info = terminal_login()
             else:
                 raise ValueError("Invalid choice")
