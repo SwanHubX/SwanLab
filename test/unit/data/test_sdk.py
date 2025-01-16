@@ -66,18 +66,26 @@ class TestInitModeFunc:
         S._init_mode(mode)
         assert os.environ[MODE] == mode
 
+    def test_no_api_key_to_cloud(self, monkeypatch):
+        """
+        初始化时mode为cloud，但是没有设置apikey
+        """
+        if SwanLabEnv.API_KEY.value in os.environ:
+            del os.environ[SwanLabEnv.API_KEY.value]
+        monkeypatch.setattr("builtins.input", lambda _: "3")
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "local"
+        assert login_info is None
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud_with_no_api_key(self, monkeypatch):
         """
         初始化时mode为cloud，但是没有设置apikey
         """
         api_key = os.environ[SwanLabEnv.API_KEY.value]
         del os.environ[SwanLabEnv.API_KEY.value]
-        # 在测试时默认不在交互模式下，因此不会做任何输入选择交互
-        S._init_mode("cloud")
+        # 在测试时默认会在交互模式下
         # 接下来需要模拟终端连接，使用monkeypatch
-        # 模拟 os.isatty(0) 返回 True
-        monkeypatch.setattr(os, "isatty", lambda fd: True)
-
         # 三种选择方式：
         # 1. 输入api key
         # 2. 创建账号

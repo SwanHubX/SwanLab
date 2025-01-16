@@ -15,7 +15,7 @@ from swankit.env import SwanLabMode
 from swankit.log import FONT
 
 from swanlab.api import code_login, terminal_login
-from swanlab.env import SwanLabEnv
+from swanlab.env import SwanLabEnv, is_interactive
 from swanlab.log import swanlog
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
@@ -29,7 +29,7 @@ from .run import (
 )
 from .run.helper import SwanLabRunOperator
 from ..error import KeyFileError
-from ..package import get_key, get_host_web, get_user_setting_path
+from ..package import get_key, get_host_web
 
 
 def _check_proj_name(name: str) -> str:
@@ -265,11 +265,16 @@ def _init_mode(mode: str = None):
     login_info = None
     if mode == "cloud" and no_api_key:
         # 判断当前进程是否在交互模式下
-        if os.isatty(0) and (os.isatty(1) or os.isatty(2)):
+        if is_interactive():
+            swanlog.info(
+                "Using SwanLab to track your experiments. Please refer to https://docs.swanlab.cn for more information."
+            )
             swanlog.info("(1) Create a SwanLab account.")
             swanlog.info("(2) Use an existing SwanLab account.")
             swanlog.info("(3) Don't visualize my results.")
-            tip = FONT.swanlab("Enter your choice:")
+
+            # 交互选择
+            tip = FONT.swanlab("Enter your choice: ")
             code = input(tip)
             while code not in ["1", "2", "3"]:
                 swanlog.warning("Invalid choice, please enter again.")
@@ -278,13 +283,11 @@ def _init_mode(mode: str = None):
                 mode = "local"
             elif code == "2":
                 swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
-                swanlog.info("You can find your API key in your browser here: " + FONT.yellow(get_user_setting_path()))
+                swanlog.info("Create a SwanLab account here: " + get_host_web() + "/login")
                 login_info = terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Use an existing swanlab account'")
                 swanlog.info("Logging into " + get_host_web())
-                swanlog.info("You can find your API key in your browser here: " + FONT.yellow(get_user_setting_path()))
                 login_info = terminal_login()
             else:
                 raise ValueError("Invalid choice")
