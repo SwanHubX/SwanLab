@@ -5,17 +5,42 @@
 @description: 硬件信息采集工具测试
 """
 
-from swanlab.data.run.metadata.hardware.type import HardwareCollector, CollectGuard
+from swanlab.data.run.metadata.hardware.type import HardwareCollector, CollectGuard, HardwareInfoList
 from swanlab.data.run.metadata.hardware.type import HardwareInfo
 
 
+def test_try_run():
+    """
+    测试try_run包装器
+    """
+    data = {"key": "test", "value": 1, "name": "test", "config": None}
+
+    class TestTryRun(HardwareCollector):
+        @HardwareCollector.try_run()
+        def collect(self) -> HardwareInfo:
+            return data
+
+    t = TestTryRun()
+    assert t.collect() == data
+
+    class TestErrorTryRun(HardwareCollector):
+        @HardwareCollector.try_run()
+        def collect(self) -> HardwareInfo:
+            raise Exception("test")
+
+    t = TestErrorTryRun()
+    assert t() is None
+
+
 def test_hardware():
+    data = {"key": "test", "value": 1, "name": "test", "config": None}
+
     class TestCollector(HardwareCollector):
         def collect(self) -> HardwareInfo:
-            return {"key": "test", "value": 1, "name": "test", "config": None}
+            return data
 
     t = TestCollector()
-    assert t.collect() == {"key": "test", "value": 1, "name": "test", "config": None}
+    assert t.collect() == data
 
     class TestErrorCollector(HardwareCollector):
         def collect(self) -> HardwareInfo:
@@ -23,6 +48,26 @@ def test_hardware():
 
     t = TestErrorCollector()
     assert t() is None
+
+    # 采集任务中有部分采集失败，但是不影响其他采集任务
+    class TestErrorCollector(HardwareCollector):
+        @staticmethod
+        def collect_first() -> HardwareInfo:
+            return data
+
+        @HardwareCollector.try_run()
+        def collect_second(self) -> HardwareInfo:
+            raise Exception("test")
+
+        def collect(self) -> HardwareInfoList:
+            return [
+                self.collect_first(),
+                self.collect_second(),
+            ]
+
+    t = TestErrorCollector()
+    assert t.collect() == [data, None]
+    assert t() == [data]
 
 
 def test_collect_guard():

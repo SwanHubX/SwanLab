@@ -9,6 +9,16 @@ r"""
 """
 import os
 from typing import Optional, Union, Dict, Tuple, Literal
+
+from swanboard import SwanBoardCallback
+from swankit.env import SwanLabMode
+
+from swanlab.api import code_login
+from swanlab.env import SwanLabEnv
+from swanlab.log import swanlog
+from .callback_cloud import CloudRunCallback
+from .callback_local import LocalRunCallback
+from .formater import check_load_json_yaml, check_proj_name_format
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -16,15 +26,7 @@ from .run import (
     register,
     get_run,
 )
-from .formater import check_load_json_yaml, check_proj_name_format
-from .callback_cloud import CloudRunCallback
-from .callback_local import LocalRunCallback
 from .run.helper import SwanLabRunOperator
-from swanlab.log import swanlog
-from swanlab.api import code_login
-from swanlab.env import SwanLabEnv
-from swankit.env import SwanLabMode
-from swanboard import SwanBoardCallback
 
 
 def _check_proj_name(name: str) -> str:
@@ -150,6 +152,11 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
         public = _load_data(load_data, "private", public)
+
+    # ---------------------------------- 模式选择 ----------------------------------
+    # for
+
+    # ---------------------------------- helper初始化 ----------------------------------
     operator, c = _create_operator(mode, public)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
     exp_num = SwanLabRunOperator.parse_return(
