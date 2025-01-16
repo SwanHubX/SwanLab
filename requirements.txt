@@ -3,6 +3,7 @@ swanboard==0.1.7b1
 cos-python-sdk-v5
 urllib3>=1.26.0
 requests>=2.25.0
+setuptools
 click
 pyyaml
 psutil>=5.0.0
