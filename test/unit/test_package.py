@@ -1,10 +1,12 @@
+import json
+import netrc
+import os
+
+import nanoid
 import pytest
+
 import swanlab.package as P
 from swanlab.env import SwanLabEnv, get_save_dir
-import nanoid
-import netrc
-import json
-import os
 
 _ = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 package_data = json.load(open(os.path.join(_, "swanlab", "package.json")))
@@ -47,7 +49,7 @@ def test_get_user_setting_path():
     """
     测试获取用户设置文件路径
     """
-    assert P.get_user_setting_path() == P.get_host_web() + "/settings"
+    assert P.get_user_setting_path() == P.get_host_web() + "/space/~/settings"
 
 
 def test_get_project_url():
@@ -66,13 +68,14 @@ def test_get_experiment_url():
     username = nanoid.generate()
     projname = nanoid.generate()
     expid = nanoid.generate()
-    assert P.get_experiment_url(
-        username, projname,
-        expid
-    ) == P.get_host_web() + "/@" + username + "/" + projname + "/runs/" + expid
+    assert (
+        P.get_experiment_url(username, projname, expid)
+        == P.get_host_web() + "/@" + username + "/" + projname + "/runs/" + expid
+    )
 
 
 # ---------------------------------- 登录部分 ----------------------------------
+
 
 class TestGetKey:
     @staticmethod
@@ -102,12 +105,14 @@ class TestGetKey:
         """
         self.remove_env_key()
         from swanlab.error import KeyFileError
+
         with pytest.raises(KeyFileError) as e:
             P.get_key()
         assert str(e.value) == "The file does not exist"
 
     def test_no_host(self):
         from swanlab.error import KeyFileError
+
         self.test_ok()  # 此时删除了环境变量
         host = nanoid.generate()
         os.environ[SwanLabEnv.API_HOST.value] = host

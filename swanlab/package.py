@@ -7,18 +7,21 @@ r"""
 @Description:
     用于管理swanlab的包管理器的模块，做一些封装
 """
+import json
+import netrc
+import os
+from typing import Optional
+
+import requests
+
 from .env import get_save_dir, SwanLabEnv
 from .error import KeyFileError
-from typing import Optional
-import requests
-import netrc
-import json
-import os
 
 package_path = os.path.join(os.path.dirname(__file__), "package.json")
 
 
 # ---------------------------------- 版本号相关 ----------------------------------
+
 
 def get_package_version() -> str:
     """获取swanlab的版本号
@@ -69,7 +72,7 @@ def get_user_setting_path() -> str:
     """获取用户设置的url
     :return: 用户设置的url
     """
-    return get_host_web() + "/settings"
+    return get_host_web() + "/space/~/settings"
 
 
 def get_project_url(username: str, projname: str) -> str:

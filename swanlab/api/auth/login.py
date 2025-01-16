@@ -8,17 +8,19 @@ r"""
     用户登录接口，输入用户的apikey，保存用户token到本地
     进行一些交互定义和数据请求
 """
-from swanlab.error import ValidationError, APIKeyFormatError
-from swankit.log import FONT
-from swankit.env import is_windows
-from swanlab.package import get_user_setting_path, get_host_api
-from swanlab.api.info import LoginInfo
-from swanlab.log import swanlog
-from swanlab.env import in_jupyter, SwanLabEnv
 import getpass
-import requests
-import sys
 import os
+import sys
+
+import requests
+from swankit.env import is_windows
+from swankit.log import FONT
+
+from swanlab.api.info import LoginInfo
+from swanlab.env import in_jupyter, SwanLabEnv
+from swanlab.error import ValidationError, APIKeyFormatError
+from swanlab.log import swanlog
+from swanlab.package import get_user_setting_path, get_host_api
 
 
 def login_request(api_key: str, timeout: int = 20) -> requests.Response:
@@ -64,7 +66,6 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("Logging into swanlab cloud.")
         swanlog.info("You can find your API key at: " + FONT.yellow(get_user_setting_path()))
     # windows 额外打印提示信息
     if is_windows():

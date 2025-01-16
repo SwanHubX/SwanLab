@@ -144,7 +144,7 @@ class CloudRunCallback(LocalRunCallback):
         self.public = public
 
     @classmethod
-    def get_login_info(cls):
+    def create_login_info(cls):
         """
         发起登录，获取登录信息，执行此方法会覆盖原有的login_info
         """
@@ -212,7 +212,7 @@ class CloudRunCallback(LocalRunCallback):
         self._get_package_latest_version()
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
-            self.login_info = self.get_login_info()
+            self.login_info = self.create_login_info()
 
         http = create_http(self.login_info)
         return http.mount_project(project, workspace, self.public).history_exp_count
