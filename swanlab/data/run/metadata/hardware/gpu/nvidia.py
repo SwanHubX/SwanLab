@@ -99,12 +99,14 @@ class GpuCollector(HardwareCollector):
             self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_util_key].append(util_config.clone(metric_name=metric_name))
 
+    @HardwareCollector.try_run()
     def get_gpu_config(self, key: str, idx: int) -> HardwareConfig:
         """
         获取 某个GPU的某个配置信息
         """
         return self.per_gpu_configs[key][idx]
 
+    @HardwareCollector.try_run()
     def get_gpu_util(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 利用率
@@ -118,6 +120,7 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_util_key, idx),
         }
 
+    @HardwareCollector.try_run()
     def get_gpu_mem_pct(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 内存使用率
@@ -132,6 +135,7 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_mem_pct_key, idx),
         }
 
+    @HardwareCollector.try_run()
     def get_gpu_temp(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 温度
@@ -145,6 +149,7 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_temp_key, idx),
         }
 
+    @HardwareCollector.try_run()
     def get_gpu_power(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 功耗
