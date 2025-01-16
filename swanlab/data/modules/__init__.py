@@ -2,6 +2,7 @@ from .audio import Audio
 from .image import Image
 from .text import Text
 from .line import Line, FloatConvertible
+from .video import Video
 from typing import Union, List
 from .wrapper import DataWrapper
 from swankit.core.data import MediaType, MediaBuffer, BaseType
@@ -19,5 +20,6 @@ __all__ = [
     "Line",
     "DataType",
     "ChartType",
-    "MediaBuffer"
+    "MediaBuffer",
+    "Video"
 ]
