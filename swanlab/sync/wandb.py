@@ -8,20 +8,23 @@ try:
 except ImportError:
     raise ImportError("please install wandb first, command: `pip install wandb`")
 
-def sync_wandb_patches():
+def sync_wandb():
     original_init = wandb.init
     original_log = wandb_sdk.wandb_run.Run.log
-    original_finish = wandb_sdk.wandb_run.Run.finish
+    original_finish = wandb_sdk.finish
     
     def patched_init(*args, **kwargs):
         project = kwargs.get('project', None)
         name = kwargs.get('name', None)
         config = kwargs.get('config', None)
         
-        swanlab.init(
-            project=project,
-            experiment_name=name,
-            config=config)
+        if swanlab.data.get_run() is None:
+            swanlab.init(
+                project=project,
+                experiment_name=name,
+                config=config)
+        else:
+            swanlab.config.update(config)
         
         return original_init(*args, **kwargs)
 
@@ -34,9 +37,6 @@ def sync_wandb_patches():
         for key, value in data.items():
             if isinstance(value, (int, float, bool, str)):
                 filtered_data[key] = value
-        
-        print("Data:", filtered_data)
-        print("Step:", step)
         
         swanlab.log(data=filtered_data, step=step)
         
@@ -54,8 +54,8 @@ def sync_wandb_patches():
 if __name__ == "__main__":
     import random
     
-    # 在使用前调用apply_patches
-    sync_wandb_patches()
+    # 在使用前调用sync_wandb
+    sync_wandb()
     
     wandb.init(
         project="test",
