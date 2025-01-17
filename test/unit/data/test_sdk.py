@@ -26,6 +26,9 @@ def setup_function():
     在当前测试文件下的每个测试函数执行前后执行
     """
     swanlog.disable_log()
+    run = get_run()
+    if run is not None:
+        run.finish()
     yield
     run = get_run()
     if run is not None:
@@ -153,6 +156,8 @@ class TestInitMode:
         run = S.init(mode="local")
         assert os.environ[MODE] == "local"
         run.log({"TestInitMode": 1})  # 不会报错
+        assert run.mode == "local"
+        assert run.public.cloud.available is False
         assert get_run() is not None
         assert run.public.cloud.project_name is None
 
@@ -180,6 +185,17 @@ class TestInitMode:
         with pytest.raises(ValueError):
             S.init(mode="123456")  # noqa
         assert get_run() is None
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_init_multiple(self):
+        # 先初始化cloud
+        self.test_init_cloud()
+        get_run().finish()
+        # 再初始化local
+        self.test_init_local()
+        get_run().finish()
+        # 再初始化disabled
+        self.test_init_disabled()
 
     # ---------------------------------- 测试环境变量输入 ----------------------------------
 
