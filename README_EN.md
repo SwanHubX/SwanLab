@@ -388,8 +388,8 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 [demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-google-stock-image]: readme_files/example-lstm.png
 
-[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/PyTorch_Audio_Classification/charts
 [demo-audio-classification-image]: readme_files/example-audio-classification.png
 
-[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
