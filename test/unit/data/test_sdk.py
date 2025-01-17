@@ -149,6 +149,13 @@ class TestInitMode:
     测试init时函数的mode参数设置行为
     """
 
+    def test_init_local(self):
+        run = S.init(mode="local")
+        assert os.environ[MODE] == "local"
+        run.log({"TestInitMode": 1})  # 不会报错
+        assert get_run() is not None
+        assert run.public.cloud.project_name is None
+
     def test_init_disabled(self):
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         run = S.init(mode="disabled", logdir=logdir)
@@ -158,13 +165,6 @@ class TestInitMode:
         a = run.public.run_dir
         assert not os.path.exists(a)
         assert get_run() is not None
-
-    def test_init_local(self):
-        run = S.init(mode="local")
-        assert os.environ[MODE] == "local"
-        run.log({"TestInitMode": 1})  # 不会报错
-        assert get_run() is not None
-        assert run.public.cloud.project_name is None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):

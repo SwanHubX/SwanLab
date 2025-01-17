@@ -8,7 +8,6 @@ r"""
     云端回调
 """
 import json
-import os
 import sys
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
@@ -22,7 +21,7 @@ from swanlab.api.upload import upload_logs
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.data.cloud import ThreadPool
 from swanlab.data.cloud import UploadType
-from swanlab.env import in_jupyter, SwanLabEnv, is_interactive
+from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import (
@@ -33,6 +32,7 @@ from swanlab.package import (
     get_key,
 )
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
+from ..api.http import reset_http
 
 
 def show_button_html(experiment_url):
@@ -241,12 +241,6 @@ class CloudRunCallback(LocalRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
-        # task环境下，同步实验信息回调
-        if os.environ.get(SwanLabEnv.RUNTIME.value) == "task":
-            cuid = os.environ["SWANLAB_TASK_ID"]
-            info = {"cuid": cuid, "pId": http.proj_id, "eId": http.exp_id, "pName": http.projname}
-            http.patch("/task/experiment", info)
-
     def on_runtime_info_update(self, r: RuntimeInfo):
         # 执行local逻辑，保存文件到本地
         super(CloudRunCallback, self).on_runtime_info_update(r)
@@ -335,6 +329,7 @@ class CloudRunCallback(LocalRunCallback):
 
         FONT.loading("Waiting for uploading complete", _)
         get_http().update_state(state == SwanLabRunState.SUCCESS)
+        reset_http()
         # 取消注册系统回调
         self._unregister_sys_callback()
         self.exiting = False
