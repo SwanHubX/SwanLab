@@ -1,25 +1,3 @@
-"""
-import wandb
-import random
-import swanlab
-
-swanlab.sync_wandb()
-# swanlab.init(project="sync_wandb")
-
-wandb.init(
-  project="test",
-  config={"a": 1, "b": 2},
-  name="test",
-  )
-
-epochs = 10
-offset = random.random() / 5
-for epoch in range(2, epochs):
-  acc = 1 - 2 ** -epoch - random.random() / epoch - offset
-  loss = 2 ** -epoch + random.random() / epoch + offset
-
-  wandb.log({"acc": acc, "loss": loss})
-"""
 import swanlab
 
 def sync_wandb():
@@ -69,26 +47,3 @@ def sync_wandb():
     wandb.init = patched_init
     wandb_sdk.wandb_run.Run.log = patched_log
     wandb_sdk.wandb_run.Run.finish = patched_finish
-
-
-if __name__ == "__main__":
-    import random
-    import wandb
-    
-    # 在使用前调用sync_wandb
-    sync_wandb()
-    
-    wandb.init(
-        project="test",
-        config={"a": 1, "b": 2},
-        name="test",
-    )
-
-    epochs = 10
-    offset = random.random() / 5
-    for epoch in range(2, epochs):
-        acc = 1 - 2 ** -epoch - random.random() / epoch - offset
-        loss = 2 ** -epoch + random.random() / epoch + offset
-
-        # 记录训练指标
-        wandb.log({"acc": acc, "loss": loss})
