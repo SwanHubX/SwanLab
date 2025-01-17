@@ -1,6 +1,26 @@
 import swanlab
 
 def sync_wandb():
+    """
+    sync wandb with swanlab
+    
+    usecase:
+    ```python
+    import swanlab
+    swanlab.sync_wandb()
+    
+    wandb.init(
+        project="test",
+        config={"a": 1, "b": 2},
+        name="test",
+    )
+
+    for epoch in range(10):
+        acc = 1 - 2 ** -epoch - random.random() / epoch - offset
+        loss = 2 ** -epoch + random.random() / epoch + offset
+        wandb.log({"acc": acc, "loss": loss})
+    ```
+    """
     try:
         import wandb
         from wandb import sdk as wandb_sdk
