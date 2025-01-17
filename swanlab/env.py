@@ -63,7 +63,7 @@ class SwanLabEnv(enum.Enum):
     """
     RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud" "task"
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"
     """
     WEBHOOK = "SWANLAB_WEBHOOK"
     """

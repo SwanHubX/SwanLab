@@ -86,6 +86,7 @@ class SwanLabRun:
             should_save=not self.__operator.disabled,
             version=get_package_version(),
         )
+        self.__mode = get_mode()
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
@@ -216,7 +217,7 @@ class SwanLabRun:
 
     @property
     def mode(self) -> str:
-        return get_mode()
+        return self.__mode
 
     @property
     def state(self) -> SwanLabRunState:
