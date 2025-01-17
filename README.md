@@ -47,7 +47,9 @@
 
 ## 🌟 最近更新
 
-- 2025.01.11 云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
+- 2025.01.17：新增`sync_wandb`功能，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
+
+- 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
 
 - 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
 
@@ -58,8 +60,6 @@
 - 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
 
 - 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别青云**基石智算**。
-
-- 2024.11.24：重构设计语言的**全新UI上线**，优化大量交互细节，并支持黑夜模式。
 
 <br>
 

@@ -47,6 +47,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.01.17: Added `sync_wandb` feature, supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
+
 - 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
 
 - 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, improving chart browsing experience.
@@ -58,8 +60,6 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - 2024.12.06: Added integration with [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html) and [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html); increased the limit for single-line log length.
 
 - 2024.11.26: Environment tab - Hardware section now supports identifying **Huawei Ascend NPU** and **Kunpeng CPU**; cloud provider section now supports identifying **QingCloud Jishi Computing**.
-
-- 2024.11.24: A **new UI** with redesigned language is live, optimizing numerous interaction details and supporting dark mode.
 
 <br>
 
