@@ -47,7 +47,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.01.17: Added `sync_wandb` feature, supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
+- 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
 
 - 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
 

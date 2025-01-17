@@ -47,7 +47,7 @@
 
 ## 🌟 最近更新
 
-- 2025.01.17：新增`sync_wandb`功能，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
+- 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
 
 - 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
 
