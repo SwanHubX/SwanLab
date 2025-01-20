@@ -1,10 +1,16 @@
-from tensorboardX import SummaryWriter
-# from torch.utils.tensorboard import SummaryWriter
+"""
+@author: cunyue
+@file: sync_tensorboardX.py
+@time: 2025/1/20 17:15
+@description: 测试同步tensorboardX
+"""
+
 import numpy as np
+from tensorboardX import SummaryWriter
+
 import swanlab
 
 swanlab.sync_tensorboardX()
-# swanlab.sync_tensorboard_torch()
 
 writer = SummaryWriter('runs/example')
 
