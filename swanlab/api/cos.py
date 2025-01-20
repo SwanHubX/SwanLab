@@ -7,14 +7,12 @@ r"""
 @Description:
     tencent cos
 """
-# noinspection PyPackageRequirements
-from qcloud_cos import CosConfig
-# noinspection PyPackageRequirements
-from qcloud_cos import CosS3Client
-# noinspection PyPackageRequirements
-from qcloud_cos.cos_threadpool import SimpleThreadPool
 from datetime import datetime, timedelta
-from typing import List, Dict, Union
+from typing import List
+
+import boto3
+from botocore.config import Config as BotocoreConfig
+
 from swanlab.data.modules import MediaBuffer
 from swanlab.log import swanlog
 
@@ -30,14 +28,15 @@ class CosClient:
         self.__prefix = data["prefix"]
         self.__bucket = data["bucket"]
         credentials = data["credentials"]
-        config = CosConfig(
-            Region=data["region"],
-            SecretId=credentials['tmpSecretId'],
-            SecretKey=credentials['tmpSecretKey'],
-            Token=credentials['sessionToken'],
-            Scheme='https'
+        self.__client = boto3.client(
+            's3',
+            endpoint_url=f"https://cos.{data['region']}.myqcloud.com",
+            api_version='2006-03-01',
+            aws_access_key_id=credentials['tmpSecretId'],
+            aws_secret_access_key=credentials['tmpSecretKey'],
+            aws_session_token=credentials['sessionToken'],
+            config=BotocoreConfig(signature_version="s3", s3={'addressing_style': 'virtual'}),
         )
-        self.__client = CosS3Client(config)
 
     def upload(self, buffer: MediaBuffer):
         """
@@ -52,24 +51,20 @@ class CosClient:
                 Bucket=self.__bucket,
                 Key=key,
                 Body=buffer.getvalue(),
-                EnableMD5=False,
                 # 一年
                 CacheControl="max-age=31536000",
             )
         except Exception as e:
             swanlog.error("Upload error: {}".format(e))
 
-    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]):
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param buffers: 本地文件的二进制对象集合
         """
-        pool = SimpleThreadPool()
+        # TODO 线程池
         for buffer in buffers:
             self.upload(buffer)
-        pool.wait_completion()
-        result = pool.get_result()
-        return result
 
     @property
     def should_refresh(self):
