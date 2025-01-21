@@ -2,12 +2,13 @@ import wandb
 import random
 import swanlab
 
-swanlab.sync_wandb()
+swanlab.sync_wandb(wandb_run=False)
 
 wandb.init(
   project="test",
   config={"a": 1, "b": 2},
   name="test",
+  notes="test_wandb_sync",
   )
 
 wandb.config.update({"c": 3, "d": 4})

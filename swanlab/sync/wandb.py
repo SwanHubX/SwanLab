@@ -84,18 +84,18 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
         else:
             return original_init(*args, **kwargs)
 
-    def patched_config_update(*args, **kwargs):
-        _, d, _ = _extract_args(args, kwargs, ['self', 'd', 'allow_val_change'])
+    def patched_config_update(self, *args, **kwargs):
+        d, _ = _extract_args(args, kwargs, ['d', 'allow_val_change'])
         
         if d is not None:
             swanlab.config.update(d)
-        return original_config_update(*args, **kwargs)
+        return original_config_update(self, *args, **kwargs)
 
-    def patched_log(*args, **kwargs):
-        _, data, step, commit, sync = _extract_args(args, kwargs, ['self', 'data', 'step', 'commit', 'sync'])
+    def patched_log(self, *args, **kwargs):
+        data, step, commit, sync = _extract_args(args, kwargs, ['data', 'step', 'commit', 'sync'])
         
         if data is None:
-            return original_log(*args, **kwargs)
+            return original_log(self, *args, **kwargs)
         
         # 过滤掉非标量类型
         filtered_data = {}
@@ -105,7 +105,7 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
         
         swanlab.log(data=filtered_data, step=step)
         
-        return original_log(*args, **kwargs)
+        return original_log(self, *args, **kwargs)
     
     def patched_finish(*args, **kwargs):
         swanlab.finish()
