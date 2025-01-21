@@ -97,6 +97,13 @@ def get_experiment_url(username: str, projname: str, expid: str) -> str:
 # ---------------------------------- 登录相关 ----------------------------------
 
 
+def get_nrc_path() -> str:
+    """
+    获取netrc文件路径
+    """
+    return os.path.join(get_save_dir(), ".netrc")
+
+
 def get_key():
     """使用标准netrc库解析token文件，获取token
     :raise KeyFileError: 文件不存在或者host不存在
@@ -105,8 +112,7 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path = os.path.join(get_save_dir(), ".netrc")
-    host = get_host_api()
+    path, host = get_nrc_path(), get_host_api()
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
@@ -126,14 +132,19 @@ def save_key(username: str, password: str, host: str = None):
     """
     if host is None:
         host = get_host_api()
-    path = os.path.join(get_save_dir(), ".netrc")
+    path = get_nrc_path()
     if not os.path.exists(path):
         with open(path, "w") as f:
             f.write("")
     nrc = netrc.netrc(path)
-    nrc.hosts[host] = (username, None, password)
-    with open(path, "w") as f:
-        f.write(nrc.__repr__())
+    new_info = (username, "", password)
+    # 避免重复的写
+    info = nrc.authenticators(host)
+    if info != new_info:
+        # 同时只允许存在一个host： https://github.com/SwanHubX/SwanLab/issues/797
+        nrc.hosts = {host: new_info}
+        with open(path, "w") as f:
+            f.write(nrc.__repr__())
 
 
 class LoginCheckContext:
@@ -173,7 +184,6 @@ def is_login() -> bool:
     """判断是否已经登录，与当前的host相关
     如果环境变量中有api key，则认为已经登录
     但不会检查key的有效性
-    FIXME 目前存在一些bug，此函数只能在未登录前判断，登录后判断会有一些bug
     :return: 是否已经登录
     """
     with LoginCheckContext() as checker:
