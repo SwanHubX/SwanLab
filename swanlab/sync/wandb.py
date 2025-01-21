@@ -1,5 +1,26 @@
 import swanlab
 
+def _extract_args(args, kwargs, param_names):
+    """
+    从args和kwargs中提取参数值的通用函数
+    
+    Args:
+        args: 位置参数元组
+        kwargs: 关键字参数字典
+        param_names: 参数名称列表
+    
+    Returns:
+        tuple: 按param_names顺序返回提取的参数值
+    """
+    values = []
+    for i, name in enumerate(param_names):
+        if len(args) > i:
+            values.append(args[i])
+        else:
+            values.append(kwargs.get(name, None))
+    return tuple(values)
+
+
 def sync_wandb(mode:str="cloud", wandb_run:bool=True):
     """
     sync wandb with swanlab, 暂时不支持log非标量类型
@@ -43,14 +64,15 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
     original_config_update = wandb_sdk.wandb_config.Config.update
     
     def patched_init(*args, **kwargs):
-        project = kwargs.get('project', None)
-        name = kwargs.get('name', None)
-        config = kwargs.get('config', None)
+        entity, project, dir, id, name, notes, tags, config, config_exclude_keys = _extract_args(
+            args, kwargs, ['entity', 'project', 'dir', 'id', 'name', 'notes', 'tags', 'config', 'config_exclude_keys']
+        )
         
         if swanlab.data.get_run() is None:
             swanlab.init(
                 project=project,
                 experiment_name=name,
+                description=notes,
                 config=config,
                 mode=mode)
         else:
@@ -63,17 +85,17 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
             return original_init(*args, **kwargs)
 
     def patched_config_update(*args, **kwargs):
-        try:
-            config= args[1]
-        except:
-            config= None
-        if config is not None:
-            swanlab.config.update(config)
+        _, d, _ = _extract_args(args, kwargs, ['self', 'd', 'allow_val_change'])
+        
+        if d is not None:
+            swanlab.config.update(d)
         return original_config_update(*args, **kwargs)
 
     def patched_log(*args, **kwargs):
-        data = args[1]
-        step = kwargs.get('step', None)
+        _, data, step, commit, sync = _extract_args(args, kwargs, ['self', 'data', 'step', 'commit', 'sync'])
+        
+        if data is None:
+            return original_log(*args, **kwargs)
         
         # 过滤掉非标量类型
         filtered_data = {}
