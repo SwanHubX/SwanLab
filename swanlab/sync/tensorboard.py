@@ -48,12 +48,10 @@ def sync_tensorboardX():
     original_close = SummaryWriter.close
     
 
-    def patched_init(self, *args, **kwargs):
-        if len(args) > 0:
-            tb_logdir = args[0]
-        else:
-            tb_logdir = kwargs.get('logdir', None)  
-
+    def patched_init(self, *args, **kwargs):        
+        _, logdir, _, _, _, _, _, _, log_dir, _ = _extract_args(args, kwargs, ['self', 'logdir', 'comment', 'purge_step', 'max_queue', 'flush_secs', 'filename_suffix', 'write_to_disk', 'log_dir', 'comet_config'])
+        tb_logdir = logdir or log_dir
+                
         tb_config = {
             'tensorboard_logdir': tb_logdir,
         }
@@ -149,10 +147,8 @@ def sync_tensorboard_torch():
     original_close = SummaryWriter.close
 
     def patched_init(self, *args, **kwargs):
-        if len(args) > 0:
-            tb_logdir = args[0]
-        else:
-            tb_logdir = kwargs.get('logdir', None)  
+        _, logdir = _extract_args(args, kwargs, ['self', 'log_dir'])
+        tb_logdir = logdir
 
         tb_config = {
             'tensorboard_logdir': tb_logdir,
@@ -166,8 +162,8 @@ def sync_tensorboard_torch():
         return original_init(self, *args, **kwargs)
 
     def patched_add_scalar(self, *args, **kwargs):
-        tag, scalar_value, global_step = _extract_args(
-            args, kwargs, ['tag', 'scalar_value', 'global_step']
+        _, tag, scalar_value, global_step = _extract_args(
+            args, kwargs, ['self', 'tag', 'scalar_value', 'global_step']
         )
         
         data = {tag: scalar_value}
@@ -178,8 +174,8 @@ def sync_tensorboard_torch():
     def patched_add_image(self, *args, **kwargs):
         import numpy as np
         
-        tag, img_tensor, global_step, dataformats = _extract_args(
-            args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
+        _, tag, img_tensor, global_step, dataformats = _extract_args(
+            args, kwargs, ['self', 'tag', 'img_tensor', 'global_step', 'dataformats']
         )
         dataformats = dataformats or 'CHW'  # 设置默认值
         
