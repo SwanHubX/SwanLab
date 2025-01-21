@@ -1,5 +1,24 @@
 import swanlab
 
+def _extract_args(args, kwargs, param_names):
+    """
+    从args和kwargs中提取参数值的通用函数
+    
+    Args:
+        args: 位置参数元组
+        kwargs: 关键字参数字典
+        param_names: 参数名称列表
+    
+    Returns:
+        tuple: 按param_names顺序返回提取的参数值
+    """
+    values = []
+    for i, name in enumerate(param_names):
+        if len(args) > i:
+            values.append(args[i])
+        else:
+            values.append(kwargs.get(name, None))
+    return tuple(values)
 
 def sync_tensorboardX():
     """
@@ -27,12 +46,16 @@ def sync_tensorboardX():
     original_add_scalar = SummaryWriter.add_scalar
     original_add_image = SummaryWriter.add_image
     original_close = SummaryWriter.close
+    
 
     def patched_init(self, *args, **kwargs):
-        logdir = args[0]
+        if len(args) > 0:
+            tb_logdir = args[0]
+        else:
+            tb_logdir = kwargs.get('logdir', None)  
 
         tb_config = {
-            'tensorboard_logdir': logdir,
+            'tensorboard_logdir': tb_logdir,
         }
 
         if swanlab.data.get_run() is None:
@@ -42,40 +65,48 @@ def sync_tensorboardX():
 
         return original_init(self, *args, **kwargs)
 
-    def patched_add_scalar(self, tag, scalar_value, global_step=None):
+    def patched_add_scalar(self, *args, **kwargs):
+        tag, scalar_value, global_step = _extract_args(
+            args, kwargs, ['tag', 'scalar_value', 'global_step']
+        )
+        
         data = {tag: scalar_value}
         swanlab.log(data=data, step=global_step)
+        
+        return original_add_scalar(self, *args, **kwargs)
 
-        return original_add_scalar(self, tag, scalar_value, global_step)
-
-    def patched_add_image(self, tag, img_tensor, global_step=None, walltime=None, dataformats='CHW'):
+    def patched_add_image(self, *args, **kwargs):
         import numpy as np
         
-        img_tensor_swanlab = img_tensor.copy()
+        tag, img_tensor, global_step, dataformats = _extract_args(
+            args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
+        )
+        dataformats = dataformats or 'CHW'  # 设置默认值
+        
         # Convert to numpy array if it's a tensor
         if hasattr(img_tensor, 'cpu'):
-            img_tensor_swanlab = img_tensor.cpu()
+            img_tensor = img_tensor.cpu()
         if hasattr(img_tensor, 'numpy'):
-            img_tensor_swanlab = img_tensor.numpy()
+            img_tensor = img_tensor.numpy()
             
         # Handle different input formats
         if dataformats == 'CHW':
             # Convert CHW to HWC for swanlab
-            img_tensor_swanlab = np.transpose(img_tensor_swanlab, (1, 2, 0))
+            img_tensor = np.transpose(img_tensor, (1, 2, 0))
         elif dataformats == 'NCHW':
             # Take first image if batch dimension exists and convert to HWC
-            img_tensor_swanlab = np.transpose(img_tensor_swanlab[0], (1, 2, 0))
+            img_tensor = np.transpose(img_tensor, (1, 2, 0))
         elif dataformats == 'HW':
             # Add channel dimension for grayscale
-            img_tensor_swanlab = np.expand_dims(img_tensor_swanlab, axis=-1)
+            img_tensor = np.expand_dims(img_tensor, axis=-1)
         elif dataformats == 'HWC':
             # Already in correct format
             pass
             
-        data = {tag: swanlab.Image(img_tensor_swanlab)}
+        data = {tag: swanlab.Image(img_tensor)}
         swanlab.log(data=data, step=global_step)
 
-        return original_add_image(self, tag, img_tensor, global_step, walltime, dataformats)
+        return original_add_image(self, *args, **kwargs)
 
     def patched_close(self):
         # 调用原始的close方法
@@ -114,13 +145,17 @@ def sync_tensorboard_torch():
 
     original_init = SummaryWriter.__init__
     original_add_scalar = SummaryWriter.add_scalar
+    original_add_image = SummaryWriter.add_image
     original_close = SummaryWriter.close
 
     def patched_init(self, *args, **kwargs):
-        logdir = args[0]
+        if len(args) > 0:
+            tb_logdir = args[0]
+        else:
+            tb_logdir = kwargs.get('logdir', None)  
 
         tb_config = {
-            'tensorboard_logdir': logdir,
+            'tensorboard_logdir': tb_logdir,
         }
 
         if swanlab.data.get_run() is None:
@@ -130,11 +165,48 @@ def sync_tensorboard_torch():
 
         return original_init(self, *args, **kwargs)
 
-    def patched_add_scalar(self, tag, scalar_value, global_step=None):
+    def patched_add_scalar(self, *args, **kwargs):
+        tag, scalar_value, global_step = _extract_args(
+            args, kwargs, ['tag', 'scalar_value', 'global_step']
+        )
+        
         data = {tag: scalar_value}
         swanlab.log(data=data, step=global_step)
+        
+        return original_add_scalar(self, *args, **kwargs)
 
-        return original_add_scalar(self, tag, scalar_value, global_step)
+    def patched_add_image(self, *args, **kwargs):
+        import numpy as np
+        
+        tag, img_tensor, global_step, dataformats = _extract_args(
+            args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
+        )
+        dataformats = dataformats or 'CHW'  # 设置默认值
+        
+        # Convert to numpy array if it's a tensor
+        if hasattr(img_tensor, 'cpu'):
+            img_tensor = img_tensor.cpu()
+        if hasattr(img_tensor, 'numpy'):
+            img_tensor = img_tensor.numpy()
+            
+        # Handle different input formats
+        if dataformats == 'CHW':
+            # Convert CHW to HWC for swanlab
+            img_tensor = np.transpose(img_tensor, (1, 2, 0))
+        elif dataformats == 'NCHW':
+            # Take first image if batch dimension exists and convert to HWC
+            img_tensor = np.transpose(img_tensor, (1, 2, 0))
+        elif dataformats == 'HW':
+            # Add channel dimension for grayscale
+            img_tensor = np.expand_dims(img_tensor, axis=-1)
+        elif dataformats == 'HWC':
+            # Already in correct format
+            pass
+            
+        data = {tag: swanlab.Image(img_tensor)}
+        swanlab.log(data=data, step=global_step)
+
+        return original_add_image(self, *args, **kwargs)
 
     def patched_close(self):
         # 调用原始的close方法
@@ -145,4 +217,5 @@ def sync_tensorboard_torch():
     # 应用monkey patch
     SummaryWriter.__init__ = patched_init
     SummaryWriter.add_scalar = patched_add_scalar
+    SummaryWriter.add_image = patched_add_image
     SummaryWriter.close = patched_close
