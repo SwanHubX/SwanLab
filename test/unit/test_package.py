@@ -1,6 +1,7 @@
 import json
 import netrc
 import os
+import time
 
 import nanoid
 import pytest
@@ -168,17 +169,20 @@ class TestSaveKey:
         P.save_key("user", password, host=host)
         assert self.get_key(path, host) == password
         assert os.path.getmtime(path) == change_time
+        time.sleep(0.1)
         # 再次保存，但是账号不同
         new_password = nanoid.generate()
         P.save_key("user2", new_password, host=host)
         assert self.get_key(path, host) == new_password
         assert os.path.getmtime(path) != change_time
+        time.sleep(0.1)
         # 再次保存，但是host不同
         new_host = nanoid.generate()
         P.save_key("user", new_password, host=new_host)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host) is not None
+        time.sleep(0.1)
         # 再次保存，但是密码不同
         new_password = nanoid.generate()
         P.save_key("user", new_password, host=new_host)
