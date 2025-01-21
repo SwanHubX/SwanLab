@@ -49,7 +49,7 @@ def sync_tensorboardX():
     
 
     def patched_init(self, *args, **kwargs):        
-        _, logdir, _, _, _, _, _, _, log_dir, _ = _extract_args(args, kwargs, ['self', 'logdir', 'comment', 'purge_step', 'max_queue', 'flush_secs', 'filename_suffix', 'write_to_disk', 'log_dir', 'comet_config'])
+        logdir, _, _, _, _, _, _, log_dir, _ = _extract_args(args, kwargs, ['logdir', 'comment', 'purge_step', 'max_queue', 'flush_secs', 'filename_suffix', 'write_to_disk', 'log_dir', 'comet_config'])
         tb_logdir = logdir or log_dir
                 
         tb_config = {
@@ -147,7 +147,7 @@ def sync_tensorboard_torch():
     original_close = SummaryWriter.close
 
     def patched_init(self, *args, **kwargs):
-        _, logdir = _extract_args(args, kwargs, ['self', 'log_dir'])
+        logdir, comment = _extract_args(args, kwargs, ['log_dir', 'comment'])
         tb_logdir = logdir
 
         tb_config = {
@@ -162,8 +162,8 @@ def sync_tensorboard_torch():
         return original_init(self, *args, **kwargs)
 
     def patched_add_scalar(self, *args, **kwargs):
-        _, tag, scalar_value, global_step = _extract_args(
-            args, kwargs, ['self', 'tag', 'scalar_value', 'global_step']
+        tag, scalar_value, global_step = _extract_args(
+            args, kwargs, ['tag', 'scalar_value', 'global_step']
         )
         
         data = {tag: scalar_value}
@@ -174,9 +174,10 @@ def sync_tensorboard_torch():
     def patched_add_image(self, *args, **kwargs):
         import numpy as np
         
-        _, tag, img_tensor, global_step, dataformats = _extract_args(
-            args, kwargs, ['self', 'tag', 'img_tensor', 'global_step', 'dataformats']
+        tag, img_tensor, global_step, dataformats = _extract_args(
+            args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
         )
+
         dataformats = dataformats or 'CHW'  # 设置默认值
         
         # Convert to numpy array if it's a tensor
