@@ -10,6 +10,9 @@ wandb.init(
   name="test",
   )
 
+wandb.config.update({"c": 3, "d": 4})
+print(swanlab.config.get("c"))
+
 epochs = 10
 offset = random.random() / 5
 for epoch in range(2, epochs):
