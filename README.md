@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="70" height="70">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+</picture>
 
 <h1>SwanLab</h1>
 
@@ -46,6 +50,8 @@
 <br/>
 
 ## 🌟 最近更新
+
+- 2025.01.22：新增`sync_tensorboardX`与`sync_tensorboard_torch`功能，支持与此两种TensorBoard框架同步实验跟踪；
 
 - 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
 

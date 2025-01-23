@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="70" height="70">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+</picture>
 
 <h1>SwanLab</h1>
 
@@ -46,6 +50,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 <br/>
 
 ## 🌟 Recent Updates
+
+- 2025.01.22: Added `sync_tensorboardX` and `sync_tensorboard_torch` features, supporting synchronization of experiment tracking with these two TensorBoard frameworks.
 
 - 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
 
