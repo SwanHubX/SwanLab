@@ -67,6 +67,8 @@ class SwanLabCallback(TrainerCallback):
 
         if not state.is_world_process_zero:
             return
+        
+        swanlab.config["FRAMEWORK"] = "🤗transformers"
 
         # 如果没有注册过实验
         if self._experiment.get_run() is None:

@@ -9,6 +9,17 @@ r"""
 """
 import os
 from typing import Optional, Union, Dict, Tuple, Literal
+
+from swanboard import SwanBoardCallback
+from swankit.env import SwanLabMode
+from swankit.log import FONT
+
+from swanlab.api import code_login, terminal_login
+from swanlab.env import SwanLabEnv, is_interactive
+from swanlab.log import swanlog
+from .callback_cloud import CloudRunCallback
+from .callback_local import LocalRunCallback
+from .formater import check_load_json_yaml, check_proj_name_format
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -16,15 +27,9 @@ from .run import (
     register,
     get_run,
 )
-from .formater import check_load_json_yaml, check_proj_name_format
-from .callback_cloud import CloudRunCallback
-from .callback_local import LocalRunCallback
 from .run.helper import SwanLabRunOperator
-from swanlab.log import swanlog
-from swanlab.api import code_login
-from swanlab.env import SwanLabEnv
-from swankit.env import SwanLabMode
-from swanboard import SwanBoardCallback
+from ..error import KeyFileError
+from ..package import get_key, get_host_web
 
 
 def _check_proj_name(name: str) -> str:
@@ -66,7 +71,10 @@ def login(api_key: str = None):
     """
     if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
-    CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.get_login_info()
+    CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
+
+
+MODES = Literal["disabled", "cloud", "local"]
 
 
 def init(
@@ -76,7 +84,7 @@ def init(
     description: str = None,
     config: Union[dict, str] = None,
     logdir: str = None,
-    mode: Literal["disabled", "cloud", "local"] = None,
+    mode: MODES = None,
     load: str = None,
     public: bool = None,
     **kwargs,
@@ -150,8 +158,9 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
         public = _load_data(load_data, "private", public)
-    operator, c = _create_operator(mode, public)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
+    # ---------------------------------- 启动操作员 ----------------------------------
+    operator, c = _create_operator(mode, public)
     exp_num = SwanLabRunOperator.parse_return(
         operator.on_init(project, workspace, logdir=logdir),
         key=c.__str__() if c else None,
@@ -231,6 +240,8 @@ def _init_mode(mode: str = None):
     传入的mode必须为SwanLabMode枚举中的一个值，否则报错ValueError
     如果环境变量和传入的mode参数都为None，则默认为cloud
 
+    从环境变量中提取mode参数以后，还有一步让用户选择运行模式的交互，详见issue： https://github.com/SwanHubX/SwanLab/issues/632
+
     :param mode: str, optional
         传入的mode参数
     :return: str mode
@@ -245,8 +256,45 @@ def _init_mode(mode: str = None):
     if mode is not None and mode not in allowed:
         raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
     mode = "cloud" if mode is None else mode
+    # 如果mode为cloud，且没找到 api key或者未登录，则提示用户输入
+    try:
+        get_key()
+        no_api_key = False
+    except KeyFileError:
+        no_api_key = True
+    login_info = None
+    if mode == "cloud" and no_api_key:
+        # 判断当前进程是否在交互模式下
+        if is_interactive():
+            swanlog.info(
+                f"Using SwanLab to track your experiments. Please refer to {FONT.yellow('https://docs.swanlab.cn')} for more information."
+            )
+            swanlog.info("(1) Create a SwanLab account.")
+            swanlog.info("(2) Use an existing SwanLab account.")
+            swanlog.info("(3) Don't visualize my results.")
+
+            # 交互选择
+            tip = FONT.swanlab("Enter your choice: ")
+            code = input(tip)
+            while code not in ["1", "2", "3"]:
+                swanlog.warning("Invalid choice, please enter again.")
+                code = input(tip)
+            if code == "3":
+                mode = "local"
+            elif code == "2":
+                swanlog.info("You chose 'Use an existing swanlab account'")
+                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
+                login_info = terminal_login()
+            elif code == "1":
+                swanlog.info("You chose 'Create a swanlab account'")
+                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
+                login_info = terminal_login()
+            else:
+                raise ValueError("Invalid choice")
+
+        # 如果不在就不管
     os.environ[mode_key] = mode
-    return mode
+    return mode, login_info
 
 
 def _init_config(config: Union[dict, str]):
@@ -277,7 +325,9 @@ def _create_operator(mode: str, public: bool) -> Tuple[SwanLabRunOperator, Optio
     :param public: 是否公开
     :return: SwanLabRunOperator, CloudRunCallback
     """
-    mode = _init_mode(mode)
+    mode, login_info = _init_mode(mode)
+    CloudRunCallback.login_info = login_info
+
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None

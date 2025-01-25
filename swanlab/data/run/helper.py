@@ -126,15 +126,17 @@ class MonitorCron:
     用于定时采集系统信息
     """
 
-    SLEEP_TIME = 30
-
     def __init__(self, monitor_func: Callable):
+        self.count = 0  # 计数器,执行次数
+
         def _():
             monitor_func()
-            self.timer = threading.Timer(self.SLEEP_TIME, _)
+            self.count += 1
+            self.timer = threading.Timer(self.sleep_time, _)
             self.timer.daemon = True
             self.timer.start()
 
+        # 立即执行
         self.timer = threading.Timer(0, _)
         self.timer.daemon = True
         self.timer.start()
@@ -142,6 +144,18 @@ class MonitorCron:
     def cancel(self):
         if self.timer is not None:
             self.timer.cancel()
+
+    @property
+    def sleep_time(self):
+        # 采集10次以下，每次间隔10秒
+        # 采集10次到50次，每次间隔30秒
+        # 采集50次以上，每次间隔60秒
+        if self.count < 10:
+            return 10
+        elif self.count < 50:
+            return 30
+        else:
+            return 60
 
 
 def check_log_level(log_level: Optional[str]) -> str:

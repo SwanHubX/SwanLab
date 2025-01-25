@@ -42,6 +42,7 @@ class SwanLabCallback(Callback):
         self.summary_suffix = "summary"
 
     def setup_swanlab(self):
+        swanlab.config["FRAMEWORK"] = "fastai"
         if self._experiment.get_run() is None:
             self._experiment.init(
                 project=self.project,

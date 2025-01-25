@@ -7,11 +7,12 @@ r"""
 @Description:
     测试swanlab.env模块
 """
+import os
+
 import pytest
 
-from swanlab.env import SwanLabEnv
 import swanlab
-import os
+from swanlab.env import SwanLabEnv, is_interactive
 
 
 def test_default():
@@ -37,3 +38,8 @@ def test_check():
     os.environ[SwanLabEnv.RUNTIME.value] = "124"
     with pytest.raises(ValueError):
         SwanLabEnv.check()
+
+
+def test_is_interactive():
+    # 测试时默认返回true
+    assert is_interactive() == True

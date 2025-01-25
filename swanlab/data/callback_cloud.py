@@ -7,9 +7,7 @@ r"""
 @Description:
     云端回调
 """
-import io
 import json
-import os
 import sys
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
@@ -23,7 +21,7 @@ from swanlab.api.upload import upload_logs
 from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.data.cloud import ThreadPool
 from swanlab.data.cloud import UploadType
-from swanlab.env import in_jupyter, SwanLabEnv
+from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import (
@@ -34,6 +32,7 @@ from swanlab.package import (
     get_key,
 )
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
+from ..api.http import reset_http
 
 
 def show_button_html(experiment_url):
@@ -144,7 +143,7 @@ class CloudRunCallback(LocalRunCallback):
         self.public = public
 
     @classmethod
-    def get_login_info(cls):
+    def create_login_info(cls):
         """
         发起登录，获取登录信息，执行此方法会覆盖原有的login_info
         """
@@ -152,15 +151,11 @@ class CloudRunCallback(LocalRunCallback):
         try:
             key = get_key()
         except KeyFileError:
-            try:
-                fd = sys.stdin.fileno()
-                # 不是标准终端，且非jupyter环境，无法控制其回显
-                if not os.isatty(fd) and not in_jupyter():
-                    raise KeyFileError("The key file is not found, call `swanlab.login()` or use `swanlab login` ")
-            # 当使用capsys、capfd或monkeypatch等fixture来捕获或修改标准输入输出时，会抛出io.UnsupportedOperation
-            # 这种情况下为用户自定义情况
-            except io.UnsupportedOperation:
-                pass
+            pass
+        if key is None and not is_interactive():
+            raise KeyFileError(
+                "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
+            )
         return terminal_login(key)
 
     @staticmethod
@@ -208,12 +203,11 @@ class CloudRunCallback(LocalRunCallback):
 
     def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
         super(CloudRunCallback, self).on_init(project, workspace, logdir)
-        # 检测是否有最新的版本
-        self._get_package_latest_version()
         if self.login_info is None:
             swanlog.debug("Login info is None, get login info.")
-            self.login_info = self.get_login_info()
-
+            self.login_info = self.create_login_info()
+        # 检测是否有最新的版本
+        self._get_package_latest_version()
         http = create_http(self.login_info)
         return http.mount_project(project, workspace, self.public).history_exp_count
 
@@ -247,12 +241,6 @@ class CloudRunCallback(LocalRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
-        # task环境下，同步实验信息回调
-        if os.environ.get(SwanLabEnv.RUNTIME.value) == "task":
-            cuid = os.environ["SWANLAB_TASK_ID"]
-            info = {"cuid": cuid, "pId": http.proj_id, "eId": http.exp_id, "pName": http.projname}
-            http.patch("/task/experiment", info)
-
     def on_runtime_info_update(self, r: RuntimeInfo):
         # 执行local逻辑，保存文件到本地
         super(CloudRunCallback, self).on_runtime_info_update(r)
@@ -284,6 +272,7 @@ class CloudRunCallback(LocalRunCallback):
             key=column_info.key,
             name=column_info.name,
             cls=column_info.cls,
+            config=column_info.config,
             typ=column_info.chart_type.value.column_type,
             section_name=section_name,
             section_type=column_info.section_type,
@@ -340,6 +329,7 @@ class CloudRunCallback(LocalRunCallback):
 
         FONT.loading("Waiting for uploading complete", _)
         get_http().update_state(state == SwanLabRunState.SUCCESS)
+        reset_http()
         # 取消注册系统回调
         self._unregister_sys_callback()
         self.exiting = False

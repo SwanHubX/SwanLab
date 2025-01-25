@@ -8,7 +8,9 @@ r"""
     除了utils和error模块，其他模块都可以使用这个模块
 """
 import enum
+import io
 import os
+import sys
 from typing import List
 
 import swankit.env as E
@@ -61,7 +63,7 @@ class SwanLabEnv(enum.Enum):
     """
     RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud" "task"
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"
     """
     WEBHOOK = "SWANLAB_WEBHOOK"
     """
@@ -127,3 +129,17 @@ def in_jupyter() -> bool:
         return True
     except NameError:
         return False
+
+
+def is_interactive():
+    """
+    是否为可交互式环境（输入连接tty设备）
+    特殊的环境：jupyter notebook
+    """
+    try:
+        fd = sys.stdin.fileno()
+        return os.isatty(fd) or in_jupyter()
+    # 当使用capsys、capfd或monkeypatch等fixture来捕获或修改标准输入输出时，会抛出io.UnsupportedOperation
+    # 多为测试情况，可交互
+    except io.UnsupportedOperation:
+        return True

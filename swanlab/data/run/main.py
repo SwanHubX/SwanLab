@@ -86,6 +86,7 @@ class SwanLabRun:
             should_save=not self.__operator.disabled,
             version=get_package_version(),
         )
+        self.__mode = get_mode()
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
@@ -151,15 +152,22 @@ class SwanLabRun:
                 if monitor_info is None:
                     swanlog.debug("Hardware info is empty. Skip it.")
                     continue
-                key, name, value = monitor_info['key'], monitor_info['name'], monitor_info['value']
-                v = DataWrapper(key, [Line(value)])
-                self.__exp.add(
-                    data=v,
-                    key=key,
-                    key_name=name,
-                    key_class="SYSTEM",
-                    section_type="SYSTEM",
-                )
+                for info in monitor_info:
+                    key, name, value, cfg = (
+                        info['key'],
+                        info['name'],
+                        info['value'],
+                        info['config'],
+                    )
+                    v = DataWrapper(key, [Line(value)], reference="TIME")
+                    self.__exp.add(
+                        data=v,
+                        key=key,
+                        name=name,
+                        column_config=cfg,
+                        column_class="SYSTEM",
+                        section_type="SYSTEM",
+                    )
 
         return monitor_func
 
@@ -209,7 +217,7 @@ class SwanLabRun:
 
     @property
     def mode(self) -> str:
-        return get_mode()
+        return self.__mode
 
     @property
     def state(self) -> SwanLabRunState:

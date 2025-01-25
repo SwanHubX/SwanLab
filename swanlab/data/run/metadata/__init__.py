@@ -14,7 +14,7 @@ from swanlab.data.run.metadata.runtime import get_runtime_info
 from swanlab.package import get_package_version
 
 
-def get_metadata(logdir: str) -> Tuple[dict, List[HardwareMonitorFunc]]:
+def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
     """
     采集实验的全部信息
     """

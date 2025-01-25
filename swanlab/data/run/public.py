@@ -1,6 +1,7 @@
 from swankit.core import SwanLabSharedSettings
 
 from swanlab.api import get_http
+from swanlab.env import get_mode
 from swanlab.package import get_project_url, get_experiment_url
 
 
@@ -11,6 +12,12 @@ class SwanlabCloudConfig:
 
     def __init__(self):
         self.__http = None
+        if get_mode() == "cloud":
+            try:
+                self.__http = get_http()
+            except ValueError:
+                pass
+        self.__available = self.__http is not None
 
     def __get_property_from_http(self, name: str):
         """
@@ -27,12 +34,7 @@ class SwanlabCloudConfig:
         """
         Whether the SwanLab is running in cloud mode.
         """
-        try:
-            if self.__http is None:
-                self.__http = get_http()
-            return True
-        except ValueError:
-            return False
+        return self.__available
 
     @property
     def project_name(self):

@@ -26,6 +26,9 @@ def setup_function():
     在当前测试文件下的每个测试函数执行前后执行
     """
     swanlog.disable_log()
+    run = get_run()
+    if run is not None:
+        run.finish()
     yield
     run = get_run()
     if run is not None:
@@ -46,10 +49,13 @@ class TestInitModeFunc:
             S._init_mode("123456")  # noqa
 
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
-    def test_init_mode(self, mode):
+    def test_init_mode(self, mode, monkeypatch):
         """
         初始化时mode参数正确
         """
+        if mode == 'cloud':
+            mode = 'local'
+            monkeypatch.setattr("builtins.input", lambda _: "3")
         S._init_mode(mode)
         assert os.environ[MODE] == mode
         del os.environ[MODE]
@@ -58,19 +64,102 @@ class TestInitModeFunc:
         # assert os.environ[MODE] == mode
 
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
-    def test_overwrite_mode(self, mode):
+    def test_overwrite_mode(self, mode, monkeypatch):
         """
         初始化时mode参数正确，覆盖环境变量
         """
+        if mode == 'cloud':
+            mode = 'local'
+            monkeypatch.setattr("builtins.input", lambda _: "3")
         os.environ[MODE] = "123456"
         S._init_mode(mode)
         assert os.environ[MODE] == mode
+
+    def test_no_api_key_to_cloud(self, monkeypatch):
+        """
+        初始化时mode为cloud，但是没有设置apikey
+        """
+        if SwanLabEnv.API_KEY.value in os.environ:
+            del os.environ[SwanLabEnv.API_KEY.value]
+        monkeypatch.setattr("builtins.input", lambda _: "3")
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "local"
+        assert login_info is None
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_init_cloud_with_no_api_key(self, monkeypatch):
+        """
+        初始化时mode为cloud，但是没有设置apikey
+        """
+        api_key = os.environ[SwanLabEnv.API_KEY.value]
+        del os.environ[SwanLabEnv.API_KEY.value]
+        # 在测试时默认会在交互模式下
+        # 接下来需要模拟终端连接，使用monkeypatch
+        # 三种选择方式：
+        # 1. 输入api key
+        # 2. 创建账号
+        # 3. 使用本地版
+
+        # 选择第三种
+        monkeypatch.setattr("builtins.input", lambda _: "3")
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "local"
+        assert login_info is None
+
+        # 选择第二种
+        monkeypatch.setattr("builtins.input", lambda _: "2")
+        monkeypatch.setattr("getpass.getpass", lambda _: api_key)
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "cloud"
+        assert login_info is not None
+
+        # 登录后会保存key，测试时需要删除
+        os.remove(os.path.join(get_save_dir(), ".netrc"))
+
+        # 选择第一种
+        monkeypatch.setattr("builtins.input", lambda _: "1")
+        monkeypatch.setattr("getpass.getpass", lambda _: api_key)
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "cloud"
+        assert login_info is not None
+
+        # 登录后会保存key，测试时需要删除
+        os.remove(os.path.join(get_save_dir(), ".netrc"))
+
+        # 选择其他的
+        def create_other_input():
+            first = True
+
+            def oi():
+                nonlocal first
+                if first:
+                    first = False
+                    return "123456"
+                else:
+                    return "3"
+
+            return oi
+
+        other_input = create_other_input()
+        monkeypatch.setattr("builtins.input", lambda _: other_input())
+        mode, login_info = S._init_mode("cloud")
+        assert mode == "local"
+        assert login_info is None
 
 
 class TestInitMode:
     """
     测试init时函数的mode参数设置行为
     """
+
+    def test_init_local(self):
+        run = S.init(mode="local")
+        assert os.environ[MODE] == "local"
+        run.log({"TestInitMode": 1})  # 不会报错
+        assert run.mode == "local"
+        assert run.public.cloud.available is False
+        assert get_run() is not None
+        assert run.public.cloud.project_name is None
 
     def test_init_disabled(self):
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
@@ -81,13 +170,6 @@ class TestInitMode:
         a = run.public.run_dir
         assert not os.path.exists(a)
         assert get_run() is not None
-
-    def test_init_local(self):
-        run = S.init(mode="local")
-        assert os.environ[MODE] == "local"
-        run.log({"TestInitMode": 1})  # 不会报错
-        assert get_run() is not None
-        assert run.public.cloud.project_name is None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
     def test_init_cloud(self):
@@ -103,6 +185,17 @@ class TestInitMode:
         with pytest.raises(ValueError):
             S.init(mode="123456")  # noqa
         assert get_run() is None
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_init_multiple(self):
+        # 先初始化cloud
+        self.test_init_cloud()
+        get_run().finish()
+        # 再初始化local
+        self.test_init_local()
+        get_run().finish()
+        # 再初始化disabled
+        self.test_init_disabled()
 
     # ---------------------------------- 测试环境变量输入 ----------------------------------
 
