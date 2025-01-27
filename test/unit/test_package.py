@@ -46,33 +46,12 @@ def test_get_host_api_env():
     assert P.get_host_api() == os.environ[SwanLabEnv.API_HOST.value]
 
 
-def test_get_user_setting_path():
+def test_fmt_web_host():
     """
-    测试获取用户设置文件路径
+    测试格式化web地址
     """
-    assert P.get_user_setting_path() == P.get_host_web() + "/space/~/settings"
-
-
-def test_get_project_url():
-    """
-    测试获取项目url
-    """
-    username = nanoid.generate()
-    projname = nanoid.generate()
-    assert P.get_project_url(username, projname) == P.get_host_web() + "/@" + username + "/" + projname
-
-
-def test_get_experiment_url():
-    """
-    测试获取实验url
-    """
-    username = nanoid.generate()
-    projname = nanoid.generate()
-    expid = nanoid.generate()
-    assert (
-        P.get_experiment_url(username, projname, expid)
-        == P.get_host_web() + "/@" + username + "/" + projname + "/runs/" + expid
-    )
+    assert P.fmt_web_host() == P.get_host_web().rstrip("/")
+    assert P.fmt_web_host("https://abc.cn/") == "https://abc.cn"
 
 
 # ---------------------------------- 登录部分 ----------------------------------

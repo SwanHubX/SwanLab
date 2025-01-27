@@ -51,7 +51,7 @@ def get_package_latest_version(timeout=0.5) -> Optional[str]:
         return None
 
 
-# ---------------------------------- 云端url相关 ----------------------------------
+# ---------------------------------- 云端相关 ----------------------------------
 
 
 def get_host_web() -> str:
@@ -68,30 +68,32 @@ def get_host_api() -> str:
     return os.getenv(SwanLabEnv.API_HOST.value, "https://api.swanlab.cn/api")
 
 
-def get_user_setting_path() -> str:
+def fmt_web_host(web_host: str = None) -> str:
+    """
+    如果web_host为None，则使用默认的web_host
+    并且格式化web_host，去除结尾的/
+    :param web_host: web_host
+    :return: 格式化后的web_host
+    """
+    if web_host is None:
+        web_host = get_host_web()
+    return web_host.rstrip("/")
+
+
+def get_setting_url(web_host: str = None) -> str:
     """获取用户设置的url
+    与实验相关的url不同，这个url在http对象之前被使用，因此不绑定在http对象中
     :return: 用户设置的url
     """
-    return get_host_web() + "/space/~/settings"
+    return fmt_web_host(web_host) + "/space/~/settings"
 
 
-def get_project_url(username: str, projname: str) -> str:
-    """获取项目的url
-    :param username: 用户名
-    :param projname: 项目名
-    :return: 项目的url
+def get_login_url(web_host: str = None) -> str:
+    """获取登录的url
+    与实验相关的url不同，这个url在http对象之前被使用，因此不绑定在http对象中
+    :return: 登录的url
     """
-    return get_host_web() + "/@" + username + "/" + projname
-
-
-def get_experiment_url(username: str, projname: str, expid: str) -> str:
-    """获取实验的url
-    :param username: 用户名
-    :param projname: 项目名
-    :param expid: 实验id
-    :return: 实验的url
-    """
-    return get_project_url(username, projname) + "/runs/" + expid
+    return fmt_web_host(web_host) + "/login"
 
 
 # ---------------------------------- 登录相关 ----------------------------------

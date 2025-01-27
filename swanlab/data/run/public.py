@@ -2,7 +2,6 @@ from swankit.core import SwanLabSharedSettings
 
 from swanlab.api import get_http
 from swanlab.env import get_mode
-from swanlab.package import get_project_url, get_experiment_url
 
 
 class SwanlabCloudConfig:
@@ -52,9 +51,7 @@ class SwanlabCloudConfig:
         """
         if not self.available:
             return None
-        groupname = self.__get_property_from_http("groupname")
-        projname = self.__get_property_from_http("projname")
-        return get_project_url(groupname, projname)
+        return self.__get_property_from_http("web_proj_url")
 
     @property
     def experiment_name(self):
@@ -70,10 +67,7 @@ class SwanlabCloudConfig:
         """
         if not self.available:
             return None
-        groupname = self.__get_property_from_http("groupname")
-        projname = self.__get_property_from_http("projname")
-        exp_id = self.__get_property_from_http("exp_id")
-        return get_experiment_url(groupname, projname, exp_id)
+        return self.__get_property_from_http("web_exp_url")
 
 
 class SwanLabPublicConfig:

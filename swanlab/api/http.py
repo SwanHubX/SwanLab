@@ -67,6 +67,8 @@ class HTTP:
         # 创建会话
         self.__create_session()
 
+    # ---------------------------------- 一些辅助属性 ----------------------------------
+
     @property
     def base_url(self):
         return self.__login_info.api_host
@@ -119,6 +121,16 @@ class HTTP:
         获取sid的过期时间，字符串格式转时间
         """
         return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    @property
+    def web_proj_url(self):
+        return f"{self.web_host}/@{self.groupname}/{self.projname}"
+
+    @property
+    def web_exp_url(self):
+        return f"{self.web_proj_url}/runs/{self.exp_id}"
+
+    # ---------------------------------- http方法 ----------------------------------
 
     def __before_request(self):
         """
@@ -197,6 +209,8 @@ class HTTP:
         resp = self.__session.patch(url, json=data)
         return decode_response(resp)
 
+    # ---------------------------------- 对象存储方法 ----------------------------------
+
     def __get_cos(self):
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
@@ -220,6 +234,8 @@ class HTTP:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
         return self.__cos.upload_files(buffers)
+
+    # ---------------------------------- 接入后端api ----------------------------------
 
     def mount_project(self, name: str, username: str = None, public: bool = None) -> ProjectInfo:
         """

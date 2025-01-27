@@ -20,7 +20,7 @@ from swanlab.api.info import LoginInfo
 from swanlab.env import in_jupyter, SwanLabEnv
 from swanlab.error import ValidationError, APIKeyFormatError
 from swanlab.log import swanlog
-from swanlab.package import get_user_setting_path, get_host_api, get_host_web
+from swanlab.package import get_setting_url, get_host_api, get_host_web
 
 
 def login_request(api_key: str, api_host: str, timeout: int = 20) -> requests.Response:
@@ -67,7 +67,7 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("You can find your API key at: " + FONT.yellow(get_user_setting_path()))
+        swanlog.info("You can find your API key at: " + FONT.yellow(get_setting_url()))
     # windows 额外打印提示信息
     if is_windows():
         tip += (

@@ -27,8 +27,6 @@ from swanlab.log import swanlog
 from swanlab.package import (
     get_package_version,
     get_package_latest_version,
-    get_experiment_url,
-    get_project_url,
     get_key,
 )
 from .callback_local import LocalRunCallback, get_run, SwanLabRunState
@@ -171,11 +169,10 @@ class CloudRunCallback(LocalRunCallback):
     def _view_web_print(self):
         self._watch_tip_print()
         http = get_http()
-        project_url = get_project_url(http.groupname, http.projname)
-        experiment_url = get_experiment_url(http.groupname, http.projname, http.exp_id)
-        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(project_url)))
-        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(experiment_url)))
-        return experiment_url
+        proj_url, exp_url = http.web_proj_url, http.web_exp_url
+        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
+        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(exp_url)))
+        return exp_url
 
     def _clean_handler(self):
         run = get_run()
