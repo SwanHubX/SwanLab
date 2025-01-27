@@ -191,9 +191,9 @@ class TestSaveKey:
         assert nrc.authenticators(new_host)[2] == new_password
 
 
-class TestIsLogin:
+class TestHasApiKey:
     @staticmethod
-    def login():
+    def save_api_key():
         path = os.path.join(get_save_dir(), ".netrc")
         with open(path, "w"):
             pass
@@ -207,19 +207,19 @@ class TestIsLogin:
         """
         已经登录
         """
-        self.login()
-        assert P.is_login()
+        self.save_api_key()
+        assert P.has_api_key()
 
     def test_no_file(self):
         """
         文件不存在
         """
-        assert not P.is_login()
+        assert not P.has_api_key()
 
     def test_wrong_host(self):
         """
         host不匹配
         """
-        self.login()
+        self.save_api_key()
         os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
-        assert not P.is_login()
+        assert not P.has_api_key()

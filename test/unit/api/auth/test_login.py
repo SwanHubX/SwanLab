@@ -10,14 +10,14 @@ r"""
 import os
 
 import nanoid
-
-from swanlab.env import SwanLabEnv
-from swanlab.api.auth.login import login_by_key, terminal_login, code_login
-from swanlab.error import ValidationError, APIKeyFormatError
-from swanlab.package import is_login
-from nanoid import generate
-import tutils as T
 import pytest
+from nanoid import generate
+
+import tutils as T
+from swanlab.api.auth.login import login_by_key, terminal_login, code_login
+from swanlab.env import SwanLabEnv
+from swanlab.error import APIKeyFormatError
+from swanlab.package import has_api_key
 
 
 def get_password(prompt: str):
@@ -60,7 +60,7 @@ def test_terminal_login(monkeypatch):
     assert not login_info.is_fail
     assert login_info.api_key == T.API_KEY
     assert login_info.__str__() == "Login success"
-    assert is_login()
+    assert has_api_key()
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
@@ -102,4 +102,4 @@ def test_code_login_task_runtime():
     assert not login_info.is_fail
     # 没有保存在本地
     del os.environ[SwanLabEnv.API_KEY.value]
-    assert not is_login()
+    assert not has_api_key()

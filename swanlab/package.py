@@ -180,7 +180,7 @@ class LoginCheckContext:
         return True
 
 
-def is_login() -> bool:
+def has_api_key() -> bool:
     """判断是否已经登录，与当前的host相关
     如果环境变量中有api key，则认为已经登录
     但不会检查key的有效性
