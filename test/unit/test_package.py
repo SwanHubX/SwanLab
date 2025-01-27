@@ -119,6 +119,14 @@ class TestSaveKey:
         info = nrc.authenticators(host)
         return info[2]
 
+    @staticmethod
+    def loose_compare(a, b, equal: bool = True):
+        """
+        不同文件系统的时间精度不同，因此需要 sleep 一段时间进行比较
+        不精确到微妙 只精确到毫秒
+        """
+        assert (abs(a - b) < 1e-5) is equal
+
     def test_ok(self):
         """
         保存key成功
@@ -137,37 +145,42 @@ class TestSaveKey:
 
     def test_duplicate(self):
         """
-        测试重复保存，此时会略过
+        测试重复保存，此时会略过保存，因此不会改变文件的修改时间
         """
+
         path = os.path.join(get_save_dir(), ".netrc")
+
+        def duplicate_save(p: str, h: str, user: str = "user", equal: bool = True):
+            c = os.path.getmtime(path)
+            time.sleep(0.1)
+            P.save_key(user, p, host=h)
+            assert self.get_key(path, h) == p
+            return self.loose_compare(os.path.getmtime(path), c, equal)
+
         password = nanoid.generate()
         host = P.get_host_api()
         P.save_key("user", password, host=host)
-        change_time = os.path.getmtime(path)
         assert self.get_key(path, host) == password
-        P.save_key("user", password, host=host)
-        assert self.get_key(path, host) == password
-        assert os.path.getmtime(path) == change_time
-        time.sleep(0.1)
+
+        # 重复保存
+        duplicate_save(password, host, equal=True)
         # 再次保存，但是账号不同
         new_password = nanoid.generate()
-        P.save_key("user2", new_password, host=host)
-        assert self.get_key(path, host) == new_password
-        assert os.path.getmtime(path) != change_time
-        time.sleep(0.1)
+        duplicate_save(new_password, host, user="user2", equal=False)
         # 再次保存，但是host不同
         new_host = nanoid.generate()
-        P.save_key("user", new_password, host=new_host)
+        duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host) is not None
-        time.sleep(0.1)
-        # 再次保存，但是密码不同
+        # 再次保存，但是密码又不同了
         new_password = nanoid.generate()
-        P.save_key("user", new_password, host=new_host)
+        duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host)[2] == new_password
+        # 再次保存，但是密码又相同了
+        duplicate_save(new_password, new_host, equal=True)
 
 
 class TestHasApiKey:

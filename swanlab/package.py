@@ -124,13 +124,14 @@ def get_key():
     return info[2]
 
 
-def save_key(username: str, password: str, host: str = None):
+def save_key(username: str, password: str, host: str = None) -> bool:
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
     此函数不考虑上层文件存在的清空，但是会在调用的get_save_dir()函数中进行检查
     :param username: 保存的用户名
     :param password: 保存的密码
     :param host: 保存的host
+    :return: 是否保存，如果已经存在，则不保存
     """
     if host is None:
         host = get_host_api()
@@ -142,11 +143,13 @@ def save_key(username: str, password: str, host: str = None):
     new_info = (username, "", password)
     # 避免重复的写
     info = nrc.authenticators(host)
-    if info != new_info:
+    if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
         # 同时只允许存在一个host： https://github.com/SwanHubX/SwanLab/issues/797
         nrc.hosts = {host: new_info}
         with open(path, "w") as f:
             f.write(nrc.__repr__())
+        return True
+    return False
 
 
 class LoginCheckContext:
