@@ -7,9 +7,11 @@ r"""
 @Description:
     定义认证数据格式
 """
-import requests
-from swanlab.package import save_key
 from typing import Union
+
+import requests
+
+from swanlab.package import save_key
 
 
 class LoginInfo:
@@ -18,7 +20,7 @@ class LoginInfo:
     无论接口请求成功还是失败，都会初始化一个LoginInfo对象
     """
 
-    def __init__(self, resp: requests.Response, api_key: str):
+    def __init__(self, resp: requests.Response, api_key: str, api_host: str, web_host: str):
         self.__api_key = api_key
         self.__resp = resp
         self.__body = resp.json() if resp.status_code == 200 else {}
@@ -26,6 +28,8 @@ class LoginInfo:
         """
         如果此属性不为None，username返回此属性
         """
+        self.web_host = web_host
+        self.api_host = api_host
 
     @property
     def sid(self) -> Union[str, None]:

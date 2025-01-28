@@ -7,20 +7,22 @@ r"""
 @Description:
     http会话对象
 """
-from typing import Optional, Tuple, Dict, Union, List, AnyStr
+import json
 from datetime import datetime
-from .info import LoginInfo, ProjectInfo, ExperimentInfo
-from .auth.login import login_by_key
-from .cos import CosClient
-from swanlab.data.modules import MediaBuffer
-from swanlab.error import NetworkError, ApiError
-from swanlab.package import get_host_api, get_package_version
-from swankit.log import FONT
-from swanlab.log import swanlog
+from typing import Optional, Tuple, Dict, Union, List, AnyStr
+
 import requests
 from requests.adapters import HTTPAdapter
+from swankit.log import FONT
 from urllib3.util.retry import Retry
-import json
+
+from swanlab.data.modules import MediaBuffer
+from swanlab.error import NetworkError, ApiError
+from swanlab.log import swanlog
+from swanlab.package import get_package_version
+from .auth.login import login_by_key
+from .cos import CosClient
+from .info import LoginInfo, ProjectInfo, ExperimentInfo
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
@@ -51,7 +53,6 @@ class HTTP:
         初始化会话
         """
         self.__login_info = login_info
-        self.base_url = get_host_api()
         # 当前cos信息
         self.__cos: Optional[CosClient] = None
         # 当前项目信息
@@ -65,6 +66,20 @@ class HTTP:
         self.__version = get_package_version()
         # 创建会话
         self.__create_session()
+
+    # ---------------------------------- 一些辅助属性 ----------------------------------
+
+    @property
+    def base_url(self):
+        return self.__login_info.api_host
+
+    @property
+    def api_host(self):
+        return self.__login_info.web_host
+
+    @property
+    def web_host(self):
+        return self.__login_info.web_host
 
     @property
     def groupname(self):
@@ -107,10 +122,21 @@ class HTTP:
         """
         return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
 
+    @property
+    def web_proj_url(self):
+        return f"{self.web_host}/@{self.groupname}/{self.projname}"
+
+    @property
+    def web_exp_url(self):
+        return f"{self.web_proj_url}/runs/{self.exp_id}"
+
+    # ---------------------------------- http方法 ----------------------------------
+
     def __before_request(self):
         """
         请求前的钩子
         """
+        # FIXME datetime.utcnow() -> datetime.now(datetime.UTC)
         if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
@@ -183,6 +209,8 @@ class HTTP:
         resp = self.__session.patch(url, json=data)
         return decode_response(resp)
 
+    # ---------------------------------- 对象存储方法 ----------------------------------
+
     def __get_cos(self):
         cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
         self.__cos = CosClient(cos)
@@ -206,6 +234,8 @@ class HTTP:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
         return self.__cos.upload_files(buffers)
+
+    # ---------------------------------- 接入后端api ----------------------------------
 
     def mount_project(self, name: str, username: str = None, public: bool = None) -> ProjectInfo:
         """
@@ -255,8 +285,11 @@ class HTTP:
 
             data = self.post(
                 f"/project/{self.groupname}/{self.__proj.name}/runs",
-                {"name": exp_name, "colors": list(colors), "description": description} if description else {
-                    "name": exp_name, "colors": list(colors)}
+                (
+                    {"name": exp_name, "colors": list(colors), "description": description}
+                    if description
+                    else {"name": exp_name, "colors": list(colors)}
+                ),
             )
             self.__exp = ExperimentInfo(data)
             # 获取cos信息

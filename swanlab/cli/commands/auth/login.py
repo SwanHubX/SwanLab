@@ -8,28 +8,31 @@ r"""
     登录模块
 """
 import click
-from swanlab.package import is_login
-from swanlab.api.auth import terminal_login
 from swankit.log import FONT
+
+from swanlab.api.auth import terminal_login
+from swanlab.package import has_api_key
 
 
 @click.command()
 @click.option(
-    "--relogin", "-r",
+    "--relogin",
+    "-r",
     is_flag=True,
     default=False,
     help="Relogin to the swanlab cloud, it will recover the token file.",
 )
 @click.option(
-    "--api-key", "-k",
+    "--api-key",
+    "-k",
     default=None,
     type=str,
     help="If you prefer not to engage in commands-line interaction to input the api key, "
-         "this will allow automatic login.",
+    "this will allow automatic login.",
 )
 def login(api_key: str, relogin: bool):
     """Login to the swanlab cloud."""
-    if not relogin and is_login():
+    if not relogin and has_api_key():
         # 此时代表token已经获取，需要打印一条信息：已经登录
         command = FONT.bold("swanlab login --relogin")
         tip = FONT.swanlab("You are already logged in. Use `" + command + "` to force relogin.")
