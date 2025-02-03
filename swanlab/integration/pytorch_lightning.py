@@ -63,6 +63,8 @@ class SwanLabLogger(Logger):
     ):
         super().__init__()
 
+        self._experiment = None
+
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
             "workspace": workspace,
