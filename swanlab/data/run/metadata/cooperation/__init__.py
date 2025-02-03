@@ -11,7 +11,6 @@ from swankit.env import get_swanlog_dir
 
 from swanlab.api import get_http
 from swanlab.env import get_mode
-from swanlab.package import get_experiment_url
 from swanlab.package import get_package_version
 from .qing_cloud import get_qing_cloud_info
 
@@ -47,7 +46,7 @@ def get_swanlab_info() -> SwanLabInfo:
     }
     try:
         http = get_http()
-        data["exp_url"] = get_experiment_url(http.username, http.projname, http.exp_id)
+        data["exp_url"] = http.web_exp_url
     except ValueError:
         pass
     return data

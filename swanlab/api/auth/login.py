@@ -20,12 +20,12 @@ from swanlab.api.info import LoginInfo
 from swanlab.env import in_jupyter, SwanLabEnv
 from swanlab.error import ValidationError, APIKeyFormatError
 from swanlab.log import swanlog
-from swanlab.package import get_user_setting_path, get_host_api
+from swanlab.package import get_setting_url, get_host_api, get_host_web
 
 
-def login_request(api_key: str, timeout: int = 20) -> requests.Response:
+def login_request(api_key: str, api_host: str, timeout: int = 20) -> requests.Response:
     """用户登录，请求后端接口完成验证"""
-    resp = requests.post(url=f"{get_host_api()}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
+    resp = requests.post(url=f"{api_host}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
     return resp
 
 
@@ -42,9 +42,10 @@ def login_by_key(api_key: str, timeout: int = 20, save: bool = True) -> LoginInf
     save : bool, optional
         是否保存到本地token文件
     """
-    resp = login_request(api_key, timeout)
+    api_host, web_host = get_host_api(), get_host_web()
+    resp = login_request(api_key, api_host, timeout)
     # api key写入token文件
-    login_info = LoginInfo(resp, api_key)
+    login_info = LoginInfo(resp, api_key, api_host, web_host)
     save and not login_info.is_fail and login_info.save()
     return login_info
 
@@ -66,7 +67,7 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("You can find your API key at: " + FONT.yellow(get_user_setting_path()))
+        swanlog.info("You can find your API key at: " + FONT.yellow(get_setting_url()))
     # windows 额外打印提示信息
     if is_windows():
         tip += (

@@ -46,33 +46,12 @@ def test_get_host_api_env():
     assert P.get_host_api() == os.environ[SwanLabEnv.API_HOST.value]
 
 
-def test_get_user_setting_path():
+def test_fmt_web_host():
     """
-    测试获取用户设置文件路径
+    测试格式化web地址
     """
-    assert P.get_user_setting_path() == P.get_host_web() + "/space/~/settings"
-
-
-def test_get_project_url():
-    """
-    测试获取项目url
-    """
-    username = nanoid.generate()
-    projname = nanoid.generate()
-    assert P.get_project_url(username, projname) == P.get_host_web() + "/@" + username + "/" + projname
-
-
-def test_get_experiment_url():
-    """
-    测试获取实验url
-    """
-    username = nanoid.generate()
-    projname = nanoid.generate()
-    expid = nanoid.generate()
-    assert (
-        P.get_experiment_url(username, projname, expid)
-        == P.get_host_web() + "/@" + username + "/" + projname + "/runs/" + expid
-    )
+    assert P.fmt_web_host() == P.get_host_web().rstrip("/")
+    assert P.fmt_web_host("https://abc.cn/") == "https://abc.cn"
 
 
 # ---------------------------------- 登录部分 ----------------------------------
@@ -140,6 +119,14 @@ class TestSaveKey:
         info = nrc.authenticators(host)
         return info[2]
 
+    @staticmethod
+    def loose_compare(a, b, equal: bool = True):
+        """
+        不同文件系统的时间精度不同，因此需要 sleep 一段时间进行比较
+        不精确到微妙 只精确到毫秒
+        """
+        assert (abs(a - b) < 1e-5) is equal
+
     def test_ok(self):
         """
         保存key成功
@@ -158,42 +145,47 @@ class TestSaveKey:
 
     def test_duplicate(self):
         """
-        测试重复保存，此时会略过
+        测试重复保存，此时会略过保存，因此不会改变文件的修改时间
         """
+
         path = os.path.join(get_save_dir(), ".netrc")
+
+        def duplicate_save(p: str, h: str, user: str = "user", equal: bool = True):
+            c = os.path.getmtime(path)
+            time.sleep(0.1)
+            P.save_key(user, p, host=h)
+            assert self.get_key(path, h) == p
+            return self.loose_compare(os.path.getmtime(path), c, equal)
+
         password = nanoid.generate()
         host = P.get_host_api()
         P.save_key("user", password, host=host)
-        change_time = os.path.getmtime(path)
         assert self.get_key(path, host) == password
-        P.save_key("user", password, host=host)
-        assert self.get_key(path, host) == password
-        assert os.path.getmtime(path) == change_time
-        time.sleep(0.1)
+
+        # 重复保存
+        duplicate_save(password, host, equal=True)
         # 再次保存，但是账号不同
         new_password = nanoid.generate()
-        P.save_key("user2", new_password, host=host)
-        assert self.get_key(path, host) == new_password
-        assert os.path.getmtime(path) != change_time
-        time.sleep(0.1)
+        duplicate_save(new_password, host, user="user2", equal=False)
         # 再次保存，但是host不同
         new_host = nanoid.generate()
-        P.save_key("user", new_password, host=new_host)
+        duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host) is not None
-        time.sleep(0.1)
-        # 再次保存，但是密码不同
+        # 再次保存，但是密码又不同了
         new_password = nanoid.generate()
-        P.save_key("user", new_password, host=new_host)
+        duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host)[2] == new_password
+        # 再次保存，但是密码又相同了
+        duplicate_save(new_password, new_host, equal=True)
 
 
-class TestIsLogin:
+class TestHasApiKey:
     @staticmethod
-    def login():
+    def save_api_key():
         path = os.path.join(get_save_dir(), ".netrc")
         with open(path, "w"):
             pass
@@ -207,19 +199,19 @@ class TestIsLogin:
         """
         已经登录
         """
-        self.login()
-        assert P.is_login()
+        self.save_api_key()
+        assert P.has_api_key()
 
     def test_no_file(self):
         """
         文件不存在
         """
-        assert not P.is_login()
+        assert not P.has_api_key()
 
     def test_wrong_host(self):
         """
         host不匹配
         """
-        self.login()
+        self.save_api_key()
         os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
-        assert not P.is_login()
+        assert not P.has_api_key()

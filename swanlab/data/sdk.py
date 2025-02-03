@@ -263,6 +263,8 @@ def _init_mode(mode: str = None):
     except KeyFileError:
         no_api_key = True
     login_info = None
+    # 三选一只允许登录官方的host，除非在此之前手动设置了环境变量
+    # 详见 https://github.com/SwanHubX/SwanLab/issues/792#issuecomment-2603959483
     if mode == "cloud" and no_api_key:
         # 判断当前进程是否在交互模式下
         if is_interactive():
@@ -273,6 +275,7 @@ def _init_mode(mode: str = None):
             swanlog.info("(2) Use an existing SwanLab account.")
             swanlog.info("(3) Don't visualize my results.")
 
+            web_host = get_host_web()
             # 交互选择
             tip = FONT.swanlab("Enter your choice: ")
             code = input(tip)
@@ -283,16 +286,16 @@ def _init_mode(mode: str = None):
                 mode = "local"
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
-                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
+                swanlog.info("Logging into " + FONT.yellow(web_host))
                 login_info = terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
+                swanlog.info("Create a SwanLab account here: " + FONT.yellow(web_host + "/login"))
                 login_info = terminal_login()
             else:
                 raise ValueError("Invalid choice")
-
         # 如果不在就不管
+
     os.environ[mode_key] = mode
     return mode, login_info
 

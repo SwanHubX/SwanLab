@@ -7,8 +7,26 @@ r"""
 @Description:
     API模块，封装api请求接口
 """
-from .info import *
 from .auth.login import terminal_login, code_login
 from .http import create_http, get_http
+from .info import *
 
-__all__ = ["LoginInfo", 'ExperimentInfo', 'ProjectInfo', "code_login", 'terminal_login', 'create_http', 'get_http']
+
+def is_login() -> bool:
+    """判断是否登录(拥有http对象)"""
+    try:
+        return get_http() is not None
+    except ValueError:
+        return False
+
+
+__all__ = [
+    "LoginInfo",
+    'ExperimentInfo',
+    'ProjectInfo',
+    "code_login",
+    'terminal_login',
+    'create_http',
+    'get_http',
+    'is_login',
+]
