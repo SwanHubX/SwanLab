@@ -113,13 +113,14 @@ class TestSwanLabRunLog:
     # ---------------------------------- 解析log数字/Line ----------------------------------
     def test_log_number_ok(self):
         run = SwanLabRun()
-        data = {"a": 1, "b": 0.1, "math.nan": math.nan, "math.inf": math.inf}
+        data = {"a": 1, "b": 0.1, "c": {"d": 2}, "math.nan": math.nan, "math.inf": math.inf}
         ll = run.log(data)
-        assert len(ll) == 4
+        assert len(ll) == 5
         # 都没有错误
         assert all([ll[k].is_error is False for k in ll])
         assert ll["a"].data == 1
         assert ll["b"].data == 0.1
+        assert ll["c.d"].data == 2
         assert ll["math.nan"].data == Line.nan
         assert ll["math.inf"].data == Line.inf
         assert all([ll[k].column_info.chart_type == ll[k].column_info.chart_type.LINE for k in ll])
@@ -146,9 +147,9 @@ class TestSwanLabRunLog:
         使用Line类型log，本质上应该与数字类型一样，数字类型是Line类型的语法糖
         """
         run = SwanLabRun()
-        data = {"a": Line(1), "b": Line(0.1), "math.nan": Line(math.nan), "math.inf": Line(math.inf)}
+        data = {"a": Line(1), "b": Line(0.1), "c": {"d": Line(2)}, "math.nan": Line(math.nan), "math.inf": Line(math.inf)}
         ll = run.log(data)
-        assert len(ll) == 4
+        assert len(ll) == 5
         # line(1)和[line(1)]是一样的
         ll2 = run.log({"a": [Line(1)]})
         assert ll2["a"].data == ll["a"].data
