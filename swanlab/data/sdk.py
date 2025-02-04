@@ -87,6 +87,7 @@ def init(
     mode: MODES = None,
     load: str = None,
     public: bool = None,
+    name: str = None,
     **kwargs,
 ) -> SwanLabRun:
     """
@@ -143,6 +144,8 @@ def init(
     public : bool, optional
         Whether the project can be seen by anyone, the default is None, which means the project is private.
         Only available in cloud mode while the first time you create the project.
+    name : str, optional
+        The name of the current run, if not provided, it will be the same as the experiment name.
     """
     if SwanLabRun.is_started():
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -158,6 +161,7 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
         public = _load_data(load_data, "private", public)
+        name = _load_data(load_data, "name", name)
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
     # ---------------------------------- 启动操作员 ----------------------------------
     operator, c = _create_operator(mode, public)
@@ -177,6 +181,7 @@ def init(
         log_level=kwargs.get("log_level", "info"),
         exp_num=exp_num,
         operator=operator,
+        name=name,
     )
     return run
 

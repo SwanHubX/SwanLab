@@ -43,6 +43,7 @@ class SwanLabRun:
         log_level: str = None,
         exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
+        name: str = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
@@ -68,6 +69,8 @@ class SwanLabRun:
             历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
+        name : str, optional
+            实验名称，默认以experiment_name为主，如果experiment_name为None，则以name为主
         """
         if self.is_started():
             raise RuntimeError("SwanLabRun has been initialized")
@@ -103,6 +106,13 @@ class SwanLabRun:
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
+        # 如果experiment_name和name都提供了，则warning
+        if experiment_name is not None and name is not None:
+            swanlog.warning("The `experiment_name` has been provided, and the `name` will be ignored.")
+        # 如果experiment_name为None，则以name为主
+        elif experiment_name is None and name is not None:
+            experiment_name = name
+            
         self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
