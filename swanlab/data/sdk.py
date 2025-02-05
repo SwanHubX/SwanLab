@@ -148,11 +148,14 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+
+    # for https://github.com/SwanHubX/SwanLab/issues/809
     if experiment_name is None and kwargs.get("name", None) is not None:
         experiment_name = kwargs.get("name")
     if description is None and kwargs.get("notes", None) is not None:
         description = kwargs.get("notes")
-        
+
+    # 从文件中加载数据
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
