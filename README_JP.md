@@ -52,6 +52,7 @@
 
 ## 🌟 最近の更新
 
+- 2025.02.05：`swanlab.init`はネストされた辞書をサポートし、Jaxフレームワークの特性に適応；`name`と`notes`パラメータをサポート
 - 2025.01.22：`sync_tensorboardX`と`sync_tensorboard_torch`機能を追加し、この2つのTensorBoardフレームワークとの実験追跡の同期をサポート
 
 - 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
@@ -66,7 +67,12 @@
 
 - 2024.12.06：[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)の統合を追加；ログ記録の1行あたりの長さ制限を引き上げ
 
+<details><summary>完全な更新履歴</summary>
+
 - 2024.11.26：環境タブのハードウェアセクションで**華為昇騰NPU**と**鯤鵬CPU**の識別をサポート；クラウドプロバイダーセクションで**青雲基石智算**の識別をサポート
+
+</details>
+
 
 <br>
 

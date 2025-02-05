@@ -51,6 +51,8 @@
 
 ## 🌟 最近更新
 
+- 2025.02.05：`swanlab.init`支持嵌套字典，适配Jax框架特性；支持`name`与`notes`参数；
+
 - 2025.01.22：新增`sync_tensorboardX`与`sync_tensorboard_torch`功能，支持与此两种TensorBoard框架同步实验跟踪；
 
 - 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
@@ -65,7 +67,11 @@
 
 - 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
 
+<details><summary>完整更新日志</summary>
+
 - 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别青云**基石智算**。
+
+</details>
 
 <br>
 

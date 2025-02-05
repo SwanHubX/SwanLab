@@ -51,6 +51,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.02.05: `swanlab.init` supports nested dictionaries, adapting Jax framework features; supports `name` and `notes` parameters.
 - 2025.01.22: Added `sync_tensorboardX` and `sync_tensorboard_torch` features, supporting synchronization of experiment tracking with these two TensorBoard frameworks.
 
 - 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
@@ -65,7 +66,11 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2024.12.06: Added integration with [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html) and [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html); increased the limit for single-line log length.
 
+<details><summary>Full Changelog</summary>
+
 - 2024.11.26: Environment tab - Hardware section now supports identifying **Huawei Ascend NPU** and **Kunpeng CPU**; cloud provider section now supports identifying **QingCloud Jishi Computing**.
+
+</details>
 
 <br>
 
