@@ -51,7 +51,7 @@
 
 ## 🌟 最近更新
 
-- 2025.02.05：`swanlab.init`支持嵌套字典，适配Jax框架特性；支持`name`与`notes`参数；
+- 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
 
 - 2025.01.22：新增`sync_tensorboardX`与`sync_tensorboard_torch`功能，支持与此两种TensorBoard框架同步实验跟踪；
 
