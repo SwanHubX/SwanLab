@@ -256,6 +256,8 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 
 **Reinforcement Learning**
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
+- [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
+- [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
 
 **Other Frameworks:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
