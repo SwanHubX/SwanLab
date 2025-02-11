@@ -114,11 +114,20 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path, host = get_nrc_path(), get_host_api()
+    path, host = get_nrc_path(), get_host_api().rstrip("/api")
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
     info = nrc.authenticators(host)
+
+    # 向下兼容 https://github.com/SwanHubX/SwanLab/issues/792#issuecomment-2649685881
+    if info is None:
+        info = nrc.authenticators(host + "/api")
+        if info is not None:
+            nrc.hosts = {host: info}
+            with open(path, "w") as f:
+                f.write(repr(nrc))
+
     if info is None:
         raise KeyFileError(f"The host {host} does not exist")
     return info[2]
@@ -134,7 +143,7 @@ def save_key(username: str, password: str, host: str = None) -> bool:
     :return: 是否保存，如果已经存在，则不保存
     """
     if host is None:
-        host = get_host_api()
+        host = get_host_api().rstrip("/api")
     path = get_nrc_path()
     if not os.path.exists(path):
         with open(path, "w") as f:

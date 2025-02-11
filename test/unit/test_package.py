@@ -110,6 +110,27 @@ class TestGetKey:
         os.environ[SwanLabEnv.API_KEY.value] = key
         assert P.get_key() == key
 
+    def test_compatible(self):
+        """
+        测试向下兼容性，假设有一个带 /api 的host在本地文件中，但是寻找的是不带 /api 的host
+        """
+        self.remove_env_key()
+        file = os.path.join(get_save_dir(), ".netrc")
+        with open(file, "w"):
+            pass
+        nrc = netrc.netrc(file)
+        key = nanoid.generate()
+        host = "https://api.swanlab.cn/api"
+        os.environ[SwanLabEnv.API_HOST.value] = host
+        nrc.hosts[host] = ("user", "", key)
+        with open(file, "w") as f:
+            f.write(repr(nrc))
+        assert P.get_key() == key
+        host = host.rstrip("/api")
+        os.environ[SwanLabEnv.API_HOST.value] = host
+        self.remove_env_key()
+        assert P.get_key() == key
+
 
 class TestSaveKey:
 
