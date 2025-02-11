@@ -11,7 +11,7 @@ from typing import Union
 
 import requests
 
-from swanlab.package import save_key
+from swanlab.package import save_key, fmt_web_host
 
 
 class LoginInfo:
@@ -28,7 +28,7 @@ class LoginInfo:
         """
         如果此属性不为None，username返回此属性
         """
-        self.web_host = web_host
+        self.web_host = fmt_web_host(web_host)
         self.api_host = api_host
 
     @property
@@ -91,7 +91,7 @@ class LoginInfo:
         """
         保存登录信息
         """
-        return save_key("user", self.api_key)
+        return save_key(self.web_host, self.api_key, self.api_host)
 
 
 class ProjectInfo:
