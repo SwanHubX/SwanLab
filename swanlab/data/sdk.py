@@ -248,7 +248,7 @@ def should_call_after_init(text):
 
 
 @should_call_after_init("You must call swanlab.init() before using log()")
-def log(data: Dict[str, DataType], step: int = None):
+def log(data: Dict[str, DataType], step: int = None, print_to_console: bool = False):
     """
     Log a row of data to the current run.
     We recommend that you log data by SwanLabRun.log() method, but you can also use this function to log data.
@@ -262,9 +262,12 @@ def log(data: Dict[str, DataType], step: int = None):
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
+    print_to_console : bool, optional
+        Whether to print the data to the console, the default is False.
     """
     run = get_run()
     ll = run.log(data, step)
+    print_to_console and print(ll)
     return ll
 
 
