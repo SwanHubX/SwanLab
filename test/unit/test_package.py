@@ -138,6 +138,8 @@ class TestSaveKey:
     def get_key(path, host):
         nrc = netrc.netrc(path)
         info = nrc.authenticators(host)
+        if info is None:
+            info = nrc.authenticators(host.rstrip("/api"))
         return info[2]
 
     @staticmethod
@@ -178,7 +180,7 @@ class TestSaveKey:
             assert self.get_key(path, h) == p
             return self.loose_compare(os.path.getmtime(path), c, equal)
 
-        password = nanoid.generate()
+        password = "123456"
         host = P.get_host_api()
         P.save_key("user", password, host=host)
         assert self.get_key(path, host) == password
@@ -186,16 +188,17 @@ class TestSaveKey:
         # 重复保存
         duplicate_save(password, host, equal=True)
         # 再次保存，但是账号不同
-        new_password = nanoid.generate()
+        new_password = "567890"
         duplicate_save(new_password, host, user="user2", equal=False)
         # 再次保存，但是host不同
-        new_host = nanoid.generate()
+        new_host = "example.com"
         duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
+        assert list(nrc.hosts.keys())[0] == new_host
         assert nrc.authenticators(new_host) is not None
         # 再次保存，但是密码又不同了
-        new_password = nanoid.generate()
+        new_password = "abcdef"
         duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1

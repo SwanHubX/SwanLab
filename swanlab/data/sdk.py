@@ -8,6 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import re
 from typing import Optional, Union, Dict, Tuple, Literal
 
 from swanboard import SwanBoardCallback
@@ -57,7 +58,32 @@ def _check_proj_name(name: str) -> str:
     return _name
 
 
-def login(api_key: str = None):
+class HostFormatter:
+    def __init__(self):
+        # 定义正则模式，匹配协议、主机、端口三部分
+        self.pattern = re.compile(
+            r'^(?:(https?)://)?'  # 可选协议 http 或 https
+            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 必填 主机名必须包含顶级域名（TLD）
+            r'(?::(\d{1,5}))?$'  # 可选端口号（1~5位数字）
+        )
+
+    def __call__(self, input_str: str) -> str:
+        match = self.pattern.match(input_str.rstrip("/"))
+        if match:
+            protocol = match.group(1) or "https"  # 默认协议为 https
+            host = match.group(2)
+            port = match.group(3)
+
+            # 构建标准化的 URL 输出
+            result = f"{protocol}://{host}"
+            if port:
+                result += f":{port}"
+            return result
+        else:
+            raise ValueError("Invalid host format")
+
+
+def login(api_key: str = None, host: str = None, web_host: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
@@ -66,11 +92,27 @@ def login(api_key: str = None):
 
     :param api_key: str, optional
         authentication key, if not provided, the key will be read from the key file.
-
+    :param host: str, optional
+        api host, if not provided, the default host will be used.
+    :param web_host: str, optional
+        web host, if not provided, the default host will be used.
     :return: LoginInfo
     """
     if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
+    # ---------------------------------- 检查host是否合法，并格式化 ----------------------------------
+    formater = HostFormatter()
+    if host:
+        try:
+            os.environ[SwanLabEnv.API_HOST.value] = formater(host) + "/api"
+        except ValueError:
+            raise ValueError("Invalid host: {}".format(host))
+    if web_host:
+        try:
+            os.environ[SwanLabEnv.WEB_HOST.value] = formater(web_host)
+        except ValueError:
+            raise ValueError("Invalid web_host: {}".format(web_host))
+    # ---------------------------------- 登录，初始化http对象 ----------------------------------
     CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
 
 
