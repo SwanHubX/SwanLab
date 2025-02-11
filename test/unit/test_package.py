@@ -110,6 +110,27 @@ class TestGetKey:
         os.environ[SwanLabEnv.API_KEY.value] = key
         assert P.get_key() == key
 
+    def test_compatible(self):
+        """
+        测试向下兼容性，假设有一个带 /api 的host在本地文件中，但是寻找的是不带 /api 的host
+        """
+        self.remove_env_key()
+        file = os.path.join(get_save_dir(), ".netrc")
+        with open(file, "w"):
+            pass
+        nrc = netrc.netrc(file)
+        key = nanoid.generate()
+        host = "https://api.swanlab.cn/api"
+        os.environ[SwanLabEnv.API_HOST.value] = host
+        nrc.hosts[host] = ("user", "", key)
+        with open(file, "w") as f:
+            f.write(repr(nrc))
+        assert P.get_key() == key
+        host = host.rstrip("/api")
+        os.environ[SwanLabEnv.API_HOST.value] = host
+        self.remove_env_key()
+        assert P.get_key() == key
+
 
 class TestSaveKey:
 
@@ -117,6 +138,8 @@ class TestSaveKey:
     def get_key(path, host):
         nrc = netrc.netrc(path)
         info = nrc.authenticators(host)
+        if info is None:
+            info = nrc.authenticators(host.rstrip("/api"))
         return info[2]
 
     @staticmethod
@@ -157,7 +180,7 @@ class TestSaveKey:
             assert self.get_key(path, h) == p
             return self.loose_compare(os.path.getmtime(path), c, equal)
 
-        password = nanoid.generate()
+        password = "123456"
         host = P.get_host_api()
         P.save_key("user", password, host=host)
         assert self.get_key(path, host) == password
@@ -165,16 +188,17 @@ class TestSaveKey:
         # 重复保存
         duplicate_save(password, host, equal=True)
         # 再次保存，但是账号不同
-        new_password = nanoid.generate()
+        new_password = "567890"
         duplicate_save(new_password, host, user="user2", equal=False)
         # 再次保存，但是host不同
-        new_host = nanoid.generate()
+        new_host = "example.com"
         duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1
+        assert list(nrc.hosts.keys())[0] == new_host
         assert nrc.authenticators(new_host) is not None
         # 再次保存，但是密码又不同了
-        new_password = nanoid.generate()
+        new_password = "abcdef"
         duplicate_save(new_password, new_host, equal=False)
         nrc = netrc.netrc(path)
         assert len(nrc.hosts) == 1

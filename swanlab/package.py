@@ -114,11 +114,20 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path, host = get_nrc_path(), get_host_api()
+    path, host = get_nrc_path(), get_host_api().rstrip("/api")
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
     info = nrc.authenticators(host)
+
+    # 向下兼容 https://github.com/SwanHubX/SwanLab/issues/792#issuecomment-2649685881
+    if info is None:
+        info = nrc.authenticators(host + "/api")
+        if info is not None:
+            nrc.hosts = {host: info}
+            with open(path, "w") as f:
+                f.write(repr(nrc))
+
     if info is None:
         raise KeyFileError(f"The host {host} does not exist")
     return info[2]
@@ -128,13 +137,14 @@ def save_key(username: str, password: str, host: str = None) -> bool:
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
     此函数不考虑上层文件存在的清空，但是会在调用的get_save_dir()函数中进行检查
-    :param username: 保存的用户名
+    :param username: 保存的用户名，默认为user，可选择存储为前端网页ip或者域名
     :param password: 保存的密码
     :param host: 保存的host
     :return: 是否保存，如果已经存在，则不保存
     """
     if host is None:
         host = get_host_api()
+    host = host.rstrip("/api")
     path = get_nrc_path()
     if not os.path.exists(path):
         with open(path, "w") as f:

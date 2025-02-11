@@ -306,6 +306,25 @@ class TestInitLogdir:
         assert run.public.swanlog_dir == logdir
 
 
+class TestHostFormatter:
+    def test_ok(self):
+        formatter = S.HostFormatter()
+        assert formatter("swanlab.cn") == "https://swanlab.cn"
+        assert formatter("https://swanlab.cn") == "https://swanlab.cn"
+        assert formatter("http://swanlab.cn") == "http://swanlab.cn"  # noqa
+        assert formatter("https://swanlab.cn:8443/") == "https://swanlab.cn:8443"
+        assert formatter("abc.example.com") == "https://abc.example.com"
+
+    def test_value_err(self):
+        formatter = S.HostFormatter()
+        with pytest.raises(ValueError):
+            formatter("test")
+        with pytest.raises(ValueError):
+            formatter("https://test")
+        with pytest.raises(ValueError):
+            formatter("http://test")  # noqa
+
+
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 class TestLogin:
     """
@@ -356,3 +375,17 @@ class TestLogin:
             S.login()
         os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
         S.login()
+
+    def test_pass_host(self):
+        """
+        传入host参数
+        """
+        del os.environ[SwanLabEnv.WEB_HOST.value]
+        del os.environ[SwanLabEnv.API_HOST.value]
+        os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
+        S.login(host=T.API_HOST.rstrip("/api"))
+        assert os.environ[SwanLabEnv.API_HOST.value] == T.API_HOST
+        assert os.environ.get(SwanLabEnv.WEB_HOST.value) is None
+        S.login(host=T.API_HOST.rstrip("/api"), web_host=T.WEB_HOST)
+        assert os.environ[SwanLabEnv.API_HOST.value] == T.API_HOST
+        assert os.environ[SwanLabEnv.WEB_HOST.value] == T.WEB_HOST

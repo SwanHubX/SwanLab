@@ -12,10 +12,10 @@ import os
 import pytest
 
 import swanlab
-from swanlab.env import SwanLabEnv, is_interactive
+from swanlab.env import SwanLabEnv, is_interactive, get_save_dir
 
 
-def test_default():
+def test_set_default():
     """
     测试获取默认的环境变量
     """
@@ -25,6 +25,22 @@ def test_default():
     swanlab.env.SwanLabEnv.set_default()
     assert swanlab.package.get_host_web() == "https://swanlab.cn"
     assert swanlab.package.get_host_api() == "https://api.swanlab.cn/api"
+    assert os.getenv(SwanLabEnv.RUNTIME.value) == "user"
+
+
+def test_set_by_netrc():
+    """
+    测试通过netrc文件设置环境变量
+    """
+    del os.environ[SwanLabEnv.WEB_HOST.value]
+    del os.environ[SwanLabEnv.API_HOST.value]
+    del os.environ[SwanLabEnv.RUNTIME.value]
+    netrc_path = os.path.join(get_save_dir(), ".netrc")
+    with open(netrc_path, "w") as f:
+        f.write("machine https://example.cn\nlogin test\npassword 123")
+    swanlab.env.SwanLabEnv.set_default()
+    assert swanlab.package.get_host_web() == "https://example.cn"
+    assert swanlab.package.get_host_api() == "https://example.cn/api"
     assert os.getenv(SwanLabEnv.RUNTIME.value) == "user"
 
 

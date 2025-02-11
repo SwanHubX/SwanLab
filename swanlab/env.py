@@ -9,7 +9,9 @@ r"""
 """
 import enum
 import io
+import netrc
 import os
+import re
 import sys
 from typing import List
 
@@ -70,14 +72,38 @@ class SwanLabEnv(enum.Enum):
     webhook地址。swanlab初始化完毕时，如果此环境变量存在，会调用此地址，发送消息。
     """
 
+    @staticmethod
+    def is_hostname(value: str) -> bool:
+        """
+        判断是否为合法的主机名
+        :param value: 待判断的字符串
+        :return: 是否为合法的主机名
+        """
+        if bool(re.compile(r'^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(\.|$)){4}$').match(value)):
+            return True
+        if bool(re.compile(r'^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$').match(value)):
+            return True
+        return False
+
     @classmethod
     def set_default(cls):
         """
-        设置默认的环境变量值
+        设置默认的环境变量值，如果netrc文件存在，使用netrc中第一个machine的信息
         """
+        # 从netrc文件中读取host信息
+        path = os.path.join(get_save_dir(), ".netrc")
+        web_host = "https://swanlab.cn"
+        api_host = "https://api.swanlab.cn/api"
+        if os.path.exists(path):
+            nrc = netrc.netrc(path)
+            for host, info in nrc.hosts.items():
+                web_host = info[0] if cls.is_hostname(info[0]) else host.rstrip("/api")
+                api_host = host.rstrip("/api") + "/api"
+                break
+
         envs = {
-            cls.WEB_HOST.value: "https://swanlab.cn",
-            cls.API_HOST.value: "https://api.swanlab.cn/api",
+            cls.WEB_HOST.value: web_host,
+            cls.API_HOST.value: api_host,
             cls.RUNTIME.value: "user",
         }
         for k, v in envs.items():
