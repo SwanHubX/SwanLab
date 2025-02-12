@@ -1,17 +1,15 @@
 import os
-from PIL import Image
 import io
-import numpy as np
-
-try:
-    import tensorflow as tf
-except ImportError as e:
-    raise TypeError(
-        "Tensorboard Converter requires tensorflow when process tfevents file. Install with 'pip install tensorflow'."
-    )
 
 
-def get_tf_events_tags_type(tf_event_path: str):
+def get_tf_events_tags_type(tf_event_path: str):  
+    try:
+        import tensorflow as tf
+    except ImportError as e:
+        raise TypeError(
+            "Tensorboard Converter requires tensorflow when process tfevents file. Install with 'pip install tensorflow'."
+        )
+
     """获取TFEvent文件中所有tag的类型，并返回一个字典
     比如{"tag1": "scalar", "tag2": "image", "tag3": "audio", "tag4": "text"}
 
@@ -44,6 +42,15 @@ def get_tf_events_tags_type(tf_event_path: str):
 
 
 def get_tf_events_tags_data(tf_event_path: str, tags: dict):
+    try:
+        import tensorflow as tf
+    except ImportError as e:
+        raise TypeError(
+            "Tensorboard Converter requires tensorflow when process tensorboard tfevents file. Install with 'pip install tensorflow'."
+        )
+    import numpy as np
+    from PIL import Image
+    
     """获取TFEvent文件中所有tag的数据，并返回一个字典
     比如{"tag1": [(step1, value1), (step2, value2)], "tag2": [(step1, value1), (step2, value2)]}
 

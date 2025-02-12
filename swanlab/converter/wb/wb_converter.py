@@ -70,7 +70,12 @@ class WandbConverter:
             swanlab_run.config.update(wb_config)
             swanlab_run.config.update(wb_run.config)
 
-            keys = [key for key in wb_run.history(stream="default").keys() if not key.startswith("_")]
+            # Get the first history record to extract available keys
+            history = wb_run.history(stream="default")
+            if len(history) > 0:
+                keys = [key for key in history[0].keys() if not key.startswith("_")]
+            else:
+                keys = []
 
             # 记录标量指标
             for record in wb_run.scan_history():

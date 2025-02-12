@@ -29,7 +29,7 @@ from .run import (
 )
 from .run.helper import SwanLabRunOperator
 from ..error import KeyFileError
-from ..package import get_key, get_host_web
+from ..package import get_key, get_host_web, HostFormatter
 
 
 def _check_proj_name(name: str) -> str:
@@ -57,7 +57,7 @@ def _check_proj_name(name: str) -> str:
     return _name
 
 
-def login(api_key: str = None):
+def login(api_key: str = None, host: str = None, web_host: str = None):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
@@ -66,11 +66,17 @@ def login(api_key: str = None):
 
     :param api_key: str, optional
         authentication key, if not provided, the key will be read from the key file.
-
+    :param host: str, optional
+        api host, if not provided, the default host will be used.
+    :param web_host: str, optional
+        web host, if not provided, the default host will be used.
     :return: LoginInfo
     """
     if SwanLabRun.is_started():
         raise RuntimeError("You must call swanlab.login() before using init()")
+    # 检查host是否合法，并格式化，注入到环境变量中
+    HostFormatter(host, web_host)()
+    # 登录，初始化http对象
     CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
 
 
@@ -148,6 +154,14 @@ def init(
         swanlog.warning("You have already initialized a run, the init function will be ignored")
         return get_run()
     # ---------------------------------- 一些变量、格式检查 ----------------------------------
+
+    # for https://github.com/SwanHubX/SwanLab/issues/809
+    if experiment_name is None and kwargs.get("name", None) is not None:
+        experiment_name = kwargs.get("name")
+    if description is None and kwargs.get("notes", None) is not None:
+        description = kwargs.get("notes")
+
+    # 从文件中加载数据
     if load:
         load_data = check_load_json_yaml(load, load)
         experiment_name = _load_data(load_data, "experiment_name", experiment_name)
@@ -198,7 +212,7 @@ def should_call_after_init(text):
 
 
 @should_call_after_init("You must call swanlab.init() before using log()")
-def log(data: Dict[str, DataType], step: int = None):
+def log(data: Dict[str, DataType], step: int = None, print_to_console: bool = False):
     """
     Log a row of data to the current run.
     We recommend that you log data by SwanLabRun.log() method, but you can also use this function to log data.
@@ -212,9 +226,12 @@ def log(data: Dict[str, DataType], step: int = None):
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
         If step is duplicated, the data will be ignored.
+    print_to_console : bool, optional
+        Whether to print the data to the console, the default is False.
     """
     run = get_run()
     ll = run.log(data, step)
+    print_to_console and print(ll)
     return ll
 
 
@@ -263,6 +280,8 @@ def _init_mode(mode: str = None):
     except KeyFileError:
         no_api_key = True
     login_info = None
+    # 三选一只允许登录官方的host，除非在此之前手动设置了环境变量
+    # 详见 https://github.com/SwanHubX/SwanLab/issues/792#issuecomment-2603959483
     if mode == "cloud" and no_api_key:
         # 判断当前进程是否在交互模式下
         if is_interactive():
@@ -273,6 +292,7 @@ def _init_mode(mode: str = None):
             swanlog.info("(2) Use an existing SwanLab account.")
             swanlog.info("(3) Don't visualize my results.")
 
+            web_host = get_host_web()
             # 交互选择
             tip = FONT.swanlab("Enter your choice: ")
             code = input(tip)
@@ -283,16 +303,16 @@ def _init_mode(mode: str = None):
                 mode = "local"
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
-                swanlog.info("Logging into " + FONT.yellow(get_host_web()))
+                swanlog.info("Logging into " + FONT.yellow(web_host))
                 login_info = terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + FONT.yellow(get_host_web() + "/login"))
+                swanlog.info("Create a SwanLab account here: " + FONT.yellow(web_host + "/login"))
                 login_info = terminal_login()
             else:
                 raise ValueError("Invalid choice")
-
         # 如果不在就不管
+
     os.environ[mode_key] = mode
     return mode, login_info
 

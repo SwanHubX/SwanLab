@@ -309,6 +309,17 @@ class SwanLabRun:
         """
         return self.__config
 
+    def __flatten_dict(self, d: dict, parent_key='', sep='.') -> dict:
+        """Helper method to flatten nested dictionaries with dot notation"""
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(self.__flatten_dict(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -320,7 +331,8 @@ class SwanLabRun:
         data : Dict[str, DataType]
             Data must be a dict.
             The key must be a string with 0-9, a-z, A-Z, " ", "_", "-", "/".
-            The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
+            The value must be a `float`, `float convertible object`, `int`, `swanlab.data.BaseType`, or a nested dict.
+            For nested dicts, keys will be joined with dots (e.g., {'a': {'b': 1}} becomes {'a.b': 1}).
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
             If step is duplicated, the data will be ignored.
@@ -347,15 +359,18 @@ class SwanLabRun:
             )
             step = None
 
+        # 展平嵌套字典
+        flattened_data = self.__flatten_dict(data)
+        
         log_return = {}
         # 遍历data，记录data
-        for k, v in data.items():
+        for k, v in flattened_data.items():
             _k = k
             k = check_key_format(k, auto_cut=True)
             if k != _k:
                 # 超过255字符，截断
                 swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
-                if k in data.keys():
+                if k in flattened_data.keys():
                     raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型

@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="readme_files/swanlab-logo-single.svg" alt="SwanLab" width="70" height="70">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+</picture>
 
 <h1>SwanLab</h1>
 
@@ -47,6 +51,12 @@
 
 ## 🌟 Последние обновления
 
+- 2025.02.09: Мы объединили усилия с [veRL](https://github.com/volcengine/verl), теперь вы можете использовать SwanLab в veRL для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html).
+
+- 2025.02.05: `swanlab.log` поддерживает вложенные словари [#812](https://github.com/SwanHubX/SwanLab/pull/812), поддерживает параметры `name` и `notes`.
+
+- 2025.01.22: Добавлена функция `sync_tensorboardX` и `sync_tensorboard_torch`, поддерживающая синхронизацию с этими двумя TensorBoard фреймворками.
+
 - 2025.01.17: Добавлена функция `sync_wandb`, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), поддерживающая синхронизацию с отслеживанием экспериментов Weights & Biases; значительно улучшена производительность рендеринга логов.
 
 - 2025.01.11: Облачная версия значительно оптимизировала производительность таблиц проектов и добавила поддержку таких функций, как перетаскивание, сортировка и фильтрация.
@@ -57,9 +67,14 @@
 
 - 2024.12.15: Добавлена функция **мониторинга оборудования (0.4.0)**, поддерживается запись и мониторинг системной информации для CPU, NPU (Ascend), GPU (Nvidia).
 
+
+<details><summary>Полный список изменений</summary>
+
 - 2024.12.06: Добавлена интеграция с [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html) и [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html); увеличено ограничение на длину строки в логах.
 
 - 2024.11.26: Вкладка "Окружение" — раздел "Оборудование" теперь поддерживает распознавание **Huawei Ascend NPU** и **Kunpeng CPU**; раздел "Облачные провайдеры" поддерживает распознавание **QingCloud**.
+
+</details>
 
 <br>
 
@@ -242,6 +257,8 @@ swanlab watch ./logs
 
 **Обучение с подкреплением**
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
+- [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
+- [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
 
 **Другие фреймворки:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)

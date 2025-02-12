@@ -7,20 +7,22 @@ r"""
 @Description:
     存储、设置通用函数
 """
-import requests_mock
-from swanlab.api import LoginInfo
-from typing import Literal
 from datetime import datetime, timedelta
+from typing import Literal
+
 import nanoid
-from swanlab.package import get_host_api
+import requests_mock
+
+from swanlab.api import LoginInfo
+from swanlab.package import get_host_api, get_host_web
 
 __all__ = ["mock_login_info", "UseSetupHttp", "UseMocker"]
 
 
 def mock_login_info(
-        username=None,
-        key=None,
-        error_reason: Literal["OK", "Unauthorized", "Authorization Required", "Forbidden"] = "OK"
+    username=None,
+    key=None,
+    error_reason: Literal["OK", "Unauthorized", "Authorization Required", "Forbidden"] = "OK",
 ) -> LoginInfo:
     """
     生成一个虚假用户登录信息，主要用于本地mock，不能真实验证登录
@@ -35,7 +37,9 @@ def mock_login_info(
         key = nanoid.generate()
     from swanlab.package import get_host_api
     from swanlab.api.auth.login import login_request
+
     with requests_mock.Mocker() as m:
+        api_host, web_host = get_host_api(), get_host_web()
         if error_reason != "OK":
             if error_reason == "Authorization Required" or error_reason == "Unauthorized":
                 status_code = 401
@@ -43,20 +47,19 @@ def mock_login_info(
                 status_code = 403
             else:
                 status_code = 500
-            m.post(f"{get_host_api()}/login/api_key", status_code=status_code, reason=error_reason)
+            m.post(f"{api_host}/login/api_key", status_code=status_code, reason=error_reason)
         else:
             expired_at = datetime.now().isoformat()
             # 过期时间为当前时间加8天，主要是时区问题，所以不能7天以内
             expired_at = (datetime.fromisoformat(expired_at) + timedelta(days=8)).isoformat() + 'Z'
-            m.post(f"{get_host_api()}/login/api_key", json={
-                "sid": nanoid.generate(),
-                "expiredAt": expired_at,
-                "userInfo": {
-                    "username": username
-                }
-            }, status_code=200)
-        resp = login_request(key)
-        login_info = LoginInfo(resp, key)
+            m.post(
+                f"{api_host}/login/api_key",
+                json={"sid": nanoid.generate(), "expiredAt": expired_at, "userInfo": {"username": username}},
+                status_code=200,
+            )
+
+        resp = login_request(key, api_host)
+        login_info = LoginInfo(resp, key, api_host, web_host)
     return login_info
 
 
@@ -72,18 +75,21 @@ class UseSetupHttp:
 
     def __enter__(self):
         from swanlab.api import create_http
+
         login_info = mock_login_info()
         self.http = create_http(login_info)
         return self.http
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         from swanlab.api.http import reset_http
+
         reset_http()
         self.http = None
 
     def __del__(self):
         if self.http is not None:
             from swanlab.api.http import reset_http
+
             reset_http()
             self.http = None
 
