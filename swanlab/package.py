@@ -10,6 +10,7 @@ r"""
 import json
 import netrc
 import os
+import re
 from typing import Optional
 
 import requests
@@ -52,6 +53,50 @@ def get_package_latest_version(timeout=0.5) -> Optional[str]:
 
 
 # ---------------------------------- 云端相关 ----------------------------------
+
+
+class HostFormatter:
+    def __init__(self, host: str = None, web_host: str = None):
+        # 定义正则模式，匹配协议、主机、端口三部分
+        self.pattern = re.compile(
+            r'^(?:(https?)://)?'  # 可选协议 http 或 https
+            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 必填 主机名必须包含顶级域名（TLD）
+            r'(?::(\d{1,5}))?$'  # 可选端口号（1~5位数字）
+        )
+        self.host = host
+        self.web_host = web_host
+
+    def fmt(self, input_str: str) -> str:
+        match = self.pattern.match(input_str.rstrip("/"))
+        if match:
+            protocol = match.group(1) or "https"  # 默认协议为 https
+            host = match.group(2)
+            port = match.group(3)
+
+            # 构建标准化的 URL 输出
+            result = f"{protocol}://{host}"
+            if port:
+                result += f":{port}"
+            return result
+        else:
+            raise ValueError("Invalid host format")
+
+    def __call__(self):
+        """
+        如果host或web_host不为空，格式化并设置环境变量
+        :raises ValueError: host或web_host格式不正确
+        """
+        if self.host:
+            try:
+                os.environ[SwanLabEnv.API_HOST.value] = self.fmt(self.host) + "/api"
+            except ValueError:
+                raise ValueError("Invalid host: {}".format(self.host))
+            self.web_host = self.host
+        if self.web_host:
+            try:
+                os.environ[SwanLabEnv.WEB_HOST.value] = self.fmt(self.web_host)
+            except ValueError:
+                raise ValueError("Invalid web_host: {}".format(self.web_host))
 
 
 def get_host_web() -> str:
