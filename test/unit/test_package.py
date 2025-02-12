@@ -239,3 +239,31 @@ class TestHasApiKey:
         self.save_api_key()
         os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
         assert not P.has_api_key()
+
+
+class TestHostFormatter:
+    def test_ok(self):
+        formatter = P.HostFormatter()
+        assert formatter.fmt("swanlab.cn") == "https://swanlab.cn"
+        assert formatter.fmt("https://swanlab.cn") == "https://swanlab.cn"
+        assert formatter.fmt("http://swanlab.cn") == "http://swanlab.cn"  # noqa
+        assert formatter.fmt("https://swanlab.cn:8443/") == "https://swanlab.cn:8443"
+        assert formatter.fmt("abc.example.com") == "https://abc.example.com"
+
+    def test_value_err(self):
+        formatter = P.HostFormatter()
+        with pytest.raises(ValueError):
+            formatter.fmt("test")
+        with pytest.raises(ValueError):
+            formatter.fmt("https://test")
+        with pytest.raises(ValueError):
+            formatter.fmt("http://test")  # noqa
+
+    def test_env_var(self):
+        """
+        输入正确的host，会自动赋值给空web_host
+        """
+        host = "https://swanlab.cn"
+        P.HostFormatter(host=host)()
+        assert os.environ[SwanLabEnv.WEB_HOST.value] == host
+        assert os.environ[SwanLabEnv.API_HOST.value] == host + "/api"
