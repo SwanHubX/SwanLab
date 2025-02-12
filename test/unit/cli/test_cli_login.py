@@ -55,4 +55,4 @@ def test_login_host():
     del os.environ[SwanLabEnv.API_HOST.value]  # 删除环境变量
     del os.environ[SwanLabEnv.WEB_HOST.value]  # 删除环境变量
     result = runner.invoke(cli, ["login", "--api-key", T.API_KEY, "--host", "http://wrong-host"])
-    assert result.exit_code == 1
+    assert result.exit_code == 2

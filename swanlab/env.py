@@ -14,6 +14,7 @@ import os
 import re
 import sys
 from typing import List
+from urllib.parse import urlparse
 
 import swankit.env as E
 from swankit.env import SwanLabSharedEnv
@@ -75,14 +76,23 @@ class SwanLabEnv(enum.Enum):
     @staticmethod
     def is_hostname(value: str) -> bool:
         """
-        判断是否为合法的主机名
+        判断是否为合法的主机名（支持 http/https 协议和端口号）
         :param value: 待判断的字符串
         :return: 是否为合法的主机名
         """
-        if bool(re.compile(r'^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(\.|$)){4}$').match(value)):
+        # 解析 URL 以提取主机部分
+        parsed_url = urlparse(value)
+        if parsed_url.scheme in ["http", "https"]:
+            value = parsed_url.hostname  # 只取域名部分
+
+        # 处理 IP 地址
+        if re.fullmatch(r'((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(\.|$)){4}', value):
             return True
-        if bool(re.compile(r'^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$').match(value)):
+
+        # 处理域名（去掉端口）
+        if re.fullmatch(r'^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$', value):
             return True
+
         return False
 
     @classmethod

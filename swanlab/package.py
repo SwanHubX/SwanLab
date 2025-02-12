@@ -91,7 +91,7 @@ class HostFormatter:
                 os.environ[SwanLabEnv.API_HOST.value] = self.fmt(self.host) + "/api"
             except ValueError:
                 raise ValueError("Invalid host: {}".format(self.host))
-            self.web_host = self.host
+            self.web_host = self.host if self.web_host is None else self.web_host
         if self.web_host:
             try:
                 os.environ[SwanLabEnv.WEB_HOST.value] = self.fmt(self.web_host)

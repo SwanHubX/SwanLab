@@ -8,13 +8,12 @@ r"""
     登录模块
 """
 import os
-import sys
 
 import click
 from swankit.log import FONT
 
-from swanlab import SwanLabEnv
 from swanlab.api.auth import terminal_login
+from swanlab.env import SwanLabEnv
 from swanlab.package import has_api_key, HostFormatter
 
 
@@ -62,8 +61,7 @@ def login(api_key: str, relogin: bool, host: str, web_host: str):
     try:
         HostFormatter(host, web_host)()
     except ValueError as e:
-        click.BadParameter(str(e))
-        return sys.exit(1)
+        raise click.BadParameter(str(e))
     # 进行登录，此时将直接覆盖本地token文件
     login_info = terminal_login(api_key)
     print(FONT.swanlab("Login successfully. Hi, " + FONT.bold(FONT.default(login_info.username))) + "!")

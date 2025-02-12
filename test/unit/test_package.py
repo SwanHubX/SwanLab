@@ -258,3 +258,12 @@ class TestHostFormatter:
             formatter.fmt("https://test")
         with pytest.raises(ValueError):
             formatter.fmt("http://test")  # noqa
+
+    def test_env_var(self):
+        """
+        输入正确的host，会自动赋值给空web_host
+        """
+        host = "https://swanlab.cn"
+        P.HostFormatter(host=host)()
+        assert os.environ[SwanLabEnv.WEB_HOST.value] == host
+        assert os.environ[SwanLabEnv.API_HOST.value] == host + "/api"
