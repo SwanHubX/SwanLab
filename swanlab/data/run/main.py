@@ -23,7 +23,7 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
 from .metadata import get_requirements, get_metadata
 from .public import SwanLabPublicConfig
-from ..formater import check_key_format, check_exp_name_format, check_desc_format
+from ..formatter import check_key_format, check_exp_name_format, check_desc_format
 
 MAX_LIST_LENGTH = 108
 
@@ -361,7 +361,7 @@ class SwanLabRun:
 
         # 展平嵌套字典
         flattened_data = self.__flatten_dict(data)
-        
+
         log_return = {}
         # 遍历data，记录data
         for k, v in flattened_data.items():
