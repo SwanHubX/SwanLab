@@ -1,12 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
+"""
 @DATE: 2024/5/5 20:22
 @File: callback_cloud.py
 @IDE: pycharm
 @Description:
     云端回调
 """
+
 import json
 import sys
 
@@ -15,12 +14,10 @@ from swankit.core import SwanLabSharedSettings
 from swankit.env import create_time
 from swankit.log import FONT
 
-from swanlab.api import LoginInfo, create_http, terminal_login
-from swanlab.api import get_http
-from swanlab.api.upload import upload_logs
-from swanlab.api.upload.model import ColumnModel, ScalarModel, MediaModel, FileModel
-from swanlab.data.cloud import ThreadPool
-from swanlab.data.cloud import UploadType
+from swanlab.api import LoginInfo, create_http, terminal_login, get_http
+from swanlab.api.http import reset_http
+from swanlab.api.upload import upload_logs, ColumnModel, ScalarModel, MediaModel, FileModel
+from swanlab.data.cloud import ThreadPool, UploadType
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
@@ -29,8 +26,212 @@ from swanlab.package import (
     get_package_latest_version,
     get_key,
 )
-from .callback_local import LocalRunCallback, get_run, SwanLabRunState
-from ..api.http import reset_http
+from .utils import error_print, traceback_error
+from ..run import get_run, SwanLabRunState
+from ..run.callback import SwanLabRunCallback
+
+
+class CloudRunCallback(SwanLabRunCallback):
+    login_info: LoginInfo = None
+    """
+    用户登录信息
+    """
+
+    def __init__(self, public: bool):
+        super().__init__()
+        self.pool = ThreadPool()
+        self.exiting = False
+        """
+        标记是否正在退出云端环境
+        """
+        self.public = public
+
+    @classmethod
+    def create_login_info(cls):
+        """
+        发起登录，获取登录信息，执行此方法会覆盖原有的login_info
+        """
+        key = None
+        try:
+            key = get_key()
+        except KeyFileError:
+            pass
+        if key is None and not is_interactive():
+            raise KeyFileError(
+                "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
+            )
+        return terminal_login(key)
+
+    @staticmethod
+    def _get_package_latest_version():
+        """
+        cloud模式训练开始时，检测package是否为最新版本
+        """
+        latest_version = get_package_latest_version()
+        local_version = get_package_version()
+        if latest_version is not None and latest_version != local_version:
+            swanlog.info(f"swanlab version {latest_version} is available!  Upgrade: `pip install -U swanlab`")
+
+    def _view_web_print(self):
+        self._watch_tip_print()
+        http = get_http()
+        proj_url, exp_url = http.web_proj_url, http.web_exp_url
+        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
+        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(exp_url)))
+        return exp_url
+
+    def _clean_handler(self):
+        run = get_run()
+        if run is None:
+            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+        if self.exiting:
+            return swanlog.debug("SwanLab is exiting, please wait.")
+        self._train_finish_print()
+        # 如果正在运行
+        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
+
+    def _except_handler(self, tp, val, tb):
+        if self.exiting:
+            print("")
+            swanlog.error("Aborted uploading by user")
+            sys.exit(1)
+        error_print(tp)
+        # 结束运行
+        get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
+        if tp != KeyboardInterrupt:
+            print(traceback_error(tb, tp(val)), file=sys.stderr)
+
+    def __str__(self):
+        return "SwanLabCloudRunCallback"
+
+    def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
+        if self.login_info is None:
+            swanlog.debug("Login info is None, get login info.")
+            self.login_info = self.create_login_info()
+        # 检测是否有最新的版本
+        self._get_package_latest_version()
+        http = create_http(self.login_info)
+        return http.mount_project(project, workspace, self.public).history_exp_count
+
+    def before_run(self, settings: SwanLabSharedSettings):
+        self.settings = settings
+
+    def on_run(self):
+        swanlog.install(self.settings.console_dir)
+        http = get_http()
+        # 注册实验信息
+        http.mount_exp(
+            exp_name=self.settings.exp_name,
+            colors=self.settings.exp_colors,
+            description=self.settings.description,
+        )
+
+        # 向swanlog注册输出流回调
+        def _write_call_call(message):
+            self.pool.queue.put((UploadType.LOG, [message]))
+
+        swanlog.set_write_callback(_write_call_call)
+
+        # 注册系统回调
+        self._register_sys_callback()
+        # 打印信息
+        self._train_begin_print()
+        swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
+        swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
+        experiment_url = self._view_web_print()
+        # 在Jupyter Notebook环境下，显示按钮
+        if in_jupyter():
+            show_button_html(experiment_url)
+
+    def on_runtime_info_update(self, r: RuntimeInfo):
+        # 添加上传任务到线程池
+        rc = r.config.to_dict() if r.config is not None else None
+        rr = r.requirements.info if r.requirements is not None else None
+        rm = r.metadata.to_dict() if r.metadata is not None else None
+        # 不需要json序列化，上传时会自动序列化
+        f = FileModel(requirements=rr, config=rc, metadata=rm)
+        self.pool.queue.put((UploadType.FILE, [f]))
+
+    def on_column_create(self, column_info: ColumnInfo):
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
+        # 这里有些比较抽象的地方：
+        # 云端版会自动处理不同类型的数据放在不同的组中，所以如果key没有设置成 {section}/{name} 之类的样式，不需要传递section的名称
+        # 但是本地版不会，本地版依靠swanlab的处理结果指定列，所以在Data类型上必须定义获取section_name的方法
+        # 云端版不需要这样做，因为云端版会自动处理
+        # 因为云端版的设计更加先进，云端版对“列”（本地版叫namespace）做了不同的类型标注，但是本地版没有这个概念
+        # 所以这里需要判断一下，如果列类型不为SYSTEM且不是 {section}/{name} 之类的格式，就不传递section_name
+        if column_info.section_type == "PUBLIC":
+            section_name = None if "/" not in column_info.key else column_info.section_name
+        elif column_info.section_type == "SYSTEM":
+            section_name = column_info.section_name
+        else:
+            section_name = None
+        column = ColumnModel(
+            key=column_info.key,
+            name=column_info.name,
+            cls=column_info.cls,
+            config=column_info.config,
+            typ=column_info.chart_type.value.column_type,
+            section_name=section_name,
+            section_type=column_info.section_type,
+            error=error,
+        )
+        self.pool.queue.put((UploadType.COLUMN, [column]))
+
+    def on_metric_create(self, metric_info: MetricInfo):
+        # 有错误就不上传
+        if metric_info.error:
+            return
+        metric = metric_info.metric
+        key = metric_info.column_info.key
+        key_encoded = metric_info.column_info.key_encode
+        step = metric_info.metric_step
+        epoch = metric_info.metric_epoch
+        # 标量折线图
+        if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
+            scalar = ScalarModel(metric, key, step, epoch)
+            return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
+        # 媒体指标数据
+
+        # -------------------------- 🤡这里是一点小小的💩 --------------------------
+        # 要求上传时的文件路径必须带key_encoded前缀
+        if metric_info.metric_buffers is not None:
+            metric = json.loads(json.dumps(metric))
+            for i, d in enumerate(metric["data"]):
+                metric["data"][i] = "{}/{}".format(key_encoded, d)
+        # ------------------------------------------------------------------------
+
+        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
+        self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
+
+    def on_stop(self, error: str = None):
+        # 打印信息
+        self._view_web_print()
+        run = get_run()
+        # 如果正在退出或者run对象为None或者不在云端环境下
+        if self.exiting or run is None:
+            return swanlog.debug("SwanLab is exiting or run is None, ignore it.")
+        state = run.state
+        # 标志正在退出（需要在下面的逻辑之前标志）
+        self.exiting = True
+        sys.excepthook = self._except_handler
+
+        def _():
+            # 关闭线程池，等待上传线程完成
+            self.pool.finish()
+            # 上传错误日志
+            if error is not None:
+                msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
+                upload_logs(msg, level="ERROR")
+
+        FONT.loading("Waiting for uploading complete", _)
+        get_http().update_state(state == SwanLabRunState.SUCCESS)
+        reset_http()
+        # 取消注册系统回调
+        self._unregister_sys_callback()
+        self.exiting = False
 
 
 def show_button_html(experiment_url):
@@ -123,210 +324,3 @@ def show_button_html(experiment_url):
         display(HTML(total_h5))
     except ImportError:
         pass
-
-
-class CloudRunCallback(LocalRunCallback):
-    login_info: LoginInfo = None
-    """
-    用户登录信息
-    """
-
-    def __init__(self, public: bool):
-        super(CloudRunCallback, self).__init__()
-        self.pool = ThreadPool()
-        self.exiting = False
-        """
-        标记是否正在退出云端环境
-        """
-        self.public = public
-
-    @classmethod
-    def create_login_info(cls):
-        """
-        发起登录，获取登录信息，执行此方法会覆盖原有的login_info
-        """
-        key = None
-        try:
-            key = get_key()
-        except KeyFileError:
-            pass
-        if key is None and not is_interactive():
-            raise KeyFileError(
-                "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
-            )
-        return terminal_login(key)
-
-    @staticmethod
-    def _get_package_latest_version():
-        """
-        cloud模式训练开始时，检测package是否为最新版本
-        """
-        latest_version = get_package_latest_version()
-        local_version = get_package_version()
-        if latest_version is not None and latest_version != local_version:
-            swanlog.info(f"swanlab version {latest_version} is available!  Upgrade: `pip install -U swanlab`")
-
-    def _view_web_print(self):
-        self._watch_tip_print()
-        http = get_http()
-        proj_url, exp_url = http.web_proj_url, http.web_exp_url
-        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
-        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(exp_url)))
-        return exp_url
-
-    def _clean_handler(self):
-        run = get_run()
-        if run is None:
-            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-        if self.exiting:
-            return swanlog.debug("SwanLab is exiting, please wait.")
-        self._train_finish_print()
-        # 如果正在运行
-        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
-
-    def _except_handler(self, tp, val, tb):
-        if self.exiting:
-            print("")
-            swanlog.error("Aborted uploading by user")
-            sys.exit(1)
-        self._error_print(tp)
-        # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb, tp(val)))
-        if tp != KeyboardInterrupt:
-            print(self._traceback_error(tb, tp(val)), file=sys.stderr)
-
-    def __str__(self):
-        return "SwanLabCloudRunCallback"
-
-    def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
-        super(CloudRunCallback, self).on_init(project, workspace, logdir)
-        if self.login_info is None:
-            swanlog.debug("Login info is None, get login info.")
-            self.login_info = self.create_login_info()
-        # 检测是否有最新的版本
-        self._get_package_latest_version()
-        http = create_http(self.login_info)
-        return http.mount_project(project, workspace, self.public).history_exp_count
-
-    def before_run(self, settings: SwanLabSharedSettings):
-        self.settings = settings
-
-    def on_run(self):
-        swanlog.install(self.settings.console_dir)
-        http = get_http()
-        # 注册实验信息
-        http.mount_exp(
-            exp_name=self.settings.exp_name,
-            colors=self.settings.exp_colors,
-            description=self.settings.description,
-        )
-
-        # 向swanlog注册输出流回调
-        def _write_call_call(message):
-            self.pool.queue.put((UploadType.LOG, [message]))
-
-        swanlog.set_write_callback(_write_call_call)
-
-        # 注册系统回调
-        self._register_sys_callback()
-        # 打印信息
-        self._train_begin_print()
-        swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
-        swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
-        experiment_url = self._view_web_print()
-        # 在Jupyter Notebook环境下，显示按钮
-        if in_jupyter():
-            show_button_html(experiment_url)
-
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        # 执行local逻辑，保存文件到本地
-        super(CloudRunCallback, self).on_runtime_info_update(r)
-        # 添加上传任务到线程池
-        rc = r.config.to_dict() if r.config is not None else None
-        rr = r.requirements.info if r.requirements is not None else None
-        rm = r.metadata.to_dict() if r.metadata is not None else None
-        # 不需要json序列化，上传时会自动序列化
-        f = FileModel(requirements=rr, config=rc, metadata=rm)
-        self.pool.queue.put((UploadType.FILE, [f]))
-
-    def on_column_create(self, column_info: ColumnInfo):
-        error = None
-        if column_info.error is not None:
-            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
-        # 这里有些比较抽象的地方：
-        # 云端版会自动处理不同类型的数据放在不同的组中，所以如果key没有设置成 {section}/{name} 之类的样式，不需要传递section的名称
-        # 但是本地版不会，本地版依靠swanlab的处理结果指定列，所以在Data类型上必须定义获取section_name的方法
-        # 云端版不需要这样做，因为云端版会自动处理
-        # 因为云端版的设计更加先进，云端版对“列”（本地版叫namespace）做了不同的类型标注，但是本地版没有这个概念
-        # 所以这里需要判断一下，如果列类型不为SYSTEM且不是 {section}/{name} 之类的格式，就不传递section_name
-        if column_info.section_type == "PUBLIC":
-            section_name = None if "/" not in column_info.key else column_info.section_name
-        elif column_info.section_type == "SYSTEM":
-            section_name = column_info.section_name
-        else:
-            section_name = None
-        column = ColumnModel(
-            key=column_info.key,
-            name=column_info.name,
-            cls=column_info.cls,
-            config=column_info.config,
-            typ=column_info.chart_type.value.column_type,
-            section_name=section_name,
-            section_type=column_info.section_type,
-            error=error,
-        )
-        self.pool.queue.put((UploadType.COLUMN, [column]))
-
-    def on_metric_create(self, metric_info: MetricInfo):
-        super(CloudRunCallback, self).on_metric_create(metric_info)
-        # 有错误就不上传
-        if metric_info.error:
-            return
-        metric = metric_info.metric
-        key = metric_info.column_info.key
-        key_encoded = metric_info.column_info.key_encode
-        step = metric_info.metric_step
-        epoch = metric_info.metric_epoch
-        # 标量折线图
-        if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
-            scalar = ScalarModel(metric, key, step, epoch)
-            return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
-        # 媒体指标数据
-
-        # -------------------------- 🤡这里是一点小小的💩 --------------------------
-        # 要求上传时的文件路径必须带key_encoded前缀
-        if metric_info.metric_buffers is not None:
-            metric = json.loads(json.dumps(metric))
-            for i, d in enumerate(metric["data"]):
-                metric["data"][i] = "{}/{}".format(key_encoded, d)
-        # ------------------------------------------------------------------------
-
-        media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
-        self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
-
-    def on_stop(self, error: str = None):
-        # 打印信息
-        self._view_web_print()
-        run = get_run()
-        # 如果正在退出或者run对象为None或者不在云端环境下
-        if self.exiting or run is None:
-            return swanlog.debug("SwanLab is exiting or run is None, ignore it.")
-        state = run.state
-        # 标志正在退出（需要在下面的逻辑之前标志）
-        self.exiting = True
-        sys.excepthook = self._except_handler
-
-        def _():
-            # 关闭线程池，等待上传线程完成
-            self.pool.finish()
-            # 上传错误日志
-            if error is not None:
-                msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
-                upload_logs(msg, level="ERROR")
-
-        FONT.loading("Waiting for uploading complete", _)
-        get_http().update_state(state == SwanLabRunState.SUCCESS)
-        reset_http()
-        # 取消注册系统回调
-        self._unregister_sys_callback()
-        self.exiting = False
