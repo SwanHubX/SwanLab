@@ -11,7 +11,7 @@ import pytest
 from nanoid import generate
 
 # noinspection PyProtectedMember
-from swanlab.data.formater import (
+from swanlab.data.formatter import (
     check_proj_name_format,
     _auto_cut,
     check_key_format,

@@ -19,7 +19,7 @@ from swanlab.env import SwanLabEnv, is_interactive
 from swanlab.log import swanlog
 from .callback_cloud import CloudRunCallback
 from .callback_local import LocalRunCallback
-from .formater import check_load_json_yaml, check_proj_name_format
+from .formatter import check_load_json_yaml, check_proj_name_format
 from .modules import DataType
 from .run import (
     SwanLabRunState,
