@@ -34,6 +34,11 @@
 
 </div>
 
+## 🏁GDC2025 模型蒸馏极限挑战赛（预赛正在进行中）
+
+[![](./readme_files/gdc2025.png)](https://mp.weixin.qq.com/s/t8yInvb6bPLMbSsMcQgPKA)
+
+<br/>
 
 ## 目录
 
@@ -52,6 +57,8 @@
 
 ## 🌟 最近更新
 
+- 2025.02.16：新增 图表移动分组、创建分组 功能。
+
 - 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
 - 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
@@ -66,10 +73,10 @@
 
 - 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
 
-- 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
-
 
 <details><summary>完整更新日志</summary>
+
+- 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
 
 - 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
 
