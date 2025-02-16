@@ -31,6 +31,8 @@
 
 [中文](README.md) / [English](README_EN.md) / 日本語 / [Русский](README_RU.md)
 
+</div>
+
 👋 [WeChatグループ](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)に参加する
 
 </div>
