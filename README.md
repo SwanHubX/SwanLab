@@ -34,6 +34,8 @@
 
 </div>
 
+<br/>
+
 ## 🏁GDC2025 模型蒸馏极限挑战赛（预赛正在进行中）
 
 [![](./readme_files/gdc2025.png)](https://mp.weixin.qq.com/s/t8yInvb6bPLMbSsMcQgPKA)
