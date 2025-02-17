@@ -25,14 +25,14 @@
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][colab-shield]][colab-shield-link]
 
-<a href="https://hellogithub.com/repository/b442a9fa270e4ccb8847c9ee3445e41b" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=b442a9fa270e4ccb8847c9ee3445e41b&claim_uid=Oh5UaGjfrblg0yZ" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
-
-
 ![](readme_files/swanlab-overview.png)
 
 中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
 
 👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
+
+<a href="https://hellogithub.com/repository/b442a9fa270e4ccb8847c9ee3445e41b" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=b442a9fa270e4ccb8847c9ee3445e41b&claim_uid=Oh5UaGjfrblg0yZ" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
 
 </div>
 
