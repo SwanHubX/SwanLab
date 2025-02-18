@@ -61,7 +61,9 @@
 
 ## 🌟 最近更新
 
-- 2025.02.16：新增 图表移动分组、创建分组 功能。
+- 2025.02.18：我们与 [Swift](https://github.com/modelscope/ms-swift) 完成了联合集成，现在你可以在Swift的CLI/WebUI中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
+
+- 2025.02.16：新增 **图表移动分组、创建分组** 功能。
 
 - 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
