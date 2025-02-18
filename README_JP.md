@@ -52,6 +52,7 @@
 
 ## 🌟 最近の更新
 
+- 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
 - 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
 
 - 2025.02.09: 我們與 [veRL](https://github.com/volcengine/verl) 完成了聯合集成，現在你可以在veRL中使用SwanLab來**跟踪和可視化大模型強化學習實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
