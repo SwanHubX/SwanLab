@@ -51,6 +51,8 @@
 
 ## 🌟 Последние обновления
 
+- 2025.02.24: Мы объединили усилия с [EasyR1](https://github.com/hiyouga/EasyR1), теперь вы можете использовать SwanLab в EasyR1 для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
+
 - 2025.02.18: Мы объединили усилия с [Swift](https://github.com/modelscope/ms-swift), теперь вы можете использовать SwanLab в Swift's CLI/WebUI для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html).
 
 - 2025.02.16: Добавлены функции перемещения групп и создания групп.
@@ -67,9 +69,9 @@
 
 - 2025.01.01: Добавлено **сглаживание графиков** и возможность изменения размера графиков перетаскиванием, улучшено взаимодействие с графиками.
 
-- 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
-
 <details><summary>Полный список изменений</summary>
+
+- 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
 
 - 2024.12.15: Добавлена функция **мониторинга оборудования (0.4.0)**, поддерживается запись и мониторинг системной информации для CPU, NPU (Ascend), GPU (Nvidia).
 
@@ -262,11 +264,13 @@ swanlab watch ./logs
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 - [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
+- [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
 **Другие фреймворки:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/guide_cloud/integration/integration-omegaconf.html)
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
