@@ -52,7 +52,10 @@
 
 ## 🌟 最近の更新
 
+- 2025.02.24：我們與[EasyR1](https://github.com/hiyouga/EasyR1)完成了聯合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
+
 - 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
+
 - 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
 
 - 2025.02.09: 我們與 [veRL](https://github.com/volcengine/verl) 完成了聯合集成，現在你可以在veRL中使用SwanLab來**跟踪和可視化大模型強化學習實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
@@ -67,9 +70,9 @@
 
 - 2025.01.01：折れ線グラフの**永続的スムージング**、折れ線グラフのドラッグによるサイズ変更を追加し、チャート閲覧体験を最適化
 
-- 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合を完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルのファインチューニング実験を追跡・可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)
-
 <details><summary>完全な更新履歴</summary>
+
+- 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合を完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルのファインチューニング実験を追跡・可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)
 
 - 2024.12.15：**ハードウェア監視（0.4.0）**機能をリリースし、CPU、NPU（Ascend）、GPU（Nvidia）のシステム情報の記録と監視をサポート
 
