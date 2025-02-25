@@ -38,11 +38,6 @@
 
 <br/>
 
-## 🏁GDC2025 模型蒸馏极限挑战赛（预赛正在进行中）
-
-[![](./readme_files/gdc2025.png)](https://mp.weixin.qq.com/s/t8yInvb6bPLMbSsMcQgPKA)
-
-<br/>
 
 ## 目录
 
@@ -277,6 +272,7 @@ swanlab watch ./logs
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 - [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
+- [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
