@@ -33,6 +33,9 @@ class SwanLabCallback:
         if self.log_params:
             swanlab.config.update(env.params)
 
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
+
     def __call__(self, env: "CallbackEnv") -> None:
         if env.iteration == env.begin_iteration:  # type: ignore
             self._init(env)
