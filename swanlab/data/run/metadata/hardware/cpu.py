@@ -51,12 +51,11 @@ def get_cpu_brand_windows():
 
 def get_cpu_brand_linux():
     try:
-        # 使用 lscpu 命令获取 CPU 品牌
-        result = subprocess.run(["lscpu"], capture_output=True, text=True)
-        for line in result.stdout.split("\n"):
-            if "Model name:" in line:
-                cpu_brand = line.split(":")[1].strip()
-                return cpu_brand
+        # 使用 cat /proc/cpuinfo 获取CPU品牌
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if "model name" in line.lower():
+                    return line.split(":")[1].strip()
         return None
     except Exception:  # noqa
         return None
