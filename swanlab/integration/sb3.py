@@ -111,6 +111,9 @@ class SwanLabCallback(BaseCallback):
         )
 
         self.model.set_logger(loggers)
+    
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
 
     @property
     def experiment(self):

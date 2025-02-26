@@ -85,6 +85,9 @@ class SwanLabCallback(TrainerCallback):
             combined_dict = {**model_config, **combined_dict}
 
         self._experiment.config.update(combined_dict)
+    
+    def update_config(self, config: Dict[str, Any]):
+        self._experiment.config.update(config)
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
         if not self._initialized:
