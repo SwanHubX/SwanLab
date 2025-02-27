@@ -18,7 +18,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
@@ -316,11 +316,14 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 
 If you enjoy using SwanLab in your work, please add the SwanLab badge to your README:
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+More design materials: [assets](https://github.com/SwanHubX/assets)
 
 ### Citing SwanLab in Papers
 
@@ -342,10 +345,6 @@ If you find SwanLab helpful in your research journey, please consider citing it 
 Considering contributing to SwanLab? First, take a moment to read the [Contribution Guide](CONTRIBUTING.md).
 
 We also greatly appreciate support through social media, events, and conference sharing. Thank you!
-
-### Download Icon
-
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -417,3 +416,9 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg

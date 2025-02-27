@@ -18,12 +18,13 @@
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][colab-shield]][colab-shield-link]
+
 
 ![](readme_files/swanlab-overview.png)
 
@@ -326,11 +327,14 @@ swanlab watch ./logs
 
 如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的 README 中：
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+更多设计素材：[assets](https://github.com/SwanHubX/assets)
 
 ### 在论文中引用 SwanLab
 
@@ -353,9 +357,7 @@ swanlab watch ./logs
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持 SwanLab，衷心感谢！
 
-### 下载 Icon
 
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -427,3 +429,9 @@ swanlab watch ./logs
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
