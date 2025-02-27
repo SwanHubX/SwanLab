@@ -18,7 +18,7 @@
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
@@ -316,11 +316,14 @@ swanlab watch ./logs
 
 Если вам нравится использовать SwanLab в вашей работе, добавьте значок SwanLab в ваш README:
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+Больше дизайнерских материалов：[assets](https://github.com/SwanHubX/assets)
 
 ### Цитирование SwanLab в научных работах
 
@@ -342,10 +345,6 @@ swanlab watch ./logs
 Хотите внести вклад в SwanLab? Сначала ознакомьтесь с [руководством по вкладу](CONTRIBUTING.md).
 
 Мы также приветствуем поддержку через социальные сети, мероприятия и конференции. Спасибо!
-
-### Скачать иконку
-
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -417,3 +416,9 @@ swanlab watch ./logs
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
