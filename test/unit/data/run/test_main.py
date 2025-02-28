@@ -17,9 +17,11 @@ import soundfile as sf
 from PIL import Image as PILImage
 from nanoid import generate
 
+import swanlab
+import tutils as T
 from swanlab import Image, Audio, Text
 from swanlab.data.modules import Line
-from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog
+from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog, get_url, get_project_url
 from tutils import TEMP_PATH
 
 
@@ -147,7 +149,13 @@ class TestSwanLabRunLog:
         使用Line类型log，本质上应该与数字类型一样，数字类型是Line类型的语法糖
         """
         run = SwanLabRun()
-        data = {"a": Line(1), "b": Line(0.1), "c": {"d": Line(2)}, "math.nan": Line(math.nan), "math.inf": Line(math.inf)}
+        data = {
+            "a": Line(1),
+            "b": Line(0.1),
+            "c": {"d": Line(2)},
+            "math.nan": Line(math.nan),
+            "math.inf": Line(math.inf),
+        }
         ll = run.log(data)
         assert len(ll) == 5
         # line(1)和[line(1)]是一样的
@@ -288,3 +296,56 @@ class TestSwanLabRunLog:
         self.check_image(ll, "a")
 
     # 其他类似...
+
+
+class TestGetUrl:
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_ok(self):
+        """
+        初始化一个实验
+        """
+        exp_name = generate()
+        project_name = generate()
+        swanlab.init(project=project_name, experiment_name=exp_name, mode="cloud")
+        assert get_url() is not None and get_url() != ""
+
+    def test_local(self):
+        """
+        本地模式
+        """
+        swanlab.init(mode="local")
+        assert get_url() is None
+
+    def test_before_init(self):
+        """
+        未初始化
+        """
+        assert get_url() is None
+
+
+class TestGetProjectUrl:
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_ok(self):
+        """
+        初始化一个实验
+        """
+        exp_name = generate()
+        project_name = generate()
+        swanlab.init(project=project_name, experiment_name=exp_name, mode="cloud")
+        assert get_project_url() is not None and get_project_url() != ""
+        assert get_project_url().endswith(project_name)
+
+    def test_local(self):
+        """
+        本地模式
+        """
+        swanlab.init(mode="local")
+        assert get_project_url() is None
+
+    def test_before_init(self):
+        """
+        未初始化
+        """
+        assert get_project_url() is None

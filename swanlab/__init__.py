@@ -11,11 +11,12 @@ from .data import (
     State,
     get_run,
     get_config,
+    config,
+    get_url,
+    get_project_url,
 )
-
-from .data.run.main import config
-from .package import get_package_version
 from .env import SwanLabEnv
+from .package import get_package_version
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch
 
 # 设置默认环境变量
