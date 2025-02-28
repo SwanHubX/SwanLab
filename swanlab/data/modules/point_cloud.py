@@ -163,37 +163,73 @@ class PointCloud(MediaType):
 
 
 class PointsData:
+    """A class for handling different formats of point cloud data.
+
+    Supported formats:
+    - xyz: (x, y, z) coordinates only
+    - xyzc: (x, y, z) coordinates with category (0-15)
+    - xyzrgb: (x, y, z) coordinates with RGB colors (0-255)
+
+    Examples:
+        Create from xyz coordinates:
+        >>> points = np.array([[0,0,0], [1,1,1]])  # Nx3 array
+        >>> pd = PointsData(points)
+
+        Create from xyzc format:
+        >>> points = np.array([[0,0,0,1], [1,1,1,2]])  # Nx4 array
+        >>> pd = PointsData.from_xyzc(points)
+
+        Create from xyzrgb format:
+        >>> points = np.array([[0,0,0,255,0,0]])  # Nx6 array
+        >>> pd = PointsData.from_xyzrgb(points)
+    """
+
     POINT_AVAILABLE_FORMAT = {3: 'xyz', 4: 'xyzc', 6: 'xyzrgb'}
     DEFAULT_COLOR = (255, 255, 255)
 
     def __init__(self, points: PointsArray):
+        """Initialize PointsData with a numpy array of points.
+
+        Args:
+            points: Numpy array of point cloud data in xyz, xyzc, or xyzrgb format
+        """
         self.validate_points(points)
         self.points = points
 
     def take(self) -> PointsArray:
+        """Return the underlying points array.
+
+        Returns:
+            The numpy array containing point data
+        """
         return self.points
 
     def convert_to_xyzrgb(self) -> "PointsData":
-        """将点云数据转换为xyzrgb格式
-        对于xyz格式: 添加默认白色(255, 255, 255)
-        对于xyzc格式: 根据类别映射到预定义的颜色
-        对于xyzrgb格式: 保持不变
+        """Convert point cloud data to xyzrgb format.
+
+        The conversion follows these rules:
+        - xyz format: Adds default white color (255, 255, 255)
+        - xyzc format: Maps categories to predefined colors
+        - xyzrgb format: No change
+
+        Returns:
+            A new PointsData instance in xyzrgb format
         """
         if self.format == 'xyzrgb':
             return self
 
-        # 创建新的数组
+        # Create new array
         n_points = len(self.points)
         xyzrgb = np.zeros((n_points, 6), dtype=self.points.dtype)
-        # 复制xyz坐标
+        # Copy xyz coordinates
         xyzrgb[:, :3] = self.points[:, :3]
 
         if self.format == 'xyz':
-            # 使用默认灰色
+            # Use default white color
             xyzrgb[:, 3:] = PointsData.DEFAULT_COLOR
             return PointsData(xyzrgb)
 
-        # xyzc格式 预定义16种颜色 根据类别获取颜色
+        # For xyzc format, map categories to predefined colors
         categories = self.points[:, 3].astype(int)
         colors = np.array([hex_to_rgb(c) for c in light_colors])
         xyzrgb[:, 3:] = colors[categories]
@@ -201,11 +237,23 @@ class PointsData:
 
     @cached_property
     def format(self) -> str:
+        """Get the format of the point cloud data.
+
+        Returns:
+            Format string: 'xyz', 'xyzc', or 'xyzrgb'
+        """
         return PointsData.POINT_AVAILABLE_FORMAT[self.points.shape[1]]
 
     @classmethod
     def from_xyz(cls, points: PointsArray) -> "PointsData":
-        """从xyz数据构建"""
+        """Create PointsData from xyz coordinates.
+
+        Args:
+            points: Nx3 array of (x,y,z) coordinates
+
+        Returns:
+            New PointsData instance
+        """
         p = cls(points)
         if p.format != "xyz":
             raise ValueError("XYZ data must have 3 features")
@@ -213,7 +261,14 @@ class PointsData:
 
     @classmethod
     def from_xyzc(cls, points: PointsArray) -> "PointsData":
-        """从xyzc数据构建"""
+        """Create PointsData from xyzc format.
+
+        Args:
+            points: Nx4 array of (x,y,z,category) data
+
+        Returns:
+            New PointsData instance
+        """
         p = cls(points)
         if p.format != "xyzc":
             raise ValueError("XYZC data must have 4 features")
@@ -221,7 +276,14 @@ class PointsData:
 
     @classmethod
     def from_xyzrgb(cls, points: PointsArray) -> "PointsData":
-        """从xyzrgb数据构建"""
+        """Create PointsData from xyzrgb format.
+
+        Args:
+            points: Nx6 array of (x,y,z,r,g,b) data
+
+        Returns:
+            New PointsData instance
+        """
         p = cls(points)
         if p.format != "xyzrgb":
             raise ValueError("XYZRGB data must have 6 features")
@@ -229,19 +291,34 @@ class PointsData:
 
     @staticmethod
     def validate_points(points: PointsArray) -> None:
+        """Validate the point cloud data array.
+
+        Checks:
+        - Array is not None or empty
+        - Array is 2D with correct number of features
+        - Values are numeric
+        - Categories are integers in [0,15] for xyzc format
+        - RGB values are integers in [0,255] for xyzrgb format
+
+        Args:
+            points: Point cloud data array to validate
+
+        Raises:
+            ValueError: If validation fails
+        """
         if points is None:
             raise ValueError("Points array cannot be None")
 
         if len(points) == 0:
             raise ValueError("Points array cannot be empty")
 
-        # 检查维度
+        # Check dimensions
         if points.ndim != 2:
             raise ValueError(
                 f"Points must be a 2D array, got {points.ndim}D array."
             )
 
-        # 检查输入点是否是所需要的格式
+        # Check input format
         n_features = points.shape[1]
         if n_features not in PointsData.POINT_AVAILABLE_FORMAT.keys():
             raise ValueError(
@@ -252,28 +329,28 @@ class PointsData:
                 f"But got {n_features} shaped point."
             )
 
-        # 检查是否是数字
+        # Check numeric values
         if not np.issubdtype(points.dtype, np.number):
             raise ValueError("points must contain numeric values")
 
-        # 检查 category 是否在 int[0, 15]
+        # Check categories are in int[0, 15]
         if n_features == 4:
             categories = points[:, 3]
-            # 检查是否为整数
+            # Check integers
             if not np.all(categories == categories.astype(int)):
                 raise ValueError("Categories must be integers")
 
-            # 检查范围
+            # Check range
             if not np.all((categories >= 0) & (categories <= 15)):
                 raise ValueError("Categories must be in range [0, 15]")
 
-        # 检查 rgb 是否在 int[0, 255]
+        # Check RGB values are in int[0, 255]
         elif n_features == 6:
             rgb = points[:, 3:6]
-            # 检查RGB是否合法
+            # Check integers
             if not np.all(rgb == rgb.astype(int)):
                 raise ValueError("RGB values must be integers")
 
-            # 检查范围
+            # Check range
             if not np.all((rgb >= 0) & (rgb <= 255)):
                 raise ValueError("RGB values must be in range [0, 255]")
