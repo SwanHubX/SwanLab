@@ -12,7 +12,7 @@ try:
     # noinspection PyPackageRequirements
     import swanboard
 except ImportError:
-    raise ImportError("Please install swanboard to use 'local' mode")
+    raise ImportError("Please install swanboard to use 'local' mode: `pip install swanboard`")
 
 
 import json
