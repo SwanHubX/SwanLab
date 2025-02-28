@@ -12,17 +12,18 @@ from .modules import (
     Image,
     Text,
 )
-
-from .sdk import (
-    login,
-    init,
-    log,
-    finish,
-)
-
 from .run import (
     SwanLabRun as Run,
     SwanLabRunState as State,
     get_run,
     get_config,
+    get_url,
+    get_project_url,
+    config,
+)
+from .sdk import (
+    login,
+    init,
+    log,
+    finish,
 )

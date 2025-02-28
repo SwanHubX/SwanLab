@@ -366,7 +366,7 @@ class TestLogin:
         os.environ[SwanLabEnv.API_KEY.value] = T.API_KEY
         S.login(host=T.API_HOST.rstrip("/api"))
         assert os.environ[SwanLabEnv.API_HOST.value] == T.API_HOST
-        assert os.environ.get(SwanLabEnv.WEB_HOST.value) is None
+        assert os.environ.get(SwanLabEnv.WEB_HOST.value) == T.API_HOST.rstrip("/api")
         S.login(host=T.API_HOST.rstrip("/api"), web_host=T.WEB_HOST)
         assert os.environ[SwanLabEnv.API_HOST.value] == T.API_HOST
         assert os.environ[SwanLabEnv.WEB_HOST.value] == T.WEB_HOST
