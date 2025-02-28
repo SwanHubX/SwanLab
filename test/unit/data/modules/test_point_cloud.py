@@ -1,3 +1,6 @@
+import tempfile
+import os
+import json
 import numpy as np
 import pytest
 from swanlab.data.modules import PointCloud
@@ -166,3 +169,123 @@ def test_point_cloud_different_sizes(n_points):
     points = np.random.rand(n_points, 3)
     pc = PointCloud(points)
     assert pc.points.take().shape == (n_points, 6)
+
+
+def test_point_cloud_from_json_file():
+    """测试从JSON文件加载点云数据的正常情况"""
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        # 测试xyz格式
+        points_xyz = np.random.rand(100, 3) * 100
+        json.dump(points_xyz.tolist(), f)
+        f.flush()
+
+        # 测试加载
+        pc = PointCloud.from_json_file(f.name, caption="Test XYZ")
+        assert pc.points.format == 'xyz'
+        np.testing.assert_array_equal(pc.points.take()[:, :3], points_xyz)
+        assert pc.caption == "Test XYZ"
+
+    # 清理临时文件
+    os.unlink(f.name)
+
+
+def test_point_cloud_from_json_file_xyzc():
+    """测试从JSON文件加载xyzc格式点云数据"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        xyz = np.random.rand(100, 3) * 100
+        categories = np.random.randint(0, 15, (100, 1))
+        points_xyzc = np.hstack([xyz, categories])
+        json.dump(points_xyzc.tolist(), f)
+        f.flush()
+
+        pc = PointCloud.from_json_file(f.name)
+        assert pc.points.format == 'xyzc'
+        np.testing.assert_array_equal(pc.points.take()[:, :3], xyz)
+
+    os.unlink(f.name)
+
+
+def test_point_cloud_from_json_file_xyzrgb():
+    """测试从JSON文件加载xyzrgb格式点云数据"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        xyz = np.random.rand(100, 3) * 100
+        rgb = np.random.randint(0, 255, (100, 3))
+        points_xyzrgb = np.hstack([xyz, rgb])
+        json.dump(points_xyzrgb.tolist(), f)
+        f.flush()
+
+        pc = PointCloud.from_json_file(f.name)
+        assert pc.points.format == 'xyzrgb'
+        np.testing.assert_array_equal(pc.points.take(), points_xyzrgb)
+
+    os.unlink(f.name)
+
+
+def test_point_cloud_from_json_file_errors():
+    """测试从JSON文件加载时的错误情况"""
+    # 测试文件不存在
+    with pytest.raises(FileNotFoundError):
+        PointCloud.from_json_file("nonexistent_file.json")
+
+    # 测试无效的JSON格式
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write("invalid json content")
+        f.flush()
+
+        with pytest.raises(ValueError, match="Invalid JSON format"):
+            PointCloud.from_json_file(f.name)
+
+    os.unlink(f.name)
+
+    # 测试非法的点云数据格式
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        # 写入非嵌套列表
+        json.dump([1, 2, 3], f)
+        f.flush()
+
+        with pytest.raises(ValueError, match="JSON file must contain a list of point lists"):
+            PointCloud.from_json_file(f.name)
+
+    os.unlink(f.name)
+
+    # 测试错误的维度
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        # 写入错误维度的数据
+        points = np.random.rand(100, 5)  # 5维数据是不支持的
+        json.dump(points.tolist(), f)
+        f.flush()
+
+        with pytest.raises(ValueError, match="Point cloud data must be in one of these formats"):
+            PointCloud.from_json_file(f.name)
+
+    os.unlink(f.name)
+
+
+def test_point_cloud_from_json_file_validation():
+    """测试从JSON文件加载时的数据验证"""
+    # 测试非法的类别值
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        xyz = np.random.rand(100, 3)
+        categories = np.random.randint(16, 20, (100, 1))  # 超出范围的类别
+        points = np.hstack([xyz, categories])
+        json.dump(points.tolist(), f)
+        f.flush()
+
+        with pytest.raises(ValueError, match="Categories must be in range"):
+            PointCloud.from_json_file(f.name)
+
+    os.unlink(f.name)
+
+    # 测试非法的RGB值
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        xyz = np.random.rand(100, 3)
+        rgb = np.random.randint(256, 300, (100, 3))  # 超出范围的RGB值
+        points = np.hstack([xyz, rgb])
+        json.dump(points.tolist(), f)
+        f.flush()
+
+        with pytest.raises(ValueError, match="RGB values must be in range"):
+            PointCloud.from_json_file(f.name)
+
+    os.unlink(f.name)
