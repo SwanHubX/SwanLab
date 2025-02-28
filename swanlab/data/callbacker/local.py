@@ -24,7 +24,6 @@ from typing import Union, Tuple
 
 from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
-from swankit.log import FONT
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.data.run.main import get_run, SwanLabRunState
@@ -144,7 +143,6 @@ class LocalRunCallback(SwanLabRunCallback):
         self._register_sys_callback()
         # 打印信息
         self._train_begin_print()
-        swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
 
     def on_runtime_info_update(self, r: RuntimeInfo):
