@@ -14,7 +14,7 @@ def test_point_cloud_xyz():
     pc = PointCloud(points)
 
     # 测试基本属性
-    assert pc.points.format == 'xyz'
+    assert pc.points.format == 'xyzrgb'
     assert pc.points.take().shape == (100, 6)  # 转换后变为xyzrgb格式
 
     # 测试parse结果
@@ -40,7 +40,7 @@ def test_point_cloud_xyzc():
     points = np.hstack([xyz, categories])
 
     pc = PointCloud(points)
-    assert pc.points.format == 'xyzc'
+    assert pc.points.format == 'xyzrgb'
     assert pc.points.take().shape == (100, 6)  # 转换后变为xyzrgb格式
 
     # 测试颜色映射是否正确
@@ -182,7 +182,7 @@ def test_point_cloud_from_json_file():
 
         # 测试加载
         pc = PointCloud.from_json_file(f.name, caption="Test XYZ")
-        assert pc.points.format == 'xyz'
+        assert pc.points.format == 'xyzrgb'
         np.testing.assert_array_equal(pc.points.take()[:, :3], points_xyz)
         assert pc.caption == "Test XYZ"
 
@@ -200,7 +200,7 @@ def test_point_cloud_from_json_file_xyzc():
         f.flush()
 
         pc = PointCloud.from_json_file(f.name)
-        assert pc.points.format == 'xyzc'
+        assert pc.points.format == 'xyzrgb'
         np.testing.assert_array_equal(pc.points.take()[:, :3], xyz)
 
     os.unlink(f.name)
