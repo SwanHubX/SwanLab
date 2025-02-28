@@ -68,7 +68,8 @@ class PointCloud(MediaType):
 
         self.buffer = MediaBuffer()
         points_list = self.points.take().tolist()
-        json.dump(points_list, self.buffer)
+        json_str = json.dumps(points_list)
+        self.buffer.write(json_str.encode())
 
     @classmethod
     def from_json_file(cls, file_path: str, caption: Optional[str] = None) -> "PointCloud":
