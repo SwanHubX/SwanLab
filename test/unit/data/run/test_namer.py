@@ -8,7 +8,7 @@ r"""
     测试命名器、取色器
 """
 from swanlab.data.run import namer
-from namer import hex_to_rgb
+from swanlab.data.run.namer import hex_to_rgb
 import pytest
 
 
