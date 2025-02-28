@@ -7,15 +7,17 @@ r"""
 @Description:
     tencent cos
 """
+from datetime import datetime, timedelta
+from typing import List, Dict, Union
+
 # noinspection PyPackageRequirements
 from qcloud_cos import CosConfig
 # noinspection PyPackageRequirements
 from qcloud_cos import CosS3Client
 # noinspection PyPackageRequirements
 from qcloud_cos.cos_threadpool import SimpleThreadPool
-from datetime import datetime, timedelta
-from typing import List, Dict, Union
-from swanlab.data.modules import MediaBuffer
+from swankit.core import MediaBuffer
+
 from swanlab.log import swanlog
 
 
@@ -35,7 +37,7 @@ class CosClient:
             SecretId=credentials['tmpSecretId'],
             SecretKey=credentials['tmpSecretKey'],
             Token=credentials['sessionToken'],
-            Scheme='https'
+            Scheme='https',
         )
         self.__client = CosS3Client(config)
 
