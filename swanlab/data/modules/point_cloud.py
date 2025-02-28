@@ -15,18 +15,46 @@ except ImportError:
 class PointCloud(MediaType):
     """A class representing 3D point cloud data.
 
-    Supports three formats:
-    - xyz: coordinates only
-    - xyzc: coordinates with category
-    - xyzrgb: coordinates with RGB colors
+    This class provides support for creating, loading and managing 3D point cloud data in three different formats:
+        - xyz: coordinates only (Nx3 array format)
+        - xyzc: coordinates with category (Nx4 array format, categories in range [0,15])
+        - xyzrgb: coordinates with RGB colors (Nx6 array format, RGB values in range [0,255])
+
+    Examples:
+        Create a point cloud from coordinates:
+        >>> points = np.array([[0,0,0], [1,1,1], [2,2,2]])  # xyz format
+        >>> pc = PointCloud(points)
+
+        Create a point cloud with categories:
+        >>> points = np.array([[0,0,0,1], [1,1,1,2]])  # xyzc format, categories 1,2
+        >>> pc = PointCloud(points, caption="Categorized points")
+
+        Create a point cloud with RGB colors:
+        >>> points = np.array([[0,0,0,255,0,0], [1,1,1,0,255,0]])  # xyzrgb format
+        >>> pc = PointCloud(points)
+
+        Load point cloud from JSON:
+        >>> pc = PointCloud.from_json_file("points.json", caption="My points")
 
     Args:
-        points: numpy array of point cloud data
-        caption: optional description of the point cloud
+        points (PointsArray): A numpy array containing point cloud data in one of the supported formats
+        caption (str, optional): A description of the point cloud data
     """
 
     def __init__(self, points: PointsArray,  caption: Optional[str] = None):
-        # 在使用时检查numpy是否已安装
+        """Initialize a PointCloud object.
+
+        Args:
+            points (PointsArray): A numpy array containing point cloud data in one of the supported formats:
+                - Nx3 array: XYZ coordinates only
+                - Nx4 array: XYZ coordinates with category (0-15)
+                - Nx6 array: XYZ coordinates with RGB colors (0-255)
+            caption (Optional[str], optional): A description of the point cloud data. Defaults to None.
+
+        Raises:
+            ImportError: If numpy is not installed
+        """
+        # Check if numpy is installed
         if np is None:
             raise ImportError(
                 "Numpy is required for PointCloud class. "
@@ -43,21 +71,30 @@ class PointCloud(MediaType):
         json.dump(points_list, self.buffer)
 
     @classmethod
-    def from_file(cls, file_path: str, caption: Optional[str] = None) -> "PointCloud":
-        """从JSON文件创建点云对象
+    def from_json_file(cls, file_path: str, caption: Optional[str] = None) -> "PointCloud":
+        """Create a PointCloud object from a JSON file containing point data.
+
+        The JSON file should contain a list of point lists in one of the supported formats:
+        - [[x,y,z], ...] for xyz format
+        - [[x,y,z,c], ...] for xyzc format (c = category 0-15)
+        - [[x,y,z,r,g,b], ...] for xyzrgb format (r,g,b = 0-255)
+
+        Example:
+            >>> pc = PointCloud.from_json_file("points.json", caption="Building points")
+            >>> pc = PointCloud.from_json_file("colored_points.json")
 
         Args:
-            file_path: JSON文件路径
-            caption: 可选的点云描述
+            file_path (str): Path to the JSON file containing point cloud data
+            caption (str, optional): Description of the point cloud
 
         Returns:
-            PointCloud 对象
+            PointCloud: A new PointCloud instance created from the JSON data
 
         Raises:
-            ImportError: 如果numpy未安装
-            ValueError: 如果文件格式不正确或数据无效
-            FileNotFoundError: 如果文件不存在
-            """
+            ImportError: If numpy is not installed
+            ValueError: If the file format or data is invalid
+            FileNotFoundError: If the specified file does not exist
+        """
         if np is None:
             raise ImportError(
                 "Numpy is required for PointCloud class. "
@@ -68,12 +105,12 @@ class PointCloud(MediaType):
             with open(file_path, 'r') as f:
                 points_list = json.load(f)
 
-            # 检查是否为嵌套列表
+            # Validate nested list structure
             if not isinstance(points_list, list) or not all(isinstance(p, list) for p in points_list):
                 raise ValueError(
                     "JSON file must contain a list of point lists")
 
-            # 转换为numpy数组
+            # Convert to numpy array
             points = np.array(points_list)
 
         except FileNotFoundError:
@@ -83,30 +120,45 @@ class PointCloud(MediaType):
         except Exception as e:
             raise ValueError(f"Error loading point cloud data: {str(e)}")
 
-        # 通过创建实例时的验证来检查数据格式
+        # Validate data format through instance creation
         return cls(points, caption)
 
     @override
     def parse(self) -> Tuple[str, MediaBuffer]:
-        """生成文件名并返回数据"""
-        # 根据数据生成哈希值作为文件名的一部分
+        """Generate a unique filename and return the point cloud data.
+
+        Returns:
+            tuple: (filename, data_buffer) where filename is generated using hash of the data
+        """
         hash_name = D.get_hash_by_ndarray(self.points.take())[:16]
         save_name = f"pointscloud-step{self.step}-{hash_name}.json"
-        return save_name, self.buffer  # 返回文件名和数据
+        return save_name, self.buffer
 
     @override
     def get_more(self) -> Optional[Dict[str, str]]:
-        """返回额外信息"""
+        """Get additional metadata about the point cloud.
+
+        Returns:
+            dict: Additional information including caption if available, None otherwise
+        """
         return {"caption": self.caption} if self.caption else None
 
     @override
     def get_section(self) -> str:
-        """返回分组名"""
+        """Get the section name for organization purposes.
+
+        Returns:
+            str: Section name 'PointsCloud'
+        """
         return "PointsCloud"
 
     @override
     def get_chart(self):
-        """返回图表类型"""
+        """Get the chart type for visualization.
+
+        Returns:
+            ChartItem: The chart type used for rendering
+        """
         return self.Chart.ChartItem
 
 
