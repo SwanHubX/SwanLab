@@ -1,7 +1,7 @@
 from swankit.core import MediaType, MediaBuffer, DataSuite as D
 from typing import Any, Optional, Dict, Tuple
 from functools import cached_property
-# from swanlab.data.run.namer import hex_to_rgb, light_colors
+from swanlab.data.run.namer import hex_to_rgb, light_colors
 import json
 
 try:
@@ -226,10 +226,9 @@ class PointsData:
             return PointsData(xyzrgb)
 
         # For xyzc format, map categories to predefined colors
-        # TODO: try remove namer.color
-        # categories = self.points[:, 3].astype(int)
-        # colors = np.array([hex_to_rgb(c) for c in light_colors])
-        # xyzrgb[:, 3:] = colors[categories]
+        categories = self.points[:, 3].astype(int)
+        colors = np.array([hex_to_rgb(c) for c in light_colors])
+        xyzrgb[:, 3:] = colors[categories]
         return PointsData(xyzrgb)
 
     @cached_property
