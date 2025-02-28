@@ -12,7 +12,7 @@ except ImportError:
     PointsArray = Any
 
 
-class PointCloud(MediaType):
+class Object3D(MediaType):
     """A class representing 3D point cloud data.
 
     This class provides support for creating, loading and managing 3D point cloud data in three different formats:
@@ -23,18 +23,18 @@ class PointCloud(MediaType):
     Examples:
         Create a point cloud from coordinates:
         >>> points = np.array([[0,0,0], [1,1,1], [2,2,2]])  # xyz format
-        >>> pc = PointCloud(points)
+        >>> pc = Object3D(points)
 
         Create a point cloud with categories:
         >>> points = np.array([[0,0,0,1], [1,1,1,2]])  # xyzc format, categories 1,2
-        >>> pc = PointCloud(points, caption="Categorized points")
+        >>> pc = Object3D(points, caption="Categorized points")
 
         Create a point cloud with RGB colors:
         >>> points = np.array([[0,0,0,255,0,0], [1,1,1,0,255,0]])  # xyzrgb format
-        >>> pc = PointCloud(points)
+        >>> pc = Object3D(points)
 
         Load point cloud from JSON:
-        >>> pc = PointCloud.from_json_file("points.json", caption="My points")
+        >>> pc = Object3D.from_json_file("points.json", caption="My points")
 
     Args:
         points (PointsArray): A numpy array containing point cloud data in one of the supported formats
@@ -42,7 +42,7 @@ class PointCloud(MediaType):
     """
 
     def __init__(self, points: PointsArray,  caption: Optional[str] = None):
-        """Initialize a PointCloud object.
+        """Initialize a Object3D object.
 
         Args:
             points (PointsArray): A numpy array containing point cloud data in one of the supported formats:
@@ -57,7 +57,7 @@ class PointCloud(MediaType):
         # Check if numpy is installed
         if np is None:
             raise ImportError(
-                "Numpy is required for PointCloud class. "
+                "Numpy is required for Object3D class. "
                 "Please install it with: pip install numpy."
             )
 
@@ -72,8 +72,8 @@ class PointCloud(MediaType):
         self.buffer.write(json_str.encode())
 
     @classmethod
-    def from_json_file(cls, file_path: str, caption: Optional[str] = None) -> "PointCloud":
-        """Create a PointCloud object from a JSON file containing point data.
+    def from_json_file(cls, file_path: str, caption: Optional[str] = None) -> "Object3D":
+        """Create a Object3D object from a JSON file containing point data.
 
         The JSON file should contain a list of point lists in one of the supported formats:
         - [[x,y,z], ...] for xyz format
@@ -81,15 +81,15 @@ class PointCloud(MediaType):
         - [[x,y,z,r,g,b], ...] for xyzrgb format (r,g,b = 0-255)
 
         Example:
-            >>> pc = PointCloud.from_json_file("points.json", caption="Building points")
-            >>> pc = PointCloud.from_json_file("colored_points.json")
+            >>> pc = Object3D.from_json_file("points.json", caption="Building points")
+            >>> pc = Object3D.from_json_file("colored_points.json")
 
         Args:
             file_path (str): Path to the JSON file containing point cloud data
             caption (str, optional): Description of the point cloud
 
         Returns:
-            PointCloud: A new PointCloud instance created from the JSON data
+            Object3D: A new Object3D instance created from the JSON data
 
         Raises:
             ImportError: If numpy is not installed
@@ -98,7 +98,7 @@ class PointCloud(MediaType):
         """
         if np is None:
             raise ImportError(
-                "Numpy is required for PointCloud class. "
+                "Numpy is required for Object3D class. "
                 "Please install it with: pip install numpy."
             )
 
