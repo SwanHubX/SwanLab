@@ -8,6 +8,8 @@ r"""
     测试命名器、取色器
 """
 from swanlab.data.run import namer
+from namer import hex_to_rgb
+import pytest
 
 
 def test_name_no_index():
@@ -37,3 +39,78 @@ def test_color_with_index():
     colors = namer.generate_colors(999999999)
     assert len(colors) == 2
     assert isinstance(colors, tuple)
+
+
+def test_hex_to_rgb_normal():
+    """测试正常的hex颜色转换"""
+    # 测试标准6位十六进制
+    assert hex_to_rgb("#528d59") == (82, 141, 89)
+    assert hex_to_rgb("528d59") == (82, 141, 89)
+
+    # 测试3位简写形式
+    assert hex_to_rgb("#fff") == (255, 255, 255)
+    assert hex_to_rgb("fff") == (255, 255, 255)
+
+    # 测试黑白色
+    assert hex_to_rgb("#000000") == (0, 0, 0)
+    assert hex_to_rgb("#FFFFFF") == (255, 255, 255)
+
+    # 测试大小写混合
+    assert hex_to_rgb("#fF0000") == (255, 0, 0)
+
+
+def test_hex_to_rgb_edge_cases():
+    """测试边界情况"""
+    # 测试带空格的情况
+    assert hex_to_rgb(" #528d59 ") == (82, 141, 89)
+    assert hex_to_rgb(" 528d59 ") == (82, 141, 89)
+
+
+def test_hex_to_rgb_invalid_input():
+    """测试无效输入"""
+    # 测试长度错误
+    with pytest.raises(ValueError, match="Invalid hex color length"):
+        hex_to_rgb("#12345")  # 5位
+
+    with pytest.raises(ValueError, match="Invalid hex color length"):
+        hex_to_rgb("1234567")  # 7位
+
+    # 测试非法字符
+    with pytest.raises(ValueError, match="Invalid hex color"):
+        hex_to_rgb("#xyz123")
+
+    with pytest.raises(ValueError, match="Invalid hex color"):
+        hex_to_rgb("#12345g")
+
+    # 测试空字符串
+    with pytest.raises(ValueError, match="Invalid hex color length"):
+        hex_to_rgb("")
+
+    # 测试None
+    with pytest.raises(AttributeError):
+        hex_to_rgb(None)
+
+
+def test_hex_to_rgb_rgb_bounds():
+    """测试RGB值的范围"""
+    # 测试最小值(0)
+    result = hex_to_rgb("#000000")
+    assert all(0 <= v <= 255 for v in result)
+
+    # 测试最大值(255)
+    result = hex_to_rgb("#FFFFFF")
+    assert all(0 <= v <= 255 for v in result)
+
+    # 测试中间值
+    result = hex_to_rgb("#7F7F7F")
+    assert all(0 <= v <= 255 for v in result)
+
+
+def test_hex_to_rgb_basic_colors():
+    """测试基本颜色"""
+    assert hex_to_rgb("#FF0000") == (255, 0, 0)    # 红
+    assert hex_to_rgb("#00FF00") == (0, 255, 0)    # 绿
+    assert hex_to_rgb("#0000FF") == (0, 0, 255)    # 蓝
+    assert hex_to_rgb("#FFFF00") == (255, 255, 0)  # 黄
+    assert hex_to_rgb("#FF00FF") == (255, 0, 255)  # 品红
+    assert hex_to_rgb("#00FFFF") == (0, 255, 255)  # 青
