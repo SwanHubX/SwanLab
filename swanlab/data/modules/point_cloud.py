@@ -1,5 +1,5 @@
 from swankit.core import MediaType, MediaBuffer, DataSuite as D
-from typing import Any, override, Optional, Dict, Tuple
+from typing import Any, Optional, Dict, Tuple
 from functools import cached_property
 from swanlab.data.run.namer import hex_to_rgb, light_colors
 import json
@@ -123,7 +123,6 @@ class PointCloud(MediaType):
         # Validate data format through instance creation
         return cls(points, caption)
 
-    @override
     def parse(self) -> Tuple[str, MediaBuffer]:
         """Generate a unique filename and return the point cloud data.
 
@@ -134,7 +133,6 @@ class PointCloud(MediaType):
         save_name = f"pointscloud-step{self.step}-{hash_name}.json"
         return save_name, self.buffer
 
-    @override
     def get_more(self) -> Optional[Dict[str, str]]:
         """Get additional metadata about the point cloud.
 
@@ -143,7 +141,6 @@ class PointCloud(MediaType):
         """
         return {"caption": self.caption} if self.caption else None
 
-    @override
     def get_section(self) -> str:
         """Get the section name for organization purposes.
 
@@ -152,7 +149,6 @@ class PointCloud(MediaType):
         """
         return "PointsCloud"
 
-    @override
     def get_chart(self):
         """Get the chart type for visualization.
 
