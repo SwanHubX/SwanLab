@@ -54,7 +54,7 @@ def get_cpu_brand_linux():
     # lscpu 命令获取 CPU 品牌
     cpu_brand = None
     try:
-        result = subprocess.run(["lscpu"], env={"LANG": "en_US.UTF-8", **os.environ}, capture_output=True, text=True)
+        result = subprocess.run(["lscpu"], capture_output=True, text=True)
         for line in result.stdout.split("\n"):
             if "model name" in line.lower():
                 cpu_brand = line.split(":")[1].strip()
