@@ -443,3 +443,25 @@ def get_config() -> Optional["SwanLabConfig"]:
     """
     global config
     return config
+
+
+def get_url() -> Optional["str"]:
+    """
+    Get the url of the current experiment.
+    NOTE: return None if the experiment has not been initialized or mode is not 'cloud'.
+    """
+    global run
+    if run is None:
+        return None
+    return run.public.cloud.experiment_url
+
+
+def get_project_url() -> Optional["str"]:
+    """
+    Get the url of the current project.
+    NOTE: return None if the experiment has not been initialized or mode is not 'cloud'.
+    """
+    global run
+    if run is None:
+        return None
+    return run.public.cloud.project_url
