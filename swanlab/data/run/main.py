@@ -88,8 +88,7 @@ class SwanLabRun:
             version=get_package_version(),
         )
         self.__mode = get_mode()
-        self.__public = SwanLabPublicConfig(
-            self.__project_name, self.__settings)
+        self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
         swanlog.level = check_log_level(log_level)
@@ -97,18 +96,15 @@ class SwanLabRun:
         # 如果config是以下几个类别之一，则抛出异常
         if isinstance(run_config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(
-                f"config: {run_config} (type: {type(
-                    run_config)}) is not a json serialized dict "
+                f"config: {run_config} (type: {type(run_config)}) is not a json serialized dict "
                 f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
             )
         global config
         config.update(run_config)
-        setattr(config, "_SwanLabConfig__on_setter",
-                self.__operator.on_runtime_info_update)
+        setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(
-            experiment_name, description, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -188,21 +184,17 @@ class SwanLabRun:
         if experiment_name:
             e = check_exp_name_format(experiment_name)
             if experiment_name != e:
-                swanlog.warning(
-                    "The experiment name has been truncated automatically.")
+                swanlog.warning("The experiment name has been truncated automatically.")
                 experiment_name = e
         if description:
             d = check_desc_format(description)
             if description != d:
-                swanlog.warning(
-                    "The description has been truncated automatically.")
+                swanlog.warning("The description has been truncated automatically.")
                 description = d
-        experiment_name = N.generate_name(
-            num) if experiment_name is None else experiment_name
+        experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
-        self.__operator.before_init_experiment(
-            self.__run_id, experiment_name, description, num, colors)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
         self.__settings.exp_name = experiment_name
         self.__settings.exp_colors = colors
         self.__settings.description = description
@@ -287,11 +279,9 @@ class SwanLabRun:
         # 3. 清空run和config对象，run改为局部变量_run，新建一个config对象，原本的config对象内容转移到新的config对象，全局config被清空
         # 4. 返回_run
         if run is None:
-            raise RuntimeError(
-                "The run object is None, please call `swanlab.init` first.")
+            raise RuntimeError("The run object is None, please call `swanlab.init` first.")
         if state == SwanLabRunState.CRASHED and error is None:
-            raise ValueError(
-                "When the state is 'CRASHED', the error message cannot be None.")
+            raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
         # 退出回调
@@ -354,14 +344,12 @@ class SwanLabRun:
             Unsupported key names.
         """
         if self.__state != SwanLabRunState.RUNNING:
-            raise RuntimeError(
-                "After experiment finished, you can no longer log data to the current experiment")
+            raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
         self.__operator.on_log()
 
         if not isinstance(data, dict):
             return swanlog.error(
-                "log data must be a dict, but got {}, SwanLab will ignore records it.".format(
-                    type(data))
+                "log data must be a dict, but got {}, SwanLab will ignore records it.".format(type(data))
             )
         # 检查step的类型
         if step is not None and (not isinstance(step, int) or step < 0):
@@ -382,11 +370,9 @@ class SwanLabRun:
             k = check_key_format(k, auto_cut=True)
             if k != _k:
                 # 超过255字符，截断
-                swanlog.warning(
-                    f"Key {_k} is too long, cut to 255 characters.")
+                swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
                 if k in flattened_data.keys():
-                    raise ValueError(f'tag: Not supported too long Key "{
-                                     _k}" and auto cut failed')
+                    raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
             # ---------------------------------- 包装数据 ----------------------------------
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
@@ -402,8 +388,7 @@ class SwanLabRun:
                 and all([i.__class__ == v[0].__class__ for i in v])
             ):
                 if len(v) > MAX_LIST_LENGTH:
-                    swanlog.warning(f"List length '{k}' is too long, cut to {
-                                    MAX_LIST_LENGTH}.")
+                    swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
                     v = v[:MAX_LIST_LENGTH]
                 v = DataWrapper(k, v)
             else:
@@ -435,12 +420,10 @@ def _set_run_state(state: SwanLabRunState):
     设置实验状态，只能在run对象存在的情况下调用
     """
     if run is None:
-        raise RuntimeError(
-            "The run object is None, please call swanlab.init first.")
+        raise RuntimeError("The run object is None, please call swanlab.init first.")
 
     if state not in SwanLabRunState or state in [SwanLabRunState.NOT_STARTED, SwanLabRunState.RUNNING]:
-        swanlog.warning(
-            "Invalid state when set, state must be in SwanLabRunState and not be RUNNING or NOT_STARTED")
+        swanlog.warning("Invalid state when set, state must be in SwanLabRunState and not be RUNNING or NOT_STARTED")
         swanlog.warning("SwanLab will set state to `CRASHED`")
         state = SwanLabRunState.CRASHED
     # 设置state
