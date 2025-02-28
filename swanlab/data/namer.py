@@ -90,7 +90,7 @@ dark_colors = [
 ]
 
 
-def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     """将十六进制颜色转换为RGB格式
 
     Args:
@@ -101,7 +101,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
             - "fff"
 
     Returns:
-        tuple[int, int, int]: RGB格式的颜色值，范围[0,255]
+        Tuple[int, int, int]: RGB格式的颜色值，范围[0,255]
 
     Raises:
         ValueError: 当输入格式不正确时
