@@ -1,7 +1,7 @@
 from swankit.core import MediaType, MediaBuffer, DataSuite as D
 from typing import Any, Optional, Dict, Tuple
 from functools import cached_property
-from swanlab.data.run.namer import hex_to_rgb, light_colors
+from swanlab.data.namer import hex_to_rgb, light_colors
 import json
 
 try:

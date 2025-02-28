@@ -10,7 +10,7 @@ from typing import TypedDict, Tuple, Optional, Any, List, Union
 
 from swankit.callback.models import ColumnConfig, YRange
 
-from swanlab.data.run.namer import generate_colors
+from swanlab.data.namer import generate_colors
 from swanlab.log import swanlog
 
 
@@ -137,7 +137,8 @@ class HardwareCollector(CollectGuard, ABC):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
-                    swanlog.debug(f"Atoms collection failed: {func.__name__}, {str(e)}")
+                    swanlog.debug(f"Atoms collection failed: {
+                                  func.__name__}, {str(e)}")
                     return None
 
             return wrapper
@@ -158,7 +159,8 @@ class HardwareCollector(CollectGuard, ABC):
         except NotImplementedError as n:
             raise n
         except Exception as e:
-            swanlog.debug(f"Collection failed: {self.__class__.__name__}, {str(e)}")
+            swanlog.debug(f"Collection failed: {
+                          self.__class__.__name__}, {str(e)}")
             return None
         finally:
             self.after_collect()
