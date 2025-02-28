@@ -4,6 +4,7 @@ from .text import Text
 from .line import Line, FloatConvertible
 from typing import Union, List
 from .wrapper import DataWrapper
+from .point_cloud import PointCloud
 from swankit.core.data import MediaType, MediaBuffer, BaseType
 
 DataType = Union[int, float, FloatConvertible, BaseType, List[BaseType]]
@@ -19,5 +20,6 @@ __all__ = [
     "Line",
     "DataType",
     "ChartType",
-    "MediaBuffer"
+    "MediaBuffer",
+    "PointCloud"
 ]
