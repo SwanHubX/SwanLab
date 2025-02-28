@@ -21,5 +21,5 @@ __all__ = [
     "DataType",
     "ChartType",
     "MediaBuffer",
-    "PointCloud"
+    "Object3D"
 ]
