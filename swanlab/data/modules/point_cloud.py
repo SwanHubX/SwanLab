@@ -42,6 +42,50 @@ class PointCloud(MediaType):
         points_list = self.points.take().tolist()
         json.dump(points_list, self.buffer)
 
+    @classmethod
+    def from_file(cls, file_path: str, caption: Optional[str] = None) -> "PointCloud":
+        """从JSON文件创建点云对象
+
+        Args:
+            file_path: JSON文件路径
+            caption: 可选的点云描述
+
+        Returns:
+            PointCloud 对象
+
+        Raises:
+            ImportError: 如果numpy未安装
+            ValueError: 如果文件格式不正确或数据无效
+            FileNotFoundError: 如果文件不存在
+            """
+        if np is None:
+            raise ImportError(
+                "Numpy is required for PointCloud class. "
+                "Please install it with: pip install numpy."
+            )
+
+        try:
+            with open(file_path, 'r') as f:
+                points_list = json.load(f)
+
+            # 检查是否为嵌套列表
+            if not isinstance(points_list, list) or not all(isinstance(p, list) for p in points_list):
+                raise ValueError(
+                    "JSON file must contain a list of point lists")
+
+            # 转换为numpy数组
+            points = np.array(points_list)
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Could not find file: {file_path}")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON format in file: {file_path}")
+        except Exception as e:
+            raise ValueError(f"Error loading point cloud data: {str(e)}")
+
+        # 通过创建实例时的验证来检查数据格式
+        return cls(points, caption)
+
     @override
     def parse(self) -> Tuple[str, MediaBuffer]:
         """生成文件名并返回数据"""
