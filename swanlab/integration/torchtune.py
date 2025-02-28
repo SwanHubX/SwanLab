@@ -1,6 +1,6 @@
 from torchtune.utils._distributed import get_world_size_and_rank
 from torchtune.utils.metric_logging import MetricLoggerInterface
-from typing import Mapping, Optional, Union
+from typing import Mapping, Optional, Union, Any, Dict
 
 from numpy import ndarray
 from omegaconf import DictConfig, OmegaConf
@@ -66,6 +66,9 @@ class SwanLabLogger(MetricLoggerInterface):
             )
 
         self.config_allow_val_change = kwargs.get("allow_val_change", False)
+
+    def update_config(self, config: Dict[str, Any]):
+        self._swanlab.config.update(config)
 
     def log_config(self, config: DictConfig) -> None:
         if self._swanlab.get_run():
