@@ -29,9 +29,14 @@ class CosClient:
         self.__prefix = data["prefix"]
         self.__bucket = data["bucket"]
         credentials = data["credentials"]
+
+        # 往期版本适配
+        # TODO 后续删除
+        endpoint_url = f"https://cos.{data['region']}.myqcloud.com" if "endpoint" not in data else data["endpoint"]
+
         self.__client = boto3.client(
             's3',
-            endpoint_url=f"https://cos.{data['region']}.myqcloud.com",
+            endpoint_url=endpoint_url,
             api_version='2006-03-01',
             aws_access_key_id=credentials['tmpSecretId'],
             aws_secret_access_key=credentials['tmpSecretKey'],
