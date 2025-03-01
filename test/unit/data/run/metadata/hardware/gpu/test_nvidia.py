@@ -45,10 +45,20 @@ class TestGpuCollector:
         # 获取handle
         idx = 0
         mem = self.collector.get_gpu_mem_pct(idx=idx)
-        assert mem['name'] == "GPU 0 Utilization (%)"
+        assert mem['name'] == "GPU 0 Memory Allocated (%)"
         assert mem['config'].y_range == (0, 100)
         assert mem['config'].metric_name == "GPU 0"
         assert 100 >= mem['value'] >= 0
+
+    @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
+    def test_get_utils(self):
+        # 获取handle
+        idx = 0
+        utils = self.collector.get_gpu_util(idx=idx)
+        assert utils['name'] == "GPU 0 Utilization (%)"
+        assert utils['config'].y_range == (0, 100)
+        assert utils['config'].metric_name == "GPU 0"
+        assert 100 >= utils['value'] >= 0
 
     @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
     def test_get_temp(self):

@@ -18,7 +18,7 @@
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
@@ -32,7 +32,12 @@
 
 👋 加入我们的[微信群](https://docs.swanlab.cn/zh/guide_cloud/community/online-support.html)
 
+<a href="https://hellogithub.com/repository/b442a9fa270e4ccb8847c9ee3445e41b" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=b442a9fa270e4ccb8847c9ee3445e41b&claim_uid=Oh5UaGjfrblg0yZ" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
+
 </div>
+
+<br/>
 
 
 ## 目录
@@ -52,6 +57,12 @@
 
 ## 🌟 最近更新
 
+- 2025.02.24：我们与[EasyR1](https://github.com/hiyouga/EasyR1)完成了联合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
+
+- 2025.02.18：我们与 [Swift](https://github.com/modelscope/ms-swift) 完成了联合集成，现在你可以在Swift的CLI/WebUI中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
+
+- 2025.02.16：新增 **图表移动分组、创建分组** 功能。
+
 - 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
 - 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
@@ -64,12 +75,12 @@
 
 - 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
 
+
+<details><summary>完整更新日志</summary>
+
 - 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
 
 - 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
-
-
-<details><summary>完整更新日志</summary>
 
 - 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
 
@@ -262,11 +273,13 @@ swanlab watch ./logs
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 - [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
+- [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/guide_cloud/integration/integration-omegaconf.html)
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
@@ -314,11 +327,14 @@ swanlab watch ./logs
 
 如果你喜欢在工作中使用 SwanLab，请将 SwanLab 徽章添加到你的 README 中：
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+更多设计素材：[assets](https://github.com/SwanHubX/assets)
 
 ### 在论文中引用 SwanLab
 
@@ -341,9 +357,7 @@ swanlab watch ./logs
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持 SwanLab，衷心感谢！
 
-### 下载 Icon
 
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -415,3 +429,9 @@ swanlab watch ./logs
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg

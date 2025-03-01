@@ -100,6 +100,9 @@ class SwanLabTracker(GeneralTracker):
             "Make sure to log any initial configurations with `self.store_init_configuration` before training!"
         )
 
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
+
     @property
     def tracker(self):
         return self.writer

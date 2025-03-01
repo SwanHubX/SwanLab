@@ -18,7 +18,7 @@
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
@@ -51,6 +51,12 @@
 
 ## 🌟 Последние обновления
 
+- 2025.02.24: Мы объединили усилия с [EasyR1](https://github.com/hiyouga/EasyR1), теперь вы можете использовать SwanLab в EasyR1 для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
+
+- 2025.02.18: Мы объединили усилия с [Swift](https://github.com/modelscope/ms-swift), теперь вы можете использовать SwanLab в Swift's CLI/WebUI для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html).
+
+- 2025.02.16: Добавлены функции перемещения групп и создания групп.
+
 - 2025.02.09: Мы объединили усилия с [veRL](https://github.com/volcengine/verl), теперь вы можете использовать SwanLab в veRL для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html).
 
 - 2025.02.05: `swanlab.log` поддерживает вложенные словари [#812](https://github.com/SwanHubX/SwanLab/pull/812), поддерживает параметры `name` и `notes`.
@@ -63,12 +69,11 @@
 
 - 2025.01.01: Добавлено **сглаживание графиков** и возможность изменения размера графиков перетаскиванием, улучшено взаимодействие с графиками.
 
+<details><summary>Полный список изменений</summary>
+
 - 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
 
 - 2024.12.15: Добавлена функция **мониторинга оборудования (0.4.0)**, поддерживается запись и мониторинг системной информации для CPU, NPU (Ascend), GPU (Nvidia).
-
-
-<details><summary>Полный список изменений</summary>
 
 - 2024.12.06: Добавлена интеграция с [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html) и [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html); увеличено ограничение на длину строки в логах.
 
@@ -259,11 +264,13 @@ swanlab watch ./logs
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 - [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
+- [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
 **Другие фреймворки:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/guide_cloud/integration/integration-omegaconf.html)
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
@@ -309,11 +316,14 @@ swanlab watch ./logs
 
 Если вам нравится использовать SwanLab в вашей работе, добавьте значок SwanLab в ваш README:
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+Больше дизайнерских материалов：[assets](https://github.com/SwanHubX/assets)
 
 ### Цитирование SwanLab в научных работах
 
@@ -335,10 +345,6 @@ swanlab watch ./logs
 Хотите внести вклад в SwanLab? Сначала ознакомьтесь с [руководством по вкладу](CONTRIBUTING.md).
 
 Мы также приветствуем поддержку через социальные сети, мероприятия и конференции. Спасибо!
-
-### Скачать иконку
-
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -410,3 +416,9 @@ swanlab watch ./logs
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg

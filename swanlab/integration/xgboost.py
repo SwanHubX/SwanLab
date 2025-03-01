@@ -1,5 +1,5 @@
 import json
-from typing import cast
+from typing import cast, Any, Dict
 import xgboost as xgb  # type: ignore
 from xgboost import Booster
 import swanlab
@@ -11,6 +11,9 @@ class SwanLabCallback(xgb.callback.TrainingCallback):
         swanlab.config["FRAMEWORK"] = "xgboost"
         if swanlab.get_run() is None:
             raise RuntimeError("You must call swanlab.init() before SwanLabCallback(). 你必须在SwanLabCallback()之前，调用swanlab.init().")
+    
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
         
     def before_training(self, model: Booster) -> Booster:
         """Run before training is finished."""
