@@ -1,11 +1,15 @@
-from swankit.core import MediaType, MediaBuffer, DataSuite as D
-from typing import Any, Optional, Dict, Tuple
-from functools import cached_property
-from swanlab.data.namer import hex_to_rgb, light_colors
 import json
+from functools import cached_property
+from typing import Any, Dict, Optional, Tuple
+
+from swankit.core import DataSuite as D
+from swankit.core import MediaBuffer, MediaType
+
+from swanlab.data.namer import hex_to_rgb, light_colors
 
 try:
     import numpy as np
+
     PointsArray = np.ndarray
 except ImportError:
     np = None
@@ -41,7 +45,7 @@ class Object3D(MediaType):
         caption (str, optional): A description of the point cloud data
     """
 
-    def __init__(self, points: PointsArray,  caption: Optional[str] = None):
+    def __init__(self, points: PointsArray, caption: Optional[str] = None):
         """Initialize a Object3D object.
 
         Args:
@@ -72,7 +76,9 @@ class Object3D(MediaType):
         self.buffer.write(json_str.encode())
 
     @classmethod
-    def from_json_file(cls, file_path: str, caption: Optional[str] = None) -> "Object3D":
+    def from_json_file(
+        cls, file_path: str, caption: Optional[str] = None
+    ) -> "Object3D":
         """Create a Object3D object from a JSON file containing point data.
 
         The JSON file should contain a list of point lists in one of the supported formats:
@@ -103,23 +109,24 @@ class Object3D(MediaType):
             )
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 points_list = json.load(f)
 
             # Validate nested list structure
-            if not isinstance(points_list, list) or not all(isinstance(p, list) for p in points_list):
-                raise ValueError(
-                    "JSON file must contain a list of point lists")
+            if not isinstance(points_list, list) or not all(
+                isinstance(p, list) for p in points_list
+            ):
+                raise ValueError("JSON file must contain a list of point lists")
 
             # Convert to numpy array
             points = np.array(points_list)
 
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Could not find file: {file_path}")
-        except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON format in file: {file_path}")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"Could not find file: {file_path}") from err
+        except json.JSONDecodeError as err:
+            raise ValueError(f"Invalid JSON format in file: {file_path}") from err
         except Exception as e:
-            raise ValueError(f"Error loading point cloud data: {str(e)}")
+            raise ValueError(f"Error loading point cloud data: {str(e)}") from e
 
         # Validate data format through instance creation
         return cls(points, caption)
@@ -181,7 +188,7 @@ class PointsData:
         >>> pd = PointsData.from_xyzrgb(points)
     """
 
-    POINT_AVAILABLE_FORMAT = {3: 'xyz', 4: 'xyzc', 6: 'xyzrgb'}
+    POINT_AVAILABLE_FORMAT = {3: "xyz", 4: "xyzc", 6: "xyzrgb"}
     DEFAULT_COLOR = (255, 255, 255)
 
     def __init__(self, points: PointsArray):
@@ -212,7 +219,7 @@ class PointsData:
         Returns:
             A new PointsData instance in xyzrgb format
         """
-        if self.format == 'xyzrgb':
+        if self.format == "xyzrgb":
             return self
 
         # Create new array
@@ -221,7 +228,7 @@ class PointsData:
         # Copy xyz coordinates
         xyzrgb[:, :3] = self.points[:, :3]
 
-        if self.format == 'xyz':
+        if self.format == "xyz":
             # Use default white color
             xyzrgb[:, 3:] = PointsData.DEFAULT_COLOR
             return PointsData(xyzrgb)
@@ -303,21 +310,25 @@ class PointsData:
         Raises:
             ValueError: If validation fails
         """
+        PointsData._validate_basic_array(points)
+        PointsData._validate_point_format(points)
+        PointsData._validate_point_values(points)
+
+    @staticmethod
+    def _validate_basic_array(points: PointsArray) -> None:
+        """Validate basic array properties."""
         if points is None:
             raise ValueError("Points array cannot be None")
-
         if len(points) == 0:
             raise ValueError("Points array cannot be empty")
-
-        # Check dimensions
         if points.ndim != 2:
-            raise ValueError(
-                f"Points must be a 2D array, got {points.ndim}D array."
-            )
+            raise ValueError(f"Points must be a 2D array, got {points.ndim}D array.")
 
-        # Check input format
+    @staticmethod
+    def _validate_point_format(points: PointsArray) -> None:
+        """Validate point format matches accepted formats."""
         n_features = points.shape[1]
-        if n_features not in PointsData.POINT_AVAILABLE_FORMAT.keys():
+        if n_features not in PointsData.POINT_AVAILABLE_FORMAT:
             raise ValueError(
                 "Point cloud data must be in one of these formats:\n"
                 "- Nx3: [x, y, z] coordinates only\n"
@@ -325,29 +336,23 @@ class PointsData:
                 "- Nx6: [x, y, z, r, g, b] with RGB values in range int[0,255]\n"
                 f"But got {n_features} shaped point."
             )
-
-        # Check numeric values
         if not np.issubdtype(points.dtype, np.number):
             raise ValueError("points must contain numeric values")
 
-        # Check categories are in int[0, 15]
+    @staticmethod
+    def _validate_point_values(points: PointsArray) -> None:
+        """Validate categories or RGB values are in valid ranges."""
+        n_features = points.shape[1]
         if n_features == 4:
             categories = points[:, 3]
-            # Check integers
             if not np.all(categories == categories.astype(int)):
                 raise ValueError("Categories must be integers")
-
-            # Check range
             if not np.all((categories >= 0) & (categories <= 15)):
                 raise ValueError("Categories must be in range [0, 15]")
 
-        # Check RGB values are in int[0, 255]
         elif n_features == 6:
             rgb = points[:, 3:6]
-            # Check integers
             if not np.all(rgb == rgb.astype(int)):
                 raise ValueError("RGB values must be integers")
-
-            # Check range
             if not np.all((rgb >= 0) & (rgb <= 255)):
                 raise ValueError("RGB values must be in range [0, 255]")

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/9/20 14:35
 @File: namer.py
@@ -7,8 +6,9 @@ r"""
 @Description:
     命名器、取色器
 """
+
 import random
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 prefix_list = [
     "swan-",  # 天鹅
@@ -113,19 +113,18 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
         (255, 255, 255)
     """
     # 去除可能存在的#号和空白
-    hex_color = hex_color.strip().lstrip('#').strip()
+    hex_color = hex_color.strip().lstrip("#").strip()
 
     # 验证输入
-    if not all(c in '0123456789abcdefABCDEF' for c in hex_color):
+    if not all(c in "0123456789abcdefABCDEF" for c in hex_color):
         raise ValueError(f"Invalid hex color: {hex_color}")
 
     # 处理简写形式 (例如 #fff)
     if len(hex_color) == 3:
-        hex_color = ''.join(c * 2 for c in hex_color)
+        hex_color = "".join(c * 2 for c in hex_color)
     elif len(hex_color) != 6:
         raise ValueError(
-            f"Invalid hex color length: {len(hex_color)}, "
-            "should be 3 or 6 characters"
+            f"Invalid hex color length: {len(hex_color)}, should be 3 or 6 characters"
         )
 
     try:
@@ -152,4 +151,7 @@ def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
     else:
         choice_color_light = light_colors[index % len(light_colors)]
         choice_color_dark = dark_colors[index % len(dark_colors)]
-        return choice_color_light, choice_color_dark  # 返回对应索引的颜色，如果超出范围则取模
+        return (
+            choice_color_light,
+            choice_color_dark,
+        )  # 返回对应索引的颜色，如果超出范围则取模

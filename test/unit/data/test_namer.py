@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/9/20 14:42
 @File: test_namer.py
@@ -7,9 +6,11 @@ r"""
 @Description:
     测试命名器、取色器
 """
+
+import pytest
+
 from swanlab.data import namer
 from swanlab.data.namer import hex_to_rgb
-import pytest
 
 
 def test_name_no_index():
@@ -108,9 +109,9 @@ def test_hex_to_rgb_rgb_bounds():
 
 def test_hex_to_rgb_basic_colors():
     """测试基本颜色"""
-    assert hex_to_rgb("#FF0000") == (255, 0, 0)    # 红
-    assert hex_to_rgb("#00FF00") == (0, 255, 0)    # 绿
-    assert hex_to_rgb("#0000FF") == (0, 0, 255)    # 蓝
+    assert hex_to_rgb("#FF0000") == (255, 0, 0)  # 红
+    assert hex_to_rgb("#00FF00") == (0, 255, 0)  # 绿
+    assert hex_to_rgb("#0000FF") == (0, 0, 255)  # 蓝
     assert hex_to_rgb("#FFFF00") == (255, 255, 0)  # 黄
     assert hex_to_rgb("#FF00FF") == (255, 0, 255)  # 品红
     assert hex_to_rgb("#00FFFF") == (0, 255, 255)  # 青
