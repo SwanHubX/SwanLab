@@ -5,7 +5,6 @@ from typing import Optional, Any
 from typing_extensions import deprecated
 
 import swanlab
-import swanlab.integration
 import swanlab.integration.transformers
 
 
