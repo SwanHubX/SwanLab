@@ -49,6 +49,9 @@ class SwanLabLogger(Callback):
         self.global_batch = 0
         self.global_step = initial_global_step
 
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
+
     def _get_lr(self) -> Union[float, None]:
         if isinstance(
             self.model.optimizer.learning_rate,

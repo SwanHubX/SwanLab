@@ -19,7 +19,7 @@
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
 [![][license-shield]][license-shield-link]  
-[![][swanlab-cloud-shield]][swanlab-cloud-shield-link]
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]
 [![][last-commit-shield]][last-commit-shield-link]
 [![][pypi-version-shield]][pypi-version-shield-link]
 [![][wechat-shield]][wechat-shield-link]
@@ -320,11 +320,14 @@ swanlab watch ./logs
 
 SwanLabを仕事で使用している場合、SwanLabバッジをREADMEに追加してください：
 
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![][tracking-swanlab-shield]][tracking-swanlab-shield-link]、[![][visualize-swanlab-shield]][visualize-swanlab-shield-link]
 
 ```
-[![swanlab](https://img.shields.io/badge/powered%20by-SwanLab-438440)](https://github.com/swanhubx/swanlab)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg)](your experiment url)
+[![](https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg)](your experiment url)
 ```
+
+さらにデザイン素材：[assets](https://github.com/SwanHubX/assets)
 
 ### 論文でSwanLabを引用
 
@@ -346,10 +349,6 @@ SwanLabがあなたの研究の旅に役立った場合は、以下の形式で�
 SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)をお読みください。
 
 また、ソーシャルメディア、イベント、カンファレンスでの共有を通じてSwanLabをサポートすることも大歓迎です。心から感謝します！
-
-### アイコンのダウンロード
-
-[SwanLab-Icon-SVG](readme_files/swanlab-logo.svg)
 
 <br>
 
@@ -421,3 +420,9 @@ SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
+
+[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg

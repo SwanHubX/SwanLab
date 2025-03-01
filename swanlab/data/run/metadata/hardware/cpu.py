@@ -10,6 +10,7 @@ import platform
 import subprocess
 
 import psutil
+import os
 from swankit.env import is_macos
 
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList
@@ -50,16 +51,27 @@ def get_cpu_brand_windows():
 
 
 def get_cpu_brand_linux():
+    # lscpu 命令获取 CPU 品牌
+    cpu_brand = None
     try:
-        # 使用 lscpu 命令获取 CPU 品牌
         result = subprocess.run(["lscpu"], capture_output=True, text=True)
         for line in result.stdout.split("\n"):
-            if "Model name:" in line:
+            if "model name" in line.lower():
                 cpu_brand = line.split(":")[1].strip()
-                return cpu_brand
-        return None
+                break
     except Exception:  # noqa
-        return None
+        pass
+    if cpu_brand is None:
+        try:
+            # 使用 cat /proc/cpuinfo 获取CPU品牌
+            with open("/proc/cpuinfo", "r") as f:
+                for line in f:
+                    if "model name" in line.lower():
+                        cpu_brand = line.split(":")[1].strip()
+                        break
+        except Exception:  # noqa
+            pass
+    return cpu_brand
 
 
 class CpuCollector(HardwareCollector, C):

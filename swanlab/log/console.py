@@ -83,6 +83,10 @@ class SwanWriterProxy:
             except UnicodeEncodeError:
                 # 遇到编码问题，直接pass，此时表现为终端不输出
                 pass
+            except ValueError as e:
+                if "I/O operation on closed file" in str(e):
+                    # 遇到文件已关闭问题，直接pass，此时表现为终端不输出
+                    pass
             # 限制上传长度
             message = FONT.clear(message)[:MAX_UPLOAD_LEN]
             self.write_callback and self.write_callback(message)

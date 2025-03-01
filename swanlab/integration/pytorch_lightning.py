@@ -86,6 +86,9 @@ class SwanLabLogger(Logger):
         if save_dir is not None:
             save_dir = os.fspath(save_dir)
         self._save_dir = save_dir
+    
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
 
     @property
     @rank_zero_experiment
