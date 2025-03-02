@@ -186,15 +186,14 @@ class FileModel:
         requirements: str = None,
         metadata: dict = None,
         config: dict = None,
-        create_time: datetime = None,
+        conda: str = None,
     ):
         self.requirements = requirements
         self.metadata = metadata
         self.config = config
+        self.conda = conda
+        # 主要用于去重，保留最新的文件
         self.create_time = datetime.now()
-        """
-        主要用于去重，保留最新的文件
-        """
 
     @classmethod
     def create(cls, file_models: List["FileModel"]) -> "FileModel":
@@ -203,18 +202,24 @@ class FileModel:
         """
         # 按照时间排序，倒叙排列，这意味着最新的排在第一个
         file_models = sorted(file_models, key=lambda x: x.create_time, reverse=True)
-        lr, lm, lc = None, None, None
+        lr, lm, lc, lo = None, None, None, None
         for file_model in file_models:
             lr = file_model.requirements if lr is None else lr
             lm = file_model.metadata if lm is None else lm
             lc = file_model.config if lc is None else lc
-            if lr is not None and lm is not None and lc is not None:
+            lo = file_model.conda if lo is None else lo
+            if lr is not None and lm is not None and lc is not None and lo is not None:
                 break
-        return FileModel(lr, lm, lc)
+        return FileModel(lr, lm, lc, lo)
 
     def to_dict(self):
         """
         序列化，会删除为None的字段
         """
-        d = {"requirements": self.requirements, "metadata": self.metadata, "config": self.config}
+        d = {
+            "requirements": self.requirements,
+            "metadata": self.metadata,
+            "config": self.config,
+            "conda": self.conda,
+        }
         return {k: v for k, v in d.items() if v is not None}
