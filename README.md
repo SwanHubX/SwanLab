@@ -112,7 +112,7 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（昇腾Ascend）、GPU（英伟达Nvidia）、内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -163,6 +163,17 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 ```bash
 pip install swanlab
 ```
+
+<details><summary>源码安装</summary>
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+export SWANLAB_VERSION=0.10.0
+pip install -e .
+```
+
+</details>
 
 ### 2.登录并获取 API Key
 
@@ -358,8 +369,6 @@ swanlab watch ./logs
 考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 [贡献指南](CONTRIBUTING.md)。
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持 SwanLab，衷心感谢！
-
-
 
 <br>
 
