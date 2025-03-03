@@ -156,6 +156,27 @@ Check out SwanLab's online demos:
 pip install swanlab
 ```
 
+<details><summary>Install from Source</summary>
+
+If you want to experience the latest features, you can install from the source code.
+
+**Step 1**: Clone the project
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**Step 2**: Modify the `version` field in `swanlab/package.json`, for example, to `0.10.0`
+
+**Step 3**: Install
+
+```bash
+pip install -e .
+```
+
+</details>
+
 ### 2. Login and Get API Key
 
 1. Register for free at [SwanLab](https://swanlab.cn).

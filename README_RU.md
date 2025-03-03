@@ -157,6 +157,27 @@ SwanLab ориентирован на исследователей в облас
 pip install swanlab
 ```
 
+<details><summary>Установка из исходного кода</summary>
+
+Если вы хотите испытать новейшие функции, вы можете установить программу из исходного кода.
+
+**Шаг 1**: Клонируйте проект
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**Шаг 2**: Измените поле `version` в файле `swanlab/package.json`, например, на `0.10.0`.
+
+**Шаг 3**: Установите
+
+```bash
+pip install -e .
+```
+
+</details>
+
 ### 2. Вход и получение API Key
 
 1. Бесплатная [регистрация аккаунта](https://swanlab.cn)

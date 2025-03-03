@@ -159,6 +159,27 @@ SwanLabのオンラインデモをご覧ください：
 pip install swanlab
 ```
 
+<details><summary>ソースコードからのインストール</summary>
+
+最新の機能を体験したい場合は、ソースコードからインストールすることができます。
+
+**ステップ1**: プロジェクトをクローンする
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**ステップ2**: `swanlab/package.json` の `version` フィールドを変更します。例えば、`0.10.0` にします。
+
+**ステップ3**: インストールする
+
+```bash
+pip install -e .
+```
+
+</details>
+
 ### 2.ログインしてAPIキーを取得
 
 1. 無料で[アカウント登録](https://swanlab.cn)
