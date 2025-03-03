@@ -103,6 +103,7 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     Run this commands to turn on the swanlab service.
     """
     try:
+        # noinspection PyPackageRequirements
         from swanboard import SwanBoardRun
     except ModuleNotFoundError:
         click.echo("Please install the swanboard package: `pip install swanlab[dashboard]`")
