@@ -92,7 +92,7 @@ def init(
     mode: MODES = None,
     load: str = None,
     public: bool = None,
-    callback: Optional[Union[SwanKitCallback, List[SwanKitCallback]]] = None,
+    callbacks: Optional[Union[SwanKitCallback, List[SwanKitCallback]]] = None,
     **kwargs,
 ) -> SwanLabRun:
     """
@@ -149,7 +149,7 @@ def init(
     public : bool, optional
         Whether the project can be seen by anyone, the default is None, which means the project is private.
         Only available in cloud mode while the first time you create the project.
-    callback : Union[SwanKitCallback, List[SwanKitCallback]], optional
+    callbacks : Union[SwanKitCallback, List[SwanKitCallback]], optional
         The callback function that will be triggered when the experiment is finished.
         If you provide a list, all the callback functions in the list will be triggered in order.
     """
@@ -177,9 +177,9 @@ def init(
         public = _load_data(load_data, "private", public)
     # FIXME 没必要多一个函数
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
-    callback = check_callback_format(callback)
+    callbacks = check_callback_format(callbacks)
     # ---------------------------------- 启动操作员 ----------------------------------
-    operator, c = _create_operator(mode, public, callback)
+    operator, c = _create_operator(mode, public, callbacks)
     exp_num = SwanLabRunOperator.parse_return(
         operator.on_init(project, workspace, logdir=logdir),
         key=c.__str__() if c else None,
