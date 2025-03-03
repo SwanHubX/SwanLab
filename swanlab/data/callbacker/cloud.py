@@ -117,6 +117,7 @@ class CloudRunCallback(SwanLabRunCallback):
         self.settings = settings
 
     def on_run(self):
+        swanlog.install()
         http = get_http()
         # 注册实验信息
         http.mount_exp(
