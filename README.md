@@ -169,6 +169,7 @@ pip install swanlab
 ```bash
 git clone https://github.com/SwanHubX/SwanLab.git
 cd SwanLab
+# 指定安装版本
 export SWANLAB_VERSION=0.10.0
 pip install -e .
 ```
