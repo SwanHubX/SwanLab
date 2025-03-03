@@ -8,18 +8,17 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-from typing import Optional, Union, Dict, Tuple, Literal
+from typing import Optional, Union, Dict, Tuple, Literal, List
 
-from swanboard import SwanBoardCallback
+from swankit.callback import SwanKitCallback
 from swankit.env import SwanLabMode
 from swankit.log import FONT
 
 from swanlab.api import code_login, terminal_login
 from swanlab.env import SwanLabEnv, is_interactive
 from swanlab.log import swanlog
-from .callback_cloud import CloudRunCallback
-from .callback_local import LocalRunCallback
-from .formatter import check_load_json_yaml, check_proj_name_format
+from .callbacker.cloud import CloudRunCallback
+from .formatter import check_load_json_yaml, check_proj_name_format, check_callback_format
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -93,6 +92,7 @@ def init(
     mode: MODES = None,
     load: str = None,
     public: bool = None,
+    callbacks: Optional[Union[SwanKitCallback, List[SwanKitCallback]]] = None,
     **kwargs,
 ) -> SwanLabRun:
     """
@@ -149,6 +149,9 @@ def init(
     public : bool, optional
         Whether the project can be seen by anyone, the default is None, which means the project is private.
         Only available in cloud mode while the first time you create the project.
+    callbacks : Union[SwanKitCallback, List[SwanKitCallback]], optional
+        The callback function that will be triggered when the experiment is finished.
+        If you provide a list, all the callback functions in the list will be triggered in order.
     """
     if SwanLabRun.is_started():
         swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -172,9 +175,11 @@ def init(
         project = _load_data(load_data, "project", project)
         workspace = _load_data(load_data, "workspace", workspace)
         public = _load_data(load_data, "private", public)
+    # FIXME 没必要多一个函数
     project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
+    callbacks = check_callback_format(callbacks)
     # ---------------------------------- 启动操作员 ----------------------------------
-    operator, c = _create_operator(mode, public)
+    operator, c = _create_operator(mode, public, callbacks)
     exp_num = SwanLabRunOperator.parse_return(
         operator.on_init(project, workspace, logdir=logdir),
         key=c.__str__() if c else None,
@@ -336,7 +341,11 @@ def _load_data(load_data: dict, key: str, value):
     return d
 
 
-def _create_operator(mode: str, public: bool) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
+def _create_operator(
+    mode: str,
+    public: bool,
+    cbs: Optional[Union[SwanKitCallback, List[SwanKitCallback]]],
+) -> Tuple[SwanLabRunOperator, Optional[CloudRunCallback]]:
     """
     创建SwanLabRunOperator实例
     如果mode为disabled，则返回一个空的SwanLabRunOperator实例和None
@@ -351,6 +360,14 @@ def _create_operator(mode: str, public: bool) -> Tuple[SwanLabRunOperator, Optio
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator(), None
-    c = CloudRunCallback(public) if mode == SwanLabMode.CLOUD.value else LocalRunCallback()
-    callbacks = [c, SwanBoardCallback()]
+    # 云端模式
+    if mode == SwanLabMode.CLOUD.value:
+        c = CloudRunCallback(public)
+    # 本地模式
+    else:
+        from .callbacker.local import LocalRunCallback
+
+        c = LocalRunCallback()
+
+    callbacks = [c] + cbs
     return SwanLabRunOperator(callbacks), c
