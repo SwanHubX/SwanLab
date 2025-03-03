@@ -1,5 +1,6 @@
-from .console import SwanConsoler
 from swankit.log import SwanLabSharedLog
+
+from .console import SwanConsoler
 
 
 class SwanLog(SwanLabSharedLog):
@@ -37,9 +38,8 @@ class SwanLog(SwanLabSharedLog):
         if log_level is not None:
             self.level = log_level
         # 初始化控制台记录器
-        if console_dir:
-            self.debug("Init consoler to record console log")
-            self.__consoler.install(console_dir)
+        self.debug("Init consoler to record console log")
+        self.__consoler.install(console_dir)
         self.__installed = True
         return self
 
