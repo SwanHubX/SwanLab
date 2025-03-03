@@ -166,14 +166,14 @@ pip install swanlab
 
 <details><summary>源码安装</summary>
 
-1. 克隆项目：
+克隆项目：
 
 ```bash
 git clone https://github.com/SwanHubX/SwanLab.git
 cd SwanLab
 ```
 
-2. 修改`swanlab/package.json`中的`version`字段，如`0.10.0`，然后安装：
+修改`swanlab/package.json`中的`version`字段，如`0.10.0`，然后安装：
 
 ```bash
 pip install -e .
