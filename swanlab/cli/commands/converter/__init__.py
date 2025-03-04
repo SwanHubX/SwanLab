@@ -17,7 +17,7 @@ import click
     "--type",
     "-t",
     default="tensorboard",
-    type=click.Choice(["tensorboard", "wandb"]),
+    type=click.Choice(["tensorboard", "wandb", "mlflow"]),
     help="The type of the experiment tracking tool you want to convert to.",
 )
 @click.option(
