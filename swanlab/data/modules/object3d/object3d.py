@@ -23,8 +23,8 @@ class Object3D:
 
         return cls._handle_data(data)
 
-    @classmethod
-    def _check_numpy(cls) -> None:
+    @staticmethod
+    def _check_numpy() -> None:
         if np is None:
             raise ImportError("Numpy is required for Object3D class. " "Please install it with: pip install numpy.")
 
@@ -50,7 +50,7 @@ class Object3D:
         '.pts': lambda p: PointCloud.from_file(p),
         '.ply': lambda p: PointCloud.from_file(p),
         '.pcd': lambda p: PointCloud.from_file(p),
-        '.pts.json': lambda p: PointCloud.from_file(p),
+        '.swanlab.pts.json': lambda p: PointCloud.from_file(p),
     }
 
     @classmethod
