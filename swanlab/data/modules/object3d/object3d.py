@@ -12,20 +12,6 @@ except ImportError:
 
 
 class Object3D:
-    _FILE_HANDLERS: Dict[str, Callable] = {
-        '.txt': lambda p: PointCloud.from_file(p),
-        '.xyz': lambda p: PointCloud.from_file(p),
-        '.pts': lambda p: PointCloud.from_file(p),
-        '.ply': lambda p: PointCloud.from_file(p),
-        '.pcd': lambda p: PointCloud.from_file(p),
-        '.pts.json': lambda p: PointCloud.from_file(p),
-    }
-
-    # 数据类型到处理函数的映射
-    _TYPE_HANDLERS: Dict[Type, Callable] = {
-        # 可以继续添加其他数据类型的处理器
-    }
-
     def __new__(cls, data: Union[np.ndarray, str, Path]) -> MediaType:
         cls._check_numpy()
 
@@ -43,7 +29,29 @@ class Object3D:
             raise ImportError("Numpy is required for Object3D class. " "Please install it with: pip install numpy.")
 
     @classmethod
-    def _handle_ndarray(cls, data: np.ndarray) -> MediaType: ...
+    def _handle_ndarray(cls, data: np.ndarray) -> MediaType:
+        point_cloud_channel_handlers = {
+            3: PointCloud.from_xyz,  # xyz
+            4: PointCloud.from_xyzc,  # xyzc
+            6: PointCloud.from_xyzrgb,  # xyzrgb
+        }
+
+        if data.ndim == 2 and data.shape[1] in point_cloud_channel_handlers:
+            return point_cloud_channel_handlers[data.shape[1]](data)
+
+        raise ValueError(
+            f"Unsupported array format: shape={data.shape}. "
+            f"Expected 2D array with {list(point_cloud_channel_handlers.keys())} channels"
+        )
+
+    _FILE_HANDLERS: Dict[str, Callable] = {
+        '.txt': lambda p: PointCloud.from_file(p),
+        '.xyz': lambda p: PointCloud.from_file(p),
+        '.pts': lambda p: PointCloud.from_file(p),
+        '.ply': lambda p: PointCloud.from_file(p),
+        '.pcd': lambda p: PointCloud.from_file(p),
+        '.pts.json': lambda p: PointCloud.from_file(p),
+    }
 
     @classmethod
     def _handle_file(cls, path: Path) -> MediaType:
@@ -74,11 +82,16 @@ class Object3D:
             f"Supported extensions: {', '.join(sorted(cls._FILE_HANDLERS.keys()))}"
         )
 
+    # 数据类型到处理函数的映射
+    _TYPE_HANDLERS: Dict[Type, Callable] = {
+        # 可以继续添加其他数据类型的处理器
+    }
+
     @classmethod
     def _handle_data(cls, data: Any) -> MediaType:
         handler = cls._TYPE_HANDLERS.get(type(data))
 
-        if handler is None:
-            raise TypeError(f"Unsupported input type: {type(data)}")
+        if handler is not None:
+            return handler(data)
 
-        return handler(data)
+        raise TypeError(f"Unsupported input type: {type(data)}")
