@@ -33,10 +33,10 @@ class MLFLowConverter:
                 "MLFlow Converter requires mlflow. Install with 'pip install mlflow'."
             )
 
-        client = mlflow.tracking.client.MlflowClient(tracking_uri=tracking_uri)
+        client = mlflow.MlflowClient(tracking_uri=tracking_uri)
 
         if experiment is None:
-            experiments = client.list_experiments()
+            experiments = client.search_experiments()
         else:
             try:
                 ex = client.get_experiment(experiment)
@@ -46,6 +46,12 @@ class MLFLowConverter:
                 print(f'Error: could not find experiment with id or name "{experiment}"')
                 return
             experiments = (ex,)
+
+        # Reverse the order of experiments
+        if isinstance(experiments, tuple):
+            experiments = experiments[::-1]
+        else:
+            experiments = list(experiments)[::-1]
 
         for ex in experiments:
             runs = client.search_runs(ex.experiment_id)

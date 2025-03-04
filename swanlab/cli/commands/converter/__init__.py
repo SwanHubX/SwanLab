@@ -67,12 +67,12 @@ import click
     help="The run_id of the wandb run.",
 )
 @click.option(
-    "--mlflow-tracking-uri",
+    "--mlflow-uri",
     type=str,
     help="The tracking uri of the mlflow runs.",
 )
 @click.option(
-    "--mlflow-experiment",
+    "--mlflow-exp",
     type=str,
     help="The experiment name or id of the mlflow runs.",
 )
@@ -87,8 +87,8 @@ def convert(
         wb_project: str,
         wb_entity: str,
         wb_runid: str,
-        mlflow_tracking_uri: str,
-        mlflow_experiment: str,
+        mlflow_uri: str,
+        mlflow_exp: str,
         **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
@@ -132,8 +132,8 @@ def convert(
         )
         
         mlf_converter.run(
-            tracking_uri=mlflow_tracking_uri,
-            experiment=mlflow_experiment,
+            tracking_uri=mlflow_uri,
+            experiment=mlflow_exp,
         )
 
     else:
