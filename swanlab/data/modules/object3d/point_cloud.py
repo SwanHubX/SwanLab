@@ -35,7 +35,6 @@ Examples:
 
 import json
 from dataclasses import dataclass
-from functools import once
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -227,7 +226,6 @@ class PointCloud(MediaType):
 
     # ---------------------------------- override ----------------------------------
 
-    @once
     def parse(self) -> Tuple[str, MediaBuffer]:
         """Convert point cloud to buffer for transmission.
 
