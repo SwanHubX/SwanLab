@@ -31,6 +31,13 @@ class WandbConverter:
             raise TypeError(
                 "Wandb Converter requires wandb. Install with 'pip install wandb'."
             )
+            
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise TypeError(
+                "Wandb Converter requires pandas when process wandb logs. Install with 'pip install pandas'."
+            )
 
         client = wandb.Api()
 
@@ -51,7 +58,7 @@ class WandbConverter:
                     workspace=self.workspace,
                     experiment_name=wb_run.name,
                     description=wb_run.notes,
-                    mode="cloud" if self.cloud else "local",
+                    cloud=self.cloud,
                     logdir=self.logdir,
                 )
             else:
@@ -73,7 +80,13 @@ class WandbConverter:
             # Get the first history record to extract available keys
             history = wb_run.history(stream="default")
             if len(history) > 0:
-                keys = [key for key in history[0].keys() if not key.startswith("_")]
+                # 检查 history 是否为 DataFrame 类型
+                if isinstance(history, pd.DataFrame):
+                    # 如果是 DataFrame，直接获取列名
+                    keys = [key for key in history.columns if not key.startswith("_")]
+                else:
+                    # 原来的逻辑，假设是字典列表
+                    keys = [key for key in history[0].keys() if not key.startswith("_")]
             else:
                 keys = []
 
