@@ -128,6 +128,11 @@ class SwanLabRun:
                 metadata=metadata,
             )
         )
+        # # 延时采集conda信息，因为conda信息的导出需要的时间会比较多
+        # threading.Timer(
+        #     5,
+        #     lambda: self.__operator.on_runtime_info_update(RuntimeInfo(conda=get_conda())),
+        # ).start()
         # 定时采集系统信息，目前仅cloud模式支持
         self.monitor_cron = None
         if self.mode == "cloud":
