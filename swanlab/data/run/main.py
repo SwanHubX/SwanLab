@@ -22,7 +22,6 @@ from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
 from .metadata import get_requirements, get_metadata
-from .metadata.conda import get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format
 
@@ -126,9 +125,13 @@ class SwanLabRun:
             RuntimeInfo(
                 requirements=get_requirements(),
                 metadata=metadata,
-                conda=get_conda(),
             )
         )
+        # # 延时采集conda信息，因为conda信息的导出需要的时间会比较多
+        # threading.Timer(
+        #     5,
+        #     lambda: self.__operator.on_runtime_info_update(RuntimeInfo(conda=get_conda())),
+        # ).start()
         # 定时采集系统信息，目前仅cloud模式支持
         self.monitor_cron = None
         if self.mode == "cloud":

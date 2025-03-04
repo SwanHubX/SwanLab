@@ -38,4 +38,4 @@ def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
     return metadata, monitor_funcs
 
 
-__all__ = ["get_metadata", "get_requirements", "get_cooperation_info", "HardwareInfo", "HardwareCollector"]
+__all__ = ["get_metadata", "get_requirements", "get_conda", "get_cooperation_info", "HardwareInfo", "HardwareCollector"]

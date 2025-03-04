@@ -223,3 +223,10 @@ class FileModel:
             "conda": self.conda,
         }
         return {k: v for k, v in d.items() if v is not None}
+
+    @property
+    def empty(self):
+        """
+        是否为空
+        """
+        return all(getattr(self, attr) is None for attr in ('requirements', 'metadata', 'config', 'conda'))

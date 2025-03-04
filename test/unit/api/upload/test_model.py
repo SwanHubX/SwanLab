@@ -43,3 +43,8 @@ class TestFileModel:
         assert file_model.metadata == lm
         assert file_model.config == lc
         assert file_model.conda == lo
+
+    def test_empty(self):
+        assert FileModel().empty is True
+        assert FileModel("1", None, None, None).empty is False
+        assert FileModel(None, {}, None, None).empty is False
