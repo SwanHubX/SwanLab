@@ -60,7 +60,7 @@ class Object3D:
         # '.pts': lambda p: PointCloud.from_file(p),
         # '.ply': lambda p: PointCloud.from_file(p),
         # '.pcd': lambda p: PointCloud.from_file(p),
-        '.swanlab.pts.json': lambda p: PointCloud.from_file(p),
+        '.swanlab.pts.json': PointCloud.from_swanlab_pts_json_file,
     }
 
     @classmethod

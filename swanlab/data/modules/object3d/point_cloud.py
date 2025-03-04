@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from functools import once
+from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from swankit.core.data import DataSuite as D
@@ -72,6 +73,34 @@ class PointCloud(MediaType):
             raise ValueError("XYZRGB array must have shape (N, 6)")
 
         return cls(points, step=step, caption=caption, **kwargs)
+
+    @classmethod
+    def from_swanlab_pts_json_file(
+        cls, path: Path, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
+    ) -> "PointCloud":
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        if not path.is_file():
+            raise ValueError(f"Path is not a file: {path}")
+
+        try:
+            with open(path) as f:
+                points_list = json.load(f)
+
+            if not isinstance(points_list, list) or not points_list:
+                raise ValueError("Invalid file format: expected non-empty list")
+
+            if not isinstance(points_list[0], list) or len(points_list[0]) != 6:
+                raise ValueError("Invalid point format: expected [x,y,z,r,g,b]")
+
+            points = np.array(points_list)
+            return cls(points, step=step, caption=caption, **kwargs)
+
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format in file: {path}") from e
+        except Exception as e:
+            raise ValueError(f"Error reading file {path}: {str(e)}") from e
 
     # ---------------------------------- override ----------------------------------
 
