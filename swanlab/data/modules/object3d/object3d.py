@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Optional, Type, Union
 
 from swankit.core.data import MediaType
 
+from .model3d import Model3D
 from .point_cloud import PointCloud
 
 try:
@@ -55,12 +56,12 @@ class Object3D:
         )
 
     _FILE_HANDLERS: Dict[str, Callable] = {
-        # '.txt': lambda p: PointCloud.from_file(p),
-        # '.xyz': lambda p: PointCloud.from_file(p),
-        # '.pts': lambda p: PointCloud.from_file(p),
-        # '.ply': lambda p: PointCloud.from_file(p),
-        # '.pcd': lambda p: PointCloud.from_file(p),
+        # '.xyz': lambda p: PointCloud.from_open3d(p),
+        # '.pts': lambda p: PointCloud.from_open3d(p),
+        # '.ply': lambda p: PointCloud.from_open3d(p),
+        # '.pcd': lambda p: PointCloud.from_open3d(p),
         '.swanlab.pts.json': PointCloud.from_swanlab_pts_json_file,
+        '.glb': Model3D.from_glb_file,
     }
 
     @classmethod
