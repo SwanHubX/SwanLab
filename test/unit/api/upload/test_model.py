@@ -8,10 +8,12 @@ r"""
     测试上传的模型类型
 """
 
-from swanlab.api.upload.model import FileModel
-from nanoid import generate
 import random
 import time
+
+from nanoid import generate
+
+from swanlab.api.upload.model import FileModel
 
 
 class TestFileModel:
@@ -25,11 +27,13 @@ class TestFileModel:
         lr = None  # 最后一个requirements, str
         lm = None  # 最后一个metadata, dict
         lc = None  # 最后一个config, dict
+        lo = None  # 最后一个conda str
         for i in range(10):
             lr = generate() if random.random() > 0.5 else lr
             lm = {generate(): generate()} if random.random() > 0.5 else lm
             lc = {generate(): generate()} if random.random() > 0.5 else lc
-            file_models.append(FileModel(lr, lm, lc))
+            lo = generate() if random.random() > 0.5 else lo
+            file_models.append(FileModel(lr, lm, lc, lo))
             time.sleep(0.01)
         # 验证
         # file_models打乱顺序
@@ -38,3 +42,9 @@ class TestFileModel:
         assert file_model.requirements == lr
         assert file_model.metadata == lm
         assert file_model.config == lc
+        assert file_model.conda == lo
+
+    def test_empty(self):
+        assert FileModel().empty is True
+        assert FileModel("1", None, None, None).empty is False
+        assert FileModel(None, {}, None, None).empty is False
