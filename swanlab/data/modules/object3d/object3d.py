@@ -13,6 +13,61 @@ except ImportError:
 
 
 class Object3D:
+    """A dispatcher class that converts different types of 3D data to MediaType objects.
+
+    This class provides a unified interface for handling various 3D data formats including:
+    - Point clouds from numpy arrays
+    - 3D models from files (.glb)
+    - Point cloud files (.swanlab.pts.json)
+
+    Usage Examples:
+    --------------
+    1. Creating from numpy array (point cloud):
+        >>> import numpy as np
+        >>> # XYZ coordinates (N, 3)
+        >>> points_xyz = np.random.rand(100, 3)
+        >>> obj1 = Object3D(points_xyz)
+        >>>
+        >>> # XYZC coordinates with category (N, 4)
+        >>> points_xyzc = np.random.rand(100, 4)
+        >>> obj2 = Object3D(points_xyzc, step=1)
+        >>>
+        >>> # XYZRGB coordinates with colors (N, 6)
+        >>> points_xyzrgb = np.random.rand(100, 6)
+        >>> obj3 = Object3D(points_xyzrgb, caption="Colored Points")
+
+    2. Creating from files:
+        >>> # From GLB file
+        >>> obj4 = Object3D("model.glb")
+        >>>
+        >>> # From SwanLab point cloud file
+        >>> obj5 = Object3D("points.swanlab.pts.json", step=2)
+
+    3. With optional parameters:
+        >>> obj6 = Object3D(
+        ...     points_xyz,
+        ...     step=1,           # Step number for visualization
+        ...     caption="My 3D"   # Caption text
+        ... )
+
+    Args:
+        data: Input data, can be:
+            - numpy.ndarray: Point cloud data with shape (N, C) where C is 3,4 or 6
+            - str/Path: Path to a 3D file (.glb or .swanlab.pts.json)
+        step: Optional step number for visualization
+        caption: Optional description text
+        **kwargs: Additional keyword arguments passed to specific handlers
+
+    Returns:
+        MediaType: A MediaType object (PointCloud or Model3D)
+
+    Raises:
+        ImportError: If numpy is not installed
+        ValueError: If input format is not supported
+        FileNotFoundError: If input file does not exist
+        TypeError: If input type is not supported
+    """
+
     def __new__(
         cls,
         data: Union[np.ndarray, str, Path],
@@ -37,7 +92,7 @@ class Object3D:
     @staticmethod
     def _check_numpy() -> None:
         if np is None:
-            raise ImportError("Numpy is required for Object3D class. " "Please install it with: pip install numpy.")
+            raise ImportError("Numpy is required for Object3D class. Please install it with: pip install numpy.")
 
     @classmethod
     def _handle_ndarray(cls, data: np.ndarray, **kwargs) -> MediaType:
@@ -95,10 +150,7 @@ class Object3D:
             f"Supported extensions: {', '.join(sorted(cls._FILE_HANDLERS.keys()))}"
         )
 
-    # 数据类型到处理函数的映射
-    _TYPE_HANDLERS: Dict[Type, Callable] = {
-        # 可以继续添加其他数据类型的处理器
-    }
+    _TYPE_HANDLERS: Dict[Type, Callable] = {}
 
     @classmethod
     def _handle_data(cls, data: Any, **kwargs) -> MediaType:
