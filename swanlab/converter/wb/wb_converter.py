@@ -29,7 +29,7 @@ class WandbConverter:
             import wandb
         except ImportError as e:
             raise TypeError(
-                "Wandb Converter requires wandb when process tfevents file. Install with 'pip install wandb'."
+                "Wandb Converter requires wandb. Install with 'pip install wandb'."
             )
 
         client = wandb.Api()
@@ -51,7 +51,7 @@ class WandbConverter:
                     workspace=self.workspace,
                     experiment_name=wb_run.name,
                     description=wb_run.notes,
-                    cloud=self.cloud,
+                    mode="cloud" if self.cloud else "local",
                     logdir=self.logdir,
                 )
             else:

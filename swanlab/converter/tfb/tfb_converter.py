@@ -51,7 +51,7 @@ class TFBConverter:
                         experiment_name=f"{dir}/{filename}",
                         workspace=self.workspace,
                         config={"tfevent_path": path},
-                        cloud=self.cloud,
+                        mode="cloud" if self.cloud else "local",
                         logdir=self.logdir,
                     )
 
