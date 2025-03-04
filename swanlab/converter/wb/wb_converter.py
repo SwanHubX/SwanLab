@@ -63,6 +63,11 @@ class WandbConverter:
                 )
             else:
                 swanlab_run = swanlab.get_run()
+                
+            try:
+                wb_run_metadata = {"wandb_metadata": wb_run_metadata}
+            except:
+                wb_run_metadata = None
 
             wb_config = {
                 "wandb_run_id": wb_run.id,
@@ -71,8 +76,8 @@ class WandbConverter:
                 "wandb_user": wb_run.user,
                 "wandb_tags": wb_run.tags,
                 "wandb_url": wb_run.url,
-                "wandb_metadata": wb_run.metadata,
             }
+            wb_config.update(wb_run_metadata)
 
             swanlab_run.config.update(wb_config)
             swanlab_run.config.update(wb_run.config)
