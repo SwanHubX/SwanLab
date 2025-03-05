@@ -57,6 +57,8 @@
 
 ## 🌟 最近更新
 
+- 2025.03.04：新增 **MLFlow** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
+
 - 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了
 
 - 2025.02.24：我们与 [EasyR1](https://github.com/hiyouga/EasyR1) 完成了联合集成，现在你可以在EasyR1中使用SwanLab来**跟踪和可视化多模态大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
@@ -73,10 +75,10 @@
 
 - 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
 
-- 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
-
 
 <details><summary>完整更新日志</summary>
+
+- 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
 
 - 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
 
@@ -301,6 +303,7 @@ swanlab watch ./logs
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
