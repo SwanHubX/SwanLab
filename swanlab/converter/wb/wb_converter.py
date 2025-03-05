@@ -58,16 +58,16 @@ class WandbConverter:
                     workspace=self.workspace,
                     experiment_name=wb_run.name,
                     description=wb_run.notes,
-                    cloud=self.cloud,
+                    mode="cloud" if self.cloud else "local",
                     logdir=self.logdir,
                 )
             else:
                 swanlab_run = swanlab.get_run()
                 
             try:
-                wb_run_metadata = {"wandb_metadata": wb_run_metadata}
+                wb_run_metadata = {"wandb_metadata": wb_run.metadata}
             except:
-                wb_run_metadata = None
+                wb_run_metadata = {}
 
             wb_config = {
                 "wandb_run_id": wb_run.id,
