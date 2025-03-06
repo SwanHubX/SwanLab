@@ -92,7 +92,12 @@ def trace_handler():
     import os
 
     def handler_fn(prof) -> None:
-        swanlog.info(f"torch.profiler trace is saved to {os.path.join(get_run_dir(), 'files', 'trace.json')}")
+        if os.path.exists(f"{os.path.join(get_run_dir(), 'files', 'trace.json')}"):
+            swanlog.warning(f"{os.path.join(get_run_dir(), 'files', 'trace.json')} already exists, will be overwritten")
+            os.remove(f"{os.path.join(get_run_dir(), 'files', 'trace.json')}")
+        else:
+            swanlog.info(f"torch.profiler trace is saved to {os.path.join(get_run_dir(), 'files', 'trace.json')}")
+            
         prof.export_chrome_trace(f"{os.path.join(get_run_dir(), 'files', 'trace.json')}")
 
     return handler_fn
