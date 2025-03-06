@@ -52,6 +52,10 @@
 
 ## 🌟 最近の更新
 
+- 2025.03.04: MLFlowの統合を追加し、MLFlow実験をSwanLab実験に変換する機能をサポートしました。[使用ガイド](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
+
+- 2025.03.01：新機能として、実験の移動が追加されました。
+
 - 2025.02.24：我們與[EasyR1](https://github.com/hiyouga/EasyR1)完成了聯合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
 
 - 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
@@ -66,11 +70,12 @@
 
 - 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
 
+
+<details><summary>完全な更新履歴</summary>
+
 - 2025.01.11：クラウド版はプロジェクトテーブルのパフォーマンスを大幅に最適化し、ドラッグ＆ドロップ、並べ替え、フィルタリングなどのインタラクションをサポートしました。
 
 - 2025.01.01：折れ線グラフの**永続的スムージング**、折れ線グラフのドラッグによるサイズ変更を追加し、チャート閲覧体験を最適化
-
-<details><summary>完全な更新履歴</summary>
 
 - 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合を完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルのファインチューニング実験を追跡・可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)
 
@@ -155,6 +160,27 @@ SwanLabのオンラインデモをご覧ください：
 ```bash
 pip install swanlab
 ```
+
+<details><summary>ソースコードからのインストール</summary>
+
+最新の機能を体験したい場合は、ソースコードからインストールすることができます。
+
+**ステップ1**: プロジェクトをクローンする
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**ステップ2**: `swanlab/package.json` の `version` フィールドを変更します。例えば、`0.10.0` にします。
+
+**ステップ3**: インストールする
+
+```bash
+pip install -e .
+```
+
+</details>
 
 ### 2.ログインしてAPIキーを取得
 
@@ -272,6 +298,7 @@ swanlab watch ./logs
 **その他のフレームワーク：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)

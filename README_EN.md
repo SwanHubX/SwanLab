@@ -51,6 +51,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.03.04: Added **MLFlow** feature, supporting conversion of MLFlow experiments to SwanLab experiments. [Usage Guide](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
+
+- 2025.03.01: Added **move experiment** feature, now you can move experiments to different projects in different organizations.
+
 - 2025.02.24: We completed integration with [EasyR1](https://github.com/hiyouga/EasyR1). Now you can use SwanLab in EasyR1 to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
 
 - 2025.02.18: We completed integration with [Swift](https://github.com/modelscope/ms-swift). Now you can use SwanLab in Swift's CLI/WebUI to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html).
@@ -67,9 +71,9 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
 
-- 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, improving chart browsing experience.
-
 <details><summary>Full Changelog</summary>
+
+- 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, improving chart browsing experience.
 
 - 2024.12.22: We completed integration with [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory). Now you can use SwanLab in LLaMA Factory to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
 
@@ -153,6 +157,27 @@ Check out SwanLab's online demos:
 ```bash
 pip install swanlab
 ```
+
+<details><summary>Install from Source</summary>
+
+If you want to experience the latest features, you can install from the source code.
+
+**Step 1**: Clone the project
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**Step 2**: Modify the `version` field in `swanlab/package.json`, for example, to `0.10.0`
+
+**Step 3**: Install
+
+```bash
+pip install -e .
+```
+
+</details>
 
 ### 2. Login and Get API Key
 
@@ -269,6 +294,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 **Other Frameworks:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)

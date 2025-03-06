@@ -57,7 +57,11 @@
 
 ## 🌟 最近更新
 
-- 2025.02.24：我们与[EasyR1](https://github.com/hiyouga/EasyR1)完成了联合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
+- 2025.03.04：新增 **MLFlow** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
+
+- 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了
+
+- 2025.02.24：我们与 [EasyR1](https://github.com/hiyouga/EasyR1) 完成了联合集成，现在你可以在EasyR1中使用SwanLab来**跟踪和可视化多模态大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
 - 2025.02.18：我们与 [Swift](https://github.com/modelscope/ms-swift) 完成了联合集成，现在你可以在Swift的CLI/WebUI中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
 
@@ -71,12 +75,12 @@
 
 - 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
 
+
+<details><summary>完整更新日志</summary>
+
 - 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
 
 - 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
-
-
-<details><summary>完整更新日志</summary>
 
 - 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)。
 
@@ -110,7 +114,7 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（昇腾Ascend）、GPU（英伟达Nvidia）、内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -161,6 +165,27 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 ```bash
 pip install swanlab
 ```
+
+<details><summary>源码安装</summary>
+
+如果你想体验最新的特性，可以使用源码安装。
+
+**step1**: 克隆项目
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**step2**: 修改`swanlab/package.json`中的`version`字段，如`0.10.0`
+
+**step3**: 安装
+
+```bash
+pip install -e .
+```
+
+</details>
 
 ### 2.登录并获取 API Key
 
@@ -278,6 +303,7 @@ swanlab watch ./logs
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
@@ -356,8 +382,6 @@ swanlab watch ./logs
 考虑为 SwanLab 做出贡献吗？首先，请花点时间阅读 [贡献指南](CONTRIBUTING.md)。
 
 同时，我们非常欢迎通过社交媒体、活动和会议的分享来支持 SwanLab，衷心感谢！
-
-
 
 <br>
 
