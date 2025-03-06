@@ -77,3 +77,14 @@ class SwanLog(SwanLabSharedLog):
             return self.__consoler.writer.file
         else:
             return None
+
+def trace_handler():
+    from ..data import get_run_dir
+    from . import swanlog
+    import os
+
+    def handler_fn(prof) -> None:
+        swanlog.info(f"torch.profiler trace is saved to {os.path.join(get_run_dir(), 'files', 'trace.json')}")
+        prof.export_chrome_trace(f"{os.path.join(get_run_dir(), 'files', 'trace.json')}")
+
+    return handler_fn

@@ -8,7 +8,7 @@ r"""
     日志记录模块，在设计上swanlog作为一个独立的模块被使用，你可以在除了utils的任何地方使用它
 """
 from typing import Optional
-from .log import SwanLog
+from .log import SwanLog,trace_handler
 
 swanlog: Optional["SwanLog"] = SwanLog("swanlab")
 
@@ -16,4 +16,4 @@ install = swanlog.install
 
 uninstall = swanlog.uninstall
 
-__all__ = ["install", "uninstall", "swanlog"]
+__all__ = ["install", "uninstall", "swanlog", "trace_handler"]
