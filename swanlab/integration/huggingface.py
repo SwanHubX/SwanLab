@@ -3,10 +3,9 @@ Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-huggingface
 """
 from typing import Optional, Any
 from typing_extensions import deprecated
+from swanlab.integration import transformers
 
-import swanlab
-
-class SwanLabCallback(swanlab.integration.transformers.SwanLabCallback):
+class SwanLabCallback(transformers.SwanLabCallback):
     @deprecated(
         "`swanlab.integration.huggingface.SwanLabCallback` is deprecated. "
         "Please use `swanlab.integration.transformers.SwanLabCallback` instead.",

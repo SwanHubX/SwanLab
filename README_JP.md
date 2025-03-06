@@ -52,6 +52,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.03.06: 我們與 [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio) 完成了聯合集成，現在你可以在DiffSynth Studio中使用SwanLab來**跟踪和可視化Diffusion模型文生圖/視頻實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
+
 - 2025.03.04: MLFlowの統合を追加し、MLFlow実験をSwanLab実験に変換する機能をサポートしました。[使用ガイド](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 
 - 2025.03.01：新機能として、実験の移動が追加されました。
@@ -68,10 +70,10 @@
 
 - 2025.01.22：`sync_tensorboardX`と`sync_tensorboard_torch`機能を追加し、この2つのTensorBoardフレームワークとの実験追跡の同期をサポート
 
-- 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
 
 - 2025.01.11：クラウド版はプロジェクトテーブルのパフォーマンスを大幅に最適化し、ドラッグ＆ドロップ、並べ替え、フィルタリングなどのインタラクションをサポートしました。
 
@@ -270,16 +272,18 @@ swanlab watch ./logs
 **専用/ファインチューニングフレームワーク**
 - [PyTorch Lightning](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html)
 - [HuggingFace Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html)
-- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [LLaMA Factory](https://docs.swanlab.cn/guide_cloud/integration/integration-llama-factory.html)
 - [Modelscope Swift](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)
+- [DiffSynth Studio](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-sentence-transformers.html)
+- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/guide_cloud/integration/integration-xtuner.html)
 - [MMEngine](https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
+
 
 
 **コンピュータビジョン**
