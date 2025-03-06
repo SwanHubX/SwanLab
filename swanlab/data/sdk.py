@@ -14,7 +14,7 @@ from swankit.callback import SwanKitCallback
 from swankit.env import SwanLabMode
 from swankit.log import FONT
 
-from swanlab.api import code_login, terminal_login
+from swanlab.api import code_login, terminal_login, create_http
 from swanlab.env import SwanLabEnv, is_interactive
 from swanlab.log import swanlog
 from .callbacker.cloud import CloudRunCallback
@@ -76,7 +76,9 @@ def login(api_key: str = None, host: str = None, web_host: str = None):
     # 检查host是否合法，并格式化，注入到环境变量中
     HostFormatter(host, web_host)()
     # 登录，初始化http对象
-    CloudRunCallback.login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
+    login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
+    create_http(login_info)
+    os.environ[SwanLabEnv.API_KEY.value] = api_key
 
 
 MODES = Literal["disabled", "cloud", "local"]

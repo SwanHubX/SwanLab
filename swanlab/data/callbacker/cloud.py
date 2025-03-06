@@ -14,7 +14,7 @@ from swankit.core import SwanLabSharedSettings
 from swankit.env import create_time
 from swankit.log import FONT
 
-from swanlab.api import LoginInfo, create_http, terminal_login, get_http
+from swanlab.api import create_http, terminal_login, get_http
 from swanlab.api.http import reset_http
 from swanlab.api.upload import upload_logs, ColumnModel, ScalarModel, MediaModel, FileModel
 from swanlab.data.cloud import ThreadPool, UploadType
@@ -32,10 +32,6 @@ from ..run.callback import SwanLabRunCallback
 
 
 class CloudRunCallback(SwanLabRunCallback):
-    login_info: LoginInfo = None
-    """
-    用户登录信息
-    """
 
     def __init__(self, public: bool):
         super().__init__()
@@ -105,12 +101,12 @@ class CloudRunCallback(SwanLabRunCallback):
         return "SwanLabCloudRunCallback"
 
     def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
-        if self.login_info is None:
+        http = get_http()
+        if get_http() is None:
             swanlog.debug("Login info is None, get login info.")
-            self.login_info = self.create_login_info()
+            http = create_http(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
-        http = create_http(self.login_info)
         return http.mount_project(project, workspace, self.public).history_exp_count
 
     def before_run(self, settings: SwanLabSharedSettings):
@@ -136,7 +132,7 @@ class CloudRunCallback(SwanLabRunCallback):
         self._register_sys_callback()
         # 打印信息
         self._train_begin_print()
-        swanlog.info("👋 Hi " + FONT.bold(FONT.default(self.login_info.username)) + ", welcome to swanlab!")
+        swanlog.info("👋 Hi " + FONT.bold(FONT.default(get_http().username)) + ", welcome to swanlab!")
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
         # 在Jupyter Notebook环境下，显示按钮
