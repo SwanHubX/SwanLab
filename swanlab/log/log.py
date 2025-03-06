@@ -79,6 +79,14 @@ class SwanLog(SwanLabSharedLog):
             return None
 
 def trace_handler():
+    """
+    trace_handler 是一个回调函数，用于处理 torch.profiler 的 trace 信息，并将其保存到文件中
+
+    examples
+    -------
+    >>> activities = [torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]
+    >>> with torch.profiler.profile(activities=activities,on_trace_ready=trace_handler()) as p:
+    """
     from ..data import get_run_dir
     from . import swanlog
     import os
