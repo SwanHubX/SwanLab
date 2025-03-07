@@ -5,16 +5,15 @@ r"""
 @File: cos.py
 @IDE: pycharm
 @Description:
-    tencent cos
+    cloud object storage
 """
-# noinspection PyPackageRequirements
-from qcloud_cos import CosConfig
-# noinspection PyPackageRequirements
-from qcloud_cos import CosS3Client
-# noinspection PyPackageRequirements
-from qcloud_cos.cos_threadpool import SimpleThreadPool
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import List, Dict, Union
+from typing import List
+
+import boto3
+from botocore.config import Config as BotocoreConfig
+
 from swanlab.data.modules import MediaBuffer
 from swanlab.log import swanlog
 
@@ -30,14 +29,20 @@ class CosClient:
         self.__prefix = data["prefix"]
         self.__bucket = data["bucket"]
         credentials = data["credentials"]
-        config = CosConfig(
-            Region=data["region"],
-            SecretId=credentials['tmpSecretId'],
-            SecretKey=credentials['tmpSecretKey'],
-            Token=credentials['sessionToken'],
-            Scheme='https'
+
+        # 往期版本适配
+        # TODO 后续删除
+        endpoint_url = f"https://cos.{data['region']}.myqcloud.com" if "endpoint" not in data else data["endpoint"]
+
+        self.__client = boto3.client(
+            's3',
+            endpoint_url=endpoint_url,
+            api_version='2006-03-01',
+            aws_access_key_id=credentials['tmpSecretId'],
+            aws_secret_access_key=credentials['tmpSecretKey'],
+            aws_session_token=credentials['sessionToken'],
+            config=BotocoreConfig(signature_version="s3", s3={'addressing_style': 'virtual'}),
         )
-        self.__client = CosS3Client(config)
 
     def upload(self, buffer: MediaBuffer):
         """
@@ -52,28 +57,26 @@ class CosClient:
                 Bucket=self.__bucket,
                 Key=key,
                 Body=buffer.getvalue(),
-                EnableMD5=False,
                 # 一年
                 CacheControl="max-age=31536000",
             )
         except Exception as e:
             swanlog.error("Upload error: {}".format(e))
 
-    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
+    def upload_files(self, buffers: List[MediaBuffer]):
         """
         批量上传文件，keys和local_paths的长度应该相等
         :param buffers: 本地文件的二进制对象集合
         """
-        pool = SimpleThreadPool()
-        for buffer in buffers:
-            self.upload(buffer)
-        pool.wait_completion()
-        result = pool.get_result()
-        return result
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(self.upload, buffer) for buffer in buffers]
+            for future in futures:
+                future.result()
 
     @property
     def should_refresh(self):
         # cos传递的是北京时间，需要添加8小时
+        # FIXME Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.UTC)
         now = datetime.utcnow() + timedelta(hours=8)
         # 过期时间减去当前时间小于刷新时间，需要注意为负数的情况
         if self.__expired_time < now:

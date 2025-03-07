@@ -1,22 +1,29 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/5/5 20:23
-@File: callback_local.py
-@IDE: pycharm
-@Description:
-    基本回调函数注册表，此时不考虑云端情况
 """
+@author: cunyue
+@file: local.py
+@time: 2025/2/13 14:59
+@description: 本地模式下的回调
+local模式（目前）将自动调用swanboard，如果不存在则报错
+"""
+
+from swankit.callback import ColumnInfo
+
+try:
+    # noinspection PyPackageRequirements
+    import swanboard
+except ImportError:
+    raise ImportError("Please install swanboard to use 'local' mode: `pip install swanboard`")
+
+
 import json
 import os
 import sys
 import traceback
 from datetime import datetime
-from typing import Union
+from typing import Union, Tuple
 
 from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
-from swankit.log import FONT
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.data.run.main import get_run, SwanLabRunState
@@ -28,6 +35,7 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def __init__(self):
         super(LocalRunCallback, self).__init__()
+        self.board = swanboard.SwanBoardCallback()
 
     @staticmethod
     def _traceback_error(tb, val):
@@ -114,8 +122,20 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs):
         self._init_logdir(logdir)
 
+        self.board.on_init(proj_name)
+
     def before_run(self, settings: SwanLabSharedSettings):
         self.settings = settings
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        colors: Tuple[str, str],
+    ):
+        self.board.before_init_experiment(run_id, exp_name, description, num, colors)
 
     def on_run(self):
         swanlog.install(self.settings.console_dir)
@@ -123,7 +143,6 @@ class LocalRunCallback(SwanLabRunCallback):
         self._register_sys_callback()
         # 打印信息
         self._train_begin_print()
-        swanlog.info("Experiment_name: " + FONT.yellow(self.settings.exp_name))
         self._watch_tip_print()
 
     def on_runtime_info_update(self, r: RuntimeInfo):
@@ -134,6 +153,12 @@ class LocalRunCallback(SwanLabRunCallback):
             r.metadata.write(self.settings.files_dir)
         if r.config is not None:
             r.config.write(self.settings.files_dir)
+
+    def on_log(self):
+        self.board.on_log()
+
+    def on_column_create(self, column_info: ColumnInfo):
+        self.board.on_column_create(column_info)
 
     def on_metric_create(self, metric_info: MetricInfo):
         # 出现任何错误直接返回
@@ -177,3 +202,5 @@ class LocalRunCallback(SwanLabRunCallback):
         self._watch_tip_print()
         # 取消注册系统回调
         self._unregister_sys_callback()
+
+        self.board.on_stop()
