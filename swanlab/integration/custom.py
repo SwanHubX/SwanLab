@@ -21,7 +21,7 @@ class EmailCallback(SwanKitCallback):
         self.smtp_server = smtp_server
         self.port = port
     
-    def _create_template(self, error: str = None, mode: str = "cloud"):
+    def _create_template(self, error: str = None, mode: str = "cloud", exp_link: str = None):
         # 根据实验状态和模式生成邮件模板
         status = "encountered an error" if error else "completed successfully"
         
@@ -30,17 +30,9 @@ class EmailCallback(SwanKitCallback):
         
         # 仅在云模式下添加实验链接
         if mode == "cloud":
-            body += f"\nExperiment Link: {self.exp_link}"
+            body += f"\nExperiment Link: {exp_link}"
         
         return subject, body
-    
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs):
-        self.proj_name = proj_name
-        if swanlab.get_url() is None:
-            self.mode = "local"
-        else:
-            self.mode = "cloud"
-            self.exp_link = swanlab.get_url()
       
     def on_stop(self, error: str = None):
         print(f"📧EmailCallback Launch")
@@ -53,7 +45,16 @@ class EmailCallback(SwanKitCallback):
         message["From"] = self.sender_email
         message["To"] = self.receiver_email
         
-        subject, body = self._create_template(error, self.mode)
+        print(swanlab.get_url())
+        
+        if swanlab.get_url() is None:
+            mode = "local"
+            exp_link = None
+        else:
+            mode = "cloud"
+            exp_link = swanlab.get_url()
+        
+        subject, body = self._create_template(error, mode, exp_link)
             
         try:
             # 创建邮件对象
