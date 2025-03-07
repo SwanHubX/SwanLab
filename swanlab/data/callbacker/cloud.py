@@ -101,8 +101,9 @@ class CloudRunCallback(SwanLabRunCallback):
         return "SwanLabCloudRunCallback"
 
     def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
-        http = get_http()
-        if get_http() is None:
+        try:
+            http = get_http()
+        except ValueError:
             swanlog.debug("Login info is None, get login info.")
             http = create_http(self.create_login_info())
         # 检测是否有最新的版本
