@@ -43,7 +43,7 @@ class CloudRunCallback(SwanLabRunCallback):
         self.public = public
 
     @classmethod
-    def create_login_info(cls):
+    def create_login_info(cls, save: bool = True):
         """
         发起登录，获取登录信息，执行此方法会覆盖原有的login_info
         """
@@ -56,7 +56,7 @@ class CloudRunCallback(SwanLabRunCallback):
             raise KeyFileError(
                 "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
             )
-        return terminal_login(key)
+        return terminal_login(key, save)
 
     @staticmethod
     def _get_package_latest_version():
