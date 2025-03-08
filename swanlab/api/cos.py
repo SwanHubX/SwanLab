@@ -31,8 +31,9 @@ class CosClient:
         credentials = data["credentials"]
 
         # 往期版本适配
-        # TODO 后续删除
-        endpoint_url = f"https://cos.{data['region']}.myqcloud.com" if "endpoint" not in data else data["endpoint"]
+        end_point = data.get("endPoint", None)
+        path_style = 'path' if data.get('pathStyle', False) else 'virtual'
+        endpoint_url = f"https://cos.{data['region']}.myqcloud.com" if end_point is None else end_point
 
         self.__client = boto3.client(
             's3',
@@ -41,7 +42,7 @@ class CosClient:
             aws_access_key_id=credentials['tmpSecretId'],
             aws_secret_access_key=credentials['tmpSecretKey'],
             aws_session_token=credentials['sessionToken'],
-            config=BotocoreConfig(signature_version="s3", s3={'addressing_style': 'virtual'}),
+            config=BotocoreConfig(signature_version="s3", s3={'addressing_style': path_style}),
         )
 
     def upload(self, buffer: MediaBuffer):
