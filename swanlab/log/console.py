@@ -65,15 +65,16 @@ class SwanWriterProxy:
         self.write_callback = _
 
     def init(self, path):
-        self.console_folder = path
-        # path 是否存在
-        if not os.path.exists(path):
-            os.makedirs(path)
-        # 日志文件路径
-        self.now = datetime.now().strftime("%Y-%m-%d")
-        console_path = os.path.join(path, f"{self.now}.log")
-        # 拿到日志文件句柄
-        self.file = open(console_path, "a", encoding="utf-8")
+        if path:
+            self.console_folder = path
+            # path 是否存在
+            if not os.path.exists(path):
+                os.makedirs(path)
+            # 日志文件路径
+            self.now = datetime.now().strftime("%Y-%m-%d")
+            console_path = os.path.join(path, f"{self.now}.log")
+            # 拿到日志文件句柄
+            self.file = open(console_path, "a", encoding="utf-8")
         # 封装sys.stdout
         self.write_handler = sys.stdout.write
 
@@ -91,16 +92,17 @@ class SwanWriterProxy:
             message = FONT.clear(message)[:MAX_UPLOAD_LEN]
             self.write_callback and self.write_callback(message)
 
-            # 检查文件分片
-            now = datetime.now().strftime("%Y-%m-%d")
-            if now != self.now:
-                self.now = now
-                if hasattr(self, "console") and not self.file.closed:
-                    self.file.close()
-                self.file = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
+            if path:
+                # 检查文件分片
+                now = datetime.now().strftime("%Y-%m-%d")
+                if now != self.now:
+                    self.now = now
+                    if hasattr(self, "console") and not self.file.closed:
+                        self.file.close()
+                    self.file = open(os.path.join(self.console_folder, self.now + ".log"), "a", encoding="utf-8")
 
-            self.file.write(message)
-            self.file.flush()
+                self.file.write(message)
+                self.file.flush()
 
         sys.stdout.write = _
 

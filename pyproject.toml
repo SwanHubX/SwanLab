@@ -58,6 +58,7 @@ filename = "requirements.txt"
 
 [tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
 media = ["requirements-media.txt"]  # pip install "swanlab[meida]"
+dashboard = ["requirements-dashboard.txt"]  # pip install "swanlab[dashboard]"
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
 content-type = "text/markdown"
@@ -91,6 +92,7 @@ include = [
     "/README.md", # 包含readme
     "/requirements.txt", # 包含依赖
     "/requirements-media.txt", # 包含可选依赖
+    "/requirements-dashboard.txt", # 包含可选依赖
 ]
 
 [tool.hatch.build.targets.wheel]

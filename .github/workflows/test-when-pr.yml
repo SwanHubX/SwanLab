@@ -28,6 +28,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-media.txt
           pip install -r requirements-dev.txt
+          pip install -r requirements-dashboard.txt
 
       - name: Run Tests (First Attempt)
         id: test_first_try

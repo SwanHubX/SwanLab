@@ -10,8 +10,10 @@ r"""
 import json
 import os
 import re
+from typing import Optional, Union, List
 
 import yaml
+from swankit.callback import SwanKitCallback
 
 
 def check_string(target: str) -> bool:
@@ -186,3 +188,18 @@ def check_key_format(key: str, auto_cut=True) -> str:
         raise ValueError(f"tag: {key} can't end with '.' or '/' and blank space")
     # 检查长度
     return _auto_cut("tag", key, max_len, auto_cut)
+
+
+def check_callback_format(callback: Optional[Union[SwanKitCallback, List[SwanKitCallback]]]) -> List[SwanKitCallback]:
+    """
+    检查回调函数格式
+    :param callback: 回调函数对象
+    :return: List[SwanKitCallback] 回调函数列表
+    """
+    if callback is None:
+        return []
+    if isinstance(callback, SwanKitCallback):
+        return [callback]
+    if not isinstance(callback, list):
+        raise TypeError(f"Only support SwanKitCallback or List[SwanKitCallback], but got {type(callback)}")
+    return callback
