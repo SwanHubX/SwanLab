@@ -68,8 +68,8 @@ class CloudRunCallback(SwanLabRunCallback):
         if latest_version is not None and latest_version != local_version:
             swanlog.info(f"swanlab version {latest_version} is available!  Upgrade: `pip install -U swanlab`")
 
-    def _view_web_print(self):
-        self._watch_tip_print()
+    @staticmethod
+    def _view_web_print():
         http = get_http()
         proj_url, exp_url = http.web_proj_url, http.web_exp_url
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
