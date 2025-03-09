@@ -12,12 +12,13 @@ from datetime import datetime
 from typing import Callable, Optional, Dict
 
 from swankit.core import SwanLabSharedSettings
+from swankit.core.data import MediaType
 
-from swanlab.data.modules import MediaType, DataWrapper, FloatConvertible, Line
+from swanlab.data.modules import DataWrapper, FloatConvertible, Line
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from . import namer as N
+from swanlab.data import namer as N
 from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
