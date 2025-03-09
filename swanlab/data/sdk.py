@@ -56,7 +56,7 @@ def _check_proj_name(name: str) -> str:
     return _name
 
 
-def login(api_key: str = None, host: str = None, web_host: str = None):
+def login(api_key: str = None, host: str = None, web_host: str = None, save: bool = False):
     """
     Login to SwanLab Cloud. If you already have logged in, you can use this function to relogin.
     Every time you call this function, the previous login information will be overwritten.
@@ -69,6 +69,8 @@ def login(api_key: str = None, host: str = None, web_host: str = None):
         api host, if not provided, the default host will be used.
     :param web_host: str, optional
         web host, if not provided, the default host will be used.
+    :param save: bool, optional
+        whether to save the api key to the key file, default is False
     :return: LoginInfo
     """
     if SwanLabRun.is_started():
@@ -76,9 +78,10 @@ def login(api_key: str = None, host: str = None, web_host: str = None):
     # 检查host是否合法，并格式化，注入到环境变量中
     HostFormatter(host, web_host)()
     # 登录，初始化http对象
-    login_info = code_login(api_key) if api_key else CloudRunCallback.create_login_info()
+    login_info = code_login(api_key, save) if api_key else CloudRunCallback.create_login_info(save)
     create_http(login_info)
-    os.environ[SwanLabEnv.API_KEY.value] = api_key
+    if api_key:
+        os.environ[SwanLabEnv.API_KEY.value] = api_key
 
 
 MODES = Literal["disabled", "cloud", "local"]
