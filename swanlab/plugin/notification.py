@@ -1,3 +1,7 @@
+"""
+Notification plugin for SwanLab.
+"""
+
 from swankit.callback import SwanKitCallback
 import swanlab
 import smtplib
