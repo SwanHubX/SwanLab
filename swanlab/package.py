@@ -57,10 +57,16 @@ def get_package_latest_version(timeout=0.5) -> Optional[str]:
 
 class HostFormatter:
     def __init__(self, host: str = None, web_host: str = None):
-        # 定义正则模式，匹配协议、主机、端口三部分
+        # 更新后的正则模式，允许匹配标准域名、IP地址和localhost
         self.pattern = re.compile(
             r'^(?:(https?)://)?'  # 可选协议 http 或 https
-            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 必填 主机名必须包含顶级域名（TLD）
+            r'('  # 主机部分（域名、IP、localhost）
+            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 标准域名
+            r'|'  # 或
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # IPv4地址
+            r'|'  # 或
+            r'(localhost)'  # 本地主机
+            r')'
             r'(?::(\d{1,5}))?$'  # 可选端口号（1~5位数字）
         )
         self.host = host
@@ -71,7 +77,7 @@ class HostFormatter:
         if match:
             protocol = match.group(1) or "https"  # 默认协议为 https
             host = match.group(2)
-            port = match.group(3)
+            port = match.group(6)
 
             # 构建标准化的 URL 输出
             result = f"{protocol}://{host}"

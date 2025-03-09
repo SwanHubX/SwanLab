@@ -117,4 +117,5 @@ __all__ = [
     "ScalarModel",
     "MediaModel",
     "ColumnModel",
+    "FileModel",
 ]

@@ -329,7 +329,18 @@ class TestLogin:
         os.environ[LOG_DIR] = T.TEMP_PATH
         monkeypatch.setattr("getpass.getpass", self.get_password)
         S.login()
-        # 默认保存Key
+        # 默认不保存Key
+        assert not os.path.exists(os.path.join(get_save_dir(), ".netrc"))
+
+    def test_use_home_key_save(self, monkeypatch):
+        """
+        使用家目录下的key，不需要输入
+        如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
+        """
+        os.environ[LOG_DIR] = T.TEMP_PATH
+        monkeypatch.setattr("getpass.getpass", self.get_password)
+        S.login(save=True)
+        # 保存Key
         assert os.path.exists(os.path.join(get_save_dir(), ".netrc"))
 
     def test_use_input_key(self, monkeypatch):

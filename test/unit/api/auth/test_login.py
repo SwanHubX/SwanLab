@@ -7,7 +7,6 @@ r"""
 @Description:
     测试登录
 """
-import os
 
 import nanoid
 import pytest
@@ -15,7 +14,6 @@ from nanoid import generate
 
 import tutils as T
 from swanlab.api.auth.login import login_by_key, terminal_login, code_login
-from swanlab.env import SwanLabEnv
 from swanlab.error import APIKeyFormatError
 from swanlab.package import has_api_key
 
@@ -92,14 +90,3 @@ def test_api_key_format_error():
     with pytest.raises(APIKeyFormatError) as e:
         _ = code_login(key)  # type: ignore
     assert e.value.__str__() == "Api key must be a string"
-
-
-@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
-def test_code_login_task_runtime():
-    # task模式下不保存token
-    os.environ[SwanLabEnv.RUNTIME.value] = 'task'
-    login_info = code_login(T.API_KEY)
-    assert not login_info.is_fail
-    # 没有保存在本地
-    del os.environ[SwanLabEnv.API_KEY.value]
-    assert not has_api_key()
