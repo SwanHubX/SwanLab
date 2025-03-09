@@ -50,15 +50,14 @@ def _extract_args(args, kwargs, param_names):
     return tuple(values)
 
 
-def sync_mlflow(mode:str="cloud", mlflow_tracking:bool=True):
+def sync_mlflow(mode:str="cloud"):
     """
-    同步MLflow到SwanLab，支持记录参数、指标和模型
+    Synchronize MLflow to SwanLab, supports recording parameters, metrics, and models
     
     Args:
-        mode: "cloud", "local" 或 "disabled"。详见 https://docs.swanlab.cn/api/py-init.html
-        mlflow_tracking: 如果此参数设置为False，则不会将数据上传到MLflow服务器
+        mode: "cloud", "local" 或 "disabled". https://docs.swanlab.cn/api/py-init.html
     
-    使用示例:
+    Example:
     ```python
     import mlflow
     import random
@@ -69,11 +68,9 @@ def sync_mlflow(mode:str="cloud", mlflow_tracking:bool=True):
     mlflow.set_experiment("my_experiment")
     
     with mlflow.start_run(run_name="my_run"):
-        # 记录参数
         mlflow.log_param("learning_rate", 0.01)
         mlflow.log_params({"batch_size": 32, "epochs": 10})
         
-        # 记录指标
         for epoch in range(10):
             acc = 1 - 2 ** -epoch - random.random() / epoch
             loss = 2 ** -epoch + random.random() / epoch
@@ -85,7 +82,7 @@ def sync_mlflow(mode:str="cloud", mlflow_tracking:bool=True):
         import mlflow
         from mlflow.tracking import MlflowClient
     except ImportError:
-        raise ImportError("请先安装MLflow，命令: `pip install mlflow`")
+        raise ImportError("please install mlflow first, command: `pip install mlflow`")
     
     # 保存原始函数
     original_start_run = mlflow.start_run
@@ -119,11 +116,6 @@ def sync_mlflow(mode:str="cloud", mlflow_tracking:bool=True):
         # 如果提供了tags，将其添加到SwanLab配置
         if tags:
             swanlab.config.update({"mlflow_tags": tags})
-        
-        if not mlflow_tracking:
-            # 如果不需要MLflow跟踪，则设置为不跟踪模式
-            # 注意：MLflow没有直接的离线模式，这里可能需要根据MLflow的API调整
-            pass
         
         return original_start_run(*args, **kwargs)
     
