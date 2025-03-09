@@ -28,6 +28,7 @@ with mlflow.start_run(run_name="test_run"):
 """
 
 import swanlab
+import os
 
 def _extract_args(args, kwargs, param_names):
     """
@@ -95,9 +96,9 @@ def sync_mlflow(mode:str="cloud"):
     
     def patched_set_experiment(experiment_name, *args, **kwargs):
         """拦截设置实验名称的调用"""
-        # 如果SwanLab尚未初始化，则使用MLflow的实验名称初始化
+        # 如果SwanLab尚未初始化，则将experiment_name设置为环境变量SWANLAB_MLFLOW_PROJECT
         if swanlab.data.get_run() is None:
-            swanlab.init(project=experiment_name, mode=mode)
+            os.environ["SWANLAB_MLFLOW_PROJECT"] = experiment_name
         return original_set_experiment(experiment_name, *args, **kwargs)
     
     def patched_start_run(*args, **kwargs):
@@ -105,10 +106,12 @@ def sync_mlflow(mode:str="cloud"):
         run_id, experiment_id, run_name, nested, tags = _extract_args(
             args, kwargs, ['run_id', 'experiment_id', 'run_name', 'nested', 'tags']
         )
-        
         # 如果SwanLab尚未初始化，则初始化它
         if swanlab.data.get_run() is None:
-            swanlab.init(experiment_name=run_name, mode=mode)
+            if os.environ.get("SWANLAB_MLFLOW_PROJECT"):
+                swanlab.init(project=os.environ["SWANLAB_MLFLOW_PROJECT"], experiment_name=run_name, mode=mode)
+            else:
+                swanlab.init(experiment_name=run_name, mode=mode)
         elif run_name:  # 如果已初始化但提供了新的run_name
             # 更新配置以包含run_name
             swanlab.config.update({"mlflow_run_name": run_name})
