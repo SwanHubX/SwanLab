@@ -1,6 +1,4 @@
 swankit==0.1.5
-swanboard==0.1.7b1
-cos-python-sdk-v5
 urllib3>=1.26.0
 requests>=2.25.0
 setuptools
@@ -8,3 +6,5 @@ click
 pyyaml
 psutil>=5.0.0
 pynvml
+boto3>=1.35.49
+botocore
