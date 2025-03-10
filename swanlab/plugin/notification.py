@@ -341,7 +341,7 @@ class DingTalkCallback(WebhookCallback):
         return "DingTalkBotCallback"
 
 
-class WxWorkBot:
+class WXWorkBot:
     """
     WxWork notification callback with bilingual support.
     docs: https://developer.work.weixin.qq.com/document/path/91770
@@ -352,11 +352,11 @@ class WxWorkBot:
         self.webhook_url = webhook_url
 
 
-class WxWorkCallback(WebhookCallback):
+class WXWorkCallback(WebhookCallback):
     """WxWork notification callback with bilingual support."""
 
     def _init_bot(self) -> None:
-        self.bot = WxWorkBot(self.webhook_url)
+        self.bot = WXWorkBot(self.webhook_url)
 
     def _send_msg(self, content: str) -> None:
         data = {
