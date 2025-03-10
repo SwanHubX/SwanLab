@@ -20,9 +20,7 @@ from abc import ABC, abstractmethod
 class PrintCallback(SwanKitCallback):
     """Basic callback for printing experiment status information."""
 
-    def on_init(
-        self, proj_name: str, workspace: str, logdir: Optional[str] = None, **kwargs
-    ):
+    def on_init(self, proj_name: str, workspace: str, logdir: Optional[str] = None, **kwargs):
         """Called when experiment initialization completes."""
         print(f"🚀 My callback: on_init: {proj_name}, {workspace}, {logdir}, {kwargs}")
 
@@ -170,9 +168,7 @@ WEBHOOK_DEFAULT_TEMPLATES = {
 class WebhookCallback(SwanKitCallback, ABC):
     """抽象基类，用于各种webhook通知回调"""
 
-    def __init__(
-        self, webhook_url: str, secret: Optional[str] = None, language: str = "zh"
-    ):
+    def __init__(self, webhook_url: str, secret: Optional[str] = None, language: str = "zh"):
         self.webhook_url = webhook_url
         self.secret = secret
         self.language = language
@@ -242,9 +238,7 @@ class LarkBot:
         if not self.secret:
             raise ValueError("secret is required")
         string_to_sign: str = f"{timesteamp}\n{self.secret}"
-        hmac_code = hmac.new(
-            string_to_sign.encode("utf-8"), digestmod=hashlib.sha256
-        ).digest()
+        hmac_code = hmac.new(string_to_sign.encode("utf-8"), digestmod=hashlib.sha256).digest()
         return base64.b64encode(hmac_code).decode("utf-8")
 
 
@@ -281,9 +275,7 @@ class DingTalkBot:
     def __init__(self, webhook_url: str, secret: Optional[str] = None):
         self.webhook_url = webhook_url
         self.secret = secret
-        self.start_time = (
-            datetime.now().timestamp()
-        )  # 加签时，请求时间戳与请求时间不能超过1小时，用于定时更新签名
+        self.start_time = datetime.now().timestamp()  # 加签时，请求时间戳与请求时间不能超过1小时，用于定时更新签名
         if self.secret is not None and self.secret.startswith("SEC"):
             self.update_webhook_url()
 
@@ -292,11 +284,7 @@ class DingTalkBot:
         DingTalk 中的签名和时间戳需要放在 url 中，且签名中的时间戳与请求时间戳的差值不能超过 1 小时
         """
         ts_now = datetime.now().timestamp()
-        if (
-            ts_now - self.start_time >= 3600
-            and self.secret is not None
-            and self.secret.startswith("SEC")
-        ):
+        if ts_now - self.start_time >= 3600 and self.secret is not None and self.secret.startswith("SEC"):
             self.start_time = ts_now
             self.update_webhook_url()
 
@@ -313,17 +301,11 @@ class DingTalkBot:
         timestamp = round(self.start_time * 1000)
         # 根据钉钉文档，正确的签名格式应为 timestamp\nsecret
         string_to_sign = f"{timestamp}\n{self.secret}"
-        hmac_code = hmac.new(
-            self.secret.encode(), string_to_sign.encode(), digestmod=hashlib.sha256
-        ).digest()
+        hmac_code = hmac.new(self.secret.encode(), string_to_sign.encode(), digestmod=hashlib.sha256).digest()
         sign = base64.b64encode(hmac_code).decode("utf-8")
 
         # 提取基础 URL（移除旧的时间戳和签名参数）
-        base_url = (
-            self.webhook_url.split("&timestamp=")[0]
-            if "&timestamp=" in self.webhook_url
-            else self.webhook_url
-        )
+        base_url = self.webhook_url.split("&timestamp=")[0] if "&timestamp=" in self.webhook_url else self.webhook_url
 
         # 添加分隔符（? 或 &）
         separator = "?" if "?" not in base_url else "&"
@@ -357,3 +339,37 @@ class DingTalkCallback(WebhookCallback):
 
     def __str__(self):
         return "DingTalkBotCallback"
+
+
+class WxWorkBot:
+    """
+    WxWork notification callback with bilingual support.
+    docs: https://developer.work.weixin.qq.com/document/path/91770
+    """
+
+    def __init__(self, webhook_url: str):
+        # WxWork does not need secret
+        self.webhook_url = webhook_url
+
+
+class WxWorkCallback(WebhookCallback):
+    """WxWork notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = WxWorkBot(self.webhook_url)
+
+    def _send_msg(self, content: str) -> None:
+        data = {
+            "msgtype": "text",
+            "text": {"content": content},
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        result: Dict[str, Any] = resp.json()
+        if result.get("errcode") and result["errcode"] != 0:
+            print(f"❌ WxWorkBot sending failed: {result.get('errmsg')}")
+            return
+        print("✅ WxWorkBot sending successfully")
+
+    def __str__(self):
+        return "WxWorkBotCallback"
