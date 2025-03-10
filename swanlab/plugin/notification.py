@@ -14,6 +14,7 @@ import hashlib
 import base64
 from datetime import datetime
 import requests
+from abc import ABC, abstractmethod
 
 
 class PrintCallback(SwanKitCallback):
@@ -95,13 +96,13 @@ class EmailCallback(SwanKitCallback):
         # Add experiment link if running in cloud mode
         exp_link = swanlab.get_url()
         if exp_link:
-                body += templates["link_text"].format(
-                    project=self.project,
-                    workspace=self.workspace,
-                    exp_name=self.exp_name,
-                    description=self.description,
-                    link=exp_link,
-                )
+            body += templates["link_text"].format(
+                project=self.project,
+                workspace=self.workspace,
+                exp_name=self.exp_name,
+                description=self.description,
+                link=exp_link,
+            )
 
         return {"subject": subject, "body": body}
 
@@ -127,12 +128,19 @@ class EmailCallback(SwanKitCallback):
     def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
         self.project = proj_name
         self.workspace = workspace
-    
-    def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        colors: Tuple[str, str],
+    ):
         self.run_id = run_id
         self.exp_name = exp_name
         self.description = description
-    
+
     def on_stop(self, error: Optional[str] = None) -> None:
         """Trigger email notification when experiment stops."""
         print("📧 Preparing email notification...")
@@ -141,6 +149,84 @@ class EmailCallback(SwanKitCallback):
 
     def __str__(self):
         return "EmailCallback"
+
+
+WEBHOOK_DEFAULT_TEMPLATES = {
+    "en": {
+        "title": "SwanLab Message Notification\n",
+        "msg_success": "SwanLab | Your experiment completed successfully\n",
+        "msg_error": "Your SwanLab experiment encountered an error: {error}\n",
+        "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}\nExperiment Link: {link}",
+    },
+    "zh": {
+        "title": "SwanLab 消息通知\n",
+        "msg_success": "SwanLab | 您的实验已成功完成\n",
+        "msg_error": "您的 SwanLab 实验遇到错误: {error}\n",
+        "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}",
+    },
+}
+
+
+class WebhookCallback(SwanKitCallback, ABC):
+    """抽象基类，用于各种webhook通知回调"""
+
+    def __init__(
+        self, webhook_url: str, secret: Optional[str] = None, language: str = "zh"
+    ):
+        self.webhook_url = webhook_url
+        self.secret = secret
+        self.language = language
+        self._init_bot()
+
+    @abstractmethod
+    def _init_bot(self) -> None:
+        """初始化机器人实例"""
+        pass
+
+    def _create_content(self, error: Optional[str] = None) -> str:
+        """创建通知内容"""
+        templates = WEBHOOK_DEFAULT_TEMPLATES[self.language]
+        content_text: str = f"{templates['title']}"
+        if error:
+            content_text += templates["msg_error"].format(error=error)
+        else:
+            content_text += templates["msg_success"]
+        exp_link = swanlab.get_url()
+        if exp_link:
+            content_text += templates["link_text"].format(
+                project=self.project,
+                workspace=self.workspace,
+                exp_name=self.exp_name,
+                description=self.description,
+                link=exp_link,
+            )
+        return content_text
+
+    @abstractmethod
+    def _send_msg(self, content: str) -> None:
+        """发送消息的具体实现"""
+        pass
+
+    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+        self.project = proj_name
+        self.workspace = workspace
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        colors: Tuple[str, str],
+    ):
+        self.run_id = run_id
+        self.exp_name = exp_name
+        self.description = description
+
+    def on_stop(self, error: Optional[str] = None) -> None:
+        print(f"🤖 Preparing {self.__class__.__name__} notification...")
+        content = self._create_content(error)
+        self._send_msg(content)
 
 
 class LarkBot:
@@ -162,78 +248,112 @@ class LarkBot:
         return base64.b64encode(hmac_code).decode("utf-8")
 
 
-class LarkCallback(SwanKitCallback):
-    DEFAULT_TEMPLATES = {
-        "en": {
-            "title": "SwanLab Message Notification\n",
-            "msg_success": "SwanLab | Your experiment completed successfully\n",
-            "msg_error": "Your SwanLab experiment encountered an error: {error}\n",
-            "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}\nExperiment Link: {link}",
-        },
-        "zh": {
-            "title": "SwanLab 消息通知\n",
-            "msg_success": "SwanLab | 您的实验已成功完成\n",
-            "msg_error": "您的 SwanLab 实验遇到错误: {error}\n",
-            "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}",
-        },
-    }
+class LarkCallback(WebhookCallback):
     """Lark notification callback with bilingual support."""
 
-    def __init__(
-        self, webhook_url: str, secret: Optional[str] = None, language: str = "zh"
-    ):
-        self.lark_bot = LarkBot(webhook_url, secret)
-        self.language = language
+    def _init_bot(self) -> None:
+        self.bot = LarkBot(self.webhook_url, self.secret)
 
-    def _create_lark_content(self, error: Optional[str] = None) -> str:
-        templates = self.DEFAULT_TEMPLATES[self.language]
-        content_text: str = f"{templates['title']}"
-        if error:
-            content_text += templates["msg_error"].format(error=error)
-        else:
-            content_text += templates["msg_success"]
-        exp_link = swanlab.get_url()
-        if exp_link:
-            content_text += templates["link_text"].format(
-                project=self.project,
-                workspace=self.workspace,
-                exp_name=self.exp_name,
-                description=self.description,
-                link=exp_link,
-            )
-        return content_text
-
-    def _send_lark_msg(self, content: str) -> None:
+    def _send_msg(self, content: str) -> None:
         timestamp: int = int(datetime.now().timestamp())
         json_params: Dict[str, Any] = {
             "timestamp": timestamp,
             "msg_type": "text",
             "content": {"text": content},
         }
-        if self.lark_bot.secret:
-            json_params["sign"] = self.lark_bot.gen_sign(timestamp)
-        resp = requests.post(self.lark_bot.webhook_url, json=json_params)
+        if self.bot.secret:
+            json_params["sign"] = self.bot.gen_sign(timestamp)
+        resp = requests.post(self.bot.webhook_url, json=json_params)
         resp.raise_for_status()
         result: Dict[str, Any] = resp.json()
         if result.get("code") and result["code"] != 0:
             print(f"❌ LarkBot sending failed: {result.get('msg')}")
             return
         print("✅ LarkBot sending successfully")
-        return
-
-    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
-        self.project = proj_name
-        self.workspace = workspace
-    
-    def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
-        self.run_id = run_id
-        self.exp_name = exp_name
-        self.description = description
-
-    def on_stop(self, error: Optional[str] = None) -> None:
-        print("🤖 Preparing LarkBot notification...")
-        lark_content = self._create_lark_content(error)
-        self._send_lark_msg(lark_content)
 
     def __str__(self):
         return "LarkBotCallback"
+
+
+class DingTalkBot:
+    """DingTalk notification callback with bilingual support."""
+
+    def __init__(self, webhook_url: str, secret: Optional[str] = None):
+        self.webhook_url = webhook_url
+        self.secret = secret
+        self.start_time = (
+            datetime.now().timestamp()
+        )  # 加签时，请求时间戳与请求时间不能超过1小时，用于定时更新签名
+        if self.secret is not None and self.secret.startswith("SEC"):
+            self.update_webhook_url()
+
+    def _check_sign(self) -> None:
+        """
+        DingTalk 中的签名和时间戳需要放在 url 中，且签名中的时间戳与请求时间戳的差值不能超过 1 小时
+        """
+        ts_now = datetime.now().timestamp()
+        if (
+            ts_now - self.start_time >= 3600
+            and self.secret is not None
+            and self.secret.startswith("SEC")
+        ):
+            self.start_time = ts_now
+            self.update_webhook_url()
+
+    def update_webhook_url(self) -> None:
+        """
+        DingTalk 中的 webhook url 需要更新签名和时间戳
+        """
+        """
+        docs: https://open.dingtalk.com/document/
+        DingTalk 中的签名和时间戳需要放在 url 中，且签名中的时间戳与请求时间戳的差值不能超过 1 小时
+        """
+        if (not self.secret) or (not self.secret.startswith("SEC")):
+            raise ValueError("secret is invalid")
+        timestamp = round(self.start_time * 1000)
+        # 根据钉钉文档，正确的签名格式应为 timestamp\nsecret
+        string_to_sign = f"{timestamp}\n{self.secret}"
+        hmac_code = hmac.new(
+            self.secret.encode(), string_to_sign.encode(), digestmod=hashlib.sha256
+        ).digest()
+        sign = base64.b64encode(hmac_code).decode("utf-8")
+
+        # 提取基础 URL（移除旧的时间戳和签名参数）
+        base_url = (
+            self.webhook_url.split("&timestamp=")[0]
+            if "&timestamp=" in self.webhook_url
+            else self.webhook_url
+        )
+
+        # 添加分隔符（? 或 &）
+        separator = "?" if "?" not in base_url else "&"
+        if separator == "&" and base_url.endswith("&"):
+            separator = ""
+
+        # 构建新的 URL
+        self.webhook_url = f"{base_url}{separator}timestamp={timestamp}&sign={sign}"
+
+
+class DingTalkCallback(WebhookCallback):
+    """DingTalk notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = DingTalkBot(self.webhook_url, self.secret)
+
+    def _send_msg(self, content: str) -> None:
+        self.bot._check_sign()
+
+        data = {
+            "msgtype": "text",
+            "text": {"content": content},
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        result: Dict[str, Any] = resp.json()
+        if result.get("errcode") and result["errcode"] != 0:
+            print(f"❌ DingTalkBot sending failed: {result.get('errmsg')}")
+            return
+        print("✅ DingTalkBot sending successfully")
+
+    def __str__(self):
+        return "DingTalkBotCallback"
