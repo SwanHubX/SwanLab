@@ -125,7 +125,7 @@ class EmailCallback(SwanKitCallback):
         self._send_email(email_content)
 
     def __str__(self):
-        return f"EmailCallback({self.receiver_email})"
+        return f"EmailCallback"
 
 
 class LarkBot:
@@ -206,4 +206,4 @@ class LarkCallback(SwanKitCallback):
         self._send_lark_msg(lark_content)
 
     def __str__(self):
-        return f"LarkBotCallback({self.lark_bot.webhook_url})"
+        return f"LarkBotCallback"
