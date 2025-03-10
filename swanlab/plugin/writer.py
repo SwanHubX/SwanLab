@@ -20,19 +20,16 @@ class CSVWriter(SwanKitCallback):
         self.csv_writer = csv.writer(self.csv_file)
 
     def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
-        """将实验元数据写入CSV文件"""
-        self.csv_writer.writerow(["datetime", "run_id", "project", "workspace", "exp_name", "description","logdir", "url"])
         self.project = proj_name
         self.workspace = workspace
     
     def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
-        """在初始化实验之前写入CSV文件"""
         self.run_id = run_id
         self.exp_name = exp_name
         self.description = description
     
     def on_run(self):
-        """在运行实验之前写入CSV文件"""
+        self.csv_writer.writerow(["datetime", "run_id", "project", "workspace", "exp_name", "description","logdir", "url"])
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         run = swanlab.get_run()
         self.logdir = run.public.swanlog_dir

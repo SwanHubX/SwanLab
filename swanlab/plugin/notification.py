@@ -8,7 +8,7 @@ import swanlab
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import hmac
 import hashlib
 import base64
@@ -43,14 +43,14 @@ class EmailCallback(SwanKitCallback):
             "subject_error": "SwanLab | Your experiment encountered an error",
             "body_success": "Your SwanLab experiment has completed successfully.",
             "body_error": "Your SwanLab experiment encountered an error: {error}",
-            "link_text": "\nExperiment Link: {link}",
+            "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}\nExperiment Link: {link}",
         },
         "zh": {
             "subject_success": "SwanLab | 您的实验已成功完成",
             "subject_error": "SwanLab | 您的实验遇到错误",
             "body_success": "您的 SwanLab 实验已成功完成。",
             "body_error": "您的 SwanLab 实验遇到错误: {error}",
-            "link_text": "\n实验链接: {link}",
+            "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}",
         },
     }
 
@@ -95,7 +95,13 @@ class EmailCallback(SwanKitCallback):
         # Add experiment link if running in cloud mode
         exp_link = swanlab.get_url()
         if exp_link:
-            body += templates["link_text"].format(link=exp_link)
+                body += templates["link_text"].format(
+                    project=self.project,
+                    workspace=self.workspace,
+                    exp_name=self.exp_name,
+                    description=self.description,
+                    link=exp_link,
+                )
 
         return {"subject": subject, "body": body}
 
@@ -118,6 +124,15 @@ class EmailCallback(SwanKitCallback):
         except smtplib.SMTPException as e:
             print(f"❌ Email sending failed: {str(e)}")
 
+    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+        self.project = proj_name
+        self.workspace = workspace
+    
+    def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
+        self.run_id = run_id
+        self.exp_name = exp_name
+        self.description = description
+    
     def on_stop(self, error: Optional[str] = None) -> None:
         """Trigger email notification when experiment stops."""
         print("📧 Preparing email notification...")
@@ -136,7 +151,7 @@ class LarkBot:
     def gen_sign(self, timesteamp: int) -> str:
         """
         docs: https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot?lang=zh-CN#9ff32e8e
-        如果用户配置了签名校验功能，需要使用此方法生成签名
+        If the user has configured the signature verification function, this method is required to generate the signature
         """
         if not self.secret:
             raise ValueError("secret is required")
@@ -153,13 +168,13 @@ class LarkCallback(SwanKitCallback):
             "title": "SwanLab Message Notification\n",
             "msg_success": "SwanLab | Your experiment completed successfully\n",
             "msg_error": "Your SwanLab experiment encountered an error: {error}\n",
-            "link_text": "Experiment Link: \n{link}",
+            "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}\nExperiment Link: {link}",
         },
         "zh": {
             "title": "SwanLab 消息通知\n",
             "msg_success": "SwanLab | 您的实验已成功完成\n",
             "msg_error": "您的 SwanLab 实验遇到错误: {error}\n",
-            "link_text": "实验链接: \n{link}",
+            "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}",
         },
     }
     """Lark notification callback with bilingual support."""
@@ -179,7 +194,13 @@ class LarkCallback(SwanKitCallback):
             content_text += templates["msg_success"]
         exp_link = swanlab.get_url()
         if exp_link:
-            content_text += templates["link_text"].format(link=exp_link)
+            content_text += templates["link_text"].format(
+                project=self.project,
+                workspace=self.workspace,
+                exp_name=self.exp_name,
+                description=self.description,
+                link=exp_link,
+            )
         return content_text
 
     def _send_lark_msg(self, content: str) -> None:
@@ -199,6 +220,15 @@ class LarkCallback(SwanKitCallback):
             return
         print("✅ LarkBot sending successfully")
         return
+
+    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+        self.project = proj_name
+        self.workspace = workspace
+    
+    def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
+        self.run_id = run_id
+        self.exp_name = exp_name
+        self.description = description
 
     def on_stop(self, error: Optional[str] = None) -> None:
         print("🤖 Preparing LarkBot notification...")
