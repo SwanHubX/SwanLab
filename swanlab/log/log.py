@@ -77,3 +77,28 @@ class SwanLog(SwanLabSharedLog):
             return self.__consoler.writer.file
         else:
             return None
+
+def trace_handler():
+    """
+    trace_handler 是一个回调函数，用于处理 torch.profiler 的 trace 信息，并将其保存到文件中
+
+    examples
+    -------
+    >>> activities = [torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]
+    >>> with torch.profiler.profile(activities=activities,on_trace_ready=trace_handler()) as p:
+    """
+    from ..data import get_run_dir
+    from . import swanlog
+    import os
+
+    def handler_fn(prof) -> None:
+        saved_path = os.path.join(get_run_dir(), 'files', 'trace.json')
+        if os.path.exists(saved_path):
+            swanlog.warning(f"{saved_path} already exists, will be overwritten")
+            os.remove(f"{saved_path}")
+        else:
+            swanlog.info(f"torch.profiler trace is saved to {saved_path}")
+            
+        prof.export_chrome_trace(f"{saved_path}")
+
+    return handler_fn
