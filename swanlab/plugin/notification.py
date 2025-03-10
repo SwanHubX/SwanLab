@@ -1,5 +1,6 @@
 """
 Notification plugin for SwanLab.
+Used for sending notifications to users.
 """
 
 from swankit.callback import SwanKitCallback
