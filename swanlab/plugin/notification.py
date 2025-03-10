@@ -102,17 +102,17 @@ class EmailCallback(SwanKitCallback):
                 link=exp_link,
             )
 
-        return {"subject": subject, "body": body}
+        return subject, body
 
-    def _send_email(self, content: Dict[str, str]) -> None:
+    def send_email(self, subject: str, body: str) -> None:
         """Handle SMTP connection and email sending."""
         try:
             # Create email message
             msg = MIMEMultipart()
             msg["From"] = self.sender_email
             msg["To"] = self.receiver_email
-            msg["Subject"] = content["subject"]
-            msg.attach(MIMEText(content["body"], "plain", "utf-8"))
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain", "utf-8"))
             # Establish secure connection
             with smtplib.SMTP(self.smtp_server, self.port) as server:
                 server.starttls()
@@ -142,8 +142,8 @@ class EmailCallback(SwanKitCallback):
     def on_stop(self, error: Optional[str] = None) -> None:
         """Trigger email notification when experiment stops."""
         print("📧 Preparing email notification...")
-        email_content = self._create_email_content(error)
-        self._send_email(email_content)
+        subject, body = self._create_email_content(error)
+        self._send_email(subject, body)
 
     def __str__(self):
         return "EmailCallback"
