@@ -94,8 +94,8 @@ class SwanLabRunOperator(SwanKitCallback):
     def on_runtime_info_update(self, r: RuntimeInfo):
         return self.__run_all("on_runtime_info_update", r)
 
-    def on_log(self):
-        return self.__run_all("on_log")
+    def on_log(self, *args, **kwargs):
+        return self.__run_all("on_log", *args, **kwargs)
 
     def on_metric_create(self, metric_info: MetricInfo):
         return self.__run_all("on_metric_create", metric_info)

@@ -154,8 +154,8 @@ class LocalRunCallback(SwanLabRunCallback):
         if r.config is not None:
             r.config.write(self.settings.files_dir)
 
-    def on_log(self):
-        self.board.on_log()
+    def on_log(self, *args, **kwargs):
+        self.board.on_log(*args, **kwargs)
 
     def on_column_create(self, column_info: ColumnInfo):
         self.board.on_column_create(column_info)
