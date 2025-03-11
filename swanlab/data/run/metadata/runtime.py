@@ -82,7 +82,7 @@ def parse_git_url(url):
             url = f"https://{host}:{port}/{path}" if port.isdigit() else f"https://{host}/{port}/{path}"
         else:
             url = f"https://{host}/{path}"
-        return url[:-4] if url.endswith(".git") else url
+    return url[:-4] if url.endswith(".git") else url
 
 def replace_second_colon(input_string, replacement):
     """Replace the second colon in a string."""
