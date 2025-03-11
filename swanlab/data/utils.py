@@ -12,13 +12,12 @@ from swankit.callback import SwanKitCallback
 from swankit.env import SwanLabMode
 from swankit.log import FONT
 
-from swanlab import SwanLabEnv
 from swanlab.api import terminal_login
 from swanlab.data.callbacker.cloud import CloudRunCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
-from swanlab.env import is_interactive
+from swanlab.env import is_interactive, SwanLabEnv
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
