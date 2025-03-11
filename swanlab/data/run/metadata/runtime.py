@@ -65,10 +65,15 @@ def get_remote_url():
 
         # 检查命令是否成功运行
         if result.returncode == 0:
-            url = result.stdout.strip().replace("git@", "https://")
+            url = result.stdout.strip()
+            # Convert SSH to HTTPS
+            if url.startswith("git@"):
+                url = url.replace("git@", "https://", 1)
+                url = replace_second_colon(url, "/")
+            # Remove .git suffix
             if url.endswith(".git"):
                 url = url[:-4]
-            return replace_second_colon(url, "/")
+            return url
         else:
             return None
     except Exception as e:  # noqa
@@ -76,7 +81,7 @@ def get_remote_url():
 
 
 def replace_second_colon(input_string, replacement):
-    """替换字符串中第二个‘:’"""
+    """替换字符串中第二个'：'"""
     first_colon_index = input_string.find(":")
     if first_colon_index != -1:
         second_colon_index = input_string.find(":", first_colon_index + 1)
