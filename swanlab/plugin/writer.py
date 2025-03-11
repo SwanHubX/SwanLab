@@ -15,7 +15,7 @@ except ImportError:
 
 class CSVWriter(SwanKitCallback):
     """CSV writer for SwanLab."""
-    def __init__(self, dir: str = None, filename: str = "swanlab_run_metadata.csv"):
+    def __init__(self, dir: str = None, filename: str = "swanlab_run.csv"):
         
         if dir is None:
             dir = os.getcwd()
