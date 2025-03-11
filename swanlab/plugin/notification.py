@@ -199,7 +199,7 @@ class WebhookCallback(SwanKitCallback, ABC):
         return content_text
 
     @abstractmethod
-    def _send_msg(self, content: str) -> None:
+    def send_msg(self, content: str) -> None:
         """发送消息的具体实现"""
         pass
 
@@ -222,7 +222,7 @@ class WebhookCallback(SwanKitCallback, ABC):
     def on_stop(self, error: Optional[str] = None) -> None:
         print(f"🤖 Preparing {self.__class__.__name__} notification...")
         content = self._create_content(error)
-        self._send_msg(content)
+        self.send_msg(content)
 
 
 class LarkBot:
@@ -248,7 +248,7 @@ class LarkCallback(WebhookCallback):
     def _init_bot(self) -> None:
         self.bot = LarkBot(self.webhook_url, self.secret)
 
-    def _send_msg(self, content: str) -> None:
+    def send_msg(self, content: str) -> None:
         timestamp: int = int(datetime.now().timestamp())
         json_params: Dict[str, Any] = {
             "timestamp": timestamp,
@@ -322,7 +322,7 @@ class DingTalkCallback(WebhookCallback):
     def _init_bot(self) -> None:
         self.bot = DingTalkBot(self.webhook_url, self.secret)
 
-    def _send_msg(self, content: str) -> None:
+    def send_msg(self, content: str) -> None:
         self.bot._check_sign()
 
         data = {
@@ -358,7 +358,7 @@ class WXWorkCallback(WebhookCallback):
     def _init_bot(self) -> None:
         self.bot = WXWorkBot(self.webhook_url)
 
-    def _send_msg(self, content: str) -> None:
+    def send_msg(self, content: str) -> None:
         data = {
             "msgtype": "text",
             "text": {"content": content},
@@ -367,9 +367,9 @@ class WXWorkCallback(WebhookCallback):
         resp.raise_for_status()
         result: Dict[str, Any] = resp.json()
         if result.get("errcode") and result["errcode"] != 0:
-            print(f"❌ WxWorkBot sending failed: {result.get('errmsg')}")
+            print(f"❌ WXWorkBot sending failed: {result.get('errmsg')}")
             return
-        print("✅ WxWorkBot sending successfully")
+        print("✅ WXWorkBot sending successfully")
 
     def __str__(self):
-        return "WxWorkBotCallback"
+        return "WXWorkBotCallback"

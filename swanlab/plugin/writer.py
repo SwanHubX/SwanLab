@@ -49,6 +49,7 @@ class CSVWriter(SwanKitCallback):
         row_data = [self.project, self.exp_name, self.description, timestamp, self.run_id, self.workspace, self.logdir, self.experiment_url]
         
         # Add config keys as columns
+        # TODO: Consider the case where the config contains commas.
         if config:
             for key in config:
                 headers.append(key)
