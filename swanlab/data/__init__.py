@@ -23,6 +23,7 @@ from .run import (
 )
 from .sdk import (
     login,
+    register_callbacks,
     init,
     log,
     finish,

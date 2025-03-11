@@ -1,6 +1,7 @@
 # 导出初始化函数和log函数
 from .data import (
     login,
+    register_callbacks,
     init,
     log,
     finish,
