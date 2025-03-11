@@ -40,15 +40,15 @@ class EmailCallback(SwanKitCallback):
         "en": {
             "subject_success": "SwanLab | Your experiment completed successfully",
             "subject_error": "SwanLab | Your experiment encountered an error",
-            "body_success": "Your SwanLab experiment has completed successfully.",
-            "body_error": "Your SwanLab experiment encountered an error: {error}",
+            "body_success": "Your SwanLab experiment has completed successfully.\n",
+            "body_error": "Your SwanLab experiment encountered an error: {error}\n",
             "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}\nExperiment Link: {link}",
         },
         "zh": {
             "subject_success": "SwanLab | 您的实验已成功完成",
             "subject_error": "SwanLab | 您的实验遇到错误",
-            "body_success": "您的 SwanLab 实验已成功完成。",
-            "body_error": "您的 SwanLab 实验遇到错误: {error}",
+            "body_success": "您的 SwanLab 实验已成功完成。\n",
+            "body_error": "您的 SwanLab 实验遇到错误: {error}\n",
             "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}",
         },
     }
