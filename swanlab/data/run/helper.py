@@ -71,11 +71,18 @@ class SwanLabRunOperator(SwanKitCallback):
             return ret[key]
         return next((v for v in ret.values() if v is not None), None)
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs) -> OperatorReturnType:
-        return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs) -> OperatorReturnType:
+        return self.__run_all(
+            "on_init",
+            proj_name,
+            workspace,
+            logdir=logdir,
+            *args,
+            **kwargs,
+        )
 
-    def before_run(self, settings: SwanLabSharedSettings):
-        return self.__run_all("before_run", settings)
+    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
+        return self.__run_all("before_run", settings, *args, **kwargs)
 
     def before_init_experiment(
         self,
@@ -84,27 +91,38 @@ class SwanLabRunOperator(SwanKitCallback):
         description: str,
         num: int,
         colors: Tuple[str, str],
+        *args,
+        **kwargs,
     ):
-        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, colors)
+        return self.__run_all(
+            "before_init_experiment",
+            run_id,
+            exp_name,
+            description,
+            num,
+            colors,
+            *args,
+            **kwargs,
+        )
 
-    def on_run(self):
-        self.__run_all("on_run")
+    def on_run(self, *args, **kwargs):
+        self.__run_all("on_run", *args, **kwargs)
         try_send_webhook()
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        return self.__run_all("on_runtime_info_update", r)
+    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
+        return self.__run_all("on_runtime_info_update", r, *args, **kwargs)
 
     def on_log(self, *args, **kwargs):
         return self.__run_all("on_log", *args, **kwargs)
 
-    def on_metric_create(self, metric_info: MetricInfo):
-        return self.__run_all("on_metric_create", metric_info)
+    def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
+        return self.__run_all("on_metric_create", metric_info, *args, **kwargs)
 
-    def on_column_create(self, column_info: ColumnInfo):
-        return self.__run_all("on_column_create", column_info)
+    def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
+        return self.__run_all("on_column_create", column_info, *args, **kwargs)
 
-    def on_stop(self, error: str = None):
-        r = self.__run_all("on_stop", error)
+    def on_stop(self, error: str = None, *args, **kwargs):
+        r = self.__run_all("on_stop", error, *args, **kwargs)
         # 清空所有注册的回调函数
         self.callbacks.clear()
         return r
