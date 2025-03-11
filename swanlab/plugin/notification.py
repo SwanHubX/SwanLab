@@ -20,11 +20,11 @@ from abc import ABC, abstractmethod
 class PrintCallback(SwanKitCallback):
     """Basic callback for printing experiment status information."""
 
-    def on_init(self, proj_name: str, workspace: str, logdir: Optional[str] = None, **kwargs):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         """Called when experiment initialization completes."""
         print(f"🚀 My callback: on_init: {proj_name}, {workspace}, {logdir}, {kwargs}")
 
-    def on_stop(self, error: Optional[str] = None):
+    def on_stop(self, error: str = None, *args, **kwargs):
         """Called when experiment stops or encounters error."""
         status = f"with error: {error}" if error else "successfully"
         print(f"🚀 My callback: Experiment stopped {status}")
@@ -123,7 +123,7 @@ class EmailCallback(SwanKitCallback):
         except smtplib.SMTPException as e:
             print(f"❌ Email sending failed: {str(e)}")
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         self.project = proj_name
         self.workspace = workspace
 
@@ -134,12 +134,14 @@ class EmailCallback(SwanKitCallback):
         description: str,
         num: int,
         colors: Tuple[str, str],
+        *args,
+        **kwargs,
     ):
         self.run_id = run_id
         self.exp_name = exp_name
         self.description = description
 
-    def on_stop(self, error: Optional[str] = None) -> None:
+    def on_stop(self, error: str = None, *args, **kwargs):
         """Trigger email notification when experiment stops."""
         print("📧 Preparing email notification...")
         subject, body = self._create_email_content(error)
@@ -203,7 +205,7 @@ class WebhookCallback(SwanKitCallback, ABC):
         """发送消息的具体实现"""
         pass
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         self.project = proj_name
         self.workspace = workspace
 
@@ -214,12 +216,14 @@ class WebhookCallback(SwanKitCallback, ABC):
         description: str,
         num: int,
         colors: Tuple[str, str],
+        *args,
+        **kwargs,
     ):
         self.run_id = run_id
         self.exp_name = exp_name
         self.description = description
 
-    def on_stop(self, error: Optional[str] = None) -> None:
+    def on_stop(self, error: str = None, *args, **kwargs):
         print(f"🤖 Preparing {self.__class__.__name__} notification...")
         content = self._create_content(error)
         self.send_msg(content)

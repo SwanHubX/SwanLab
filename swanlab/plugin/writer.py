@@ -23,16 +23,25 @@ class CSVWriter(SwanKitCallback):
         self.csv_writer = csv.writer(self.csv_file)
         self.file_exists = file_exists
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str, **kwargs):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         self.project = proj_name
         self.workspace = workspace
     
-    def before_init_experiment(self, run_id: str, exp_name: str, description: str, num: int, colors: Tuple[str, str]):
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        num: int,
+        colors: Tuple[str, str],
+        *args,
+        **kwargs,
+    ):
         self.run_id = run_id
         self.exp_name = exp_name
         self.description = description
     
-    def on_run(self):
+    def on_run(self, *args, **kwargs):
         # Get run information
         run = swanlab.get_run()
         config = run.config
@@ -61,7 +70,7 @@ class CSVWriter(SwanKitCallback):
         self.csv_writer.writerow(row_data)
 
 
-    def on_stop(self, error: Optional[str] = None):
+    def on_stop(self, error: str = None, *args, **kwargs):
         """关闭CSV文件"""
         self.csv_file.close()
     
