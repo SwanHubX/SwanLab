@@ -349,7 +349,7 @@ class SwanLabRun:
         """
         if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
-        self.__operator.on_log()
+        self.__operator.on_log(data=data, step=step)
 
         if not isinstance(data, dict):
             return swanlog.error(

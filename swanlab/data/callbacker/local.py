@@ -119,12 +119,12 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs):
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         self._init_logdir(logdir)
 
         self.board.on_init(proj_name)
 
-    def before_run(self, settings: SwanLabSharedSettings):
+    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings
 
     def before_init_experiment(
@@ -134,6 +134,8 @@ class LocalRunCallback(SwanLabRunCallback):
         description: str,
         num: int,
         colors: Tuple[str, str],
+        *args,
+        **kwargs,
     ):
         self.board.before_init_experiment(run_id, exp_name, description, num, colors)
 
@@ -145,7 +147,7 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print()
         self._watch_tip_print()
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
+    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
         if r.requirements is not None:
             r.requirements.write(self.settings.files_dir)
@@ -154,13 +156,13 @@ class LocalRunCallback(SwanLabRunCallback):
         if r.config is not None:
             r.config.write(self.settings.files_dir)
 
-    def on_log(self):
-        self.board.on_log()
+    def on_log(self, *args, **kwargs):
+        self.board.on_log(*args, **kwargs)
 
-    def on_column_create(self, column_info: ColumnInfo):
+    def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         self.board.on_column_create(column_info)
 
-    def on_metric_create(self, metric_info: MetricInfo):
+    def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 出现任何错误直接返回
         if metric_info.error:
             return
@@ -188,7 +190,7 @@ class LocalRunCallback(SwanLabRunCallback):
             with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
                 f.write(r.getvalue())
 
-    def on_stop(self, error: str = None):
+    def on_stop(self, error: str = None, *args, **kwargs):
         """
         训练结束，取消系统回调
         此函数被`run.finish`调用
