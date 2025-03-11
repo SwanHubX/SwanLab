@@ -100,7 +100,7 @@ class CloudRunCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None, **kwargs) -> int:
+    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs) -> int:
         try:
             http = get_http()
         except ValueError:
@@ -110,10 +110,10 @@ class CloudRunCallback(SwanLabRunCallback):
         self._get_package_latest_version()
         return http.mount_project(project, workspace, self.public).history_exp_count
 
-    def before_run(self, settings: SwanLabSharedSettings):
+    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings
 
-    def on_run(self):
+    def on_run(self, *args, **kwargs):
         swanlog.install()
         http = get_http()
         # 注册实验信息
@@ -140,7 +140,7 @@ class CloudRunCallback(SwanLabRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
+    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 添加上传任务到线程池
         rc = r.config.to_dict() if r.config is not None else None
         rr = r.requirements.info if r.requirements is not None else None
@@ -149,7 +149,7 @@ class CloudRunCallback(SwanLabRunCallback):
         f = FileModel(requirements=rr, config=rc, metadata=rm)
         self.pool.queue.put((UploadType.FILE, [f]))
 
-    def on_column_create(self, column_info: ColumnInfo):
+    def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         error = None
         if column_info.error is not None:
             error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
@@ -177,7 +177,7 @@ class CloudRunCallback(SwanLabRunCallback):
         )
         self.pool.queue.put((UploadType.COLUMN, [column]))
 
-    def on_metric_create(self, metric_info: MetricInfo):
+    def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 有错误就不上传
         if metric_info.error:
             return
@@ -203,7 +203,7 @@ class CloudRunCallback(SwanLabRunCallback):
         media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
-    def on_stop(self, error: str = None):
+    def on_stop(self, error: str = None, *args, **kwargs):
         # 打印信息
         self._view_web_print()
         run = get_run()
