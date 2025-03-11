@@ -145,7 +145,7 @@ class EmailCallback(SwanKitCallback):
         """Trigger email notification when experiment stops."""
         print("📧 Preparing email notification...")
         subject, body = self._create_email_content(error)
-        self._send_email(subject, body)
+        self.send_email(subject, body)
 
     def __str__(self):
         return "EmailCallback"
