@@ -10,29 +10,34 @@ import pytest
 
 from swanlab.data.run.metadata.hardware.gpu.nvidia import GpuCollector
 
+
 try:
     pynvml.nvmlInit()
     count = pynvml.nvmlDeviceGetCount()
+    max_gpu_mem = max([
+        pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(i)).total
+        for i in range(count)
+    ]) >> 20
 except Exception:  # noqa
     count = 0
-
+    max_gpu_mem = 0
 
 @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
 def test_before_impl():
-    collector = GpuCollector(count)
+    collector = GpuCollector(count, max_gpu_mem)
     collector.before_collect_impl()
     assert len(collector.handles) == count
 
 
 @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
 def test_after_impl():
-    collector = GpuCollector(count)
+    collector = GpuCollector(count, max_gpu_mem)
     collector.after_collect_impl()
     assert len(collector.handles) == 0
 
 
 class TestGpuCollector:
-    collector = GpuCollector(count)
+    collector = GpuCollector(count, max_gpu_mem)
 
     def setup_class(self):
         self.collector.before_collect_impl()
