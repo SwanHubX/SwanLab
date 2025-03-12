@@ -44,17 +44,17 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
                 gpu_name = gpu_name.decode("utf-8")
             info["type"].append(gpu_name)
             # 获取 GPU 的总显存
-            total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total >> 20 # MB
+            total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total >> 20  # MB
             max_gpu_mem_mb = max(max_gpu_mem_mb, total_memory)
-            info["memory"].append(round(total_memory / 1024)) # GB
+            info["memory"].append(round(total_memory / 1024))  # GB
     except UnicodeDecodeError:  # 部分GPU型号无法解码
         return None, None
     except pynvml.NVMLError:
         pass
     finally:
         pynvml.nvmlShutdown()
-    count = info["cores"]
-    return info, None if not count else GpuCollector(count=count, max_mem_mb=max_gpu_mem_mb)
+        count = info["cores"]
+        return info, None if not count else GpuCollector(count=count, max_mem_mb=max_gpu_mem_mb)
 
 
 def get_cuda_version():
