@@ -74,10 +74,10 @@ class GpuCollector(HardwareCollector):
     def __init__(self, count: int, max_mem_mb: int):
         super().__init__()
         # GPU 利用率
-        self.gpu_util_key = generate_key("gpu.{idx}.ptc")
+        self.gpu_util_key = generate_key("gpu.{idx}.pct")
         util_config = HardwareConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
         # GPU 内存使用率
-        self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.ptc")
+        self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.pct")
         mem_pct_config = HardwareConfig(
             y_range=(0, 100), chart_name="GPU Memory Allocated (%)", chart_index=random_index()
         )
