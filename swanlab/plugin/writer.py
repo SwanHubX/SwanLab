@@ -35,7 +35,6 @@ class CSVWriter(SwanKitCallback):
                 df = pd.read_csv(self.save_path)
                 if df.empty:
                     return self._create_empty_dataframe()
-                print("original_data: \n", df)
                 return df
             except pd.errors.EmptyDataError:
                 return self._create_empty_dataframe()
