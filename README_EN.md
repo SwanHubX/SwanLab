@@ -14,6 +14,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -453,3 +454,6 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags

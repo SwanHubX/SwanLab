@@ -15,6 +15,7 @@
 <a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新履歴</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -457,3 +458,6 @@ SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags
