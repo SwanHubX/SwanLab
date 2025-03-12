@@ -52,6 +52,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/plugin/notification-lark.html)など。
+
 - 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
 
 - 2025.03.06: [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio)との連携統合が完了し、現在はDiffSynth StudioでSwanLabを使用して**Diffusionモデルのテキストから画像/動画の実験を追跡および可視化**できます、[使用方法](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
@@ -222,42 +224,38 @@ for i in range(10):
 
 ## 💻 セルフホスティング
 
-セルフホスティングのコミュニティ版は、オフラインでSwanLabダッシュボードを表示できます。
+セルフホスティングコミュニティ版は、SwanLabダッシュボードをオフラインで閲覧することをサポートしています。
 
-### オフライン実験追跡
+### 1. Dockerを使用してセルフホスティング版をデプロイ
 
-swanlab.initで`logir`と`mode`パラメータを設定することで、オフラインで実験を追跡可能：
-
-```python
-...
-
-swanlab.init(
-    logdir='./logs',
-    mode='local',
-)
-
-...
-```
-
-- `mode`パラメータを`local`に設定し、実験のクラウド同期を無効化
-
-- `logdir`パラメータはオプションで、SwanLabログファイルの保存場所を指定（デフォルトは`swanlog`フォルダ）
-
-  - ログファイルは実験の追跡中に作成・更新され、オフラインダッシュボードの起動もこれらのログファイルに基づく
-
-その他の部分はクラウド使用と完全に同じです。
-
-### オフラインダッシュボードの起動
-
-ターミナルを開き、以下のコマンドを実行してSwanLabダッシュボードを起動：
+詳細な手順については、以下を参照してください: [ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
 
 ```bash
-swanlab watch ./logs
+git clone https://github.com/SwanHubX/self-hosted.git
+cd self-hosted/docker
 ```
 
-実行が完了すると、SwanLabはローカルのURLリンクを提供します（デフォルトは[http://127.0.0.1:5092](http://127.0.0.1:5092)）
+中国向けのクイックインストール:
 
-このリンクにアクセスすると、ブラウザでオフラインダッシュボードを使用して実験を確認できます。
+```bash
+./install.sh
+```
+
+DockerHubからイメージをプルしてインストール:
+
+```bash
+./install-dockerhub.sh
+```
+
+### 2. 実験をセルフホスティングサービスに指定
+
+セルフホスティングサービスにログイン:
+
+```bash
+swanlab login --host http://localhost:8000
+```
+
+ログイン後、実験をセルフホスティングサービスに記録できます。
 
 <br>
 
