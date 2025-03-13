@@ -81,13 +81,13 @@ class SwanLabRun:
         self.__run_id = "run-{}-{}".format(timestamp, _id)
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
+        self.__mode = get_mode()
         self.__settings = SwanLabSharedSettings(
             logdir=get_swanlog_dir(),
             run_id=self.__run_id,
-            should_save=not self.__operator.disabled,
+            should_save=self.__mode == "local",
             version=get_package_version(),
         )
-        self.__mode = get_mode()
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
         # ---------------------------------- 初始化日志记录器 ----------------------------------
@@ -128,6 +128,11 @@ class SwanLabRun:
                 metadata=metadata,
             )
         )
+        # # 延时采集conda信息，因为conda信息的导出需要的时间会比较多
+        # threading.Timer(
+        #     5,
+        #     lambda: self.__operator.on_runtime_info_update(RuntimeInfo(conda=get_conda())),
+        # ).start()
         # 定时采集系统信息，目前仅cloud模式支持
         self.monitor_cron = None
         if self.mode == "cloud":
@@ -345,7 +350,7 @@ class SwanLabRun:
         """
         if self.__state != SwanLabRunState.RUNNING:
             raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
-        self.__operator.on_log()
+        self.__operator.on_log(data=data, step=step)
 
         if not isinstance(data, dict):
             return swanlog.error(

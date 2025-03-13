@@ -13,6 +13,7 @@ import pytest
 from nanoid import generate
 
 import swanlab.data.sdk as S
+import swanlab.data.utils
 import swanlab.error as Err
 import tutils as T
 from swanlab.data.run import get_run
@@ -46,7 +47,7 @@ class TestInitModeFunc:
         初始化时mode参数错误
         """
         with pytest.raises(ValueError):
-            S._init_mode("123456")  # noqa
+            swanlab.data.utils._init_mode("123456")  # noqa
 
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
     def test_init_mode(self, mode, monkeypatch):
@@ -56,7 +57,7 @@ class TestInitModeFunc:
         if mode == 'cloud':
             mode = 'local'
             monkeypatch.setattr("builtins.input", lambda _: "3")
-        S._init_mode(mode)
+        swanlab.data.utils._init_mode(mode)
         assert os.environ[MODE] == mode
         del os.environ[MODE]
         # # 大写
@@ -72,7 +73,7 @@ class TestInitModeFunc:
             mode = 'local'
             monkeypatch.setattr("builtins.input", lambda _: "3")
         os.environ[MODE] = "123456"
-        S._init_mode(mode)
+        swanlab.data.utils._init_mode(mode)
         assert os.environ[MODE] == mode
 
     def test_no_api_key_to_cloud(self, monkeypatch):
@@ -82,7 +83,7 @@ class TestInitModeFunc:
         if SwanLabEnv.API_KEY.value in os.environ:
             del os.environ[SwanLabEnv.API_KEY.value]
         monkeypatch.setattr("builtins.input", lambda _: "3")
-        mode, login_info = S._init_mode("cloud")
+        mode, login_info = swanlab.data.utils._init_mode("cloud")
         assert mode == "local"
         assert login_info is None
 
@@ -102,14 +103,14 @@ class TestInitModeFunc:
 
         # 选择第三种
         monkeypatch.setattr("builtins.input", lambda _: "3")
-        mode, login_info = S._init_mode("cloud")
+        mode, login_info = swanlab.data.utils._init_mode("cloud")
         assert mode == "local"
         assert login_info is None
 
         # 选择第二种
         monkeypatch.setattr("builtins.input", lambda _: "2")
         monkeypatch.setattr("getpass.getpass", lambda _: api_key)
-        mode, login_info = S._init_mode("cloud")
+        mode, login_info = swanlab.data.utils._init_mode("cloud")
         assert mode == "cloud"
         assert login_info is not None
 
@@ -119,7 +120,7 @@ class TestInitModeFunc:
         # 选择第一种
         monkeypatch.setattr("builtins.input", lambda _: "1")
         monkeypatch.setattr("getpass.getpass", lambda _: api_key)
-        mode, login_info = S._init_mode("cloud")
+        mode, login_info = swanlab.data.utils._init_mode("cloud")
         assert mode == "cloud"
         assert login_info is not None
 
@@ -142,7 +143,7 @@ class TestInitModeFunc:
 
         other_input = create_other_input()
         monkeypatch.setattr("builtins.input", lambda _: other_input())
-        mode, login_info = S._init_mode("cloud")
+        mode, login_info = swanlab.data.utils._init_mode("cloud")
         assert mode == "local"
         assert login_info is None
 
@@ -329,7 +330,18 @@ class TestLogin:
         os.environ[LOG_DIR] = T.TEMP_PATH
         monkeypatch.setattr("getpass.getpass", self.get_password)
         S.login()
-        # 默认保存Key
+        # 默认不保存Key
+        assert not os.path.exists(os.path.join(get_save_dir(), ".netrc"))
+
+    def test_use_home_key_save(self, monkeypatch):
+        """
+        使用家目录下的key，不需要输入
+        如果家目录下的key获取失败，会使用getpass.getpass要求用户输入，作为测试，使用monkeypatch替换getpass.getpass
+        """
+        os.environ[LOG_DIR] = T.TEMP_PATH
+        monkeypatch.setattr("getpass.getpass", self.get_password)
+        S.login(save=True)
+        # 保存Key
         assert os.path.exists(os.path.join(get_save_dir(), ".netrc"))
 
     def test_use_input_key(self, monkeypatch):

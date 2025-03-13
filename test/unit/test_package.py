@@ -249,6 +249,10 @@ class TestHostFormatter:
         assert formatter.fmt("http://swanlab.cn") == "http://swanlab.cn"  # noqa
         assert formatter.fmt("https://swanlab.cn:8443/") == "https://swanlab.cn:8443"
         assert formatter.fmt("abc.example.com") == "https://abc.example.com"
+        assert formatter.fmt("localhost") == "https://localhost"
+        assert formatter.fmt("http://localhost") == "http://localhost"
+        assert formatter.fmt("http://localhost:8080") == "http://localhost:8080"
+        assert formatter.fmt("http://127.0.0.1:8080/") == "http://127.0.0.1:8080"
 
     def test_value_err(self):
         formatter = P.HostFormatter()

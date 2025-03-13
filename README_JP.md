@@ -15,6 +15,7 @@
 <a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新履歴</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -52,6 +53,16 @@
 
 ## 🌟 最近の更新
 
+- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/plugin/notification-lark.html)など。
+
+- 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
+
+- 2025.03.06: [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio)との連携統合が完了し、現在はDiffSynth StudioでSwanLabを使用して**Diffusionモデルのテキストから画像/動画の実験を追跡および可視化**できます、[使用方法](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
+
+- 2025.03.04: MLFlowの統合を追加し、MLFlow実験をSwanLab実験に変換する機能をサポートしました。[使用ガイド](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
+
+- 2025.03.01：新機能として、実験の移動が追加されました。
+
 - 2025.02.24：我們與[EasyR1](https://github.com/hiyouga/EasyR1)完成了聯合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
 
 - 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
@@ -62,6 +73,9 @@
 
 - 2025.02.05：`swanlab.log`はネストされた辞書をサポートし、Jaxフレームワークの特性に適応 [#812](https://github.com/SwanHubX/SwanLab/pull/812)；`name`と`notes`パラメータをサポート
 
+
+<details><summary>完全な更新履歴</summary>
+
 - 2025.01.22：`sync_tensorboardX`と`sync_tensorboard_torch`機能を追加し、この2つのTensorBoardフレームワークとの実験追跡の同期をサポート
 
 - 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
@@ -69,8 +83,6 @@
 - 2025.01.11：クラウド版はプロジェクトテーブルのパフォーマンスを大幅に最適化し、ドラッグ＆ドロップ、並べ替え、フィルタリングなどのインタラクションをサポートしました。
 
 - 2025.01.01：折れ線グラフの**永続的スムージング**、折れ線グラフのドラッグによるサイズ変更を追加し、チャート閲覧体験を最適化
-
-<details><summary>完全な更新履歴</summary>
 
 - 2024.12.22：[LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory)との統合を完了し、LLaMA FactoryでSwanLabを使用して**大規模モデルのファインチューニング実験を追跡・可視化**できるようになりました。[使用ガイド](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger)
 
@@ -156,6 +168,27 @@ SwanLabのオンラインデモをご覧ください：
 pip install swanlab
 ```
 
+<details><summary>ソースコードからのインストール</summary>
+
+最新の機能を体験したい場合は、ソースコードからインストールすることができます。
+
+**ステップ1**: プロジェクトをクローンする
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**ステップ2**: `swanlab/package.json` の `version` フィールドを変更します。例えば、`0.10.0` にします。
+
+**ステップ3**: インストールする
+
+```bash
+pip install -e .
+```
+
+</details>
+
 ### 2.ログインしてAPIキーを取得
 
 1. 無料で[アカウント登録](https://swanlab.cn)
@@ -192,42 +225,38 @@ for i in range(10):
 
 ## 💻 セルフホスティング
 
-セルフホスティングのコミュニティ版は、オフラインでSwanLabダッシュボードを表示できます。
+セルフホスティングコミュニティ版は、SwanLabダッシュボードをオフラインで閲覧することをサポートしています。
 
-### オフライン実験追跡
+### 1. Dockerを使用してセルフホスティング版をデプロイ
 
-swanlab.initで`logir`と`mode`パラメータを設定することで、オフラインで実験を追跡可能：
-
-```python
-...
-
-swanlab.init(
-    logdir='./logs',
-    mode='local',
-)
-
-...
-```
-
-- `mode`パラメータを`local`に設定し、実験のクラウド同期を無効化
-
-- `logdir`パラメータはオプションで、SwanLabログファイルの保存場所を指定（デフォルトは`swanlog`フォルダ）
-
-  - ログファイルは実験の追跡中に作成・更新され、オフラインダッシュボードの起動もこれらのログファイルに基づく
-
-その他の部分はクラウド使用と完全に同じです。
-
-### オフラインダッシュボードの起動
-
-ターミナルを開き、以下のコマンドを実行してSwanLabダッシュボードを起動：
+詳細な手順については、以下を参照してください: [ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
 
 ```bash
-swanlab watch ./logs
+git clone https://github.com/SwanHubX/self-hosted.git
+cd self-hosted/docker
 ```
 
-実行が完了すると、SwanLabはローカルのURLリンクを提供します（デフォルトは[http://127.0.0.1:5092](http://127.0.0.1:5092)）
+中国向けのクイックインストール:
 
-このリンクにアクセスすると、ブラウザでオフラインダッシュボードを使用して実験を確認できます。
+```bash
+./install.sh
+```
+
+DockerHubからイメージをプルしてインストール:
+
+```bash
+./install-dockerhub.sh
+```
+
+### 2. 実験をセルフホスティングサービスに指定
+
+セルフホスティングサービスにログイン:
+
+```bash
+swanlab login --host http://localhost:8000
+```
+
+ログイン後、実験をセルフホスティングサービスに記録できます。
 
 <br>
 
@@ -244,16 +273,18 @@ swanlab watch ./logs
 **専用/ファインチューニングフレームワーク**
 - [PyTorch Lightning](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html)
 - [HuggingFace Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html)
-- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [LLaMA Factory](https://docs.swanlab.cn/guide_cloud/integration/integration-llama-factory.html)
 - [Modelscope Swift](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)
+- [DiffSynth Studio](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-sentence-transformers.html)
+- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/guide_cloud/integration/integration-xtuner.html)
 - [MMEngine](https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
+
 
 
 **コンピュータビジョン**
@@ -272,6 +303,7 @@ swanlab watch ./logs
 **その他のフレームワーク：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
@@ -426,3 +458,6 @@ SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags

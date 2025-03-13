@@ -65,24 +65,30 @@ def get_remote_url():
 
         # 检查命令是否成功运行
         if result.returncode == 0:
-            url = result.stdout.strip().replace("git@", "https://")
-            if url.endswith(".git"):
-                url = url[:-4]
-            return replace_second_colon(url, "/")
+            url = result.stdout.strip()
+            return parse_git_url(url)
         else:
             return None
     except Exception as e:  # noqa
         return None
 
+def parse_git_url(url):
+    """Return the remote URL of a git repository."""
+    if url.startswith("git@"):
+        parts = url[4:].split("/", 1)
+        host, path = parts[0], parts[1] if len(parts) > 1 else ""
+        if ":" in host:
+            host, port = host.rsplit(":", 1)
+            url = f"https://{host}:{port}/{path}" if port.isdigit() else f"https://{host}/{port}/{path}"
+        else:
+            url = f"https://{host}/{path}"
+    return url[:-4] if url.endswith(".git") else url
 
 def replace_second_colon(input_string, replacement):
-    """替换字符串中第二个‘:’"""
-    first_colon_index = input_string.find(":")
-    if first_colon_index != -1:
-        second_colon_index = input_string.find(":", first_colon_index + 1)
-        if second_colon_index != -1:
-            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1 :]
-    return input_string
+    """Replace the second colon in a string."""
+    first_colon = input_string.find(":")
+    second_colon = input_string.find(":", first_colon + 1) if first_colon != -1 else -1
+    return input_string[:second_colon] + replacement + input_string[second_colon + 1:] if second_colon != -1 else input_string
 
 
 def get_git_branch_and_commit():

@@ -14,6 +14,7 @@
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">История изменений</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -51,11 +52,24 @@
 
 ## 🌟 Последние обновления
 
+- 2025.03.12: 🎉🎉 SwanLab**самостоятельное размещение** теперь доступно! [🔗 Документация](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html); SwanLab теперь поддерживает расширение плагинов, таких как [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html) и [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html).
+
+- 2025.03.09: Добавлена интеграция с [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html), теперь вы можете использовать SwanLab для **отслеживания и визуализации экспериментов MLFlow**.
+
+- 2025.03.06: Мы объединили усилия с [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio), теперь вы можете использовать SwanLab в DiffSynth Studio для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html).
+
+- 2025.03.04: Добавлена интеграция с [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html), теперь вы можете использовать SwanLab для **отслеживания и визуализации экспериментов MLFlow**.
+
+- 2025.03.01: Добавлена функция **перемещения экспериментов**, теперь вы можете перемещать эксперименты между организациями и проектами.
+
 - 2025.02.24: Мы объединили усилия с [EasyR1](https://github.com/hiyouga/EasyR1), теперь вы можете использовать SwanLab в EasyR1 для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
 
 - 2025.02.18: Мы объединили усилия с [Swift](https://github.com/modelscope/ms-swift), теперь вы можете использовать SwanLab в Swift's CLI/WebUI для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html).
 
 - 2025.02.16: Добавлены функции перемещения групп и создания групп.
+
+
+<details><summary>Полный список изменений</summary>
 
 - 2025.02.09: Мы объединили усилия с [veRL](https://github.com/volcengine/verl), теперь вы можете использовать SwanLab в veRL для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html).
 
@@ -68,8 +82,6 @@
 - 2025.01.11: Облачная версия значительно оптимизировала производительность таблиц проектов и добавила поддержку таких функций, как перетаскивание, сортировка и фильтрация.
 
 - 2025.01.01: Добавлено **сглаживание графиков** и возможность изменения размера графиков перетаскиванием, улучшено взаимодействие с графиками.
-
-<details><summary>Полный список изменений</summary>
 
 - 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
 
@@ -154,6 +166,27 @@ SwanLab ориентирован на исследователей в облас
 pip install swanlab
 ```
 
+<details><summary>Установка из исходного кода</summary>
+
+Если вы хотите испытать новейшие функции, вы можете установить программу из исходного кода.
+
+**Шаг 1**: Клонируйте проект
+
+```bash
+git clone https://github.com/SwanHubX/SwanLab.git
+cd SwanLab
+```
+
+**Шаг 2**: Измените поле `version` в файле `swanlab/package.json`, например, на `0.10.0`.
+
+**Шаг 3**: Установите
+
+```bash
+pip install -e .
+```
+
+</details>
+
 ### 2. Вход и получение API Key
 
 1. Бесплатная [регистрация аккаунта](https://swanlab.cn)
@@ -190,42 +223,38 @@ for i in range(10):
 
 ## 💻 Самостоятельное размещение
 
-Локальная версия поддерживает оффлайн просмотр панели управления SwanLab.
+Самостоятельная версия для сообщества поддерживает офлайн-просмотр панели управления SwanLab.
 
-### Оффлайн отслеживание экспериментов
+### 1. Развертывание самостоятельной версии с использованием Docker
 
-Установите параметры `logir` и `mode` в `swanlab.init`, чтобы отслеживать эксперименты оффлайн:
-
-```python
-...
-
-swanlab.init(
-    logdir='./logs',
-    mode='local',
-)
-
-...
-```
-
-- Параметр `mode` устанавливается в `local`, чтобы отключить синхронизацию экспериментов с облаком.
-
-- Параметр `logdir` является необязательным, он указывает путь для сохранения логов SwanLab (по умолчанию сохраняется в папке `swanlog`).
-
-  - Лог-файлы создаются и обновляются в процессе отслеживания экспериментов, локальная панель управления также основывается на этих файлах.
-
-Остальные части полностью совместимы с облачным использованием.
-
-### Запуск локальной панели управления
-
-Откройте терминал и используйте следующую команду для запуска панели управления SwanLab:
+Подробные инструкции см. в: [Документация](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
 
 ```bash
-swanlab watch ./logs
+git clone https://github.com/SwanHubX/self-hosted.git
+cd self-hosted/docker
 ```
 
-После выполнения команды SwanLab предоставит локальный URL (по умолчанию [http://127.0.0.1:5092](http://127.0.0.1:5092)).
+Быстрая установка для Китая:
 
-Перейдите по этой ссылке, чтобы просмотреть эксперименты в браузере.
+```bash
+./install.sh
+```
+
+Скачивание и установка образа из DockerHub:
+
+```bash
+./install-dockerhub.sh
+```
+
+### 2. Направление экспериментов в самостоятельный сервис
+
+Вход в самостоятельный сервис:
+
+```bash
+swanlab login --host http://localhost:8000
+```
+
+После входа вы можете записывать эксперименты в самостоятельный сервис.
 
 <br>
 
@@ -242,16 +271,18 @@ swanlab watch ./logs
 **Специализированные/фреймворки для тонкой настройки**
 - [PyTorch Lightning](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html)
 - [HuggingFace Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html)
-- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [LLaMA Factory](https://docs.swanlab.cn/guide_cloud/integration/integration-llama-factory.html)
 - [Modelscope Swift](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)
+- [DiffSynth Studio](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-sentence-transformers.html)
+- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/guide_cloud/integration/integration-xtuner.html)
 - [MMEngine](https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
+
 
 **Компьютерное зрение**
 - [Ultralytics](https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html)
@@ -269,6 +300,7 @@ swanlab watch ./logs
 **Другие фреймворки:**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
+- [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Unsloth](https://docs.swanlab.cn/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/guide_cloud/integration/integration-hydra.html)
@@ -422,3 +454,6 @@ swanlab watch ./logs
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags
