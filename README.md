@@ -14,6 +14,7 @@
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -57,6 +58,8 @@
 
 ## 🌟 最近更新
 
+- 2025.03.12：🎉🎉SwanLab**私有化部署版**现已发布！！[🔗部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLab 已支持插件扩展，如 [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)、[飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
+
 - 2025.03.09：支持**实验侧边栏拉宽**；新增外显 Git代码 按钮；新增 **sync_mlflow** 功能，支持与mlflow框架同步实验跟踪；
 
 - 2025.03.06：我们与 [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio) 完成了联合集成，现在你可以在DiffSynth Studio中使用SwanLab来**跟踪和可视化Diffusion模型文生图/视频实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
@@ -73,10 +76,10 @@
 
 - 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
-- 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
-
 
 <details><summary>完整更新日志</summary>
+
+- 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
 
 - 2025.01.22：新增`sync_tensorboardX`与`sync_tensorboard_torch`功能，支持与此两种TensorBoard框架同步实验跟踪；
 
@@ -229,40 +232,37 @@ for i in range(10):
 
 自托管社区版支持离线查看 SwanLab 仪表盘。
 
-### 离线实验跟踪
+### 1. 使用Docker部署自托管版本
 
-在 swanlab.init 中设置`logir`和`mode`这两个参数，即可离线跟踪实验：
-
-```python
-...
-
-swanlab.init(
-    logdir='./logs',
-    mode='local',
-)
-
-...
-```
-
-- 参数`mode`设置为`local`，关闭将实验同步到云端
-
-- 参数`logdir`的设置是可选的，它的作用是指定了 SwanLab 日志文件的保存位置（默认保存在`swanlog`文件夹下）
-
-  - 日志文件会在跟踪实验的过程中被创建和更新，离线看板的启动也将基于这些日志文件
-
-其他部分和云端使用完全一致。
-
-### 开启离线看板
-
-打开终端，使用下面的指令，开启一个 SwanLab 仪表板:
+详情请参考：[文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
 
 ```bash
-swanlab watch ./logs
+git clone https://github.com/SwanHubX/self-hosted.git
+cd self-hosted/docker
 ```
 
-运行完成后，SwanLab 会给你 1 个本地的 URL 链接（默认是[http://127.0.0.1:5092](http://127.0.0.1:5092)）
+中国地区快速安装：
 
-访问该链接，就可以在浏览器用离线看板查看实验了。
+```bash
+./install.sh
+```
+
+从DockerHub拉取镜像安装：
+
+```bash
+./install-dockerhub.sh
+```
+
+### 2. 将实验指定到自托管服务
+
+登录到自托管服务：
+
+```bash
+swanlab login --host http://localhost:8000
+```
+
+完成登录后，即可将实验记录到自托管服务。
+
 
 <br>
 
@@ -464,3 +464,6 @@ swanlab watch ./logs
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags

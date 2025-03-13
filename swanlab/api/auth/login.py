@@ -9,7 +9,6 @@ r"""
     进行一些交互定义和数据请求
 """
 import getpass
-import os
 import sys
 
 import requests
@@ -17,7 +16,7 @@ from swankit.env import is_windows
 from swankit.log import FONT
 
 from swanlab.api.info import LoginInfo
-from swanlab.env import in_jupyter, SwanLabEnv
+from swanlab.env import in_jupyter
 from swanlab.error import ValidationError, APIKeyFormatError
 from swanlab.log import swanlog
 from swanlab.package import get_setting_url, get_host_api, get_host_web
@@ -84,24 +83,24 @@ def input_api_key(
     return key
 
 
-def code_login(api_key: str) -> LoginInfo:
+def code_login(api_key: str, save_key: bool = True) -> LoginInfo:
     """
     代码内登录，此时会覆盖本地token文件（非task模式下）
     :param api_key: 用户的api_key
+    :param save_key: 是否保存api_key到本地token文件
     :return: 登录信息
     :raise ValidationError: 登录失败
     :raise APIKeyFormatError: api_key格式错误
     """
     APIKeyFormatError.check(api_key)
     tip = "Waiting for the swanlab cloud response."
-    save_key = os.environ.get(SwanLabEnv.RUNTIME.value) != 'task'
     login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key, 20, save_key), interval=0.5)
     if login_info.is_fail:
         raise ValidationError("Login failed: " + str(login_info))
     return login_info
 
 
-def terminal_login(api_key: str = None) -> LoginInfo:
+def terminal_login(api_key: str = None, save_key: bool = True) -> LoginInfo:
     """
     终端登录，此时直接覆盖本地token文件，但是新增交互，让用户输入api_key
     运行此函数，如果是认证失败的错误，重新要求用户输入api_key
@@ -120,7 +119,7 @@ def terminal_login(api_key: str = None) -> LoginInfo:
 
     while True:
         try:
-            return code_login(api_key)
+            return code_login(api_key, save_key)
         # 登录失败且是输入的api_key，重新输入api_key
         except (APIKeyFormatError, ValidationError) as e:
             if not is_input_key:

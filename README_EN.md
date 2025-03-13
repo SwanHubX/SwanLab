@@ -14,6 +14,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">Changelog</a>
 
 [![][release-shield]][release-link]
+[![][dockerhub-shield]][dockerhub-link]
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
@@ -50,6 +51,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 <br/>
 
 ## 🌟 Recent Updates
+
+• 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html).
 
 - 2025.03.09: Added **experiment sidebar width** support; added **external Git code** button; added **sync_mlflow** feature, supporting synchronization with mlflow framework.
 
@@ -218,44 +221,40 @@ Done! Head over to [SwanLab](https://swanlab.cn) to view your first SwanLab expe
 
 <br>
 
-## 💻 Self-Hosting
+## 💻 Self-Hosted
 
 The self-hosted community edition supports offline viewing of the SwanLab dashboard.
 
-### Offline Experiment Tracking
+### 1. Deploy the Self-Hosted Version Using Docker
 
-Set the `logdir` and `mode` parameters in `swanlab.init` to track experiments offline:
-
-```python
-...
-
-swanlab.init(
-    logdir='./logs',
-    mode='local',
-)
-
-...
-```
-
-- Set the `mode` parameter to `local` to disable syncing experiments to the cloud.
-
-- The `logdir` parameter is optional and specifies the location where SwanLab log files are saved (default is the `swanlog` folder).
-
-  - Log files are created and updated during the experiment tracking process, and the offline dashboard is launched based on these log files.
-
-Everything else is identical to cloud usage.
-
-### Launch Offline Dashboard
-
-Open the terminal and use the following command to launch a SwanLab dashboard:
+For detailed instructions, refer to: [Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
 
 ```bash
-swanlab watch ./logs
+git clone https://github.com/SwanHubX/self-hosted.git
+cd self-hosted/docker
 ```
 
-After running, SwanLab will provide you with a local URL link (default is [http://127.0.0.1:5092](http://127.0.0.1:5092)).
+Quick installation for China:
 
-Visit this link to view experiments in the browser using the offline dashboard.
+```bash
+./install.sh
+```
+
+Pull and install the image from DockerHub:
+
+```bash
+./install-dockerhub.sh
+```
+
+### 2. Specify Experiments to the Self-Hosted Service
+
+Log in to the self-hosted service:
+
+```bash
+swanlab login --host http://localhost:8000
+```
+
+After logging in, you can record experiments to the self-hosted service.
 
 <br>
 
@@ -455,3 +454,6 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 
 [visualize-swanlab-shield-link]:https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
+
+[dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
+[dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags
