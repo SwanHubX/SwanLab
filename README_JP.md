@@ -189,6 +189,16 @@ pip install -e .
 
 </details>
 
+<details><summary>ダッシュボード拡張機能のインストール</summary>
+
+[ダッシュボード拡張機能ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
 ### 2.ログインしてAPIキーを取得
 
 1. 無料で[アカウント登録](https://swanlab.cn)

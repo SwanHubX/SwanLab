@@ -194,6 +194,17 @@ pip install -e .
 
 </details>
 
+<details><summary>离线看板拓展安装</summary>
+
+[离线看板文档](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
+
 ### 2.登录并获取 API Key
 
 1. 免费[注册账号](https://swanlab.cn)

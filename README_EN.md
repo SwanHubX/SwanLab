@@ -187,6 +187,16 @@ pip install -e .
 
 </details>
 
+<details><summary>Dashboard Extension Installation</summary>
+
+[Dashboard Extension Documentation](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
 ### 2. Login and Get API Key
 
 1. Register for free at [SwanLab](https://swanlab.cn).
