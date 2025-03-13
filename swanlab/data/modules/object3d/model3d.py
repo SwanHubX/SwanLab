@@ -6,7 +6,7 @@ from swankit.core.data import DataSuite as D
 from swankit.core.data import MediaBuffer, MediaType
 
 
-@dataclass(frozen=True)
+@dataclass()
 class Model3D(MediaType):
     """3D model data representation class that handles GLB format files.
 

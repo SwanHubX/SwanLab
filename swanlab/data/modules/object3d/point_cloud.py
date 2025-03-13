@@ -49,7 +49,7 @@ except ImportError:
     np = None
 
 
-@dataclass(frozen=True)
+@dataclass()
 class PointCloud(MediaType):
     """Point cloud data representation.
 
@@ -72,6 +72,7 @@ class PointCloud(MediaType):
     points: np.ndarray  # format xyzrgb
     step: Optional[int] = None
     caption: Optional[str] = None
+    key: Optional[str] = None
 
     def __post_init__(self):
         """Validate input data after initialization"""

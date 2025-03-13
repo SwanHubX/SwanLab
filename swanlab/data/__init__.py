@@ -11,6 +11,7 @@ from .modules import (
     Audio,
     Image,
     Text,
+    Object3D,
 )
 from .run import (
     SwanLabRun as Run,
