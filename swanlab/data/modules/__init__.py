@@ -1,11 +1,13 @@
+from typing import List, Union
+
+from swankit.core.data import BaseType, MediaBuffer, MediaType
+
 from .audio import Audio
 from .image import Image
+from .line import FloatConvertible, Line
+from .object3d import Model3D, Object3D, PointCloud
 from .text import Text
-from .line import Line, FloatConvertible
-from typing import Union, List
 from .wrapper import DataWrapper
-from .object3d import Object3D
-from swankit.core.data import MediaType, MediaBuffer, BaseType
 
 DataType = Union[int, float, FloatConvertible, BaseType, List[BaseType]]
 ChartType = BaseType.Chart
@@ -21,5 +23,7 @@ __all__ = [
     "DataType",
     "ChartType",
     "MediaBuffer",
-    "Object3D"
+    "Object3D",
+    "PointCloud",
+    "Model3D",
 ]
