@@ -187,6 +187,16 @@ pip install -e .
 
 </details>
 
+<details><summary>Установка расширения панели управления</summary>
+
+[Документация по расширению панели управления](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
 ### 2. Вход и получение API Key
 
 1. Бесплатная [регистрация аккаунта](https://swanlab.cn)
