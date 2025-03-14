@@ -9,8 +9,7 @@ r"""
     FIXME: shit code
 """
 from typing import Optional
-
-from .log import SwanLog
+from .log import SwanLog,trace_handler
 
 swanlog: Optional["SwanLog"] = SwanLog("swanlab")
 
@@ -18,4 +17,4 @@ install = swanlog.install
 
 uninstall = swanlog.uninstall
 
-__all__ = ["install", "uninstall", "swanlog"]
+__all__ = ["install", "uninstall", "swanlog", "trace_handler"]
