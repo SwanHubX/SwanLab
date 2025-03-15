@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/9/20 14:35
 @File: namer.py
@@ -7,8 +6,9 @@ r"""
 @Description:
     命名器、取色器
 """
+
 import random
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 prefix_list = [
     "swan-",  # 天鹅
@@ -90,6 +90,54 @@ dark_colors = [
 ]
 
 
+def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
+    """将十六进制颜色转换为RGB格式
+
+    Args:
+        hex_color: 十六进制颜色字符串，支持以下格式：
+            - "#528d59"
+            - "528d59"
+            - "#fff"  (简写形式)
+            - "fff"
+
+    Returns:
+        Tuple[int, int, int]: RGB格式的颜色值，范围[0,255]
+
+    Raises:
+        ValueError: 当输入格式不正确时
+
+    Examples:
+        >>> hex_to_rgb("#528d59")
+        (82, 141, 89)
+        >>> hex_to_rgb("fff")  # 简写形式
+        (255, 255, 255)
+    """
+    # 去除可能存在的#号和空白
+    hex_color = hex_color.strip().lstrip("#").strip()
+
+    # 验证输入
+    if not all(c in "0123456789abcdefABCDEF" for c in hex_color):
+        raise ValueError(f"Invalid hex color: {hex_color}")
+
+    # 处理简写形式 (例如 #fff)
+    if len(hex_color) == 3:
+        hex_color = "".join(c * 2 for c in hex_color)
+    elif len(hex_color) != 6:
+        raise ValueError(
+            f"Invalid hex color length: {len(hex_color)}, should be 3 or 6 characters"
+        )
+
+    try:
+        # 将16进制转换为RGB
+        r = int(hex_color[:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:], 16)
+
+        return (r, g, b)
+    except ValueError as e:
+        raise ValueError(f"Invalid hex color format: {hex_color}") from e
+
+
 def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
     """
     生成颜色
@@ -103,4 +151,7 @@ def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
     else:
         choice_color_light = light_colors[index % len(light_colors)]
         choice_color_dark = dark_colors[index % len(dark_colors)]
-        return choice_color_light, choice_color_dark  # 返回对应索引的颜色，如果超出范围则取模
+        return (
+            choice_color_light,
+            choice_color_dark,
+        )  # 返回对应索引的颜色，如果超出范围则取模
