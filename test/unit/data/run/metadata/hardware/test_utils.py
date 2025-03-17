@@ -5,7 +5,7 @@
 @description: 测试硬件信息采集工具
 """
 
-from swanlab.data.run.metadata.hardware.utils import random_index, CpuCollector, generate_key
+from swanlab.data.run.metadata.hardware.utils import random_index, CpuBaseCollector, generate_key
 
 
 def test_random_index():
@@ -23,7 +23,7 @@ def test_generate_key():
 
 
 def test_cpu_usage():
-    c = CpuCollector()
+    c = CpuBaseCollector()
     usage = c.get_cpu_usage()
     assert usage is not None
     assert 0 <= usage["value"] <= 100
@@ -35,7 +35,7 @@ def test_cpu_usage():
 
 
 def test_per_cpu_usage():
-    c = CpuCollector()
+    c = CpuBaseCollector()
     usage = c.get_per_cpu_usage()
     assert usage is not None
     for idx, u in enumerate(usage):
