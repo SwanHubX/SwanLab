@@ -15,25 +15,7 @@ from .utils import DiskCollector as D
 
 def get_disk_info() -> HardwareFuncResult:
     """获取磁盘信息"""
-    info = {"total": None, "used": None, "free": None}
-    
-    try:
-        # 获取磁盘总空间、已用空间和可用空间
-        # 对于Windows系统，使用系统盘（通常是C盘）
-        # 对于Linux和MacOS，使用根目录
-        if is_windows():
-            disk_path = os.environ.get("SystemDrive", "C:") + "\\"
-        else:
-            disk_path = "/"
-            
-        disk_usage = psutil.disk_usage(disk_path)
-        info["total"] = disk_usage.total
-        info["used"] = disk_usage.used
-        info["free"] = disk_usage.free
-    except Exception:  # noqa
-        pass
-    
-    return info, DiskCollector()
+    return None, DiskCollector()
 
 
 class DiskCollector(HardwareCollector, D):
