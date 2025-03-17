@@ -5,16 +5,17 @@
 @description: 磁盘信息采集
 """
 from typing import List
+import os
 import psutil
 
+from swankit.env import is_windows
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import DiskCollector as D
 
 
 def get_disk_info() -> HardwareFuncResult:
-    """获取磁盘信息"""
+    """获取磁盘信息"""    
     return None, DiskCollector()
-
 
 class DiskCollector(HardwareCollector, D):
     def __init__(self):
@@ -45,8 +46,20 @@ class DiskCollector(HardwareCollector, D):
         self.last_disk_io = current_disk_io
         self.last_time = current_time
         
-        return [
+        disk_result = [
             self.get_disk_read_speed(read_speed),
             self.get_disk_write_speed(write_speed),
-            self.get_disk_usage(psutil.disk_usage('/').percent)
         ]
+        
+        try:
+            # 对于Windows系统，使用系统盘（通常是C盘）
+            if is_windows():
+                disk_path = os.environ.get("SystemDrive", "C:") + "\\"
+            # 对于Linux和MacOS，使用根目录
+            else:
+                disk_path = "/"
+            disk_result.append(self.get_disk_usage(psutil.disk_usage(disk_path).percent))
+        except Exception:  # noqa
+            pass
+        
+        return disk_result
