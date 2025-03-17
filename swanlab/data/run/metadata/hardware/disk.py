@@ -8,6 +8,7 @@ from typing import List
 
 import psutil
 
+from swankit.env import is_windows
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import DiskCollector as D
 
@@ -18,7 +19,14 @@ def get_disk_info() -> HardwareFuncResult:
     
     try:
         # 获取磁盘总空间、已用空间和可用空间
-        disk_usage = psutil.disk_usage('/')
+        # 对于Windows系统，使用系统盘（通常是C盘）
+        # 对于Linux和MacOS，使用根目录
+        if is_windows():
+            disk_path = "C:\\"
+        else:
+            disk_path = "/"
+            
+        disk_usage = psutil.disk_usage(disk_path)
         info["total"] = disk_usage.total
         info["used"] = disk_usage.used
         info["free"] = disk_usage.free
