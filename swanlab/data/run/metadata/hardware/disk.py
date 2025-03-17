@@ -5,7 +5,7 @@
 @description: 磁盘信息采集
 """
 from typing import List
-
+import os
 import psutil
 
 from swankit.env import is_windows
@@ -22,7 +22,7 @@ def get_disk_info() -> HardwareFuncResult:
         # 对于Windows系统，使用系统盘（通常是C盘）
         # 对于Linux和MacOS，使用根目录
         if is_windows():
-            disk_path = "C:\\"
+            disk_path = os.environ.get("SystemDrive", "C:") + "\\"
         else:
             disk_path = "/"
             
