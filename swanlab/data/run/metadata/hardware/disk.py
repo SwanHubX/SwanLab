@@ -10,7 +10,7 @@ import psutil
 
 from swankit.env import is_windows
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
-from .utils import DiskCollector as D
+from .utils import DiskBaseCollector as D
 
 
 def get_disk_info() -> HardwareFuncResult:

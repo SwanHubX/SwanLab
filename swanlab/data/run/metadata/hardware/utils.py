@@ -52,7 +52,7 @@ CPU_THDS_CONFIG = HardwareConfig(
 ).clone()
 
 
-class CpuCollector:
+class CpuBaseCollector:
     """
     cpu采集基类，为子类赋予cpu采集的能力
     """
@@ -101,7 +101,7 @@ class CpuCollector:
         }
 
 
-class DiskCollector:
+class DiskBaseCollector:
     """
     磁盘采集基类，为子类赋予磁盘采集的能力
     """
@@ -132,10 +132,10 @@ class DiskCollector:
         获取磁盘读取速度 (MB/s)
         """
         return {
-            "key": DiskCollector.DISK_READ_KEY,
+            "key": DiskBaseCollector.DISK_READ_KEY,
             "name": "Disk Read Utilization (MB)",
             "value": speed / (1024 * 1024),  # 转换为MB/s
-            "config": DiskCollector.DISK_READ_CONFIG,
+            "config": DiskBaseCollector.DISK_READ_CONFIG,
         }
     
     @staticmethod
@@ -144,10 +144,10 @@ class DiskCollector:
         获取磁盘写入速度 (MB/s)
         """
         return {
-            "key": DiskCollector.DISK_WRITE_KEY,
+            "key": DiskBaseCollector.DISK_WRITE_KEY,
             "name": "Disk Write Utilization (MB)",
             "value": speed / (1024 * 1024),  # 转换为MB/s
-            "config": DiskCollector.DISK_WRITE_CONFIG,
+            "config": DiskBaseCollector.DISK_WRITE_CONFIG,
         }
     
     @staticmethod
@@ -156,10 +156,10 @@ class DiskCollector:
         获取磁盘使用率
         """
         return {
-            "key": DiskCollector.DISK_USAGE_KEY,
+            "key": DiskBaseCollector.DISK_USAGE_KEY,
             "name": "Disk Utilization (%)",
             "value": usage,
-            "config": DiskCollector.DISK_USAGE_CONFIG,
+            "config": DiskBaseCollector.DISK_USAGE_CONFIG,
         }
 
 
@@ -191,7 +191,7 @@ PROC_MEM_AVAIL_CONFIG = HardwareConfig(
 ).clone()
 
 
-class MemoryCollector:
+class MemoryBaseCollector:
     """
     内存采集基类，为子类赋予内存采集的能力
     """
