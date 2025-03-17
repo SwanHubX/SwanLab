@@ -13,6 +13,8 @@ from .memory import get_memory_size
 from .npu.ascend import get_ascend_npu_info
 from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
+from .disk import get_disk_info
+from .network import get_network_info
 
 __all__ = ["get_hardware_info", "HardwareCollector", "HardwareInfo"]
 
@@ -28,10 +30,14 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
-
+    d = dec_hardware_func(get_disk_info, monitor_funcs) 
+    n = dec_hardware_func(get_network_info, monitor_funcs)
+    
     info = {
         "memory": m,
         "cpu": c,
+        "disk": d,
+        "network": n,
         "gpu": {
             "nvidia": nvidia,
         },
