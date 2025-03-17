@@ -5,10 +5,8 @@
 @description: 磁盘信息采集
 """
 from typing import List
-import os
 import psutil
 
-from swankit.env import is_windows
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import DiskCollector as D
 

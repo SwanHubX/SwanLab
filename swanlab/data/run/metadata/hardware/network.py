@@ -14,17 +14,7 @@ from .utils import generate_key, random_index, HardwareConfig
 
 def get_network_info() -> HardwareFuncResult:
     """获取网络信息"""
-    info = {"sent_bytes": None, "recv_bytes": None}
-    
-    try:
-        # 获取网络收发字节数
-        net_io = psutil.net_io_counters()
-        info["sent_bytes"] = net_io.bytes_sent
-        info["recv_bytes"] = net_io.bytes_recv
-    except Exception:  # noqa
-        pass
-    
-    return info, NetworkCollector()
+    return None, NetworkCollector()
 
 
 class NetworkCollector(HardwareCollector):
