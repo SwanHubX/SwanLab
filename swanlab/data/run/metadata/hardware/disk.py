@@ -4,62 +4,105 @@
 @time: 2024/12/3 20:12
 @description: 磁盘信息采集
 """
-from typing import List
-import os
-import psutil
 
+import os
+import time
+from typing import List
+
+import psutil
 from swankit.env import is_windows
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
-from .utils import DiskBaseCollector as D
+
+from .type import HardwareFuncResult, HardwareCollector, HardwareInfo, HardwareConfig
+from .utils import random_index, generate_key
 
 
 def get_disk_info() -> HardwareFuncResult:
-    """获取磁盘信息"""    
+    """获取磁盘信息"""
     return None, DiskCollector()
 
-class DiskCollector(HardwareCollector, D):
+
+class DiskCollector(HardwareCollector):
     def __init__(self):
         super().__init__()
         self.last_disk_io = psutil.disk_io_counters()
-        self.last_time = psutil.time.time()
-    
+        self.last_time = time.time()
+
+        disk_base_config = HardwareConfig(
+            y_range=(0, None),
+            chart_name="Disk I/O Utilization (MB)",
+            chart_index=random_index(),
+        ).clone()
+
+        # 磁盘读取速度
+        self.read_key = generate_key("disk.read")
+        self.read_config = disk_base_config.clone(metric_name="read")
+
+        # 磁盘写入速度
+        self.write_key = generate_key("disk.write")
+        self.write_config = disk_base_config.clone(metric_name="write")
+
+        # 磁盘使用率
+        self.usage_key = generate_key("disk.usage")
+        self.usage_config = HardwareConfig(
+            y_range=(0, 100),
+            chart_name="Disk Utilization (%)",
+        ).clone()
+
+        self.unit = 1024**2
+
+    def get_disk_read_speed(self, read_bytes: int, time_diff: float) -> HardwareInfo:
+        """
+        获取磁盘读取速度 (MB/s)
+        """
+        diff = read_bytes - self.last_disk_io.read_bytes
+        return {
+            "key": self.read_key,
+            "name": "MB read from disk",
+            "value": self.division_guard(diff, time_diff * self.unit),
+            "config": self.read_config,
+        }
+
+    def get_disk_write_speed(self, write_bytes: int, time_diff: float) -> HardwareInfo:
+        """
+        获取磁盘写入速度 (MB/s)
+        """
+        diff = write_bytes - self.last_disk_io.write_bytes
+        return {
+            "key": self.write_key,
+            "name": "MB written to disk",
+            "value": self.division_guard(diff, time_diff * self.unit),
+            "config": self.write_config,
+        }
+
+    def get_disk_usage(self) -> HardwareInfo:
+        """
+        获取磁盘使用率
+        """
+        # 对于Windows系统，使用系统盘（通常是C盘）
+        if is_windows():
+            disk_path = os.environ.get("SystemDrive", "C:") + "\\"
+        # 对于Linux和MacOS，使用根目录
+        else:
+            disk_path = "/"
+        result = psutil.disk_usage(disk_path).percent
+        return {
+            "key": self.usage_key,
+            "name": "Disk Utilization (%)",
+            "value": result,
+            "config": self.usage_config,
+        }
+
     def collect(self) -> List[HardwareInfo]:
         current_disk_io = psutil.disk_io_counters()
-        current_time = psutil.time.time()
-        
-        # 计算时间差
+        current_time = time.time()
         time_diff = current_time - self.last_time
-        
-        # 防止除零错误
-        if time_diff <= 0:
-            read_speed = 0
-            write_speed = 0
-        else:
-            # 计算读写速度 (bytes/s)
-            read_bytes_diff = current_disk_io.read_bytes - self.last_disk_io.read_bytes
-            write_bytes_diff = current_disk_io.write_bytes - self.last_disk_io.write_bytes
-            
-            read_speed = read_bytes_diff / time_diff
-            write_speed = write_bytes_diff / time_diff
-        
+
+        disk_result = [
+            self.get_disk_read_speed(current_disk_io.read_bytes, time_diff),
+            self.get_disk_write_speed(current_disk_io.write_bytes, time_diff),
+            self.get_disk_usage(),
+        ]
         # 更新上次的值
         self.last_disk_io = current_disk_io
         self.last_time = current_time
-        
-        disk_result = [
-            self.get_disk_read_speed(read_speed),
-            self.get_disk_write_speed(write_speed),
-        ]
-        
-        try:
-            # 对于Windows系统，使用系统盘（通常是C盘）
-            if is_windows():
-                disk_path = os.environ.get("SystemDrive", "C:") + "\\"
-            # 对于Linux和MacOS，使用根目录
-            else:
-                disk_path = "/"
-            disk_result.append(self.get_disk_usage(psutil.disk_usage(disk_path).percent))
-        except Exception:  # noqa
-            pass
-        
         return disk_result

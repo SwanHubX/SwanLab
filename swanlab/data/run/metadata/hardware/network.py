@@ -4,11 +4,13 @@
 @time: 2024/12/10 14:30
 @description: 网络信息采集
 """
+
+import time
 from typing import List
 
 import psutil
 
-from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfo
+from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import generate_key, random_index, HardwareConfig
 
 
@@ -19,74 +21,62 @@ def get_network_info() -> HardwareFuncResult:
 
 class NetworkCollector(HardwareCollector):
     """网络信息采集器"""
-    
-    NETWORK_BASE_CONFIG = HardwareConfig(
-        y_range=(0, None),
-        chart_name="Network Traffic (KB)",
-        chart_index=random_index(),
-    ).clone()
-    
-    # 网络发送速度
-    NETWORK_SENT_KEY = generate_key("network.sent")
-    NETWORK_SENT_CONFIG = NETWORK_BASE_CONFIG.clone(metric_name="sent")
-    
-    # 网络接收速度
-    NETWORK_RECV_KEY = generate_key("network.recv")
-    NETWORK_RECV_CONFIG = NETWORK_BASE_CONFIG.clone(metric_name="received")
-    
+
     def __init__(self):
         super().__init__()
         self.last_net_io = psutil.net_io_counters()
-        self.last_time = psutil.time.time()
-    
+        self.last_time = time.time()
+        network_base_config = HardwareConfig(
+            y_range=(0, None),
+            chart_name="Network Traffic (KB)",
+            chart_index=random_index(),
+        ).clone()
+
+        # 网络发送速度
+        self.sent_key = generate_key("network.sent")
+        self.sent_config = network_base_config.clone(metric_name="sent")
+
+        # 网络接收速度
+        self.recv_key = generate_key("network.recv")
+        self.recv_config = network_base_config.clone(metric_name="received")
+
+        self.unit = 1024
+
     def collect(self) -> List[HardwareInfo]:
         current_net_io = psutil.net_io_counters()
-        current_time = psutil.time.time()
-        
-        # 计算时间差
+        current_time = time.time()  # noqa
         time_diff = current_time - self.last_time
-        
-        # 防止除零错误
-        if time_diff <= 0:
-            sent_speed = 0
-            recv_speed = 0
-        else:
-            # 计算发送和接收速度 (bytes/s)
-            sent_bytes_diff = current_net_io.bytes_sent - self.last_net_io.bytes_sent
-            recv_bytes_diff = current_net_io.bytes_recv - self.last_net_io.bytes_recv
-            
-            sent_speed = sent_bytes_diff / time_diff
-            recv_speed = recv_bytes_diff / time_diff
-        
+
+        results = [
+            self.get_network_sent_speed(current_net_io.bytes_sent, time_diff),
+            self.get_network_recv_speed(current_net_io.bytes_recv, time_diff),
+        ]
+
         # 更新上次的值
         self.last_net_io = current_net_io
         self.last_time = current_time
-        
-        return [
-            self.get_network_sent_speed(sent_speed),
-            self.get_network_recv_speed(recv_speed)
-        ]
-    
-    @staticmethod
-    def get_network_sent_speed(speed: float) -> HardwareInfo:
+        return results
+
+    def get_network_sent_speed(self, bytes_sent: int, time_diff: float) -> HardwareInfo:
         """
         获取网络发送速度 (KB/s)
         """
+        diff = max(0, bytes_sent - self.last_net_io.bytes_sent)
         return {
-            "key": NetworkCollector.NETWORK_SENT_KEY,
-            "name": "Network Sent (KB)",
-            "value": speed / 1024,  # 转换为KB/s
-            "config": NetworkCollector.NETWORK_SENT_CONFIG,
+            "key": self.sent_key,
+            "name": "Network Traffic Sent (KB)",
+            "value": self.division_guard(diff, time_diff * self.unit),
+            "config": self.sent_config,
         }
-    
-    @staticmethod
-    def get_network_recv_speed(speed: float) -> HardwareInfo:
+
+    def get_network_recv_speed(self, bytes_recv: int, time_diff: float) -> HardwareInfo:
         """
         获取网络接收速度 (KB/s)
         """
+        diff = max(0, bytes_recv - self.last_net_io.bytes_recv)
         return {
-            "key": NetworkCollector.NETWORK_RECV_KEY,
-            "name": "Network Received (KB)",
-            "value": speed / 1024,  # 转换为KB/s
-            "config": NetworkCollector.NETWORK_RECV_CONFIG,
+            "key": self.recv_key,
+            "name": "Network Traffic Received (KB)",
+            "value": self.division_guard(diff, time_diff * self.unit),
+            "config": self.recv_config,
         }

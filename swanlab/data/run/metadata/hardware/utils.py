@@ -101,68 +101,6 @@ class CpuBaseCollector:
         }
 
 
-class DiskBaseCollector:
-    """
-    磁盘采集基类，为子类赋予磁盘采集的能力
-    """
-    DISK_BASE_CONFIG = HardwareConfig(
-        y_range=(0, None),
-        chart_name="Disk I/O Utilization (MB)",
-        chart_index=random_index(),
-    ).clone()
-    
-    # 磁盘读取速度    
-    DISK_READ_KEY = generate_key("disk.read")
-    DISK_READ_CONFIG = DISK_BASE_CONFIG.clone(metric_name="read")
-    
-    # 磁盘写入速度
-    DISK_WRITE_KEY = generate_key("disk.write")
-    DISK_WRITE_CONFIG = DISK_BASE_CONFIG.clone(metric_name="write")
-    
-    # 磁盘使用率
-    DISK_USAGE_KEY = generate_key("disk.usage")
-    DISK_USAGE_CONFIG = HardwareConfig(
-        y_range=(0, 100),
-        chart_name="Disk Utilization (%)",
-    ).clone()
-    
-    @staticmethod
-    def get_disk_read_speed(speed: float) -> HardwareInfo:
-        """
-        获取磁盘读取速度 (MB/s)
-        """
-        return {
-            "key": DiskBaseCollector.DISK_READ_KEY,
-            "name": "Disk Read Utilization (MB)",
-            "value": speed / (1024 * 1024),  # 转换为MB/s
-            "config": DiskBaseCollector.DISK_READ_CONFIG,
-        }
-    
-    @staticmethod
-    def get_disk_write_speed(speed: float) -> HardwareInfo:
-        """
-        获取磁盘写入速度 (MB/s)
-        """
-        return {
-            "key": DiskBaseCollector.DISK_WRITE_KEY,
-            "name": "Disk Write Utilization (MB)",
-            "value": speed / (1024 * 1024),  # 转换为MB/s
-            "config": DiskBaseCollector.DISK_WRITE_CONFIG,
-        }
-    
-    @staticmethod
-    def get_disk_usage(usage: float) -> HardwareInfo:
-        """
-        获取磁盘使用率
-        """
-        return {
-            "key": DiskBaseCollector.DISK_USAGE_KEY,
-            "name": "Disk Utilization (%)",
-            "value": usage,
-            "config": DiskBaseCollector.DISK_USAGE_CONFIG,
-        }
-
-
 # 内存使用率
 MEM_PCT_KEY = generate_key("mem.pct")
 MEM_PCT_CONFIG = HardwareConfig(
