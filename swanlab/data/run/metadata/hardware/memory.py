@@ -11,7 +11,7 @@ import psutil
 from swankit.env import is_macos
 
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
-from .utils import MemoryCollector as M
+from .utils import MemoryBaseCollector as M
 
 
 def get_memory_size() -> HardwareFuncResult:
