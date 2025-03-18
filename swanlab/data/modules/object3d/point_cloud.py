@@ -73,6 +73,7 @@ class PointCloud(MediaType):
     step: Optional[int] = None
     caption: Optional[str] = None
     key: Optional[str] = None
+    _VERSION: str = "0.1"
 
     def __post_init__(self):
         """Validate input data after initialization"""
@@ -237,7 +238,8 @@ class PointCloud(MediaType):
         """
         buffer = MediaBuffer()
         points_list = self.points.tolist()
-        json_str = json.dumps(points_list)
+        swanlab_pts = {"version": self._VERSION, "points": points_list}
+        json_str = json.dumps(swanlab_pts)
         buffer.write(json_str.encode())
 
         hash_name = D.get_hash_by_ndarray(self.points)[:16]
