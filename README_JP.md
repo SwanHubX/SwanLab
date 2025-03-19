@@ -352,6 +352,12 @@ swanlab login --host http://localhost:8000
 
 ## 👥 コミュニティ
 
+### 周辺リポジトリ
+
+• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): 公式ドキュメントリポジトリ。
+• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): オフラインダッシュボードリポジトリ。`swanlab watch`で開かれる軽量オフラインダッシュボードのウェブコードが含まれています。
+• [self-hosted](https://github.com/swanhubx/self-hosted): プライベートデプロイメントスクリプトリポジトリ。
+
 ### コミュニティとサポート
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：SwanLab使用中に発生したエラーや問題

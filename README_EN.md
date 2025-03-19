@@ -348,6 +348,13 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 
 ## 👥 Community
 
+### Repositories
+
+• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
+• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
+• [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+
+
 ### Community and Support
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues): Errors and issues encountered while using SwanLab.
