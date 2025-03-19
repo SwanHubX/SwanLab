@@ -44,6 +44,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - [🏁 Quick Start](#-quick-start)
 - [💻 Self-Hosting](#-self-hosting)
 - [🚗 Framework Integration](#-framework-integration)
+- [🔌 Plugins](#-plugins)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
 - [👥 Community](#-community)
 - [📃 License](#-license)
@@ -322,6 +323,19 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 
 <br>
 
+## 🔌 Plugins
+
+Enhance your experiment management experience by extending SwanLab's functionality through plugins!
+
+• [Customize Your Plugin](https://docs.swanlab.cn/plugin/custom-plugin.html)
+• [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html)
+• [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html)
+• [DingTalk Notification](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+• [WeChat Work Notification](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+• [CSV Logger](https://docs.swanlab.cn/plugin/writer-csv.html)
+
+<br>
+
 ## 🆚 Comparison with Familiar Tools
 
 ### Tensorboard vs SwanLab
@@ -347,6 +361,13 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 <br>
 
 ## 👥 Community
+
+### Repositories
+
+• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
+• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
+• [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+
 
 ### Community and Support
 
