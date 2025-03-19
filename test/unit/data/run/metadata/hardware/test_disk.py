@@ -33,3 +33,12 @@ class TestDiskCollector:
         assert result['name'] == "MB written to disk"
         assert result['value'] >= 0
         assert result['config'].chart_name == 'Disk I/O Utilization (MB)'
+
+    def test_disk_usage(self):
+        """
+        测试硬盘信息采集
+        """
+        result = self.collector.get_disk_usage()
+        assert result['name'] == "Disk Utilization (%)"
+        assert result['value'] >= 0
+        assert result['config'].chart_name == 'Disk Utilization (%)'
