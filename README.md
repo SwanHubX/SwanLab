@@ -49,6 +49,7 @@
 - [🏁 快速开始](#-快速开始)
 - [💻 自托管](#-自托管)
 - [🚗 框架集成](#-框架集成)
+- [🔌 插件](#-插件)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
 - [👥 社区](#-社区)
 - [📃 协议](#-协议)
@@ -328,6 +329,19 @@ swanlab login --host http://localhost:8000
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
 [更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+
+<br>
+
+## 🔌 插件
+
+欢迎通过插件来拓展SwanLab的功能，增强你的实验管理体验！
+
+- [自定义你的插件](https://docs.swanlab.cn/plugin/custom-plugin.html)
+- [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)
+- [飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
+- [钉钉通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+- [企业微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+- [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 <br>
 

@@ -45,6 +45,7 @@
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
+- [🔌 プラグイン](#-プラグイン)
 - [🆚 既存ツールとの比較](#-既存ツールとの比較)
 - [👥 コミュニティ](#-コミュニティ)
 - [📃 ライセンス](#-ライセンス)
@@ -322,6 +323,19 @@ swanlab login --host http://localhost:8000
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
 [その他の統合](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+
+<br>
+
+## 🔌 プラグイン
+
+プラグインを通じてSwanLabの機能を拡張し、実験管理体験を向上させましょう！
+
+• [プラグインのカスタマイズ](https://docs.swanlab.cn/plugin/custom-plugin.html)
+• [メール通知](https://docs.swanlab.cn/plugin/notification-email.html)
+• [Lark通知](https://docs.swanlab.cn/plugin/notification-lark.html)
+• [DingTalk通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+• [企業微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+• [CSVロガー](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 <br>
 

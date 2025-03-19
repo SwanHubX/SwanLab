@@ -44,6 +44,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - [🏁 Quick Start](#-quick-start)
 - [💻 Self-Hosting](#-self-hosting)
 - [🚗 Framework Integration](#-framework-integration)
+- [🔌 Plugins](#-plugins)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
 - [👥 Community](#-community)
 - [📃 License](#-license)
@@ -319,6 +320,19 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
 [More Integrations](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+
+<br>
+
+## 🔌 Plugins
+
+Enhance your experiment management experience by extending SwanLab's functionality through plugins!
+
+• [Customize Your Plugin](https://docs.swanlab.cn/plugin/custom-plugin.html)
+• [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html)
+• [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html)
+• [DingTalk Notification](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+• [WeChat Work Notification](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+• [CSV Logger](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 <br>
 
