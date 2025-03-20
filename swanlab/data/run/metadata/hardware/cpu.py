@@ -14,7 +14,7 @@ import os
 from swankit.env import is_macos
 
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList
-from .utils import CpuCollector as C
+from .utils import CpuBaseCollector as C
 
 
 def get_cpu_info() -> HardwareFuncResult:

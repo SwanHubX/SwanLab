@@ -52,7 +52,7 @@ CPU_THDS_CONFIG = HardwareConfig(
 ).clone()
 
 
-class CpuCollector:
+class CpuBaseCollector:
     """
     cpu采集基类，为子类赋予cpu采集的能力
     """
@@ -129,7 +129,7 @@ PROC_MEM_AVAIL_CONFIG = HardwareConfig(
 ).clone()
 
 
-class MemoryCollector:
+class MemoryBaseCollector:
     """
     内存采集基类，为子类赋予内存采集的能力
     """

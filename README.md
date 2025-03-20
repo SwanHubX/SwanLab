@@ -49,6 +49,7 @@
 - [🏁 快速开始](#-快速开始)
 - [💻 自托管](#-自托管)
 - [🚗 框架集成](#-框架集成)
+- [🔌 插件](#-插件)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
 - [👥 社区](#-社区)
 - [📃 协议](#-协议)
@@ -194,6 +195,17 @@ pip install -e .
 
 </details>
 
+<details><summary>离线看板拓展安装</summary>
+
+[离线看板文档](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
+
 ### 2.登录并获取 API Key
 
 1. 免费[注册账号](https://swanlab.cn)
@@ -320,6 +332,19 @@ swanlab login --host http://localhost:8000
 
 <br>
 
+## 🔌 插件
+
+欢迎通过插件来拓展SwanLab的功能，增强你的实验管理体验！
+
+- [自定义你的插件](https://docs.swanlab.cn/plugin/custom-plugin.html)
+- [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)
+- [飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
+- [钉钉通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+- [企业微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+- [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
+
+<br>
+
 ## 🆚 与熟悉的工具的比较
 
 ### Tensorboard vs SwanLab
@@ -347,6 +372,12 @@ swanlab login --host http://localhost:8000
 <br>
 
 ## 👥 社区
+
+### 周边仓库
+
+- [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs)：官方文档仓库
+- [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard)：离线看板仓库，存放了由`swanlab watch`打开的轻量离线看板的web代码
+- [self-hosted](https://github.com/swanhubx/self-hosted)：私有化部署脚本仓库
 
 ### 社区与支持
 

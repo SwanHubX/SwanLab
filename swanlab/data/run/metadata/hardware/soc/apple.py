@@ -13,7 +13,7 @@ import psutil
 from swankit.env import is_macos
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
-from ..utils import CpuCollector as C, MemoryCollector as M
+from ..utils import CpuBaseCollector as C, MemoryBaseCollector as M
 
 
 def get_apple_chip_info() -> HardwareFuncResult:
