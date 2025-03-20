@@ -318,6 +318,16 @@ class PointCloud(MediaType):
             self.boxes = []
         self.boxes.append(box)
 
+    def extend_boxes(self, boxes: List[Box]):
+        """Extend the list of bounding boxes with a list of boxes.
+
+        Args:
+            boxes: The list of bounding boxes to extend.
+        """
+        if self.boxes is None:
+            self.boxes = []
+        self.boxes.extend(boxes)
+
     # ---------------------------------- override ----------------------------------
 
     def parse(self) -> Tuple[str, MediaBuffer]:
