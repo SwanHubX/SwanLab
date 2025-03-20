@@ -185,8 +185,7 @@ class PointCloud(MediaType):
     ) -> "PointCloud":
         """Create PointCloud from SwanLab pts.json file.
 
-        The file should contain a list of points in XYZRGB format:
-        [[x1,y1,z1,r1,g1,b1], [x2,y2,z2,r2,g2,b2], ...]
+        Documentation: cls._DOCUMENTATION
 
         Args:
             path: Path to the .swanlab.pts.json file
