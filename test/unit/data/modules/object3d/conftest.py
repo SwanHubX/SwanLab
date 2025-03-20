@@ -77,7 +77,8 @@ def test_files_dir(tmp_path_factory):
         [0, 1, 0, 0, 0, 255],  # 蓝色点
         [0, 0, 1, 255, 255, 255],  # 白色点
     ]
+    data = {"points": points_data}
     pts_file = test_dir / "points.swanlab.pts.json"
-    pts_file.write_text(json.dumps(points_data))
+    pts_file.write_text(json.dumps(data))
 
     return test_dir
