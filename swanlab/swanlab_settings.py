@@ -64,15 +64,15 @@ class Settings(BaseModel):
     """
 
     hardware_monitor: bool = True
+    model_config = {"extra": "allow"}  # 允许额外字段
 
-    def __init__(self, hardware_monitor: bool = True, **kwargs):
+    def model_post_init(self, __context):
         """
-        初始化设置
-        :param hardware_monitor: 是否启用硬件监控
-        :param kwargs: 其他自定义设置项
+        初始化后的处理，用于处理额外的设置项
         """
-        self.hardware_monitor = hardware_monitor
-        for key, value in kwargs.items():
+        super().model_post_init(__context)
+        # 保存所有传入的额外参数
+        for key, value in self.model_extra.items():
             setattr(self, key, value)
 
 
