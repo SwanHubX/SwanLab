@@ -74,6 +74,7 @@ class PointCloud(MediaType):
     caption: Optional[str] = None
     key: Optional[str] = None
     _VERSION: str = "0.1"
+    _DOCUMENTATION: str = "https://github.com/SwanHubX/SwanLab/pull/844#issuecomment-2739628327"
 
     def __post_init__(self):
         """Validate input data after initialization"""
@@ -238,7 +239,11 @@ class PointCloud(MediaType):
         """
         buffer = MediaBuffer()
         points_list = self.points.tolist()
-        swanlab_pts = {"version": self._VERSION, "points": points_list}
+        swanlab_pts = {
+            "version": self._VERSION,
+            "documentation": self._DOCUMENTATION,
+            "points": points_list,
+        }
         json_str = json.dumps(swanlab_pts)
         buffer.write(json_str.encode())
 
