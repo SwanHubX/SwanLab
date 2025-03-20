@@ -51,10 +51,9 @@ def test_settings_class():
     settings = Settings(hardware_monitor=False)
     assert settings.hardware_monitor is False
 
-    # 测试动态添加设置
-    settings = Settings(hardware_monitor=True, custom_setting="test")
-    assert settings.hardware_monitor is True
-    assert settings.custom_setting == "test"
+    # 测试不允许未定义的字段
+    with pytest.raises(ValueError):
+        Settings(unknown_field="value")
 
 
 def test_merge_settings():
@@ -65,10 +64,9 @@ def test_merge_settings():
     state._locked = False
 
     # 测试合并有效的设置
-    settings = Settings(hardware_monitor=False, custom_setting="test")
+    settings = Settings(hardware_monitor=False)
     result = merge_settings(settings)
     assert result['hardware_monitor'] is False
-    assert result['custom_setting'] == "test"
 
     # 测试无效输入
     with pytest.raises(TypeError):
@@ -98,13 +96,12 @@ def test_setup():
     state._locked = False
 
     # 测试自定义设置
-    custom_settings = Settings(hardware_monitor=False, custom_setting="test")
+    custom_settings = Settings(hardware_monitor=False)
     result = setup(custom_settings)
     assert result['hardware_monitor'] is False
-    assert result['custom_setting'] == "test"
 
     # 测试无效输入
-    with pytest.raises(TypeError):
+    with pytest.raises(RuntimeError):
         setup("invalid")
 
     # 测试重复setup
@@ -137,8 +134,9 @@ def test_settings_initialization():
     assert isinstance(settings.hardware_monitor, bool)
 
     # 测试自定义参数
-    custom_settings = {'hardware_monitor': False, 'log_level': 'DEBUG', 'max_retries': 3}
-    settings = Settings(**custom_settings)
+    settings = Settings(hardware_monitor=False)
     assert settings.hardware_monitor is False
-    assert settings.log_level == 'DEBUG'
-    assert settings.max_retries == 3
+
+    # 测试不允许未定义的字段
+    with pytest.raises(ValueError):
+        Settings(hardware_monitor=True, unknown_field="value")

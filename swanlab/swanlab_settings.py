@@ -55,7 +55,7 @@ class SettingsState:
         """
         if self._locked:
             raise RuntimeError("Cannot modify settings after swanlab.init() has been called")
-        self._settings.update(settings.__dict__)
+        self._settings.update(settings.model_dump())
 
 
 class Settings(BaseModel):
@@ -64,16 +64,8 @@ class Settings(BaseModel):
     """
 
     hardware_monitor: bool = True
-    model_config = {"extra": "allow"}  # 允许额外字段
 
-    def model_post_init(self, __context):
-        """
-        初始化后的处理，用于处理额外的设置项
-        """
-        super().model_post_init(__context)
-        # 保存所有传入的额外参数
-        for key, value in self.model_extra.items():
-            setattr(self, key, value)
+    model_config = {"extra": "forbid"}  # 禁止额外字段
 
 
 def merge_settings(settings: Settings) -> Dict[str, Any]:
@@ -104,6 +96,11 @@ def setup(settings: Settings = None) -> Dict[str, Any]:
     """
     state = SettingsState()
 
+    # 首先应用默认设置
+    default_settings = Settings()
+    state.update_settings(default_settings)
+
+    # 如果提供了自定义设置，则覆盖默认设置
     if settings is not None:
         if not isinstance(settings, Settings):
             raise TypeError("Expected Settings object")
