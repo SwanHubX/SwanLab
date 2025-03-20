@@ -105,7 +105,7 @@ class PointCloud(MediaType):
     caption: Optional[str] = None
     key: Optional[str] = None
     _VERSION: str = "0.1"
-    _DOCUMENTATION: str = "https://github.com/SwanHubX/SwanLab/pull/844#issuecomment-2739628327"
+    _DOCUMENTATION: str = "https://github.com/SwanHubX/SwanLab/pull/844#issuecomment-2740559016"
 
     def __post_init__(self):
         """Validate input data after initialization"""
