@@ -36,7 +36,7 @@ Examples:
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 from swankit.core.data import DataSuite as D
 from swankit.core.data import MediaBuffer, MediaType
@@ -47,6 +47,36 @@ try:
     import numpy as np
 except ImportError:
     np = None
+
+
+class Box(TypedDict):
+    """
+    Represents a 3D bounding box with associated metadata.
+
+    Attributes:
+        color (Tuple[int, int, int]): The RGB (0..255) color of the bounding box (e.g., [255, 255, 0] for yellow).
+        corners (List[List[float, float, float]]): A list of 8 corner points defining the 3D bounding box.
+            Each corner is a list of three floats representing the (x, y, z) coordinates.
+
+            The order of the corners is as follows (assuming a right-handed coordinate system):
+
+            *   0: Bottom-Left-Back
+            *   1: Bottom-Right-Back
+            *   2: Bottom-Right-Front
+            *   3: Bottom-Left-Front
+            *   4: Top-Left-Back
+            *   5: Top-Right-Back
+            *   6: Top-Right-Front
+            *   7: Top-Left-Front
+
+        label (str): A string representing the object category or class label (e.g., "match").
+        score (float): A confidence score representing the certainty of the bounding box's object detection.
+    """
+
+    color: Tuple[int, int, int]
+    corners: List[Tuple[float, float, float]]
+    label: str
+    score: Optional[float]
 
 
 @dataclass()
@@ -70,6 +100,7 @@ class PointCloud(MediaType):
     """
 
     points: np.ndarray  # format xyzrgb
+    boxes: Optional[List[Box]] = None
     step: Optional[int] = None
     caption: Optional[str] = None
     key: Optional[str] = None
@@ -180,6 +211,64 @@ class PointCloud(MediaType):
         return cls(points, step=step, caption=caption, **kwargs)
 
     @classmethod
+    def from_swanlab_pts(
+        cls, data: Dict, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
+    ) -> "PointCloud":
+        """Create PointCloud from SwanLab pts data dictionary.
+
+        Args:
+            data: A dictionary containing 'points' (required) and optionally 'boxes'.
+                  'points' can be a list of lists (XYZ, XYZC, or XYZRGB) or a NumPy array.
+                  'boxes' is an optional list of dictionaries, each representing a bounding box.
+            step: Optional step number for visualization sequences
+            caption: Optional description text
+
+        Returns:
+            PointCloud object
+        """
+        if not isinstance(data, dict) or "points" not in data:
+            raise ValueError("Invalid data format")
+
+        points = data["points"]
+        if isinstance(points, list):
+            points = np.array(points)  # Convert list to NumPy array
+        elif not isinstance(points, np.ndarray):
+            raise TypeError("data['points'] must be a list or a NumPy array")
+
+        if points.ndim != 2:
+            raise ValueError("data['points'] must be a 2D array")
+
+        handler = {3: cls.from_xyz, 4: cls.from_xyzc, 6: cls.from_xyzrgb}
+
+        try:
+            pc = handler[points.shape[1]](points, step=step, caption=caption, **kwargs)
+        except KeyError as err:
+            raise ValueError("data['points'] must have shape (N, 3), (N, 4), or (N, 6)") from err
+
+        # Add boxes
+        boxes_data = data.get("boxes")
+        if boxes_data is None:
+            return pc
+
+        if not isinstance(boxes_data, list):
+            raise TypeError("data['boxes'] must be a list")
+
+        for box_data in boxes_data:
+            try:
+                box: Box = {
+                    "color": tuple(box_data["color"]),
+                    "corners": [tuple(p) for p in box_data["corners"]],
+                    "label": box_data["label"],
+                }
+                if "score" in box_data:
+                    box["score"] = box_data["score"]
+                pc.append_box(box)
+            except (KeyError, TypeError) as err:
+                raise ValueError(f"Invalid box format: {err}") from err
+
+        return pc
+
+    @classmethod
     def from_swanlab_pts_json_file(
         cls, path: Path, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
     ) -> "PointCloud":
@@ -212,19 +301,22 @@ class PointCloud(MediaType):
             with open(path) as f:
                 points_list = json.load(f)
 
-            if not isinstance(points_list, list) or not points_list:
-                raise ValueError("Invalid file format: expected non-empty list")
-
-            if not isinstance(points_list[0], list) or len(points_list[0]) != 6:
-                raise ValueError("Invalid point format: expected [x,y,z,r,g,b]")
-
-            points = np.array(points_list)
-            return cls(points, step=step, caption=caption, **kwargs)
+            return cls.from_swanlab_pts(points_list, step=step, caption=caption, **kwargs)
 
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON format in file: {path}") from e
         except Exception as e:
             raise ValueError(f"Error reading file {path}: {str(e)}") from e
+
+    def append_box(self, box: Box):
+        """Append a bounding box to the point cloud.
+
+        Args:
+            box: The bounding box to append.
+        """
+        if self.boxes is None:
+            self.boxes = []
+        self.boxes.append(box)
 
     # ---------------------------------- override ----------------------------------
 
@@ -242,6 +334,7 @@ class PointCloud(MediaType):
             "version": self._VERSION,
             "documentation": self._DOCUMENTATION,
             "points": points_list,
+            "boxes": self.boxes,
         }
         json_str = json.dumps(swanlab_pts)
         buffer.write(json_str.encode())

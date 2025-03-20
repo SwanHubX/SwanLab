@@ -146,7 +146,9 @@ class Object3D:
             f"Supported extensions: {', '.join(sorted(cls._FILE_HANDLERS.keys()))}"
         )
 
-    _TYPE_HANDLERS: Dict[Type, List[Callable]] = {}
+    _TYPE_HANDLERS: Dict[Type, List[Callable]] = {
+        Dict: [PointCloud.from_swanlab_pts],
+    }
 
     @classmethod
     def _handle_data(cls, data: Any, **kwargs) -> MediaType:
