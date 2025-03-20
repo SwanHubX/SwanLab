@@ -34,7 +34,7 @@ Examples:
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypedDict
 
@@ -100,7 +100,7 @@ class PointCloud(MediaType):
     """
 
     points: np.ndarray  # format xyzrgb
-    boxes: Optional[List[Box]] = None
+    boxes: List[Box] = field(default_factory=list)
     step: Optional[int] = None
     caption: Optional[str] = None
     key: Optional[str] = None
@@ -314,8 +314,6 @@ class PointCloud(MediaType):
         Args:
             box: The bounding box to append.
         """
-        if self.boxes is None:
-            self.boxes = []
         self.boxes.append(box)
 
     def extend_boxes(self, boxes: List[Box]):
@@ -324,8 +322,6 @@ class PointCloud(MediaType):
         Args:
             boxes: The list of bounding boxes to extend.
         """
-        if self.boxes is None:
-            self.boxes = []
         self.boxes.extend(boxes)
 
     # ---------------------------------- override ----------------------------------
