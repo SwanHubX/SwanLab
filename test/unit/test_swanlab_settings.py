@@ -2,7 +2,7 @@
 r"""
 @DATE: 2025-3-20
 @File: test\test_swanlab_settings.py
-@IDE: vscode
+@IDE: cursor
 @Description:
     SwanLab settings module unit tests
 """

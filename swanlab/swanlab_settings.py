@@ -2,7 +2,7 @@
 r"""
 @DATE: 2025-3-18 21:20
 @File: swanlab\swanlab_settings.py
-@IDE: vscode
+@IDE: cursor
 @Description:
     SwanLab全局功能开关，用于管理和控制SwanLab的全局设置
 """
@@ -114,5 +114,9 @@ def setup(settings: Settings = None) -> Dict[str, Any]:
     return current_settings
 
 
-# 创建默认设置实例
-settings = Settings()
+def get_current_settings() -> Dict[str, Any]:
+    """
+    获取当前全局设置
+    :return: 当前设置的副本
+    """
+    return SettingsState().get_settings()
