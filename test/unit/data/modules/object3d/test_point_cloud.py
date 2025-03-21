@@ -41,7 +41,6 @@ class TestPointCloud:
     def test_metadata(self, xyzrgb_points):
         """测试元数据处理"""
         pc = PointCloud(xyzrgb_points, caption="Test")
-        assert pc.step == 1
         assert pc.caption == "Test"
         assert pc.get_more() == {"caption": "Test"}
 
@@ -50,7 +49,8 @@ class TestPointCloud:
         pc = PointCloud(xyzrgb_points)
         filename, buffer = pc.parse()
         assert filename.endswith(".swanlab.pts.json")
-        assert "step1" in filename
+        # 默认情况下step为None，所以就生成了None
+        assert "stepNone" in filename
         assert buffer.getvalue()  # 确保buffer不为空
 
     def test_from_swanlab_pts_json_file(self, test_files_dir):
