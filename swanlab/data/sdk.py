@@ -34,6 +34,7 @@ from .utils import (
     should_call_before_init,
 )
 from ..package import HostFormatter
+from swanlab import swanlab_settings
 
 
 @should_call_before_init("After calling swanlab.login(), you can't call it again.")
@@ -88,6 +89,7 @@ class SwanLabInitializer:
         load: str = None,
         public: bool = None,
         callbacks: List[SwanKitCallback] = None,
+        settings: swanlab_settings.Settings = None,
         **kwargs,
     ) -> SwanLabRun:
         """
@@ -147,7 +149,12 @@ class SwanLabInitializer:
         callbacks : Union[SwanKitCallback, List[SwanKitCallback]], optional
             The callback function that will be triggered when the experiment is finished.
             If you provide a list, all the callback functions in the list will be triggered in order.
+        settings: swanlab.swanlab_settings.Settings, optional
+            The settings for the current experiment.
         """
+        # 注册settings
+        swanlab_settings.setup(settings)
+
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
             return get_run()

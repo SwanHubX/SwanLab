@@ -106,6 +106,7 @@ def setup(settings: Settings = None) -> Dict[str, Any]:
             raise TypeError("Expected Settings object")
         state.update_settings(settings)
 
+    # 锁定设置
     state.lock()
 
     current_settings = state.get_settings()

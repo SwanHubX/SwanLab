@@ -7,136 +7,228 @@ r"""
     SwanLab settings module unit tests
 """
 
+import importlib
 import pytest
-from swanlab.swanlab_settings import SettingsState, Settings, merge_settings, setup
+import swanlab
+from swanlab.swanlab_settings import SettingsState, Settings, merge_settings, setup, get_current_settings
 
 
-def test_settings_state_singleton():
-    """测试SettingsState的单例模式"""
-    # 创建两个实例，应该是同一个对象
-    state1 = SettingsState()
-    state2 = SettingsState()
-    assert state1 is state2
+class TestSwanlabSettingsBasics:
+    def test_settings_state_singleton(self):
+        """测试SettingsState的单例模式"""
+        # 创建两个实例，应该是同一个对象
+        state1 = SettingsState()
+        state2 = SettingsState()
+        assert state1 is state2
 
-    # 确保设置是共享的
-    state1._settings['test'] = 'value'
-    assert state2._settings['test'] == 'value'
+        # 确保设置是共享的
+        state1._settings['test'] = 'value'
+        assert state2._settings['test'] == 'value'
 
+    def test_settings_state_lock(self):
+        """测试SettingsState的锁定机制"""
+        state = SettingsState()
+        state._settings.clear()  # 清除之前测试可能留下的设置
 
-def test_settings_state_lock():
-    """测试SettingsState的锁定机制"""
-    state = SettingsState()
-    state._settings.clear()  # 清除之前测试可能留下的设置
+        # 测试锁定前可以更新设置
+        settings = Settings(hardware_monitor=True)
+        state.update_settings(settings)
+        assert state._settings['hardware_monitor'] is True
 
-    # 测试锁定前可以更新设置
-    settings = Settings(hardware_monitor=True)
-    state.update_settings(settings)
-    assert state._settings['hardware_monitor'] is True
+        # 锁定后不能更新设置
+        state.lock()
+        assert state.is_locked is True
 
-    # 锁定后不能更新设置
-    state.lock()
-    assert state.is_locked is True
+        with pytest.raises(RuntimeError):
+            state.update_settings(settings)
 
-    with pytest.raises(RuntimeError):
+    def test_settings_class(self):
+        """测试Settings类的基本功能"""
+        # 测试默认值
+        settings = Settings()
+        assert settings.hardware_monitor is True
+
+        # 测试自定义值
+        settings = Settings(hardware_monitor=False)
+        assert settings.hardware_monitor is False
+
+        # 测试不允许未定义的字段
+        with pytest.raises(ValueError):
+            Settings(unknown_field="value")
+
+    def test_merge_settings(self):
+        """测试merge_settings函数"""
+        # 重置SettingsState
+        state = SettingsState()
+        state._settings.clear()
+        state._locked = False
+
+        # 测试合并有效的设置
+        settings = Settings(hardware_monitor=False)
+        result = merge_settings(settings)
+        assert result['hardware_monitor'] is False
+
+        # 测试无效输入
+        with pytest.raises(TypeError):
+            merge_settings("invalid")
+
+        # 测试锁定后的合并
+        state.lock()
+        with pytest.raises(RuntimeError):
+            merge_settings(settings)
+
+    def test_setup(self):
+        """测试setup函数"""
+        # 重置SettingsState
+        state = SettingsState()
+        state._settings.clear()
+        state._locked = False
+
+        # 测试默认设置
+        result = setup()
+        assert isinstance(result, dict)
+        assert 'hardware_monitor' in result
+        assert result['hardware_monitor'] is True
+
+        # 重置状态
+        state._settings.clear()
+        state._locked = False
+
+        # 测试自定义设置
+        custom_settings = Settings(hardware_monitor=False)
+        result = setup(custom_settings)
+        assert result['hardware_monitor'] is False
+
+        # 测试无效输入
+        with pytest.raises(RuntimeError):
+            setup("invalid")
+
+        # 测试重复setup
+        with pytest.raises(RuntimeError):
+            setup(custom_settings)
+
+    def test_settings_copy(self):
+        """测试设置的复制机制"""
+        state = SettingsState()
+        state._settings.clear()
+        state._locked = False
+
+        # 设置初始值
+        settings = Settings(hardware_monitor=True)
         state.update_settings(settings)
 
+        # 获取设置的副本
+        settings_copy = state.get_settings()
 
-def test_settings_class():
-    """测试Settings类的基本功能"""
-    # 测试默认值
-    settings = Settings()
-    assert settings.hardware_monitor is True
+        # 修改副本不应影响原始设置
+        settings_copy['hardware_monitor'] = False
+        assert state._settings['hardware_monitor'] is True
 
-    # 测试自定义值
-    settings = Settings(hardware_monitor=False)
-    assert settings.hardware_monitor is False
+    def test_settings_initialization(self):
+        """测试Settings的初始化和验证"""
+        # 测试基本初始化
+        settings = Settings()
+        assert isinstance(settings.hardware_monitor, bool)
 
-    # 测试不允许未定义的字段
-    with pytest.raises(ValueError):
-        Settings(unknown_field="value")
+        # 测试自定义参数
+        settings = Settings(hardware_monitor=False)
+        assert settings.hardware_monitor is False
+
+        # 测试不允许未定义的字段
+        with pytest.raises(ValueError):
+            Settings(hardware_monitor=True, unknown_field="value")
 
 
-def test_merge_settings():
-    """测试merge_settings函数"""
-    # 重置SettingsState
-    state = SettingsState()
-    state._settings.clear()
-    state._locked = False
+class TestSwanlabSettings:
 
-    # 测试合并有效的设置
-    settings = Settings(hardware_monitor=False)
-    result = merge_settings(settings)
-    assert result['hardware_monitor'] is False
+    def setup_method(self):
+        """每个测试方法前重置SettingsState单例"""
+        # 重置SettingsState单例
+        SettingsState._instance = None
+        SettingsState._initialized = False
+        # 重置swanlab模块
+        importlib.reload(swanlab)
 
-    # 测试无效输入
-    with pytest.raises(TypeError):
-        merge_settings("invalid")
+    def test_settings_creation(self):
+        """测试Settings对象的创建"""
+        # 测试默认值
+        default_settings = Settings()
+        assert default_settings.hardware_monitor is True
 
-    # 测试锁定后的合并
-    state.lock()
-    with pytest.raises(RuntimeError):
+        # 测试自定义值
+        custom_settings = Settings(hardware_monitor=False)
+        assert custom_settings.hardware_monitor is False
+
+    def test_merge_settings(self):
+        """测试合并设置到全局状态"""
+        # 合并自定义设置
+        settings = Settings(hardware_monitor=False)
+        result = merge_settings(settings)
+
+        # 验证设置已被更新
+        assert result["hardware_monitor"] is False
+        assert SettingsState().get_settings()["hardware_monitor"] is False
+
+        # 再次修改设置
+        new_settings = Settings(hardware_monitor=True)
+        result = merge_settings(new_settings)
+
+        # 验证设置已被更新
+        assert result["hardware_monitor"] is True
+        assert SettingsState().get_settings()["hardware_monitor"] is True
+
+    def test_setup_locks_settings(self):
+        """测试setup函数锁定设置"""
+        # 使用自定义设置进行setup（通过swanlab.init）
+        settings = Settings(hardware_monitor=False)
+        swanlab.init(settings=settings)
+
+        # 验证设置被锁定
+        assert SettingsState().is_locked is True
+
+        # 尝试更新设置，应该抛出RuntimeError
+        with pytest.raises(RuntimeError):
+            new_settings = Settings(hardware_monitor=True)
+            merge_settings(new_settings)
+
+    def test_user_workflow(self):
+        """测试用户工作流程：先修改设置，然后初始化"""
+        # 1. 创建并合并自定义设置
+        settings = Settings(hardware_monitor=False)
         merge_settings(settings)
 
+        # 验证设置已更新
+        assert SettingsState().get_settings()["hardware_monitor"] is False
 
-def test_setup():
-    """测试setup函数"""
-    # 重置SettingsState
-    state = SettingsState()
-    state._settings.clear()
-    state._locked = False
+        # 2. 使用新设置初始化
+        new_settings = Settings(hardware_monitor=True)
+        # 注意：这里假设swanlab.init在别的文件中已经定义，并会调用setup()
+        swanlab.init(settings=new_settings)
 
-    # 测试默认设置
-    result = setup()
-    assert isinstance(result, dict)
-    assert 'hardware_monitor' in result
-    assert result['hardware_monitor'] is True
+        # 验证设置已更新并锁定
+        assert SettingsState().get_settings()["hardware_monitor"] is True
+        assert SettingsState().is_locked is True
 
-    # 重置状态
-    state._settings.clear()
-    state._locked = False
+        # 3. 尝试再次修改设置，应该失败
+        with pytest.raises(RuntimeError):
+            another_settings = Settings(hardware_monitor=False)
+            merge_settings(another_settings)
 
-    # 测试自定义设置
-    custom_settings = Settings(hardware_monitor=False)
-    result = setup(custom_settings)
-    assert result['hardware_monitor'] is False
+    def test_default_setup(self):
+        """测试不提供设置时的默认行为"""
+        # 不提供设置执行init
+        swanlab.init()
 
-    # 测试无效输入
-    with pytest.raises(RuntimeError):
-        setup("invalid")
+        # 验证使用了默认设置
+        settings = get_current_settings()
+        assert settings["hardware_monitor"] is True
 
-    # 测试重复setup
-    with pytest.raises(RuntimeError):
-        setup(custom_settings)
+    def test_type_validation(self):
+        """测试类型验证"""
+        # 传入非Settings对象到merge_settings
+        with pytest.raises(TypeError):
+            merge_settings({"hardware_monitor": False})
 
-
-def test_settings_copy():
-    """测试设置的复制机制"""
-    state = SettingsState()
-    state._settings.clear()
-    state._locked = False
-
-    # 设置初始值
-    settings = Settings(hardware_monitor=True)
-    state.update_settings(settings)
-
-    # 获取设置的副本
-    settings_copy = state.get_settings()
-
-    # 修改副本不应影响原始设置
-    settings_copy['hardware_monitor'] = False
-    assert state._settings['hardware_monitor'] is True
-
-
-def test_settings_initialization():
-    """测试Settings的初始化和验证"""
-    # 测试基本初始化
-    settings = Settings()
-    assert isinstance(settings.hardware_monitor, bool)
-
-    # 测试自定义参数
-    settings = Settings(hardware_monitor=False)
-    assert settings.hardware_monitor is False
-
-    # 测试不允许未定义的字段
-    with pytest.raises(ValueError):
-        Settings(hardware_monitor=True, unknown_field="value")
+        # 传入非Settings对象到init
+        with pytest.raises(TypeError):
+            swanlab.init(settings={"hardware_monitor": False})
