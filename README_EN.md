@@ -53,7 +53,9 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-• 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html).
+- 2025.03.21: Added **Object3D chart** support, now you can track and visualize 3D point clouds. Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
+
+- 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html).
 
 - 2025.03.09: Added **experiment sidebar width** support; added **external Git code** button; added **sync_mlflow** feature, supporting synchronization with mlflow framework.
 
@@ -69,12 +71,12 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.02.16: Added **chart moving group** and **create group** features.
 
+
+<details><summary>Full Changelog</summary>
+
 - 2025.02.09: We completed integration with [veRL](https://github.com/volcengine/verl). Now you can use SwanLab in veRL to **track and visualize large model reinforcement learning experiments**. [Usage Guide](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html).
 
 - 2025.02.05: `swanlab.log` supports nested dictionaries [#812](https://github.com/SwanHubX/SwanLab/pull/812), adapting Jax framework features; supports `name` and `notes` parameters.
-
-
-<details><summary>Full Changelog</summary>
 
 - 2025.01.22: Added `sync_tensorboardX` and `sync_tensorboard_torch` features, supporting synchronization of experiment tracking with these two TensorBoard frameworks.
 
