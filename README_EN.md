@@ -53,7 +53,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.03.21: Added **Object3D chart** support, now you can track and visualize 3D point clouds. Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
+- 2025.03.21: Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
 
 - 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html).
 

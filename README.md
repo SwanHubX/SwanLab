@@ -59,7 +59,7 @@
 
 ## 🌟 最近更新
 
-- 2025.03.21：新增 **Object3D图表** ，支持记录与可视化三维点云；硬件监控支持了 GPU显存（MB）、磁盘利用率、网络上下行 的记录；
+- 2025.03.21：新增 **Object3D图表** ，支持记录与可视化三维点云，[文档](https://docs.swanlab.cn/api/py-object3d.html)；硬件监控支持了 GPU显存（MB）、磁盘利用率、网络上下行 的记录；
 
 - 2025.03.12：🎉🎉SwanLab**私有化部署版**现已发布！！[🔗部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLab 已支持插件扩展，如 [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)、[飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
 
