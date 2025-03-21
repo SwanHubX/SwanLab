@@ -48,4 +48,6 @@ for epoch in range(2, swanlab.config.epochs):
         }
     )
 
+# swanlab.log({"object3dfrom_file": swanlab.Object3D("./test/metrics/data.swanlab.pts.json")})
+
 swanlab.finish()

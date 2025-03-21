@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from swankit.core.data import MediaType
 
 from .model3d import Model3D
-from .point_cloud import PointCloud
+from .point_cloud import Box, PointCloud
 
 try:
     import numpy as np
@@ -97,26 +97,22 @@ class Object3D:
     @classmethod
     def _handle_ndarray(cls, data: np.ndarray, **kwargs) -> MediaType:
         point_cloud_channel_handlers = {
-            3: PointCloud.from_xyz,  # xyz
-            4: PointCloud.from_xyzc,  # xyzc
-            6: PointCloud.from_xyzrgb,  # xyzrgb
+            3: [PointCloud.from_xyz],  # xyz
+            4: [PointCloud.from_xyzc],  # xyzc
+            6: [PointCloud.from_xyzrgb],  # xyzrgb
         }
 
         if data.ndim == 2 and data.shape[1] in point_cloud_channel_handlers:
-            return point_cloud_channel_handlers[data.shape[1]](data, **kwargs)
+            return cls._try_all(point_cloud_channel_handlers[data.shape[1]], data, **kwargs)
 
         raise ValueError(
             f"Unsupported array format: shape={data.shape}. "
             f"Expected 2D array with {list(point_cloud_channel_handlers.keys())} channels"
         )
 
-    _FILE_HANDLERS: Dict[str, Callable] = {
-        # '.xyz': lambda p: PointCloud.from_open3d(p),
-        # '.pts': lambda p: PointCloud.from_open3d(p),
-        # '.ply': lambda p: PointCloud.from_open3d(p),
-        # '.pcd': lambda p: PointCloud.from_open3d(p),
-        '.swanlab.pts.json': PointCloud.from_swanlab_pts_json_file,
-        '.glb': Model3D.from_glb_file,
+    _FILE_HANDLERS: Dict[str, List[Callable]] = {
+        '.swanlab.pts.json': [PointCloud.from_swanlab_pts_json_file],
+        '.glb': [Model3D.from_glb_file],
     }
 
     @classmethod
@@ -137,10 +133,10 @@ class Object3D:
             handler = cls._FILE_HANDLERS.get(suffix)
             if handler is not None:
                 try:
-                    return handler(path, **kwargs)
+                    return cls._try_all(handler, path, **kwargs)
                 except Exception as e:
                     raise ValueError(
-                        f"Error processing file {path} with handler for {suffix}: {str(e)}",
+                        f"Error processing file {path} with handler for {suffix}:\n{str(e)}",
                     ) from e
 
         raise ValueError(
@@ -150,13 +146,44 @@ class Object3D:
             f"Supported extensions: {', '.join(sorted(cls._FILE_HANDLERS.keys()))}"
         )
 
-    _TYPE_HANDLERS: Dict[Type, Callable] = {}
+    _TYPE_HANDLERS: Dict[Type, List[Callable]] = {
+        Dict: [PointCloud.from_swanlab_pts],
+    }
 
     @classmethod
     def _handle_data(cls, data: Any, **kwargs) -> MediaType:
         handler = cls._TYPE_HANDLERS.get(type(data))
 
         if handler is not None:
-            return handler(data, **kwargs)
+            return cls._try_all(handler, data, **kwargs)
 
         raise TypeError(f"Unsupported input type: {type(data)}")
+
+    @classmethod
+    def _try_all(cls, handlers: List[Callable], data: Any, **kwargs) -> MediaType:
+        errors = []
+
+        for handler in handlers:
+            try:
+                return handler(data, **kwargs)
+            except Exception as e:
+                errors.append(f"Error processing data with handler {handler.__name__}: {str(e)}")
+
+        raise ValueError(f"All handlers failed:\n{';\n'.join(errors)}")
+
+    @classmethod
+    def from_point_data(
+        cls,
+        points: np.ndarray,
+        *,
+        boxes: Optional[List[Box]] = None,
+        step: Optional[int] = None,
+        caption: Optional[str] = None,
+        **kwargs,
+    ):
+        return cls(
+            {"points": points, "boxes": boxes},
+            step=step,
+            caption=caption,
+            **kwargs,
+        )
