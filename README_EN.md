@@ -232,6 +232,8 @@ Done! Head over to [SwanLab](https://swanlab.cn) to view your first SwanLab expe
 
 The self-hosted community edition supports offline viewing of the SwanLab dashboard.
 
+![swanlab-docker](./readme_files/swanlab-docker.png)
+
 ### 1. Deploy the Self-Hosted Version Using Docker
 
 For detailed instructions, refer to: [Documentation](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)

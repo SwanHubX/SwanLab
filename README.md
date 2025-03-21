@@ -239,6 +239,8 @@ for i in range(10):
 
 自托管社区版支持离线查看 SwanLab 仪表盘。
 
+![swanlab-docker](./readme_files/swanlab-docker.png)
+
 ### 1. 使用Docker部署自托管版本
 
 详情请参考：[文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)

@@ -232,6 +232,8 @@ for i in range(10):
 
 Самостоятельная версия для сообщества поддерживает офлайн-просмотр панели управления SwanLab.
 
+![swanlab-docker](./readme_files/swanlab-docker.png)
+
 ### 1. Развертывание самостоятельной версии с использованием Docker
 
 Подробные инструкции см. в: [Документация](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)

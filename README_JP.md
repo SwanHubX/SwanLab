@@ -234,6 +234,8 @@ for i in range(10):
 
 セルフホスティングコミュニティ版は、SwanLabダッシュボードをオフラインで閲覧することをサポートしています。
 
+![swanlab-docker](./readme_files/swanlab-docker.png)
+
 ### 1. Dockerを使用してセルフホスティング版をデプロイ
 
 詳細な手順については、以下を参照してください: [ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
