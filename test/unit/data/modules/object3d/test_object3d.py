@@ -47,6 +47,6 @@ class TestObject3D:
 
     def test_metadata_handling(self, xyz_points):
         """测试元数据处理"""
-        obj = Object3D(xyz_points, step=1, caption="Test")
-        assert obj.step == 1
+        obj = Object3D(xyz_points, caption="Test")
+        assert obj.step is None
         assert obj.caption == "Test"

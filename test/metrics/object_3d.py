@@ -20,10 +20,10 @@ current_path = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------- 点云数据/swanlab点云文件路径 ----------------------------------
 
-point_cloud_path = os.path.join(current_path, "assets/data.swanlab.pts.json")
+cloud_point_path = os.path.join(current_path, "assets/data.swanlab.pts.json")
 
-with open(point_cloud_path, "r") as f:
-    point_cloud = json.load(f)
+with open(cloud_point_path, "r") as f:
+    cloud_point = json.load(f)
 
 
 # ---------------------------------- 从代码生成的点云矩阵 ----------------------------------
@@ -36,7 +36,7 @@ def mock_object_3d_array() -> np.ndarray:
 # ---------------------------------- 实验 ----------------------------------
 
 
-swanlab.init(project="3d-object-project", config={"epochs": 5}, mode="cloud")
+swanlab.init(project="3d-object-project", config={"epochs": 10}, mode="cloud")
 
 
 for epoch in range(2, swanlab.config.epochs):
@@ -44,10 +44,9 @@ for epoch in range(2, swanlab.config.epochs):
         {
             "code/random": [swanlab.Object3D(mock_object_3d_array()) for _ in range(epoch)],
             "epoch": epoch,
-            "code/point_cloud": swanlab.Object3D(point_cloud),
+            "code/point_cloud": swanlab.Object3D.from_point_data(
+                points=cloud_point['points'], boxes=cloud_point['boxes'], caption="Point Cloud from cloud"
+            ),
+            "file/point_cloud": swanlab.Object3D(cloud_point_path, caption="Point Cloud from file"),
         }
     )
-
-# swanlab.log({"object3dfrom_file": swanlab.Object3D("./test/metrics/data.swanlab.pts.json")})
-
-swanlab.finish()

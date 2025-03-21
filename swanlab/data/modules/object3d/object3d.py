@@ -7,6 +7,7 @@ from .model3d import Model3D
 from .point_cloud import Box, PointCloud
 
 try:
+    # noinspection PyPackageRequirements
     import numpy as np
 except ImportError:
     np = None
@@ -30,7 +31,7 @@ class Object3D:
         >>>
         >>> # XYZC coordinates with category (N, 4)
         >>> points_xyzc = np.random.rand(100, 4)
-        >>> obj2 = Object3D(points_xyzc, step=1)
+        >>> obj2 = Object3D(points_xyzc)
         >>>
         >>> # XYZRGB coordinates with colors (N, 6)
         >>> points_xyzrgb = np.random.rand(100, 6)
@@ -41,12 +42,11 @@ class Object3D:
         >>> obj4 = Object3D("model.glb")
         >>>
         >>> # From SwanLab point cloud file
-        >>> obj5 = Object3D("points.swanlab.pts.json", step=2)
+        >>> obj5 = Object3D("points.swanlab.pts.json")
 
     3. With optional parameters:
         >>> obj6 = Object3D(
         ...     points_xyz,
-        ...     step=1,           # Step number for visualization
         ...     caption="My 3D"   # Caption text
         ... )
 
@@ -54,7 +54,6 @@ class Object3D:
         data: Input data, can be:
             - numpy.ndarray: Point cloud data with shape (N, C) where C is 3,4 or 6
             - str/Path: Path to a 3D file (.glb or .swanlab.pts.json)
-        step: Optional step number for visualization
         caption: Optional description text
         **kwargs: Additional keyword arguments passed to specific handlers
 
@@ -70,15 +69,13 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path],
+        data: Union[np.ndarray, str, Path, dict],
         *,
-        step: Optional[int] = None,
         caption: Optional[str] = None,
         **kwargs,
     ) -> MediaType:
         cls._check_numpy()
 
-        kwargs['step'] = step
         kwargs['caption'] = caption
 
         if isinstance(data, np.ndarray):
@@ -169,7 +166,8 @@ class Object3D:
             except Exception as e:
                 errors.append(f"Error processing data with handler {handler.__name__}: {str(e)}")
 
-        raise ValueError(f"All handlers failed:\n{';\n'.join(errors)}")
+        error_message = ';\n'.join(errors)
+        raise ValueError(f"All handlers failed:\n{error_message}")
 
     @classmethod
     def from_point_data(
@@ -177,13 +175,14 @@ class Object3D:
         points: np.ndarray,
         *,
         boxes: Optional[List[Box]] = None,
-        step: Optional[int] = None,
         caption: Optional[str] = None,
         **kwargs,
     ):
-        return cls(
-            {"points": points, "boxes": boxes},
-            step=step,
+        return PointCloud.from_swanlab_pts(
+            {
+                'points': points,
+                'boxes': boxes,
+            },
             caption=caption,
             **kwargs,
         )

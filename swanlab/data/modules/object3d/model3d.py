@@ -11,11 +11,10 @@ class Model3D(MediaType):
     """3D model data representation class that handles GLB format files.
 
     This class provides functionality to handle 3D model data in GLB format for visualization.
-    It supports loading GLB files and manages metadata like step number and caption.
+    It supports loading GLB files and manages metadata like caption.
 
     Attributes:
         glb_path: Path to the GLB file
-        step: Optional step number for visualization
         caption: Optional description text
 
     Examples:
@@ -25,7 +24,6 @@ class Model3D(MediaType):
         >>> # Create with metadata
         >>> model = Model3D.from_glb_file(
         ...     "model.glb",
-        ...     step=1,
         ...     caption="My 3D Model"
         ... )
         >>>
@@ -60,9 +58,7 @@ class Model3D(MediaType):
             raise ValueError(f"File must be a GLB file: {self.glb_path}")
 
     @classmethod
-    def from_glb_file(
-        cls, path: Path, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "Model3D":
+    def from_glb_file(cls, path: Path, *, caption: Optional[str] = None, **kwargs) -> "Model3D":
         """Create Model3D instance from a GLB file.
 
         This is the main factory method to create Model3D objects. It handles file validation
@@ -70,7 +66,6 @@ class Model3D(MediaType):
 
         Args:
             path: Path to the .glb file
-            step: Optional step number for visualization sequencing
             caption: Optional description text for the model
             **kwargs: Additional keyword arguments passed to constructor
 
@@ -88,11 +83,10 @@ class Model3D(MediaType):
             >>> # With metadata
             >>> model = Model3D.from_glb_file(
             ...     "model.glb",
-            ...     step=1,
             ...     caption="My 3D Model"
             ... )
         """
-        return cls(path, step=step, caption=caption, **kwargs)
+        return cls(path, caption=caption, **kwargs)
 
     # ---------------------------------- override ----------------------------------
 
@@ -110,7 +104,7 @@ class Model3D(MediaType):
             - file_content: File content in MediaBuffer
 
         Example:
-            >>> model = Model3D.from_glb_file("chair.glb", step=1)
+            >>> model = Model3D.from_glb_file("chair.glb")
             >>> filename, content = model.parse()
             >>> print(filename)
             'chair-step1-a1b2c3d4e5f6g7h8.glb'

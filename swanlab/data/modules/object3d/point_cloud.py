@@ -10,7 +10,7 @@ Examples:
     >>> import numpy as np
     >>> points = np.random.rand(100, 3)  # 100 points with XYZ coordinates
     >>> pc = PointCloud.from_xyz(points)  # Default green color
-    >>> pc = PointCloud.from_xyz(points, step=1, caption="My Points")
+    >>> pc = PointCloud.from_xyz(points, caption="My Points")
 
     Create from XYZC format (XYZ + category):
     >>> points_with_category = np.zeros((100, 4))  # XYZ + category
@@ -28,7 +28,6 @@ Examples:
     >>> from pathlib import Path
     >>> pc = PointCloud.from_swanlab_pts_json_file(
     ...     Path("./file/points.swanlab.pts.json"),
-    ...     step=1,
     ...     caption="Loaded Points"
     ... )
 """
@@ -88,14 +87,12 @@ class PointCloud(MediaType):
 
     Attributes:
         points: Point cloud data array with shape (N, 6) containing XYZRGB values
-        step: Optional step number for visualization sequences
         caption: Optional description text
 
     Examples:
         >>> import numpy as np
         >>> points = np.random.rand(100, 3)  # XYZ format
         >>> pc = PointCloud.from_xyz(points)  # Create with default green color
-        >>> pc = PointCloud.from_xyz(points, step=1)  # With step number
         >>> pc = PointCloud.from_xyz(points, caption="My Points")  # With caption
     """
 
@@ -120,14 +117,11 @@ class PointCloud(MediaType):
             raise ImportError("Numpy is required for PointCloud class. Please install it with: pip install numpy")
 
     @classmethod
-    def from_xyz(
-        cls, points: np.ndarray, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "PointCloud":
+    def from_xyz(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZ coordinates.
 
         Args:
             points: numpy array with shape (N, 3) containing XYZ coordinates
-            step: Optional step number for visualization sequences
             caption: Optional description text
 
         Returns:
@@ -136,7 +130,7 @@ class PointCloud(MediaType):
         Examples:
             >>> points = np.random.rand(100, 3)
             >>> pc = PointCloud.from_xyz(points)  # Default green
-            >>> pc = PointCloud.from_xyz(points, step=1, caption="Green Points")
+            >>> pc = PointCloud.from_xyz(points, caption="Green Points")
         """
         if points.ndim != 2 or points.shape[1] != 3:
             raise ValueError("XYZ array must have shape (N, 3)")
@@ -147,18 +141,15 @@ class PointCloud(MediaType):
         xyzrgb[:, :3] = points  # copy XYZ coordinates
         xyzrgb[:, 3:] = default_color  # set default RGB (0, 255, 0) to green
 
-        return cls(xyzrgb, step=step, caption=caption, **kwargs)
+        return cls(xyzrgb, caption=caption, **kwargs)
 
     @classmethod
-    def from_xyzc(
-        cls, points: np.ndarray, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "PointCloud":
+    def from_xyzc(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZC format (XYZ coordinates + category).
 
         Args:
             points: numpy array with shape (N, 4) containing XYZC values
                    where C is category index (integer)
-            step: Optional step number for visualization sequences
             caption: Optional description text
 
         Returns:
@@ -169,7 +160,7 @@ class PointCloud(MediaType):
             >>> points[:, :3] = coordinates  # XYZ coordinates
             >>> points[:, 3] = categories    # Category labels (0,1,2...)
             >>> pc = PointCloud.from_xyzc(points)
-            >>> pc = PointCloud.from_xyzc(points, step=1, caption="Segmented Points")
+            >>> pc = PointCloud.from_xyzc(points, caption="Segmented Points")
         """
         if points.ndim != 2 or points.shape[1] != 4:
             raise ValueError("XYZC array must have shape (N, 4)")
@@ -182,17 +173,14 @@ class PointCloud(MediaType):
         xyzrgb[:, :3] = points[:, :3]  # copy XYZ coordinates
         xyzrgb[:, 3:] = colors[categories]
 
-        return cls(xyzrgb, step=step, caption=caption, **kwargs)
+        return cls(xyzrgb, caption=caption, **kwargs)
 
     @classmethod
-    def from_xyzrgb(
-        cls, points: np.ndarray, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "PointCloud":
+    def from_xyzrgb(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZRGB format.
 
         Args:
             points: numpy array with shape (N, 6) containing XYZRGB values
-            step: Optional step number for visualization sequences
             caption: Optional description text
 
         Returns:
@@ -208,19 +196,16 @@ class PointCloud(MediaType):
         if points.ndim != 2 or points.shape[1] != 6:
             raise ValueError("XYZRGB array must have shape (N, 6)")
 
-        return cls(points, step=step, caption=caption, **kwargs)
+        return cls(points, caption=caption, **kwargs)
 
     @classmethod
-    def from_swanlab_pts(
-        cls, data: Dict, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "PointCloud":
+    def from_swanlab_pts(cls, data: Dict, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from SwanLab pts data dictionary.
 
         Args:
             data: A dictionary containing 'points' (required) and optionally 'boxes'.
                   'points' can be a list of lists (XYZ, XYZC, or XYZRGB) or a NumPy array.
                   'boxes' is an optional list of dictionaries, each representing a bounding box.
-            step: Optional step number for visualization sequences
             caption: Optional description text
 
         Returns:
@@ -241,7 +226,7 @@ class PointCloud(MediaType):
         handler = {3: cls.from_xyz, 4: cls.from_xyzc, 6: cls.from_xyzrgb}
 
         try:
-            pc = handler[points.shape[1]](points, step=step, caption=caption, **kwargs)
+            pc = handler[points.shape[1]](points, caption=caption, **kwargs)
         except KeyError as err:
             raise ValueError("data['points'] must have shape (N, 3), (N, 4), or (N, 6)") from err
 
@@ -269,16 +254,13 @@ class PointCloud(MediaType):
         return pc
 
     @classmethod
-    def from_swanlab_pts_json_file(
-        cls, path: Path, *, step: Optional[int] = None, caption: Optional[str] = None, **kwargs
-    ) -> "PointCloud":
+    def from_swanlab_pts_json_file(cls, path: Path, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from SwanLab pts.json file.
 
         Documentation: cls._DOCUMENTATION
 
         Args:
             path: Path to the .swanlab.pts.json file
-            step: Optional step number for visualization sequences
             caption: Optional description text
 
         Returns:
@@ -287,7 +269,6 @@ class PointCloud(MediaType):
         Examples:
             >>> pc = PointCloud.from_swanlab_pts_json_file(
             ...     Path("points.swanlab.pts.json"),
-            ...     step=1,
             ...     caption="Loaded Points"
             ... )
         """
@@ -301,7 +282,7 @@ class PointCloud(MediaType):
             with open(path) as f:
                 points_list = json.load(f)
 
-            return cls.from_swanlab_pts(points_list, step=step, caption=caption, **kwargs)
+            return cls.from_swanlab_pts(points_list, caption=caption, **kwargs)
 
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON format in file: {path}") from e

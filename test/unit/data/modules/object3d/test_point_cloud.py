@@ -40,14 +40,14 @@ class TestPointCloud:
 
     def test_metadata(self, xyzrgb_points):
         """测试元数据处理"""
-        pc = PointCloud(xyzrgb_points, step=1, caption="Test")
+        pc = PointCloud(xyzrgb_points, caption="Test")
         assert pc.step == 1
         assert pc.caption == "Test"
         assert pc.get_more() == {"caption": "Test"}
 
     def test_parse(self, xyzrgb_points):
         """测试解析方法"""
-        pc = PointCloud(xyzrgb_points, step=1)
+        pc = PointCloud(xyzrgb_points)
         filename, buffer = pc.parse()
         assert filename.endswith(".swanlab.pts.json")
         assert "step1" in filename

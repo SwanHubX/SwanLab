@@ -25,14 +25,14 @@ class TestModel3D:
     def test_from_glb_file(self, test_files_dir):
         """测试从GLB文件创建"""
         glb_path = test_files_dir / "sample.glb"
-        model = Model3D.from_glb_file(glb_path, step=1, caption="Test")
-        assert model.step == 1
+        model = Model3D.from_glb_file(glb_path, caption="Test")
+        assert model.step == None
         assert model.caption == "Test"
 
     def test_parse(self, test_files_dir):
         """测试解析方法"""
         glb_path = test_files_dir / "sample.glb"
-        model = Model3D(glb_path, step=1)
+        model = Model3D(glb_path)
         filename, buffer = model.parse()
         assert filename.endswith(".glb")
         assert "step1" in filename
