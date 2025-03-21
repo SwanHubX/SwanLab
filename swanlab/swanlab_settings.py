@@ -31,7 +31,7 @@ class Settings(BaseModel):
         :raises KeyError: 当字段名不存在时抛出
         """
         if field_name not in self.model_fields:
-            raise KeyError(f"字段 '{field_name}' 不存在")
+            raise KeyError(f"Field '{field_name}' does not exist")
 
         value = getattr(self, field_name)
         return default if value is None else value
@@ -48,9 +48,3 @@ def merge_settings(settings: Settings) -> Dict[str, Any]:
     if not isinstance(settings, Settings):
         raise TypeError("Expected Settings object")
     pass
-
-
-settings = Settings(
-    hardware_monitor=True,
-    log_upload=True,
-)

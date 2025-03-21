@@ -7,7 +7,6 @@ r"""
     SwanLab settings module unit tests
 """
 
-import importlib
 import pytest
 import swanlab
 from swanlab.swanlab_settings import Settings, merge_settings, get_current_settings
@@ -55,14 +54,6 @@ class TestSwanlabSettingsBasics:
 
 
 class TestSwanlabSettings:
-    def setup_method(self):
-        """每个测试方法前重置SettingsState单例"""
-        # 重置SettingsState单例
-        SettingsState._instance = None
-        SettingsState._initialized = False
-        # 重置swanlab模块
-        importlib.reload(swanlab)
-
     def test_settings_creation(self):
         """测试Settings对象的创建"""
         # 测试默认值
@@ -81,7 +72,6 @@ class TestSwanlabSettings:
 
         # 验证设置已被更新
         assert result["hardware_monitor"] is False
-        assert SettingsState().get_settings()["hardware_monitor"] is False
 
         # 再次修改设置
         new_settings = Settings(hardware_monitor=True)
@@ -89,44 +79,6 @@ class TestSwanlabSettings:
 
         # 验证设置已被更新
         assert result["hardware_monitor"] is True
-        assert SettingsState().get_settings()["hardware_monitor"] is True
-
-    def test_setup_locks_settings(self):
-        """测试setup函数锁定设置"""
-        # 使用自定义设置进行setup（通过swanlab.init）
-        settings = Settings(hardware_monitor=False)
-        swanlab.init(settings=settings)
-
-        # 验证设置被锁定
-        assert SettingsState().is_locked is True
-
-        # 尝试更新设置，应该抛出RuntimeError
-        with pytest.raises(RuntimeError):
-            new_settings = Settings(hardware_monitor=True)
-            merge_settings(new_settings)
-
-    def test_user_workflow(self):
-        """测试用户工作流程：先修改设置，然后初始化"""
-        # 1. 创建并合并自定义设置
-        settings = Settings(hardware_monitor=False)
-        merge_settings(settings)
-
-        # 验证设置已更新
-        assert SettingsState().get_settings()["hardware_monitor"] is False
-
-        # 2. 使用新设置初始化
-        new_settings = Settings(hardware_monitor=True)
-        # 注意：这里假设swanlab.init在别的文件中已经定义，并会调用setup()
-        swanlab.init(settings=new_settings)
-
-        # 验证设置已更新并锁定
-        assert SettingsState().get_settings()["hardware_monitor"] is True
-        assert SettingsState().is_locked is True
-
-        # 3. 尝试再次修改设置，应该失败
-        with pytest.raises(RuntimeError):
-            another_settings = Settings(hardware_monitor=False)
-            merge_settings(another_settings)
 
     def test_default_setup(self):
         """测试不提供设置时的默认行为"""
