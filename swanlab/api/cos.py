@@ -7,7 +7,7 @@ r"""
 @Description:
     cloud object storage
 """
-from concurrent.futures.thread import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import List
 
@@ -69,10 +69,23 @@ class CosClient:
         批量上传文件，keys和local_paths的长度应该相等
         :param buffers: 本地文件的二进制对象集合
         """
+        # executor.submit可能会失败，因为线程数有限或者线程池已经关闭
+        # 来自此issue: https://github.com/SwanHubX/SwanLab/issues/889，此时需要一个个发送
+        failed_buffers = []
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(self.upload, buffer) for buffer in buffers]
+            futures = []
+            for buffer in buffers:
+                try:
+                    futures.append(executor.submit(self.upload, buffer))
+                except RuntimeError:
+                    failed_buffers.append(buffer)
             for future in futures:
                 future.result()
+        # 重试失败的buffer
+        if len(failed_buffers):
+            swanlog.debug("Retrying failed buffers: {}".format(len(failed_buffers)))
+            for buffer in failed_buffers:
+                self.upload(buffer)
 
     @property
     def should_refresh(self):

@@ -45,6 +45,7 @@
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
+- [🔌 プラグイン](#-プラグイン)
 - [🆚 既存ツールとの比較](#-既存ツールとの比較)
 - [👥 コミュニティ](#-コミュニティ)
 - [📃 ライセンス](#-ライセンス)
@@ -189,6 +190,16 @@ pip install -e .
 
 </details>
 
+<details><summary>ダッシュボード拡張機能のインストール</summary>
+
+[ダッシュボード拡張機能ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+
+```bash
+pip install 'swanlab[dashboard]'
+```
+
+</details>
+
 ### 2.ログインしてAPIキーを取得
 
 1. 無料で[アカウント登録](https://swanlab.cn)
@@ -315,6 +326,19 @@ swanlab login --host http://localhost:8000
 
 <br>
 
+## 🔌 プラグイン
+
+プラグインを通じてSwanLabの機能を拡張し、実験管理体験を向上させましょう！
+
+• [プラグインのカスタマイズ](https://docs.swanlab.cn/plugin/custom-plugin.html)
+• [メール通知](https://docs.swanlab.cn/plugin/notification-email.html)
+• [Lark通知](https://docs.swanlab.cn/plugin/notification-lark.html)
+• [DingTalk通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
+• [企業微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+• [CSVロガー](https://docs.swanlab.cn/plugin/writer-csv.html)
+
+<br>
+
 ## 🆚 既存ツールとの比較
 
 ### Tensorboard vs SwanLab
@@ -341,6 +365,12 @@ swanlab login --host http://localhost:8000
 <br>
 
 ## 👥 コミュニティ
+
+### 周辺リポジトリ
+
+• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): 公式ドキュメントリポジトリ。
+• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): オフラインダッシュボードリポジトリ。`swanlab watch`で開かれる軽量オフラインダッシュボードのウェブコードが含まれています。
+• [self-hosted](https://github.com/swanhubx/self-hosted): プライベートデプロイメントスクリプトリポジトリ。
 
 ### コミュニティとサポート
 

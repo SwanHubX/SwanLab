@@ -163,6 +163,18 @@ class HardwareCollector(CollectGuard, ABC):
         finally:
             self.after_collect()
 
+    @staticmethod
+    def division_guard(a: Union[int, float], b: Union[int, float]) -> float:
+        """
+        防止除零错误
+        :param a: 除数
+        :param b: 被除数
+        :return: 结果
+        """
+        if b == 0:
+            return 0
+        return a / b
+
 
 # 定义硬件信息执行函数的返回结果
 HardwareFuncResult = Tuple[Optional[Any], Optional[HardwareCollector]]
