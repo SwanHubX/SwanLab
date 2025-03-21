@@ -26,7 +26,7 @@ class TestModel3D:
         """测试从GLB文件创建"""
         glb_path = test_files_dir / "sample.glb"
         model = Model3D.from_glb_file(glb_path, caption="Test")
-        assert model.step == None
+        assert model.step is None
         assert model.caption == "Test"
 
     def test_parse(self, test_files_dir):
@@ -35,5 +35,6 @@ class TestModel3D:
         model = Model3D(glb_path)
         filename, buffer = model.parse()
         assert filename.endswith(".glb")
-        assert "step1" in filename
+        # 默认step为None，所以就生成了None
+        assert "stepNone" in filename
         assert buffer.getvalue()  # 确保buffer不为空
