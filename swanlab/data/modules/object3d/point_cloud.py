@@ -102,7 +102,6 @@ class PointCloud(MediaType):
     caption: Optional[str] = None
     key: Optional[str] = None
     _VERSION: str = "0.1"
-    _DOCUMENTATION: str = "https://github.com/SwanHubX/SwanLab/pull/844#issuecomment-2740559016"
 
     def __post_init__(self):
         """Validate input data after initialization"""
@@ -257,8 +256,6 @@ class PointCloud(MediaType):
     def from_swanlab_pts_json_file(cls, path: Path, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from SwanLab pts.json file.
 
-        Documentation: cls._DOCUMENTATION
-
         Args:
             path: Path to the .swanlab.pts.json file
             caption: Optional description text
@@ -319,7 +316,6 @@ class PointCloud(MediaType):
         points_list = self.points.tolist()
         swanlab_pts = {
             "version": self._VERSION,
-            "documentation": self._DOCUMENTATION,
             "points": points_list,
             "boxes": self.boxes,
         }
