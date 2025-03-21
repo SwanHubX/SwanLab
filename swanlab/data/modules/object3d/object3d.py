@@ -69,7 +69,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path, dict],
+        data: Union[np.ndarray, str, Path],
         *,
         caption: Optional[str] = None,
         **kwargs,
