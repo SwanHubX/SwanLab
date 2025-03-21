@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 from swankit.core.data import MediaType
 
 from .model3d import Model3D
-from .point_cloud import PointCloud
+from .point_cloud import Box, PointCloud
 
 try:
     import numpy as np
@@ -170,3 +170,20 @@ class Object3D:
                 errors.append(f"Error processing data with handler {handler.__name__}: {str(e)}")
 
         raise ValueError(f"All handlers failed:\n{';\n'.join(errors)}")
+
+    @classmethod
+    def from_point_data(
+        cls,
+        points: np.ndarray,
+        *,
+        boxes: Optional[List[Box]] = None,
+        step: Optional[int] = None,
+        caption: Optional[str] = None,
+        **kwargs,
+    ):
+        return cls(
+            {"points": points, "boxes": boxes},
+            step=step,
+            caption=caption,
+            **kwargs,
+        )
