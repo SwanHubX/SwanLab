@@ -171,19 +171,13 @@ pip install swanlab
 
 Если вы хотите испытать новейшие функции, вы можете установить программу из исходного кода.
 
-**Шаг 1**: Клонируйте проект
-
 ```bash
+# Method 1
 git clone https://github.com/SwanHubX/SwanLab.git
-cd SwanLab
-```
-
-**Шаг 2**: Измените поле `version` в файле `swanlab/package.json`, например, на `0.10.0`.
-
-**Шаг 3**: Установите
-
-```bash
 pip install -e .
+
+# Method 2
+pip install git+https://github.com/SwanHubX/SwanLab.git
 ```
 
 </details>
