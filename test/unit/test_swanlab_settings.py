@@ -9,7 +9,8 @@ r"""
 
 import pytest
 import swanlab
-from swanlab.swanlab_settings import Settings, merge_settings, get_current_settings
+from swanlab import merge_settings
+from swanlab.swanlab_settings import Settings, settings
 from pydantic import ValidationError
 
 
@@ -48,10 +49,6 @@ class TestSwanlabSettingsBasics:
         with pytest.raises(ValueError):
             Settings(unknown_field="value")
 
-    def test_merge_settings(self):
-        """测试merge_settings函数"""
-        pass
-
 
 class TestSwanlabSettings:
     def test_settings_creation(self):
@@ -71,14 +68,14 @@ class TestSwanlabSettings:
         result = merge_settings(settings)
 
         # 验证设置已被更新
-        assert result["hardware_monitor"] is False
+        assert settings.hardware_monitor is False
 
         # 再次修改设置
         new_settings = Settings(hardware_monitor=True)
         result = merge_settings(new_settings)
 
         # 验证设置已被更新
-        assert result["hardware_monitor"] is True
+        assert settings.hardware_monitor is True
 
     def test_default_setup(self):
         """测试不提供设置时的默认行为"""
@@ -86,8 +83,7 @@ class TestSwanlabSettings:
         swanlab.init()
 
         # 验证使用了默认设置
-        settings = get_current_settings()
-        assert settings["hardware_monitor"] is True
+        assert settings.hardware_monitor is True
 
     def test_type_validation(self):
         """测试类型验证"""

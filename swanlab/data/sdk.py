@@ -15,6 +15,7 @@ from swankit.callback import SwanKitCallback
 from swanlab.api import code_login, create_http
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
+from swanlab.swanlab_settings import Settings
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
@@ -248,3 +249,37 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     if not run.running:
         return swanlog.error("After experiment is finished, you can't call finish() again.")
     run.finish(state, error)
+
+
+def merge_settings(settings: Settings):
+    """
+    合并用户设置到全局设置
+    :param settings: Settings对象
+    :raises TypeError: 当输入不是Settings对象时抛出
+    :raises RuntimeError: 当设置已被锁定时抛出
+    """
+    if not isinstance(settings, Settings):
+        raise TypeError("Expected Settings object")
+
+    # 检查全局设置是否被锁定
+    # if getattr(swanlab_settings, 'locked', False):
+    # raise RuntimeError("Settings are locked and cannot be modified")
+
+    # 获取当前全局设置的字典形式
+    current_settings_dict = {}
+    if hasattr(swanlab_settings, 'settings') and swanlab_settings.settings is not None:
+        current_settings = swanlab_settings.settings
+        for field_name in current_settings.model_fields:
+            current_settings_dict[field_name] = getattr(current_settings, field_name)
+
+    # 合并新设置中非None的值
+    for field_name in settings.model_fields:
+        new_value = getattr(settings, field_name)
+        if new_value is not None:
+            current_settings_dict[field_name] = new_value
+
+    # 创建新的Settings实例
+    merged_settings = Settings(**current_settings_dict)
+
+    # 更新全局设置
+    swanlab_settings.settings = merged_settings

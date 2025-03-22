@@ -37,14 +37,7 @@ class Settings(BaseModel):
         return default if value is None else value
 
 
-def merge_settings(settings: Settings) -> Dict[str, Any]:
-    """
-    合并用户设置到全局设置
-    :param settings: Settings对象
-    :return: Dict 合并后的设置
-    :raises TypeError: 当输入不是Settings对象时抛出
-    :raises RuntimeError: 当设置已被锁定时抛出
-    """
-    if not isinstance(settings, Settings):
-        raise TypeError("Expected Settings object")
-    pass
+settings = Settings(
+    hardware_monitor=True,
+    log_upload=True,
+)
