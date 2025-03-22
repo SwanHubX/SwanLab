@@ -251,6 +251,7 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     run.finish(state, error)
 
 
+@should_call_before_init("You can't call merge_settings() after swanlab.init()")
 def merge_settings(settings: Settings):
     """
     合并用户设置到全局设置

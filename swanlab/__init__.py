@@ -15,6 +15,7 @@ from .data import (
     config,
     get_url,
     get_project_url,
+    merge_settings,
 )
 from .env import SwanLabEnv
 from .package import get_package_version

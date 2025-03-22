@@ -9,6 +9,7 @@ r"""
 
 import pytest
 import swanlab
+from swanlab import finish
 from swanlab import merge_settings
 from swanlab.swanlab_settings import Settings, settings
 from pydantic import ValidationError

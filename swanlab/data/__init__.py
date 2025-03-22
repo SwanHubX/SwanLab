@@ -27,4 +27,5 @@ from .sdk import (
     init,
     log,
     finish,
+    merge_settings,
 )
