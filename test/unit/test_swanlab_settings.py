@@ -33,6 +33,12 @@ class TestSwanlabSettingsBasics:
         settings = Settings(hardware_monitor=False)
         assert settings.hardware_monitor is False
 
+    def test_settings_get(self):
+        """测试Settings对象的get方法"""
+        settings = Settings()
+        assert settings.get("hardware_monitor") is None
+        assert settings.get("hardware_monitor", 1) == 1
+
 
 class TestSwanlabSettings:
     def test_merge_settings(self):
@@ -58,6 +64,7 @@ class TestSwanlabSettings:
 
         # 验证使用了默认设置
         assert swanlab_settings.settings.hardware_monitor is True
+        swanlab.finish()
 
     def test_type_validation(self):
         """测试类型验证"""
@@ -68,3 +75,4 @@ class TestSwanlabSettings:
         # 传入非Settings对象到init
         with pytest.raises(TypeError):
             swanlab.init(settings={"hardware_monitor": False})
+            swanlab.finish()
