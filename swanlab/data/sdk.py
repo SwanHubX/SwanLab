@@ -15,7 +15,7 @@ from swankit.callback import SwanKitCallback
 from swanlab.api import code_login, create_http
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
-from swanlab.swanlab_settings import Settings
+from swanlab import swanlab_settings
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
@@ -154,7 +154,7 @@ class SwanLabInitializer:
             The settings for the current experiment.
         """
         # 注册settings
-        swanlab_settings.setup(settings)
+        merge_settings(settings)
 
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -252,14 +252,17 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
 
 
 @should_call_before_init("You can't call merge_settings() after swanlab.init()")
-def merge_settings(settings: Settings):
+def merge_settings(new_settings: swanlab_settings.Settings):
     """
     合并用户设置到全局设置
-    :param settings: Settings对象
+    :param new_settings: Settings对象
     :raises TypeError: 当输入不是Settings对象时抛出
     :raises RuntimeError: 当设置已被锁定时抛出
     """
-    if not isinstance(settings, Settings):
+    if new_settings is None:
+        return
+
+    if not isinstance(new_settings, swanlab_settings.Settings):
         raise TypeError("Expected Settings object")
 
     # 检查全局设置是否被锁定
@@ -268,19 +271,18 @@ def merge_settings(settings: Settings):
 
     # 获取当前全局设置的字典形式
     current_settings_dict = {}
-    if hasattr(swanlab_settings, 'settings') and swanlab_settings.settings is not None:
-        current_settings = swanlab_settings.settings
-        for field_name in current_settings.model_fields:
-            current_settings_dict[field_name] = getattr(current_settings, field_name)
+    current_settings = swanlab_settings.settings
+    for field_name in current_settings.model_fields:
+        current_settings_dict[field_name] = getattr(current_settings, field_name)
 
     # 合并新设置中非None的值
-    for field_name in settings.model_fields:
-        new_value = getattr(settings, field_name)
+    for field_name in new_settings.model_fields:
+        new_value = getattr(new_settings, field_name)
         if new_value is not None:
             current_settings_dict[field_name] = new_value
 
     # 创建新的Settings实例
-    merged_settings = Settings(**current_settings_dict)
+    merged_settings = swanlab_settings.Settings(**current_settings_dict)
 
     # 更新全局设置
     swanlab_settings.settings = merged_settings
