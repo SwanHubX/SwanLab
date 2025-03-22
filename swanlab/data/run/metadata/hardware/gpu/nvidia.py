@@ -14,10 +14,23 @@ from ..type import HardwareFuncResult, HardwareCollector, HardwareInfoList, Hard
 from ..utils import generate_key, HardwareConfig, random_index
 
 
+NVIDIA_GPU_ARCHITECTURE = {
+    pynvml.NVML_DEVICE_ARCH_KEPLER: "Kepler",
+    pynvml.NVML_DEVICE_ARCH_MAXWELL: "Maxwell",
+    pynvml.NVML_DEVICE_ARCH_PASCAL: "Pascal",
+    pynvml.NVML_DEVICE_ARCH_VOLTA: "Volta",
+    pynvml.NVML_DEVICE_ARCH_TURING: "Turing",
+    pynvml.NVML_DEVICE_ARCH_AMPERE: "Ampere",
+    pynvml.NVML_DEVICE_ARCH_ADA: "Ada",
+    pynvml.NVML_DEVICE_ARCH_HOPPER: "Hopper",
+    pynvml.NVML_DEVICE_ARCH_UNKNOWN: "Unknown",
+}
+
+
 def get_nvidia_gpu_info() -> HardwareFuncResult:
     """获取 GPU 信息"""
 
-    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None}
+    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None, "architecture": [], "cudacores": []}
     max_gpu_mem_mb = 0
     try:
         pynvml.nvmlInit()
@@ -47,6 +60,11 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
             total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total >> 20  # MB
             max_gpu_mem_mb = max(max_gpu_mem_mb, total_memory)
             info["memory"].append(round(total_memory / 1024))  # GB
+            # 获取 GPU 架构
+            info["architecture"].append(NVIDIA_GPU_ARCHITECTURE[pynvml.nvmlDeviceGetArchitecture(handle)])
+            # 获取 GPU 的CUDA核心数
+            info["cudacores"].append(pynvml.nvmlDeviceGetNumGpuCores(handle))
+            
     except UnicodeDecodeError:  # 部分GPU型号无法解码
         return None, None
     except pynvml.NVMLError:
