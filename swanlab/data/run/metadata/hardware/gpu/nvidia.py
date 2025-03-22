@@ -15,14 +15,14 @@ from ..utils import generate_key, HardwareConfig, random_index
 
 
 NVIDIA_GPU_ARCHITECTURE = {
-    pynvml.NVML_DEVICE_ARCH_KEPLER: "Kepler",
-    pynvml.NVML_DEVICE_ARCH_MAXWELL: "Maxwell",
-    pynvml.NVML_DEVICE_ARCH_PASCAL: "Pascal",
-    pynvml.NVML_DEVICE_ARCH_VOLTA: "Volta",
-    pynvml.NVML_DEVICE_ARCH_TURING: "Turing",
-    pynvml.NVML_DEVICE_ARCH_AMPERE: "Ampere",
-    pynvml.NVML_DEVICE_ARCH_ADA: "Ada",
-    pynvml.NVML_DEVICE_ARCH_HOPPER: "Hopper",
+    pynvml.NVML_DEVICE_ARCH_KEPLER: "Kepler",  # example: GeForce GTX 680, GeForce GTX 780, Tesla K80
+    pynvml.NVML_DEVICE_ARCH_MAXWELL: "Maxwell", # example: GeForce GTX 750 Ti, GeForce GTX 980, Tesla M40
+    pynvml.NVML_DEVICE_ARCH_PASCAL: "Pascal", # example: GeForce GTX 1080 Ti, GeForce GTX 1060, Tesla P100
+    pynvml.NVML_DEVICE_ARCH_VOLTA: "Volta", # example: Tesla V100, Titan V
+    pynvml.NVML_DEVICE_ARCH_TURING: "Turing", # example: GeForce RTX 2080 Ti, GeForce GTX 1660 Ti, Tesla T4
+    pynvml.NVML_DEVICE_ARCH_AMPERE: "Ampere", # example: GeForce RTX 3080, GeForce RTX 3060, A100
+    pynvml.NVML_DEVICE_ARCH_ADA: "Ada", # example: GeForce RTX 4090, GeForce RTX 4080, L40
+    pynvml.NVML_DEVICE_ARCH_HOPPER: "Hopper", # example: H100, H800
     pynvml.NVML_DEVICE_ARCH_UNKNOWN: "Unknown",
 }
 
