@@ -10,7 +10,6 @@ r"""
 import pytest
 import swanlab
 
-# from swanlab import swanlab_settings
 from pydantic import ValidationError
 
 
@@ -80,3 +79,40 @@ class TestSwanlabSettings:
         # 传入非Settings对象到init
         with pytest.raises(TypeError):
             swanlab.init(settings={"hardware_monitor": False})
+
+        # 传入基本类型到merge_settings
+        with pytest.raises(TypeError):
+            swanlab.merge_settings(42)
+
+        with pytest.raises(TypeError):
+            swanlab.merge_settings("settings")
+
+        with pytest.raises(TypeError):
+            swanlab.merge_settings(True)
+
+        # 传入其他非Settings类的对象
+        class FakeSettings:
+            hardware_monitor = False
+
+        with pytest.raises(TypeError):
+            swanlab.merge_settings(FakeSettings())
+
+        # 测试嵌套对象类型验证
+        with pytest.raises(TypeError):
+            swanlab.init(settings={"hardware_monitor": False, "nested": {"invalid": True}})
+
+        # 测试内置验证器 - memory_block_size 必须是2的幂次方
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            invalid_settings = swanlab.Settings(memory_block_size=123)  # 不是2的幂次方
+            swanlab.merge_settings(invalid_settings)
+
+        # 测试正整数验证
+        with pytest.raises(ValidationError):
+            invalid_settings = swanlab.Settings(upload_interval=-1.5)  # 负数不被PositiveFloat接受
+            swanlab.merge_settings(invalid_settings)
+
+        with pytest.raises(ValidationError):
+            invalid_settings = swanlab.Settings(max_log_line_length=0)  # 0不被PositiveInt接受
+            swanlab.merge_settings(invalid_settings)
