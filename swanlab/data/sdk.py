@@ -15,7 +15,7 @@ from swankit.callback import SwanKitCallback
 from swanlab.api import code_login, create_http
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
-from swanlab import swanlab_settings
+from swanlab import swanlab_settings  # 使用 swanlab_settings.settings 来修改全局变量
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
@@ -265,10 +265,6 @@ def merge_settings(new_settings: swanlab_settings.Settings):
     if not isinstance(new_settings, swanlab_settings.Settings):
         raise TypeError("Expected Settings object")
 
-    # 检查全局设置是否被锁定
-    # if getattr(swanlab_settings, 'locked', False):
-    # raise RuntimeError("Settings are locked and cannot be modified")
-
     # 获取当前全局设置的字典形式
     current_settings_dict = {}
     current_settings = swanlab_settings.settings
@@ -286,3 +282,10 @@ def merge_settings(new_settings: swanlab_settings.Settings):
 
     # 更新全局设置
     swanlab_settings.settings = merged_settings
+
+
+def get_settings():
+    """获取当前全局设置"""
+    from swanlab.swanlab_settings import settings
+
+    return settings

@@ -9,53 +9,58 @@ r"""
 
 import pytest
 import swanlab
-from swanlab import finish
-from swanlab import merge_settings
-from swanlab.swanlab_settings import Settings
-from swanlab import swanlab_settings
+
+# from swanlab import swanlab_settings
 from pydantic import ValidationError
 
 
 class TestSwanlabSettingsBasics:
     def test_settings_frozen(self):
         """测试Settings对象实例化后是不可变的"""
-        settings = Settings()
+        settings = swanlab.Settings()
         with pytest.raises(ValidationError):
             settings.hardware_monitor = False
 
     def test_settings_initialization(self):
         """测试Settings的初始化和验证"""
         # 测试基本初始化
-        settings = Settings()
+        settings = swanlab.Settings()
         assert settings.hardware_monitor is None
 
         # 测试自定义参数
-        settings = Settings(hardware_monitor=False)
+        settings = swanlab.Settings(hardware_monitor=False)
         assert settings.hardware_monitor is False
 
     def test_settings_get(self):
         """测试Settings对象的get方法"""
-        settings = Settings()
+        settings = swanlab.Settings()
         assert settings.get("hardware_monitor") is None
         assert settings.get("hardware_monitor", 1) == 1
 
 
 class TestSwanlabSettings:
+    def teardown_method(self):
+        # 每个测试方法后执行
+        try:
+            swanlab.finish()
+        except Exception:
+            pass
+
     def test_merge_settings(self):
         """测试合并设置到全局状态"""
         # 合并自定义设置
-        settings1 = Settings(hardware_monitor=False)
-        merge_settings(settings1)
+        settings1 = swanlab.Settings(hardware_monitor=False)
+        swanlab.merge_settings(settings1)
 
-        # 验证设置已被更新
-        assert swanlab_settings.settings.hardware_monitor is False
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is False
 
         # 再次修改设置
-        settings2 = Settings(hardware_monitor=True)
-        merge_settings(settings2)
+        settings2 = swanlab.Settings(hardware_monitor=True)
+        swanlab.merge_settings(settings2)
 
-        # 验证设置已被更新
-        assert swanlab_settings.settings.hardware_monitor is True
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is True
 
     def test_default_setup(self):
         """测试不提供设置时的默认行为"""
@@ -63,16 +68,15 @@ class TestSwanlabSettings:
         swanlab.init(mode="disabled")
 
         # 验证使用了默认设置
-        assert swanlab_settings.settings.hardware_monitor is True
-        swanlab.finish()
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is True
 
     def test_type_validation(self):
         """测试类型验证"""
         # 传入非Settings对象到merge_settings
         with pytest.raises(TypeError):
-            merge_settings({"hardware_monitor": False})
+            swanlab.merge_settings({"hardware_monitor": False})
 
         # 传入非Settings对象到init
         with pytest.raises(TypeError):
             swanlab.init(settings={"hardware_monitor": False})
-            swanlab.finish()

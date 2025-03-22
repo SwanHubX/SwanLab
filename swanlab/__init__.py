@@ -16,10 +16,12 @@ from .data import (
     get_url,
     get_project_url,
     merge_settings,
+    get_settings,
 )
 from .env import SwanLabEnv
 from .package import get_package_version
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
+from .swanlab_settings import Settings
 
 # 设置默认环境变量
 SwanLabEnv.set_default()

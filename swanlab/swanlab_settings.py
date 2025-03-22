@@ -7,7 +7,7 @@ r"""
     SwanLab全局功能开关，用于管理和控制SwanLab的全局设置
 """
 
-from typing import Dict, Any
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 
