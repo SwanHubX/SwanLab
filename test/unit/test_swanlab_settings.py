@@ -70,6 +70,35 @@ class TestSwanlabSettings:
         settings = swanlab.get_settings()
         assert settings.hardware_monitor is True
 
+    def test_change_settings(self):
+        """测试修改设置"""
+        settings = swanlab.Settings(hardware_monitor=False)
+        swanlab.merge_settings(settings)
+
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is False
+
+        new_settings = swanlab.Settings(hardware_monitor=True)
+        swanlab.merge_settings(new_settings)
+
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is True
+
+    def test_change_settings_with_init(self):
+        """测试在init时修改设置"""
+        settings = swanlab.Settings(hardware_monitor=False)
+        swanlab.merge_settings(settings)
+        settings = swanlab.get_settings()  # 此时硬件监控被关闭
+        assert settings.hardware_monitor is False
+
+        new_settings = swanlab.Settings(hardware_monitor=True)
+        swanlab.init(
+            settings=new_settings,
+            mode="disabled",
+        )  # 此时硬件监控被开启
+        settings = swanlab.get_settings()
+        assert settings.hardware_monitor is True
+
     def test_type_validation(self):
         """测试类型验证"""
         # 传入非Settings对象到merge_settings
