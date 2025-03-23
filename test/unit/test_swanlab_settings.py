@@ -36,6 +36,11 @@ class TestSwanlabSettingsBasics:
         assert settings.get("hardware_monitor") is None
         assert settings.get("hardware_monitor", 1) == 1
 
+    def test_get_settings(self):
+        """测试get_settings()方法"""
+        settings = swanlab.get_settings()
+        assert settings.get("hardware_monitor") is True
+
 
 class TestSwanlabSettings:
     def teardown_method(self):

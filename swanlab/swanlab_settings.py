@@ -105,3 +105,15 @@ settings = Settings(
     experiment_id=None,
     memory_block_size=1024,
 )
+
+
+def get_settings():
+    """获取当前全局设置"""
+    global settings
+    return settings
+
+
+def set_settings(new_settings: Settings) -> Settings:
+    global settings
+    settings = new_settings
+    return settings
