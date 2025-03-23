@@ -13,10 +13,10 @@ from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
 from requests.adapters import HTTPAdapter
+from swankit.core import MediaBuffer
 from swankit.log import FONT
 from urllib3.util.retry import Retry
 
-from swanlab.data.modules import MediaBuffer
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version

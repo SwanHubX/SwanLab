@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
+
 - 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/plugin/notification-lark.html)など。
 
 - 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
@@ -70,12 +72,12 @@
 
 - 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
 
+
+<details><summary>完全な更新履歴</summary>
+
 - 2025.02.09: 我們與 [veRL](https://github.com/volcengine/verl) 完成了聯合集成，現在你可以在veRL中使用SwanLab來**跟踪和可視化大模型強化學習實驗**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
 - 2025.02.05：`swanlab.log`はネストされた辞書をサポートし、Jaxフレームワークの特性に適応 [#812](https://github.com/SwanHubX/SwanLab/pull/812)；`name`と`notes`パラメータをサポート
-
-
-<details><summary>完全な更新履歴</summary>
 
 - 2025.01.22：`sync_tensorboardX`と`sync_tensorboard_torch`機能を追加し、この2つのTensorBoardフレームワークとの実験追跡の同期をサポート
 
@@ -173,19 +175,13 @@ pip install swanlab
 
 最新の機能を体験したい場合は、ソースコードからインストールすることができます。
 
-**ステップ1**: プロジェクトをクローンする
-
 ```bash
+# Method 1
 git clone https://github.com/SwanHubX/SwanLab.git
-cd SwanLab
-```
-
-**ステップ2**: `swanlab/package.json` の `version` フィールドを変更します。例えば、`0.10.0` にします。
-
-**ステップ3**: インストールする
-
-```bash
 pip install -e .
+
+# Method 2
+pip install git+https://github.com/SwanHubX/SwanLab.git
 ```
 
 </details>
@@ -237,6 +233,8 @@ for i in range(10):
 ## 💻 セルフホスティング
 
 セルフホスティングコミュニティ版は、SwanLabダッシュボードをオフラインで閲覧することをサポートしています。
+
+![swanlab-docker](./readme_files/swanlab-docker.png)
 
 ### 1. Dockerを使用してセルフホスティング版をデプロイ
 

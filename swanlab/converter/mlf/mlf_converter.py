@@ -7,6 +7,7 @@ mlf_converter.run(tracking_uri="MLFLOW_TRACKING_URL", experiment=0)
 """
 import swanlab
 from swanlab.log import swanlog as swl
+import time
 
 class MLFLowConverter:
     def __init__(
@@ -79,9 +80,15 @@ class MLFLowConverter:
                     mlflow_run_tags={k: v for k, v in run.data.tags.items() if not k.startswith('mlflow')},
                 ))
                 
+                index = 0
                 for key in run.data.metrics.keys():
                     for m in client.get_metric_history(run_id, key):
                         swanlab_run.log({m.key: m.value}, step=m.step)
+                        index += 1
+                        print(f"Index {index}: Metric: {m.key} log finished")
+                        # TODO: 等未来上传方案优化后解除延时
+                        if index % 5 == 0:
+                            time.sleep(1)
                 
                 swanlab_run.finish()
                 

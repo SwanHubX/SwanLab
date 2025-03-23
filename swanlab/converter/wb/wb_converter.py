@@ -8,6 +8,7 @@ wb_converter.run(wb_project="WANDB_PROJECT_NAME", wb_entity="WANDB_USERNAME")
 
 import swanlab
 from swanlab.log import swanlog as swl
+import time
 
 
 class WandbConverter:
@@ -95,6 +96,8 @@ class WandbConverter:
             else:
                 keys = []
 
+            data_pool = {}
+            
             # 记录标量指标
             for record in wb_run.scan_history():
                 step = record.get("_step")
@@ -105,7 +108,22 @@ class WandbConverter:
                         # 如果是多媒体数据，如图像，value是这个格式
                         # image {'format': 'png', 'path': 'media/images/image_13_3bbb7517118b6af0307c.png', 'sha256': '3bbb7517118b6af0307cbe1b26f6d94b68797874112de716df4b5b50e01ddc24', 'size': 30168, 'height': 100, 'width': 100, '_type': 'image-file'}
                         continue
-                    swanlab_run.log({key: value}, step=step)
+                    
+                    # 使用dict存储数据
+                    if key not in data_pool:
+                        data_pool[key] = []
+                    data_pool[key].append({"value": value, "step": step})
+                    
+            # 分key记录数据，防止阻塞
+            index = 0
+            for key, data_list in data_pool.items():
+                for data in data_list:
+                    swanlab_run.log({key: data["value"]}, step=data["step"])
+                # TODO: 等未来上传方案优化后解除延时
+                if index % 5 == 0:
+                    time.sleep(1)
+                print(f"Index {index} / {len(data_pool)}: Metric: {key} Data Number: {len(data_list)}")
+                index += 1
 
             # 结束此轮实验
             swanlab_run.finish()
