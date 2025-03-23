@@ -1,4 +1,6 @@
 """
+Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html
+
 For adaptation to the stable_baseline3 framework. Detailed usage are as follows:
 ------trian.py in stable_baseline3------
 import swanlab
