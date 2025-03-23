@@ -12,10 +12,10 @@ from typing import Union, Dict, Literal, List
 
 from swankit.callback import SwanKitCallback
 
+from swanlab import swanlab_settings
 from swanlab.api import code_login, create_http
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
-from swanlab import swanlab_settings  # 使用 swanlab_settings.settings 来修改全局变量
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
@@ -35,7 +35,6 @@ from .utils import (
     should_call_before_init,
 )
 from ..package import HostFormatter
-from swanlab import swanlab_settings
 
 
 @should_call_before_init("After calling swanlab.login(), you can't call it again.")
