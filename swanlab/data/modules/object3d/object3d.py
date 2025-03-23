@@ -144,7 +144,7 @@ class Object3D:
         )
 
     _TYPE_HANDLERS: Dict[Type, List[Callable]] = {
-        Dict: [PointCloud.from_swanlab_pts],
+        dict: [PointCloud.from_swanlab_pts],
     }
 
     @classmethod
