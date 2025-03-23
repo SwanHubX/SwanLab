@@ -26,13 +26,13 @@ def get_ascend_npu_info() -> HardwareFuncResult:
     # 其实理论上davinci后接数字，代表此设备id，但是官方文档也没明确写，以防万一还是不这么干了
     if not list(filter(lambda x: x.startswith("davinci"), os.listdir("/dev"))):
         return None, None
-    info = {"driver": None, "npu": None, "cann_version": None}
+    info = {"driver": None, "npu": None, "cann": None}
     collector = None
     try:
         # 获取NPU驱动版本
         info["driver"] = get_version()
         # 获取CANN版本
-        info["cann_version"] = get_cann_version()
+        info["cann"] = get_cann_version()
         
         # 获取所有NPU设备ID
         npu_map = map_npu()
