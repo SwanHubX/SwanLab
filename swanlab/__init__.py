@@ -2,7 +2,7 @@
 from .data import *
 from .env import SwanLabEnv
 from .package import get_package_version
-from .swanlab_settings import Settings, get_settings
+from .swanlab_settings import Settings
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
 
 # 设置默认环境变量

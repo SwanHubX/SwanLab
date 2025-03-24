@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import swanlab
+from swanlab.swanlab_settings import get_settings, reset_settings
 
 
 class TestSwanlabSettingsBasics:
@@ -38,7 +39,7 @@ class TestSwanlabSettingsBasics:
 
     def test_get_settings(self):
         """测试get_settings()方法"""
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.get("hardware_monitor") is None
 
 
@@ -49,6 +50,7 @@ class TestSwanlabSettings:
             swanlab.finish()
         except Exception:
             pass
+        reset_settings()
 
     def test_merge_settings(self):
         """测试合并设置到全局状态"""
@@ -56,23 +58,24 @@ class TestSwanlabSettings:
         settings1 = swanlab.Settings(hardware_monitor=False)
         swanlab.merge_settings(settings1)
 
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is False
 
         # 再次修改设置
         settings2 = swanlab.Settings(hardware_monitor=True)
         swanlab.merge_settings(settings2)
 
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is True
 
     def test_default_setup(self):
         """测试不提供设置时的默认行为"""
+        assert get_settings().get("hardware_monitor") is None
         # 不提供设置执行init
         swanlab.init(mode="disabled")
 
         # 验证使用了默认设置
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is None
 
     def test_change_settings(self):
@@ -80,20 +83,20 @@ class TestSwanlabSettings:
         settings = swanlab.Settings(hardware_monitor=False)
         swanlab.merge_settings(settings)
 
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is False
 
         new_settings = swanlab.Settings(hardware_monitor=True)
         swanlab.merge_settings(new_settings)
 
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is True
 
     def test_change_settings_with_init(self):
         """测试在init时修改设置"""
         settings = swanlab.Settings(hardware_monitor=False)
         swanlab.merge_settings(settings)
-        settings = swanlab.get_settings()  # 此时硬件监控被关闭
+        settings = get_settings()  # 此时硬件监控被关闭
         assert settings.hardware_monitor is False
 
         new_settings = swanlab.Settings(hardware_monitor=True)
@@ -101,7 +104,7 @@ class TestSwanlabSettings:
             settings=new_settings,
             mode="disabled",
         )  # 此时硬件监控被开启
-        settings = swanlab.get_settings()
+        settings = get_settings()
         assert settings.hardware_monitor is True
 
     def test_type_validation(self):
