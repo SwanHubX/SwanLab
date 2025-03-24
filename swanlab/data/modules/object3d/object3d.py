@@ -16,6 +16,8 @@ except ImportError:
 class Object3D:
     """A dispatcher class that converts different types of 3D data to MediaType objects.
 
+    :doc: `Object3D API Reference <https://docs.swanlab.cn/api/py-object3d.html>`
+
     This class provides a unified interface for handling various 3D data formats including:
     - Point clouds from numpy arrays
     - Point clouds with boxes from {"points": np.ndarray, "boxes": List[Box]}
