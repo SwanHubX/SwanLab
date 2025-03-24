@@ -8,3 +8,5 @@ psutil>=5.0.0
 pynvml
 boto3>=1.35.49
 botocore
+pydantic>=2.9.0
+typing_extensions; python_version < '3.9'

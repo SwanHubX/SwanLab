@@ -2,6 +2,7 @@
 from .data import *
 from .env import SwanLabEnv
 from .package import get_package_version
+from .swanlab_settings import Settings
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
 
 # 设置默认环境变量
@@ -13,6 +14,8 @@ __version__ = get_package_version()
 
 __all__ = [
     "login",
+    "Settings",
+    "merge_settings",
     "init",
     "log",
     "register_callbacks",
