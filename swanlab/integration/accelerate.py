@@ -1,5 +1,5 @@
 """
-Docs: <WAITIGNG UPDATE>
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html
 
 For adaptation to the huggingface accelerate. You can used SwanLab as your tracker, experiment logs can be uploaded to
 SwanLab or viewed using the local version of SwanLab. Detailed of used swanlab in accelerate train scripts are as follows:

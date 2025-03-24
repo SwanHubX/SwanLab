@@ -1,3 +1,7 @@
+"""
+https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html
+"""
+
 import json
 from typing import cast, Any, Dict
 import xgboost as xgb  # type: ignore

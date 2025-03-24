@@ -1,5 +1,5 @@
 """
-Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-huggingface-transformers.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html
 """
 
 import os
