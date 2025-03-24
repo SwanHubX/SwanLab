@@ -18,6 +18,7 @@ class Object3D:
 
     This class provides a unified interface for handling various 3D data formats including:
     - Point clouds from numpy arrays
+    - Point clouds with boxes from {"points": np.ndarray, "boxes": List[Box]}
     - 3D models from files (.glb)
     - Point cloud files (.swanlab.pts.json)
 
@@ -52,7 +53,7 @@ class Object3D:
 
     4. Creating PointCloud With boxes:
         >>> obj7 = Object3D(
-        ...     {"points": points_xyz, "boxes": "..."}
+        ...     {"points": points_xyz, "boxes": list(Box)}
         ... )
 
     Args:
