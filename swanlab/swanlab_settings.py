@@ -8,7 +8,12 @@ r"""
 """
 
 import math
-from typing import Any, Annotated, Optional
+from typing import Any, Optional
+
+try:
+    from typing import Annotated  # Python 3.9+
+except ImportError:
+    from typing_extensions import Annotated  # Python 3.8
 
 from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt, AfterValidator, StrictBool
 
