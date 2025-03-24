@@ -8,9 +8,9 @@ r"""
 """
 
 import pytest
-import swanlab
-
 from pydantic import ValidationError
+
+import swanlab
 
 
 class TestSwanlabSettingsBasics:
@@ -39,7 +39,7 @@ class TestSwanlabSettingsBasics:
     def test_get_settings(self):
         """测试get_settings()方法"""
         settings = swanlab.get_settings()
-        assert settings.get("hardware_monitor") is True
+        assert settings.get("hardware_monitor") is None
 
 
 class TestSwanlabSettings:
@@ -73,7 +73,7 @@ class TestSwanlabSettings:
 
         # 验证使用了默认设置
         settings = swanlab.get_settings()
-        assert settings.hardware_monitor is True
+        assert settings.hardware_monitor is None
 
     def test_change_settings(self):
         """测试修改设置"""
