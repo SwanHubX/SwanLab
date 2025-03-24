@@ -50,6 +50,11 @@ class Object3D:
         ...     caption="My 3D"   # Caption text
         ... )
 
+    4. Creating PointCloud With boxes:
+        >>> obj7 = Object3D(
+        ...     {"points": points_xyz, "boxes": "..."}
+        ... )
+
     Args:
         data: Input data, can be:
             - numpy.ndarray: Point cloud data with shape (N, C) where C is 3,4 or 6
@@ -69,7 +74,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path],
+        data: Union[np.ndarray, str, Path, Dict],
         *,
         caption: Optional[str] = None,
         **kwargs,
