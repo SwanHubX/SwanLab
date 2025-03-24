@@ -9,7 +9,6 @@ r"""
 """
 import os
 from typing import Union, Dict, Literal, List
-from pydantic import BaseModel
 
 from swankit.callback import SwanKitCallback
 
@@ -251,18 +250,6 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     run.finish(state, error)
 
 
-def merge_models(a: BaseModel, b: BaseModel) -> BaseModel:
-    # 将 A 和 B 转换为字典
-    a_data = a.model_dump()
-    b_data = b.model_dump()
-
-    # 合并：仅当 B 的字段值不为 None 时覆盖 A
-    merged_data = {**a_data, **{k: v for k, v in b_data.items() if v is not None}}
-
-    # 生成新对象（类型与 A/B 相同）
-    return a.__class__.model_validate(merged_data)
-
-
 @should_call_before_init("You can't call merge_settings() after swanlab.init()")
 def merge_settings(new_settings: Settings):
     """
@@ -278,6 +265,8 @@ def merge_settings(new_settings: Settings):
         raise TypeError("Expected Settings object")
 
     current_settings = get_settings()
-    merged_settings = merge_models(current_settings, new_settings)
+    current_data = current_settings.model_dump()
+    new_data = new_settings.model_dump()
+    merged_data = {**current_data, **{k: v for k, v in new_data.items() if v is not None}}
     # 更新全局设置
-    set_settings(merged_settings)
+    set_settings(Settings.model_validate(merged_data))
