@@ -16,8 +16,11 @@ except ImportError:
 class Object3D:
     """A dispatcher class that converts different types of 3D data to MediaType objects.
 
+    :doc: `Object3D API Reference <https://docs.swanlab.cn/api/py-object3d.html>`
+
     This class provides a unified interface for handling various 3D data formats including:
     - Point clouds from numpy arrays
+    - Point clouds with boxes from {"points": np.ndarray, "boxes": List[Box]}
     - 3D models from files (.glb)
     - Point cloud files (.swanlab.pts.json)
 
@@ -50,6 +53,11 @@ class Object3D:
         ...     caption="My 3D"   # Caption text
         ... )
 
+    4. Creating PointCloud With boxes:
+        >>> obj7 = Object3D(
+        ...     {"points": points_xyz, "boxes": list(Box)}
+        ... )
+
     Args:
         data: Input data, can be:
             - numpy.ndarray: Point cloud data with shape (N, C) where C is 3,4 or 6
@@ -69,7 +77,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path],
+        data: Union[np.ndarray, str, Path, Dict],
         *,
         caption: Optional[str] = None,
         **kwargs,
@@ -144,7 +152,7 @@ class Object3D:
         )
 
     _TYPE_HANDLERS: Dict[Type, List[Callable]] = {
-        Dict: [PointCloud.from_swanlab_pts],
+        dict: [PointCloud.from_swanlab_pts],
     }
 
     @classmethod
