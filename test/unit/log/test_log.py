@@ -17,21 +17,26 @@ from swanlab.log import swanlog
 from tutils import TEMP_PATH
 
 
-@pytest.fixture(scope="function", autouse=True)
-def before_test_global_swanlog():
-    """
-    在测试之前清除全局swanlog的状态
-    """
-    try:
-        swanlog.uninstall()
-    except RuntimeError:
-        pass
-
-
 class TestSwanLogInstall:
     """
     目前在设计上不希望外界实例化SwanLog，所以不提供实例化测试
     """
+
+    @staticmethod
+    def teardown_method():
+        # 每个测试方法后执行
+        try:
+            swanlog.uninstall()
+        except RuntimeError:
+            pass
+
+    @staticmethod
+    def setup_method():
+        # 每个测试方法前执行
+        try:
+            swanlog.uninstall()
+        except RuntimeError:
+            pass
 
     @staticmethod
     def create_console_dir():
