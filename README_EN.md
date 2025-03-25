@@ -11,7 +11,7 @@
 An open-source, modern-designed deep learning training tracking and visualization tool  
 Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, and easily integrates with your experimental code.
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/zh/guide_cloud/general/changelog.html">Changelog</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -31,7 +31,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 [中文](README.md) / English / [日本語](README_JP.md) / [Русский](README_RU.md)
 
-👋 Join our [WeChat Group](https://docs.swanlab.cn/en/zh/guide_cloud/community/online-support.html)
+👋 Join our [WeChat Group](https://docs.swanlab.cn/en/guide_cloud/community/online-support.html)
 
 </div>
 
@@ -53,7 +53,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
+- 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
 
 - 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
 
@@ -80,7 +80,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.01.22: Added `sync_tensorboardX` and `sync_tensorboard_torch` features, supporting synchronization of experiment tracking with these two TensorBoard frameworks.
 
-- 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
+- 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
 
 - 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
 
@@ -157,7 +157,7 @@ Check out SwanLab's online demos:
 | [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
 | Progressive experimental process from ResNet to ResNeXt on audio classification tasks. | Fine-tune Qwen2-VL multimodal large model on COCO2014 dataset using Lora. |
 
-[More Examples](https://docs.swanlab.cn/en/zh/examples/mnist.html)
+[More Examples](https://docs.swanlab.cn/en/examples/mnist.html)
 
 <br>
 
@@ -317,7 +317,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
 
-[More Integrations](https://docs.swanlab.cn/en/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+[More Integrations](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 
 <br>
 
@@ -373,7 +373,7 @@ Enhance your experiment management experience by extending SwanLab's functionali
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues): Errors and issues encountered while using SwanLab.
 - [Email Support](zeyi.lin@swanhub.co): Feedback and questions about using SwanLab.
-- <a href="https://docs.swanlab.cn/en/zh/guide_cloud/community/online-support.html">WeChat Group</a>: Discuss SwanLab usage and share the latest AI technologies.
+- <a href="https://docs.swanlab.cn/en/guide_cloud/community/online-support.html">WeChat Group</a>: Discuss SwanLab usage and share the latest AI technologies.
 
 ### SwanLab README Badge
 

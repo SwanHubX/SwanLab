@@ -12,7 +12,7 @@
 オープンソースでモダンなデザインのディープラーニングトレーニング追跡・可視化ツール  
 クラウド/オフライン使用に対応し、30以上の主要フレームワークと互換性があり、実験コードと簡単に統合可能
 
-<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/zh/guide_cloud/general/changelog.html">更新履歴</a>
+<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -32,7 +32,7 @@
 
 [中文](README.md) / [English](README_EN.md) / 日本語 / [Русский](README_RU.md)
 
-👋 [WeChatグループ](https://docs.swanlab.cn/en/zh/guide_cloud/community/online-support.html)に参加する
+👋 [WeChatグループ](https://docs.swanlab.cn/en/guide_cloud/community/online-support.html)に参加する
 
 </div>
 
@@ -54,7 +54,7 @@
 
 ## 🌟 最近の更新
 
-- 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
+- 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
 
 - 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
 
@@ -81,7 +81,7 @@
 
 - 2025.01.22：`sync_tensorboardX`と`sync_tensorboard_torch`機能を追加し、この2つのTensorBoardフレームワークとの実験追跡の同期をサポート
 
-- 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
+- 2025.01.17：`sync_wandb`機能を追加し、[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)、Weights & Biases実験追跡との同期をサポート；ログレンダリング性能を大幅に最適化
 
 - 2025.01.11：クラウド版はプロジェクトテーブルのパフォーマンスを大幅に最適化し、ドラッグ＆ドロップ、並べ替え、フィルタリングなどのインタラクションをサポートしました。
 
@@ -159,7 +159,7 @@ SwanLabのオンラインデモをご覧ください：
 | [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
 | ResNetからResNeXtへの音声分類タスクの進化的実験プロセス | Qwen2-VL多モーダル大規模モデルを使用してCOCO2014データセットでLoraファインチューニング。 |
 
-[その他の例](https://docs.swanlab.cn/en/zh/examples/mnist.html)
+[その他の例](https://docs.swanlab.cn/en/examples/mnist.html)
 
 <br>
 
@@ -320,7 +320,7 @@ swanlab login --host http://localhost:8000
 - [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
 
-[その他の統合](https://docs.swanlab.cn/en/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+[その他の統合](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 
 <br>
 
