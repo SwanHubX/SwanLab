@@ -405,3 +405,31 @@ class DiscordCallback(WebhookCallback):
 
     def __str__(self):
         return "DiscordBotCallback"
+
+
+class SlackBot:
+    """
+    Slack notification callback with bilingual support.
+    docs: https://api.slack.com/messaging/webhooks
+    """
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+
+
+class SlackCallback(WebhookCallback):
+    """Slack notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = SlackBot(self.webhook_url)
+
+    def send_msg(self, content: str) -> None:
+        data = {
+            "text": content,
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        print("✅ SlackBot sending successfully")
+
+    def __str__(self):
+        return "SlackBotCallback"
