@@ -110,12 +110,18 @@ class GpuCollector(HardwareCollector):
         # GPU 功耗
         self.gpu_power_key = generate_key("gpu.{idx}.power")
         power_config = HardwareConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
+        # GPU 访存时间百分比
+        self.gpu_mem_time_key = generate_key("gpu.{idx}.mem.time")
+        mem_time_config = HardwareConfig(
+            y_range=(0, 100), chart_name="GPU Time Spent Accessing Memory (%)", chart_index=random_index()
+        )
         # 每个GPU的配置信息
         self.per_gpu_configs = {
             self.gpu_mem_pct_key: [],
             self.gpu_mem_value_key: [],
             self.gpu_temp_key: [],
             self.gpu_power_key: [],
+            self.gpu_mem_time_key: [],
             self.gpu_util_key: [],
         }
         self.handles = []
@@ -125,6 +131,7 @@ class GpuCollector(HardwareCollector):
             self.per_gpu_configs[self.gpu_mem_value_key].append(mem_value_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_temp_key].append(tem_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_mem_time_key].append(mem_time_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_util_key].append(util_config.clone(metric_name=metric_name))
 
     @HardwareCollector.try_run()
@@ -206,6 +213,20 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_power_key, idx),
         }
 
+    @HardwareCollector.try_run()
+    def get_gpu_mem_time(self, idx: int) -> HardwareInfo:
+        """
+        获取 GPU 访存时间百分比
+        """
+        handle = self.handles[idx]
+        info = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        return {
+            "key": self.gpu_mem_time_key.format(idx=idx),
+            "value": info.memory,
+            "name": "GPU {idx} Time Spent Accessing Memory (%)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_mem_time_key, idx),
+        }
+
     def collect(self) -> HardwareInfoList:
         """
         采集信息
@@ -217,6 +238,7 @@ class GpuCollector(HardwareCollector):
             result.append(self.get_gpu_util(idx))
             result.append(self.get_gpu_temp(idx))
             result.append(self.get_gpu_power(idx))
+            result.append(self.get_gpu_mem_time(idx))
         return result
 
     def __del__(self):
