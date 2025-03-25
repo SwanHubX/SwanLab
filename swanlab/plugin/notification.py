@@ -377,3 +377,31 @@ class WXWorkCallback(WebhookCallback):
 
     def __str__(self):
         return "WXWorkBotCallback"
+
+
+class DiscordBot:
+    """
+    Discord notification callback with bilingual support.
+    docs: https://discord.com/developers/docs/resources/webhook
+    """
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+
+
+class DiscordCallback(WebhookCallback):
+    """Discord notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = DiscordBot(self.webhook_url)
+
+    def send_msg(self, content: str) -> None:
+        data = {
+            "content": content,
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        print("✅ DiscordBot sending successfully")
+
+    def __str__(self):
+        return "DiscordBotCallback"
