@@ -338,6 +338,8 @@ swanlab login --host http://localhost:8000
 - [飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
 - [钉钉通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
 - [企业微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+- [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)
+- [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 <br>
