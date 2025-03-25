@@ -401,6 +401,9 @@ class DiscordCallback(WebhookCallback):
         }
         resp = requests.post(self.bot.webhook_url, json=data)
         resp.raise_for_status()
+        if resp.status_code not in [200, 204]:
+            print(f"❌ DiscordBot sending failed: {resp.text}")
+            return
         print("✅ DiscordBot sending successfully")
 
     def __str__(self):
@@ -429,6 +432,9 @@ class SlackCallback(WebhookCallback):
         }
         resp = requests.post(self.bot.webhook_url, json=data)
         resp.raise_for_status()
+        if resp.status_code not in [200, 204]:
+            print(f"❌ SlackBot sending failed: {resp.text}")
+            return
         print("✅ SlackBot sending successfully")
 
     def __str__(self):
