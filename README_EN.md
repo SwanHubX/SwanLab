@@ -325,14 +325,14 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 
 Enhance your experiment management experience by extending SwanLab's functionality through plugins!
 
-• [Customize Your Plugin](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
-• [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html)
-• [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html)
-• [DingTalk Notification](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
-• [WXWork Notification](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
-• [Discord Notification](https://docs.swanlab.cn/en/plugin/notification-discord.html)
-• [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html)
-• [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+- [Customize Your Plugin](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
+-  [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html)
+-  [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html)
+-  [DingTalk Notification](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
+-  [WXWork Notification](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
+-  [Discord Notification](https://docs.swanlab.cn/en/plugin/notification-discord.html)
+-  [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+-  [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 
 <br>
 

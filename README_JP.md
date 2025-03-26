@@ -328,14 +328,14 @@ swanlab login --host http://localhost:8000
 
 プラグインを通じてSwanLabの機能を拡張し、実験管理体験を向上させましょう！
 
-• [プラグインのカスタマイズ](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
-• [メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)
-• [Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)
-• [DingTalk通知](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
-• [企業微信通知](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
-• [Discord通知](https://docs.swanlab.cn/en/plugin/notification-discord.html)
-• [Slack通知](https://docs.swanlab.cn/en/plugin/notification-slack.html)
-• [CSVロガー](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+-  [プラグインのカスタマイズ](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
+-  [メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)
+-  [Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)
+-  [DingTalk通知](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
+-  [企業微信通知](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
+-  [Discord通知](https://docs.swanlab.cn/en/plugin/notification-discord.html)
+-  [Slack通知](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+-  [CSVロガー](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 
 <br>
 

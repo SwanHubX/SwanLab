@@ -349,14 +349,14 @@ swanlab login --host http://localhost:8000
 
 Расширьте функциональность SwanLab и улучшите управление экспериментами с помощью плагинов!
 
-• [Настройте свой плагин](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
-• [Уведомления по электронной почте](https://docs.swanlab.cn/en/plugin/notification-email.html)
-• [Уведомления в Lark](https://docs.swanlab.cn/en/plugin/notification-lark.html)
-• [Уведомления в DingTalk](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
-• [Уведомления в WeChat Work](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
-• [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
-• [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
-• [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+- [Настройте свой плагин](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
+-  [Уведомления по электронной почте](https://docs.swanlab.cn/en/plugin/notification-email.html)
+-  [Уведомления в Lark](https://docs.swanlab.cn/en/plugin/notification-lark.html)
+-  [Уведомления в DingTalk](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
+-  [Уведомления в WXWork](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
+-  [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
+-  [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+-  [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 
 <br>
 
