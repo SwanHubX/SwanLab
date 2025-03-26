@@ -93,3 +93,14 @@ class TestGpuCollector:
         assert power['config'].metric_name == "GPU 0"
         assert power['value'] >= 0
         assert power['config'].metric_name == "GPU 0"
+
+    @pytest.mark.skipif(count == 0, reason="No NVIDIA GPU found")
+    def test_get_mem_time(self):
+        # 获取handle
+        idx = 0
+        time = self.collector.get_gpu_mem_time(idx=idx)
+        assert time['name'] == "GPU 0 Time Spent Accessing Memory (%)"
+        assert time['config'].y_range == (0, 100)
+        assert time['config'].metric_name == "GPU 0"
+        assert 100 >= time['value'] >= 0
+        assert time['config'].metric_name == "GPU 0"
