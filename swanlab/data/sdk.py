@@ -15,6 +15,7 @@ from swankit.callback import SwanKitCallback
 from swanlab.api import code_login, create_http
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
+from swanlab.swanlab_settings import Settings, get_settings, set_settings
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
@@ -88,6 +89,7 @@ class SwanLabInitializer:
         load: str = None,
         public: bool = None,
         callbacks: List[SwanKitCallback] = None,
+        settings: Settings = None,
         **kwargs,
     ) -> SwanLabRun:
         """
@@ -147,7 +149,12 @@ class SwanLabInitializer:
         callbacks : Union[SwanKitCallback, List[SwanKitCallback]], optional
             The callback function that will be triggered when the experiment is finished.
             If you provide a list, all the callback functions in the list will be triggered in order.
+        settings: swanlab.swanlab_settings.Settings, optional
+            The settings for the current experiment.
         """
+        # 注册settings
+        merge_settings(settings)
+
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
             return get_run()
@@ -241,3 +248,25 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     if not run.running:
         return swanlog.error("After experiment is finished, you can't call finish() again.")
     run.finish(state, error)
+
+
+@should_call_before_init("You can't call merge_settings() after swanlab.init()")
+def merge_settings(new_settings: Settings):
+    """
+    合并用户设置到全局设置
+    :param new_settings: Settings对象
+    :raises TypeError: 当输入不是Settings对象时抛出
+    :raises RuntimeError: 当设置已被锁定时抛出
+    """
+    if new_settings is None:
+        return
+
+    if not isinstance(new_settings, Settings):
+        raise TypeError("Expected Settings object")
+
+    current_settings = get_settings()
+    current_data = current_settings.model_dump()
+    new_data = new_settings.model_dump()
+    merged_data = {**current_data, **{k: v for k, v in new_data.items() if v is not None}}
+    # 更新全局设置
+    set_settings(Settings.model_validate(merged_data))

@@ -1,5 +1,5 @@
 """
-Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-huggingface-transformers.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html
 """
 from typing import Optional, Any
 from typing_extensions import deprecated

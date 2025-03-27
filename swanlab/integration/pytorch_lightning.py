@@ -1,5 +1,5 @@
 """
-Docs:https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html
+Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html
 """
 
 import os

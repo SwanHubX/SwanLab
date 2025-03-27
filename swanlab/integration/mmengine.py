@@ -1,5 +1,5 @@
 """
-Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-mmengine.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html
 
 For adaptation to the mmengine framework, this adaptation also applies to frameworks such as mmdetection, xtuner, etc.
 , which use mmengine as the engine. By setting 'vis_backends' to 'swanlab' in the config file, experiment logs can be

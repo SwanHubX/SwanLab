@@ -377,3 +377,65 @@ class WXWorkCallback(WebhookCallback):
 
     def __str__(self):
         return "WXWorkBotCallback"
+
+
+class DiscordBot:
+    """
+    Discord notification callback with bilingual support.
+    docs: https://discord.com/developers/docs/resources/webhook
+    """
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+
+
+class DiscordCallback(WebhookCallback):
+    """Discord notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = DiscordBot(self.webhook_url)
+
+    def send_msg(self, content: str) -> None:
+        data = {
+            "content": content,
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        if resp.status_code not in [200, 204]:
+            print(f"❌ DiscordBot sending failed: {resp.text}")
+            return
+        print("✅ DiscordBot sending successfully")
+
+    def __str__(self):
+        return "DiscordBotCallback"
+
+
+class SlackBot:
+    """
+    Slack notification callback with bilingual support.
+    docs: https://api.slack.com/messaging/webhooks
+    """
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+
+
+class SlackCallback(WebhookCallback):
+    """Slack notification callback with bilingual support."""
+
+    def _init_bot(self) -> None:
+        self.bot = SlackBot(self.webhook_url)
+
+    def send_msg(self, content: str) -> None:
+        data = {
+            "text": content,
+        }
+        resp = requests.post(self.bot.webhook_url, json=data)
+        resp.raise_for_status()
+        if resp.status_code not in [200, 204]:
+            print(f"❌ SlackBot sending failed: {resp.text}")
+            return
+        print("✅ SlackBot sending successfully")
+
+    def __str__(self):
+        return "SlackBotCallback"

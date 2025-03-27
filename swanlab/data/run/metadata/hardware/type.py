@@ -10,7 +10,7 @@ from typing import TypedDict, Tuple, Optional, Any, List, Union
 
 from swankit.callback.models import ColumnConfig, YRange
 
-from swanlab.data.run.namer import generate_colors
+from swanlab.data.namer import generate_colors
 from swanlab.log import swanlog
 
 

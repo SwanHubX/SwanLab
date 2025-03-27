@@ -1,5 +1,5 @@
 """
-Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-ultralytics.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html
 
 For adaptation to the ultralytics framework. Detailed usage are as follows:
 ------train.py in ultralytics------

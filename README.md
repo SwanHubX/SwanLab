@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2025.03.21：🎉🤗HuggingFace Transformers已正式集成SwanLab（>=4.50.0版本），[#36433](https://github.com/huggingface/transformers/pull/36433)；新增 **Object3D图表** ，支持记录与可视化三维点云，[文档](https://docs.swanlab.cn/api/py-object3d.html)；硬件监控支持了 GPU显存（MB）、磁盘利用率、网络上下行 的记录；
+
 - 2025.03.12：🎉🎉SwanLab**私有化部署版**现已发布！！[🔗部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLab 已支持插件扩展，如 [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)、[飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
 
 - 2025.03.09：支持**实验侧边栏拉宽**；新增外显 Git代码 按钮；新增 **sync_mlflow** 功能，支持与mlflow框架同步实验跟踪；
@@ -75,10 +77,9 @@
 
 - 2025.02.16：新增 **图表移动分组、创建分组** 功能。
 
-- 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
-
-
 <details><summary>完整更新日志</summary>
+
+- 2025.02.09：我们与 [veRL](https://github.com/volcengine/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
 
 - 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
 
@@ -178,19 +179,13 @@ pip install swanlab
 
 如果你想体验最新的特性，可以使用源码安装。
 
-**step1**: 克隆项目
-
 ```bash
+# 方式一
 git clone https://github.com/SwanHubX/SwanLab.git
-cd SwanLab
-```
-
-**step2**: 修改`swanlab/package.json`中的`version`字段，如`0.10.0`
-
-**step3**: 安装
-
-```bash
 pip install -e .
+
+# 方式二
+pip install git+https://github.com/SwanHubX/SwanLab.git
 ```
 
 </details>
@@ -243,6 +238,8 @@ for i in range(10):
 ## 💻 自托管
 
 自托管社区版支持离线查看 SwanLab 仪表盘。
+
+![swanlab-docker](./readme_files/swanlab-docker.png)
 
 ### 1. 使用Docker部署自托管版本
 
@@ -341,6 +338,8 @@ swanlab login --host http://localhost:8000
 - [飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
 - [钉钉通知](https://docs.swanlab.cn/plugin/notification-dingtalk.html)
 - [企业微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
+- [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)
+- [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 <br>
