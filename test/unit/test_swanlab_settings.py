@@ -6,12 +6,14 @@ r"""
 @Description:
     SwanLab settings module unit tests
 """
+import platform
 
 import pytest
 from pydantic import ValidationError
 
 import swanlab
 from swanlab.swanlab_settings import get_settings, reset_settings
+from tutils import TEMP_PATH
 
 
 class TestSwanlabSettingsBasics:
@@ -25,22 +27,11 @@ class TestSwanlabSettingsBasics:
         """测试Settings的初始化和验证"""
         # 测试基本初始化
         settings = swanlab.Settings()
-        assert settings.hardware_monitor is None
+        assert settings.hardware_monitor is True
 
         # 测试自定义参数
         settings = swanlab.Settings(hardware_monitor=False)
         assert settings.hardware_monitor is False
-
-    def test_settings_get(self):
-        """测试Settings对象的get方法"""
-        settings = swanlab.Settings()
-        assert settings.get("hardware_monitor") is None
-        assert settings.get("hardware_monitor", 1) == 1
-
-    def test_get_settings(self):
-        """测试get_settings()方法"""
-        settings = get_settings()
-        assert settings.get("hardware_monitor") is None
 
 
 class TestSwanlabSettings:
@@ -70,13 +61,12 @@ class TestSwanlabSettings:
 
     def test_default_setup(self):
         """测试不提供设置时的默认行为"""
-        assert get_settings().get("hardware_monitor") is None
         # 不提供设置执行init
         swanlab.init(mode="disabled")
 
         # 验证使用了默认设置
         settings = get_settings()
-        assert settings.hardware_monitor is None
+        assert settings.hardware_monitor is True
 
     def test_change_settings(self):
         """测试修改设置"""
@@ -138,18 +128,41 @@ class TestSwanlabSettings:
         with pytest.raises(TypeError):
             swanlab.init(settings={"hardware_monitor": False, "nested": {"invalid": True}})
 
-        # 测试内置验证器 - memory_block_size 必须是2的幂次方
-        from pydantic import ValidationError
+    def test_max_log_length(self):
+        """
+        测试日志长度范围
+        """
+        swanlab.Settings(max_log_length=500)
+        swanlab.Settings(max_log_length=4096)
+        with pytest.raises(ValidationError):
+            swanlab.Settings(max_log_length=499)
 
         with pytest.raises(ValidationError):
-            invalid_settings = swanlab.Settings(memory_block_size=123)  # 不是2的幂次方
-            swanlab.merge_settings(invalid_settings)
+            swanlab.Settings(max_log_length=4097)
 
-        # 测试正整数验证
-        with pytest.raises(ValidationError):
-            invalid_settings = swanlab.Settings(upload_interval=-1.5)  # 负数不被PositiveFloat接受
-            swanlab.merge_settings(invalid_settings)
+    def test_disk_io_default_dir(self):
+        """
+        测试默认磁盘IO监控路径
+        """
+        settings = swanlab.Settings()
+        assert settings.disk_io_dir == "C:\\" if platform.system() == 'Windows' else "/"
 
-        with pytest.raises(ValidationError):
-            invalid_settings = swanlab.Settings(max_log_line_length=0)  # 0不被PositiveInt接受
-            swanlab.merge_settings(invalid_settings)
+
+def test_filter_changed_fields():
+    # 默认
+    settings = swanlab.Settings()
+    changed = settings.filter_changed_fields()
+    assert changed == {}
+    # 修改
+    settings = swanlab.Settings(hardware_monitor=False)
+    changed = settings.filter_changed_fields()
+    assert changed == {"hardware_monitor": False}
+    # 修改，但是没有变化
+    settings = swanlab.Settings(hardware_monitor=True)
+    changed = settings.filter_changed_fields()
+    assert changed == {}
+
+    # 修改一些特殊不可被JSON序列化的字段
+    settings = swanlab.Settings(disk_io_dir=TEMP_PATH)
+    changed = settings.filter_changed_fields()
+    assert changed == {"disk_io_dir": TEMP_PATH}

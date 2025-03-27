@@ -265,8 +265,6 @@ def merge_settings(new_settings: Settings):
         raise TypeError("Expected Settings object")
 
     current_settings = get_settings()
-    current_data = current_settings.model_dump()
-    new_data = new_settings.model_dump()
-    merged_data = {**current_data, **{k: v for k, v in new_data.items() if v is not None}}
+    merged_data = {**current_settings.model_dump(), **new_settings.model_dump()}
     # 更新全局设置
     set_settings(Settings.model_validate(merged_data))
