@@ -6,6 +6,8 @@ r"""
 @Description:
     SwanLab全局功能开关，用于管理和控制SwanLab的全局设置
 """
+import os
+
 from swankit.env import is_windows
 
 try:
@@ -35,16 +37,18 @@ class Settings(BaseModel):
     # 是否采集python环境信息
     requirements_collect: StrictBool = True
     # 是否采集conda环境信息
-    conda_collect: StrictBool = True
+    conda_collect: StrictBool = False
     # ---------------------------------- 硬件监控部分 ----------------------------------
     # 是否开启硬件监控，如果元信息的相关采集被关闭，则此项无效
     hardware_monitor: StrictBool = True
     # 磁盘IO监控的路径
-    disk_io_dir: DirectoryPath = Field(default_factory=lambda: "C:\\" if is_windows() else "/")
+    disk_io_dir: DirectoryPath = Field(
+        default_factory=lambda: os.environ.get("SystemDrive", "C:") + "\\" if is_windows() else "/"
+    )
     # ---------------------------------- 日志上传部分 ----------------------------------
     # 日志上传间隔
     upload_interval: PositiveInt = 1
-    # 终端日志上传单行最大字符数，最大为4096，最小为1024
+    # 终端日志上传单行最大字符数
     max_log_length: int = Field(ge=500, le=4096, default=1024)
 
     def filter_changed_fields(self):

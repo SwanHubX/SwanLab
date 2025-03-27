@@ -9,25 +9,19 @@ r"""
 """
 import time
 from typing import List
-from .utils import ThreadUtil, ThreadTaskABC
-from swanlab.log import swanlog
-from .utils import LogQueue
+
 from swanlab.error import SyncError
+from swanlab.log import swanlog
+from swanlab.swanlab_settings import get_settings
 from .task_types import UploadType
+from .utils import LogQueue
+from .utils import ThreadUtil, ThreadTaskABC
 
 
 class LogCollectorTask(ThreadTaskABC):
     """
     日志聚合器，负责收集所有线程注册的日志信息
     并且定义日志上传接口
-    """
-    UPLOAD_TIME = 1
-    """
-    每隔多少秒上传一次日志
-    """
-    UPLOAD_URL = ""
-    """
-    日志上传的地址
     """
 
     def __init__(self, upload_type=UploadType):
@@ -37,6 +31,7 @@ class LogCollectorTask(ThreadTaskABC):
         """
         self.lock = False
         self.upload_type = upload_type
+        self.upload_interval = get_settings().upload_interval
 
     @staticmethod
     def report_known_error(errors: List[SyncError]):
@@ -106,7 +101,7 @@ class LogCollectorTask(ThreadTaskABC):
             return swanlog.debug("upload task still in progressing, passed")
         self.container.extend(u.queue.get_all())
         # print("线程" + u.name + "获取到的日志信息: ", self.container)
-        if u.timer.can_run(self.UPLOAD_TIME, len(self.container) == 0):
+        if u.timer.can_run(self.upload_interval, len(self.container) == 0):
             self.lock = True
             try:
                 self.upload()
