@@ -78,7 +78,7 @@ class CambrianCollector(H):
         util_config = HardwareConfig(
             y_range=(0, 100),
             chart_index=random_index(),
-            chart_name="mlu Utilization (%)",
+            chart_name="MLU Utilization (%)",
         )
         self.per_util_configs = {}
         # mlu Memory Allocated (%)
@@ -86,13 +86,13 @@ class CambrianCollector(H):
         hbm_rate_config = HardwareConfig(
             y_range=(0, 100),
             chart_index=random_index(),
-            chart_name="mlu Memory Allocated (%)",
+            chart_name="MLU Memory Allocated (%)",
         )
         self.per_hbm_configs = {}
         self.per_temp_configs = {}
 
         for mlu_id in mlu_map:
-            metric_name = f"mlu {mlu_id}"
+            metric_name = f"MLU {mlu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
             self.per_hbm_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
 
@@ -128,9 +128,9 @@ class CambrianCollector(H):
             if "mlu average" in line.lower():             
                 util_infos[mlu_ids[index]] = {
                     "key": self.util_key.format(mlu_index=mlu_ids[index]),
-                    "name": f"mlu {mlu_ids[index]} Utilization (%)",
+                    "name": f"MLU {mlu_ids[index]} Utilization (%)",
                     "value": math.nan,
-                    "config": self.per_util_configs[f"mlu {mlu_ids[index]}"],
+                    "config": self.per_util_configs[f"MLU {mlu_ids[index]}"],
                 }
                 line = line.split(":")
                 # 利用率的值在最后一个
@@ -170,9 +170,9 @@ class CambrianCollector(H):
                     # 初始化mlu的利用率
                     util_infos[mlu_ids[index]] = {
                         "key": self.hbm_rate_key.format(mlu_index=mlu_ids[index]),
-                        "name": f"mlu {mlu_ids[index]} Memory Allocated (%)",
+                        "name": f"MLU {mlu_ids[index]} Memory Allocated (%)",
                         "value": math.nan,
-                        "config": self.per_hbm_configs[f"mlu {mlu_ids[index]}"],
+                        "config": self.per_hbm_configs[f"MLU {mlu_ids[index]}"],
                     }
                     used_line = used_line.split(":")
                     # 利用率的值在最后一个
