@@ -13,7 +13,7 @@ from .gpu.nvidia import get_nvidia_gpu_info
 from .memory import get_memory_size
 from .network import get_network_info
 from .npu.ascend import get_ascend_npu_info
-from .npu.cambrian import get_cambrian_npu_info
+from .npu.cambricon import get_cambrian_npu_info
 from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 
