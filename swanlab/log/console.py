@@ -5,7 +5,7 @@ from datetime import datetime
 from swankit.env import create_time
 from swankit.log import FONT
 
-MAX_UPLOAD_LEN = 500
+from swanlab.swanlab_settings import get_settings
 
 
 class SwanWriterProxy:
@@ -36,6 +36,7 @@ class SwanWriterProxy:
         """
         当前文件名称（不包含后缀）
         """
+        self.max_upload_len = None
 
     @property
     def can_callback(self) -> bool:
@@ -89,7 +90,7 @@ class SwanWriterProxy:
                     # 遇到文件已关闭问题，直接pass，此时表现为终端不输出
                     pass
             # 限制上传长度
-            message = FONT.clear(message)[:MAX_UPLOAD_LEN]
+            message = FONT.clear(message)[: self.max_upload_len]
             self.write_callback and self.write_callback(message)
 
             if path:
@@ -105,11 +106,14 @@ class SwanWriterProxy:
                 self.file.flush()
 
         sys.stdout.write = _
+        # 设置最大上传长度
+        self.max_upload_len = get_settings().max_log_length
 
     def reset(self):
         sys.stdout.write = self.write_handler
         self.file and self.file.close()
         self.file = None
+        self.max_upload_len = None
         self.write_callback = None
 
 

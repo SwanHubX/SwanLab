@@ -145,8 +145,9 @@ class CloudRunCallback(SwanLabRunCallback):
         rc = r.config.to_dict() if r.config is not None else None
         rr = r.requirements.info if r.requirements is not None else None
         rm = r.metadata.to_dict() if r.metadata is not None else None
+        ro = r.conda.info if r.conda is not None else None
         # 不需要json序列化，上传时会自动序列化
-        f = FileModel(requirements=rr, config=rc, metadata=rm)
+        f = FileModel(requirements=rr, config=rc, metadata=rm, conda=ro)
         self.pool.queue.put((UploadType.FILE, [f]))
 
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):

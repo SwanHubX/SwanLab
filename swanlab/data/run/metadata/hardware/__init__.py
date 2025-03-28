@@ -48,7 +48,6 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["npu"]["ascend"] = ascend
     if apple is not None:
         info["soc"]["apple"] = apple
-
     return filter_none(info, fallback={}), monitor_funcs
 
 
