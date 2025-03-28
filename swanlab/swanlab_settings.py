@@ -6,7 +6,9 @@ r"""
 @Description:
     SwanLab全局功能开关，用于管理和控制SwanLab的全局设置
 """
+import json
 import os
+from pathlib import Path
 
 from swankit.env import is_windows
 
@@ -43,7 +45,7 @@ class Settings(BaseModel):
     hardware_monitor: StrictBool = True
     # 磁盘IO监控的路径
     disk_io_dir: DirectoryPath = Field(
-        default_factory=lambda: os.environ.get("SystemDrive", "C:") + "\\" if is_windows() else "/"
+        default_factory=lambda: str(Path(os.environ.get("SystemDrive", "C:")).resolve() if is_windows() else Path("/"))
     )
     # ---------------------------------- 日志上传部分 ----------------------------------
     # 日志上传间隔
@@ -56,16 +58,12 @@ class Settings(BaseModel):
         筛选出所有发生变化的设置项
         """
         changed = {}
-        for field_name, default_value in Settings().model_fields.items():
-            current_value = getattr(self, field_name)
-            # 处理disk_io_dir，此为 pathlib.Path 对象
-            if field_name == "disk_io_dir":
-                current_value = str(current_value)
-                if current_value != str(default_value):
-                    changed[field_name] = current_value
-                continue
-
-            # 处理其他的属性
+        # 一些特殊类型例如 disk_io_dir 被设置后无法直接比较（因为是 Path 对象），所以需要特殊处理为字符串
+        # 在这里直接转换成JSON然后比较即可
+        current_dump = json.loads(self.model_dump_json())
+        default_dump = json.loads(Settings().model_dump_json())
+        for field_name, default_value in default_dump.items():
+            current_value = current_dump[field_name]
             if current_value != default_value:
                 changed[field_name] = current_value
         return changed

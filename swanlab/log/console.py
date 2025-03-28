@@ -65,9 +65,6 @@ class SwanWriterProxy:
 
         self.write_callback = _
 
-        # 设置最大上传长度
-        self.max_upload_len = get_settings().max_log_length
-
     def init(self, path):
         if path:
             self.console_folder = path
@@ -109,6 +106,8 @@ class SwanWriterProxy:
                 self.file.flush()
 
         sys.stdout.write = _
+        # 设置最大上传长度
+        self.max_upload_len = get_settings().max_log_length
 
     def reset(self):
         sys.stdout.write = self.write_handler
