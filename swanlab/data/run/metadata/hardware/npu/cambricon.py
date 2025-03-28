@@ -5,19 +5,15 @@
 @description: 寒武纪NPU信息采集
 """
 
-import math
-import os
 import platform
 import subprocess
 
-from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
-from ..utils import generate_key, random_index
+from ..type import HardwareFuncResult
 
 
 def get_cambrian_npu_info() -> HardwareFuncResult:
     """
     获取寒武纪NPU信息，包括驱动版本、设备信息等
-    目前的信息统计粒度只到NPU ID级别，没有到Chip ID级别
     """
     # cambrian芯片只支持Linux系统
     if platform.system() != "Linux":
@@ -55,8 +51,8 @@ def map_npu() -> dict:
                 if npu_id not in npu_map:
                     npu_map[npu_id] = {}
             if line[0] == "Product":
-                chip_name = line[-1]
-                npu_map[npu_id]["name"] = chip_name
+                npu_name = line[-1]
+                npu_map[npu_id]["name"] = npu_name
             if line[0] == "Driver" and len(npu_map[npu_id]) == 1:
                     driver = line[-1]
                     npu_map[npu_id]["driver"] = driver
