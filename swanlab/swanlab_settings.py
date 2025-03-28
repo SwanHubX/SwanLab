@@ -56,7 +56,7 @@ class Settings(BaseModel):
         筛选出所有发生变化的设置项
         """
         changed = {}
-        for field_name, default_value in Settings():
+        for field_name, default_value in Settings().model_fields.items():
             current_value = getattr(self, field_name)
             # 处理disk_io_dir，此为 pathlib.Path 对象
             if field_name == "disk_io_dir":
