@@ -8,6 +8,7 @@
 from typing import Tuple, List
 
 from swanlab.package import get_package_version
+from swanlab.swanlab_settings import get_settings
 from .conda import get_conda
 from .cooperation import get_cooperation_info
 from .hardware import *
@@ -19,22 +20,41 @@ def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
     """
     采集实验的全部信息
     """
-    hardware_info, monitor_funcs = get_hardware_info()
+    settings = get_settings()
+    # 1. 按照配置采集元信息
+    hardware_info, monitor_funcs, runtime_info = {}, [], {}
+    if settings.metadata_collect:
+        # 1.1 采集软硬件信息
+        if settings.collect_hardware:
+            hardware_info, monitor_funcs = get_hardware_info()
+        # 1.2 如果硬件监控被关闭，则monitor_funcs置空
+        if not settings.hardware_monitor:
+            monitor_funcs = []
+        # 1.3 采集运行时信息
+        if settings.collect_runtime:
+            runtime_info = get_runtime_info()
+    # 2. swanlab官方信息收集
     coop = get_cooperation_info()
+    # 2.1 生成基本swanlab信息
+    swanlab_info = {
+        "version": get_package_version(),
+        "logdir": logdir,
+        "_settings": settings.filter_changed_fields(),
+        "_coop": coop,
+        "_monitor": len(monitor_funcs),
+    }
+    # 2.2 如果_coop为空，则删除
+    if not coop:
+        del swanlab_info["_coop"]
+    # 2.3 如果_settings为空，则删除
+    if not swanlab_info["_settings"]:
+        del swanlab_info["_settings"]
+    # 3. 合并所有信息
     metadata = {
         **hardware_info,
-        **get_runtime_info(),
-        "swanlab": {
-            "version": get_package_version(),
-            "logdir": logdir,
-            "_monitor": len(monitor_funcs),
-            "_coop": coop,
-        },
+        **runtime_info,
+        "swanlab": swanlab_info,
     }
-    if not metadata['swanlab'].get("_coop"):
-        metadata['swanlab'].pop("_coop")
-    if not metadata['swanlab'].get("_monitor"):
-        metadata['swanlab'].pop("_monitor")
     return metadata, monitor_funcs
 
 

@@ -13,6 +13,7 @@ from .gpu.nvidia import get_nvidia_gpu_info
 from .memory import get_memory_size
 from .network import get_network_info
 from .npu.ascend import get_ascend_npu_info
+from .mlu.cambricon import get_cambrian_mlu_info
 from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 
@@ -27,6 +28,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     # 我们希望计算芯片的信息放在最前面，前端展示用
     nvidia = dec_hardware_func(get_nvidia_gpu_info, monitor_funcs)
     ascend = dec_hardware_func(get_ascend_npu_info, monitor_funcs)
+    cambrian = dec_hardware_func(get_cambrian_mlu_info, monitor_funcs)
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
@@ -46,9 +48,10 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["gpu"]["nvidia"] = nvidia
     if ascend is not None:
         info["npu"]["ascend"] = ascend
+    if cambrian is not None:
+        info["npu"]["cambrian"] = cambrian
     if apple is not None:
         info["soc"]["apple"] = apple
-
     return filter_none(info, fallback={}), monitor_funcs
 
 

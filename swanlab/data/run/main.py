@@ -19,11 +19,11 @@ from swanlab.data.modules import DataWrapper, FloatConvertible, Line
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from swanlab.swanlab_settings import reset_settings
+from swanlab.swanlab_settings import reset_settings, get_settings
 from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
-from .metadata import get_requirements, get_metadata
+from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format
 
@@ -122,18 +122,15 @@ class SwanLabRun:
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
         metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
+        settings = get_settings()
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements(),
+                requirements=get_requirements() if settings.requirements_collect else None,
+                conda=get_conda() if settings.conda_collect else None,
                 metadata=metadata,
             )
         )
-        # # 延时采集conda信息，因为conda信息的导出需要的时间会比较多
-        # threading.Timer(
-        #     5,
-        #     lambda: self.__operator.on_runtime_info_update(RuntimeInfo(conda=get_conda())),
-        # ).start()
         # 定时采集系统信息，目前仅cloud模式支持
         self.monitor_cron = None
         if self.mode == "cloud":

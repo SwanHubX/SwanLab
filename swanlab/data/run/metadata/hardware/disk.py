@@ -5,13 +5,12 @@
 @description: 磁盘信息采集
 """
 
-import os
 import time
 from typing import List
 
 import psutil
-from swankit.env import is_windows
 
+from swanlab.swanlab_settings import get_settings
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo, HardwareConfig
 from .utils import random_index, generate_key
 
@@ -26,6 +25,8 @@ class DiskCollector(HardwareCollector):
         super().__init__()
         self.last_disk_io = psutil.disk_io_counters()
         self.last_time = time.time()
+
+        self.disk_path = get_settings().disk_io_dir
 
         disk_base_config = HardwareConfig(
             y_range=(0, None),
@@ -78,13 +79,7 @@ class DiskCollector(HardwareCollector):
         """
         获取磁盘使用率
         """
-        # 对于Windows系统，使用系统盘（通常是C盘）
-        if is_windows():
-            disk_path = os.environ.get("SystemDrive", "C:") + "\\"
-        # 对于Linux和MacOS，使用根目录
-        else:
-            disk_path = "/"
-        result = psutil.disk_usage(disk_path).percent
+        result = psutil.disk_usage(self.disk_path).percent
         return {
             "key": self.usage_key,
             "name": "Disk Utilization (%)",
