@@ -4,7 +4,7 @@ from typing import Dict, Optional, Tuple
 from swankit.core.data import DataSuite as D
 from swankit.core.data import MediaBuffer, MediaType
 
-# 尝试导入 RDKit，如果 RDKit 不可用，则将其设置为 None
+# Attempt to import RDKit; if unavailable, set Chem and Mol to None
 try:
     from rdkit import Chem
     from rdkit.Chem import Mol
@@ -21,23 +21,23 @@ class Molecule(MediaType):
     caption: Optional[str] = None
 
     def __post_init__(self):
-        """初始化后验证输入数据。"""
+        """Validates input data after initialization."""
         if not isinstance(self.pdb_data, str):
-            raise TypeError("pdb_data must be a string use RDKit.Chem.MolToPDBBlock.")
+            raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
 
     @classmethod
     def from_mol(cls, mol: Mol, *, caption: Optional[str] = None, **kwargs) -> "Molecule":
-        """从 RDKit Mol 对象创建 Molecule 实例。
+        """Creates a Molecule instance from an RDKit Mol object.
 
         Args:
-            mol: RDKit Mol 对象。
-            caption: 可选的描述文本。
+            mol: The RDKit Mol object.
+            caption: Optional descriptive text.
 
         Returns:
-            Molecule: 一个新的 Molecule 实例。
+            Molecule: A new Molecule instance.
 
         Raises:
-            ValueError: 如果 RDKit 不可用。
+            ValueError: If RDKit is not available.
 
         Examples:
             >>> from rdkit import Chem
