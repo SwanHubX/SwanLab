@@ -60,7 +60,7 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
     
     original_init = wandb.init
     original_log = wandb_sdk.wandb_run.Run.log
-    original_finish = wandb_sdk.finish
+    original_finish = wandb_sdk.wandb_run.Run.finish
     original_config_update = wandb_sdk.wandb_config.Config.update
     
     def patched_init(*args, **kwargs):
