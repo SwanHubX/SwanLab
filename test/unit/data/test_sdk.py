@@ -422,3 +422,13 @@ class TestInitExpByEnv:
         run = S.init()
         assert run.public.cloud.project_name == proj_name
         del os.environ[SwanLabEnv.PROJ_NAME.value]
+
+    def test_env_params_priority(self):
+        """
+        环境变量的优先级低于函数参数
+        """
+        exp_name = generate()
+        os.environ[SwanLabEnv.EXP_NAME.value] = exp_name
+        param_exp_name = generate()
+        run = S.init(experiment_name=param_exp_name)
+        assert run.public.cloud.experiment_name == param_exp_name
