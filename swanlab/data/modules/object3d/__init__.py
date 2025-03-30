@@ -6,6 +6,7 @@ Classes:
     Object3D: Main dispatcher class for handling different types of 3D data
     PointCloud: Class for handling point cloud data with XYZ, XYZC, and XYZRGB formats
     Model3D: Class for handling 3D model files like GLB
+    Molecule: Class for handling molecule data from various formats by RDKit
 
 Examples:
     # Create point cloud from XYZ coordinates
@@ -35,9 +36,11 @@ Examples:
 from .model3d import Model3D
 from .object3d import Object3D
 from .point_cloud import PointCloud
+from .molecule import Molecule
 
 __all__ = [
     'Object3D',
     'PointCloud',
     'Model3D',
+    'Molecule',
 ]
