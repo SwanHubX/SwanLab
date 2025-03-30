@@ -64,6 +64,19 @@ class SwanLabEnv(enum.Enum):
     * 如果login接口传入字符串，此环境变量无效，此时相当于绕过 get_key 接口
     * 如果用户已登录，此环境变量的优先级高于本地存储登录信息
     """
+    WORKSPACE = "SWANLAB_WORKSPACE"
+    """
+    swanlab的工作空间，默认为当前登录用户
+    """
+    PROJ_NAME = "SWANLAB_PROJ_NAME"
+    """
+    swanlab的项目名称
+    """
+    EXP_NAME = "SWANLAB_EXP_NAME"
+    """
+    swanlab的实验名称
+    """
+
     RUNTIME = "SWANLAB_RUNTIME"
     """
     swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"

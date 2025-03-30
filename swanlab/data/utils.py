@@ -156,7 +156,7 @@ def _init_config(config: Union[dict, str]):
     return config
 
 
-def _load_data(load_data: dict, key: str, value):
+def _load_from_dict(load_data: dict, key: str, value):
     """
     从load_data中加载数据，如果value不是None，则直接返回value，如果为None，则返回load_data中的key
     """
@@ -164,6 +164,15 @@ def _load_data(load_data: dict, key: str, value):
         return value
     d = load_data.get(key, None)
     return d
+
+
+def _load_from_env(key: str, value):
+    if value is not None:
+        return value
+    env_value = os.getenv(key)
+    if env_value is not None:
+        os.environ[key] = env_value
+        return env_value
 
 
 def _create_operator(

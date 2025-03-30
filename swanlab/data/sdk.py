@@ -28,10 +28,11 @@ from .run import (
 from .run.helper import SwanLabRunOperator
 from .utils import (
     _check_proj_name,
-    should_call_after_init,
     _init_config,
-    _load_data,
+    _load_from_dict,
+    _load_from_env,
     _create_operator,
+    should_call_after_init,
     should_call_before_init,
 )
 from ..package import HostFormatter
@@ -171,14 +172,19 @@ class SwanLabInitializer:
         # 从文件中加载数据
         if load:
             load_data = check_load_json_yaml(load, load)
-            experiment_name = _load_data(load_data, "experiment_name", experiment_name)
-            description = _load_data(load_data, "description", description)
-            config = _load_data(load_data, "config", config)
-            logdir = _load_data(load_data, "logdir", logdir)
-            mode = _load_data(load_data, "mode", mode)
-            project = _load_data(load_data, "project", project)
-            workspace = _load_data(load_data, "workspace", workspace)
-            public = _load_data(load_data, "private", public)
+            experiment_name = _load_from_dict(load_data, "experiment_name", experiment_name)
+            description = _load_from_dict(load_data, "description", description)
+            config = _load_from_dict(load_data, "config", config)
+            logdir = _load_from_dict(load_data, "logdir", logdir)
+            mode = _load_from_dict(load_data, "mode", mode)
+            project = _load_from_dict(load_data, "project", project)
+            workspace = _load_from_dict(load_data, "workspace", workspace)
+            public = _load_from_dict(load_data, "private", public)
+        # 从环境变量中加载参数
+        workspace = _load_from_env(SwanLabEnv.WORKSPACE.value, workspace)
+        project = _load_from_env(SwanLabEnv.PROJ_NAME.value, project)
+        experiment_name = _load_from_env(SwanLabEnv.EXP_NAME.value, experiment_name)
+
         # FIXME 没必要多一个函数
         project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
         callbacks = check_callback_format(self.cbs + callbacks)
