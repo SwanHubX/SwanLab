@@ -6,5 +6,8 @@ swanlab.init(project="molecule", public=True)
 
 chem = Chem.MolFromSmiles("CCO")
 
-molecule = swanlab.data.modules.object3d.Molecule.from_mol(chem, caption="cco")
+molecule = swanlab.Object3D(chem, caption="cco")
 swanlab.log({"example": molecule})
+
+mol2 = swanlab.Object3D("./molecule.example.pdb")
+swanlab.log({"file": mol2})
