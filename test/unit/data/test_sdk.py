@@ -16,6 +16,7 @@ import swanlab.data.sdk as S
 import swanlab.data.utils
 import swanlab.error as Err
 import tutils as T
+from swanlab.api.http import reset_http
 from swanlab.data.run import get_run
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
@@ -382,3 +383,42 @@ class TestLogin:
         S.login(host=T.API_HOST.rstrip("/api"), web_host=T.WEB_HOST)
         assert os.environ[SwanLabEnv.API_HOST.value] == T.API_HOST
         assert os.environ[SwanLabEnv.WEB_HOST.value] == T.WEB_HOST
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+class TestInitExpByEnv:
+    """
+    测试通过环境变量创建实验
+    """
+
+    def test_workspace(self):
+        """
+        测试通过环境变量创建实验
+        """
+        os.environ[SwanLabEnv.WORKSPACE.value] = generate()
+        # 随便生成的一个workspace会报错
+        with pytest.raises(ValueError) as e:
+            S.init()
+        assert str(e.value) == 'Space `{}` not found'.format(os.environ[SwanLabEnv.WORKSPACE.value])
+        del os.environ[SwanLabEnv.WORKSPACE.value]
+        reset_http()
+
+    def test_exp_name(self):
+        """
+        测试通过环境变量创建实验
+        """
+        exp_name = generate()
+        os.environ[SwanLabEnv.EXP_NAME.value] = exp_name
+        run = S.init()
+        assert run.public.cloud.experiment_name == exp_name
+        del os.environ[SwanLabEnv.EXP_NAME.value]
+
+    def test_proj_name(self):
+        """
+        测试通过环境变量创建实验
+        """
+        proj_name = generate()
+        os.environ[SwanLabEnv.PROJ_NAME.value] = proj_name
+        run = S.init()
+        assert run.public.cloud.project_name == proj_name
+        del os.environ[SwanLabEnv.PROJ_NAME.value]
