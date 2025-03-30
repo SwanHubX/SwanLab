@@ -53,6 +53,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+• 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/plugin/notification-discord.html).
+
 - 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
 
 - 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
@@ -69,10 +71,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.02.18: We completed integration with [Swift](https://github.com/modelscope/ms-swift). Now you can use SwanLab in Swift's CLI/WebUI to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html).
 
-- 2025.02.16: Added **chart moving group** and **create group** features.
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.02.16: Added **chart moving group** and **create group** features.
 
 - 2025.02.09: We completed integration with [veRL](https://github.com/volcengine/verl). Now you can use SwanLab in veRL to **track and visualize large model reinforcement learning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html).
 
@@ -110,8 +112,8 @@ Here is a list of its core features:
 
 - Supports **cloud** usage (similar to Weights & Biases), allowing you to check training progress anytime, anywhere. [How to view experiments on mobile](https://docs.swanlab.cn/en/guide_cloud/general/app.html).
 - Supports **hyperparameter recording** and table display.
-- **Supported metadata types**: Scalar metrics, images, audio, text, ...
-- **Supported chart types**: Line charts, media charts (images, audio, text), ...
+- **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, ...
+- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds), ...
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 
 **2. ⚡️ Comprehensive Framework Integration**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetection, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, Hydra, and more, totaling **30+** frameworks.
