@@ -34,9 +34,9 @@ Examples:
 """
 
 from .model3d import Model3D
+from .molecule import Molecule
 from .object3d import Object3D
 from .point_cloud import PointCloud
-from .molecule import Molecule
 
 __all__ = [
     'Object3D',
