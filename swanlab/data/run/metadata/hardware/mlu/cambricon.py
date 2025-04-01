@@ -24,11 +24,8 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
     info = {"driver": None, "mlu": None}
     collector = None
     try:
-        mlu_map = map_mlu()
-        info["driver"] = mlu_map[list(mlu_map.keys())[0]]["driver"]
-        # 将mlu_map中的driver信息去掉
-        for mlu_id in mlu_map:
-            mlu_map[mlu_id].pop("driver")
+        driver, mlu_map = map_mlu()
+        info["driver"] = driver
         info["mlu"] = mlu_map
         collector = cambriconCollector(mlu_map)
     except Exception:  # noqa
@@ -40,11 +37,13 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
 def map_mlu() -> dict:
     """
     列出所有mlu设备，并包含芯片的映射关系
-    返回值样例：
-    {"0": { "name": "cambricon-910", "memory": 16, "driver": "1.1.0"}, "1": { "name": "cambricon-910", "memory": 16, "driver": "1.1.0"}, ...}
+    返回值样例:
+        driver: "1.1.0"
+        mlu_map: {"0": { "name": "cambricon-910", "memory": 16, }, "1": { "name": "cambricon-910", "memory": 16, }, ...}
     """
     output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, check=True, text=True).stdout
     mlu_map = {}
+    driver = None
     lines = output.split("\n")[1:]
     
     for line in lines:
@@ -52,21 +51,24 @@ def map_mlu() -> dict:
         try:
             if line[0] == "Card":
                 mlu_id = line[-1]
+                # 获取mlu的ID
                 if mlu_id not in mlu_map:
                     mlu_map[mlu_id] = {}
+            # 获取mlu的名称
             if line[0] == "Product":
                 mlu_name = line[-1]
                 mlu_map[mlu_id]["name"] = mlu_name
-            if line[0] == "Driver" and len(mlu_map[mlu_id]) == 1:
-                    driver = line[-1]
-                    mlu_map[mlu_id]["driver"] = driver
+            # 获取mlu的驱动版本
+            if line[0] == "Driver" and len(mlu_map[mlu_id]) == 1 and driver is None:
+                driver = line[-1]
+            # 获取mlu的内存大小
             if line[0] == "Total" and len(mlu_map[mlu_id]) == 2:
                     memory = line[-2]
                     mlu_map[mlu_id]["memory"] = int(memory) // 1024  # 单位为GB
         except Exception as e:
             continue
 
-    return mlu_map
+    return driver, mlu_map
 
 
 class cambriconCollector(H):
@@ -100,20 +102,15 @@ class cambriconCollector(H):
         result: HardwareInfoList = []
         for key, value in self.get_usage().items():
             result.append(value)
-        for key, value in self.get_hbm_usage().items():
+        for key, value in self.get_memory_usage().items():
             result.append(value)
         return result
 
-    def get_usage(self) -> HardwareInfoList:
+    def get_usage(self) -> dict:
         """
         获取指定mlu设备的利用率
         """
-        output = subprocess.run(
-            ["cnmon", "info", "-u"],
-            capture_output=True,
-            text=True,
-        ).stdout
-        # 获取信息
+        output = subprocess.run(["cnmon", "info", "-u"], capture_output=True, text=True).stdout
         
         util_infos = {}
         mlu_ids = []
@@ -133,7 +130,7 @@ class cambriconCollector(H):
                     "config": self.per_util_configs[f"MLU {mlu_ids[index]}"],
                 }
                 line = line.split(":")
-                # 利用率的值在最后一个
+                # 获得此mlu的利用率数值
                 util = line[-1].replace("%", "").strip()
                 if util.isdigit():
                     util_infos[mlu_ids[index]]['value'] = float(util)
@@ -142,9 +139,9 @@ class cambriconCollector(H):
                 
         return util_infos
     
-    def get_hbm_usage(self) -> HardwareInfoList:
+    def get_memory_usage(self) -> dict:
         """
-        获取指定mlu设备的HBM利用率
+        获取指定mlu设备的显存占用率
         """
         output = subprocess.run(
             ["cnmon", "info", "-m"],
@@ -153,7 +150,7 @@ class cambriconCollector(H):
         ).stdout
         # 获取信息
         
-        util_infos = {}
+        memory_infos = {}
         mlu_ids = []
         
         # 获取所有mlu ID
@@ -168,18 +165,19 @@ class cambriconCollector(H):
                 if "used" in lines[line_index + 2].lower():
                     used_line = lines[line_index + 2]
                     # 初始化mlu的利用率
-                    util_infos[mlu_ids[index]] = {
+                    memory_infos[mlu_ids[index]] = {
                         "key": self.hbm_rate_key.format(mlu_index=mlu_ids[index]),
                         "name": f"MLU {mlu_ids[index]} Memory Allocated (%)",
                         "value": math.nan,
                         "config": self.per_hbm_configs[f"MLU {mlu_ids[index]}"],
                     }
                     used_line = used_line.split(":")
-                    # 利用率的值在最后一个
-                    util = used_line[-1].replace("MiB", "").strip()
-                    if util.isdigit():
-                        util_infos[mlu_ids[index]]['value'] = float(util)
+                    # 获得此mlu的显存数值（MiB）
+                    memory = used_line[-1].replace("MiB", "").strip()
+                    if memory.isdigit():
+                        # 计算mlu显存占用率
+                        memory_infos[mlu_ids[index]]['value'] = float(memory) / (self.mlu_map[mlu_ids[index]]['memory'] * 1024) * 100
                     index += 1
                     continue
                 
-        return util_infos
+        return memory_infos
