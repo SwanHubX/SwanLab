@@ -86,8 +86,8 @@ class cambriconCollector(H):
         self.per_util_configs = {}
         
         # mlu Memory Allocated (%)
-        self.hbm_rate_key = generate_key("mlu.{mlu_index}.mem.ptc")
-        hbm_rate_config = HardwareConfig(
+        self.memory_key = generate_key("mlu.{mlu_index}.mem.ptc")
+        memory_config = HardwareConfig(
             y_range=(0, 100),
             chart_index=random_index(),
             chart_name="MLU Memory Allocated (%)",
@@ -111,12 +111,14 @@ class cambriconCollector(H):
             chart_index=random_index(),
             chart_name="MLU Power (W)",
         )
-
-        for mlu_id in mlu_map:
+        self.per_power_configs = {}
+        
+        for mlu_id in self.mlu_map:
             metric_name = f"MLU {mlu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
-            self.per_memory_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
+            self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
             self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
+            self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
@@ -185,10 +187,10 @@ class cambriconCollector(H):
                     used_line = lines[line_index + 2]
                     # 初始化mlu的利用率
                     memory_infos[mlu_ids[index]] = {
-                        "key": self.hbm_rate_key.format(mlu_index=mlu_ids[index]),
+                        "key": self.memory_key.format(mlu_index=mlu_ids[index]),
                         "name": f"MLU {mlu_ids[index]} Memory Allocated (%)",
                         "value": math.nan,
-                        "config": self.per_hbm_configs[f"MLU {mlu_ids[index]}"],
+                        "config": self.per_memory_configs[f"MLU {mlu_ids[index]}"],
                     }
                     used_line = used_line.split(":")
                     # 获得此mlu的显存数值（MiB）
