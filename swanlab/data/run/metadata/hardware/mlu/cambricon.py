@@ -62,9 +62,9 @@ def map_mlu() -> dict:
             if line[0] == "Driver" and len(mlu_map[mlu_id]) == 1 and driver is None:
                 driver = line[-1]
             # 获取mlu的内存大小
-            if line[0] == "Total" and len(mlu_map[mlu_id]) == 2:
-                    memory = line[-2]
-                    mlu_map[mlu_id]["memory"] = int(memory) // 1024  # 单位为GB
+            if line[0] == "Total" and len(mlu_map[mlu_id]) == 1:
+                memory = line[-2]
+                mlu_map[mlu_id]["memory"] = int(memory) // 1024  # 单位为GB
         except Exception as e:
             continue
 
