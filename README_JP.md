@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+• 2025.03.30: **swanlab.Settings** メソッドをサポートし、実験の動作をより詳細に制御可能に；**寒武紀MLU** ハードウェアの監視をサポート；[Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html) と [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html) をサポート。
+
 - 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
 
 - 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
@@ -70,10 +72,10 @@
 
 - 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)。
 
-- 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
 
 - 2025.02.09: 我們與 [veRL](https://github.com/volcengine/verl) 完成了聯合集成，現在你可以在veRL中使用SwanLab來**跟踪和可視化大模型強化學習實驗**，[使用指引](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)。
 
@@ -112,8 +114,8 @@ SwanLabはAI研究者向けに設計され、使いやすいPython APIと美し�
 
 - **クラウド**使用をサポート（Weights & Biasesのような）、どこからでもトレーニングの進捗を確認可能。[携帯で実験を見る方法](https://docs.swanlab.cn/en/guide_cloud/general/app.html)
 - **ハイパーパラメータ記録**とテーブル表示をサポート
-- **サポートするメタデータタイプ**: スカラー指標、画像、音声、テキスト、...
-- **サポートするチャートタイプ**: 折れ線グラフ、メディアグラフ（画像、音声、テキスト）、...
+- **サポートするメタデータタイプ**: スカラー指標、画像、音声、テキスト、3D点群、...
+- **サポートするチャートタイプ**: 折れ線グラフ、メディアグラフ（画像、音声、テキスト、3D点群）、...
 - **バックグラウンドでの自動記録**: ログ記録、ハードウェア環境、Gitリポジトリ、Python環境、Pythonライブラリリスト、プロジェクト実行ディレクトリ
 
 **2. ⚡️ 幅広いフレームワーク統合**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetetion、LightGBM、XGBoost、Keras、Tensorboard、Weights&Biases、OpenAI、Swift、XTuner、Stable Baseline3、Hydraなど**30以上**のフレームワーク

@@ -257,10 +257,10 @@ class HTTP:
                     resp = http.get(f"/project/{http.groupname}/{name}")
                 elif e.resp.status_code == 404:
                     # 组织/用户不存在
-                    raise ValueError(f"Entity `{http.groupname}` not found")
+                    raise ValueError(f"Space `{http.groupname}` not found")
                 elif e.resp.status_code == 403:
                     # 权限不足
-                    raise ValueError(f"Entity permission denied: " + http.groupname)
+                    raise ValueError(f"Space permission denied: " + http.groupname)
                 else:
                     raise e
             return ProjectInfo(resp)
