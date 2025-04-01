@@ -251,7 +251,7 @@ class cambriconCollector(H):
         index = 0
         lines = output.split("\n")
         for line in lines:
-            if "usage" in line.lower():
+            if "usage" in line.lower() and "mlu memory usage" not in line.lower():
                 power_infos[mlu_ids[index]] = {
                     "key": self.power_key.format(mlu_index=mlu_ids[index]),
                     "name": f"MLU {mlu_ids[index]} Power (W)",
