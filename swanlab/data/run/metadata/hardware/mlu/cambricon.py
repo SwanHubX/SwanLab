@@ -1,6 +1,6 @@
 """
 @author: zeyi-lin
-@file: cambrian.py
+@file: cambricon.py
 @time: 2025/03/27 12:32
 @description: 寒武纪mlu信息采集
 """
@@ -13,11 +13,11 @@ from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, Hardwar
 from ..utils import generate_key, random_index
 
 
-def get_cambrian_mlu_info() -> HardwareFuncResult:
+def get_cambricon_mlu_info() -> HardwareFuncResult:
     """
     获取寒武纪mlu信息，包括驱动版本、设备信息等
     """
-    # cambrian芯片只支持Linux系统
+    # cambricon芯片只支持Linux系统
     if platform.system() != "Linux":
         return None, None
 
@@ -30,7 +30,7 @@ def get_cambrian_mlu_info() -> HardwareFuncResult:
         for mlu_id in mlu_map:
             mlu_map[mlu_id].pop("driver")
         info["mlu"] = mlu_map
-        collector = CambrianCollector(mlu_map)
+        collector = cambriconCollector(mlu_map)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -41,7 +41,7 @@ def map_mlu() -> dict:
     """
     列出所有mlu设备，并包含芯片的映射关系
     返回值样例：
-    {"0": { "name": "Cambrian-910", "memory": 16, "driver": "1.1.0"}, "1": { "name": "Cambrian-910", "memory": 16, "driver": "1.1.0"}, ...}
+    {"0": { "name": "cambricon-910", "memory": 16, "driver": "1.1.0"}, "1": { "name": "cambricon-910", "memory": 16, "driver": "1.1.0"}, ...}
     """
     output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, check=True, text=True).stdout
     mlu_map = {}
@@ -69,7 +69,7 @@ def map_mlu() -> dict:
     return mlu_map
 
 
-class CambrianCollector(H):
+class cambriconCollector(H):
     def __init__(self, mlu_map):
         super().__init__()
         self.mlu_map = mlu_map
