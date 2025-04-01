@@ -122,14 +122,15 @@ class cambriconCollector(H):
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
-        for key, value in self.get_utilization_usage().items():
-            result.append(value)
-        for key, value in self.get_memory_usage().items():
-            result.append(value)
-        for key, value in self.get_temperature_usage().items():
-            result.append(value)
-        for key, value in self.get_power_usage().items():
-            result.append(value)
+        usage_methods = [
+            self.get_utilization_usage,
+            self.get_memory_usage,
+            self.get_temperature_usage,
+            self.get_power_usage,
+        ]
+        
+        for method in usage_methods:
+            result.extend(method().values())
         return result
 
     def get_utilization_usage(self) -> dict:
