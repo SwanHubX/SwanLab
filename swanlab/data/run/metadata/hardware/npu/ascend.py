@@ -60,7 +60,8 @@ def get_version() -> str:
 
 def get_cann_version() -> Optional[str]:
     """
-    从 ascend_toolkit_install.info 文件中提取 Ascend-cann-toolkit 的版本号。
+    从 ascend_toolkit_install.info 文件中提取 Ascend-cann-toolkit 的版本号
+    如果文件不存在或者格式不正确，返回 None
     """
     try:
         arch = platform.machine()
