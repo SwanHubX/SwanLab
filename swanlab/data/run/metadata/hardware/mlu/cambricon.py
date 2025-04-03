@@ -47,20 +47,20 @@ def map_mlu() -> Tuple[Optional[str], dict]:
     driver = None
     lines = output.split("\n")[1:]
 
+    mlu_id = None
     for line in lines:
         line = line.split()
-        mlu_id = None
         try:
             if line[0] == "Card":
                 mlu_id = line[-1]
                 # 获取mlu的ID
                 if mlu_id not in mlu_map:
                     mlu_map[mlu_id] = {}
+            if mlu_id is None:
+                continue
             # 获取mlu的名称
             if line[0] == "Product":
                 # 如果没有mlu_id，则跳过（解析错误）
-                if mlu_id is None:
-                    continue
                 mlu_name = line[-1]
                 mlu_map[mlu_id]["name"] = mlu_name
             # 获取mlu的驱动版本
