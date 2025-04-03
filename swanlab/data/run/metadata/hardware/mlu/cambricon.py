@@ -69,7 +69,7 @@ def map_mlu() -> Tuple[Optional[str], dict]:
             # 获取mlu的内存大小
             if line[0] == "Total" and len(mlu_map[mlu_id]) == 1:
                 memory = line[-2]
-                mlu_map[mlu_id]["memory"] = int(memory) // 1024  # 单位为GB
+                mlu_map[mlu_id]["memory"] = str(int(memory) // 1024)  # 单位为GB
         except Exception:  # noqa
             continue
 

@@ -34,7 +34,7 @@ def get_apple_chip_info() -> HardwareFuncResult:
         memory = str(memory).lower().replace("gb", "")
         # TODO: 获取GPU信息
         info["type"] = chip_type
-        info["memory"] = int(memory.rstrip())
+        info["memory"] = memory.rstrip()
     except Exception:  # noqa
         return None, None
     try:

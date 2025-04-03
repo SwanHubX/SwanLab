@@ -123,7 +123,7 @@ def get_chip_usage(npu_id: str, chip_id: str):
             # HBM Capacity的值在最后一个
             hbm = line[-1].strip()
             if hbm.isdigit():
-                usage["hbm"] = round(int(hbm) / 1024)  # 单位为GB
+                usage["hbm"] = str(round(int(hbm) / 1024))  # 单位为GB
             break
     return usage
 
