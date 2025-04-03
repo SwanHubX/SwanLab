@@ -28,7 +28,7 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
         driver, mlu_map = map_mlu()
         info["driver"] = driver
         info["mlu"] = mlu_map
-        collector = cambriconCollector(mlu_map)
+        collector = CambriconCollector(mlu_map)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -76,7 +76,7 @@ def map_mlu() -> Tuple[Optional[str], dict]:
     return driver, mlu_map
 
 
-class cambriconCollector(H):
+class CambriconCollector(H):
     def __init__(self, mlu_map):
         super().__init__()
         self.mlu_map = mlu_map
