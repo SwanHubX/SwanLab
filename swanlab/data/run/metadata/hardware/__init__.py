@@ -11,9 +11,9 @@ from .cpu import get_cpu_info
 from .disk import get_disk_info
 from .gpu.nvidia import get_nvidia_gpu_info
 from .memory import get_memory_size
+from .mlu.cambricon import get_cambricon_mlu_info
 from .network import get_network_info
 from .npu.ascend import get_ascend_npu_info
-from .mlu.cambricon import get_cambricon_mlu_info
 from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 
@@ -42,6 +42,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         "network": n,
         "gpu": {},
         "npu": {},
+        "mlu": {},
         "soc": {},
     }
     if nvidia is not None:
@@ -49,7 +50,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     if ascend is not None:
         info["npu"]["ascend"] = ascend
     if cambricon is not None:
-        info["npu"]["cambricon"] = cambricon
+        info["mlu"]["cambricon"] = cambricon
     if apple is not None:
         info["soc"]["apple"] = apple
     return filter_none(info, fallback={}), monitor_funcs
