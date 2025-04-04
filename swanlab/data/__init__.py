@@ -12,6 +12,7 @@ from .modules import (
     Image,
     Text,
     Object3D,
+    Molecule,
 )
 from .run import (
     SwanLabRun as Run,

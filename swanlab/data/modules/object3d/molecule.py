@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 from swankit.core.data import DataSuite as D
 from swankit.core.data import MediaBuffer, MediaType
@@ -9,6 +9,7 @@ from swankit.core.data import MediaBuffer, MediaType
 try:
     from rdkit import Chem
     from rdkit.Chem import AllChem, Mol
+
     _has_rdkit = True
 except ImportError:
     Chem = None
@@ -27,6 +28,12 @@ class Molecule(MediaType):
         if not isinstance(self.pdb_data, str):
             raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
 
+    @staticmethod
+    def check_is_available():
+        """Check if RDKit is available."""
+        if not _has_rdkit:
+            raise ImportError("RDKit is not available. You can install it by running 'pip install rdkit'.")
+
     @classmethod
     def from_mol(cls, mol: Mol, *, caption: Optional[str] = None, **kwargs) -> "Molecule":
         """Creates a Molecule instance from an RDKit Mol object.
@@ -39,29 +46,27 @@ class Molecule(MediaType):
             Molecule: A new Molecule instance.
 
         Raises:
-            ValueError: If RDKit is not available.
+            ImportError: If RDKit is not available.
 
         Examples:
             >>> from rdkit import Chem
             >>> mol = Chem.MolFromSmiles("CCO")
             >>> molecule = Molecule.from_mol(mol, caption="Ethanol")
         """
-        if Chem is None or Mol is None:
-            raise ValueError("RDKit is not available.")
+        cls.check_is_available()
         pdb_block = cls._convert_to_pdb_block(mol)
         return cls(pdb_block, caption=caption, **kwargs)
 
     @staticmethod
     def _convert_to_pdb_block(mol: Mol) -> str:
         """将分子转换为 PDB 字符串"""
-        if Chem is None or Mol is None or AllChem is None:
-            raise ValueError("RDKit is not available.")
+        Molecule.check_is_available()
         if mol.GetNumConformers() == 0:
             AllChem.EmbedMolecule(mol)  # 生成 3D 坐标
         return Chem.MolToPDBBlock(mol)
 
     @classmethod
-    def from_pdb_file(cls, pdb_file: Path, *, caption: Optional[str] = None, **kwargs) -> "Molecule":
+    def from_pdb_file(cls, pdb_file: Union[Path, str], *, caption: Optional[str] = None, **kwargs) -> "Molecule":
         """Creates a Molecule instance from a PDB file by reading the file content directly.
 
         Args:
@@ -74,8 +79,7 @@ class Molecule(MediaType):
         Raises:
             ValueError: If RDKit is not available or the file cannot be read.
         """
-        if Chem is None or Mol is None:
-            raise ValueError("RDKit is not available.")
+        cls.check_is_available()
         try:
             with open(pdb_file) as f:
                 pdb_data = f.read()
@@ -99,10 +103,9 @@ class Molecule(MediaType):
             Molecule: A new Molecule instance.
 
         Raises:
-            ValueError: If RDKit is not available.
+            ImportError: If RDKit is not available.
         """
-        if Chem is None or Mol is None:
-            raise ValueError("RDKit is not available.")
+        cls.check_is_available()
         suppl = Chem.SDMolSupplier(str(sdf_file))
         mol = next(suppl)  # Assuming only one molecule in the SDF file, you can iterate if needed.
         if mol is None:
@@ -123,8 +126,7 @@ class Molecule(MediaType):
         Raises:
             ValueError: If RDKit is not available.
         """
-        if Chem is None or Mol is None:
-            raise ValueError("RDKit is not available.")
+        cls.check_is_available()
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             raise ValueError(f"Could not read molecule from SMILES string: {smiles}")
@@ -132,24 +134,23 @@ class Molecule(MediaType):
 
     @classmethod
     def from_mol_file(cls, mol_file: Path, *, caption: Optional[str] = None, **kwargs) -> "Molecule":
-      """Creates a Molecule instance from a Mol file.
+        """Creates a Molecule instance from a Mol file.
 
-      Args:
-          mol_file: Path to the Mol file.
-          caption: Optional descriptive text.
+        Args:
+            mol_file: Path to the Mol file.
+            caption: Optional descriptive text.
 
-      Returns:
-          Molecule: A new Molecule instance.
+        Returns:
+            Molecule: A new Molecule instance.
 
-      Raises:
-          ValueError: If RDKit is not available or the file cannot be read.
-      """
-      if Chem is None or Mol is None:
-          raise ValueError("RDKit is not available.")
-      mol = Chem.MolFromMolFile(str(mol_file))
-      if mol is None:
-          raise ValueError(f"Could not read molecule from Mol file: {mol_file}")
-      return cls.from_mol(mol, caption=caption, **kwargs)
+        Raises:
+            ValueError: If RDKit is not available or the file cannot be read.
+        """
+        cls.check_is_available()
+        mol = Chem.MolFromMolFile(str(mol_file))
+        if mol is None:
+            raise ValueError(f"Could not read molecule from Mol file: {mol_file}")
+        return cls.from_mol(mol, caption=caption, **kwargs)
 
     # ---------------------------------- override ----------------------------------
 
