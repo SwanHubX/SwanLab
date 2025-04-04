@@ -175,7 +175,7 @@ class Molecule(MediaType):
 
     def get_chart(self) -> MediaType.Chart:
         """Return chart type for visualization"""
-        return MediaType.Chart.OBJECT3D
+        return MediaType.Chart.MOLECULE
 
     def get_section(self) -> str:
         """Return section name for organization"""
