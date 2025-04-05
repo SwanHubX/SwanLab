@@ -1,13 +1,7 @@
-import os
-from pathlib import Path
-
 import pytest
-from nanoid import generate
-from rdkit import Chem
-from rdkit.Chem import AllChem, MolFromSmiles
+from rdkit.Chem import MolFromSmiles
 
 from swanlab.data.modules.object3d import Molecule, Object3D
-from tutils import TEMP_PATH
 
 
 class TestMolecule:
@@ -17,7 +11,7 @@ class TestMolecule:
         return MolFromSmiles("CCO")
 
     @pytest.fixture
-    def pdb_file(self,tmp_path):
+    def pdb_file(self, tmp_path):
         """Creates a dummy PDB file."""
         pdb_content = """
         ATOM      1  N     ALA A   1      -12.748   0.639   1.454  1.00  0.00           N
@@ -89,10 +83,10 @@ M  END
         assert isinstance(molecule.pdb_data, str)
 
     def test_from_mol_file(self, mol_file):
-      """Tests creating a Molecule from a Mol file."""
-      molecule = Molecule.from_mol_file(mol_file, caption="Test Mol")
-      assert molecule.caption == "Test Mol"
-      assert isinstance(molecule.pdb_data, str)
+        """Tests creating a Molecule from a Mol file."""
+        molecule = Molecule.from_mol_file(mol_file, caption="Test Mol")
+        assert molecule.caption == "Test Mol"
+        assert isinstance(molecule.pdb_data, str)
 
     def test_from_smiles(self):
         """Tests creating a Molecule from a SMILES string."""
@@ -114,7 +108,7 @@ M  END
         """Tests the get_chart method."""
         if mol:
             molecule = Molecule.from_mol(mol)
-            assert molecule.get_chart() == Molecule.Chart.OBJECT3D
+            assert molecule.get_chart() == Molecule.Chart.MOLECULE
 
     def test_get_section(self, mol):
         """Tests the get_section method."""
@@ -129,6 +123,7 @@ M  END
             assert molecule.get_more() == {"caption": "Test"}
             molecule = Molecule.from_mol(mol)
             assert molecule.get_more() is None
+
 
 class TestObject3DWithMolecule:
     @pytest.fixture
