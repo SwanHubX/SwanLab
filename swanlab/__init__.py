@@ -23,6 +23,7 @@ __all__ = [
     "Audio",
     "Image",
     "Object3D",
+    "Molecule",
     "Text",
     "Run",
     "State",

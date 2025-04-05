@@ -5,7 +5,7 @@ from swankit.core.data import BaseType, MediaBuffer, MediaType
 from .audio import Audio
 from .image import Image
 from .line import FloatConvertible, Line
-from .object3d import Model3D, Object3D, PointCloud
+from .object3d import Model3D, Object3D, PointCloud, Molecule
 from .text import Text
 from .wrapper import DataWrapper
 
@@ -26,4 +26,5 @@ __all__ = [
     "Object3D",
     "PointCloud",
     "Model3D",
+    "Molecule",
 ]
