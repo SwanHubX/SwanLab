@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 from swankit.core.data import MediaType
 
 from .model3d import Model3D
+from .molecule import Molecule
 from .point_cloud import Box, PointCloud
 
 try:
@@ -11,6 +12,11 @@ try:
     import numpy as np
 except ImportError:
     np = None
+
+try:
+    from rdkit.Chem import Mol
+except ImportError:
+    Mol = None
 
 
 class Object3D:
@@ -58,10 +64,17 @@ class Object3D:
         ...     {"points": points_xyz, "boxes": list(Box)}
         ... )
 
+    5. Creating from Molecule:
+        >>> from rdkit import Chem
+        >>> mol = Chem.MolFromSmiles("CCO")
+        >>> molecule = Molecule.from_mol(mol, caption="Ethanol")
+        >>> obj8 = Object3D(molecule)
+
     Args:
         data: Input data, can be:
             - numpy.ndarray: Point cloud data with shape (N, C) where C is 3,4 or 6
             - str/Path: Path to a 3D file (.glb or .swanlab.pts.json)
+            - Molecule: A Molecule object
         caption: Optional description text
         **kwargs: Additional keyword arguments passed to specific handlers
 
@@ -77,7 +90,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path, Dict],
+        data: Union[np.ndarray, str, Path, Dict, Mol],
         *,
         caption: Optional[str] = None,
         **kwargs,
@@ -91,6 +104,9 @@ class Object3D:
 
         if isinstance(data, (str, Path)):
             return cls._handle_file(Path(data), **kwargs)
+
+        if isinstance(data, Mol):
+            return Molecule.from_mol(data, **kwargs)
 
         return cls._handle_data(data, **kwargs)
 
@@ -117,7 +133,13 @@ class Object3D:
 
     _FILE_HANDLERS: Dict[str, List[Callable]] = {
         '.swanlab.pts.json': [PointCloud.from_swanlab_pts_json_file],
+
         '.glb': [Model3D.from_glb_file],
+
+        '.sd': [Molecule.from_sdf_file],
+        '.sdf': [Molecule.from_sdf_file],
+        '.mol': [Molecule.from_mol_file],
+        '.pdb': [Molecule.from_pdb_file],
     }
 
     @classmethod

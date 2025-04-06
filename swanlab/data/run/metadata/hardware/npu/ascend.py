@@ -9,6 +9,7 @@ import math
 import os
 import platform
 import subprocess
+from typing import Optional
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
 from ..utils import generate_key, random_index
@@ -33,7 +34,7 @@ def get_ascend_npu_info() -> HardwareFuncResult:
         info["driver"] = get_version()
         # 获取CANN版本
         info["cann"] = get_cann_version()
-        
+
         # 获取所有NPU设备ID
         npu_map = map_npu()
         for npu_id in npu_map:
@@ -57,25 +58,27 @@ def get_version() -> str:
     return result.stdout.split(":")[-1].strip()
 
 
-def get_cann_version() -> str:
+def get_cann_version() -> Optional[str]:
     """
-    从 ascend_toolkit_install.info 文件中提取 Ascend-cann-toolkit 的版本号。
+    从 ascend_toolkit_install.info 文件中提取 Ascend-cann-toolkit 的版本号
+    如果文件不存在或者格式不正确，返回 None
     """
     try:
         arch = platform.machine()
         if arch not in ("aarch64", "x86_64"):
             return None
-            
+
         path = f"/usr/local/Ascend/ascend-toolkit/latest/{arch}-linux/ascend_toolkit_install.info"
-        
+
         # 使用grep直接提取版本号，避免读取整个文件
         cmd = f"grep -m 1 '^version=' {path} | cut -d'=' -f2"
         proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        
+
         return proc.stdout.strip() if proc.returncode == 0 else None
-            
-    except Exception:
+
+    except Exception:  # noqa
         return None
+
 
 def map_npu() -> dict:
     """
@@ -120,7 +123,7 @@ def get_chip_usage(npu_id: str, chip_id: str):
             # HBM Capacity的值在最后一个
             hbm = line[-1].strip()
             if hbm.isdigit():
-                usage["hbm"] = str(round(int(hbm) / 1024))
+                usage["hbm"] = str(round(int(hbm) / 1024))  # 单位为GB
             break
     return usage
 

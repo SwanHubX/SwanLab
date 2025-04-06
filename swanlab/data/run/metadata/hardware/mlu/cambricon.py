@@ -8,6 +8,7 @@
 import math
 import platform
 import subprocess
+from typing import Tuple, Optional
 
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareCollector as H
 from ..utils import generate_key, random_index
@@ -27,14 +28,14 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
         driver, mlu_map = map_mlu()
         info["driver"] = driver
         info["mlu"] = mlu_map
-        collector = cambriconCollector(mlu_map)
+        collector = CambriconCollector(mlu_map)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
     return info, collector
 
 
-def map_mlu() -> dict:
+def map_mlu() -> Tuple[Optional[str], dict]:
     """
     列出所有mlu设备，并包含芯片的映射关系
     返回值样例:
@@ -45,7 +46,8 @@ def map_mlu() -> dict:
     mlu_map = {}
     driver = None
     lines = output.split("\n")[1:]
-    
+
+    mlu_id = None
     for line in lines:
         line = line.split()
         try:
@@ -54,8 +56,11 @@ def map_mlu() -> dict:
                 # 获取mlu的ID
                 if mlu_id not in mlu_map:
                     mlu_map[mlu_id] = {}
+            if mlu_id is None:
+                continue
             # 获取mlu的名称
             if line[0] == "Product":
+                # 如果没有mlu_id，则跳过（解析错误）
                 mlu_name = line[-1]
                 mlu_map[mlu_id]["name"] = mlu_name
             # 获取mlu的驱动版本
@@ -64,18 +69,18 @@ def map_mlu() -> dict:
             # 获取mlu的内存大小
             if line[0] == "Total" and len(mlu_map[mlu_id]) == 1:
                 memory = line[-2]
-                mlu_map[mlu_id]["memory"] = int(memory) // 1024  # 单位为GB
-        except Exception as e:
+                mlu_map[mlu_id]["memory"] = str(int(memory) // 1024)  # 单位为GB
+        except Exception:  # noqa
             continue
 
     return driver, mlu_map
 
 
-class cambriconCollector(H):
+class CambriconCollector(H):
     def __init__(self, mlu_map):
         super().__init__()
         self.mlu_map = mlu_map
-        
+
         # mlu Utilization (%)
         self.util_key = generate_key("mlu.{mlu_index}.ptc")
         util_config = HardwareConfig(
@@ -84,7 +89,7 @@ class cambriconCollector(H):
             chart_name="MLU Utilization (%)",
         )
         self.per_util_configs = {}
-        
+
         # mlu Memory Allocated (%)
         self.memory_key = generate_key("mlu.{mlu_index}.mem.ptc")
         memory_config = HardwareConfig(
@@ -93,8 +98,7 @@ class cambriconCollector(H):
             chart_name="MLU Memory Allocated (%)",
         )
         self.per_memory_configs = {}
-        
-        
+
         # mlu Temperature (°C)
         self.temp_key = generate_key("mlu.{mlu_index}.temp")
         temp_config = HardwareConfig(
@@ -103,7 +107,7 @@ class cambriconCollector(H):
             chart_name="MLU Temperature (°C)",
         )
         self.per_temp_configs = {}
-        
+
         # mlu Power (W)
         self.power_key = generate_key("mlu.{mlu_index}.power")
         power_config = HardwareConfig(
@@ -112,7 +116,7 @@ class cambriconCollector(H):
             chart_name="MLU Power (W)",
         )
         self.per_power_configs = {}
-        
+
         for mlu_id in self.mlu_map:
             metric_name = f"MLU {mlu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
@@ -128,7 +132,7 @@ class cambriconCollector(H):
             self.get_temperature_usage,
             self.get_power_usage,
         ]
-        
+
         for method in usage_methods:
             result.extend(method().values())
         return result
@@ -138,18 +142,18 @@ class cambriconCollector(H):
         获取指定mlu设备的利用率
         """
         output = subprocess.run(["cnmon", "info", "-u"], capture_output=True, text=True).stdout
-        
+
         util_infos = {}
         mlu_ids = []
-        
+
         # 获取所有mlu ID
         for mlu_id in self.mlu_map:
             mlu_ids.append(mlu_id)
-        
+
         index = 0
         lines = output.split("\n")
         for line in lines:
-            if "mlu average" in line.lower():             
+            if "mlu average" in line.lower():
                 util_infos[mlu_ids[index]] = {
                     "key": self.util_key.format(mlu_index=mlu_ids[index]),
                     "name": f"MLU {mlu_ids[index]} Utilization (%)",
@@ -163,22 +167,26 @@ class cambriconCollector(H):
                     util_infos[mlu_ids[index]]['value'] = float(util)
                 index += 1
                 continue
-                
+
         return util_infos
-    
+
     def get_memory_usage(self) -> dict:
         """
         获取指定mlu设备的显存占用率
         """
-        output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, text=True, ).stdout
-        
+        output = subprocess.run(
+            ["cnmon", "info", "-m"],
+            capture_output=True,
+            text=True,
+        ).stdout
+
         memory_infos = {}
         mlu_ids = []
-        
+
         # 获取所有mlu ID
         for mlu_id in self.mlu_map:
             mlu_ids.append(mlu_id)
-    
+
         index = 0
         lines = output.split("\n")
         for line_index, line in enumerate(lines):
@@ -198,12 +206,14 @@ class cambriconCollector(H):
                     memory = used_line[-1].replace("MiB", "").strip()
                     if memory.isdigit():
                         # 计算mlu显存占用率
-                        memory_infos[mlu_ids[index]]['value'] = float(memory) / (self.mlu_map[mlu_ids[index]]['memory'] * 1024) * 100
+                        memory_infos[mlu_ids[index]]['value'] = (
+                            float(memory) / (self.mlu_map[mlu_ids[index]]['memory'] * 1024) * 100
+                        )
                     index += 1
                     continue
-                
+
         return memory_infos
-    
+
     def get_temperature_usage(self) -> dict:
         """
         获取指定mlu设备的温度(°C)
@@ -211,11 +221,11 @@ class cambriconCollector(H):
         output = subprocess.run(["cnmon", "info", "-e"], capture_output=True, text=True).stdout
         temp_infos = {}
         mlu_ids = []
-        
+
         # 获取所有mlu ID
         for mlu_id in self.mlu_map:
             mlu_ids.append(mlu_id)
-        
+
         index = 0
         lines = output.split("\n")
         for line in lines:
@@ -233,7 +243,7 @@ class cambriconCollector(H):
                     temp_infos[mlu_ids[index]]['value'] = float(temp)
                 index += 1
                 continue
-                
+
         return temp_infos
 
     def get_power_usage(self) -> dict:
@@ -243,11 +253,11 @@ class cambriconCollector(H):
         output = subprocess.run(["cnmon", "info", "-p"], capture_output=True, text=True).stdout
         power_infos = {}
         mlu_ids = []
-        
+
         # 获取所有mlu ID
         for mlu_id in self.mlu_map:
             mlu_ids.append(mlu_id)
-        
+
         index = 0
         lines = output.split("\n")
         for line in lines:
@@ -265,5 +275,5 @@ class cambriconCollector(H):
                     power_infos[mlu_ids[index]]['value'] = float(power)
                 index += 1
                 continue
-            
+
         return power_infos
