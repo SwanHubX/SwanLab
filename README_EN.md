@@ -53,6 +53,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.04.07: We completed joint integration with [EvalScope](https://github.com/ModelScope/EvalScope). Now you can use **SwanLab** in EvalScope to **evaluate LLM performance**.
+
 • 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/plugin/notification-discord.html).
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
@@ -69,10 +71,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.02.24: We completed integration with [EasyR1](https://github.com/hiyouga/EasyR1). Now you can use SwanLab in EasyR1 to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
 
-- 2025.02.18: We completed integration with [Swift](https://github.com/modelscope/ms-swift). Now you can use SwanLab in Swift's CLI/WebUI to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html).
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.02.18: We completed integration with [Swift](https://github.com/modelscope/ms-swift). Now you can use SwanLab in Swift's CLI/WebUI to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html).
 
 - 2025.02.16: Added **chart moving group** and **create group** features.
 

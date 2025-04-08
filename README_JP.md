@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.04.07: [EvalScope](https://github.com/ModelScope/EvalScope) との共同統合を完了しました。これにより、EvalScope内で **SwanLab** を使用して **大規模モデルの性能評価** が可能になりました。
+
 • 2025.03.30: **swanlab.Settings** メソッドをサポートし、実験の動作をより詳細に制御可能に；**寒武紀MLU** ハードウェアの監視をサポート；[Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html) と [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html) をサポート。
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
@@ -70,10 +72,9 @@
 
 - 2025.02.24：我們與[EasyR1](https://github.com/hiyouga/EasyR1)完成了聯合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
 
-- 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)。
-
-
 <details><summary>完全な更新履歴</summary>
+
+- 2025.02.18：我們與 [Swift](https://github.com/modelscope/ms-swift) 完成了聯合集成，現在你可以在Swift的CLI/WebUI中使用SwanLab來**跟踪和可視化大模型微調實驗**，[使用指引](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)。
 
 - 2025.02.16：新機能として、チャートの移動グループ化とグループ作成が追加されました。
 
