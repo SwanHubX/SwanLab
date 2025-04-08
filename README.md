@@ -521,7 +521,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 [demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
 [demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
 
-[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/log
+[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
 [demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
 
 [tracking-swanlab-shield-link]:https://swanlab.cn
