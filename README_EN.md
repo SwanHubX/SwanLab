@@ -115,10 +115,20 @@ Here is a list of its core features:
 
 **1. 📊 Experiment Metrics and Hyperparameter Tracking**: Minimal code integration into your machine learning pipeline to track and record key training metrics.
 
-- Supports **cloud** usage (similar to Weights & Biases), allowing you to check training progress anytime, anywhere. [How to view experiments on mobile](https://docs.swanlab.cn/en/guide_cloud/general/app.html).
+- ☁️ Supports **cloud** usage (similar to Weights & Biases), allowing you to check training progress anytime, anywhere. [How to view experiments on mobile](https://docs.swanlab.cn/en/guide_cloud/general/app.html).
+
+![swanlab-architecture](readme_files/swanlab-architecture.png)
+
+- 🌸 **Visualizing the Training Process**: By visualizing experiment tracking data through the UI interface, trainers can intuitively observe the results at each step of the experiment, analyze metric trends, and determine which changes led to improved model performance—ultimately enhancing the overall efficiency of model iteration.    
+
+![swanlab-visiualization](readme_files/swanlab-visiualization.png)
+
 - Supports **hyperparameter recording** and table display.
 - **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules...
 - **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), ...
+
+![swanlab-table](readme_files/molecule.gif)
+
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 
 **2. ⚡️ Comprehensive Framework Integration**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetection, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, Hydra, and more, totaling **30+** frameworks.
@@ -129,6 +139,8 @@ Here is a list of its core features:
 
 **4. 📦 Experiment Management**: Through a centralized dashboard designed for training scenarios, quickly overview and manage multiple projects and experiments.
 
+![swanlab-table](readme_files/swanlab-table.png)
+
 **5. 🆚 Result Comparison**: Compare hyperparameters and results of different experiments through online tables and comparison charts to uncover iteration insights.
 
 **6. 👥 Online Collaboration**: Collaborate with your team on training, supporting real-time synchronization of experiments under a single project. You can view team training records online and provide feedback and suggestions based on results.
@@ -136,6 +148,8 @@ Here is a list of its core features:
 **7. ✉️ Share Results**: Copy and send persistent URLs to share each experiment, easily send to partners, or embed in online notes.
 
 **8. 💻 Self-Hosting Support**: Supports offline usage, and the self-hosted community edition also allows viewing dashboards and managing experiments.
+
+**9. 🔌 Plugin Extensions**: Supports extending SwanLab's usage scenarios through plugins, such as [Lark Notifications](https://docs.swanlab.cn/plugin/notification-lark.html), [Slack Notifications](https://docs.swanlab.cn/plugin/notification-slack.html), [CSV Logger](https://docs.swanlab.cn/plugin/writer-csv.html), etc.
 
 > \[!IMPORTANT]
 >
