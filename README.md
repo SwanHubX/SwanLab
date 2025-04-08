@@ -169,6 +169,10 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 | [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
 | 从ResNet到ResNeXt在音频分类任务上的渐进式实验过程 | 基于Qwen2-VL多模态大模型，在COCO2014数据集上进行Lora微调。 |
 
+| [EasyR1 多模态LLM RL训练][demo-easyr1-rl] | [Qwen2.5-0.5B GRPO训练][demo-qwen2-grpo] |
+| :--------: | :--------: |
+| [![][demo-easyr1-rl-image]][demo-easyr1-rl] | [![][demo-qwen2-grpo-image]][demo-qwen2-grpo] |
+| 使用EasyR1框架进行多模态LLM RL训练 | 基于Qwen2.5-0.5B模型在GSM8k数据集上进行GRPO训练 |
 
 [更多案例](https://docs.swanlab.cn/zh/examples/mnist.html)
 
@@ -513,6 +517,12 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
+[demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
+
+[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/log
+[demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
 
 [tracking-swanlab-shield-link]:https://swanlab.cn
 [tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
