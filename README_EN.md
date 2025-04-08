@@ -45,6 +45,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - [💻 Self-Hosting](#-self-hosting)
 - [🚗 Framework Integration](#-framework-integration)
 - [🔌 Plugins](#-plugins)
+- [🎮 Hardware Monitoring](#-hardware-monitoring)
 - [🆚 Comparison with Familiar Tools](#-comparison-with-familiar-tools)
 - [👥 Community](#-community)
 - [📃 License](#-license)
@@ -341,6 +342,25 @@ Enhance your experiment management experience by extending SwanLab's functionali
 -  [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 
 <br>
+
+## 🎮 Hardware Monitoring
+
+SwanLab records the **hardware information** and **resource usage** during AI training. Below is a table of supported hardware:
+
+| Hardware | Information Recording | Resource Monitoring | Script |
+| --- | --- | --- | --- |
+| Nvidia GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/nvidia.py) |
+| Ascend NPU | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/npu/ascend.py) |
+| Combricon MLU | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/mlu/cambricon.py) |
+| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/cpu.py) |
+| Memory | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/memory.py) |
+| Disk | ✅ | ✅ | [disk.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/disk.py) |
+| Network | ✅ | ✅ | [network.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/network.py) |
+
+If you wish to document other hardware, feel free to submit an Issue or PR!
+
+<br>
+
 
 ## 🆚 Comparison with Familiar Tools
 

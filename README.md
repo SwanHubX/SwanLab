@@ -365,6 +365,8 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 | 硬盘 | ✅ | ✅ | [disk.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/disk.py) |
 | 网络 | ✅ | ✅ | [network.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/network.py) |
 
+如果你希望记录其他硬件，欢迎提交Issue与PR！
+
 <br>
 
 ## 🆚 与熟悉的工具的比较
