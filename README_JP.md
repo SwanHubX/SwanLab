@@ -165,6 +165,11 @@ SwanLabのオンラインデモをご覧ください：
 | [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
 | ResNetからResNeXtへの音声分類タスクの進化的実験プロセス | Qwen2-VL多モーダル大規模モデルを使用してCOCO2014データセットでLoraファインチューニング。 |
 
+| [EasyR1 multimodal LLM RL Training][demo-easyr1-rl] | [Qwen2.5-0.5B GRPO Training][demo-qwen2-grpo] |
+| :--------: | :--------: |
+| [![][demo-easyr1-rl-image]][demo-easyr1-rl] | [![][demo-qwen2-grpo-image]][demo-qwen2-grpo] |
+| EasyR1フレームワークを使用した多モーダルLLM RLトレーニング | Qwen2.5-0.5BモデルをGSM8kデータセットでGRPOトレーニング。 |
+
 [その他の例](https://docs.swanlab.cn/en/examples/mnist.html)
 
 <br>
@@ -488,6 +493,13 @@ SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
+[demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
+
+[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
+[demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
+
 
 [tracking-swanlab-shield-link]:https://swanlab.cn
 [tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg

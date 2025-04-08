@@ -164,6 +164,11 @@ Check out SwanLab's online demos:
 | [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
 | Progressive experimental process from ResNet to ResNeXt on audio classification tasks. | Fine-tune Qwen2-VL multimodal large model on COCO2014 dataset using Lora. |
 
+| [EasyR1 multimodal LLM RL Training][demo-easyr1-rl] | [Qwen2.5-0.5B GRPO Training][demo-qwen2-grpo] |
+| :--------: | :--------: |
+| [![][demo-easyr1-rl-image]][demo-easyr1-rl] | [![][demo-qwen2-grpo-image]][demo-qwen2-grpo] |
+| Use EasyR1 framework for multimodal LLM RL training | Fine-tune Qwen2.5-0.5B model on GSM8k dataset using GRPO. |
+
 [More Examples](https://docs.swanlab.cn/en/examples/mnist.html)
 
 <br>
@@ -505,6 +510,13 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 
 [demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
+
+[demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
+[demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
+
+[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
+[demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
+
 
 [tracking-swanlab-shield-link]:https://swanlab.cn
 [tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
