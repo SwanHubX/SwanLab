@@ -53,6 +53,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.04.08: Added support for the **swanlab.Molecule** data type, enabling recording and visualization of biochemical molecular data; also supports saving the state of sorting, filtering, and column order changes in table views.
+
 - 2025.04.07: We completed joint integration with [EvalScope](https://github.com/ModelScope/EvalScope). Now you can use **SwanLab** in EvalScope to **evaluate LLM performance**.
 
 • 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/plugin/notification-discord.html).
