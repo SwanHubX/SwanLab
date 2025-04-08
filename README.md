@@ -121,6 +121,10 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 **1. 📊 实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习 pipeline，跟踪记录训练关键指标
 
 - 支持**云端**使用（类似Weights & Biases），随时随地查看训练进展。[手机看实验的方法](https://docs.swanlab.cn/guide_cloud/general/app.html)
+
+![swanlab-architecture](readme_files/swanlab-architecture.png)
+
+
 - 支持**超参数记录**与表格展示
 - **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子...
 - **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子...
