@@ -124,19 +124,15 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 - ☁️ 支持**云端**使用（类似Weights & Biases），随时随地查看训练进展。[手机看实验的方法](https://docs.swanlab.cn/guide_cloud/general/app.html)
 
-![swanlab-architecture](readme_files/swanlab-architecture.png)
-
-- 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
-
 - 📝 支持**超参数记录**、**指标总结**、**表格分析**
-
-![swanlab-table](readme_files/swanlab-table.png)
-
-- **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子...
 
 - **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子...
 
 ![swanlab-table](readme_files/molecule.gif)
+
+- **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子...
+
+- 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
 
 - **后台自动记录**：日志logging、硬件环境、Git 仓库、Python 环境、Python 库列表、项目运行目录
 
