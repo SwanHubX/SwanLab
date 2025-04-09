@@ -109,9 +109,9 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 SwanLab is an open-source, lightweight AI model training tracking and visualization tool, providing a platform for tracking, recording, comparing, and collaborating on experiments.
 
-https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
-
 SwanLab is designed for AI researchers, offering a friendly Python API and a beautiful UI interface, and providing features such as **training visualization, automatic logging, hyperparameter recording, experiment comparison, and multi-user collaboration**. With SwanLab, researchers can identify training issues through intuitive visual charts, compare multiple experiments to find research inspiration, and break down team communication barriers through **online web sharing** and **multi-user collaborative training** within organizations, improving organizational training efficiency.
+
+https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 Here is a list of its core features:
 
@@ -123,7 +123,7 @@ Here is a list of its core features:
 
 - 🌸 **Visualizing the Training Process**: By visualizing experiment tracking data through the UI interface, trainers can intuitively observe the results at each step of the experiment, analyze metric trends, and determine which changes led to improved model performance—ultimately enhancing the overall efficiency of model iteration.    
 
-![swanlab-visiualization](readme_files/swanlab-visiualization.png)
+![swanlab-table](readme_files/swanlab-table.png)
 
 - Supports **hyperparameter recording** and table display.
 - **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules...
@@ -140,8 +140,6 @@ Here is a list of its core features:
 **3. 💻 Hardware Monitoring**: Supports real-time recording and monitoring of system-level hardware metrics for CPU, NPU (Ascend), GPU (Nvidia), MLU (Cambricon), and memory.
 
 **4. 📦 Experiment Management**: Through a centralized dashboard designed for training scenarios, quickly overview and manage multiple projects and experiments.
-
-![swanlab-table](readme_files/swanlab-table.png)
 
 **5. 🆚 Result Comparison**: Compare hyperparameters and results of different experiments through online tables and comparison charts to uncover iteration insights.
 

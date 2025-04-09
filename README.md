@@ -114,9 +114,9 @@
 
 SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，提供了一个跟踪、记录、比较、和协作实验的平台。
 
-https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
-
 SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
+
+https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 以下是其核心特性列表：
 
