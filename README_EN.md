@@ -109,6 +109,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 SwanLab is an open-source, lightweight AI model training tracking and visualization tool, providing a platform for tracking, recording, comparing, and collaborating on experiments.
 
+https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
+
 SwanLab is designed for AI researchers, offering a friendly Python API and a beautiful UI interface, and providing features such as **training visualization, automatic logging, hyperparameter recording, experiment comparison, and multi-user collaboration**. With SwanLab, researchers can identify training issues through intuitive visual charts, compare multiple experiments to find research inspiration, and break down team communication barriers through **online web sharing** and **multi-user collaborative training** within organizations, improving organizational training efficiency.
 
 Here is a list of its core features:
