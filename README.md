@@ -116,21 +116,17 @@ SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，�
 
 SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
 
+https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
+
 以下是其核心特性列表：
 
 **1. 📊 实验指标与超参数跟踪**: 极简的代码嵌入您的机器学习 pipeline，跟踪记录训练关键指标
 
 - ☁️ 支持**云端**使用（类似Weights & Biases），随时随地查看训练进展。[手机看实验的方法](https://docs.swanlab.cn/guide_cloud/general/app.html)
 
-![swanlab-architecture](readme_files/swanlab-architecture.png)
-
-- 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
-
-![swanlab-visiualization](readme_files/swanlab-visiualization.png)
-
 - 📝 支持**超参数记录**、**指标总结**、**表格分析**
 
-![swanlab-config](readme_files/swanlab-config.png)
+- 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
 
 - **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子...
 
@@ -148,9 +144,9 @@ SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的U
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
-![swanlab-table](readme_files/swanlab-table.png)
-
 **5. 🆚 比较结果**: 通过在线表格与对比图表比较不同实验的超参数和结果，挖掘迭代灵感
+
+![](readme_files/swanlab-table.png)
 
 **6. 👥 在线协作**: 您可以与团队进行协作式训练，支持将实验实时同步在一个项目下，您可以在线查看团队的训练记录，基于结果发表看法与建议
 
