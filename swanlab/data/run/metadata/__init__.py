@@ -10,6 +10,7 @@ from typing import Tuple, List
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import get_settings
 from .conda import get_conda
+from .uv import get_uv
 from .cooperation import get_cooperation_info
 from .hardware import *
 from .requirements import get_requirements
@@ -58,4 +59,12 @@ def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
     return metadata, monitor_funcs
 
 
-__all__ = ["get_metadata", "get_requirements", "get_conda", "get_cooperation_info", "HardwareInfo", "HardwareCollector"]
+__all__ = [
+    "get_metadata",
+    "get_requirements",
+    "get_conda",
+    "get_uv",
+    "get_cooperation_info",
+    "HardwareInfo",
+    "HardwareCollector",
+]

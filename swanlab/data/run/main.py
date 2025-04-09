@@ -23,7 +23,7 @@ from swanlab.swanlab_settings import reset_settings, get_settings
 from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
-from .metadata import get_requirements, get_metadata, get_conda
+from .metadata import get_requirements, get_metadata, get_conda, get_uv
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format
 
@@ -126,7 +126,9 @@ class SwanLabRun:
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements() if settings.requirements_collect else None,
+                requirements=(
+                    get_uv() if settings.uv_collect else get_requirements() if settings.requirements_collect else None
+                ),
                 conda=get_conda() if settings.conda_collect else None,
                 metadata=metadata,
             )

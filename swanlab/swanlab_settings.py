@@ -40,6 +40,8 @@ class Settings(BaseModel):
     requirements_collect: StrictBool = True
     # 是否采集conda环境信息
     conda_collect: StrictBool = False
+    # 是否采集uv环境信息
+    uv_collect: StrictBool = True
     # ---------------------------------- 硬件监控部分 ----------------------------------
     # 是否开启硬件监控，如果元信息的相关采集被关闭，则此项无效
     hardware_monitor: StrictBool = True
