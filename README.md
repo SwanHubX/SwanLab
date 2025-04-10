@@ -325,6 +325,8 @@ swanlab login --host http://localhost:8000
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
 
+**评估框架**
+- [EvalScope](https://docs.swanlab.cn/guide_cloud/integration/integration-evalscope.html)
 
 **计算机视觉**
 - [Ultralytics](https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html)
