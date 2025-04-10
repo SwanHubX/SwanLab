@@ -167,7 +167,10 @@ class HTTP:
             捕获所有的http不为2xx的错误，以ApiError的形式抛出
             """
             if response.status_code // 100 != 2:
-                raise ApiError(response, response.status_code, response.reason)
+                traceid = f"Trace id: {response.headers.get('traceid')}"
+                request = f"{response.request.method.upper()} {response.url}"
+                resp = f"{response.status_code} {response.reason}"
+                raise ApiError(response, traceid, request, resp)
 
         session.hooks["response"] = response_interceptor
 
