@@ -60,6 +60,8 @@
 
 ## 🌟 最近更新
 
+- 2025.04.11：支持折线图**局部区域选取**；支持全局当前仪表盘折线图的step范围；
+
 - 2025.04.08：支持**swanlab.Molecule**数据类型，支持记录与可视化生物化学分子数据；支持保存表格视图中的排序、筛选、列顺序变化状态；
 
 - 2025.04.07：我们与 [EvalScope](https://github.com/ModelScope/EvalScope) 完成了联合集成，现在你可以在EvalScope中使用SwanLab来**评估大模型性能**；
@@ -76,9 +78,10 @@
 
 - 2025.03.04：新增 **MLFlow转换** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)；
 
-- 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了；
 
 <details><summary>完整更新日志</summary>
+
+- 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了；
 
 - 2025.02.24：我们与 [EasyR1](https://github.com/hiyouga/EasyR1) 完成了联合集成，现在你可以在EasyR1中使用SwanLab来**跟踪和可视化多模态大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 
