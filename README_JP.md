@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.04.11: 折線グラフの**局所選択**をサポート；現在のグラフのstep範囲をサポート。
+
 - 2025.04.08: **swanlab.Molecule** データ型のサポートを追加し、生物化学分子データの記録と可視化をサポート；テーブルビューのソート、フィルタリング、列順序変更の状態を保存する機能を追加。
 
 - 2025.04.07: [EvalScope](https://github.com/ModelScope/EvalScope) との共同統合を完了しました。これにより、EvalScope内で **SwanLab** を使用して **大規模モデルの性能評価** が可能になりました。
@@ -70,10 +72,10 @@
 
 - 2025.03.04: MLFlowの統合を追加し、MLFlow実験をSwanLab実験に変換する機能をサポートしました。[使用ガイド](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 
-- 2025.03.01：新機能として、実験の移動が追加されました。
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.03.01：新機能として、実験の移動が追加されました。
 
 - 2025.02.24：我們與[EasyR1](https://github.com/hiyouga/EasyR1)完成了聯合集成，[使用指引](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format)
 
