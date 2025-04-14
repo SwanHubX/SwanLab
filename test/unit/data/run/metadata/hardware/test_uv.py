@@ -10,7 +10,10 @@ import subprocess
 import pytest
 import time
 
-has_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
+try:
+    has_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
+except FileNotFoundError:
+    has_uv = False
 
 
 @pytest.mark.skipif(not has_uv, reason="uv is not installed")
