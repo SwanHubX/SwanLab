@@ -60,7 +60,9 @@
 
 ## 🌟 最近更新
 
-- 2025.04.11：支持折线图**局部区域选取**；支持全局当前仪表盘折线图的step范围；
+- 2025.04.14：支持**昆仑芯XPU**的硬件检测与监控，[#940](https://github.com/SwanHubX/SwanLab/pull/940)；
+
+- 2025.04.11：支持折线图**局部区域选取**；支持全局选择仪表盘折线图的step范围；支持一键隐藏全部图表；
 
 - 2025.04.08：支持**swanlab.Molecule**数据类型，支持记录与可视化生物化学分子数据；支持保存表格视图中的排序、筛选、列顺序变化状态；
 
@@ -76,10 +78,9 @@
 
 - 2025.03.06：我们与 [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio) 完成了联合集成，现在你可以在DiffSynth Studio中使用SwanLab来**跟踪和可视化Diffusion模型文生图/视频实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)；
 
-- 2025.03.04：新增 **MLFlow转换** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)；
-
-
 <details><summary>完整更新日志</summary>
+
+- 2025.03.04：新增 **MLFlow转换** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)；
 
 - 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了；
 
