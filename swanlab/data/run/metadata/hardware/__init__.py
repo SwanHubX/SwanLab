@@ -45,6 +45,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         "gpu": {},
         "npu": {},
         "mlu": {},
+        "xpu": {},
         "soc": {},
     }
     if nvidia is not None:
