@@ -27,6 +27,7 @@ def get_runtime_info():
 def get_computer_info():
     return {
         "os": platform.platform(),
+        "os_pretty_name": get_os_pretty_name(),
         "hostname": socket.gethostname(),
         "pid": os.getpid(),
         "cwd": os.getcwd(),
@@ -51,6 +52,13 @@ def get_git_info():
         "git_remote": get_remote_url(),
         "git_info": get_git_branch_and_commit(),
     }
+
+def get_os_pretty_name():
+    """获取操作系统pretty name"""
+    try:
+        return platform.freedesktop_os_release().get("PRETTY_NAME", "")
+    except Exception as e:  # noqa
+        return None
 
 
 def get_remote_url():
