@@ -108,9 +108,6 @@ def upload_column(columns: List[ColumnModel]):
     columns_count = len(columns)
     for i in range(0, columns_count, MAX_COLUMNS_LENGTH):
         columns_list.append([columns[i + j].to_dict() for j in range(min(MAX_COLUMNS_LENGTH, columns_count - i))])
-        # 模拟一下错误，重复一遍
-        # columns_list.append([columns[i + j].to_dict() for j in range(min(MAX_COLUMNS_LENGTH, columns_count - i))])
-
     # 上传每个列表
     for columns in columns_list:
         # 如果列表长度为0，则跳过
