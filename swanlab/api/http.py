@@ -25,7 +25,7 @@ from .cos import CosClient
 from .info import LoginInfo, ProjectInfo, ExperimentInfo
 
 
-def decode_response(resp: requests.Response) -> Union[Dict, AnyStr]:
+def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
     """
     解码响应，返回信息
     低版本requests库没有JSONDecodeError，所以需要捕获两种异常
@@ -176,7 +176,7 @@ class HTTP:
 
         self.__session = session
 
-    def post(self, url: str, data: dict = None) -> Union[dict, str]:
+    def post(self, url: str, data: dict = None):
         """
         post请求
         """
@@ -185,7 +185,7 @@ class HTTP:
         resp = self.__session.post(url, json=data)
         return decode_response(resp)
 
-    def put(self, url: str, data: dict = None) -> Union[dict, str]:
+    def put(self, url: str, data: dict = None):
         """
         put请求
         """
@@ -194,7 +194,7 @@ class HTTP:
         resp = self.__session.put(url, json=data)
         return decode_response(resp)
 
-    def get(self, url: str, params: dict = None) -> dict:
+    def get(self, url: str, params: dict = None):
         """
         get请求
         """
@@ -203,7 +203,7 @@ class HTTP:
         resp = self.__session.get(url, params=params)
         return decode_response(resp)
 
-    def patch(self, url: str, data: dict = None) -> Union[dict, str]:
+    def patch(self, url: str, data: dict = None):
         """
         patch请求
         """
