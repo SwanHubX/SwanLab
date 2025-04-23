@@ -44,8 +44,11 @@ from swanlab.data.namer import hex_to_rgb, light_colors
 
 try:
     import numpy as np
+
+    ndarray = np.ndarray
 except ImportError:
     np = None
+    ndarray = None
 
 
 class Box(TypedDict):
@@ -96,7 +99,7 @@ class PointCloud(MediaType):
         >>> pc = PointCloud.from_xyz(points, caption="My Points")  # With caption
     """
 
-    points: np.ndarray  # format xyzrgb
+    points: ndarray  # format xyzrgb
     boxes: List[Box] = field(default_factory=list)
     step: Optional[int] = None
     caption: Optional[str] = None
@@ -116,7 +119,7 @@ class PointCloud(MediaType):
             raise ImportError("Numpy is required for PointCloud class. Please install it with: pip install numpy")
 
     @classmethod
-    def from_xyz(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
+    def from_xyz(cls, points: ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZ coordinates.
 
         Args:
@@ -143,7 +146,7 @@ class PointCloud(MediaType):
         return cls(xyzrgb, caption=caption, **kwargs)
 
     @classmethod
-    def from_xyzc(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
+    def from_xyzc(cls, points: ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZC format (XYZ coordinates + category).
 
         Args:
@@ -175,7 +178,7 @@ class PointCloud(MediaType):
         return cls(xyzrgb, caption=caption, **kwargs)
 
     @classmethod
-    def from_xyzrgb(cls, points: np.ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
+    def from_xyzrgb(cls, points: ndarray, *, caption: Optional[str] = None, **kwargs) -> "PointCloud":
         """Create PointCloud from XYZRGB format.
 
         Args:
@@ -216,7 +219,7 @@ class PointCloud(MediaType):
         points = data["points"]
         if isinstance(points, list):
             points = np.array(points)  # Convert list to NumPy array
-        elif not isinstance(points, np.ndarray):
+        elif not isinstance(points, ndarray):
             raise TypeError("data['points'] must be a list or a NumPy array")
 
         if points.ndim != 2:
