@@ -54,7 +54,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.04.14: Added support for **Kunlunxin XPU** hardware detection and monitoring, [#940](https://github.com/SwanHubX/SwanLab/pull/940);
+• 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
 
 - 2025.04.11: Added support for **local selection** for line charts; supports the step range of the current graph.
 
