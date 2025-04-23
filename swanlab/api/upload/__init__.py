@@ -92,7 +92,7 @@ def upload_files(files: List[FileModel]):
     return None
 
 
-MAX_COLUMNS_LENGTH = 3000
+MAX_COLUMNS_LENGTH = 100
 
 
 @sync_error_handler
