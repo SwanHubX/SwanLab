@@ -1,14 +1,16 @@
 """
-@author: KashiwaByte
-@file: test_uv.py
-@time: 2025-04-14 13:28:37
-@description: 测试uv
+@author: cunyue
+@file: test_requirements.py
+@time: 2025/4/25 22:09
+@description: 测试获取python依赖
 """
 
 import subprocess
+import time
 
 import pytest
-import time
+
+from swanlab.data.run.metadata.requirements import get_requirements
 
 try:
     has_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
@@ -34,3 +36,11 @@ def test_uv():
         assert isinstance(result.stdout, str)
     else:
         assert result.stdout is None
+
+
+def test_get_requirements():
+    """
+    测试获取python依赖
+    正常情况下有python都应该获取成功
+    """
+    assert get_requirements() is not None
