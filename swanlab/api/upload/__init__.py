@@ -9,6 +9,7 @@ r"""
 """
 from typing import List
 
+from swanlab.error import ApiError
 from swanlab.log import swanlog
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel
 from ..http import get_http, sync_error_handler
@@ -92,30 +93,19 @@ def upload_files(files: List[FileModel]):
     return None
 
 
-MAX_COLUMNS_LENGTH = 100
-
-
 @sync_error_handler
 def upload_column(columns: List[ColumnModel]):
     """
-    上传列信息，需要注意的是一次只能上传一个列，所以函数名不带s
     但是在设计上是聚合上传的，所以在此处需要进行拆分然后分别上传
     """
     http = get_http()
-    url = f'/experiment/{http.exp_id}/columns'
-    # 将columns拆分成多个小的列表，每个列表的长度不能超过MAX_COLUMNS_LENGTH
-    columns_list = []
-    columns_count = len(columns)
-    for i in range(0, columns_count, MAX_COLUMNS_LENGTH):
-        columns_list.append([columns[i + j].to_dict() for j in range(min(MAX_COLUMNS_LENGTH, columns_count - i))])
-    # 上传每个列表
-    for columns in columns_list:
-        # 如果列表长度为0，则跳过
-        if len(columns) == 0:
-            continue
-        err_list: List[dict] = http.post(url, columns)
-        for err in err_list:
-            swanlog.error(f"Error uploading column {err['column']['key']}: {err['status']}")
+    url = f'/experiment/{http.exp_id}/column'
+    # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
+    for column in columns:
+        try:
+            http.post(url, column.to_dict())
+        except ApiError as e:
+            swanlog.error(f"Upload column {column.key} failed: {e.resp.status_code}")
 
 
 __all__ = [
