@@ -49,7 +49,7 @@ class Settings(BaseModel):
     )
     # ---------------------------------- 日志上传部分 ----------------------------------
     # 日志上传间隔
-    upload_interval: PositiveInt = 3
+    upload_interval: PositiveInt = 1
     # 终端日志上传单行最大字符数
     max_log_length: int = Field(ge=500, le=4096, default=1024)
 
