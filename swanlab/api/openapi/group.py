@@ -17,19 +17,6 @@ class GroupAPI(ApiBase):
         super().__init__(http)
 
     def list_workspaces(self):
-        """
-        获取当前用户的所有工作空间(Group)
-
-        :return: 一个列表，每个元素是一个字典，包含工作空间的基础信息：
-            [
-                {
-                    "name": str,       # 工作空间名称
-                    "username": str,   # 工作空间唯一标识(用于组织相关的URL)
-                    "role": str        # 用户在该工作空间中的角色，例如 'OWNER' 或 'MEMBER'
-                },
-                ...
-            ]
-        """
         resp = self.http.get("/group/")
         groups: list = [
             {

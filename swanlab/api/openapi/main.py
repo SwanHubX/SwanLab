@@ -41,4 +41,14 @@ class OpenApi:
         self.project = ProjectAPI(self.http)
 
     def list_workspaces(self):
+        """
+        获取当前用户的所有工作空间(Group)
+
+        Returns:
+            list[dict]: 每个元素是一个字典, 包含工作空间的基础信息:
+
+                - name: str, 工作空间名称
+                - username: str, 工作空间唯一标识(用于组织相关的 URL)
+                - role: str, 用户在该工作空间中的角色，如 'OWNER' 或 'MEMBER'
+        """
         return self.group.list_workspaces()
