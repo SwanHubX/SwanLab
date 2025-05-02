@@ -6,14 +6,21 @@
 
 ## 用法
 
-要使用开放API, 只需导入`swanlab.openapi`模块
+要使用开放API, 只需导入`swanlab.OpenApi`模块
 
 ```python
-from swanlab import openapi as api
+from swanlab import OpenApi
 
-print(api.list_workspaces())
+my_api = OpenApi() # 使用之前的登录信息
+print(my_api.list_workspaces())
+
+other_api = OpenApi(key='other_api_key') # 使用另一个账户的key
+print(other_api.list_workspaces())
 ```
 
 ## 认证
 
-开放API的认证与`swanlab.init()`的认证逻辑一致, 即在终端登录过, 或使用`swanlab.login()`登录
+- 如果显式提供`key`, 则使用该`key`进行认证
+- 否则开放API的认证与`swanlab.init()`的认证逻辑一致, 即
+  - 曾在终端登录过
+  - 显式使用`swanlab.login()`登录

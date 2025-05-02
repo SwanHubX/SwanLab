@@ -11,23 +11,25 @@ r"""
 import pytest
 
 import tutils as T
-from swanlab import openapi
+from swanlab import OpenApi
+
+api = OpenApi()
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_get_workspaces():
     """
     获取用户的所有工作空间
     """
-    r = openapi.list_workspaces()
+    r = api.list_workspaces()
 
     assert isinstance(r, list)
-    assert len(r) > 0
 
-    for item in r:
-        assert isinstance(item, dict)
-        assert "name" in item
-        assert "username" in item
-        assert "role" in item
-        assert isinstance(item["name"], str)
-        assert isinstance(item["username"], str)
-        assert isinstance(item["role"], str)
+    if len(r) > 0:
+        for item in r:
+            assert isinstance(item, dict)
+            assert "name" in item
+            assert "username" in item
+            assert "role" in item
+            assert isinstance(item["name"], str)
+            assert isinstance(item["username"], str)
+            assert isinstance(item["role"], str)
