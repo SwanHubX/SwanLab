@@ -13,13 +13,12 @@ import pytest
 import tutils as T
 from swanlab import OpenApi
 
-api = OpenApi()
-
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_get_workspaces():
     """
     获取用户的所有工作空间
     """
+    api = OpenApi()
     r = api.list_workspaces()
 
     assert isinstance(r, list)
