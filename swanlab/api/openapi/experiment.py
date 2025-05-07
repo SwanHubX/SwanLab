@@ -15,9 +15,16 @@ class ExperimentAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    # 获取实验状态，参数对应后台参数命名:username为用户名，projname为工作空间的项目名，exp_id为实验id
-    def get_exp_state(self, username: str, projname: str, exp_id: str):
-        if not projname or not exp_id:
-            raise ValueError("'workspace' parameter or 'exp_cuid' parameter is empty")
-        resp = self.http.get(f"/project/{username}/{projname}/runs/{exp_id}/state")
+    def get_exp_state(self, username: str, projname: str, expid: str):
+        """
+        获取实验状态
+
+        Args:
+            username (str): 工作空间名
+            projname (str): 项目名
+            expid (str): 实验CUID
+        """
+        if not projname or not expid:
+            raise ValueError("Project name and experiment ID cannot be empty.")
+        resp = self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
         return resp

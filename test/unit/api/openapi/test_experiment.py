@@ -20,8 +20,8 @@ def test_get_exp_state():
         获取一个实验的状态
     """
     api = OpenApi()
-    # 用户传入 username, workspace, exp_cuid，其中username默认为当前验证登陆的用户，如需看其他团队的实验，可传入对应的username
-    res = api.get_exp_state(workspace="Test", exp_cuid="test")
+    res = api.get_exp_state(project="test_project", exp_cuid="test_exp_cuid")
+    # 仅 404 情况
     assert isinstance(res, dict)
     assert "state" in res or "code" in res
     if "code" in res:
