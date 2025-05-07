@@ -7,10 +7,55 @@ r"""
 @Description:
     SwanLab OpenAPI API基类
 """
+from functools import wraps
 
+from swanlab.api import LoginInfo
 from swanlab.api.http import HTTP
+from swanlab.error import ApiError
 
+def handle_api_error(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except ApiError as e:
+            return {"code": e.resp.status_code, "message": e.message}
+    return wrapper
+
+class ApiHTTP:
+    def __init__(self, login_info: LoginInfo):
+        self.__http: HTTP = HTTP(login_info)
+
+    @property
+    def username(self):
+        """
+        当前登录的用户名
+        """
+        return self.http.username
+
+    @property
+    def http(self) -> HTTP:
+        """
+        当前使用的HTTP对象
+        """
+        return self.__http
+
+    @handle_api_error
+    def get(self, url: str):
+        try:
+            r = self.http.get(url)
+        except ApiError as e:
+            r = { "code": e.resp.status_code, "message": e.message }
+        return r
+
+    @handle_api_error
+    def post(self, url: str, data: dict = None):
+        try:
+            r = self.http.post(url, data)
+        except ApiError as e:
+            r = { "code": e.resp.status_code, "message": e.message }
+        return r
 
 class ApiBase:
-    def __init__(self, http: HTTP):
-        self.http: HTTP = http
+    def __init__(self, http: ApiHTTP):
+        self.http: ApiHTTP = http

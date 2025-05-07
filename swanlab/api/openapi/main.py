@@ -7,6 +7,7 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
+from swanlab.api.openapi.base import ApiHTTP
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api import code_login
@@ -34,11 +35,18 @@ class OpenApi:
             self.login_info = code_login(self.__key, False)
 
         self.username = self.login_info.username
-        self.http: HTTP = HTTP(self.login_info)
+        self.__http: ApiHTTP = ApiHTTP(self.login_info)
 
         self.group = GroupAPI(self.http)
         self.experiment = ExperimentAPI(self.http)
         self.project = ProjectAPI(self.http)
+
+    @property
+    def http(self) -> ApiHTTP:
+        """
+        当前使用的ApiHTTP对象
+        """
+        return self.__http
 
     def list_workspaces(self):
         """

@@ -8,12 +8,11 @@ r"""
     组织相关的开放API
 """
 
-from swanlab.api.http import HTTP
-from swanlab.api.openapi.base import ApiBase
+from swanlab.api.openapi.base import ApiBase, ApiHTTP
 
 
 class GroupAPI(ApiBase):
-    def __init__(self, http: HTTP):
+    def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
     def list_workspaces(self):
