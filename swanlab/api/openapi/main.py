@@ -68,14 +68,14 @@ class OpenApi:
         """
         return self.group.list_workspaces()
 
-    def get_exp_state(self, project: str, exp_cuid: str, workspace: Optional[str] = None):
+    def get_exp_state(self, project: str, exp_cuid: str, username: Optional[str] = None):
         """
         获取实验状态
 
         Args:
            project (str): 项目名
            exp_cuid (str): 实验id
-           workspace (Optional[str]): 工作空间名, 默认为用户个人空间
+           username (Optional[str]): 工作空间名, 默认为用户个人空间
 
         Returns:
             dict: 实验状态的字典, 包含以下字段:
@@ -88,7 +88,7 @@ class OpenApi:
                 - code (int): HTTP 错误代码
                 - message (str): 错误信息
         """
-        if workspace:
-            return self.experiment.get_exp_state(username=workspace, projname=project, expid=exp_cuid)
+        if username:
+            return self.experiment.get_exp_state(username=username, projname=project, expid=exp_cuid)
         else:
             return self.experiment.get_exp_state(username=self.http.username, projname=project, expid=exp_cuid)
