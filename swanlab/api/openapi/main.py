@@ -62,17 +62,28 @@ class OpenApi:
         """
         return self.group.list_workspaces()
 
-    def get_exp_state(self, username: str, workspace: str, exp_cuid: str):
+    def get_exp_state(self, workspace: str, exp_cuid: str, username: Optional[str] = None):
         """
-                根据username,project_name,exp_id获取实验状态
-                Returns：
-                    {
-                    "state": "FINISHED",
-                    "finishedAt": "2024-04-23T12:28:04.286Z",
-                    }
-                    或
-                    {
-                    "state": "RUNNING"
-                    }
-                """
-        return self.experiment.get_exp_state(username=username, projname=workspace, exp_id=exp_cuid)
+                获取实验状态
+
+               Args:
+                   username (Optional[str]): 用户名
+                   workspace (str): 工作空间名称
+                   exp_cuid (str): 实验的唯一标识符
+
+               Returns:
+                   dict: 实验状态的字典, 包含以下字段:
+
+                       - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
+                       - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-04-23T12:28:04.286Z'
+
+                   若请求失败, 返回的字典将包含以下字段：
+
+                       - code (int): HTTP 错误代码
+                       - message (str): 错误信息
+        """
+        if username:
+            return self.experiment.get_exp_state(username=username, projname=workspace, exp_id=exp_cuid)
+        else:
+            default_username = self.http.username
+            return self.experiment.get_exp_state(username=default_username, projname=workspace, exp_id=exp_cuid)
