@@ -9,7 +9,6 @@ r"""
 """
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.error import ApiError
 
 
 class ExperimentAPI(ApiBase):
@@ -20,9 +19,5 @@ class ExperimentAPI(ApiBase):
     def get_exp_state(self, username: str, projname: str, exp_id: str):
         if not projname or not exp_id:
             raise ValueError("'workspace' parameter or 'exp_cuid' parameter is empty")
-        else:
-            try:
-                resp = self.http.get(f"/project/{username}/{projname}/runs/{exp_id}/state")
-            except ApiError as e:
-                resp = {"code": e.resp.status_code, "message": e.message}
-            return resp
+        resp = self.http.get(f"/project/{username}/{projname}/runs/{exp_id}/state")
+        return resp
