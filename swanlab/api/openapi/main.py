@@ -17,6 +17,7 @@ from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
 
+
 class OpenApi:
     def __init__(self, key: str = None, log_level: str = "info"):
         self.__logger: SwanLog = SwanLog("swanlab.openapi", log_level)
@@ -60,3 +61,18 @@ class OpenApi:
                 - role: str, 用户在该工作空间中的角色，如 'OWNER' 或 'MEMBER'
         """
         return self.group.list_workspaces()
+
+    def get_exp_state(self, username: str, workspace: str, exp_cuid: str):
+        """
+                根据username,project_name,exp_id获取实验状态
+                Returns：
+                    {
+                    "state": "FINISHED",
+                    "finishedAt": "2024-04-23T12:28:04.286Z",
+                    }
+                    或
+                    {
+                    "state": "RUNNING"
+                    }
+                """
+        return self.experiment.get_exp_state(username=username, projname=workspace, exp_id=exp_cuid)
