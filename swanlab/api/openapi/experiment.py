@@ -9,6 +9,7 @@ r"""
 """
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
+from swanlab.error import ApiError
 
 
 class ExperimentAPI(ApiBase):

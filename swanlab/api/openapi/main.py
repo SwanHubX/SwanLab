@@ -7,11 +7,12 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
+from typing import Optional
+
 from swanlab.api.openapi.base import ApiHTTP
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api import code_login
-from swanlab.api.http import HTTP
 from swanlab.api.openapi.project import ProjectAPI
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
