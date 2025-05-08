@@ -7,7 +7,7 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
-from typing import Optional
+from typing import Dict, Optional, Union, Tuple, List
 
 from swanlab.api.openapi.base import ApiHTTP
 from swanlab.api.openapi.experiment import ExperimentAPI
@@ -51,12 +51,12 @@ class OpenApi:
         """
         return self.__http
 
-    def list_workspaces(self) -> dict | ApiErrorResponse:
+    def list_workspaces(self) -> Union[Dict, ApiErrorResponse]:
         """
         获取当前用户的所有工作空间(Group)
 
         Returns:
-            dict | ApiErrorResponse:
+            Union[Dict, ApiErrorResponse]:
                 - list[dict]: 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
                     - name (str): 工作空间名称
                     - username (str): 工作空间名(用于组织相关的 URL)
@@ -67,7 +67,12 @@ class OpenApi:
         """
         return self.group.list_workspaces()
 
-    def get_exp_state(self, project: str, exp_cuid: str, username: Optional[str] = None) -> dict | ApiErrorResponse:
+    def get_exp_state(
+            self,
+            project: str,
+            exp_cuid: str,
+            username: Optional[str] = None
+    ) -> Union[Dict, ApiErrorResponse]:
         """
         获取实验状态
 
@@ -77,7 +82,7 @@ class OpenApi:
            username (Optional[str]): 工作空间名, 默认为用户个人空间
 
         Returns:
-            dict | ApiErrorResponse:
+            Union[Dict, ApiErrorResponse]:
                 - dict: 实验状态的字典, 包含以下字段:
                     - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
                     - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-11-23T12:28:04.286Z'
@@ -96,7 +101,7 @@ class OpenApi:
             self,project: str,
             exp_cuid: str,
             username: Optional[str] = None
-    ) -> Experiment | ApiErrorResponse:
+    ) -> Union[Experiment, ApiErrorResponse]:
         """
         获取实验信息
 
@@ -106,7 +111,7 @@ class OpenApi:
             username (Optional[str]): 工作空间名, 默认为用户个人空间
 
         Returns:
-            Experiment | ApiErrorResponse:
+            Union[Experiment, ApiErrorResponse]:
                 - Experiment: 实验信息的字典, 包含实验信息
                 - ApiErrorResponse: 若请求失败, 返回此包含以下字段的字典:
                     - code (int): HTTP错误码
@@ -124,7 +129,7 @@ class OpenApi:
             page: int = 1,
             size: int = 10,
             username: Optional[str] = None
-    ) -> tuple[list[Experiment], int] | ApiErrorResponse:
+    ) -> Union[Tuple[List[Experiment], int], ApiErrorResponse]:
         """
         获取项目下的实验列表(分页)
 
@@ -135,7 +140,7 @@ class OpenApi:
             size (int): 每页大小, 默认为10
 
         Returns:
-            tuple[list[Experiment], int] | ApiErrorResponse:
+            Union[Tuple[List[Experiment], int], ApiErrorResponse]:
                 - tuple[list[Experiment], int]:
                     - list[Experiment]: 实验列表, 每个实验的字典包含实验信息
                     - int: 实验总数

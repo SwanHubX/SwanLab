@@ -7,6 +7,7 @@ r"""
 @Description:
     组织相关的开放API
 """
+from typing import Union, List
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
 from swanlab.api.openapi.types import ApiErrorResponse
@@ -16,7 +17,7 @@ class GroupAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    def list_workspaces(self) -> list | ApiErrorResponse:
+    def list_workspaces(self) -> Union[List, ApiErrorResponse]:
         resp = self.http.get("/group/")
         if "code" in resp:
             return resp

@@ -7,6 +7,8 @@ r"""
 @Description:
     实验相关的开放API
 """
+from typing import Dict, Union, List, Tuple
+
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
 from swanlab.api.openapi.types import Experiment, ExperimentProfile, ApiErrorResponse
 
@@ -41,7 +43,7 @@ class ExperimentAPI(ApiBase):
             "conda": res.get("conda", "")
         }
 
-    def get_exp_state(self, username: str, projname: str, expid: str) -> dict | ApiErrorResponse:
+    def get_exp_state(self, username: str, projname: str, expid: str) -> Union[Dict, ApiErrorResponse]:
         """
         获取实验状态
 
@@ -52,7 +54,7 @@ class ExperimentAPI(ApiBase):
         """
         return self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
 
-    def get_experiment(self, username: str, projname: str, expid: str) -> Experiment | ApiErrorResponse:
+    def get_experiment(self, username: str, projname: str, expid: str) -> Union[Experiment, ApiErrorResponse]:
         """
         获取实验信息
 
@@ -72,7 +74,7 @@ class ExperimentAPI(ApiBase):
             projname: str,
             page: int = 1,
             size: int = 10
-    ) -> tuple[list[Experiment], int] | ApiErrorResponse:
+    ) -> Union[Tuple[List[Experiment], int], ApiErrorResponse]:
         """
         分页获取项目下的实验列表
 
