@@ -7,6 +7,7 @@ r"""
 @Description:
     SwanLab OpenAPI API基类
 """
+
 from functools import wraps
 
 from swanlab.api import LoginInfo

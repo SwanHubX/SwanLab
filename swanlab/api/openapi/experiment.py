@@ -8,13 +8,40 @@ r"""
     实验相关的开放API
 """
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
+from swanlab.api.openapi.types import Experiment, ExperimentProfile, ApiErrorResponse
 
 
 class ExperimentAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    def get_exp_state(self, username: str, projname: str, expid: str):
+    @classmethod
+    def parse(cls, res: dict) -> Experiment:
+        return {
+            "cuid": res.get("cuid", ""),
+            "name": res.get("name", ""),
+            "description": res.get("description", ""),
+            "state": res.get("state", ""),
+            "show": res.get("show", ""),
+            "createdAt": res.get("createdAt", ""),
+            "finishedAt": res.get("finishedAt", ""),
+            "user": {
+                "username": res.get("user").get("username", ""),
+                "name": res.get("user").get("name", ""),
+            },
+            "profile": cls.parse_profile(res.get("profile", {})),
+        }
+
+    @classmethod
+    def parse_profile(cls, res: dict) -> ExperimentProfile:
+        return {
+            "config": res.get("config", {}),
+            "metadata": res.get("metadata", {}),
+            "requirements": res.get("requirements", ""),
+            "conda": res.get("conda", "")
+        }
+
+    def get_exp_state(self, username: str, projname: str, expid: str) -> dict | ApiErrorResponse:
         """
         获取实验状态
 
@@ -25,7 +52,7 @@ class ExperimentAPI(ApiBase):
         """
         return self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
 
-    def get_experiment(self, username: str, projname: str, expid: str):
+    def get_experiment(self, username: str, projname: str, expid: str) -> Experiment | ApiErrorResponse:
         """
         获取实验信息
 
@@ -37,22 +64,15 @@ class ExperimentAPI(ApiBase):
         resp = self.http.get(f"/project/{username}/{projname}/runs/{expid}")
         if "code" in resp:
             return resp
-        return {
-            "cuid": resp.get("cuid"),
-            "name": resp.get("name"),
-            "description": resp.get("description"),
-            "state": resp.get("state"),
-            "show": resp.get("show"),
-            "createdAt": resp.get("createdAt"),
-            "finishedAt": resp.get("finishedAt"),
-            "user": {
-                "username": resp.get("user").get("username"),
-                "name": resp.get("user").get("name"),
-            },
-            "profile": resp.get("profile"),
-        }
+        return ExperimentAPI.parse(resp)
 
-    def get_project_exps(self, username: str, projname: str, page: int = 1, size: int = 10):
+    def get_project_exps(
+            self,
+            username: str,
+            projname: str,
+            page: int = 1,
+            size: int = 10
+    ) -> tuple[list[Experiment], int] | ApiErrorResponse:
         """
         分页获取项目下的实验列表
 
@@ -65,23 +85,4 @@ class ExperimentAPI(ApiBase):
         resp = self.http.get(f"/project/{username}/{projname}/runs", params={"page": page, "size": size})
         if "code" in resp:
             return resp
-        return {
-            "total": resp["total"],
-            "exps": [
-                {
-                    "cuid": e.get("cuid"),
-                    "name": e.get("name"),
-                    "description": e.get("description"),
-                    "state": e.get("state"),
-                    "show": e.get("show"),
-                    "createdAt": e.get("createdAt"),
-                    "finishedAt": e.get("finishedAt"),
-                    "user": {
-                        "username": e.get("user").get("username"),
-                        "name": e.get("user").get("name"),
-                    },
-                    "profile": e.get("profile")
-                }
-                for e in resp["list"]
-            ]
-        }
+        return [ExperimentAPI.parse(e) for e in resp.get("list", [])], resp.get("total", 0)
