@@ -13,6 +13,7 @@ from swanlab.api import LoginInfo
 from swanlab.api.http import HTTP
 from swanlab.error import ApiError
 
+
 def handle_api_error(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -20,7 +21,9 @@ def handle_api_error(func):
             return func(self, *args, **kwargs)
         except ApiError as e:
             return {"code": e.resp.status_code, "message": e.message}
+
     return wrapper
+
 
 class ApiHTTP:
     def __init__(self, login_info: LoginInfo):
@@ -45,16 +48,17 @@ class ApiHTTP:
         try:
             r = self.http.get(url)
         except ApiError as e:
-            r = { "code": e.resp.status_code, "message": e.message }
+            r = {"code": e.resp.status_code, "message": e.message}
         return r
 
     @handle_api_error
-    def post(self, url: str, data: dict = None):
+    def post(self, url: str, data: dict):
         try:
             r = self.http.post(url, data)
         except ApiError as e:
-            r = { "code": e.resp.status_code, "message": e.message }
+            r = {"code": e.resp.status_code, "message": e.message}
         return r
+
 
 class ApiBase:
     def __init__(self, http: ApiHTTP):

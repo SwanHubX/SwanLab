@@ -17,12 +17,10 @@ class GroupAPI(ApiBase):
 
     def list_workspaces(self):
         resp = self.http.get("/group/")
-        groups: list = [
-            {
-                "name": item["name"],
-                "username": item["username"],
-                "role": item["role"]
-            }
-            for item in resp.get("list", [])
-        ]
-        return groups
+        if isinstance(resp, dict) and "code" not in resp:
+            groups: list = [
+                {"name": item["name"], "username": item["username"], "role": item["role"]}
+                for item in resp.get("list", [])
+            ]
+            return groups
+        return resp
