@@ -56,3 +56,18 @@ def test_get_experiment():
             assert isinstance(res["profile"].get("metadata"), dict | None)
             assert isinstance(res["profile"].get("requirements"), str | None)
             assert isinstance(res["profile"].get("conda"), str | None)
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_get_project_exps():
+    """
+    获取一个项目下的实验列表
+    """
+    api = OpenApi()
+    res = api.get_project_exps(project="test_project", page=1, size=10)
+    # 仅 404 情况
+    assert isinstance(res, dict)
+    assert "exps" in res or "code" in res
+    if "code" in res:
+        assert res["code"] == 404
+    elif "exps" in res:
+        assert len(res["exps"]) > 0

@@ -44,20 +44,12 @@ class ApiHTTP:
         return self.__http
 
     @handle_api_error
-    def get(self, url: str):
-        try:
-            r = self.http.get(url)
-        except ApiError as e:
-            r = {"code": e.resp.status_code, "message": e.message}
-        return r
+    def get(self, url: str, params: dict = None):
+        return self.http.get(url=url, params=params)
 
     @handle_api_error
-    def post(self, url: str, data: dict):
-        try:
-            r = self.http.post(url, data)
-        except ApiError as e:
-            r = {"code": e.resp.status_code, "message": e.message}
-        return r
+    def post(self, url: str, data: dict = None):
+        return self.http.post(url=url, data=data)
 
 
 class ApiBase:

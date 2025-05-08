@@ -56,13 +56,11 @@ class OpenApi:
 
         Returns:
             list[dict]: 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
-
                 - name (str): 工作空间名称
                 - username (str): 工作空间名(用于组织相关的 URL)
                 - role (str): 用户在该工作空间中的角色，如 'OWNER' 或 'MEMBER'
 
             若请求失败, 将返回包含以下字段的字典:
-
                 - code (int): HTTP 错误代码
                 - message (str): 错误信息
         """
@@ -74,23 +72,23 @@ class OpenApi:
 
         Args:
            project (str): 项目名
-           exp_cuid (str): 实验id
+           exp_cuid (str): 实验CUID
            username (Optional[str]): 工作空间名, 默认为用户个人空间
 
         Returns:
             dict: 实验状态的字典, 包含以下字段:
-
                 - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
                 - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-11-23T12:28:04.286Z'
 
             若请求失败, 将返回包含以下字段的字典:
-
                 - code (int): HTTP 错误代码
                 - message (str): 错误信息
         """
-        username = username if username else self.http.username
-        if username:
-            return self.experiment.get_exp_state(username=username, projname=project, expid=exp_cuid)
+        return self.experiment.get_exp_state(
+            username=username if username else self.http.username,
+            projname=project,
+            expid=exp_cuid
+        )
 
     def get_experiment(self, project: str, exp_cuid: str, username: Optional[str] = None):
         """
@@ -98,30 +96,70 @@ class OpenApi:
 
         Args:
             project (str): 项目名
-            exp_cuid (str): 实验id
+            exp_cuid (str): 实验CUID
             username (Optional[str]): 工作空间名, 默认为用户个人空间
 
         Returns:
             dict: 实验信息的字典, 包含以下字段:
-
                 - cuid (str): 实验的唯一标识符
                 - name (str): 实验名称
                 - description (str): 实验描述
                 - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
+                - show (bool): 显示状态
                 - createdAt (str): 实验创建时间, 格式如 '2024-11-23T12:28:04.286Z'
-                - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-11-23T12:28:04.286Z'
+                - finishedAt (str): 实验完成时间（若有）, 格式同上
+                - user (dict): 实验创建者的 'username' 与 'name'
                 - profile (dict): 实验配置文件, 包含以下字段:
-
                     - config (dict): 实验的配置参数
                     - metadata (dict): 实验的元数据
                     - requirements (str): 实验的依赖项
                     - conda (str): 实验的 Conda 环境信息
 
             若请求失败, 将返回包含以下字段的字典:
-
                 - code (int): HTTP 错误代码
                 - message (str): 错误信息
         """
-        username = username if username else self.http.username
-        if username:
-            return self.experiment.get_experiment(username=username, projname=project, expid=exp_cuid)
+        return self.experiment.get_experiment(
+            username=username if username else self.http.username,
+            projname=project,
+            expid=exp_cuid
+        )
+
+    def get_project_exps(self, project: str, page: int = 1, size: int = 10, username: Optional[str] = None):
+        """
+        获取项目下的实验列表(分页)
+
+        Args:
+            project (str): 项目名
+            username (Optional[str]): 工作空间名, 默认为用户个人空间
+            page (int): 页码, 默认为1
+            size (int): 每页大小, 默认为10
+
+        Returns:
+            dict: 实验列表分页信息的字典, 包含以下字段:
+                - total (int): 实验总数
+                - exps (list[dict]): 实验列表, 每个实验包含以下字段:
+                    - cuid (str): 实验cuid
+                    - name (str): 实验名称
+                    - description (str): 实验描述
+                    - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
+                    - show (bool): 显示状态
+                    - createdAt (str): 创建时间, 格式如 '2024-11-23T12:28:04.286Z'
+                    - finishedAt (str): 完成时间（若有）, 格式同上
+                    - user (dict): 实验创建者的 'username' 与 'name'
+                    - profile (dict): 实验配置文件, 包含以下字段:
+                        - config (dict): 实验的配置参数
+                        - metadata (dict): 实验的元数据
+                        - requirements (str): 实验的依赖项
+                        - conda (str): 实验的 Conda 环境信息
+
+            若请求失败, 将返回包含以下字段的字典:
+                - code (int): HTTP 错误代码
+                - message (str): 错误信息
+        """
+        return self.experiment.get_project_exps(
+            username=username if username else self.http.username,
+            projname=project,
+            page=page,
+            size=size
+        )
