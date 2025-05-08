@@ -20,7 +20,7 @@ from swanlab.package import get_key
 
 
 class OpenApi:
-    def __init__(self, key: str = None, log_level: str = "info"):
+    def __init__(self, key: Optional[str] = None, log_level: str = "info"):
         self.__logger: SwanLog = SwanLog("swanlab.openapi", log_level)
 
         if key is not None:
@@ -88,7 +88,40 @@ class OpenApi:
                 - code (int): HTTP 错误代码
                 - message (str): 错误信息
         """
+        username = username if username else self.http.username
         if username:
             return self.experiment.get_exp_state(username=username, projname=project, expid=exp_cuid)
-        else:
-            return self.experiment.get_exp_state(username=self.http.username, projname=project, expid=exp_cuid)
+
+    def get_experiment(self, project: str, exp_cuid: str, username: Optional[str] = None):
+        """
+        获取实验信息
+
+        Args:
+            project (str): 项目名
+            exp_cuid (str): 实验id
+            username (Optional[str]): 工作空间名, 默认为用户个人空间
+
+        Returns:
+            dict: 实验信息的字典, 包含以下字段:
+
+                - cuid (str): 实验的唯一标识符
+                - name (str): 实验名称
+                - description (str): 实验描述
+                - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
+                - createdAt (str): 实验创建时间, 格式如 '2024-11-23T12:28:04.286Z'
+                - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-11-23T12:28:04.286Z'
+                - profile (dict): 实验配置文件, 包含以下字段:
+
+                    - config (dict): 实验的配置参数
+                    - metadata (dict): 实验的元数据
+                    - requirements (str): 实验的依赖项
+                    - conda (str): 实验的 Conda 环境信息
+
+            若请求失败, 将返回包含以下字段的字典:
+
+                - code (int): HTTP 错误代码
+                - message (str): 错误信息
+        """
+        username = username if username else self.http.username
+        if username:
+            return self.experiment.get_experiment(username=username, projname=project, expid=exp_cuid)
