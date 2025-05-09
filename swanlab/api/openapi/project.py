@@ -44,8 +44,13 @@ class ProjectAPI(ApiBase):
         列出一个 workspace 下的所有项目
 
         Args:
-            username (str): 工作空间名, 默认为用户个人空间
-            detail (bool): 是否返回实验详细信息，默认传入 True
+            username: 工作空间名, 默认为用户个人空间
+            detail: 是否返回实验详细信息，默认为True
+            page: 页码，默认为1
+            size: 每页数量，默认为20
+
+        Returns:
+            ApiResponse: 包含项目分页数据的响应
         """
         base_url = f"/project/{username}"
         params = {"detail": detail, "page": page, "size": size}
@@ -54,11 +59,7 @@ class ProjectAPI(ApiBase):
         if resp.errmsg:
             return resp
 
-        projects = []
-        for item in resp.data.get("list", []):
-            project = ProjectAPI.parse(item, detail=detail)
-            projects.append(project)
-        print(projects[0])
+        projects = [ProjectAPI.parse(item, detail=detail) for item in resp.data.get("list", [])]
         resp.data = Pagination[Project].model_validate({"total": resp.data.get("total", 0), "list": projects})
 
         return resp
