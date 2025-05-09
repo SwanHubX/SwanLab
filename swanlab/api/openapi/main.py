@@ -7,24 +7,23 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
-from typing import Dict, Optional, Union, Tuple, List
 
-from swanlab.api.openapi.base import ApiHTTP
+from swanlab.api.openapi.base import ApiHTTP, get_logger
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api import code_login
 from swanlab.api.openapi.project import ProjectAPI
-from swanlab.api.openapi.types import Experiment, ApiErrorResponse
+from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
 
 
 class OpenApi:
-    def __init__(self, key: Optional[str] = None, log_level: str = "info"):
-        self.__logger: SwanLog = SwanLog("swanlab.openapi", log_level)
+    def __init__(self, key: str = "", log_level: str = "info"):
+        self.__logger: SwanLog = get_logger(log_level)
 
-        if key is not None:
+        if key:
             self.__logger.debug("Using API key", key)
             self.__key = key
             self.login_info = code_login(self.__key, False)
@@ -51,19 +50,18 @@ class OpenApi:
         """
         return self.__http
 
-    def list_workspaces(self) -> Union[Dict, ApiErrorResponse]:
+    def list_workspaces(self) -> ApiResponse[list]:
         """
         获取当前用户的所有工作空间(Group)
 
         Returns:
-            Union[Dict, ApiErrorResponse]:
-                - list[dict]: 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
+            list:
+                - code (int): HTTP 错误代码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (list): 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
                     - name (str): 工作空间名称
                     - username (str): 工作空间名(用于组织相关的 URL)
                     - role (str): 用户在该工作空间中的角色，如 'OWNER' 或 'MEMBER'
-                - ApiErrorResponse: 若请求失败, 将返回包含以下字段的字典:
-                    - code (int): HTTP 错误代码
-                    - message (str): 错误信息
         """
         return self.group.list_workspaces()
 
@@ -71,25 +69,23 @@ class OpenApi:
             self,
             project: str,
             exp_cuid: str,
-            username: Optional[str] = None
-    ) -> Union[Dict, ApiErrorResponse]:
+            username: str = ""
+    ) -> ApiResponse[dict]:
         """
         获取实验状态
 
         Args:
            project (str): 项目名
            exp_cuid (str): 实验CUID
-           username (Optional[str]): 工作空间名, 默认为用户个人空间
+           username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
-            Union[Dict, ApiErrorResponse]:
-                - dict: 实验状态的字典, 包含以下字段:
+            dict:
+                - code (int): HTTP 错误代码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (dict): 实验状态的字典, 包含以下字段:
                     - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
-                    - finishedAt (str): 实验完成时间（若有）, 格式如 '2024-11-23T12:28:04.286Z'
-                - ApiErrorResponse: 若请求失败, 返回此包含以下字段的字典:
-                    - code (int): HTTP错误码
-                    - message (str): 错误信息
-
+                    - finishedAt (str): 实验完成时间(若有), 格式如 '2024-11-23T12:28:04.286Z'
         """
         return self.experiment.get_exp_state(
             username=username if username else self.http.username,
@@ -100,22 +96,21 @@ class OpenApi:
     def get_experiment(
             self,project: str,
             exp_cuid: str,
-            username: Optional[str] = None
-    ) -> Union[Experiment, ApiErrorResponse]:
+            username: str = ""
+    ) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
         Args:
             project (str): 项目名
             exp_cuid (str): 实验CUID
-            username (Optional[str]): 工作空间名, 默认为用户个人空间
+            username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
-            Union[Experiment, ApiErrorResponse]:
-                - Experiment: 实验信息的字典, 包含实验信息
-                - ApiErrorResponse: 若请求失败, 返回此包含以下字段的字典:
-                    - code (int): HTTP错误码
-                    - message (str): 错误信息
+            dict:
+                - code (int): HTTP 错误代码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (dict): 实验信息的字典, 包含实验信息
         """
         return self.experiment.get_experiment(
             username=username if username else self.http.username,
@@ -128,25 +123,25 @@ class OpenApi:
             project: str,
             page: int = 1,
             size: int = 10,
-            username: Optional[str] = None
-    ) -> Union[Tuple[List[Experiment], int], ApiErrorResponse]:
+            username: str = ""
+    ) -> ApiResponse[Pagination[Experiment]]:
         """
         获取项目下的实验列表(分页)
 
         Args:
             project (str): 项目名
-            username (Optional[str]): 工作空间名, 默认为用户个人空间
-            page (int): 页码, 默认为1
-            size (int): 每页大小, 默认为10
+            username (str): 工作空间名, 默认为用户个人空间
+            page (int): 页码, 默认为 1
+            size (int): 每页大小, 默认为 10
 
         Returns:
-            Union[Tuple[List[Experiment], int], ApiErrorResponse]:
-                - tuple[list[Experiment], int]:
-                    - list[Experiment]: 实验列表, 每个实验的字典包含实验信息
-                    - int: 实验总数
-                - ApiErrorResponse: 若请求失败, 返回此包含以下字段的字典:
-                    - code (int): HTTP错误码
-                    - message (str): 错误信息
+            dict:
+                - code (int): HTTP 错误代码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (Pagination[Experiment]): 实验列表, 包含以下字段:
+                    - total (int): 云端实验总数
+                    - list (list[Experiment]): 实验列表, 每个元素都是实验信息的字典, 包含实验信息
+                        - 此实验的 profile 只包含 config (实验自定义配置)
         """
         return self.experiment.get_project_exps(
             username=username if username else self.http.username,

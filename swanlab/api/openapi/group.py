@@ -7,21 +7,26 @@ r"""
 @Description:
     组织相关的开放API
 """
-from typing import Union, List
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import ApiErrorResponse
+from swanlab.api.openapi.types import ApiResponse
 
 
 class GroupAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    def list_workspaces(self) -> Union[List, ApiErrorResponse]:
+    def list_workspaces(self) -> ApiResponse[list]:
         resp = self.http.get("/group/")
-        if "code" in resp:
+        if resp.errmsg:
             return resp
-        return [
-            {"name": item["name"], "username": item["username"], "role": item["role"]}
-            for item in resp.get("list", [])
+        groups = resp.data.get("list", [])
+        resp.data = [
+            {
+                "name": item["name"],
+                "username": item["username"],
+                "role": item["role"]
+            }
+            for item in groups
         ]
+        return resp

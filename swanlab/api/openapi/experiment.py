@@ -7,10 +7,9 @@ r"""
 @Description:
     实验相关的开放API
 """
-from typing import Dict, Union, List, Tuple
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import Experiment, ExperimentProfile, ApiErrorResponse
+from swanlab.api.openapi.types import Experiment, ApiResponse, Pagination
 
 
 class ExperimentAPI(ApiBase):
@@ -18,32 +17,23 @@ class ExperimentAPI(ApiBase):
         super().__init__(http)
 
     @classmethod
-    def parse(cls, res: dict) -> Experiment:
-        return {
-            "cuid": res.get("cuid", ""),
-            "name": res.get("name", ""),
-            "description": res.get("description", ""),
-            "state": res.get("state", ""),
-            "show": res.get("show", ""),
-            "createdAt": res.get("createdAt", ""),
-            "finishedAt": res.get("finishedAt", ""),
+    def parse(cls, body: dict) -> Experiment:
+        return Experiment.model_validate({
+            "cuid": body.get("cuid", ""),
+            "name": body.get("name", ""),
+            "description": body.get("description", ""),
+            "state": body.get("state", ""),
+            "show": body.get("show", ""),
+            "createdAt": body.get("createdAt", ""),
+            "finishedAt": body.get("finishedAt", ""),
             "user": {
-                "username": res.get("user").get("username", ""),
-                "name": res.get("user").get("name", ""),
+                "username": body.get("user").get("username", ""),
+                "name": body.get("user").get("name", ""),
             },
-            "profile": cls.parse_profile(res.get("profile", {})),
-        }
+            "profile": body.get("profile", {})
+        })
 
-    @classmethod
-    def parse_profile(cls, res: dict) -> ExperimentProfile:
-        return {
-            "config": res.get("config", {}),
-            "metadata": res.get("metadata", {}),
-            "requirements": res.get("requirements", ""),
-            "conda": res.get("conda", "")
-        }
-
-    def get_exp_state(self, username: str, projname: str, expid: str) -> Union[Dict, ApiErrorResponse]:
+    def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
         """
         获取实验状态
 
@@ -54,7 +44,7 @@ class ExperimentAPI(ApiBase):
         """
         return self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
 
-    def get_experiment(self, username: str, projname: str, expid: str) -> Union[Experiment, ApiErrorResponse]:
+    def get_experiment(self, username: str, projname: str, expid: str) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
@@ -64,9 +54,10 @@ class ExperimentAPI(ApiBase):
             expid (str): 实验CUID
         """
         resp = self.http.get(f"/project/{username}/{projname}/runs/{expid}")
-        if "code" in resp:
+        if resp.errmsg:
             return resp
-        return ExperimentAPI.parse(resp)
+        resp.data = ExperimentAPI.parse(resp.data)
+        return resp
 
     def get_project_exps(
             self,
@@ -74,9 +65,10 @@ class ExperimentAPI(ApiBase):
             projname: str,
             page: int = 1,
             size: int = 10
-    ) -> Union[Tuple[List[Experiment], int], ApiErrorResponse]:
+    ) -> ApiResponse[Pagination[Experiment]]:
         """
         分页获取项目下的实验列表
+        该接口返回的实验profile只包含config(用户自定义的配置)
 
         Args:
             username (str): 工作空间名
@@ -85,6 +77,12 @@ class ExperimentAPI(ApiBase):
             size (int): 每页大小, 默认为10
         """
         resp = self.http.get(f"/project/{username}/{projname}/runs", params={"page": page, "size": size})
-        if "code" in resp:
+
+        if resp.errmsg:
             return resp
-        return [ExperimentAPI.parse(e) for e in resp.get("list", [])], resp.get("total", 0)
+        exps = resp.data
+        resp.data = Pagination[Experiment].model_validate({
+            "total": exps.get("total", 0),
+            "list": [ExperimentAPI.parse(e) for e in exps.get("list", [])]
+        })
+        return resp
