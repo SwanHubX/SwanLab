@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
+
 - 2025.04.23: 折れ線グラフの​​編集​​をサポート、グラフのX軸・Y軸のデータ範囲とタイトルスタイルを自由に設定可能に；グラフ検索で​​正規表現​​をサポート；​​Kunlun Core XPU​​のハードウェア検出とモニタリングをサポート。
 
 - 2025.04.11: 折線グラフの**局所選択**をサポート；現在のグラフのstep範囲をサポート。
@@ -70,10 +72,10 @@
 
 - 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
 
-- 2025.03.06: [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio)との連携統合が完了し、現在はDiffSynth StudioでSwanLabを使用して**Diffusionモデルのテキストから画像/動画の実験を追跡および可視化**できます、[使用方法](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.03.06: [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio)との連携統合が完了し、現在はDiffSynth StudioでSwanLabを使用して**Diffusionモデルのテキストから画像/動画の実験を追跡および可視化**できます、[使用方法](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
 - 2025.03.04: MLFlowの統合を追加し、MLFlow実験をSwanLab実験に変換する機能をサポートしました。[使用ガイド](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 
