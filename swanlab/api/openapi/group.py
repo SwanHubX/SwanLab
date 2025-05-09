@@ -9,18 +9,24 @@ r"""
 """
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
+from swanlab.api.openapi.types import ApiResponse
 
 
 class GroupAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    def list_workspaces(self):
+    def list_workspaces(self) -> ApiResponse[list]:
         resp = self.http.get("/group/")
-        if isinstance(resp, dict) and "code" not in resp:
-            groups: list = [
-                {"name": item["name"], "username": item["username"], "role": item["role"]}
-                for item in resp.get("list", [])
-            ]
-            return groups
+        if resp.errmsg:
+            return resp
+        groups = resp.data.get("list", [])
+        resp.data = [
+            {
+                "name": item["name"],
+                "username": item["username"],
+                "role": item["role"]
+            }
+            for item in groups
+        ]
         return resp

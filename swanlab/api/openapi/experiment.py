@@ -7,14 +7,33 @@ r"""
 @Description:
     实验相关的开放API
 """
+
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
+from swanlab.api.openapi.types import Experiment, ApiResponse, Pagination
 
 
 class ExperimentAPI(ApiBase):
     def __init__(self, http: ApiHTTP):
         super().__init__(http)
 
-    def get_exp_state(self, username: str, projname: str, expid: str):
+    @classmethod
+    def parse(cls, body: dict) -> Experiment:
+        return Experiment.model_validate({
+            "cuid": body.get("cuid", ""),
+            "name": body.get("name", ""),
+            "description": body.get("description", ""),
+            "state": body.get("state", ""),
+            "show": body.get("show", ""),
+            "createdAt": body.get("createdAt", ""),
+            "finishedAt": body.get("finishedAt", ""),
+            "user": {
+                "username": body.get("user").get("username", ""),
+                "name": body.get("user").get("name", ""),
+            },
+            "profile": body.get("profile", {})
+        })
+
+    def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
         """
         获取实验状态
 
@@ -25,7 +44,7 @@ class ExperimentAPI(ApiBase):
         """
         return self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
 
-    def get_experiment(self, username: str, projname: str, expid: str):
+    def get_experiment(self, username: str, projname: str, expid: str) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
@@ -35,26 +54,21 @@ class ExperimentAPI(ApiBase):
             expid (str): 实验CUID
         """
         resp = self.http.get(f"/project/{username}/{projname}/runs/{expid}")
-        if "code" in resp:
+        if resp.errmsg:
             return resp
-        return {
-            "cuid": resp.get("cuid"),
-            "name": resp.get("name"),
-            "description": resp.get("description"),
-            "state": resp.get("state"),
-            "show": resp.get("show"),
-            "createdAt": resp.get("createdAt"),
-            "finishedAt": resp.get("finishedAt"),
-            "user": {
-                "username": resp.get("user").get("username"),
-                "name": resp.get("user").get("name"),
-            },
-            "profile": resp.get("profile"),
-        }
+        resp.data = ExperimentAPI.parse(resp.data)
+        return resp
 
-    def get_project_exps(self, username: str, projname: str, page: int = 1, size: int = 10):
+    def get_project_exps(
+            self,
+            username: str,
+            projname: str,
+            page: int = 1,
+            size: int = 10
+    ) -> ApiResponse[Pagination[Experiment]]:
         """
         分页获取项目下的实验列表
+        该接口返回的实验profile只包含config(用户自定义的配置)
 
         Args:
             username (str): 工作空间名
@@ -63,25 +77,12 @@ class ExperimentAPI(ApiBase):
             size (int): 每页大小, 默认为10
         """
         resp = self.http.get(f"/project/{username}/{projname}/runs", params={"page": page, "size": size})
-        if "code" in resp:
+
+        if resp.errmsg:
             return resp
-        return {
-            "total": resp["total"],
-            "exps": [
-                {
-                    "cuid": e.get("cuid"),
-                    "name": e.get("name"),
-                    "description": e.get("description"),
-                    "state": e.get("state"),
-                    "show": e.get("show"),
-                    "createdAt": e.get("createdAt"),
-                    "finishedAt": e.get("finishedAt"),
-                    "user": {
-                        "username": e.get("user").get("username"),
-                        "name": e.get("user").get("name"),
-                    },
-                    "profile": e.get("profile")
-                }
-                for e in resp["list"]
-            ]
-        }
+        exps = resp.data
+        resp.data = Pagination[Experiment].model_validate({
+            "total": exps.get("total", 0),
+            "list": [ExperimentAPI.parse(e) for e in exps.get("list", [])]
+        })
+        return resp
