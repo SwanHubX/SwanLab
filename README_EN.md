@@ -54,7 +54,9 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-• 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
+- 2025.05.09: Added support for line chart creation; enhanced the chart configuration feature with data source selection, enabling a single chart to display different metrics; introduced the ability to generate GitHub badges for training projects.
+
+- 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
 
 - 2025.04.11: Added support for **local selection** for line charts; supports the step range of the current graph.
 
@@ -70,10 +72,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.03.09: Added **experiment sidebar width** support; added **external Git code** button; added **sync_mlflow** feature, supporting synchronization with mlflow framework.
 
-- 2025.03.06: We completed integration with [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio). Now you can use SwanLab in DiffSynth Studio to **track and visualize Diffusion model text-to-image/video experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.03.06: We completed integration with [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio). Now you can use SwanLab in DiffSynth Studio to **track and visualize Diffusion model text-to-image/video experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
 - 2025.03.04: Added **MLFlow** feature, supporting conversion of MLFlow experiments to SwanLab experiments. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 
