@@ -9,7 +9,7 @@ r"""
 """
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import Experiment, ApiResponse, Pagination
+from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination
 
 
 class ExperimentAPI(ApiBase):
@@ -19,18 +19,18 @@ class ExperimentAPI(ApiBase):
     @classmethod
     def parse(cls, body: dict) -> Experiment:
         return Experiment.model_validate({
-            "cuid": body.get("cuid", ""),
-            "name": body.get("name", ""),
-            "description": body.get("description", ""),
-            "state": body.get("state", ""),
-            "show": body.get("show", ""),
-            "createdAt": body.get("createdAt", ""),
-            "finishedAt": body.get("finishedAt", ""),
+            "cuid": body.get("cuid") or "",
+            "name": body.get("name") or "",
+            "description": body.get("description") or "",
+            "state": body.get("state") or "",
+            "show": body.get("show") or "",
+            "createdAt": body.get("createdAt") or "",
+            "finishedAt": body.get("finishedAt") or "",
             "user": {
-                "username": body.get("user").get("username", ""),
-                "name": body.get("user").get("name", ""),
+                "username": (body.get("user") or {}).get("username") or "",
+                "name": (body.get("user") or {}).get("name") or "",
             },
-            "profile": body.get("profile", {})
+            "profile": body.get("profile") or {}
         })
 
     def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
@@ -59,7 +59,7 @@ class ExperimentAPI(ApiBase):
         resp.data = ExperimentAPI.parse(resp.data)
         return resp
 
-    def get_project_exps(
+    def list_project_exps(
             self,
             username: str,
             projname: str,

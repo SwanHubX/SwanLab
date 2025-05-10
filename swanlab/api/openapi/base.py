@@ -9,19 +9,18 @@ r"""
 """
 import json
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Any, Callable, List, Optional
 
 import requests
-
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from swanlab.api.http import HTTP
-from swanlab.api.openapi.types import ApiResponse
-from swanlab.package import get_package_version
 from swanlab.api import LoginInfo
 from swanlab.api.auth.login import login_by_key
+from swanlab.api.http import HTTP
+from swanlab.api.openapi.types import ApiResponse
 from swanlab.log.log import SwanLog
+from swanlab.package import get_package_version
 
 _logger: Optional[SwanLog] = None
 
@@ -71,11 +70,11 @@ class ApiHTTP:
         self.__session: requests.Session = self.__init_session()
 
     @property
-    def username(self):
+    def username(self) -> str:
         """
         当前登录的用户名
         """
-        return self.__login_info.username
+        return self.__login_info.username or ""
 
     @property
     def base_url(self):
@@ -84,7 +83,7 @@ class ApiHTTP:
     @property
     def sid_expired_at(self):
         """
-        获取sid的过期时间，字符串格式转时间
+        获取sid的过期时间
         """
         return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -125,3 +124,40 @@ class ApiHTTP:
 class ApiBase:
     def __init__(self, http: ApiHTTP):
         self.http: ApiHTTP = http
+
+def fetch_paginated_api(
+    api_func: Callable[..., ApiResponse],  # 分页 API 请求函数
+    page_field: str = "page",
+    size_field: str = "size",
+    page_size: int = 10,
+    *args, **kwargs
+) -> ApiResponse[List]:
+    """
+    通用分页全量拉取函数
+
+    Args:
+        api_func (Callable): 分页 API 请求函数，应返回 ApiResponse[Pagination]
+        page_field (str): 页码参数名，默认为 "page"
+        size_field (str): 每页大小参数名，默认为 "size"
+        page_size (int): 每页条数，默认为 10
+        *args: 传递给 api_func 的位置参数
+        **kwargs: 传递给 api_func 的关键字参数
+
+    Returns:
+        ApiResponse[list]: 返回所有分页数据组成的 ApiResponse
+    """
+    page = 1
+    objs = []
+    while True:
+        kwargs.update({page_field: page, size_field: page_size})
+        resp: ApiResponse = api_func(*args, **kwargs)
+        if resp.errmsg:
+            break
+
+        objs.extend(resp.data.list)
+
+        if len(objs) >= resp.data.total:
+            break
+        page += 1
+
+    return ApiResponse[List](code=resp.code, errmsg=resp.errmsg, data=objs)
