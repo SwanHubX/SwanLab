@@ -14,13 +14,13 @@ from swanlab import OpenApi
 my_api = OpenApi() # 使用之前的登录信息
 print(my_api.list_workspaces())
 
-other_api = OpenApi(key='other_api_key') # 使用另一个账户的key
+other_api = OpenApi(api_key='other_api_key') # 使用另一个账户的key
 print(other_api.list_workspaces())
 ```
 
 ## 认证
 
-- 如果显式提供`key`, 则使用该`key`进行认证
+- 如果显式提供`api_key`, 则使用该`api_key`进行认证
 - 否则开放API的认证与`swanlab.init()`的认证逻辑一致, 即
   - 曾在终端登录过
   - 显式使用`swanlab.login()`登录

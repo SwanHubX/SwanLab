@@ -20,7 +20,7 @@ class Experiment(BaseModel):
     state: str              # 实验状态, 'FINISHED' 或 'RUNNING'
     show: bool              # 显示状态
     createdAt: str          # e.g., '2024-11-23T12:28:04.286Z'
-    finishedAt: str = ""    # e.g., '2024-11-23T12:28:04.286Z', 若不存在则为 None
+    finishedAt: str = ""    # e.g., '2024-11-23T12:28:04.286Z'
     user: Dict[str, str]    # 实验创建者, 包含 'username' 与 'name'
     profile: Dict           # 实验相关配置
 
@@ -33,7 +33,7 @@ class Project(BaseModel):
     createdAt: str              # e.g., '2024-11-23T12:28:04.286Z'
     updatedAt: str              # e.g., '2024-11-23T12:28:04.286Z'
     group: Dict[str, str]       # 工作空间信息, 包含 'type', 'username', 'name'
-    count: Dict[str, int] = {}  # 仅当 detail=True 时返回, 包含项目的详细信息
+    count: Dict[str, int] = {}  # 项目的统计信息
 
 
 D = TypeVar("D")

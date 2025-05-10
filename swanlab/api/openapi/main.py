@@ -21,12 +21,12 @@ from swanlab.package import get_key
 
 
 class OpenApi:
-    def __init__(self, key: str = "", log_level: str = "info"):
+    def __init__(self, api_key: str = "", log_level: str = "info"):
         self.__logger: SwanLog = get_logger(log_level)
 
-        if key:
-            self.__logger.debug("Using API key", key)
-            self.__key = key
+        if api_key:
+            self.__logger.debug("Using API key", api_key)
+            self.__key = api_key
             self.login_info = code_login(self.__key, False)
         else:
             self.__logger.debug("Using existing key")
