@@ -7,14 +7,14 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
-from typing import List, Dict
+from typing import Dict, List
 
 from swanlab.api import code_login
-from swanlab.api.openapi.base import ApiHTTP, get_logger, fetch_paginated_api
+from swanlab.api.openapi.base import ApiHTTP, fetch_paginated_api, get_logger
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api.openapi.project import ProjectAPI
-from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination, Project
+from swanlab.api.openapi.types import ApiResponse, Experiment, Project
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key

@@ -22,7 +22,6 @@ def test_get_workspaces():
     """
     api = OpenApi()
     r = api.list_workspaces()
-    print(r)
 
     assert isinstance(r, ApiResponse)
     assert isinstance(r.data, list)

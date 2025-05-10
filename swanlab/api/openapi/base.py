@@ -9,7 +9,7 @@ r"""
 """
 import json
 from datetime import datetime, timezone
-from typing import Any, Optional, Callable, TypeVar, List
+from typing import Any, Callable, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter

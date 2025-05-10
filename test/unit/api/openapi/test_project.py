@@ -24,8 +24,6 @@ def test_list_projects():
     resp = api.list_projects(detail=False)
     assert isinstance(resp, ApiResponse)
     if resp.code == 200:
-        assert isinstance(resp.data, Pagination)
-        assert isinstance(resp.data.total, int)
-        assert isinstance(resp.data.list, list)
-        for item in resp.data.list:
+        assert isinstance(resp.data, list)
+        for item in resp.data:
             assert isinstance(item, Project)

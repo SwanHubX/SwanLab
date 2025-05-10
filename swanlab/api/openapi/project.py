@@ -9,7 +9,7 @@ r"""
 """
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import Project, ApiResponse, Pagination
+from swanlab.api.openapi.types import ApiResponse, Pagination, Project
 
 
 class ProjectAPI(ApiBase):
@@ -17,22 +17,22 @@ class ProjectAPI(ApiBase):
         super().__init__(http)
 
     @classmethod
-    def parse(cls, body: dict, detail = True) -> Project:
+    def parse(cls, body: dict, detail=True) -> Project:
         project_parser = {
-            "cuid": body.get("cuid", ""),
-            "name": body.get("name", ""),
-            "description": body.get("description", ""),
-            "visibility": body.get("visibility", ""),
-            "createdAt": body.get("createdAt", ""),
-            "updatedAt": body.get("updatedAt", ""),
+            "cuid": body.get("cuid") or "",
+            "name": body.get("name") or "",
+            "description": body.get("description") or "",
+            "visibility": body.get("visibility") or "",
+            "createdAt": body.get("createdAt") or "",
+            "updatedAt": body.get("updatedAt") or "",
             "group": {
-                "type": body.get("group", {}).get("type", ""),
-                "username": body.get("group", {}).get("username", ""),
-                "name": body.get("group", {}).get("name", ""),
+                "type": (body.get("group") or {}).get("type") or "",
+                "username": (body.get("group") or {}).get("username") or "",
+                "name": (body.get("group") or {}).get("name") or "",
             },
         }
         if detail:
-            project_parser["count"] = body.get("_count")
+            project_parser["count"] = body.get("_count") or {}
         return Project.model_validate(project_parser)
 
     def list_projects(
