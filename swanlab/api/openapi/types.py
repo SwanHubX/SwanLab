@@ -28,7 +28,7 @@ class Project(BaseModel):
     cuid: str  # 项目CUID, 唯一标识符
     name: str  # 项目名
     description: Optional[str]  # 项目描述
-    visbility: str  # 可见性, 'PUBLIC' 或 'PRIVATE'
+    visibility: str  # 可见性, 'PUBLIC' 或 'PRIVATE'
     createdAt: str  # e.g., '2024-11-23T12:28:04.286Z'
     updatedAt: str  # e.g., '2024-11-23T12:28:04.286Z'
     path: str  # 项目路径, e.g., '/project/username/project_name'

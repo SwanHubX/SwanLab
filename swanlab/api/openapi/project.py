@@ -23,7 +23,7 @@ class ProjectAPI(ApiBase):
             "cuid": body.get("cuid", ""),
             "name": body.get("name", ""),
             "description": body.get("description", ""),
-            "visbility": body.get("visbility", ""),
+            "visibility": body.get("visibility", ""),
             "createdAt": body.get("createdAt", ""),
             "updatedAt": body.get("updatedAt", ""),
             "path": body.get("path", ""),
