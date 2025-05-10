@@ -25,6 +25,7 @@ playground/
 # python
 __pycache__
 .pytest_cache/
+uv.lock
 
 # test-integration-ultralytics
 yolov8n-cls.pt
