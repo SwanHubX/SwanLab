@@ -59,7 +59,7 @@ class ExperimentAPI(ApiBase):
         resp.data = ExperimentAPI.parse(resp.data)
         return resp
 
-    def get_project_exps(
+    def list_project_exps(
             self,
             username: str,
             projname: str,

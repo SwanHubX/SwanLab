@@ -8,7 +8,6 @@ r"""
     项目相关的开放API
 """
 
-from swanlab.api.http import HTTP
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
 from swanlab.api.openapi.types import Project, ApiResponse, Pagination
 
@@ -18,7 +17,7 @@ class ProjectAPI(ApiBase):
         super().__init__(http)
 
     @classmethod
-    def parse(cls, body: dict, **kwargs) -> Project:
+    def parse(cls, body: dict, detail = True) -> Project:
         project_parser = {
             "cuid": body.get("cuid", ""),
             "name": body.get("name", ""),
@@ -26,40 +25,35 @@ class ProjectAPI(ApiBase):
             "visibility": body.get("visibility", ""),
             "createdAt": body.get("createdAt", ""),
             "updatedAt": body.get("updatedAt", ""),
-            "path": body.get("path", ""),
             "group": {
                 "type": body.get("group", {}).get("type", ""),
                 "username": body.get("group", {}).get("username", ""),
                 "name": body.get("group", {}).get("name", ""),
             },
         }
-        if kwargs.get("detail", True):
-            project_parser["_count"] = body.get("_count")
+        if detail:
+            project_parser["count"] = body.get("_count")
         return Project.model_validate(project_parser)
 
     def list_projects(
-        self, username: str, detail: bool = True, page: int = 1, size: int = 20
+        self, username: str, detail = True, page: int = 1, size: int = 10
     ) -> ApiResponse[Pagination[Project]]:
         """
         列出一个 workspace 下的所有项目
 
         Args:
-            username: 工作空间名, 默认为用户个人空间
-            detail: 是否返回实验详细信息，默认为True
-            page: 页码，默认为1
-            size: 每页数量，默认为20
-
-        Returns:
-            ApiResponse: 包含项目分页数据的响应
+            username (str): 工作空间名, 默认为用户个人空间
+            detail (bool): 是否返回详细统计信息，默认为 True
+            page (int): 页码，默认为 1
+            size (int): 每页数量，默认为 10
         """
-        base_url = f"/project/{username}"
-        params = {"detail": detail, "page": page, "size": size}
-
-        resp = self.http.get(base_url, params=params)
+        resp = self.http.get(f"/project/{username}", params={"detail": detail, "page": page, "size": size})
         if resp.errmsg:
             return resp
 
-        projects = [ProjectAPI.parse(item, detail=detail) for item in resp.data.get("list", [])]
-        resp.data = Pagination[Project].model_validate({"total": resp.data.get("total", 0), "list": projects})
+        resp.data = Pagination[Project].model_validate({
+            "total": resp.data.get("total", 0),
+            "list": [ProjectAPI.parse(project, detail=detail) for project in resp.data.get("list", [])]
+        })
 
         return resp

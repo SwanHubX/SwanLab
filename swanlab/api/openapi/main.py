@@ -7,11 +7,12 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
+from typing import List, Dict
 
-from swanlab.api.openapi.base import ApiHTTP, get_logger
+from swanlab.api import code_login
+from swanlab.api.openapi.base import ApiHTTP, get_logger, fetch_paginated_api
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
-from swanlab.api import code_login
 from swanlab.api.openapi.project import ProjectAPI
 from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination, Project
 from swanlab.error import KeyFileError
@@ -50,22 +51,24 @@ class OpenApi:
         """
         return self.__http
 
-    def list_workspaces(self) -> ApiResponse[list]:
+    def list_workspaces(self) -> ApiResponse[List[Dict]]:
         """
         获取当前用户的所有工作空间(Group)
 
         Returns:
-            list:
-                - code (int): HTTP 错误代码
+            ApiResponse[List]:
+                - code (int): HTTP 状态码
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (list): 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
+                - data (List[Dict]): 一个列表, 其中每个元素是一个字典, 包含相应工作空间的基础信息:
                     - name (str): 工作空间名称
                     - username (str): 工作空间名(用于组织相关的 URL)
                     - role (str): 用户在该工作空间中的角色，如 'OWNER' 或 'MEMBER'
         """
         return self.group.list_workspaces()
 
-    def get_exp_state(self, project: str, exp_cuid: str, username: str = "") -> ApiResponse[dict]:
+    def get_exp_state(
+            self, project: str, exp_cuid: str, username: str = ""
+    ) -> ApiResponse[Dict]:
         """
         获取实验状态
 
@@ -75,18 +78,20 @@ class OpenApi:
            username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
-            dict:
-                - code (int): HTTP 错误代码
+            ApiResponse[Dict]:
+                - code (int): HTTP 状态码
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (dict): 实验状态的字典, 包含以下字段:
+                - data (Dict): 实验状态的字典, 包含以下字段:
                     - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
                     - finishedAt (str): 实验完成时间(若有), 格式如 '2024-11-23T12:28:04.286Z'
         """
         return self.experiment.get_exp_state(
-            username=username if username else self.http.username, projname=project, expid=exp_cuid  # type: ignore
+            username=username if username else self.http.username, projname=project, expid=exp_cuid
         )
 
-    def get_experiment(self, project: str, exp_cuid: str, username: str = "") -> ApiResponse[Experiment]:
+    def get_experiment(
+            self, project: str, exp_cuid: str, username: str = ""
+    ) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
@@ -96,60 +101,56 @@ class OpenApi:
             username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
-            dict:
-                - code (int): HTTP 错误代码
+            ApiResponse[Experiment]:
+                - code (int): HTTP 状态码
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (dict): 实验信息的字典, 包含实验信息
+                - data (Dict): 实验信息的字典, 包含实验信息
         """
         return self.experiment.get_experiment(
-            username=username if username else self.http.username, projname=project, expid=exp_cuid  # type: ignore
+            username=username if username else self.http.username, projname=project, expid=exp_cuid
         )
 
-    def get_project_exps(
-        self, project: str, page: int = 1, size: int = 10, username: str = ""
-    ) -> ApiResponse[Pagination[Experiment]]:
+    def list_project_exps(
+        self, project: str, username: str = ""
+    ) -> ApiResponse[List[Experiment]]:
         """
-        获取项目下的实验列表(分页)
+        获取一个项目下的所有实验
 
         Args:
             project (str): 项目名
             username (str): 工作空间名, 默认为用户个人空间
-            page (int): 页码, 默认为 1
-            size (int): 每页大小, 默认为 10
 
         Returns:
-            dict:
-                - code (int): HTTP 错误代码
+            ApiResponse[Experiment]:
+                - code (int): HTTP 状态码
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (Pagination[Experiment]): 实验列表, 包含以下字段:
-                    - total (int): 云端实验总数
-                    - list (list[Experiment]): 实验列表, 每个元素都是实验信息的字典, 包含实验信息
-                        - 此实验的 profile 只包含 config (实验自定义配置)
+                - data (List[Experiment]): 实验列表, 每个元素包含一个实验的信息
+                    - 此实验的 profile 只包含 config (实验自定义配置)
         """
-        return self.experiment.get_project_exps(
-            username=username if username else self.http.username, projname=project, page=page, size=size  # type: ignore
+        return fetch_paginated_api(
+            api_func=self.experiment.list_project_exps,
+            projname=project,
+            username=username if username else self.http.username
         )
 
     def list_projects(
-        self, username: str = "", detail: bool = True, page: int = 1, size: int = 20
-    ) -> ApiResponse[Pagination[Project]]:
+        self, username: str = "", detail: bool = True
+    ) -> ApiResponse[List[Project]]:
         """
-        列出一个 workspace 下的所有项目
+        获取一个工作空间下的所有项目
 
         Args:
             username (str): 工作空间名, 默认为用户个人空间
-            detail (bool): 是否包含项目下实验的相关信息，默认为 True
-            page (int): 页码, 默认为 1
-            size (int): 每页大小, 默认为 20
+            detail (bool): 是否包含详细统计信息，默认为 True
 
         Returns:
-            dict: 项目列表信息的字典, 包含以下字段:
-                - code (int): HTTP 错误代码
+            ApiResponse[List[Project]]:
+                - code (int): HTTP 状态码
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (Pagination[Project]): 项目列表, 包含以下字段:
-                    - total (int): 指定工作空间下的项目总数
-                    - list (list[Project]): 项目列表, 每个元素都是项目信息的字典, 包含项目信息
+                - data (List[Project]): 项目列表, 每个元素包含一个项目的信息
         """
-        username = username or self.http.username  # type: ignore
-
-        return self.project.list_projects(username=username, detail=detail, page=page, size=size)
+        return fetch_paginated_api(
+            api_func=self.project.list_projects,
+            username=username if username else self.http.username,
+            detail=detail
+        )

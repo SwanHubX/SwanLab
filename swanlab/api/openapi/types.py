@@ -31,12 +31,8 @@ class Project(BaseModel):
     visibility: str  # 可见性, 'PUBLIC' 或 'PRIVATE'
     createdAt: str  # e.g., '2024-11-23T12:28:04.286Z'
     updatedAt: str  # e.g., '2024-11-23T12:28:04.286Z'
-    path: str  # 项目路径, e.g., '/project/username/project_name'
-    group: Dict[str, Any]  # 工作空间信息, 包含 'type', 'username', 'name'
-
-    _count: Optional[Dict[str, Any]]  # 仅当 detail=True 时返回, 包含项目的详细信息
-
-    model_config = ConfigDict(extra='allow', validate_assignment=True)  # 显式处理 _count 字段
+    group: Dict[str, str]  # 工作空间信息, 包含 'type', 'username', 'name'
+    count: Optional[Dict[str, int]]  # 仅当 detail=True 时返回, 包含项目的详细信息
 
 
 D = TypeVar("D")
