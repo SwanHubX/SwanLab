@@ -311,6 +311,7 @@ swanlab login --host http://localhost:8000
 - [Modelscope Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sentence-transformers.html)
+- [PaddleNLP](https://docs.swanlab.cn/guide_cloud/integration/integration-paddlenlp.html)
 - [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xtuner.html)
