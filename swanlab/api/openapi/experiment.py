@@ -23,7 +23,7 @@ class ExperimentAPI(ApiBase):
             "name": body.get("name") or "",
             "description": body.get("description") or "",
             "state": body.get("state") or "",
-            "show": body.get("show") or "",
+            "show": bool(body.get("show")),
             "createdAt": body.get("createdAt") or "",
             "finishedAt": body.get("finishedAt") or "",
             "user": {
