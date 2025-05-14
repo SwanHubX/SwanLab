@@ -49,7 +49,7 @@
 - [🏁 快速开始](#-快速开始)
 - [💻 自托管](#-自托管)
 - [🚗 框架集成](#-框架集成)
-- [🔌 插件](#-插件)
+- [🔌 插件与API](#-插件与api)
 - [🎮 硬件记录](#-硬件记录)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
 - [👥 社区](#-社区)
@@ -60,7 +60,7 @@
 
 ## 🌟 最近更新
 
-- 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；
+- 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
 
 - 2025.05.09：支持**折线图创建**；配置图表功能增加**数据源选择**功能，支持单张图表显示不同的指标；支持生成**训练项目GitHub徽章**；
 
@@ -149,7 +149,7 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、MLU（**寒武纪MLU**）、内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、MLU（**寒武纪Cambricon**）、XLU（**昆仑芯Kunlunxin**）内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -366,7 +366,7 @@ swanlab login --host http://localhost:8000
 
 <br>
 
-## 🔌 插件
+## 🔌 插件与API
 
 欢迎通过插件来拓展SwanLab的功能，增强你的实验管理体验！
 
@@ -378,6 +378,9 @@ swanlab login --host http://localhost:8000
 - [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)
 - [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
+
+开放接口：
+- [OpenAPI](https://docs.swanlab.cn/api/py-openapi.html)
 
 <br>
 
