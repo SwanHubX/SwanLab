@@ -53,6 +53,8 @@
 
 ## 🌟 Последние обновления
 
+- 2025.05.14: Добавлена поддержка **экспериментов с тегами**; поддерживается **Log Scale** для линейных графиков; поддерживается **перетаскивание** для групп; значительно улучшена производительность загрузки и отображения больших объемов данных.
+
 - 2025.05.09: Добавлена поддержка создания линейных графиков; в функции настройки графиков добавлена возможность выбора источника данных, что позволяет отображать разные показатели на одном графике; реализована возможность создания GitHub-значков для учебных проектов.
 
 - 2025.04.23: Добавлена поддержка ​​редактирования​​ линейных графиков, возможность свободной настройки диапазонов данных осей X и Y и стилей заголовков; поиск в графиках теперь поддерживает ​​регулярные выражения​​; добавлено обнаружение и мониторинг оборудования ​​Kunlun Core XPU​​.
@@ -71,10 +73,10 @@
 
 - 2025.03.12: 🎉🎉 SwanLab**самостоятельное размещение** теперь доступно! [🔗 Документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html); SwanLab теперь поддерживает расширение плагинов, таких как [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) и [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
 
-- 2025.03.09: Добавлена интеграция с [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html), теперь вы можете использовать SwanLab для **отслеживания и визуализации экспериментов MLFlow**.
-
 
 <details><summary>Полный список изменений</summary>
+
+- 2025.03.09: Добавлена интеграция с [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html), теперь вы можете использовать SwanLab для **отслеживания и визуализации экспериментов MLFlow**.
 
 - 2025.03.06: Мы объединили усилия с [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio), теперь вы можете использовать SwanLab в DiffSynth Studio для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** [инструкция по использованию](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html).
 
@@ -309,6 +311,7 @@ swanlab login --host http://localhost:8000
 - [Modelscope Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sentence-transformers.html)
+- [PaddleNLP](https://docs.swanlab.cn/guide_cloud/integration/integration-paddlenlp.html)
 - [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xtuner.html)
