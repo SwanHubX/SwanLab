@@ -53,7 +53,7 @@ class ExperimentAPI(ApiBase):
             projname (str): 项目名
             expid (str): 实验CUID
         """
-        resp = self.http.get(f"/project/{username}/{projname}/runs/{expid}")
+        resp: ApiResponse = self.http.service.get_exp_info(username=username, projname=projname, expid=expid)
         if resp.errmsg:
             return resp
         resp.data = ExperimentAPI.parse(resp.data)
@@ -85,4 +85,45 @@ class ExperimentAPI(ApiBase):
             "total": exps.get("total", 0),
             "list": [ExperimentAPI.parse(e) for e in exps.get("list", [])]
         })
+        return resp
+
+    def get_exp_summary(self, expid: str, proid: str, root_expid: str, root_proid: str) -> ApiResponse[dict]:
+        """
+        获取实验的summary信息
+        从House获取, 需要考虑克隆实验
+
+        Args:
+            expid (str): 实验CUID
+            proid (str): 项目CUID
+            root_expid (str): 根实验CUID
+            root_proid (str): 根项目CUID
+        """
+        data = {
+            "experimentId": expid,
+            "projectId": proid,
+        }
+        if root_expid and root_proid:
+            data["rootExperimentId"] = root_expid
+            data["rootProjectId"] = root_proid
+
+        resp = self.http.post(f"/house/metrics/summaries", data=[data])
+        if resp.errmsg:
+            return resp
+
+        resp.data = list(resp.data.values())[0]
+        resp.data = {
+            k: {
+                "step": v.get("step"),
+                "value": v.get("value"),
+                "min": {
+                    "step": v.get("min").get("index"),
+                    "value": v.get("min").get("data"),
+                },
+                "max": {
+                    "step": v.get("max").get("index"),
+                    "value": v.get("max").get("data"),
+                }
+            }
+            for k, v in resp.data.items()
+        }
         return resp
