@@ -256,7 +256,7 @@ class HTTP:
                 if username is not None:
                     data["username"] = username
                 if public is not None:
-                    data["visibility"] = public
+                    data["visibility"] = "PUBLIC" if public else "PRIVATE"
                 resp = http.post(f"/project", data=data)
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息
