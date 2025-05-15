@@ -9,7 +9,7 @@ r"""
 """
 import random
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, List
 
 from swankit.core import SwanLabSharedSettings
 from swankit.core.data import MediaType
@@ -41,7 +41,7 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        tags: list[str] = None,
+        tags: List[str] = None,
         run_config: Any = None,
         log_level: str = None,
         exp_num: int = None,
@@ -60,7 +60,7 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
-        tags : list[str], optional
+        tags : List[str], optional
             实验标签，用于对当前实验进行标记和分类
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空列表[]
         run_config : Any, optional
@@ -183,7 +183,7 @@ class SwanLabRun:
         self,
         experiment_name: str = None,
         description: str = None,
-        tags: list[str] = None,
+        tags: List[str] = None,
         num: int = None,
     ) -> SwanLabExp:
         """
