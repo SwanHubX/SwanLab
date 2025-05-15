@@ -22,7 +22,6 @@ class ExperimentAPI(ApiBase):
             "cuid": body.get("cuid") or "",
             "name": body.get("name") or "",
             "description": body.get("description") or "",
-            "tags": body.get("tags") or "",
             "state": body.get("state") or "",
             "show": bool(body.get("show")),
             "createdAt": body.get("createdAt") or "",
