@@ -252,8 +252,12 @@ class HTTP:
 
         def _():
             try:
-                visibility = "PUBLIC" if public else "PRIVATE"
-                resp = http.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                data = {"name": name}
+                if username is not None:
+                    data["username"] = username
+                if public is not None:
+                    data["visibility"] = public
+                resp = http.post(f"/project", data=data)
             except ApiError as e:
                 # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
