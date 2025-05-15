@@ -9,7 +9,7 @@ r"""
 """
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -68,6 +68,7 @@ class ApiHTTP:
         self.__logger = get_logger()
         self.__login_info: LoginInfo = login_info
         self.__session: requests.Session = self.__init_session()
+        self.service: OpenApiService = OpenApiService(self)
 
     @property
     def username(self) -> str:
@@ -115,10 +116,26 @@ class ApiHTTP:
         resp = self.__session.get(self.base_url + url, params=params)
         return handle_response(resp)
 
-    def post(self, url: str, data: dict = None) -> ApiResponse:
+    def post(self, url: str, data: Union[dict, list] = None) -> ApiResponse:
         self.__before_request()
         resp = self.__session.post(self.base_url + url, json=data)
         return handle_response(resp)
+
+class OpenApiService:
+    def __init__(self, http: ApiHTTP):
+        self.http: ApiHTTP = http
+
+    def get_exp_info(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
+        """
+        获取实验信息
+        """
+        return self.http.get(f"/project/{username}/{projname}/runs/{expid}")
+
+    def get_project_info(self, username: str, projname: str) -> ApiResponse[dict]:
+        """
+        获取项目详情
+        """
+        return self.http.get(f"/project/{username}/{projname}")
 
 
 class ApiBase:
