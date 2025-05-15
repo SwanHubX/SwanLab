@@ -18,20 +18,23 @@ class ExperimentAPI(ApiBase):
 
     @classmethod
     def parse(cls, body: dict) -> Experiment:
-        return Experiment.model_validate({
-            "cuid": body.get("cuid") or "",
-            "name": body.get("name") or "",
-            "description": body.get("description") or "",
-            "state": body.get("state") or "",
-            "show": bool(body.get("show")),
-            "createdAt": body.get("createdAt") or "",
-            "finishedAt": body.get("finishedAt") or "",
-            "user": {
-                "username": (body.get("user") or {}).get("username") or "",
-                "name": (body.get("user") or {}).get("name") or "",
-            },
-            "profile": body.get("profile") or {}
-        })
+        return Experiment.model_validate(
+            {
+                "cuid": body.get("cuid") or "",
+                "name": body.get("name") or "",
+                "description": body.get("description") or "",
+                "tags": body.get("tags") or "",
+                "state": body.get("state") or "",
+                "show": bool(body.get("show")),
+                "createdAt": body.get("createdAt") or "",
+                "finishedAt": body.get("finishedAt") or "",
+                "user": {
+                    "username": (body.get("user") or {}).get("username") or "",
+                    "name": (body.get("user") or {}).get("name") or "",
+                },
+                "profile": body.get("profile") or {},
+            }
+        )
 
     def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
         """
@@ -60,11 +63,7 @@ class ExperimentAPI(ApiBase):
         return resp
 
     def list_project_exps(
-            self,
-            username: str,
-            projname: str,
-            page: int = 1,
-            size: int = 10
+        self, username: str, projname: str, page: int = 1, size: int = 10
     ) -> ApiResponse[Pagination[Experiment]]:
         """
         分页获取项目下的实验列表
@@ -81,10 +80,9 @@ class ExperimentAPI(ApiBase):
         if resp.errmsg:
             return resp
         exps = resp.data
-        resp.data = Pagination[Experiment].model_validate({
-            "total": exps.get("total", 0),
-            "list": [ExperimentAPI.parse(e) for e in exps.get("list", [])]
-        })
+        resp.data = Pagination[Experiment].model_validate(
+            {"total": exps.get("total", 0), "list": [ExperimentAPI.parse(e) for e in exps.get("list", [])]}
+        )
         return resp
 
     def get_exp_summary(self, expid: str, proid: str, root_expid: str, root_proid: str) -> ApiResponse[dict]:
@@ -122,7 +120,7 @@ class ExperimentAPI(ApiBase):
                 "max": {
                     "step": v.get("max").get("index"),
                     "value": v.get("max").get("data"),
-                }
+                },
             }
             for k, v in resp.data.items()
         }
