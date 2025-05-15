@@ -31,7 +31,7 @@ class ExperimentAPI(ApiBase):
                 "username": (body.get("user") or {}).get("username") or "",
                 "name": (body.get("user") or {}).get("name") or "",
             },
-            "profile": body.get("profile") or {},
+            "profile": body.get("profile") or {}
         })
 
     def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
@@ -61,11 +61,11 @@ class ExperimentAPI(ApiBase):
         return resp
 
     def list_project_exps(
-        self,
-        username: str,
-        projname: str,
-        page: int = 1,
-        size: int = 10
+            self,
+            username: str,
+            projname: str,
+            page: int = 1,
+            size: int = 10
     ) -> ApiResponse[Pagination[Experiment]]:
         """
         分页获取项目下的实验列表
