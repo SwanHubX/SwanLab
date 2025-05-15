@@ -25,7 +25,7 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
-from ..formatter import check_key_format, check_exp_name_format, check_desc_format
+from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
 
 MAX_LIST_LENGTH = 108
 
@@ -199,6 +199,13 @@ class SwanLabRun:
             if description != d:
                 swanlog.warning("The description has been truncated automatically.")
                 description = d
+        if tags:
+            new_tags = check_tags_format(tags)
+            for i in range(len(tags)):
+                if tags[i] != new_tags[i]:
+                    swanlog.warning("The tag has been truncated automatically.")
+                    tags[i] = new_tags[i]
+            print(f"tags: {tags}")
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
