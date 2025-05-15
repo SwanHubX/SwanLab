@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 
+from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
 
 
@@ -39,8 +40,29 @@ def get_python_info():
         "python": platform.python_version(),
         "python_verbose": sys.version,
         "executable": sys.executable,
-        "command": " ".join(sys.argv),
+        "command": _get_command(),
     }
+
+def _get_command():
+    """
+    获取当前执行的命令行字符串，并可选地屏蔽敏感API密钥
+    - setting.mask_api_key 为 false 时不屏蔽
+    - --swanlab-api-key 值不等于当前使用的 api key 时不屏蔽
+    :return:
+    """
+    # 复制一份以免破坏全局
+    args = sys.argv.copy()
+    api_arg = "--swanlab-api-key"
+    mask = get_settings().security_mask
+
+    # 不满足屏蔽条件时略过
+    if not mask or api_arg not in args:
+        return " ".join(args)
+
+    index = args.index(api_arg) + 1
+    if index < len(args) and args[index] == get_key():
+        args[index] = "****"
+    return " ".join(args)
 
 
 # ---------------------------------- git信息 ----------------------------------
