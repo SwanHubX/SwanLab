@@ -209,7 +209,7 @@ class SwanLabRun:
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
-        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, tags, num, colors)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
         self.__settings.exp_name = experiment_name
         self.__settings.exp_colors = colors
         self.__settings.description = description
