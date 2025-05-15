@@ -205,7 +205,6 @@ class SwanLabRun:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
-            print(f"tags: {tags}")
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
