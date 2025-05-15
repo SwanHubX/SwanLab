@@ -10,7 +10,12 @@ r"""
 
 from typing import Dict, Generic, List, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel as PydanticBaseModel
+
+
+class BaseModel(PydanticBaseModel):
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 class Experiment(BaseModel):

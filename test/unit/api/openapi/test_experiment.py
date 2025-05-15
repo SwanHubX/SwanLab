@@ -52,3 +52,14 @@ def test_list_project_exps():
         for item in res.data:
             assert isinstance(item, Experiment)
 
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_get_exp_summary():
+    """
+    获取一个实验的Summary信息
+    """
+    api = OpenApi()
+    exp_cuid = "test_cuid"
+    res = api.get_exp_summary(project="test_project", exp_cuid=exp_cuid)
+    assert isinstance(res, ApiResponse)
+    if res.code == 200:
+        assert isinstance(res.data, dict)
