@@ -272,12 +272,13 @@ class HTTP:
         self.__proj = project
         return project
 
-    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None):
+    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
         初始化实验，获取存储信息
         :param exp_name: 所属实验名称
         :param colors: 实验颜色，有两个颜色
         :param description: 实验描述
+        :param tags: 实验标签
         """
 
         def _():
@@ -285,15 +286,17 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
+            post_data = {
+                "name": exp_name,
+                "colors": list(colors),
+            }
 
-            data = self.post(
-                f"/project/{self.groupname}/{self.__proj.name}/runs",
-                (
-                    {"name": exp_name, "colors": list(colors), "description": description}
-                    if description
-                    else {"name": exp_name, "colors": list(colors)}
-                ),
-            )
+            if description is not None:
+                post_data["description"] = description
+            if tags is not None:
+                post_data["labels"] = [{"name": tag} for tag in tags]
+
+            data = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
             self.__get_cos()
