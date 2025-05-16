@@ -176,7 +176,7 @@ class HTTP:
 
         self.__session = session
 
-    def post(self, url: str, data: dict | list = None):
+    def post(self, url: str, data: Union[dict, list] = None):
         """
         post请求
         """

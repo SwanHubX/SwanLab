@@ -116,9 +116,10 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
             # 处理实验不存在的异常
             if e.resp.status_code == 404:
                 resp = decode_response(e.resp)
+                # 实验不存在，那么剩下的列也没有必要上传了，直接返回
                 if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
                     swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
-                    continue
+                    return None
             raise e
 
 
