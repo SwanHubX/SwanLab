@@ -35,6 +35,8 @@ class Settings(BaseModel):
     collect_hardware: StrictBool = True
     # 是否采集运行时信息（暂不支持更精细设置，有需求可以添加）
     collect_runtime: StrictBool = True
+    # 是否需要主动屏蔽启动命令中的 api key 等隐私信息，默认屏蔽
+    security_mask: StrictBool = True
     # ---------------------------------- 其他信息采集 ----------------------------------
     # 是否采集python环境信息
     requirements_collect: StrictBool = True
