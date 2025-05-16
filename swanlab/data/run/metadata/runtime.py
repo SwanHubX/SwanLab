@@ -64,6 +64,8 @@ def _get_command() -> str:
         api_key = None
 
         # 尝试从不同来源获取API密钥
+        # 未登录时 get_http 抛出 ValueError，此时需要换用 get_key 继续尝试获取
+        # 未设置环境变量且未找到本地保存的 api key 时， get_key 抛出 KeyFileError，此时 api_key 为 None
         for key_provider in [lambda: get_http().api_key, get_key]:
             try:
                 api_key = key_provider()
