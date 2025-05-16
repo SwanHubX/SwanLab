@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from swanlab.api import get_http
+from swanlab.error import KeyFileError
 from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
 
@@ -44,20 +45,36 @@ def get_python_info():
         "command": _get_command(),
     }
 
-def _get_command():
-    """获取当前执行的命令行字符串，并可选地屏蔽敏感API密钥"""
-    # 复制一份以免破坏全局
-    args = sys.argv.copy()
-    mask = get_settings().security_mask
-    try:
-        api_key = get_http().api_key
-    except ValueError:
-        api_key = get_key()
 
-    # 不满足屏蔽条件时略过
-    if not mask or api_key not in args:
-        return " ".join(args)
-    args[args.index(api_key)] = "****"
+def _get_command() -> str:
+    """获取当前执行的命令行字符串，并可选地屏蔽敏感API密钥
+
+    Returns:
+        str: 处理后的命令行字符串，敏感信息可能被屏蔽
+
+    Note:
+        - 当安全屏蔽设置启用且发现API密钥时，密钥会被替换为'****'
+        - 自动尝试多种方式获取API密钥（HTTP接口 -> 密钥文件）
+    """
+    # 创建副本避免修改原始参数
+    args = sys.argv.copy()
+
+    # 仅在需要屏蔽时尝试获取API密钥
+    if get_settings().security_mask:
+        api_key = None
+
+        # 尝试从不同来源获取API密钥
+        for key_provider in [lambda: get_http().api_key, get_key]:
+            try:
+                api_key = key_provider()
+                break
+            except (ValueError, KeyFileError):
+                continue
+
+        # 如果找到API密钥且在参数中，则进行屏蔽
+        if api_key is not None and api_key in args:
+            args[args.index(api_key)] = "****"
+
     return " ".join(args)
 
 
