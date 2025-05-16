@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 
+from swanlab.api import get_http
 from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
 
@@ -48,7 +49,10 @@ def _get_command():
     # 复制一份以免破坏全局
     args = sys.argv.copy()
     mask = get_settings().security_mask
-    api_key = get_key()
+    try:
+        api_key = get_http().api_key
+    except ValueError:
+        api_key = get_key()
 
     # 不满足屏蔽条件时略过
     if not mask or api_key not in args:

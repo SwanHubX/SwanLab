@@ -78,6 +78,10 @@ class HTTP:
         return self.__login_info.web_host
 
     @property
+    def api_key(self):
+        return self.__login_info.api_key
+
+    @property
     def web_host(self):
         return self.__login_info.web_host
 
