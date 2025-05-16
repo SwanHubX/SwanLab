@@ -11,7 +11,8 @@ from typing import List
 
 from swanlab.log import swanlog
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel
-from ..http import get_http, sync_error_handler
+from ..http import get_http, sync_error_handler, decode_response
+from ...error import ApiError
 
 house_url = '/house/metrics'
 
@@ -109,7 +110,16 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
         # 如果列表长度为0，则跳过
         if len(columns) == 0:
             continue
-        http.post(url, columns)
+        try:
+            http.post(url, columns)
+        except ApiError as e:
+            # 处理实验不存在的异常
+            if e.resp.status_code == 404:
+                resp = decode_response(e.resp)
+                if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
+                    swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
+                    return None
+            raise e
 
 
 __all__ = [
