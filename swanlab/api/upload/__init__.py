@@ -118,7 +118,7 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
                 resp = decode_response(e.resp)
                 if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
                     swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
-                    return None
+                    continue
             raise e
 
 
