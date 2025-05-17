@@ -46,7 +46,7 @@ class SwanWriterProxy:
         # 封装一层func，加入epoch处理逻辑
         def _func(message):
             self.epoch += 1
-            func({"message": message, "create_time": create_time(), "epoch": self.epoch})
+
 
         # 封装第二层，加入message处理逻辑以及是否调用逻辑
         def _(message):

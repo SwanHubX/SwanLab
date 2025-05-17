@@ -34,6 +34,21 @@ class TestSwanlabSettingsBasics:
         assert settings.hardware_monitor is False
 
 
+def test_log_proxy_type():
+    """测试日志代理类型"""
+    # 测试默认值
+    settings = swanlab.Settings()
+    assert settings.log_proxy_type == "all"
+
+    # 测试自定义值
+    settings = swanlab.Settings(log_proxy_type="stdout")
+    assert settings.log_proxy_type == "stdout"
+
+    # 测试无效值
+    with pytest.raises(ValidationError):
+        swanlab.Settings(log_proxy_type="invalid")
+
+
 class TestSwanlabSettings:
     def teardown_method(self):
         # 每个测试方法后执行
