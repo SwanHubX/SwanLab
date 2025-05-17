@@ -7,11 +7,12 @@ r"""
 @Description:
     配置pytest
 """
-import pytest
-from tutils import TEMP_PATH, reset_some_env
-import swanlab.env as E
-import shutil
 import os
+import shutil
+
+import pytest
+
+from tutils import TEMP_PATH, reset_some_env, SwanLabEnv
 
 
 def count_files_in_directory(directory, exclude_prefixes=("__", ".", "~")):
@@ -51,7 +52,7 @@ def setup_each():
     对每一个测试函数进行设置
     对于每一个测试函数，将环境变量恢复原状，清空temp文件夹后重新创建一个新的
     """
-    for key in E.SwanLabEnv.list():
+    for key in SwanLabEnv.list():
         if key in os.environ:
             del os.environ[key]
     reset_some_env()
