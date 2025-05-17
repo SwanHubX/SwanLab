@@ -121,6 +121,7 @@ class CloudRunCallback(SwanLabRunCallback):
             exp_name=self.settings.exp_name,
             colors=self.settings.exp_colors,
             description=self.settings.description,
+            tags=self.settings.tags,
         )
 
         # 向swanlog注册输出流回调
