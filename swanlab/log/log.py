@@ -12,9 +12,8 @@ from typing import List, Tuple, Callable
 from swankit.env import create_time
 from swankit.log import SwanLabSharedLog
 
-from swanlab.swanlab_settings import get_settings
 from .counter import AtomicCounter
-from .type import LogHandler, LogType, WriteHandler, LogData, LogContent
+from .type import LogHandler, LogType, WriteHandler, LogData, LogContent, ProxyType
 
 
 class SwanLog(SwanLabSharedLog):
@@ -38,6 +37,10 @@ class SwanLog(SwanLabSharedLog):
         self.__max_upload_len = None
         # 当前的代理类型
         self.__proxy_type = None
+
+    @property
+    def epoch(self):
+        return self.__counter.value
 
     def __create_write_handler(self, write_type: LogType, handler: LogHandler) -> WriteHandler:
         """
@@ -69,6 +72,7 @@ class SwanLog(SwanLabSharedLog):
                 if "I/O operation on closed file" in str(e):
                     # 遇到文件已关闭问题，直接pass，此时表现为终端不输出
                     pass
+
             # 进行缓冲处理，主要目的是处理进度条输出：
             # 1. 如果 message 不包含换行符，则加入缓冲区，否则跳转步骤2
             # 2. 如果 message 包含换行符，则将换行符之前的内容和当前缓冲区合并，进入步骤3，准备上传
@@ -115,17 +119,18 @@ class SwanLog(SwanLabSharedLog):
         """
         return self.__origin_stderr_write is not None or self.__origin_stdout_write is not None
 
-    def start_proxy(self, handler: LogHandler):
+    def start_proxy(self, proxy_type: ProxyType, max_log_length: int, handler: LogHandler):
         """
         启动代理
+        :param max_log_length: 一行日志的最大长度，超过这个长度的日志将被截断，-1 表示不限制
+        :param proxy_type: 代理类型，支持 "stdout", "stderr", "all"
         :param handler: 代理处理函数
         """
         if self.proxied:
             raise RuntimeError("Std Proxy is already started")
         # 设置一些状态
-        settings = get_settings()
-        self.__max_upload_len = get_settings().max_log_length
-        self.__proxy_type = settings.log_proxy_type
+        self.__max_upload_len = max_log_length
+        self.__proxy_type = proxy_type
 
         # 设置代理
         def set_stdout():

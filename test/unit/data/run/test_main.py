@@ -30,11 +30,11 @@ def setup_function():
     """
     在当前测试文件下的每个测试函数执行前后执行
     """
-    if get_run() is not None:
-        get_run().finish()
     swanlog.disable_log()
     yield
     swanlog.enable_log()
+    if get_run() is not None:
+        get_run().finish()
 
 
 class TestSwanLabRunInit:
@@ -46,7 +46,7 @@ class TestSwanLabRunInit:
 
     def test_after_init(self):
         run = SwanLabRun(generate())
-        assert swanlog.installed is False
+        assert swanlog.proxied is False
         assert run is not None
         assert get_run().__str__() == run.__str__()
         _run = run.finish()
@@ -58,11 +58,11 @@ class TestSwanLabRunInit:
         run = SwanLabRun(generate())
         with pytest.raises(RuntimeError) as e:
             SwanLabRun(generate())
-        assert swanlog.installed is False
+        assert swanlog.proxied is False
         assert str(e.value) == "SwanLabRun has been initialized"
         assert run.__str__() == get_run().__str__()
         _run = run.finish()
-        assert swanlog.installed is False
+        assert swanlog.proxied is False
 
 
 class TestSwanLabRunState:

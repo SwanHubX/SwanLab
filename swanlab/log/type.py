@@ -24,6 +24,8 @@ class LogContent(TypedDict):
     epoch: int
 
 
+# 支持的代理类型
+ProxyType = Literal['all', 'stdout', 'stderr']
 # 支持的日志类型
 LogType = Literal['stdout', 'stderr']
 
@@ -33,7 +35,7 @@ class LogData(TypedDict):
 
     结构示例:
     {
-        "level": "stdout",  # 或 "stderr"
+        "type": "stdout",  # 或 "stderr"
         "content": {
             "message": "hello world",
             "create_time": "2025-05-15 18:35:00",

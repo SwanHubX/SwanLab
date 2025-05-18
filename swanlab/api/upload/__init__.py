@@ -10,7 +10,7 @@ r"""
 from typing import List
 
 from swanlab.log import swanlog
-from .model import ColumnModel, MediaModel, ScalarModel, FileModel
+from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
 from ..http import get_http, sync_error_handler, decode_response
 from ...error import ApiError
 
@@ -26,15 +26,17 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
 
 
 @sync_error_handler
-def upload_logs(logs: List[dict], level: str = "INFO"):
+def upload_logs(logs: List[LogModel]):
     """
     上传日志信息
-    :param logs: 日志列表
-    :param level: 日志级别，'INFO', 'ERROR'，默认INFO
+    :param logs: 日志信息集合
     """
     http = get_http()
-    # 将logs解析为json格式
-    metrics = [{"level": level, **x} for x in logs]
+    metrics = []
+    for log in logs:
+        metrics.extend([{"level": log['level'], **l} for l in log['contents']])
+    if len(metrics) == 0:
+        return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
     http.post(house_url, data)
 
@@ -62,16 +64,6 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     http = get_http()
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     http.post(house_url, data)
-
-
-_valid_files = {
-    'config.yaml': ['config', 'yaml'],
-    'requirements.txt': ['requirements', 'txt'],
-    'swanlab-metadata.json': ['metadata', 'json'],
-}
-"""
-支持上传的文件列表，filename: key
-"""
 
 
 @sync_error_handler

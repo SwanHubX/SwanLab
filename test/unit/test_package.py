@@ -99,6 +99,7 @@ class TestGetKey:
         assert P.get_host_api() == host
         with pytest.raises(KeyFileError) as e:
             P.get_key()
+        time.sleep(0.5)
         assert str(e.value) == f"The host {host} does not exist"
 
     def test_use_env(self):

@@ -8,6 +8,9 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 
 from swankit.callback import ColumnInfo
 
+from swanlab.log.type import LogData
+from swanlab.swanlab_settings import get_settings
+
 try:
     # noinspection PyPackageRequirements
     import swanboard
@@ -15,9 +18,12 @@ except ImportError:
     raise ImportError("Please install swanboard to use 'local' mode: pip install 'swanlab[dashboard]'")
 
 from importlib.metadata import version
+
 package_version = version("swanboard")
 if package_version != "0.1.8b1":
-    raise ImportError("Your swanboard version does not match, please use this command to install the matching version: pip install 'swanlab[dashboard]'")
+    raise ImportError(
+        "Your swanboard version does not match, please use this command to install the matching version: pip install 'swanlab[dashboard]'"
+    )
 
 
 import json
@@ -25,7 +31,7 @@ import os
 import sys
 import traceback
 from datetime import datetime
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional, TextIO
 
 from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
@@ -41,6 +47,8 @@ class LocalRunCallback(SwanLabRunCallback):
     def __init__(self):
         super(LocalRunCallback, self).__init__()
         self.board = swanboard.SwanBoardCallback()
+        # 当前日志写入文件的句柄
+        self.file: Optional[TextIO] = None
 
     @staticmethod
     def _traceback_error(tb, val):
@@ -124,13 +132,29 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
+    def _write_handler(self, log_data: LogData):
+        log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
+        if self.file is None:
+            # 如果句柄不存在，则创建
+            self.file = open(os.path.join(self.settings.console_dir, log_name), "a", encoding="utf-8")
+        elif os.path.basename(self.file.name) != log_name:
+            # 如果句柄存在，但是文件名不一样，则关闭句柄，重新打开
+            self.file.close()
+            self.file = open(os.path.join(self.settings.console_dir, log_name), "a", encoding="utf-8")
+        # 写入日志
+        for content in log_data["contents"]:
+            self.file.write(content['message'])
+            self.file.flush()
+
     def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
         self._init_logdir(logdir)
-
         self.board.on_init(proj_name)
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings
+        # path 是否存在
+        if not os.path.exists(self.settings.run_dir):
+            os.mkdir(self.settings.run_dir)
 
     def before_init_experiment(
         self,
@@ -145,7 +169,8 @@ class LocalRunCallback(SwanLabRunCallback):
         self.board.before_init_experiment(run_id, exp_name, description, num, colors)
 
     def on_run(self):
-        swanlog.install(self.settings.console_dir)
+        settings = get_settings()
+        swanlog.start_proxy(settings.log_proxy_type, -1, self._write_handler)
         # 注入系统回调
         self._register_sys_callback()
         # 打印信息

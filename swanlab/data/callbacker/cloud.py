@@ -8,6 +8,7 @@
 
 import json
 import sys
+from typing import Literal
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.core import SwanLabSharedSettings
@@ -16,7 +17,7 @@ from swankit.log import FONT
 
 from swanlab.api import create_http, terminal_login, get_http
 from swanlab.api.http import reset_http
-from swanlab.api.upload import upload_logs, ColumnModel, ScalarModel, MediaModel, FileModel
+from swanlab.api.upload import upload_logs, ColumnModel, ScalarModel, MediaModel, FileModel, LogModel
 from swanlab.data.cloud import ThreadPool, UploadType
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
@@ -29,6 +30,8 @@ from swanlab.package import (
 from .utils import error_print, traceback_error
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
+from ...log.type import LogData
+from ...swanlab_settings import get_settings
 
 
 class CloudRunCallback(SwanLabRunCallback):
@@ -97,6 +100,16 @@ class CloudRunCallback(SwanLabRunCallback):
         if tp != KeyboardInterrupt:
             print(traceback_error(tb, tp(val)), file=sys.stderr)
 
+    def _write_handler(self, log_data: LogData):
+        level: Literal['INFO', 'WARN', 'ERROR']
+        if log_data['type'] == 'stdout':
+            level = "INFO"
+        elif log_data['type'] == 'stderr':
+            level = "WARN"
+        else:
+            return swanlog.warning("Unknown log type: " + log_data['type'])
+        self.pool.queue.put((UploadType.LOG, [LogModel(level=level, contents=log_data['contents'])]))
+
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
@@ -114,7 +127,6 @@ class CloudRunCallback(SwanLabRunCallback):
         self.settings = settings
 
     def on_run(self, *args, **kwargs):
-        swanlog.install()
         http = get_http()
         # 注册实验信息
         http.mount_exp(
@@ -123,13 +135,13 @@ class CloudRunCallback(SwanLabRunCallback):
             description=self.settings.description,
             tags=self.settings.tags,
         )
-
-        # 向swanlog注册输出流回调
-        def _write_call_call(message):
-            self.pool.queue.put((UploadType.LOG, [message]))
-
-        swanlog.set_write_callback(_write_call_call)
-
+        # 注册终端输出流代理
+        settings = get_settings()
+        swanlog.start_proxy(
+            proxy_type=settings.log_proxy_type,
+            max_log_length=settings.max_log_length,
+            handler=self._write_handler,
+        )
         # 注册系统回调
         self._register_sys_callback()
         # 打印信息
@@ -222,8 +234,11 @@ class CloudRunCallback(SwanLabRunCallback):
             self.pool.finish()
             # 上传错误日志
             if error is not None:
-                msg = [{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}]
-                upload_logs(msg, level="ERROR")
+                logs = LogModel(
+                    level="ERROR",
+                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
+                )
+                upload_logs([logs])
 
         FONT.loading("Waiting for uploading complete", _)
         get_http().update_state(state == SwanLabRunState.SUCCESS)

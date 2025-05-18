@@ -8,6 +8,7 @@ r"""
     测试swanlog类，只需测试其日志监听功能
 """
 import os
+import sys
 import time
 
 import pytest
@@ -15,8 +16,7 @@ from nanoid import generate
 
 from swanlab.log import swanlog
 from swanlab.log.log import clean_control_chars
-from swanlab.log.type import LogData
-from swanlab.swanlab_settings import get_settings
+from swanlab.log.type import LogData, ProxyType
 from tutils import TEMP_PATH
 
 
@@ -42,7 +42,7 @@ class TestSwanLogInstall:
             pass
 
     @staticmethod
-    def start_proxy():
+    def start_proxy(proxy_type: ProxyType = "all", max_log_length=1024):
         """
         新建一个回调函数
         """
@@ -60,7 +60,18 @@ class TestSwanLogInstall:
                 for content in log_data["contents"]:
                     f.write(content["message"] + "\n")
 
-        swanlog.start_proxy(write_handler)
+        swanlog.start_proxy(proxy_type, max_log_length, write_handler)
+        if proxy_type == 'all':
+            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is not None
+            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is not None
+        elif proxy_type == 'stdout':
+            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is not None
+            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is None
+        elif proxy_type == 'stderr':
+            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is None
+            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is not None
+        else:
+            raise ValueError(f"Invalid proxy type: {proxy_type}")
         return log_file
 
     def test_global_install(self):
@@ -80,7 +91,6 @@ class TestSwanLogInstall:
         """
         log_file = self.start_proxy()
         swanlog.stop_proxy()
-        # 加一行防止其他问题
         print("\ntest write after uninstall")
         a = generate()
         print(a)
@@ -93,7 +103,6 @@ class TestSwanLogInstall:
         测试写入日志到文件
         """
         log_file = self.start_proxy()
-        # 加一行防止其他问题
         print("test write to file")
         a = generate()
         print(a)
@@ -116,7 +125,7 @@ class TestSwanLogInstall:
     def test_write_to_file_long_test(self):
         log_file = self.start_proxy()
         # 获取默认最大长度
-        max_len = get_settings().max_log_length
+        max_len = 1024
         # 默认最大长度为1024
         a = generate(size=3000)
         print(a)
@@ -126,6 +135,7 @@ class TestSwanLogInstall:
             assert content[-1] == a[:max_len] + "\n"
 
     def test_write_logging_to_file(self):
+        # FIXME 不知道为什么此函数在 pycharm 的测试中如果不设置路径为 ./test/unit 而是 ./test 会报错
         log_file = self.start_proxy()
         swanlog.level = 'debug'
         print("test write to file")
@@ -133,12 +143,14 @@ class TestSwanLogInstall:
         swanlog.debug(a)
         b = generate()
         swanlog.info(b)
+        time.sleep(0.1)
         with open(log_file, "r") as f:
             content = f.readlines()
             assert content[-2] == "swanlab: " + a + "\n"
             assert content[-1] == "swanlab: " + b + "\n"
 
     def test_can_write_logging(self):
+        # FIXME 不知道为什么此函数在 pycharm 的测试中如果不设置路径为 ./test/unit 而是 ./test 会报错
         log_file = self.start_proxy()
         print("test write to file")
         a = generate()
@@ -146,10 +158,45 @@ class TestSwanLogInstall:
         swanlog.debug(a)
         b = generate()
         swanlog.info(b)
+        time.sleep(0.1)
         with open(log_file, "r") as f:
             content = f.readlines()
             assert content[-2] == "test write to file\n"
             assert content[-1] == "swanlab: " + b + "\n"
+
+    def test_stderr_write(self):
+        """
+        测试stderr的写入
+        """
+        log_file = self.start_proxy()
+        print("test write to file")
+        a = generate()
+        sys.stderr.write(a + "\n")
+        b = generate()
+        sys.stderr.write(b + "\n")
+        assert os.path.exists(log_file)
+        time.sleep(0.1)
+        # 比较最后两行内容
+        with open(log_file, "r") as f:
+            content = f.readlines()
+            assert content[0] == "test write to file\n"
+            assert content[1] == a + "\n"
+            assert content[2] == b + "\n"
+
+    def test_stderr_only(self):
+        log_file = self.start_proxy('stderr')
+        print("test write to file")
+        a = generate()
+        sys.stderr.write(a + "\n")
+        b = generate()
+        sys.stderr.write(b + "\n")
+        time.sleep(0.1)
+        assert os.path.exists(log_file)
+        # 比较最后两行内容
+        with open(log_file, "r") as f:
+            content = f.readlines()
+            assert content[0] == a + "\n"
+            assert content[1] == b + "\n"
 
     # def test_write_sharding(self, monkeypatch):
     #     """

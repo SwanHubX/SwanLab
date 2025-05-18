@@ -13,8 +13,8 @@ from .log import SwanLog
 
 swanlog: SwanLog = SwanLog("swanlab")
 
-install = swanlog.start_proxy
+start_proxy = swanlog.start_proxy
 
-uninstall = swanlog.stop_proxy
+reset = swanlog.reset
 
-__all__ = ["install", "uninstall", "swanlog"]
+__all__ = ["start_proxy", "reset", "swanlog"]

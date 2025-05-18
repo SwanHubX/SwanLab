@@ -61,3 +61,7 @@ def setup_each():
         shutil.rmtree(TEMP_PATH)
     os.mkdir(TEMP_PATH)
     yield
+    import swanlab
+
+    if swanlab.get_run() is not None:
+        swanlab.finish()
