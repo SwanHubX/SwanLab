@@ -36,11 +36,11 @@ class LogData(TypedDict):
     结构示例:
     {
         "type": "stdout",  # 或 "stderr"
-        "content": {
+        "content": [{
             "message": "hello world",
             "create_time": "2025-05-15 18:35:00",
             "epoch": 1
-        }
+        }]
     }
     """
 
