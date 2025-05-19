@@ -5,7 +5,7 @@ from .package import get_package_version
 from .swanlab_settings import Settings
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
 from .api.openapi import OpenApi
-from .echarts import echarts
+from .data.modules.echarts import echarts
 
 # 设置默认环境变量
 SwanLabEnv.set_default()

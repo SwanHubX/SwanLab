@@ -1,5 +1,18 @@
 from swankit.core import MediaBuffer, DataSuite as D, MediaType
 from pyecharts.charts.base import Base
+import pyecharts
+
+"""
+@author: ComPleHN
+@file: __init__.py
+@time: 2025/5/19 14:01
+@desc: 集成 pyecharts 
+
+"""
+
+echarts = pyecharts.charts
+
+__all__ = ["echarts"]
 
 class Echarts(MediaType):
     def __init__(self, chart: Base):

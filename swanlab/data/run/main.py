@@ -26,7 +26,7 @@ from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCro
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
-from pyecharts.charts.base import Base as PyEchartsBase
+import pyecharts
 
 from ..modules.echarts import Echarts
 
@@ -399,7 +399,7 @@ class SwanLabRun:
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
                 v = DataWrapper(k, [Line(v)])
-            elif isinstance(v,PyEchartsBase):
+            elif isinstance(v,pyecharts.charts.base.Base):
                 v = DataWrapper(k, [Echarts(v)])
             # 为Line类型或者MediaType类型
             elif isinstance(v, (Line, MediaType)):
