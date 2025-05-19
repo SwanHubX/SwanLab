@@ -8,6 +8,6 @@
 
 import pyecharts
 
-echarts = pyecharts
+echarts = pyecharts.charts
 
 __all__ = ["echarts"]
