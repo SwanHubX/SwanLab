@@ -143,7 +143,7 @@ class LocalRunCallback(SwanLabRunCallback):
             self.file = open(os.path.join(self.settings.console_dir, log_name), "a", encoding="utf-8")
         # 写入日志
         for content in log_data["contents"]:
-            self.file.write(content['message'])
+            self.file.write(content['message'] + '\n')
             self.file.flush()
 
     def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
