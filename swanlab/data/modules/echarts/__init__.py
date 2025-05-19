@@ -9,9 +9,8 @@ class Echarts(MediaType):
 
     def parse(self):
         # 文件名称
-        options = self._chart.dump_options()
-        filename = f"echart_{id(self)}.json"
-        buffer = json.dumps(options).encode("utf-8")
+        hash_name = D.get_hash_by_pil(self._chart.dump_options())[:16]
+        filename = f"echart-{hash_name}.json"
         return filename, MediaBuffer()
 
     
