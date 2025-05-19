@@ -9,7 +9,7 @@ class Echarts(MediaType):
 
     def parse(self):
         # 文件名称
-        hash_name = D.get_hash_by_ndarray(self._chart.dump_options().encode('utf-8'))[:16]
+        hash_name = D.get_hash_by_bytes(self._chart.dump_options().encode('utf-8'))[:16]
         filename = f"echart-{hash_name}.json"
         return filename, MediaBuffer()
 
