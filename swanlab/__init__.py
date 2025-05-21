@@ -4,13 +4,14 @@ from .env import SwanLabEnv
 from .package import get_package_version
 from .swanlab_settings import Settings
 from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
-from .api.openapi import OpenApi
-from .data.modules.echarts import echarts
 
 # 设置默认环境变量
 SwanLabEnv.set_default()
 # 检查当前需要检查的环境变量
 SwanLabEnv.check()
+
+# 导出 OpenApi 接口，必须要等待上述的 import 语句执行完毕以后才能导出，否则会触发循环引用
+from .api.openapi import OpenApi
 
 __version__ = get_package_version()
 

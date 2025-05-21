@@ -1,24 +1,26 @@
-from swankit.core import MediaBuffer, DataSuite as D, MediaType
-from pyecharts.charts.base import Base
-import pyecharts
-
 """
 @author: ComPleHN
 @file: __init__.py
 @time: 2025/5/19 14:01
-@desc: 集成 pyecharts 
-
+@desc: 集成 pyecharts
 """
+
+import pyecharts
+from pyecharts.charts.base import Base
+from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
 echarts = pyecharts.charts
 
-__all__ = ["echarts"]
+__all__ = ["echarts", 'Echarts']
+
 
 class Echarts(MediaType):
     def __init__(self, chart: Base):
+        super().__init__()
         self._chart = chart
         self.buffer = MediaBuffer()
-     # ---------------------------------- 覆写方法 ----------------------------------
+
+    # ---------------------------------- 覆写方法 ----------------------------------
 
     def parse(self):
         # 文件名称
@@ -30,7 +32,7 @@ class Echarts(MediaType):
         self.buffer.seek(0)  # 重置指针到开头，以便后续读取
 
         filename = f"echart-step{self.step}-{hash_name}.json"
-        return filename,self.buffer
+        return filename, self.buffer
 
     def get_chart(self):
         return self.Chart.ECHARTS

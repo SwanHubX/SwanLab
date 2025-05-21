@@ -15,7 +15,7 @@ from swankit.core import SwanLabSharedSettings
 from swankit.core.data import MediaType
 
 from swanlab.data import namer as N
-from swanlab.data.modules import DataWrapper, FloatConvertible, Line
+from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, echarts
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
@@ -26,9 +26,6 @@ from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCro
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
-import pyecharts
-
-from ..modules.echarts import Echarts
 
 MAX_LIST_LENGTH = 108
 
@@ -399,7 +396,7 @@ class SwanLabRun:
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
                 v = DataWrapper(k, [Line(v)])
-            elif isinstance(v,pyecharts.charts.base.Base):
+            elif isinstance(v, echarts.base.Base):  # noqa: 无法解析.base文件的导入，但实际上可以导入
                 v = DataWrapper(k, [Echarts(v)])
             # 为Line类型或者MediaType类型
             elif isinstance(v, (Line, MediaType)):
