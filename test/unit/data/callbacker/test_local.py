@@ -38,7 +38,7 @@ def test_local_write_handler(monkeypatch):
         assert os.path.exists(filename)
         with open(filename, "r") as f:
             content = f.readlines()
-            assert content[-1] == a
+            assert content[-1] == a + '\n'
     with freeze_time('2020-10-07'):
         b = generate()
         mockdata = LogData(
@@ -50,4 +50,4 @@ def test_local_write_handler(monkeypatch):
         assert os.path.exists(filename)
         with open(filename, "r") as f:
             content = f.readlines()
-            assert content[-1] == b
+            assert content[-1] == b + '\n'
