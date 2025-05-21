@@ -62,7 +62,7 @@ class HTTP:
         # 当前进程会话
         self.__session: Optional[requests.Session] = None
         # 当前项目所属的username
-        self.__username = login_info.username
+        self.__groupname = login_info.username
         self.__version = get_package_version()
         # 创建会话
         self.__create_session()
@@ -86,7 +86,7 @@ class HTTP:
         """
         当前项目所属组名
         """
-        return self.__username
+        return self.__groupname
 
     @property
     def username(self):
@@ -248,7 +248,6 @@ class HTTP:
         :param public: 项目是否公开
         :return: 项目信息
         """
-        self.__username = self.__username if username is None else username
 
         def _():
             try:
@@ -259,9 +258,9 @@ class HTTP:
                     data["visibility"] = "PUBLIC" if public else "PRIVATE"
                 resp = http.post(f"/project", data=data)
             except ApiError as e:
-                # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
-                    resp = http.get(f"/project/{http.groupname}/{name}")
+                    # 项目已经存在，从对象中解析信息
+                    resp = decode_response(e.resp)
                 elif e.resp.status_code == 404:
                     # 组织/用户不存在
                     raise ValueError(f"Space `{http.groupname}` not found")
@@ -270,6 +269,8 @@ class HTTP:
                     raise ValueError(f"Space permission denied: " + http.groupname)
                 else:
                     raise e
+            # 设置当前项目所属的用户名
+            self.__groupname = resp['username']
             return ProjectInfo(resp)
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
