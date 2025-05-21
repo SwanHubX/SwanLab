@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import swanlab
 
-swanlab.init()
+swanlab.init(project='log-tqdm')
 
 # 在循环中显示进度条
 for i in tqdm(range(100)):
