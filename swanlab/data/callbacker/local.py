@@ -170,7 +170,8 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_run(self):
         settings = get_settings()
-        swanlog.start_proxy(settings.log_proxy_type, -1, self._write_handler)
+        if settings.log_proxy_type != "none":
+            swanlog.start_proxy(settings.log_proxy_type, -1, self._write_handler)
         # 注入系统回调
         self._register_sys_callback()
         # 打印信息

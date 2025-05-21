@@ -137,11 +137,12 @@ class CloudRunCallback(SwanLabRunCallback):
         )
         # 注册终端输出流代理
         settings = get_settings()
-        swanlog.start_proxy(
-            proxy_type=settings.log_proxy_type,
-            max_log_length=settings.max_log_length,
-            handler=self._write_handler,
-        )
+        if settings.log_proxy_type != "none":
+            swanlog.start_proxy(
+                proxy_type=settings.log_proxy_type,
+                max_log_length=settings.max_log_length,
+                handler=self._write_handler,
+            )
         # 注册系统回调
         self._register_sys_callback()
         # 打印信息
