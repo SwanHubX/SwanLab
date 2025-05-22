@@ -4,7 +4,7 @@ Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtu
 
 from torchtune.utils._distributed import get_world_size_and_rank
 from torchtune.utils.metric_logging import MetricLoggerInterface
-from typing import Mapping, Optional, Union, Any, Dict
+from typing import Mapping, Optional, Union, Any, Dict, List
 
 from numpy import ndarray
 from omegaconf import DictConfig, OmegaConf
@@ -42,6 +42,7 @@ class SwanLabLogger(MetricLoggerInterface):
         description: Optional[str] = None,
         mode: Optional[str] = None,
         log_dir: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         **kwargs,
     ):
         try:
@@ -52,6 +53,9 @@ class SwanLabLogger(MetricLoggerInterface):
             ) from e
         self._swanlab = swanlab
         swanlab.config["FRAMEWORK"] = "torchtune"
+
+        tags = tags or []
+        tags.append("torchtune") if "torchtune" not in tags else None
 
         # Use dir if specified, otherwise use log_dir.
         self.log_dir = kwargs.pop("dir", log_dir)
@@ -66,7 +70,7 @@ class SwanLabLogger(MetricLoggerInterface):
                 description=description,
                 mode=mode,
                 logdir=self.log_dir,
-                tags=["torchtune"],
+                tags=tags,
                 **kwargs,
             )
 
