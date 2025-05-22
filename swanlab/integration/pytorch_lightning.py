@@ -59,9 +59,13 @@ class SwanLabLogger(Logger):
         logdir: Optional[str] = None,
         mode: Optional[str] = None,
         save_dir: Union[str, Path] = ".",
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ):
         super().__init__()
+        
+        tags = tags or []
+        tags.append("⚡️pytorch lightning") if "⚡️pytorch lightning" not in tags else None
 
         self._experiment = None
 
@@ -72,6 +76,7 @@ class SwanLabLogger(Logger):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": tags,
         }
 
         self._swanlab_init.update(**kwargs)

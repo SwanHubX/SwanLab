@@ -95,6 +95,7 @@ class SwanLabCallback(TrainerCallback):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": ["🤗transformers"],
         }
         self._swanlab_init.update(**kwargs)
 

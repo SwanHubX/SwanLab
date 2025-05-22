@@ -76,6 +76,7 @@ class SwanLabTracker(GeneralTracker):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": ["🚀accelerate"],
         }
 
         self._swanlab_init.update(**kwargs)
@@ -83,9 +84,10 @@ class SwanLabTracker(GeneralTracker):
         self._project = self._swanlab_init.get("project")
         self._workspace = self._swanlab_init.get("workspace")
         self._experiment_name = self._swanlab_init.get("experiment_name")
-        self._description = self._swanlab_init.get("decsription")
+        self._description = self._swanlab_init.get("description")
         self._logdir = self._swanlab_init.get("logdir")
         self._mode = self._swanlab_init.get("mode")
+        self._tags = self._swanlab_init.get("tags", [])
 
         self.logdir = os.path.join(logdir, self._project) if self._logdir is not None else None
 

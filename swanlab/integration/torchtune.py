@@ -66,6 +66,7 @@ class SwanLabLogger(MetricLoggerInterface):
                 description=description,
                 mode=mode,
                 logdir=self.log_dir,
+                tags=["torchtune"],
                 **kwargs,
             )
 
