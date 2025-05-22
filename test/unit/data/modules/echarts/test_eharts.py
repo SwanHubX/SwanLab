@@ -1,15 +1,18 @@
 import swanlab
 
+
+def test_set_title():
+    """
+    如果用户没有设置标题，swanlab 会自动设置标题
+    """
+
+
 class TestBarChart:
     """测试柱状图基础功能"""
 
     def test_create_bar_chart(self):
         """测试创建柱状图"""
-        chart = (
-            swanlab.echarts.Bar()
-            .add_xaxis(["A", "B", "C"])
-            .add_yaxis("数据", [1, 2, 3])
-        )
+        chart = swanlab.echarts.Bar().add_xaxis(["A", "B", "C"]).add_yaxis("数据", [1, 2, 3])
         assert chart is not None
 
 
@@ -22,9 +25,5 @@ class TestChartLogging:
 
     def test_log_chart(self):
         """测试记录图表"""
-        chart = (
-            swanlab.echarts.Bar()
-            .add_xaxis(["X", "Y"])
-            .add_yaxis("数值", [10, 20])
-        )
+        chart = swanlab.echarts.Bar().add_xaxis(["X", "Y"]).add_yaxis("数值", [10, 20])
         swanlab.log({"chart": chart})

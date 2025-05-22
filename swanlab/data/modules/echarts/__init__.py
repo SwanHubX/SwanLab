@@ -11,7 +11,12 @@ from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
 echarts = pyecharts.charts
 
-__all__ = ["echarts", 'Echarts']
+PyEchartsBase = pyecharts.base.Base  # noqa: 无法解析.base文件的导入，但实际上可以导入
+"""
+pyecharts.base.Base的别名
+"""
+
+__all__ = ["echarts", 'Echarts', 'PyEchartsBase']
 
 
 class Echarts(MediaType):
@@ -31,7 +36,7 @@ class Echarts(MediaType):
         self.buffer.write(byte_string)  # 写入二进制数据
         self.buffer.seek(0)  # 重置指针到开头，以便后续读取
 
-        filename = f"echart-step{self.step}-{hash_name}.json"
+        filename = f"echarts-step{self.step}-{hash_name}.json"
         return filename, self.buffer
 
     def get_chart(self):
