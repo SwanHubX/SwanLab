@@ -260,21 +260,18 @@ class HTTP:
                     data["username"] = username
                 if public is not None:
                     data["visibility"] = "PUBLIC" if public else "PRIVATE"
-                resp = http.post(f"/project", data=data)
+                resp = self.post(f"/project", data=data)
             except ApiError as e:
                 if e.resp.status_code == 409:
                     # 项目已经存在，从对象中解析信息
                     resp = decode_response(e.resp)
-                elif e.resp.status_code == 404:
-                    # 组织/用户不存在
-                    raise ValueError(f"Space `{http.groupname}` not found")
-                elif e.resp.status_code == 403:
-                    # 权限不足
-                    raise ValueError(f"Space permission denied: " + http.groupname)
                 else:
+                    # 此接口为后端处理，因此 sdk 在理论上不会出现其他错误，因此不需要处理其他错误
                     raise e
             # 设置当前项目所属的用户名
             self.__groupname = resp['username']
+            # 获取详细信息
+            resp = self.get(f"/project/{self.groupname}/{name}")
             return ProjectInfo(resp)
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
