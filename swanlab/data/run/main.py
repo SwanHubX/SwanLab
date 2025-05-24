@@ -15,7 +15,7 @@ from swankit.core import SwanLabSharedSettings
 from swankit.core.data import MediaType
 
 from swanlab.data import namer as N
-from swanlab.data.modules import DataWrapper, FloatConvertible, Line
+from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
@@ -396,20 +396,26 @@ class SwanLabRun:
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
                 v = DataWrapper(k, [Line(v)])
+            elif isinstance(v, PyEchartsBase):
+                v = DataWrapper(k, [Echarts(v)])
             # 为Line类型或者MediaType类型
             elif isinstance(v, (Line, MediaType)):
                 v = DataWrapper(k, [v])
-            # 为List[MediaType]或者List[Line]类型，且长度大于0，且所有元素类型相同
+            # 为List[MediaType]、List[PyEchartsBase]或者List[Line]类型，且长度大于0，且所有元素类型相同
             elif (
                 isinstance(v, list)
                 and len(v) > 0
-                and all([isinstance(i, (Line, MediaType)) for i in v])
+                and all([isinstance(i, (Line, MediaType, PyEchartsBase)) for i in v])
                 and all([i.__class__ == v[0].__class__ for i in v])
             ):
                 if len(v) > MAX_LIST_LENGTH:
                     swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
                     v = v[:MAX_LIST_LENGTH]
-                v = DataWrapper(k, v)
+                # echarts 类型需要转换
+                if isinstance(v[0], PyEchartsBase):
+                    v = DataWrapper(k, [Echarts(i) for i in v])
+                else:
+                    v = DataWrapper(k, v)
             else:
                 # 其余情况被当作是非法的数据类型，交给Line处理
                 v = DataWrapper(k, [Line(v)])
