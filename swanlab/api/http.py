@@ -254,8 +254,6 @@ class HTTP:
         """
 
         def _():
-            # 项目详细信息
-            proj_info = None
             try:
                 data = {"name": name}
                 if username is not None:
