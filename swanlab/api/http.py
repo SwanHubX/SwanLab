@@ -261,17 +261,37 @@ class HTTP:
                 if public is not None:
                     data["visibility"] = "PUBLIC" if public else "PRIVATE"
                 resp = self.post(f"/project", data=data)
+                # 设置当前项目所属的用户名
+                self.__groupname = resp['username']
+                # 获取详细信息
+                resp = self.get(f"/project/{self.groupname}/{name}")
             except ApiError as e:
                 if e.resp.status_code == 409:
                     # 项目已经存在，从对象中解析信息
                     resp = decode_response(e.resp)
+                elif e.resp.status_code == 404 and e.resp.text.lower() == "404 not found":
+                    # 早期 （私有化） swanlab 版本没有 /project 接口
+                    # 需要使用 /project/{username} 接口，此时没有默认空间的特性
+                    self.__groupname = self.__groupname if username is None else username
+                    try:
+                        visibility = "PUBLIC" if public else "PRIVATE"
+                        resp = self.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                    except ApiError as e:
+                        # 如果为409，表示已经存在，获取项目信息
+                        if e.resp.status_code == 409:
+                            resp = self.get(f"/project/{self.groupname}/{name}")
+                        elif e.resp.status_code == 404:
+                            # 组织/用户不存在
+                            raise ValueError(f"Space `{self.groupname}` not found")
+                        elif e.resp.status_code == 403:
+                            # 权限不足
+                            raise ValueError(f"Space permission denied: " + self.groupname)
+                        else:
+                            raise e
+                    return ProjectInfo(resp)
                 else:
                     # 此接口为后端处理，因此 sdk 在理论上不会出现其他错误，因此不需要处理其他错误
                     raise e
-            # 设置当前项目所属的用户名
-            self.__groupname = resp['username']
-            # 获取详细信息
-            resp = self.get(f"/project/{self.groupname}/{name}")
             return ProjectInfo(resp)
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
