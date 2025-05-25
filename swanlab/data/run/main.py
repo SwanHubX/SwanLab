@@ -302,7 +302,7 @@ class SwanLabRun:
         # 退出回调
         getattr(run, "_SwanLabRun__cleanup")(error)
         try:
-            swanlog.uninstall()
+            swanlog.reset()
         except RuntimeError:
             # disabled 模式下没有install，所以会报错
             pass

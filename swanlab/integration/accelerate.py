@@ -65,9 +65,13 @@ class SwanLabTracker(GeneralTracker):
         description: Optional[str] = None,
         logdir: Optional[str] = None,
         mode: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         **kwargs,
     ):
         super().__init__()
+        
+        tags = tags or []
+        tags.append("accelerate") if "accelerate" not in tags else None
 
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
@@ -76,6 +80,7 @@ class SwanLabTracker(GeneralTracker):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": tags,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -83,9 +88,10 @@ class SwanLabTracker(GeneralTracker):
         self._project = self._swanlab_init.get("project")
         self._workspace = self._swanlab_init.get("workspace")
         self._experiment_name = self._swanlab_init.get("experiment_name")
-        self._description = self._swanlab_init.get("decsription")
+        self._description = self._swanlab_init.get("description")
         self._logdir = self._swanlab_init.get("logdir")
         self._mode = self._swanlab_init.get("mode")
+        self._tags = self._swanlab_init.get("tags")
 
         self.logdir = os.path.join(logdir, self._project) if self._logdir is not None else None
 

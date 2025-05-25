@@ -9,7 +9,7 @@ r"""
 """
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, TypedDict, Literal
 
 from swankit.callback.models import ColumnClass, ColumnConfig
 
@@ -230,3 +230,18 @@ class FileModel:
         是否为空
         """
         return all(getattr(self, attr) is None for attr in ('requirements', 'metadata', 'config', 'conda'))
+
+
+class LogModel(TypedDict):
+    """
+    日志信息上传模型
+    """
+
+    level: Literal['INFO', 'WARN', 'ERROR']
+    """
+    日志级别
+    """
+    contents: List[dict]
+    """
+    当前日志级别的日志内容
+    """

@@ -26,7 +26,7 @@ class UploadType(Enum):
         "upload": upload_logs,
     }
     """
-    上传日志字符串
+    上传输出日志
     """
 
     SCALAR_METRIC = {
