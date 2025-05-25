@@ -269,7 +269,7 @@ class HTTP:
                 if e.resp.status_code == 409:
                     # 项目已经存在，从对象中解析信息
                     resp = decode_response(e.resp)
-                elif e.resp.status_code == 404 and e.resp.text.lower() == "404 not found":
+                elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
                     # 早期 （私有化） swanlab 版本没有 /project 接口
                     # 需要使用 /project/{username} 接口，此时没有默认空间的特性
                     self.__groupname = self.__groupname if username is None else username
