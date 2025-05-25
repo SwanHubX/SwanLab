@@ -11,9 +11,9 @@ from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
 echarts = pyecharts.charts
 
-PyEchartsBase = pyecharts.base.Base  # noqa: 无法解析.base文件的导入，但实际上可以导入
+PyEchartsBase = pyecharts.charts.base.Base
 """
-pyecharts.base.Base的别名
+pyecharts.charts.base.Base 的别名
 """
 
 __all__ = ["echarts", 'Echarts', 'PyEchartsBase']
