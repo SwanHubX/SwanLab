@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.05.25: ログ機能で標準エラーストリームの記録をサポートし、PyTorch Lightningなどのフレームワークからの出力情報をより適切に記録可能に；ハードウェア監視でMoore Threadsをサポート；新たに実行コマンド記録のセキュリティ保護機能を追加、APIキーは自動的に非表示に；
+
 - 2025.05.14: **実験Tag**をサポート；折れ線グラフの**Log Scale**をサポート；**分组拖拽**をサポート；大量の指標をアップロードする際の体験を大幅に最適化
 
 - 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
@@ -70,10 +72,11 @@
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
 
-- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
+
 
 - 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
 
