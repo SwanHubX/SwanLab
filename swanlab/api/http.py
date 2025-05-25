@@ -254,6 +254,8 @@ class HTTP:
         """
 
         def _():
+            # 项目详细信息
+            proj_info = None
             try:
                 data = {"name": name}
                 if username is not None:
@@ -261,10 +263,6 @@ class HTTP:
                 if public is not None:
                     data["visibility"] = "PUBLIC" if public else "PRIVATE"
                 resp = self.post(f"/project", data=data)
-                # 设置当前项目所属的用户名
-                self.__groupname = resp['username']
-                # 获取详细信息
-                resp = self.get(f"/project/{self.groupname}/{name}")
             except ApiError as e:
                 if e.resp.status_code == 409:
                     # 项目已经存在，从对象中解析信息
@@ -292,6 +290,10 @@ class HTTP:
                 else:
                     # 此接口为后端处理，因此 sdk 在理论上不会出现其他错误，因此不需要处理其他错误
                     raise e
+            # 设置当前项目所属的用户名
+            self.__groupname = resp['username']
+            # 获取详细信息
+            resp = self.get(f"/project/{self.groupname}/{name}")
             return ProjectInfo(resp)
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
