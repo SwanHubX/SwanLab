@@ -9,7 +9,7 @@ r"""
 """
 import random
 from datetime import datetime
-from typing import Callable, Optional, Dict
+from typing import Any, Callable, Dict, Optional, List
 
 from swankit.core import SwanLabSharedSettings
 from swankit.core.data import MediaType
@@ -25,7 +25,7 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
-from ..formatter import check_key_format, check_exp_name_format, check_desc_format
+from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
 
 MAX_LIST_LENGTH = 108
 
@@ -41,7 +41,8 @@ class SwanLabRun:
         project_name: str = None,
         experiment_name: str = None,
         description: str = None,
-        run_config=None,
+        tags: List[str] = None,
+        run_config: Any = None,
         log_level: str = None,
         exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
@@ -59,6 +60,9 @@ class SwanLabRun:
         description : str, optional
             实验描述，用于对当前实验进行更详细的介绍或标注
             如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空字符串""
+        tags : List[str], optional
+            实验标签，用于对当前实验进行标记和分类
+            如果不提供此参数(为None)，可以在web界面中进行修改,这意味着必须在此改为空列表[]
         run_config : Any, optional
             实验参数配置，可以在web界面中显示，如学习率、batch size等
             不需要做任何限制，但必须是字典类型，可被json序列化，否则会报错
@@ -105,7 +109,7 @@ class SwanLabRun:
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, tags, num=exp_num)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -179,6 +183,7 @@ class SwanLabRun:
         self,
         experiment_name: str = None,
         description: str = None,
+        tags: List[str] = None,
         num: int = None,
     ) -> SwanLabExp:
         """
@@ -194,6 +199,12 @@ class SwanLabRun:
             if description != d:
                 swanlog.warning("The description has been truncated automatically.")
                 description = d
+        if tags:
+            new_tags = check_tags_format(tags)
+            for i in range(len(tags)):
+                if tags[i] != new_tags[i]:
+                    swanlog.warning("The tag has been truncated automatically.")
+                    tags[i] = new_tags[i]
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
@@ -201,6 +212,7 @@ class SwanLabRun:
         self.__settings.exp_name = experiment_name
         self.__settings.exp_colors = colors
         self.__settings.description = description
+        self.__settings.tags = tags
         return SwanLabExp(self.__settings, operator=self.__operator)
 
     def __cleanup(self, error: str = None):
@@ -290,7 +302,7 @@ class SwanLabRun:
         # 退出回调
         getattr(run, "_SwanLabRun__cleanup")(error)
         try:
-            swanlog.uninstall()
+            swanlog.reset()
         except RuntimeError:
             # disabled 模式下没有install，所以会报错
             pass

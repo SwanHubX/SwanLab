@@ -41,6 +41,7 @@ class SwanLabCallback(TrainerCallback):
         description: Optional[str] = None,
         logdir: Optional[str] = None,
         mode: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ):
         """
@@ -85,6 +86,9 @@ class SwanLabCallback(TrainerCallback):
         self._swanlab = swanlab
         self._initialized = False
         self._log_model = os.getenv("SWANLAB_LOG_MODEL", None)
+        
+        tags = tags or []
+        tags.append("paddlenlp") if "paddlenlp" not in tags else None
 
         # for callback args
         self._swanlab_init: Dict[str, Any] = {
@@ -94,6 +98,7 @@ class SwanLabCallback(TrainerCallback):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": tags,
         }
         self._swanlab_init.update(**kwargs)
 

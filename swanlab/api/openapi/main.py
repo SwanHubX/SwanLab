@@ -154,3 +154,28 @@ class OpenApi:
             username=username if username else self.http.username,
             detail=detail
         )
+
+    def get_exp_summary(self, project: str, exp_cuid: str, username: str = "") -> ApiResponse[Dict]:
+        """
+        获取实验的概要信息
+
+        Args:
+            project (str): 项目名
+            exp_cuid (str): 实验CUID
+            username (str): 工作空间名, 默认为用户个人空间
+
+        Returns:
+            ApiResponse[Dict]:
+                - code (int): HTTP 状态码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (Dict): 实验的概要信息字典, 包含用户训练各指标的最大最小值, 及其对应步数
+        """
+        username = username if username else self.http.username
+        project_cuid = self.http.service.get_project_info(username=username, projname=project).data.get("cuid", "")
+        exp = self.http.service.get_exp_info(username=username, projname=project, expid=exp_cuid)
+        return self.experiment.get_exp_summary(
+            expid=exp_cuid,
+            proid=project_cuid,
+            root_expid=exp.data.get("rootProId", ""),
+            root_proid=exp.data.get("rootExpId", "")
+        )

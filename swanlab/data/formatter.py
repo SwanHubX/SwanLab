@@ -149,6 +149,20 @@ def check_desc_format(desc: str, auto_cut: bool = True) -> str:
     return _auto_cut("description", desc, max_len, auto_cut)
 
 
+def check_tags_format(tags: List[str], auto_cut: bool = True) -> List[str]:
+    """
+    检查标签格式，最大长度为200个字符，一个中文字符算一个字符
+    :param tags: 实验标签数列
+    :param auto_cut: 是否自动截断，默认为True
+    :return: str 检查后的字符串
+    """
+    max_len = 200
+    new_tags = []
+    for i in range(len(tags)):
+        new_tags.append(_auto_cut(f"tags[{i}]", tags[i], max_len, auto_cut))
+    return new_tags
+
+
 def check_key_format(key: str, auto_cut=True) -> str:
     """检查key字符串格式
     不能超过255个字符，可以包含任何字符，不允许.和/以及空格开头

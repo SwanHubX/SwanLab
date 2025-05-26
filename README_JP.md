@@ -54,6 +54,10 @@
 
 ## 🌟 最近の更新
 
+- 2025.05.25: ログ機能で標準エラーストリームの記録をサポートし、PyTorch Lightningなどのフレームワークからの出力情報をより適切に記録可能に；ハードウェア監視でMoore Threadsをサポート；新たに実行コマンド記録のセキュリティ保護機能を追加、APIキーは自動的に非表示に；
+
+- 2025.05.14: **実験Tag**をサポート；折れ線グラフの**Log Scale**をサポート；**分组拖拽**をサポート；大量の指標をアップロードする際の体験を大幅に最適化
+
 - 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
 
 - 2025.04.23: 折れ線グラフの​​編集​​をサポート、グラフのX軸・Y軸のデータ範囲とタイトルスタイルを自由に設定可能に；グラフ検索で​​正規表現​​をサポート；​​Kunlun Core XPU​​のハードウェア検出とモニタリングをサポート。
@@ -68,12 +72,13 @@
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
 
-- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
-
-- 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.03.12: 🎉🎉SwanLab**セルフホスティング版**が利用可能になりました！！[🔗ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)；SwanLabはプラグイン拡張をサポートします。[メール通知](https://docs.swanlab.cn/en/plugin/notification-email.html)と[Lark通知](https://docs.swanlab.cn/en/plugin/notification-lark.html)など。
+
+
+- 2025.03.09: **実験サイドバーの拡張**に対応；**Gitコードの表示**ボタンを追加；**sync_mlflow**機能を追加し、mlflowフレームワークとの実験追跡の同期をサポート；
 
 - 2025.03.06: [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio)との連携統合が完了し、現在はDiffSynth StudioでSwanLabを使用して**Diffusionモデルのテキストから画像/動画の実験を追跡および可視化**できます、[使用方法](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
@@ -307,6 +312,7 @@ swanlab login --host http://localhost:8000
 - [Modelscope Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 - [Sentence Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sentence-transformers.html)
+- [PaddleNLP](https://docs.swanlab.cn/guide_cloud/integration/integration-paddlenlp.html)
 - [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 - [Torchtune](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-torchtune.html)
 - [XTuner](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xtuner.html)
@@ -314,8 +320,6 @@ swanlab login --host http://localhost:8000
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
-
-
 
 **コンピュータビジョン**
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)

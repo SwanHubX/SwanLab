@@ -62,7 +62,7 @@ class HTTP:
         # 当前进程会话
         self.__session: Optional[requests.Session] = None
         # 当前项目所属的username
-        self.__username = login_info.username
+        self.__groupname = login_info.username
         self.__version = get_package_version()
         # 创建会话
         self.__create_session()
@@ -78,6 +78,10 @@ class HTTP:
         return self.__login_info.web_host
 
     @property
+    def api_key(self):
+        return self.__login_info.api_key
+
+    @property
     def web_host(self):
         return self.__login_info.web_host
 
@@ -86,7 +90,7 @@ class HTTP:
         """
         当前项目所属组名
         """
-        return self.__username
+        return self.__groupname
 
     @property
     def username(self):
@@ -176,7 +180,7 @@ class HTTP:
 
         self.__session = session
 
-    def post(self, url: str, data: dict = None):
+    def post(self, url: str, data: Union[dict, list] = None):
         """
         post请求
         """
@@ -248,36 +252,58 @@ class HTTP:
         :param public: 项目是否公开
         :return: 项目信息
         """
-        self.__username = self.__username if username is None else username
 
         def _():
             try:
-                visibility = "PUBLIC" if public else "PRIVATE"
-                resp = http.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                data = {"name": name}
+                if username is not None:
+                    data["username"] = username
+                if public is not None:
+                    data["visibility"] = "PUBLIC" if public else "PRIVATE"
+                resp = self.post(f"/project", data=data)
             except ApiError as e:
-                # 如果为409，表示已经存在，获取项目信息
                 if e.resp.status_code == 409:
-                    resp = http.get(f"/project/{http.groupname}/{name}")
-                elif e.resp.status_code == 404:
-                    # 组织/用户不存在
-                    raise ValueError(f"Space `{http.groupname}` not found")
-                elif e.resp.status_code == 403:
-                    # 权限不足
-                    raise ValueError(f"Space permission denied: " + http.groupname)
+                    # 项目已经存在，从对象中解析信息
+                    resp = decode_response(e.resp)
+                elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
+                    # WARNING: 早期 （私有化） swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
+                    self.__groupname = self.__groupname if username is None else username
+                    try:
+                        visibility = "PUBLIC" if public else "PRIVATE"
+                        resp = self.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                    except ApiError as e:
+                        # 如果为409，表示已经存在，获取项目信息
+                        if e.resp.status_code == 409:
+                            resp = self.get(f"/project/{self.groupname}/{name}")
+                        elif e.resp.status_code == 404:
+                            # 组织/用户不存在
+                            raise ValueError(f"Space `{self.groupname}` not found")
+                        elif e.resp.status_code == 403:
+                            # 权限不足
+                            raise ValueError(f"Space permission denied: " + self.groupname)
+                        else:
+                            raise e
+                    return ProjectInfo(resp)
                 else:
+                    # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
                     raise e
+            # 设置当前项目所属的用户名
+            self.__groupname = resp['username']
+            # 获取详细信息
+            resp = self.get(f"/project/{self.groupname}/{name}")
             return ProjectInfo(resp)
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
         self.__proj = project
         return project
 
-    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None):
+    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
         初始化实验，获取存储信息
         :param exp_name: 所属实验名称
         :param colors: 实验颜色，有两个颜色
         :param description: 实验描述
+        :param tags: 实验标签
         """
 
         def _():
@@ -285,15 +311,17 @@ class HTTP:
             先创建实验，后生成cos凭证
             :return:
             """
+            post_data = {
+                "name": exp_name,
+                "colors": list(colors),
+            }
 
-            data = self.post(
-                f"/project/{self.groupname}/{self.__proj.name}/runs",
-                (
-                    {"name": exp_name, "colors": list(colors), "description": description}
-                    if description
-                    else {"name": exp_name, "colors": list(colors)}
-                ),
-            )
+            if description is not None:
+                post_data["description"] = description
+            if tags is not None:
+                post_data["labels"] = [{"name": tag} for tag in tags]
+
+            data = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
             self.__exp = ExperimentInfo(data)
             # 获取cos信息
             self.__get_cos()
