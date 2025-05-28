@@ -7,14 +7,24 @@
 
 import subprocess
 
-from swanlab.data.run.metadata.conda import get_conda
+import pytest
+import yaml
 
+from swanlab.data.run.metadata.conda import get_conda
 
 has_conda = subprocess.run(["conda", "--version"], shell=True, capture_output=True).returncode == 0
 
+
+@pytest.mark.skipif(not has_conda, reason="conda is not installed")
 def test_conda():
     conda_info = get_conda()
-    if not has_conda:
-        assert conda_info is None
-        return
-    assert isinstance(conda_info, dict)
+    assert isinstance(conda_info, str)
+    # 可被yaml解析
+    load_conda = yaml.safe_load(conda_info)
+    assert load_conda is not None
+    assert isinstance(load_conda, dict)
+
+
+@pytest.mark.skipif(has_conda, reason="conda is installed")
+def test_conda_not_installed():
+    assert get_conda() is None

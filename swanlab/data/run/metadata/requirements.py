@@ -10,16 +10,18 @@ import subprocess
 
 def get_requirements():
     """获取当前环境依赖"""
+    try:
+        # 运行pixi命令获取当前环境下的环境目录
+        result = subprocess.run(["pixi", "list"], capture_output=True, text=True, timeout=0.5)
+        if result.returncode == 0:
+            return result.stdout
 
-    # 运行pixi命令获取当前环境下的环境目录
-    result = subprocess.run(["pixi", "list"], capture_output=True, text=True, timeout=15)
-    if result.returncode == 0:
-        return result.stdout
-
-    # 运行uv命令获取当前环境下的环境目录
-    result = subprocess.run(["uv", "pip", "list", "--format=freeze"], capture_output=True, text=True, timeout=15)
-    if result.returncode == 0:
-        return result.stdout
+        # 运行uv命令获取当前环境下的环境目录
+        result = subprocess.run(["uv", "pip", "list", "--format=freeze"], capture_output=True, text=True, timeout=0.5)
+        if result.returncode == 0:
+            return result.stdout
+    except FileNotFoundError:
+        pass
 
     # 运行pip命令获取当前环境下的环境目录
     result = subprocess.run(["pip", "list", "--format=freeze"], capture_output=True, text=True, timeout=15)
