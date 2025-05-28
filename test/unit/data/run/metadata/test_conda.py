@@ -23,3 +23,8 @@ def test_conda():
     load_conda = yaml.safe_load(conda_info)
     assert load_conda is not None
     assert isinstance(load_conda, dict)
+
+
+@pytest.mark.skipif(has_conda, reason="conda is installed")
+def test_conda_not_installed():
+    assert get_conda() is None
