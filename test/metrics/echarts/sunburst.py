@@ -1,12 +1,12 @@
 """
-@author: cunyue
-@file: sunburst.py
-@time: 2025/5/25 21:34
-@description: echarts sunburst chart test cases
+// @author: ComPleHN
+// @file: sunburst.vue
+// @time: 2025/5/29 10:39
+// @description: 本文件是对于echarts的 旭日图 图表的测试
 """
-
-from pyecharts import options as opts
+# ---------------------------------------------- Sunburst - Drink_flavors ----------------------------------------------
 from pyecharts.charts import Sunburst
+from pyecharts import options as opts
 
 """
 Gallery 使用 pyecharts 1.2.1
@@ -378,7 +378,7 @@ data = [
     },
 ]
 
-c = (
+c1 = (
     Sunburst(init_opts=opts.InitOpts(width="1000px", height="600px"))
     .add(
         "",
@@ -407,9 +407,78 @@ c = (
     .set_series_opts(label_opts=opts.LabelOpts(formatter="{b}"))
 )
 
+# ---------------------------------------------- Sunburst - Basic_sunburst ----------------------------------------------
+from pyecharts.charts import Sunburst
+from pyecharts import options as opts
+
+"""
+Gallery 使用 pyecharts 1.1.0
+参考地址: https://echarts.apache.org/examples/editor.html?c=sunburst-simple
+
+目前无法实现的功能:
+
+1、
+"""
+
+data = [
+    opts.SunburstItem(
+        name="Grandpa",
+        children=[
+            opts.SunburstItem(
+                name="Uncle Leo",
+                value=15,
+                children=[
+                    opts.SunburstItem(name="Cousin Jack", value=2),
+                    opts.SunburstItem(
+                        name="Cousin Mary",
+                        value=5,
+                        children=[opts.SunburstItem(name="Jackson", value=2)],
+                    ),
+                    opts.SunburstItem(name="Cousin Ben", value=4),
+                ],
+            ),
+            opts.SunburstItem(
+                name="Father",
+                value=10,
+                children=[
+                    opts.SunburstItem(name="Me", value=5),
+                    opts.SunburstItem(name="Brother Peter", value=1),
+                ],
+            ),
+        ],
+    ),
+    opts.SunburstItem(
+        name="Nancy",
+        children=[
+            opts.SunburstItem(
+                name="Uncle Nike",
+                children=[
+                    opts.SunburstItem(name="Cousin Betty", value=1),
+                    opts.SunburstItem(name="Cousin Jenny", value=2),
+                ],
+            )
+        ],
+    ),
+]
+
+c2 = (
+    Sunburst(init_opts=opts.InitOpts(width="1000px", height="600px"))
+    .add(series_name="", data_pair=data, radius=[0, "90%"])
+    .set_global_opts(title_opts=opts.TitleOpts(title="Sunburst-基本示例"))
+    .set_series_opts(label_opts=opts.LabelOpts(formatter="{b}"))
+)
 
 import swanlab
 
-swanlab.init(project="echarts-test", experiment_name="sunburst", public=True)
+swanlab.init(
+    project="echarts-test",
+    experiment_name="sunburst",
+    public=True,
+)
 
-swanlab.log({'sunburst': c})
+swanlab.log(
+    {
+        "Sunburst - Drink_flavors": c1,
+        "Sunburst - Basic_sunburst": c2
+    }
+)
