@@ -1,4 +1,4 @@
-swankit==0.1.8
+swankit==0.2.0
 urllib3>=1.26.0
 requests>=2.25.0
 setuptools
