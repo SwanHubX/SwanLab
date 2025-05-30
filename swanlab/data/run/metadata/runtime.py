@@ -11,6 +11,9 @@ import socket
 import subprocess
 import sys
 
+from swanlab.api import get_http
+from swanlab.error import KeyFileError
+from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
 
 
@@ -27,6 +30,7 @@ def get_runtime_info():
 def get_computer_info():
     return {
         "os": platform.platform(),
+        "os_pretty_name": get_os_pretty_name(),
         "hostname": socket.gethostname(),
         "pid": os.getpid(),
         "cwd": os.getcwd(),
@@ -38,8 +42,42 @@ def get_python_info():
         "python": platform.python_version(),
         "python_verbose": sys.version,
         "executable": sys.executable,
-        "command": " ".join(sys.argv),
+        "command": _get_command(),
     }
+
+
+def _get_command() -> str:
+    """获取当前执行的命令行字符串，并可选地屏蔽敏感API密钥
+
+    Returns:
+        str: 处理后的命令行字符串，敏感信息可能被屏蔽
+
+    Note:
+        - 当安全屏蔽设置启用且发现API密钥时，密钥会被替换为'****'
+        - 自动尝试多种方式获取API密钥（HTTP接口 -> 密钥文件）
+    """
+    # 创建副本避免修改原始参数
+    args = sys.argv.copy()
+
+    # 仅在需要屏蔽时尝试获取API密钥
+    if get_settings().security_mask:
+        api_key = None
+
+        # 尝试从不同来源获取API密钥
+        # 未登录时 get_http 抛出 ValueError，此时需要换用 get_key 继续尝试获取
+        # 未设置环境变量且未找到本地保存的 api key 时， get_key 抛出 KeyFileError，此时 api_key 为 None
+        for key_provider in [lambda: get_http().api_key, get_key]:
+            try:
+                api_key = key_provider()
+                break
+            except (ValueError, KeyFileError):
+                continue
+
+        # 如果找到API密钥且在参数中，则进行屏蔽
+        if api_key is not None and api_key in args:
+            args[args.index(api_key)] = "****"
+
+    return " ".join(args)
 
 
 # ---------------------------------- git信息 ----------------------------------
@@ -51,6 +89,13 @@ def get_git_info():
         "git_remote": get_remote_url(),
         "git_info": get_git_branch_and_commit(),
     }
+
+def get_os_pretty_name():
+    """获取操作系统pretty name"""
+    try:
+        return platform.freedesktop_os_release().get("PRETTY_NAME", "")
+    except Exception as e:  # noqa
+        return None
 
 
 def get_remote_url():

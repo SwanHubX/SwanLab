@@ -10,8 +10,12 @@ from .point_cloud import Box, PointCloud
 try:
     # noinspection PyPackageRequirements
     import numpy as np
+
+    ndarray = np.ndarray
 except ImportError:
     np = None
+
+    ndarray = None
 
 try:
     from rdkit.Chem import Mol
@@ -26,7 +30,7 @@ class Object3D:
 
     This class provides a unified interface for handling various 3D data formats including:
     - Point clouds from numpy arrays
-    - Point clouds with boxes from {"points": np.ndarray, "boxes": List[Box]}
+    - Point clouds with boxes from {"points": ndarray, "boxes": List[Box]}
     - 3D models from files (.glb)
     - Point cloud files (.swanlab.pts.json)
 
@@ -90,7 +94,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[np.ndarray, str, Path, Dict, Mol],
+        data: Union[ndarray, str, Path, Dict, Mol],
         *,
         caption: Optional[str] = None,
         **kwargs,
@@ -99,7 +103,7 @@ class Object3D:
 
         kwargs['caption'] = caption
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, ndarray):
             return cls._handle_ndarray(data, **kwargs)
 
         if isinstance(data, (str, Path)):
@@ -116,7 +120,7 @@ class Object3D:
             raise ImportError("Numpy is required for Object3D class. Please install it with: pip install numpy.")
 
     @classmethod
-    def _handle_ndarray(cls, data: np.ndarray, **kwargs) -> MediaType:
+    def _handle_ndarray(cls, data: ndarray, **kwargs) -> MediaType:
         point_cloud_channel_handlers = {
             3: [PointCloud.from_xyz],  # xyz
             4: [PointCloud.from_xyzc],  # xyzc
@@ -133,9 +137,7 @@ class Object3D:
 
     _FILE_HANDLERS: Dict[str, List[Callable]] = {
         '.swanlab.pts.json': [PointCloud.from_swanlab_pts_json_file],
-
         '.glb': [Model3D.from_glb_file],
-
         '.sd': [Molecule.from_sdf_file],
         '.sdf': [Molecule.from_sdf_file],
         '.mol': [Molecule.from_mol_file],
@@ -202,7 +204,7 @@ class Object3D:
     @classmethod
     def from_point_data(
         cls,
-        points: np.ndarray,
+        points: ndarray,
         *,
         boxes: Optional[List[Box]] = None,
         caption: Optional[str] = None,

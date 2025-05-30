@@ -8,13 +8,13 @@ r"""
     日志记录模块，在设计上swanlog作为一个独立的模块被使用
     FIXME: shit code
 """
-from typing import Optional
-from .log import SwanLog,trace_handler
+from .log import SwanLog, trace_handler
 
-swanlog: Optional["SwanLog"] = SwanLog("swanlab")
+swanlog: SwanLog = SwanLog("swanlab")
 
-install = swanlog.install
+start_proxy = swanlog.start_proxy
 
-uninstall = swanlog.uninstall
+reset = swanlog.reset
 
-__all__ = ["install", "uninstall", "swanlog", "trace_handler"]
+__all__ = ["start_proxy", "reset", "swanlog", "trace_handler"]
+

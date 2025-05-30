@@ -9,10 +9,10 @@ r"""
 """
 from typing import List
 
-from swanlab.error import ApiError
 from swanlab.log import swanlog
-from .model import ColumnModel, MediaModel, ScalarModel, FileModel
-from ..http import get_http, sync_error_handler
+from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
+from ..http import get_http, sync_error_handler, decode_response
+from ...error import ApiError
 
 house_url = '/house/metrics'
 
@@ -26,15 +26,17 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
 
 
 @sync_error_handler
-def upload_logs(logs: List[dict], level: str = "INFO"):
+def upload_logs(logs: List[LogModel]):
     """
     上传日志信息
-    :param logs: 日志列表
-    :param level: 日志级别，'INFO', 'ERROR'，默认INFO
+    :param logs: 日志信息集合
     """
     http = get_http()
-    # 将logs解析为json格式
-    metrics = [{"level": level, **x} for x in logs]
+    metrics = []
+    for log in logs:
+        metrics.extend([{"level": log['level'], **l} for l in log['contents']])
+    if len(metrics) == 0:
+        return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
     http.post(house_url, data)
 
@@ -64,16 +66,6 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     http.post(house_url, data)
 
 
-_valid_files = {
-    'config.yaml': ['config', 'yaml'],
-    'requirements.txt': ['requirements', 'txt'],
-    'swanlab-metadata.json': ['metadata', 'json'],
-}
-"""
-支持上传的文件列表，filename: key
-"""
-
-
 @sync_error_handler
 def upload_files(files: List[FileModel]):
     """
@@ -87,25 +79,40 @@ def upload_files(files: List[FileModel]):
     file_model = FileModel.create(files)
     # 如果没有文件需要上传，直接返回
     if file_model.empty:
-        return
+        return None
     data = file_model.to_dict()
     http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
+    return None
 
 
 @sync_error_handler
-def upload_column(columns: List[ColumnModel]):
+def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
     """
-    上传列信息，需要注意的是一次只能上传一个列，所以函数名不带s
-    但是在设计上是聚合上传的，所以在此处需要进行拆分然后分别上传
+    批量上传并创建 columns，每个请求的列长度有一个最大值
     """
     http = get_http()
-    url = f'/experiment/{http.exp_id}/column'
-    # WARNING 这里不能使用并发请求，可见 https://github.com/SwanHubX/SwanLab-Server/issues/113
-    for column in columns:
+    url = f'/experiment/{http.exp_id}/columns'
+    # 将columns拆分成多个小的列表，每个列表的长度不能超过单个请求的最大长度
+    columns_list = []
+    columns_count = len(columns)
+    for i in range(0, columns_count, per_request_len):
+        columns_list.append([columns[i + j].to_dict() for j in range(min(per_request_len, columns_count - i))])
+    # 上传每个列表
+    for columns in columns_list:
+        # 如果列表长度为0，则跳过
+        if len(columns) == 0:
+            continue
         try:
-            http.post(url, column.to_dict())
+            http.post(url, columns)
         except ApiError as e:
-            swanlog.error(f"Upload column {column.key} failed: {e.resp.status_code}")
+            # 处理实验不存在的异常
+            if e.resp.status_code == 404:
+                resp = decode_response(e.resp)
+                # 实验不存在，那么剩下的列也没有必要上传了，直接返回
+                if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
+                    swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
+                    return None
+            raise e
 
 
 __all__ = [
@@ -113,7 +120,7 @@ __all__ = [
     "upload_media_metrics",
     "upload_scalar_metrics",
     "upload_files",
-    "upload_column",
+    "upload_columns",
     "ScalarModel",
     "MediaModel",
     "ColumnModel",

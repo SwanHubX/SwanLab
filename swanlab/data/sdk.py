@@ -84,6 +84,7 @@ class SwanLabInitializer:
         workspace: str = None,
         experiment_name: str = None,
         description: str = None,
+        tags: List[str] = None,
         config: Union[dict, str] = None,
         logdir: str = None,
         mode: MODES = None,
@@ -113,6 +114,9 @@ class SwanLabInitializer:
         description : str, optional
             The experiment description you currently have open,
             used for a more detailed introduction or labeling of the current experiment.
+            If you do not provide this parameter, you can modify it later in the web interface.
+        tags : List[str], optional
+            The tags of the experiment, used for labeling the current experiment.
             If you do not provide this parameter, you can modify it later in the web interface.
         config : Union[dict, str], optional
             If you provide as a dict, it will be used as the configuration of the current experiment.
@@ -174,6 +178,7 @@ class SwanLabInitializer:
             load_data = check_load_json_yaml(load, load)
             experiment_name = _load_from_dict(load_data, "experiment_name", experiment_name)
             description = _load_from_dict(load_data, "description", description)
+            tags = _load_from_dict(load_data, "tags", tags)
             config = _load_from_dict(load_data, "config", config)
             logdir = _load_from_dict(load_data, "logdir", logdir)
             mode = _load_from_dict(load_data, "mode", mode)
@@ -202,6 +207,7 @@ class SwanLabInitializer:
             project_name=project,
             experiment_name=experiment_name,
             description=description,
+            tags=tags,
             run_config=config,
             log_level=kwargs.get("log_level", "info"),
             exp_num=exp_num,

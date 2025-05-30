@@ -11,7 +11,7 @@ except ImportError:
         "This module requires `fastai` to be installed. " "Please install it with command: \n pip install fastai"
     )
 
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 import swanlab
 from swanlab.log import swanlog as swl
 
@@ -26,6 +26,7 @@ class SwanLabCallback(Callback):
         config: Optional[dict] = None,
         mode: Optional[str] = None,
         logdir: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ):
         store_attr()
@@ -40,6 +41,9 @@ class SwanLabCallback(Callback):
         self.logdir = logdir
         self.train_suffix = "train"
         self.summary_suffix = "summary"
+        
+        self.tags = tags or []
+        self.tags.append("fastai") if "fastai" not in self.tags else None
     
     def update_config(self, config: Dict[str, Any]):
         swanlab.config.update(config)
@@ -55,6 +59,7 @@ class SwanLabCallback(Callback):
                 config=self.config,
                 mode=self.mode,
                 logdir=self.logdir,
+                tags=self.tags,
             )
 
     def before_fit(self):

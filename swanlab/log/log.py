@@ -1,75 +1,115 @@
+"""
+@author: cunyue
+@file: log.py
+@time: 2025/5/15 18:35
+@description: 标准输出、标准错误流拦截代理，支持外界设置/取消回调，基础作用为输出日志
+"""
+
+import re
+import sys
+from typing import List, Tuple, Callable
+
+from swankit.env import create_time
 from swankit.log import SwanLabSharedLog
 
-from .console import SwanConsoler
+from .counter import AtomicCounter
+from .type import LogHandler, LogType, WriteHandler, LogData, LogContent, ProxyType
 
 
 class SwanLog(SwanLabSharedLog):
+    """
+    swanlab 日志类
+    继承自 SwanLabSharedLog 的同时增加标准输出、标准错误留拦截代理功能 ni
+    """
 
     def __init__(self, name=__name__.lower(), level="info"):
         super().__init__(name=name, level=level)
-        # 控制台监控记录器
-        self.__consoler = SwanConsoler()
         self.__original_level = level
-        self.__installed = False
-
-    @property
-    def installed(self):
-        """
-        判断是否已经install
-        """
-        return self.__installed
-
-    def install(self, console_dir: str = None, log_level: str = None) -> "SwanLog":
-        """
-        初始化安装日志系统，同一实例在没有执行uninstall的情况下，不可重复安装
-        功能是开启标准输出流拦截功能，并设置日志等级
-        :param console_dir: 控制台日志文件路径文件夹，如果提供，则会将控制台日志记录到对应文件夹，否则不记录，需要保证文件夹存在
-        :param log_level: 日志等级，可以是 "debug", "info", "warning", "error", 或 "critical"，默认为info
-
-        :return: SwanLog实例
-
-        :raises: RuntimeError: 已经安装过日志系统
-        :raises: KeyError: 无效的日志级别
-        :raises: FileNotFoundError: 控制台日志文件夹不存在
-        """
-        if self.installed:
-            raise RuntimeError("SwanLog has been installed")
-        # 设置日志等级
-        if log_level is not None:
-            self.level = log_level
-        # 初始化控制台记录器
-        self.debug("Init consoler to record console log")
-        self.__consoler.install(console_dir)
-        self.__installed = True
-        return self
-
-    def uninstall(self):
-        """
-        卸载日志系统，卸载后需要重新安装
-        在设计上我们并不希望外界乱用这个函数，所以我们不提供外部调用（不在最外层的__all__中）
-        此时将卸载标准输出流拦截功能，并重置日志等级为初始化时的等级
-        """
-        if not self.installed:
-            raise RuntimeError("SwanLog has not been installed")
-        self.debug("uninstall swanlog, reset consoler")
-        self.level = self.__original_level
-        if self.__consoler.installed:
-            self.__consoler.uninstall()
-        self.__installed = False
-
-    @property
-    def write_callback(self):
-        return self.__consoler.write_callback
-
-    def set_write_callback(self, func):
-        self.__consoler.set_write_callback(func)
+        # 当前已经代理的输出行数
+        self.__counter = AtomicCounter(0)
+        # 保存原始的标准输出和标准错误流
+        self.__origin_stdout_write = None
+        self.__origin_stderr_write = None
+        # 代理缓冲区
+        self.__stdout_buffer = ""
+        self.__stderr_buffer = ""
+        # 上传到云端的最大长度
+        self.__max_upload_len = None
+        # 当前的代理类型
+        self.__proxy_type = None
 
     @property
     def epoch(self):
+        return self.__counter.value
+
+    def __create_write_handler(self, write_type: LogType, handler: LogHandler) -> WriteHandler:
         """
-        获取当前日志的 epoch
+        创建一个新的处理器
         """
-        return self.__consoler.writer.epoch
+        origin_write_handler = self.__origin_stdout_write if write_type == 'stdout' else self.__origin_stderr_write
+
+        def get_buffer():
+            return self.__stdout_buffer if write_type == 'stdout' else self.__stderr_buffer
+
+        def set_buffer(buffer):
+            if write_type == 'stdout':
+                self.__stdout_buffer = buffer
+            else:
+                self.__stderr_buffer = buffer
+
+        max_output_len = self.__max_upload_len
+
+        def write_handler(message: str):
+            """
+            处理器函数，线程安全
+            """
+            try:
+                origin_write_handler(message)
+            except UnicodeEncodeError:
+                # 遇到编码问题，直接pass，此时表现为终端不输出
+                pass
+            except ValueError as e:
+                if "I/O operation on closed file" in str(e):
+                    # 遇到文件已关闭问题，直接pass，此时表现为终端不输出
+                    pass
+
+            # 进行缓冲处理，主要目的是处理进度条输出：
+            # 1. 如果 message 不包含换行符，则加入缓冲区，否则跳转步骤2
+            # 2. 如果 message 包含换行符，则将换行符之前的内容和当前缓冲区合并，进入步骤3，准备上传
+            # 3. 根据换行符分隔为一个个 message，解析 message，如果 message 包含\r
+            messages, new_buffer = clean_control_chars(get_buffer() + message)
+            set_buffer(new_buffer)
+            # 4. 遍历 messages，上传到云端
+            log_data = LogData(
+                type=write_type,
+                contents=[],
+            )
+            with self.__counter as counter:
+                for message in messages:
+                    log_data['contents'].append(
+                        LogContent(
+                            message=message[:max_output_len],
+                            create_time=create_time(),
+                            epoch=counter.increment(),
+                        )
+                    )
+            # 设置回调
+            handler(log_data)
+
+        return write_handler
+
+    def __exec_fun_by_type(self, stdout_func: Callable, stderr_func: Callable):
+        """
+        根据设置的类型执行对应的函数
+        :return: None
+        """
+        if self.__proxy_type == 'all':
+            stdout_func()
+            stderr_func()
+        elif self.__proxy_type == 'stdout':
+            stdout_func()
+        elif self.__proxy_type == 'stderr':
+            stderr_func()
 
     @property
     def file(self):
@@ -77,6 +117,91 @@ class SwanLog(SwanLabSharedLog):
             return self.__consoler.writer.file
         else:
             return None
+    def proxied(self):
+        """
+        判断是否已经开启代理了
+        :return: bool
+        """
+        return self.__origin_stderr_write is not None or self.__origin_stdout_write is not None
+
+    def start_proxy(self, proxy_type: ProxyType, max_log_length: int, handler: LogHandler):
+        """
+        启动代理
+        :param max_log_length: 一行日志的最大长度，超过这个长度的日志将被截断，-1 表示不限制
+        :param proxy_type: 代理类型，支持 "stdout", "stderr", "all"
+        :param handler: 代理处理函数
+        """
+        if self.proxied:
+            raise RuntimeError("Std Proxy is already started")
+        # 设置一些状态
+        self.__max_upload_len = max_log_length
+        self.__proxy_type = proxy_type
+
+        # 设置代理
+        def set_stdout():
+            self.__stdout_buffer = ""
+            self.__origin_stdout_write = sys.stdout.write
+            sys.stdout.write = self.__create_write_handler('stdout', handler)
+
+        def set_stderr():
+            self.__stderr_buffer = ""
+            self.__origin_stderr_write = sys.stderr.write
+            sys.stderr.write = self.__create_write_handler('stderr', handler)
+
+        self.__exec_fun_by_type(set_stdout, set_stderr)
+
+    def stop_proxy(self):
+        """
+        停止代理
+        """
+        # 如果没有开启代理，则直接返回
+        if not self.proxied:
+            return
+
+        # 清理标准输出
+        def clean_stdout():
+            if self.__stdout_buffer:
+                sys.stdout.write(self.__stdout_buffer + '\n')
+            self.__stdout_buffer = ""
+            sys.stdout.write = self.__origin_stdout_write
+            self.__origin_stdout_write = None
+
+        # 清理标准错误
+        def clean_stderr():
+            if self.__stderr_buffer:
+                sys.stderr.write(self.__stderr_buffer + '\n')
+            self.__stderr_buffer = ""
+            sys.stderr.write = self.__origin_stderr_write
+            self.__origin_stderr_write = None
+
+        self.__exec_fun_by_type(clean_stdout, clean_stderr)
+        self.__counter = AtomicCounter(0)
+
+    def reset(self):
+        """
+        重置输出流代理和日志等级
+        """
+        self.stop_proxy()
+        self.level = self.__original_level
+
+
+_ANSI_ESCAPE_RE = re.compile(r'\x1b\[[0-9;]*[mK]')  # 匹配ANSI控制码
+
+
+def clean_control_chars(text) -> Tuple[List[str], str]:
+    """
+    清理终端控制字符（模拟终端覆盖行为）
+    特别，如果当前字符串中不包含换行符，则直接返回，不处理
+    """
+    lines = text.split('\n')
+    cleaned_lines = []
+    # 最后一行不处理，因为可能是未完成的行
+    # 这与当前 “如果当前字符串中不包含换行符，则直接返回，不处理” 的设计是一致的，并且有更多的灵活性: 最后一行将被作为 buffer 缓冲
+    for line in lines[:-1]:
+        cleaned_line = line.split('\r')[-1]  # 取 \r 后内容
+        cleaned_line = _ANSI_ESCAPE_RE.sub('', cleaned_line)  # 使用预编译正则
+        cleaned_lines.append(cleaned_line)
+    return cleaned_lines, lines[-1]
 
 def trace_handler():
     """
