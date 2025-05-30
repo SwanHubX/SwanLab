@@ -217,7 +217,10 @@ def trace_handler():
     import os
 
     def handler_fn(prof) -> None:
-        saved_path = os.path.join(get_run_dir(), 'files', 'trace.json')
+        run_dir = get_run_dir()
+        if run_dir is None:
+            raise RuntimeError("Run directory not found. Please ensure the run directory is properly set.")
+        saved_path = os.path.join(run_dir, 'files', 'trace.json')
         if os.path.exists(saved_path):
             swanlog.warning(f"{saved_path} already exists, will be overwritten")
             os.remove(f"{saved_path}")
