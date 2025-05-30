@@ -8,6 +8,7 @@ r"""
     测试SwanLabRun主类
 """
 import io
+import json
 import math
 import os
 
@@ -294,6 +295,16 @@ class TestSwanLabRunLog:
         data = {"a": Image(np.random.rand(100, 100, 3))}
         ll = run.log(data)
         self.check_image(ll, "a")
+
+    # ---------------------------------- echarts ----------------------------------
+    def test_log_echarts(self):
+        run = SwanLabRun()
+        data = {"a": swanlab.echarts.Bar().add_xaxis(["X", "Y"]).add_yaxis("数值", [10, 20])}
+        ll = run.log(data)
+        assert len(ll['a'].buffers) == 1
+        buffer = ll['a'].buffers[0]
+        chart_data = json.loads(buffer.getvalue().decode("utf-8"))
+        assert isinstance(chart_data, dict)
 
     # 其他类似...
 
