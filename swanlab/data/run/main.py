@@ -221,6 +221,8 @@ class SwanLabRun:
         """
         if self.monitor_cron is not None:
             self.monitor_cron.cancel()
+        if get_settings().log_proxy_type not in ['stderr', 'all']:
+            error = None
         self.__operator.on_stop(error)
 
     def __str__(self) -> str:
