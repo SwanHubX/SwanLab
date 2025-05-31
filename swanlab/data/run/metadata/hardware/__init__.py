@@ -10,6 +10,7 @@ from typing import Callable, List, Any, Optional, Tuple
 from .cpu import get_cpu_info
 from .disk import get_disk_info
 from .gpu.nvidia import get_nvidia_gpu_info
+from .gpu.metax import get_metax_gpu_info
 from .gpu.moorethread import get_mtt_gpu_info
 from .memory import get_memory_size
 from .mlu.cambricon import get_cambricon_mlu_info
@@ -34,6 +35,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     cambricon = dec_hardware_func(get_cambricon_mlu_info, monitor_funcs)
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
     kunlunxin = dec_hardware_func(get_kunlunxin_xpu_info, monitor_funcs)
+    metax = dec_hardware_func(get_metax_gpu_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
     d = dec_hardware_func(get_disk_info, monitor_funcs)
@@ -54,6 +56,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["gpu"]["nvidia"] = nvidia
     if moorethread is not None:
         info["gpu"]["moorethread"] = moorethread
+    if metax is not None:
+        info["gpu"]["metax"] = metax
     if ascend is not None:
         info["npu"]["ascend"] = ascend
     if apple is not None:
