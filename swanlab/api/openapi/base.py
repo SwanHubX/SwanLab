@@ -42,7 +42,7 @@ def handle_response(resp: requests.Response) -> ApiResponse:
             data=resp.text
         )
 
-    if not isinstance(data, dict):
+    if not isinstance(data, (dict, list)):
         return ApiResponse[Any](
             code=resp.status_code,
             errmsg="sdk decode dict error",
@@ -69,6 +69,13 @@ class ApiHTTP:
         self.__login_info: LoginInfo = login_info
         self.__session: requests.Session = self.__init_session()
         self.service: OpenApiService = OpenApiService(self)
+    
+    @property
+    def session(self) -> requests.Session:
+        """
+        获取当前的requests.Session对象
+        """
+        return self.__session
 
     @property
     def username(self) -> str:
@@ -86,7 +93,7 @@ class ApiHTTP:
         """
         获取sid的过期时间
         """
-        return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return datetime.strptime(self.__login_info.expired_at or "", "%Y-%m-%dT%H:%M:%S.%fZ")
 
     def __init_session(self) -> requests.Session:
         session = requests.Session()
@@ -102,79 +109,79 @@ class ApiHTTP:
             )
         )
         session.headers["swanlab-sdk"] = get_package_version()
-        session.cookies.update({"sid": self.__login_info.sid})
+        session.cookies.update({"sid": self.__login_info.sid or ""})
         return session
 
     def __before_request(self):
         if (self.sid_expired_at - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds() < self.REFRESH_TIME:
             self.__logger.debug("Refreshing sid...")
-            self.__login_info = login_by_key(self.__login_info.api_key, save=False)
+            self.__login_info = login_by_key(self.__login_info.api_key or "", save=False)
             self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
-    def get(self, url: str, params: dict = None) -> ApiResponse:
+    def get(self, url: str, params: dict) -> ApiResponse:
         self.__before_request()
         resp = self.__session.get(self.base_url + url, params=params)
         return handle_response(resp)
 
-    def post(self, url: str, data: Union[dict, list] = None) -> ApiResponse:
+    def post(self, url: str, data: Union[dict, list], params: dict) -> ApiResponse:
         self.__before_request()
-        resp = self.__session.post(self.base_url + url, json=data)
+        resp = self.__session.post(self.base_url + url, json=data, params=params)
         return handle_response(resp)
 
 class OpenApiService:
     def __init__(self, http: ApiHTTP):
         self.http: ApiHTTP = http
 
-    def get_exp_info(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
+    def get_exp_info(self, username: str, project: str, exp_id: str) -> ApiResponse[dict]:
         """
         获取实验信息
         """
-        return self.http.get(f"/project/{username}/{projname}/runs/{expid}")
+        return self.http.get(f"/project/{username}/{project}/runs/{exp_id}", params={})
 
     def get_project_info(self, username: str, projname: str) -> ApiResponse[dict]:
         """
         获取项目详情
         """
-        return self.http.get(f"/project/{username}/{projname}")
+        return self.http.get(f"/project/{username}/{projname}", params={})
+    
+    @staticmethod
+    def fetch_paginated_api(
+        api_func: Callable[..., ApiResponse],  # 分页 API 请求函数
+        page_field: str = "page",
+        size_field: str = "size",
+        page_size: int = 10,
+        *args, **kwargs
+    ) -> ApiResponse[List]:
+        """
+        通用分页全量拉取函数
 
+        Args:
+            api_func (Callable): 分页 API 请求函数，应返回 ApiResponse[Pagination]
+            page_field (str): 页码参数名，默认为 "page"
+            size_field (str): 每页大小参数名，默认为 "size"
+            page_size (int): 每页条数，默认为 10
+            *args: 传递给 api_func 的位置参数
+            **kwargs: 传递给 api_func 的关键字参数
+
+        Returns:
+            ApiResponse[list]: 返回所有分页数据组成的 ApiResponse
+        """
+        page = 1
+        objs = []
+        while True:
+            kwargs.update({page_field: page, size_field: page_size})
+            resp: ApiResponse = api_func(*args, **kwargs)
+            if resp.errmsg:
+                break
+
+            objs.extend(resp.data.list)
+
+            if len(objs) >= resp.data.total:
+                break
+            page += 1
+
+        return ApiResponse[List](code=resp.code, errmsg=resp.errmsg, data=objs)
 
 class ApiBase:
     def __init__(self, http: ApiHTTP):
         self.http: ApiHTTP = http
-
-def fetch_paginated_api(
-    api_func: Callable[..., ApiResponse],  # 分页 API 请求函数
-    page_field: str = "page",
-    size_field: str = "size",
-    page_size: int = 10,
-    *args, **kwargs
-) -> ApiResponse[List]:
-    """
-    通用分页全量拉取函数
-
-    Args:
-        api_func (Callable): 分页 API 请求函数，应返回 ApiResponse[Pagination]
-        page_field (str): 页码参数名，默认为 "page"
-        size_field (str): 每页大小参数名，默认为 "size"
-        page_size (int): 每页条数，默认为 10
-        *args: 传递给 api_func 的位置参数
-        **kwargs: 传递给 api_func 的关键字参数
-
-    Returns:
-        ApiResponse[list]: 返回所有分页数据组成的 ApiResponse
-    """
-    page = 1
-    objs = []
-    while True:
-        kwargs.update({page_field: page, size_field: page_size})
-        resp: ApiResponse = api_func(*args, **kwargs)
-        if resp.errmsg:
-            break
-
-        objs.extend(resp.data.list)
-
-        if len(objs) >= resp.data.total:
-            break
-        page += 1
-
-    return ApiResponse[List](code=resp.code, errmsg=resp.errmsg, data=objs)
