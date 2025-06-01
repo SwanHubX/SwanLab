@@ -7,6 +7,7 @@ r"""
 @Description:
     实验相关的开放API
 """
+import pandas as pd
 
 from swanlab.api.openapi.base import ApiBase, ApiHTTP
 from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination
@@ -33,33 +34,27 @@ class ExperimentAPI(ApiBase):
             "profile": body.get("profile") or {}
         })
 
-    def get_exp_state(self, username: str, projname: str, expid: str) -> ApiResponse[dict]:
-        """
-        获取实验状态
-
-        Args:
-            username (str): 工作空间名
-            projname (str): 项目名
-            expid (str): 实验CUID
-        """
-        return self.http.get(f"/project/{username}/{projname}/runs/{expid}/state")
-
-    def get_experiment(self, username: str, projname: str, expid: str) -> ApiResponse[Experiment]:
+    def get_experiment(
+            self,
+            username: str,
+            projname: str,
+            exp_id: str
+    ) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
         Args:
             username (str): 工作空间名
             projname (str): 项目名
-            expid (str): 实验CUID
+            exp_id (str): 实验CUID
         """
-        resp: ApiResponse = self.http.service.get_exp_info(username=username, projname=projname, expid=expid)
+        resp: ApiResponse = self.http.service.get_exp_info(username=username, projname=projname, expid=exp_id)
         if resp.errmsg:
             return resp
         resp.data = ExperimentAPI.parse(resp.data)
         return resp
 
-    def list_project_exps(
+    def list_experiments(
             self,
             username: str,
             projname: str,
@@ -87,26 +82,32 @@ class ExperimentAPI(ApiBase):
         })
         return resp
 
-    def get_exp_summary(self, expid: str, proid: str, root_expid: str, root_proid: str) -> ApiResponse[dict]:
+    def get_summary(
+            self,
+            exp_id: str,
+            pro_id: str,
+            root_exp_id: str,
+            root_pro_id: str
+    ) -> ApiResponse[dict]:
         """
         获取实验的summary信息
         从House获取, 需要考虑克隆实验
 
         Args:
-            expid (str): 实验CUID
-            proid (str): 项目CUID
-            root_expid (str): 根实验CUID
-            root_proid (str): 根项目CUID
+            exp_id (str): 实验CUID
+            pro_id (str): 项目CUID
+            root_exp_id (str): 根实验CUID
+            root_pro_id (str): 根项目CUID
         """
         data = {
-            "experimentId": expid,
-            "projectId": proid,
+            "experimentId": exp_id,
+            "projectId": pro_id,
         }
-        if root_expid and root_proid:
-            data["rootExperimentId"] = root_expid
-            data["rootProjectId"] = root_proid
+        if root_exp_id and root_pro_id:
+            data["rootExperimentId"] = root_exp_id
+            data["rootProjectId"] = root_pro_id
 
-        resp = self.http.post(f"/house/metrics/summaries", data=[data])
+        resp = self.http.post("/house/metrics/summaries", data=[data], params={})
         if resp.errmsg:
             return resp
 
@@ -127,3 +128,35 @@ class ExperimentAPI(ApiBase):
             for k, v in resp.data.items()
         }
         return resp
+
+    def get_chart(
+            self,
+            exp_id: str,
+            chart_index: str,
+            key: list | str
+    ) -> ApiResponse[list]:
+        """
+        获取实验的图表数据, 包含用户训练记录的标量值
+        需要先通过csv接口获取实验全量数据, 再解析
+
+        Args:
+            exp_id (str): 实验CUID
+            chart_index (str): 图表Index
+        """
+        if isinstance(key, str):
+            key = [key]
+        
+        csv = self.http.post(f"/experiment/{exp_id}/chart/{chart_index}/csv", data={
+            "metrics": [{"expId": exp_id, "key": k} for k in key]
+        }, params={})
+        
+        if csv.errmsg:
+            return csv
+        
+        df = pd.read_csv(csv.data.get("url") or "")
+        return ApiResponse[list](
+            code=csv.code,
+            errmsg=csv.errmsg,
+            data=[df] # 先用列表占位, 目前还不确定返回什么类型. pd.DataFrame / numpy.ndarray / list / dicts
+        )
+        
