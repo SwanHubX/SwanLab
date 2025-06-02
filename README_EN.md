@@ -138,10 +138,13 @@ Here is a list of its core features:
 ![swanlab-table](readme_files/swanlab-table.png)
 
 - Supports **hyperparameter recording** and table display.
-- **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules...
-- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), ...
+- **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules, Echarts custom chart...
 
 ![swanlab-table](readme_files/molecule.gif)
+
+- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts...
+
+![swanlab-echarts](readme_files/echarts.png)
 
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 
