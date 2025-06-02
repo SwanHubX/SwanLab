@@ -113,7 +113,7 @@ class CloudRunCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs) -> int:
+    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs):
         try:
             http = get_http()
         except ValueError:
@@ -121,7 +121,7 @@ class CloudRunCallback(SwanLabRunCallback):
             http = create_http(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
-        return http.mount_project(project, workspace, self.public).history_exp_count
+        http.mount_project(project, workspace, self.public)
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings

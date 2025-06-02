@@ -26,6 +26,7 @@ from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCro
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
+from ...api import get_http
 
 MAX_LIST_LENGTH = 108
 
@@ -44,7 +45,6 @@ class SwanLabRun:
         tags: List[str] = None,
         run_config: Any = None,
         log_level: str = None,
-        exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
         """
@@ -70,8 +70,6 @@ class SwanLabRun:
             当前实验的日志等级，默认为 'info'，可以从 'debug' 、'info'、'warning'、'error'、'critical' 中选择
             不区分大小写，如果不提供此参数(为None)，则默认为 'info'
             如果提供的日志等级不在上述范围内，默认改为info
-        exp_num : int, optional
-            历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
         """
@@ -109,7 +107,7 @@ class SwanLabRun:
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, tags, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, tags)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -184,7 +182,6 @@ class SwanLabRun:
         experiment_name: str = None,
         description: str = None,
         tags: List[str] = None,
-        num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
@@ -205,10 +202,15 @@ class SwanLabRun:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
+        # 云端实验根据历史实验数量生成实验颜色、名称
+        if self.mode == "cloud":
+            num = get_http().history_exp_count
+        else:
+            num = None
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
-        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, colors)
         self.__settings.exp_name = experiment_name
         self.__settings.exp_colors = colors
         self.__settings.description = description

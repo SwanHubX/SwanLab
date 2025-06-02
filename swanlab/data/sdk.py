@@ -25,7 +25,6 @@ from .run import (
     register,
     get_run,
 )
-from .run.helper import SwanLabRunOperator
 from .utils import (
     _check_proj_name,
     _init_config,
@@ -193,12 +192,9 @@ class SwanLabInitializer:
         # FIXME 没必要多一个函数
         project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
         callbacks = check_callback_format(self.cbs + callbacks)
-        # ---------------------------------- 启动操作员 ----------------------------------
-        operator, c = _create_operator(mode, public, callbacks)
-        exp_num = SwanLabRunOperator.parse_return(
-            operator.on_init(project, workspace, logdir=logdir),
-            key=c.__str__() if c else None,
-        )
+        # 启动操作员
+        operator = _create_operator(mode, public, callbacks)
+        operator.on_init(project, workspace, logdir=logdir)
         # 初始化confi参数
         config = _init_config(config)
         # ---------------------------------- 实例化实验 ----------------------------------
@@ -210,7 +206,6 @@ class SwanLabInitializer:
             tags=tags,
             run_config=config,
             log_level=kwargs.get("log_level", "info"),
-            exp_num=exp_num,
             operator=operator,
         )
         return run

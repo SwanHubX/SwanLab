@@ -161,12 +161,12 @@ class LocalRunCallback(SwanLabRunCallback):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,
     ):
-        self.board.before_init_experiment(run_id, exp_name, description, num, colors)
+        #  FIXME num 在 dashboard 中被要求传递但是没用上 🤡
+        self.board.before_init_experiment(run_id, exp_name, description, colors=colors, num=1)
 
     def on_run(self):
         settings = get_settings()
