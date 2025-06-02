@@ -139,8 +139,8 @@ class SwanLabEnv(enum.Enum):
         :raises ValueError: 如果环境变量的值不在预期值中
         """
         envs = {
-            cls.MODE.value: ["local", "cloud", "disabled"],
-            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud", "task"],
+            cls.MODE.value: ["local", "cloud", "disabled", "backup"],
+            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud"],
         }
         for k, vs in envs.items():
             if k in os.environ and os.environ[k] not in vs:
