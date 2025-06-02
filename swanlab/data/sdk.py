@@ -33,6 +33,7 @@ from .utils import (
     _create_operator,
     should_call_after_init,
     should_call_before_init,
+    _init_mode,
 )
 from ..package import HostFormatter
 
@@ -158,7 +159,6 @@ class SwanLabInitializer:
         """
         # 注册settings
         merge_settings(settings)
-
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
             return get_run()
@@ -192,12 +192,41 @@ class SwanLabInitializer:
         # FIXME 没必要多一个函数
         project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
         callbacks = check_callback_format(self.cbs + callbacks)
+        # 校验mode参数并适配 backup 模式
+        mode, login_info = _init_mode(mode)
+        if mode == "backup":
+            merge_settings(Settings(backup=True))
+        elif mode == "disabled":
+            merge_settings(Settings(backup=False))
+        # ---------------------------------- 创建文件夹 ----------------------------------
+        # backup 模式、开启 backup 功能、local模式三种情况下需要创建文件夹，前两者等价于校验 “开启 backup 功能”
+        if mode == "local" or get_settings().backup:
+            env_key = SwanLabEnv.SWANLOG_FOLDER.value
+            # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+            # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+            if logdir is None:
+                logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+
+            logdir = os.path.abspath(logdir)
+            try:
+                os.makedirs(logdir, exist_ok=True)
+                if not os.access(logdir, os.W_OK):
+                    raise IOError(f"no write permission for path: {logdir}")
+            except Exception as error:
+                raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+
+            os.environ[env_key] = logdir
+
+            # 如果logdir是空的，创建.gitignore文件，写入*
+            if not os.listdir(logdir):
+                with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+                    f.write("*")
+        # ---------------------------------- 实例化实验 ----------------------------------
         # 启动操作员
-        operator = _create_operator(mode, public, callbacks)
+        operator = _create_operator(mode, login_info, public, callbacks)
         operator.on_init(project, workspace, logdir=logdir)
         # 初始化confi参数
         config = _init_config(config)
-        # ---------------------------------- 实例化实验 ----------------------------------
         # 注册实验
         run = register(
             project_name=project,

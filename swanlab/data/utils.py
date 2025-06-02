@@ -12,7 +12,7 @@ from swankit.callback import SwanKitCallback
 from swankit.env import SwanLabMode
 from swankit.log import FONT
 
-from swanlab.api import terminal_login
+from swanlab.api import terminal_login, LoginInfo
 from swanlab.data.callbacker.backup import BackupCallback
 from swanlab.data.callbacker.cloud import CloudRunCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
@@ -179,44 +179,44 @@ def _load_from_env(key: str, value):
 
 def _create_operator(
     mode: str,
+    login_info: Optional[LoginInfo],
     public: bool,
     cbs: Optional[List[SwanKitCallback]],
 ) -> SwanLabRunOperator:
     """
     创建SwanLabRunOperator实例
-    如果mode为disabled，则返回一个空的SwanLabRunOperator实例和None
+    如果mode为disabled，则返回一个空的SwanLabRunOperator实例
 
     :param mode: 运行模式
+    :param login_info: 用户登录信息，如果输入则注入到CloudRunCallback中，允许自动登录
     :param public: 是否公开
     :param cbs: 用户传递的回调函数列表
     :return: SwanLabRunOperator, CloudRunCallback
     """
-    # 0. 初始化部分参数
-    mode, login_info = _init_mode(mode)
     c = []
-    # 1. 禁用模式
+    # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
         return SwanLabRunOperator()
-    # 2. 云端模式
+    # 1.2. 云端模式
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息
         CloudRunCallback.login_info = login_info
         c.append(CloudRunCallback(public))
-    # 3. 本地模式
+    # 1.3. 本地模式
     elif mode == SwanLabMode.LOCAL.value:
         from .callbacker.local import LocalRunCallback
 
         c.append(LocalRunCallback())
-    # 4. 其他非法模式 报错，backup 模式不需要在此处理
+    # 1.4. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():
         raise ValueError(f"Unknown mode: {mode}, please use one of {SwanLabMode.list()}")
 
-    # 5. 如果开启备份功能，则添加BackupCallback
+    # 1.5. 如果开启备份功能，则添加BackupCallback
     if get_settings().backup:
         c.append(BackupCallback())
 
-    # 6. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
+    # 2. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
     callbacks = c + cbs
     return SwanLabRunOperator(callbacks)

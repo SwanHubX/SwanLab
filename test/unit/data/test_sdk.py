@@ -16,6 +16,7 @@ import swanlab.data.sdk as S
 import swanlab.data.utils
 import swanlab.error as Err
 import tutils as T
+from swanlab import Settings
 from swanlab.api.http import reset_http
 from swanlab.data.run import get_run
 from swanlab.env import SwanLabEnv, get_save_dir
@@ -306,6 +307,34 @@ class TestInitLogdir:
         os.environ[LOG_DIR] = logdir
         run = S.init(mode="local")
         assert run.public.swanlog_dir == logdir
+
+    def test_init_logdir_backup(self):
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
+        os.environ[LOG_DIR] = logdir
+        run = S.init(mode="backup")
+        assert run.public.swanlog_dir == logdir
+        run.finish()
+        del os.environ[LOG_DIR]
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
+        os.environ[LOG_DIR] = logdir
+        run = S.init(mode="backup")
+        assert run.public.swanlog_dir == logdir
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_init_logdir_settings_backup(self):
+        logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
+        os.environ[LOG_DIR] = logdir
+        # cloud模式下backup功能默认开启，此时依然生成文件夹
+        run = S.init(mode="cloud")
+        assert run.public.swanlog_dir == logdir
+        os.path.exists(logdir)
+        run.finish()
+        # 如果通过 settings 设置为 False，则不会生成文件夹
+        del os.environ[LOG_DIR]
+        run = S.init(mode="cloud", settings=Settings(backup=False))
+        assert run.public.swanlog_dir != logdir
+        assert run.public.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
+        assert not os.path.exists(run.public.swanlog_dir)
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")

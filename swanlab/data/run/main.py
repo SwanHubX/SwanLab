@@ -204,7 +204,12 @@ class SwanLabRun:
                     tags[i] = new_tags[i]
         # 云端实验根据历史实验数量生成实验颜色、名称
         if self.mode == "cloud":
-            num = get_http().history_exp_count
+            try:
+                num = get_http().history_exp_count
+            except ValueError:
+                # 如果获取历史实验数量失败，则使用随机数
+                swanlog.warning("Failed to get history experiment count, use random number instead.")
+                num = random.randint(0, 20)
         else:
             num = None
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
