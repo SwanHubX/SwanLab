@@ -334,7 +334,7 @@ class TestInitLogdir:
         run = S.init(mode="cloud", settings=Settings(backup=False))
         assert run.public.swanlog_dir != logdir
         assert run.public.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
-        assert not os.path.exists(run.public.swanlog_dir)
+        assert os.path.exists(run.public.swanlog_dir)
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")

@@ -192,6 +192,7 @@ def _create_operator(
     :return: SwanLabRunOperator, CloudRunCallback
     """
     c = []
+    backup = get_settings().backup
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
@@ -200,20 +201,19 @@ def _create_operator(
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息
         CloudRunCallback.login_info = login_info
-        c.append(CloudRunCallback())
+        c.append(CloudRunCallback(backup=backup))
     # 1.3. 本地模式
     elif mode == SwanLabMode.LOCAL.value:
         from .callbacker.local import LocalRunCallback
 
-        c.append(LocalRunCallback())
-    # 1.4. 其他非法模式 报错，backup 模式不需要在此处理
+        c.append(LocalRunCallback(backup=backup))
+    # 1.4 . 备份模式
+    elif mode == SwanLabMode.BACKUP.value:
+        c.append(BackupCallback())
+    # 1.5. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():
         raise ValueError(f"Unknown mode: {mode}, please use one of {SwanLabMode.list()}")
-
-    # 1.5. 如果开启备份功能，则添加BackupCallback
-    if get_settings().backup:
-        c.append(BackupCallback(sidecar=mode != 'backup'))
 
     # 2. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
     callbacks = c + cbs

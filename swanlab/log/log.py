@@ -112,6 +112,7 @@ class SwanLog(SwanLabSharedLog):
             stdout_func()
         elif self.__proxy_type == 'stderr':
             stderr_func()
+        # 为 none 就不管了
 
     @property
     def proxied(self):

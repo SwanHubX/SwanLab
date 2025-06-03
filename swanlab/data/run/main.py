@@ -75,7 +75,7 @@ class SwanLabRun:
         """
         if self.is_started():
             raise RuntimeError("SwanLabRun has been initialized")
-
+        swanlab_settings = get_settings()
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -85,10 +85,26 @@ class SwanLabRun:
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__mode = get_mode()
+
+        # 1. disabled 模式所有功能关闭，不自动创建文件夹
+        # 2. local 模式永远开启，此时永远自动创建文件夹
+        # 3. backup 模式开启备份功能，此时永远自动创建文件夹
+        # 4. cloud 模式开启云端服务，根据 backup 是否打开判断是否需要自动创建文件夹
+        if self.__mode == "disabled":
+            should_save = False
+        elif self.__mode == "local":
+            should_save = True
+        elif self.__mode == "backup":
+            should_save = True
+        elif self.__mode == "cloud":
+            should_save = swanlab_settings.backup
+        else:
+            raise RuntimeError(f"Unknown mode '{self.__mode}'")
+
         self.__settings = SwanLabSharedSettings(
             logdir=get_swanlog_dir(),
             run_id=self.__run_id,
-            should_save=self.__mode == "local",
+            should_save=should_save,
             version=get_package_version(),
         )
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
@@ -124,12 +140,11 @@ class SwanLabRun:
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
         metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
-        settings = get_settings()
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements() if settings.requirements_collect else None,
-                conda=get_conda() if settings.conda_collect else None,
+                requirements=get_requirements() if swanlab_settings.requirements_collect else None,
+                conda=get_conda() if swanlab_settings.conda_collect else None,
                 metadata=metadata,
             )
         )
