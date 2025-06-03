@@ -36,14 +36,13 @@ from ...swanlab_settings import get_settings
 
 class CloudRunCallback(SwanLabRunCallback):
 
-    def __init__(self, public: bool):
+    def __init__(self):
         super().__init__()
         self.pool = ThreadPool()
         self.exiting = False
         """
         标记是否正在退出云端环境
         """
-        self.public = public
 
     @classmethod
     def create_login_info(cls, save: bool = True):
@@ -100,7 +99,7 @@ class CloudRunCallback(SwanLabRunCallback):
         if tp != KeyboardInterrupt:
             print(traceback_error(tb, tp(val)), file=sys.stderr)
 
-    def _write_handler(self, log_data: LogData):
+    def _terminal_handler(self, log_data: LogData):
         level: Literal['INFO', 'WARN', 'ERROR']
         if log_data['type'] == 'stdout':
             level = "INFO"
@@ -113,7 +112,7 @@ class CloudRunCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs):
+    def on_init(self, project: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         try:
             http = get_http()
         except ValueError:
@@ -121,7 +120,7 @@ class CloudRunCallback(SwanLabRunCallback):
             http = create_http(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
-        http.mount_project(project, workspace, self.public)
+        http.mount_project(project, workspace, public)
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings
@@ -141,7 +140,7 @@ class CloudRunCallback(SwanLabRunCallback):
             swanlog.start_proxy(
                 proxy_type=settings.log_proxy_type,
                 max_log_length=settings.max_log_length,
-                handler=self._write_handler,
+                handler=self._terminal_handler,
             )
         # 注册系统回调
         self._register_sys_callback()

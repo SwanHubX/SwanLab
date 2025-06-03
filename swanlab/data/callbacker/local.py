@@ -93,7 +93,7 @@ class LocalRunCallback(SwanLabRunCallback):
         # 如果正在运行
         run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
-    def _write_handler(self, log_data: LogData):
+    def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
         if self.file is None:
             # 如果句柄不存在，则创建
@@ -131,7 +131,7 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_run(self):
         settings = get_settings()
         if settings.log_proxy_type != "none":
-            swanlog.start_proxy(settings.log_proxy_type, -1, self._write_handler)
+            swanlog.start_proxy(settings.log_proxy_type, -1, self._terminal_handler)
         # 注入系统回调
         self._register_sys_callback()
         # 打印信息

@@ -37,12 +37,13 @@ class SwanLog(SwanLabSharedLog):
         self.__max_upload_len = None
         # 当前的代理类型
         self.__proxy_type = None
+        self.__handlers = []
 
     @property
     def epoch(self):
         return self.__counter.value
 
-    def __create_write_handler(self, write_type: LogType, handler: LogHandler) -> WriteHandler:
+    def __create_write_handler(self, write_type: LogType) -> WriteHandler:
         """
         创建一个新的处理器
         """
@@ -80,21 +81,22 @@ class SwanLog(SwanLabSharedLog):
             messages, new_buffer = clean_control_chars(get_buffer() + message)
             set_buffer(new_buffer)
             # 4. 遍历 messages，上传到云端
-            log_data = LogData(
-                type=write_type,
-                contents=[],
-            )
-            with self.__counter as counter:
-                for message in messages:
-                    log_data['contents'].append(
-                        LogContent(
-                            message=message[:max_output_len],
-                            create_time=create_time(),
-                            epoch=counter.increment(),
+            if len(messages):
+                log_data = LogData(
+                    type=write_type,
+                    contents=[],
+                )
+                with self.__counter as counter:
+                    for message in messages:
+                        log_data['contents'].append(
+                            LogContent(
+                                message=message[:max_output_len],
+                                create_time=create_time(),
+                                epoch=counter.increment(),
+                            )
                         )
-                    )
-            # 设置回调
-            handler(log_data)
+                # 触发回调
+                [handler(log_data) for handler in self.__handlers]
 
         return write_handler
 
@@ -131,23 +133,32 @@ class SwanLog(SwanLabSharedLog):
         # 设置一些状态
         self.__max_upload_len = max_log_length
         self.__proxy_type = proxy_type
+        self.__handlers.append(handler)
 
         # 设置代理
         def set_stdout():
             self.__stdout_buffer = ""
             self.__origin_stdout_write = sys.stdout.write
-            sys.stdout.write = self.__create_write_handler('stdout', handler)
+            sys.stdout.write = self.__create_write_handler('stdout')
 
         def set_stderr():
             self.__stderr_buffer = ""
             self.__origin_stderr_write = sys.stderr.write
-            sys.stderr.write = self.__create_write_handler('stderr', handler)
+            sys.stderr.write = self.__create_write_handler('stderr')
 
         self.__exec_fun_by_type(set_stdout, set_stderr)
 
+    def inject_handler(self, handler: LogHandler):
+        """
+        注入一个新的处理器
+        此注入函数不会影响代理类型，只会在需要写入的时候触发这个被注入的处理器
+        :param handler: 处理函数，接受一个 LogData 对象
+        """
+        self.__handlers.append(handler)
+
     def stop_proxy(self):
         """
-        停止代理
+        停止代理，清理已经注册的处理器和缓冲区
         """
         # 如果没有开启代理，则直接返回
         if not self.proxied:
@@ -171,6 +182,7 @@ class SwanLog(SwanLabSharedLog):
 
         self.__exec_fun_by_type(clean_stdout, clean_stderr)
         self.__counter = AtomicCounter(0)
+        self.__handlers = []
 
     def reset(self):
         """

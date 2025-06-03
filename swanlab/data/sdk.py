@@ -223,8 +223,8 @@ class SwanLabInitializer:
                     f.write("*")
         # ---------------------------------- 实例化实验 ----------------------------------
         # 启动操作员
-        operator = _create_operator(mode, login_info, public, callbacks)
-        operator.on_init(project, workspace, logdir=logdir)
+        operator = _create_operator(mode, login_info, callbacks)
+        operator.on_init(project, workspace, public=public, logdir=logdir)
         # 初始化confi参数
         config = _init_config(config)
         # 注册实验

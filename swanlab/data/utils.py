@@ -180,7 +180,6 @@ def _load_from_env(key: str, value):
 def _create_operator(
     mode: str,
     login_info: Optional[LoginInfo],
-    public: bool,
     cbs: Optional[List[SwanKitCallback]],
 ) -> SwanLabRunOperator:
     """
@@ -189,7 +188,6 @@ def _create_operator(
 
     :param mode: 运行模式
     :param login_info: 用户登录信息，如果输入则注入到CloudRunCallback中，允许自动登录
-    :param public: 是否公开
     :param cbs: 用户传递的回调函数列表
     :return: SwanLabRunOperator, CloudRunCallback
     """
@@ -202,7 +200,7 @@ def _create_operator(
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息
         CloudRunCallback.login_info = login_info
-        c.append(CloudRunCallback(public))
+        c.append(CloudRunCallback())
     # 1.3. 本地模式
     elif mode == SwanLabMode.LOCAL.value:
         from .callbacker.local import LocalRunCallback
@@ -215,7 +213,7 @@ def _create_operator(
 
     # 1.5. 如果开启备份功能，则添加BackupCallback
     if get_settings().backup:
-        c.append(BackupCallback())
+        c.append(BackupCallback(sidecar=mode != 'backup'))
 
     # 2. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
     callbacks = c + cbs
