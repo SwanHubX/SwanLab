@@ -8,7 +8,6 @@
 import math
 import platform
 import subprocess
-import json
 from typing import Tuple, Optional
 
 from ..type import (
@@ -31,9 +30,9 @@ def get_metax_gpu_info() -> HardwareFuncResult:
     info = {"driver": None, "maca": None, "gpu": None}
     collector = None
     try:
-        driver, gpu_map = map_metax_gpu()
+        driver, maca_version, gpu_map = map_metax_gpu()
         info["driver"] = driver
-        info["maca"] = gpu_map["maca"]
+        info["maca"] = maca_version
         info["gpu"] = gpu_map
         collector = MetaxCollector(gpu_map)
     except Exception:  # noqa
@@ -42,45 +41,42 @@ def get_metax_gpu_info() -> HardwareFuncResult:
     return info, collector
 
 
-def map_metax_gpu() -> Tuple[Optional[str], dict]:
+def map_metax_gpu() -> Tuple[Optional[str], Optional[str], dict]:
     """
     获取 metax gpu 信息，包括驱动版本、设备信息等，例如：
     driver: '2.1.12'
     gpu_map: {"0": { "name": "MetaX C500”, "memory": "64GB"}, "1": { "name": "MetaX C500", "memory": "64GB"}, ...}
     """
-    output_str = subprocess.run(
-        ["mx-smi"], capture_output=True, check=True, text=True
-    ).stdout
-    
+    output_str = subprocess.run(["mx-smi"], capture_output=True, check=True, text=True).stdout
+
     driver = None
-    gpu_map = {}
     maca_version = None
+    gpu_map = {}
     index = 0
-    
+
     output_str_line = output_str.split("\n")
-    
+
     for line in output_str_line:
         if "mx-smi" in line:
             driver = line.split(" ")[-1]
         if "MACA" in line:
             maca_version = line.split(" ")[3]
-            gpu_map["maca"] = maca_version
         elif "MetaX" in line and "Management" not in line:
             gpu_map[index] = {}
             line_split = line.split(" ")
             line_split = [item for item in line_split if item != ""]
-            gpu_map[index]["gpu_name"] = line_split[3]
+            gpu_map[index]["name"] = line_split[3]
         elif "MiB" in line:
-            try: 
+            try:
                 line_split = line.split(" ")
                 line_split = [item for item in line_split if item != ""]
-                gpu_memory = int(line_split[-4].split("/")[-1])//1024
-                gpu_map[index]["gpu_memory"] = gpu_memory
+                gpu_memory = int(line_split[-4].split("/")[-1]) // 1024
+                gpu_map[index]["memory"] = gpu_memory
                 index += 1
             except Exception as e:
                 pass
-    
-    return driver, gpu_map
+
+    return driver, maca_version, gpu_map
 
 
 class MetaxCollector(H):
@@ -126,18 +122,10 @@ class MetaxCollector(H):
 
         for gpu_id in self.gpu_map:
             metric_name = f"GPU {gpu_id}"
-            self.per_util_configs[metric_name] = util_config.clone(
-                metric_name=metric_name
-            )
-            self.per_memory_configs[metric_name] = memory_config.clone(
-                metric_name=metric_name
-            )
-            self.per_temp_configs[metric_name] = temp_config.clone(
-                metric_name=metric_name
-            )
-            self.per_power_configs[metric_name] = power_config.clone(
-                metric_name=metric_name
-            )
+            self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
+            self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
+            self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
+            self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
@@ -156,34 +144,29 @@ class MetaxCollector(H):
         """
         获取指定GPU设备的利用率
         """
-        output_str = subprocess.run(
-            ["mx-smi", "--show-usage"],
-            capture_output=True,
-            check=True,
-            text=True
-        ).stdout
-    
+        output_str = subprocess.run(["mx-smi", "--show-usage"], capture_output=True, check=True, text=True).stdout
+
         output_str_line = output_str.split("\n")
         usage_infos = {}
         index = 0
-    
+
         for line in output_str_line:
             if "GPU" in line and "%" in line:
                 gpu_id = index
                 usage_line = line.split(" ")
                 usage_line = [item for item in usage_line if item != ""]
                 gpu_usage = float(usage_line[-2])
-                
+
                 usage_infos[gpu_id] = {
                     "key": self.util_key.format(gpu_index=gpu_id),
                     "name": f"GPU {gpu_id} Utilization (%)",
                     "value": math.nan,
                     "config": self.per_util_configs[f"GPU {gpu_id}"],
                 }
-                
+
                 usage_infos[gpu_id]["value"] = gpu_usage
                 index += 1
-                
+
         return usage_infos
 
     def get_memory_usage(self) -> dict:
@@ -215,29 +198,24 @@ class MetaxCollector(H):
                 gpu_mem_usage_rate = float(gpu_mem_used) / float(gpu_mem_total) * 100
                 mem_infos[gpu_id]["value"] = gpu_mem_usage_rate
                 index += 1
-                
+
         return mem_infos
 
     def get_temperature_usage(self) -> dict:
         """
         获取指定GPU设备的利用率
         """
-        output_str = subprocess.run(
-            ["mx-smi", "--show-temperature"],
-            capture_output=True,
-            check=True,
-            text=True
-        ).stdout
-    
+        output_str = subprocess.run(["mx-smi", "--show-temperature"], capture_output=True, check=True, text=True).stdout
+
         output_str_line = output_str.split("\n")
         temp_infos = {}
         index = 0
-    
+
         for line in output_str_line:
             if "hotspot" in line:
                 gpu_id = index
                 gpu_temp = line.split(" ")[-2]
-                
+
                 temp_infos[gpu_id] = {
                     "key": self.temp_key.format(gpu_index=gpu_id),
                     "name": f"GPU {gpu_id} Temperature (°C)",
@@ -246,24 +224,19 @@ class MetaxCollector(H):
                 }
                 temp_infos[gpu_id]["value"] = float(gpu_temp)
                 index += 1
-                
+
         return temp_infos
 
     def get_power_usage(self) -> dict:
         """
         获取指定GPU设备的功耗(W)
         """
-        output_str = subprocess.run(
-            ["mx-smi", "--show-board-power"],
-            capture_output=True,
-            check=True,
-            text=True
-        ).stdout
-        
+        output_str = subprocess.run(["mx-smi", "--show-board-power"], capture_output=True, check=True, text=True).stdout
+
         output_str_line = output_str.split("\n")
         power_infos = {}
         index = 0
-        
+
         for line in output_str_line:
             if "Total" in line and "W" in line:
                 total_line = line.split(" ")
