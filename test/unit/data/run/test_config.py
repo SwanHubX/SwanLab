@@ -1,11 +1,15 @@
-import math
-import yaml
-from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
-from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
-import pytest
-import omegaconf
-from dataclasses import dataclass
 import argparse
+import math
+import os
+from dataclasses import dataclass
+
+import omegaconf
+import pytest
+import yaml
+
+from swanlab import SwanLabEnv
+from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
+from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -311,6 +315,10 @@ class TestSwanLabConfigWithRun:
     """
     测试SwanLabConfig与SwanLabRun的交互
     """
+
+    @staticmethod
+    def setup_method():
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
 
     def test_use_dict(self):
         """

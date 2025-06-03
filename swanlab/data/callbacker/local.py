@@ -7,6 +7,7 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 """
 
 from swankit.callback import ColumnInfo
+from swankit.log import FONT
 
 from swanlab.log.type import LogData
 from swanlab.swanlab_settings import get_settings
@@ -28,111 +29,38 @@ if package_version != "0.1.8b1":
 
 import json
 import os
-import sys
-import traceback
 from datetime import datetime
-from typing import Union, Tuple, Optional, TextIO
+from typing import Tuple, Optional, TextIO
 
 from swankit.callback.models import RuntimeInfo, MetricInfo
 from swankit.core import SwanLabSharedSettings
 
 from swanlab.data.run.callback import SwanLabRunCallback
-from swanlab.data.run.main import get_run, SwanLabRunState
-from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 
 
 class LocalRunCallback(SwanLabRunCallback):
 
-    def __init__(self):
-        super(LocalRunCallback, self).__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.board = swanboard.SwanBoardCallback()
         # 当前日志写入文件的句柄
         self.file: Optional[TextIO] = None
 
-    @staticmethod
-    def _traceback_error(tb, val):
-        """
-        获取traceback信息
-        """
-        trace_list = traceback.format_tb(tb)
-        html = ""
-        for line in trace_list:
-            html += line
-        html += str(val)
-        return html
-
-    @staticmethod
-    def _error_print(tp):
-        """
-        错误打印
-        """
-        # 如果是KeyboardInterrupt异常
-        if tp == KeyboardInterrupt:
-            swanlog.info("KeyboardInterrupt by user")
-        else:
-            swanlog.info("Error happened while training")
-
-    @staticmethod
-    def _init_logdir(logdir: Union[str, None] = None) -> None:
-        """
-        根据传入的logdir,初始化日志文件夹
-        ---
-        Args:
-            logdir: 日志文件夹路径
-
-        Return:
-            None
-
-        Step:
-            1: 参数检查
-            2: 环境变量设置
-            3: 默认路径
-            4: .gitignore
-        """
-        env_key = SwanLabEnv.SWANLOG_FOLDER.value
-        # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-        # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-        if logdir is None:
-            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
-
-        logdir = os.path.abspath(logdir)
-        try:
-            os.makedirs(logdir, exist_ok=True)
-            if not os.access(logdir, os.W_OK):
-                raise IOError(f"no write permission for path: {logdir}")
-        except Exception as error:
-            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-
-        os.environ[env_key] = logdir
-
-        # 如果logdir是空的，创建.gitignore文件，写入*
-        if not os.listdir(logdir):
-            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-                f.write("*")
-
     def __str__(self):
         return "SwanLabLocalRunCallback"
 
-    def _except_handler(self, tp, val, tb):
+    def _watch_tip_print(self):
         """
-        异常处理
+        watch命令提示打印
         """
-        self._error_print(tp)
-        # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=self._traceback_error(tb, tp(val)))
-        if tp != KeyboardInterrupt:
-            print(self._traceback_error(tb, tp(val)), file=sys.stderr)
+        swanlog.info(
+            "🌟 Run `"
+            + FONT.bold("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)))
+            + "` to view SwanLab Experiment Dashboard locally"
+        )
 
-    def _clean_handler(self):
-        run = get_run()
-        if run is None:
-            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
-        self._train_finish_print()
-        # 如果正在运行
-        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
-
-    def _write_handler(self, log_data: LogData):
+    def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
         if self.file is None:
             # 如果句柄不存在，则创建
@@ -146,12 +74,15 @@ class LocalRunCallback(SwanLabRunCallback):
             self.file.write(content['message'] + '\n')
             self.file.flush()
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
-        self._init_logdir(logdir)
+    def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         self.board.on_init(proj_name)
+        # 设置项目缓存
+        self.backup.cache_proj_name = proj_name
+        self.backup.cache_workspace = workspace
+        self.backup.cache_public = public
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        self.settings = settings
+        super().before_run(settings, *args, **kwargs)
         # path 是否存在
         if not os.path.exists(self.settings.run_dir):
             os.mkdir(self.settings.run_dir)
@@ -161,20 +92,26 @@ class LocalRunCallback(SwanLabRunCallback):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,
     ):
-        self.board.before_init_experiment(run_id, exp_name, description, num, colors)
+        #  FIXME num 在 dashboard 中被要求传递但是没用上 🤡
+        self.board.before_init_experiment(run_id, exp_name, description, colors=colors, num=1)
 
     def on_run(self):
+        # 1. 注册终端输出流代理
         settings = get_settings()
-        if settings.log_proxy_type != "none":
-            swanlog.start_proxy(settings.log_proxy_type, -1, self._write_handler)
-        # 注入系统回调
+        swanlog.start_proxy(
+            proxy_type=settings.log_proxy_type,
+            max_log_length=settings.max_log_length,
+            handler=self._terminal_handler,
+        )
+        # 2. 开启备份
+        self.backup.start(self.settings.run_dir)
+        # 2. 注入系统回调
         self._register_sys_callback()
-        # 打印信息
+        # 3. 打印信息
         self._train_begin_print()
         self._watch_tip_print()
 

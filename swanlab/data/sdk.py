@@ -25,7 +25,6 @@ from .run import (
     register,
     get_run,
 )
-from .run.helper import SwanLabRunOperator
 from .utils import (
     _check_proj_name,
     _init_config,
@@ -34,6 +33,7 @@ from .utils import (
     _create_operator,
     should_call_after_init,
     should_call_before_init,
+    _init_mode,
 )
 from ..package import HostFormatter
 
@@ -67,7 +67,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
         os.environ[SwanLabEnv.API_KEY.value] = api_key
 
 
-MODES = Literal["disabled", "cloud", "local"]
+MODES = Literal["disabled", "cloud", "local", "backup"]
 
 
 class SwanLabInitializer:
@@ -135,11 +135,11 @@ class SwanLabInitializer:
             In this case, if you want to view the logs,
             you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
         mode : str, optional
-            Allowed values are 'cloud', 'cloud-only', 'local', 'disabled'.
-            If the value is 'cloud', the data will be uploaded to the cloud and the local log will be saved.
-            If the value is 'cloud-only', the data will only be uploaded to the cloud and the local log will not be saved.
-            If the value is 'local', the data will only be saved locally and will not be uploaded to the cloud.
-            If the value is 'disabled', the data will not be saved or uploaded, just parsing the data.
+            Allowed values are 'cloud', 'local', 'disabled', 'backup'.
+            If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
+            If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
+            If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
+            If the value is 'backup', data will be saved locally without uploading to the cloud.
         load : str, optional
             If you pass this parameter,SwanLab will search for the configuration file you specified
             (which must be in JSON or YAML format)
@@ -159,7 +159,6 @@ class SwanLabInitializer:
         """
         # 注册settings
         merge_settings(settings)
-
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
             return get_run()
@@ -193,15 +192,41 @@ class SwanLabInitializer:
         # FIXME 没必要多一个函数
         project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
         callbacks = check_callback_format(self.cbs + callbacks)
-        # ---------------------------------- 启动操作员 ----------------------------------
-        operator, c = _create_operator(mode, public, callbacks)
-        exp_num = SwanLabRunOperator.parse_return(
-            operator.on_init(project, workspace, logdir=logdir),
-            key=c.__str__() if c else None,
-        )
+        # 校验mode参数并适配 backup 模式
+        mode, login_info = _init_mode(mode)
+        if mode == "backup":
+            merge_settings(Settings(backup=True))
+        elif mode == "disabled":
+            merge_settings(Settings(backup=False))
+        # ---------------------------------- 创建文件夹 ----------------------------------
+        # backup 模式、开启 backup 功能、local模式三种情况下需要创建文件夹，前两者等价于校验 “开启 backup 功能”
+        if mode == "local" or get_settings().backup:
+            env_key = SwanLabEnv.SWANLOG_FOLDER.value
+            # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+            # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+            if logdir is None:
+                logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+
+            logdir = os.path.abspath(logdir)
+            try:
+                os.makedirs(logdir, exist_ok=True)
+                if not os.access(logdir, os.W_OK):
+                    raise IOError(f"no write permission for path: {logdir}")
+            except Exception as error:
+                raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+
+            os.environ[env_key] = logdir
+
+            # 如果logdir是空的，创建.gitignore文件，写入*
+            if not os.listdir(logdir):
+                with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+                    f.write("*")
+        # ---------------------------------- 实例化实验 ----------------------------------
+        # 启动操作员
+        operator = _create_operator(mode, login_info, callbacks)
+        operator.on_init(project, workspace, public=public, logdir=logdir)
         # 初始化confi参数
         config = _init_config(config)
-        # ---------------------------------- 实例化实验 ----------------------------------
         # 注册实验
         run = register(
             project_name=project,
@@ -210,7 +235,6 @@ class SwanLabInitializer:
             tags=tags,
             run_config=config,
             log_level=kwargs.get("log_level", "info"),
-            exp_num=exp_num,
             operator=operator,
         )
         return run

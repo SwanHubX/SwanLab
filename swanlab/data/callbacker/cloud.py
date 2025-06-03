@@ -11,7 +11,6 @@ import sys
 from typing import Literal
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
-from swankit.core import SwanLabSharedSettings
 from swankit.env import create_time
 from swankit.log import FONT
 
@@ -27,7 +26,6 @@ from swanlab.package import (
     get_package_latest_version,
     get_key,
 )
-from .utils import error_print, traceback_error
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
 from ...log.type import LogData
@@ -36,14 +34,13 @@ from ...swanlab_settings import get_settings
 
 class CloudRunCallback(SwanLabRunCallback):
 
-    def __init__(self, public: bool):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.pool = ThreadPool()
         self.exiting = False
         """
         标记是否正在退出云端环境
         """
-        self.public = public
 
     @classmethod
     def create_login_info(cls, save: bool = True):
@@ -80,28 +77,19 @@ class CloudRunCallback(SwanLabRunCallback):
         return exp_url
 
     def _clean_handler(self):
-        run = get_run()
-        if run is None:
-            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
         if self.exiting:
             return swanlog.debug("SwanLab is exiting, please wait.")
-        self._train_finish_print()
-        # 如果正在运行
-        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
+        super()._clean_handler()
 
     def _except_handler(self, tp, val, tb):
         if self.exiting:
             print("")
             swanlog.error("Aborted uploading by user")
             sys.exit(1)
-        error_print(tp)
-        # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
-        if tp != KeyboardInterrupt:
-            print(traceback_error(tb, tp(val)), file=sys.stderr)
+        super()._except_handler(tp, val, tb)
 
-    def _write_handler(self, log_data: LogData):
-        level: Literal['INFO', 'WARN', 'ERROR']
+    def _terminal_handler(self, log_data: LogData):
+        level: Literal['INFO', 'WARN']
         if log_data['type'] == 'stdout':
             level = "INFO"
         elif log_data['type'] == 'stderr':
@@ -113,7 +101,7 @@ class CloudRunCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs) -> int:
+    def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         try:
             http = get_http()
         except ValueError:
@@ -121,28 +109,30 @@ class CloudRunCallback(SwanLabRunCallback):
             http = create_http(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
-        return http.mount_project(project, workspace, self.public).history_exp_count
-
-    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        self.settings = settings
+        http.mount_project(proj_name, workspace, public)
+        # 设置项目缓存
+        self.backup.cache_proj_name = proj_name
+        self.backup.cache_workspace = workspace
+        self.backup.cache_public = public
 
     def on_run(self, *args, **kwargs):
         http = get_http()
-        # 注册实验信息
+        # 1. 注册实验信息
         http.mount_exp(
             exp_name=self.settings.exp_name,
             colors=self.settings.exp_colors,
             description=self.settings.description,
             tags=self.settings.tags,
         )
-        # 注册终端输出流代理
+        # 2. 开启备份并备份实验
+
+        # 3. 注册终端输出流代理
         settings = get_settings()
-        if settings.log_proxy_type != "none":
-            swanlog.start_proxy(
-                proxy_type=settings.log_proxy_type,
-                max_log_length=settings.max_log_length,
-                handler=self._write_handler,
-            )
+        swanlog.start_proxy(
+            proxy_type=settings.log_proxy_type,
+            max_log_length=settings.max_log_length,
+            handler=self._terminal_handler,
+        )
         # 注册系统回调
         self._register_sys_callback()
         # 打印信息
