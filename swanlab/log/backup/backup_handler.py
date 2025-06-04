@@ -167,11 +167,11 @@ class BackupHandler:
         self.f.write(experiment.to_backup() + "\n")
 
     @async_io()
-    def backup_column(self, colum_info: ColumnInfo):
+    def backup_column(self, column_info: ColumnInfo):
         """
         备份指标列信息
         """
-        column = Column.from_column_info(colum_info)
+        column = Column.from_column_info(column_info)
         self.f.write(column.to_backup() + "\n")
 
     @async_io()

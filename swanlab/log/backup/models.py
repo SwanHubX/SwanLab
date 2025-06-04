@@ -150,8 +150,8 @@ class Runtime(BaseModel):
                 else None
             ),
             config=(
-                json.loads(open(os.path.join(file_dir, self.conda_filename), "r", encoding="utf-8").read())
-                if self.conda_filename
+                json.loads(open(os.path.join(file_dir, self.config_filename), "r", encoding="utf-8").read())
+                if self.config_filename
                 else None
             ),
         )
@@ -304,6 +304,7 @@ class Media(Metric):
                 buffer = MediaBuffer()
                 buffer.write(open(os.path.join(media_dir, str(self.kid), buffer_name), "rb").read())
                 buffer.file_name = "{}/{}".format(self.key_encoded, self.metric["data"][i])
+                buffers.append(buffer)
 
         return MediaModel(
             metric=self.metric,
