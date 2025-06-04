@@ -25,7 +25,7 @@ class LogContent(TypedDict):
 
 
 # 支持的代理类型
-ProxyType = Literal['all', 'stdout', 'stderr']
+ProxyType = Literal['all', 'stdout', 'stderr', 'none']
 # 支持的日志类型
 LogType = Literal['stdout', 'stderr']
 

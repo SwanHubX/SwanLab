@@ -20,7 +20,7 @@ from nanoid import generate
 
 import swanlab
 import tutils as T
-from swanlab import Image, Audio, Text
+from swanlab import Image, Audio, Text, SwanLabEnv
 from swanlab.data.modules import Line
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog, get_url, get_project_url
 from tutils import TEMP_PATH
@@ -46,6 +46,7 @@ class TestSwanLabRunInit:
         assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
 
     def test_after_init(self):
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
         run = SwanLabRun(generate())
         assert swanlog.proxied is False
         assert run is not None
@@ -56,6 +57,7 @@ class TestSwanLabRunInit:
         assert SwanLabRunState.SUCCESS == _run.state
 
     def test_duplicate_init(self):
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
         run = SwanLabRun(generate())
         with pytest.raises(RuntimeError) as e:
             SwanLabRun(generate())
@@ -70,6 +72,10 @@ class TestSwanLabRunState:
     """
     测试SwanLabRun的状态变化
     """
+
+    @staticmethod
+    def setup_method():
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
 
     def test_not_started(self):
         assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
@@ -99,6 +105,10 @@ class TestSwanLabRunLog:
     2. 一开始输入错误的类型，然后正常输入
     3. 一开始输入正确的类型，然后输入错误的类型
     """
+
+    @staticmethod
+    def setup_method():
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
 
     # ---------------------------------- 返回的列信息将包含id ----------------------------------
 
