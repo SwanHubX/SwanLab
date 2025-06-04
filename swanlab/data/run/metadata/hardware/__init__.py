@@ -9,6 +9,7 @@ from typing import Callable, List, Any, Optional, Tuple
 
 from .cpu import get_cpu_info
 from .disk import get_disk_info
+from .dcu.hygon import get_hygon_dcu_info
 from .gpu.nvidia import get_nvidia_gpu_info
 from .gpu.metax import get_metax_gpu_info
 from .gpu.moorethread import get_mtt_gpu_info
@@ -36,6 +37,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
     kunlunxin = dec_hardware_func(get_kunlunxin_xpu_info, monitor_funcs)
     metax = dec_hardware_func(get_metax_gpu_info, monitor_funcs)
+    hygon = dec_hardware_func(get_hygon_dcu_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
     d = dec_hardware_func(get_disk_info, monitor_funcs)
@@ -51,6 +53,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         "mlu": {},
         "xpu": {},
         "soc": {},
+        "dcu": {},
     }
     if nvidia is not None:
         info["gpu"]["nvidia"] = nvidia
@@ -66,6 +69,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["mlu"]["cambricon"] = cambricon
     if kunlunxin is not None:
         info["xpu"]["kunlunxin"] = kunlunxin
+    if hygon is not None:
+        info["dcu"]["hygon"] = hygon
     return filter_none(info, fallback={}), monitor_funcs
 
 
