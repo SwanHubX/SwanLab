@@ -10,4 +10,5 @@ boto3>=1.35.49
 botocore
 pydantic>=2.9.0
 pyecharts>=2.0.0
+wrapt>=1.17.0
 typing_extensions; python_version < '3.9'

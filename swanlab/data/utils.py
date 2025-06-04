@@ -209,7 +209,7 @@ def _create_operator(
         c.append(LocalRunCallback(backup=backup))
     # 1.4 . 备份模式
     elif mode == SwanLabMode.BACKUP.value:
-        c.append(BackupCallback())
+        c.append(BackupCallback(backup=True))
     # 1.5. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():

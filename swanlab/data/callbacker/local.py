@@ -10,7 +10,9 @@ from swankit.callback import ColumnInfo
 from swankit.log import FONT
 
 from swanlab.log.backup import backup
+from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
+from ..run import get_run
 
 try:
     # noinspection PyPackageRequirements
@@ -108,12 +110,7 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
-        if r.requirements is not None:
-            r.requirements.write(self.settings.files_dir)
-        if r.metadata is not None:
-            r.metadata.write(self.settings.files_dir)
-        if r.config is not None:
-            r.config.write(self.settings.files_dir)
+        write_runtime_info(self.settings.files_dir, r)
 
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
@@ -137,19 +134,8 @@ class LocalRunCallback(SwanLabRunCallback):
             f.write(json.dumps(metric_info.metric_summary, ensure_ascii=False))
         with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
-
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        if metric_info.metric_buffers is None:
-            return
-        for i, r in enumerate(metric_info.metric_buffers):
-            if r is None:
-                continue
-            # 组合路径
-            path = os.path.join(metric_info.swanlab_media_dir, metric_info.column_info.kid)
-            os.makedirs(path, exist_ok=True)
-            # 写入数据
-            with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
-                f.write(r.getvalue())
+        write_media_buffer(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         """
@@ -161,6 +147,8 @@ class LocalRunCallback(SwanLabRunCallback):
             with open(self.settings.error_path, "a") as fError:
                 print(datetime.now(), file=fError)
                 print(error, file=fError)
+
         # 打印信息
         self._watch_tip_print()
-        self.handle_stop(error)
+        self.backup.stop(error=error, epoch=get_run().swanlog_epoch + 1)
+        self._unregister_sys_callback()

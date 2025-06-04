@@ -85,6 +85,7 @@ class SwanLabRun:
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__mode = get_mode()
+        self.__swanlog_epoch = None
 
         # 1. disabled 模式所有功能关闭，不自动创建文件夹
         # 2. local 模式永远开启，此时永远自动创建文件夹
@@ -263,6 +264,14 @@ class SwanLabRun:
     def state(self) -> SwanLabRunState:
         return self.__state
 
+    @property
+    def swanlog_epoch(self) -> int:
+        """
+        The epoch of the current run, used for logging.
+        This is automatically set when the run is finished.
+        """
+        return self.__swanlog_epoch
+
     @classmethod
     def get_state(cls) -> SwanLabRunState:
         """
@@ -323,6 +332,7 @@ class SwanLabRun:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
+        setattr(run, "_SwanLabRun__swanlog_epoch", swanlog.epoch)
         # disabled 模式下没有install，所以会报错
         try:
             swanlog.reset()

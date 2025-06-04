@@ -168,8 +168,8 @@ class SwanLabRunCallback(SwanKitCallback, U):
         # 1. 开启备份并备份项目和实验
         self.backup.start(
             self.settings.run_dir,
+            files_dir=self.settings.files_dir,
             exp_name=self.settings.exp_name,
-            colors=self.settings.exp_colors,
             description=self.settings.description,
             tags=self.settings.tags,
         )
@@ -182,17 +182,6 @@ class SwanLabRunCallback(SwanKitCallback, U):
         )
         # 3. 注入系统回调
         self._register_sys_callback()
-
-    def handle_stop(self, error: str):
-        """
-        封装 on_stop 回调中的重复逻辑，包括：
-        1. 停止日志备份
-        2. 注销终端输出流代理
-        3. 注销系统回调
-        4. 设置 swanlab 运行状态为停止
-        """
-        self.backup.stop(error=error)
-        self._unregister_sys_callback()
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings

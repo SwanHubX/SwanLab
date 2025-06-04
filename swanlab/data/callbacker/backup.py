@@ -5,13 +5,14 @@
 @description: 日志备份回调
 """
 
-from swankit.callback import ColumnInfo, MetricInfo
+from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
 from swankit.log import FONT
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
 from swanlab.log.backup import backup
 from swanlab.log.type import LogData
+from ..run import get_run
 
 
 class BackupCallback(SwanLabRunCallback):
@@ -53,6 +54,10 @@ class BackupCallback(SwanLabRunCallback):
         swanlog.info("Backing up run " + FONT.yellow(self.settings.exp_name) + " locally")
         self._sync_tip_print()
 
+    @backup('runtime')
+    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
+        pass
+
     @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         pass
@@ -63,7 +68,5 @@ class BackupCallback(SwanLabRunCallback):
 
     def on_stop(self, error: str = None, *args, **kwargs):
         self._sync_tip_print()
-        # 停止备份处理器
-        self.backup.stop(error=error)
-        # 取消注册系统回调
+        self.backup.stop(error=error, epoch=get_run().swanlog_epoch + 1)
         self._unregister_sys_callback()

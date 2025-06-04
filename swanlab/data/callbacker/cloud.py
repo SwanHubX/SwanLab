@@ -6,7 +6,6 @@
     云端回调
 """
 
-import json
 import sys
 from typing import Literal
 
@@ -192,15 +191,6 @@ class CloudRunCallback(SwanLabRunCallback):
             scalar = ScalarModel(metric, key, step, epoch)
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据
-
-        # -------------------------- 🤡这里是一点小小的💩 --------------------------
-        # 要求上传时的文件路径必须带key_encoded前缀
-        if metric_info.metric_buffers is not None:
-            metric = json.loads(json.dumps(metric))
-            for i, d in enumerate(metric["data"]):
-                metric["data"][i] = "{}/{}".format(key_encoded, d)
-        # ------------------------------------------------------------------------
-
         media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
@@ -217,7 +207,7 @@ class CloudRunCallback(SwanLabRunCallback):
         self.exiting = True
         state = run.state
         sys.excepthook = self._except_handler
-        self.backup.stop(error=error)
+        swanlog_epoch = run.swanlog_epoch
 
         def _():
             # 关闭线程池，等待上传线程完成
@@ -226,9 +216,10 @@ class CloudRunCallback(SwanLabRunCallback):
             if error is not None:
                 logs = LogModel(
                     level="ERROR",
-                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
+                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
                 )
                 upload_logs([logs])
+            self.backup.stop(error=error, epoch=swanlog_epoch + 1)
             get_http().update_state(state == SwanLabRunState.SUCCESS)
 
         FONT.loading("Waiting for uploading complete", _)

@@ -7,23 +7,29 @@
 
 import os.path
 from concurrent.futures import ThreadPoolExecutor
-from typing import Tuple, List, Optional, TextIO
+from typing import List, Optional, TextIO
 
+import wrapt
+from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
+from swankit.env import create_time
+
+from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime
+from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
 
 
 def enable_check(enable_attr: str = "enable"):
-    """装饰器工厂，根据实例属性决定是否执行函数"""
+    """
+    饰器工厂，根据实例属性决定是否执行函数
+    """
 
-    def decorator(func):
-        def wrapper(obj: "BackupHandler", *args, **kwargs):
-            if getattr(obj, enable_attr, False):
-                return func(obj, *args, **kwargs)
-            return None
+    @wrapt.decorator
+    def wrapper(wrapped, instance, args, kwargs):
+        if getattr(instance, enable_attr, False):
+            return wrapped(*args, **kwargs)
+        return None
 
-        return wrapper
-
-    return decorator
+    return wrapper
 
 
 def async_io():
@@ -33,19 +39,16 @@ def async_io():
     这样能够避免在主线程中执行 IO 密集型操作，提升性能
     """
 
-    def decorator(func):
-        @enable_check()
-        def wrapper(obj: "BackupHandler", *args, **kwargs):
-            # 与 https://github.com/SwanHubX/SwanLab/issues/889 相同的问题
-            # 在回调中线程池已经关闭，我们需要在主线程中执行
-            executor: Optional[ThreadPoolExecutor] = getattr(obj, "executor")
-            if executor is None or executor._shutdown:
-                return func(*args, **kwargs)
-            executor.submit(func, *args, **kwargs)
+    @wrapt.decorator
+    def wrapper(wrapped, instance, args, kwargs):
+        # 与 https://github.com/SwanHubX/SwanLab/issues/889 相同的问题
+        # 在回调中线程池已经关闭，我们需要在主线程中执行
+        executor: Optional[ThreadPoolExecutor] = getattr(instance, "executor")
+        if executor is None or executor._shutdown:
+            return wrapped(*args, **kwargs)
+        executor.submit(wrapped, *args, **kwargs)
 
-        return wrapper
-
-    return decorator
+    return wrapper
 
 
 class BackupHandler:
@@ -62,6 +65,8 @@ class BackupHandler:
         self.executor: Optional[ThreadPoolExecutor] = None
         # 日志文件写入句柄
         self.f: Optional[TextIO] = None
+        # 运行时文件备份目录
+        self.files_dir: Optional[str] = None
 
         # 动态设置包括项目名在内的一些属性，因为在 on_run 之前句柄还未创建，所以需要先缓存，等执行对应的函数的时候再使用
         self.cache_proj_name = None
@@ -69,7 +74,7 @@ class BackupHandler:
         self.cache_public = None
 
     @enable_check()
-    def start(self, run_dir: str, exp_name: str, colors: Tuple[str, str], description: str, tags: List[str]):
+    def start(self, run_dir: str, files_dir: str, exp_name: str, description: str, tags: List[str]):
         """
         开启备份处理器，创建日志文件句柄
         此函数的功能包括：
@@ -78,6 +83,7 @@ class BackupHandler:
         3. 在日志文件头写入当前备份类型和一些元信息
         4. 写入项目、实验备份
         """
+        self.files_dir = files_dir
         # 创建线程池执行器，每次只会有一个线程在执行，这样的设计原因为：
         # 1. io 操作不会特别耗时
         # 2. 避免多线程写入同一文件导致数据混乱
@@ -85,16 +91,22 @@ class BackupHandler:
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.f = open(os.path.join(run_dir, "backup.swanlab"), "a", encoding="utf-8")
         # TODO 在日志头写入当前备份类型和一些元信息
+        self.backup_proj()
+        self.backup_exp(exp_name, description, tags)
 
     @enable_check()
-    def stop(self, error: str = None):
+    def stop(self, epoch: int, error: str = None):
         """
         停止备份处理器
+        :param epoch: int, 日志行数
         :param error: str, 如果有错误信息，则在日志中记录
         """
         # 同步停止
         self.executor.shutdown(wait=True)
-        # TODO 如果有错误信息则在日志中记录
+        # 如果有错误信息则在日志中记录
+        if error is not None:
+            log = Log.model_validate({"level": "ERROR", "message": error, "create_time": create_time(), "epoch": epoch})
+            self.f.write(log.to_backup() + "\n")
         # 关闭日志文件句柄
         self.f.close()
 
@@ -103,42 +115,62 @@ class BackupHandler:
         """
         备份终端输出
         """
-        self.f.write(str(log_data) + "\n")
+        logs = Log.from_log_data(log_data)
+        for log in logs:
+            self.f.write(log.to_backup() + "\n")
 
     @async_io()
     def backup_proj(self):
         """
         备份项目信息
         """
-        pass
+        project = Project.model_validate(
+            {
+                "name": self.cache_proj_name,
+                "workspace": self.cache_workspace,
+                "public": self.cache_public,
+            }
+        )
+        self.f.write(project.to_backup() + "\n")
 
     @async_io()
-    def backup_exp(self, exp_name: str, colors: Tuple[str, str], description: str, tags: List[str]):
+    def backup_exp(self, exp_name: str, description: str, tags: List[str]):
         """
         备份实验信息
         """
-        pass
+        experiment = Experiment.model_validate(
+            {
+                "name": exp_name,
+                "description": description,
+                "tags": tags,
+            }
+        )
+        self.f.write(experiment.to_backup() + "\n")
 
     @async_io()
-    def backup_column(self):
+    def backup_column(self, colum_info: ColumnInfo):
         """
         备份指标列信息
         """
-        pass
+        column = Column.from_column_info(colum_info)
+        self.f.write(column.to_backup() + "\n")
 
     @async_io()
-    def backup_metric(self):
+    def backup_runtime(self, runtime_info: RuntimeInfo):
+        """
+        备份运行时信息
+        """
+        runtime = Runtime.from_runtime_info(runtime_info)
+        self.f.write(runtime.to_backup() + "\n")
+        write_runtime_info(self.files_dir, runtime_info)
+
+    @async_io()
+    def backup_metric(self, metric_info: MetricInfo):
         """
         备份指标信息
         """
-        pass
-
-    @async_io()
-    def backup_media(self):
-        """
-        备份媒体文件信息
-        """
-        pass
+        # TODO 写入日志文件
+        write_media_buffer(metric_info)
 
 
 def backup(method: str):
@@ -146,14 +178,12 @@ def backup(method: str):
     备份装饰器，用于在方法执行前进行备份操作
     """
 
-    def decorator(func):
-        def wrapper(obj, *args, **kwargs):
-            # 执行备份操作
-            backup_obj = getattr(obj, "backup")
-            getattr(backup_obj, f"backup_{method}")(backup_obj, *args, **kwargs)
-            # 执行原方法
-            func(obj, *args, **kwargs)
+    @wrapt.decorator
+    def wrapper(wrapped, obj, args, kwargs):
+        # 执行备份操作
+        backup_obj = getattr(obj, "backup")
+        getattr(backup_obj, f"backup_{method}")(*args, **kwargs)
+        # 执行原方法
+        wrapped(*args, **kwargs)
 
-        return wrapper
-
-    return decorator
+    return wrapper

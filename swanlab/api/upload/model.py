@@ -7,6 +7,7 @@ r"""
 @Description:
     上传请求模型
 """
+import json
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, TypedDict, Literal
@@ -123,6 +124,15 @@ class MediaModel:
         epoch: int,
         buffers: List[MediaBuffer] = None,
     ):
+
+        # -------------------------- 🤡这里是一点小小的💩 --------------------------
+        # 要求上传时的文件路径必须带key_encoded前缀
+        if buffers is not None:
+            metric = json.loads(json.dumps(metric))
+            for i, d in enumerate(metric["data"]):
+                metric["data"][i] = "{}/{}".format(key_encoded, d)
+        # ------------------------------------------------------------------------
+
         self.metric = metric
         self.step = step
         self.epoch = epoch
