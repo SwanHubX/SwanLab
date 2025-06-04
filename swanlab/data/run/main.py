@@ -323,14 +323,13 @@ class SwanLabRun:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
-        # 退出回调
-        getattr(run, "_SwanLabRun__cleanup")(error)
+        # disabled 模式下没有install，所以会报错
         try:
             swanlog.reset()
         except RuntimeError:
-            # disabled 模式下没有install，所以会报错
             pass
-
+        # 退出回调
+        getattr(run, "_SwanLabRun__cleanup")(error)
         # ---------------------------------- 清空config和run以及其他副作用 ----------------------------------
         # 1. 清空config对象
         _config = SwanLabConfig(config)

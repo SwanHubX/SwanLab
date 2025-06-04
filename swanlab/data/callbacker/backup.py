@@ -5,12 +5,13 @@
 @description: 日志备份回调
 """
 
-from swankit.callback import RuntimeInfo, ColumnInfo, MetricInfo
+from swankit.callback import ColumnInfo, MetricInfo
+from swankit.log import FONT
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
+from swanlab.log.backup import backup
 from swanlab.log.type import LogData
-from swanlab.swanlab_settings import get_settings
 
 
 class BackupCallback(SwanLabRunCallback):
@@ -21,7 +22,17 @@ class BackupCallback(SwanLabRunCallback):
         return "SwanLabBackupCallback"
 
     # ---------------------------------- 辅助函数 ----------------------------------
+    def _sync_tip_print(self):
+        """
+        提示用户可以通过命令上传日志到远程服务器
+        """
+        swanlog.info(
+            "☁️ Run `"
+            + FONT.bold("swanlab sync {}".format(self.fmt_windows_path(self.settings.run_dir)))
+            + "` to sync logs to remote server"
+        )
 
+    @backup("terminal")
     def _terminal_handler(self, log_data: LogData):
         """
         终端输出写入操作
@@ -37,22 +48,22 @@ class BackupCallback(SwanLabRunCallback):
         self.backup.cache_public = public
 
     def on_run(self, *args, **kwargs):
-        # 1. 注册终端输出流代理
-        settings = get_settings()
-        swanlog.start_proxy(
-            proxy_type=settings.log_proxy_type,
-            max_log_length=settings.max_log_length,
-            handler=self._terminal_handler,
-        )
+        self.handle_run()
+        self._train_begin_print(self.settings.run_dir)
+        swanlog.info("Backing up run " + FONT.yellow(self.settings.exp_name) + " locally")
+        self._sync_tip_print()
 
-    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
-        pass
-
+    @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         pass
 
+    @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         pass
 
     def on_stop(self, error: str = None, *args, **kwargs):
-        pass
+        self._sync_tip_print()
+        # 停止备份处理器
+        self.backup.stop(error=error)
+        # 取消注册系统回调
+        self._unregister_sys_callback()

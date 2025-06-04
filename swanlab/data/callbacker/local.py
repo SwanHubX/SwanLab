@@ -9,8 +9,8 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 from swankit.callback import ColumnInfo
 from swankit.log import FONT
 
+from swanlab.log.backup import backup
 from swanlab.log.type import LogData
-from swanlab.swanlab_settings import get_settings
 
 try:
     # noinspection PyPackageRequirements
@@ -60,6 +60,7 @@ class LocalRunCallback(SwanLabRunCallback):
             + "` to view SwanLab Experiment Dashboard locally"
         )
 
+    @backup("terminal")
     def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
         if self.file is None:
@@ -100,19 +101,9 @@ class LocalRunCallback(SwanLabRunCallback):
         self.board.before_init_experiment(run_id, exp_name, description, colors=colors, num=1)
 
     def on_run(self):
-        # 1. 注册终端输出流代理
-        settings = get_settings()
-        swanlog.start_proxy(
-            proxy_type=settings.log_proxy_type,
-            max_log_length=settings.max_log_length,
-            handler=self._terminal_handler,
-        )
-        # 2. 开启备份
-        self.backup.start(self.settings.run_dir)
-        # 2. 注入系统回调
-        self._register_sys_callback()
-        # 3. 打印信息
-        self._train_begin_print()
+        self.handle_run()
+        # 打印信息
+        self._train_begin_print(self.settings.run_dir)
         self._watch_tip_print()
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
@@ -127,9 +118,11 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
 
+    @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         self.board.on_column_create(column_info)
 
+    @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 出现任何错误直接返回
         if metric_info.error:
@@ -170,7 +163,4 @@ class LocalRunCallback(SwanLabRunCallback):
                 print(error, file=fError)
         # 打印信息
         self._watch_tip_print()
-        # 取消注册系统回调
-        self._unregister_sys_callback()
-
-        self.board.on_stop()
+        self.handle_stop(error)

@@ -23,6 +23,7 @@ from swanlab.log import swanlog
 from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.package import get_package_version
+from swanlab.swanlab_settings import get_settings
 
 
 def error_print(tp):
@@ -91,9 +92,9 @@ class U:
         swanlog.debug("SwanLab Runtime has initialized")
         swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
         swanlog.info("Tracking run with swanlab version " + get_package_version())
-        save_dir = save_dir if save_dir is not None else self.settings.run_dir
-        local_path = FONT.magenta(FONT.bold(self.fmt_windows_path(save_dir)))
-        swanlog.info("Run data will be saved locally in " + local_path)
+        if save_dir is not None:
+            local_path = FONT.magenta(FONT.bold(self.fmt_windows_path(save_dir)))
+            swanlog.info("Run data will be saved locally in " + local_path)
 
     def _train_finish_print(self):
         """
@@ -112,7 +113,7 @@ class SwanLabRunCallback(SwanKitCallback, U):
     4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
 
-    def __init__(self, backup=True):
+    def __init__(self, backup=False):
         super(U, self).__init__()
         self.backup = BackupHandler(enable=backup)
 
@@ -156,6 +157,42 @@ class SwanLabRunCallback(SwanKitCallback, U):
         get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
         if tp != KeyboardInterrupt:
             print(traceback_error(tb, tp(val)), file=sys.stderr)
+
+    def handle_run(self):
+        """
+        封装 on_run 回调中的重复逻辑，包括：
+        1. 开启日志备份
+        2. 注册终端输出流代理
+        3. 注册系统回调
+        """
+        # 1. 开启备份并备份项目和实验
+        self.backup.start(
+            self.settings.run_dir,
+            exp_name=self.settings.exp_name,
+            colors=self.settings.exp_colors,
+            description=self.settings.description,
+            tags=self.settings.tags,
+        )
+        # 2. 注册终端输出流代理
+        settings = get_settings()
+        swanlog.start_proxy(
+            proxy_type=settings.log_proxy_type,
+            max_log_length=settings.max_log_length,
+            handler=self._terminal_handler,
+        )
+        # 3. 注入系统回调
+        self._register_sys_callback()
+
+    def handle_stop(self, error: str):
+        """
+        封装 on_stop 回调中的重复逻辑，包括：
+        1. 停止日志备份
+        2. 注销终端输出流代理
+        3. 注销系统回调
+        4. 设置 swanlab 运行状态为停止
+        """
+        self.backup.stop(error=error)
+        self._unregister_sys_callback()
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         self.settings = settings
