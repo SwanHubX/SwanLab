@@ -5,33 +5,29 @@
 @description: MooreThread GPU信息采集
 """
 
+import json
 import math
 import platform
 import subprocess
-import json
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from ..type import (
-    HardwareFuncResult,
-    HardwareInfoList,
-    HardwareConfig,
-    HardwareCollector as H,
-)
+from ..type import HardwareCollector as H
+from ..type import HardwareConfig, HardwareFuncResult, HardwareInfoList
 from ..utils import generate_key, random_index
 
 
-def get_mtt_gpu_info() -> HardwareFuncResult:
+def get_moorethreads_gpu_info() -> HardwareFuncResult:
     """
-    获取MTT GPU信息，包括驱动版本、设备信息等
+    获取MooreThreads GPU信息，包括驱动版本、设备信息等
     """
-    # MTT GPU只支持Linux系统
+    # MooreThreads GPU只支持Linux系统
     if platform.system() != "Linux":
         return None, None
 
     info = {"driver": None, "gpu": None}
     collector = None
     try:
-        driver, gpu_map = map_mtt_gpu()
+        driver, gpu_map = map_moorethreads_gpu()
         info["driver"] = driver
         info["gpu"] = gpu_map
         collector = MTTCollector(gpu_map)
@@ -41,15 +37,13 @@ def get_mtt_gpu_info() -> HardwareFuncResult:
     return info, collector
 
 
-def map_mtt_gpu() -> Tuple[Optional[str], dict]:
+def map_moorethreads_gpu() -> Tuple[Optional[str], dict]:
     """
-    获取 mtt gpu 信息，包括驱动版本、设备信息等，例如：
+    获取 Moore Threads GPU信息，包括驱动版本、设备信息等，例如：
     driver: '2.7.0'
     gpu_map: {"0": { "name": "MTT S4000”, "memory": "48GB"}, "1": { "name": "MTT S4000", "memory": "48GB"}, ...}
     """
-    output_str = subprocess.run(
-        ["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True
-    ).stdout
+    output_str = subprocess.run(["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True).stdout
     output_json = json.loads(output_str)
     driver = None
     gpu_map = {}
@@ -119,18 +113,10 @@ class MTTCollector(H):
 
         for gpu_id in self.gpu_map:
             metric_name = f"GPU {gpu_id}"
-            self.per_util_configs[metric_name] = util_config.clone(
-                metric_name=metric_name
-            )
-            self.per_memory_configs[metric_name] = memory_config.clone(
-                metric_name=metric_name
-            )
-            self.per_temp_configs[metric_name] = temp_config.clone(
-                metric_name=metric_name
-            )
-            self.per_power_configs[metric_name] = power_config.clone(
-                metric_name=metric_name
-            )
+            self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
+            self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
+            self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
+            self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
@@ -224,9 +210,7 @@ class MTTCollector(H):
                 "config": self.per_temp_configs[f"GPU {gpu_id}"],
             }
             # 解析温度
-            gpu_temp = (
-                gpu_info["Temperature"]["GPU Current Temp"].replace("C", "").strip()
-            )
+            gpu_temp = gpu_info["Temperature"]["GPU Current Temp"].replace("C", "").strip()
             temp_infos[gpu_id]["value"] = float(gpu_temp)
         return temp_infos
 
@@ -250,8 +234,6 @@ class MTTCollector(H):
                 "value": math.nan,
                 "config": self.per_power_configs[f"GPU {gpu_id}"],
             }
-            gpu_power = (
-                gpu_info["Power Readings"]["Power Draw "].strip().replace("W", "")
-            )
+            gpu_power = gpu_info["Power Readings"]["Power Draw "].strip().replace("W", "")
             power_infos[gpu_id]["value"] = float(gpu_power)
         return power_infos
