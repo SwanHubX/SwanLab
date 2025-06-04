@@ -195,8 +195,6 @@ class CloudRunCallback(SwanLabRunCallback):
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None, *args, **kwargs):
-        # 打印信息
-        self._view_web_print()
         run = get_run()
         # 如果正在退出或者run对象为None或者不在云端环境下，则不执行任何操作
         # 原因是在云端环境下退出时会新建一个线程完成上传日志等操作，此时回调会重复执行
@@ -205,9 +203,12 @@ class CloudRunCallback(SwanLabRunCallback):
             return swanlog.debug("SwanLab is exiting or run is None, ignore it.")
         # ---------------------------------- 正在退出 ----------------------------------
         self.exiting = True
+        # 打印信息
+        self._view_web_print()
         state = run.state
         sys.excepthook = self._except_handler
         swanlog_epoch = run.swanlog_epoch
+        self.backup.stop(error=error, epoch=swanlog_epoch + 1)
 
         def _():
             # 关闭线程池，等待上传线程完成
@@ -219,7 +220,6 @@ class CloudRunCallback(SwanLabRunCallback):
                     contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
                 )
                 upload_logs([logs])
-            self.backup.stop(error=error, epoch=swanlog_epoch + 1)
             get_http().update_state(state == SwanLabRunState.SUCCESS)
 
         FONT.loading("Waiting for uploading complete", _)

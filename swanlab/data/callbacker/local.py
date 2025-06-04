@@ -117,15 +117,18 @@ class LocalRunCallback(SwanLabRunCallback):
 
     @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
+        # 屏蔽 board 不支持的图表类型和列类型
+        if column_info.chart_type.value.chart_type not in ["line", "image", "audio", "text"]:
+            return
+        if column_info.cls != "CUSTOM":
+            return
         self.board.on_column_create(column_info)
 
     @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
+        # 对于指标保存，可以随意保存，因为这里与 dashboard 没有直接交互
         # 出现任何错误直接返回
         if metric_info.error:
-            return
-        # 屏蔽非自定义指标，因为现在本地不支持系统指标
-        if metric_info.column_info.cls != "CUSTOM":
             return
         # ---------------------------------- 保存指标数据 ----------------------------------
         self.settings.mkdir(os.path.dirname(metric_info.metric_file_path))

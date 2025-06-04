@@ -13,26 +13,27 @@ import wrapt
 from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
 from swankit.env import create_time
 
-from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime
+from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
+from swanlab.package import get_package_version
 
 
-def enable_check(enable_attr: str = "enable"):
+def enable_check():
     """
     饰器工厂，根据实例属性决定是否执行函数
     """
 
     @wrapt.decorator
     def wrapper(wrapped, instance, args, kwargs):
-        if getattr(instance, enable_attr, False):
+        if getattr(instance, "enable", False):
             return wrapped(*args, **kwargs)
         return None
 
     return wrapper
 
 
-def async_io():
+def async_io(sync: bool = False):
     """
     类实例异步 IO 方法装饰器，判断是否需要备份
     BackupHandler 实例携带一个线程池，使用此装饰器可以将被装饰的方法放入线程池中执行
@@ -41,8 +42,15 @@ def async_io():
 
     @wrapt.decorator
     def wrapper(wrapped, instance, args, kwargs):
+        if not getattr(instance, "enable", False):
+            return
+        if getattr(instance, "f", None) is None:
+            return
         # 与 https://github.com/SwanHubX/SwanLab/issues/889 相同的问题
         # 在回调中线程池已经关闭，我们需要在主线程中执行
+        if sync:
+            return wrapped(*args, **kwargs)
+
         executor: Optional[ThreadPoolExecutor] = getattr(instance, "executor")
         if executor is None or executor._shutdown:
             return wrapped(*args, **kwargs)
@@ -56,7 +64,7 @@ class BackupHandler:
     备份处理器，负责处理日志备份相关的操作
     """
 
-    def __init__(self, enable: bool = True, backup_type: str = "DEFAULT"):
+    def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_media: bool = True):
         super().__init__()
         # 是否启用备份
         self.enable = enable
@@ -67,6 +75,7 @@ class BackupHandler:
         self.f: Optional[TextIO] = None
         # 运行时文件备份目录
         self.files_dir: Optional[str] = None
+        self.save_media: bool = save_media
 
         # 动态设置包括项目名在内的一些属性，因为在 on_run 之前句柄还未创建，所以需要先缓存，等执行对应的函数的时候再使用
         self.cache_proj_name = None
@@ -90,7 +99,16 @@ class BackupHandler:
         # 3. 部分用户会将 swanlog 文件夹挂载在 NAS 等对写入并发有限制的存储设备上
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.f = open(os.path.join(run_dir, "backup.swanlab"), "a", encoding="utf-8")
-        # TODO 在日志头写入当前备份类型和一些元信息
+        self.f.write(
+            Header.model_validate(
+                {
+                    "create_time": create_time(),
+                    "version": get_package_version(),
+                    "backup_type": self.backup_type,
+                }
+            ).to_backup()
+            + "\n"
+        )
         self.backup_proj()
         self.backup_exp(exp_name, description, tags)
 
@@ -109,6 +127,7 @@ class BackupHandler:
             self.f.write(log.to_backup() + "\n")
         # 关闭日志文件句柄
         self.f.close()
+        self.f = None
 
     @async_io()
     def backup_terminal(self, log_data: LogData):
@@ -169,8 +188,10 @@ class BackupHandler:
         """
         备份指标信息
         """
-        # TODO 写入日志文件
-        write_media_buffer(metric_info)
+        metric = Metric.from_metric_info(metric_info)
+        self.f.write(metric.to_backup() + "\n")
+        if self.save_media:
+            write_media_buffer(metric_info)
 
 
 def backup(method: str):

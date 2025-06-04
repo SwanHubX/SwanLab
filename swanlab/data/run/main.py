@@ -149,16 +149,11 @@ class SwanLabRun:
                 metadata=metadata,
             )
         )
-        # 定时采集系统信息，目前仅cloud模式支持
+        # 定时采集系统信息
         self.monitor_cron = None
-        if self.mode == "cloud":
-            if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
-                swanlog.debug("Monitor on.")
-                self.monitor_cron = MonitorCron(self.__get_monitor_func())
-            else:
-                swanlog.debug("Monitor off because of no monitor func.")
-        else:
-            swanlog.debug("Monitor off.")
+        if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
+            swanlog.debug("Monitor on.")
+            self.monitor_cron = MonitorCron(self.__get_monitor_func())
 
     def __get_monitor_func(self):
         """
@@ -333,13 +328,13 @@ class SwanLabRun:
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
         setattr(run, "_SwanLabRun__swanlog_epoch", swanlog.epoch)
+        # 退出回调
+        getattr(run, "_SwanLabRun__cleanup")(error)
         # disabled 模式下没有install，所以会报错
         try:
             swanlog.reset()
         except RuntimeError:
             pass
-        # 退出回调
-        getattr(run, "_SwanLabRun__cleanup")(error)
         # ---------------------------------- 清空config和run以及其他副作用 ----------------------------------
         # 1. 清空config对象
         _config = SwanLabConfig(config)
