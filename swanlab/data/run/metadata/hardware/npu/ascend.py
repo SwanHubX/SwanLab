@@ -156,6 +156,14 @@ class AscendCollector(H):
             chart_name="NPU Temperature (℃)",
         )
         self.per_temp_configs = {}
+        # NPU Power Usage (W)
+        self.power_key = generate_key("npu.{npu_index}.power")
+        power_config = HardwareConfig(
+            y_range=(0, None),
+            chart_index=random_index(),
+            chart_name="NPU Power Usage (W)",
+        )
+        self.per_power_config = {}
 
         for npu_id in npu_map:
             for chip_id in npu_map[npu_id]:
@@ -163,6 +171,7 @@ class AscendCollector(H):
                 self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
                 self.per_hbm_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
                 self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
+                self.per_power_config[metric_name] = power_config.clone(metric_name=metric_name)
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
@@ -170,6 +179,7 @@ class AscendCollector(H):
             for chip_id in self.npu_map[npu_id]:
                 result.extend(self.get_usage(npu_id, chip_id))
                 result.append(self.get_chip_temp(npu_id, chip_id))
+                result.append(self.get_chip_power(npu_id, chip_id))
         return result
 
     def get_usage(self, npu_id: str, chip_id: str) -> HardwareInfoList:
@@ -230,6 +240,24 @@ class AscendCollector(H):
             "name": f"{metric_name} Temperature (℃)",
             "value": temp,
             "config": self.per_temp_configs[metric_name],
+        }
+
+    def get_chip_power(self, npu_id: str, chip_id: str) -> HardwareInfo:
+        """
+        获取芯片功耗信息
+        """
+        output = subprocess.run(
+            ["npu-smi", "info", "-t", "power", "-i", npu_id, "-c", chip_id],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        power = float(output.split(":")[-1].strip())
+        _id, metric_name = self.get_label(npu_id, chip_id)
+        return {
+            "key": self.power_key.format(npu_index=_id),
+            "name": f"{metric_name} Power Usage (W)",
+            "value": power,
+            "config": self.per_power_config[metric_name],
         }
 
     @staticmethod
