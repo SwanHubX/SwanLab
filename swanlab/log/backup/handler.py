@@ -65,6 +65,8 @@ class BackupHandler:
     备份处理器，负责处理日志备份相关的操作
     """
 
+    BACKUP_FILE = "backup.swanlab"
+
     def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_media: bool = True):
         super().__init__()
         # 是否启用备份
@@ -99,7 +101,7 @@ class BackupHandler:
         # 2. 避免多线程写入同一文件导致数据混乱
         # 3. 部分用户会将 swanlog 文件夹挂载在 NAS 等对写入并发有限制的存储设备上
         self.executor = ThreadPoolExecutor(max_workers=1)
-        self.f.open_for_write(os.path.join(run_dir, "backup.swanlab"))
+        self.f.open_for_write(os.path.join(run_dir, self._BACKUP_FILE))
         self.f.write(
             Header.model_validate(
                 {

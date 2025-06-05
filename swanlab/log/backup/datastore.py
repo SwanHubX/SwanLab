@@ -139,6 +139,16 @@ class DataStore:
             data += new_data
         return bytestostr(data)
 
+    def __iter__(self):
+        assert self._opened_for_scan, "file not open for scanning, cannot iterate"
+        return self
+
+    def __next__(self):
+        record = self.scan()
+        if record is None:
+            raise StopIteration("End of file reached")
+        return record
+
     # ---------------------------------- 写入 ----------------------------------
 
     def open_for_write(self, filename: str):

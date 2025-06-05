@@ -33,6 +33,9 @@ cli.add_command(C.watch)  # 启动服务
 # noinspection PyTypeChecker
 cli.add_command(C.convert)  # 转换命令，用于转换其他实验跟踪工具
 
+# noinspection PyTypeChecker
+cli.add_command(C.sync)  # 同步命令，用于同步本地数据到云端
+
 
 if __name__ == "__main__":
     cli()
