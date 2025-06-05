@@ -5,7 +5,7 @@
 @description: 日志备份处理模块
 """
 
-from .backup_handler import BackupHandler, backup
+from .handler import BackupHandler, backup
 
 
 __all__ = ["BackupHandler", "backup"]
