@@ -9,9 +9,10 @@ from typing import Callable, List, Any, Optional, Tuple
 
 from .cpu import get_cpu_info
 from .disk import get_disk_info
+from .dcu.hygon import get_hygon_dcu_info
 from .gpu.nvidia import get_nvidia_gpu_info
 from .gpu.metax import get_metax_gpu_info
-from .gpu.moorethread import get_mtt_gpu_info
+from .gpu.moorethreads import get_moorethreads_gpu_info
 from .memory import get_memory_size
 from .mlu.cambricon import get_cambricon_mlu_info
 from .xpu.kunlunxin import get_kunlunxin_xpu_info
@@ -30,12 +31,13 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     monitor_funcs = []
     # 我们希望计算芯片的信息放在最前面，前端展示用
     nvidia = dec_hardware_func(get_nvidia_gpu_info, monitor_funcs)
-    moorethread = dec_hardware_func(get_mtt_gpu_info, monitor_funcs)
+    moorethreads = dec_hardware_func(get_moorethreads_gpu_info, monitor_funcs)
     ascend = dec_hardware_func(get_ascend_npu_info, monitor_funcs)
     cambricon = dec_hardware_func(get_cambricon_mlu_info, monitor_funcs)
     apple = dec_hardware_func(get_apple_chip_info, monitor_funcs)
     kunlunxin = dec_hardware_func(get_kunlunxin_xpu_info, monitor_funcs)
     metax = dec_hardware_func(get_metax_gpu_info, monitor_funcs)
+    hygon = dec_hardware_func(get_hygon_dcu_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
     d = dec_hardware_func(get_disk_info, monitor_funcs)
@@ -51,11 +53,12 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         "mlu": {},
         "xpu": {},
         "soc": {},
+        "dcu": {},
     }
     if nvidia is not None:
         info["gpu"]["nvidia"] = nvidia
-    if moorethread is not None:
-        info["gpu"]["moorethread"] = moorethread
+    if moorethreads is not None:
+        info["gpu"]["moorethreads"] = moorethreads
     if metax is not None:
         info["gpu"]["metax"] = metax
     if ascend is not None:
@@ -66,6 +69,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["mlu"]["cambricon"] = cambricon
     if kunlunxin is not None:
         info["xpu"]["kunlunxin"] = kunlunxin
+    if hygon is not None:
+        info["dcu"]["hygon"] = hygon
     return filter_none(info, fallback={}), monitor_funcs
 
 
