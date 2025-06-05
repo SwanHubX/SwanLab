@@ -12,7 +12,7 @@ DataStore 大致代码借鉴自 W&B
 import os
 import struct
 import zlib
-from typing import Optional, Any, IO
+from typing import Optional, Any, IO, Tuple
 
 LEVELDBLOG_HEADER_LEN = 7
 LEVELDBLOG_BLOCK_LEN = 32768
@@ -83,7 +83,7 @@ class DataStore:
             raise Exception("Invalid header")
         self._index += len(header)
 
-    def _scan_record(self) -> Optional[tuple[int, bytes]]:
+    def _scan_record(self) -> Optional[Tuple[int, bytes]]:
         """
         扫描一条记录
         """
@@ -103,7 +103,7 @@ class DataStore:
         assert checksum == checksum_computed, "record checksum is invalid, data may be corrupt"
         self._index += data_length
         # 3. 返回数据
-        return data_type, data
+        return int(data_type), data
 
     def scan(self) -> Optional[str]:
         """
