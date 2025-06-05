@@ -1,18 +1,19 @@
 """
 @author: cunyue
-@file: backup_handler.py
+@file: handler.py
 @time: 2025/6/4 12:43
-@description: 备份处理器，负责出入日志备份写入操作
+@description: 备份处理器，负责日志编解码和写入操作
 """
 
-import os.path
+import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional, TextIO
+from typing import List, Optional
 
 import wrapt
 from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
 from swankit.env import create_time
 
+from swanlab.log.backup.datastore import DataStore
 from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
@@ -72,7 +73,7 @@ class BackupHandler:
         # 线程执行器
         self.executor: Optional[ThreadPoolExecutor] = None
         # 日志文件写入句柄
-        self.f: Optional[TextIO] = None
+        self.f = DataStore()
         # 运行时文件备份目录
         self.files_dir: Optional[str] = None
         self.save_media: bool = save_media
@@ -98,7 +99,7 @@ class BackupHandler:
         # 2. 避免多线程写入同一文件导致数据混乱
         # 3. 部分用户会将 swanlog 文件夹挂载在 NAS 等对写入并发有限制的存储设备上
         self.executor = ThreadPoolExecutor(max_workers=1)
-        self.f = open(os.path.join(run_dir, "backup.swanlab"), "a", encoding="utf-8")
+        self.f.open_for_write(os.path.join(run_dir, "backup.swanlab"))
         self.f.write(
             Header.model_validate(
                 {
@@ -106,8 +107,7 @@ class BackupHandler:
                     "version": get_package_version(),
                     "backup_type": self.backup_type,
                 }
-            ).to_backup()
-            + "\n"
+            ).to_record()
         )
         self.backup_proj()
         self.backup_exp(exp_name, description, tags)
@@ -124,8 +124,9 @@ class BackupHandler:
         # 如果有错误信息则在日志中记录
         if error is not None:
             log = Log.model_validate({"level": "ERROR", "message": error, "create_time": create_time(), "epoch": epoch})
-            self.f.write(log.to_backup() + "\n")
+            self.f.write(log.to_record())
         # 关闭日志文件句柄
+        self.f.ensure_flushed()
         self.f.close()
         self.f = None
 
@@ -136,7 +137,7 @@ class BackupHandler:
         """
         logs = Log.from_log_data(log_data)
         for log in logs:
-            self.f.write(log.to_backup() + "\n")
+            self.f.write(log.to_record())
 
     @async_io()
     def backup_proj(self):
@@ -150,7 +151,7 @@ class BackupHandler:
                 "public": self.cache_public,
             }
         )
-        self.f.write(project.to_backup() + "\n")
+        self.f.write(project.to_record())
 
     @async_io()
     def backup_exp(self, exp_name: str, description: str, tags: List[str]):
@@ -164,7 +165,7 @@ class BackupHandler:
                 "tags": tags,
             }
         )
-        self.f.write(experiment.to_backup() + "\n")
+        self.f.write(experiment.to_record())
 
     @async_io()
     def backup_column(self, column_info: ColumnInfo):
@@ -172,7 +173,7 @@ class BackupHandler:
         备份指标列信息
         """
         column = Column.from_column_info(column_info)
-        self.f.write(column.to_backup() + "\n")
+        self.f.write(column.to_record())
 
     @async_io()
     def backup_runtime(self, runtime_info: RuntimeInfo):
@@ -180,7 +181,7 @@ class BackupHandler:
         备份运行时信息
         """
         runtime = Runtime.from_runtime_info(runtime_info)
-        self.f.write(runtime.to_backup() + "\n")
+        self.f.write(runtime.to_record())
         write_runtime_info(self.files_dir, runtime_info)
 
     @async_io()
@@ -189,7 +190,7 @@ class BackupHandler:
         备份指标信息
         """
         metric = Metric.from_metric_info(metric_info)
-        self.f.write(metric.to_backup() + "\n")
+        self.f.write(metric.to_record())
         if self.save_media:
             write_media_buffer(metric_info)
 

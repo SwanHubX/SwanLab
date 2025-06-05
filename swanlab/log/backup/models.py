@@ -25,23 +25,28 @@ class BaseModel(PydanticBaseModel):
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def to_backup(self) -> str:
+    def to_record(self) -> str:
         """
         将模型转换为 JSON 字符串
         """
-        return json.dumps(
-            {
-                "model_type": self.model_type,
-                "data": self.model_dump(exclude_none=True, exclude={"model_type"}),
-            }
+        return (
+            json.dumps(
+                {
+                    "model_type": self.model_type,
+                    "data": self.model_dump(exclude_none=True, exclude={"model_type"}),
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
         )
 
     @classmethod
-    def from_backup(cls, json_str: str) -> Tuple[str, 'BaseModel']:
+    def from_record(cls, data: str) -> Tuple[str, 'BaseModel']:
         """
         从 JSON 字符串创建模型实例
         """
-        data = json.loads(json_str)
+        # 最后一个字符串为换行符，需要删除
+        data = json.loads(data[:-1])
         model_type = data["model_type"]
         if model_type not in backup_models:
             raise ValueError(f"Unsupported model type: {model_type}")
