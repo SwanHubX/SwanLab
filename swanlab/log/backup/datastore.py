@@ -139,6 +139,19 @@ class DataStore:
             data += new_data
         return bytestostr(data)
 
+    def __iter__(self):
+        """
+        实现迭代器接口，允许使用 for 循环遍历日志文件，仅在文件已打开并且处于扫描模式时有效
+        """
+        assert self._opened_for_scan, "file not open for scanning, cannot iterate"
+        return self
+
+    def __next__(self):
+        record = self.scan()
+        if record is None:
+            raise StopIteration("End of file reached")
+        return record
+
     # ---------------------------------- 写入 ----------------------------------
 
     def open_for_write(self, filename: str):
