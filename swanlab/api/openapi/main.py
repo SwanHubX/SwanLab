@@ -10,7 +10,7 @@ r"""
 from typing import Dict, List
 
 from swanlab.api import code_login
-from swanlab.api.openapi.base import ApiHTTP, fetch_paginated_api, get_logger
+from swanlab.api.openapi.base import ApiHTTP, get_logger
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api.openapi.project import ProjectAPI
@@ -38,18 +38,12 @@ class OpenApi:
             self.login_info = code_login(self.__key, False)
 
         self.username = self.login_info.username
-        self.__http: ApiHTTP = ApiHTTP(self.login_info)
+        self.http: ApiHTTP = ApiHTTP(self.login_info)
+        self.service = self.http.service
 
         self.group = GroupAPI(self.http)
         self.experiment = ExperimentAPI(self.http)
         self.project = ProjectAPI(self.http)
-
-    @property
-    def http(self) -> ApiHTTP:
-        """
-        当前使用的ApiHTTP对象
-        """
-        return self.__http
 
     def list_workspaces(self) -> ApiResponse[List[Dict]]:
         """
@@ -66,38 +60,18 @@ class OpenApi:
         """
         return self.group.list_workspaces()
 
-    def get_exp_state(
-            self, project: str, exp_cuid: str, username: str = ""
-    ) -> ApiResponse[Dict]:
-        """
-        获取实验状态
-
-        Args:
-           project (str): 项目名
-           exp_cuid (str): 实验CUID
-           username (str): 工作空间名, 默认为用户个人空间
-
-        Returns:
-            ApiResponse[Dict]:
-                - code (int): HTTP 状态码
-                - errmsg (str): 错误信息, 仅在请求有错误时非空
-                - data (Dict): 实验状态的字典, 包含以下字段:
-                    - state (str): 实验状态, 为 'FINISHED' 或 'RUNNING'
-                    - finishedAt (str): 实验完成时间(若有), 格式如 '2024-11-23T12:28:04.286Z'
-        """
-        return self.experiment.get_exp_state(
-            username=username if username else self.http.username, projname=project, expid=exp_cuid
-        )
-
     def get_experiment(
-            self, project: str, exp_cuid: str, username: str = ""
+            self,
+            project: str,
+            exp_id: str,
+            username: str = ""
     ) -> ApiResponse[Experiment]:
         """
         获取实验信息
 
         Args:
             project (str): 项目名
-            exp_cuid (str): 实验CUID
+            exp_id (str): 实验CUID
             username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
@@ -107,11 +81,13 @@ class OpenApi:
                 - data (Dict): 实验信息的字典, 包含实验信息
         """
         return self.experiment.get_experiment(
-            username=username if username else self.http.username, projname=project, expid=exp_cuid
+            username=username if username else self.http.username, projname=project, exp_id=exp_id
         )
 
-    def list_project_exps(
-        self, project: str, username: str = ""
+    def list_experiments(
+            self,
+            project: str,
+            username: str = ""
     ) -> ApiResponse[List[Experiment]]:
         """
         获取一个项目下的所有实验
@@ -127,14 +103,16 @@ class OpenApi:
                 - data (List[Experiment]): 实验列表, 每个元素包含一个实验的信息
                     - 此实验的 profile 只包含 config (实验自定义配置)
         """
-        return fetch_paginated_api(
-            api_func=self.experiment.list_project_exps,
+        return self.service.fetch_paginated_api(
+            api_func=self.experiment.list_experiments,
             projname=project,
             username=username if username else self.http.username
         )
 
     def list_projects(
-        self, username: str = "", detail: bool = True
+            self,
+            username: str = "",
+            detail: bool = True
     ) -> ApiResponse[List[Project]]:
         """
         获取一个工作空间下的所有项目
@@ -149,19 +127,24 @@ class OpenApi:
                 - errmsg (str): 错误信息, 仅在请求有错误时非空
                 - data (List[Project]): 项目列表, 每个元素包含一个项目的信息
         """
-        return fetch_paginated_api(
+        return self.service.fetch_paginated_api(
             api_func=self.project.list_projects,
             username=username if username else self.http.username,
             detail=detail
         )
 
-    def get_exp_summary(self, project: str, exp_cuid: str, username: str = "") -> ApiResponse[Dict]:
+    def get_summary(
+            self,
+            project: str,
+            exp_id: str,
+            username: str = ""
+    ) -> ApiResponse[Dict]:
         """
         获取实验的概要信息
 
         Args:
             project (str): 项目名
-            exp_cuid (str): 实验CUID
+            exp_id (str): 实验CUID
             username (str): 工作空间名, 默认为用户个人空间
 
         Returns:
@@ -171,11 +154,31 @@ class OpenApi:
                 - data (Dict): 实验的概要信息字典, 包含用户训练各指标的最大最小值, 及其对应步数
         """
         username = username if username else self.http.username
-        project_cuid = self.http.service.get_project_info(username=username, projname=project).data.get("cuid", "")
-        exp = self.http.service.get_exp_info(username=username, projname=project, expid=exp_cuid)
-        return self.experiment.get_exp_summary(
-            expid=exp_cuid,
-            proid=project_cuid,
-            root_expid=exp.data.get("rootProId", ""),
-            root_proid=exp.data.get("rootExpId", "")
+        project_cuid = self.service.get_project_info(username=username, projname=project).data.get("cuid", "")
+        exp = self.service.get_exp_info(username=username, project=project, exp_id=exp_id)
+        return self.experiment.get_summary(
+            exp_id=exp_id,
+            pro_id=project_cuid,
+            root_exp_id=exp.data.get("rootProId", ""), 
+            root_pro_id=exp.data.get("rootExpId", "")
         )
+
+    def get_exp_summary(self, *args, **kwargs) -> ApiResponse[Dict]:
+        """
+        获取实验的概要信息
+        @deprecated, 请使用 `get_experiment_summary`
+
+        Returns:
+            ApiResponse[Dict]: 包含实验概要信息的响应
+        """
+        return self.get_summary(*args, **kwargs)
+
+    def list_project_exps(self, *args, **kwargs) -> ApiResponse[List[Experiment]]:
+        """
+        获取一个项目下的所有实验
+        @deprecated, 请使用 `list_experiments`
+
+        Returns:
+            ApiResponse[List[Experiment]]: 包含实验列表的响应
+        """
+        return self.list_experiments(*args, **kwargs)
