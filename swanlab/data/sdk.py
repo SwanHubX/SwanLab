@@ -67,7 +67,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
         os.environ[SwanLabEnv.API_KEY.value] = api_key
 
 
-MODES = Literal["disabled", "cloud", "local", "backup"]
+MODES = Literal["disabled", "cloud", "local", "offline"]
 
 
 class SwanLabInitializer:
@@ -139,7 +139,7 @@ class SwanLabInitializer:
             If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
             If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
             If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
-            If the value is 'backup', data will be saved locally without uploading to the cloud.
+            If the value is 'offline', data will be saved locally without uploading to the cloud.
         load : str, optional
             If you pass this parameter,SwanLab will search for the configuration file you specified
             (which must be in JSON or YAML format)
@@ -194,7 +194,7 @@ class SwanLabInitializer:
         callbacks = check_callback_format(self.cbs + callbacks)
         # 校验mode参数并适配 backup 模式
         mode, login_info = _init_mode(mode)
-        if mode == "backup":
+        if mode == "offline":
             merge_settings(Settings(backup=True))
         elif mode == "disabled":
             merge_settings(Settings(backup=False))
