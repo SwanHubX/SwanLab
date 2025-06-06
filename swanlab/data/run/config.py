@@ -81,6 +81,15 @@ def third_party_config_process(data) -> dict:
     except ImportError:
         pass
 
+    # 如果是mmengine的Config，则转换为字典
+    try:
+        import mmengine  # noqa
+
+        if isinstance(data, mmengine.Config):
+            return mmengine.Config.to_dict(data)
+    except ImportError:
+        pass
+
     # 如果是argparse的Namespace，则转换为字典
     if isinstance(data, argparse.Namespace):
         return vars(data)
