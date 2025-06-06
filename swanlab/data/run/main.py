@@ -95,7 +95,7 @@ class SwanLabRun:
             should_save = False
         elif self.__mode == "local":
             should_save = True
-        elif self.__mode == "backup":
+        elif self.__mode == "offline":
             should_save = True
         elif self.__mode == "cloud":
             should_save = swanlab_settings.backup

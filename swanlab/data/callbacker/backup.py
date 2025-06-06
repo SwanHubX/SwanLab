@@ -15,12 +15,12 @@ from swanlab.log.type import LogData
 from ..run import get_run
 
 
-class BackupCallback(SwanLabRunCallback):
+class OfflineCallback(SwanLabRunCallback):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __str__(self) -> str:
-        return "SwanLabBackupCallback"
+        return "SwanLabOfflineCallback"
 
     # ---------------------------------- 辅助函数 ----------------------------------
     def _sync_tip_print(self):

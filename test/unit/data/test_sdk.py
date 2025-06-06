@@ -308,16 +308,16 @@ class TestInitLogdir:
         run = S.init(mode="local")
         assert run.public.swanlog_dir == logdir
 
-    def test_init_logdir_backup(self):
+    def test_init_logdir_offline(self):
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[LOG_DIR] = logdir
-        run = S.init(mode="backup")
+        run = S.init(mode="offline")
         assert run.public.swanlog_dir == logdir
         run.finish()
         del os.environ[LOG_DIR]
         logdir = os.path.join(T.TEMP_PATH, generate()).__str__()
         os.environ[LOG_DIR] = logdir
-        run = S.init(mode="backup")
+        run = S.init(mode="offline")
         assert run.public.swanlog_dir == logdir
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")

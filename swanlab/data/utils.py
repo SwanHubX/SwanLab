@@ -13,7 +13,7 @@ from swankit.env import SwanLabMode
 from swankit.log import FONT
 
 from swanlab.api import terminal_login, LoginInfo
-from swanlab.data.callbacker.backup import BackupCallback
+from swanlab.data.callbacker.backup import OfflineCallback
 from swanlab.data.callbacker.cloud import CloudRunCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
 from swanlab.data.run import SwanLabRun
@@ -209,8 +209,8 @@ def _create_operator(
         # 本地模式不保存 media，由回调同步保存
         c.append(LocalRunCallback(backup=backup, backup_media=False))
     # 1.4 . 备份模式
-    elif mode == SwanLabMode.BACKUP.value:
-        c.append(BackupCallback(backup=True))
+    elif mode == SwanLabMode.OFFLINE.value:
+        c.append(OfflineCallback(backup=True))
     # 1.5. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():

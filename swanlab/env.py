@@ -38,7 +38,7 @@ class SwanLabEnv(enum.Enum):
     """
     MODE = SwanLabSharedEnv.SWANLAB_MODE.value
     """
-    swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
+    swanlab的解析模式，涉及操作员注册的回调，目前有四种：local、cloud、disabled、offline，默认为cloud
     大小写敏感
     """
     SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
@@ -139,7 +139,7 @@ class SwanLabEnv(enum.Enum):
         :raises ValueError: 如果环境变量的值不在预期值中
         """
         envs = {
-            cls.MODE.value: ["local", "cloud", "disabled", "backup"],
+            cls.MODE.value: ["local", "cloud", "disabled", "offline"],
             cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud"],
         }
         for k, vs in envs.items():
