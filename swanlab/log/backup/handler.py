@@ -14,7 +14,7 @@ from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
 from swankit.env import create_time
 
 from swanlab.log.backup.datastore import DataStore
-from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header
+from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header, Footer
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
 
@@ -128,7 +128,8 @@ class BackupHandler:
             log = Log.model_validate({"level": "ERROR", "message": error, "create_time": create_time(), "epoch": epoch})
             self.f.write(log.to_record())
         # 写入结束标志
-
+        footer = Footer.model_validate({"create_time": create_time(), "success": error is None})
+        self.f.write(footer.to_record())
         # 关闭日志文件句柄
         self.f.ensure_flushed()
         self.f.close()
