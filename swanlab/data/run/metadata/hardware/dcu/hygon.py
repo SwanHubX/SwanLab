@@ -196,12 +196,12 @@ class DCUCollector(H):
 
     def get_temperature_usage(self) -> dict:
         """
-        获取指定DCU设备的温度(°C) (默认采集显存温度）
+        获取指定DCU设备的温度(°C) (采集 Junction 核心温度)
         {
           "card0": {
             "Temperature (Sensor edge) (C)": "52.0",
-            "Temperature (Sensor junction) (C)": "51.0",
-            "Temperature (Sensor mem) (C)": "52.0" // collected
+            "Temperature (Sensor junction) (C)": "51.0", // collected
+            "Temperature (Sensor mem) (C)": "52.0"
           }
         }
         """
@@ -221,7 +221,7 @@ class DCUCollector(H):
                 "value": math.nan,
                 "config": self.per_temp_configs[f"DCU {dcu_id}"],
             }
-            dcu_temp = dcu_info["Temperature (Sensor mem) (C)"]
+            dcu_temp = dcu_info["Temperature (Sensor junction) (C)"]
             temp_infos[dcu_id]["value"] = float(dcu_temp)
         return temp_infos
 
