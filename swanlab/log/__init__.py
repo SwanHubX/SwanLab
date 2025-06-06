@@ -8,8 +8,7 @@ r"""
     日志记录模块，在设计上swanlog作为一个独立的模块被使用
     FIXME: shit code
 """
-
-from .log import SwanLog
+from .log import SwanLog, trace_handler
 
 swanlog: SwanLog = SwanLog("swanlab")
 
@@ -17,4 +16,5 @@ start_proxy = swanlog.start_proxy
 
 reset = swanlog.reset
 
-__all__ = ["start_proxy", "reset", "swanlog"]
+__all__ = ["start_proxy", "reset", "swanlog", "trace_handler"]
+
