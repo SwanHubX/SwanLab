@@ -37,6 +37,19 @@ def test_parse():
     config = parse(cfg)
     assert yaml.dump(config) == yaml.dump(config_data)
 
+    # ---------------------------------- mmengine ----------------------------------
+    from mmengine.config import Config
+
+    config_data = {
+        "a": 1,
+        "b": "mnist",
+        "c/d": [1, 2, 3],
+        "e/f/h": {"a": 1, "b": {"c": 2}},
+        "g": True,
+    }
+    cfg = Config(config_data)
+    config = parse(cfg)
+    assert yaml.dump(config) == yaml.dump(config_data)
     # ---------------------------------- 自定义继承自MutableMapping的类 ----------------------------------
 
     class Test(MutableMapping):
