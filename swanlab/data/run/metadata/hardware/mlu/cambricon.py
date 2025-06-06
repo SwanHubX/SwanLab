@@ -8,9 +8,10 @@
 import math
 import platform
 import subprocess
-from typing import Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
-from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareCollector as H
+from ..type import HardwareCollector as H
+from ..type import HardwareConfig, HardwareFuncResult, HardwareInfoList
 from ..utils import generate_key, random_index
 
 
@@ -22,7 +23,7 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
     if platform.system() != "Linux":
         return None, None
 
-    info = {"driver": None, "mlu": None}
+    info: Dict[str, Any] = {"driver": None, "mlu": None}
     collector = None
     try:
         driver, mlu_map = map_mlu()
@@ -151,8 +152,9 @@ class CambriconCollector(H):
             mlu_ids.append(mlu_id)
 
         index = 0
-        lines = output.split("\n")
+        lines = output.strip().split("\n")
         for line in lines:
+            line = line.strip()
             if "mlu average" in line.lower():
                 util_infos[mlu_ids[index]] = {
                     "key": self.util_key.format(mlu_index=mlu_ids[index]),
@@ -160,14 +162,12 @@ class CambriconCollector(H):
                     "value": math.nan,
                     "config": self.per_util_configs[f"MLU {mlu_ids[index]}"],
                 }
-                line = line.split(":")
                 # 获得此mlu的利用率数值
-                util = line[-1].replace("%", "").strip()
+                util = line.split(":")[-1].replace("%", "").strip()
                 if util.isdigit():
-                    util_infos[mlu_ids[index]]['value'] = float(util)
+                    util_infos[mlu_ids[index]]["value"] = float(util)
                 index += 1
                 continue
-
         return util_infos
 
     def get_memory_usage(self) -> dict:
@@ -188,12 +188,12 @@ class CambriconCollector(H):
             mlu_ids.append(mlu_id)
 
         index = 0
-        lines = output.split("\n")
-        for line_index, line in enumerate(lines):
+        lines = output.strip().split("\n")
+        for line_idx, line in enumerate(lines):
             # 如果包含mlu average，则表示该行是mlu的利用率
             if "physical memory usage" in line.lower():
-                if "used" in lines[line_index + 2].lower():
-                    used_line = lines[line_index + 2]
+                if "used" in lines[line_idx + 2].lower():
+                    used_line = lines[line_idx + 2]
                     # 初始化mlu的利用率
                     memory_infos[mlu_ids[index]] = {
                         "key": self.memory_key.format(mlu_index=mlu_ids[index]),
@@ -201,17 +201,15 @@ class CambriconCollector(H):
                         "value": math.nan,
                         "config": self.per_memory_configs[f"MLU {mlu_ids[index]}"],
                     }
-                    used_line = used_line.split(":")
                     # 获得此mlu的显存数值（MiB）
-                    memory = used_line[-1].replace("MiB", "").strip()
+                    memory = used_line.split(":")[-1].replace("MiB", "").strip()
                     if memory.isdigit():
                         # 计算mlu显存占用率
-                        memory_infos[mlu_ids[index]]['value'] = (
-                            float(memory) / (self.mlu_map[mlu_ids[index]]['memory'] * 1024) * 100
+                        memory_infos[mlu_ids[index]]["value"] = (
+                            float(memory) / (float(self.mlu_map[mlu_ids[index]]["memory"]) * 1024) * 100
                         )
                     index += 1
                     continue
-
         return memory_infos
 
     def get_temperature_usage(self) -> dict:
@@ -227,23 +225,23 @@ class CambriconCollector(H):
             mlu_ids.append(mlu_id)
 
         index = 0
-        lines = output.split("\n")
-        for line in lines:
-            if "chip" in line.lower():
-                temp_infos[mlu_ids[index]] = {
-                    "key": self.temp_key.format(mlu_index=mlu_ids[index]),
-                    "name": f"MLU {mlu_ids[index]} Temperature (°C)",
-                    "value": math.nan,
-                    "config": self.per_temp_configs[f"MLU {mlu_ids[index]}"],
-                }
-                line = line.split(":")
-                # 获得此mlu的温度数值
-                temp = line[-1].replace("C", "").strip()
-                if temp.isdigit():
-                    temp_infos[mlu_ids[index]]['value'] = float(temp)
-                index += 1
-                continue
-
+        lines = output.strip().split("\n")
+        for line_idx, line in enumerate(lines):
+            if "temperature" in line.lower():
+                if "chip" in lines[line_idx + 2].lower():
+                    temp_line = lines[line_idx + 2]
+                    temp_infos[mlu_ids[index]] = {
+                        "key": self.temp_key.format(mlu_index=mlu_ids[index]),
+                        "name": f"MLU {mlu_ids[index]} Temperature (°C)",
+                        "value": math.nan,
+                        "config": self.per_temp_configs[f"MLU {mlu_ids[index]}"],
+                    }
+                    # 获得此mlu的温度数值
+                    temp = temp_line.split(":")[-1].replace("C", "").strip()
+                    if temp.isdigit():
+                        temp_infos[mlu_ids[index]]["value"] = float(temp)
+                    index += 1
+                    continue
         return temp_infos
 
     def get_power_usage(self) -> dict:
@@ -259,21 +257,21 @@ class CambriconCollector(H):
             mlu_ids.append(mlu_id)
 
         index = 0
-        lines = output.split("\n")
-        for line in lines:
-            if "usage" in line.lower() and "mlu memory usage" not in line.lower():
-                power_infos[mlu_ids[index]] = {
-                    "key": self.power_key.format(mlu_index=mlu_ids[index]),
-                    "name": f"MLU {mlu_ids[index]} Power (W)",
-                    "value": math.nan,
-                    "config": self.per_power_configs[f"MLU {mlu_ids[index]}"],
-                }
-                line = line.split(":")
-                # 获得此mlu的功耗数值
-                power = line[-1].replace("W", "").strip()
-                if power.isdigit():
-                    power_infos[mlu_ids[index]]['value'] = float(power)
-                index += 1
-                continue
-
+        lines = output.strip().split("\n")
+        for line_idx, line in enumerate(lines):
+            if "power" in line.lower() and line_idx + 1 < len(lines):
+                if "usage" in lines[line_idx + 1].lower():
+                    power_line = lines[line_idx + 1]
+                    power_infos[mlu_ids[index]] = {
+                        "key": self.power_key.format(mlu_index=mlu_ids[index]),
+                        "name": f"MLU {mlu_ids[index]} Power (W)",
+                        "value": math.nan,
+                        "config": self.per_power_configs[f"MLU {mlu_ids[index]}"],
+                    }
+                    # 获得此mlu的功耗数值
+                    power = power_line.split(":")[-1].replace("W", "").strip()
+                    if power.isdigit():
+                        power_infos[mlu_ids[index]]["value"] = float(power)
+                    index += 1
+                    continue
         return power_infos
