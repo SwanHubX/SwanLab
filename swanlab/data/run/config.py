@@ -7,21 +7,23 @@ r"""
 @Description:
     SwanLabConfig 配置类
 """
-from typing import Any, Union
-from collections.abc import MutableMapping
-import yaml
 import argparse
-from swanlab.log import swanlog
 import datetime
-import math
-from typing import Callable, Optional
-from swankit.callback import RuntimeInfo
-from swanlab.data.modules import Line
-import re
 import json
+import math
+import re
+from collections.abc import MutableMapping
 from dataclasses import is_dataclass, asdict
+from typing import Any, Union
+from typing import Callable, Optional
 
-BASE_TYPE = (int, float, str, bool)
+import yaml
+from swankit.callback import RuntimeInfo
+
+from swanlab.data.modules import Line
+from swanlab.log import swanlog
+
+BASE_TYPE = (int, float, str)
 
 
 def json_serializable(obj):
@@ -37,6 +39,10 @@ def json_serializable(obj):
         return Line.nan
     if type(obj) is float and math.isinf(obj):
         return Line.inf
+
+    # bool 类型需要特殊处理，因为bool继承自int: https://github.com/SwanHubX/SwanLab/issues/1035
+    if type(obj) is bool:
+        return obj
 
     for t in BASE_TYPE:
         if type(obj) is t:
@@ -78,6 +84,15 @@ def third_party_config_process(data) -> dict:
 
         if isinstance(data, omegaconf.DictConfig):
             return omegaconf.OmegaConf.to_container(data, resolve=True, throw_on_missing=True)
+    except ImportError:
+        pass
+
+    # 如果是mmengine的Config，则转换为字典
+    try:
+        import mmengine  # noqa
+
+        if isinstance(data, mmengine.Config):
+            return mmengine.Config.to_dict(data)
     except ImportError:
         pass
 
@@ -131,9 +146,9 @@ class SwanLabConfig(MutableMapping):
     """
 
     def __init__(
-            self,
-            config: Union[MutableMapping, argparse.Namespace] = None,
-            on_setter: Optional[Callable[[RuntimeInfo], Any]] = None,
+        self,
+        config: Union[MutableMapping, argparse.Namespace] = None,
+        on_setter: Optional[Callable[[RuntimeInfo], Any]] = None,
     ):
         """
         实例化配置类，如果settings不为None，说明是通过swanlab.init调用的，否则是通过swanlab.config调用的

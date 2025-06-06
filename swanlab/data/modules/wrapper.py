@@ -12,6 +12,7 @@ from typing import Union, List, Optional
 from swankit.core import ParseResult, ParseErrorInfo, MediaType, ChartReference
 
 from swanlab.error import DataTypeError
+from .echarts import Echarts
 from .line import Line
 
 
@@ -49,6 +50,13 @@ class DataWrapper:
         是否是Line类型
         """
         return isinstance(self.__data[0], Line) and len(self.__data) == 1
+
+    @property
+    def is_custom(self) -> bool:
+        """
+        是否是自定义类型（比如 ECharts）
+        """
+        return all(isinstance(i, Echarts) for i in self.__data)
 
     @property
     def type(self):

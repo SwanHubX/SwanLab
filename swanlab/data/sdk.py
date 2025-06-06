@@ -18,7 +18,7 @@ from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
-from .modules import DataType
+from .modules import DataType, PyEchartsBase
 from .run import (
     SwanLabRunState,
     SwanLabRun,
@@ -224,7 +224,11 @@ register_callbacks = initializer.register_callbacks
 
 
 @should_call_after_init("You must call swanlab.init() before using log()")
-def log(data: Dict[str, DataType], step: int = None, print_to_console: bool = False):
+def log(
+    data: Dict[str, Union[DataType, PyEchartsBase, List[PyEchartsBase]]],
+    step: int = None,
+    print_to_console: bool = False,
+):
     """
     Log a row of data to the current run.
     We recommend that you log data by SwanLabRun.log() method, but you can also use this function to log data.

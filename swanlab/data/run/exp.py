@@ -75,7 +75,7 @@ class SwanLabExp:
         else:
             step = len(key_obj.steps) if step is None else step
             if step in key_obj.steps:
-                swanlog.warning(f"Step {step} on key {key} already exists, ignored.")
+                swanlog.debug(f"Step {step} on key {key} already exists, ignored.")
                 return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
         data.parse(step=step, key=key)
 
@@ -138,6 +138,7 @@ class SwanLabExp:
             步数，如果不传则默认当前步数为'已添加数据数量+1'
             在log函数中已经做了处理，此处不需要考虑数值类型等情况
         """
+        section_type: SectionType = 'CUSTOM' if data.is_custom else section_type
         m = self.__add(key, name, column_class, column_config, section_type, data, step)
         self.__operator.on_metric_create(m)
         return m
