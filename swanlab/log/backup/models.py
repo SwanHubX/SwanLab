@@ -9,6 +9,7 @@ import json
 import os.path
 from typing import Optional, List, Literal, Tuple, Union
 
+import yaml
 from pydantic import BaseModel as PydanticBaseModel
 from swankit.callback import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo
 from swankit.callback.models import ColumnClass, SectionType, YRange
@@ -20,7 +21,6 @@ from swanlab.log.type import LogData
 
 
 class BaseModel(PydanticBaseModel):
-    model_type: str = "BaseModel"
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -32,8 +32,8 @@ class BaseModel(PydanticBaseModel):
         return (
             json.dumps(
                 {
-                    "model_type": self.model_type,
-                    "data": self.model_dump(exclude_none=True, exclude={"model_type"}),
+                    "model_type": type(self).__name__,
+                    "data": self.model_dump(),
                 },
                 ensure_ascii=False,
             )
@@ -50,37 +50,33 @@ class BaseModel(PydanticBaseModel):
         model_type = data["model_type"]
         if model_type not in backup_models:
             raise ValueError(f"Unsupported model type: {model_type}")
-        return model_type, backup_models[model_type].model_validate(
-            {
-                "model_type": model_type,
-                **data["data"],
-            }
-        )
+        return backup_models[model_type].model_validate(data["data"])
 
 
 class Header(BaseModel):
-    model_type: Literal["Header"] = "Header"
     backup_type: Literal["DEFAULT"]
-    version: str  # 备份文件版本(swanlab版本)
+    version: int  # 备份文件格式版本
     create_time: str  # 备份文件创建时间
 
 
+class Footer(BaseModel):
+    success: bool
+    create_time: str
+
+
 class Project(BaseModel):
-    model_type: Literal["PROJECT"] = "PROJECT"
     name: Optional[str]  # 项目名称
     workspace: Optional[str]  # 工作空间名称
     public: Optional[bool]  # 项目是否公开
 
 
 class Experiment(BaseModel):
-    model_type: Literal["EXPERIMENT"] = "EXPERIMENT"
     name: Optional[str]  # 实验名称
     description: Optional[str]  # 实验描述
     tags: Optional[List[str]]  # 实验标签
 
 
 class Log(BaseModel):
-    model_type: Literal["LOG"] = "LOG"
     create_time: str  # 日志创建时间
     message: str  # 日志消息内容
     epoch: Optional[int]  # 日志所属的训练轮次
@@ -114,7 +110,6 @@ class Log(BaseModel):
 
 
 class Runtime(BaseModel):
-    model_type: Literal["RUNTIME"] = "RUNTIME"
     conda_filename: Optional[str]  # Conda 环境文件名
     requirements_filename: Optional[str]  # Python requirements 文件名
     metadata_filename: Optional[str]  # 系统元数据名
@@ -138,32 +133,32 @@ class Runtime(BaseModel):
         """
         将 Runtime 实例转换为 RuntimeInfo 实例
         """
-        return FileModel(
-            conda=(
-                open(os.path.join(file_dir, self.conda_filename), "r", encoding="utf-8").read()
-                if self.conda_filename
-                else None
-            ),
-            requirements=(
-                open(os.path.join(file_dir, self.requirements_filename), "r", encoding="utf-8").read()
-                if self.requirements_filename
-                else None
-            ),
-            metadata=(
-                json.loads(open(os.path.join(file_dir, self.metadata_filename), "r", encoding="utf-8").read())
-                if self.metadata_filename
-                else None
-            ),
-            config=(
-                json.loads(open(os.path.join(file_dir, self.config_filename), "r", encoding="utf-8").read())
-                if self.config_filename
-                else None
-            ),
-        )
+        conda, requirements, metadata, config = None, None, None, None
+        if self.conda_filename:
+            conda_path = os.path.join(file_dir, self.conda_filename)
+            if not os.path.exists(os.path.join(file_dir, self.conda_filename)):
+                raise FileNotFoundError(f"Conda file {self.conda_filename} not found in {file_dir}")
+            conda = open(os.path.join(file_dir, self.conda_filename), "r").read()
+        if self.requirements_filename:
+            requirements_path = os.path.join(file_dir, self.requirements_filename)
+            if not os.path.exists(requirements_path):
+                raise FileNotFoundError(f"Requirements file {self.requirements_filename} not found in {file_dir}")
+            requirements = open(requirements_path, "r").read()
+        if self.metadata_filename:
+            metadata_path = os.path.join(file_dir, self.metadata_filename)
+            if not os.path.exists(metadata_path):
+                raise FileNotFoundError(f"Metadata file {self.metadata_filename} not found in {file_dir}")
+            metadata = json.loads(open(metadata_path, "r").read())
+        if self.config_filename:
+            config_path = os.path.join(file_dir, self.config_filename)
+            if not os.path.exists(config_path):
+                raise FileNotFoundError(f"Config file {self.config_filename} not found in {file_dir}")
+            config = yaml.safe_load(open(config_path, "r").read())
+
+        return FileModel(conda=conda, requirements=requirements, metadata=metadata, config=config)
 
 
 class Column(BaseModel):
-    model_type: Literal["COLUMN"] = "COLUMN"
 
     key: str  # 列的唯一标识符
     kid: str  # 列的唯一标识符（可能是一个ID或其他标识）
@@ -231,7 +226,6 @@ class Column(BaseModel):
 
 
 class Metric(BaseModel):
-    model_type: Literal['METRIC'] = "METRIC"
 
     @classmethod
     def from_metric_info(cls, metric_info: MetricInfo) -> Union['Scalar', 'Media']:
@@ -252,8 +246,8 @@ class Metric(BaseModel):
             )
         buffers_name = []
         if metric_info.metric_buffers is not None:
-            for buffer in metric_info.metric_buffers:
-                buffers_name.append(buffer.file_name)
+            for name in metric_info.metric['data']:
+                buffers_name.append(name)
 
         # 媒体类型
         return Media.model_validate(
@@ -270,7 +264,6 @@ class Metric(BaseModel):
 
 
 class Scalar(Metric):
-    model_type: Literal["SCALAR"] = "SCALAR"
     metric: dict  # 标量指标数据，通常是一个字典，包含指标名称和对应的值
     key: str  # 标量指标的唯一标识符
     step: int  # 标量指标的步数
@@ -289,7 +282,6 @@ class Scalar(Metric):
 
 
 class Media(Metric):
-    model_type: Literal["MEDIA"] = "MEDIA"
     metric: dict  # 媒体指标数据，通常是一个字典，包含媒体类型和对应的文件路径或URL
     key: str  # 媒体指标的唯一标识符
     kid: int  # 当前实验下，列的唯一id，与保存路径等信息有关，与云端请求无关
@@ -322,11 +314,110 @@ class Media(Metric):
 
 
 backup_models = {
-    "PROJECT": Project,
-    "EXPERIMENT": Experiment,
-    "LOG": Log,
-    "COLUMN": Column,
-    "RUNTIME": Runtime,
-    "SCALAR": Scalar,
-    "MEDIA": Media,
+    model.__name__: model
+    for model in [
+        Header,
+        Project,
+        Experiment,
+        Log,
+        Runtime,
+        Column,
+        Scalar,
+        Media,
+        Footer,
+    ]
 }
+
+
+class ModelsParser:
+    def __init__(self):
+        self._header: Optional[Header] = None
+        self._project: Optional[Project] = None
+        self._experiment: Optional[Experiment] = None
+        self._logs: List[Log] = []
+        self._runtimes: List[Runtime] = []
+        self._columns: List[Column] = []
+        self._scalars: List[Scalar] = []
+        self._medias: List[Media] = []
+        self._footer: Optional[Footer] = None
+        self._parsed = False
+
+    def parse_record(self, data: str):
+        assert self._parsed, "Must parse records in a context manager"
+        record = BaseModel.from_record(data)
+        if isinstance(record, Header):
+            assert self._header is None, "Header already parsed"
+            self._header = record
+            return
+        if isinstance(record, Project):
+            assert self._project is None, "Project already parsed"
+            self._project = record
+            return
+        if isinstance(record, Experiment):
+            assert self._experiment is None, "Experiment already parsed"
+            self._experiment = record
+            return
+        if isinstance(record, Log):
+            self._logs.append(record)
+            return
+        if isinstance(record, Runtime):
+            self._runtimes.append(record)
+            return
+        if isinstance(record, Column):
+            self._columns.append(record)
+            return
+        if isinstance(record, Scalar):
+            self._scalars.append(record)
+            return
+        if isinstance(record, Media):
+            self._medias.append(record)
+            return
+        if isinstance(record, Footer):
+            assert self._footer is None, "Footer already parsed"
+            self._footer = record
+            return
+
+        raise TypeError("Unsupported record type: {}".format(type(record).__name__))
+
+    def __enter__(self):
+        assert not self._parsed, "Already parsed records before entering context"
+        self._parsed = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 出现错误则抛出异常
+        if exc_type is not None:
+            raise exc_val
+        # 检查是否所有必要的记录都已解析
+        assert self._header is not None, "Header not parsed"
+        assert self._project is not None, "Project not parsed"
+        assert self._experiment is not None, "Experiment not parsed"
+
+    def get_parsed(
+        self,
+    ) -> Tuple[
+        Header,
+        Project,
+        Experiment,
+        List[Log],
+        List[Runtime],
+        List[Column],
+        List[Scalar],
+        List[Media],
+        Optional[Footer],
+    ]:
+        """
+        获取已解析的记录
+        """
+        assert self._parsed, "Must parse records before getting parsed data"
+        return (
+            self._header,
+            self._project,
+            self._experiment,
+            self._logs,
+            self._runtimes,
+            self._columns,
+            self._scalars,
+            self._medias,
+            self._footer,
+        )

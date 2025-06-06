@@ -17,7 +17,6 @@ from swanlab.log.backup.datastore import DataStore
 from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
-from swanlab.package import get_package_version
 
 
 def enable_check():
@@ -66,6 +65,7 @@ class BackupHandler:
     """
 
     BACKUP_FILE = "backup.swanlab"
+    BACKUP_VERSION = 0
 
     def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_media: bool = True):
         super().__init__()
@@ -106,7 +106,7 @@ class BackupHandler:
             Header.model_validate(
                 {
                     "create_time": create_time(),
-                    "version": get_package_version(),
+                    "version": self.BACKUP_VERSION,
                     "backup_type": self.backup_type,
                 }
             ).to_record()
@@ -127,6 +127,8 @@ class BackupHandler:
         if error is not None:
             log = Log.model_validate({"level": "ERROR", "message": error, "create_time": create_time(), "epoch": epoch})
             self.f.write(log.to_record())
+        # 写入结束标志
+
         # 关闭日志文件句柄
         self.f.ensure_flushed()
         self.f.close()
