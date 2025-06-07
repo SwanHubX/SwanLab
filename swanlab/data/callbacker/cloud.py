@@ -137,6 +137,7 @@ class CloudRunCallback(SwanLabRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
+    @backup("runtime")
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 添加上传任务到线程池
         rc = r.config.to_dict() if r.config is not None else None

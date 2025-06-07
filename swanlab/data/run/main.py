@@ -17,7 +17,7 @@ from swankit.core.data import MediaType
 
 from swanlab.data import namer as N
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase
-from swanlab.env import get_mode, get_swanlog_dir, SwanLabEnv
+from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import reset_settings, get_settings
@@ -153,7 +153,7 @@ class SwanLabRun:
         # 定时采集系统信息
         self.monitor_cron = None
         # 测试时不开启此功能
-        if os.environ.get(SwanLabEnv.RUNTIME.value) not in ("test", "test-no-cloud"):
+        if "PYTEST_VERSION" not in os.environ:
             if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
                 swanlog.debug("Monitor on.")
                 self.monitor_cron = MonitorCron(self.__get_monitor_func())

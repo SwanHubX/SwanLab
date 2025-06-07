@@ -13,8 +13,8 @@ from swankit.env import SwanLabMode
 from swankit.log import FONT
 
 from swanlab.api import terminal_login, LoginInfo
-from swanlab.data.callbacker.backup import OfflineCallback
 from swanlab.data.callbacker.cloud import CloudRunCallback
+from swanlab.data.callbacker.offline import OfflineCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
