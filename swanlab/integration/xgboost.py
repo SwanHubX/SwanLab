@@ -10,7 +10,13 @@ import swanlab
 
 
 class SwanLabCallback(xgb.callback.TrainingCallback):
-    def __init__(self):
+    def __init__(
+        self,
+        log_feature_importance: bool = True,
+        importance_type: str = "gain",
+        ):
+        self.log_feature_importance = log_feature_importance
+        self.importance_type = importance_type
         # 如果没有注册过实验
         swanlab.config["FRAMEWORK"] = "xgboost"
         if swanlab.get_run() is None:
@@ -30,6 +36,9 @@ class SwanLabCallback(xgb.callback.TrainingCallback):
     def after_training(self, model: Booster) -> Booster:
         """Run after training is finished."""
 
+        if self.log_feature_importance:
+            self._log_feature_importance(model)
+        
         # Log the best score and best iteration
         if model.attr("best_score") is not None:
             swanlab.log(
@@ -52,3 +61,16 @@ class SwanLabCallback(xgb.callback.TrainingCallback):
 
         return False
 
+    def _log_feature_importance(self, model: Booster) -> None:
+        fi = model.get_score(importance_type=self.importance_type)
+        x = list(fi.keys())
+        y = list(fi.values())
+        y = [round(i, 2) for i in y]  # 保留两位小数
+        bar = swanlab.echarts.Bar()
+        bar.add_xaxis(x)
+        bar.add_yaxis("Importance", y)
+        swanlab.log(
+            {
+                "Feature Importance": bar
+            }
+        )
