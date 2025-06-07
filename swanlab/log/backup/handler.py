@@ -65,7 +65,6 @@ class BackupHandler:
     """
 
     BACKUP_FILE = "backup.swanlab"
-    BACKUP_VERSION = 0
 
     def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_media: bool = True):
         super().__init__()
@@ -106,7 +105,6 @@ class BackupHandler:
             Header.model_validate(
                 {
                     "create_time": create_time(),
-                    "version": self.BACKUP_VERSION,
                     "backup_type": self.backup_type,
                 }
             ).to_record()

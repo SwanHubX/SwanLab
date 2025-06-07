@@ -80,7 +80,9 @@ class DataStore:
         if magic != LEVELDBLOG_HEADER_MAGIC:
             raise Exception("Invalid header")
         if version != LEVELDBLOG_HEADER_VERSION:
-            raise Exception("Invalid header")
+            raise Exception(
+                f"Invalid backup version: {version}, please update your swanlab: pip install --upgrade swanlab"
+            )
         self._index += len(header)
 
     def _scan_record(self) -> Optional[Tuple[int, bytes]]:

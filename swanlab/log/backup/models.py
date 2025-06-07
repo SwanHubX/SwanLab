@@ -55,7 +55,6 @@ class BaseModel(PydanticBaseModel):
 
 class Header(BaseModel):
     backup_type: Literal["DEFAULT"]
-    version: int  # 备份文件格式版本
     create_time: str  # 备份文件创建时间
 
 

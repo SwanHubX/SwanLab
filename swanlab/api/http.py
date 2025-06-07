@@ -300,7 +300,7 @@ class HTTP:
         project: ProjectInfo = FONT.loading("Getting project...", _)
         self.__proj = project
 
-    def mount_exp(self, exp_name, colors: Optional[Tuple[str, str]], description: str = None, tags: List[str] = None):
+    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
         初始化实验，获取存储信息
         :param exp_name: 所属实验名称
@@ -312,12 +312,11 @@ class HTTP:
         def _():
             """
             先创建实验，后生成cos凭证
-            :return:
             """
-            post_data = {"name": exp_name}
-            if colors:
-                post_data["colors"] = list(colors)
-
+            post_data = {
+                "name": exp_name,
+                "colors": list(colors),
+            }
             if description is not None:
                 post_data["description"] = description
             if tags is not None:

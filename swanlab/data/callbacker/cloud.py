@@ -220,9 +220,9 @@ class CloudRunCallback(SwanLabRunCallback):
                     contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
                 )
                 upload_logs([logs])
-            get_http().update_state(state == SwanLabRunState.SUCCESS)
 
         FONT.loading("Waiting for uploading complete", _)
+        get_http().update_state(state == SwanLabRunState.SUCCESS)
         reset_http()
         # 取消注册系统回调
         self._unregister_sys_callback()
