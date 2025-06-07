@@ -65,6 +65,7 @@ class SwanLabCallback(xgb.callback.TrainingCallback):
         fi = model.get_score(importance_type=self.importance_type)
         x = list(fi.keys())
         y = list(fi.values())
+        y = [round(i, 2) for i in y]  # 保留两位小数
         bar = swanlab.echarts.Bar()
         bar.add_xaxis(x)
         bar.add_yaxis("Importance", y)
