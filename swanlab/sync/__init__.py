@@ -59,10 +59,14 @@ def sync(dir_path: str, workspace: str = None, project_name: str = None, login_r
         config_filename=None,
     )
     for r in runtimes:
-        runtime.conda_filename = r.conda_filename
-        runtime.requirements_filename = r.requirements_filename
-        runtime.metadata_filename = r.metadata_filename
-        runtime.config_filename = r.config_filename
+        if r.conda_filename is not None:
+            runtime.conda_filename = r.conda_filename
+        if r.requirements_filename is not None:
+            runtime.requirements_filename = r.requirements_filename
+        if r.metadata_filename is not None:
+            runtime.metadata_filename = r.metadata_filename
+        if r.config_filename is not None:
+            runtime.config_filename = r.config_filename
     runtime_model = runtime.to_file_model(os.path.join(dir_path, "files"))
     # 1.3 集合列
     column_models = [c.to_column_model() for c in columns]

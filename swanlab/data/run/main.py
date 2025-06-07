@@ -141,7 +141,7 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
-        metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
+        metadata, self.monitor_funcs = get_metadata(self.__settings.run_dir if swanlab_settings.backup else None)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
