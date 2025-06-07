@@ -50,6 +50,8 @@ class Settings(BaseModel):
         default_factory=lambda: str(Path(os.environ.get("SystemDrive", "C:")).resolve() if is_windows() else Path("/"))
     )
     # ---------------------------------- 日志上传部分 ----------------------------------
+    # 是否开启日志备份功能
+    backup: StrictBool = True
     # 日志上传间隔
     upload_interval: PositiveInt = 3
     # 终端日志上传单行最大字符数

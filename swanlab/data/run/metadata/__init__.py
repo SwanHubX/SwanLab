@@ -16,7 +16,7 @@ from .requirements import get_requirements
 from .runtime import get_runtime_info
 
 
-def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
+def get_metadata(logdir: str = None) -> Tuple[dict, List[HardwareCollector]]:
     """
     采集实验的全部信息
     """
@@ -38,11 +38,12 @@ def get_metadata(logdir: str) -> Tuple[dict, List[HardwareCollector]]:
     # 2.1 生成基本swanlab信息
     swanlab_info = {
         "version": get_package_version(),
-        "logdir": logdir,
         "_settings": settings.filter_changed_fields(),
         "_coop": coop,
         "_monitor": len(monitor_funcs),
     }
+    if logdir is not None:
+        swanlab_info["logdir"] = logdir
     # 2.2 如果_coop为空，则删除
     if not coop:
         del swanlab_info["_coop"]

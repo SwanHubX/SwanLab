@@ -7,16 +7,46 @@ r"""
 @Description:
     回调函数注册抽象模块
 """
-from typing import Optional
-from swankit.core import SwanLabSharedSettings
-from swankit.callback import SwanKitCallback
-from swanlab.log import swanlog
-from swankit.log import FONT
-from swanlab.env import is_windows
-from swanlab.package import get_package_version
 import atexit
-import sys
 import os
+import sys
+import traceback
+from typing import Optional
+
+from swankit.callback import SwanKitCallback
+from swankit.core import SwanLabSharedSettings
+from swankit.log import FONT
+
+from swanlab.data.run import SwanLabRunState, get_run
+from swanlab.env import is_windows
+from swanlab.log import swanlog
+from swanlab.log.backup import BackupHandler
+from swanlab.log.type import LogData
+from swanlab.package import get_package_version
+from swanlab.swanlab_settings import get_settings
+
+
+def error_print(tp):
+    """
+    错误打印
+    """
+    # 如果是KeyboardInterrupt异常
+    if tp == KeyboardInterrupt:
+        swanlog.info("KeyboardInterrupt by user")
+    else:
+        swanlog.info("Error happened while training")
+
+
+def traceback_error(tb, val):
+    """
+    获取traceback信息
+    """
+    trace_list = traceback.format_tb(tb)
+    html = ""
+    for line in trace_list:
+        html += line
+    html += str(val)
+    return html
 
 
 class U:
@@ -54,25 +84,17 @@ class U:
             return os.path.join(os.getcwd()[:2], path)
         return path
 
-    def _train_begin_print(self):
+    def _train_begin_print(self, save_dir: str = None):
         """
         训练开始时的打印信息
+        :param save_dir: 保存目录，如果不存在则使用 settings.run_dir 如果 settings 也不存在则不打印
         """
         swanlog.debug("SwanLab Runtime has initialized")
         swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
         swanlog.info("Tracking run with swanlab version " + get_package_version())
-        local_path = FONT.magenta(FONT.bold(self.fmt_windows_path(self.settings.run_dir)))
-        swanlog.info("Run data will be saved locally in " + local_path)
-
-    def _watch_tip_print(self):
-        """
-        watch命令提示打印
-        """
-        swanlog.info(
-            "🌟 Run `"
-            + FONT.bold("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)))
-            + "` to view SwanLab Experiment Dashboard locally"
-        )
+        if save_dir is not None:
+            local_path = FONT.magenta(FONT.bold(self.fmt_windows_path(save_dir)))
+            swanlog.info("Run data will be saved locally in " + local_path)
 
     def _train_finish_print(self):
         """
@@ -91,6 +113,10 @@ class SwanLabRunCallback(SwanKitCallback, U):
     4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
 
+    def __init__(self, backup=False, backup_media=True):
+        super(U, self).__init__()
+        self.backup = BackupHandler(enable=backup, save_media=backup_media)
+
     def _register_sys_callback(self):
         """
         注册系统回调，内部使用
@@ -105,17 +131,60 @@ class SwanLabRunCallback(SwanKitCallback, U):
         sys.excepthook = sys.__excepthook__
         atexit.unregister(self._clean_handler)
 
+    def _terminal_handler(self, log_data: LogData):
+        """
+        终端输出写入操作
+        """
+        pass
+
     def _clean_handler(self):
         """
         正常退出清理函数，此函数调用`run.finish`
         """
-        pass
+        run = get_run()
+        if run is None:
+            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
+        self._train_finish_print()
+        # 如果正在运行
+        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
 
     def _except_handler(self, tp, val, tb):
         """
         异常退出清理函数
         """
-        pass
+        error_print(tp)
+        # 结束运行
+        get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
+        if tp != KeyboardInterrupt:
+            print(traceback_error(tb, tp(val)), file=sys.stderr)
+
+    def handle_run(self):
+        """
+        封装 on_run 回调中的重复逻辑，包括：
+        1. 开启日志备份
+        2. 注册终端输出流代理
+        3. 注册系统回调
+        """
+        # 1. 开启备份并备份项目和实验
+        self.backup.start(
+            self.settings.run_dir,
+            files_dir=self.settings.files_dir,
+            exp_name=self.settings.exp_name,
+            description=self.settings.description,
+            tags=self.settings.tags,
+        )
+        # 2. 注册终端输出流代理
+        settings = get_settings()
+        swanlog.start_proxy(
+            proxy_type=settings.log_proxy_type,
+            max_log_length=settings.max_log_length,
+            handler=self._terminal_handler,
+        )
+        # 3. 注入系统回调
+        self._register_sys_callback()
+
+    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
+        self.settings = settings
 
     def __str__(self):
         raise NotImplementedError("Please implement this method")

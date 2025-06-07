@@ -3,18 +3,20 @@ Notification plugin for SwanLab.
 Used for sending notifications to users.
 """
 
-from swankit.callback import SwanKitCallback
-import swanlab
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Optional, Dict, Any, Tuple
-import hmac
-import hashlib
 import base64
-from datetime import datetime
-import requests
+import hashlib
+import hmac
+import smtplib
 from abc import ABC, abstractmethod
+from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Optional, Dict, Any, Tuple
+
+import requests
+from swankit.callback import SwanKitCallback
+
+import swanlab
 
 
 class PrintCallback(SwanKitCallback):
@@ -132,7 +134,6 @@ class EmailCallback(SwanKitCallback):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,
@@ -214,7 +215,6 @@ class WebhookCallback(SwanKitCallback, ABC):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,

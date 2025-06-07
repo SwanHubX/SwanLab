@@ -125,4 +125,5 @@ __all__ = [
     "MediaModel",
     "ColumnModel",
     "FileModel",
+    "LogModel",
 ]

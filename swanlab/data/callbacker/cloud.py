@@ -6,12 +6,10 @@
     云端回调
 """
 
-import json
 import sys
 from typing import Literal
 
 from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
-from swankit.core import SwanLabSharedSettings
 from swankit.env import create_time
 from swankit.log import FONT
 
@@ -27,23 +25,22 @@ from swanlab.package import (
     get_package_latest_version,
     get_key,
 )
-from .utils import error_print, traceback_error
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
+from ...log.backup import backup
 from ...log.type import LogData
 from ...swanlab_settings import get_settings
 
 
 class CloudRunCallback(SwanLabRunCallback):
 
-    def __init__(self, public: bool):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.pool = ThreadPool()
         self.exiting = False
         """
         标记是否正在退出云端环境
         """
-        self.public = public
 
     @classmethod
     def create_login_info(cls, save: bool = True):
@@ -80,28 +77,20 @@ class CloudRunCallback(SwanLabRunCallback):
         return exp_url
 
     def _clean_handler(self):
-        run = get_run()
-        if run is None:
-            return swanlog.debug("SwanLab Runtime has been cleaned manually.")
         if self.exiting:
             return swanlog.debug("SwanLab is exiting, please wait.")
-        self._train_finish_print()
-        # 如果正在运行
-        run.finish() if run.running else swanlog.debug("Duplicate finish, ignore it.")
+        super()._clean_handler()
 
     def _except_handler(self, tp, val, tb):
         if self.exiting:
             print("")
             swanlog.error("Aborted uploading by user")
             sys.exit(1)
-        error_print(tp)
-        # 结束运行
-        get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
-        if tp != KeyboardInterrupt:
-            print(traceback_error(tb, tp(val)), file=sys.stderr)
+        super()._except_handler(tp, val, tb)
 
-    def _write_handler(self, log_data: LogData):
-        level: Literal['INFO', 'WARN', 'ERROR']
+    @backup("terminal")
+    def _terminal_handler(self, log_data: LogData):
+        level: Literal['INFO', 'WARN']
         if log_data['type'] == 'stdout':
             level = "INFO"
         elif log_data['type'] == 'stderr':
@@ -113,7 +102,7 @@ class CloudRunCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
-    def on_init(self, project: str, workspace: str, logdir: str = None, *args, **kwargs) -> int:
+    def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         try:
             http = get_http()
         except ValueError:
@@ -121,10 +110,11 @@ class CloudRunCallback(SwanLabRunCallback):
             http = create_http(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
-        return http.mount_project(project, workspace, self.public).history_exp_count
-
-    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        self.settings = settings
+        http.mount_project(proj_name, workspace, public)
+        # 设置项目缓存
+        self.backup.cache_proj_name = proj_name
+        self.backup.cache_workspace = workspace
+        self.backup.cache_public = public
 
     def on_run(self, *args, **kwargs):
         http = get_http()
@@ -135,18 +125,11 @@ class CloudRunCallback(SwanLabRunCallback):
             description=self.settings.description,
             tags=self.settings.tags,
         )
-        # 注册终端输出流代理
-        settings = get_settings()
-        if settings.log_proxy_type != "none":
-            swanlog.start_proxy(
-                proxy_type=settings.log_proxy_type,
-                max_log_length=settings.max_log_length,
-                handler=self._write_handler,
-            )
-        # 注册系统回调
-        self._register_sys_callback()
-        # 打印信息
-        self._train_begin_print()
+        # 注册运行状态
+        self.handle_run()
+        # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
+        swanlab_settings = get_settings()
+        self._train_begin_print(save_dir=self.settings.run_dir if swanlab_settings.backup else None)
         swanlog.info("👋 Hi " + FONT.bold(FONT.default(get_http().username)) + ", welcome to swanlab!")
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
@@ -154,6 +137,7 @@ class CloudRunCallback(SwanLabRunCallback):
         if in_jupyter():
             show_button_html(experiment_url)
 
+    @backup("runtime")
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 添加上传任务到线程池
         rc = r.config.to_dict() if r.config is not None else None
@@ -164,6 +148,7 @@ class CloudRunCallback(SwanLabRunCallback):
         f = FileModel(requirements=rr, config=rc, metadata=rm, conda=ro)
         self.pool.queue.put((UploadType.FILE, [f]))
 
+    @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         error = None
         if column_info.error is not None:
@@ -192,6 +177,7 @@ class CloudRunCallback(SwanLabRunCallback):
         )
         self.pool.queue.put((UploadType.COLUMN, [column]))
 
+    @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 有错误就不上传
         if metric_info.error:
@@ -206,29 +192,24 @@ class CloudRunCallback(SwanLabRunCallback):
             scalar = ScalarModel(metric, key, step, epoch)
             return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据
-
-        # -------------------------- 🤡这里是一点小小的💩 --------------------------
-        # 要求上传时的文件路径必须带key_encoded前缀
-        if metric_info.metric_buffers is not None:
-            metric = json.loads(json.dumps(metric))
-            for i, d in enumerate(metric["data"]):
-                metric["data"][i] = "{}/{}".format(key_encoded, d)
-        # ------------------------------------------------------------------------
-
         media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
         self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None, *args, **kwargs):
-        # 打印信息
-        self._view_web_print()
         run = get_run()
-        # 如果正在退出或者run对象为None或者不在云端环境下
+        # 如果正在退出或者run对象为None或者不在云端环境下，则不执行任何操作
+        # 原因是在云端环境下退出时会新建一个线程完成上传日志等操作，此时回调会重复执行
+        # 必须要有个标志表明正在退出
         if self.exiting or run is None:
             return swanlog.debug("SwanLab is exiting or run is None, ignore it.")
-        state = run.state
-        # 标志正在退出（需要在下面的逻辑之前标志）
+        # ---------------------------------- 正在退出 ----------------------------------
         self.exiting = True
+        # 打印信息
+        self._view_web_print()
+        state = run.state
         sys.excepthook = self._except_handler
+        swanlog_epoch = run.swanlog_epoch
+        self.backup.stop(error=error, epoch=swanlog_epoch + 1)
 
         def _():
             # 关闭线程池，等待上传线程完成
@@ -237,7 +218,7 @@ class CloudRunCallback(SwanLabRunCallback):
             if error is not None:
                 logs = LogModel(
                     level="ERROR",
-                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
+                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
                 )
                 upload_logs([logs])
 
@@ -247,6 +228,7 @@ class CloudRunCallback(SwanLabRunCallback):
         # 取消注册系统回调
         self._unregister_sys_callback()
         self.exiting = False
+        # -------------------------------------------------------------------------
 
 
 def show_button_html(experiment_url):

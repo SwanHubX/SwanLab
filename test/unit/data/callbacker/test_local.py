@@ -33,7 +33,7 @@ def test_local_write_handler(monkeypatch):
             type='stdout',
             contents=[{'message': a, "create_time": '12344', "epoch": 1}],
         )
-        callback._write_handler(mockdata)
+        callback._terminal_handler(mockdata)
         filename = os.path.join(callback.settings.console_dir, "2020-10-06.log")
         assert os.path.exists(filename)
         with open(filename, "r") as f:
@@ -45,7 +45,7 @@ def test_local_write_handler(monkeypatch):
             type='stdout',
             contents=[{'message': b, "create_time": '12344', "epoch": 1}],
         )
-        callback._write_handler(mockdata)
+        callback._terminal_handler(mockdata)
         filename = os.path.join(callback.settings.console_dir, "2020-10-07.log")
         assert os.path.exists(filename)
         with open(filename, "r") as f:

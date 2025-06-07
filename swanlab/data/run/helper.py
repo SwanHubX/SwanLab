@@ -89,7 +89,6 @@ class SwanLabRunOperator(SwanKitCallback):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,
@@ -99,7 +98,6 @@ class SwanLabRunOperator(SwanKitCallback):
             run_id,
             exp_name,
             description,
-            num,
             colors,
             *args,
             **kwargs,
@@ -121,8 +119,8 @@ class SwanLabRunOperator(SwanKitCallback):
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         return self.__run_all("on_column_create", column_info, *args, **kwargs)
 
-    def on_stop(self, error: str = None, *args, **kwargs):
-        r = self.__run_all("on_stop", error, *args, **kwargs)
+    def on_stop(self, error: str = None, epoch: int = None, *args, **kwargs):
+        r = self.__run_all("on_stop", error=error, epoch=epoch, *args, **kwargs)
         # 清空所有注册的回调函数
         self.callbacks.clear()
         return r
