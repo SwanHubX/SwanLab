@@ -162,6 +162,16 @@ class TestSwanlabSettings:
         settings = swanlab.Settings()
         assert settings.disk_io_dir == "C:\\" if platform.system() == 'Windows' else "/"
 
+    def test_hardware_interval(self):
+        settings = swanlab.Settings()
+        assert settings.hardware_interval is None
+        # 最小值为5
+        with pytest.raises(ValidationError):
+            swanlab.Settings(hardware_interval=1)
+        # 不允许为小数
+        with pytest.raises(ValidationError):
+            swanlab.Settings(hardware_interval=5.5)
+
 
 def test_filter_changed_fields():
     # 默认

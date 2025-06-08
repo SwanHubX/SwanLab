@@ -2,12 +2,14 @@
 Writer plugin for SwanLab.
 Used for writing experiment metadata to CSV and online notes.
 """
-from swankit.callback import SwanKitCallback
-import swanlab
-from typing import Optional, Tuple
-import csv
 import os
 import time
+from typing import Tuple
+
+from swankit.callback import SwanKitCallback
+
+import swanlab
+
 try:
     import pandas as pd
 except ImportError:
@@ -56,7 +58,6 @@ class CSVWriter(SwanKitCallback):
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
         *args,
         **kwargs,

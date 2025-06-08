@@ -7,6 +7,7 @@ r"""
 @Description:
     在此处定义SwanLabRun类并导出
 """
+import os
 import random
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional, List
@@ -26,6 +27,7 @@ from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCro
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
+from ...api import get_http
 
 MAX_LIST_LENGTH = 108
 
@@ -44,7 +46,6 @@ class SwanLabRun:
         tags: List[str] = None,
         run_config: Any = None,
         log_level: str = None,
-        exp_num: int = None,
         operator: SwanLabRunOperator = SwanLabRunOperator(),
     ):
         """
@@ -70,14 +71,12 @@ class SwanLabRun:
             当前实验的日志等级，默认为 'info'，可以从 'debug' 、'info'、'warning'、'error'、'critical' 中选择
             不区分大小写，如果不提供此参数(为None)，则默认为 'info'
             如果提供的日志等级不在上述范围内，默认改为info
-        exp_num : int, optional
-            历史实验总数，用于云端颜色与本地颜色的对应
         operator : SwanLabRunOperator, optional
             实验操作员，用于批量处理回调函数的调用，如果不提供此参数(为None)，则会自动生成一个实例
         """
         if self.is_started():
             raise RuntimeError("SwanLabRun has been initialized")
-
+        swanlab_settings = get_settings()
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
@@ -87,10 +86,27 @@ class SwanLabRun:
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__mode = get_mode()
+        self.__swanlog_epoch = None
+
+        # 1. disabled 模式所有功能关闭，不自动创建文件夹
+        # 2. local 模式永远开启，此时永远自动创建文件夹
+        # 3. backup 模式开启备份功能，此时永远自动创建文件夹
+        # 4. cloud 模式开启云端服务，根据 backup 是否打开判断是否需要自动创建文件夹
+        if self.__mode == "disabled":
+            should_save = False
+        elif self.__mode == "local":
+            should_save = True
+        elif self.__mode == "offline":
+            should_save = True
+        elif self.__mode == "cloud":
+            should_save = swanlab_settings.backup
+        else:
+            raise RuntimeError(f"Unknown mode '{self.__mode}'")
+
         self.__settings = SwanLabSharedSettings(
             logdir=get_swanlog_dir(),
             run_id=self.__run_id,
-            should_save=self.__mode == "local",
+            should_save=should_save,
             version=get_package_version(),
         )
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
@@ -109,7 +125,7 @@ class SwanLabRun:
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # ---------------------------------- 注册实验 ----------------------------------
-        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, tags, num=exp_num)
+        self.__exp: SwanLabExp = self.__register_exp(experiment_name, description, tags)
         # 实验状态标记，如果status不为0，则无法再次调用log方法
         self.__state = SwanLabRunState.RUNNING
 
@@ -125,26 +141,22 @@ class SwanLabRun:
         self.__operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
-        metadata, self.monitor_funcs = get_metadata(self.__settings.log_dir)
-        settings = get_settings()
+        metadata, self.monitor_funcs = get_metadata(self.__settings.run_dir if swanlab_settings.backup else None)
         # 系统信息采集
         self.__operator.on_runtime_info_update(
             RuntimeInfo(
-                requirements=get_requirements() if settings.requirements_collect else None,
-                conda=get_conda() if settings.conda_collect else None,
+                requirements=get_requirements() if swanlab_settings.requirements_collect else None,
+                conda=get_conda() if swanlab_settings.conda_collect else None,
                 metadata=metadata,
             )
         )
-        # 定时采集系统信息，目前仅cloud模式支持
+        # 定时采集系统信息
         self.monitor_cron = None
-        if self.mode == "cloud":
+        # 测试时不开启此功能
+        if "PYTEST_VERSION" not in os.environ:
             if self.monitor_funcs is not None and len(self.monitor_funcs) != 0:
                 swanlog.debug("Monitor on.")
                 self.monitor_cron = MonitorCron(self.__get_monitor_func())
-            else:
-                swanlog.debug("Monitor off because of no monitor func.")
-        else:
-            swanlog.debug("Monitor off.")
 
     def __get_monitor_func(self):
         """
@@ -184,7 +196,6 @@ class SwanLabRun:
         experiment_name: str = None,
         description: str = None,
         tags: List[str] = None,
-        num: int = None,
     ) -> SwanLabExp:
         """
         注册实验，将实验配置写入数据库中，完成实验配置的初始化
@@ -205,10 +216,20 @@ class SwanLabRun:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
+        # 云端实验根据历史实验数量生成实验颜色、名称
+        if self.mode == "cloud":
+            try:
+                num = get_http().history_exp_count
+            except ValueError:
+                # 如果获取历史实验数量失败，则使用随机数
+                swanlog.warning("Failed to get history experiment count, use random number instead.")
+                num = random.randint(0, 20)
+        else:
+            num = None
         experiment_name = N.generate_name(num) if experiment_name is None else experiment_name
         description = "" if description is None else description
         colors = N.generate_colors(num)
-        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, num, colors)
+        self.__operator.before_init_experiment(self.__run_id, experiment_name, description, colors)
         self.__settings.exp_name = experiment_name
         self.__settings.exp_colors = colors
         self.__settings.description = description
@@ -219,8 +240,9 @@ class SwanLabRun:
         """
         停止部分功能，内部清理时调用
         """
-        if self.monitor_cron is not None:
-            self.monitor_cron.cancel()
+        monitor_cron = getattr(self, "monitor_cron", None)
+        if monitor_cron is not None:
+            monitor_cron.cancel()
         if get_settings().log_proxy_type not in ['stderr', 'all']:
             error = None
         self.__operator.on_stop(error)
@@ -240,6 +262,14 @@ class SwanLabRun:
     @property
     def state(self) -> SwanLabRunState:
         return self.__state
+
+    @property
+    def swanlog_epoch(self) -> int:
+        """
+        The epoch of the current run, used for logging.
+        This is automatically set when the run is finished.
+        """
+        return self.__swanlog_epoch
 
     @classmethod
     def get_state(cls) -> SwanLabRunState:
@@ -301,14 +331,14 @@ class SwanLabRun:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         _set_run_state(state)
         error = error if state == SwanLabRunState.CRASHED else None
+        setattr(run, "_SwanLabRun__swanlog_epoch", swanlog.epoch)
         # 退出回调
         getattr(run, "_SwanLabRun__cleanup")(error)
+        # disabled 模式下没有install，所以会报错
         try:
             swanlog.reset()
         except RuntimeError:
-            # disabled 模式下没有install，所以会报错
             pass
-
         # ---------------------------------- 清空config和run以及其他副作用 ----------------------------------
         # 1. 清空config对象
         _config = SwanLabConfig(config)

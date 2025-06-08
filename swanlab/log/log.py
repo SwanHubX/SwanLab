@@ -80,21 +80,22 @@ class SwanLog(SwanLabSharedLog):
             messages, new_buffer = clean_control_chars(get_buffer() + message)
             set_buffer(new_buffer)
             # 4. 遍历 messages，上传到云端
-            log_data = LogData(
-                type=write_type,
-                contents=[],
-            )
-            with self.__counter as counter:
-                for message in messages:
-                    log_data['contents'].append(
-                        LogContent(
-                            message=message[:max_output_len],
-                            create_time=create_time(),
-                            epoch=counter.increment(),
+            if len(messages):
+                log_data = LogData(
+                    type=write_type,
+                    contents=[],
+                )
+                with self.__counter as counter:
+                    for message in messages:
+                        log_data['contents'].append(
+                            LogContent(
+                                message=message[:max_output_len],
+                                create_time=create_time(),
+                                epoch=counter.increment(),
+                            )
                         )
-                    )
-            # 设置回调
-            handler(log_data)
+                # 设置回调
+                handler(log_data)
 
         return write_handler
 
@@ -110,6 +111,7 @@ class SwanLog(SwanLabSharedLog):
             stdout_func()
         elif self.__proxy_type == 'stderr':
             stderr_func()
+        # 为 none 就不管了
 
     @property
     def file(self):

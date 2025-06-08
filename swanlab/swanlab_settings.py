@@ -13,9 +13,9 @@ from pathlib import Path
 from swankit.env import is_windows
 
 try:
-    from typing import Annotated, Literal  # Python 3.9+
+    from typing import Annotated, Literal, Optional  # Python 3.9+
 except ImportError:
-    from typing_extensions import Annotated, Literal  # Python 3.8
+    from typing_extensions import Annotated, Literal, Optional  # Python 3.8
 
 from pydantic import BaseModel, ConfigDict, PositiveInt, StrictBool, DirectoryPath, Field
 
@@ -49,7 +49,14 @@ class Settings(BaseModel):
     disk_io_dir: DirectoryPath = Field(
         default_factory=lambda: str(Path(os.environ.get("SystemDrive", "C:")).resolve() if is_windows() else Path("/"))
     )
+    hardware_interval: Optional[PositiveInt] = Field(
+        default=None,
+        ge=5,
+        description="Hardware monitoring collection interval, in seconds, minimum value is 5 seconds.",
+    )
     # ---------------------------------- 日志上传部分 ----------------------------------
+    # 是否开启日志备份功能
+    backup: StrictBool = True
     # 日志上传间隔
     upload_interval: PositiveInt = 3
     # 终端日志上传单行最大字符数

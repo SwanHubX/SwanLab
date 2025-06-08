@@ -3,7 +3,7 @@ from .data import *
 from .env import SwanLabEnv
 from .package import get_package_version
 from .swanlab_settings import Settings
-from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow
+from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow, sync
 
 # 设置默认环境变量
 SwanLabEnv.set_default()
@@ -35,5 +35,10 @@ __all__ = [
     "get_config",
     "config",
     "OpenApi",
+    "sync_wandb",
+    "sync_mlflow",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync",
     "__version__",
 ]
