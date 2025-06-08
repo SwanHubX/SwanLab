@@ -523,13 +523,3 @@ def get_project_url() -> Optional["str"]:
     if run is None:
         return None
     return run.public.cloud.project_url
-
-def get_run_dir() -> Optional["str"]:
-    """
-    Get the run directory of the current experiment.
-    NOTE: return None if the experiment has not been initialized or mode is not 'cloud'.
-    """
-    global run
-    if run is None:
-        return None
-    return run.public.run_dir

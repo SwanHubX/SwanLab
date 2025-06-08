@@ -114,11 +114,6 @@ class SwanLog(SwanLabSharedLog):
         # 为 none 就不管了
 
     @property
-    def file(self):
-        if self.__consoler.installed:
-            return self.__consoler.writer.file
-        else:
-            return None
     def proxied(self):
         """
         判断是否已经开启代理了
@@ -204,31 +199,3 @@ def clean_control_chars(text) -> Tuple[List[str], str]:
         cleaned_line = _ANSI_ESCAPE_RE.sub('', cleaned_line)  # 使用预编译正则
         cleaned_lines.append(cleaned_line)
     return cleaned_lines, lines[-1]
-
-def trace_handler():
-    """
-    trace_handler 是一个回调函数，用于处理 torch.profiler 的 trace 信息，并将其保存到文件中
-
-    examples
-    -------
-    >>> activities = [torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]
-    >>> with torch.profiler.profile(activities=activities,on_trace_ready=trace_handler()) as p:
-    """
-    from ..data import get_run_dir
-    from . import swanlog
-    import os
-
-    def handler_fn(prof) -> None:
-        run_dir = get_run_dir()
-        if run_dir is None:
-            raise RuntimeError("Run directory not found. Please ensure the run directory is properly set.")
-        saved_path = os.path.join(run_dir, 'files', 'trace.json')
-        if os.path.exists(saved_path):
-            swanlog.warning(f"{saved_path} already exists, will be overwritten")
-            os.remove(f"{saved_path}")
-        else:
-            swanlog.info(f"torch.profiler trace is saved to {saved_path}")
-            
-        prof.export_chrome_trace(f"{saved_path}")
-
-    return handler_fn
