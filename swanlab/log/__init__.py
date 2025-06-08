@@ -6,9 +6,7 @@ r"""
 @IDE: vscode
 @Description:
     日志记录模块，在设计上swanlog作为一个独立的模块被使用
-    FIXME: shit code
 """
-
 from .log import SwanLog
 
 swanlog: SwanLog = SwanLog("swanlab")
