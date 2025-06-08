@@ -43,8 +43,8 @@ def generate_name(index: Optional[int] = None) -> str:
     :return: 生成的名称
     """
     if index is None:
-        prefix = random.choice(prefix_list)
-        return prefix
+        prefix: str = random.choice(prefix_list)
+        return prefix[:-1]
     else:
         prefix = prefix_list[index % len(prefix_list)]
         return prefix + str(index + 1)
@@ -123,9 +123,7 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     if len(hex_color) == 3:
         hex_color = "".join(c * 2 for c in hex_color)
     elif len(hex_color) != 6:
-        raise ValueError(
-            f"Invalid hex color length: {len(hex_color)}, should be 3 or 6 characters"
-        )
+        raise ValueError(f"Invalid hex color length: {len(hex_color)}, should be 3 or 6 characters")
 
     try:
         # 将16进制转换为RGB

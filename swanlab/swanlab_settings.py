@@ -55,6 +55,8 @@ class Settings(BaseModel):
         description="Hardware monitoring collection interval, in seconds, minimum value is 5 seconds.",
     )
     # ---------------------------------- 日志上传部分 ----------------------------------
+    # 是否开启日志备份功能
+    backup: StrictBool = True
     # 日志上传间隔
     upload_interval: PositiveInt = 3
     # 终端日志上传单行最大字符数

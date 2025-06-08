@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.06.08: ♻️ ローカルで完全な実験ログファイルを保存し、**swanlab sync** を使用してローカルログファイルをクラウド/プライベートデプロイにアップロード；ハードウェア監視で**海光DCU**をサポート；
+
 - 2025.06.01: 🏸 グラフの**自由なドラッグ**をサポート；**EChartsカスタムグラフ**をサポート；**PaddleNLP**フレームワークを統合；ハードウェア監視で**MetaX GPU**をサポート；
 
 - 2025.05.25: ログ機能で標準エラーストリームの記録をサポートし、PyTorch Lightningなどのフレームワークからの出力情報をより適切に記録可能に；ハードウェア監視でMoore Threadsをサポート；新たに実行コマンド記録のセキュリティ保護機能を追加、APIキーは自動的に非表示に；
@@ -70,10 +72,10 @@
 
 - 2025.04.07: [EvalScope](https://github.com/ModelScope/EvalScope) との共同統合を完了しました。これにより、EvalScope内で **SwanLab** を使用して **大規模モデルの性能評価** が可能になりました。
 
+<details><summary>完全な更新履歴</summary>
+
 - 2025.03.30: **swanlab.Settings** メソッドをサポートし、実験の動作をより詳細に制御可能に；**寒武紀MLU** ハードウェアの監視をサポート；[Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html) と [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html) をサポート。
 
-
-<details><summary>完全な更新履歴</summary>
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformersは正式にSwanLab（バージョン >=4.50.0）を統合しました、[#36433](https://github.com/huggingface/transformers/pull/36433)。Object3Dチャートのサポートを追加しました。これにより、3D点群を追跡および可視化できます, [docs](https://docs.swanlab.cn/en/api/py-object3d.html)。ハードウェア監視は、GPUメモリ（MB）、ディスク使用率、ネットワーク送受信の記録をサポートします。
 

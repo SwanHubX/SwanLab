@@ -112,6 +112,10 @@ class HTTP:
         return self.__proj.name
 
     @property
+    def history_exp_count(self):
+        return self.__proj.history_exp_count
+
+    @property
     def exp_id(self):
         return self.__exp.cuid
 
@@ -244,7 +248,7 @@ class HTTP:
 
     # ---------------------------------- 接入后端api ----------------------------------
 
-    def mount_project(self, name: str, username: str = None, public: bool = None) -> ProjectInfo:
+    def mount_project(self, name: str, username: str = None, public: bool = None):
         """
         创建项目，如果项目已存在，则获取项目信息
         :param name: 项目名称
@@ -295,7 +299,6 @@ class HTTP:
 
         project: ProjectInfo = FONT.loading("Getting project...", _)
         self.__proj = project
-        return project
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
@@ -309,13 +312,11 @@ class HTTP:
         def _():
             """
             先创建实验，后生成cos凭证
-            :return:
             """
             post_data = {
                 "name": exp_name,
                 "colors": list(colors),
             }
-
             if description is not None:
                 post_data["description"] = description
             if tags is not None:
