@@ -54,6 +54,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.06.08: ♻️ Added support for storing complete experiment log files locally and uploading them to the cloud/private deployment via **swanlab sync**; Hardware monitoring now supports **Hygon DCU**;
+
 - 2025.06.01: 🏸 Added support for **chart free dragging**; added support for **ECharts custom chart**; added support for **PaddleNLP** framework; hardware monitoring supports **MetaX GPU**;
 
 - 2025.05.25: Logging now supports capturing the **standard error stream**, allowing better recording of output from frameworks like PyTorch Lightning; hardware monitoring now includes support for **Moore Threads**; added a security feature for logging runtime commands, where API Keys will be automatically hidden.
@@ -70,10 +72,11 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.04.07: We completed joint integration with [EvalScope](https://github.com/ModelScope/EvalScope). Now you can use **SwanLab** in EvalScope to **evaluate LLM performance**.
 
-- 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/plugin/notification-discord.html).
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/plugin/notification-discord.html).
+
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
 
