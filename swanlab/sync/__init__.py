@@ -12,7 +12,7 @@ from ..data.namer import generate_colors
 from ..log import swanlog
 from ..log.backup import BackupHandler
 from ..log.backup.datastore import DataStore
-from ..log.backup.models import ModelsParser, Runtime
+from ..log.backup.models import ModelsParser
 
 
 def sync(dir_path: str, workspace: str = None, project_name: str = None, login_required: bool = True):
@@ -40,7 +40,7 @@ def sync(dir_path: str, workspace: str = None, project_name: str = None, login_r
             if record is None:
                 continue
             models_parser.parse_record(record)
-    header, project, experiment, logs, runtimes, columns, scalars, medias, footer = models_parser.get_parsed()
+    header, project, experiment, logs, runtime, columns, scalars, medias, footer = models_parser.get_parsed()
     # 0. 检查备份文件
     assert (
         header.backup_type == "DEFAULT"
@@ -51,22 +51,7 @@ def sync(dir_path: str, workspace: str = None, project_name: str = None, login_r
     for log in logs:
         log_model = log.to_log_model()
         log_model_dict[log_model['level']].append(log_model)
-    # 1.2 集合运行时
-    runtime = Runtime(
-        conda_filename=None,
-        requirements_filename=None,
-        metadata_filename=None,
-        config_filename=None,
-    )
-    for r in runtimes:
-        if r.conda_filename is not None:
-            runtime.conda_filename = r.conda_filename
-        if r.requirements_filename is not None:
-            runtime.requirements_filename = r.requirements_filename
-        if r.metadata_filename is not None:
-            runtime.metadata_filename = r.metadata_filename
-        if r.config_filename is not None:
-            runtime.config_filename = r.config_filename
+    # 1.2 生成运行时
     runtime_model = runtime.to_file_model(os.path.join(dir_path, "files"))
     # 1.3 集合列
     column_models = [c.to_column_model() for c in columns]

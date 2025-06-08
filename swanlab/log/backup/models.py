@@ -137,7 +137,7 @@ class Runtime(BaseModel):
             conda_path = os.path.join(file_dir, self.conda_filename)
             if not os.path.exists(os.path.join(file_dir, self.conda_filename)):
                 raise FileNotFoundError(f"Conda file {self.conda_filename} not found in {file_dir}")
-            conda = open(os.path.join(file_dir, self.conda_filename), "r").read()
+            conda = open(conda_path, "r").read()
         if self.requirements_filename:
             requirements_path = os.path.join(file_dir, self.requirements_filename)
             if not os.path.exists(requirements_path):
@@ -334,7 +334,12 @@ class ModelsParser:
         self._project: Optional[Project] = None
         self._experiment: Optional[Experiment] = None
         self._logs: List[Log] = []
-        self._runtimes: List[Runtime] = []
+        self._runtime: Runtime = Runtime(
+            conda_filename=None,
+            requirements_filename=None,
+            metadata_filename=None,
+            config_filename=None,
+        )
         self._columns: List[Column] = []
         self._scalars: List[Scalar] = []
         self._medias: List[Media] = []
@@ -360,7 +365,14 @@ class ModelsParser:
             self._logs.append(record)
             return
         if isinstance(record, Runtime):
-            self._runtimes.append(record)
+            if record.conda_filename is not None:
+                self._runtime.conda_filename = record.conda_filename
+            if record.requirements_filename is not None:
+                self._runtime.requirements_filename = record.requirements_filename
+            if record.metadata_filename is not None:
+                self._runtime.metadata_filename = record.metadata_filename
+            if record.config_filename is not None:
+                self._runtime.config_filename = record.config_filename
             return
         if isinstance(record, Column):
             self._columns.append(record)
@@ -399,7 +411,7 @@ class ModelsParser:
         Project,
         Experiment,
         List[Log],
-        List[Runtime],
+        Runtime,
         List[Column],
         List[Scalar],
         List[Media],
@@ -409,12 +421,14 @@ class ModelsParser:
         获取已解析的记录
         """
         assert self._parsed, "Must parse records before getting parsed data"
+        # 解析运行时信息，
+
         return (
             self._header,
             self._project,
             self._experiment,
             self._logs,
-            self._runtimes,
+            self._runtime,
             self._columns,
             self._scalars,
             self._medias,

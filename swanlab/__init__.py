@@ -35,5 +35,10 @@ __all__ = [
     "get_config",
     "config",
     "OpenApi",
+    "sync_wandb",
+    "sync_mlflow",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync",
     "__version__",
 ]
