@@ -30,7 +30,12 @@ def get_moorethreads_gpu_info() -> HardwareFuncResult:
         driver, gpu_map = map_moorethreads_gpu()
         info["driver"] = driver
         info["gpu"] = gpu_map
-        collector = MTTCollector(gpu_map)
+        max_mem_value = 0
+        for gpu_id in gpu_map:
+            mem_value = int(gpu_map[gpu_id]["memory"])
+            max_mem_value = max(max_mem_value, mem_value)
+        max_mem_value *= 1024
+        collector = MTTCollector(gpu_map, max_mem_value)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -41,9 +46,11 @@ def map_moorethreads_gpu() -> Tuple[Optional[str], dict]:
     """
     获取 Moore Threads GPU信息，包括驱动版本、设备信息等，例如：
     driver: '2.7.0'
-    gpu_map: {"0": { "name": "MTT S4000”, "memory": "48GB"}, "1": { "name": "MTT S4000", "memory": "48GB"}, ...}
+    gpu_map: {"0": { "name": "MTT S4000”, "memory": "48"}, "1": { "name": "MTT S4000", "memory": "48"}, ...}
     """
-    output_str = subprocess.run(["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True).stdout
+    output_str = subprocess.run(
+        ["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True
+    ).stdout
     output_json = json.loads(output_str)
     driver = None
     gpu_map = {}
@@ -71,9 +78,10 @@ def map_moorethreads_gpu() -> Tuple[Optional[str], dict]:
 
 
 class MTTCollector(H):
-    def __init__(self, gpu_map):
+    def __init__(self, gpu_map, max_mem_value):
         super().__init__()
         self.gpu_map = gpu_map
+        self.max_mem_value = max_mem_value
 
         # GPU Utilization (%)
         self.util_key = generate_key("gpu.{gpu_index}.pct")
@@ -92,6 +100,15 @@ class MTTCollector(H):
             chart_name="GPU Memory Allocated (%)",
         )
         self.per_memory_configs = {}
+
+        # GPU Memory Allocated (MB)
+        self.mem_value_key = generate_key("gpu.{gpu_index}.mem.value")
+        mem_value_config = HardwareConfig(
+            y_range=(0, self.max_mem_value),
+            chart_index=random_index(),
+            chart_name="GPU Memory Allocated (MB)",
+        )
+        self.per_mem_value_configs = {}
 
         # GPU Temperature (°C)
         self.temp_key = generate_key("gpu.{gpu_index}.temp")
@@ -113,16 +130,28 @@ class MTTCollector(H):
 
         for gpu_id in self.gpu_map:
             metric_name = f"GPU {gpu_id}"
-            self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
-            self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
-            self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
-            self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
+            self.per_util_configs[metric_name] = util_config.clone(
+                metric_name=metric_name
+            )
+            self.per_memory_configs[metric_name] = memory_config.clone(
+                metric_name=metric_name
+            )
+            self.per_mem_value_configs[metric_name] = mem_value_config.clone(
+                metric_name=metric_name
+            )
+            self.per_temp_configs[metric_name] = temp_config.clone(
+                metric_name=metric_name
+            )
+            self.per_power_configs[metric_name] = power_config.clone(
+                metric_name=metric_name
+            )
 
     def collect(self) -> HardwareInfoList:
         result: HardwareInfoList = []
         usage_methods = [
             self.get_utilization_usage,
             self.get_memory_usage,
+            self.get_mem_value_usage,
             self.get_temperature_usage,
             self.get_power_usage,
         ]
@@ -189,6 +218,32 @@ class MTTCollector(H):
             mem_infos[gpu_id]["value"] = gpu_mem_usage_rate
         return mem_infos
 
+    def get_mem_value_usage(self) -> dict:
+        """
+        获取指定GPU设备的显存使用量
+        """
+        output_str = subprocess.run(
+            ["mthreads-gmi", "-q", "-d", "MEMORY", "--json"],
+            capture_output=True,
+            text=True,
+        ).stdout
+        output_json = json.loads(output_str)
+        mem_infos = {}
+        for gpu_info in output_json["GPU"]:
+            gpu_id = gpu_info["Index"]
+
+            mem_infos[gpu_id] = {
+                "key": self.mem_value_key.format(gpu_index=gpu_id),
+                "name": f"GPU {gpu_id} Memory Allocated (MB)",
+                "value": math.nan,
+                "config": self.per_mem_value_configs[f"GPU {gpu_id}"],
+            }
+            gpu_mem_info = gpu_info["FB Memory Usage"]
+            mem_infos[gpu_id]["value"] = float(
+                gpu_mem_info["Used"].replace("MiB", "").strip()
+            )
+        return mem_infos
+
     def get_temperature_usage(self) -> dict:
         """
         获取指定GPU设备的温度(°C)
@@ -210,7 +265,9 @@ class MTTCollector(H):
                 "config": self.per_temp_configs[f"GPU {gpu_id}"],
             }
             # 解析温度
-            gpu_temp = gpu_info["Temperature"]["GPU Current Temp"].replace("C", "").strip()
+            gpu_temp = (
+                gpu_info["Temperature"]["GPU Current Temp"].replace("C", "").strip()
+            )
             temp_infos[gpu_id]["value"] = float(gpu_temp)
         return temp_infos
 
@@ -234,6 +291,8 @@ class MTTCollector(H):
                 "value": math.nan,
                 "config": self.per_power_configs[f"GPU {gpu_id}"],
             }
-            gpu_power = gpu_info["Power Readings"]["Power Draw "].strip().replace("W", "")
+            gpu_power = (
+                gpu_info["Power Readings"]["Power Draw "].strip().replace("W", "")
+            )
             power_infos[gpu_id]["value"] = float(gpu_power)
         return power_infos
