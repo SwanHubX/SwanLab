@@ -53,16 +53,18 @@ class SwanLabTracker(GeneralTracker):
 
     name = "swanlab"
     requires_logging_directory = False
-    main_process_only = False
+    main_process_only = True  # it must be True in tracker module
 
     def __init__(self, run_name: str, **kwargs):
         super().__init__()
         self.run_name = run_name
         self.init_kwargs = kwargs
+        self.start()  # auto start swanlab when instantiation tracker
 
     @on_main_process
     def start(self):
-        import swanlab
+        if hasattr(self, "run") and self.run is not None:
+            return
 
         self.run = swanlab.init(project=self.run_name, **self.init_kwargs)
         swanlab.config["FRAMEWORK"] = "accelerate"  # add accelerate logo in config
