@@ -15,7 +15,7 @@ from swankit.core import SwanLabSharedSettings
 from swankit.core.data import MediaType
 
 from swanlab.data import namer as N
-from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase
+from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
@@ -425,7 +425,7 @@ class SwanLabRun:
             # 输入为可转换为float的数据类型
             if isinstance(v, (int, float, FloatConvertible)):
                 v = DataWrapper(k, [Line(v)])
-            elif isinstance(v, PyEchartsBase):
+            elif isinstance(v, (PyEchartsBase,PyEchartsTable)):
                 v = DataWrapper(k, [Echarts(v)])
             # 为Line类型或者MediaType类型
             elif isinstance(v, (Line, MediaType)):

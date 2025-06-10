@@ -5,21 +5,21 @@
 // @description: 本文件是对于echarts的 表格组件 图表的测试
 """
 # ---------------------------------------------- Table - Table_base ----------------------------------------------
-from pyecharts.components import Table
+# from pyecharts.components import Table
+from swanlab.data.modules.echarts import Table
 from pyecharts.options import ComponentTitleOpts
 
 
 table = Table()
 
-headers = ["City name", "Area", "Population", "Annual Rainfall"]
+headers = ["NO", "机构", "数量"]
 rows = [
-    ["Brisbane", 5905, 1857594, 1146.4],
-    ["Adelaide", 1295, 1158259, 600.5],
-    ["Darwin", 112, 120900, 1714.7],
-    ["Hobart", 1357, 205556, 619.5],
-    ["Sydney", 2058, 4336374, 1214.8],
-    ["Melbourne", 1566, 3806092, 646.9],
-    ["Perth", 5386, 1554769, 869.4],
+    [1, "个人", 10],
+    [2, "西安电子科技大学", 259 ],
+    [3, "西安邮电大学", 123 ],
+    [4, "北京大学", 300 ],
+    [5, "清华大学", 290],
+    [6, "helloworld", 1145]
 ]
 table.add(headers, rows)
 table.set_global_opts(
