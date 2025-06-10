@@ -9,7 +9,6 @@ r"""
 """
 import os
 import random
-from datetime import datetime
 from typing import Any, Callable, Dict, Optional, List
 
 from swankit.core import SwanLabSharedSettings
@@ -80,9 +79,7 @@ class SwanLabRun:
         # ---------------------------------- 初始化类内参数 ----------------------------------
         self.__project_name = project_name
         # 生成一个唯一的id，随机生成一个8位的16进制字符串，小写
-        _id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.__run_id = "run-{}-{}".format(timestamp, _id)
+        self.__run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         # 操作员初始化
         self.__operator = SwanLabRunOperator() if operator is None else operator
         self.__mode = get_mode()
