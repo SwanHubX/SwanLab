@@ -8,14 +8,10 @@
 import math
 import platform
 import subprocess
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from ..type import (
-    HardwareFuncResult,
-    HardwareInfoList,
-    HardwareConfig,
-    HardwareCollector as H,
-)
+from ..type import HardwareCollector as H
+from ..type import HardwareConfig, HardwareFuncResult, HardwareInfoList
 from ..utils import generate_key, random_index
 
 
@@ -34,7 +30,13 @@ def get_metax_gpu_info() -> HardwareFuncResult:
         info["driver"] = driver
         info["maca"] = maca_version
         info["gpu"] = gpu_map
-        collector = MetaxCollector(gpu_map)
+        max_mem_value: int = 0
+        for gpu_id in gpu_map:
+            mem_value = gpu_map[gpu_id]["memory"]
+            if mem_value > max_mem_value:
+                max_mem_value = mem_value
+        max_mem_value = max_mem_value * 1024
+        collector = MetaxCollector(gpu_map, max_mem_value)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -80,9 +82,10 @@ def map_metax_gpu() -> Tuple[Optional[str], Optional[str], dict]:
 
 
 class MetaxCollector(H):
-    def __init__(self, gpu_map):
+    def __init__(self, gpu_map, max_mem_value):
         super().__init__()
         self.gpu_map = gpu_map
+        self.max_mem_value = max_mem_value
 
         # GPU Utilization (%)
         self.util_key = generate_key("gpu.{gpu_index}.pct")
@@ -101,6 +104,15 @@ class MetaxCollector(H):
             chart_name="GPU Memory Allocated (%)",
         )
         self.per_memory_configs = {}
+
+        # GPU Memory Allocated (MB)
+        self.memory_value_key = generate_key("gpu.{gpu_index}.mem.value")
+        memory_value_config = HardwareConfig(
+            y_range=(0, self.max_mem_value),
+            chart_index=random_index(),
+            chart_name="GPU Memory Allocated (MB)",
+        )
+        self.per_memory_value_configs = {}
 
         # GPU Temperature (°C)
         self.temp_key = generate_key("gpu.{gpu_index}.temp")
@@ -124,6 +136,7 @@ class MetaxCollector(H):
             metric_name = f"GPU {gpu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
             self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
+            self.per_memory_value_configs[metric_name] = memory_value_config.clone(metric_name=metric_name)
             self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
             self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
@@ -131,7 +144,8 @@ class MetaxCollector(H):
         result: HardwareInfoList = []
         usage_methods = [
             self.get_utilization_usage,
-            self.get_memory_usage,
+            self.get_memory_rate_usage,
+            self.get_memory_value_usage,
             self.get_temperature_usage,
             self.get_power_usage,
         ]
@@ -169,7 +183,7 @@ class MetaxCollector(H):
 
         return usage_infos
 
-    def get_memory_usage(self) -> dict:
+    def get_memory_rate_usage(self) -> dict:
         """
         获取指定GPU设备的内存占用率
         """
@@ -195,11 +209,39 @@ class MetaxCollector(H):
                     "value": math.nan,
                     "config": self.per_memory_configs[f"GPU {gpu_id}"],
                 }
+
                 gpu_mem_usage_rate = float(gpu_mem_used) / float(gpu_mem_total) * 100
                 mem_infos[gpu_id]["value"] = gpu_mem_usage_rate
                 index += 1
 
         return mem_infos
+
+    def get_memory_value_usage(self) -> dict:
+        """
+        获取指定GPU设备的内存占用值
+        """
+        output_str = subprocess.run(
+            ["mx-smi", "--show-memory"],
+            capture_output=True,
+            text=True,
+        ).stdout
+        output_str_line = output_str.split("\n")
+        mem_value_infos = {}
+        index = 0
+        for line in output_str_line:
+            if "vis_vram used" in line:
+                gpu_id = index
+                gpu_mem_used = line.split(" ")[-2]
+                mem_value_infos[gpu_id] = {
+                    "key": self.memory_value_key.format(gpu_index=gpu_id),
+                    "name": f"GPU {gpu_id} Memory Allocated (MB)",
+                    "value": math.nan,
+                    "config": self.per_memory_value_configs[f"GPU {gpu_id}"],
+                }
+                gpu_mem_usage_value = float(gpu_mem_used) / 1024
+                mem_value_infos[gpu_id]["value"] = gpu_mem_usage_value
+                index += 1
+        return mem_value_infos
 
     def get_temperature_usage(self) -> dict:
         """

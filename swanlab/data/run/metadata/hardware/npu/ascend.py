@@ -11,7 +11,8 @@ import platform
 import subprocess
 from typing import Optional
 
-from ..type import HardwareFuncResult, HardwareInfoList, HardwareConfig, HardwareInfo, HardwareCollector as H
+from ..type import HardwareCollector as H
+from ..type import HardwareConfig, HardwareFuncResult, HardwareInfo, HardwareInfoList
 from ..utils import generate_key, random_index
 
 
@@ -37,6 +38,7 @@ def get_ascend_npu_info() -> HardwareFuncResult:
 
         # 获取所有NPU设备ID
         npu_map = map_npu()
+        hbm_value: int = 0
         for npu_id in npu_map:
             for chip_id in npu_map[npu_id]:
                 chip_info = npu_map[npu_id][chip_id]
@@ -46,7 +48,9 @@ def get_ascend_npu_info() -> HardwareFuncResult:
                 if npu_id not in info["npu"]:
                     info["npu"][npu_id] = {}
                 info["npu"][npu_id][chip_id] = {**chip_info, "usage": usage}
-        collector = AscendCollector(npu_map)
+                hbm_value = int(usage.get("hbm", 0)) if usage else 0
+        hbm_value = hbm_value * 1024  # 转换为MB
+        collector = AscendCollector(npu_map, hbm_value)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -129,9 +133,10 @@ def get_chip_usage(npu_id: str, chip_id: str):
 
 
 class AscendCollector(H):
-    def __init__(self, npu_map):
+    def __init__(self, npu_map, max_hbm_value: int):
         super().__init__()
         self.npu_map = npu_map
+        self.max_hbm_value = max_hbm_value
         # NPU Utilization (%)
         self.util_key = generate_key("npu.{npu_index}.ptc")
         util_config = HardwareConfig(
@@ -148,6 +153,15 @@ class AscendCollector(H):
             chart_name="NPU Memory Allocated (%)",
         )
         self.per_hbm_configs = {}
+        # NPU Memory Allocated (MB)
+        self.hbm_value_key = generate_key("npu.{npu_index}.mem.value")
+        hbm_value_config = HardwareConfig(
+            y_range=(0, max_hbm_value),
+            chart_index=random_index(),
+            chart_name="NPU Memory Allocated (MB)",
+        )
+        self.per_hbm_value_configs = {}
+
         # NPU Temperature (℃)
         self.temp_key = generate_key("npu.{npu_index}.temp")
         temp_config = HardwareConfig(
@@ -170,6 +184,7 @@ class AscendCollector(H):
                 metric_name = f"NPU {npu_id}-{chip_id}"
                 self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
                 self.per_hbm_configs[metric_name] = hbm_rate_config.clone(metric_name=metric_name)
+                self.per_hbm_value_configs[metric_name] = hbm_value_config.clone(metric_name=metric_name)
                 self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
                 self.per_power_config[metric_name] = power_config.clone(metric_name=metric_name)
 
@@ -206,13 +221,19 @@ class AscendCollector(H):
             "value": math.nan,
             "config": self.per_hbm_configs[metric_name],
         }
+        hbm_value_info = {
+            "key": self.hbm_value_key.format(npu_index=_id),
+            "name": f"{metric_name} Memory Allocated (MB)",
+            "value": math.nan,
+            "config": self.per_hbm_value_configs[metric_name],
+        }
         for line in output.split("\n"):
             if "aicore usage rate" in line.lower():
                 line = line.split(":")
                 # 利用率的值在最后一个
                 util = line[-1].strip()
                 if util.isdigit():
-                    util_info['value'] = float(util)
+                    util_info["value"] = float(util)
                 continue
 
             if "hbm usage rate" in line.lower():
@@ -220,9 +241,10 @@ class AscendCollector(H):
                 # HBM Capacity的值在最后一个
                 hbm = line[-1].strip()
                 if hbm.isdigit():
-                    hbm_info['value'] = float(hbm)
+                    hbm_info["value"] = float(hbm)
+                    hbm_value_info["value"] = float(hbm) * self.max_hbm_value * 0.01
                 continue
-        return [util_info, hbm_info]
+        return [util_info, hbm_info, hbm_value_info]
 
     def get_chip_temp(self, npu_id: str, chip_id: str) -> HardwareInfo:
         """

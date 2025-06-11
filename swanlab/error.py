@@ -65,11 +65,7 @@ class ApiError(SyncError):
         super().__init__(*args)
         self.resp = resp
         self.log_level = "error"
-        self.message = (
-            'swanlab api error'
-            if resp is None
-            else 'swanlab api error, status code: {}, reason: {}'.format(resp.status_code, resp.reason)
-        )
+        self.message = 'swanlab api error ' + ('unknown error' if resp is None else str(self))
 
 
 class NetworkError(SyncError):

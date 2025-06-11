@@ -29,7 +29,12 @@ def get_cambricon_mlu_info() -> HardwareFuncResult:
         driver, mlu_map = map_mlu()
         info["driver"] = driver
         info["mlu"] = mlu_map
-        collector = CambriconCollector(mlu_map)
+        max_mem_value = 0
+        for mlu_id in mlu_map:
+            mlu_mem = int(mlu_map[mlu_id].get("memory", 0))
+            max_mem_value = max(max_mem_value, mlu_mem)
+        max_mem_value = max_mem_value * 1024  # 转换为MB
+        collector = CambriconCollector(mlu_map, max_mem_value)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -78,9 +83,10 @@ def map_mlu() -> Tuple[Optional[str], dict]:
 
 
 class CambriconCollector(H):
-    def __init__(self, mlu_map):
+    def __init__(self, mlu_map, max_mem_value):
         super().__init__()
         self.mlu_map = mlu_map
+        self.max_mem_value = max_mem_value
 
         # mlu Utilization (%)
         self.util_key = generate_key("mlu.{mlu_index}.ptc")
@@ -99,6 +105,15 @@ class CambriconCollector(H):
             chart_name="MLU Memory Allocated (%)",
         )
         self.per_memory_configs = {}
+
+        # mlu Memory Allocated (MB)
+        self.mem_value_key = generate_key("mlu.{mlu_index}.mem.value")
+        mem_value_config = HardwareConfig(
+            y_range=(0, self.max_mem_value),
+            chart_index=random_index(),
+            chart_name="MLU Memory Allocated (MB)",
+        )
+        self.per_mem_value_configs = {}
 
         # mlu Temperature (°C)
         self.temp_key = generate_key("mlu.{mlu_index}.temp")
@@ -122,6 +137,7 @@ class CambriconCollector(H):
             metric_name = f"MLU {mlu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
             self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
+            self.per_mem_value_configs[metric_name] = mem_value_config.clone(metric_name=metric_name)
             self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
             self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
@@ -130,6 +146,7 @@ class CambriconCollector(H):
         usage_methods = [
             self.get_utilization_usage,
             self.get_memory_usage,
+            self.get_mem_value_usage,
             self.get_temperature_usage,
             self.get_power_usage,
         ]
@@ -211,6 +228,45 @@ class CambriconCollector(H):
                     index += 1
                     continue
         return memory_infos
+
+    def get_mem_value_usage(self) -> dict:
+        """
+        获取指定mlu设备的显存使用量 (MB)
+        """
+        output = subprocess.run(
+            ["cnmon", "info", "-m"],
+            capture_output=True,
+            text=True,
+        ).stdout
+
+        mem_value_infos = {}
+        mlu_ids = []
+
+        # 获取所有mlu ID
+        for mlu_id in self.mlu_map:
+            mlu_ids.append(mlu_id)
+
+        index = 0
+        lines = output.strip().split("\n")
+        for line_idx, line in enumerate(lines):
+            # 如果包含mlu average，则表示该行是mlu的利用率
+            if "physical memory usage" in line.lower():
+                if "used" in lines[line_idx + 2].lower():
+                    used_line = lines[line_idx + 2]
+                    # 初始化mlu的利用率
+                    mem_value_infos[mlu_ids[index]] = {
+                        "key": self.mem_value_key.format(mlu_index=mlu_ids[index]),
+                        "name": f"MLU {mlu_ids[index]} Memory Allocated (MB)",
+                        "value": math.nan,
+                        "config": self.per_mem_value_configs[f"MLU {mlu_ids[index]}"],
+                    }
+                    # 获得此mlu的显存数值（MiB）
+                    memory = used_line.split(":")[-1].replace("MiB", "").strip()
+                    if memory.isdigit():
+                        mem_value_infos[mlu_ids[index]]["value"] = float(memory)
+                    index += 1
+                    continue
+        return mem_value_infos
 
     def get_temperature_usage(self) -> dict:
         """
