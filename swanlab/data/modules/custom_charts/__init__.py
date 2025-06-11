@@ -2,7 +2,7 @@
 @author: ComPleHN
 @file: __init__.py
 @time: 2025/5/19 14:01
-@desc: 集成 pyecharts
+@desc: 自定义图表，目前集成了 echarts
 """
 
 import pyecharts
@@ -18,7 +18,7 @@ pyecharts.charts.base.Base
 """
 PyEchartsTable = Table
 """
-pyecharts.components.table.Table but 
+custom Table inherited from pyecharts.components.table.Table
 """
 
 __all__ = ["echarts", 'Echarts', 'PyEchartsTable', 'PyEchartsBase']

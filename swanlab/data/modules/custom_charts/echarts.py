@@ -5,13 +5,13 @@
 @description: 由于前端支持有限，这里仅导出部分 echarts 类型
 """
 
-from pyecharts import options as opts
+from pyecharts import options
 from pyecharts.charts import *
 
 from .table import Table
 
 __all__ = [
-    "opts",
+    "options",
     "Bar3D",
     "Bar",
     "Boxplot",

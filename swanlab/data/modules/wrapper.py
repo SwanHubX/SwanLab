@@ -12,7 +12,7 @@ from typing import Union, List, Optional
 from swankit.core import ParseResult, ParseErrorInfo, MediaType, ChartReference
 
 from swanlab.error import DataTypeError
-from .echarts import Echarts
+from .custom_charts import Echarts
 from .line import Line
 
 

@@ -1,5 +1,7 @@
 import json
-from swanlab.data.modules.echarts.table import  Table
+
+from swanlab.data.modules.echarts.table import Table
+
 
 def test_table():
     """测试表格功能"""
@@ -40,8 +42,3 @@ def test_table():
     assert len(table_data["rowData"]) == 2
     assert table_data["rowData"][0]["姓名"] == "张三"
     assert table_data["rowData"][0]["年龄"] == 25
-
-
-if __name__ == '__main__':
-    test_table()
-    print("所有测试通过!")
