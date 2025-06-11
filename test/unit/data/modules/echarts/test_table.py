@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from swanlab.data.modules.custom_charts.table import Table
 
 
@@ -14,8 +16,9 @@ def test_table():
     rows = [["张三", 25, "北京"], ["李四", 30, "上海"]]
     table.add(headers, rows)
 
-    # 设置标题
-    table.set_global_opts({"title": "测试表格"})
+    # 不允许设置标题
+    with pytest.raises(NotImplementedError):
+        table.set_global_opts({"title": "测试表格"})
 
     # 测试格式转换
     formatted_data = table.get_table_format()

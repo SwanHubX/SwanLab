@@ -6,10 +6,11 @@
 """
 
 import datetime
-import simplejson as json
 
+import simplejson as json
 from pyecharts.commons import utils
 from pyecharts.components import Table as T
+from pyecharts.options import ComponentTitleOpts
 from pyecharts.options.series_options import BasicOpts
 from pyecharts.types import Sequence, Union, Optional
 
@@ -45,6 +46,9 @@ class Table(T):
 
         return converted_data
 
+    def set_global_opts(self, title_opts: Union[ComponentTitleOpts, dict, None] = None):
+        raise NotImplementedError("set_global_opts is not supported in swanlab.echarts.Table")
+
     @staticmethod
     def _default_parse(o):
         """
@@ -64,5 +68,5 @@ class Table(T):
     def dump_options(self) -> str:
         """序列化原始格式的options"""
         return utils.replace_placeholder(
-            json.dumps(self.get_table_format(),  default=self._default_parse, ignore_nan=True)
+            json.dumps(self.get_table_format(), default=self._default_parse, ignore_nan=True)
         )
