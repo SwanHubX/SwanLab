@@ -20,7 +20,7 @@ def get_requirements():
         result = subprocess.run(["uv", "pip", "list", "--format=freeze"], capture_output=True, text=True, timeout=0.5)
         if result.returncode == 0:
             return result.stdout
-    except FileNotFoundError:   
+    except FileNotFoundError:
         pass
 
     try:
