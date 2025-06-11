@@ -3,32 +3,45 @@ from typing import List, Union
 from swankit.core.data import BaseType, MediaBuffer, MediaType
 
 from .audio import Audio
-from .echarts import echarts, Echarts, PyEchartsBase
+from .custom_charts import echarts, Echarts, PyEchartsBase, PyEchartsTable
 from .image import Image
 from .line import FloatConvertible, Line
-from .object3d import Model3D, Object3D, PointCloud, Molecule
+from .object3d import Object3D, Molecule
 from .text import Text
 from .wrapper import DataWrapper
 
-DataType = Union[int, float, FloatConvertible, BaseType, List[BaseType]]
+DataType = Union[
+    int,
+    float,
+    FloatConvertible,
+    BaseType,
+    List[BaseType],
+    PyEchartsBase,
+    PyEchartsTable,
+    List[PyEchartsTable],
+    List[PyEchartsBase],
+]
+
 ChartType = BaseType.Chart
 
 __all__ = [
+    # 数据类型
     "FloatConvertible",
     "DataWrapper",
     "MediaType",
+    "PyEchartsBase",
+    "PyEchartsTable",
+    "DataType",
+    "ChartType",
+    "MediaBuffer",
+    # 支持的图表类
     "Image",
     "Audio",
     "Text",
     "Line",
-    "DataType",
-    "ChartType",
-    "MediaBuffer",
     "Object3D",
-    "PointCloud",
-    "Model3D",
     "Molecule",
     "Echarts",
+    # 模块
     "echarts",
-    "PyEchartsBase",
 ]
