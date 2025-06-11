@@ -4,20 +4,18 @@
 @time: 2025/5/19 14:01
 @desc: 集成 pyecharts
 """
+
 import datetime
 
 import pyecharts
-from pyecharts.charts.base import Base
-from swankit.core import MediaBuffer, DataSuite as D, MediaType
-
-
-from pyecharts.components import Table as T
 import simplejson as json
+from pyecharts.charts.base import Base
 from pyecharts.commons import utils
-from pyecharts.options.series_options import BasicOpts
-from pyecharts.types import Sequence,Union,Optional
+from pyecharts.components import Table as T
 from pyecharts.options import ComponentTitleOpts
-
+from pyecharts.options.series_options import BasicOpts
+from pyecharts.types import Sequence, Union, Optional
+from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
 echarts = pyecharts.charts
 
@@ -28,34 +26,22 @@ pyecharts.charts.base.Base 的别名
 
 PyEchartsTable = T
 
-__all__ = ["echarts", 'Echarts', 'PyEchartsBase','PyEchartsTable',"Table"]
+__all__ = ["echarts", 'Echarts', 'PyEchartsBase', 'PyEchartsTable', "Table"]
 
 
 class Table(T):
     def __init__(self):
-        super().__init__()  # Initialize the parent class
-        self.options: dict = {
-            '_swanLab': "table",
-            'title_opts': None,
-            'headers': [],
-            'rows': []
-        }
+        super().__init__()
+        self.options: dict = {'_swanLab': "table", 'title_opts': None, 'headers': [], 'rows': []}
 
     def add(self, headers: Sequence, rows: Sequence, attributes: Optional[dict] = None):
-        # Call parent's add method (which generates html_content)
         super().add(headers, rows, attributes)
 
-        # Update only the needed options
-        self.options.update({
-            'headers': headers,
-            'rows': rows
-        })
+        self.options.update({'headers': headers, 'rows': rows})
         return self
 
     def set_global_opts(self, title_opts: Union[ComponentTitleOpts, dict, None] = None):
-        # Call parent's set_global_opts method
         super().set_global_opts(title_opts)
-
         # Update title_opts in options
         if isinstance(title_opts, ComponentTitleOpts):
             self.options['title_opts'] = {
@@ -68,13 +54,9 @@ class Table(T):
             self.options['title_opts'] = None
         return self
 
-    def get_options(self) -> dict:
-        """获取原始格式的options"""
-        return utils.remove_key_with_none_value(self.options)
-
     def get_table_format(self) -> dict:
         """获取转换后的表格格式(包含rowData和colDefs)"""
-        original_data = self.get_options()
+        original_data = utils.remove_key_with_none_value(self.options)
 
         # 创建新字典，保留所有原始字段
         converted_data = original_data.copy()
@@ -85,10 +67,7 @@ class Table(T):
             converted_data["colDefs"] = [{"field": header} for header in original_data["headers"]]
 
             # 转换行数据
-            converted_data["rowData"] = [
-                dict(zip(original_data["headers"], row))
-                for row in original_data["rows"]
-            ]
+            converted_data["rowData"] = [dict(zip(original_data["headers"], row)) for row in original_data["rows"]]
 
             # 移除原始的headers和rows字段
             converted_data.pop("headers", None)
@@ -96,25 +75,30 @@ class Table(T):
 
         return converted_data
 
+    @staticmethod
+    def _default_parse(o):
+        """
+        默认的序列化方法，处理日期、JsCode和BasicOpts等特殊类型
+        """
+        if isinstance(o, (datetime.date, datetime.datetime)):
+            return o.isoformat()
+        if isinstance(o, utils.JsCode):
+            return o.replace("\\n|\\t", "").replace(r"\\n", "\n").replace(r"\\t", "\t").js_code
+        if isinstance(o, BasicOpts):
+            if isinstance(o.opts, Sequence):
+                return [utils.remove_key_with_none_value(item) for item in o.opts]
+            else:
+                return utils.remove_key_with_none_value(o.opts)
+
     def dump_options(self) -> str:
         """序列化原始格式的options"""
         return utils.replace_placeholder(
-            json.dumps(self.get_table_format(), indent=4, default=default, ignore_nan=True)
+            json.dumps(
+                self.get_table_format(),
+                default=self._default_parse,
+                ignore_nan=True,
+            )
         )
-
-
-def default(o):
-    if isinstance(o, (datetime.date, datetime.datetime)):
-        return o.isoformat()
-    if isinstance(o, utils.JsCode):
-        return (
-            o.replace("\\n|\\t", "").replace(r"\\n", "\n").replace(r"\\t", "\t").js_code
-        )
-    if isinstance(o, BasicOpts):
-        if isinstance(o.opts, Sequence):
-            return [utils.remove_key_with_none_value(item) for item in o.opts]
-        else:
-            return utils.remove_key_with_none_value(o.opts)
 
 
 class Echarts(MediaType):
@@ -142,4 +126,3 @@ class Echarts(MediaType):
 
     def get_section(self):
         return "ECharts"
-
