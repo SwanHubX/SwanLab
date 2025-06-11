@@ -10,7 +10,6 @@ import json
 
 from pyecharts.commons import utils
 from pyecharts.components import Table as T
-from pyecharts.options import ComponentTitleOpts
 from pyecharts.options.series_options import BasicOpts
 from pyecharts.types import Sequence, Union, Optional
 
@@ -18,25 +17,11 @@ from pyecharts.types import Sequence, Union, Optional
 class Table(T):
     def __init__(self):
         super().__init__()
-        self.options: dict = {'_swanLab': "table", 'title_opts': None, 'headers': [], 'rows': []}
+        self.options: dict = {'_swanLab': "table", 'headers': [], 'rows': []}
 
     def add(self, headers: Sequence, rows: Sequence, attributes: Optional[dict] = None):
         super().add(headers, rows, attributes)
         self.options.update({'headers': headers, 'rows': rows})
-        return self
-
-    def set_global_opts(self, title_opts: Union[ComponentTitleOpts, dict, None] = None):
-        super().set_global_opts(title_opts)
-        # Update title_opts in options
-        if isinstance(title_opts, ComponentTitleOpts):
-            self.options['title_opts'] = {
-                'title': title_opts.title,
-                'subtitle': title_opts.subtitle,
-            }
-        elif isinstance(title_opts, dict):
-            self.options['title_opts'] = title_opts
-        else:
-            self.options['title_opts'] = None
         return self
 
     def get_table_format(self) -> dict:
