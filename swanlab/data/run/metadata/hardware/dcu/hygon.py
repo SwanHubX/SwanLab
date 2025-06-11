@@ -30,7 +30,12 @@ def get_hygon_dcu_info() -> HardwareFuncResult:
         driver, dcu_map = map_hygon_dcu()
         info["driver"] = driver
         info["dcu"] = dcu_map
-        collector = DCUCollector(dcu_map)
+        max_mem_value = 0
+        for dcu_id in dcu_map:
+            mem_value = int(dcu_map[dcu_id]["memory"][:-2])
+            max_mem_value = max(max_mem_value, mem_value)
+        max_mem_value *= 1024
+        collector = DCUCollector(dcu_map, max_mem_value)
     except Exception:  # noqa
         if all(v is None for v in info.values()):
             return None, None
@@ -85,9 +90,10 @@ def map_hygon_dcu() -> Tuple[Optional[str], dict]:
 
 
 class DCUCollector(H):
-    def __init__(self, dcu_map):
+    def __init__(self, dcu_map, max_mem_value):
         super().__init__()
         self.dcu_map = dcu_map
+        self.max_mem_value = max_mem_value
 
         # DCU Utilization (%)
         self.util_key = generate_key("dcu.{dcu_index}.pct")
@@ -106,6 +112,15 @@ class DCUCollector(H):
             chart_name="DCU Memory Allocated (%)",
         )
         self.per_memory_configs = {}
+
+        # DCU Memory Allocated (MB)
+        self.mem_value_key = generate_key("dcu.{dcu_index}.mem.value")
+        mem_value_config = HardwareConfig(
+            y_range=(0, self.max_mem_value),
+            chart_index=random_index(),
+            chart_name="DCU Memory Allocated (MB)",
+        )
+        self.per_mem_value_configs = {}
 
         # DCU Temperature (°C)
         self.temp_key = generate_key("dcu.{dcu_index}.temp")
@@ -129,6 +144,7 @@ class DCUCollector(H):
             metric_name = f"DCU {dcu_id}"
             self.per_util_configs[metric_name] = util_config.clone(metric_name=metric_name)
             self.per_memory_configs[metric_name] = memory_config.clone(metric_name=metric_name)
+            self.per_mem_value_configs[metric_name] = mem_value_config.clone(metric_name=metric_name)
             self.per_temp_configs[metric_name] = temp_config.clone(metric_name=metric_name)
             self.per_power_configs[metric_name] = power_config.clone(metric_name=metric_name)
 
@@ -137,6 +153,7 @@ class DCUCollector(H):
         usage_methods = [
             self.get_utilization_usage,
             self.get_memory_usage,
+            self.get_mem_value_usage,
             self.get_temperature_usage,
             self.get_power_usage,
         ]
@@ -193,6 +210,31 @@ class DCUCollector(H):
             dcu_mem_use = dcu_info["DCU memory use (%)"]
             mem_infos[dcu_id]["value"] = float(dcu_mem_use)
         return mem_infos
+
+    def get_mem_value_usage(self) -> dict:
+        """
+        获取指定DCU设备的内存使用量（MB）
+        """
+        output_str = subprocess.run(
+            ["hy-smi", "--showmemuse", "--json"],
+            capture_output=True,
+            text=True,
+        ).stdout
+        output_json = json.loads(output_str)
+        mem_value_infos = {}
+
+        for idx, (dcu_key, dcu_info) in enumerate(output_json.items()):
+            dcu_id = str(idx)
+            mem_value_infos[dcu_id] = {
+                "key": self.mem_value_key.format(dcu_index=dcu_id),
+                "name": f"DCU {dcu_id} Memory Allocated (MB)",
+                "value": math.nan,
+                "config": self.per_mem_value_configs[f"DCU {dcu_id}"],
+            }
+
+            dcu_mem_use_rate = dcu_info["DCU memory use (%)"]
+            mem_value_infos[dcu_id]["value"] = float(dcu_mem_use_rate) * 0.01 * self.max_mem_value
+        return mem_value_infos
 
     def get_temperature_usage(self) -> dict:
         """
