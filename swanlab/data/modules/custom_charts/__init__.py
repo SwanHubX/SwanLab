@@ -3,14 +3,13 @@
 @file: __init__.py
 @time: 2025/5/19 14:01
 @desc: 自定义图表，目前集成了 echarts
-
-echarts 的定义在 swanlab.echarts 部分，主要为了方便用户导入
 """
 
 import pyecharts
 from pyecharts.charts.base import Base
 from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
+from . import echarts
 from .table import Table
 
 PyEchartsBase = pyecharts.charts.base.Base
@@ -22,7 +21,7 @@ PyEchartsTable = Table
 custom Table inherited from pyecharts.components.table.Table
 """
 
-__all__ = ['Echarts', 'PyEchartsTable', 'PyEchartsBase']
+__all__ = ["echarts", 'Echarts', 'PyEchartsTable', 'PyEchartsBase']
 
 
 class Echarts(MediaType):
