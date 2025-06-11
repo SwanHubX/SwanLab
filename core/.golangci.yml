@@ -1,12 +1,5 @@
-# This file is licensed under the terms of the MIT license https://opensource.org/license/mit
-# Copyright (c) 2021-2025 Marat Reymers
-
-## Golden config for golangci-lint v2.1.6
-#
-# This is the best config for golangci-lint based on my experience and opinion.
-# It is very strict, but not extremely strict.
-# Feel free to adapt it to suit your needs.
-# If this config helps you, please consider keeping a link to this file (see the next comment).
+# This file is licensed under the terms of the Apache license https://opensource.org/license/apache-2-0
+# Copyright (c) 2025 SwanLab Team
 
 # Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
@@ -35,7 +28,7 @@ formatters:
       # with the given prefixes are grouped after 3rd-party packages.
       # Default: []
       local-prefixes:
-        - github.com/SwanHubX/SwanLab
+        - github.com/SwanHubX/SwanLab/core
 
     golines:
       # Target maximum line length.
@@ -369,14 +362,6 @@ linters:
         - github.com/jmoiron/sqlx
 
     sloglint:
-      # Enforce not using global loggers.
-      # Values:
-      # - "": disabled
-      # - "all": report all global loggers
-      # - "default": report only the default slog logger
-      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#no-global
-      # Default: ""
-      no-global: all
       # Enforce using methods that accept a context.
       # Values:
       # - "": disabled

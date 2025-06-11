@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/metadata"
 
@@ -18,10 +18,10 @@ type HealthService struct {
 func (s *HealthService) Check(ctx context.Context, in *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("missing metadata")
+		return nil, errors.New("missing metadata")
 	}
-	log.Printf("metadata: %v", md.Get("version"))
-	log.Printf("SDK Version: %s", in.Version)
+	slog.InfoContext(ctx, "metadata", "version", md.Get("version"))
+	slog.InfoContext(ctx, "request", "version", in.GetVersion())
 	return &pb.HealthCheckResponse{
 		Status:  true,
 		Message: "ok",

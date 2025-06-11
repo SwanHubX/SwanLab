@@ -7,7 +7,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 
 	"google.golang.org/grpc"
@@ -16,20 +16,20 @@ import (
 	"github.com/SwanHubX/SwanLab/core/pkg/pb"
 )
 
-var (
-	port = flag.Int("port", 0, "The server port")
-)
-
 func main() {
+	port := flag.Int("port", 0, "The server port")
 	flag.Parse()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		slog.Error("failed to listen", "error", err)
 	}
+
 	s := grpc.NewServer()
 	pb.RegisterHealthServiceServer(s, &service.HealthService{})
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	slog.Info("server listening at", "address", lis.Addr())
+
+	if err = s.Serve(lis); err != nil {
+		slog.Error("failed to serve", "error", err)
 	}
 }
