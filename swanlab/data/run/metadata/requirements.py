@@ -27,7 +27,7 @@ def get_requirements():
         result = subprocess.run(["pip", "list", "--format=freeze"], capture_output=True, text=True, timeout=15)
         if result.returncode == 0:
             return result.stdout
-    except Exception:
+    except Exception:  # noqa: 捕获所有异常，避免因环境问题导致程序崩溃
         pass
 
     return None
