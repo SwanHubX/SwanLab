@@ -5,8 +5,7 @@
 // @description: 本文件是对于echarts的 表格组件 图表的测试
 """
 # ---------------------------------------------- Table - Table_base ----------------------------------------------
-# from pyecharts.components import Table
-from swanlab.data.modules.echarts import Table
+from swanlab.data.modules.custom_charts.table import Table
 from pyecharts.options import ComponentTitleOpts
 
 

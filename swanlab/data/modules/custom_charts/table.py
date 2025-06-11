@@ -6,7 +6,7 @@
 """
 
 import datetime
-import json
+import simplejson as json
 
 from pyecharts.commons import utils
 from pyecharts.components import Table as T
@@ -64,9 +64,5 @@ class Table(T):
     def dump_options(self) -> str:
         """序列化原始格式的options"""
         return utils.replace_placeholder(
-            json.dumps(
-                self.get_table_format(),
-                default=self._default_parse,
-                ignore_nan=True,
-            )
+            json.dumps(self.get_table_format(),  default=self._default_parse, ignore_nan=True)
         )
