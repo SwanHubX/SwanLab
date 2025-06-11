@@ -8,8 +8,6 @@ r"""
     测试开放API模型定义
 """
 
-import pytest
-
 import tutils as T
 from swanlab.api.openapi.types import Experiment
 

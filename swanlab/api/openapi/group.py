@@ -17,7 +17,7 @@ class GroupAPI(ApiBase):
         super().__init__(http)
 
     def list_workspaces(self) -> ApiResponse[list]:
-        resp = self.http.get("/group/")
+        resp = self.http.get("/group/", params={})
         if resp.errmsg:
             return resp
         groups = resp.data.get("list", [])
