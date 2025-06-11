@@ -7,7 +7,7 @@ r"""
 @Description:
     在此处完成回调注册、swanlog注册，并为外界提供api，提供运行时生成的配置
 """
-from .modules import Audio, Image, Text, Object3D, Molecule, echarts
+from .modules import Audio, Image, Text, Object3D, Molecule
 from .run import (
     SwanLabRun as Run,
     SwanLabRunState as State,

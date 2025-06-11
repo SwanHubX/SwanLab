@@ -6,10 +6,9 @@
 """
 
 # ---------------------------------------------- Table - Table_base ----------------------------------------------
-from swanlab import echarts
+from swanlab.echarts import Table
 
-
-table = echarts.Table()
+table = Table()
 
 headers = ["NO", "Product", "Count"]
 rows = [

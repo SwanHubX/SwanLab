@@ -3,7 +3,7 @@ from typing import List, Union
 from swankit.core.data import BaseType, MediaBuffer, MediaType
 
 from .audio import Audio
-from .custom_charts import echarts, Echarts, PyEchartsBase, PyEchartsTable
+from .custom_charts import Echarts, PyEchartsBase, PyEchartsTable
 from .image import Image
 from .line import FloatConvertible, Line
 from .object3d import Object3D, Molecule
@@ -42,6 +42,4 @@ __all__ = [
     "Object3D",
     "Molecule",
     "Echarts",
-    # 模块
-    "echarts",
 ]
