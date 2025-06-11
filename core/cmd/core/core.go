@@ -11,7 +11,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/SwanHubX/SwanLab/core/pb"
+	"github.com/SwanHubX/SwanLab/core/pkg/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
