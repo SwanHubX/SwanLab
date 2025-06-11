@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package swanlab.proto.core.health.v1;
+
+option go_package = "core/pkg/pb";
+
+// HealthService is a service that implements health check.
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse) {}
+}
+
+message HealthCheckRequest { string version = 1; }
+
+message HealthCheckResponse {
+  bool status = 1;
+  string message = 2;
+}
