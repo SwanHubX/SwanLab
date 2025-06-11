@@ -32,8 +32,6 @@ func (s *server) Check(ctx context.Context, in *pb.HealthCheckRequest) (*pb.Heal
 	}
 	log.Printf("metadata: %v", md.Get("version"))
 	log.Printf("SDK Version: %s", in.Version)
-	trailer := metadata.Pairs("trailer-key", "val")
-	grpc.SetTrailer(ctx, trailer)
 	return &pb.HealthCheckResponse{
 		Status:  true,
 		Message: "ok",
