@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/SwanHubX/SwanLab/core/pkg/pb"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/SwanHubX/SwanLab/core/pkg/pb"
 )
 
-// healthService is used to implement HealthServiceServer.
+// HealthService is used to implement HealthServiceServer.
 type HealthService struct {
 	pb.UnimplementedHealthServiceServer
 }

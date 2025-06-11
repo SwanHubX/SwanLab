@@ -10,9 +10,10 @@ import (
 	"log"
 	"net"
 
+	"google.golang.org/grpc"
+
 	"github.com/SwanHubX/SwanLab/core/internal/service"
 	"github.com/SwanHubX/SwanLab/core/pkg/pb"
-	"google.golang.org/grpc"
 )
 
 var (
