@@ -19,7 +19,6 @@ from swanlab import sync
 from swanlab.log.backup import BackupHandler
 from swanlab.log.backup.datastore import DataStore
 from swanlab.log.backup.models import ModelsParser
-from tutils import TEMP_PATH
 
 
 def test_sync():
@@ -68,7 +67,7 @@ def test_sync():
         record_metrics.extend([x for _, x in ll.items()])
     swanlab.finish()
     # ---------------------------------------------------------------------------
-    run_dir = os.path.join(TEMP_PATH, run.public.run_dir)
+    run_dir = run.public.run_dir
     # 文件夹存在
     assert os.path.exists(run_dir) is True
     # 解析日志文件成功（未登录）

@@ -16,14 +16,14 @@ from swanlab.sync import sync as sync_logs
 @click.command()
 @click.argument(
     "path",
+    nargs=-1,
     type=click.Path(
         exists=True,
-        dir_okay=True,
         file_okay=False,
-        resolve_path=True,
+        dir_okay=True,
         readable=True,
+        resolve_path=True,
     ),
-    nargs=1,
     required=True,
 )
 @click.option(
@@ -67,8 +67,9 @@ def sync(path, api_key, workspace, project, host):
         api_key = get_key() if api_key is None else api_key
     except KeyFileError:
         pass
-    # 1.3 登录，创建 http 对象
-    log_info = terminal_login(api_key=api_key, save_key=False)
-    create_http(log_info)
-    # 2. 同步日志
-    sync_logs(path, workspace=workspace, project_name=project, login_required=False)
+    for path in path:
+        # 1.3 登录，创建 http 对象
+        log_info = terminal_login(api_key=api_key, save_key=False)
+        create_http(log_info)
+        # 2. 同步日志
+        sync_logs(path, workspace=workspace, project_name=project, login_required=False, raise_error=len(path) == 1)
