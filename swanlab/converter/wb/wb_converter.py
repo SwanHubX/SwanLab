@@ -118,7 +118,7 @@ class WandbConverter:
             index = 0
             for key, data_list in data_pool.items():
                 for data in data_list:
-                    swanlab_run.log({key: data["value"]}, step=data["step"])
+                    swanlab_run.log({key: data["value"]}, step=int(data["step"]))
                 # TODO: 等未来上传方案优化后解除延时
                 if index % 5 == 0:
                     time.sleep(1)
