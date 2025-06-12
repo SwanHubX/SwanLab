@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.06.11: 📊 **swanlab.echarts.table** データ型のサポートを追加し、純粋なテキストチャートの表示をサポート；**グループのストレッチインタラクション**をサポートし、同時に表示されるチャート数を増やすことができます；テーブルビューに **指標の最大/最小値** オプションを追加；
+
 - 2025.06.08: ♻️ ローカルで完全な実験ログファイルを保存し、**swanlab sync** を使用してローカルログファイルをクラウド/プライベートデプロイにアップロード；ハードウェア監視で**海光DCU**をサポート；
 
 - 2025.06.01: 🏸 グラフの**自由なドラッグ**をサポート；**EChartsカスタムグラフ**をサポート；**PaddleNLP**フレームワークを統合；ハードウェア監視で**MetaX GPU**をサポート；
@@ -70,9 +72,10 @@
 
 - 2025.04.08: **swanlab.Molecule** データ型のサポートを追加し、生物化学分子データの記録と可視化をサポート；テーブルビューのソート、フィルタリング、列順序変更の状態を保存する機能を追加。
 
-- 2025.04.07: [EvalScope](https://github.com/ModelScope/EvalScope) との共同統合を完了しました。これにより、EvalScope内で **SwanLab** を使用して **大規模モデルの性能評価** が可能になりました。
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.04.07: [EvalScope](https://github.com/ModelScope/EvalScope) との共同統合を完了しました。これにより、EvalScope内で **SwanLab** を使用して **大規模モデルの性能評価** が可能になりました。
 
 - 2025.03.30: **swanlab.Settings** メソッドをサポートし、実験の動作をより詳細に制御可能に；**寒武紀MLU** ハードウェアの監視をサポート；[Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html) と [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html) をサポート。
 
