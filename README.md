@@ -502,9 +502,6 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 <img src="./readme_files/swanlab-and-user.png" width="50%" />
 
-<br>
-
-
 
 ## 📃 协议
 
