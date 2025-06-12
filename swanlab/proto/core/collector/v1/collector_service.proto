@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package swanlab.proto.core.collector.v1;
+
+import "swanlab/proto/common/v1/common.proto";
+
+option go_package = "core/pkg/pb";
+
+
+message CollectorUploadRequest {
+  swanlab.proto.common.v1.KeyValueList data = 1;
+}
+
+message CollectorUploadResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Collector is an RPC service responsible for aggregating and reporting data
+service Collector {
+  // Upload allows clients to send data to the collector.
+  rpc Upload(CollectorUploadRequest) returns (CollectorUploadResponse);
+}

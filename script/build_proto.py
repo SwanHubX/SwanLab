@@ -35,7 +35,7 @@ for proto_file in [
 
 # grpc service
 for proto_file in [
-    "core/health/v1/health_service.proto",
+    "core/collector/v1/collector_service.proto",
 ]:
     ret = protoc.main(
         (
