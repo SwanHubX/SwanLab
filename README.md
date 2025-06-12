@@ -500,6 +500,12 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 <br>
 
+<img src="./readme_files/swanlab-and-user.png" width="50%" />
+
+<br>
+
+
+
 ## 📃 协议
 
 本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
