@@ -456,6 +456,8 @@ swanlab login --host http://localhost:8000
 
 <br>
 
+<img src="./readme_files/swanlab-and-user.png" width="50%" />
+
 ## 📃 Лицензия
 
 Этот репозиторий распространяется под лицензией [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).

@@ -454,6 +454,8 @@ SwanLabに貢献したいですか？まず、[貢献ガイド](CONTRIBUTING.md)
 
 <br>
 
+<img src="./readme_files/swanlab-and-user.png" width="50%" />
+
 ## 📃 ライセンス
 
 このリポジトリは [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) オープンソースライセンスに従います

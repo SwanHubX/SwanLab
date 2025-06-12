@@ -492,6 +492,8 @@ We also greatly appreciate support through social media, events, and conference 
 
 <br>
 
+<img src="./readme_files/swanlab-and-user.png" width="50%" />
+
 ## 📃 License
 
 This repository is licensed under the [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE).
