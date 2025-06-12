@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package swanlab.proto.record.v1;
+
+option go_package = "core/pkg/pb";
+
+
+// ProjectRecord is the record that contains information about a swanlab project.
+message ProjectRecord{
+  // The name of the project
+  string name = 1;
+  // The workspace of the project
+  string workspace = 2;
+  // The visibility of the project
+  bool public = 3;
+}
+
+// ExperimentRecord is the record that contains information about a swanlab experiment.
+message ExperimentRecord{
+  // The name of the experiment
+  string name = 1;
+  // The description of the experiment
+  string description = 2;
+  // The tags of the experiment
+  repeated string tags = 3;
+}

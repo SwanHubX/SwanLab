@@ -5,6 +5,16 @@ r"""
 @IDE: zed
 @Description:
     Compile proto files to python and go files.
+    You should install grpcio-tools and protoc-gen-go before running this script:
+
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+    docs: https://grpc.io/docs/languages/go/quickstart/
+
+    Then run this script in the root directory of the project:
+
+    python script/build_proto.py
 """
 
 import os
@@ -17,6 +27,8 @@ proto_root = os.path.join(os.path.dirname(grpc_tools.__file__), "_proto")
 # messages
 for proto_file in [
     "common/v1/common.proto",
+    "record/v1/experiment.proto",
+    "record/v1/metric.proto",
 ]:
     ret = protoc.main(
         (
