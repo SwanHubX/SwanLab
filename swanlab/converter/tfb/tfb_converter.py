@@ -12,14 +12,14 @@ class TFBConverter:
         convert_dir: str,
         project: str = None,
         workspace: str = None,
-        cloud: bool = True,
+        mode: str = "cloud",
         logdir: str = None,
         **kwargs,
     ):
         self.convert_dir = convert_dir
         self.project = project
         self.workspace = workspace
-        self.cloud = cloud
+        self.mode = mode
         self.logdir = logdir
 
     def run(self, depth=3):
@@ -52,7 +52,7 @@ class TFBConverter:
                         experiment_name=f"{dir}/{filename}",
                         workspace=self.workspace,
                         config={"tfevent_path": path},
-                        mode="cloud" if self.cloud else "local",
+                        mode=self.mode,
                         logdir=self.logdir,
                     )
 

@@ -16,13 +16,13 @@ class WandbConverter:
         self,
         project: str = None,
         workspace: str = None,
-        cloud: bool = True,
+        mode: str = "cloud",
         logdir: str = None,
         **kwargs,
     ):
         self.project = project
         self.workspace = workspace
-        self.cloud = cloud
+        self.mode = mode
         self.logdir = logdir
 
     def parse_wandb_logs(self, wb_project: str, wb_entity: str, wb_run_id: str = None):
@@ -59,7 +59,7 @@ class WandbConverter:
                     workspace=self.workspace,
                     experiment_name=wb_run.name,
                     description=wb_run.notes,
-                    mode="cloud" if self.cloud else "local",
+                    mode=self.mode,
                     logdir=self.logdir,
                 )
             else:
