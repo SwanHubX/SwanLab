@@ -14,7 +14,7 @@ class MLFLowConverter:
         self,
         project: str = None,
         workspace: str = None,
-        cloud: bool = True,
+        mode: str = "cloud",
         logdir: str = None,
         
         **kwargs,
@@ -22,7 +22,7 @@ class MLFLowConverter:
         
         self.project = project
         self.workspace = workspace
-        self.cloud = cloud
+        self.mode = mode
         self.logdir = logdir
     
     def parse_mlflow_logs(self, tracking_uri:str, experiment:int = None):
@@ -65,7 +65,7 @@ class MLFLowConverter:
                         project=self.project,
                         workspace=self.workspace,
                         experiment_name=mlflow_run_name,
-                        mode="cloud" if self.cloud else "local",
+                        mode=self.mode,
                         logdir=self.logdir,
                         description=run.data.tags.get('mlflow.note.content'),
                     )

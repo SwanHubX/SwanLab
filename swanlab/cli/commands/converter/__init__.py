@@ -35,10 +35,10 @@ import click
     help="swanlab.init workspace parameter.",
 )
 @click.option(
-    "--cloud",
-    default=True,
-    type=bool,
-    help="swanlab.init cloud parameter.",
+    "--mode",
+    default="cloud",
+    type=click.Choice(["cloud", "local", "offline", "disabled"]),
+    help="The mode of the swanlab run.",
 )
 @click.option(
     "--logdir",
@@ -80,7 +80,7 @@ import click
 def convert(
         type: str,
         project: str,
-        cloud: bool,
+        mode: str,
         workspace: str,
         logdir: str,
         tb_logdir: str,
@@ -99,7 +99,7 @@ def convert(
             convert_dir=tb_logdir,
             project=project,
             workspace=workspace,
-            cloud=cloud,
+            mode=mode,
             logdir=logdir,
         )
         tfb_converter.run()
@@ -112,7 +112,7 @@ def convert(
         wb_converter = WandbConverter(
             project=project,
             workspace=workspace,
-            cloud=cloud,
+            mode=mode,
             logdir=logdir,
         )
         wb_converter.run(
@@ -127,7 +127,7 @@ def convert(
         mlf_converter = MLFLowConverter(
             project=project,
             workspace=workspace,
-            cloud=cloud,
+            mode=mode,
             logdir=logdir,
         )
         
