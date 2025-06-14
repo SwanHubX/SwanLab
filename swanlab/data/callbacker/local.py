@@ -100,7 +100,9 @@ class LocalRunCallback(SwanLabRunCallback):
         **kwargs,
     ):
         #  FIXME num 在 dashboard 中被要求传递但是没用上 🤡
-        self.board.before_init_experiment(run_id, exp_name, description, colors=colors, num=1)
+        self.board.before_init_experiment(
+            os.path.basename(self.settings.run_dir), exp_name, description, colors=colors, num=1
+        )
 
     def on_run(self):
         self.handle_run()
@@ -108,6 +110,7 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print(self.settings.run_dir)
         self._watch_tip_print()
 
+    @backup("runtime")
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
         write_runtime_info(self.settings.files_dir, r)
@@ -150,7 +153,7 @@ class LocalRunCallback(SwanLabRunCallback):
             with open(self.settings.error_path, "a") as fError:
                 print(datetime.now(), file=fError)
                 print(error, file=fError)
-
+        self.board.on_stop(error)
         # 打印信息
         self._watch_tip_print()
         self.backup.stop(error=error, epoch=get_run().swanlog_epoch + 1)

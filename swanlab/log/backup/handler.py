@@ -66,7 +66,7 @@ class BackupHandler:
 
     BACKUP_FILE = "backup.swanlab"
 
-    def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_media: bool = True):
+    def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_file: bool = True):
         super().__init__()
         # 是否启用备份
         self.enable = enable
@@ -77,7 +77,7 @@ class BackupHandler:
         self.f = DataStore()
         # 运行时文件备份目录
         self.files_dir: Optional[str] = None
-        self.save_media: bool = save_media
+        self.save_file: bool = save_file
 
         # 动态设置包括项目名在内的一些属性，因为在 on_run 之前句柄还未创建，所以需要先缓存，等执行对应的函数的时候再使用
         self.cache_proj_name = None
@@ -185,7 +185,8 @@ class BackupHandler:
         """
         runtime = Runtime.from_runtime_info(runtime_info)
         self.f.write(runtime.to_record())
-        write_runtime_info(self.files_dir, runtime_info)
+        if self.save_file:
+            write_runtime_info(self.files_dir, runtime_info)
 
     @async_io()
     def backup_metric(self, metric_info: MetricInfo):
@@ -194,7 +195,7 @@ class BackupHandler:
         """
         metric = Metric.from_metric_info(metric_info)
         self.f.write(metric.to_record())
-        if self.save_media:
+        if self.save_file:
             write_media_buffer(metric_info)
 
 

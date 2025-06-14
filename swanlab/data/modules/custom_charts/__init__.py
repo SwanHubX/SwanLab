@@ -5,6 +5,8 @@
 @desc: 自定义图表，目前集成了 echarts
 """
 
+from typing import Union
+
 import pyecharts
 from pyecharts.charts.base import Base
 from swankit.core import MediaBuffer, DataSuite as D, MediaType
@@ -25,7 +27,7 @@ __all__ = ["echarts", 'Echarts', 'PyEchartsTable', 'PyEchartsBase']
 
 
 class Echarts(MediaType):
-    def __init__(self, chart: Base):
+    def __init__(self, chart: Union[PyEchartsBase, PyEchartsTable]):
         super().__init__()
         self._chart = chart
         self.buffer = MediaBuffer()

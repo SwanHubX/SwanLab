@@ -210,19 +210,16 @@ class CloudRunCallback(SwanLabRunCallback):
         sys.excepthook = self._except_handler
         swanlog_epoch = run.swanlog_epoch
         self.backup.stop(error=error, epoch=swanlog_epoch + 1)
-
-        def _():
-            # 关闭线程池，等待上传线程完成
-            self.pool.finish()
-            # 上传错误日志
-            if error is not None:
-                logs = LogModel(
-                    level="ERROR",
-                    contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
-                )
-                upload_logs([logs])
-
-        FONT.loading("Waiting for uploading complete", _)
+        swanlog.info("Waiting for uploading complete")
+        # 关闭线程池，等待上传线程完成
+        self.pool.finish()
+        # 上传错误日志
+        if error is not None:
+            logs = LogModel(
+                level="ERROR",
+                contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
+            )
+            upload_logs([logs])
         get_http().update_state(state == SwanLabRunState.SUCCESS)
         reset_http()
         # 取消注册系统回调
