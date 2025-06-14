@@ -23,9 +23,10 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
+from google.protobuf import any_pb2 as google_dot_protobuf_dot_any__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$swanlab/proto/record/v1/record.proto\x12\x17swanlab.proto.record.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa4\x01\n\x0bSetupRecord\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tworkspace\x18\x02 \x01(\t\x12\x0e\n\x06public\x18\x03 \x01(\x08\x12\x17\n\x0f\x65xperiment_name\x18\x04 \x01(\t\x12\x1e\n\x16\x65xperiment_description\x18\x05 \x01(\t\x12\x17\n\x0f\x65xperiment_tags\x18\x06 \x03(\t\x12\x12\n\nstart_time\x18\x07 \x01(\t\"\xa5\x01\n\x0eTeardownRecord\x12<\n\x05state\x18\x01 \x01(\x0e\x32-.swanlab.proto.record.v1.TeardownRecord.State\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\t\",\n\x05State\x12\x11\n\rSTATE_SUCCESS\x10\x00\x12\x10\n\x0cSTATE_FAILED\x10\x01\"\xd3\x01\n\rRuntimeRecord\x12\x1b\n\x0e\x63onda_filename\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpip_filename\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1c\n\x0f\x63onfig_filename\x18\x03 \x01(\tH\x02\x88\x01\x01\x12\x1e\n\x11metadata_filename\x18\x04 \x01(\tH\x03\x88\x01\x01\x42\x11\n\x0f_conda_filenameB\x0f\n\r_pip_filenameB\x12\n\x10_config_filenameB\x14\n\x12_metadata_filename\"G\n\x05Range\x12\x13\n\x06minval\x18\x01 \x01(\x03H\x00\x88\x01\x01\x12\x13\n\x06maxval\x18\x02 \x01(\x03H\x01\x88\x01\x01\x42\t\n\x07_minvalB\t\n\x07_maxval\"\xea\x05\n\x0c\x43olumnRecord\x12\x12\n\ncolumn_key\x18\x01 \x01(\t\x12\x13\n\x0b\x63olumn_name\x18\x02 \x01(\t\x12\x46\n\x0c\x63olumn_class\x18\x03 \x01(\x0e\x32\x30.swanlab.proto.record.v1.ColumnRecord.ColumClass\x12\x45\n\x0b\x63olumn_type\x18\x04 \x01(\x0e\x32\x30.swanlab.proto.record.v1.ColumnRecord.ColumnType\x12-\n\x0c\x63olumn_error\x18\x05 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x14\n\x0csection_name\x18\x06 \x01(\t\x12G\n\x0csection_type\x18\x07 \x01(\x0e\x32\x31.swanlab.proto.record.v1.ColumnRecord.SectionType\x12\x12\n\nchart_name\x18\x08 \x01(\t\x12\x13\n\x0b\x63hart_index\x18\t \x01(\t\x12\x35\n\rchart_y_range\x18\n \x01(\x0b\x32\x1e.swanlab.proto.record.v1.Range\x12\x13\n\x0bmetric_name\x18\x0b \x01(\t\x12\x14\n\x0cmetric_color\x18\x0c \x03(\t\",\n\nColumClass\x12\x0e\n\nCOL_CUSTOM\x10\x00\x12\x0e\n\nCOL_SYSTEM\x10\x01\"|\n\nColumnType\x12\r\n\tCOL_FLOAT\x10\x00\x12\r\n\tCOL_IMAGE\x10\x01\x12\r\n\tCOL_AUDIO\x10\x02\x12\x0c\n\x08\x43OL_TEXT\x10\x03\x12\x10\n\x0c\x43OL_OBJECT3D\x10\x04\x12\x10\n\x0c\x43OL_MOLECULE\x10\x05\x12\x0f\n\x0b\x43OL_ECHARTS\x10\x06\"]\n\x0bSectionType\x12\x0e\n\nSEC_PINNED\x10\x00\x12\x0e\n\nSEC_HIDDEN\x10\x01\x12\x0e\n\nSEC_PUBLIC\x10\x02\x12\x0e\n\nSEC_SYSTEM\x10\x03\x12\x0e\n\nSEC_CUSTOM\x10\x04\"\x8b\x01\n\x0bMediaRecord\x12\r\n\x05index\x18\x01 \x01(\t\x12\r\n\x05\x65poch\x18\x02 \x01(\t\x12\x13\n\x0b\x63reate_time\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x13\n\x0bkey_encoded\x18\x05 \x01(\t\x12\x0b\n\x03kid\x18\x06 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x07 \x03(\t\x12\x0c\n\x04more\x18\x08 \x03(\t\"\\\n\x0cScalarRecord\x12\r\n\x05index\x18\x01 \x01(\t\x12\r\n\x05\x65poch\x18\x02 \x01(\t\x12\x13\n\x0b\x63reate_time\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x05 \x03(\x02\"\x92\x01\n\tLogRecord\x12\r\n\x05\x65poch\x18\x01 \x01(\t\x12:\n\x05level\x18\x02 \x01(\x0e\x32+.swanlab.proto.record.v1.LogRecord.LogLevel\x12\x0f\n\x07message\x18\x03 \x01(\t\")\n\x08LogLevel\x12\x08\n\x04INFO\x10\x00\x12\x08\n\x04WARN\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x42\rZ\x0b\x63ore/pkg/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$swanlab/proto/record/v1/record.proto\x12\x17swanlab.proto.record.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x19google/protobuf/any.proto\"\x97\x02\n\x06Record\x12@\n\x0cmessage_type\x18\x01 \x01(\x0e\x32*.swanlab.proto.record.v1.Record.RecordType\x12%\n\x07payload\x18\x02 \x01(\x0b\x32\x14.google.protobuf.Any\"\xa3\x01\n\nRecordType\x12\x12\n\x0eRECORD_UNKNOWN\x10\x00\x12\x10\n\x0cRECORD_SETUP\x10\x01\x12\x13\n\x0fRECORD_TEARDOWN\x10\x02\x12\x12\n\x0eRECORD_RUNTIME\x10\x03\x12\x11\n\rRECORD_COLUMN\x10\x04\x12\x10\n\x0cRECORD_MEDIA\x10\x05\x12\x11\n\rRECORD_SCALAR\x10\x06\x12\x0e\n\nRECORD_LOG\x10\x07\"\xa4\x01\n\x0bSetupRecord\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tworkspace\x18\x02 \x01(\t\x12\x0e\n\x06public\x18\x03 \x01(\x08\x12\x17\n\x0f\x65xperiment_name\x18\x04 \x01(\t\x12\x1e\n\x16\x65xperiment_description\x18\x05 \x01(\t\x12\x17\n\x0f\x65xperiment_tags\x18\x06 \x03(\t\x12\x12\n\nstart_time\x18\x07 \x01(\t\"\xc1\x01\n\x0eTeardownRecord\x12@\n\x05state\x18\x01 \x01(\x0e\x32\x31.swanlab.proto.record.v1.TeardownRecord.StateType\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\t\"D\n\tStateType\x12\x11\n\rSTATE_UNKNOWN\x10\x00\x12\x11\n\rSTATE_SUCCESS\x10\x01\x12\x11\n\rSTATE_CRASHED\x10\x02\"\xd3\x01\n\rRuntimeRecord\x12\x1b\n\x0e\x63onda_filename\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpip_filename\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1c\n\x0f\x63onfig_filename\x18\x03 \x01(\tH\x02\x88\x01\x01\x12\x1e\n\x11metadata_filename\x18\x04 \x01(\tH\x03\x88\x01\x01\x42\x11\n\x0f_conda_filenameB\x0f\n\r_pip_filenameB\x12\n\x10_config_filenameB\x14\n\x12_metadata_filename\"G\n\x05Range\x12\x13\n\x06minval\x18\x01 \x01(\x03H\x00\x88\x01\x01\x12\x13\n\x06maxval\x18\x02 \x01(\x03H\x01\x88\x01\x01\x42\t\n\x07_minvalB\t\n\x07_maxval\"\xb0\x06\n\x0c\x43olumnRecord\x12\x12\n\ncolumn_key\x18\x01 \x01(\t\x12\x13\n\x0b\x63olumn_name\x18\x02 \x01(\t\x12\x46\n\x0c\x63olumn_class\x18\x03 \x01(\x0e\x32\x30.swanlab.proto.record.v1.ColumnRecord.ColumClass\x12\x45\n\x0b\x63olumn_type\x18\x04 \x01(\x0e\x32\x30.swanlab.proto.record.v1.ColumnRecord.ColumnType\x12-\n\x0c\x63olumn_error\x18\x05 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x14\n\x0csection_name\x18\x06 \x01(\t\x12G\n\x0csection_type\x18\x07 \x01(\x0e\x32\x31.swanlab.proto.record.v1.ColumnRecord.SectionType\x12\x12\n\nchart_name\x18\x08 \x01(\t\x12\x13\n\x0b\x63hart_index\x18\t \x01(\t\x12\x35\n\rchart_y_range\x18\n \x01(\x0b\x32\x1e.swanlab.proto.record.v1.Range\x12\x13\n\x0bmetric_name\x18\x0b \x01(\t\x12\x14\n\x0cmetric_color\x18\x0c \x03(\t\"O\n\nColumClass\x12\x15\n\x11\x43OL_CLASS_UNKNOWN\x10\x00\x12\x14\n\x10\x43OL_CLASS_CUSTOM\x10\x01\x12\x14\n\x10\x43OL_CLASS_SYSTEM\x10\x02\"\x8d\x01\n\nColumnType\x12\x0f\n\x0b\x43OL_UNKNOWN\x10\x00\x12\r\n\tCOL_FLOAT\x10\x01\x12\r\n\tCOL_IMAGE\x10\x02\x12\r\n\tCOL_AUDIO\x10\x03\x12\x0c\n\x08\x43OL_TEXT\x10\x04\x12\x10\n\x0c\x43OL_OBJECT3D\x10\x05\x12\x10\n\x0c\x43OL_MOLECULE\x10\x06\x12\x0f\n\x0b\x43OL_ECHARTS\x10\x07\"n\n\x0bSectionType\x12\x0f\n\x0bSEC_UNKNOWN\x10\x00\x12\x0e\n\nSEC_PINNED\x10\x01\x12\x0e\n\nSEC_HIDDEN\x10\x02\x12\x0e\n\nSEC_PUBLIC\x10\x03\x12\x0e\n\nSEC_SYSTEM\x10\x04\x12\x0e\n\nSEC_CUSTOM\x10\x05\"\x8b\x01\n\x0bMediaRecord\x12\r\n\x05index\x18\x01 \x01(\t\x12\r\n\x05\x65poch\x18\x02 \x01(\t\x12\x13\n\x0b\x63reate_time\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x13\n\x0bkey_encoded\x18\x05 \x01(\t\x12\x0b\n\x03kid\x18\x06 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x07 \x03(\t\x12\x0c\n\x04more\x18\x08 \x03(\t\"\\\n\x0cScalarRecord\x12\r\n\x05index\x18\x01 \x01(\t\x12\r\n\x05\x65poch\x18\x02 \x01(\t\x12\x13\n\x0b\x63reate_time\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x05 \x03(\x02\"\xad\x01\n\tLogRecord\x12\r\n\x05\x65poch\x18\x01 \x01(\t\x12\x39\n\x05level\x18\x02 \x01(\x0e\x32*.swanlab.proto.record.v1.LogRecord.LogType\x12\x0f\n\x07message\x18\x03 \x01(\t\"E\n\x07LogType\x12\x0f\n\x0bLOG_UNKNOWN\x10\x00\x12\x0c\n\x08LOG_INFO\x10\x01\x12\x0c\n\x08LOG_WARN\x10\x02\x12\r\n\tLOG_ERROR\x10\x03\x42\rZ\x0b\x63ore/pkg/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,30 +34,34 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.proto.record.v1.rec
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z\013core/pkg/pb'
-  _globals['_SETUPRECORD']._serialized_start=96
-  _globals['_SETUPRECORD']._serialized_end=260
-  _globals['_TEARDOWNRECORD']._serialized_start=263
-  _globals['_TEARDOWNRECORD']._serialized_end=428
-  _globals['_TEARDOWNRECORD_STATE']._serialized_start=384
-  _globals['_TEARDOWNRECORD_STATE']._serialized_end=428
-  _globals['_RUNTIMERECORD']._serialized_start=431
-  _globals['_RUNTIMERECORD']._serialized_end=642
-  _globals['_RANGE']._serialized_start=644
-  _globals['_RANGE']._serialized_end=715
-  _globals['_COLUMNRECORD']._serialized_start=718
-  _globals['_COLUMNRECORD']._serialized_end=1464
-  _globals['_COLUMNRECORD_COLUMCLASS']._serialized_start=1199
-  _globals['_COLUMNRECORD_COLUMCLASS']._serialized_end=1243
-  _globals['_COLUMNRECORD_COLUMNTYPE']._serialized_start=1245
-  _globals['_COLUMNRECORD_COLUMNTYPE']._serialized_end=1369
-  _globals['_COLUMNRECORD_SECTIONTYPE']._serialized_start=1371
-  _globals['_COLUMNRECORD_SECTIONTYPE']._serialized_end=1464
-  _globals['_MEDIARECORD']._serialized_start=1467
-  _globals['_MEDIARECORD']._serialized_end=1606
-  _globals['_SCALARRECORD']._serialized_start=1608
-  _globals['_SCALARRECORD']._serialized_end=1700
-  _globals['_LOGRECORD']._serialized_start=1703
-  _globals['_LOGRECORD']._serialized_end=1849
-  _globals['_LOGRECORD_LOGLEVEL']._serialized_start=1808
-  _globals['_LOGRECORD_LOGLEVEL']._serialized_end=1849
+  _globals['_RECORD']._serialized_start=123
+  _globals['_RECORD']._serialized_end=402
+  _globals['_RECORD_RECORDTYPE']._serialized_start=239
+  _globals['_RECORD_RECORDTYPE']._serialized_end=402
+  _globals['_SETUPRECORD']._serialized_start=405
+  _globals['_SETUPRECORD']._serialized_end=569
+  _globals['_TEARDOWNRECORD']._serialized_start=572
+  _globals['_TEARDOWNRECORD']._serialized_end=765
+  _globals['_TEARDOWNRECORD_STATETYPE']._serialized_start=697
+  _globals['_TEARDOWNRECORD_STATETYPE']._serialized_end=765
+  _globals['_RUNTIMERECORD']._serialized_start=768
+  _globals['_RUNTIMERECORD']._serialized_end=979
+  _globals['_RANGE']._serialized_start=981
+  _globals['_RANGE']._serialized_end=1052
+  _globals['_COLUMNRECORD']._serialized_start=1055
+  _globals['_COLUMNRECORD']._serialized_end=1871
+  _globals['_COLUMNRECORD_COLUMCLASS']._serialized_start=1536
+  _globals['_COLUMNRECORD_COLUMCLASS']._serialized_end=1615
+  _globals['_COLUMNRECORD_COLUMNTYPE']._serialized_start=1618
+  _globals['_COLUMNRECORD_COLUMNTYPE']._serialized_end=1759
+  _globals['_COLUMNRECORD_SECTIONTYPE']._serialized_start=1761
+  _globals['_COLUMNRECORD_SECTIONTYPE']._serialized_end=1871
+  _globals['_MEDIARECORD']._serialized_start=1874
+  _globals['_MEDIARECORD']._serialized_end=2013
+  _globals['_SCALARRECORD']._serialized_start=2015
+  _globals['_SCALARRECORD']._serialized_end=2107
+  _globals['_LOGRECORD']._serialized_start=2110
+  _globals['_LOGRECORD']._serialized_end=2283
+  _globals['_LOGRECORD_LOGTYPE']._serialized_start=2214
+  _globals['_LOGRECORD_LOGTYPE']._serialized_end=2283
 # @@protoc_insertion_point(module_scope)

@@ -1,10 +1,30 @@
 syntax = "proto3";
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/any.proto";
 
 package swanlab.proto.record.v1;
 
 option go_package = "core/pkg/pb";
+
+// Record is the base record type in swanlab.
+// It is used to represent any kind of record in swanlab.
+message Record{
+  // Marks the type of the record.
+  enum RecordType{
+    RECORD_UNKNOWN = 0; // Unknown record type, used for error handling
+    RECORD_SETUP = 1;
+    RECORD_TEARDOWN = 2;
+    RECORD_RUNTIME = 3;
+    RECORD_COLUMN = 4;
+    RECORD_MEDIA = 5;
+    RECORD_SCALAR = 6;
+    RECORD_LOG = 7;
+  }
+  RecordType message_type = 1;
+  // The data of this record, it can be any type of data.
+  google.protobuf.Any payload = 2;
+}
 
 
 // SetupRecord is a record containing information about the setup process in swanlab.
@@ -28,12 +48,13 @@ message SetupRecord{
 // TeardownRecord is a record containing information about the teardown process in swanlab.
 // It may not exist if the process was killed or terminated unexpectedly.
 message TeardownRecord{
-  enum State{
-    STATE_SUCCESS = 0; // Experiment teardown successfully
-    STATE_FAILED = 1; // Experiment teardown failed (some error occurred)
+  enum StateType{
+    STATE_UNKNOWN = 0; // Unknown state, used for error handling
+    STATE_SUCCESS = 1; // Experiment teardown successfully
+    STATE_CRASHED = 2; // Experiment teardown crashed (some error occurred)
   }
   // The state of the teardown process
-  State state = 1;
+  StateType state = 1;
   // The error message if the teardown process failed
   string error_message = 2;
   // The time when the teardown process was completed
@@ -66,19 +87,21 @@ message ColumnRecord{
   string column_name = 2;
   // Column class, such as "CUSTOM", "SYSTEM"
   enum ColumClass{
-    COL_CUSTOM = 0 ; // Custom column, user-defined
-    COL_SYSTEM = 1 ; // System column, swanlab predefined
+    COL_CLASS_UNKNOWN = 0 ; // Unknown column class, used for error handling
+    COL_CLASS_CUSTOM = 1 ; // Custom column, user-defined
+    COL_CLASS_SYSTEM = 2 ; // System column, swanlab predefined
   }
   ColumClass column_class = 3;
   // Column type, such as "FLOAT", "IMAGE".
   enum ColumnType {
-    COL_FLOAT = 0;
-    COL_IMAGE = 1;
-    COL_AUDIO = 2;
-    COL_TEXT = 3;
-    COL_OBJECT3D = 4;
-    COL_MOLECULE = 5;
-    COL_ECHARTS = 6;
+    COL_UNKNOWN = 0;  // Unknown column type, used for error handling
+    COL_FLOAT = 1;
+    COL_IMAGE = 2;
+    COL_AUDIO = 3;
+    COL_TEXT = 4;
+    COL_OBJECT3D = 5;
+    COL_MOLECULE = 6;
+    COL_ECHARTS = 7;
   }
   ColumnType column_type = 4;
   // If the column is error, a json object
@@ -87,11 +110,12 @@ message ColumnRecord{
   string section_name = 6;
   // Section type, used to distinguish the section type of the chart.
   enum SectionType {
-    SEC_PINNED = 0;
-    SEC_HIDDEN = 1;
-    SEC_PUBLIC = 2;
-    SEC_SYSTEM = 3;
-    SEC_CUSTOM = 4;
+    SEC_UNKNOWN = 0; // Unknown section type, used for error handling
+    SEC_PINNED = 1;
+    SEC_HIDDEN = 2;
+    SEC_PUBLIC = 3;
+    SEC_SYSTEM = 4;
+    SEC_CUSTOM = 5;
   }
   SectionType section_type = 7;
   // The chart name
@@ -146,13 +170,14 @@ message LogRecord{
   string epoch = 1;
 
   // Log level enum
-  enum LogLevel {
-    INFO = 0;
-    WARN = 1;
-    ERROR = 2;
+  enum LogType {
+    LOG_UNKNOWN = 0; // Unknown log level, used for error handling
+    LOG_INFO = 1;
+    LOG_WARN = 2;
+    LOG_ERROR = 3;
   }
   // Log level
-  LogLevel level = 2;
+  LogType level = 2;
 
   // Log message
   string message = 3;

@@ -1,4 +1,5 @@
 from google.protobuf import struct_pb2 as _struct_pb2
+from google.protobuf import any_pb2 as _any_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -7,6 +8,32 @@ from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class Record(_message.Message):
+    __slots__ = ("message_type", "payload")
+    class RecordType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        RECORD_UNKNOWN: _ClassVar[Record.RecordType]
+        RECORD_SETUP: _ClassVar[Record.RecordType]
+        RECORD_TEARDOWN: _ClassVar[Record.RecordType]
+        RECORD_RUNTIME: _ClassVar[Record.RecordType]
+        RECORD_COLUMN: _ClassVar[Record.RecordType]
+        RECORD_MEDIA: _ClassVar[Record.RecordType]
+        RECORD_SCALAR: _ClassVar[Record.RecordType]
+        RECORD_LOG: _ClassVar[Record.RecordType]
+    RECORD_UNKNOWN: Record.RecordType
+    RECORD_SETUP: Record.RecordType
+    RECORD_TEARDOWN: Record.RecordType
+    RECORD_RUNTIME: Record.RecordType
+    RECORD_COLUMN: Record.RecordType
+    RECORD_MEDIA: Record.RecordType
+    RECORD_SCALAR: Record.RecordType
+    RECORD_LOG: Record.RecordType
+    MESSAGE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    message_type: Record.RecordType
+    payload: _any_pb2.Any
+    def __init__(self, message_type: _Optional[_Union[Record.RecordType, str]] = ..., payload: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...) -> None: ...
 
 class SetupRecord(_message.Message):
     __slots__ = ("name", "workspace", "public", "experiment_name", "experiment_description", "experiment_tags", "start_time")
@@ -28,19 +55,21 @@ class SetupRecord(_message.Message):
 
 class TeardownRecord(_message.Message):
     __slots__ = ("state", "error_message", "end_time")
-    class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    class StateType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        STATE_SUCCESS: _ClassVar[TeardownRecord.State]
-        STATE_FAILED: _ClassVar[TeardownRecord.State]
-    STATE_SUCCESS: TeardownRecord.State
-    STATE_FAILED: TeardownRecord.State
+        STATE_UNKNOWN: _ClassVar[TeardownRecord.StateType]
+        STATE_SUCCESS: _ClassVar[TeardownRecord.StateType]
+        STATE_CRASHED: _ClassVar[TeardownRecord.StateType]
+    STATE_UNKNOWN: TeardownRecord.StateType
+    STATE_SUCCESS: TeardownRecord.StateType
+    STATE_CRASHED: TeardownRecord.StateType
     STATE_FIELD_NUMBER: _ClassVar[int]
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
-    state: TeardownRecord.State
+    state: TeardownRecord.StateType
     error_message: str
     end_time: str
-    def __init__(self, state: _Optional[_Union[TeardownRecord.State, str]] = ..., error_message: _Optional[str] = ..., end_time: _Optional[str] = ...) -> None: ...
+    def __init__(self, state: _Optional[_Union[TeardownRecord.StateType, str]] = ..., error_message: _Optional[str] = ..., end_time: _Optional[str] = ...) -> None: ...
 
 class RuntimeRecord(_message.Message):
     __slots__ = ("conda_filename", "pip_filename", "config_filename", "metadata_filename")
@@ -66,12 +95,15 @@ class ColumnRecord(_message.Message):
     __slots__ = ("column_key", "column_name", "column_class", "column_type", "column_error", "section_name", "section_type", "chart_name", "chart_index", "chart_y_range", "metric_name", "metric_color")
     class ColumClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        COL_CUSTOM: _ClassVar[ColumnRecord.ColumClass]
-        COL_SYSTEM: _ClassVar[ColumnRecord.ColumClass]
-    COL_CUSTOM: ColumnRecord.ColumClass
-    COL_SYSTEM: ColumnRecord.ColumClass
+        COL_CLASS_UNKNOWN: _ClassVar[ColumnRecord.ColumClass]
+        COL_CLASS_CUSTOM: _ClassVar[ColumnRecord.ColumClass]
+        COL_CLASS_SYSTEM: _ClassVar[ColumnRecord.ColumClass]
+    COL_CLASS_UNKNOWN: ColumnRecord.ColumClass
+    COL_CLASS_CUSTOM: ColumnRecord.ColumClass
+    COL_CLASS_SYSTEM: ColumnRecord.ColumClass
     class ColumnType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
+        COL_UNKNOWN: _ClassVar[ColumnRecord.ColumnType]
         COL_FLOAT: _ClassVar[ColumnRecord.ColumnType]
         COL_IMAGE: _ClassVar[ColumnRecord.ColumnType]
         COL_AUDIO: _ClassVar[ColumnRecord.ColumnType]
@@ -79,6 +111,7 @@ class ColumnRecord(_message.Message):
         COL_OBJECT3D: _ClassVar[ColumnRecord.ColumnType]
         COL_MOLECULE: _ClassVar[ColumnRecord.ColumnType]
         COL_ECHARTS: _ClassVar[ColumnRecord.ColumnType]
+    COL_UNKNOWN: ColumnRecord.ColumnType
     COL_FLOAT: ColumnRecord.ColumnType
     COL_IMAGE: ColumnRecord.ColumnType
     COL_AUDIO: ColumnRecord.ColumnType
@@ -88,11 +121,13 @@ class ColumnRecord(_message.Message):
     COL_ECHARTS: ColumnRecord.ColumnType
     class SectionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
+        SEC_UNKNOWN: _ClassVar[ColumnRecord.SectionType]
         SEC_PINNED: _ClassVar[ColumnRecord.SectionType]
         SEC_HIDDEN: _ClassVar[ColumnRecord.SectionType]
         SEC_PUBLIC: _ClassVar[ColumnRecord.SectionType]
         SEC_SYSTEM: _ClassVar[ColumnRecord.SectionType]
         SEC_CUSTOM: _ClassVar[ColumnRecord.SectionType]
+    SEC_UNKNOWN: ColumnRecord.SectionType
     SEC_PINNED: ColumnRecord.SectionType
     SEC_HIDDEN: ColumnRecord.SectionType
     SEC_PUBLIC: ColumnRecord.SectionType
@@ -160,18 +195,20 @@ class ScalarRecord(_message.Message):
 
 class LogRecord(_message.Message):
     __slots__ = ("epoch", "level", "message")
-    class LogLevel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    class LogType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        INFO: _ClassVar[LogRecord.LogLevel]
-        WARN: _ClassVar[LogRecord.LogLevel]
-        ERROR: _ClassVar[LogRecord.LogLevel]
-    INFO: LogRecord.LogLevel
-    WARN: LogRecord.LogLevel
-    ERROR: LogRecord.LogLevel
+        LOG_UNKNOWN: _ClassVar[LogRecord.LogType]
+        LOG_INFO: _ClassVar[LogRecord.LogType]
+        LOG_WARN: _ClassVar[LogRecord.LogType]
+        LOG_ERROR: _ClassVar[LogRecord.LogType]
+    LOG_UNKNOWN: LogRecord.LogType
+    LOG_INFO: LogRecord.LogType
+    LOG_WARN: LogRecord.LogType
+    LOG_ERROR: LogRecord.LogType
     EPOCH_FIELD_NUMBER: _ClassVar[int]
     LEVEL_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     epoch: str
-    level: LogRecord.LogLevel
+    level: LogRecord.LogType
     message: str
-    def __init__(self, epoch: _Optional[str] = ..., level: _Optional[_Union[LogRecord.LogLevel, str]] = ..., message: _Optional[str] = ...) -> None: ...
+    def __init__(self, epoch: _Optional[str] = ..., level: _Optional[_Union[LogRecord.LogType, str]] = ..., message: _Optional[str] = ...) -> None: ...
