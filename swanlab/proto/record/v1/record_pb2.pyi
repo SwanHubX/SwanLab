@@ -54,6 +54,14 @@ class RuntimeRecord(_message.Message):
     metadata_filename: str
     def __init__(self, conda_filename: _Optional[str] = ..., pip_filename: _Optional[str] = ..., config_filename: _Optional[str] = ..., metadata_filename: _Optional[str] = ...) -> None: ...
 
+class Range(_message.Message):
+    __slots__ = ("minval", "maxval")
+    MINVAL_FIELD_NUMBER: _ClassVar[int]
+    MAXVAL_FIELD_NUMBER: _ClassVar[int]
+    minval: int
+    maxval: int
+    def __init__(self, minval: _Optional[int] = ..., maxval: _Optional[int] = ...) -> None: ...
+
 class ColumnRecord(_message.Message):
     __slots__ = ("column_key", "column_name", "column_class", "column_type", "column_error", "section_name", "section_type", "chart_name", "chart_index", "chart_y_range", "metric_name", "metric_color")
     class ColumClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -111,10 +119,10 @@ class ColumnRecord(_message.Message):
     section_type: ColumnRecord.SectionType
     chart_name: str
     chart_index: str
-    chart_y_range: _containers.RepeatedScalarFieldContainer[str]
+    chart_y_range: Range
     metric_name: str
     metric_color: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., column_class: _Optional[_Union[ColumnRecord.ColumClass, str]] = ..., column_type: _Optional[_Union[ColumnRecord.ColumnType, str]] = ..., column_error: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[ColumnRecord.SectionType, str]] = ..., chart_name: _Optional[str] = ..., chart_index: _Optional[str] = ..., chart_y_range: _Optional[_Iterable[str]] = ..., metric_name: _Optional[str] = ..., metric_color: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., column_class: _Optional[_Union[ColumnRecord.ColumClass, str]] = ..., column_type: _Optional[_Union[ColumnRecord.ColumnType, str]] = ..., column_error: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[ColumnRecord.SectionType, str]] = ..., chart_name: _Optional[str] = ..., chart_index: _Optional[str] = ..., chart_y_range: _Optional[_Union[Range, _Mapping]] = ..., metric_name: _Optional[str] = ..., metric_color: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class MediaRecord(_message.Message):
     __slots__ = ("index", "epoch", "create_time", "key", "key_encoded", "kid", "data", "more")

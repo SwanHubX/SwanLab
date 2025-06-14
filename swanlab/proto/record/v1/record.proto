@@ -53,6 +53,10 @@ message RuntimeRecord{
   optional string metadata_filename = 4;
 }
 
+message Range {
+  optional int64 minval = 1;
+  optional int64 maxval = 2;
+}
 
 // ColumnRecord is the type record for each metric in swanlab.
 message ColumnRecord{
@@ -95,7 +99,7 @@ message ColumnRecord{
   // The chart index, cuid
   string chart_index = 9;
   // The Y axis range
-  repeated string chart_y_range = 10;
+  Range chart_y_range = 10;
   // The metric name
   string metric_name = 11;
   // The metric color, 2 length hex string, such as "FF0000"

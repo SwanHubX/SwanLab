@@ -112,7 +112,7 @@ func (x ColumnRecord_ColumClass) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_ColumClass.Descriptor instead.
 func (ColumnRecord_ColumClass) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 0}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4, 0}
 }
 
 // Column type, such as "FLOAT", "IMAGE".
@@ -174,7 +174,7 @@ func (x ColumnRecord_ColumnType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_ColumnType.Descriptor instead.
 func (ColumnRecord_ColumnType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 1}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4, 1}
 }
 
 // Section type, used to distinguish the section type of the chart.
@@ -230,7 +230,7 @@ func (x ColumnRecord_SectionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_SectionType.Descriptor instead.
 func (ColumnRecord_SectionType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 2}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4, 2}
 }
 
 // Log level enum
@@ -280,7 +280,7 @@ func (x LogRecord_LogLevel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LogRecord_LogLevel.Descriptor instead.
 func (LogRecord_LogLevel) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{6, 0}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{7, 0}
 }
 
 // SetupRecord is a record containing information about the setup process in swanlab.
@@ -521,6 +521,58 @@ func (x *RuntimeRecord) GetMetadataFilename() string {
 	return ""
 }
 
+type Range struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Minval        *int64                 `protobuf:"varint,1,opt,name=minval,proto3,oneof" json:"minval,omitempty"`
+	Maxval        *int64                 `protobuf:"varint,2,opt,name=maxval,proto3,oneof" json:"maxval,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Range) Reset() {
+	*x = Range{}
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Range) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Range) ProtoMessage() {}
+
+func (x *Range) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Range.ProtoReflect.Descriptor instead.
+func (*Range) Descriptor() ([]byte, []int) {
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Range) GetMinval() int64 {
+	if x != nil && x.Minval != nil {
+		return *x.Minval
+	}
+	return 0
+}
+
+func (x *Range) GetMaxval() int64 {
+	if x != nil && x.Maxval != nil {
+		return *x.Maxval
+	}
+	return 0
+}
+
 // ColumnRecord is the type record for each metric in swanlab.
 type ColumnRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -540,7 +592,7 @@ type ColumnRecord struct {
 	// The chart index, cuid
 	ChartIndex string `protobuf:"bytes,9,opt,name=chart_index,json=chartIndex,proto3" json:"chart_index,omitempty"`
 	// The Y axis range
-	ChartYRange []string `protobuf:"bytes,10,rep,name=chart_y_range,json=chartYRange,proto3" json:"chart_y_range,omitempty"`
+	ChartYRange *Range `protobuf:"bytes,10,opt,name=chart_y_range,json=chartYRange,proto3" json:"chart_y_range,omitempty"`
 	// The metric name
 	MetricName string `protobuf:"bytes,11,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// The metric color, 2 length hex string, such as "FF0000"
@@ -551,7 +603,7 @@ type ColumnRecord struct {
 
 func (x *ColumnRecord) Reset() {
 	*x = ColumnRecord{}
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -563,7 +615,7 @@ func (x *ColumnRecord) String() string {
 func (*ColumnRecord) ProtoMessage() {}
 
 func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -576,7 +628,7 @@ func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnRecord.ProtoReflect.Descriptor instead.
 func (*ColumnRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ColumnRecord) GetColumnKey() string {
@@ -642,7 +694,7 @@ func (x *ColumnRecord) GetChartIndex() string {
 	return ""
 }
 
-func (x *ColumnRecord) GetChartYRange() []string {
+func (x *ColumnRecord) GetChartYRange() *Range {
 	if x != nil {
 		return x.ChartYRange
 	}
@@ -688,7 +740,7 @@ type MediaRecord struct {
 
 func (x *MediaRecord) Reset() {
 	*x = MediaRecord{}
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -700,7 +752,7 @@ func (x *MediaRecord) String() string {
 func (*MediaRecord) ProtoMessage() {}
 
 func (x *MediaRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -713,7 +765,7 @@ func (x *MediaRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaRecord.ProtoReflect.Descriptor instead.
 func (*MediaRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MediaRecord) GetIndex() string {
@@ -791,7 +843,7 @@ type ScalarRecord struct {
 
 func (x *ScalarRecord) Reset() {
 	*x = ScalarRecord{}
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -803,7 +855,7 @@ func (x *ScalarRecord) String() string {
 func (*ScalarRecord) ProtoMessage() {}
 
 func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -816,7 +868,7 @@ func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScalarRecord.ProtoReflect.Descriptor instead.
 func (*ScalarRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{5}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ScalarRecord) GetIndex() string {
@@ -869,7 +921,7 @@ type LogRecord struct {
 
 func (x *LogRecord) Reset() {
 	*x = LogRecord{}
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +933,7 @@ func (x *LogRecord) String() string {
 func (*LogRecord) ProtoMessage() {}
 
 func (x *LogRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -894,7 +946,7 @@ func (x *LogRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRecord.ProtoReflect.Descriptor instead.
 func (*LogRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{6}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *LogRecord) GetEpoch() string {
@@ -947,7 +999,12 @@ const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	"\x0f_conda_filenameB\x0f\n" +
 	"\r_pip_filenameB\x12\n" +
 	"\x10_config_filenameB\x14\n" +
-	"\x12_metadata_filename\"\xde\x06\n" +
+	"\x12_metadata_filename\"W\n" +
+	"\x05Range\x12\x1b\n" +
+	"\x06minval\x18\x01 \x01(\x03H\x00R\x06minval\x88\x01\x01\x12\x1b\n" +
+	"\x06maxval\x18\x02 \x01(\x03H\x01R\x06maxval\x88\x01\x01B\t\n" +
+	"\a_minvalB\t\n" +
+	"\a_maxval\"\xfe\x06\n" +
 	"\fColumnRecord\x12\x1d\n" +
 	"\n" +
 	"column_key\x18\x01 \x01(\tR\tcolumnKey\x12\x1f\n" +
@@ -962,9 +1019,9 @@ const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	"\n" +
 	"chart_name\x18\b \x01(\tR\tchartName\x12\x1f\n" +
 	"\vchart_index\x18\t \x01(\tR\n" +
-	"chartIndex\x12\"\n" +
+	"chartIndex\x12B\n" +
 	"\rchart_y_range\x18\n" +
-	" \x03(\tR\vchartYRange\x12\x1f\n" +
+	" \x01(\v2\x1e.swanlab.proto.record.v1.RangeR\vchartYRange\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12!\n" +
 	"\fmetric_color\x18\f \x03(\tR\vmetricColor\",\n" +
@@ -1034,7 +1091,7 @@ func file_swanlab_proto_record_v1_record_proto_rawDescGZIP() []byte {
 }
 
 var file_swanlab_proto_record_v1_record_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_swanlab_proto_record_v1_record_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_swanlab_proto_record_v1_record_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_swanlab_proto_record_v1_record_proto_goTypes = []any{
 	(TeardownRecord_State)(0),     // 0: swanlab.proto.record.v1.TeardownRecord.State
 	(ColumnRecord_ColumClass)(0),  // 1: swanlab.proto.record.v1.ColumnRecord.ColumClass
@@ -1044,24 +1101,26 @@ var file_swanlab_proto_record_v1_record_proto_goTypes = []any{
 	(*SetupRecord)(nil),           // 5: swanlab.proto.record.v1.SetupRecord
 	(*TeardownRecord)(nil),        // 6: swanlab.proto.record.v1.TeardownRecord
 	(*RuntimeRecord)(nil),         // 7: swanlab.proto.record.v1.RuntimeRecord
-	(*ColumnRecord)(nil),          // 8: swanlab.proto.record.v1.ColumnRecord
-	(*MediaRecord)(nil),           // 9: swanlab.proto.record.v1.MediaRecord
-	(*ScalarRecord)(nil),          // 10: swanlab.proto.record.v1.ScalarRecord
-	(*LogRecord)(nil),             // 11: swanlab.proto.record.v1.LogRecord
-	(*structpb.Struct)(nil),       // 12: google.protobuf.Struct
+	(*Range)(nil),                 // 8: swanlab.proto.record.v1.Range
+	(*ColumnRecord)(nil),          // 9: swanlab.proto.record.v1.ColumnRecord
+	(*MediaRecord)(nil),           // 10: swanlab.proto.record.v1.MediaRecord
+	(*ScalarRecord)(nil),          // 11: swanlab.proto.record.v1.ScalarRecord
+	(*LogRecord)(nil),             // 12: swanlab.proto.record.v1.LogRecord
+	(*structpb.Struct)(nil),       // 13: google.protobuf.Struct
 }
 var file_swanlab_proto_record_v1_record_proto_depIdxs = []int32{
 	0,  // 0: swanlab.proto.record.v1.TeardownRecord.state:type_name -> swanlab.proto.record.v1.TeardownRecord.State
 	1,  // 1: swanlab.proto.record.v1.ColumnRecord.column_class:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumClass
 	2,  // 2: swanlab.proto.record.v1.ColumnRecord.column_type:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumnType
-	12, // 3: swanlab.proto.record.v1.ColumnRecord.column_error:type_name -> google.protobuf.Struct
+	13, // 3: swanlab.proto.record.v1.ColumnRecord.column_error:type_name -> google.protobuf.Struct
 	3,  // 4: swanlab.proto.record.v1.ColumnRecord.section_type:type_name -> swanlab.proto.record.v1.ColumnRecord.SectionType
-	4,  // 5: swanlab.proto.record.v1.LogRecord.level:type_name -> swanlab.proto.record.v1.LogRecord.LogLevel
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	8,  // 5: swanlab.proto.record.v1.ColumnRecord.chart_y_range:type_name -> swanlab.proto.record.v1.Range
+	4,  // 6: swanlab.proto.record.v1.LogRecord.level:type_name -> swanlab.proto.record.v1.LogRecord.LogLevel
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_proto_record_v1_record_proto_init() }
@@ -1070,13 +1129,14 @@ func file_swanlab_proto_record_v1_record_proto_init() {
 		return
 	}
 	file_swanlab_proto_record_v1_record_proto_msgTypes[2].OneofWrappers = []any{}
+	file_swanlab_proto_record_v1_record_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_proto_record_v1_record_proto_rawDesc), len(file_swanlab_proto_record_v1_record_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
