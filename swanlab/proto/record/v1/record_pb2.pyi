@@ -93,14 +93,12 @@ class Range(_message.Message):
 
 class ColumnRecord(_message.Message):
     __slots__ = ("column_key", "column_name", "column_class", "column_type", "column_error", "section_name", "section_type", "chart_name", "chart_index", "chart_y_range", "metric_name", "metric_color")
-    class ColumClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    class ColumnClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        COL_CLASS_UNKNOWN: _ClassVar[ColumnRecord.ColumClass]
-        COL_CLASS_CUSTOM: _ClassVar[ColumnRecord.ColumClass]
-        COL_CLASS_SYSTEM: _ClassVar[ColumnRecord.ColumClass]
-    COL_CLASS_UNKNOWN: ColumnRecord.ColumClass
-    COL_CLASS_CUSTOM: ColumnRecord.ColumClass
-    COL_CLASS_SYSTEM: ColumnRecord.ColumClass
+        COL_CLASS_CUSTOM: _ClassVar[ColumnRecord.ColumnClass]
+        COL_CLASS_SYSTEM: _ClassVar[ColumnRecord.ColumnClass]
+    COL_CLASS_CUSTOM: ColumnRecord.ColumnClass
+    COL_CLASS_SYSTEM: ColumnRecord.ColumnClass
     class ColumnType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         COL_UNKNOWN: _ClassVar[ColumnRecord.ColumnType]
@@ -121,18 +119,16 @@ class ColumnRecord(_message.Message):
     COL_ECHARTS: ColumnRecord.ColumnType
     class SectionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        SEC_UNKNOWN: _ClassVar[ColumnRecord.SectionType]
-        SEC_PINNED: _ClassVar[ColumnRecord.SectionType]
-        SEC_HIDDEN: _ClassVar[ColumnRecord.SectionType]
         SEC_PUBLIC: _ClassVar[ColumnRecord.SectionType]
         SEC_SYSTEM: _ClassVar[ColumnRecord.SectionType]
         SEC_CUSTOM: _ClassVar[ColumnRecord.SectionType]
-    SEC_UNKNOWN: ColumnRecord.SectionType
-    SEC_PINNED: ColumnRecord.SectionType
-    SEC_HIDDEN: ColumnRecord.SectionType
+        SEC_PINNED: _ClassVar[ColumnRecord.SectionType]
+        SEC_HIDDEN: _ClassVar[ColumnRecord.SectionType]
     SEC_PUBLIC: ColumnRecord.SectionType
     SEC_SYSTEM: ColumnRecord.SectionType
     SEC_CUSTOM: ColumnRecord.SectionType
+    SEC_PINNED: ColumnRecord.SectionType
+    SEC_HIDDEN: ColumnRecord.SectionType
     COLUMN_KEY_FIELD_NUMBER: _ClassVar[int]
     COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
     COLUMN_CLASS_FIELD_NUMBER: _ClassVar[int]
@@ -147,7 +143,7 @@ class ColumnRecord(_message.Message):
     METRIC_COLOR_FIELD_NUMBER: _ClassVar[int]
     column_key: str
     column_name: str
-    column_class: ColumnRecord.ColumClass
+    column_class: ColumnRecord.ColumnClass
     column_type: ColumnRecord.ColumnType
     column_error: _struct_pb2.Struct
     section_name: str
@@ -157,7 +153,7 @@ class ColumnRecord(_message.Message):
     chart_y_range: Range
     metric_name: str
     metric_color: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., column_class: _Optional[_Union[ColumnRecord.ColumClass, str]] = ..., column_type: _Optional[_Union[ColumnRecord.ColumnType, str]] = ..., column_error: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[ColumnRecord.SectionType, str]] = ..., chart_name: _Optional[str] = ..., chart_index: _Optional[str] = ..., chart_y_range: _Optional[_Union[Range, _Mapping]] = ..., metric_name: _Optional[str] = ..., metric_color: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., column_class: _Optional[_Union[ColumnRecord.ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnRecord.ColumnType, str]] = ..., column_error: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[ColumnRecord.SectionType, str]] = ..., chart_name: _Optional[str] = ..., chart_index: _Optional[str] = ..., chart_y_range: _Optional[_Union[Range, _Mapping]] = ..., metric_name: _Optional[str] = ..., metric_color: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class MediaRecord(_message.Message):
     __slots__ = ("index", "epoch", "create_time", "key", "key_encoded", "kid", "data", "more")
