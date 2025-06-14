@@ -113,9 +113,9 @@ class SwanLabRunCallback(SwanKitCallback, U):
     4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
 
-    def __init__(self, backup=False, backup_media=True):
+    def __init__(self, backup=False, save_file=True):
         super(U, self).__init__()
-        self.backup = BackupHandler(enable=backup, save_media=backup_media)
+        self.backup = BackupHandler(enable=backup, save_file=save_file)
 
     def _register_sys_callback(self):
         """
