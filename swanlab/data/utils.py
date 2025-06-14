@@ -207,7 +207,7 @@ def _create_operator(
         from .callbacker.local import LocalRunCallback
 
         # 本地模式不保存 media，由回调同步保存
-        c.append(LocalRunCallback(backup=backup, backup_media=False))
+        c.append(LocalRunCallback(backup=backup, save_file=False))
     # 1.4 . 备份模式
     elif mode == SwanLabMode.OFFLINE.value:
         c.append(OfflineCallback(backup=True))
