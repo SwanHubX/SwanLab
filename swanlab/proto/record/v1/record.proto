@@ -7,6 +7,40 @@ package swanlab.proto.record.v1;
 option go_package = "core/pkg/pb";
 
 
+// SetupRecord is a record containing information about the setup process in swanlab.
+message SetupRecord{
+  // The name of the project
+  string name = 1;
+  // The workspace of the project
+  string workspace = 2;
+  // The visibility of the project
+  bool public = 3;
+  // The experiment name
+  string experiment_name = 4;
+  // The experiment description
+  string experiment_description = 5;
+  // The experiment tags
+  repeated string experiment_tags = 6;
+  // The experiment start time
+  string start_time = 7;
+}
+
+// TeardownRecord is a record containing information about the teardown process in swanlab.
+// It may not exist if the process was killed or terminated unexpectedly.
+message TeardownRecord{
+  enum State{
+    STATE_SUCCESS = 0; // Experiment teardown successfully
+    STATE_FAILED = 1; // Experiment teardown failed (some error occurred)
+  }
+  // The state of the teardown process
+  State state = 1;
+  // The error message if the teardown process failed
+  string error_message = 2;
+  // The time when the teardown process was completed
+  string end_time = 3;
+}
+
+
 // RuntimeRecord is the record that contains information about the runtime environment of swanlab.
 message RuntimeRecord{
   // The conda environment file name

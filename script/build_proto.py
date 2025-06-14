@@ -27,8 +27,7 @@ proto_root = os.path.join(os.path.dirname(grpc_tools.__file__), "_proto")
 # messages
 for proto_file in [
     "common/v1/common.proto",
-    "record/v1/experiment.proto",
-    "record/v1/metric.proto",
+    "record/v1/record.proto",
 ]:
     ret = protoc.main(
         (

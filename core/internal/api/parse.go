@@ -11,6 +11,7 @@ import (
 	"github.com/SwanHubX/SwanLab/core/pkg/pb"
 )
 
+// Some constants for the parser.
 const (
 	minRangeLen = 2
 )

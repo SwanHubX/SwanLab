@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v6.31.0
-// source: swanlab/proto/record/v1/metric.proto
+// source: swanlab/proto/record/v1/record.proto
 
 package pb
 
@@ -21,6 +21,52 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+type TeardownRecord_State int32
+
+const (
+	TeardownRecord_STATE_SUCCESS TeardownRecord_State = 0 // Experiment teardown successfully
+	TeardownRecord_STATE_FAILED  TeardownRecord_State = 1 // Experiment teardown failed (some error occurred)
+)
+
+// Enum value maps for TeardownRecord_State.
+var (
+	TeardownRecord_State_name = map[int32]string{
+		0: "STATE_SUCCESS",
+		1: "STATE_FAILED",
+	}
+	TeardownRecord_State_value = map[string]int32{
+		"STATE_SUCCESS": 0,
+		"STATE_FAILED":  1,
+	}
+)
+
+func (x TeardownRecord_State) Enum() *TeardownRecord_State {
+	p := new(TeardownRecord_State)
+	*p = x
+	return p
+}
+
+func (x TeardownRecord_State) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TeardownRecord_State) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_proto_record_v1_record_proto_enumTypes[0].Descriptor()
+}
+
+func (TeardownRecord_State) Type() protoreflect.EnumType {
+	return &file_swanlab_proto_record_v1_record_proto_enumTypes[0]
+}
+
+func (x TeardownRecord_State) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TeardownRecord_State.Descriptor instead.
+func (TeardownRecord_State) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{1, 0}
+}
 
 // Column class, such as "CUSTOM", "SYSTEM"
 type ColumnRecord_ColumClass int32
@@ -53,11 +99,11 @@ func (x ColumnRecord_ColumClass) String() string {
 }
 
 func (ColumnRecord_ColumClass) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_proto_record_v1_metric_proto_enumTypes[0].Descriptor()
+	return file_swanlab_proto_record_v1_record_proto_enumTypes[1].Descriptor()
 }
 
 func (ColumnRecord_ColumClass) Type() protoreflect.EnumType {
-	return &file_swanlab_proto_record_v1_metric_proto_enumTypes[0]
+	return &file_swanlab_proto_record_v1_record_proto_enumTypes[1]
 }
 
 func (x ColumnRecord_ColumClass) Number() protoreflect.EnumNumber {
@@ -66,7 +112,7 @@ func (x ColumnRecord_ColumClass) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_ColumClass.Descriptor instead.
 func (ColumnRecord_ColumClass) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{1, 0}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 0}
 }
 
 // Column type, such as "FLOAT", "IMAGE".
@@ -115,11 +161,11 @@ func (x ColumnRecord_ColumnType) String() string {
 }
 
 func (ColumnRecord_ColumnType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_proto_record_v1_metric_proto_enumTypes[1].Descriptor()
+	return file_swanlab_proto_record_v1_record_proto_enumTypes[2].Descriptor()
 }
 
 func (ColumnRecord_ColumnType) Type() protoreflect.EnumType {
-	return &file_swanlab_proto_record_v1_metric_proto_enumTypes[1]
+	return &file_swanlab_proto_record_v1_record_proto_enumTypes[2]
 }
 
 func (x ColumnRecord_ColumnType) Number() protoreflect.EnumNumber {
@@ -128,7 +174,7 @@ func (x ColumnRecord_ColumnType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_ColumnType.Descriptor instead.
 func (ColumnRecord_ColumnType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{1, 1}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 1}
 }
 
 // Section type, used to distinguish the section type of the chart.
@@ -171,11 +217,11 @@ func (x ColumnRecord_SectionType) String() string {
 }
 
 func (ColumnRecord_SectionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_proto_record_v1_metric_proto_enumTypes[2].Descriptor()
+	return file_swanlab_proto_record_v1_record_proto_enumTypes[3].Descriptor()
 }
 
 func (ColumnRecord_SectionType) Type() protoreflect.EnumType {
-	return &file_swanlab_proto_record_v1_metric_proto_enumTypes[2]
+	return &file_swanlab_proto_record_v1_record_proto_enumTypes[3]
 }
 
 func (x ColumnRecord_SectionType) Number() protoreflect.EnumNumber {
@@ -184,7 +230,7 @@ func (x ColumnRecord_SectionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnRecord_SectionType.Descriptor instead.
 func (ColumnRecord_SectionType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{1, 2}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3, 2}
 }
 
 // Log level enum
@@ -221,11 +267,11 @@ func (x LogRecord_LogLevel) String() string {
 }
 
 func (LogRecord_LogLevel) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_proto_record_v1_metric_proto_enumTypes[3].Descriptor()
+	return file_swanlab_proto_record_v1_record_proto_enumTypes[4].Descriptor()
 }
 
 func (LogRecord_LogLevel) Type() protoreflect.EnumType {
-	return &file_swanlab_proto_record_v1_metric_proto_enumTypes[3]
+	return &file_swanlab_proto_record_v1_record_proto_enumTypes[4]
 }
 
 func (x LogRecord_LogLevel) Number() protoreflect.EnumNumber {
@@ -234,7 +280,172 @@ func (x LogRecord_LogLevel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LogRecord_LogLevel.Descriptor instead.
 func (LogRecord_LogLevel) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{4, 0}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{6, 0}
+}
+
+// SetupRecord is a record containing information about the setup process in swanlab.
+type SetupRecord struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The name of the project
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The workspace of the project
+	Workspace string `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"`
+	// The visibility of the project
+	Public bool `protobuf:"varint,3,opt,name=public,proto3" json:"public,omitempty"`
+	// The experiment name
+	ExperimentName string `protobuf:"bytes,4,opt,name=experiment_name,json=experimentName,proto3" json:"experiment_name,omitempty"`
+	// The experiment description
+	ExperimentDescription string `protobuf:"bytes,5,opt,name=experiment_description,json=experimentDescription,proto3" json:"experiment_description,omitempty"`
+	// The experiment tags
+	ExperimentTags []string `protobuf:"bytes,6,rep,name=experiment_tags,json=experimentTags,proto3" json:"experiment_tags,omitempty"`
+	// The experiment start time
+	StartTime     string `protobuf:"bytes,7,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetupRecord) Reset() {
+	*x = SetupRecord{}
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetupRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetupRecord) ProtoMessage() {}
+
+func (x *SetupRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetupRecord.ProtoReflect.Descriptor instead.
+func (*SetupRecord) Descriptor() ([]byte, []int) {
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SetupRecord) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SetupRecord) GetWorkspace() string {
+	if x != nil {
+		return x.Workspace
+	}
+	return ""
+}
+
+func (x *SetupRecord) GetPublic() bool {
+	if x != nil {
+		return x.Public
+	}
+	return false
+}
+
+func (x *SetupRecord) GetExperimentName() string {
+	if x != nil {
+		return x.ExperimentName
+	}
+	return ""
+}
+
+func (x *SetupRecord) GetExperimentDescription() string {
+	if x != nil {
+		return x.ExperimentDescription
+	}
+	return ""
+}
+
+func (x *SetupRecord) GetExperimentTags() []string {
+	if x != nil {
+		return x.ExperimentTags
+	}
+	return nil
+}
+
+func (x *SetupRecord) GetStartTime() string {
+	if x != nil {
+		return x.StartTime
+	}
+	return ""
+}
+
+// TeardownRecord is a record containing information about the teardown process in swanlab.
+// It may not exist if the process was killed or terminated unexpectedly.
+type TeardownRecord struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The state of the teardown process
+	State TeardownRecord_State `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.proto.record.v1.TeardownRecord_State" json:"state,omitempty"`
+	// The error message if the teardown process failed
+	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// The time when the teardown process was completed
+	EndTime       string `protobuf:"bytes,3,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TeardownRecord) Reset() {
+	*x = TeardownRecord{}
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeardownRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeardownRecord) ProtoMessage() {}
+
+func (x *TeardownRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeardownRecord.ProtoReflect.Descriptor instead.
+func (*TeardownRecord) Descriptor() ([]byte, []int) {
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TeardownRecord) GetState() TeardownRecord_State {
+	if x != nil {
+		return x.State
+	}
+	return TeardownRecord_STATE_SUCCESS
+}
+
+func (x *TeardownRecord) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *TeardownRecord) GetEndTime() string {
+	if x != nil {
+		return x.EndTime
+	}
+	return ""
 }
 
 // RuntimeRecord is the record that contains information about the runtime environment of swanlab.
@@ -254,7 +465,7 @@ type RuntimeRecord struct {
 
 func (x *RuntimeRecord) Reset() {
 	*x = RuntimeRecord{}
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[0]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +477,7 @@ func (x *RuntimeRecord) String() string {
 func (*RuntimeRecord) ProtoMessage() {}
 
 func (x *RuntimeRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[0]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +490,7 @@ func (x *RuntimeRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeRecord.ProtoReflect.Descriptor instead.
 func (*RuntimeRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RuntimeRecord) GetCondaFilename() string {
@@ -340,7 +551,7 @@ type ColumnRecord struct {
 
 func (x *ColumnRecord) Reset() {
 	*x = ColumnRecord{}
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[1]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +563,7 @@ func (x *ColumnRecord) String() string {
 func (*ColumnRecord) ProtoMessage() {}
 
 func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[1]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +576,7 @@ func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnRecord.ProtoReflect.Descriptor instead.
 func (*ColumnRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ColumnRecord) GetColumnKey() string {
@@ -477,7 +688,7 @@ type MediaRecord struct {
 
 func (x *MediaRecord) Reset() {
 	*x = MediaRecord{}
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[2]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +700,7 @@ func (x *MediaRecord) String() string {
 func (*MediaRecord) ProtoMessage() {}
 
 func (x *MediaRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[2]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +713,7 @@ func (x *MediaRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaRecord.ProtoReflect.Descriptor instead.
 func (*MediaRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MediaRecord) GetIndex() string {
@@ -580,7 +791,7 @@ type ScalarRecord struct {
 
 func (x *ScalarRecord) Reset() {
 	*x = ScalarRecord{}
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[3]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +803,7 @@ func (x *ScalarRecord) String() string {
 func (*ScalarRecord) ProtoMessage() {}
 
 func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[3]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +816,7 @@ func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScalarRecord.ProtoReflect.Descriptor instead.
 func (*ScalarRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ScalarRecord) GetIndex() string {
@@ -658,7 +869,7 @@ type LogRecord struct {
 
 func (x *LogRecord) Reset() {
 	*x = LogRecord{}
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[4]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +881,7 @@ func (x *LogRecord) String() string {
 func (*LogRecord) ProtoMessage() {}
 
 func (x *LogRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_proto_record_v1_metric_proto_msgTypes[4]
+	mi := &file_swanlab_proto_record_v1_record_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +894,7 @@ func (x *LogRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRecord.ProtoReflect.Descriptor instead.
 func (*LogRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_proto_record_v1_metric_proto_rawDescGZIP(), []int{4}
+	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *LogRecord) GetEpoch() string {
@@ -707,11 +918,27 @@ func (x *LogRecord) GetMessage() string {
 	return ""
 }
 
-var File_swanlab_proto_record_v1_metric_proto protoreflect.FileDescriptor
+var File_swanlab_proto_record_v1_record_proto protoreflect.FileDescriptor
 
-const file_swanlab_proto_record_v1_metric_proto_rawDesc = "" +
+const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	"\n" +
-	"$swanlab/proto/record/v1/metric.proto\x12\x17swanlab.proto.record.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x91\x02\n" +
+	"$swanlab/proto/record/v1/record.proto\x12\x17swanlab.proto.record.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xff\x01\n" +
+	"\vSetupRecord\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
+	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x16\n" +
+	"\x06public\x18\x03 \x01(\bR\x06public\x12'\n" +
+	"\x0fexperiment_name\x18\x04 \x01(\tR\x0eexperimentName\x125\n" +
+	"\x16experiment_description\x18\x05 \x01(\tR\x15experimentDescription\x12'\n" +
+	"\x0fexperiment_tags\x18\x06 \x03(\tR\x0eexperimentTags\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\a \x01(\tR\tstartTime\"\xc3\x01\n" +
+	"\x0eTeardownRecord\x12C\n" +
+	"\x05state\x18\x01 \x01(\x0e2-.swanlab.proto.record.v1.TeardownRecord.StateR\x05state\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x12\x19\n" +
+	"\bend_time\x18\x03 \x01(\tR\aendTime\",\n" +
+	"\x05State\x12\x11\n" +
+	"\rSTATE_SUCCESS\x10\x00\x12\x10\n" +
+	"\fSTATE_FAILED\x10\x01\"\x91\x02\n" +
 	"\rRuntimeRecord\x12*\n" +
 	"\x0econda_filename\x18\x01 \x01(\tH\x00R\rcondaFilename\x88\x01\x01\x12&\n" +
 	"\fpip_filename\x18\x02 \x01(\tH\x01R\vpipFilename\x88\x01\x01\x12,\n" +
@@ -795,66 +1022,70 @@ const file_swanlab_proto_record_v1_metric_proto_rawDesc = "" +
 	"\x05ERROR\x10\x02B\rZ\vcore/pkg/pbb\x06proto3"
 
 var (
-	file_swanlab_proto_record_v1_metric_proto_rawDescOnce sync.Once
-	file_swanlab_proto_record_v1_metric_proto_rawDescData []byte
+	file_swanlab_proto_record_v1_record_proto_rawDescOnce sync.Once
+	file_swanlab_proto_record_v1_record_proto_rawDescData []byte
 )
 
-func file_swanlab_proto_record_v1_metric_proto_rawDescGZIP() []byte {
-	file_swanlab_proto_record_v1_metric_proto_rawDescOnce.Do(func() {
-		file_swanlab_proto_record_v1_metric_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_proto_record_v1_metric_proto_rawDesc), len(file_swanlab_proto_record_v1_metric_proto_rawDesc)))
+func file_swanlab_proto_record_v1_record_proto_rawDescGZIP() []byte {
+	file_swanlab_proto_record_v1_record_proto_rawDescOnce.Do(func() {
+		file_swanlab_proto_record_v1_record_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_proto_record_v1_record_proto_rawDesc), len(file_swanlab_proto_record_v1_record_proto_rawDesc)))
 	})
-	return file_swanlab_proto_record_v1_metric_proto_rawDescData
+	return file_swanlab_proto_record_v1_record_proto_rawDescData
 }
 
-var file_swanlab_proto_record_v1_metric_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_swanlab_proto_record_v1_metric_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_swanlab_proto_record_v1_metric_proto_goTypes = []any{
-	(ColumnRecord_ColumClass)(0),  // 0: swanlab.proto.record.v1.ColumnRecord.ColumClass
-	(ColumnRecord_ColumnType)(0),  // 1: swanlab.proto.record.v1.ColumnRecord.ColumnType
-	(ColumnRecord_SectionType)(0), // 2: swanlab.proto.record.v1.ColumnRecord.SectionType
-	(LogRecord_LogLevel)(0),       // 3: swanlab.proto.record.v1.LogRecord.LogLevel
-	(*RuntimeRecord)(nil),         // 4: swanlab.proto.record.v1.RuntimeRecord
-	(*ColumnRecord)(nil),          // 5: swanlab.proto.record.v1.ColumnRecord
-	(*MediaRecord)(nil),           // 6: swanlab.proto.record.v1.MediaRecord
-	(*ScalarRecord)(nil),          // 7: swanlab.proto.record.v1.ScalarRecord
-	(*LogRecord)(nil),             // 8: swanlab.proto.record.v1.LogRecord
-	(*structpb.Struct)(nil),       // 9: google.protobuf.Struct
+var file_swanlab_proto_record_v1_record_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_swanlab_proto_record_v1_record_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_swanlab_proto_record_v1_record_proto_goTypes = []any{
+	(TeardownRecord_State)(0),     // 0: swanlab.proto.record.v1.TeardownRecord.State
+	(ColumnRecord_ColumClass)(0),  // 1: swanlab.proto.record.v1.ColumnRecord.ColumClass
+	(ColumnRecord_ColumnType)(0),  // 2: swanlab.proto.record.v1.ColumnRecord.ColumnType
+	(ColumnRecord_SectionType)(0), // 3: swanlab.proto.record.v1.ColumnRecord.SectionType
+	(LogRecord_LogLevel)(0),       // 4: swanlab.proto.record.v1.LogRecord.LogLevel
+	(*SetupRecord)(nil),           // 5: swanlab.proto.record.v1.SetupRecord
+	(*TeardownRecord)(nil),        // 6: swanlab.proto.record.v1.TeardownRecord
+	(*RuntimeRecord)(nil),         // 7: swanlab.proto.record.v1.RuntimeRecord
+	(*ColumnRecord)(nil),          // 8: swanlab.proto.record.v1.ColumnRecord
+	(*MediaRecord)(nil),           // 9: swanlab.proto.record.v1.MediaRecord
+	(*ScalarRecord)(nil),          // 10: swanlab.proto.record.v1.ScalarRecord
+	(*LogRecord)(nil),             // 11: swanlab.proto.record.v1.LogRecord
+	(*structpb.Struct)(nil),       // 12: google.protobuf.Struct
 }
-var file_swanlab_proto_record_v1_metric_proto_depIdxs = []int32{
-	0, // 0: swanlab.proto.record.v1.ColumnRecord.column_class:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumClass
-	1, // 1: swanlab.proto.record.v1.ColumnRecord.column_type:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumnType
-	9, // 2: swanlab.proto.record.v1.ColumnRecord.column_error:type_name -> google.protobuf.Struct
-	2, // 3: swanlab.proto.record.v1.ColumnRecord.section_type:type_name -> swanlab.proto.record.v1.ColumnRecord.SectionType
-	3, // 4: swanlab.proto.record.v1.LogRecord.level:type_name -> swanlab.proto.record.v1.LogRecord.LogLevel
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+var file_swanlab_proto_record_v1_record_proto_depIdxs = []int32{
+	0,  // 0: swanlab.proto.record.v1.TeardownRecord.state:type_name -> swanlab.proto.record.v1.TeardownRecord.State
+	1,  // 1: swanlab.proto.record.v1.ColumnRecord.column_class:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumClass
+	2,  // 2: swanlab.proto.record.v1.ColumnRecord.column_type:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumnType
+	12, // 3: swanlab.proto.record.v1.ColumnRecord.column_error:type_name -> google.protobuf.Struct
+	3,  // 4: swanlab.proto.record.v1.ColumnRecord.section_type:type_name -> swanlab.proto.record.v1.ColumnRecord.SectionType
+	4,  // 5: swanlab.proto.record.v1.LogRecord.level:type_name -> swanlab.proto.record.v1.LogRecord.LogLevel
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
-func init() { file_swanlab_proto_record_v1_metric_proto_init() }
-func file_swanlab_proto_record_v1_metric_proto_init() {
-	if File_swanlab_proto_record_v1_metric_proto != nil {
+func init() { file_swanlab_proto_record_v1_record_proto_init() }
+func file_swanlab_proto_record_v1_record_proto_init() {
+	if File_swanlab_proto_record_v1_record_proto != nil {
 		return
 	}
-	file_swanlab_proto_record_v1_metric_proto_msgTypes[0].OneofWrappers = []any{}
+	file_swanlab_proto_record_v1_record_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_proto_record_v1_metric_proto_rawDesc), len(file_swanlab_proto_record_v1_metric_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   5,
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_proto_record_v1_record_proto_rawDesc), len(file_swanlab_proto_record_v1_record_proto_rawDesc)),
+			NumEnums:      5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_swanlab_proto_record_v1_metric_proto_goTypes,
-		DependencyIndexes: file_swanlab_proto_record_v1_metric_proto_depIdxs,
-		EnumInfos:         file_swanlab_proto_record_v1_metric_proto_enumTypes,
-		MessageInfos:      file_swanlab_proto_record_v1_metric_proto_msgTypes,
+		GoTypes:           file_swanlab_proto_record_v1_record_proto_goTypes,
+		DependencyIndexes: file_swanlab_proto_record_v1_record_proto_depIdxs,
+		EnumInfos:         file_swanlab_proto_record_v1_record_proto_enumTypes,
+		MessageInfos:      file_swanlab_proto_record_v1_record_proto_msgTypes,
 	}.Build()
-	File_swanlab_proto_record_v1_metric_proto = out.File
-	file_swanlab_proto_record_v1_metric_proto_goTypes = nil
-	file_swanlab_proto_record_v1_metric_proto_depIdxs = nil
+	File_swanlab_proto_record_v1_record_proto = out.File
+	file_swanlab_proto_record_v1_record_proto_goTypes = nil
+	file_swanlab_proto_record_v1_record_proto_depIdxs = nil
 }

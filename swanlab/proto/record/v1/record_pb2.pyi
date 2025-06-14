@@ -8,6 +8,40 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SetupRecord(_message.Message):
+    __slots__ = ("name", "workspace", "public", "experiment_name", "experiment_description", "experiment_tags", "start_time")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    PUBLIC_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    workspace: str
+    public: bool
+    experiment_name: str
+    experiment_description: str
+    experiment_tags: _containers.RepeatedScalarFieldContainer[str]
+    start_time: str
+    def __init__(self, name: _Optional[str] = ..., workspace: _Optional[str] = ..., public: bool = ..., experiment_name: _Optional[str] = ..., experiment_description: _Optional[str] = ..., experiment_tags: _Optional[_Iterable[str]] = ..., start_time: _Optional[str] = ...) -> None: ...
+
+class TeardownRecord(_message.Message):
+    __slots__ = ("state", "error_message", "end_time")
+    class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        STATE_SUCCESS: _ClassVar[TeardownRecord.State]
+        STATE_FAILED: _ClassVar[TeardownRecord.State]
+    STATE_SUCCESS: TeardownRecord.State
+    STATE_FAILED: TeardownRecord.State
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    state: TeardownRecord.State
+    error_message: str
+    end_time: str
+    def __init__(self, state: _Optional[_Union[TeardownRecord.State, str]] = ..., error_message: _Optional[str] = ..., end_time: _Optional[str] = ...) -> None: ...
+
 class RuntimeRecord(_message.Message):
     __slots__ = ("conda_filename", "pip_filename", "config_filename", "metadata_filename")
     CONDA_FILENAME_FIELD_NUMBER: _ClassVar[int]
