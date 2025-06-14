@@ -138,52 +138,49 @@ func (TeardownRecord_StateType) EnumDescriptor() ([]byte, []int) {
 }
 
 // Column class, such as "CUSTOM", "SYSTEM"
-type ColumnRecord_ColumClass int32
+type ColumnRecord_ColumnClass int32
 
 const (
-	ColumnRecord_COL_CLASS_UNKNOWN ColumnRecord_ColumClass = 0 // Unknown column class, used for error handling
-	ColumnRecord_COL_CLASS_CUSTOM  ColumnRecord_ColumClass = 1 // Custom column, user-defined
-	ColumnRecord_COL_CLASS_SYSTEM  ColumnRecord_ColumClass = 2 // System column, swanlab predefined
+	ColumnRecord_COL_CLASS_CUSTOM ColumnRecord_ColumnClass = 0 // Custom column, user-defined, default
+	ColumnRecord_COL_CLASS_SYSTEM ColumnRecord_ColumnClass = 2 // System column, swanlab predefined
 )
 
-// Enum value maps for ColumnRecord_ColumClass.
+// Enum value maps for ColumnRecord_ColumnClass.
 var (
-	ColumnRecord_ColumClass_name = map[int32]string{
-		0: "COL_CLASS_UNKNOWN",
-		1: "COL_CLASS_CUSTOM",
+	ColumnRecord_ColumnClass_name = map[int32]string{
+		0: "COL_CLASS_CUSTOM",
 		2: "COL_CLASS_SYSTEM",
 	}
-	ColumnRecord_ColumClass_value = map[string]int32{
-		"COL_CLASS_UNKNOWN": 0,
-		"COL_CLASS_CUSTOM":  1,
-		"COL_CLASS_SYSTEM":  2,
+	ColumnRecord_ColumnClass_value = map[string]int32{
+		"COL_CLASS_CUSTOM": 0,
+		"COL_CLASS_SYSTEM": 2,
 	}
 )
 
-func (x ColumnRecord_ColumClass) Enum() *ColumnRecord_ColumClass {
-	p := new(ColumnRecord_ColumClass)
+func (x ColumnRecord_ColumnClass) Enum() *ColumnRecord_ColumnClass {
+	p := new(ColumnRecord_ColumnClass)
 	*p = x
 	return p
 }
 
-func (x ColumnRecord_ColumClass) String() string {
+func (x ColumnRecord_ColumnClass) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ColumnRecord_ColumClass) Descriptor() protoreflect.EnumDescriptor {
+func (ColumnRecord_ColumnClass) Descriptor() protoreflect.EnumDescriptor {
 	return file_swanlab_proto_record_v1_record_proto_enumTypes[2].Descriptor()
 }
 
-func (ColumnRecord_ColumClass) Type() protoreflect.EnumType {
+func (ColumnRecord_ColumnClass) Type() protoreflect.EnumType {
 	return &file_swanlab_proto_record_v1_record_proto_enumTypes[2]
 }
 
-func (x ColumnRecord_ColumClass) Number() protoreflect.EnumNumber {
+func (x ColumnRecord_ColumnClass) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ColumnRecord_ColumClass.Descriptor instead.
-func (ColumnRecord_ColumClass) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use ColumnRecord_ColumnClass.Descriptor instead.
+func (ColumnRecord_ColumnClass) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_proto_record_v1_record_proto_rawDescGZIP(), []int{5, 0}
 }
 
@@ -256,31 +253,28 @@ func (ColumnRecord_ColumnType) EnumDescriptor() ([]byte, []int) {
 type ColumnRecord_SectionType int32
 
 const (
-	ColumnRecord_SEC_UNKNOWN ColumnRecord_SectionType = 0 // Unknown section type, used for error handling
-	ColumnRecord_SEC_PINNED  ColumnRecord_SectionType = 1
-	ColumnRecord_SEC_HIDDEN  ColumnRecord_SectionType = 2
-	ColumnRecord_SEC_PUBLIC  ColumnRecord_SectionType = 3
-	ColumnRecord_SEC_SYSTEM  ColumnRecord_SectionType = 4
-	ColumnRecord_SEC_CUSTOM  ColumnRecord_SectionType = 5
+	ColumnRecord_SEC_PUBLIC ColumnRecord_SectionType = 0 // Public section, default
+	ColumnRecord_SEC_SYSTEM ColumnRecord_SectionType = 1
+	ColumnRecord_SEC_CUSTOM ColumnRecord_SectionType = 2
+	ColumnRecord_SEC_PINNED ColumnRecord_SectionType = 3
+	ColumnRecord_SEC_HIDDEN ColumnRecord_SectionType = 4
 )
 
 // Enum value maps for ColumnRecord_SectionType.
 var (
 	ColumnRecord_SectionType_name = map[int32]string{
-		0: "SEC_UNKNOWN",
-		1: "SEC_PINNED",
-		2: "SEC_HIDDEN",
-		3: "SEC_PUBLIC",
-		4: "SEC_SYSTEM",
-		5: "SEC_CUSTOM",
+		0: "SEC_PUBLIC",
+		1: "SEC_SYSTEM",
+		2: "SEC_CUSTOM",
+		3: "SEC_PINNED",
+		4: "SEC_HIDDEN",
 	}
 	ColumnRecord_SectionType_value = map[string]int32{
-		"SEC_UNKNOWN": 0,
-		"SEC_PINNED":  1,
-		"SEC_HIDDEN":  2,
-		"SEC_PUBLIC":  3,
-		"SEC_SYSTEM":  4,
-		"SEC_CUSTOM":  5,
+		"SEC_PUBLIC": 0,
+		"SEC_SYSTEM": 1,
+		"SEC_CUSTOM": 2,
+		"SEC_PINNED": 3,
+		"SEC_HIDDEN": 4,
 	}
 )
 
@@ -715,9 +709,9 @@ type ColumnRecord struct {
 	// Column ID
 	ColumnKey string `protobuf:"bytes,1,opt,name=column_key,json=columnKey,proto3" json:"column_key,omitempty"`
 	// Column name
-	ColumnName  string                  `protobuf:"bytes,2,opt,name=column_name,json=columnName,proto3" json:"column_name,omitempty"`
-	ColumnClass ColumnRecord_ColumClass `protobuf:"varint,3,opt,name=column_class,json=columnClass,proto3,enum=swanlab.proto.record.v1.ColumnRecord_ColumClass" json:"column_class,omitempty"`
-	ColumnType  ColumnRecord_ColumnType `protobuf:"varint,4,opt,name=column_type,json=columnType,proto3,enum=swanlab.proto.record.v1.ColumnRecord_ColumnType" json:"column_type,omitempty"`
+	ColumnName  string                   `protobuf:"bytes,2,opt,name=column_name,json=columnName,proto3" json:"column_name,omitempty"`
+	ColumnClass ColumnRecord_ColumnClass `protobuf:"varint,3,opt,name=column_class,json=columnClass,proto3,enum=swanlab.proto.record.v1.ColumnRecord_ColumnClass" json:"column_class,omitempty"`
+	ColumnType  ColumnRecord_ColumnType  `protobuf:"varint,4,opt,name=column_type,json=columnType,proto3,enum=swanlab.proto.record.v1.ColumnRecord_ColumnType" json:"column_type,omitempty"`
 	// If the column is error, a json object
 	ColumnError *structpb.Struct `protobuf:"bytes,5,opt,name=column_error,json=columnError,proto3" json:"column_error,omitempty"`
 	// Section name, such as "train", "test", "valid", "eval", etc.
@@ -781,11 +775,11 @@ func (x *ColumnRecord) GetColumnName() string {
 	return ""
 }
 
-func (x *ColumnRecord) GetColumnClass() ColumnRecord_ColumClass {
+func (x *ColumnRecord) GetColumnClass() ColumnRecord_ColumnClass {
 	if x != nil {
 		return x.ColumnClass
 	}
-	return ColumnRecord_COL_CLASS_UNKNOWN
+	return ColumnRecord_COL_CLASS_CUSTOM
 }
 
 func (x *ColumnRecord) GetColumnType() ColumnRecord_ColumnType {
@@ -813,7 +807,7 @@ func (x *ColumnRecord) GetSectionType() ColumnRecord_SectionType {
 	if x != nil {
 		return x.SectionType
 	}
-	return ColumnRecord_SEC_UNKNOWN
+	return ColumnRecord_SEC_PUBLIC
 }
 
 func (x *ColumnRecord) GetChartName() string {
@@ -1155,13 +1149,13 @@ const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	"\x06minval\x18\x01 \x01(\x03H\x00R\x06minval\x88\x01\x01\x12\x1b\n" +
 	"\x06maxval\x18\x02 \x01(\x03H\x01R\x06maxval\x88\x01\x01B\t\n" +
 	"\a_minvalB\t\n" +
-	"\a_maxval\"\xc4\a\n" +
+	"\a_maxval\"\x9e\a\n" +
 	"\fColumnRecord\x12\x1d\n" +
 	"\n" +
 	"column_key\x18\x01 \x01(\tR\tcolumnKey\x12\x1f\n" +
 	"\vcolumn_name\x18\x02 \x01(\tR\n" +
-	"columnName\x12S\n" +
-	"\fcolumn_class\x18\x03 \x01(\x0e20.swanlab.proto.record.v1.ColumnRecord.ColumClassR\vcolumnClass\x12Q\n" +
+	"columnName\x12T\n" +
+	"\fcolumn_class\x18\x03 \x01(\x0e21.swanlab.proto.record.v1.ColumnRecord.ColumnClassR\vcolumnClass\x12Q\n" +
 	"\vcolumn_type\x18\x04 \x01(\x0e20.swanlab.proto.record.v1.ColumnRecord.ColumnTypeR\n" +
 	"columnType\x12:\n" +
 	"\fcolumn_error\x18\x05 \x01(\v2\x17.google.protobuf.StructR\vcolumnError\x12!\n" +
@@ -1175,11 +1169,9 @@ const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	" \x01(\v2\x1e.swanlab.proto.record.v1.RangeR\vchartYRange\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12!\n" +
-	"\fmetric_color\x18\f \x03(\tR\vmetricColor\"O\n" +
-	"\n" +
-	"ColumClass\x12\x15\n" +
-	"\x11COL_CLASS_UNKNOWN\x10\x00\x12\x14\n" +
-	"\x10COL_CLASS_CUSTOM\x10\x01\x12\x14\n" +
+	"\fmetric_color\x18\f \x03(\tR\vmetricColor\"9\n" +
+	"\vColumnClass\x12\x14\n" +
+	"\x10COL_CLASS_CUSTOM\x10\x00\x12\x14\n" +
 	"\x10COL_CLASS_SYSTEM\x10\x02\"\x8d\x01\n" +
 	"\n" +
 	"ColumnType\x12\x0f\n" +
@@ -1190,19 +1182,18 @@ const file_swanlab_proto_record_v1_record_proto_rawDesc = "" +
 	"\bCOL_TEXT\x10\x04\x12\x10\n" +
 	"\fCOL_OBJECT3D\x10\x05\x12\x10\n" +
 	"\fCOL_MOLECULE\x10\x06\x12\x0f\n" +
-	"\vCOL_ECHARTS\x10\a\"n\n" +
-	"\vSectionType\x12\x0f\n" +
-	"\vSEC_UNKNOWN\x10\x00\x12\x0e\n" +
+	"\vCOL_ECHARTS\x10\a\"]\n" +
+	"\vSectionType\x12\x0e\n" +
 	"\n" +
-	"SEC_PINNED\x10\x01\x12\x0e\n" +
+	"SEC_PUBLIC\x10\x00\x12\x0e\n" +
 	"\n" +
-	"SEC_HIDDEN\x10\x02\x12\x0e\n" +
+	"SEC_SYSTEM\x10\x01\x12\x0e\n" +
 	"\n" +
-	"SEC_PUBLIC\x10\x03\x12\x0e\n" +
+	"SEC_CUSTOM\x10\x02\x12\x0e\n" +
 	"\n" +
-	"SEC_SYSTEM\x10\x04\x12\x0e\n" +
+	"SEC_PINNED\x10\x03\x12\x0e\n" +
 	"\n" +
-	"SEC_CUSTOM\x10\x05\"\xc7\x01\n" +
+	"SEC_HIDDEN\x10\x04\"\xc7\x01\n" +
 	"\vMediaRecord\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\tR\x05index\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\tR\x05epoch\x12\x1f\n" +
@@ -1248,7 +1239,7 @@ var file_swanlab_proto_record_v1_record_proto_msgTypes = make([]protoimpl.Messag
 var file_swanlab_proto_record_v1_record_proto_goTypes = []any{
 	(Record_RecordType)(0),        // 0: swanlab.proto.record.v1.Record.RecordType
 	(TeardownRecord_StateType)(0), // 1: swanlab.proto.record.v1.TeardownRecord.StateType
-	(ColumnRecord_ColumClass)(0),  // 2: swanlab.proto.record.v1.ColumnRecord.ColumClass
+	(ColumnRecord_ColumnClass)(0), // 2: swanlab.proto.record.v1.ColumnRecord.ColumnClass
 	(ColumnRecord_ColumnType)(0),  // 3: swanlab.proto.record.v1.ColumnRecord.ColumnType
 	(ColumnRecord_SectionType)(0), // 4: swanlab.proto.record.v1.ColumnRecord.SectionType
 	(LogRecord_LogType)(0),        // 5: swanlab.proto.record.v1.LogRecord.LogType
@@ -1268,7 +1259,7 @@ var file_swanlab_proto_record_v1_record_proto_depIdxs = []int32{
 	0,  // 0: swanlab.proto.record.v1.Record.message_type:type_name -> swanlab.proto.record.v1.Record.RecordType
 	15, // 1: swanlab.proto.record.v1.Record.payload:type_name -> google.protobuf.Any
 	1,  // 2: swanlab.proto.record.v1.TeardownRecord.state:type_name -> swanlab.proto.record.v1.TeardownRecord.StateType
-	2,  // 3: swanlab.proto.record.v1.ColumnRecord.column_class:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumClass
+	2,  // 3: swanlab.proto.record.v1.ColumnRecord.column_class:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumnClass
 	3,  // 4: swanlab.proto.record.v1.ColumnRecord.column_type:type_name -> swanlab.proto.record.v1.ColumnRecord.ColumnType
 	16, // 5: swanlab.proto.record.v1.ColumnRecord.column_error:type_name -> google.protobuf.Struct
 	4,  // 6: swanlab.proto.record.v1.ColumnRecord.section_type:type_name -> swanlab.proto.record.v1.ColumnRecord.SectionType
