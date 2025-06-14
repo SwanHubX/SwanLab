@@ -1,3 +1,7 @@
+// @Title        collector.go
+// @Description  Package service implements the Collector service for gRPC.
+// @Create       kaikai 2025/6/14 18:00
+
 package service
 
 import (

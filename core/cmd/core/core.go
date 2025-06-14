@@ -1,8 +1,8 @@
-package main
-
 // @Title        core.go
 // @Description  Package main implements a server for gRPC service.
 // @Create       kaikai 2025/6/11 11:24
+
+package main
 
 import (
 	"flag"
