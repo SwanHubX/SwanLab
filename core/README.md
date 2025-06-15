@@ -27,11 +27,11 @@ It provides a rich set of features for Go development, including code completion
 There is the code template for Go file in GoLand:
 
 ```text
-package ${GO_PACKAGE_NAME}
-
 // @Title        ${FILE_NAME}
-// @Description  
+// @Description  #[[$END$]]#
 // @Create       cunyue ${DATE} ${TIME}
+
+package ${GO_PACKAGE_NAME}
 ```
 
 ## Linter

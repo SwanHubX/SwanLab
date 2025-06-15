@@ -30,3 +30,12 @@ jobs:
         with:
           working-directory: 'core'
 
+      - name: Run tests
+        run: |
+          cd core
+          go test $(go list ./... | grep -v '/pkg/')
+          go vet ./...
+          go mod verify
+          go mod tidy
+        
+
