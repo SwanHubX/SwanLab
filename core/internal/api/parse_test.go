@@ -51,38 +51,38 @@ func TestParser_ParseColumnRecord_YRange(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    *pb.Range
-		excepted *[]*int64
+		expected *[]*int64
 		// '' indicates that yRange should not be in the JSON string
 		jsonStr string
 	}{
 		{
 			name:     "Valid yRange",
 			input:    &pb.Range{Minval: &minval, Maxval: &maxval},
-			excepted: &[]*int64{&minval, &maxval},
+			expected: &[]*int64{&minval, &maxval},
 			jsonStr:  "[1,2]",
 		},
 		{
 			name:     "Left is None",
 			input:    &pb.Range{Minval: nil, Maxval: &maxval},
-			excepted: &[]*int64{nil, &maxval},
+			expected: &[]*int64{nil, &maxval},
 			jsonStr:  "[null,2]",
 		},
 		{
 			name:     "Right is None",
 			input:    &pb.Range{Minval: &minval, Maxval: nil},
-			excepted: &[]*int64{&minval, nil},
+			expected: &[]*int64{&minval, nil},
 			jsonStr:  "[1,null]",
 		},
 		{
 			name:     "Both are None",
 			input:    &pb.Range{Minval: nil, Maxval: nil},
-			excepted: &[]*int64{nil, nil},
+			expected: &[]*int64{nil, nil},
 			jsonStr:  "[null,null]",
 		},
 		{
 			name:     "Nil yRange",
 			input:    nil,
-			excepted: nil,
+			expected: nil,
 		},
 	}
 	parser := api.Parser{}
@@ -96,10 +96,10 @@ func TestParser_ParseColumnRecord_YRange(t *testing.T) {
 				}
 				columnDto, err := parser.ParseColumnRecord(record)
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				if tt.excepted != nil {
+				if tt.expected != nil {
 					// yRange has been set
-					assert.Equal(t, (*tt.excepted)[0], columnDto.YRange[0], "Left value mismatch")
-					assert.Equal(t, (*tt.excepted)[1], columnDto.YRange[1], "Right value mismatch")
+					assert.Equal(t, (*tt.expected)[0], columnDto.YRange[0], "Left value mismatch")
+					assert.Equal(t, (*tt.expected)[1], columnDto.YRange[1], "Right value mismatch")
 				} else {
 					// yRange is nil
 					assert.Nil(t, columnDto.YRange, "Expected YRange to be nil")
@@ -122,21 +122,21 @@ func TestParser_ParseColumnRecord_ColumnClass(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    pb.ColumnRecord_ColumnClass
-		excepted string
+		expected string
 	}{
 		{
 			name:     "Custom Column Class",
 			input:    pb.ColumnRecord_COL_CLASS_CUSTOM,
-			excepted: "CUSTOM",
+			expected: "CUSTOM",
 		},
 		{
 			name:     "System Column Class",
 			input:    pb.ColumnRecord_COL_CLASS_SYSTEM,
-			excepted: "SYSTEM",
+			expected: "SYSTEM",
 		},
 		{
 			name:     "Default Column Class",
-			excepted: "CUSTOM",
+			expected: "CUSTOM",
 		},
 	}
 
@@ -151,7 +151,7 @@ func TestParser_ParseColumnRecord_ColumnClass(t *testing.T) {
 				}
 				columnDto, err := parser.ParseColumnRecord(record)
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				assert.Equal(t, tt.excepted, columnDto.Class, "Column class mismatch")
+				assert.Equal(t, tt.expected, columnDto.Class, "Column class mismatch")
 			},
 		)
 	}
@@ -161,43 +161,43 @@ func TestParser_ParseColumnRecord_ColumnType(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    pb.ColumnRecord_ColumnType
-		excepted string
+		expected string
 		err      bool
 	}{
 		{
 			name:     "FLOAT Column Type",
 			input:    pb.ColumnRecord_COL_FLOAT,
-			excepted: "FLOAT",
+			expected: "FLOAT",
 		},
 		{
 			name:     "Image Column Type",
 			input:    pb.ColumnRecord_COL_IMAGE,
-			excepted: "IMAGE",
+			expected: "IMAGE",
 		},
 		{
 			name:     "Audio Column Type",
 			input:    pb.ColumnRecord_COL_AUDIO,
-			excepted: "AUDIO",
+			expected: "AUDIO",
 		},
 		{
 			name:     "Text Column Type",
 			input:    pb.ColumnRecord_COL_TEXT,
-			excepted: "TEXT",
+			expected: "TEXT",
 		},
 		{
 			name:     "Object3D Column Type",
 			input:    pb.ColumnRecord_COL_OBJECT3D,
-			excepted: "OBJECT3D",
+			expected: "OBJECT3D",
 		},
 		{
 			name:     "Molecule Column Type",
 			input:    pb.ColumnRecord_COL_MOLECULE,
-			excepted: "MOLECULE",
+			expected: "MOLECULE",
 		},
 		{
 			name:     "ECharts Column Type",
 			input:    pb.ColumnRecord_COL_ECHARTS,
-			excepted: "ECHARTS",
+			expected: "ECHARTS",
 		},
 		{
 			name: "Unknown Column Type",
@@ -218,7 +218,7 @@ func TestParser_ParseColumnRecord_ColumnType(t *testing.T) {
 					return
 				}
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				assert.Equal(t, tt.excepted, columnDto.Type, "Column type mismatch")
+				assert.Equal(t, tt.expected, columnDto.Type, "Column type mismatch")
 			},
 		)
 	}
@@ -228,31 +228,31 @@ func TestParser_ParseColumnRecord_SectionType(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    pb.ColumnRecord_SectionType
-		excepted string
+		expected string
 	}{
 		{
 			name:     "Public Section Type",
 			input:    pb.ColumnRecord_SEC_PUBLIC,
-			excepted: "PUBLIC",
+			expected: "PUBLIC",
 		},
 		{
 			name:     "System Section Type",
 			input:    pb.ColumnRecord_SEC_SYSTEM,
-			excepted: "SYSTEM",
+			expected: "SYSTEM",
 		},
 		{
 			name:     "Default Section Type",
-			excepted: "PUBLIC", // Default value if not set
+			expected: "PUBLIC", // Default value if not set
 		},
 		{
 			name:     "Pinned Section Type",
 			input:    pb.ColumnRecord_SEC_PINNED,
-			excepted: "PINNED",
+			expected: "PINNED",
 		},
 		{
 			name:     "Hidden Section Type",
 			input:    pb.ColumnRecord_SEC_HIDDEN,
-			excepted: "HIDDEN",
+			expected: "HIDDEN",
 		},
 	}
 	parser := api.Parser{}
@@ -266,7 +266,7 @@ func TestParser_ParseColumnRecord_SectionType(t *testing.T) {
 				}
 				columnDto, err := parser.ParseColumnRecord(record)
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				assert.Equal(t, tt.excepted, columnDto.SectionType, "Section type mismatch")
+				assert.Equal(t, tt.expected, columnDto.SectionType, "Section type mismatch")
 			},
 		)
 	}
@@ -276,13 +276,13 @@ func TestParser_ParseColumnRecord_Key(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		excepted string
+		expected string
 		err      bool
 	}{
 		{
 			name:     "Valid Key",
 			input:    "valid-key",
-			excepted: "valid-key",
+			expected: "valid-key",
 		},
 		{
 			name: "Empty Key",
@@ -304,7 +304,7 @@ func TestParser_ParseColumnRecord_Key(t *testing.T) {
 					return
 				}
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				assert.Equal(t, tt.excepted, columnDto.Key, "Column key mismatch")
+				assert.Equal(t, tt.expected, columnDto.Key, "Column key mismatch")
 			},
 		)
 	}
@@ -314,13 +314,13 @@ func TestParser_ParseColumnRecord_MetricColor(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []string
-		excepted []string
+		expected []string
 		err      bool
 	}{
 		{
 			name:     "Valid Metric Color",
 			input:    []string{"#FF0000", "#00FF00"},
-			excepted: []string{"#FF0000", "#00FF00"},
+			expected: []string{"#FF0000", "#00FF00"},
 		},
 		{
 			name:  "Empty Metric Color",
@@ -354,7 +354,7 @@ func TestParser_ParseColumnRecord_MetricColor(t *testing.T) {
 					return
 				}
 				require.NoError(t, err, "ParseColumnRecord should not return an error")
-				assert.Equal(t, tt.excepted, columnDto.MetricColor, "Metric color mismatch")
+				assert.Equal(t, tt.expected, columnDto.MetricColor, "Metric color mismatch")
 			},
 		)
 	}
