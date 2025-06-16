@@ -13,10 +13,7 @@ from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.env import create_time
 from swankit.log import FONT
 
-from swanlab.api import create_http, terminal_login, get_http
-from swanlab.api.http import reset_http
-from swanlab.api.upload import upload_logs, ColumnModel, ScalarModel, MediaModel, FileModel, LogModel
-from swanlab.data.cloud import ThreadPool, UploadType
+from swanlab.api import terminal_login
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
@@ -27,6 +24,8 @@ from swanlab.package import (
 )
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
+from ...core_python import *
+from ...core_python.uploader import thread
 from ...log.backup import backup
 from ...log.type import LogData
 from ...swanlab_settings import get_settings
@@ -36,7 +35,7 @@ class CloudRunCallback(SwanLabRunCallback):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pool = ThreadPool()
+        self.pool = thread.ThreadPool()
         self.exiting = False
         """
         标记是否正在退出云端环境
@@ -70,7 +69,7 @@ class CloudRunCallback(SwanLabRunCallback):
 
     @staticmethod
     def _view_web_print():
-        http = get_http()
+        http = get_client()
         proj_url, exp_url = http.web_proj_url, http.web_exp_url
         swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
         swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(exp_url)))
@@ -97,17 +96,17 @@ class CloudRunCallback(SwanLabRunCallback):
             level = "WARN"
         else:
             return swanlog.warning("Unknown log type: " + log_data['type'])
-        self.pool.queue.put((UploadType.LOG, [LogModel(level=level, contents=log_data['contents'])]))
+        self.pool.queue.put((thread.UploadType.LOG, [LogModel(level=level, contents=log_data['contents'])]))
 
     def __str__(self):
         return "SwanLabCloudRunCallback"
 
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         try:
-            http = get_http()
+            http = get_client()
         except ValueError:
             swanlog.debug("Login info is None, get login info.")
-            http = create_http(self.create_login_info())
+            http = create_client(self.create_login_info())
         # 检测是否有最新的版本
         self._get_package_latest_version()
         http.mount_project(proj_name, workspace, public)
@@ -117,7 +116,7 @@ class CloudRunCallback(SwanLabRunCallback):
         self.backup.cache_public = public
 
     def on_run(self, *args, **kwargs):
-        http = get_http()
+        http = get_client()
         # 注册实验信息
         http.mount_exp(
             exp_name=self.settings.exp_name,
@@ -130,7 +129,7 @@ class CloudRunCallback(SwanLabRunCallback):
         # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
         swanlab_settings = get_settings()
         self._train_begin_print(save_dir=self.settings.run_dir if swanlab_settings.backup else None)
-        swanlog.info("👋 Hi " + FONT.bold(FONT.default(get_http().username)) + ", welcome to swanlab!")
+        swanlog.info("👋 Hi " + FONT.bold(FONT.default(http.username)) + ", welcome to swanlab!")
         swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
         experiment_url = self._view_web_print()
         # 在Jupyter Notebook环境下，显示按钮
@@ -146,7 +145,7 @@ class CloudRunCallback(SwanLabRunCallback):
         ro = r.conda.info if r.conda is not None else None
         # 不需要json序列化，上传时会自动序列化
         f = FileModel(requirements=rr, config=rc, metadata=rm, conda=ro)
-        self.pool.queue.put((UploadType.FILE, [f]))
+        self.pool.queue.put((thread.UploadType.FILE, [f]))
 
     @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
@@ -175,7 +174,7 @@ class CloudRunCallback(SwanLabRunCallback):
             section_type=column_info.section_type,
             error=error,
         )
-        self.pool.queue.put((UploadType.COLUMN, [column]))
+        self.pool.queue.put((thread.UploadType.COLUMN, [column]))
 
     @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
@@ -190,10 +189,10 @@ class CloudRunCallback(SwanLabRunCallback):
         # 标量折线图
         if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
             scalar = ScalarModel(metric, key, step, epoch)
-            return self.pool.queue.put((UploadType.SCALAR_METRIC, [scalar]))
+            return self.pool.queue.put((thread.UploadType.SCALAR_METRIC, [scalar]))
         # 媒体指标数据
         media = MediaModel(metric, key, key_encoded, step, epoch, metric_info.metric_buffers)
-        self.pool.queue.put((UploadType.MEDIA_METRIC, [media]))
+        self.pool.queue.put((thread.UploadType.MEDIA_METRIC, [media]))
 
     def on_stop(self, error: str = None, *args, **kwargs):
         run = get_run()
@@ -220,8 +219,8 @@ class CloudRunCallback(SwanLabRunCallback):
                 contents=[{"message": error, "create_time": create_time(), "epoch": swanlog_epoch + 1}],
             )
             upload_logs([logs])
-        get_http().update_state(state == SwanLabRunState.SUCCESS)
-        reset_http()
+        get_client().update_state(state == SwanLabRunState.SUCCESS)
+        reset_client()
         # 取消注册系统回调
         self._unregister_sys_callback()
         self.exiting = False

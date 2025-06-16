@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/4/7 16:51
-@File: http.py
-@IDE: pycharm
-@Description:
-    http会话对象
 """
+@author: cunyue
+@file: __init__.py
+@time: 2025/6/16 13:29
+@description: swanlab 客户端，负责发送 http 请求
+"""
+
 import json
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
@@ -17,12 +15,12 @@ from swankit.core import MediaBuffer
 from swankit.log import FONT
 from urllib3.util.retry import Retry
 
+from swanlab.api import LoginInfo, ProjectInfo, ExperimentInfo
+from swanlab.api.auth.login import login_by_key
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from .auth.login import login_by_key
 from .cos import CosClient
-from .info import LoginInfo, ProjectInfo, ExperimentInfo
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
@@ -38,7 +36,7 @@ def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
         return resp.text
 
 
-class HTTP:
+class Client:
     """
     封装请求函数，添加get、post、put、delete方法
     """
@@ -344,38 +342,38 @@ class HTTP:
         FONT.loading("Updating experiment status...", _)
 
 
-http: Optional["HTTP"] = None
+client: Optional["Client"] = None
 """
-一个进程只有一个http请求对象
+一个进程只有一个客户端对象
 """
 
 
-def create_http(login_info: LoginInfo) -> HTTP:
+def create_client(login_info: LoginInfo) -> Client:
     """
-    创建http请求对象
+    创建客户端对象
     """
-    global http
-    http = HTTP(login_info)
-    return http
+    global client
+    client = Client(login_info)
+    return client
 
 
-def get_http() -> HTTP:
+def get_client() -> Client:
     """
-    创建http请求对象
-    :return: http请求对象
+    获取客户端对象
+    :return: client
     """
-    global http
-    if http is None:
-        raise ValueError("http object is not initialized")
-    return http
+    global client
+    if client is None:
+        raise ValueError("client object is not initialized")
+    return client
 
 
-def reset_http():
+def reset_client():
     """
-    重置http对象
+    重置client对象
     """
-    global http
-    http = None
+    global client
+    client = None
 
 
 def sync_error_handler(func):
@@ -396,3 +394,14 @@ def sync_error_handler(func):
             return None, e
 
     return wrapper
+
+
+__all__ = [
+    "get_client",
+    "reset_client",
+    "create_client",
+    "sync_error_handler",
+    "decode_response",
+    "CosClient",
+    "Client",
+]

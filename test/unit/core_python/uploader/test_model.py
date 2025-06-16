@@ -13,7 +13,7 @@ import time
 
 from nanoid import generate
 
-from swanlab.api.upload.model import FileModel
+from swanlab.core_python import FileModel
 
 
 class TestFileModel:

@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/4/22 16:42
-@File: model.py
-@IDE: pycharm
-@Description:
-    上传请求模型
 """
+@author: cunyue
+@file: model.py
+@time: 2025/6/16 14:12
+@description: 定义上传模型
+"""
+
 import json
 from datetime import datetime
 from enum import Enum
@@ -255,3 +253,12 @@ class LogModel(TypedDict):
     """
     当前日志级别的日志内容
     """
+
+
+__all__ = [
+    "LogModel",
+    "ColumnModel",
+    "ScalarModel",
+    "MediaModel",
+    "FileModel",
+]

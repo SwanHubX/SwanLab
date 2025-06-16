@@ -1,6 +1,6 @@
 from swankit.core import SwanLabSharedSettings
 
-from swanlab.api import get_http
+from swanlab.core_python import get_client
 from swanlab.env import get_mode
 
 
@@ -13,7 +13,7 @@ class SwanlabCloudConfig:
         self.__http = None
         if get_mode() == "cloud":
             try:
-                self.__http = get_http()
+                self.__http = get_client()
             except ValueError:
                 pass
         self.__available = self.__http is not None

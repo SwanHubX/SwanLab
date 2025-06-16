@@ -17,7 +17,6 @@ from urllib3.util.retry import Retry
 
 from swanlab.api import LoginInfo
 from swanlab.api.auth.login import login_by_key
-from swanlab.api.http import HTTP
 from swanlab.api.openapi.types import ApiResponse
 from swanlab.log.log import SwanLog
 from swanlab.package import get_package_version
@@ -62,7 +61,7 @@ def handle_response(resp: requests.Response) -> ApiResponse:
 
 
 class ApiHTTP:
-    REFRESH_TIME = HTTP.REFRESH_TIME
+    REFRESH_TIME = 60 * 60 * 24 * 7  # 7天
 
     def __init__(self, login_info: LoginInfo):
         self.__logger = get_logger()

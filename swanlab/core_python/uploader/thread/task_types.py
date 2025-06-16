@@ -14,7 +14,7 @@ r"""
 """
 from enum import Enum
 
-from swanlab.api.upload import *
+from ..upload import *
 
 
 class UploadType(Enum):

@@ -9,8 +9,7 @@ from .wandb import sync_wandb
 
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
-from ..api import get_http
-from ..api.upload import upload_logs, upload_files, upload_columns, upload_scalar_metrics, upload_media_metrics
+from ..core_python import get_client, uploader
 from ..data.namer import generate_colors
 from ..log import swanlog
 from ..log.backup import BackupHandler
@@ -39,9 +38,9 @@ def sync(
         file_path = os.path.join(dir_path, BackupHandler.BACKUP_FILE)
         assert os.path.exists(file_path), f"Can not find backup file {BackupHandler.BACKUP_FILE} in {dir_path}."
         try:
-            http = get_http()
+            client = get_client()
         except ValueError:
-            http = None
+            client = None
             assert not login_required, "Please log in first, use `swanlab login` to log in."
         swanlog.info("🛠️Parsing...", end="")
         stdout.flush()
@@ -72,7 +71,7 @@ def sync(
         scalar_models = [scalar.to_scalar_model() for scalar in scalars]
         # 1.5 集合媒体
         media_models = [media.to_media_model(os.path.join(dir_path, "media")) for media in medias]
-        assert http is not None, "Please log in first, use `swanlab login` to log in."
+        assert client is not None, "Please log in first, use `swanlab login` to log in."
     except Exception as e:
         if raise_error:
             raise e
@@ -83,13 +82,13 @@ def sync(
     try:
         # 3. 上传数据
         # 3.1 创建项目与实验
-        http.mount_project(
+        client.mount_project(
             name=project_name or project.name,
             username=workspace or project.workspace,
             public=project.public,
         )
-        colors = generate_colors(http.history_exp_count)
-        http.mount_exp(
+        colors = generate_colors(client.history_exp_count)
+        client.mount_exp(
             exp_name=experiment.name,
             colors=colors,
             description=experiment.description,
@@ -100,16 +99,16 @@ def sync(
         # 3.2 上传日志
         for key in log_model_dict:
             if len(log_model_dict[key]) > 0:
-                upload_logs(log_model_dict[key])
+                uploader.upload_logs(log_model_dict[key])
         # 3.3 上传运行时
-        upload_files([runtime_model])
+        uploader.upload_files([runtime_model])
         # 3.4 上传列、标量、媒体
-        upload_columns(column_models)
-        upload_scalar_metrics(scalar_models)
-        upload_media_metrics(media_models)
+        uploader.upload_columns(column_models)
+        uploader.upload_scalar_metrics(scalar_models)
+        uploader.upload_media_metrics(media_models)
         # 3.5 更新实验状态
-        http.update_state(success=footer.success if footer else False)
-        swanlog.info("🚀 Sync completed, View run at ", http.web_exp_url)
+        client.update_state(success=footer.success if footer else False)
+        swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
         if raise_error:
             raise e

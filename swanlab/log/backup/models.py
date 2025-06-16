@@ -15,8 +15,7 @@ from swankit.callback import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo
 from swankit.callback.models import ColumnClass, SectionType, YRange
 from swankit.core import ChartReference, MediaBuffer
 
-from swanlab.api.upload import FileModel, ScalarModel
-from swanlab.api.upload.model import ColumnModel, LogModel, MediaModel
+from swanlab.core_python import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
 
 
