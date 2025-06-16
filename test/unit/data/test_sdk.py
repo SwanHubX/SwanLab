@@ -17,7 +17,7 @@ import swanlab.data.utils
 import swanlab.error as Err
 import tutils as T
 from swanlab import Settings
-from swanlab.api.http import reset_http
+from swanlab.core_python import reset_client
 from swanlab.data.run import get_run
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
@@ -431,7 +431,7 @@ class TestInitExpByEnv:
             S.init()
         assert str(e.value) == 'Space `{}` not found'.format(os.environ[SwanLabEnv.WORKSPACE.value])
         del os.environ[SwanLabEnv.WORKSPACE.value]
-        reset_http()
+        reset_client()
 
     def test_exp_name(self):
         """

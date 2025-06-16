@@ -14,9 +14,40 @@ import nanoid
 import requests_mock
 
 from swanlab.api import LoginInfo
-from swanlab.package import get_host_api, get_host_web
+from swanlab.package import get_host_web
 
-__all__ = ["mock_login_info", "UseSetupHttp", "UseMocker"]
+__all__ = ["UseSetupHttp", "mock_login_info"]
+
+
+class UseSetupHttp:
+    """
+    用于全局使用的http对象，模拟登录，退出时重置http
+    使用with关键字，自动登录，退出时自动重置http
+    也可以使用del手动释放
+    """
+
+    def __init__(self):
+        self.http = None
+
+    def __enter__(self):
+        from swanlab.core_python import create_client
+
+        login_info = mock_login_info()
+        self.http = create_client(login_info)
+        return self.http
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        from swanlab.core_python import reset_client
+
+        reset_client()
+        self.http = None
+
+    def __del__(self):
+        if self.http is not None:
+            from swanlab.core_python import reset_client
+
+            reset_client()
+            self.http = None
 
 
 def mock_login_info(
@@ -61,60 +92,3 @@ def mock_login_info(
         resp = login_request(key, api_host)
         login_info = LoginInfo(resp, key, api_host, web_host)
     return login_info
-
-
-class UseSetupHttp:
-    """
-    用于全局使用的http对象，模拟登录，退出时重置http
-    使用with关键字，自动登录，退出时自动重置http
-    也可以使用del手动释放
-    """
-
-    def __init__(self):
-        self.http = None
-
-    def __enter__(self):
-        from swanlab.api import create_http
-
-        login_info = mock_login_info()
-        self.http = create_http(login_info)
-        return self.http
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        from swanlab.api.http import reset_http
-
-        reset_http()
-        self.http = None
-
-    def __del__(self):
-        if self.http is not None:
-            from swanlab.api.http import reset_http
-
-            reset_http()
-            self.http = None
-
-
-class UseMocker(requests_mock.Mocker):
-    """
-    使用request_mock库进行mock测试，由于现在绝大部分请求都在get_host_api上，所以封装一层
-    """
-
-    def __init__(self, base_url: str = None):
-        super().__init__()
-        base_url = base_url or get_host_api()
-        self.base_url = base_url
-
-    def get(self, router, *args, **kwargs):
-        return super().get(*(self.base_url + router, *args), **kwargs)
-
-    def post(self, router, *args, **kwargs):
-        return super().post(*(self.base_url + router, *args), **kwargs)
-
-    def put(self, router, *args, **kwargs):
-        return super().put(*(self.base_url + router, *args), **kwargs)
-
-    def patch(self, router, *args, **kwargs):
-        return super().patch(*(self.base_url + router, *args), **kwargs)
-
-    def delete(self, router, *args, **kwargs):
-        return super().delete(*(self.base_url + router, *args), **kwargs)
