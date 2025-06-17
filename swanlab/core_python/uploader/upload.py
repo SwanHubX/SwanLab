@@ -1,17 +1,15 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/4/7 16:56
-@File: __init__.py
-@IDE: pycharm
-@Description:
-    上传相关接口
 """
+@author: cunyue
+@file: upload.py
+@time: 2025/6/16 14:13
+@description: 定义上传函数
+"""
+
 from typing import List
 
 from swanlab.log import swanlog
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
-from ..http import get_http, sync_error_handler, decode_response
+from ..client import get_client, sync_error_handler, decode_response
 from ...error import ApiError
 
 house_url = '/house/metrics'
@@ -21,7 +19,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     """
     携带上传日志的指标信息
     """
-    http = get_http()
+    http = get_client()
     return {"projectId": http.proj_id, "experimentId": http.exp_id, "type": metrics_type, "metrics": metrics}
 
 
@@ -31,7 +29,7 @@ def upload_logs(logs: List[LogModel]):
     上传日志信息
     :param logs: 日志信息集合
     """
-    http = get_http()
+    http = get_client()
     metrics = []
     for log in logs:
         metrics.extend([{"level": log['level'], **l} for l in log['contents']])
@@ -47,7 +45,7 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据集合
     """
-    http = get_http()
+    http = get_client()
     buffers = []
     for media in media_metrics:
         media.buffers and buffers.extend(media.buffers)
@@ -61,7 +59,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     """
     上传指标的标量数据
     """
-    http = get_http()
+    http = get_client()
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     http.post(house_url, data)
 
@@ -72,7 +70,7 @@ def upload_files(files: List[FileModel]):
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件绝对路径
     """
-    http = get_http()
+    http = get_client()
     # 去重所有的FileModel，留下一个
     if len(files) == 0:
         return swanlog.warning("No files to upload.")
@@ -90,7 +88,7 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值
     """
-    http = get_http()
+    http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
     # 将columns拆分成多个小的列表，每个列表的长度不能超过单个请求的最大长度
     columns_list = []
@@ -121,9 +119,4 @@ __all__ = [
     "upload_scalar_metrics",
     "upload_files",
     "upload_columns",
-    "ScalarModel",
-    "MediaModel",
-    "ColumnModel",
-    "FileModel",
-    "LogModel",
 ]

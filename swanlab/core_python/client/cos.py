@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/4/8 19:47
-@File: cos.py
-@IDE: pycharm
-@Description:
-    cloud object storage
 """
+@author: cunyue
+@file: cos.py
+@time: 2025/6/16 13:30
+@description: cos 对象，上传大文件到 Object Storage Service
+"""
+
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import List

@@ -26,7 +26,6 @@ from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCro
 from .metadata import get_requirements, get_metadata, get_conda
 from .public import SwanLabPublicConfig
 from ..formatter import check_key_format, check_exp_name_format, check_desc_format, check_tags_format
-from ...api import get_http
 
 MAX_LIST_LENGTH = 108
 
@@ -216,7 +215,9 @@ class SwanLabRun:
         # 云端实验根据历史实验数量生成实验颜色、名称
         if self.mode == "cloud":
             try:
-                num = get_http().history_exp_count
+                from swanlab.core_python import get_client
+
+                num = get_client().history_exp_count
             except ValueError:
                 # 如果获取历史实验数量失败，则使用随机数
                 swanlog.warning("Failed to get history experiment count, use random number instead.")

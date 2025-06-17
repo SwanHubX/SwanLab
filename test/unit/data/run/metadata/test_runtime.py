@@ -1,12 +1,11 @@
+import random
 import sys
+
+import nanoid
 
 from swanlab import Settings
 from swanlab.data.run.metadata.runtime import parse_git_url, get_python_info
-import random
-import nanoid
-
 from swanlab.swanlab_settings import set_settings
-from tutils.setup import UseSetupHttp
 
 
 def test_parse_git_url():
@@ -22,12 +21,14 @@ def test_parse_git_url():
     assert parse_git_url("https://github.com/swanhubx/swanlab") == "https://github.com/swanhubx/swanlab"
     assert parse_git_url("https://localhost:8000/swanhubx/swanlab") == "https://localhost:8000/swanhubx/swanlab"
 
+
 def test_mask_no_api_key():
     """测试没有 api key 的情况下，是否替换"""
     _mock_args()
     # 不含有 api key，不替换
     cmd = get_python_info()["command"]
     assert ("****" not in cmd) is True
+
 
 def test_mask_api_key_with_setting():
     """
@@ -36,6 +37,8 @@ def test_mask_api_key_with_setting():
     - 设置 security_mask 为 False，不替换
     """
     args = _mock_args()
+    from tutils.setup import UseSetupHttp
+
     with UseSetupHttp() as http:
         api_key = http.api_key
 
@@ -49,6 +52,7 @@ def test_mask_api_key_with_setting():
         cmd = get_python_info()["command"]
         assert (api_key in cmd) is True
         assert ("****" not in cmd) is True
+
 
 def _mock_args():
     """模拟生成一个随机长度的 args，并替换 sys.argv"""

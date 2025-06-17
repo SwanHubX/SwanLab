@@ -12,7 +12,7 @@ from typing import Union, Dict, Literal, List
 
 from swankit.callback import SwanKitCallback
 
-from swanlab.api import code_login, create_http
+from swanlab.api import code_login
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
@@ -35,6 +35,7 @@ from .utils import (
     should_call_before_init,
     _init_mode,
 )
+from ..core_python import create_client
 from ..package import HostFormatter
 
 
@@ -62,7 +63,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
     HostFormatter(host, web_host)()
     # 登录，初始化http对象
     login_info = code_login(api_key, save) if api_key else CloudRunCallback.create_login_info(save)
-    create_http(login_info)
+    create_client(login_info)
     if api_key:
         os.environ[SwanLabEnv.API_KEY.value] = api_key
 

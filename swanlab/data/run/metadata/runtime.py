@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 
-from swanlab.api import get_http
+from swanlab.core_python import get_client
 from swanlab.error import KeyFileError
 from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
@@ -64,9 +64,9 @@ def _get_command() -> str:
         api_key = None
 
         # 尝试从不同来源获取API密钥
-        # 未登录时 get_http 抛出 ValueError，此时需要换用 get_key 继续尝试获取
+        # 未登录时 get_client 抛出 ValueError，此时需要换用 get_key 继续尝试获取
         # 未设置环境变量且未找到本地保存的 api key 时， get_key 抛出 KeyFileError，此时 api_key 为 None
-        for key_provider in [lambda: get_http().api_key, get_key]:
+        for key_provider in [lambda: get_client().api_key, get_key]:
             try:
                 api_key = key_provider()
                 break
@@ -89,6 +89,7 @@ def get_git_info():
         "git_remote": get_remote_url(),
         "git_info": get_git_branch_and_commit(),
     }
+
 
 def get_os_pretty_name():
     """获取操作系统pretty name"""
