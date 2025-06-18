@@ -54,6 +54,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.06.18: 🐜 Integrated the [AREAL](https://github.com/alibaba/areal) framework, thanks to [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [documentation](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Added support for highlighting corresponding curves when hovering the mouse over sidebar experiments; Added support for cross-group comparison line charts; Added support for setting experiment name trimming rules;
+
 - 2025.06.11: 📊 Added support for **swanlab.echarts.table** data type, supporting pure text chart display; added support for **stretch interaction** for groups, allowing more charts to be displayed at the same time; added **maximum/minimum value** options for table views;
 
 - 2025.06.08: ♻️ Added support for storing complete experiment log files locally and uploading them to the cloud/private deployment via **swanlab sync**; Hardware monitoring now supports **Hygon DCU**;
@@ -70,10 +72,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.04.11: Added support for **local selection** for line charts; supports the step range of the current graph.
 
-- 2025.04.08: Added support for the **swanlab.Molecule** data type, enabling recording and visualization of biochemical molecular data; also supports saving the state of sorting, filtering, and column order changes in table views.
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.04.08: Added support for the **swanlab.Molecule** data type, enabling recording and visualization of biochemical molecular data; also supports saving the state of sorting, filtering, and column order changes in table views.
 
 - 2025.04.07: We completed joint integration with [EvalScope](https://github.com/ModelScope/EvalScope). Now you can use **SwanLab** in EvalScope to **evaluate LLM performance**.
 
