@@ -157,11 +157,11 @@ class SwanLabInitializer:
         settings: swanlab.swanlab_settings.Settings, optional
             The settings for the current experiment.
         """
-        # 注册settings
-        merge_settings(settings)
         if SwanLabRun.is_started():
             swanlog.warning("You have already initialized a run, the init function will be ignored")
             return get_run()
+        # 注册settings
+        merge_settings(settings)
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
         if callbacks is None:
             callbacks = []
