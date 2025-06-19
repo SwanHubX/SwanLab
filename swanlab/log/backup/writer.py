@@ -7,7 +7,7 @@
 
 import os
 
-from swankit.callback import RuntimeInfo, MetricInfo
+from swanlab.toolkit import RuntimeInfo, MetricInfo
 
 
 def write_runtime_info(files_dir: str, runtime_info: RuntimeInfo):

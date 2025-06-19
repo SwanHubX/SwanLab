@@ -6,12 +6,12 @@
 local模式（目前）将自动调用swanboard，如果不存在则报错
 """
 
-from swankit.callback import ColumnInfo
-from swankit.log import FONT
+from rich.text import Text
 
 from swanlab.log.backup import backup
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
+from swanlab.toolkit import ColumnInfo
 from ..run import get_run
 
 try:
@@ -34,9 +34,7 @@ import os
 from datetime import datetime
 from typing import Tuple, Optional, TextIO
 
-from swankit.callback.models import RuntimeInfo, MetricInfo
-from swankit.core import SwanLabSharedSettings
-
+from swanlab.toolkit import RuntimeInfo, MetricInfo, SwanLabSharedSettings
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
 
@@ -57,9 +55,10 @@ class LocalRunCallback(SwanLabRunCallback):
         watch命令提示打印
         """
         swanlog.info(
-            "🌟 Run `"
-            + FONT.bold("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)))
-            + "` to view SwanLab Experiment Dashboard locally"
+            " 🌟 Run `",
+            Text("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)), "bold"),
+            "` to view SwanLab Experiment Dashboard locally",
+            sep="",
         )
 
     @backup("terminal")

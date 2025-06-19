@@ -9,9 +9,7 @@
 import sys
 from typing import Literal
 
-from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
-from swankit.env import create_time
-from swankit.log import FONT
+from rich.text import Text
 
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
@@ -20,6 +18,12 @@ from swanlab.package import (
     get_package_version,
     get_package_latest_version,
     get_key,
+)
+from swanlab.toolkit import (
+    RuntimeInfo,
+    MetricInfo,
+    ColumnInfo,
+    create_time,
 )
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
@@ -71,8 +75,8 @@ class CloudRunCallback(SwanLabRunCallback):
     def _view_web_print():
         http = get_client()
         proj_url, exp_url = http.web_proj_url, http.web_exp_url
-        swanlog.info("🏠 View project at " + FONT.blue(FONT.underline(proj_url)))
-        swanlog.info("🚀 View run at " + FONT.blue(FONT.underline(exp_url)))
+        swanlog.info("🏠 View project at", Text(proj_url, "blue underline"))
+        swanlog.info("🚀 View run at", Text(exp_url, "blue underline"))
         return exp_url
 
     def _clean_handler(self):
@@ -129,8 +133,9 @@ class CloudRunCallback(SwanLabRunCallback):
         # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
         swanlab_settings = get_settings()
         self._train_begin_print(save_dir=self.settings.run_dir if swanlab_settings.backup else None)
-        swanlog.info("👋 Hi " + FONT.bold(FONT.default(http.username)) + ", welcome to swanlab!")
-        swanlog.info("Syncing run " + FONT.yellow(self.settings.exp_name) + " to the cloud")
+
+        swanlog.info(" 👋 Hi ", Text(http.username, "bold default"), ",welcome to swanlab!", sep="")
+        swanlog.info("Syncing run", Text(self.settings.exp_name, "yellow"), "to the cloud")
         experiment_url = self._view_web_print()
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():

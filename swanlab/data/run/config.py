@@ -18,10 +18,10 @@ from typing import Any, Union
 from typing import Callable, Optional
 
 import yaml
-from swankit.callback import RuntimeInfo
 
 from swanlab.data.modules import Line
 from swanlab.log import swanlog
+from swanlab.toolkit import RuntimeInfo
 
 BASE_TYPE = (int, float, str)
 

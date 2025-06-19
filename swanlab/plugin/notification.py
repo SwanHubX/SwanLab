@@ -14,9 +14,9 @@ from email.mime.text import MIMEText
 from typing import Optional, Dict, Any, Tuple
 
 import requests
-from swankit.callback import SwanKitCallback
 
 import swanlab
+from swanlab.toolkit import SwanKitCallback
 
 
 class PrintCallback(SwanKitCallback):

@@ -11,13 +11,13 @@ from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
 from requests.adapters import HTTPAdapter
-from swankit.core import MediaBuffer
-from swankit.log import FONT
+from rich.status import Status
 from urllib3.util.retry import Retry
 
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
+from swanlab.toolkit import MediaBuffer
 from .cos import CosClient
 from .model import ProjectInfo, ExperimentInfo
 from .. import auth
@@ -255,8 +255,7 @@ class Client:
         :param public: 项目是否公开
         :return: 项目信息
         """
-
-        def _():
+        with Status("Getting project...", spinner="dots"):
             try:
                 data = {"name": name}
                 if username is not None:
@@ -294,9 +293,7 @@ class Client:
             self.__groupname = resp['username']
             # 获取详细信息
             resp = self.get(f"/project/{self.groupname}/{name}")
-            return ProjectInfo(resp)
-
-        project: ProjectInfo = FONT.loading("Getting project...", _)
+            project = ProjectInfo(resp)
         self.__proj = project
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
@@ -307,11 +304,7 @@ class Client:
         :param description: 实验描述
         :param tags: 实验标签
         """
-
-        def _():
-            """
-            先创建实验，后生成cos凭证
-            """
+        with Status("Getting experiment...", spinner="dots"):
             post_data = {
                 "name": exp_name,
                 "colors": list(colors),
@@ -326,21 +319,15 @@ class Client:
             # 获取cos信息
             self.__get_cos()
 
-        FONT.loading("Creating experiment...", _)
-
     def update_state(self, success: bool):
         """
         更新实验状态
         :param success: 实验是否成功
         """
-
-        def _():
-            self.put(
-                f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
-                {"state": "FINISHED" if success else "CRASHED", "from": "sdk"},
-            )
-
-        FONT.loading("Updating experiment status...", _)
+        self.put(
+            f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
+            {"state": "FINISHED" if success else "CRASHED", "from": "sdk"},
+        )
 
 
 client: Optional["Client"] = None

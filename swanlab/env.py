@@ -16,8 +16,8 @@ import sys
 from typing import List
 from urllib.parse import urlparse
 
-import swankit.env as E
-from swankit.env import SwanLabSharedEnv
+import swanlab.toolkit as E
+from swanlab.toolkit import SwanLabSharedEnv
 
 
 # ---------------------------------- 环境变量枚举类 ----------------------------------

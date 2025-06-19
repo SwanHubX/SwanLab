@@ -9,8 +9,8 @@ from typing import Union
 
 import pyecharts
 from pyecharts.charts.base import Base
-from swankit.core import MediaBuffer, DataSuite as D, MediaType
 
+from swanlab.toolkit import MediaBuffer, DataSuite as D, MediaType
 from . import echarts
 from .table import Table
 

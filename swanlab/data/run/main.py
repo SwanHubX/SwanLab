@@ -11,15 +11,13 @@ import os
 import random
 from typing import Any, Callable, Dict, Optional, List
 
-from swankit.core import SwanLabSharedSettings
-from swankit.core.data import MediaType
-
 from swanlab.data import namer as N
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode, get_swanlog_dir
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import reset_settings, get_settings
+from swanlab.toolkit import SwanLabSharedSettings, MediaType
 from .config import SwanLabConfig
 from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron, check_log_level

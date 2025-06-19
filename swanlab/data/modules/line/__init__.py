@@ -12,9 +12,10 @@ r"""
     3. 如果传入NaN，返回NaN字符串，None
     4. 如果传入Infinity，返回INF字符串，None
 """
-from swanlab.error import DataTypeError
 from typing import Protocol, runtime_checkable
-from swankit.core import BaseType, DataSuite as D
+
+from swanlab.error import DataTypeError
+from swanlab.toolkit import BaseType, DataSuite as D
 
 
 @runtime_checkable

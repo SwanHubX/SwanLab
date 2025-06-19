@@ -10,11 +10,10 @@ r"""
 import os
 from typing import Union, Dict, Literal, List
 
-from swankit.callback import SwanKitCallback
-
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
+from swanlab.toolkit import SwanKitCallback
 from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType

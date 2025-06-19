@@ -13,9 +13,7 @@ import sys
 import traceback
 from typing import Optional
 
-from swankit.callback import SwanKitCallback
-from swankit.core import SwanLabSharedSettings
-from swankit.log import FONT
+from rich.text import Text
 
 from swanlab.data.run import SwanLabRunState, get_run
 from swanlab.env import is_windows
@@ -24,6 +22,7 @@ from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import get_settings
+from swanlab.toolkit import SwanKitCallback, SwanLabSharedSettings
 
 
 def error_print(tp):
@@ -93,14 +92,14 @@ class U:
         swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
         swanlog.info("Tracking run with swanlab version " + get_package_version())
         if save_dir is not None:
-            local_path = FONT.magenta(FONT.bold(self.fmt_windows_path(save_dir)))
-            swanlog.info("Run data will be saved locally in " + local_path)
+            local_path = Text(self.fmt_windows_path(save_dir), "magenta bold")
+            swanlog.info("Run data will be saved locally in", local_path)
 
     def _train_finish_print(self):
         """
         打印结束信息
         """
-        swanlog.info("Experiment {} has completed".format(FONT.yellow(self.settings.exp_name)))
+        swanlog.info("Experiment", Text(self.settings.exp_name, "yellow"), "has completed")
 
 
 class SwanLabRunCallback(SwanKitCallback, U):

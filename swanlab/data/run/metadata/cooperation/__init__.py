@@ -7,11 +7,10 @@
 
 from typing import TypedDict, Optional
 
-from swankit.env import get_swanlog_dir
-
 from swanlab.core_python import get_client
 from swanlab.env import get_mode
 from swanlab.package import get_package_version
+from swanlab.toolkit import get_swanlog_dir
 from .qing_cloud import get_qing_cloud_info
 
 

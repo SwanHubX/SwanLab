@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
-from swankit.core.data import MediaType
-
+from swanlab.toolkit import MediaType
 from .model3d import Model3D
 from .molecule import Molecule
 from .point_cloud import Box, PointCloud
