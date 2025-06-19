@@ -64,6 +64,7 @@ def setup_swanlab(
     config: Optional[Dict] = None,
     api_key: Optional[str] = None,
     api_key_file: Optional[str] = None,
+    swanlab_host: Optional[str] = None,
     rank_zero_only: bool = True,
     **kwargs,
 ):
@@ -115,7 +116,7 @@ def setup_swanlab(
 
     # 调用内部设置函数
     return _setup_swanlab(
-        config=config, api_key=api_key, api_key_file=api_key_file, **swanlab_init_kwargs
+        config=config, api_key=api_key, api_key_file=api_key_file, swanlab_host=swanlab_host, **swanlab_init_kwargs
     )
 
 
@@ -415,6 +416,7 @@ class SwanLabLoggerCallback(LoggerCallback):
         workspace: Optional[str] = None,
         api_key_file: Optional[str] = None,
         api_key: Optional[str] = None,
+        swanlab_host: Optional[str] = None,
         excludes: Optional[List[str]] = None,
         log_config: bool = False,
         upload_checkpoints: bool = False,
@@ -455,6 +457,7 @@ class SwanLabLoggerCallback(LoggerCallback):
         self.workspace = workspace
         self.api_key_path = api_key_file
         self.api_key = api_key
+        self.swanlab_host = swanlab_host
         self.excludes = excludes or []
         self.log_config = log_config
         self.upload_checkpoints = upload_checkpoints
@@ -478,10 +481,8 @@ class SwanLabLoggerCallback(LoggerCallback):
         
         在实验开始时调用，进行初始化设置
         """
-        self.api_key_file = (
-            os.path.expanduser(self.api_key_path) if self.api_key_path else None
-        )
-        # _set_api_key(self.api_key_file, self.api_key)
+        # if self.api_key:
+        #     swanlab.login(api_key=self.api_key, host=self.swanlab_host)
 
         self.project = _get_swanlab_project(self.project)
         if not self.project:
