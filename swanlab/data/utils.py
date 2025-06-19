@@ -12,7 +12,7 @@ from swankit.callback import SwanKitCallback
 from swankit.env import SwanLabMode
 from swankit.log import FONT
 
-from swanlab.api import terminal_login, LoginInfo
+from swanlab.core_python import auth
 from swanlab.data.callbacker.cloud import CloudRunCallback
 from swanlab.data.callbacker.offline import OfflineCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
@@ -136,11 +136,11 @@ def _init_mode(mode: str = None):
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
                 swanlog.info("Logging into " + FONT.yellow(web_host))
-                login_info = terminal_login()
+                login_info = auth.terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Create a swanlab account'")
                 swanlog.info("Create a SwanLab account here: " + FONT.yellow(web_host + "/login"))
-                login_info = terminal_login()
+                login_info = auth.terminal_login()
             else:
                 raise ValueError("Invalid choice")
         # 如果不在就不管
@@ -179,7 +179,7 @@ def _load_from_env(key: str, value):
 
 def _create_operator(
     mode: str,
-    login_info: Optional[LoginInfo],
+    login_info: Optional[auth.LoginInfo],
     cbs: Optional[List[SwanKitCallback]],
 ) -> SwanLabRunOperator:
     """

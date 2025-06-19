@@ -7,8 +7,7 @@
 
 import click
 
-from swanlab.api import terminal_login
-from swanlab.core_python import create_client
+from swanlab.core_python import create_client, auth
 from swanlab.error import KeyFileError
 from swanlab.package import get_key, HostFormatter
 from swanlab.sync import sync as sync_logs
@@ -70,7 +69,7 @@ def sync(path, api_key, workspace, project, host):
         pass
     for path in path:
         # 1.3 登录，创建 http 对象
-        log_info = terminal_login(api_key=api_key, save_key=False)
+        log_info = auth.terminal_login(api_key=api_key, save_key=False)
         create_client(log_info)
         # 2. 同步日志
         sync_logs(path, workspace=workspace, project_name=project, login_required=False, raise_error=len(path) == 1)

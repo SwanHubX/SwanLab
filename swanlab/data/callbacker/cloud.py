@@ -13,7 +13,6 @@ from swankit.callback.models import RuntimeInfo, MetricInfo, ColumnInfo
 from swankit.env import create_time
 from swankit.log import FONT
 
-from swanlab.api import terminal_login
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
@@ -25,6 +24,7 @@ from swanlab.package import (
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
 from ...core_python import *
+from ...core_python import auth
 from ...core_python.uploader import thread
 from ...log.backup import backup
 from ...log.type import LogData
@@ -55,7 +55,7 @@ class CloudRunCallback(SwanLabRunCallback):
             raise KeyFileError(
                 "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
             )
-        return terminal_login(key, save)
+        return auth.terminal_login(key, save)
 
     @staticmethod
     def _get_package_latest_version():

@@ -15,12 +15,12 @@ from swankit.core import MediaBuffer
 from swankit.log import FONT
 from urllib3.util.retry import Retry
 
-from swanlab.api import LoginInfo, ProjectInfo, ExperimentInfo
-from swanlab.api.auth.login import login_by_key
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
 from .cos import CosClient
+from .model import ProjectInfo, ExperimentInfo
+from .. import auth
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
@@ -46,7 +46,7 @@ class Client:
     刷新时间，单位秒，如果sid过期时间减去当前时间小于这个时间，就刷新sid
     """
 
-    def __init__(self, login_info: LoginInfo):
+    def __init__(self, login_info: auth.LoginInfo):
         """
         初始化会话
         """
@@ -146,7 +146,7 @@ class Client:
         if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
-            self.__login_info = login_by_key(self.__login_info.api_key, save=False)
+            self.__login_info = auth.login_by_key(self.__login_info.api_key, save=False)
             self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
     def __create_session(self):
@@ -221,8 +221,9 @@ class Client:
     # ---------------------------------- 对象存储方法 ----------------------------------
 
     def __get_cos(self):
-        cos = self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")
-        self.__cos = CosClient(cos)
+        self.__cos = CosClient(
+            data=self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts"),
+        )
 
     def upload(self, buffer: MediaBuffer):
         """
@@ -348,7 +349,7 @@ client: Optional["Client"] = None
 """
 
 
-def create_client(login_info: LoginInfo) -> Client:
+def create_client(login_info: auth.LoginInfo) -> Client:
     """
     创建客户端对象
     """
