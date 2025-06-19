@@ -210,7 +210,6 @@ def _is_allowed_type(obj):
 def _clean_log(obj: Any):
     """
     清理日志对象，移除不可序列化的项目
-    
     递归处理字典、列表、集合和元组，只保留允许的类型
     
     Args:
@@ -227,6 +226,14 @@ def _clean_log(obj: Any):
         return tuple(_clean_log(v) for v in obj)
     elif _is_allowed_type(obj):
         return obj
+    
+    fallback = str(obj)
+    try:
+        fallback = int(fallback)
+        return fallback
+    except ValueError:
+        pass
+    return fallback
 
 
 class _QueueItem(enum.Enum):
@@ -317,13 +324,13 @@ class _swanlabLoggingActor:
 
             # 处理结果数据
             assert item_type == _QueueItem.RESULT
+            
             log, config_update = self._handle_result(item_content)
             try:
                 # 更新配置并记录日志
                 self._swanlab.config.update(config_update, allow_val_change=True)
                 self._swanlab.log(log, step=log.get(TRAINING_ITERATION))
             except urllib.error.HTTPError as e:
-                # 忽略HTTP错误，丢失几个数据点不是大问题
                 logger.warning("Failed to log result to swanlab: {}".format(str(e)))
                 
         # 完成SwanLab运行
