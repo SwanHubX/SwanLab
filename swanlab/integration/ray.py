@@ -135,6 +135,7 @@ def _setup_swanlab(
     config: Optional[Dict] = None,
     api_key: Optional[str] = None,
     api_key_file: Optional[str] = None,
+    swanlab_host: Optional[str] = None,
     _swanlab: Optional[ModuleType] = None,
     **kwargs,
 ):
@@ -155,6 +156,7 @@ def _setup_swanlab(
         config: 实验配置
         api_key: API密钥
         api_key_file: API密钥文件路径
+        swanlab_host: SwanLab主机地址
         _swanlab: SwanLab模块（用于测试）
         **kwargs: 其他初始化参数
     
@@ -164,8 +166,10 @@ def _setup_swanlab(
     _config = config.copy() if config else {}
 
     # 如果指定了密钥文件，展开用户路径
-    if api_key_file:
-        api_key_file = os.path.expanduser(api_key_file)
+    # if api_key_file:
+    #     api_key_file = os.path.expanduser(api_key_file)
+    if api_key:
+        swanlab.login(api_key=api_key, host=swanlab_host)
 
     project = _get_swanlab_project(kwargs.pop("project", None))
 
@@ -408,7 +412,7 @@ class SwanLabLoggerCallback(LoggerCallback):
     def __init__(
         self,
         project: Optional[str] = None,
-        group: Optional[str] = None,
+        workspace: Optional[str] = None,
         api_key_file: Optional[str] = None,
         api_key: Optional[str] = None,
         excludes: Optional[List[str]] = None,
@@ -448,7 +452,7 @@ class SwanLabLoggerCallback(LoggerCallback):
 
         # 初始化属性
         self.project = project
-        self.group = group
+        self.workspace = workspace
         self.api_key_path = api_key_file
         self.api_key = api_key
         self.excludes = excludes or []
@@ -518,8 +522,9 @@ class SwanLabLoggerCallback(LoggerCallback):
         trial_id = trial.trial_id if trial else None
         trial_name = str(trial) if trial else None
 
-        # SwanLab项目名称
+        # SwanLab项目名称和工作空间
         swanlab_project = self.project
+        swanlab_workspace = self.workspace
 
         # 清理配置（移除不可序列化的项目）
         config = _clean_log(config)
@@ -529,8 +534,9 @@ class SwanLabLoggerCallback(LoggerCallback):
 
         # 构建SwanLab初始化参数
         swanlab_init_kwargs = dict(
-            reinit=True,
             project=swanlab_project,
+            workspace=swanlab_workspace,
+            reinit=True,
             name=trial_name,
             config=config,
         )
