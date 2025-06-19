@@ -18,7 +18,7 @@ tuner = tune.Tuner(
         "epochs": 10,
     },
     run_config=tune.RunConfig(
-        callbacks=[SwanLabLoggerCallback(project="Optimization_Project")],
+        callbacks=[SwanLabLoggerCallback(project="Ray_Project")],
     ),
 )
 results = tuner.fit()
