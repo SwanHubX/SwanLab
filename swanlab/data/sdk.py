@@ -161,11 +161,13 @@ class SwanLabInitializer:
             Whether to reinitialize the settings, the default is False.
             If you want to reinitialize the settings, you must call this function again.
         """
-        if SwanLabRun.is_started() and not reinit:
-            swanlog.warning("You have already initialized a run, the init function will be ignored")
-            return get_run()
-        elif SwanLabRun.is_started() and reinit:
-            get_run().finish()
+        if SwanLabRun.is_started():
+            if reinit: 
+                get_run().finish()
+            else:
+                swanlog.warning("You have already initialized a run, the init function will be ignored")
+                return get_run()
+            
         # 注册settings
         merge_settings(settings)
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
