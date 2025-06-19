@@ -54,7 +54,7 @@
 
 ## 🌟 最近の更新
 
-- 2025.06.18: 🐜 [AREAL](https://github.com/alibaba/areal) フレームワークを統合、[@xichengpro](https://github.com/xichengpro) 氏に感謝、[PR](https://github.com/inclusionAI/AReaL/pull/98)、[ドキュメント](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 サイドバーの実験にマウスをホバーすると対応する曲線がハイライト表示される機能をサポート; グループ間での折れ線グラフ比較をサポート; 実験名のトリミングルール設定をサポート;
+- 2025.06.18: 🐜 [AREAL](https://github.com/inclusionAI/AReaL) フレームワークを統合、[@xichengpro](https://github.com/xichengpro) 氏に感謝、[PR](https://github.com/inclusionAI/AReaL/pull/98)、[ドキュメント](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 サイドバーの実験にマウスをホバーすると対応する曲線がハイライト表示される機能をサポート; グループ間での折れ線グラフ比較をサポート; 実験名のトリミングルール設定をサポート;
 
 - 2025.06.11: 📊 **swanlab.echarts.table** データ型のサポートを追加し、純粋なテキストチャートの表示をサポート；**グループのストレッチインタラクション**をサポートし、同時に表示されるチャート数を増やすことができます；テーブルビューに **指標の最大/最小値** オプションを追加；
 
