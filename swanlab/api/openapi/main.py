@@ -9,12 +9,12 @@ r"""
 """
 from typing import Dict, List
 
-from swanlab.api import code_login
 from swanlab.api.openapi.base import ApiHTTP, get_logger
 from swanlab.api.openapi.experiment import ExperimentAPI
 from swanlab.api.openapi.group import GroupAPI
 from swanlab.api.openapi.project import ProjectAPI
 from swanlab.api.openapi.types import ApiResponse, Experiment, Project
+from swanlab.core_python import auth
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
@@ -27,7 +27,7 @@ class OpenApi:
         if api_key:
             self.__logger.debug("Using API key", api_key)
             self.__key = api_key
-            self.login_info = code_login(self.__key, False)
+            self.login_info = auth.code_login(self.__key, False)
         else:
             self.__logger.debug("Using existing key")
             try:
@@ -35,7 +35,7 @@ class OpenApi:
             except KeyFileError as e:
                 self.__logger.error("To use SwanLab OpenAPI, please login first.")
                 raise RuntimeError("Not logged in.") from e
-            self.login_info = code_login(self.__key, False)
+            self.login_info = auth.code_login(self.__key, False)
 
         self.username = self.login_info.username
         self.http: ApiHTTP = ApiHTTP(self.login_info)

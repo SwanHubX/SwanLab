@@ -13,7 +13,7 @@ from typing import Literal
 import nanoid
 import requests_mock
 
-from swanlab.api import LoginInfo
+from swanlab.core_python import auth
 from swanlab.package import get_host_web
 
 __all__ = ["UseSetupHttp", "mock_login_info"]
@@ -54,7 +54,7 @@ def mock_login_info(
     username=None,
     key=None,
     error_reason: Literal["OK", "Unauthorized", "Authorization Required", "Forbidden"] = "OK",
-) -> LoginInfo:
+) -> auth.LoginInfo:
     """
     生成一个虚假用户登录信息，主要用于本地mock，不能真实验证登录
     :param username: 需要使用的用户名，如果为None则随机生成
@@ -67,7 +67,6 @@ def mock_login_info(
     if key is None:
         key = nanoid.generate()
     from swanlab.package import get_host_api
-    from swanlab.api.auth.login import login_request
 
     with requests_mock.Mocker() as m:
         api_host, web_host = get_host_api(), get_host_web()
@@ -89,6 +88,6 @@ def mock_login_info(
                 status_code=200,
             )
 
-        resp = login_request(key, api_host)
-        login_info = LoginInfo(resp, key, api_host, web_host)
+        resp = auth.login_request(key, api_host)
+        login_info = auth.LoginInfo(resp, key, api_host, web_host)
     return login_info

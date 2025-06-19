@@ -13,7 +13,7 @@ import pytest
 from nanoid import generate
 
 import tutils as T
-from swanlab.api.auth.login import login_by_key, terminal_login, code_login
+from swanlab.core_python import auth
 from swanlab.error import APIKeyFormatError
 from swanlab.package import has_api_key
 
@@ -31,7 +31,7 @@ def test_login_success():
     """
     测试登录成功
     """
-    login_info = login_by_key(T.API_KEY, save=False)
+    login_info = auth.login_by_key(T.API_KEY, save=False)
     assert not login_info.is_fail
     assert login_info.api_key == T.API_KEY
     assert login_info.__str__() == "Login success"
@@ -42,7 +42,7 @@ def test_login_error_key():
     """
     测试登录失败, 错误的key
     """
-    login_info = login_by_key("wrong-key", save=False)
+    login_info = auth.login_by_key("wrong-key", save=False)
     assert login_info.is_fail
     assert login_info.api_key is None
     assert login_info.__str__() == "Error api key"
@@ -54,7 +54,7 @@ def test_terminal_login(monkeypatch):
     测试终端登录
     """
     monkeypatch.setattr("getpass.getpass", get_password)
-    login_info = terminal_login(T.API_KEY)
+    login_info = auth.terminal_login(T.API_KEY)
     assert not login_info.is_fail
     assert login_info.api_key == T.API_KEY
     assert login_info.__str__() == "Login success"
@@ -66,12 +66,12 @@ def test_code_login():
     """
     测试code登录
     """
-    login_info = code_login(T.API_KEY)
+    login_info = auth.code_login(T.API_KEY)
     assert not login_info.is_fail
     assert login_info.api_key == T.API_KEY
     assert login_info.__str__() == "Login success"
     with pytest.raises(APIKeyFormatError):
-        _ = code_login("wrong-key")
+        _ = auth.code_login("wrong-key")
 
 
 def test_api_key_format_error():
@@ -80,13 +80,13 @@ def test_api_key_format_error():
     """
     key = "123456"
     with pytest.raises(APIKeyFormatError) as e:
-        _ = code_login(key)
+        _ = auth.code_login(key)
     assert e.value.__str__() == "Api key length must be 21 characters long, yours was {}".format(len(key))
     key = nanoid.generate(size=20, alphabet="abcdefg") + '\x16'
     with pytest.raises(APIKeyFormatError) as e:
-        _ = code_login(key)
+        _ = auth.code_login(key)
     assert e.value.__str__() == "Invalid character in api key: '\\x16'"
     key = 123456
     with pytest.raises(APIKeyFormatError) as e:
-        _ = code_login(key)  # type: ignore
+        _ = auth.code_login(key)  # type: ignore
     assert e.value.__str__() == "Api key must be a string"

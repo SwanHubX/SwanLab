@@ -15,9 +15,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from swanlab.api import LoginInfo
-from swanlab.api.auth.login import login_by_key
 from swanlab.api.openapi.types import ApiResponse
+from swanlab.core_python import auth
 from swanlab.log.log import SwanLog
 from swanlab.package import get_package_version
 
@@ -63,9 +62,9 @@ def handle_response(resp: requests.Response) -> ApiResponse:
 class ApiHTTP:
     REFRESH_TIME = 60 * 60 * 24 * 7  # 7天
 
-    def __init__(self, login_info: LoginInfo):
+    def __init__(self, login_info: auth.LoginInfo):
         self.__logger = get_logger()
-        self.__login_info: LoginInfo = login_info
+        self.__login_info: auth.LoginInfo = login_info
         self.__session: requests.Session = self.__init_session()
         self.service: OpenApiService = OpenApiService(self)
     
@@ -114,7 +113,7 @@ class ApiHTTP:
     def __before_request(self):
         if (self.sid_expired_at - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds() < self.REFRESH_TIME:
             self.__logger.debug("Refreshing sid...")
-            self.__login_info = login_by_key(self.__login_info.api_key or "", save=False)
+            self.__login_info = auth.login_by_key(self.__login_info.api_key or "", save=False)
             self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
     def get(self, url: str, params: dict) -> ApiResponse:
