@@ -4,7 +4,8 @@ Used for writing experiment metadata to CSV and online notes.
 """
 import os
 import time
-from typing import Tuple
+from typing import Tuple, List
+import shutil
 
 from swankit.callback import SwanKitCallback
 
@@ -156,3 +157,44 @@ class CSVWriter(SwanKitCallback):
     
     def __str__(self):
         return "CSVWriter"
+    
+class LogdirFileWriter(SwanKitCallback):
+    """
+    Logdir writer for SwanLab.
+    The logic of this writer is that users can write or move files they like into the run file corresponding to logdir.
+    """
+    def __init__(self, sub_dir: str = None, file_path: List[str] = None):
+        self.sub_dir = sub_dir
+        self.file_path = file_path
+        
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs):
+        """Initialize project and workspace information."""
+        self.project = proj_name
+        self.workspace = workspace
+        
+    def on_run(self, *args, **kwargs):
+        """Handle actions to perform on run."""
+        run = swanlab.get_run()
+        self.logdir = run.public.run_dir
+        if self.sub_dir is None:
+            total_path = self.logdir
+        else:
+            total_path = os.path.join(self.logdir, self.sub_dir)
+        os.makedirs(total_path, exist_ok=True)
+        
+        if self.file_path is None:
+            return
+
+        if isinstance(self.file_path, str):
+            self.file_path = [self.file_path]
+        
+        for file_path in self.file_path:
+            if os.path.isfile(file_path):
+                shutil.copy(file_path, total_path)
+            elif os.path.isdir(file_path):
+                shutil.copytree(file_path, total_path)
+            else:
+                raise ValueError(f"[LogdirConfigWriter] File path {file_path} is not a file or directory.")
+    
+    def __str__(self):
+        return "LogdirConfigWriter"
