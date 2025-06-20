@@ -53,7 +53,7 @@
 
 ## 🌟 Последние обновления
 
-- 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)
+- 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), улучшает опыт записи и анализа экспериментов в распределенном обучении.
 
 - 2025.06.18: 🐜 Интегрирована платформа [AREAL](https://github.com/inclusionAI/AReaL), спасибо [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [документация](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Добавлена подсветка соответствующих кривых при наведении мыши на эксперименты в боковой панели; Поддержка сравнения линейных графиков между группами; Возможность настройки правил обрезки названий экспериментов;  
 
