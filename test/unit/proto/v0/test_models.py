@@ -7,8 +7,8 @@
 
 import pytest
 
-from swanlab.log.backup.models import BaseModel, Log, Runtime
-from swanlab.log.backup.writer import write_runtime_info
+from swanlab.data.backup import BaseModel, Log, Runtime
+from swanlab.data.backup.writer import write_runtime_info
 from swanlab.log.type import LogData, LogContent
 from swanlab.toolkit import create_time
 from tutils import TEMP_PATH

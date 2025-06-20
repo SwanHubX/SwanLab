@@ -8,8 +8,8 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 
 from rich.text import Text
 
-from swanlab.log.backup import backup
-from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
+from swanlab.data.backup import backup
+from swanlab.data.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
 from ..run import get_run

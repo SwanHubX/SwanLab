@@ -1,8 +1,9 @@
 """
 @author: cunyue
-@file: models.py
-@time: 2025/6/4 15:32
-@description: 定义日志备份模型，方便序列化和反序列化操作
+@file: __init__.py
+@time: 2025/6/20 13:30
+@description: 历史版本的备份、上传协议采用 JSON 序列化实现
+为了保证向下兼容性，在此保留相关模型定义
 """
 
 import json

@@ -345,13 +345,13 @@ def create_client(login_info: auth.LoginInfo) -> Client:
     return client
 
 
-def get_client() -> Client:
+def get_client(allow_none: bool = False) -> Client:
     """
     获取客户端对象
     :return: client
     """
     global client
-    if client is None:
+    if client is None and not allow_none:
         raise ValueError("client object is not initialized")
     return client
 

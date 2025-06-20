@@ -11,6 +11,7 @@ from typing import Literal
 
 from rich.text import Text
 
+from swanlab.data.backup import backup
 from swanlab.env import in_jupyter, is_interactive
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
@@ -30,7 +31,6 @@ from ..run.callback import SwanLabRunCallback
 from ...core_python import *
 from ...core_python import auth
 from ...core_python.uploader import thread
-from ...log.backup import backup
 from ...log.type import LogData
 from ...swanlab_settings import get_settings
 

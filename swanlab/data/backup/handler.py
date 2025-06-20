@@ -11,10 +11,10 @@ from typing import List, Optional
 
 import wrapt
 
-from swanlab.log.backup.datastore import DataStore
-from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header, Footer
-from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
+from swanlab.data.backup.datastore import DataStore
+from swanlab.data.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
+from swanlab.proto.v0 import Experiment, Log, Project, Column, Runtime, Metric, Header, Footer
 from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo, create_time
 
 

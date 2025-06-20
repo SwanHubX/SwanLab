@@ -15,9 +15,8 @@ from nanoid import generate
 
 import swanlab
 from swanlab import sync
-from swanlab.log.backup import BackupHandler
-from swanlab.log.backup.datastore import DataStore
-from swanlab.log.backup.models import ModelsParser
+from swanlab.data.backup import BackupHandler, DataStore
+from swanlab.proto.v0 import ModelsParser
 from swanlab.toolkit import MetricInfo
 
 

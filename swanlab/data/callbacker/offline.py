@@ -7,9 +7,9 @@
 
 from rich.text import Text
 
+from swanlab.data.backup import backup
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
-from swanlab.log.backup import backup
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo
 from ..run import get_run

@@ -15,10 +15,10 @@ from typing import Optional
 
 from rich.text import Text
 
+from swanlab.data.backup import BackupHandler
 from swanlab.data.run import SwanLabRunState, get_run
 from swanlab.env import is_windows
 from swanlab.log import swanlog
-from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import get_settings
