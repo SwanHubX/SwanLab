@@ -258,6 +258,20 @@ class TestInitProject:
         assert run.public.project_name == project
 
 
+def test_reinit():
+    """
+    测试重新初始化
+    """
+    run = S.init(mode="disabled")
+    run_again = S.init(mode="local")
+    assert run == run_again
+    reinit = S.init(mode="disabled", reinit=True)
+    assert run != reinit
+    assert run.running is False
+    assert run.success is True
+    assert run.crashed is False
+
+
 LOG_DIR = SwanLabEnv.SWANLOG_FOLDER.value
 
 
