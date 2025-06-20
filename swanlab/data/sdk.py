@@ -92,6 +92,7 @@ class SwanLabInitializer:
         public: bool = None,
         callbacks: List[SwanKitCallback] = None,
         settings: Settings = None,
+        reinit: bool = None,
         **kwargs,
     ) -> SwanLabRun:
         """
@@ -156,12 +157,20 @@ class SwanLabInitializer:
             If you provide a list, all the callback functions in the list will be triggered in order.
         settings: swanlab.swanlab_settings.Settings, optional
             The settings for the current experiment.
+        reinit : bool, optional
+            Whether to reinitialize the settings, the default is False.
+            If you want to reinitialize the settings, you must call this function again.
         """
+        # 一个进程同时只能有一个实验在运行
+        if SwanLabRun.is_started():
+            run = get_run()
+            if reinit is True:
+                run.finish()
+            else:
+                swanlog.warning("You have already initialized a run, the init function will be ignored")
+                return run
         # 注册settings
         merge_settings(settings)
-        if SwanLabRun.is_started():
-            swanlog.warning("You have already initialized a run, the init function will be ignored")
-            return get_run()
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
         if callbacks is None:
             callbacks = []
