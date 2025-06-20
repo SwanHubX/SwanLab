@@ -9,6 +9,7 @@
 import sys
 from concurrent.futures.thread import ThreadPoolExecutor
 
+from rich.status import Status
 from rich.text import Text
 
 from swanlab.core_python import auth
@@ -21,8 +22,10 @@ from swanlab.toolkit import (
     ColumnInfo,
 )
 from .utils import show_button_html, check_latest_version, view_cloud_web, async_io
+from .. import namer as N
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
+from ..store import get_run_store
 from ..transfers.v0 import ProtoV0Transfer
 from ...core_python import *
 from ...log.type import LogData
@@ -33,7 +36,6 @@ from ...swanlab_settings import get_settings
 class CloudPyCallback(SwanLabRunCallback):
 
     def __init__(self):
-        super().__init__()
         self.transfer = ProtoV0Transfer()
         self.device = BackupHandler()
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -57,7 +59,7 @@ class CloudPyCallback(SwanLabRunCallback):
             sys.exit(1)
         super()._except_handler(tp, val, tb)
 
-    def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
+    def on_init(self, *args, **kwargs):
         try:
             http = get_client()
         except ValueError:
@@ -65,29 +67,33 @@ class CloudPyCallback(SwanLabRunCallback):
             http = create_client(auth.create_login_info())
         # 检测是否有最新的版本
         check_latest_version()
-        http.mount_project(proj_name, workspace, public)
-        # 设置项目缓存
-        self.device.cache_proj_name = proj_name
-        self.device.cache_workspace = workspace
-        self.device.cache_public = public
+        run_store = get_run_store()
+        with Status("Creating experiment...", spinner="dots"):
+            # 创建实验
+            http.mount_project(run_store.project, run_store.workspace, run_store.visibility)
+            exp_count = http.history_exp_count
+            run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
+            run_store.description = "" if run_store.description is None else run_store.description
+            run_store.run_colors = N.generate_colors(exp_count)
+            run_store.tags = [] if run_store.tags is None else run_store.tags
+            http.mount_exp(
+                exp_name=run_store.run_name,
+                colors=run_store.run_colors,
+                description=run_store.description,
+                tags=run_store.tags,
+            )
 
     def on_run(self, *args, **kwargs):
-        http = get_client()
-        # 注册实验信息
-        http.mount_exp(
-            exp_name=self.settings.exp_name,
-            colors=self.settings.exp_colors,
-            description=self.settings.description,
-            tags=self.settings.tags,
-        )
+        self.device.start()
         # 注册运行状态
         self.handle_run()
         # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
         swanlab_settings = get_settings()
-        self._train_begin_print(save_dir=self.settings.run_dir if swanlab_settings.backup else None)
-
-        swanlog.info(" 👋 Hi ", Text(http.username, "bold default"), ",welcome to swanlab!", sep="")
-        swanlog.info("Syncing run", Text(self.settings.exp_name, "yellow"), "to the cloud")
+        run_store = get_run_store()
+        self._train_begin_print(save_dir=run_store.run_dir if swanlab_settings.backup else None)
+        http = get_client()
+        swanlog.info("👋 Hi ", Text(http.username, "bold default"), ",welcome to swanlab!", sep="")
+        swanlog.info("Syncing run", Text(run_store.run_name, "yellow"), "to the cloud")
         experiment_url = view_cloud_web()
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
@@ -143,8 +149,7 @@ class CloudPyCallback(SwanLabRunCallback):
         view_cloud_web()
         state = run.state
         sys.excepthook = self._except_handler
-        swanlog_epoch = run.swanlog_epoch
-        self.device.stop(error=error, epoch=swanlog_epoch + 1)
+        self.device.stop(error=error, epoch=swanlog.epoch + 1)
         swanlog.info("Waiting for uploading complete")
         # 关闭线程池，等待上传线程完成
         self.transfer.join(error)

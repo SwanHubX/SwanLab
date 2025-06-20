@@ -43,5 +43,4 @@ __all__ = [
     "ParseResult",
     "ParseErrorInfo",
     "ChartReference",
-    "SwanLabSharedSettings",
 ]

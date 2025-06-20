@@ -11,17 +11,17 @@ import atexit
 import os
 import sys
 import traceback
-from typing import Optional
 
 from rich.text import Text
 
 from swanlab.data.run import SwanLabRunState, get_run
+from swanlab.data.store import get_run_store
 from swanlab.env import is_windows
 from swanlab.log import swanlog
 from swanlab.log.type import LogData
 from swanlab.package import get_package_version
 from swanlab.swanlab_settings import get_settings
-from swanlab.toolkit import SwanKitCallback, SwanLabSharedSettings
+from swanlab.toolkit import SwanKitCallback
 
 
 def error_print(tp):
@@ -51,9 +51,6 @@ class U:
     """
     工具函数类，隔离SwanLabRunCallback回调与其他工具函数
     """
-
-    def __init__(self):
-        self.settings: Optional[SwanLabSharedSettings] = None
 
     @staticmethod
     def fmt_windows_path(path: str) -> str:
@@ -94,11 +91,12 @@ class U:
             local_path = Text(self.fmt_windows_path(save_dir), "magenta bold")
             swanlog.info("Run data will be saved locally in", local_path)
 
-    def _train_finish_print(self):
+    @staticmethod
+    def _train_finish_print():
         """
         打印结束信息
         """
-        swanlog.info("Experiment", Text(self.settings.exp_name, "yellow"), "has completed")
+        swanlog.info("Experiment", Text(get_run_store().run_name, "yellow"), "has completed")
 
 
 class SwanLabRunCallback(SwanKitCallback, U):
@@ -110,9 +108,6 @@ class SwanLabRunCallback(SwanKitCallback, U):
     3. 带有from_*后缀的回调函数代表调用者来自其他地方，比如config、operator等，这将通过settings对象传递
     4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
-
-    def __init__(self):
-        super(U, self).__init__()
 
     def _register_sys_callback(self):
         """
@@ -152,36 +147,25 @@ class SwanLabRunCallback(SwanKitCallback, U):
         error_print(tp)
         # 结束运行
         get_run().finish(SwanLabRunState.CRASHED, error=traceback_error(tb, tp(val)))
+        # 结束运行后终端输出代理被禁用，因此不会再调用 `_terminal_handler`
         if tp != KeyboardInterrupt:
             print(traceback_error(tb, tp(val)), file=sys.stderr)
 
     def handle_run(self):
         """
         封装 on_run 回调中的重复逻辑，包括：
-        1. 开启日志备份
-        2. 注册终端输出流代理
-        3. 注册系统回调
+        1. 注册终端输出流代理
+        2. 注册系统回调
         """
-        # 1. 开启备份并备份项目和实验
-        self.backup.start(
-            self.settings.run_dir,
-            files_dir=self.settings.files_dir,
-            exp_name=self.settings.exp_name,
-            description=self.settings.description,
-            tags=self.settings.tags,
-        )
-        # 2. 注册终端输出流代理
+        # 1. 注册终端输出流代理
         settings = get_settings()
         swanlog.start_proxy(
             proxy_type=settings.log_proxy_type,
             max_log_length=settings.max_log_length,
             handler=self._terminal_handler,
         )
-        # 3. 注入系统回调
+        # 2. 注入系统回调
         self._register_sys_callback()
-
-    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        self.settings = settings
 
     def __str__(self):
         raise NotImplementedError("Please implement this method")

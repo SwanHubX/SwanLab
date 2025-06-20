@@ -17,7 +17,6 @@ from ..run import get_run
 
 class OfflineCallback(SwanLabRunCallback):
     def __init__(self):
-        super().__init__()
         self.device = BackupHandler()
 
     def __str__(self) -> str:

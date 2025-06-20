@@ -13,7 +13,7 @@ from rich.text import Text
 from swanlab.core_python import auth
 from swanlab.data.callbacker.cloud import CloudPyCallback
 from swanlab.data.callbacker.offline import OfflineCallback
-from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
+from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
 from swanlab.env import is_interactive, SwanLabEnv
@@ -22,31 +22,6 @@ from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
 from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback, SwanLabMode
-
-
-def _check_proj_name(name: str) -> str:
-    """检查项目名称是否合法，如果不合法则抛出ValueError异常
-    项目名称必须是一个非空字符串，长度不能超过255个字符
-
-    Parameters
-    ----------
-    name : str
-        待检查的项目名称
-
-    Returns
-    -------
-    str
-        返回项目名称
-
-    Raises
-    ------
-    ValueError
-        项目名称不合法
-    """
-    _name = check_proj_name_format(name)
-    if len(name) != len(_name):
-        swanlog.warning(f"project name is too long, auto cut to {_name}")
-    return _name
 
 
 def should_call_before_init(text):

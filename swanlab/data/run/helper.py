@@ -14,7 +14,7 @@ from typing import List, Union, Dict, Any, Tuple, Callable, Optional
 from swanlab.data.run.webhook import try_send_webhook
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
-from swanlab.toolkit import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo, SwanLabSharedSettings
+from swanlab.toolkit import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo
 
 OperatorReturnType = Dict[str, Any]
 
@@ -79,8 +79,8 @@ class SwanLabRunOperator(SwanKitCallback):
             **kwargs,
         )
 
-    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        return self.__run_all("before_run", settings, *args, **kwargs)
+    def before_run(self, *args, **kwargs):
+        return self.__run_all("before_run", *args, **kwargs)
 
     def before_init_experiment(
         self,

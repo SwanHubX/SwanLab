@@ -6,12 +6,15 @@
 local模式（目前）将自动调用swanboard，如果不存在则报错
 """
 
+import random
+
 from rich.text import Text
 
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
 from ..backup import BackupHandler
-from ..run import get_run
+from ..namer import generate_colors
+from ..store import get_run_store
 
 try:
     # noinspection PyPackageRequirements
@@ -33,7 +36,7 @@ import os
 from datetime import datetime
 from typing import Tuple, Optional, TextIO
 
-from swanlab.toolkit import RuntimeInfo, MetricInfo, SwanLabSharedSettings
+from swanlab.toolkit import RuntimeInfo, MetricInfo
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
 
@@ -41,7 +44,6 @@ from swanlab.log import swanlog
 class LocalRunCallback(SwanLabRunCallback):
 
     def __init__(self) -> None:
-        super().__init__()
         self.device = BackupHandler()
         self.board = swanboard.SwanBoardCallback()
         # 当前日志写入文件的句柄
@@ -54,22 +56,24 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         watch命令提示打印
         """
+        run_store = get_run_store()
         swanlog.info(
-            " 🌟 Run `",
-            Text("swanlab watch {}".format(self.fmt_windows_path(self.settings.swanlog_dir)), "bold"),
+            "🌟 Run `",
+            Text("swanlab watch {}".format(self.fmt_windows_path(run_store.swanlog_dir)), "bold"),
             "` to view SwanLab Experiment Dashboard locally",
             sep="",
         )
 
     def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
+        run_store = get_run_store()
         if self.file is None:
             # 如果句柄不存在，则创建
-            self.file = open(os.path.join(self.settings.console_dir, log_name), "a", encoding="utf-8")
+            self.file = open(os.path.join(run_store.console_dir, log_name), "a", encoding="utf-8")
         elif os.path.basename(self.file.name) != log_name:
             # 如果句柄存在，但是文件名不一样，则关闭句柄，重新打开
             self.file.close()
-            self.file = open(os.path.join(self.settings.console_dir, log_name), "a", encoding="utf-8")
+            self.file = open(os.path.join(run_store.console_dir, log_name), "a", encoding="utf-8")
         # 写入日志
         for content in log_data["contents"]:
             self.file.write(content['message'] + '\n')
@@ -77,16 +81,20 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         self.board.on_init(proj_name)
-        # 设置项目缓存
-        self.device.cache_proj_name = proj_name
-        self.device.cache_workspace = workspace
-        self.device.cache_public = public
 
-    def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
-        super().before_run(settings, *args, **kwargs)
+        run_store = get_run_store()
+        run_store.project = proj_name
+        run_store.workspace = workspace
+        run_store.visibility = public
+        run_store.tags = [] if run_store.tags is None else run_store.tags
+        # 设置颜色
+        run_store.run_colors = generate_colors(random.randint(0, 20))
+
+    def before_run(self, *args, **kwargs):
+        run_store = get_run_store()
         # path 是否存在
-        if not os.path.exists(self.settings.run_dir):
-            os.mkdir(self.settings.run_dir)
+        if not os.path.exists(run_store.run_dir):
+            os.mkdir(run_store.run_dir)
 
     def before_init_experiment(
         self,
@@ -97,20 +105,23 @@ class LocalRunCallback(SwanLabRunCallback):
         *args,
         **kwargs,
     ):
+        run_store = get_run_store()
         #  FIXME num 在 dashboard 中被要求传递但是没用上 🤡
         self.board.before_init_experiment(
-            os.path.basename(self.settings.run_dir), exp_name, description, colors=colors, num=1
+            os.path.basename(run_store.run_dir), exp_name, description, colors=colors, num=1
         )
 
     def on_run(self):
+        self.device.start()
         self.handle_run()
+        run_store = get_run_store()
         # 打印信息
-        self._train_begin_print(self.settings.run_dir)
+        self._train_begin_print(run_store.run_dir)
         self._watch_tip_print()
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
-        write_runtime_info(self.settings.files_dir, r)
+        self.device.write_runtime_info(r)
 
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
@@ -129,14 +140,14 @@ class LocalRunCallback(SwanLabRunCallback):
         if metric_info.error:
             return
         # ---------------------------------- 保存指标数据 ----------------------------------
-        self.settings.mkdir(os.path.dirname(metric_info.metric_file_path))
-        self.settings.mkdir(os.path.dirname(metric_info.summary_file_path))
+        os.makedirs(os.path.dirname(metric_info.metric_file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(metric_info.summary_file_path), exist_ok=True)
         with open(metric_info.summary_file_path, "w+", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric_summary, ensure_ascii=False))
         with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        write_media_buffer(metric_info)
+        self.device.write_media_buffer(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         """
@@ -145,11 +156,11 @@ class LocalRunCallback(SwanLabRunCallback):
         """
         # 写入错误信息
         if error is not None:
-            with open(self.settings.error_path, "a") as fError:
+            with open(os.path.join(get_run_store().console_dir, "error.log"), "a") as fError:
                 print(datetime.now(), file=fError)
                 print(error, file=fError)
         self.board.on_stop(error)
         # 打印信息
         self._watch_tip_print()
-        self.backup.stop(error=error, epoch=get_run().swanlog_epoch + 1)
+        self.device.stop(error=error, epoch=swanlog.epoch + 1)
         self._unregister_sys_callback()

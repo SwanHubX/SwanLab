@@ -29,7 +29,7 @@ class ProtoV0Transfer(PythonTransfer):
         return data.to_media_model(self.media_dir)
 
     def transfer_file(self, data: Runtime) -> FileModel:
-        return data.to_file_model(self.files_dir)
+        return data.to_file_model(self.file_dir)
 
     def transfer_log(self, data: Log) -> LogModel:
         return data.to_log_model()

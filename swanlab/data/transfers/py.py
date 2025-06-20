@@ -12,6 +12,7 @@ from swanlab.core_python import *
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 from swanlab.toolkit import create_time
 from ..run.main import get_run
+from ...log import swanlog
 
 
 class PythonTransfer(Transfer, ABC):
@@ -35,35 +36,35 @@ class PythonTransfer(Transfer, ABC):
         发布列任务
         :param data: 列数据列表
         """
-        return self._pool.queue.put((UploadType.COLUMN, self.transfer_column(data)))
+        return self._pool.queue.put((UploadType.COLUMN, [self.transfer_column(data)]))
 
     def publish_scalar(self, data: Any):
         """
         发布指标任务
         :param data: 指标数据列表
         """
-        return self._pool.queue.put((UploadType.SCALAR_METRIC, self.transfer_scalar(data)))
+        return self._pool.queue.put((UploadType.SCALAR_METRIC, [self.transfer_scalar(data)]))
 
     def publish_media(self, data: Any):
         """
         发布媒体任务
         :param data: 媒体数据列表
         """
-        self._pool.queue.put((UploadType.MEDIA_METRIC, self.transfer_media(data)))
+        self._pool.queue.put((UploadType.MEDIA_METRIC, [self.transfer_media(data)]))
 
     def publish_file(self, data: Any):
         """
         发布文件任务
         :param data: 文件数据列表
         """
-        self._pool.queue.put((UploadType.FILE, self.transfer_file(data)))
+        self._pool.queue.put((UploadType.FILE, [self.transfer_file(data)]))
 
     def publish_log(self, data: Any):
         """
         发布日志任务
         :param data: 日志数据列表
         """
-        self._pool.queue.put((UploadType.LOG, self.transfer_log(data)))
+        self._pool.queue.put((UploadType.LOG, [self.transfer_log(data)]))
 
     def join(self, error: str = None):
         """
@@ -72,11 +73,11 @@ class PythonTransfer(Transfer, ABC):
         self._pool.finish()
         run = get_run()
         assert run is not None, "run must be initialized"
-        assert run.running, "Run must be in running state to join transfer"
+        assert not run.running, "Run must not be running when joining the transfer pool"
         # 上传错误日志
         if error is not None:
             logs = LogModel(
                 level="ERROR",
-                contents=[{"message": error, "create_time": create_time(), "epoch": run.swanlog_epoch + 1}],
+                contents=[{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
             )
             upload_logs([logs])

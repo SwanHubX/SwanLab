@@ -11,17 +11,17 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from .model import *
-from ...env import get_swanlog_dir
+from ...data.store import get_run_store
 
 
 class Transfer(ABC):
     def __init__(self):
-        swanlog_dir = get_swanlog_dir()
         # 媒体目录和文件目录
-        self.media_dir = os.path.join(swanlog_dir, 'media')
-        self.files_dir = os.path.join(swanlog_dir, 'files')
+        run_store = get_run_store()
+        self.media_dir = run_store.media_dir
+        self.file_dir = run_store.file_dir
         assert os.path.exists(self.media_dir), f"Media directory {self.media_dir} does not exist"
-        assert os.path.exists(self.files_dir), f"Files directory {self.files_dir} does not exist"
+        assert os.path.exists(self.file_dir), f"Files directory {self.file_dir} does not exist"
 
     @abstractmethod
     def transfer_column(self, data: Any) -> ColumnModel:

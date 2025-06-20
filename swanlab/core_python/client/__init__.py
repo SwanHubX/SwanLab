@@ -11,7 +11,6 @@ from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
 from requests.adapters import HTTPAdapter
-from rich.status import Status
 from urllib3.util.retry import Retry
 
 from swanlab.error import NetworkError, ApiError
@@ -255,46 +254,44 @@ class Client:
         :param public: 项目是否公开
         :return: 项目信息
         """
-        with Status("Getting project...", spinner="dots"):
-            try:
-                data = {"name": name}
-                if username is not None:
-                    data["username"] = username
-                if public is not None:
-                    data["visibility"] = "PUBLIC" if public else "PRIVATE"
-                resp = self.post(f"/project", data=data)
-            except ApiError as e:
-                if e.resp.status_code == 409:
-                    # 项目已经存在，从对象中解析信息
-                    resp = decode_response(e.resp)
-                elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
-                    # WARNING: 早期 （私有化） swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
-                    self.__groupname = self.__groupname if username is None else username
-                    try:
-                        visibility = "PUBLIC" if public else "PRIVATE"
-                        resp = self.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
-                    except ApiError as e:
-                        # 如果为409，表示已经存在，获取项目信息
-                        if e.resp.status_code == 409:
-                            resp = self.get(f"/project/{self.groupname}/{name}")
-                        elif e.resp.status_code == 404:
-                            # 组织/用户不存在
-                            raise ValueError(f"Space `{self.groupname}` not found")
-                        elif e.resp.status_code == 403:
-                            # 权限不足
-                            raise ValueError(f"Space permission denied: " + self.groupname)
-                        else:
-                            raise e
-                    return ProjectInfo(resp)
-                else:
-                    # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
-                    raise e
-            # 设置当前项目所属的用户名
-            self.__groupname = resp['username']
-            # 获取详细信息
-            resp = self.get(f"/project/{self.groupname}/{name}")
-            project = ProjectInfo(resp)
-        self.__proj = project
+        try:
+            data = {"name": name}
+            if username is not None:
+                data["username"] = username
+            if public is not None:
+                data["visibility"] = "PUBLIC" if public else "PRIVATE"
+            resp = self.post(f"/project", data=data)
+        except ApiError as e:
+            if e.resp.status_code == 409:
+                # 项目已经存在，从对象中解析信息
+                resp = decode_response(e.resp)
+            elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
+                # WARNING: 早期 （私有化） swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
+                self.__groupname = self.__groupname if username is None else username
+                try:
+                    visibility = "PUBLIC" if public else "PRIVATE"
+                    resp = self.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                except ApiError as e:
+                    # 如果为409，表示已经存在，获取项目信息
+                    if e.resp.status_code == 409:
+                        resp = self.get(f"/project/{self.groupname}/{name}")
+                    elif e.resp.status_code == 404:
+                        # 组织/用户不存在
+                        raise ValueError(f"Space `{self.groupname}` not found")
+                    elif e.resp.status_code == 403:
+                        # 权限不足
+                        raise ValueError(f"Space permission denied: " + self.groupname)
+                    else:
+                        raise e
+                return ProjectInfo(resp)
+            else:
+                # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
+                raise e
+        # 设置当前项目所属的用户名
+        self.__groupname = resp['username']
+        # 获取详细信息
+        resp = self.get(f"/project/{self.groupname}/{name}")
+        self.__proj = ProjectInfo(resp)
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
@@ -304,20 +301,19 @@ class Client:
         :param description: 实验描述
         :param tags: 实验标签
         """
-        with Status("Getting experiment...", spinner="dots"):
-            post_data = {
-                "name": exp_name,
-                "colors": list(colors),
-            }
-            if description is not None:
-                post_data["description"] = description
-            if tags is not None:
-                post_data["labels"] = [{"name": tag} for tag in tags]
+        post_data = {
+            "name": exp_name,
+            "colors": list(colors),
+        }
+        if description is not None:
+            post_data["description"] = description
+        if tags is not None:
+            post_data["labels"] = [{"name": tag} for tag in tags]
 
-            data = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
-            self.__exp = ExperimentInfo(data)
-            # 获取cos信息
-            self.__get_cos()
+        data = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
+        self.__exp = ExperimentInfo(data)
+        # 获取cos信息
+        self.__get_cos()
 
     def update_state(self, success: bool):
         """
