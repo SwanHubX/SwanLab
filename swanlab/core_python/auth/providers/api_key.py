@@ -10,10 +10,10 @@ import sys
 from typing import Union
 
 import requests
-from swankit.env import is_windows
-from swankit.log import FONT
+from rich.status import Status
+from rich.text import Text
 
-from swanlab.env import in_jupyter
+from swanlab.env import is_windows
 from swanlab.error import ValidationError, APIKeyFormatError
 from swanlab.log import swanlog
 from swanlab.package import get_setting_url, get_host_api, get_host_web, fmt_web_host, save_key as sk
@@ -143,19 +143,21 @@ def input_api_key(
     _t = sys.excepthook
     sys.excepthook = _abort_tip
     if not again:
-        swanlog.info("You can find your API key at: " + FONT.yellow(get_setting_url()))
+        swanlog.info("You can find your API key at:", Text(get_setting_url(), "yellow"))
+    swanlog.info(tip, end='')
     # windows 额外打印提示信息
     if is_windows():
-        tip += (
-            '\nOn Windows, '
-            f'use {FONT.yellow("Ctrl + Shift + V")} or {FONT.yellow("right-click")} '
-            f'to paste the API key'
+        swanlog.console.print(
+            '\nOn Windows, ',
+            'use',
+            Text("Ctrl + Shift + V", 'yellow'),
+            'or',
+            Text("right-click", 'yellow'),
+            'to paste the API key',
+            end='',
         )
-    tip += ': '
-    tip = FONT.swanlab(tip)
-    ij = in_jupyter()
-    ij and print(tip)
-    key = getpass.getpass("" if ij else tip)
+    swanlog.console.print(': ', end='')
+    key = getpass.getpass("")
     sys.excepthook = _t
     return key
 
@@ -170,8 +172,8 @@ def code_login(api_key: str, save_key: bool = True) -> LoginInfo:
     :raise APIKeyFormatError: api_key格式错误
     """
     APIKeyFormatError.check(api_key)
-    tip = "Waiting for the swanlab cloud response."
-    login_info: LoginInfo = FONT.loading(tip, login_by_key, args=(api_key, 20, save_key), interval=0.5)
+    with Status("Waiting for the swanlab cloud response.", spinner="dots"):
+        login_info = login_by_key(api_key, 20, save_key)
     if login_info.is_fail:
         raise ValidationError("Login failed: " + str(login_info))
     return login_info

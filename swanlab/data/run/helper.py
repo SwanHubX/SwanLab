@@ -11,13 +11,10 @@ import threading
 from enum import Enum
 from typing import List, Union, Dict, Any, Tuple, Callable, Optional
 
-from swankit.callback import SwanKitCallback
-from swankit.callback.models import MetricInfo, ColumnInfo, RuntimeInfo
-from swankit.core import SwanLabSharedSettings
-
 from swanlab.data.run.webhook import try_send_webhook
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
+from swanlab.toolkit import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo, SwanLabSharedSettings
 
 OperatorReturnType = Dict[str, Any]
 

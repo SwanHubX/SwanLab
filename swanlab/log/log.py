@@ -9,17 +9,15 @@ import re
 import sys
 from typing import List, Tuple, Callable
 
-from swankit.env import create_time
-from swankit.log import SwanLabSharedLog
-
+from swanlab.toolkit import SwanKitLogger, create_time
 from .counter import AtomicCounter
 from .type import LogHandler, LogType, WriteHandler, LogData, LogContent, ProxyType
 
 
-class SwanLog(SwanLabSharedLog):
+class SwanLog(SwanKitLogger):
     """
     swanlab 日志类
-    继承自 SwanLabSharedLog 的同时增加标准输出、标准错误留拦截代理功能 ni
+    继承自 SwanKitLogger 的同时增加标准输出、标准错误留拦截代理功能
     """
 
     def __init__(self, name=__name__.lower(), level="info"):

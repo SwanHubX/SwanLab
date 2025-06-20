@@ -1,7 +1,6 @@
 from typing import List, Union
 
-from swankit.core.data import BaseType, MediaBuffer, MediaType
-
+from swanlab.toolkit import BaseType, MediaBuffer, MediaType
 from .audio import Audio
 from .custom_charts import echarts, Echarts, PyEchartsBase, PyEchartsTable
 from .image import Image

@@ -1,6 +1,7 @@
-from swankit.core import MediaBuffer, DataSuite as D, MediaType
-from typing import Union, Any, TYPE_CHECKING
 from io import BytesIO
+from typing import Union, Any, TYPE_CHECKING
+
+from swanlab.toolkit import MediaBuffer, DataSuite as D, MediaType
 
 if TYPE_CHECKING:
     # noinspection PyPackageRequirements

@@ -12,11 +12,11 @@ import pytest
 import requests_mock
 import responses
 from responses import registries
-from swankit.core import MediaBuffer
 
 from swanlab.core_python import create_client, Client, CosClient
 from swanlab.core_python.auth import login_by_key
 from swanlab.package import get_host_api
+from swanlab.toolkit import MediaBuffer
 from tutils import is_skip_cloud_test, TEMP_PATH, API_KEY
 from tutils.setup import *
 

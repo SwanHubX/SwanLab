@@ -37,10 +37,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypedDict
 
-from swankit.core.data import DataSuite as D
-from swankit.core.data import MediaBuffer, MediaType
-
 from swanlab.data.namer import hex_to_rgb, light_colors
+from swanlab.toolkit import DataSuite as D, MediaBuffer, MediaType
 
 try:
     import numpy as np

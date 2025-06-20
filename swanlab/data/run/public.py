@@ -1,7 +1,6 @@
-from swankit.core import SwanLabSharedSettings
-
 from swanlab.core_python import get_client
 from swanlab.env import get_mode
+from swanlab.toolkit import SwanLabSharedSettings
 
 
 class SwanlabCloudConfig:

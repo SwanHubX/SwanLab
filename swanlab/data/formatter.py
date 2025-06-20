@@ -13,7 +13,8 @@ import re
 from typing import Optional, Union, List
 
 import yaml
-from swankit.callback import SwanKitCallback
+
+from swanlab.toolkit import SwanKitCallback
 
 
 def check_string(target: str) -> bool:

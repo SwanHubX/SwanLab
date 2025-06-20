@@ -10,10 +10,9 @@ import platform
 import subprocess
 
 import psutil
-import os
-from swankit.env import is_macos
 
 from swanlab.data.run.metadata.hardware.type import HardwareFuncResult, HardwareCollector, HardwareInfoList
+from swanlab.toolkit import is_macos
 from .utils import CpuBaseCollector as C
 
 

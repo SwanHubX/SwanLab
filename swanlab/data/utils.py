@@ -8,9 +8,7 @@
 import os
 from typing import Union, Optional, List
 
-from swankit.callback import SwanKitCallback
-from swankit.env import SwanLabMode
-from swankit.log import FONT
+from rich.text import Text
 
 from swanlab.core_python import auth
 from swanlab.data.callbacker.cloud import CloudRunCallback
@@ -23,6 +21,7 @@ from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
 from swanlab.swanlab_settings import get_settings
+from swanlab.toolkit import SwanKitCallback, SwanLabMode
 
 
 def _check_proj_name(name: str) -> str:
@@ -118,7 +117,9 @@ def _init_mode(mode: str = None):
         # 判断当前进程是否在交互模式下
         if is_interactive():
             swanlog.info(
-                f"Using SwanLab to track your experiments. Please refer to {FONT.yellow('https://docs.swanlab.cn')} for more information."
+                f"Using SwanLab to track your experiments. Please refer to",
+                Text('https://docs.swanlab.cn', 'yellow'),
+                "for more information.",
             )
             swanlog.info("(1) Create a SwanLab account.")
             swanlog.info("(2) Use an existing SwanLab account.")
@@ -126,7 +127,7 @@ def _init_mode(mode: str = None):
 
             web_host = get_host_web()
             # 交互选择
-            tip = FONT.swanlab("Enter your choice: ")
+            tip = swanlog.info("Enter your choice: ")
             code = input(tip)
             while code not in ["1", "2", "3"]:
                 swanlog.warning("Invalid choice, please enter again.")
@@ -135,11 +136,11 @@ def _init_mode(mode: str = None):
                 mode = "local"
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
-                swanlog.info("Logging into " + FONT.yellow(web_host))
+                swanlog.info("Logging into", Text(web_host, 'yellow'))
                 login_info = auth.terminal_login()
             elif code == "1":
                 swanlog.info("You chose 'Create a swanlab account'")
-                swanlog.info("Create a SwanLab account here: " + FONT.yellow(web_host + "/login"))
+                swanlog.info("Create a SwanLab account here:", Text(web_host + "/login", 'yellow'))
                 login_info = auth.terminal_login()
             else:
                 raise ValueError("Invalid choice")

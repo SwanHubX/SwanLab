@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 
-from swankit.env import is_windows
+from swanlab.toolkit import is_windows
 
 try:
     from typing import Annotated, Literal, Optional  # Python 3.9+

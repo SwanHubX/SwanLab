@@ -6,11 +6,11 @@
 """
 
 import pytest
-from swankit.env import create_time
 
 from swanlab.log.backup.models import BaseModel, Log, Runtime
 from swanlab.log.backup.writer import write_runtime_info
 from swanlab.log.type import LogData, LogContent
+from swanlab.toolkit import create_time
 from tutils import TEMP_PATH
 
 
@@ -50,7 +50,7 @@ def test_log(log_type):
 @pytest.mark.parametrize("metadata", [None, {"key": "value"}])
 @pytest.mark.parametrize("config", [None, {"setting": "value"}])
 def test_runtime(conda, requirements, metadata, config):
-    from swankit.callback import RuntimeInfo
+    from swanlab.toolkit import RuntimeInfo
 
     # 1. runtime info -> runtime
     runtime_info = RuntimeInfo(requirements, metadata, config, conda)

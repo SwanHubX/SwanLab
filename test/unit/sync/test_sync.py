@@ -12,13 +12,13 @@ from typing import List
 import numpy as np
 import pytest
 from nanoid import generate
-from swankit.callback import MetricInfo
 
 import swanlab
 from swanlab import sync
 from swanlab.log.backup import BackupHandler
 from swanlab.log.backup.datastore import DataStore
 from swanlab.log.backup.models import ModelsParser
+from swanlab.toolkit import MetricInfo
 
 
 def test_sync():

@@ -5,13 +5,13 @@
 @description: 日志备份回调
 """
 
-from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
-from swankit.log import FONT
+from rich.text import Text
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
 from swanlab.log.backup import backup
 from swanlab.log.type import LogData
+from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo
 from ..run import get_run
 
 
@@ -28,9 +28,10 @@ class OfflineCallback(SwanLabRunCallback):
         提示用户可以通过命令上传日志到远程服务器
         """
         swanlog.info(
-            "☁️ Run `"
-            + FONT.bold("swanlab sync {}".format(self.fmt_windows_path(self.settings.run_dir)))
-            + "` to sync logs to remote server"
+            " ☁️ Run `",
+            Text("swanlab sync {}".format(self.fmt_windows_path(self.settings.run_dir))),
+            "` to sync logs to remote server",
+            sep="",
         )
 
     @backup("terminal")
@@ -51,7 +52,7 @@ class OfflineCallback(SwanLabRunCallback):
     def on_run(self, *args, **kwargs):
         self.handle_run()
         self._train_begin_print(self.settings.run_dir)
-        swanlog.info("Backing up run " + FONT.yellow(self.settings.exp_name) + " locally")
+        swanlog.info("Backing up run", Text(self.settings.exp_name, "yellow"), "locally")
         self._sync_tip_print()
 
     @backup('runtime')

@@ -8,10 +8,9 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict, Tuple, Optional, Any, List, Union
 
-from swankit.callback.models import ColumnConfig, YRange
-
 from swanlab.data.namer import generate_colors
 from swanlab.log import swanlog
+from swanlab.toolkit import ColumnConfig, YRange
 
 
 # 定义硬件信息类型

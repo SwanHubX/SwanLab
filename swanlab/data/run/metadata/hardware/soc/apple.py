@@ -10,8 +10,8 @@ import multiprocessing
 import subprocess
 
 import psutil
-from swankit.env import is_macos
 
+from swanlab.toolkit import is_macos
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
 from ..utils import CpuBaseCollector as C, MemoryBaseCollector as M
 

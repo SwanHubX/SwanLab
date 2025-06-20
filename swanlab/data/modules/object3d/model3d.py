@@ -2,8 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from swankit.core.data import DataSuite as D
-from swankit.core.data import MediaBuffer, MediaType
+from swanlab.toolkit import DataSuite as D, MediaBuffer, MediaType
 
 
 @dataclass()

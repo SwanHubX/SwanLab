@@ -9,11 +9,11 @@ import os.path
 
 from freezegun import freeze_time
 from nanoid import generate
-from swankit.core import SwanLabSharedSettings
 
 import tutils as T
 from swanlab.data.callbacker.local import LocalRunCallback
 from swanlab.log.type import LogData
+from swanlab.toolkit import SwanLabSharedSettings
 
 
 def test_local_write_handler(monkeypatch):

@@ -11,12 +11,11 @@ from typing import Optional, List, Literal, Tuple, Union
 
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
-from swankit.callback import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo
-from swankit.callback.models import ColumnClass, SectionType, YRange
-from swankit.core import ChartReference, MediaBuffer
 
 from swanlab.core_python import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
+from swanlab.toolkit import ChartReference, MediaBuffer
+from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
 
 
 class BaseModel(PydanticBaseModel):

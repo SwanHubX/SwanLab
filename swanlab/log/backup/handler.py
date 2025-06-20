@@ -10,13 +10,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 import wrapt
-from swankit.callback import ColumnInfo, MetricInfo, RuntimeInfo
-from swankit.env import create_time
 
 from swanlab.log.backup.datastore import DataStore
 from swanlab.log.backup.models import Experiment, Log, Project, Column, Runtime, Metric, Header, Footer
 from swanlab.log.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
+from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo, create_time
 
 
 def enable_check():
