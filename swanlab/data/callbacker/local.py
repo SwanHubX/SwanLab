@@ -8,10 +8,9 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 
 from rich.text import Text
 
-from swanlab.data.backup import backup
-from swanlab.data.backup.writer import write_media_buffer, write_runtime_info
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
+from ..backup import BackupHandler
 from ..run import get_run
 
 try:
@@ -41,8 +40,9 @@ from swanlab.log import swanlog
 
 class LocalRunCallback(SwanLabRunCallback):
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        super().__init__()
+        self.device = BackupHandler()
         self.board = swanboard.SwanBoardCallback()
         # 当前日志写入文件的句柄
         self.file: Optional[TextIO] = None
@@ -61,7 +61,6 @@ class LocalRunCallback(SwanLabRunCallback):
             sep="",
         )
 
-    @backup("terminal")
     def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
         if self.file is None:
@@ -79,9 +78,9 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         self.board.on_init(proj_name)
         # 设置项目缓存
-        self.backup.cache_proj_name = proj_name
-        self.backup.cache_workspace = workspace
-        self.backup.cache_public = public
+        self.device.cache_proj_name = proj_name
+        self.device.cache_workspace = workspace
+        self.device.cache_public = public
 
     def before_run(self, settings: SwanLabSharedSettings, *args, **kwargs):
         super().before_run(settings, *args, **kwargs)
@@ -109,7 +108,6 @@ class LocalRunCallback(SwanLabRunCallback):
         self._train_begin_print(self.settings.run_dir)
         self._watch_tip_print()
 
-    @backup("runtime")
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
         write_runtime_info(self.settings.files_dir, r)
@@ -117,7 +115,6 @@ class LocalRunCallback(SwanLabRunCallback):
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
 
-    @backup("column")
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
         # 屏蔽 board 不支持的图表类型和列类型
         if column_info.chart_type.value.chart_type not in ["line", "image", "audio", "text"]:
@@ -126,7 +123,6 @@ class LocalRunCallback(SwanLabRunCallback):
             return
         self.board.on_column_create(column_info)
 
-    @backup("metric")
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 对于指标保存，可以随意保存，因为这里与 dashboard 没有直接交互
         # 出现任何错误直接返回

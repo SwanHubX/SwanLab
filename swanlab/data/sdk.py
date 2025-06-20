@@ -14,7 +14,6 @@ from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
 from swanlab.toolkit import SwanKitCallback
-from .callbacker.cloud import CloudRunCallback
 from .formatter import check_load_json_yaml, check_callback_format
 from .modules import DataType
 from .run import (
@@ -60,7 +59,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
     # 检查host是否合法，并格式化，注入到环境变量中
     HostFormatter(host, web_host)()
     # 登录，初始化http对象
-    login_info = auth.code_login(api_key, save) if api_key else CloudRunCallback.create_login_info(save)
+    login_info = auth.code_login(api_key, save) if api_key else auth.create_login_info(save)
     create_client(login_info)
     if api_key:
         os.environ[SwanLabEnv.API_KEY.value] = api_key
@@ -206,7 +205,7 @@ class SwanLabInitializer:
             merge_settings(Settings(backup=True))
         elif mode == "disabled":
             merge_settings(Settings(backup=False))
-        # ---------------------------------- 创建文件夹 ----------------------------------
+        # ---------------------------------- 初始化文件夹 ----------------------------------
         # backup 模式、开启 backup 功能、local模式三种情况下需要创建文件夹，前两者等价于校验 “开启 backup 功能”
         if mode == "local" or get_settings().backup:
             env_key = SwanLabEnv.SWANLOG_FOLDER.value

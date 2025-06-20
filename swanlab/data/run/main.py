@@ -82,32 +82,24 @@ class SwanLabRun:
         self.__mode = get_mode()
         self.__swanlog_epoch = None
 
-        # 1. disabled 模式所有功能关闭，不自动创建文件夹
-        # 2. local 模式永远开启，此时永远自动创建文件夹
-        # 3. backup 模式开启备份功能，此时永远自动创建文件夹
-        # 4. cloud 模式开启云端服务，根据 backup 是否打开判断是否需要自动创建文件夹
-        if self.__mode == "disabled":
-            should_save = False
-        elif self.__mode == "local":
-            should_save = True
-        elif self.__mode == "offline":
-            should_save = True
-        elif self.__mode == "cloud":
-            should_save = swanlab_settings.backup
-        else:
-            raise RuntimeError(f"Unknown mode '{self.__mode}'")
+        # ---------------------------------- 初始化文件夹 ----------------------------------
 
         self.__settings = SwanLabSharedSettings(
             logdir=get_swanlog_dir(),
             run_id=self.__run_id,
-            should_save=should_save,
+            should_save=True,
             version=get_package_version(),
         )
+        assert os.path.exists(self.__settings.run_dir), "Run directory does not exist"
+        assert os.path.exists(self.__settings.files_dir), "Files directory does not exist"
+        assert os.path.exists(self.__settings.log_dir), "Log directory does not exist"
+        assert os.path.exists(self.__settings.media_dir), "Media directory does not exist"
+
         self.__public = SwanLabPublicConfig(self.__project_name, self.__settings)
         self.__operator.before_run(self.__settings)
-        # ---------------------------------- 初始化日志记录器 ----------------------------------
-        swanlog.level = check_log_level(log_level)
         # ---------------------------------- 初始化配置 ----------------------------------
+        # 初始化日志记录器
+        swanlog.level = check_log_level(log_level)
         # 如果config是以下几个类别之一，则抛出异常
         if isinstance(run_config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(

@@ -12,5 +12,6 @@ from .main import SwanLabRun, get_run, get_config, SwanLabRunState, get_url, get
 
 def register(*args, **kwargs) -> SwanLabRun:
     """注册并实例化SwanLabRun类"""
+
     run = SwanLabRun(*args, **kwargs)
     return run

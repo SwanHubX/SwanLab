@@ -6,5 +6,5 @@
 """
 
 from .model import *
-from .transfer import Transfer, PythonTransfer
+from .transfer import Transfer
 from .upload import *

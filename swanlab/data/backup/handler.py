@@ -9,53 +9,11 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
-import wrapt
+from swankit.callback import RuntimeInfo, MetricInfo
 
 from swanlab.data.backup.datastore import DataStore
-from swanlab.data.backup.writer import write_media_buffer, write_runtime_info
-from swanlab.log.type import LogData
-from swanlab.proto.v0 import Experiment, Log, Project, Column, Runtime, Metric, Header, Footer
-from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo, create_time
-
-
-def enable_check():
-    """
-    饰器工厂，根据实例属性决定是否执行函数
-    """
-
-    @wrapt.decorator
-    def wrapper(wrapped, instance, args, kwargs):
-        if getattr(instance, "enable", False):
-            return wrapped(*args, **kwargs)
-        return None
-
-    return wrapper
-
-
-def async_io(sync: bool = False):
-    """
-    类实例异步 IO 方法装饰器，判断是否需要备份
-    BackupHandler 实例携带一个线程池，使用此装饰器可以将被装饰的方法放入线程池中执行
-    这样能够避免在主线程中执行 IO 密集型操作，提升性能
-    """
-
-    @wrapt.decorator
-    def wrapper(wrapped, instance, args, kwargs):
-        if not getattr(instance, "enable", False):
-            return
-        if getattr(instance, "f", None) is None:
-            return
-        # 与 https://github.com/SwanHubX/SwanLab/issues/889 相同的问题
-        # 在回调中线程池已经关闭，我们需要在主线程中执行
-        if sync:
-            return wrapped(*args, **kwargs)
-
-        executor: Optional[ThreadPoolExecutor] = getattr(instance, "executor")
-        if executor is None or executor._shutdown:
-            return wrapped(*args, **kwargs)
-        executor.submit(wrapped, *args, **kwargs)
-
-    return wrapper
+from swanlab.proto.v0 import Experiment, Log, Project, Header, Footer, BaseModel
+from swanlab.toolkit import create_time
 
 
 class BackupHandler:
@@ -65,25 +23,20 @@ class BackupHandler:
 
     BACKUP_FILE = "backup.swanlab"
 
-    def __init__(self, enable: bool = True, backup_type: str = "DEFAULT", save_file: bool = True):
+    def __init__(self):
         super().__init__()
-        # 是否启用备份
-        self.enable = enable
-        self.backup_type = backup_type
         # 线程执行器
         self.executor: Optional[ThreadPoolExecutor] = None
         # 日志文件写入句柄
         self.f = DataStore()
         # 运行时文件备份目录
         self.files_dir: Optional[str] = None
-        self.save_file: bool = save_file
 
         # 动态设置包括项目名在内的一些属性，因为在 on_run 之前句柄还未创建，所以需要先缓存，等执行对应的函数的时候再使用
         self.cache_proj_name = None
         self.cache_workspace = None
         self.cache_public = None
 
-    @enable_check()
     def start(self, run_dir: str, files_dir: str, exp_name: str, description: str, tags: List[str]):
         """
         开启备份处理器，创建日志文件句柄
@@ -104,14 +57,13 @@ class BackupHandler:
             Header.model_validate(
                 {
                     "create_time": create_time(),
-                    "backup_type": self.backup_type,
+                    "backup_type": "DEFAULT",
                 }
             ).to_record()
         )
         self.backup_proj()
         self.backup_exp(exp_name, description, tags)
 
-    @enable_check()
     def stop(self, epoch: int, error: str = None):
         """
         停止备份处理器
@@ -132,16 +84,6 @@ class BackupHandler:
         self.f.close()
         self.f = None
 
-    @async_io()
-    def backup_terminal(self, log_data: LogData):
-        """
-        备份终端输出
-        """
-        logs = Log.from_log_data(log_data)
-        for log in logs:
-            self.f.write(log.to_record())
-
-    @async_io()
     def backup_proj(self):
         """
         备份项目信息
@@ -155,7 +97,6 @@ class BackupHandler:
         )
         self.f.write(project.to_record())
 
-    @async_io()
     def backup_exp(self, exp_name: str, description: str, tags: List[str]):
         """
         备份实验信息
@@ -169,46 +110,35 @@ class BackupHandler:
         )
         self.f.write(experiment.to_record())
 
-    @async_io()
-    def backup_column(self, column_info: ColumnInfo):
-        """
-        备份指标列信息
-        """
-        column = Column.from_column_info(column_info)
-        self.f.write(column.to_record())
+    def backup(self, data: BaseModel):
+        self.f.write(data.to_record())
 
-    @async_io()
-    def backup_runtime(self, runtime_info: RuntimeInfo):
+    def write_runtime_info(self, runtime_info: RuntimeInfo):
         """
-        备份运行时信息
+        写入运行时信息
         """
-        runtime = Runtime.from_runtime_info(runtime_info)
-        self.f.write(runtime.to_record())
-        if self.save_file:
-            write_runtime_info(self.files_dir, runtime_info)
+        if runtime_info.requirements is not None:
+            runtime_info.requirements.write(self.files_dir)
+        if runtime_info.metadata is not None:
+            runtime_info.metadata.write(self.files_dir)
+        if runtime_info.config is not None:
+            runtime_info.config.write(self.files_dir)
+        if runtime_info.conda is not None:
+            runtime_info.conda.write(self.files_dir)
 
-    @async_io()
-    def backup_metric(self, metric_info: MetricInfo):
+    @staticmethod
+    def write_media_buffer(metric_info: MetricInfo):
         """
-        备份指标信息
+        写入媒体信息
         """
-        metric = Metric.from_metric_info(metric_info)
-        self.f.write(metric.to_record())
-        if self.save_file:
-            write_media_buffer(metric_info)
-
-
-def backup(method: str):
-    """
-    备份装饰器，用于在方法执行前进行备份操作
-    """
-
-    @wrapt.decorator
-    def wrapper(wrapped, obj, args, kwargs):
-        # 执行备份操作
-        backup_obj = getattr(obj, "backup")
-        getattr(backup_obj, f"backup_{method}")(*args, **kwargs)
-        # 执行原方法
-        wrapped(*args, **kwargs)
-
-    return wrapper
+        if metric_info.metric_buffers is None:
+            return
+        for i, r in enumerate(metric_info.metric_buffers):
+            if r is None:
+                continue
+            # 组合路径
+            path = os.path.join(metric_info.swanlab_media_dir, metric_info.column_info.kid)
+            os.makedirs(path, exist_ok=True)
+            # 写入数据
+            with open(os.path.join(path, metric_info.metric["data"][i]), "wb") as f:
+                f.write(r.getvalue())

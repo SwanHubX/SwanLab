@@ -181,6 +181,21 @@ class Column(BaseModel):
         """
         从 ColumnInfo 对象创建 Column 实例
         """
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
+        # 这里有些比较抽象的地方：
+        # 云端版会自动处理不同类型的数据放在不同的组中，所以如果key没有设置成 {section}/{name} 之类的样式，不需要传递section的名称
+        # 但是本地版不会，本地版依靠swanlab的处理结果指定列，所以在Data类型上必须定义获取section_name的方法
+        # 云端版不需要这样做，因为云端版会自动处理
+        # 因为云端版的设计更加先进，云端版对“列”（本地版叫namespace）做了不同的类型标注，但是本地版没有这个概念
+        # 所以这里需要判断一下，如果列类型不为SYSTEM且不是 {section}/{name} 之类的格式，就不传递section_name
+        if column_info.section_type == "PUBLIC":
+            section_name = None if "/" not in column_info.key else column_info.section_name
+        elif column_info.section_type == "SYSTEM":
+            section_name = column_info.section_name
+        else:
+            section_name = None
         return cls.model_validate(
             {
                 "key": column_info.key,
@@ -189,10 +204,10 @@ class Column(BaseModel):
                 "cls": column_info.cls,
                 "column_type": column_info.chart_type.value.column_type,
                 "chart_reference": column_info.chart_reference,
-                "section_name": column_info.section_name,
+                "section_name": section_name,
                 "section_type": column_info.section_type,
                 "section_sort": column_info.section_sort,
-                "error": column_info.error.dict() if column_info.error else None,
+                "error": error,
                 "y_range": column_info.config.y_range if column_info.config else None,
                 "chart_name": column_info.config.chart_name if column_info.config else None,
                 "chart_index": column_info.config.chart_index if column_info.config else None,

@@ -11,8 +11,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from .model import *
-from .thread import ThreadPool, UploadType
-from .. import get_client
 from ...env import get_swanlog_dir
 
 
@@ -55,7 +53,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def publish_column(self, data: list[Any]):
+    def publish_column(self, data: Any):
         """
         发布列任务
         :param data: 列数据列表
@@ -63,7 +61,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def publish_scalar(self, data: list[Any]):
+    def publish_scalar(self, data: Any):
         """
         发布指标任务
         :param data: 指标数据列表
@@ -71,7 +69,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def publish_media(self, data: list[Any]):
+    def publish_media(self, data: Any):
         """
         发布媒体任务
         :param data: 媒体数据列表
@@ -79,7 +77,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def publish_file(self, data: list[Any]):
+    def publish_file(self, data: Any):
         """
         发布文件任务
         :param data: 文件数据列表
@@ -87,7 +85,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def publish_log(self, data: list[Any]):
+    def publish_log(self, data: Any):
         """
         发布日志任务
         :param data: 日志数据列表
@@ -95,71 +93,8 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def join(self):
+    def join(self, error: str = None):
         """
         等待上传线程池完成所有任务
         """
         pass
-
-
-class PythonTransfer(Transfer, ABC):
-    """
-    Python 版本上传器，上传服务运行在子线程中
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        assert self.media_dir is not None, "Media directory must be specified"
-        self._client = get_client(allow_none=True)
-        assert self._client is not None, "Client must be initialized before using Transfer"
-        # 上传线程池
-        self._pool = ThreadPool()
-
-    def start(self):
-        pass
-
-    def publish_column(self, data: list[Any]):
-        """
-        发布列任务
-        :param data: 列数据列表
-        """
-        columns = [self.transfer_column(item) for item in data]
-        return self._pool.queue.put((UploadType.COLUMN, columns))
-
-    def publish_scalar(self, data: list[Any]):
-        """
-        发布指标任务
-        :param data: 指标数据列表
-        """
-        scalars = [self.transfer_scalar(item) for item in data]
-        return self._pool.queue.put((UploadType.SCALAR_METRIC, scalars))
-
-    def publish_media(self, data: list[Any]):
-        """
-        发布媒体任务
-        :param data: 媒体数据列表
-        """
-        medias = [self.transfer_media(item) for item in data]
-        self._pool.queue.put((UploadType.MEDIA_METRIC, medias))
-
-    def publish_file(self, data: list[Any]):
-        """
-        发布文件任务
-        :param data: 文件数据列表
-        """
-        files = [self.transfer_file(item) for item in data]
-        self._pool.queue.put((UploadType.FILE, files))
-
-    def publish_log(self, data: list[Any]):
-        """
-        发布日志任务
-        :param data: 日志数据列表
-        """
-        logs = [self.transfer_log(item) for item in data]
-        self._pool.queue.put((UploadType.LOG, logs))
-
-    def join(self):
-        """
-        等待上传线程池完成所有任务
-        """
-        self._pool.finish()

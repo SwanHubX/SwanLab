@@ -7,15 +7,14 @@
 """
 
 from swanlab.core_python import (
-    PythonTransfer,
     ColumnModel,
     MediaModel,
     FileModel,
     LogModel,
     ScalarModel,
 )
-
 from swanlab.proto.v0 import Log, Column, Media, Runtime, Scalar
+from .py import PythonTransfer
 
 
 class ProtoV0Transfer(PythonTransfer):
@@ -34,3 +33,18 @@ class ProtoV0Transfer(PythonTransfer):
 
     def transfer_log(self, data: Log) -> LogModel:
         return data.to_log_model()
+
+    def publish_column(self, data: Log):
+        super().publish_column(data)
+
+    def publish_media(self, data: Media):
+        super().publish_media(data)
+
+    def publish_scalar(self, data: Scalar):
+        super().publish_scalar(data)
+
+    def publish_file(self, data: Runtime):
+        super().publish_file(data)
+
+    def publish_log(self, data: Log):
+        super().publish_log(data)

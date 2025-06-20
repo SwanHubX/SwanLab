@@ -15,7 +15,6 @@ from typing import Optional
 
 from rich.text import Text
 
-from swanlab.data.backup import BackupHandler
 from swanlab.data.run import SwanLabRunState, get_run
 from swanlab.env import is_windows
 from swanlab.log import swanlog
@@ -112,9 +111,8 @@ class SwanLabRunCallback(SwanKitCallback, U):
     4. 所有回调不要求全部实现，只需实现需要的回调即可
     """
 
-    def __init__(self, backup=False, save_file=True):
+    def __init__(self):
         super(U, self).__init__()
-        self.backup = BackupHandler(enable=backup, save_file=save_file)
 
     def _register_sys_callback(self):
         """

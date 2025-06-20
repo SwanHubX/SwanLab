@@ -11,7 +11,7 @@ from typing import Union, Optional, List
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.callbacker.cloud import CloudRunCallback
+from swanlab.data.callbacker.cloud import CloudPyCallback
 from swanlab.data.callbacker.offline import OfflineCallback
 from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
 from swanlab.data.run import SwanLabRun
@@ -201,17 +201,17 @@ def _create_operator(
     # 1.2. 云端模式
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息
-        CloudRunCallback.login_info = login_info
-        c.append(CloudRunCallback(backup=backup))
+        CloudPyCallback.login_info = login_info
+        c.append(CloudPyCallback())
     # 1.3. 本地模式
     elif mode == SwanLabMode.LOCAL.value:
         from .callbacker.local import LocalRunCallback
 
         # 本地模式不保存 media，由回调同步保存
-        c.append(LocalRunCallback(backup=backup, save_file=False))
+        c.append(LocalRunCallback())
     # 1.4 . 备份模式
     elif mode == SwanLabMode.OFFLINE.value:
-        c.append(OfflineCallback(backup=True))
+        c.append(OfflineCallback())
     # 1.5. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():
