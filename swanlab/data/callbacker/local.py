@@ -8,11 +8,9 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 
 import random
 
-from rich.text import Text
-
-from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
+from . import utils
 from ..namer import generate_colors
 from ..store import get_run_store
 from ...proto.v0 import Column
@@ -36,35 +34,20 @@ import json
 import os
 from datetime import datetime
 from typing import Tuple, Optional, TextIO
-
 from swanlab.toolkit import RuntimeInfo, MetricInfo
-from swanlab.data.run.callback import SwanLabRunCallback
-from swanlab.log import swanlog
+from swanlab.data.callbacker.callback import SwanLabRunCallback
 
 
 class LocalRunCallback(SwanLabRunCallback):
 
     def __init__(self) -> None:
-        self.device = BackupHandler()
+        super().__init__()
         self.board = swanboard.SwanBoardCallback()
-        self.run_store = get_run_store()
         # 当前日志写入文件的句柄
         self.file: Optional[TextIO] = None
 
     def __str__(self):
         return "SwanLabLocalRunCallback"
-
-    def _watch_tip_print(self):
-        """
-        watch命令提示打印
-        """
-        run_store = get_run_store()
-        swanlog.info(
-            "🌟 Run `",
-            Text("swanlab watch {}".format(self.fmt_windows_path(run_store.swanlog_dir)), "bold"),
-            "` to view SwanLab Experiment Dashboard locally",
-            sep="",
-        )
 
     def _terminal_handler(self, log_data: LogData):
         log_name = f"{datetime.now().strftime('%Y-%m-%d')}.log"
@@ -113,21 +96,10 @@ class LocalRunCallback(SwanLabRunCallback):
             os.path.basename(run_store.run_dir), exp_name, description, colors=colors, num=1
         )
 
-    def on_run(self):
-        self.device.start(
-            file_dir=self.run_store.file_dir,
-            backup_file=self.run_store.backup_file,
-            run_name=self.run_store.run_name,
-            workspace=self.run_store.workspace,
-            visibility=self.run_store.visibility,
-            description=self.run_store.description,
-            tags=self.run_store.tags,
-        )
-        self.handle_run()
-        run_store = get_run_store()
-        # 打印信息
-        self._train_begin_print(run_store.run_dir)
-        self._watch_tip_print()
+    def on_run(self, *args, **kwargs):
+        super().on_run(*args, **kwargs)
+        utils.print_train_begin(self.run_store.run_dir)
+        utils.print_watch(self.run_store.swanlog_dir)
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
@@ -166,6 +138,7 @@ class LocalRunCallback(SwanLabRunCallback):
         训练结束，取消系统回调
         此函数被`run.finish`调用
         """
+
         # 写入错误信息
         if error is not None:
             with open(os.path.join(get_run_store().console_dir, "error.log"), "a") as fError:
@@ -173,6 +146,5 @@ class LocalRunCallback(SwanLabRunCallback):
                 print(error, file=fError)
         self.board.on_stop(error)
         # 打印信息
-        self._watch_tip_print()
-        self.device.stop(error=error, epoch=swanlog.epoch + 1)
-        self._unregister_sys_callback()
+        utils.print_watch(self.run_store.run_dir)
+        super().on_stop(error)

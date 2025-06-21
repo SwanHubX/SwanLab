@@ -5,12 +5,14 @@
 @description: 回调工具
 """
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 import wrapt
 from rich.text import Text
 
 from swanlab.core_python import get_client
+from swanlab.env import is_windows
 from swanlab.log import swanlog
 from swanlab.package import get_package_latest_version, get_package_version
 
@@ -37,6 +39,77 @@ def async_io(sync: bool = False):
     return wrapper
 
 
+def print_train_begin(run_dir: str = None):
+    """
+    训练开始时的打印信息
+    :param run_dir: 运行目录
+    """
+    swanlog.debug("SwanLab Runtime has initialized")
+    swanlog.debug("SwanLab will take over all the print information of the terminal from now on")
+    swanlog.info("Tracking run with swanlab version " + get_package_version())
+    local_path = Text(_fmt_windows_path(run_dir), "magenta bold")
+    swanlog.info("Run data will be saved locally in", local_path)
+
+
+def print_train_finish(run_name: str):
+    """
+    打印结束信息
+    """
+    swanlog.info("Experiment", Text(run_name, "yellow"), "has completed")
+
+
+def print_watch(swanlog_dir):
+    """
+    watch命令提示打印
+    :param swanlog_dir: swanlog目录
+    """
+    swanlog.info(
+        "🌟 Run `",
+        Text("swanlab watch {}".format(_fmt_windows_path(swanlog_dir)), "bold"),
+        "` to view SwanLab Experiment Dashboard locally",
+        sep="",
+    )
+
+
+def print_sync(run_dir: str):
+    """
+    提示用户可以通过命令上传日志到远程服务器
+    """
+    swanlog.info(
+        " ☁️ Run `",
+        Text("swanlab sync {}".format(_fmt_windows_path(run_dir))),
+        "` to sync logs to remote server",
+        sep="",
+    )
+
+
+def _fmt_windows_path(path: str) -> str:
+    """这主要针对windows环境，输入的绝对路径可能不包含盘符，这里进行补充
+    主要是用于打印效果
+    如果不是windows环境，直接返回path，相当于没有调用这个函数
+
+    Parameters
+    ----------
+    path : str
+        待转换的路径
+
+    Returns
+    -------
+    str
+        增加了盘符的路径
+    """
+    if not is_windows():
+        return path
+    if not os.path.isabs(path):
+        return path
+    need_add = len(path) < 3 or path[1] != ":"
+    # 处理反斜杠, 保证路径的正确性
+    path = path.replace("/", "\\")
+    if need_add:
+        return os.path.join(os.getcwd()[:2], path)
+    return path
+
+
 def check_latest_version():
     """
     获取指定包的最新版本号
@@ -47,7 +120,10 @@ def check_latest_version():
         swanlog.info(f"swanlab version {latest_version} is available!  Upgrade: `pip install -U swanlab`")
 
 
-def view_cloud_web():
+def print_cloud_web():
+    """
+    显示云端实验的链接
+    """
     http = get_client()
     proj_url, exp_url = http.web_proj_url, http.web_exp_url
     swanlog.info("🏠 View project at", Text(proj_url, "blue underline"))
