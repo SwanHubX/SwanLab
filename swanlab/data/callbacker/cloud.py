@@ -20,7 +20,6 @@ from swanlab.toolkit import (
     RuntimeInfo,
     MetricInfo,
     ColumnInfo,
-    create_time,
 )
 from swanlab.transfers import ProtoV0Transfer
 from .utils import show_button_html, check_latest_version, view_cloud_web, async_io
@@ -41,6 +40,7 @@ class CloudPyCallback(SwanLabRunCallback):
         self.transfer = ProtoV0Transfer(media_dir=run_store.media_dir, file_dir=run_store.file_dir)
         self.device = BackupHandler()
         self.executor = ThreadPoolExecutor(max_workers=1)
+        self.run_store = run_store
         self.exiting = False
         """
         标记是否正在退出云端环境
@@ -86,16 +86,23 @@ class CloudPyCallback(SwanLabRunCallback):
             )
 
     def on_run(self, *args, **kwargs):
-        self.device.start()
+        self.device.start(
+            file_dir=self.run_store.file_dir,
+            backup_file=self.run_store.backup_file,
+            run_name=self.run_store.run_name,
+            workspace=self.run_store.workspace,
+            visibility=self.run_store.visibility,
+            description=self.run_store.description,
+            tags=self.run_store.tags,
+        )
         # 注册运行状态
         self.handle_run()
         # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
         swanlab_settings = get_settings()
-        run_store = get_run_store()
-        self._train_begin_print(save_dir=run_store.run_dir if swanlab_settings.backup else None)
+        self._train_begin_print(save_dir=self.run_store.run_dir if swanlab_settings.backup else None)
         http = get_client()
         swanlog.info("👋 Hi ", Text(http.username, "bold default"), ",welcome to swanlab!", sep="")
-        swanlog.info("Syncing run", Text(run_store.run_name, "yellow"), "to the cloud")
+        swanlog.info("Syncing run", Text(self.run_store.run_name, "yellow"), "to the cloud")
         experiment_url = view_cloud_web()
         # 在Jupyter Notebook环境下，显示按钮
         if in_jupyter():
@@ -111,7 +118,7 @@ class CloudPyCallback(SwanLabRunCallback):
     @async_io()
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         runtime = Runtime.from_runtime_info(r)
-        self.device.write_runtime_info(r)
+        self.device.write_runtime_info(r, self.run_store.file_dir)
         self.device.backup(runtime)
         self.transfer.publish_file(runtime)
 
@@ -160,11 +167,7 @@ class CloudPyCallback(SwanLabRunCallback):
             run = get_run()
             assert run is not None, "run must be initialized"
             assert not run.running, "Run must not be running when joining the transfer pool"
-            logs = LogModel(
-                level="ERROR",
-                contents=[{"message": error, "create_time": create_time(), "epoch": error_epoch}],
-            )
-            upload_logs([logs])
+            self.transfer.upload_error(error, error_epoch)
         get_client().update_state(state == SwanLabRunState.SUCCESS)
         reset_client()
         # 取消注册系统回调

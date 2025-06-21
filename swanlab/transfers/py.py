@@ -9,6 +9,7 @@ from abc import ABC
 from typing import Any
 
 from swanlab.core_python import *
+from swanlab.core_python.uploader import Transfer
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 
 

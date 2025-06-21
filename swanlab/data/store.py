@@ -6,6 +6,7 @@
 NOTE: 只允许在 swanlab/data 模块下访问，其他地方不允许访问
 """
 
+import inspect
 import os.path
 
 from pydantic import BaseModel
@@ -70,6 +71,17 @@ run_store = RunStore()
 
 
 def get_run_store():
+    """
+    此模块只允许在 swanlab/data 模块下访问
+    为了提高性能，建议尽量减少对此函数的调用次数
+    """
+    frame = inspect.currentframe()
+    try:
+        caller_module = frame.f_back.f_globals.get('__name__', '')
+        if not caller_module.startswith('swanlab.data'):
+            raise RuntimeError("get_run_store() can only be called from swanlab.data module.")
+    finally:
+        del frame
     global run_store
     return run_store
 

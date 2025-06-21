@@ -15,6 +15,7 @@ from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
 from ..namer import generate_colors
 from ..store import get_run_store
+from ...proto.v0 import Column
 
 try:
     # noinspection PyPackageRequirements
@@ -46,6 +47,7 @@ class LocalRunCallback(SwanLabRunCallback):
     def __init__(self) -> None:
         self.device = BackupHandler()
         self.board = swanboard.SwanBoardCallback()
+        self.run_store = get_run_store()
         # 当前日志写入文件的句柄
         self.file: Optional[TextIO] = None
 
@@ -112,7 +114,15 @@ class LocalRunCallback(SwanLabRunCallback):
         )
 
     def on_run(self):
-        self.device.start()
+        self.device.start(
+            file_dir=self.run_store.file_dir,
+            backup_file=self.run_store.backup_file,
+            run_name=self.run_store.run_name,
+            workspace=self.run_store.workspace,
+            visibility=self.run_store.visibility,
+            description=self.run_store.description,
+            tags=self.run_store.tags,
+        )
         self.handle_run()
         run_store = get_run_store()
         # 打印信息
@@ -121,12 +131,14 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
-        self.device.write_runtime_info(r)
+        self.device.write_runtime_info(r, self.run_store.file_dir)
 
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
 
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
+        column = Column.from_column_info(column_info)
+        self.device.backup(column)
         # 屏蔽 board 不支持的图表类型和列类型
         if column_info.chart_type.value.chart_type not in ["line", "image", "audio", "text"]:
             return

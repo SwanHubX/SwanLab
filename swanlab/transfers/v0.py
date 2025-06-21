@@ -6,14 +6,9 @@
 此版本无法通过 core 上传数据
 """
 
-from swanlab.core_python import (
-    ColumnModel,
-    MediaModel,
-    FileModel,
-    LogModel,
-    ScalarModel,
-)
+from swanlab.core_python.uploader import ColumnModel, MediaModel, FileModel, LogModel, ScalarModel, upload_logs
 from swanlab.proto.v0 import Log, Column, Media, Runtime, Scalar
+from swanlab.toolkit import create_time
 from .py import PythonTransfer
 
 
@@ -48,3 +43,11 @@ class ProtoV0Transfer(PythonTransfer):
 
     def publish_log(self, data: Log):
         super().publish_log(data)
+
+    @staticmethod
+    def upload_error(error: str, epoch: int):
+        logs = LogModel(
+            level="ERROR",
+            contents=[{"message": error, "create_time": create_time(), "epoch": epoch}],
+        )
+        upload_logs([logs])

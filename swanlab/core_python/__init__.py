@@ -8,5 +8,3 @@
 """
 
 from .client import *
-from .uploader import *
-from .uploader import thread
