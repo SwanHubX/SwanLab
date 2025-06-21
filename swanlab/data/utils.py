@@ -20,7 +20,6 @@ from swanlab.env import is_interactive, SwanLabEnv
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
-from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback, SwanLabMode
 
 
@@ -168,7 +167,6 @@ def _create_operator(
     :return: SwanLabRunOperator, CloudRunCallback
     """
     c = []
-    backup = get_settings().backup
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")

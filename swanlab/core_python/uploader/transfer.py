@@ -11,15 +11,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from .model import *
-from ...data.store import get_run_store
 
 
 class Transfer(ABC):
-    def __init__(self):
+    def __init__(self, media_dir, file_dir):
         # 媒体目录和文件目录
-        run_store = get_run_store()
-        self.media_dir = run_store.media_dir
-        self.file_dir = run_store.file_dir
+        self.media_dir = media_dir
+        self.file_dir = file_dir
         assert os.path.exists(self.media_dir), f"Media directory {self.media_dir} does not exist"
         assert os.path.exists(self.file_dir), f"Files directory {self.file_dir} does not exist"
 
@@ -93,7 +91,7 @@ class Transfer(ABC):
         pass
 
     @abstractmethod
-    def join(self, error: str = None):
+    def join(self):
         """
         等待上传线程池完成所有任务
         """

@@ -9,10 +9,11 @@ from .wandb import sync_wandb
 
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
-from ..core_python import get_client, uploader
+from ..core_python import get_client
 from ..data.namer import generate_colors
+from swanlab.transfers import ProtoV0Transfer
 from ..log import swanlog
-from swanlab.data.backup import BackupHandler, DataStore
+from swanlab.log.backup import BackupHandler, DataStore
 from swanlab.proto.v0 import ModelsParser
 
 
@@ -52,24 +53,10 @@ def sync(
                         continue
                     models_parser.parse_record(record)
             header, project, experiment, logs, runtime, columns, scalars, medias, footer = models_parser.get_parsed()
-            # 0. 检查备份文件
+            # 检查备份文件
             assert (
                 header.backup_type == "DEFAULT"
             ), f"Backup type mismatch: {header.backup_type}, please update your swanlab package."
-            # 1. 聚合信息
-            # 1.1 聚合日志
-            log_model_dict = {"INFO": [], "WARN": [], "ERROR": []}
-            for log in logs:
-                log_model = log.to_log_model()
-                log_model_dict[log_model['level']].append(log_model)
-            # 1.2 生成运行时
-            runtime_model = runtime.to_file_model(os.path.join(dir_path, "files"))
-            # 1.3 集合列
-            column_models = [c.to_column_model() for c in columns]
-            # 1.4 集合指标
-            scalar_models = [scalar.to_scalar_model() for scalar in scalars]
-            # 1.5 集合媒体
-            media_models = [media.to_media_model(os.path.join(dir_path, "media")) for media in medias]
             assert client is not None, "Please log in first, use `swanlab login` to log in."
     except Exception as e:
         if raise_error:
@@ -79,6 +66,7 @@ def sync(
     # 第二部分，上传数据到云端
     try:
         # 3. 上传数据
+        transfer = ProtoV0Transfer(media_dir=os.path.join(dir_path, "media"), file_dir=os.path.join(dir_path, "files"))
         # 3.1 创建项目与实验
         client.mount_project(
             name=project_name or project.name,
@@ -93,16 +81,12 @@ def sync(
             tags=experiment.tags,
         )
         with Status("🔁 Syncing...", spinner="dots"):
-            # 3.2 上传日志
-            for key in log_model_dict:
-                if len(log_model_dict[key]) > 0:
-                    uploader.upload_logs(log_model_dict[key])
-            # 3.3 上传运行时
-            uploader.upload_files([runtime_model])
-            # 3.4 上传列、标量、媒体
-            uploader.upload_columns(column_models)
-            uploader.upload_scalar_metrics(scalar_models)
-            uploader.upload_media_metrics(media_models)
+            transfer.publish_file(runtime)
+            [transfer.publish_log(log) for log in logs]
+            [transfer.publish_column(column) for column in columns]
+            [transfer.publish_scalar(scalar) for scalar in scalars]
+            [transfer.publish_media(media) for media in medias]
+            transfer.join()
             # 3.5 更新实验状态
             client.update_state(success=footer.success if footer else False)
     except Exception as e:

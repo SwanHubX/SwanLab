@@ -9,7 +9,7 @@ import os.path
 
 from nanoid import generate
 
-from swanlab.data.backup.datastore import DataStore
+from swanlab.log.backup.datastore import DataStore
 from tutils import TEMP_PATH
 
 logs = [generate(size=l) for l in range(1, 100001, 1000)]

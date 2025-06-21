@@ -34,7 +34,7 @@ class ProtoV0Transfer(PythonTransfer):
     def transfer_log(self, data: Log) -> LogModel:
         return data.to_log_model()
 
-    def publish_column(self, data: Log):
+    def publish_column(self, data: Column):
         super().publish_column(data)
 
     def publish_media(self, data: Media):

@@ -10,9 +10,6 @@ from typing import Any
 
 from swanlab.core_python import *
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
-from swanlab.toolkit import create_time
-from ..run.main import get_run
-from ...log import swanlog
 
 
 class PythonTransfer(Transfer, ABC):
@@ -66,18 +63,9 @@ class PythonTransfer(Transfer, ABC):
         """
         self._pool.queue.put((UploadType.LOG, [self.transfer_log(data)]))
 
-    def join(self, error: str = None):
+    def join(self):
         """
         等待上传线程池完成所有任务
+        如果 error 存在，则会上传错误日志
         """
         self._pool.finish()
-        run = get_run()
-        assert run is not None, "run must be initialized"
-        assert not run.running, "Run must not be running when joining the transfer pool"
-        # 上传错误日志
-        if error is not None:
-            logs = LogModel(
-                level="ERROR",
-                contents=[{"message": error, "create_time": create_time(), "epoch": swanlog.epoch + 1}],
-            )
-            upload_logs([logs])

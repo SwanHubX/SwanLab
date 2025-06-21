@@ -9,15 +9,16 @@ from rich.text import Text
 
 from swanlab.data.run.callback import SwanLabRunCallback
 from swanlab.log import swanlog
+from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo
-from ..backup import BackupHandler
-from ..run import get_run
+from ..store import get_run_store
 
 
 class OfflineCallback(SwanLabRunCallback):
     def __init__(self):
         self.device = BackupHandler()
+        self.run_store = get_run_store()
 
     def __str__(self) -> str:
         return "SwanLabOfflineCallback"
@@ -29,7 +30,7 @@ class OfflineCallback(SwanLabRunCallback):
         """
         swanlog.info(
             " ☁️ Run `",
-            Text("swanlab sync {}".format(self.fmt_windows_path(self.settings.run_dir))),
+            Text("swanlab sync {}".format(self.fmt_windows_path(self.run_store.run_dir))),
             "` to sync logs to remote server",
             sep="",
         )
@@ -50,8 +51,8 @@ class OfflineCallback(SwanLabRunCallback):
 
     def on_run(self, *args, **kwargs):
         self.handle_run()
-        self._train_begin_print(self.settings.run_dir)
-        swanlog.info("Backing up run", Text(self.settings.exp_name, "yellow"), "locally")
+        self._train_begin_print(self.run_store.run_dir)
+        swanlog.info("Backing up run", Text(self.run_store.run_name, "yellow"), "locally")
         self._sync_tip_print()
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
@@ -65,5 +66,5 @@ class OfflineCallback(SwanLabRunCallback):
 
     def on_stop(self, error: str = None, *args, **kwargs):
         self._sync_tip_print()
-        self.device.stop(error=error, epoch=get_run().swanlog_epoch + 1)
+        self.device.stop(error=error, epoch=swanlog.epoch + 1)
         self._unregister_sys_callback()

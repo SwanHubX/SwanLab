@@ -13,20 +13,21 @@ from rich.status import Status
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.backup import BackupHandler
 from swanlab.env import in_jupyter
 from swanlab.log import swanlog
+from swanlab.log.backup import BackupHandler
 from swanlab.toolkit import (
     RuntimeInfo,
     MetricInfo,
     ColumnInfo,
+    create_time,
 )
+from swanlab.transfers import ProtoV0Transfer
 from .utils import show_button_html, check_latest_version, view_cloud_web, async_io
 from .. import namer as N
 from ..run import get_run, SwanLabRunState
 from ..run.callback import SwanLabRunCallback
 from ..store import get_run_store
-from ..transfers.v0 import ProtoV0Transfer
 from ...core_python import *
 from ...log.type import LogData
 from ...proto.v0 import Log, Runtime, Column, Metric
@@ -36,7 +37,8 @@ from ...swanlab_settings import get_settings
 class CloudPyCallback(SwanLabRunCallback):
 
     def __init__(self):
-        self.transfer = ProtoV0Transfer()
+        run_store = get_run_store()
+        self.transfer = ProtoV0Transfer(media_dir=run_store.media_dir, file_dir=run_store.file_dir)
         self.device = BackupHandler()
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.exiting = False
@@ -149,10 +151,20 @@ class CloudPyCallback(SwanLabRunCallback):
         view_cloud_web()
         state = run.state
         sys.excepthook = self._except_handler
-        self.device.stop(error=error, epoch=swanlog.epoch + 1)
-        swanlog.info("Waiting for uploading complete")
+        error_epoch = swanlog.epoch + 1
+        self.device.stop(error=error, epoch=error_epoch)
         # 关闭线程池，等待上传线程完成
-        self.transfer.join(error)
+        self.transfer.join()
+        # 上传错误日志
+        if error is not None:
+            run = get_run()
+            assert run is not None, "run must be initialized"
+            assert not run.running, "Run must not be running when joining the transfer pool"
+            logs = LogModel(
+                level="ERROR",
+                contents=[{"message": error, "create_time": create_time(), "epoch": error_epoch}],
+            )
+            upload_logs([logs])
         get_client().update_state(state == SwanLabRunState.SUCCESS)
         reset_client()
         # 取消注册系统回调

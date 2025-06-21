@@ -10,9 +10,9 @@ import random
 
 from rich.text import Text
 
+from swanlab.log.backup import BackupHandler
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
-from ..backup import BackupHandler
 from ..namer import generate_colors
 from ..store import get_run_store
 

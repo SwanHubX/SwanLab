@@ -10,8 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from swankit.callback import RuntimeInfo, MetricInfo
 
-from swanlab.data.backup.datastore import DataStore
-from swanlab.data.store import run_store
+from swanlab.data.store import get_run_store
+from swanlab.log.backup.datastore import DataStore
 from swanlab.proto.v0 import Log, Project, Header, Footer, BaseModel, Experiment
 from swanlab.toolkit import create_time
 
@@ -32,6 +32,7 @@ class BackupHandler:
         self.executor = ThreadPoolExecutor(max_workers=1)
         # 日志文件写入句柄
         self.f = DataStore()
+        self.run_store = get_run_store()
 
     def start(self):
         """
@@ -42,8 +43,8 @@ class BackupHandler:
         3. 在日志文件头写入当前备份类型和一些元信息
         4. 写入项目、实验备份
         """
-        assert os.path.exists(run_store.file_dir)
-        self.f.open_for_write(run_store.backup_file)
+        assert os.path.exists(self.run_store.file_dir)
+        self.f.open_for_write(self.run_store.backup_file)
         self.f.write(
             Header.model_validate(
                 {
@@ -55,18 +56,18 @@ class BackupHandler:
         self.f.write(
             Project.model_validate(
                 {
-                    "name": run_store.run_name,
-                    "workspace": run_store.workspace,
-                    "public": run_store.visibility,
+                    "name": self.run_store.run_name,
+                    "workspace": self.run_store.workspace,
+                    "public": self.run_store.visibility,
                 }
             ).to_record()
         )
         self.f.write(
             Experiment.model_validate(
                 {
-                    "name": run_store.run_name,
-                    "description": run_store.description,
-                    "tags": run_store.tags,
+                    "name": self.run_store.run_name,
+                    "description": self.run_store.description,
+                    "tags": self.run_store.tags,
                 }
             ).to_record()
         )
@@ -94,19 +95,18 @@ class BackupHandler:
     def backup(self, data: BaseModel):
         self.f.write(data.to_record())
 
-    @staticmethod
-    def write_runtime_info(runtime_info: RuntimeInfo):
+    def write_runtime_info(self, runtime_info: RuntimeInfo):
         """
         写入运行时信息
         """
         if runtime_info.requirements is not None:
-            runtime_info.requirements.write(run_store.file_dir)
+            runtime_info.requirements.write(self.run_store.file_dir)
         if runtime_info.metadata is not None:
-            runtime_info.metadata.write(run_store.file_dir)
+            runtime_info.metadata.write(self.run_store.file_dir)
         if runtime_info.config is not None:
-            runtime_info.config.write(run_store.file_dir)
+            runtime_info.config.write(self.run_store.file_dir)
         if runtime_info.conda is not None:
-            runtime_info.conda.write(run_store.file_dir)
+            runtime_info.conda.write(self.run_store.file_dir)
 
     @staticmethod
     def write_media_buffer(metric_info: MetricInfo):
