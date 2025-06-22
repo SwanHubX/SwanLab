@@ -67,9 +67,9 @@ def sync(path, api_key, workspace, project, host):
         api_key = get_key() if api_key is None else api_key
     except KeyFileError:
         pass
-    for path in path:
+    for p in path:
         # 1.3 登录，创建 http 对象
         log_info = auth.terminal_login(api_key=api_key, save_key=False)
         create_client(log_info)
         # 2. 同步日志
-        sync_logs(path, workspace=workspace, project_name=project, login_required=False, raise_error=len(path) == 1)
+        sync_logs(p, workspace=workspace, project_name=project, login_required=False, raise_error=len(path) == 1)

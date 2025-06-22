@@ -12,11 +12,11 @@ import sys
 import traceback
 
 from swanlab.data.run import SwanLabRunState, get_run
-from swanlab.data.transfer import ProtoTransfer
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback
 from . import utils
+from ..porter import DataPorter
 from ..store import get_run_store
 
 
@@ -32,7 +32,7 @@ class SwanLabRunCallback(SwanKitCallback):
 
     def __init__(self):
         self.run_store = get_run_store()
-        self.transfer = ProtoTransfer()
+        self.porter = DataPorter()
         self.user_settings = get_settings()
 
     def _register_sys_callback(self):
@@ -88,7 +88,7 @@ class SwanLabRunCallback(SwanKitCallback):
         启动终端代理
         """
         if handler is None:
-            handler = lambda data: self.transfer.trace_log(data)
+            handler = lambda data: self.porter.trace_log(data)
         swanlog.start_proxy(
             proxy_type=self.user_settings.log_proxy_type,
             max_log_length=self.user_settings.max_log_length,

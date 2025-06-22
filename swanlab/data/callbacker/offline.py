@@ -31,7 +31,7 @@ class OfflineCallback(SwanLabRunCallback):
         self.run_store.tags = [] if self.run_store.tags is None else self.run_store.tags
         # 设置颜色，随机生成一个
         self.run_store.run_colors = generate_colors(random.randint(0, 20))
-        self.transfer.open_for_trace(python_backend='none')
+        self.porter.open_for_trace(python_backend='none')
 
     def on_run(self, *args, **kwargs):
         self._start_terminal_proxy()
@@ -41,17 +41,17 @@ class OfflineCallback(SwanLabRunCallback):
         U.print_sync(self.run_store.run_dir)
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
-        self.transfer.trace_runtime_info(r)
+        self.porter.trace_runtime_info(r)
 
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
-        self.transfer.trace_column(column_info)
+        self.porter.trace_column(column_info)
 
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
-        self.transfer.trace_metric(metric_info)
+        self.porter.trace_metric(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         U.print_sync(self.run_store.run_dir)
         success = get_run().success
         error_epoch = swanlog.epoch + 1
         self._unregister_sys_callback()
-        self.transfer.close_trace(success, error=error, epoch=error_epoch)
+        self.porter.close_trace(success, error=error, epoch=error_epoch)

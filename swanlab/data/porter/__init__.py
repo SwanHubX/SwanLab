@@ -13,16 +13,16 @@ SwanLab 不生产数据，我们只是 AI 训练的搬运工，祝愿所有训�
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 import wrapt
 from swankit.callback import MetricInfo, ColumnInfo, RuntimeInfo
 
 from swanlab.core_python import get_client
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
-from swanlab.data.store import RunStore, get_run_store
+from swanlab.data.store import RunStore, get_run_store, reset_run_store
 from swanlab.log.type import LogData
-from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer
+from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
 from swanlab.toolkit import create_time
 from .datastore import DataStore
 
@@ -30,23 +30,23 @@ from .datastore import DataStore
 def traced():
     @wrapt.decorator
     def wrapper(wrapped, instance, args, kwargs):
-        if instance is not None and not getattr(instance, "_traced", False):
-            raise RuntimeError("ProtoTransfer has not been started for tracing. Call start_for_trace() first.")
+        if instance is not None and getattr(instance, "_mode") != 1:
+            raise RuntimeError("ProtoTransfer has not been started for tracing. Call oopen_for_trace() first.")
         return wrapped(*args, **kwargs)
 
     return wrapper
 
 
-def once():
-    called = False
+def synced():
+    """
+    标记需要同步上传的函数
+    """
 
     @wrapt.decorator
-    def wrapper(wrapped, _, args, kwargs):
-        nonlocal called
-        if not called:
-            called = True
-            return wrapped(*args, **kwargs)
-        raise RuntimeError('This method can only be called once.')
+    def wrapper(wrapped, instance, args, kwargs):
+        if instance is not None and getattr(instance, "_mode") != 2:
+            raise RuntimeError("ProtoTransfer has not been started for sync upload. Call open_for_sync() first.")
+        return wrapped(*args, **kwargs)
 
     return wrapper
 
@@ -100,20 +100,62 @@ class DataPorter:
         self._pool: Optional[ThreadPool] = None
         # 数据存储句柄
         self._f = DataStore()
-        # 是否开启日志跟踪
-        self._traced = False
-        # 是否开启异步
+        # 当前模式
+        # 0: 不开启任何模式
+        # 1: 实验日志跟踪模式
+        # 2: 同步上传模式，用于本地日志上报
+        self._mode: Literal[0, 1, 2] = 0
+        # 工作线程池，开启后一些方法会运行在子线程中
         self._executor: Optional[ThreadPoolExecutor] = None
+        self._closed = False
 
-    @once()
+        # ---------------------------------- 同步时用到的参数 ----------------------------------
+        self._header: Optional[Header] = None
+        self._project: Optional[Project] = None
+        self._experiment: Optional[Experiment] = None
+        self._logs: List[Log] = []
+        self._runtime: Runtime = Runtime(
+            conda_filename=None,
+            requirements_filename=None,
+            metadata_filename=None,
+            config_filename=None,
+        )
+        self._columns: List[Column] = []
+        self._scalars: List[Scalar] = []
+        self._medias: List[Media] = []
+        self._footer: Optional[Footer] = None
+
+    def _set_mode(self, mode: Literal[0, 1, 2]):
+        """
+        设置当前模式，只允许从0设置为其他模式
+        """
+        assert mode in [0, 1, 2], "Mode must be one of [0, 1, 2]."
+        assert self._mode == 0, "DataPorter is already in use, cannot change mode."
+        assert self._closed is False, "DataPorter has already rested, cannot change mode."
+        self._mode = mode
+
     def open_for_trace(self, sync: bool = False, backend: Literal['go', 'python', 'none'] = 'python'):
         """
         开启日志传输器以实验日志跟踪，创建数据存储句柄
+        此函数在同一实例中只能调用一次，后续调用会抛出异常
         :param sync: 是否同步上传数据，默认为 False，表示异步上传
         :param backend: 上传后端类型，默认为 'python'，可选 'go' 或 'none', none 表示不开启上传
+        :raises RuntimeError: 如果已经开启了跟踪模式或者别的模式，则抛出异常
         """
+        assert self._run_store.media_dir, "Media directory must be set before creating ProtoTransfer instance"
+        assert self._run_store.file_dir, "File directory must be set before creating ProtoTransfer instance"
+        assert self._run_store.backup_file, "Backup file must be set before creating ProtoTransfer instance"
+
+        assert self._mode == 0, "DataPorter is already in use, cannot open for trace again."
+        assert self._closed is False, "DataPorter has already rested, cannot open for trace again."
+
         self._f.open_for_write(self._run_store.backup_file)
         if backend == 'python':
+            # 检查是否已经创建 client
+            try:
+                get_client()
+            except ValueError:
+                raise ValueError("Client not initialized when creating ProtoTransfer instance")
             self._pool = ThreadPool()
         elif backend == 'go':
             raise NotImplementedError("swanlab-core is not ready yet.")
@@ -157,7 +199,7 @@ class DataPorter:
                 }
             ).to_record()
         )
-        self._traced = True
+        self._set_mode(1)
 
     def _publish(self, *args, **kwargs):
         """
@@ -239,12 +281,14 @@ class DataPorter:
         self._publish((UploadType.LOG, [log.to_log_model() for log in logs]))
         return logs
 
-    @once()
     @traced()
     def close_trace(self, success: bool, error: str = None, epoch: int = None):
         """
         停止日志跟踪，清理相关资源
         """
+        assert self._closed is False, "DataPorter has already rested, cannot close trace again."
+        assert self._mode == 1, "DataPorter is not in trace mode, cannot close trace."
+
         # 上传错误日志
         if error is not None:
             log = Log.model_validate({"level": "ERROR", "message": error, "create_time": create_time(), "epoch": epoch})
@@ -262,6 +306,9 @@ class DataPorter:
         self._f.write(footer.to_record())
         self._f.ensure_flushed()
         self._f.close()
+        self._closed = True
+        self._instance = None
+        self._run_store = None
 
     def __new__(cls):
         """
@@ -269,19 +316,128 @@ class DataPorter:
         创建会话之前，client 必须存在
         """
         if cls._instance is not None:
-            return cls._instance
-        # 检查是否已经创建 client
-        try:
-            get_client()
-        except ValueError:
-            raise ValueError("Client not initialized when creating ProtoTransfer instance")
+            raise RuntimeError("DataPorter instance already exists, cannot create a new one.")
         run_store = get_run_store()
-        assert run_store.media_dir, "Media directory must be set before creating ProtoTransfer instance"
-        assert run_store.file_dir, "File directory must be set before creating ProtoTransfer instance"
-        assert run_store.backup_file, "Backup file must be set before creating ProtoTransfer instance"
         cls._run_store = run_store
         cls._instance = super(DataPorter, cls).__new__(cls)
         return cls._instance
 
-    def open_for_sync(self):
-        """ """
+    def open_for_sync(self, run_dir: str, backend: Literal['python', 'go'] = 'python') -> "DataPorter":
+        """
+        开启同步模式，此函数应该与 __enter__() 一起使用
+        """
+        self._run_store.run_dir = run_dir
+        assert self._run_store.media_dir, "Media directory must be set before creating ProtoTransfer instance"
+        assert self._run_store.file_dir, "File directory must be set before creating ProtoTransfer instance"
+        assert self._run_store.backup_file, "Backup file must be set before creating ProtoTransfer instance"
+        backup_file = self._run_store.backup_file
+        assert os.path.isfile(backup_file), f"Backup file {backup_file} does not exist."
+        self._f.open_for_scan(backup_file)
+        if backend == 'python':
+            self._pool = ThreadPool()
+        elif backend == 'go':
+            raise NotImplementedError("swanlab-core is not ready yet.")
+        else:
+            raise ValueError(f"Unsupported backend for sync: {backend}")
+        return self
+
+    def __enter__(self):
+        """
+        开启本地数据备份和上传线程池
+        使用方式为：
+        with DataPorter().open_for_sync(backup_file) as porter:
+            porter.parse()
+            porter.synchronize()
+        """
+        assert self._mode == 0, "DataPorter is already in use, cannot open for sync."
+        assert self._closed is False, "DataPorter has already rested, cannot open for sync."
+        self._set_mode(2)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 出现错误则抛出异常
+        if exc_type is not None:
+            raise exc_val
+        reset_run_store()
+        self._closed = True
+        self._instance = None
+        self._run_store = None
+
+    def parse(self) -> tuple[Project, Experiment]:
+        """
+        解析备份文件中的记录，必须在 open_for_sync() 后调用
+        """
+        for record in self._f:
+            if record is None:
+                continue
+            self._parse_record(record)
+        # 检查是否所有必要的记录都已解析
+        assert self._header is not None, "Header not parsed"
+        # 检查备份文件
+        assert (
+            self._header.backup_type == "DEFAULT"
+        ), f"Backup type mismatch: {self._header.backup_type}, please update your swanlab package."
+        assert self._project is not None, "Project not parsed"
+        assert self._experiment is not None, "Experiment not parsed"
+        return self._project, self._experiment
+
+    def synchronize(self) -> bool:
+        """
+        同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
+        返回最终的实验结果，true 代表实验状态为 success 否则为 false
+        """
+        assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
+        assert self._closed is False, "DataPorter has already rested, cannot synchronize."
+        # 同步上传数据到 SwanLab 服务器
+        self._publish((UploadType.FILE, [self._runtime.to_file_model(file_dir=self._run_store.file_dir)]))
+        self._publish((UploadType.COLUMN, [column.to_column_model() for column in self._columns]))
+        self._publish((UploadType.SCALAR_METRIC, [scalar.to_scalar_model() for scalar in self._scalars]))
+        self._publish(
+            (UploadType.MEDIA_METRIC, [media.to_media_model(self._run_store.media_dir) for media in self._medias])
+        )
+        self._publish((UploadType.LOG, [log.to_log_model() for log in self._logs]))
+        self._pool.finish()
+        return self._footer.success if self._footer else False
+
+    def _parse_record(self, data: str):
+        assert self._mode == 2, "Must parse records in sync mode (mode=2)."
+        assert self._closed is False, "DataPorter has already rested, cannot parse."
+        record = BaseModel.from_record(data)
+        if isinstance(record, Header):
+            assert self._header is None, "Header already parsed"
+            self._header = record
+            return
+        if isinstance(record, Project):
+            assert self._project is None, "Project already parsed"
+            self._project = record
+            return
+        if isinstance(record, Experiment):
+            assert self._experiment is None, "Experiment already parsed"
+            self._experiment = record
+            return
+        if isinstance(record, Log):
+            self._logs.append(record)
+            return
+        if isinstance(record, Runtime):
+            if record.conda_filename is not None:
+                self._runtime.conda_filename = record.conda_filename
+            if record.requirements_filename is not None:
+                self._runtime.requirements_filename = record.requirements_filename
+            if record.metadata_filename is not None:
+                self._runtime.metadata_filename = record.metadata_filename
+            if record.config_filename is not None:
+                self._runtime.config_filename = record.config_filename
+            return
+        if isinstance(record, Column):
+            self._columns.append(record)
+            return
+        if isinstance(record, Scalar):
+            self._scalars.append(record)
+            return
+        if isinstance(record, Media):
+            self._medias.append(record)
+            return
+        if isinstance(record, Footer):
+            assert self._footer is None, "Footer already parsed"
+            self._footer = record
+            return

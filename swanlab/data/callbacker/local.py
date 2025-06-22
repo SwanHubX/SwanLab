@@ -63,7 +63,7 @@ class LocalRunCallback(SwanLabRunCallback):
         for content in log_data["contents"]:
             self.file.write(content['message'] + '\n')
             self.file.flush()
-        self.transfer.trace_log(log_data)
+        self.porter.trace_log(log_data)
 
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         self.board.on_init(proj_name)
@@ -74,7 +74,7 @@ class LocalRunCallback(SwanLabRunCallback):
         self.run_store.tags = [] if self.run_store.tags is None else self.run_store.tags
         self.run_store.run_colors = generate_colors(random.randint(0, 20))
 
-        self.transfer.open_for_trace(backend='none', sync=True)
+        self.porter.open_for_trace(backend='none', sync=True)
 
     def before_init_experiment(
         self,
@@ -98,13 +98,13 @@ class LocalRunCallback(SwanLabRunCallback):
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
         # 更新运行时信息
-        self.transfer.trace_runtime_info(r)
+        self.porter.trace_runtime_info(r)
 
     def on_log(self, *args, **kwargs):
         self.board.on_log(*args, **kwargs)
 
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
-        self.transfer.trace_column(column_info)
+        self.porter.trace_column(column_info)
         # 屏蔽 board 不支持的图表类型和列类型
         if column_info.chart_type.value.chart_type not in ["line", "image", "audio", "text"]:
             return
@@ -125,7 +125,7 @@ class LocalRunCallback(SwanLabRunCallback):
         with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
-        self.transfer.trace_metric(metric_info)
+        self.porter.trace_metric(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         """
@@ -142,4 +142,4 @@ class LocalRunCallback(SwanLabRunCallback):
         # 打印信息
         utils.print_watch(self.run_store.run_dir)
         self._unregister_sys_callback()
-        self.transfer.close_trace(success=get_run().success, error=error, epoch=swanlog.epoch + 1)
+        self.porter.close_trace(success=get_run().success, error=error, epoch=swanlog.epoch + 1)

@@ -59,10 +59,10 @@ class CloudPyCallback(SwanLabRunCallback):
                 description=run_store.description,
                 tags=run_store.tags,
             )
-        self.transfer.open_for_trace(sync=True)
+        self.porter.open_for_trace(sync=True)
 
     def _terminal_handler(self, log_data: LogData):
-        self.transfer.trace_log(log_data)
+        self.porter.trace_log(log_data)
 
     def on_run(self, *args, **kwargs):
         # 注册终端代理和系统回调
@@ -79,16 +79,16 @@ class CloudPyCallback(SwanLabRunCallback):
             U.show_button_html(experiment_url)
 
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
-        self.transfer.trace_runtime_info(r)
+        self.porter.trace_runtime_info(r)
 
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
-        self.transfer.trace_column(column_info)
+        self.porter.trace_column(column_info)
 
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 有错误就不上传
         if metric_info.error:
             return
-        self.transfer.trace_metric(metric_info)
+        self.porter.trace_metric(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         success = get_run().success
@@ -96,6 +96,6 @@ class CloudPyCallback(SwanLabRunCallback):
         U.print_cloud_web()
         error_epoch = swanlog.epoch + 1
         self._unregister_sys_callback()
-        self.transfer.close_trace(success, error=error, epoch=error_epoch)
+        self.porter.close_trace(success, error=error, epoch=error_epoch)
         get_client().update_state(success)
         reset_client()
