@@ -92,4 +92,4 @@ def reset_run_store():
     return run_store
 
 
-__all__ = ["get_run_store", "reset_run_store"]
+__all__ = ["get_run_store", "reset_run_store", "RunStore"]

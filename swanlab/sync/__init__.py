@@ -11,9 +11,7 @@ __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_ml
 
 from ..core_python import get_client
 from ..data.namer import generate_colors
-from swanlab.transfers import ProtoV0Transfer
 from ..log import swanlog
-from swanlab.log.backup import BackupHandler, DataStore
 from swanlab.proto.v0 import ModelsParser
 
 

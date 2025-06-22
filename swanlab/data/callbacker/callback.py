@@ -12,13 +12,12 @@ import sys
 import traceback
 
 from swanlab.data.run import SwanLabRunState, get_run
+from swanlab.data.transfer import ProtoTransfer
 from swanlab.log import swanlog
-from swanlab.log.type import LogData
 from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback
 from . import utils
 from ..store import get_run_store
-from ...log.backup import BackupHandler
 
 
 class SwanLabRunCallback(SwanKitCallback):
@@ -33,7 +32,8 @@ class SwanLabRunCallback(SwanKitCallback):
 
     def __init__(self):
         self.run_store = get_run_store()
-        self.device = BackupHandler()
+        self.transfer = ProtoTransfer()
+        self.user_settings = get_settings()
 
     def _register_sys_callback(self):
         """
@@ -83,37 +83,17 @@ class SwanLabRunCallback(SwanKitCallback):
         # 4. 打印终端错误，此时终端代理已经停止，不必担心此副作用
         print(error, file=sys.stderr)
 
-    def _terminal_handler(self, log_data: LogData):
+    def _start_terminal_proxy(self, handler=None):
         """
-        终端输出写入操作
+        启动终端代理
         """
-        pass
-
-    def on_run(self, *args, **kwargs):
-        # 1. 开启备份
-        self.device.start(
-            file_dir=self.run_store.file_dir,
-            backup_file=self.run_store.backup_file,
-            run_name=self.run_store.run_name,
-            workspace=self.run_store.workspace,
-            visibility=self.run_store.visibility,
-            description=self.run_store.description,
-            tags=self.run_store.tags,
-        )
-        # 2. 注册终端输出流代理
-        settings = get_settings()
+        if handler is None:
+            handler = lambda data: self.transfer.trace_log(data)
         swanlog.start_proxy(
-            proxy_type=settings.log_proxy_type,
-            max_log_length=settings.max_log_length,
-            handler=self._terminal_handler,
+            proxy_type=self.user_settings.log_proxy_type,
+            max_log_length=self.user_settings.max_log_length,
+            handler=handler,
         )
-        # 3. 注入系统回调
-        self._register_sys_callback()
-
-    def on_stop(self, error: str = None, *args, **kwargs):
-        error_epoch = swanlog.epoch + 1
-        self.device.stop(error=error, epoch=error_epoch)
-        self._unregister_sys_callback()
 
     def __str__(self):
         raise NotImplementedError("Please implement this method")

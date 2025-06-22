@@ -6,5 +6,4 @@
 """
 
 from .model import *
-from .transfer import Transfer
 from .upload import *

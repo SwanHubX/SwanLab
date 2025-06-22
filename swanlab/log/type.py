@@ -5,7 +5,7 @@
 @description: 定义相关类型
 """
 
-from typing import TypedDict, Literal, Callable, List
+from typing import TypedDict, Literal, Callable, List, Any
 
 
 class LogContent(TypedDict):
@@ -51,4 +51,4 @@ class LogData(TypedDict):
 # 日志写入器类型
 WriteHandler = Callable[[str], None]
 # 日志处理器类型
-LogHandler = Callable[[LogData], None]
+LogHandler = Callable[[LogData], Any]

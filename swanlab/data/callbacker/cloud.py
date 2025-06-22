@@ -20,25 +20,18 @@ from swanlab.toolkit import (
     MetricInfo,
     ColumnInfo,
 )
-from swanlab.transfers import ProtoV0Transfer
 from . import utils as U
-from .utils import async_io
 from .. import namer as N
-from ..run import get_run, SwanLabRunState
+from ..run import get_run
 from ..store import get_run_store
 from ...core_python import *
 from ...log.type import LogData
-from ...proto.v0 import Log, Runtime, Column, Metric
 
 
 class CloudPyCallback(SwanLabRunCallback):
 
     def __init__(self):
         super().__init__()
-        self.transfer = ProtoV0Transfer(
-            media_dir=self.run_store.media_dir,
-            file_dir=self.run_store.file_dir,
-        )
         self.executor = ThreadPoolExecutor(max_workers=1)
 
     def __str__(self):
@@ -66,9 +59,15 @@ class CloudPyCallback(SwanLabRunCallback):
                 description=run_store.description,
                 tags=run_store.tags,
             )
+        self.transfer.open_for_trace(sync=True)
+
+    def _terminal_handler(self, log_data: LogData):
+        self.transfer.trace_log(log_data)
 
     def on_run(self, *args, **kwargs):
-        super().on_run(*args, **kwargs)
+        # 注册终端代理和系统回调
+        self._start_terminal_proxy()
+        self._register_sys_callback()
         # 打印实验开始信息，在 cloud 模式下如果没有开启 backup 的话不打印“数据保存在 xxx”的信息
         U.print_train_begin(run_dir=self.run_store.run_dir)
         http = get_client()
@@ -79,58 +78,24 @@ class CloudPyCallback(SwanLabRunCallback):
         if in_jupyter():
             U.show_button_html(experiment_url)
 
-    @async_io()
-    def _terminal_handler(self, log_data: LogData):
-        logs = Log.from_log_data(log_data)
-        for log in logs:
-            self.device.backup(log)
-            self.transfer.publish_log(log)
-
-    @async_io()
     def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
-        runtime = Runtime.from_runtime_info(r)
-        self.device.write_runtime_info(r, self.run_store.file_dir)
-        self.device.backup(runtime)
-        self.transfer.publish_file(runtime)
+        self.transfer.trace_runtime_info(r)
 
-    @async_io()
     def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
-        column = Column.from_column_info(column_info)
-        self.device.backup(column)
-        self.transfer.publish_column(column)
+        self.transfer.trace_column(column_info)
 
-    @async_io()
     def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
         # 有错误就不上传
         if metric_info.error:
             return
-        if metric_info.column_info.chart_type == metric_info.column_info.chart_type.LINE:
-            # 标量
-            scalar = Metric.from_metric_info(metric_info)
-            self.device.backup(scalar)
-            self.transfer.publish_scalar(scalar)
-        else:
-            # 媒体
-            media = Metric.from_metric_info(metric_info)
-            self.device.backup(media)
-            self.device.write_media_buffer(metric_info)
-            self.transfer.publish_media(media)
+        self.transfer.trace_metric(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
-        run = get_run()
+        success = get_run().success
         # 打印信息
         U.print_cloud_web()
-        state = run.state
-        # 关闭线程池，等待上传线程完成
-        self.transfer.join()
         error_epoch = swanlog.epoch + 1
-        self.device.stop(error=error, epoch=error_epoch)
-        # 上传错误日志
-        if error is not None:
-            run = get_run()
-            assert run is not None, "run must be initialized"
-            assert not run.running, "Run must not be running when joining the transfer pool"
-            self.transfer.upload_error(error, error_epoch)
-        get_client().update_state(state == SwanLabRunState.SUCCESS)
-        reset_client()
         self._unregister_sys_callback()
+        self.transfer.close_trace(success, error=error, epoch=error_epoch)
+        get_client().update_state(success)
+        reset_client()

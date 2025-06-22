@@ -6,37 +6,13 @@
 """
 
 import os
-from concurrent.futures import ThreadPoolExecutor
 
-import wrapt
 from rich.text import Text
 
 from swanlab.core_python import get_client
 from swanlab.env import is_windows
 from swanlab.log import swanlog
 from swanlab.package import get_package_latest_version, get_package_version
-
-
-def async_io(sync: bool = False):
-    """
-    类实例异步 IO 方法装饰器，判断是否需要备份
-    此装饰器要求实例携带一个线程池，名称要求为 executor
-    使用此装饰器可以将被装饰的方法放入线程池中执行，这样能够避免在主线程中执行 IO 密集型操作，提升性能
-    """
-
-    @wrapt.decorator
-    def wrapper(wrapped, instance, args, kwargs):
-        # 与 https://github.com/SwanHubX/SwanLab/issues/889 相同的问题
-        # 在回调中线程池已经关闭，我们需要在主线程中执行
-        if sync:
-            return wrapped(*args, **kwargs)
-        executor: ThreadPoolExecutor = getattr(instance, "executor", None)
-        assert executor is not None, "Instance must have an executor attribute of type ThreadPoolExecutor"
-        if executor._shutdown:
-            return wrapped(*args, **kwargs)
-        executor.submit(wrapped, *args, **kwargs)
-
-    return wrapper
 
 
 def print_train_begin(run_dir: str = None):

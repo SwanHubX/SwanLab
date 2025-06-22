@@ -14,7 +14,7 @@ from swanlab.toolkit import (
     create_time,
 )
 from .helper import SwanLabRunOperator
-from ..store import run_store
+from ..store import get_run_store
 
 
 class SwanLabExp:
@@ -35,6 +35,7 @@ class SwanLabExp:
         self.keys: Dict[str, SwanLabKey] = {}
         # TODO 操作员不传递给实验
         self.__operator = operator
+        self.run_store = get_run_store()
 
     def __add(
         self,
@@ -109,7 +110,7 @@ class SwanLabExp:
             return MetricErrorInfo(key_obj.column_info, error=key_obj.column_info.error)
         key_info = key_obj.add(data)
         key_info.buffers = data.parse().buffers
-        key_info.media_dir = run_store.media_dir
+        key_info.media_dir = self.run_store.media_dir
         return key_info
 
     def add(
@@ -212,6 +213,7 @@ class SwanLabKey:
         self.chart = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
+        self.run_store = get_run_store()
 
     @property
     def sum(self):
@@ -294,8 +296,8 @@ class SwanLabKey:
             metric_step=result.step,
             metric_buffers=result.buffers,
             metric_file_name=str(mu * self.__slice_size) + ".log",
-            swanlab_logdir=run_store.log_dir,
-            swanlab_media_dir=run_store.media_dir if result.buffers else None,
+            swanlab_logdir=self.run_store.log_dir,
+            swanlab_media_dir=self.run_store.media_dir if result.buffers else None,
         )
 
     def create_column(

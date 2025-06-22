@@ -7,6 +7,8 @@
 字符编码使用 utf-8, 确保数据兼容性 （这与 LevelDB 的规范有所冲突，如果有必要，未来可以升级版本并通过LEVELDBLOG_HEADER_VERSION兼容）
 这为后续引入 protobuf 或其他序列化格式打下基础
 DataStore 大致代码借鉴自 W&B
+
+文件头版本区分了不同更新时的格式变化，这方面我们不会做向下兼容，即低版本文件不一定能被新版本读取，可以通过版本降级来区分不同版本号
 """
 
 import os
@@ -80,9 +82,7 @@ class DataStore:
         if magic != LEVELDBLOG_HEADER_MAGIC:
             raise Exception("Invalid header")
         if version != LEVELDBLOG_HEADER_VERSION:
-            raise Exception(
-                f"Invalid backup version: {version}, please update your swanlab: pip install --upgrade swanlab"
-            )
+            raise Exception(f"Invalid backup version: {version}, please check your swanlab version.")
         self._index += len(header)
 
     def _scan_record(self) -> Optional[Tuple[int, bytes]]:
