@@ -15,7 +15,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from swanlab.api.openapi.types import ApiResponse
+from swanlab.api.types import ApiResponse
 from swanlab.core_python import auth
 from swanlab.log.log import SwanLog
 from swanlab.package import get_package_version

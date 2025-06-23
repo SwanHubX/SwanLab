@@ -9,11 +9,11 @@ r"""
 """
 from typing import Dict, List
 
-from swanlab.api.openapi.base import ApiHTTP, get_logger
-from swanlab.api.openapi.experiment import ExperimentAPI
-from swanlab.api.openapi.group import GroupAPI
-from swanlab.api.openapi.project import ProjectAPI
-from swanlab.api.openapi.types import ApiResponse, Experiment, Project
+from swanlab.api.base import ApiHTTP, get_logger
+from swanlab.api.experiment import ExperimentAPI
+from swanlab.api.group import GroupAPI
+from swanlab.api.project import ProjectAPI
+from swanlab.api.types import ApiResponse, Experiment, Project
 from swanlab.core_python import auth
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog

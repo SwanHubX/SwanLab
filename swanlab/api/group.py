@@ -8,8 +8,8 @@ r"""
     组织相关的开放API
 """
 
-from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import ApiResponse
+from swanlab.api.base import ApiBase, ApiHTTP
+from swanlab.api.types import ApiResponse
 
 
 class GroupAPI(ApiBase):
