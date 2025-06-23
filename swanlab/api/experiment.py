@@ -7,8 +7,8 @@ r"""
 @Description:
     实验相关的开放API
 """
-from swanlab.api.openapi.base import ApiBase, ApiHTTP
-from swanlab.api.openapi.types import ApiResponse, Experiment, Pagination
+from swanlab.api.base import ApiBase, ApiHTTP
+from swanlab.api.types import ApiResponse, Experiment, Pagination
 
 
 class ExperimentAPI(ApiBase):
