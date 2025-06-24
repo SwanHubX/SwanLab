@@ -65,3 +65,6 @@ def setup_each():
 
     if swanlab.get_run() is not None:
         swanlab.finish()
+    from swanlab.data.store import reset_run_store
+
+    reset_run_store()

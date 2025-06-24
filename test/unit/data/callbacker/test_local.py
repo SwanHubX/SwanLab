@@ -12,15 +12,17 @@ from nanoid import generate
 
 import tutils as T
 from swanlab.data.callbacker.local import LocalRunCallback
+from swanlab.data.store import get_run_store
 from swanlab.log.type import LogData
-from swanlab.toolkit import SwanLabSharedSettings
 
 
 def test_local_write_handler(monkeypatch):
     """
     测试本地回调器的写入处理函数，当日期改变时，文件名也会改变
     """
+    get_run_store()
     callback = LocalRunCallback()
+
     callback.settings = SwanLabSharedSettings(
         logdir=T.TEMP_PATH,
         run_id="test-local-write-handler",

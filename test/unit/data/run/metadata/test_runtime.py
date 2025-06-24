@@ -37,9 +37,9 @@ def test_mask_api_key_with_setting():
     - 设置 security_mask 为 False，不替换
     """
     args = _mock_args()
-    from tutils.setup import UseSetupHttp
+    from tutils.setup import UseMockRunState
 
-    with UseSetupHttp() as http:
+    with UseMockRunState() as http:
         api_key = http.api_key
 
         # 隐藏隐私信息

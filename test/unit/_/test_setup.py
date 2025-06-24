@@ -27,9 +27,16 @@ def test_mock_login_info():
 
 def test_use_setup_http():
     from swanlab.core_python import get_client
+    from swanlab.data.store import get_run_store
 
-    with SU.UseSetupHttp() as http:
-        assert http is not None
+    with SU.UseMockRunState() as run_state:
+        assert run_state.client is not None
         assert get_client() is not None
+        assert run_state.store is not None
+        run_store = get_run_store()
+        run_store.run_dir = "1"
+        assert run_state.store.run_dir == "1"
+
+    assert get_run_store().run_dir is None, "Run store should be reset after UseMockRunState context manager exits"
     with pytest.raises(ValueError):
         get_client()
