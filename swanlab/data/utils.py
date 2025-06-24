@@ -12,6 +12,7 @@ from rich.text import Text
 
 from swanlab.core_python import auth
 from swanlab.data.callbacker.cloud import CloudPyCallback
+from swanlab.data.callbacker.disabled import DisabledCallback
 from swanlab.data.callbacker.offline import OfflineCallback
 from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
@@ -170,7 +171,7 @@ def _create_operator(
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
-        return SwanLabRunOperator()
+        return SwanLabRunOperator([DisabledCallback()])
     # 1.2. 云端模式
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息

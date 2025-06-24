@@ -256,32 +256,27 @@ class SwanLabInitializer:
             merge_settings(Settings(backup=False))
         user_settings = get_settings()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
-        if mode != "disabled" and user_settings.backup is False:
+        env_key = SwanLabEnv.SWANLOG_FOLDER.value
+        # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+        # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+        if logdir is None:
+            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+        logdir = os.path.abspath(logdir)
+        if mode != "disabled" and user_settings.backup is False or mode == "disabled":
             # 只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
             # 此时我们将日志存在系统运行时目录
             logdir = platformdirs.user_runtime_dir(ensure_exists=True, appname="swanlab.backup", appauthor="SwanHubX")
-
-        if mode != "disabled":
-            env_key = SwanLabEnv.SWANLOG_FOLDER.value
-            # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-            # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-            if logdir is None:
-                logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
-
-            logdir = os.path.abspath(logdir)
-            try:
-                os.makedirs(logdir, exist_ok=True)
-                if not os.access(logdir, os.W_OK):
-                    raise IOError(f"no write permission for path: {logdir}")
-            except Exception as error:
-                raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-
-            os.environ[env_key] = logdir
-
-            # 如果logdir是空的，创建.gitignore文件，写入*
-            if not os.listdir(logdir):
-                with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-                    f.write("*")
+        os.environ[env_key] = logdir
+        try:
+            os.makedirs(logdir, exist_ok=True)
+            if not os.access(logdir, os.W_OK):
+                raise IOError(f"no write permission for path: {logdir}")
+        except Exception as error:
+            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+        # 如果logdir是空的，创建.gitignore文件，写入*
+        if not os.listdir(logdir):
+            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+                f.write("*")
         # ---------------------------------- 初始化运行文件夹 ----------------------------------
         run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         assert run_id is not None, "run_id should not be None, please check the logdir and run_id"

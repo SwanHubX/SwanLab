@@ -6,6 +6,7 @@
     云端回调
 """
 
+import shutil
 from concurrent.futures.thread import ThreadPoolExecutor
 
 from rich.status import Status
@@ -99,3 +100,5 @@ class CloudPyCallback(SwanLabRunCallback):
         self.porter.close_trace(success, error=error, epoch=error_epoch)
         get_client().update_state(success)
         reset_client()
+        if not self.user_settings.backup:
+            shutil.rmtree(self.run_store.run_dir, ignore_errors=True)

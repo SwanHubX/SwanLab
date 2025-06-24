@@ -8,7 +8,6 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
-import shutil
 from typing import Any, Dict, Optional
 
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
@@ -56,8 +55,9 @@ class SwanLabRun:
         global run, config
         swanlab_settings = get_settings()
         # ---------------------------------- 初始化类内参数 ----------------------------------
+        operator = operator or SwanLabRunOperator()
         # 0. 下面的参数会在实验结束后进行副作用清理
-        self.__operator = SwanLabRunOperator() if operator is None else operator
+        self.__operator = operator
         self.__state = SwanLabRunState.RUNNING
         self.__monitor_cron: Optional[MonitorCron] = None
         self.__config: Optional[SwanLabConfig] = None
@@ -227,9 +227,6 @@ class SwanLabRun:
         getattr(run, "_SwanLabRun__cleanup")(error)
         # 重置输出代理
         swanlog.reset()
-        # 如果 backup 为 false，清空 run_dir 文件夹
-        if not get_settings().backup:
-            shutil.rmtree(get_run_store().run_dir, ignore_errors=True)
         # 清空配置
         reset_run_store()
         reset_settings()
