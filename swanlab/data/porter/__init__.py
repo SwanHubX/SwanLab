@@ -339,8 +339,10 @@ class DataPorter:
             raise NotImplementedError("swanlab-core is not ready yet.")
         else:
             raise ValueError(f"Unsupported backend for sync: {backend}")
+        self._set_mode(2)
         return self
 
+    @synced()
     def __enter__(self):
         """
         开启本地数据备份和上传线程池
@@ -349,9 +351,8 @@ class DataPorter:
             porter.parse()
             porter.synchronize()
         """
-        assert self._mode == 0, "DataPorter is already in use, cannot open for sync."
+        assert self._mode == 2, "DataPorter is already in use, cannot open for sync."
         assert self._closed is False, "DataPorter has already rested, cannot open for sync."
-        self._set_mode(2)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -363,6 +364,7 @@ class DataPorter:
         self._instance = None
         self._run_store = None
 
+    @synced()
     def parse(self) -> tuple[Project, Experiment]:
         """
         解析备份文件中的记录，必须在 open_for_sync() 后调用
@@ -381,6 +383,7 @@ class DataPorter:
         assert self._experiment is not None, "Experiment not parsed"
         return self._project, self._experiment
 
+    @synced()
     def synchronize(self) -> bool:
         """
         同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
@@ -441,3 +444,4 @@ class DataPorter:
             assert self._footer is None, "Footer already parsed"
             self._footer = record
             return
+        raise ValueError(f"Unknown record type: {type(record)}")

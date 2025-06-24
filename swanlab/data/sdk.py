@@ -13,6 +13,8 @@ import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
 
+import platformdirs
+
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
@@ -251,8 +253,13 @@ class SwanLabInitializer:
             merge_settings(Settings(backup=True))
         elif mode == "disabled":
             merge_settings(Settings(backup=False))
+        user_settings = get_settings()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
-        # backup 模式、开启 backup 功能、local模式三种情况下需要创建文件夹，前两者等价于校验 “开启 backup 功能”
+        if mode != "disabled" and user_settings.backup is False:
+            # 只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
+            # 此时我们将日志存在系统运行时目录
+            logdir = platformdirs.user_runtime_dir(ensure_exists=True, appname="swanlab.backup", appauthor="SwanHubX")
+
         if mode != "disabled":
             env_key = SwanLabEnv.SWANLOG_FOLDER.value
             # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径

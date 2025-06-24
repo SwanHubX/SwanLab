@@ -8,6 +8,7 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
+import shutil
 from typing import Any, Dict, Optional
 
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
@@ -222,10 +223,13 @@ class SwanLabRun:
         if state == SwanLabRunState.CRASHED and error is None:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         error = error if state == SwanLabRunState.CRASHED else None
-        # 退出回调
+        # 清理内部副作用，触发 on_stop 回调
         getattr(run, "_SwanLabRun__cleanup")(error)
         # 重置输出代理
         swanlog.reset()
+        # 如果 backup 为 false，清空 run_dir 文件夹
+        if not get_settings().backup:
+            shutil.rmtree(get_run_store().run_dir, ignore_errors=True)
         # 清空配置
         reset_run_store()
         reset_settings()
