@@ -39,8 +39,9 @@ def test_mask_api_key_with_setting():
     args = _mock_args()
     from tutils.setup import UseMockRunState
 
-    with UseMockRunState() as http:
-        api_key = http.api_key
+    with UseMockRunState() as run_state:
+        client = run_state.client
+        api_key = client.api_key
 
         # 隐藏隐私信息
         args[random.randint(0, len(args) - 1)] = api_key

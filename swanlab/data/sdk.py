@@ -247,6 +247,7 @@ class SwanLabInitializer:
                     tags[i] = new_tags[i]
         # 6. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
+        self.cbs = []
         # 7. 校验mode参数并适配 backup 模式
         mode, login_info = _init_mode(mode)
         if mode == "offline":

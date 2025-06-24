@@ -476,3 +476,21 @@ class TestInitExpByEnv:
         param_exp_name = generate()
         run = S.init(experiment_name=param_exp_name)
         assert run.public.cloud.experiment_name == param_exp_name
+
+
+@pytest.mark.parametrize("config", [1, None, [], (), True])
+def test_init_error_config(config):
+    """
+    测试传入不同的config参数时，是否抛出错误对应错误
+    """
+    with pytest.raises(TypeError):
+        swanlab.init(config=config, mode="disabled")
+
+
+def test_init_error_config_name():
+    """
+    测试传入 string 类型参数
+    此时会抛出 ValueError，因为不是指定的配置文件名后缀
+    """
+    with pytest.raises(ValueError):
+        swanlab.init(mode="disabled", config="test_config")

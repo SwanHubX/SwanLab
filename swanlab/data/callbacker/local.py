@@ -8,6 +8,7 @@ local模式（目前）将自动调用swanboard，如果不存在则报错
 
 import random
 
+from swanlab.env import SwanLabEnv
 from swanlab.log.type import LogData
 from swanlab.toolkit import ColumnInfo
 from . import utils
@@ -66,8 +67,9 @@ class LocalRunCallback(SwanLabRunCallback):
         self.porter.trace_log(log_data)
 
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
+        if logdir is not None:
+            os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = logdir
         self.board.on_init(proj_name)
-
         self.run_store.project = proj_name
         self.run_store.workspace = workspace
         self.run_store.visibility = public

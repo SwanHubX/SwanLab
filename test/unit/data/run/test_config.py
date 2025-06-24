@@ -7,9 +7,9 @@ import omegaconf
 import pytest
 import yaml
 
-from swanlab.env import SwanLabEnv
 from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
 from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
+from swanlab.env import SwanLabEnv
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -426,18 +426,3 @@ class TestSwanLabConfigWithRun:
         _config = get_config()
         assert len(config) == 4
         assert len(_config) == 0
-
-    def test_error_config_input(self):
-        """
-        测试错误的输入
-        """
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=1)
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config="1")
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=[1, 2, 3])
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=(1, 2, 3))
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=True)

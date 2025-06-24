@@ -67,10 +67,11 @@ def test_decode_response():
     with UseMocker() as mocker:
         mocker.post("/json", json={"test": "test"})
         mocker.post("/text", text="test")
-        with UseMockRunState() as http:
-            data = http.post("/json")
+        with UseMockRunState() as run_state:
+            client = run_state.client
+            data = client.post("/json")
             assert data == {"test": "test"}
-            data = http.post("/text")
+            data = client.post("/text")
             assert data == "test"
 
 
@@ -86,8 +87,9 @@ def test_retry():
     rsp2 = responses.get(url, body="Error", status=500)
     rsp3 = responses.get(url, body="Error", status=500)
     rsp4 = responses.get(url, body="OK", status=200)
-    with UseMockRunState() as http:
-        data = http.get("/retry")
+    with UseMockRunState() as run_state:
+        client = run_state.client
+        data = client.get("/retry")
         assert data == "OK"
         assert rsp1.call_count == 1
         assert rsp2.call_count == 1

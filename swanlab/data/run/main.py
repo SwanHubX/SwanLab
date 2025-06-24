@@ -38,7 +38,7 @@ class SwanLabRun:
         metadata: dict = None,
         monitor_funcs: list[HardwareCollector] = None,
         run_config: Any = None,
-        operator: SwanLabRunOperator = SwanLabRunOperator(),
+        operator: SwanLabRunOperator = None,
     ):
         """
         Initializing the SwanLabRun class involves configuring the settings and initiating other logging processes.
