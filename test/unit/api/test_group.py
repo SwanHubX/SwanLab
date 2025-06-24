@@ -12,7 +12,7 @@ import pytest
 
 import tutils as T
 from swanlab import OpenApi
-from swanlab.api.openapi.types import ApiResponse
+from swanlab.api.types import ApiResponse
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")

@@ -8,8 +8,7 @@ r"""
     测试开放API模型定义
 """
 
-import tutils as T
-from swanlab.api.openapi.types import Experiment
+from swanlab.api.types import Experiment
 
 
 def test_dict_style_access():
