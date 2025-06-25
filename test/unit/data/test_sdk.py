@@ -348,10 +348,8 @@ class TestInitLogdir:
         # 如果通过 settings 设置为 False，则不会生成文件夹
         del os.environ[LOG_DIR]
         run = S.init(mode="cloud", settings=Settings(backup=False))
+        assert run.public.swanlog_dir == platformdirs.user_cache_dir(appname="swanlab", appauthor="SwanHubX")
         assert run.public.swanlog_dir != logdir
-        assert run.public.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
-        # 此时文件夹不存在，因为关闭了backup功能
-        assert not os.path.exists(run.public.swanlog_dir)
 
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")

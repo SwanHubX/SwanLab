@@ -11,9 +11,7 @@ from typing import Union, Optional, List
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.callbacker.cloud import CloudPyCallback
-from swanlab.data.callbacker.disabled import DisabledCallback
-from swanlab.data.callbacker.offline import OfflineCallback
+from swanlab.data.callbacker import *
 from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
@@ -102,11 +100,11 @@ def _init_mode(mode: str = None):
 
             web_host = get_host_web()
             # 交互选择
-            tip = swanlog.info("Enter your choice: ")
-            code = input(tip)
+            swanlog.info("Enter your choice: ")
+            code = input()
             while code not in ["1", "2", "3"]:
                 swanlog.warning("Invalid choice, please enter again.")
-                code = input(tip)
+                code = input()
             if code == "3":
                 mode = "local"
             elif code == "2":

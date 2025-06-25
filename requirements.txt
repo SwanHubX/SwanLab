@@ -12,8 +12,7 @@ pydantic>=2.9.0
 pyecharts>=2.0.0
 wrapt>=1.17.0
 platformdirs>=4.2.0
-eval_type_backport; python_version < '3.10'
-typing_extensions; python_version <= '3.9'
+typing_extensions; python_version < '3.9'
 protobuf>=3.12.0,!=4.21.0,!=5.28.0,<7; python_version < '3.9' and sys_platform == 'linux'
 protobuf>=3.15.0,!=4.21.0,!=5.28.0,<7; python_version == '3.9' and sys_platform == 'linux'
 protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; python_version > '3.9' and sys_platform == 'linux'
