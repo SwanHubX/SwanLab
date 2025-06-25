@@ -141,3 +141,10 @@ class SwanLabPublicConfig:
         The directory of the run.
         """
         return self.__run_store.run_dir
+
+    @property
+    def backup_file(self) -> str:
+        """
+        The backup file of the run.
+        """
+        return self.__run_store.backup_file

@@ -7,6 +7,7 @@ r"""
 @Description:
     存储、设置通用函数
 """
+import os.path
 from datetime import datetime, timedelta
 from typing import Literal, Optional
 
@@ -16,6 +17,7 @@ import requests_mock
 from swanlab.core_python import auth, create_client, reset_client, Client
 from swanlab.data.store import reset_run_store, get_run_store, RunStore
 from swanlab.package import get_host_web
+from .config import TEMP_PATH
 
 __all__ = ["UseMockRunState", "mock_login_info"]
 
@@ -35,6 +37,15 @@ class UseMockRunState:
         self.client = create_client(login_info)
         reset_run_store()
         self.store = get_run_store()
+        # 创建运行目录结构，方便测试
+        self.store.swanlog_dir = TEMP_PATH
+        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + nanoid.generate())
+        os.mkdir(self.store.run_dir)
+        os.mkdir(self.store.media_dir)
+        os.mkdir(self.store.log_dir)
+        os.mkdir(self.store.console_dir)
+        os.mkdir(self.store.file_dir)
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

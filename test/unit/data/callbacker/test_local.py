@@ -31,6 +31,7 @@ def test_local_write_handler(monkeypatch):
             workspace="test_workspace",
             logdir=T.TEMP_PATH,
         )
+        callback.on_run()
         with freeze_time('2020-10-06'):
             a = generate()
             mockdata = LogData(

@@ -127,6 +127,18 @@ class DataPorter:
         self._medias: List[Media] = []
         self._footer: Optional[Footer] = None
 
+    def __new__(cls):
+        """
+        开启单例模式，确保同时只有一个 ProtoTransfer 实例存在，即代表一个实验会话
+        创建会话之前，client 必须存在
+        """
+        if cls._instance is not None:
+            raise RuntimeError("DataPorter instance already exists, cannot create a new one.")
+        run_store = get_run_store()
+        cls._run_store = run_store
+        cls._instance = super(DataPorter, cls).__new__(cls)
+        return cls._instance
+
     def _set_mode(self, mode: Literal[0, 1, 2]):
         """
         设置当前模式，只允许从0设置为其他模式
@@ -178,6 +190,7 @@ class DataPorter:
                 }
             ).to_record()
         )
+        project_name = self._run_store.project
         run_name = self._run_store.run_name
         workspace = self._run_store.workspace
         visibility = self._run_store.visibility
@@ -186,7 +199,7 @@ class DataPorter:
         self._f.write(
             Project.model_validate(
                 {
-                    "name": run_name,
+                    "name": project_name,
                     "workspace": workspace,
                     "public": visibility,
                 }
@@ -210,9 +223,9 @@ class DataPorter:
         if self._pool is not None:
             self._pool.queue.put(*args, **kwargs)
 
+    @async_io()
     @backup()
     @traced()
-    @async_io()
     def trace_column(self, data: ColumnInfo) -> BaseModel:
         """
         追踪列数据
@@ -221,9 +234,9 @@ class DataPorter:
         self._publish((UploadType.COLUMN, [column.to_column_model()]))
         return column
 
+    @async_io()
     @backup()
     @traced()
-    @async_io()
     def trace_metric(self, data: MetricInfo) -> BaseModel:
         """
         追踪指标数据
@@ -251,9 +264,9 @@ class DataPorter:
             self._publish((UploadType.MEDIA_METRIC, [media.to_media_model(data.swanlab_media_dir)]))
             return media
 
+    @async_io()
     @backup()
     @traced()
-    @async_io()
     def trace_runtime_info(self, data: RuntimeInfo) -> BaseModel:
         """
         追踪运行时信息
@@ -272,9 +285,9 @@ class DataPorter:
         self._publish((UploadType.FILE, [runtime.to_file_model(file_dir)]))
         return runtime
 
+    @async_io()
     @backup()
     @traced()
-    @async_io()
     def trace_log(self, data: LogData) -> list[BaseModel]:
         """
         追踪日志数据，日志数据比较特殊，一次可能好几行
@@ -309,20 +322,13 @@ class DataPorter:
         self._f.ensure_flushed()
         self._f.close()
         self._closed = True
-        self._instance = None
-        self._run_store = None
+        DataPorter._reset()
 
-    def __new__(cls):
-        """
-        开启单例模式，确保同时只有一个 ProtoTransfer 实例存在，即代表一个实验会话
-        创建会话之前，client 必须存在
-        """
-        if cls._instance is not None:
-            raise RuntimeError("DataPorter instance already exists, cannot create a new one.")
-        run_store = get_run_store()
-        cls._run_store = run_store
-        cls._instance = super(DataPorter, cls).__new__(cls)
-        return cls._instance
+    @classmethod
+    def _reset(cls):
+        """重置单例实例，允许创建新的DataPorter"""
+        cls._instance = None
+        cls._run_store = None
 
     def open_for_sync(self, run_dir: str, backend: Literal['python', 'go'] = 'python') -> "DataPorter":
         """
@@ -358,13 +364,12 @@ class DataPorter:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        reset_run_store()
+        self._closed = True
+        DataPorter._reset()
         # 出现错误则抛出异常
         if exc_type is not None:
             raise exc_val
-        reset_run_store()
-        self._closed = True
-        self._instance = None
-        self._run_store = None
 
     @synced()
     def parse(self) -> tuple[Project, Experiment]:
@@ -384,6 +389,14 @@ class DataPorter:
         assert self._project is not None, "Project not parsed"
         assert self._experiment is not None, "Experiment not parsed"
         return self._project, self._experiment
+
+    def close(self):
+        """
+        关闭实例，此函数用于没有开启 trace 和 sync 时关闭实例
+        """
+        assert self._closed is False, "DataPorter has already rested, cannot close."
+        assert self._mode == 0, "DataPorter is in use, cannot simply close."
+        DataPorter._reset()
 
     @synced()
     def synchronize(self) -> bool:

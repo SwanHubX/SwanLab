@@ -17,3 +17,6 @@ class DisabledCallback(SwanLabRunCallback):
 
     def __str__(self):
         return "SwanLabDisabledCallback"
+
+    def on_stop(self, error: str = None, *args, **kwargs):
+        self.porter.close()

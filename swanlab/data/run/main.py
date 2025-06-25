@@ -83,7 +83,6 @@ class SwanLabRun:
         # ---------------------------------- 初始化完成 ----------------------------------
         operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
-        # FIXME 好像在重构后已经初始化了
         getattr(config, "_SwanLabConfig__save")()
         # 系统信息采集
         operator.on_runtime_info_update(

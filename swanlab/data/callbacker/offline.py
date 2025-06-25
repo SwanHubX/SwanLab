@@ -13,7 +13,7 @@ from swanlab.data.callbacker.callback import SwanLabRunCallback
 from swanlab.log import swanlog
 from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo
 from . import utils as U
-from ..namer import generate_colors
+from .. import namer as N
 from ..run import get_run
 
 
@@ -25,15 +25,20 @@ class OfflineCallback(SwanLabRunCallback):
         return "SwanLabOfflineCallback"
 
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
-        self.run_store.project = proj_name
-        self.run_store.workspace = workspace
-        self.run_store.visibility = public
-        self.run_store.tags = [] if self.run_store.tags is None else self.run_store.tags
+        run_store = self.run_store
+        run_store.project = proj_name
+        run_store.workspace = workspace
+        run_store.visibility = public
+        run_store.tags = [] if run_store.tags is None else run_store.tags
         # 设置颜色，随机生成一个
-        self.run_store.run_colors = generate_colors(random.randint(0, 20))
-        self.porter.open_for_trace(python_backend='none')
+        exp_count = random.randint(0, 20)
+        run_store.run_colors = N.generate_colors(exp_count)
+        # 设置名称，随机生成
+        run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
+        run_store.run_colors = N.generate_colors(exp_count)
 
     def on_run(self, *args, **kwargs):
+        self.porter.open_for_trace(backend='none', sync=False)
         self._start_terminal_proxy()
         self._register_sys_callback()
         U.print_train_begin(self.run_store.run_dir)

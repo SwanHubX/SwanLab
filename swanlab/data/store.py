@@ -12,8 +12,6 @@ import os.path
 
 from pydantic import BaseModel
 
-from swanlab.env import SwanLabEnv
-
 
 class RunStore(BaseModel):
 
@@ -86,8 +84,7 @@ def inside(func):
         try:
             caller_module = frame.f_back.f_globals.get('__name__', '')
             if not caller_module.startswith('swanlab.data'):
-                runtime = os.getenv(SwanLabEnv.RUNTIME.value)
-                if runtime != 'test' and runtime != 'test-no-cloud':
+                if 'PYTEST_VERSION' not in os.environ:
                     raise RuntimeError("This function can only be called from swanlab.data module.")
         finally:
             del frame

@@ -60,12 +60,12 @@ class CloudPyCallback(SwanLabRunCallback):
                 description=run_store.description,
                 tags=run_store.tags,
             )
-        self.porter.open_for_trace(sync=True)
 
     def _terminal_handler(self, log_data: LogData):
         self.porter.trace_log(log_data)
 
     def on_run(self, *args, **kwargs):
+        self.porter.open_for_trace(sync=False)
         # 注册终端代理和系统回调
         self._start_terminal_proxy()
         self._register_sys_callback()

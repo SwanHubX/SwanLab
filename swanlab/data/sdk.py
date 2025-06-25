@@ -181,6 +181,7 @@ class SwanLabInitializer:
                 return run
         # 注册settings
         merge_settings(settings)
+        user_settings = get_settings()
         swanlog.level = kwargs.get("log_level", "info")
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
         # 1. 加载参数
@@ -250,22 +251,20 @@ class SwanLabInitializer:
         self.cbs = []
         # 7. 校验mode参数并适配 backup 模式
         mode, login_info = _init_mode(mode)
-        if mode == "offline":
-            merge_settings(Settings(backup=True))
-        elif mode == "disabled":
-            merge_settings(Settings(backup=False))
-        user_settings = get_settings()
+        if mode in ["offline", "local"] and user_settings.backup is False:
+            raise RuntimeError("You can't use offline or local mode with backup=False!")
+        run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value
-        # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
-        # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-        if logdir is None:
-            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
-        logdir = os.path.abspath(logdir)
-        if mode != "disabled" and user_settings.backup is False or mode == "disabled":
-            # 只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
+        if user_settings.backup is False or mode == "disabled":
+            # 设置 backup 为 false 时只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
             # 此时我们将日志存在系统运行时目录
             logdir = platformdirs.user_runtime_dir(ensure_exists=True, appname="swanlab.backup", appauthor="SwanHubX")
+        elif logdir is None:
+            # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+            # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+        logdir = os.path.abspath(logdir)
         os.environ[env_key] = logdir
         try:
             os.makedirs(logdir, exist_ok=True)
@@ -277,6 +276,24 @@ class SwanLabInitializer:
         if not os.listdir(logdir):
             with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
                 f.write("*")
+        run_store.swanlog_dir = logdir
+        # ---------------------------------- 设置运行时配置 ----------------------------------
+        # 1. 写入运行时配置
+        run_store.project = project
+        run_store.workspace = workspace
+        run_store.visibility = public
+        run_store.tags = tags
+        run_store.description = description
+        run_store.run_name = experiment_name
+        run_store.swanlog_dir = logdir
+        # 2. 系统信息检测
+        meta, monitor_funcs = get_metadata(run_store.run_dir)
+        # 3. 启动操作员，注册运行实例
+        operator = _create_operator(mode, login_info, callbacks)
+        operator.on_init(project, workspace, public=public, logdir=logdir)
+        # init结束后应该设置了一些参数
+        assert run_store.run_name is not None, "Run name must be set after initialization."
+        assert run_store.run_colors is not None, "Run color must be set after initialization."
         # ---------------------------------- 初始化运行文件夹 ----------------------------------
         run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
         assert run_id is not None, "run_id should not be None, please check the logdir and run_id"
@@ -292,35 +309,14 @@ class SwanLabInitializer:
             except FileExistsError:
                 pass
         assert run_dir is not None, "run_dir should not be None, please check the logdir and run_id"
-        run_store = get_run_store()
         run_store.run_id = run_id
         run_store.run_dir = run_dir
         os.makedirs(run_store.media_dir, exist_ok=True)
         os.makedirs(run_store.log_dir, exist_ok=True)
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
-        # ---------------------------------- 实例化实验 ----------------------------------
-        # 1. 写入运行时配置
-        run_store.project = project
-        run_store.workspace = workspace
-        run_store.visibility = public
-        run_store.tags = tags
-        run_store.description = description
-        run_store.run_name = experiment_name
-        run_store.swanlog_dir = logdir
-
-        # 2. 系统信息检测
-        meta, monitor_funcs = get_metadata(run_store.run_dir)
-
-        # 3. 启动操作员，注册运行实例
-        operator = _create_operator(mode, login_info, callbacks)
-        operator.on_init(project, workspace, public=public, logdir=logdir)
-
-        # 此时应该设置了一些参数
-        assert run_store.run_name is not None, "Run name must be set after initialization."
+        # ---------------------------------- 初始化运行实例 ----------------------------------
         assert run_store.run_id is not None, "Run id must be set after initialization."
-        assert run_store.run_colors is not None, "Run color must be set after initialization."
-        os.makedirs(run_store.run_dir, exist_ok=True)
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 

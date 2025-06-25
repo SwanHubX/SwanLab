@@ -9,6 +9,7 @@ r"""
 """
 import os
 
+import platformdirs
 import pytest
 from nanoid import generate
 
@@ -171,7 +172,7 @@ class TestInitMode:
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})  # 不会报错
         a = run.public.run_dir
-        assert not os.path.exists(a)
+        assert os.path.exists(a)
         assert get_run() is not None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
@@ -208,7 +209,7 @@ class TestInitMode:
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
         a = run.public.run_dir
-        assert not os.path.exists(a)
+        assert os.path.exists(a)
         assert get_run() is not None
 
     def test_init_local_env(self):
@@ -233,7 +234,7 @@ class TestInitMode:
         assert os.environ[MODE] == "disabled"
         run.log({"TestInitMode": 1})
         a = run.public.run_dir
-        assert not os.path.exists(a)
+        assert os.path.exists(a)
         assert get_run() is not None
 
 
@@ -292,7 +293,8 @@ class TestInitLogdir:
         del os.environ[LOG_DIR]
         run = S.init(logdir=logdir, mode="disabled")
         assert run.public.swanlog_dir != logdir
-        assert run.public.swanlog_dir == os.path.join(os.getcwd(), "swanlog")
+        assert run.public.swanlog_dir == platformdirs.user_runtime_dir(appname="swanlab.backup", appauthor="SwanHubX")
+        os.path.exists(run.public.swanlog_dir)
 
     def test_init_logdir_enabled(self):
         """
@@ -478,7 +480,7 @@ class TestInitExpByEnv:
         assert run.public.cloud.experiment_name == param_exp_name
 
 
-@pytest.mark.parametrize("config", [1, None, [], (), True])
+@pytest.mark.parametrize("config", [1, [], (), True])
 def test_init_error_config(config):
     """
     测试传入不同的config参数时，是否抛出错误对应错误
