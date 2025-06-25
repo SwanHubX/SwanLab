@@ -293,7 +293,7 @@ class TestInitLogdir:
         del os.environ[LOG_DIR]
         run = S.init(logdir=logdir, mode="disabled")
         assert run.public.swanlog_dir != logdir
-        assert run.public.swanlog_dir == platformdirs.user_runtime_dir(appname="swanlab.backup", appauthor="SwanHubX")
+        assert run.public.swanlog_dir == platformdirs.user_cache_dir(appname="swanlab", appauthor="SwanHubX")
         os.path.exists(run.public.swanlog_dir)
 
     def test_init_logdir_enabled(self):

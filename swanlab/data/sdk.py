@@ -259,7 +259,7 @@ class SwanLabInitializer:
         if user_settings.backup is False or mode == "disabled":
             # 设置 backup 为 false 时只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
             # 此时我们将日志存在系统运行时目录
-            logdir = platformdirs.user_runtime_dir(ensure_exists=True, appname="swanlab.backup", appauthor="SwanHubX")
+            logdir = platformdirs.user_cache_dir(ensure_exists=True, appname="swanlab", appauthor="SwanHubX")
         elif logdir is None:
             # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
             # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
