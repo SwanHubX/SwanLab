@@ -9,6 +9,7 @@ NOTE: 只允许在 swanlab/data 模块下访问，其他地方不允许访问
 import functools
 import inspect
 import os.path
+from typing import Optional, List
 
 from pydantic import BaseModel
 
@@ -17,30 +18,30 @@ class RunStore(BaseModel):
 
     # ---------------------------------- 项目 ----------------------------------
     # 项目名称
-    project: str | None = None
+    project: Optional[str] = None
     # 项目所在空间
-    workspace: str | None = None
+    workspace: Optional[str] = None
     # 项目可见性
-    visibility: bool | None = None
+    visibility: Optional[bool] = None
     # ---------------------------------- 实验 ----------------------------------
     # 实验名称
-    run_name: str | None = None
+    run_name: Optional[str] = None
     # 实验颜色
-    run_colors: list[str] | None = None
+    run_colors: Optional[List[str]] = None
     # 实验标签
-    tags: list[str] | None = None
+    tags: Optional[List[str]] = None
     # 实验描述
-    description: str | None = None
+    description: Optional[str] = None
     # 实验运行 ID
-    run_id: str | None = None
+    run_id: Optional[str] = None
 
     # ---------------------------------- 目录 ----------------------------------
     # 是否为临时目录，标识一些运行时环境
-    tmp_dir: bool | None = None
+    tmp_dir: Optional[bool] = None
     # 日志存放目录
-    swanlog_dir: str | None = None
+    swanlog_dir: Optional[str] = None
     # 运行目录
-    run_dir: str | None = None
+    run_dir: Optional[str] = None
 
     @property
     def backup_file(self):

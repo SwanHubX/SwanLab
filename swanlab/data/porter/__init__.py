@@ -13,7 +13,7 @@ SwanLab 不生产数据，我们只是 AI 训练的搬运工，祝愿所有训�
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Union, Tuple
 
 import wrapt
 from swankit.callback import MetricInfo, ColumnInfo, RuntimeInfo
@@ -60,7 +60,7 @@ def backup():
 
     @wrapt.decorator
     def wrapper(wrapped, instance, args, kwargs):
-        result: BaseModel | list[BaseModel] = wrapped(*args, **kwargs)
+        result: Union[List[BaseModel], BaseModel] = wrapped(*args, **kwargs)
         if result is not None:
             f = getattr(instance, "_f")
             if isinstance(result, list):
@@ -288,7 +288,7 @@ class DataPorter:
     @async_io()
     @backup()
     @traced()
-    def trace_log(self, data: LogData) -> list[BaseModel]:
+    def trace_log(self, data: LogData) -> List[BaseModel]:
         """
         追踪日志数据，日志数据比较特殊，一次可能好几行
         """
@@ -372,7 +372,7 @@ class DataPorter:
             raise exc_val
 
     @synced()
-    def parse(self) -> tuple[Project, Experiment]:
+    def parse(self) -> Tuple[Project, Experiment]:
         """
         解析备份文件中的记录，必须在 open_for_sync() 后调用
         """

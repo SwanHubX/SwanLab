@@ -8,7 +8,7 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
@@ -35,7 +35,7 @@ class SwanLabRun:
     def __init__(
         self,
         metadata: dict = None,
-        monitor_funcs: list[HardwareCollector] = None,
+        monitor_funcs: List[HardwareCollector] = None,
         run_config: Any = None,
         operator: SwanLabRunOperator = None,
     ):
