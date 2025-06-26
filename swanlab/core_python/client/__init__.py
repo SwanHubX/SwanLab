@@ -63,8 +63,19 @@ class Client:
         self.__version = get_package_version()
         # 创建会话
         self.__create_session()
+        # 判断当前实验会话（flagId）是否被其他进程顶掉
+        self.pending = False
 
     # ---------------------------------- 一些辅助属性 ----------------------------------
+    @property
+    def exp(self) -> ExperimentInfo:
+        assert self.__exp is not None, "Experiment not mounted, please call mount_exp() first"
+        return self.__exp
+
+    @property
+    def proj(self) -> ProjectInfo:
+        assert self.__proj is not None, "Project not mounted, please call mount_project() first"
+        return self.__proj
 
     @property
     def base_url(self):
@@ -99,10 +110,6 @@ class Client:
     @property
     def cos(self):
         return self.__cos
-
-    @property
-    def proj_id(self):
-        return self.__proj.cuid
 
     @property
     def projname(self):
@@ -294,37 +301,82 @@ class Client:
         resp_data_info, _ = self.get(f"/project/{self.groupname}/{name}")
         self.__proj = ProjectInfo(resp_data_info)
 
-    def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
+    def mount_exp(
+        self,
+        exp_name,
+        colors: Tuple[str, str],
+        description: str = None,
+        tags: List[str] = None,
+        created_at: str = None,
+        cuid: str = None,
+        allow_exist: bool = True,
+    ):
         """
         初始化实验，获取存储信息
         :param exp_name: 所属实验名称
         :param colors: 实验颜色，有两个颜色
         :param description: 实验描述
         :param tags: 实验标签
+        :param created_at: 实验创建时间，格式为 ISO 8601
+        :param cuid: 实验的唯一标识符，如果不提供则由后端生成
+        :param allow_exist: 如果实验已存在，是否允许继续使用
+
+        :raises RuntimeError: 如果实验已存在且不允许继续使用
+        :raises NotImplementedError: 如果项目未挂载
         """
+        if self.__proj is None:
+            raise NotImplementedError("Project not mounted, please call mount_project() first")
+        labels = [{"name": tag} for tag in tags] if tags else []
         post_data = {
             "name": exp_name,
+            "description": description,
+            "createdAt": created_at,
             "colors": list(colors),
+            "labels": labels if len(labels) else None,
+            "cuid": cuid,
         }
-        if description is not None:
-            post_data["description"] = description
-        if tags is not None:
-            post_data["labels"] = [{"name": tag} for tag in tags]
+        post_data = {k: v for k, v in post_data.items() if v is not None}  # 移除值为None的键
 
-        data, _ = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
+        # 这部分错误将不会被上层捕获，直接抛出异常
+        try:
+            data, resp = self.post(f"/project/{self.groupname}/{self.__proj.name}/experiment", post_data)
+        except ApiError as e:
+            if e.resp.status_code == 400 and e.resp.reason == "Bad Request":
+                # 指定的 cuid 对应的实验是克隆实验
+                raise ValueError(f"Experiment with cuid {cuid} is a cloned experiment and cannot be resumed")
+            elif e.resp.status_code == 403 and e.resp.reason == "Forbidden":
+                # 权限不足
+                raise ValueError(f"Project permission denied: {self.projname}")
+            elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
+                # 传入的项目不存在
+                raise ValueError(f"Project {self.projname} not found")
+            elif e.resp.status_code == 404 and e.resp.reason == "Disabled Resource":
+                # 传入的实验被删除
+                raise ValueError(f"Experiment {cuid} has been deleted")
+            elif e.resp.status_code == 409 and e.resp.reason == "Conflict":
+                # 传入 cuid 但是实验不属于当前项目
+                raise ValueError(f"Experiment with cuid {cuid} does not belong to project {self.projname}")
+            raise e
+        # 200代表实验已存在
+        if resp.status_code == 200 and not allow_exist:
+            raise RuntimeError(f"Experiment with cuid {cuid} already exists")
         self.__exp = ExperimentInfo(data)
         # 获取cos信息
         self.__get_cos()
 
-    def update_state(self, success: bool):
+    def update_state(self, success: bool, finished_at: str = None):
         """
         更新实验状态
         :param success: 实验是否成功
+        :param finished_at: 实验结束时间，格式为 ISO 8601，如果不提供则使用当前时间
         """
-        self.put(
-            f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state",
-            {"state": "FINISHED" if success else "CRASHED", "from": "sdk"},
-        )
+        put_data = {
+            "state": "FINISHED" if success else "CRASHED",
+            "finishedAt": finished_at,
+            "from": "sdk",
+        }
+        put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
+        self.put(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state", put_data)
 
 
 client: Optional["Client"] = None

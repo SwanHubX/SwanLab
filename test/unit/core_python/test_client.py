@@ -13,7 +13,7 @@ import requests_mock
 import responses
 from responses import registries
 
-from swanlab.core_python import create_client, Client, CosClient
+from swanlab.core_python import create_client, Client, CosClient, reset_client
 from swanlab.core_python.auth import login_by_key
 from swanlab.package import get_host_api
 from swanlab.toolkit import MediaBuffer
@@ -143,5 +143,59 @@ class TestCosSuite:
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
-def TestExpSuite():
-    pass
+class TestExpSuite:
+    """
+    测试实验相关的功能
+    """
+
+    client: Client = None
+
+    def setup_method(self):
+        """
+        初始化客户端对象
+        """
+        login_info = login_by_key(API_KEY, save=False)
+        self.client = create_client(login_info)
+
+    @staticmethod
+    def teardown_method():
+        """
+        清理实验
+        """
+        reset_client()
+
+    def test_create_exp_before_create_project(self):
+        """
+        实验创建前未创建项目，应该抛出异常
+        """
+        with pytest.raises(NotImplementedError) as e:
+            self.client.mount_exp(nanoid.generate(), ('#ffffff', '#ffffff'))
+        assert "Project not mounted, please call mount_project() first" == str(
+            e.value
+        ), "Expected ValueError when creating experiment without project"
+
+    def test_create_exp_with_cuid(self):
+        """
+        测试创建实验时使用cuid
+        cuid 必须为21位字符串且为小写字母和数字组成
+        """
+        cuid = nanoid.generate(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", size=21)
+        exp_name = nanoid.generate()
+        self.client.mount_project(nanoid.generate())
+        self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid)
+        assert self.client.exp_id == cuid, "Experiment ID should match the provided cuid"
+
+    def test_exp_allow_exist(self):
+        """
+        测试实验允许存在
+        """
+        exp_name = nanoid.generate()
+        self.client.mount_project(nanoid.generate())
+        cuid = nanoid.generate(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", size=21)
+        self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=False)
+        # 再次创建相同 cuid 实验，应该不会抛出异常
+        self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=True)
+        assert self.client.exp_id is not None, "Experiment ID should not be None after creating experiment"
+        # 再次创建相同 cuid 实验，应该抛出异常
+        with pytest.raises(RuntimeError):
+            self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=False)
