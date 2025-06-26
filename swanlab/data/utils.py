@@ -101,10 +101,10 @@ def _init_mode(mode: str = None):
             web_host = get_host_web()
             # 交互选择
             swanlog.info("Enter your choice: ")
-            code = input()
+            code = input("")
             while code not in ["1", "2", "3"]:
-                swanlog.warning("Invalid choice, please enter again.")
-                code = input()
+                swanlog.warning("Invalid choice, please enter again:")
+                code = input("")
             if code == "3":
                 mode = "local"
             elif code == "2":
