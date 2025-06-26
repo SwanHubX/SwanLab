@@ -43,7 +43,8 @@ class CloudPyCallback(SwanLabRunCallback):
             http = get_client()
         except ValueError:
             swanlog.debug("Login info is None, get login info.")
-            http = create_client(auth.create_login_info())
+            # 不保存登录信息，直接获取最新的登录信息
+            http = create_client(auth.create_login_info(save=False))
         # 检测是否有最新的版本
         U.check_latest_version()
         run_store = get_run_store()

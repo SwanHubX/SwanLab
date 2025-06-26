@@ -478,6 +478,70 @@ class TestInitExpByEnv:
         assert run.public.cloud.experiment_name == param_exp_name
 
 
+@pytest.mark.timeout(10)
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_init_again_after_terminal_login(monkeypatch):
+    """
+    测试实验结束后再次开启新实验，此时不需要再次登录
+    """
+    api_key = os.environ[SwanLabEnv.API_KEY.value]
+    del os.environ[SwanLabEnv.API_KEY.value]
+    num = 0
+
+    def choose_mode(_):
+        nonlocal num
+        if num == 0:
+            num += 1
+            return '1'
+        else:
+            raise RuntimeError("This function should not be called!")
+
+    def input_api_key(_):
+        nonlocal num
+        if num == 1:
+            num += 1
+            return api_key
+        else:
+            raise RuntimeError("This function should not be called!")
+
+    monkeypatch.setattr("builtins.input", choose_mode)
+    monkeypatch.setattr("getpass.getpass", input_api_key)
+
+    S.init()
+    S.finish()
+
+    def raise_error(_):
+        raise RuntimeError("This function should not be called!")
+
+    monkeypatch.setattr("builtins.input", raise_error)
+    S.init()
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_init_again_after_code_login(monkeypatch):
+    """
+    测试在代码登录的情况下实验结束后再次开启新实验，此时不需要再次登录
+    """
+
+    def raise_error(_):
+        raise RuntimeError("This function should not be called!")
+
+    api_key = os.environ[SwanLabEnv.API_KEY.value]
+    assert not os.path.exists(os.environ[SwanLabEnv.SWANLAB_FOLDER.value]), "SwanLab folder should be empty before test"
+
+    del os.environ[SwanLabEnv.API_KEY.value]
+    S.login(api_key=api_key)
+    assert not os.path.exists(os.environ[SwanLabEnv.SWANLAB_FOLDER.value]), "SwanLab folder should be empty after login"
+    monkeypatch.setattr("builtins.input", raise_error)
+    S.init()
+    S.finish()
+    S.init()
+    assert not os.path.exists(
+        os.environ[SwanLabEnv.SWANLAB_FOLDER.value]
+    ), "SwanLab folder should be empty after re-init"
+
+
 @pytest.mark.parametrize("config", [1, [], (), True])
 def test_init_error_config(config):
     """
