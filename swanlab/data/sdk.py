@@ -40,9 +40,9 @@ from .utils import (
     _load_from_dict,
     _load_from_env,
     _create_operator,
+    _init_mode,
     should_call_after_init,
     should_call_before_init,
-    _init_mode,
 )
 from ..core_python import create_client, auth
 from ..package import HostFormatter
@@ -174,7 +174,7 @@ class SwanLabInitializer:
         # 一个进程同时只能有一个实验在运行
         if SwanLabRun.is_started():
             run = get_run()
-            if reinit is True:
+            if reinit:
                 run.finish()
             else:
                 swanlog.warning("You have already initialized a run, the init function will be ignored")

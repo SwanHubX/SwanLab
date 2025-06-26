@@ -18,7 +18,7 @@ import swanlab.data.utils
 import swanlab.error as Err
 import tutils as T
 from swanlab import Settings
-from swanlab.core_python import reset_client
+from swanlab.core_python import reset_client, get_client
 from swanlab.data.run import get_run
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
@@ -527,15 +527,19 @@ def test_init_again_after_code_login(monkeypatch):
     def raise_error(_):
         raise RuntimeError("This function should not be called!")
 
+    monkeypatch.setattr("builtins.input", raise_error)
     api_key = os.environ[SwanLabEnv.API_KEY.value]
     assert not os.path.exists(os.environ[SwanLabEnv.SWANLAB_FOLDER.value]), "SwanLab folder should be empty before test"
 
     del os.environ[SwanLabEnv.API_KEY.value]
     S.login(api_key=api_key)
     assert not os.path.exists(os.environ[SwanLabEnv.SWANLAB_FOLDER.value]), "SwanLab folder should be empty after login"
-    monkeypatch.setattr("builtins.input", raise_error)
+
     S.init()
     S.finish()
+    with pytest.raises(ValueError):
+        get_client()
+    assert os.getenv(SwanLabEnv.API_KEY.value) == api_key
     S.init()
     assert not os.path.exists(
         os.environ[SwanLabEnv.SWANLAB_FOLDER.value]

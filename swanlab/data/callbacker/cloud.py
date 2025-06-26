@@ -8,6 +8,7 @@
 
 import shutil
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Optional
 
 from rich.status import Status
 from rich.text import Text
@@ -30,6 +31,7 @@ from ...log.type import LogData
 
 
 class CloudPyCallback(SwanLabRunCallback):
+    login_info: Optional[auth.LoginInfo] = None
 
     def __init__(self):
         super().__init__()
@@ -38,13 +40,25 @@ class CloudPyCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudPyCallback"
 
-    def on_init(self, *args, **kwargs):
+    @staticmethod
+    def _create_client():
         try:
             http = get_client()
         except ValueError:
             swanlog.debug("Login info is None, get login info.")
-            # 不保存登录信息，直接获取最新的登录信息
-            http = create_client(auth.create_login_info(save=False))
+            login_info = CloudPyCallback.login_info
+            if login_info is not None:
+                # 如果有登录信息，则使用该信息创建客户端
+                http = create_client(login_info)
+                CloudPyCallback.login_info = None
+            else:
+                # 如果没有登录信息，则需要用户登录
+                # 但是不保存登录信息到本地
+                http = create_client(auth.create_login_info(save=False))
+        return http
+
+    def on_init(self, *args, **kwargs):
+        http = self._create_client()
         # 检测是否有最新的版本
         U.check_latest_version()
         run_store = get_run_store()
