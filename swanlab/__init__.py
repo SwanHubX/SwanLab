@@ -1,5 +1,13 @@
 # 导出初始化函数和log函数，以及一些数据处理模块
 from .data import *
+from .data.modules import (
+    Audio,
+    Image,
+    Object3D,
+    Molecule,
+    Text,
+    echarts,
+)
 from .env import SwanLabEnv
 from .package import get_package_version
 from .swanlab_settings import Settings

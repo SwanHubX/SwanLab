@@ -15,9 +15,7 @@ from nanoid import generate
 
 import swanlab
 from swanlab import sync
-from swanlab.log.backup import BackupHandler
-from swanlab.log.backup.datastore import DataStore
-from swanlab.log.backup.models import ModelsParser
+from swanlab.data.porter import DataPorter
 from swanlab.toolkit import MetricInfo
 
 
@@ -38,8 +36,10 @@ def test_sync():
     }
     description = generate()
     tags = [generate(), generate()]
-    project_name = generate()
-    experiment_name = generate()
+    # project_name = generate()
+    project_name = "12345"
+    # experiment_name = generate()
+    experiment_name = "67890"
     run = swanlab.init(
         project=project_name,
         experiment_name=experiment_name,
@@ -68,23 +68,29 @@ def test_sync():
     swanlab.finish()
     # ---------------------------------------------------------------------------
     run_dir = run.public.run_dir
+    backup_file = run.public.backup_file
     # 文件夹存在
     assert os.path.exists(run_dir) is True
     # 解析日志文件成功（未登录）
     with pytest.raises(AssertionError) as e:
         sync(run_dir.__str__(), login_required=False)
     assert e.value.args[0] == "Please log in first, use `swanlab login` to log in."
+    assert os.path.isfile(backup_file), "Backup file does not exist after sync"
     # ---------------------- 验证所有的日志都存在 ----------------------------------
     # 1. 解析日志文件
-    ds = DataStore()
-    ds.open_for_scan(os.path.join(run_dir.__str__(), BackupHandler.BACKUP_FILE).__str__())
-    # 2. 验证日志内容
-    with ModelsParser() as models_parser:
-        for record in ds:
-            if record is None:
-                continue
-            models_parser.parse_record(record)
-    header, project, experiment, logs, runtime, columns, scalars, medias, footer = models_parser.get_parsed()
+    with DataPorter().open_for_sync(run_dir) as porter:
+        porter.parse()
+    header, project, experiment, logs, runtime, columns, scalars, medias, footer = (
+        porter._header,
+        porter._project,
+        porter._experiment,
+        porter._logs,
+        porter._runtime,
+        porter._columns,
+        porter._scalars,
+        porter._medias,
+        porter._footer,
+    )
     # 2.1 验证日志头部
     assert header.backup_type == "DEFAULT"
     # 2.2 验证项目内容

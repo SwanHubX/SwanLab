@@ -1,8 +1,9 @@
 """
 @author: cunyue
-@file: models.py
-@time: 2025/6/4 15:32
-@description: 定义日志备份模型，方便序列化和反序列化操作
+@file: __init__.py
+@time: 2025/6/20 13:30
+@description: 历史版本的备份、上传协议采用 JSON 序列化实现
+为了保证向下兼容性，在此保留相关模型定义
 """
 
 import json
@@ -12,7 +13,7 @@ from typing import Optional, List, Literal, Tuple, Union
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
 
-from swanlab.core_python import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
+from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
 from swanlab.toolkit import ChartReference, MediaBuffer
 from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
@@ -180,6 +181,21 @@ class Column(BaseModel):
         """
         从 ColumnInfo 对象创建 Column 实例
         """
+        error = None
+        if column_info.error is not None:
+            error = {"data_class": column_info.error.got, "excepted": column_info.error.expected}
+        # 这里有些比较抽象的地方：
+        # 云端版会自动处理不同类型的数据放在不同的组中，所以如果key没有设置成 {section}/{name} 之类的样式，不需要传递section的名称
+        # 但是本地版不会，本地版依靠swanlab的处理结果指定列，所以在Data类型上必须定义获取section_name的方法
+        # 云端版不需要这样做，因为云端版会自动处理
+        # 因为云端版的设计更加先进，云端版对“列”（本地版叫namespace）做了不同的类型标注，但是本地版没有这个概念
+        # 所以这里需要判断一下，如果列类型不为SYSTEM且不是 {section}/{name} 之类的格式，就不传递section_name
+        if column_info.section_type == "PUBLIC":
+            section_name = None if "/" not in column_info.key else column_info.section_name
+        elif column_info.section_type == "SYSTEM":
+            section_name = column_info.section_name
+        else:
+            section_name = None
         return cls.model_validate(
             {
                 "key": column_info.key,
@@ -188,10 +204,10 @@ class Column(BaseModel):
                 "cls": column_info.cls,
                 "column_type": column_info.chart_type.value.column_type,
                 "chart_reference": column_info.chart_reference,
-                "section_name": column_info.section_name,
+                "section_name": section_name,
                 "section_type": column_info.section_type,
                 "section_sort": column_info.section_sort,
-                "error": column_info.error.dict() if column_info.error else None,
+                "error": error,
                 "y_range": column_info.config.y_range if column_info.config else None,
                 "chart_name": column_info.config.chart_name if column_info.config else None,
                 "chart_index": column_info.config.chart_index if column_info.config else None,
@@ -324,111 +340,3 @@ backup_models = {
         Footer,
     ]
 }
-
-
-class ModelsParser:
-    def __init__(self):
-        self._header: Optional[Header] = None
-        self._project: Optional[Project] = None
-        self._experiment: Optional[Experiment] = None
-        self._logs: List[Log] = []
-        self._runtime: Runtime = Runtime(
-            conda_filename=None,
-            requirements_filename=None,
-            metadata_filename=None,
-            config_filename=None,
-        )
-        self._columns: List[Column] = []
-        self._scalars: List[Scalar] = []
-        self._medias: List[Media] = []
-        self._footer: Optional[Footer] = None
-        self._parsed = False
-
-    def parse_record(self, data: str):
-        assert self._parsed, "Must parse records in a context manager"
-        record = BaseModel.from_record(data)
-        if isinstance(record, Header):
-            assert self._header is None, "Header already parsed"
-            self._header = record
-            return
-        if isinstance(record, Project):
-            assert self._project is None, "Project already parsed"
-            self._project = record
-            return
-        if isinstance(record, Experiment):
-            assert self._experiment is None, "Experiment already parsed"
-            self._experiment = record
-            return
-        if isinstance(record, Log):
-            self._logs.append(record)
-            return
-        if isinstance(record, Runtime):
-            if record.conda_filename is not None:
-                self._runtime.conda_filename = record.conda_filename
-            if record.requirements_filename is not None:
-                self._runtime.requirements_filename = record.requirements_filename
-            if record.metadata_filename is not None:
-                self._runtime.metadata_filename = record.metadata_filename
-            if record.config_filename is not None:
-                self._runtime.config_filename = record.config_filename
-            return
-        if isinstance(record, Column):
-            self._columns.append(record)
-            return
-        if isinstance(record, Scalar):
-            self._scalars.append(record)
-            return
-        if isinstance(record, Media):
-            self._medias.append(record)
-            return
-        if isinstance(record, Footer):
-            assert self._footer is None, "Footer already parsed"
-            self._footer = record
-            return
-
-        raise TypeError("Unsupported record type: {}".format(type(record).__name__))
-
-    def __enter__(self):
-        assert not self._parsed, "Already parsed records before entering context"
-        self._parsed = True
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # 出现错误则抛出异常
-        if exc_type is not None:
-            raise exc_val
-        # 检查是否所有必要的记录都已解析
-        assert self._header is not None, "Header not parsed"
-        assert self._project is not None, "Project not parsed"
-        assert self._experiment is not None, "Experiment not parsed"
-
-    def get_parsed(
-        self,
-    ) -> Tuple[
-        Header,
-        Project,
-        Experiment,
-        List[Log],
-        Runtime,
-        List[Column],
-        List[Scalar],
-        List[Media],
-        Optional[Footer],
-    ]:
-        """
-        获取已解析的记录
-        """
-        assert self._parsed, "Must parse records before getting parsed data"
-        # 解析运行时信息，
-
-        return (
-            self._header,
-            self._project,
-            self._experiment,
-            self._logs,
-            self._runtime,
-            self._columns,
-            self._scalars,
-            self._medias,
-            self._footer,
-        )

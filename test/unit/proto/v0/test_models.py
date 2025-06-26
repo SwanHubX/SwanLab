@@ -5,11 +5,14 @@
 @description: 测试备份模型
 """
 
-import pytest
+import json
+import os
 
-from swanlab.log.backup.models import BaseModel, Log, Runtime
-from swanlab.log.backup.writer import write_runtime_info
+import pytest
+import yaml
+
 from swanlab.log.type import LogData, LogContent
+from swanlab.proto.v0 import BaseModel, Log, Runtime
 from swanlab.toolkit import create_time
 from tutils import TEMP_PATH
 
@@ -54,8 +57,6 @@ def test_runtime(conda, requirements, metadata, config):
 
     # 1. runtime info -> runtime
     runtime_info = RuntimeInfo(requirements, metadata, config, conda)
-    #  模拟文件写入
-    write_runtime_info(TEMP_PATH, runtime_info)
     runtime = Runtime.from_runtime_info(runtime_info)
     if conda is not None:
         assert runtime.conda_filename == runtime_info.conda.name
@@ -74,21 +75,36 @@ def test_runtime(conda, requirements, metadata, config):
     else:
         assert runtime.config_filename is None
     # 2. runtime -> file model
+    #  模拟文件写入
+    if runtime.conda_filename is not None:
+        with open(os.path.join(TEMP_PATH, runtime.conda_filename), 'w') as f:
+            f.write(conda)
+    if runtime.requirements_filename is not None:
+        with open(os.path.join(TEMP_PATH, runtime.requirements_filename), 'w') as f:
+            f.write(requirements)
+    # 这里只检查 metadata 和 config 是否被正确写入和读取，不检查内容
+    if runtime.metadata_filename is not None:
+        with open(os.path.join(TEMP_PATH, runtime.metadata_filename), 'w') as f:
+            json.dump(metadata, f)  # noqa: Expected type 'SupportsWrite[str]', got 'TextIO' instead
+    if runtime.config_filename is not None:
+        with open(os.path.join(TEMP_PATH, runtime.config_filename), 'w') as f:
+            yaml.safe_dump(config, f)
+
     file_model = runtime.to_file_model(TEMP_PATH)
     if conda is not None:
-        file_model.conda = runtime_info.conda.name
+        assert file_model.conda == runtime_info.conda.info, "Conda file name mismatch"
     else:
         assert file_model.conda is None
     if requirements is not None:
-        file_model.requirements = runtime_info.requirements.name
+        assert file_model.requirements == runtime_info.requirements.info, "Requirements file name mismatch"
     else:
         assert file_model.requirements is None
     if metadata is not None:
-        file_model.metadata = runtime_info.metadata.name
+        assert str(file_model.metadata) == str(runtime_info.metadata.info), "Metadata file name mismatch"
     else:
         assert file_model.metadata is None
     if config is not None:
-        file_model.config = runtime_info.config.name
+        assert str(file_model.config) == str(runtime_info.config.info), "Config file name mismatch"
     else:
         assert file_model.config is None
 

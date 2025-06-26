@@ -8,9 +8,4 @@ r"""
     在此处导出SwanLabRun类，一次实验运行应该只有一个SwanLabRun实例
 """
 from .main import SwanLabRun, get_run, get_config, SwanLabRunState, get_url, get_project_url, config
-
-
-def register(*args, **kwargs) -> SwanLabRun:
-    """注册并实例化SwanLabRun类"""
-    run = SwanLabRun(*args, **kwargs)
-    return run
+from .metadata import get_metadata

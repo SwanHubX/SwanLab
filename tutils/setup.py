@@ -7,47 +7,55 @@ r"""
 @Description:
     存储、设置通用函数
 """
+import os.path
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, Optional
 
 import nanoid
 import requests_mock
 
-from swanlab.core_python import auth
+from swanlab.core_python import auth, create_client, reset_client, Client
+from swanlab.data.store import reset_run_store, get_run_store, RunStore
 from swanlab.package import get_host_web
+from .config import TEMP_PATH
 
-__all__ = ["UseSetupHttp", "mock_login_info"]
+__all__ = ["UseMockRunState", "mock_login_info"]
 
 
-class UseSetupHttp:
+class UseMockRunState:
     """
-    用于全局使用的http对象，模拟登录，退出时重置http
-    使用with关键字，自动登录，退出时自动重置http
-    也可以使用del手动释放
+    使用上下文管理器模拟客户端以及一些其他的运行时状态
+    主要用于测试环境中，模拟登录状态以及方便测试
     """
 
     def __init__(self):
-        self.http = None
+        self.client: Optional[Client] = None
+        self.store: Optional[RunStore] = None
 
-    def __enter__(self):
-        from swanlab.core_python import create_client
-
+    def __enter__(self) -> "UseMockRunState":
         login_info = mock_login_info()
-        self.http = create_client(login_info)
-        return self.http
+        self.client = create_client(login_info)
+        reset_run_store()
+        self.store = get_run_store()
+        # 创建运行目录结构，方便测试
+        self.store.swanlog_dir = TEMP_PATH
+        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + nanoid.generate())
+        os.mkdir(self.store.run_dir)
+        os.mkdir(self.store.media_dir)
+        os.mkdir(self.store.log_dir)
+        os.mkdir(self.store.console_dir)
+        os.mkdir(self.store.file_dir)
+
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        from swanlab.core_python import reset_client
-
-        reset_client()
-        self.http = None
+        self.__del__()
 
     def __del__(self):
-        if self.http is not None:
-            from swanlab.core_python import reset_client
-
-            reset_client()
-            self.http = None
+        reset_client()
+        self.client = None
+        reset_run_store()
+        self.store = None
 
 
 def mock_login_info(

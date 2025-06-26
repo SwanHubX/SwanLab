@@ -8,23 +8,34 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import random
+import time
+from datetime import datetime
 from typing import Union, Dict, Literal, List
+
+import platformdirs
 
 from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings
 from swanlab.toolkit import SwanKitCallback
-from .callbacker.cloud import CloudRunCallback
-from .formatter import check_load_json_yaml, check_callback_format
+from .formatter import (
+    check_load_json_yaml,
+    check_callback_format,
+    check_exp_name_format,
+    check_proj_name_format,
+    check_desc_format,
+    check_tags_format,
+)
 from .modules import DataType
 from .run import (
     SwanLabRunState,
     SwanLabRun,
-    register,
     get_run,
+    get_metadata,
 )
+from .store import get_run_store
 from .utils import (
-    _check_proj_name,
     _init_config,
     _load_from_dict,
     _load_from_env,
@@ -60,7 +71,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
     # 检查host是否合法，并格式化，注入到环境变量中
     HostFormatter(host, web_host)()
     # 登录，初始化http对象
-    login_info = auth.code_login(api_key, save) if api_key else CloudRunCallback.create_login_info(save)
+    login_info = auth.code_login(api_key, save) if api_key else auth.create_login_info(save)
     create_client(login_info)
     if api_key:
         os.environ[SwanLabEnv.API_KEY.value] = api_key
@@ -170,7 +181,10 @@ class SwanLabInitializer:
                 return run
         # 注册settings
         merge_settings(settings)
+        user_settings = get_settings()
+        swanlog.level = kwargs.get("log_level", "info")
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
+        # 1. 加载参数
         if callbacks is None:
             callbacks = []
 
@@ -180,7 +194,7 @@ class SwanLabInitializer:
         if description is None and kwargs.get("notes", None) is not None:
             description = kwargs.get("notes")
 
-        # 从文件中加载数据
+        # 1.1 从文件中加载数据
         if load:
             load_data = check_load_json_yaml(load, load)
             experiment_name = _load_from_dict(load_data, "experiment_name", experiment_name)
@@ -192,59 +206,118 @@ class SwanLabInitializer:
             project = _load_from_dict(load_data, "project", project)
             workspace = _load_from_dict(load_data, "workspace", workspace)
             public = _load_from_dict(load_data, "private", public)
-        # 从环境变量中加载参数
+        # 1.2 初始化confi参数
+        config = _init_config(config)
+        # 如果config是以下几个类别之一，则抛出异常
+        if isinstance(config, (int, float, str, bool, list, tuple, set)):
+            raise TypeError(
+                f"config: {config} (type: {type(config)}) is not a json serialized dict "
+                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+            )
+        # 1.3 从环境变量中加载参数
         workspace = _load_from_env(SwanLabEnv.WORKSPACE.value, workspace)
         project = _load_from_env(SwanLabEnv.PROJ_NAME.value, project)
         experiment_name = _load_from_env(SwanLabEnv.EXP_NAME.value, experiment_name)
 
-        # FIXME 没必要多一个函数
-        project = _check_proj_name(project if project else os.path.basename(os.getcwd()))  # 默认实验名称为当前目录名
+        # 2. 格式校验
+        # 2.1 校验项目名称
+        # 默认实验名称为当前目录名
+        project = project if project else os.path.basename(os.getcwd())
+        p = check_proj_name_format(project)
+        if len(p) != len(project):
+            swanlog.warning(f"project name is too long, auto cut to {p}")
+            project = p
+        # 2.2 校验实验名称
+        if experiment_name:
+            e = check_exp_name_format(experiment_name)
+            if experiment_name != e:
+                swanlog.warning("The experiment name has been truncated automatically.")
+                experiment_name = e
+        # 2.3 校验实验描述
+        if description:
+            d = check_desc_format(description)
+            if description != d:
+                swanlog.warning("The description has been truncated automatically.")
+                description = d
+        # 4. 校验标签
+        if tags:
+            new_tags = check_tags_format(tags)
+            for i in range(len(tags)):
+                if tags[i] != new_tags[i]:
+                    swanlog.warning("The tag has been truncated automatically.")
+                    tags[i] = new_tags[i]
+        # 6. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
-        # 校验mode参数并适配 backup 模式
+        self.cbs = []
+        # 7. 校验mode参数并适配 backup 模式
         mode, login_info = _init_mode(mode)
-        if mode == "offline":
-            merge_settings(Settings(backup=True))
-        elif mode == "disabled":
-            merge_settings(Settings(backup=False))
-        # ---------------------------------- 创建文件夹 ----------------------------------
-        # backup 模式、开启 backup 功能、local模式三种情况下需要创建文件夹，前两者等价于校验 “开启 backup 功能”
-        if mode == "local" or get_settings().backup:
-            env_key = SwanLabEnv.SWANLOG_FOLDER.value
+        if mode in ["offline", "local"] and user_settings.backup is False:
+            raise RuntimeError("You can't use offline or local mode with backup=False!")
+        run_store = get_run_store()
+        # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
+        env_key = SwanLabEnv.SWANLOG_FOLDER.value
+        if user_settings.backup is False or mode == "disabled":
+            # 设置 backup 为 false 时只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
+            # 此时我们将日志存在系统运行时目录
+            logdir = platformdirs.user_cache_dir(ensure_exists=True, appname="swanlab", appauthor="SwanHubX")
+        elif logdir is None:
             # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
             # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-            if logdir is None:
-                logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
-
-            logdir = os.path.abspath(logdir)
-            try:
-                os.makedirs(logdir, exist_ok=True)
-                if not os.access(logdir, os.W_OK):
-                    raise IOError(f"no write permission for path: {logdir}")
-            except Exception as error:
-                raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-
-            os.environ[env_key] = logdir
-
-            # 如果logdir是空的，创建.gitignore文件，写入*
-            if not os.listdir(logdir):
-                with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-                    f.write("*")
-        # ---------------------------------- 实例化实验 ----------------------------------
-        # 启动操作员
+            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+        logdir = os.path.abspath(logdir)
+        os.environ[env_key] = logdir
+        try:
+            os.makedirs(logdir, exist_ok=True)
+            if not os.access(logdir, os.W_OK):
+                raise IOError(f"no write permission for path: {logdir}")
+        except Exception as error:
+            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+        # 如果logdir是空的，创建.gitignore文件，写入*
+        if not os.listdir(logdir):
+            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+                f.write("*")
+        run_store.swanlog_dir = logdir
+        # ---------------------------------- 设置运行时配置 ----------------------------------
+        # 1. 写入运行时配置
+        run_store.project = project
+        run_store.workspace = workspace
+        run_store.visibility = public
+        run_store.tags = tags
+        run_store.description = description
+        run_store.run_name = experiment_name
+        run_store.swanlog_dir = logdir
+        # 2. 系统信息检测
+        meta, monitor_funcs = get_metadata(run_store.run_dir)
+        # 3. 启动操作员，注册运行实例
         operator = _create_operator(mode, login_info, callbacks)
         operator.on_init(project, workspace, public=public, logdir=logdir)
-        # 初始化confi参数
-        config = _init_config(config)
-        # 注册实验
-        run = register(
-            project_name=project,
-            experiment_name=experiment_name,
-            description=description,
-            tags=tags,
-            run_config=config,
-            log_level=kwargs.get("log_level", "info"),
-            operator=operator,
-        )
+        # init结束后应该设置了一些参数
+        assert run_store.run_name is not None, "Run name must be set after initialization."
+        assert run_store.run_colors is not None, "Run color must be set after initialization."
+        # ---------------------------------- 初始化运行文件夹 ----------------------------------
+        run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
+        assert run_id is not None, "run_id should not be None, please check the logdir and run_id"
+        run_dir = None
+        while True:
+            run_dir is not None and time.sleep(1)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_name = "run-{}-{}".format(timestamp, run_id)
+            run_dir = os.path.join(logdir, run_name)
+            try:
+                os.mkdir(run_dir)
+                break
+            except FileExistsError:
+                pass
+        assert run_dir is not None, "run_dir should not be None, please check the logdir and run_id"
+        run_store.run_id = run_id
+        run_store.run_dir = run_dir
+        os.makedirs(run_store.media_dir, exist_ok=True)
+        os.makedirs(run_store.log_dir, exist_ok=True)
+        os.makedirs(run_store.file_dir, exist_ok=True)
+        os.makedirs(run_store.console_dir, exist_ok=True)
+        # ---------------------------------- 初始化运行实例 ----------------------------------
+        assert run_store.run_id is not None, "Run id must be set after initialization."
+        run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 
 

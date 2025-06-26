@@ -11,10 +11,10 @@ from swanlab.toolkit import (
     ColumnClass,
     SectionType,
     ColumnConfig,
-    SwanLabSharedSettings,
     create_time,
 )
 from .helper import SwanLabRunOperator
+from ..store import get_run_store
 
 
 class SwanLabExp:
@@ -23,21 +23,19 @@ class SwanLabExp:
     save keys when running experiments
     """
 
-    def __init__(self, settings: SwanLabSharedSettings, operator: SwanLabRunOperator) -> None:
+    def __init__(self, operator: SwanLabRunOperator) -> None:
         """初始化实验
 
         Parameters
         ----------
-        settings : SwanLabSharedSettings
-            全局运行时配置
         operator : SwanLabRunOperator
             操作员
         """
-        self.settings = settings
         # 当前实验的所有tag数据字段
         self.keys: Dict[str, SwanLabKey] = {}
         # TODO 操作员不传递给实验
         self.__operator = operator
+        self.run_store = get_run_store()
 
     def __add(
         self,
@@ -90,7 +88,7 @@ class SwanLabExp:
         if key_obj is None:
             num = len(self.keys)
             # 将此tag对象添加到实验列表中
-            key_obj = SwanLabKey(key, self.settings)
+            key_obj = SwanLabKey(key)
             self.keys[key_index] = key_obj
             # 新建图表，完成数据格式校验
             column_info = key_obj.create_column(
@@ -112,7 +110,7 @@ class SwanLabExp:
             return MetricErrorInfo(key_obj.column_info, error=key_obj.column_info.error)
         key_info = key_obj.add(data)
         key_info.buffers = data.parse().buffers
-        key_info.media_dir = self.settings.media_dir
+        key_info.media_dir = self.run_store.media_dir
         return key_info
 
     def add(
@@ -194,7 +192,7 @@ class SwanLabKey:
     # 每__slice_size个tag数据保存为一个文件
     __slice_size = 1000
 
-    def __init__(self, key: str, settings: SwanLabSharedSettings) -> None:
+    def __init__(self, key: str) -> None:
         """
         初始化tag对象
 
@@ -202,15 +200,12 @@ class SwanLabKey:
         ----------
         key : str
             列名称
-        settings : SwanLabSharedSettings
-            全局运行时配置
         """
         self.key = key
         self.__steps = set()
         """
         此tag已经包含的steps步骤
         """
-        self.__settings = settings
         self.__summary = {}
         """数据概要总结"""
         self.__collection = self.__new_metric_collection()
@@ -218,6 +213,7 @@ class SwanLabKey:
         self.chart = None
         """当前tag的数据类型，如果是BaseType类型，则为BaseType的小写类名，否则为default"""
         self.__column_info = None
+        self.run_store = get_run_store()
 
     @property
     def sum(self):
@@ -300,8 +296,8 @@ class SwanLabKey:
             metric_step=result.step,
             metric_buffers=result.buffers,
             metric_file_name=str(mu * self.__slice_size) + ".log",
-            swanlab_logdir=self.__settings.log_dir,
-            swanlab_media_dir=self.__settings.media_dir if result.buffers else None,
+            swanlab_logdir=self.run_store.log_dir,
+            swanlab_media_dir=self.run_store.media_dir if result.buffers else None,
         )
 
     def create_column(

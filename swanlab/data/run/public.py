@@ -1,6 +1,7 @@
 from swanlab.core_python import get_client
+from swanlab.data.store import get_run_store
 from swanlab.env import get_mode
-from swanlab.toolkit import SwanLabSharedSettings
+from swanlab.package import get_package_version
 
 
 class SwanlabCloudConfig:
@@ -74,10 +75,11 @@ class SwanLabPublicConfig:
     Public data for the SwanLab project.
     """
 
-    def __init__(self, project_name: str, settings: SwanLabSharedSettings):
-        self.__project_name = project_name
+    def __init__(self):
+        run_store = get_run_store()
+        self.__run_store = run_store
+        self.__project_name = run_store.project
         self.__cloud = SwanlabCloudConfig()
-        self.__settings = settings
 
     def json(self):
         """
@@ -112,32 +114,37 @@ class SwanLabPublicConfig:
         """
         return self.__project_name
 
-    # ---------------------------------- 继承settings的属性 ----------------------------------
-
     @property
     def version(self) -> str:
         """
         The version of the SwanLab.
         """
-        return self.__settings.version
+        return get_package_version()
 
     @property
     def run_id(self) -> str:
         """
         The id of the run.
         """
-        return self.__settings.run_id
+        return self.__run_store.run_id
 
     @property
     def swanlog_dir(self) -> str:
         """
         The directory of the SwanLab log.
         """
-        return self.__settings.swanlog_dir
+        return self.__run_store.swanlog_dir
 
     @property
     def run_dir(self) -> str:
         """
         The directory of the run.
         """
-        return self.__settings.run_dir
+        return self.__run_store.run_dir
+
+    @property
+    def backup_file(self) -> str:
+        """
+        The backup file of the run.
+        """
+        return self.__run_store.backup_file

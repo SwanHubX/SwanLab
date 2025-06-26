@@ -13,10 +13,11 @@ import requests
 from rich.status import Status
 from rich.text import Text
 
-from swanlab.env import is_windows
-from swanlab.error import ValidationError, APIKeyFormatError
+from swanlab.core_python import auth
+from swanlab.env import is_windows, is_interactive
+from swanlab.error import ValidationError, APIKeyFormatError, KeyFileError
 from swanlab.log import swanlog
-from swanlab.package import get_setting_url, get_host_api, get_host_web, fmt_web_host, save_key as sk
+from swanlab.package import get_setting_url, get_host_api, get_host_web, fmt_web_host, save_key as sk, get_key
 
 
 class LoginInfo:
@@ -206,6 +207,22 @@ def terminal_login(api_key: str = None, save_key: bool = True) -> LoginInfo:
             api_key = login_again(e)
 
 
+def create_login_info(save: bool = True):
+    """
+    在代码运行时发起登录，获取登录信息，执行此方法会覆盖原有的login_info
+    """
+    key = None
+    try:
+        key = get_key()
+    except KeyFileError:
+        pass
+    if key is None and not is_interactive():
+        raise KeyFileError(
+            "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
+        )
+    return auth.terminal_login(key, save)
+
+
 def _abort_tip(tp, _, __):
     """处理用户在input_api_key输入时按下CTRL+C的情况"""
     if tp == KeyboardInterrupt:
@@ -219,4 +236,5 @@ __all__ = [
     "terminal_login",
     "code_login",
     "LoginInfo",
+    "create_login_info",
 ]

@@ -11,42 +11,15 @@ from typing import Union, Optional, List
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.callbacker.cloud import CloudRunCallback
-from swanlab.data.callbacker.offline import OfflineCallback
-from swanlab.data.formatter import check_proj_name_format, check_load_json_yaml
+from swanlab.data.callbacker import *
+from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
 from swanlab.env import is_interactive, SwanLabEnv
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
-from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback, SwanLabMode
-
-
-def _check_proj_name(name: str) -> str:
-    """检查项目名称是否合法，如果不合法则抛出ValueError异常
-    项目名称必须是一个非空字符串，长度不能超过255个字符
-
-    Parameters
-    ----------
-    name : str
-        待检查的项目名称
-
-    Returns
-    -------
-    str
-        返回项目名称
-
-    Raises
-    ------
-    ValueError
-        项目名称不合法
-    """
-    _name = check_proj_name_format(name)
-    if len(name) != len(_name):
-        swanlog.warning(f"project name is too long, auto cut to {_name}")
-    return _name
 
 
 def should_call_before_init(text):
@@ -127,11 +100,11 @@ def _init_mode(mode: str = None):
 
             web_host = get_host_web()
             # 交互选择
-            tip = swanlog.info("Enter your choice: ")
-            code = input(tip)
+            swanlog.info("Enter your choice: ")
+            code = input("")
             while code not in ["1", "2", "3"]:
-                swanlog.warning("Invalid choice, please enter again.")
-                code = input(tip)
+                swanlog.warning("Invalid choice, please enter again:")
+                code = input("")
             if code == "3":
                 mode = "local"
             elif code == "2":
@@ -193,25 +166,24 @@ def _create_operator(
     :return: SwanLabRunOperator, CloudRunCallback
     """
     c = []
-    backup = get_settings().backup
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
         swanlog.warning("SwanLab run disabled, the data will not be saved or uploaded.")
-        return SwanLabRunOperator()
+        return SwanLabRunOperator([DisabledCallback()])
     # 1.2. 云端模式
     elif mode == SwanLabMode.CLOUD.value:
         # 在实例化CloudRunCallback之前，注入登录信息
-        CloudRunCallback.login_info = login_info
-        c.append(CloudRunCallback(backup=backup))
+        CloudPyCallback.login_info = login_info
+        c.append(CloudPyCallback())
     # 1.3. 本地模式
     elif mode == SwanLabMode.LOCAL.value:
         from .callbacker.local import LocalRunCallback
 
         # 本地模式不保存 media，由回调同步保存
-        c.append(LocalRunCallback(backup=backup, save_file=False))
+        c.append(LocalRunCallback())
     # 1.4 . 备份模式
     elif mode == SwanLabMode.OFFLINE.value:
-        c.append(OfflineCallback(backup=True))
+        c.append(OfflineCallback())
     # 1.5. 其他非法模式 报错，backup 模式不需要在此处理
     # 上层已经 merge_settings , get_settings().backup 与此处是否设置 backup 功能等价
     elif mode not in SwanLabMode.list():

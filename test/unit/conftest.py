@@ -65,3 +65,9 @@ def setup_each():
 
     if swanlab.get_run() is not None:
         swanlab.finish()
+    from swanlab.data.store import reset_run_store
+    from swanlab.data.porter import DataPorter
+
+    DataPorter._reset()  # noqa: _reset 是内部函数，但在测试中需要重置数据导入器
+
+    reset_run_store()
