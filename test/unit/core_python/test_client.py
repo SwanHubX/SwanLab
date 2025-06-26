@@ -69,9 +69,9 @@ def test_decode_response():
         mocker.post("/text", text="test")
         with UseMockRunState() as run_state:
             client = run_state.client
-            data = client.post("/json")
+            data, _ = client.post("/json")
             assert data == {"test": "test"}
-            data = client.post("/text")
+            data, _ = client.post("/text")
             assert data == "test"
 
 
@@ -89,7 +89,7 @@ def test_retry():
     rsp4 = responses.get(url, body="OK", status=200)
     with UseMockRunState() as run_state:
         client = run_state.client
-        data = client.get("/retry")
+        data, _ = client.get("/retry")
         assert data == "OK"
         assert rsp1.call_count == 1
         assert rsp2.call_count == 1
@@ -140,3 +140,8 @@ class TestCosSuite:
         # # 重新上传，测试刷新
         # assert self.http.cos.should_refresh is True
         # self.http.upload(buffer)
+
+
+@pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
+def TestExpSuite():
+    pass

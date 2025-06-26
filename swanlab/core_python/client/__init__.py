@@ -188,7 +188,7 @@ class Client:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.post(url, json=data)
-        return decode_response(resp)
+        return decode_response(resp), resp
 
     def put(self, url: str, data: dict = None):
         """
@@ -197,7 +197,7 @@ class Client:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.put(url, json=data)
-        return decode_response(resp)
+        return decode_response(resp), resp
 
     def get(self, url: str, params: dict = None):
         """
@@ -206,7 +206,7 @@ class Client:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.get(url, params=params)
-        return decode_response(resp)
+        return decode_response(resp), resp
 
     def patch(self, url: str, data: dict = None):
         """
@@ -215,13 +215,13 @@ class Client:
         url = self.base_url + url
         self.__before_request()
         resp = self.__session.patch(url, json=data)
-        return decode_response(resp)
+        return decode_response(resp), resp
 
     # ---------------------------------- 对象存储方法 ----------------------------------
 
     def __get_cos(self):
         self.__cos = CosClient(
-            data=self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts"),
+            data=self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")[0],
         )
 
     def upload(self, buffer: MediaBuffer):
@@ -260,21 +260,23 @@ class Client:
                 data["username"] = username
             if public is not None:
                 data["visibility"] = "PUBLIC" if public else "PRIVATE"
-            resp = self.post(f"/project", data=data)
+            resp_data, _ = self.post(f"/project", data=data)
         except ApiError as e:
             if e.resp.status_code == 409:
                 # 项目已经存在，从对象中解析信息
-                resp = decode_response(e.resp)
+                resp_data = decode_response(e.resp)
             elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
                 # WARNING: 早期 （私有化） swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
                 self.__groupname = self.__groupname if username is None else username
                 try:
                     visibility = "PUBLIC" if public else "PRIVATE"
-                    resp = self.post(f"/project/{self.groupname}", data={"name": name, "visibility": visibility})
+                    resp_data, _ = self.post(
+                        f"/project/{self.groupname}", data={"name": name, "visibility": visibility}
+                    )
                 except ApiError as e:
                     # 如果为409，表示已经存在，获取项目信息
                     if e.resp.status_code == 409:
-                        resp = self.get(f"/project/{self.groupname}/{name}")
+                        resp_data, _ = self.get(f"/project/{self.groupname}/{name}")
                     elif e.resp.status_code == 404:
                         # 组织/用户不存在
                         raise ValueError(f"Space `{self.groupname}` not found")
@@ -283,15 +285,14 @@ class Client:
                         raise ValueError(f"Space permission denied: " + self.groupname)
                     else:
                         raise e
-                return ProjectInfo(resp)
             else:
                 # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
                 raise e
         # 设置当前项目所属的用户名
-        self.__groupname = resp['username']
+        self.__groupname = resp_data['username']
         # 获取详细信息
-        resp = self.get(f"/project/{self.groupname}/{name}")
-        self.__proj = ProjectInfo(resp)
+        resp_data_info, _ = self.get(f"/project/{self.groupname}/{name}")
+        self.__proj = ProjectInfo(resp_data_info)
 
     def mount_exp(self, exp_name, colors: Tuple[str, str], description: str = None, tags: List[str] = None):
         """
@@ -310,7 +311,7 @@ class Client:
         if tags is not None:
             post_data["labels"] = [{"name": tag} for tag in tags]
 
-        data = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
+        data, _ = self.post(f"/project/{self.groupname}/{self.__proj.name}/runs", post_data)
         self.__exp = ExperimentInfo(data)
         # 获取cos信息
         self.__get_cos()
