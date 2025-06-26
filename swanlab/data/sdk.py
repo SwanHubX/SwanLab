@@ -8,7 +8,6 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-import random
 import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
@@ -294,9 +293,9 @@ class SwanLabInitializer:
         # init结束后应该设置了一些参数
         assert run_store.run_name is not None, "Run name must be set after initialization."
         assert run_store.run_colors is not None, "Run color must be set after initialization."
+        assert run_store.run_id is not None, "Run id must be set after initialization."
         # ---------------------------------- 初始化运行文件夹 ----------------------------------
-        run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
-        assert run_id is not None, "run_id should not be None, please check the logdir and run_id"
+        run_id = run_store.run_id
         run_dir = None
         while True:
             run_dir is not None and time.sleep(1)
@@ -309,14 +308,13 @@ class SwanLabInitializer:
             except FileExistsError:
                 pass
         assert run_dir is not None, "run_dir should not be None, please check the logdir and run_id"
-        run_store.run_id = run_id
         run_store.run_dir = run_dir
+        assert os.path.exists(run_store.run_dir), f"Run directory {run_store.run_dir} does not exist."
         os.makedirs(run_store.media_dir, exist_ok=True)
         os.makedirs(run_store.log_dir, exist_ok=True)
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
         # ---------------------------------- 初始化运行实例 ----------------------------------
-        assert run_store.run_id is not None, "Run id must be set after initialization."
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 

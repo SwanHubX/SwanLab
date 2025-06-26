@@ -5,7 +5,7 @@ r"""
 @File: pytest_formater.py
 @IDE: pycharm
 @Description:
-    
+
 """
 import pytest
 from nanoid import generate
@@ -16,6 +16,7 @@ from swanlab.data.formatter import (
     _auto_cut,
     check_key_format,
     check_exp_name_format,
+    check_run_id_format,
 )
 
 
@@ -237,3 +238,38 @@ class TestTag:
         """
         with pytest.raises(IndexError):
             check_key_format(value, auto_cut=False)
+
+
+class TestRunIdFormat:
+    @staticmethod
+    def test_run_id_format_valid_run_id():
+        assert check_run_id_format("abcdefghijklmnopqrstu") == "abcdefghijklmnopqrstu"
+
+    @staticmethod
+    def test_run_id_format_invalid_length():
+        with pytest.raises(
+            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+        ):
+            check_run_id_format("shortid")
+
+    @staticmethod
+    def test_run_id_format_invalid_characters():
+        with pytest.raises(
+            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+        ):
+            check_run_id_format("abc123!@#def456ghi789")
+
+    @staticmethod
+    def test_run_id_format_none_input():
+        assert check_run_id_format(None) is None
+
+    @staticmethod
+    def test_run_id_format_numeric_input():
+        assert check_run_id_format(123456789012345678901) == "123456789012345678901"
+
+    @staticmethod
+    def test_run_id_format_empty_string():
+        with pytest.raises(
+            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+        ):
+            check_run_id_format("")

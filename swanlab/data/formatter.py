@@ -164,6 +164,23 @@ def check_tags_format(tags: List[str], auto_cut: bool = True) -> List[str]:
     return new_tags
 
 
+def check_run_id_format(run_id: str = None) -> Optional[str]:
+    """
+    检查运行ID格式，要求：
+    1. 只能包含小写字母和数字
+    2. 长度为21个字符
+    :param run_id: 运行ID字符串
+    :return: str 检查后的字符串
+    :raises ValueError: 如果运行ID不符合要求
+    """
+    if run_id is None:
+        return None
+    run_id_str = str(run_id)
+    if not re.match(r"^[a-z0-9]{21}$", run_id_str):
+        raise ValueError(f"run_id `{run_id}` is invalid, it must be 21 characters of lowercase letters and digits")
+    return run_id_str
+
+
 def check_key_format(key: str, auto_cut=True) -> str:
     """检查key字符串格式
     不能超过255个字符，可以包含任何字符，不允许.和/以及空格开头

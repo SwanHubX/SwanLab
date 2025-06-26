@@ -74,7 +74,9 @@ class CloudPyCallback(SwanLabRunCallback):
                 colors=run_store.run_colors,
                 description=run_store.description,
                 tags=run_store.tags,
+                cuid=run_store.run_id,
             )
+            run_store.run_id = http.exp_id
 
     def _terminal_handler(self, log_data: LogData):
         self.porter.trace_log(log_data)
