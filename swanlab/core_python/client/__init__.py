@@ -224,7 +224,7 @@ class Client:
         resp = self.__session.patch(url, json=data)
         return decode_response(resp), resp
 
-    # ---------------------------------- 对象存储方法 ----------------------------------
+    # ---------------------------------- 指标相关方法 ----------------------------------
 
     def __get_cos(self):
         self.__cos = CosClient(
@@ -250,6 +250,13 @@ class Client:
             swanlog.debug("Refresh cos...")
             self.__get_cos()
         return self.__cos.upload_files(buffers)
+
+    def post_metrics(self, url: str, data: Union[dict, list] = None):
+        if self.pending is True:
+            return
+        _, resp = self.post(url, data)
+        if resp.status_code == 202:
+            self.pending = True
 
     # ---------------------------------- 接入后端api ----------------------------------
 

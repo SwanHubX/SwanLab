@@ -19,8 +19,17 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     """
     携带上传日志的指标信息
     """
-    http = get_client()
-    return {"projectId": http.proj_id, "experimentId": http.exp_id, "type": metrics_type, "metrics": metrics}
+    client = get_client()
+    exp_id = client.exp.root_exp_cuid or client.exp.cuid
+    proj_id = client.exp.root_exp_cuid or client.proj.cuid
+    flag_id = client.exp.flag_id
+    return {
+        "projectId": proj_id,
+        "experimentId": exp_id,
+        "type": metrics_type,
+        "metrics": metrics,
+        "flagId": flag_id,
+    }
 
 
 @sync_error_handler
