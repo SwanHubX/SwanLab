@@ -63,7 +63,7 @@ class Client:
         self.__version = get_package_version()
         # 创建会话
         self.__create_session()
-        # 判断当前实验会话（flagId）是否被其他进程顶掉
+        # 标识当前实验会话（flagId）是否被其他进程顶掉
         self.pending = False
 
     # ---------------------------------- 一些辅助属性 ----------------------------------
@@ -251,13 +251,6 @@ class Client:
             self.__get_cos()
         return self.__cos.upload_files(buffers)
 
-    def post_metrics(self, url: str, data: Union[dict, list] = None):
-        if self.pending is True:
-            return
-        _, resp = self.post(url, data)
-        if resp.status_code == 202:
-            self.pending = True
-
     # ---------------------------------- 接入后端api ----------------------------------
 
     def mount_project(self, name: str, username: str = None, public: bool = None):
@@ -370,6 +363,8 @@ class Client:
         self.__exp = ExperimentInfo(data)
         # 获取cos信息
         self.__get_cos()
+        # 重置挂起状态
+        self.pending = False
 
     def update_state(self, success: bool, finished_at: str = None):
         """
@@ -384,6 +379,7 @@ class Client:
         }
         put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
         self.put(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state", put_data)
+        self.pending = True
 
 
 client: Optional["Client"] = None

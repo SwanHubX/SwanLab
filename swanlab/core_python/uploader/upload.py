@@ -5,7 +5,7 @@
 @description: 定义上传函数
 """
 
-from typing import List
+from typing import List, Union, Literal
 
 from swanlab.log import swanlog
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
@@ -32,20 +32,34 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     }
 
 
+def trace_metrics(url: str, data: Union[dict, list] = None, method: Literal['post', 'put'] = 'post'):
+    """
+    创建指标数据方法，如果 client 处于挂起状态，则不进行上传
+    :param url: 上传的URL地址
+    :param data: 上传的数据，可以是字典或列表
+    :param method: 请求方法，默认为 'post'
+    """
+    client = get_client()
+    if client.pending:
+        return
+    _, resp = getattr(client, method)(url, data)
+    if resp.status_code == 202:
+        client.pending = True
+
+
 @sync_error_handler
 def upload_logs(logs: List[LogModel]):
     """
     上传日志信息
     :param logs: 日志信息集合
     """
-    http = get_client()
     metrics = []
     for log in logs:
         metrics.extend([{"level": log['level'], **l} for l in log['contents']])
     if len(metrics) == 0:
         return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
-    http.post(house_url, data)
+    trace_metrics(house_url, data)
 
 
 @sync_error_handler
@@ -54,13 +68,14 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据集合
     """
-    http = get_client()
+    client = get_client()
     buffers = []
     for media in media_metrics:
         media.buffers and buffers.extend(media.buffers)
-    http.upload_files(buffers)
-    # 上传指标信息
-    http.post(house_url, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
+    if not client.pending:
+        client.upload_files(buffers)
+        # 上传指标信息
+        trace_metrics(house_url, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
 @sync_error_handler
@@ -68,16 +83,15 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     """
     上传指标的标量数据
     """
-    http = get_client()
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    http.post(house_url, data)
+    trace_metrics(house_url, data)
 
 
 @sync_error_handler
 def upload_files(files: List[FileModel]):
     """
     上传files文件夹中的内容
-    :param files: 文件列表，内部为文件绝对路径
+    :param files: 文件列表，内部为文件信息（text/dict）
     """
     http = get_client()
     # 去重所有的FileModel，留下一个
@@ -86,10 +100,9 @@ def upload_files(files: List[FileModel]):
     file_model = FileModel.create(files)
     # 如果没有文件需要上传，直接返回
     if file_model.empty:
-        return None
+        return
     data = file_model.to_dict()
-    http.put(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data)
-    return None
+    trace_metrics(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data, method="put")
 
 
 @sync_error_handler
@@ -110,7 +123,7 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
         if len(columns) == 0:
             continue
         try:
-            http.post(url, columns)
+            trace_metrics(url, columns)
         except ApiError as e:
             # 处理实验不存在的异常
             if e.resp.status_code == 404:

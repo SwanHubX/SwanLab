@@ -95,10 +95,14 @@ class CloudPyCallback(SwanLabRunCallback):
         success = get_run().success
         # 打印信息
         U.print_cloud_web()
-        error_epoch = swanlog.epoch + 1
-        self._unregister_sys_callback()
-        self.porter.close_trace(success, error=error, epoch=error_epoch)
-        get_client().update_state(success)
+        http = get_client()
+        if http.pending:
+            swanlog.warning("This run was destroyed but it is pending!")
+        else:
+            error_epoch = swanlog.epoch + 1
+            self._unregister_sys_callback()
+            self.porter.close_trace(success, error=error, epoch=error_epoch)
+            http.update_state(success)
         reset_client()
         if not self.user_settings.backup:
             shutil.rmtree(self.run_store.run_dir, ignore_errors=True)
