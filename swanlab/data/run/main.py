@@ -8,7 +8,7 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
@@ -84,16 +84,13 @@ class SwanLabRun:
         operator.on_run()
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
-        # 系统信息采集
-        operator.on_runtime_info_update(
-            RuntimeInfo(
-                requirements=get_requirements() if swanlab_settings.requirements_collect else None,
-                conda=get_conda() if swanlab_settings.conda_collect else None,
-                metadata=metadata,
-            )
-        )
-        # 定时采集系统信息，测试时不开启此功能
-        if "PYTEST_VERSION" not in os.environ:
+        # 运行时信息采集
+        metadata, requirements, conda = _get_runtime_info(metadata)
+        operator.on_runtime_info_update(RuntimeInfo(requirements=requirements, conda=conda, metadata=metadata))
+        # 定时采集系统信息
+        # 测试时不开启此功能
+        # resume时不开启此功能
+        if "PYTEST_VERSION" not in os.environ or run_store.resume == 'never':
             if monitor_funcs is not None and len(monitor_funcs) != 0:
                 swanlog.debug("Monitor on.")
 
@@ -327,6 +324,22 @@ class SwanLabRun:
             log_return[metric_info.column_info.key] = metric_info
 
         return log_return
+
+
+def _get_runtime_info(metadata: Optional[dict]) -> Tuple[Optional[dict], Optional[str], Optional[str]]:
+    """
+    获取当前运行时信息，包括requirements、conda和metadata
+    :return: requirements, conda, metadata
+    """
+    user_settings = get_settings()
+    requirements, conda = None, None
+    if user_settings.requirements_collect:
+        requirements = get_requirements()
+    if user_settings.conda_collect:
+        conda = get_conda()
+    if not user_settings.metadata_collect:
+        metadata = None
+    return metadata, requirements, conda
 
 
 def _flatten_dict(d: dict, parent_key='', sep='.') -> dict:

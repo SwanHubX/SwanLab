@@ -309,7 +309,7 @@ class Client:
         tags: List[str] = None,
         created_at: str = None,
         cuid: str = None,
-        allow_exist: bool = True,
+        must_exist: bool = False,
     ):
         """
         初始化实验，获取存储信息
@@ -319,13 +319,21 @@ class Client:
         :param tags: 实验标签
         :param created_at: 实验创建时间，格式为 ISO 8601
         :param cuid: 实验的唯一标识符，如果不提供则由后端生成
-        :param allow_exist: 如果实验已存在，是否允许继续使用
+        :param must_exist: 如果 cuid 被传递，是否限制实验必须存在
 
-        :raises RuntimeError: 如果实验已存在且不允许继续使用
+        :raises RuntimeError: 如果实验不存在且must_exist为True
         :raises NotImplementedError: 如果项目未挂载
         """
         if self.__proj is None:
             raise NotImplementedError("Project not mounted, please call mount_project() first")
+        if must_exist:
+            assert cuid is not None, "cuid must be provided when must_exist is True"
+            try:
+                self.get(f"/project/{self.groupname}/{exp_name}")
+            except ApiError as e:
+                if e.resp.status_code == 404 and e.resp.reason == "Not Found":
+                    raise RuntimeError(f"Experiment {cuid} does not exist in project {self.projname}")
+
         labels = [{"name": tag} for tag in tags] if tags else []
         post_data = {
             "name": exp_name,
@@ -357,9 +365,9 @@ class Client:
                 # 传入 cuid 但是实验不属于当前项目
                 raise ValueError(f"Experiment with cuid {cuid} does not belong to project {self.projname}")
             raise e
-        # 200代表实验已存在
-        if resp.status_code == 200 and not allow_exist:
-            raise RuntimeError(f"Experiment with cuid {cuid} already exists")
+        # 200代表实验已存在，开启更新模式
+        # 201代表实验不存在，新建实验
+        # 这部分信息暂时没有用到
         self.__exp = ExperimentInfo(data)
         # 获取cos信息
         self.__get_cos()

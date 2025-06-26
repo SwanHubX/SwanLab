@@ -185,17 +185,16 @@ class TestExpSuite:
         self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid)
         assert self.client.exp_id == cuid, "Experiment ID should match the provided cuid"
 
-    def test_exp_allow_exist(self):
+    def test_exp_must_exist(self):
         """
-        测试实验允许存在
+        测试实验在 cuid 传递时实验必须存在
         """
+        proj_name = nanoid.generate()
         exp_name = nanoid.generate()
-        self.client.mount_project(nanoid.generate())
+        self.client.mount_project(proj_name)
         cuid = nanoid.generate(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", size=21)
-        self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=False)
-        # 再次创建相同 cuid 实验，应该不会抛出异常
-        self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=True)
-        assert self.client.exp_id is not None, "Experiment ID should not be None after creating experiment"
-        # 再次创建相同 cuid 实验，应该抛出异常
+        with pytest.raises(AssertionError):
+            # 如果传递 must_exist=True，则 cuid 必须传递
+            self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), must_exist=True)
         with pytest.raises(RuntimeError):
-            self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, allow_exist=False)
+            self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, must_exist=True)

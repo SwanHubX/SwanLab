@@ -69,13 +69,21 @@ class CloudPyCallback(SwanLabRunCallback):
             run_store.description = "" if run_store.description is None else run_store.description
             run_store.run_colors = N.generate_colors(exp_count)
             run_store.tags = [] if run_store.tags is None else run_store.tags
-            http.mount_exp(
-                exp_name=run_store.run_name,
-                colors=run_store.run_colors,
-                description=run_store.description,
-                tags=run_store.tags,
-                cuid=run_store.run_id,
-            )
+            try:
+                http.mount_exp(
+                    exp_name=run_store.run_name,
+                    colors=run_store.run_colors,
+                    description=run_store.description,
+                    tags=run_store.tags,
+                    cuid=run_store.run_id,
+                    must_exist=run_store.resume == 'must',
+                )
+            except RuntimeError:
+                raise RuntimeError("When resume=must, the experiment must exist. Please check your parameters.")
+            if run_store.resume != 'never':
+                # 如果是恢复实验，需要获取实验最新的指标信息
+                # summary = http.get()
+                pass
             run_store.run_id = http.exp_id
 
     def _terminal_handler(self, log_data: LogData):

@@ -9,7 +9,7 @@ NOTE: 只允许在 swanlab/data 模块下访问，其他地方不允许访问
 import functools
 import inspect
 import os.path
-from typing import Optional, List
+from typing import Optional, List, Literal, Dict
 
 from pydantic import BaseModel
 
@@ -23,6 +23,7 @@ class RunStore(BaseModel):
     workspace: Optional[str] = None
     # 项目可见性
     visibility: Optional[bool] = None
+    resume: Literal['must', 'auto', 'never'] = 'never'
     # ---------------------------------- 实验 ----------------------------------
     # 实验名称
     run_name: Optional[str] = None
@@ -34,6 +35,10 @@ class RunStore(BaseModel):
     description: Optional[str] = None
     # 实验运行 ID
     run_id: Optional[str] = None
+    # 恢复实验时，云端实验的 config 设置
+    config: Optional[dict] = None
+    # 恢复实验时，云端实验的指标数据，key -> latest step
+    metrics: Optional[Dict[str, int]] = None
 
     # ---------------------------------- 目录 ----------------------------------
     # 是否为临时目录，标识一些运行时环境

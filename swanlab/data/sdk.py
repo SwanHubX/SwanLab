@@ -101,6 +101,8 @@ class SwanLabInitializer:
         public: bool = None,
         callbacks: List[SwanKitCallback] = None,
         settings: Settings = None,
+        run_id: str = None,
+        resume: Union[Literal['must', 'allow', 'never'], bool] = None,
         reinit: bool = None,
         **kwargs,
     ) -> SwanLabRun:
@@ -166,6 +168,15 @@ class SwanLabInitializer:
             If you provide a list, all the callback functions in the list will be triggered in order.
         settings: swanlab.swanlab_settings.Settings, optional
             The settings for the current experiment.
+        resume : Literal['must', 'allow', 'never'], optional
+            Resume the previous run or not:
+                - must: You must pass the `run_id` parameter and the run must exist.
+                - allow: If the run exists, it will be resumed, otherwise a new run will be created.
+                - never: You cannot pass the `run_id` parameter, and a new run will be created.
+            You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
+            NOTE: This parameter is only valid when mode='cloud'
+        run_id : str, optional
+            The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
             Whether to reinitialize the settings, the default is False.
             If you want to reinitialize the settings, you must call this function again.
@@ -186,7 +197,11 @@ class SwanLabInitializer:
         # 1. 加载参数
         if callbacks is None:
             callbacks = []
-
+        if resume is True:
+            resume = 'allow'
+        elif resume is False:
+            resume = 'never'
+        resume = resume or 'never'
         # for https://github.com/SwanHubX/SwanLab/issues/809
         if experiment_name is None and kwargs.get("name", None) is not None:
             experiment_name = kwargs.get("name")
@@ -205,6 +220,8 @@ class SwanLabInitializer:
             project = _load_from_dict(load_data, "project", project)
             workspace = _load_from_dict(load_data, "workspace", workspace)
             public = _load_from_dict(load_data, "private", public)
+            run_id = _load_from_dict(load_data, "run_id", run_id)
+            resume = _load_from_dict(load_data, "resume", resume)
         # 1.2 初始化confi参数
         config = _init_config(config)
         # 如果config是以下几个类别之一，则抛出异常
@@ -252,6 +269,17 @@ class SwanLabInitializer:
         mode, login_info = _init_mode(mode)
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
+        # 8. 校验 resume 与 run_id
+        if resume == 'never':
+            # 不允许传递 run_id
+            if run_id is not None:
+                raise RuntimeError("You can't pass run_id when resume=never.")
+        elif resume == 'must' or resume == 'allow':
+            # 只允许在 cloud 模式下使用 resume
+            if mode != "cloud":
+                raise RuntimeError("You can only use resume in cloud mode.")
+        if resume == "must" and run_id is None:
+            raise ValueError('You must pass run_id when resume=must.')
         run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value
@@ -278,6 +306,8 @@ class SwanLabInitializer:
         run_store.swanlog_dir = logdir
         # ---------------------------------- 设置运行时配置 ----------------------------------
         # 1. 写入运行时配置
+        run_store.resume = resume
+        run_store.run_id = run_id
         run_store.project = project
         run_store.workspace = workspace
         run_store.visibility = public
