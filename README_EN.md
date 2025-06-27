@@ -357,6 +357,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
+- [AReaL](https://docs.swanlab.cn/guide_cloud/integration/integration-areal.html)
 
 **Other Frameworks:**
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
