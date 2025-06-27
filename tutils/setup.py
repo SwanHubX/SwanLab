@@ -39,7 +39,9 @@ class UseMockRunState:
         self.store = get_run_store()
         # 创建运行目录结构，方便测试
         self.store.swanlog_dir = TEMP_PATH
-        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + nanoid.generate())
+        run_id = nanoid.generate("0123456789abcdefghijklmnopqrstuvwxyz", 21)
+        self.store.run_id = run_id
+        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + run_id)
         os.mkdir(self.store.run_dir)
         os.mkdir(self.store.media_dir)
         os.mkdir(self.store.log_dir)

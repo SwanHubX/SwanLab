@@ -224,7 +224,7 @@ class Client:
         resp = self.__session.patch(url, json=data)
         return decode_response(resp), resp
 
-    # ---------------------------------- 指标相关方法 ----------------------------------
+    # ---------------------------------- 对象存储相关方法 ----------------------------------
 
     def __get_cos(self):
         self.__cos = CosClient(

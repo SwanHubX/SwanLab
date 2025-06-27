@@ -345,6 +345,8 @@ class SwanLabInitializer:
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
         # ---------------------------------- 初始化运行实例 ----------------------------------
+        # TODO resume 时将上次运行的配置加载到当前运行实例中
+
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 
