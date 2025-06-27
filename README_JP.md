@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.06.27: **小折れ線グラフの局所拡大**をサポート；**単一折れ線グラフの平滑化**をサポート；大幅に画像グラフの拡大後のインタラクション効果を改善；
+
 - 2025.06.20: 🤗 [accelerate](https://github.com/huggingface/accelerate) フレームワークを統合、[PR](https://github.com/huggingface/accelerate/pull/3605)、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)、分散トレーニング中の実験記録と分析の体験を向上させます。
 
 - 2025.06.18: 🐜 [AREAL](https://github.com/inclusionAI/AReaL) フレームワークを統合、[@xichengpro](https://github.com/xichengpro) 氏に感謝、[PR](https://github.com/inclusionAI/AReaL/pull/98)、[ドキュメント](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 サイドバーの実験にマウスをホバーすると対応する曲線がハイライト表示される機能をサポート; グループ間での折れ線グラフ比較をサポート; 実験名のトリミングルール設定をサポート;
@@ -70,10 +72,10 @@
 
 - 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
 
-- 2025.04.23: 折れ線グラフの​​編集​​をサポート、グラフのX軸・Y軸のデータ範囲とタイトルスタイルを自由に設定可能に；グラフ検索で​​正規表現​​をサポート；​​Kunlun Core XPU​​のハードウェア検出とモニタリングをサポート。
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.04.23: 折れ線グラフの​​編集​​をサポート、グラフのX軸・Y軸のデータ範囲とタイトルスタイルを自由に設定可能に；グラフ検索で​​正規表現​​をサポート；​​Kunlun Core XPU​​のハードウェア検出とモニタリングをサポート。
 
 - 2025.04.11: 折線グラフの**局所選択**をサポート；現在のグラフのstep範囲をサポート。
 
