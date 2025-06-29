@@ -52,6 +52,22 @@ class ExperimentAPI(ApiBase):
         resp.data = ExperimentAPI.parse(resp.data)
         return resp
 
+    def delete_experiment(
+            self,
+            username: str,
+            projname: str,
+            exp_id: str
+    ):
+        """
+        删除实验
+
+        Args:
+            username (str): 工作空间名
+            projname (str): 项目名
+            exp_id (str): 实验CUID
+        """
+        return self.http.delete(f"/project/{username}/{projname}/runs/{exp_id}", params={})
+
     def list_experiments(
             self,
             username: str,

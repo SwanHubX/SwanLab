@@ -35,6 +35,18 @@ class ProjectAPI(ApiBase):
             project_parser["count"] = body.get("_count") or {}
         return Project.model_validate(project_parser)
 
+    def delete_project(
+        self, username: str, project: str
+    ) -> ApiResponse[None]:
+        """
+        删除一个项目
+
+        Args:
+            username (str): 工作空间名
+            project (str): 项目名
+        """
+        return self.http.delete(f"/project/{username}/{project}", params={})
+
     def list_projects(
         self, username: str, detail = True, page: int = 1, size: int = 10
     ) -> ApiResponse[Pagination[Project]]:

@@ -27,3 +27,14 @@ def test_list_projects():
         assert isinstance(resp.data, list)
         for item in resp.data:
             assert isinstance(item, Project)
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_delete_project():
+    """
+    测试删除一个项目
+    """
+    api = OpenApi()
+    project_name = "test_project"
+    resp = api.delete_project(project=project_name)
+    assert isinstance(resp, ApiResponse)
+    assert resp.code in [204, 404]
