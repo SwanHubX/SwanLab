@@ -25,6 +25,7 @@ from swanlab.toolkit import (
 from . import utils as U
 from .. import namer as N
 from ..run import get_run
+from ..run.config import SwanLabConfig
 from ..store import get_run_store
 from ...core_python import *
 from ...log.type import LogData
@@ -81,7 +82,10 @@ class CloudPyCallback(SwanLabRunCallback):
             except RuntimeError:
                 raise RuntimeError("When resume=must, the experiment must exist. Please check your parameters.")
             if run_store.resume != 'never':
-                # 如果是恢复实验，需要获取实验最新的指标信息
+                # 1. 解析 config，保存到 run_store.config
+                config = http.exp.config
+                run_store.config = SwanLabConfig.revert_config(config)
+                # 2. 获取最新的指标数据，解析为 run_store.metrics
                 # summary = http.get()
                 pass
             run_store.run_id = http.exp_id

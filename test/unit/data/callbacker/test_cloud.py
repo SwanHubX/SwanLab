@@ -9,10 +9,12 @@ import os
 
 import pytest
 
+import swanlab
 import tutils as T
 from swanlab.core_python import reset_client, get_client
 from swanlab.core_python.auth.providers.api_key import login_by_key
 from swanlab.data.callbacker import CloudPyCallback
+from swanlab.data.store import get_run_store
 from swanlab.env import SwanLabEnv
 from tutils.setup import mock_login_info, UseMockRunState
 
@@ -96,3 +98,44 @@ def test_recreate_http(monkeypatch):
     client3 = callback._create_client()
     assert client3 == get_client()
     assert client2 != client3 != client
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+class TestCloudResume:
+    """
+    测试云端恢复功能
+    """
+
+    @staticmethod
+    def mock_run_state(workspace: str, project="test-cloud-resume"):
+        run_store = get_run_store()
+        run_store.project = project
+        run_store.workspace = workspace
+        run_store.visibility = True
+        return run_store
+
+    def test_init_config(self):
+        """
+        测试配置初始化
+        """
+        config = {
+            "name": "test_cloud_resume",
+            "description": "This is a test experiment for cloud resume.",
+            "epochs": 10,
+            "learning_rate": 0.001,
+            "batch_size": 32,
+        }
+        run = swanlab.init(config=config, project="test-cloud-resume")
+        run.finish()
+        for key in run.config:
+            assert run.config[key] == config[key]
+        swanlab.login()
+        client = get_client()
+        # resume 实验
+        with UseMockRunState(run_id=run.run_id, client=client):
+            run_store = self.mock_run_state(client.username, run.public.project_name)
+            run_store.resume = "must"
+            callback = CloudPyCallback()
+            callback.on_init()
+            assert run_store.config is not None, "Config should be loaded when resuming."
+            assert run_store.config == config, "Config should be loaded when resuming."

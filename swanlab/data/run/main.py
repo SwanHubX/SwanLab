@@ -53,6 +53,7 @@ class SwanLabRun:
         if self.is_started():
             raise RuntimeError("SwanLabRun has been initialized")
         global run, config
+        run_store = get_run_store()
         # ---------------------------------- 初始化类内参数 ----------------------------------
         operator = operator or SwanLabRunOperator()
         # 0. 下面的参数会在实验结束后进行副作用清理
@@ -65,12 +66,13 @@ class SwanLabRun:
         self.__public = SwanLabPublicConfig()
         self.__operator.before_run(None)
         # 2. 初始化配置
+        if run_store.config is not None:
+            config.update(run_store.config)
         config.update(run_config)
         # FIXME 不要使用setattr来修改私有变量
         setattr(config, "_SwanLabConfig__on_setter", self.__operator.on_runtime_info_update)
         self.__config = config
         # 3. 初始化实验
-        run_store = get_run_store()
         self.__run_id = run_store.run_id
         assert self.__run_id is not None, "Run ID must be set before initializing SwanLabRun"
         self.__operator.before_init_experiment(

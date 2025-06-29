@@ -7,7 +7,8 @@ import omegaconf
 import pytest
 import yaml
 
-from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
+from swanlab.data.run.config import SwanLabConfig
+from swanlab.data.run.config import parse, Line, RuntimeInfo, MutableMapping
 from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
 from swanlab.env import SwanLabEnv
 
@@ -426,3 +427,73 @@ class TestSwanLabConfigWithRun:
         _config = get_config()
         assert len(config) == 4
         assert len(_config) == 0
+
+
+class TestFmtConfig:
+    def test_fmt_config_empty_dict(self):
+        config = {}
+        SwanLabConfig.fmt_config(config)
+        assert config == {}
+
+    def test_fmt_config_single_key_value(self):
+        config = {"key": 123}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"key": {"value": 123, "desc": "", "sort": 0}}
+
+    def test_fmt_config_multiple_keys(self):
+        config = {"a": 1, "b": 2}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"a": {"value": 1, "desc": "", "sort": 0}, "b": {"value": 2, "desc": "", "sort": 1}}
+
+    def test_fmt_config_non_string_keys(self):
+        config = {1: "x", 2: "y"}
+        SwanLabConfig.fmt_config(config)
+        assert config == {1: {"value": "x", "desc": "", "sort": 0}, 2: {"value": "y", "desc": "", "sort": 1}}
+
+    def test_fmt_config_nested_dict_value(self):
+        config = {"outer": {"inner": 42}}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"outer": {"value": {"inner": 42}, "desc": "", "sort": 0}}
+
+
+def test_revert_config_removes_desc_and_sort_fields():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 2},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+    }
+    expected = {"key2": "val2", "key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_handles_missing_sort_field():
+    config = {
+        "key1": {"value": "val1", "desc": "description1"},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+    }
+    expected = {"key1": "val1", "key2": "val2"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_ignores_non_dict_values():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 2},
+        "key2": "invalid_value",
+    }
+    expected = {"key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_returns_empty_dict_for_empty_input():
+    config = {}
+    expected = {}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_preserves_order_based_on_sort_field():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 3},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+        "key3": {"value": "val3", "desc": "description3", "sort": 2},
+    }
+    expected = {"key2": "val2", "key3": "val3", "key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected

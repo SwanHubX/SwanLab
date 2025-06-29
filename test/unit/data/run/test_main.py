@@ -416,3 +416,18 @@ def test_run_id_none():
         state.store.run_id = None
         with pytest.raises(AssertionError):
             SwanLabRun()
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+class TestResumeNever:
+    def test_never(self):
+        pass
+
+    def test_allow(self):
+        pass
+
+    def test_must(self):
+        pass
+
+    def test_error_resume(self):
+        pass

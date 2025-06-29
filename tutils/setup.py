@@ -28,20 +28,23 @@ class UseMockRunState:
     主要用于测试环境中，模拟登录状态以及方便测试
     """
 
-    def __init__(self):
-        self.client: Optional[Client] = None
+    def __init__(self, client: Optional[Client] = None, run_id: Optional[str] = None):
+        self.client: Optional[Client] = client
         self.store: Optional[RunStore] = None
+        self.run_id = run_id
 
     def __enter__(self) -> "UseMockRunState":
-        login_info = mock_login_info()
-        self.client = create_client(login_info)
+        if self.client is None:
+            login_info = mock_login_info()
+            self.client = create_client(login_info)
         reset_run_store()
         self.store = get_run_store()
         # 创建运行目录结构，方便测试
         self.store.swanlog_dir = TEMP_PATH
-        run_id = nanoid.generate("0123456789abcdefghijklmnopqrstuvwxyz", 21)
-        self.store.run_id = run_id
-        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + run_id)
+        if self.run_id is None:
+            self.run_id = nanoid.generate("0123456789abcdefghijklmnopqrstuvwxyz", 21)
+        self.store.run_id = self.run_id
+        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + self.run_id)
         os.mkdir(self.store.run_dir)
         os.mkdir(self.store.media_dir)
         os.mkdir(self.store.log_dir)

@@ -329,7 +329,7 @@ class Client:
         if must_exist:
             assert cuid is not None, "cuid must be provided when must_exist is True"
             try:
-                self.get(f"/project/{self.groupname}/{exp_name}")
+                self.get(f"/project/{self.groupname}/{self.__proj.name}/runs/{cuid}")
             except ApiError as e:
                 if e.resp.status_code == 404 and e.resp.reason == "Not Found":
                     raise RuntimeError(f"Experiment {cuid} does not exist in project {self.projname}")

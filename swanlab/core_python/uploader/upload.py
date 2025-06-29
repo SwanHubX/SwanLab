@@ -102,6 +102,7 @@ def upload_files(files: List[FileModel]):
     if file_model.empty:
         return
     data = file_model.to_dict()
+    data['flagId'] = http.exp.flag_id
     trace_metrics(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data, method="put")
 
 

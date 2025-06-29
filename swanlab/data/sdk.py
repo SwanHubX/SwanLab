@@ -273,7 +273,7 @@ class SwanLabInitializer:
         if resume == 'never':
             # 不允许传递 run_id
             if run_id is not None:
-                raise RuntimeError("You can't pass run_id when resume=never.")
+                raise RuntimeError("You can't pass run_id when resume=never or resume=False.")
         elif resume == 'must' or resume == 'allow':
             # 只允许在 cloud 模式下使用 resume
             if mode != "cloud":
@@ -345,8 +345,14 @@ class SwanLabInitializer:
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
         # ---------------------------------- 初始化运行实例 ----------------------------------
-        # TODO resume 时将上次运行的配置加载到当前运行实例中
-
+        if resume == 'never':
+            # resume 为 never 时一些参数为空
+            assert run_store.config is None, "run_store.config should be None when resume is never."
+            assert run_store.metrics is None, "run_store.metrics should be None when resume is never."
+        else:
+            # resume 为 must 或 allow 时，run_store.config 和 run_store.metrics 应该是 dict
+            assert isinstance(run_store.config, dict), "run_store.config should be dict when resume."
+            assert isinstance(run_store.metrics, dict), "run_store.metrics should be dict when resume."
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 
