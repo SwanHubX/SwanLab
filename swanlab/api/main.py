@@ -84,6 +84,30 @@ class OpenApi:
             username=username if username else self.http.username, projname=project, exp_id=exp_id
         )
 
+    def delete_experiment(
+            self,
+            project: str,
+            exp_id: str,
+            username: str = ""
+    ) -> ApiResponse[None]:
+        """
+        删除实验
+
+        Args:
+            project (str): 项目名
+            exp_id (str): 实验CUID
+            username (str): 工作空间名, 默认为用户个人空间
+
+        Returns:
+            ApiResponse[None]:
+                - code (int): HTTP 状态码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (None): 无数据返回
+        """
+        return self.experiment.delete_experiment(
+            username=username if username else self.http.username, projname=project, exp_id=exp_id
+        )
+
     def list_experiments(
             self,
             project: str,
@@ -107,6 +131,28 @@ class OpenApi:
             api_func=self.experiment.list_experiments,
             projname=project,
             username=username if username else self.http.username
+        )
+
+    def delete_project(
+            self,
+            project: str,
+            username: str = ""
+    ) -> ApiResponse[None]:
+        """
+        删除一个项目
+
+        Args:
+            project (str): 项目名
+            username (str): 工作空间名, 默认为用户个人空间
+
+        Returns:
+            ApiResponse[None]:
+                - code (int): HTTP 状态码
+                - errmsg (str): 错误信息, 仅在请求有错误时非空
+                - data (None): 无数据返回
+        """
+        return self.project.delete_project(
+            username=username if username else self.http.username, project=project
         )
 
     def list_projects(

@@ -51,3 +51,14 @@ def test_get_summary():
     assert isinstance(res, ApiResponse)
     if res.code == 200:
         assert isinstance(res.data, dict)
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_delete_experiment():
+    """
+    删除一个实验
+    """
+    api = OpenApi()
+    exp_cuid = "test_cuid"
+    res = api.delete_experiment(project="test_project", exp_id=exp_cuid)
+    assert isinstance(res, ApiResponse)
+    assert res.code in [204, 404]

@@ -32,7 +32,7 @@ def get_logger(log_level: str = "info") -> SwanLog:
 
 def handle_response(resp: requests.Response) -> ApiResponse:
     try:
-        data = resp.json()
+        data = resp.json() if resp.content else {}
     except (json.decoder.JSONDecodeError, requests.JSONDecodeError):
         return ApiResponse[str](
             code=resp.status_code,
@@ -124,6 +124,11 @@ class ApiHTTP:
     def post(self, url: str, data: Union[dict, list], params: dict) -> ApiResponse:
         self.__before_request()
         resp = self.__session.post(self.base_url + url, json=data, params=params)
+        return handle_response(resp)
+
+    def delete(self, url: str, params: dict) -> ApiResponse:
+        self.__before_request()
+        resp = self.__session.delete(self.base_url + url, params=params)
         return handle_response(resp)
 
 class OpenApiService:
