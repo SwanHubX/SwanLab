@@ -155,6 +155,10 @@ class Client:
             self.__login_info = auth.login_by_key(self.__login_info.api_key, save=False)
             self.__session.headers["cookie"] = f"sid={self.__login_info.sid}"
 
+        # 携带实验会话Id
+        if self.__exp is not None:
+            self.__session.headers["flagId"] = self.__exp.flag_id
+
     def __create_session(self):
         """
         创建会话，这将在HTTP类实例化时调用

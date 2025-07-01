@@ -60,6 +60,7 @@ def upload_logs(logs: List[LogModel]):
         return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
     trace_metrics(house_url, data)
+    return None
 
 
 @sync_error_handler
@@ -96,14 +97,15 @@ def upload_files(files: List[FileModel]):
     http = get_client()
     # 去重所有的FileModel，留下一个
     if len(files) == 0:
-        return swanlog.warning("No files to upload.")
+        swanlog.warning("No files to upload.")
+        return
     file_model = FileModel.create(files)
     # 如果没有文件需要上传，直接返回
     if file_model.empty:
         return
     data = file_model.to_dict()
-    data['flagId'] = http.exp.flag_id
     trace_metrics(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data, method="put")
+    return
 
 
 @sync_error_handler
@@ -132,8 +134,9 @@ def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
                 # 实验不存在，那么剩下的列也没有必要上传了，直接返回
                 if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
                     swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
-                    return None
+                    return
             raise e
+    return
 
 
 __all__ = [
