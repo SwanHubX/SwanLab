@@ -167,6 +167,18 @@ class TestSaveKey:
         assert len(nrc.hosts) == 1
         assert nrc.authenticators(new_host) is not None
 
+    def test_host(self):
+        """
+        测试 host 的正确性
+        """
+        path = os.path.join(get_save_dir(), ".netrc")
+        password = nanoid.generate()
+        host = "https://swanlab.ai/api"
+        P.save_key("user", password, host=host)
+        nrc = netrc.netrc(path)
+        assert len(nrc.hosts) == 1
+        assert nrc.authenticators("https://swanlab.ai") is not None
+
     def test_duplicate(self):
         """
         测试重复保存，此时会略过保存，因此不会改变文件的修改时间
