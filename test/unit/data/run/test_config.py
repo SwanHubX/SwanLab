@@ -11,6 +11,7 @@ from swanlab.data.run.config import SwanLabConfig
 from swanlab.data.run.config import parse, Line, RuntimeInfo, MutableMapping
 from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
 from swanlab.env import SwanLabEnv
+from tutils.setup import UseMockRunState
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -343,90 +344,95 @@ class TestSwanLabConfigWithRun:
         """
         正常流程，输入字典
         """
-        run = SwanLabRun(
-            run_config={
-                "a": 1,
-                "b": "mnist",
-                "c/d": [1, 2, 3],
-                "e/f/h": {"a": 1, "b": {"c": 2}},
-                "g": True,
-            }
-        )
-        config = run.config
-        _config = get_config()
-        assert config.g is _config.g is True
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c/d"] == _config["c/d"] == [1, 2, 3]
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config={
+                    "a": 1,
+                    "b": "mnist",
+                    "c/d": [1, 2, 3],
+                    "e/f/h": {"a": 1, "b": {"c": 2}},
+                    "g": True,
+                }
+            )
+            config = run.config
+            _config = get_config()
+            assert config.g is _config.g is True
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c/d"] == _config["c/d"] == [1, 2, 3]
 
     def test_use_omegaconf(self):
         """
         正常流程，输入OmegaConf
         """
-        run = SwanLabRun(
-            run_config=omegaconf.OmegaConf.create(
-                {
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config=omegaconf.OmegaConf.create(
+                    {
+                        "a": 1,
+                        "b": "mnist",
+                        "c/d": [1, 2, 3],
+                        "e/f/h": {"a": 1, "b": {"c": 2}},
+                    }
+                )
+            )
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c/d"] == _config["c/d"] == [1, 2, 3]
+
+    def test_use_argparse(self):
+        """
+        正常流程，输入argparse.Namespace
+        """
+        with UseMockRunState():
+            run = SwanLabRun(run_config=argparse.Namespace(a=1, b="mnist", c=[1, 2, 3], d={"a": 1, "b": {"c": 2}}))
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c"] == _config["c"] == [1, 2, 3]
+
+    def test_use_config(self):
+        """
+        正常流程，输入SwanLabConfig
+        """
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config=SwanLabConfig(
+                    {
+                        "a": 1,
+                        "b": "mnist",
+                        "c": [1, 2, 3],
+                        "e/f/h": {"a": 1, "b": {"c": 2}},
+                    }
+                )
+            )
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c"] == _config["c"] == [1, 2, 3]
+
+    def test_after_finish(self):
+        """
+        测试在finish之后config的变化
+        """
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config={
                     "a": 1,
                     "b": "mnist",
                     "c/d": [1, 2, 3],
                     "e/f/h": {"a": 1, "b": {"c": 2}},
                 }
             )
-        )
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c/d"] == _config["c/d"] == [1, 2, 3]
-
-    def test_use_argparse(self):
-        """
-        正常流程，输入argparse.Namespace
-        """
-        run = SwanLabRun(run_config=argparse.Namespace(a=1, b="mnist", c=[1, 2, 3], d={"a": 1, "b": {"c": 2}}))
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c"] == _config["c"] == [1, 2, 3]
-
-    def test_use_config(self):
-        """
-        正常流程，输入SwanLabConfig
-        """
-        run = SwanLabRun(
-            run_config=SwanLabConfig(
-                {
-                    "a": 1,
-                    "b": "mnist",
-                    "c": [1, 2, 3],
-                    "e/f/h": {"a": 1, "b": {"c": 2}},
-                }
-            )
-        )
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c"] == _config["c"] == [1, 2, 3]
-
-    def test_after_finish(self):
-        """
-        测试在finish之后config的变化
-        """
-        run = SwanLabRun(
-            run_config={
-                "a": 1,
-                "b": "mnist",
-                "c/d": [1, 2, 3],
-                "e/f/h": {"a": 1, "b": {"c": 2}},
-            }
-        )
-        run.finish()
-        config = run.config
-        _config = get_config()
-        assert len(config) == 4
-        assert len(_config) == 0
+            run.finish()
+            config = run.config
+            _config = get_config()
+            assert len(config) == 4
+            assert len(_config) == 0
 
 
 class TestFmtConfig:

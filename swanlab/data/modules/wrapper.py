@@ -78,6 +78,12 @@ class DataWrapper:
         """
         return self.__error
 
+    def get_class(self):
+        """
+        获取数据类型的类名
+        """
+        return self.__data[0].__class__
+
     def parse(self, **kwargs) -> Optional[ParseResult]:
         """
         将数据解析成对应的数据类型

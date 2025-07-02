@@ -50,25 +50,27 @@ class TestSwanLabRunInit:
 
     def test_after_init(self):
         os.environ[SwanLabEnv.MODE.value] = "disabled"
-        run = SwanLabRun(generate())
-        assert swanlog.proxied is False
-        assert run is not None
-        assert get_run().__str__() == run.__str__()
-        _run = run.finish()
-        assert get_run() is None
-        assert _run.__str__() == run.__str__()
-        assert SwanLabRunState.SUCCESS == _run.state
+        with UseMockRunState():
+            run = SwanLabRun()
+            assert swanlog.proxied is False
+            assert run is not None
+            assert get_run().__str__() == run.__str__()
+            _run = run.finish()
+            assert get_run() is None
+            assert _run.__str__() == run.__str__()
+            assert SwanLabRunState.SUCCESS == _run.state
 
     def test_duplicate_init(self):
         os.environ[SwanLabEnv.MODE.value] = "disabled"
-        run = SwanLabRun(generate())
-        with pytest.raises(RuntimeError) as e:
-            SwanLabRun(generate())
-        assert swanlog.proxied is False
-        assert str(e.value) == "SwanLabRun has been initialized"
-        assert run.__str__() == get_run().__str__()
-        _run = run.finish()
-        assert swanlog.proxied is False
+        with UseMockRunState():
+            run = SwanLabRun()
+            with pytest.raises(RuntimeError) as e:
+                SwanLabRun()
+            assert swanlog.proxied is False
+            assert str(e.value) == "SwanLabRun has been initialized"
+            assert run.__str__() == get_run().__str__()
+            _run = run.finish()
+            assert swanlog.proxied is False
 
 
 class TestSwanLabRunState:
@@ -84,21 +86,24 @@ class TestSwanLabRunState:
         assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
 
     def test_running(self):
-        run = SwanLabRun()
-        assert run.state == SwanLabRunState.RUNNING
-        assert run.running is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            assert run.state == SwanLabRunState.RUNNING
+            assert run.running is True
 
     def test_crashed(self):
-        run = SwanLabRun()
-        run.finish(SwanLabRunState.CRASHED, error="error")
-        assert run.state == SwanLabRunState.CRASHED
-        assert run.crashed is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            run.finish(SwanLabRunState.CRASHED, error="error")
+            assert run.state == SwanLabRunState.CRASHED
+            assert run.crashed is True
 
     def test_success(self):
-        run = SwanLabRun()
-        run.finish(SwanLabRunState.SUCCESS)
-        assert run.state == SwanLabRunState.SUCCESS
-        assert run.success is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            run.finish(SwanLabRunState.SUCCESS)
+            assert run.state == SwanLabRunState.SUCCESS
+            assert run.success is True
 
 
 class TestSwanLabRunLog:
