@@ -37,6 +37,7 @@ class OfflineCallback(SwanLabRunCallback):
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
         run_store.run_colors = N.generate_colors(exp_count)
         run_store.run_id = N.generate_run_id()
+        run_store.new = True
 
     def on_run(self, *args, **kwargs):
         self.porter.open_for_trace(backend='none', sync=False)

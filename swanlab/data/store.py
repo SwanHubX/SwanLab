@@ -23,8 +23,9 @@ class RunStore(BaseModel):
     workspace: Optional[str] = None
     # 项目可见性
     visibility: Optional[bool] = None
-    resume: Literal['must', 'auto', 'never'] = 'never'
     # ---------------------------------- 实验 ----------------------------------
+    # 实验模式
+    resume: Literal['must', 'allow', 'never'] = 'never'
     # 实验名称
     run_name: Optional[str] = None
     # 实验颜色
@@ -35,6 +36,8 @@ class RunStore(BaseModel):
     description: Optional[str] = None
     # 实验运行 ID
     run_id: Optional[str] = None
+    # 当前实验是否为新实验
+    new: Optional[bool] = None
     # 恢复实验时，云端实验的 config 设置
     config: Optional[dict] = None
     # 恢复实验时，云端实验的指标数据，key -> latest step

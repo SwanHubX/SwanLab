@@ -314,7 +314,7 @@ class Client:
         created_at: str = None,
         cuid: str = None,
         must_exist: bool = False,
-    ):
+    ) -> bool:
         """
         初始化实验，获取存储信息
         :param exp_name: 所属实验名称
@@ -327,6 +327,8 @@ class Client:
 
         :raises RuntimeError: 如果实验不存在且must_exist为True
         :raises NotImplementedError: 如果项目未挂载
+
+        :return: 返回实验为新建的还是更新的，为 True 时为新建实验
         """
         if self.__proj is None:
             raise NotImplementedError("Project not mounted, please call mount_project() first")
@@ -371,12 +373,14 @@ class Client:
             raise e
         # 200代表实验已存在，开启更新模式
         # 201代表实验不存在，新建实验
+        new = resp.status_code == 201
         # 这部分信息暂时没有用到
         self.__exp = ExperimentInfo(data)
         # 获取cos信息
         self.__get_cos()
         # 重置挂起状态
         self.pending = False
+        return new
 
     def update_state(self, success: bool, finished_at: str = None):
         """

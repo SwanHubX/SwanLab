@@ -71,7 +71,7 @@ class CloudPyCallback(SwanLabRunCallback):
             run_store.run_colors = N.generate_colors(exp_count)
             run_store.tags = [] if run_store.tags is None else run_store.tags
             try:
-                http.mount_exp(
+                new = http.mount_exp(
                     exp_name=run_store.run_name,
                     colors=run_store.run_colors,
                     description=run_store.description,
@@ -79,9 +79,11 @@ class CloudPyCallback(SwanLabRunCallback):
                     cuid=run_store.run_id,
                     must_exist=run_store.resume == 'must',
                 )
+                run_store.new = new
             except RuntimeError:
                 raise RuntimeError("When resume=must, the experiment must exist. Please check your parameters.")
-            if run_store.resume != 'never':
+            # 如果不是新实验，需要获取最新的实验配置和指标数据
+            if not new:
                 # 1. 解析 config，保存到 run_store.config
                 config = http.exp.config
                 run_store.config = SwanLabConfig.revert_config(config)

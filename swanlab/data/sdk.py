@@ -174,12 +174,11 @@ class SwanLabInitializer:
                 - allow: If the run exists, it will be resumed, otherwise a new run will be created.
                 - never: You cannot pass the `run_id` parameter, and a new run will be created.
             You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
-            NOTE: This parameter is only valid when mode='cloud'
+            [Note that] This parameter is only valid when mode='cloud'
         run_id : str, optional
             The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
-            Whether to reinitialize the settings, the default is False.
-            If you want to reinitialize the settings, you must call this function again.
+            Whether to reinitialize SwanLabRun, the default is False.
         """
         # 一个进程同时只能有一个实验在运行
         if SwanLabRun.is_started():
@@ -315,15 +314,23 @@ class SwanLabInitializer:
         run_store.description = description
         run_store.run_name = experiment_name
         run_store.swanlog_dir = logdir
-        # 2. 系统信息检测
-        meta, monitor_funcs = get_metadata(run_store.run_dir)
-        # 3. 启动操作员，注册运行实例
+        # 2. 启动操作员，注册运行实例
         operator = _create_operator(mode, login_info, callbacks)
         operator.on_init(project, workspace, public=public, logdir=logdir)
         # init结束后应该设置了一些参数
         assert run_store.run_name is not None, "Run name must be set after initialization."
         assert run_store.run_colors is not None, "Run color must be set after initialization."
         assert run_store.run_id is not None, "Run id must be set after initialization."
+        assert run_store.new is not None, "Run new status must be set after initialization."
+        assert run_store.new is True and run_store.resume == "never", "Run new status must be True when resume never."
+        if run_store.new is True:
+            # 新实验时一些参数必须为 none
+            assert run_store.config is None, "run_store.config should be None when new experiment."
+            assert run_store.metrics is None, "run_store.metrics should be None when new experiment."
+        else:
+            # 恢复实验时一些参数必须存在
+            assert isinstance(run_store.config, dict), "run_store.config should be dict when resuming an experiment."
+            assert isinstance(run_store.metrics, dict), "run_store.metrics should be dict when resuming an experiment."
         # ---------------------------------- 初始化运行文件夹 ----------------------------------
         run_id = run_store.run_id
         run_dir = None
@@ -345,14 +352,12 @@ class SwanLabInitializer:
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
         # ---------------------------------- 初始化运行实例 ----------------------------------
-        if resume == 'never':
-            # resume 为 never 时一些参数为空
-            assert run_store.config is None, "run_store.config should be None when resume is never."
-            assert run_store.metrics is None, "run_store.metrics should be None when resume is never."
-        else:
-            # resume 为 must 或 allow 时，run_store.config 和 run_store.metrics 应该是 dict
-            assert isinstance(run_store.config, dict), "run_store.config should be dict when resume."
-            assert isinstance(run_store.metrics, dict), "run_store.metrics should be dict when resume."
+        # 系统信息检测
+        meta, monitor_funcs = None, None
+        # 新实验开启系统信息检测，旧实验暂时不开启
+        # 并且只在用户设置开启了元数据收集或硬件监控时才开启
+        if run_store.new is True and user_settings.metadata_collect:
+            meta, monitor_funcs = get_metadata(run_store.run_dir)
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 

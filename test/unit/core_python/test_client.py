@@ -198,3 +198,16 @@ class TestExpSuite:
             self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), must_exist=True)
         with pytest.raises(RuntimeError):
             self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid, must_exist=True)
+
+    def test_exp_is_exist(self):
+        """
+        测试实验是否存在
+        """
+        proj_name = nanoid.generate()
+        exp_name = "test"
+        cuid = nanoid.generate(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", size=21)
+        self.client.mount_project(proj_name)
+        new = self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid)
+        assert new is True, "Experiment should not exist before creation"
+        new = self.client.mount_exp(exp_name, ('#ffffff', '#ffffff'), cuid=cuid)
+        assert new is False, "Experiment should exist after creation"
