@@ -20,6 +20,7 @@ from swanlab.toolkit import (
     ColumnConfig,
     create_time,
     ParseErrorInfo,
+    ChartType,
 )
 
 
@@ -41,13 +42,9 @@ class SwanLabKey:
         self.key = key
         # 当前 key 包含的 step
         self.steps = set()
-        # 当前 key 对应的图表信息
-        self.chart = None
-        self.column_info = None
+        self.column_info: Optional[ColumnInfo] = None
         self._media_dir = media_dir
         self._log_dir = log_dir
-        # 当前列数据的类型
-        self._class = None
         # 当前数据概要总结
         self._summary = {}
         # 当前key的数据集合
@@ -86,7 +83,6 @@ class SwanLabKey:
         """
         # 1. 不允许在列创建前调用此方法
         assert self.column_info is not None, "Column info is None, please create column info first"
-        assert self._class is not None, "Class is None, please create column info first"
         result = data.parse()
         # 2. 解析失败则报错
         if data.error is not None:
@@ -95,16 +91,21 @@ class SwanLabKey:
                 f"It should be {data.error.expected}, but it is {data.error.got}, please check the data type."
             )
             return MetricErrorInfo(column_info=self.column_info, error=data.error)
-        # 3. 前后数据类型不统一则报错
-        data_type, data_expected = data.get_class(), self._class
-        if data_type != data_expected:
+        # 3. 前后图表类型不一致则报错
+        now_chart = result.chart
+        expected_chart = self.column_info.chart_type
+        if now_chart != expected_chart:
             swanlog.error(
                 f"Data type error, key: {self.key}, "
-                f"data type: {data_type.__name__}, expected: {data_expected.__name__}."
+                f"data type: {now_chart.value.column_type}, expected: {expected_chart.value.column_type}."
             )
             return MetricErrorInfo(
                 column_info=self.column_info,
-                error=ParseErrorInfo(expected=data_expected.__name__, got=data_type.__name__, chart=result.chart),
+                error=ParseErrorInfo(
+                    expected=expected_chart.value.column_type,
+                    got=now_chart.value.column_type,
+                    chart=result.chart,
+                ),
             )
         # 4. 更新 summary 并添加数据
         # 如果为Line且为NaN或者INF，不更新summary
@@ -158,8 +159,7 @@ class SwanLabKey:
         :param data: DataType, 数据
         :param num: 创建此列之前的列数量
         """
-        if self.chart_created:
-            raise ValueError(f"Chart {key} has been created, cannot create again.")
+        assert self.column_info is None, "Cannot create column info after creating it"
         result = data.parse()
 
         # 如果section_type不为public,则section_name为None
@@ -182,8 +182,6 @@ class SwanLabKey:
             chart_reference=result.reference,
             error=data.error,
         )
-        self.chart = result.chart.value
-        self._class = data.get_class()
         self.column_info = column_info
         return column_info
 
@@ -229,3 +227,69 @@ class SwanLabKey:
             "update_time": time,
             "data": [],
         }
+
+    @classmethod
+    def mock_from_remote(
+        cls,
+        key: str,
+        column_type: str,
+        error: Optional[dict],
+        media_dir: str,
+        log_dir: str,
+        kid: int,
+        step: Optional[int],
+        name: str = None,
+    ) -> 'SwanLabKey':
+        """
+        从远程数据创建一个SwanLabKey对象，主要用于 Resume 时的图表数据标记
+        mock的 column 不会被用于上传数据，只是用于标记和记录错误信息
+        此对象不会用于上传数据，只是用于标记和记录错误信息
+        :param key: str, key名称
+        :param column_type: str, 列类型
+        :param error: 列错误信息
+        :param media_dir: str, 媒体目录
+        :param log_dir: str, 指标目录
+        :param kid: int, 代表这个列是第几个列，通常是从0开始的整数
+        :param step: int, 云端最新步数，如果不传则默认为None
+        :param name: str, 列的实际名称, 如果不传则默认为key
+        """
+        if name is None:
+            name = key
+        # 1. 创建对象
+        key_obj = cls(key, media_dir, log_dir)
+        # 2. 生成一个 ColumnInfo 对象，此 column 对象不会被用于上传
+        if column_type == "FLOAT":
+            chart = ChartType.LINE
+        else:
+            chart = getattr(ChartType, column_type, None)
+        if chart is None:
+            raise RuntimeError(
+                f"Unknown chart type: {column_type}, maybe you need to update swanlab: pip install -U swanlab"
+            )
+
+        if error is not None:
+            expected = error.get("expected")
+            got = error.get("got")
+            if expected is None or got is None:
+                raise RuntimeError(
+                    f"Invalid error format: {error}, expected and got must be provided. "
+                    f"Maybe you need to update swanlab: pip install -U swanlab"
+                )
+            error = ParseErrorInfo(expected=error.get("expected"), got=error.get("got"), chart=chart)
+
+        column_info = ColumnInfo(
+            key,
+            str(kid),
+            name,
+            "CUSTOM",
+            chart,
+            chart_reference="STEP",
+            error=error,
+            section_name=None,
+            section_type="PUBLIC",
+        )
+        key_obj.column_info = column_info
+        # 3. 设置当前步数
+        if step is not None:
+            key_obj.steps.add(step)
+        return key_obj
