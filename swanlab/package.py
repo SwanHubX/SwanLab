@@ -195,7 +195,9 @@ def save_key(username: str, password: str, host: str = None) -> bool:
     """
     if host is None:
         host = get_host_api()
-    host = host.rstrip("/api")
+    host = host.rstrip()
+    if host.endswith("/api"):
+        host = host[:-4]
     path = get_nrc_path()
     if not os.path.exists(path):
         with open(path, "w") as f:
