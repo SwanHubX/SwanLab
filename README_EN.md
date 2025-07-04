@@ -151,7 +151,10 @@ Here is a list of its core features:
 ![swanlab-table](readme_files/swanlab-table.png)
 
 - Supports **hyperparameter recording** and table display.
+
 - **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules, Echarts custom chart...
+
+- **Resume Training Record**: Supports recording new metrics data to the same experiment after training is completed/interrupted.
 
 ![swanlab-table](readme_files/molecule.gif)
 
