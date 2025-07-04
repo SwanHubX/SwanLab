@@ -177,7 +177,7 @@ def check_run_id_format(run_id: str = None) -> Optional[str]:
         return None
     run_id_str = str(run_id)
     if not re.match(r"^[a-z0-9]{21}$", run_id_str):
-        raise ValueError(f"run_id `{run_id}` is invalid, it must be 21 characters of lowercase letters and digits")
+        raise ValueError(f"id `{run_id}` is invalid, it must be 21 characters of lowercase letters and digits")
     return run_id_str
 
 

@@ -25,6 +25,7 @@ from .formatter import (
     check_proj_name_format,
     check_desc_format,
     check_tags_format,
+    check_run_id_format,
 )
 from .modules import DataType
 from .run import (
@@ -280,6 +281,8 @@ class SwanLabInitializer:
                 raise RuntimeError("You can only use resume in cloud mode.")
         if resume == "must" and id is None:
             raise ValueError('You must pass id when resume=must.')
+        if id is not None:
+            check_run_id_format(id)
         run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value
