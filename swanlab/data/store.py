@@ -9,9 +9,12 @@ NOTE: 只允许在 swanlab/data 模块下访问，其他地方不允许访问
 import functools
 import inspect
 import os.path
-from typing import Optional, List, Literal, Dict
+from typing import Optional, List, Literal, Dict, Tuple
 
 from pydantic import BaseModel
+
+# 定义远程指标类型
+RemoteMetric = Dict[str, Tuple[str, str, Optional[dict], Optional[int]]]
 
 
 class RunStore(BaseModel):
@@ -40,8 +43,10 @@ class RunStore(BaseModel):
     new: Optional[bool] = None
     # 恢复实验时，云端实验的 config 设置
     config: Optional[dict] = None
-    # 恢复实验时，云端实验的指标数据，key -> latest step
-    metrics: Optional[Dict[str, int]] = None
+    # 恢复实验时，云端实验的指标数据，key -> (column_type, column_class, error, latest step)
+    metrics: Optional[RemoteMetric] = None
+    # 恢复实验时，云端实验的日志条数
+    log_epoch: Optional[int] = None
 
     # ---------------------------------- 目录 ----------------------------------
     # 是否为临时目录，标识一些运行时环境
@@ -119,4 +124,4 @@ def reset_run_store():
     return None
 
 
-__all__ = ["get_run_store", "reset_run_store", "RunStore"]
+__all__ = ["get_run_store", "reset_run_store", "RunStore", "RemoteMetric"]

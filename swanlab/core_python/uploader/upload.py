@@ -20,8 +20,10 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     携带上传日志的指标信息
     """
     client = get_client()
+    # Move 等实验需要将数据上传到根实验上
     exp_id = client.exp.root_exp_cuid or client.exp.cuid
     proj_id = client.exp.root_exp_cuid or client.proj.cuid
+
     flag_id = client.exp.flag_id
     return {
         "projectId": proj_id,

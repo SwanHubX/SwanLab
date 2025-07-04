@@ -81,10 +81,10 @@ class SwanLabRun:
             run_store.description,
             run_store.run_colors,
         )
-        self.__exp = SwanLabExp(operator=operator)
         run = self
-        # ---------------------------------- 初始化完成 ----------------------------------
         operator.on_run()
+        self.__exp = SwanLabExp(operator=operator)
+        # ---------------------------------- 初始化完成 ----------------------------------
         # 执行__save，必须在on_run之后，因为on_run之前部分的信息还没完全初始化
         getattr(config, "_SwanLabConfig__save")()
         # 运行时信息采集

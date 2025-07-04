@@ -7,7 +7,7 @@
 
 import json
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.log import swanlog
@@ -233,19 +233,21 @@ class SwanLabKey:
         cls,
         key: str,
         column_type: str,
+        column_class: ColumnClass,
         error: Optional[dict],
         media_dir: str,
         log_dir: str,
         kid: int,
         step: Optional[int],
         name: str = None,
-    ) -> 'SwanLabKey':
+    ) -> Tuple['SwanLabKey', ColumnInfo]:
         """
         从远程数据创建一个SwanLabKey对象，主要用于 Resume 时的图表数据标记
         mock的 column 不会被用于上传数据，只是用于标记和记录错误信息
         此对象不会用于上传数据，只是用于标记和记录错误信息
         :param key: str, key名称
         :param column_type: str, 列类型
+        :param column_class: ColumnClass, 列的类型
         :param error: 列错误信息
         :param media_dir: str, 媒体目录
         :param log_dir: str, 指标目录
@@ -281,7 +283,7 @@ class SwanLabKey:
             key,
             str(kid),
             name,
-            "CUSTOM",
+            column_class,
             chart,
             chart_reference="STEP",
             error=error,
@@ -291,5 +293,6 @@ class SwanLabKey:
         key_obj.column_info = column_info
         # 3. 设置当前步数
         if step is not None:
-            key_obj.steps.add(step)
-        return key_obj
+            for i in range(step + 1):
+                key_obj.steps.add(i)
+        return key_obj, column_info

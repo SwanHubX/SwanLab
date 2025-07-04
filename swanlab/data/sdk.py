@@ -227,7 +227,8 @@ class SwanLabInitializer:
         if isinstance(config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(
                 f"config: {config} (type: {type(config)}) is not a json serialized dict "
-                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace and other dict-like objects), "
+                "please check it"
             )
         # 1.3 从环境变量中加载参数
         workspace = _load_from_env(SwanLabEnv.WORKSPACE.value, workspace)
@@ -322,7 +323,8 @@ class SwanLabInitializer:
         assert run_store.run_colors is not None, "Run color must be set after initialization."
         assert run_store.run_id is not None, "Run id must be set after initialization."
         assert run_store.new is not None, "Run new status must be set after initialization."
-        assert run_store.new is True and run_store.resume == "never", "Run new status must be True when resume never."
+        if run_store.resume == "never":
+            assert run_store.new is True, "Run new status must be True when resume never."
         if run_store.new is True:
             # 新实验时一些参数必须为 none
             assert run_store.config is None, "run_store.config should be None when new experiment."
