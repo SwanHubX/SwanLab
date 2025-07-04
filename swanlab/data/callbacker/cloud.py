@@ -125,12 +125,12 @@ class CloudPyCallback(SwanLabRunCallback):
                     # 从总结数据中获取最新的 step
                     # 这里需要同时查找 media 和 scalar
                     latest_step = None
-                    for scalar_summary in summaries.get("scalar", []):
+                    for scalar_summary in summaries.get("scalar") or []:
                         if scalar_summary["key"] == key:
                             latest_step = scalar_summary["step"]
                             break
                     if latest_step is None:
-                        for media_summary in summaries.get("media", []):
+                        for media_summary in summaries.get("media") or []:
                             if media_summary["key"] == key:
                                 latest_step = media_summary["step"]
                                 break
@@ -178,8 +178,7 @@ class CloudPyCallback(SwanLabRunCallback):
         self._unregister_sys_callback()
         self.porter.close_trace(success, error=error, epoch=error_epoch)
         # 更新实验状态，在此之后实验会话关闭
-        if not http.pending:
-            http.update_state(success)
+        http.update_state(success)
         reset_client()
         if not self.user_settings.backup:
             shutil.rmtree(self.run_store.run_dir, ignore_errors=True)
