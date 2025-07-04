@@ -8,20 +8,21 @@
 from typing import Callable, List, Any, Optional, Tuple
 
 from .cpu import get_cpu_info
-from .disk import get_disk_info
 from .dcu.hygon import get_hygon_dcu_info
-from .gpu.nvidia import get_nvidia_gpu_info
+from .disk import get_disk_info
 from .gpu.metax import get_metax_gpu_info
 from .gpu.moorethreads import get_moorethreads_gpu_info
+from .gpu.nvidia import get_nvidia_gpu_info
 from .memory import get_memory_size
 from .mlu.cambricon import get_cambricon_mlu_info
-from .xpu.kunlunxin import get_kunlunxin_xpu_info
 from .network import get_network_info
 from .npu.ascend import get_ascend_npu_info
 from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
+from .utils import is_system_key
+from .xpu.kunlunxin import get_kunlunxin_xpu_info
 
-__all__ = ["get_hardware_info", "HardwareCollector", "HardwareInfo"]
+__all__ = ["get_hardware_info", "HardwareCollector", "HardwareInfo", "is_system_key"]
 
 
 def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
