@@ -562,3 +562,8 @@ def test_init_error_config_name():
     """
     with pytest.raises(ValueError):
         swanlab.init(mode="disabled", config="test_config")
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+class TestResume:
+    pass

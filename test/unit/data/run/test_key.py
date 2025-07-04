@@ -34,16 +34,17 @@ class TestMockKey:
         测试不同的 column_type 是否能正确映射到预期的图表类型
         """
         with UseMockRunState() as run_state:
-            key_obj = SwanLabKey.mock_from_remote(
+            key_obj, column_info = SwanLabKey.mock_from_remote(
                 key="test",
                 column_type=column_type,
+                column_class="CUSTOM",
                 error=None,
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
                 kid=0,
                 step=None,
             )
-            assert key_obj.column_info.chart_type == expected_chart_type
+            assert column_info.chart_type == expected_chart_type
 
     def test_column_unknown_type(self):
         """
@@ -54,6 +55,7 @@ class TestMockKey:
                 SwanLabKey.mock_from_remote(
                     key="test",
                     column_type="UNKNOWN",
+                    column_class="CUSTOM",
                     error=None,
                     media_dir=run_state.store.media_dir,
                     log_dir=run_state.store.log_dir,
@@ -70,9 +72,10 @@ class TestMockKey:
         测试传递列的错误信息时是否能正确处理
         """
         with UseMockRunState() as run_state:
-            key_obj = SwanLabKey.mock_from_remote(
+            key_obj, column_info = SwanLabKey.mock_from_remote(
                 key="test",
                 column_type="FLOAT",
+                column_class="CUSTOM",
                 error={"expected": "float", "got": "string"},
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
@@ -92,6 +95,7 @@ class TestMockKey:
                 SwanLabKey.mock_from_remote(
                     key="test",
                     column_type="FLOAT",
+                    column_class="CUSTOM",
                     error={"expected": None, "got": "string"},
                     media_dir=run_state.store.media_dir,
                     log_dir=run_state.store.log_dir,
@@ -109,9 +113,10 @@ class TestMockKey:
         测试 step 为 None 的情况
         """
         with UseMockRunState() as run_state:
-            key_obj = SwanLabKey.mock_from_remote(
+            key_obj, column_info = SwanLabKey.mock_from_remote(
                 key="test",
                 column_type="FLOAT",
+                column_class="CUSTOM",
                 error=None,
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
@@ -125,14 +130,16 @@ class TestMockKey:
         测试 step 不为 None 的情况
         """
         with UseMockRunState() as run_state:
-            key_obj = SwanLabKey.mock_from_remote(
+            key_obj, column_info = SwanLabKey.mock_from_remote(
                 key="test",
                 column_type="FLOAT",
+                column_class="CUSTOM",
                 error=None,
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
                 kid=0,
-                step=1,
+                step=100,
             )
-            assert len(key_obj.steps) == 1, "Steps should contain one entry when step is provided"
+            assert len(key_obj.steps) == 101, "Steps should contain one entry when step is provided"
             assert 1 in key_obj.steps, "Step 1 should be present in the steps"
+            assert 101 not in key_obj.steps, "Step 10 should be present in the steps"
