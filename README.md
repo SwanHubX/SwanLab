@@ -366,6 +366,7 @@ swanlab login --host http://localhost:8000
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 - [AReaL](https://docs.swanlab.cn/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)

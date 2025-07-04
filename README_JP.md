@@ -346,6 +346,8 @@ swanlab login --host http://localhost:8000
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
+- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **その他のフレームワーク：**
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
