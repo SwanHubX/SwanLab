@@ -54,6 +54,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.07.06: 🚄 Added support for resume training; integrated [ray](https://github.com/ray-project/ray) framework, [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); integrated [ROLL](https://github.com/volcengine/ROLL) framework, thanks to [@PanAndy](https://github.com/PanAndy), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+
 - 2025.06.27: Added support for **small line chart zooming**; added support for configuring **single line chart smoothing**; significantly improved the interaction effect of image charts after zooming.
 
 - 2025.06.20: 🤗 Integrated the [accelerate](https://github.com/huggingface/accelerate) framework, [PR](https://github.com/huggingface/accelerate/pull/3605), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), enhancing the experience of recording and analyzing experiments in distributed training.
@@ -70,9 +72,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.05.14: Added support for **experiment tags**; added support for **Log Scale** for line charts; added support for **group dragging**; significantly optimized the experience of uploading a large number of metrics.
 
-- 2025.05.09: Added support for line chart creation; enhanced the chart configuration feature with data source selection, enabling a single chart to display different metrics; introduced the ability to generate GitHub badges for training projects.
 
 <details><summary>Full Changelog</summary>
+
+- 2025.05.09: Added support for line chart creation; enhanced the chart configuration feature with data source selection, enabling a single chart to display different metrics; introduced the ability to generate GitHub badges for training projects.
 
 - 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
 

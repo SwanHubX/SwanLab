@@ -60,7 +60,9 @@
 
 ## 🌟 最近更新
 
-- 2025.06.27：支持**小折线图局部放大**；支持配置**单个折线图平滑**；大幅改进了图像图表放大后的交互效果；
+- 2025.07.06：🚄支持resume断点续训；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/volcengine/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+
+- 2025.06.27：📊支持**小折线图局部放大**；支持配置**单个折线图平滑**；大幅改进了图像图表放大后的交互效果；
 
 - 2025.06.20：🤗集成[accelerate](https://github.com/huggingface/accelerate)框架，[PR](https://github.com/huggingface/accelerate/pull/3605)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)，增强分布式训练中的实验记录体验；
 
@@ -76,9 +78,9 @@
 
 - 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
 
-- 2025.05.09：支持**折线图创建**；配置图表功能增加**数据源选择**功能，支持单张图表显示不同的指标；支持生成**训练项目GitHub徽章**；
-
 <details><summary>完整更新日志</summary>
+
+- 2025.05.09：支持**折线图创建**；配置图表功能增加**数据源选择**功能，支持单张图表显示不同的指标；支持生成**训练项目GitHub徽章**；
 
 - 2025.04.23：支持折线图**编辑**，支持自由配置图表的X、Y轴数据范围和标题样式；图表搜索支持**正则表达式**；支持**昆仑芯XPU**的硬件检测与监控；
 

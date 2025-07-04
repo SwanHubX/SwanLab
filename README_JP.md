@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.07.06: 🚄 再開トレーニングをサポート；[ray](https://github.com/ray-project/ray) フレームワークを統合、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；[ROLL](https://github.com/volcengine/ROLL) フレームワークを統合、[@PanAndy](https://github.com/PanAndy) 氏に感謝、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+
 - 2025.06.27: **小折れ線グラフの局所拡大**をサポート；**単一折れ線グラフの平滑化**をサポート；大幅に画像グラフの拡大後のインタラクション効果を改善；
 
 - 2025.06.20: 🤗 [accelerate](https://github.com/huggingface/accelerate) フレームワークを統合、[PR](https://github.com/huggingface/accelerate/pull/3605)、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)、分散トレーニング中の実験記録と分析の体験を向上させます。
@@ -70,10 +72,10 @@
 
 - 2025.05.14: **実験Tag**をサポート；折れ線グラフの**Log Scale**をサポート；**分组拖拽**をサポート；大量の指標をアップロードする際の体験を大幅に最適化
 
-- 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.05.09：折れ線グラフ作成をサポート；グラフ設定機能にデータソース選択機能を追加、1つのグラフで異なる指標を表示可能に；トレーニングプロジェクト用GitHubバッジ生成をサポート
 
 - 2025.04.23: 折れ線グラフの​​編集​​をサポート、グラフのX軸・Y軸のデータ範囲とタイトルスタイルを自由に設定可能に；グラフ検索で​​正規表現​​をサポート；​​Kunlun Core XPU​​のハードウェア検出とモニタリングをサポート。
 
