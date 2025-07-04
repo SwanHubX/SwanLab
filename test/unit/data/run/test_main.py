@@ -410,7 +410,7 @@ def test_run_id(mode, run_id):
     with UseMockRunState() as state:
         state.store.run_id = run_id if mode == "cloud" else state.store.run_id
         run = SwanLabRun()
-        assert run.run_id == run_id
+        assert run.id == run_id
 
 
 def test_run_id_none():

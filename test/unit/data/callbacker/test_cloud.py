@@ -132,7 +132,7 @@ class TestCloudResume:
         swanlab.login()
         client = get_client()
         # resume 实验
-        with UseMockRunState(run_id=run.run_id, client=client):
+        with UseMockRunState(run_id=run.id, client=client):
             run_store = self.mock_run_state(client.username, run.public.project_name)
             run_store.resume = "must"
             callback = CloudPyCallback()
