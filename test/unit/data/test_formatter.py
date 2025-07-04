@@ -248,14 +248,14 @@ class TestRunIdFormat:
     @staticmethod
     def test_run_id_format_invalid_length():
         with pytest.raises(
-            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
         ):
             check_run_id_format("shortid")
 
     @staticmethod
     def test_run_id_format_invalid_characters():
         with pytest.raises(
-            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
         ):
             check_run_id_format("abc123!@#def456ghi789")
 
@@ -270,6 +270,6 @@ class TestRunIdFormat:
     @staticmethod
     def test_run_id_format_empty_string():
         with pytest.raises(
-            ValueError, match=r"run_id .* is invalid, it must be 21 characters of lowercase letters and digits"
+            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
         ):
             check_run_id_format("")
