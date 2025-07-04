@@ -566,4 +566,8 @@ def test_init_error_config_name():
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 class TestResume:
+    """
+    测试resume功能
+    """
+
     pass
