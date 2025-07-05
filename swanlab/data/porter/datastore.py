@@ -228,8 +228,12 @@ class DataStore:
             # 4.3 写入最后一个数据块
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
             # 刷写完整数据
-            self._fp.flush()
-            os.fsync(self._fp.fileno())
+            try:
+                self._fp.flush()
+                os.fsync(self._fp.fileno())
+            except OSError:
+                # 如果操作系统不支持 fsync，可能会抛出 OSError，忽略此错误即可
+                pass
             self._flush_offset = self._index
 
         return start_offset, self._index, self._flush_offset

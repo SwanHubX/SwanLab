@@ -11,6 +11,7 @@ import json
 import netrc
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import requests
@@ -200,8 +201,7 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         host = host[:-4]
     path = get_nrc_path()
     if not os.path.exists(path):
-        with open(path, "w") as f:
-            f.write("")
+        Path(path).touch()
     nrc = netrc.netrc(path)
     new_info = (username, "", password)
     # 避免重复的写
@@ -211,6 +211,12 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         nrc.hosts = {host: new_info}
         with open(path, "w") as f:
             f.write(nrc.__repr__())
+            try:
+                f.flush()
+                os.fsync(f.fileno())
+            except OSError:
+                # 如果操作系统不支持fsync，可能会抛出OSError，忽略此错误即可
+                pass
         return True
     return False
 
