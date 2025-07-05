@@ -16,14 +16,13 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Literal, List, Union, Tuple
 
 import wrapt
-from swankit.callback import MetricInfo, ColumnInfo, RuntimeInfo
 
 from swanlab.core_python import get_client
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 from swanlab.data.store import RunStore, get_run_store, reset_run_store
 from swanlab.log.type import LogData
 from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
-from swanlab.toolkit import create_time
+from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo, create_time
 from .datastore import DataStore
 
 __all__ = ['DataPorter']
