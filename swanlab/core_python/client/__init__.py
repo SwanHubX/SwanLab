@@ -358,8 +358,7 @@ class Client:
             if e.resp.status_code == 400 and e.resp.reason == "Bad Request":
                 # 指定的 cuid 对应的实验是克隆实验
                 raise ValueError(
-                    f"Experiment with CUID {cuid} is a cloned experiment ",
-                    "(cloned experiments cannot be resumed).",
+                    f"Experiment with CUID {cuid} is a cloned experiment (cloned experiments cannot be resumed).",
                 )
             elif e.resp.status_code == 403 and e.resp.reason == "Forbidden":
                 # 权限不足
