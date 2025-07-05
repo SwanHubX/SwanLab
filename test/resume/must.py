@@ -19,7 +19,9 @@ try:
     run = swanlab.init(id="".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21)), resume='must')
 except RuntimeError:
     pass
+import time
 
+time.sleep(5)
 # 3. 继续第一个实验
 run = swanlab.init(id=run.id, resume='must', reinit=True)
 # 上传相同 step 的指标，此时报错

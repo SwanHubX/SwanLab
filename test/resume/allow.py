@@ -18,7 +18,9 @@ run_id = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21))
 run = swanlab.init(id=run_id, resume='allow')
 assert run.id == run_id, "Run ID does not match the expected value"
 swanlab.log({"loss": 0.1, "accuracy": 0.9}, step=1)
+import time
 
+time.sleep(5)
 # 3. 继续实验
 run = swanlab.init(id=run_id, resume='allow', reinit=True)
 # 上传相同 step 的指标，此时报错

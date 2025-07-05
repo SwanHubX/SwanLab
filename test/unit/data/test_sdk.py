@@ -8,6 +8,7 @@ r"""
     测试sdk的一些api
 """
 import os
+import random
 
 import platformdirs
 import pytest
@@ -20,6 +21,7 @@ import tutils as T
 from swanlab import Settings
 from swanlab.core_python import reset_client, get_client
 from swanlab.data.run import get_run
+from swanlab.data.store import get_run_store
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
 
@@ -570,4 +572,115 @@ class TestResume:
     测试resume功能
     """
 
-    pass
+    @pytest.mark.parametrize("resume", ["must", "allow"])
+    @pytest.mark.parametrize("mode", ["local", "disabled", "offline"])
+    def test_allow_resume_with_invalid_mode(self, mode, resume):
+        """
+        除了 cloud 以外的模式不允许 resume='allow'
+        """
+        with pytest.raises(RuntimeError) as e:
+            S.init(resume='allow', mode=mode)
+        assert str(e.value) == "You can only use resume in cloud mode."
+
+    @pytest.mark.parametrize("resume", ["must", "allow"])
+    def test_sync_step(self, resume):
+        """
+        测试 resume 时同步 step 参数
+        """
+        run = S.init()
+        run.log({"loss": 0.3, "accuracy": 0.7}, step=1)
+        run.finish()
+        import time
+
+        time.sleep(5)
+        new_run = S.init(resume=resume, id=run.id, reinit=True)
+        assert new_run.id == run.id, "New run ID should be the same as the previous one"
+        # 上传相同 step 的指标，此时报错
+        ll = new_run.log({"loss": 0.3, "accuracy": 0.7}, step=1)
+        assert ll["loss"].is_error
+        assert ll["accuracy"].is_error
+        # 上传大于 step=1 的指标，此时不会报错
+        ll = new_run.log({"loss": 0.5, "accuracy": 0.8})
+        assert not ll["loss"].is_error, "Expected loss metric to be logged successfully after reinit"
+        assert not ll["accuracy"].is_error, "Expected accuracy metric to be logged successfully after reinit"
+        assert ll["loss"].metric_step == 2, "Expected loss metric step to be 2 after reinit"
+        assert ll["accuracy"].metric_step == 2, "Expected accuracy metric step to be 2 after reinit"
+
+    # ---------------------------------- never 部分 ----------------------------------
+    def test_never_resume(self):
+        """
+        测试never模式下的resume功能
+        """
+        run = S.init(resume='never')
+        run_store = get_run_store()
+        assert run.id is not None, "Run ID should be generated"
+        assert run_store.run_id == run.id, "Run store ID should match the run ID"
+        run.log({"loss": 0.1, "accuracy": 0.9}, step=1)
+        run.finish()
+        # 再次初始化，应该是一个新的实验
+        new_run = S.init(resume='never')
+        assert new_run.id != run.id, "New run ID should be different from the previous one"
+
+    def test_never_with_id(self):
+        """
+        never 模式不允许传递 id 参数
+        """
+        with pytest.raises(RuntimeError) as e:
+            S.init(resume='never', id='test_id')
+        assert str(e.value) == "You can't pass id when resume=never or resume=False."
+
+    # ---------------------------------- allow 部分 ----------------------------------
+
+    def test_allow_resume(self):
+        """
+        测试allow模式下的resume功能
+        """
+        run = S.init(resume='allow')
+        run_store = get_run_store()
+        assert run.id is not None, "Run ID should be generated"
+        assert run_store.run_id == run.id, "Run store ID should match the run ID"
+        run.log({"loss": 0.1, "accuracy": 0.9}, step=1)
+        run.finish()
+        import time
+
+        time.sleep(5)
+        # 再次初始化，应该是一个新的实验
+        new_run = S.init(resume='allow', id=run.id)
+        assert new_run.id == run.id, "New run ID should be the same as the previous one"
+        # 校验 run_store ID 是否在云端实验连接中
+        assert run.id in new_run.public.cloud.experiment_url, "New run should be linked to the previous run"
+
+    def test_allow_with_id(self):
+        """
+        allow 模式允许传递 id 参数，此时根据此 id 初始化实验
+        """
+        id = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21))
+        run = S.init(resume='allow', id=id)
+        run_store = get_run_store()
+        assert run.id == id, "Run ID should match the provided ID"
+        assert run_store.run_id == id, "Run store ID should match the provided ID"
+        # 再次初始化实验
+        new_run = S.init(resume='allow', id=id)
+        assert new_run.id == id, "New run ID should be the same as the provided ID"
+
+    # ---------------------------------- must 部分 ----------------------------------
+
+    def test_must_resume(self):
+        """
+        must 模式下之前的实验必须存在，否则会报错
+        """
+        run = S.init()
+        run.finish()
+        # 再次初始化，应该是一个新的实验
+        new_run = S.init(resume='must', id=run.id)
+        assert new_run.id == run.id, "New run ID should be the same as the previous one"
+        # 校验 run_store ID 是否在云端实验连接中
+        assert run.id in new_run.public.cloud.experiment_url, "New run should be linked to the previous run"
+
+    def test_must_no_id(self):
+        """
+        在 must 模式下必须传递 id 参数，否则会报错
+        """
+        with pytest.raises(ValueError) as e:
+            S.init(resume='must')
+        assert str(e.value) == "You must pass id when resume=must."
