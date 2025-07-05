@@ -2,8 +2,6 @@ import json
 import netrc
 import os
 import time
-from io import TextIOWrapper
-from unittest.mock import MagicMock, patch
 
 import nanoid
 import pytest
@@ -254,25 +252,6 @@ class TestHasApiKey:
         self.save_api_key()
         os.environ[SwanLabEnv.API_HOST.value] = nanoid.generate()
         assert not P.has_api_key()
-
-
-class TestFlushAndSync:
-    def test_flush_and_fsync_called(self):
-        file_mock = MagicMock(spec=TextIOWrapper)
-        with patch("os.fsync") as fsync_mock:
-            P.flush_and_sync(file_mock)
-            file_mock.flush.assert_called_once()
-            file_mock.fileno.assert_called_once()
-            fsync_mock.assert_called_once_with(file_mock.fileno())
-
-    def test_ignore_oserror_on_fsync(self):
-        file_mock = MagicMock(spec=TextIOWrapper)
-        file_mock.fileno.side_effect = OSError
-        with patch("os.fsync") as fsync_mock:
-            P.flush_and_sync(file_mock)
-            file_mock.flush.assert_called_once()
-            file_mock.fileno.assert_called_once()
-            fsync_mock.assert_not_called()
 
 
 class TestHostFormatter:

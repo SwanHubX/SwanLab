@@ -11,7 +11,6 @@ import json
 import netrc
 import os
 import re
-from io import TextIOWrapper
 from pathlib import Path
 from typing import Optional
 
@@ -186,19 +185,6 @@ def get_key():
     return info[2]
 
 
-def flush_and_sync(file_obj: TextIOWrapper) -> None:
-    """
-    确保文件对象的内容被写入磁盘
-    :param file_obj: 文件对象
-    """
-    try:
-        file_obj.flush()
-        os.fsync(file_obj.fileno())
-    except OSError:
-        # 如果操作系统不支持fsync，可能会抛出OSError，忽略此错误即可
-        pass
-
-
 def save_key(username: str, password: str, host: str = None) -> bool:
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
@@ -225,7 +211,12 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         nrc.hosts = {host: new_info}
         with open(path, "w") as f:
             f.write(nrc.__repr__())
-            flush_and_sync(f)
+            try:
+                f.flush()
+                os.fsync(f.fileno())
+            except OSError:
+                # 如果操作系统不支持fsync，可能会抛出OSError，忽略此错误即可
+                pass
         return True
     return False
 
