@@ -357,7 +357,10 @@ class Client:
         except ApiError as e:
             if e.resp.status_code == 400 and e.resp.reason == "Bad Request":
                 # 指定的 cuid 对应的实验是克隆实验
-                raise ValueError(f"Experiment with cuid {cuid} is a cloned experiment and cannot be resumed")
+                raise ValueError(
+                    f"Experiment with CUID {cuid} is a cloned experiment ",
+                    "(cloned experiments cannot be resumed).",
+                )
             elif e.resp.status_code == 403 and e.resp.reason == "Forbidden":
                 # 权限不足
                 raise ValueError(f"Project permission denied: {self.projname}")
@@ -369,7 +372,7 @@ class Client:
                 raise ValueError(f"Experiment {cuid} has been deleted")
             elif e.resp.status_code == 409 and e.resp.reason == "Conflict":
                 # 传入 cuid 但是实验不属于当前项目
-                raise ValueError(f"Experiment with cuid {cuid} does not belong to project {self.projname}")
+                raise ValueError(f"Experiment with CUID {cuid} does not belong to project {self.projname}")
             raise e
         # 200代表实验已存在，开启更新模式
         # 201代表实验不存在，新建实验
