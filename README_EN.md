@@ -365,14 +365,15 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
-- [AReaL](https://docs.swanlab.cn/guide_cloud/integration/integration-areal.html)
-- [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **Other Frameworks:**
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Unsloth](https://docs.swanlab.cn/en/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
