@@ -400,6 +400,7 @@ swanlab login --host http://localhost:8000
 - [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)
 - [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
+- [文件记录器](https://docs.swanlab.cn/plugin/writer-filelogdir.html)
 
 开放接口：
 - [OpenAPI](https://docs.swanlab.cn/api/py-openapi.html)

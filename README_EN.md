@@ -395,6 +395,7 @@ Enhance your experiment management experience by extending SwanLab's functionali
 -  [Discord Notification](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html)
 -  [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+-  [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 

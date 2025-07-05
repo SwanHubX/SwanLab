@@ -405,6 +405,7 @@ swanlab login --host http://localhost:8000
 -  [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
 -  [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+-  [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 
