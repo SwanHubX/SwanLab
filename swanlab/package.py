@@ -12,6 +12,7 @@ import netrc
 import os
 import re
 from io import TextIOWrapper
+from pathlib import Path
 from typing import Optional
 
 import requests
@@ -214,8 +215,7 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         host = host[:-4]
     path = get_nrc_path()
     if not os.path.exists(path):
-        with open(path, 'w'):
-            pass
+        Path(path).touch()
     nrc = netrc.netrc(path)
     new_info = (username, "", password)
     # 避免重复的写
