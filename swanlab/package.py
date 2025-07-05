@@ -200,8 +200,8 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         host = host[:-4]
     path = get_nrc_path()
     if not os.path.exists(path):
-        with open(path, "w") as f:
-            f.write("")
+        with open(path, 'w'):
+            pass
     nrc = netrc.netrc(path)
     new_info = (username, "", password)
     # 避免重复的写
@@ -211,6 +211,8 @@ def save_key(username: str, password: str, host: str = None) -> bool:
         nrc.hosts = {host: new_info}
         with open(path, "w") as f:
             f.write(nrc.__repr__())
+            f.flush()
+            os.fsync(f.fileno())
         return True
     return False
 
