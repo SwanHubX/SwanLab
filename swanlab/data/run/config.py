@@ -160,7 +160,7 @@ class SwanLabConfig(MutableMapping):
         self.__on_setter = on_setter
 
     @staticmethod
-    def __fmt_config(config: dict):
+    def fmt_config(config: dict):
         """
         格式化config，值改为value字段，增加desc和sort字段
         """
@@ -169,6 +169,22 @@ class SwanLabConfig(MutableMapping):
         for key, value in config.items():
             config[key] = {"value": value, "desc": "", "sort": sort}
             sort += 1
+
+    @staticmethod
+    def revert_config(config: dict) -> dict:
+        """
+        重置格式化后的 config，删除 desc 和 sort 字段，但是保持排序
+        """
+        result_items = []
+        result = {}
+        for key, value in config.items():
+            if isinstance(value, dict) and "value" in value:
+                # 如果 sort 不存在默认排最前面
+                result_items.append((key, value["value"], value.get("sort", 0)))
+        # Sort by the "sort" field and reconstruct the dictionary
+        for key, value, _ in sorted(result_items, key=lambda x: x[2]):
+            result[key] = value
+        return result
 
     def __save(self):
         """
@@ -183,7 +199,7 @@ class SwanLabConfig(MutableMapping):
             swanlog.error(f"Error occurred when saving config: {e}")
             return
         # 遍历每一个配置项，值改为value，如果是字典，则递归调用
-        self.__fmt_config(data)
+        self.fmt_config(data)
         r = RuntimeInfo(config=self.__config)
         self.__on_setter(r)
         swanlog.debug(f"Save configuration.")

@@ -28,6 +28,14 @@ def generate_key(suffix: str) -> str:
     return "__swanlab__." + suffix
 
 
+def is_system_key(key: str) -> bool:
+    """
+    判断key是否为系统key
+    系统key以 __swanlab__. 开头
+    """
+    return key.startswith("__swanlab__.")
+
+
 # CPU 使用率
 CPU_PCT_KEY = generate_key("cpu.pct")
 CPU_PCT_CONFIG = HardwareConfig(

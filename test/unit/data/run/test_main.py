@@ -12,6 +12,7 @@ import json
 import math
 import os
 
+import nanoid
 import numpy as np
 import pytest
 import soundfile as sf
@@ -20,9 +21,10 @@ from nanoid import generate
 
 import swanlab
 import tutils as T
-from swanlab import Image, Audio, Text, SwanLabEnv
+from swanlab import Image, Audio, Text
 from swanlab.data.modules import Line
 from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog, get_url, get_project_url
+from swanlab.env import SwanLabEnv
 from tutils import TEMP_PATH
 from tutils.setup import UseMockRunState
 
@@ -48,25 +50,27 @@ class TestSwanLabRunInit:
 
     def test_after_init(self):
         os.environ[SwanLabEnv.MODE.value] = "disabled"
-        run = SwanLabRun(generate())
-        assert swanlog.proxied is False
-        assert run is not None
-        assert get_run().__str__() == run.__str__()
-        _run = run.finish()
-        assert get_run() is None
-        assert _run.__str__() == run.__str__()
-        assert SwanLabRunState.SUCCESS == _run.state
+        with UseMockRunState():
+            run = SwanLabRun()
+            assert swanlog.proxied is False
+            assert run is not None
+            assert get_run().__str__() == run.__str__()
+            _run = run.finish()
+            assert get_run() is None
+            assert _run.__str__() == run.__str__()
+            assert SwanLabRunState.SUCCESS == _run.state
 
     def test_duplicate_init(self):
         os.environ[SwanLabEnv.MODE.value] = "disabled"
-        run = SwanLabRun(generate())
-        with pytest.raises(RuntimeError) as e:
-            SwanLabRun(generate())
-        assert swanlog.proxied is False
-        assert str(e.value) == "SwanLabRun has been initialized"
-        assert run.__str__() == get_run().__str__()
-        _run = run.finish()
-        assert swanlog.proxied is False
+        with UseMockRunState():
+            run = SwanLabRun()
+            with pytest.raises(RuntimeError) as e:
+                SwanLabRun()
+            assert swanlog.proxied is False
+            assert str(e.value) == "SwanLabRun has been initialized"
+            assert run.__str__() == get_run().__str__()
+            _run = run.finish()
+            assert swanlog.proxied is False
 
 
 class TestSwanLabRunState:
@@ -82,21 +86,24 @@ class TestSwanLabRunState:
         assert SwanLabRun.get_state() == SwanLabRunState.NOT_STARTED
 
     def test_running(self):
-        run = SwanLabRun()
-        assert run.state == SwanLabRunState.RUNNING
-        assert run.running is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            assert run.state == SwanLabRunState.RUNNING
+            assert run.running is True
 
     def test_crashed(self):
-        run = SwanLabRun()
-        run.finish(SwanLabRunState.CRASHED, error="error")
-        assert run.state == SwanLabRunState.CRASHED
-        assert run.crashed is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            run.finish(SwanLabRunState.CRASHED, error="error")
+            assert run.state == SwanLabRunState.CRASHED
+            assert run.crashed is True
 
     def test_success(self):
-        run = SwanLabRun()
-        run.finish(SwanLabRunState.SUCCESS)
-        assert run.state == SwanLabRunState.SUCCESS
-        assert run.success is True
+        with UseMockRunState():
+            run = SwanLabRun()
+            run.finish(SwanLabRunState.SUCCESS)
+            assert run.state == SwanLabRunState.SUCCESS
+            assert run.success is True
 
 
 class TestSwanLabRunLog:
@@ -383,3 +390,34 @@ class TestGetProjectUrl:
         未初始化
         """
         assert get_project_url() is None
+
+
+@pytest.mark.parametrize(
+    "mode,run_id",
+    [
+        ("cloud", nanoid.generate('0123456789abcdefghijklmnopqrstuvwxyz', 21)),
+        ("local", None),
+        ("disabled", None),
+        ("offline", None),
+    ],
+)
+def test_run_id(mode, run_id):
+    """
+    测试获取当前运行的ID
+    只有 cloud 模式能获取到运行ID，其他模式返回None
+    """
+    os.environ[SwanLabEnv.MODE.value] = mode
+    with UseMockRunState() as state:
+        state.store.run_id = run_id if mode == "cloud" else state.store.run_id
+        run = SwanLabRun()
+        assert run.id == run_id
+
+
+def test_run_id_none():
+    """
+    测试在未初始化时获取运行ID
+    """
+    with UseMockRunState() as state:
+        state.store.run_id = None
+        with pytest.raises(AssertionError):
+            SwanLabRun()

@@ -76,6 +76,11 @@ class SwanLabEnv(enum.Enum):
     """
     swanlab的实验名称
     """
+    RUN_ID = "SWANLAB_RUN_ID"
+    """
+    swanlab 实验运行 id，resume 时使用
+    """
+    RESUME = "SWANLAB_RESUME"
 
     RUNTIME = "SWANLAB_RUNTIME"
     """

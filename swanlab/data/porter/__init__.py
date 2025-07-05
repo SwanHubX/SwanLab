@@ -240,7 +240,7 @@ class DataPorter:
         """
         追踪指标数据
         """
-        assert data.error is None, "MetricInfo must have an error field"
+        assert data.error is None, "MetricInfo must not have error, if it has error, do not upload it."
         if data.column_info.chart_type == data.column_info.chart_type.LINE:
             # 标量
             scalar = Metric.from_metric_info(data)

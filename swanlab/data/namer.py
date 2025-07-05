@@ -153,3 +153,11 @@ def generate_colors(index: Optional[int] = None) -> Tuple[str, str]:
             choice_color_light,
             choice_color_dark,
         )  # 返回对应索引的颜色，如果超出范围则取模
+
+
+def generate_run_id() -> str:
+    """
+    生成运行ID
+    :return: 生成的运行ID，21个字符的小写字母和数字
+    """
+    return "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21))

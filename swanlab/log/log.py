@@ -119,18 +119,21 @@ class SwanLog(SwanKitLogger):
         """
         return self.__origin_stderr_write is not None or self.__origin_stdout_write is not None
 
-    def start_proxy(self, proxy_type: ProxyType, max_log_length: int, handler: LogHandler):
+    def start_proxy(self, proxy_type: ProxyType, max_log_length: int, handler: LogHandler, epoch: int = None):
         """
         启动代理
         :param max_log_length: 一行日志的最大长度，超过这个长度的日志将被截断，-1 表示不限制
         :param proxy_type: 代理类型，支持 "stdout", "stderr", "all"
         :param handler: 代理处理函数
+        :param epoch: 可选参数，设置当前起始 epoch，默认为 None
         """
         if self.proxied:
             raise RuntimeError("Std Proxy is already started")
         # 设置一些状态
         self.__max_upload_len = max_log_length
         self.__proxy_type = proxy_type
+        if epoch is not None:
+            self.__counter = AtomicCounter(epoch)
 
         # 设置代理
         def set_stdout():

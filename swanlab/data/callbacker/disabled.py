@@ -14,6 +14,8 @@ class DisabledCallback(SwanLabRunCallback):
     def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
         self.run_store.run_name = "run-disabled"
         self.run_store.run_colors = N.generate_colors(0)
+        self.run_store.run_id = N.generate_run_id()
+        self.run_store.new = True
 
     def __str__(self):
         return "SwanLabDisabledCallback"

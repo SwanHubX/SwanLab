@@ -8,7 +8,6 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
-import random
 import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
@@ -26,6 +25,7 @@ from .formatter import (
     check_proj_name_format,
     check_desc_format,
     check_tags_format,
+    check_run_id_format,
 )
 from .modules import DataType
 from .run import (
@@ -40,9 +40,9 @@ from .utils import (
     _load_from_dict,
     _load_from_env,
     _create_operator,
+    _init_mode,
     should_call_after_init,
     should_call_before_init,
-    _init_mode,
 )
 from ..core_python import create_client, auth
 from ..package import HostFormatter
@@ -102,6 +102,8 @@ class SwanLabInitializer:
         public: bool = None,
         callbacks: List[SwanKitCallback] = None,
         settings: Settings = None,
+        id: str = None,
+        resume: Union[Literal['must', 'allow', 'never'], bool] = None,
         reinit: bool = None,
         **kwargs,
     ) -> SwanLabRun:
@@ -167,14 +169,22 @@ class SwanLabInitializer:
             If you provide a list, all the callback functions in the list will be triggered in order.
         settings: swanlab.swanlab_settings.Settings, optional
             The settings for the current experiment.
+        resume : Literal['must', 'allow', 'never'], optional
+            Resume the previous run or not:
+                - must: You must pass the `id` parameter and the run must exist.
+                - allow: If the run exists, it will be resumed, otherwise a new run will be created.
+                - never: You cannot pass the `id` parameter, and a new run will be created.
+            You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
+            [Note that] This parameter is only valid when mode='cloud'
+        id : str, optional
+            The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
-            Whether to reinitialize the settings, the default is False.
-            If you want to reinitialize the settings, you must call this function again.
+            Whether to reinitialize SwanLabRun, the default is False.
         """
         # 一个进程同时只能有一个实验在运行
         if SwanLabRun.is_started():
             run = get_run()
-            if reinit is True:
+            if reinit:
                 run.finish()
             else:
                 swanlog.warning("You have already initialized a run, the init function will be ignored")
@@ -187,7 +197,11 @@ class SwanLabInitializer:
         # 1. 加载参数
         if callbacks is None:
             callbacks = []
-
+        if resume is True:
+            resume = 'allow'
+        elif resume is False:
+            resume = 'never'
+        resume = resume or 'never'
         # for https://github.com/SwanHubX/SwanLab/issues/809
         if experiment_name is None and kwargs.get("name", None) is not None:
             experiment_name = kwargs.get("name")
@@ -206,18 +220,23 @@ class SwanLabInitializer:
             project = _load_from_dict(load_data, "project", project)
             workspace = _load_from_dict(load_data, "workspace", workspace)
             public = _load_from_dict(load_data, "private", public)
+            id = _load_from_dict(load_data, "id", id)
+            resume = _load_from_dict(load_data, "resume", resume)
         # 1.2 初始化confi参数
         config = _init_config(config)
         # 如果config是以下几个类别之一，则抛出异常
         if isinstance(config, (int, float, str, bool, list, tuple, set)):
             raise TypeError(
                 f"config: {config} (type: {type(config)}) is not a json serialized dict "
-                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace), please check it"
+                f"(Support type is dict, MutableMapping, omegaconf.DictConfig, Argparse.Namespace and other dict-like objects), "
+                "please check it"
             )
         # 1.3 从环境变量中加载参数
         workspace = _load_from_env(SwanLabEnv.WORKSPACE.value, workspace)
         project = _load_from_env(SwanLabEnv.PROJ_NAME.value, project)
         experiment_name = _load_from_env(SwanLabEnv.EXP_NAME.value, experiment_name)
+        resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
+        id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
 
         # 2. 格式校验
         # 2.1 校验项目名称
@@ -253,6 +272,19 @@ class SwanLabInitializer:
         mode, login_info = _init_mode(mode)
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
+        # 8. 校验 resume 与 id
+        if resume == 'never':
+            # 不允许传递 id
+            if id is not None:
+                raise RuntimeError("You can't pass id when resume=never or resume=False.")
+        elif resume == 'must' or resume == 'allow':
+            # 只允许在 cloud 模式下使用 resume
+            if mode != "cloud":
+                raise RuntimeError("You can only use resume in cloud mode.")
+        if resume == "must" and id is None:
+            raise ValueError('You must pass id when resume=must.')
+        if id is not None:
+            check_run_id_format(id)
         run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value
@@ -279,6 +311,8 @@ class SwanLabInitializer:
         run_store.swanlog_dir = logdir
         # ---------------------------------- 设置运行时配置 ----------------------------------
         # 1. 写入运行时配置
+        run_store.resume = resume
+        run_store.run_id = id
         run_store.project = project
         run_store.workspace = workspace
         run_store.visibility = public
@@ -286,17 +320,26 @@ class SwanLabInitializer:
         run_store.description = description
         run_store.run_name = experiment_name
         run_store.swanlog_dir = logdir
-        # 2. 系统信息检测
-        meta, monitor_funcs = get_metadata(run_store.run_dir)
-        # 3. 启动操作员，注册运行实例
+        # 2. 启动操作员，注册运行实例
         operator = _create_operator(mode, login_info, callbacks)
         operator.on_init(project, workspace, public=public, logdir=logdir)
         # init结束后应该设置了一些参数
         assert run_store.run_name is not None, "Run name must be set after initialization."
         assert run_store.run_colors is not None, "Run color must be set after initialization."
+        assert run_store.run_id is not None, "Run id must be set after initialization."
+        assert run_store.new is not None, "Run new status must be set after initialization."
+        if run_store.resume == "never":
+            assert run_store.new is True, "Run new status must be True when resume never."
+        if run_store.new is True:
+            # 新实验时一些参数必须为 none
+            assert run_store.config is None, "run_store.config should be None when new experiment."
+            assert run_store.metrics is None, "run_store.metrics should be None when new experiment."
+        else:
+            # 恢复实验时一些参数必须存在
+            assert isinstance(run_store.config, dict), "run_store.config should be dict when resuming an experiment."
+            assert isinstance(run_store.metrics, dict), "run_store.metrics should be dict when resuming an experiment."
         # ---------------------------------- 初始化运行文件夹 ----------------------------------
-        run_id = hex(random.randint(0, 2**32 - 1))[2:].zfill(8)
-        assert run_id is not None, "run_id should not be None, please check the logdir and run_id"
+        run_id = run_store.run_id
         run_dir = None
         while True:
             run_dir is not None and time.sleep(1)
@@ -309,14 +352,19 @@ class SwanLabInitializer:
             except FileExistsError:
                 pass
         assert run_dir is not None, "run_dir should not be None, please check the logdir and run_id"
-        run_store.run_id = run_id
         run_store.run_dir = run_dir
+        assert os.path.exists(run_store.run_dir), f"Run directory {run_store.run_dir} does not exist."
         os.makedirs(run_store.media_dir, exist_ok=True)
         os.makedirs(run_store.log_dir, exist_ok=True)
         os.makedirs(run_store.file_dir, exist_ok=True)
         os.makedirs(run_store.console_dir, exist_ok=True)
         # ---------------------------------- 初始化运行实例 ----------------------------------
-        assert run_store.run_id is not None, "Run id must be set after initialization."
+        # 系统信息检测
+        meta, monitor_funcs = None, None
+        # 新实验开启系统信息检测，旧实验暂时不开启
+        # 并且只在用户设置开启了元数据收集或硬件监控时才开启
+        if run_store.new is True and user_settings.metadata_collect:
+            meta, monitor_funcs = get_metadata(run_store.run_dir)
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
 

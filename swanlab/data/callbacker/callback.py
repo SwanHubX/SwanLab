@@ -93,6 +93,7 @@ class SwanLabRunCallback(SwanKitCallback):
             proxy_type=self.user_settings.log_proxy_type,
             max_log_length=self.user_settings.max_log_length,
             handler=handler,
+            epoch=self.run_store.log_epoch,
         )
 
     def __str__(self):

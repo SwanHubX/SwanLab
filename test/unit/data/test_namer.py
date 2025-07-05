@@ -115,3 +115,19 @@ def test_hex_to_rgb_basic_colors():
     assert hex_to_rgb("#FFFF00") == (255, 255, 0)  # 黄
     assert hex_to_rgb("#FF00FF") == (255, 0, 255)  # 品红
     assert hex_to_rgb("#00FFFF") == (0, 255, 255)  # 青
+
+
+class TestGenerateRunId:
+
+    def test_run_id_length_is_21_characters(self):
+        run_id = namer.generate_run_id()
+        assert len(run_id) == 21
+
+    def test_run_id_contains_only_lowercase_and_digits(self):
+        run_id = namer.generate_run_id()
+        assert all(c.islower() or c.isdigit() for c in run_id)
+
+    def test_run_id_is_random_each_time(self):
+        run_id_1 = namer.generate_run_id()
+        run_id_2 = namer.generate_run_id()
+        assert run_id_1 != run_id_2

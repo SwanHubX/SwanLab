@@ -8,6 +8,7 @@
 
 import shutil
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Optional
 
 from rich.status import Status
 from rich.text import Text
@@ -24,12 +25,15 @@ from swanlab.toolkit import (
 from . import utils as U
 from .. import namer as N
 from ..run import get_run
-from ..store import get_run_store
+from ..run.config import SwanLabConfig
+from ..run.metadata.hardware import is_system_key
+from ..store import get_run_store, RemoteMetric
 from ...core_python import *
 from ...log.type import LogData
 
 
 class CloudPyCallback(SwanLabRunCallback):
+    login_info: Optional[auth.LoginInfo] = None
 
     def __init__(self):
         super().__init__()
@@ -38,12 +42,29 @@ class CloudPyCallback(SwanLabRunCallback):
     def __str__(self):
         return "SwanLabCloudPyCallback"
 
-    def on_init(self, *args, **kwargs):
+    @staticmethod
+    def _create_client():
         try:
             http = get_client()
         except ValueError:
             swanlog.debug("Login info is None, get login info.")
-            http = create_client(auth.create_login_info())
+            login_info = CloudPyCallback.login_info
+            if login_info is not None:
+                # 如果有登录信息，则使用该信息创建客户端
+                http = create_client(login_info)
+                CloudPyCallback.login_info = None
+            else:
+                # 如果没有登录信息，则需要用户登录
+                # 但是不保存登录信息到本地
+                http = create_client(auth.create_login_info(save=False))
+        return http
+
+    @staticmethod
+    def _converter_summarise_metric():
+        pass
+
+    def on_init(self, *args, **kwargs):
+        http = self._create_client()
         # 检测是否有最新的版本
         U.check_latest_version()
         run_store = get_run_store()
@@ -54,12 +75,67 @@ class CloudPyCallback(SwanLabRunCallback):
             run_store.description = "" if run_store.description is None else run_store.description
             run_store.run_colors = N.generate_colors(exp_count)
             run_store.tags = [] if run_store.tags is None else run_store.tags
-            http.mount_exp(
-                exp_name=run_store.run_name,
-                colors=run_store.run_colors,
-                description=run_store.description,
-                tags=run_store.tags,
-            )
+            try:
+                new = http.mount_exp(
+                    exp_name=run_store.run_name,
+                    colors=run_store.run_colors,
+                    description=run_store.description,
+                    tags=run_store.tags,
+                    cuid=run_store.run_id,
+                    must_exist=run_store.resume == 'must',
+                )
+                run_store.new = new
+            except RuntimeError:
+                raise RuntimeError(
+                    "When resume=must, the experiment must exist in project {}. Please check your parameters.".format(
+                        http.proj.name
+                    )
+                )
+            run_store.run_id = http.exp_id
+            # 如果不是新实验，需要获取最新的实验配置和指标数据进行本地同步
+            if not new:
+                # 1. 解析 config，保存到 run_store.config
+                config = http.exp.config
+                run_store.config = SwanLabConfig.revert_config(config)
+                # 2. 获取最新的指标数据，解析为 run_store.metrics
+                # 指标总结数据，{log:[{key: '', step: int}] or None, media: [{key: str, step: int}, ...] or None, scalar: [{key: str, step: int}, ...] or None}
+                summaries, _ = http.get(
+                    "/house/metrics/summaries/{}/{}".format(
+                        http.exp.root_proj_cuid or http.proj.cuid, http.exp.root_exp_cuid or http.exp_id
+                    ),
+                    {"all": True},
+                )
+                # 设置历史指标条数
+                run_store.log_epoch = summaries.get("log", [{}])[0].get("step", 0)
+                # 列响应
+                columns_resp, _ = http.get("/experiment/{}/column".format(http.exp_id), {"all": True})
+                # 列信息, [{error: dict or None, key:str, type:str, class:str}]
+                columns = columns_resp.get("list", [])
+                # key -> (column_type, column_class, error, latest step)
+                metrics: RemoteMetric = {}
+                for column in columns:
+                    # 从列信息中获取指标信息
+                    key = column["key"]
+                    column_type = column["type"]
+                    column_class = column["class"]
+                    error = column.get("error", None)
+                    if column_class == "SYSTEM" and not is_system_key(key):
+                        # 只记录 sdk 生成的系统指标
+                        continue
+                    # 从总结数据中获取最新的 step
+                    # 这里需要同时查找 media 和 scalar
+                    latest_step = None
+                    for scalar_summary in summaries.get("scalar") or []:
+                        if scalar_summary["key"] == key:
+                            latest_step = scalar_summary["step"]
+                            break
+                    if latest_step is None:
+                        for media_summary in summaries.get("media") or []:
+                            if media_summary["key"] == key:
+                                latest_step = media_summary["step"]
+                                break
+                    metrics[key] = (column_type, column_class, error, latest_step)
+                run_store.metrics = metrics
 
     def _terminal_handler(self, log_data: LogData):
         self.porter.trace_log(log_data)
@@ -93,12 +169,16 @@ class CloudPyCallback(SwanLabRunCallback):
 
     def on_stop(self, error: str = None, *args, **kwargs):
         success = get_run().success
+        http = get_client()
+        if http.pending:
+            swanlog.warning("This run was destroyed but it is pending!")
         # 打印信息
         U.print_cloud_web()
         error_epoch = swanlog.epoch + 1
         self._unregister_sys_callback()
         self.porter.close_trace(success, error=error, epoch=error_epoch)
-        get_client().update_state(success)
+        # 更新实验状态，在此之后实验会话关闭
+        http.update_state(success)
         reset_client()
         if not self.user_settings.backup:
             shutil.rmtree(self.run_store.run_dir, ignore_errors=True)
