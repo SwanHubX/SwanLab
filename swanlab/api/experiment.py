@@ -7,6 +7,8 @@ r"""
 @Description:
     实验相关的开放API
 """
+from typing import List
+from pandas import DataFrame
 from swanlab.api.base import ApiBase, ApiHTTP
 from swanlab.api.types import ApiResponse, Experiment, Pagination
 
@@ -142,3 +144,37 @@ class ExperimentAPI(ApiBase):
             for k, v in resp.data.items()
         }
         return resp
+
+    def get_metrics(
+            self,
+            exp_id: str,
+            chart_index: str,
+            keys: List[str],
+    ) -> ApiResponse[DataFrame]:
+        """
+        获取实验的指标数据, 由用户自定义
+        从House获取, 需要考虑克隆实验
+
+        Args:
+            exp_id (str): 实验CUID
+            chart_index (str): 图表Index
+            keys (list[str]): 指标key列表
+        
+        Returns:
+            ApiResponse[DataFrame]:
+        """
+        import pandas as pd
+        metrics_list = [{"expId": exp_id, "key": key} for key in keys]
+        data = {
+            "metrics": metrics_list,
+            "xType": "step"
+        }
+
+        resp = self.http.post(f"/experiment/{exp_id}/chart/{chart_index}/csv", data=data, params={})
+        if resp.errmsg:
+            return resp
+
+        url = resp.data.get("url", "")
+        resp.data = pd.read_csv(url).set_index("step")
+        return resp
+    

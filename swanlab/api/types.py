@@ -11,6 +11,7 @@ r"""
 from typing import Dict, Generic, List, TypeVar
 
 from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict
 
 
 class BaseModel(PydanticBaseModel):
@@ -48,6 +49,7 @@ class ApiResponse(BaseModel, Generic[D]):
     code: int    # HTTP状态码
     errmsg: str  # API错误消息, 只有请求错误时非空
     data: D      # 返回数据
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Pagination(BaseModel, Generic[D]):

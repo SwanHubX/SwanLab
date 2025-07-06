@@ -8,6 +8,7 @@ r"""
     测试开放API的实验相关接口
 """
 
+import pandas as pd
 import pytest
 
 import tutils as T
@@ -62,3 +63,20 @@ def test_delete_experiment():
     res = api.delete_experiment(project="test_project", exp_id=exp_cuid)
     assert isinstance(res, ApiResponse)
     assert res.code in [204, 404]
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_get_metrics():
+    """
+    获取实验的指标数据
+    """
+    api = OpenApi()
+    exp_cuid = "test_cuid"
+    chart_index = "test_chart_index"
+    keys = ["accuracy", "loss"]
+    res = api.get_metrics(exp_id=exp_cuid, chart_index=chart_index, keys=keys)
+    assert isinstance(res, ApiResponse)
+    if res.code == 200:
+        assert isinstance(res.data, pd.DataFrame)
+        assert not res.data.empty
+        assert all(key in res.data.columns for key in keys)
+        
