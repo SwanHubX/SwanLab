@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Callable, List, Optional, Union
 
+import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -21,6 +22,8 @@ from swanlab.log.log import SwanLog
 from swanlab.package import get_package_version
 
 _logger: Optional[SwanLog] = None
+
+DataFrame = pd.DataFrame
 
 def get_logger(log_level: str = "info") -> SwanLog:
     global _logger
