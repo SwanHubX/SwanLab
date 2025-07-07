@@ -11,7 +11,6 @@ from typing import Union, Optional, List
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.callbacker import *
 from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
@@ -165,6 +164,8 @@ def _create_operator(
     :param cbs: 用户传递的回调函数列表
     :return: SwanLabRunOperator, CloudRunCallback
     """
+    from swanlab.data.callbacker import DisabledCallback, CloudPyCallback, OfflineCallback
+
     c = []
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
