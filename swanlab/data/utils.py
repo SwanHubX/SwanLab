@@ -191,5 +191,6 @@ def _create_operator(
         raise ValueError(f"Unknown mode: {mode}, please use one of {SwanLabMode.list()}")
 
     # 2. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
-    callbacks = c + cbs
+    # WARNING: 因为官方回调接管了 SwanLabRun 的生命周期，所以用户传递的回调函数必须在官方回调函数之前执行，也就是排在列表前面
+    callbacks = cbs + c
     return SwanLabRunOperator(callbacks)
