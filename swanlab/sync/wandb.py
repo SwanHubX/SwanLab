@@ -21,12 +21,19 @@ def _extract_args(args, kwargs, param_names):
     return tuple(values)
 
 
-def sync_wandb(mode:str="cloud", wandb_run:bool=True):
+def sync_wandb(
+    mode:str="cloud",
+    wandb_run:bool=True,
+    workspace:str=None,
+    logdir:str=None,
+    ):
     """
     sync wandb with swanlab, 暂时不支持log非标量类型
     
     - mode: "cloud", "local" or "disabled". https://docs.swanlab.cn/api/py-init.html
     - wandb_run: 如果此参数设置为False，则不会将数据上传到wandb，等同于设置wandb.init(mode="offline")。
+    - workspace: swanlab的组织空间username
+    - logdir: swanlab日志文件存储目录
     
     usecase:
     ```python
@@ -64,17 +71,22 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
     original_config_update = wandb_sdk.wandb_config.Config.update
     
     def patched_init(*args, **kwargs):
-        entity, project, dir, id, name, notes, tags, config, config_exclude_keys = _extract_args(
-            args, kwargs, ['entity', 'project', 'dir', 'id', 'name', 'notes', 'tags', 'config', 'config_exclude_keys']
+        entity, project, dir, id, name, notes, tags, config, config_exclude_keys, reinit = _extract_args(
+            args, kwargs, ['entity', 'project', 'dir', 'id', 'name', 'notes', 'tags', 'config', 'config_exclude_keys', 'reinit']
         )
         
         if swanlab.data.get_run() is None:
             swanlab.init(
                 project=project,
+                workspace=workspace,
                 experiment_name=name,
                 description=notes,
                 config=config,
-                mode=mode)
+                tags=tags,
+                mode=mode,
+                logdir=logdir,
+                reinit=reinit,
+                )
         else:
             swanlab.config.update(config)
         
