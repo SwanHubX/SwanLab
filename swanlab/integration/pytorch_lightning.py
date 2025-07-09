@@ -14,7 +14,7 @@ if importlib.util.find_spec("lightning"):
 
     from lightning.pytorch.loggers.logger import Logger, rank_zero_experiment
 
-    from lightning.pytorch.utilities import rank_zero_only
+    from lightning.pytorch.utilities import rank_zero_only, rank_zero_warn
 elif importlib.util.find_spec("pytorch_lightning"):
     import pytorch_lightning as pl
 
@@ -29,7 +29,7 @@ elif importlib.util.find_spec("pytorch_lightning"):
             rank_zero_experiment,
         )
 
-    from pytorch_lightning.utilities import rank_zero_only
+    from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 else:
     raise RuntimeError(
         "This contrib module requires PyTorch Lightning to be installed. "
@@ -104,6 +104,10 @@ class SwanLabLogger(Logger):
         if swanlab.get_run() is None:
             self._experiment = swanlab.init(**self._swanlab_init)
         else:
+            rank_zero_warn(
+                "There is a swanlab experiment already in progress and newly created instances of `SwanLabLogger` will reuse"
+                " this experiment. If this is not desired, call `swanlab.finish()` before instantiating `SwanLabLogger`."
+            )
             self._experiment = swanlab.get_run()
 
         return self._experiment
