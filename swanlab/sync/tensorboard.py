@@ -34,6 +34,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
     """
     original_init = SummaryWriter.__init__
     original_add_scalar = SummaryWriter.add_scalar
+    original_add_scalars = SummaryWriter.add_scalars
     original_add_image = SummaryWriter.add_image
     original_add_text = SummaryWriter.add_text
     original_close = SummaryWriter.close
@@ -61,6 +62,16 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         swanlab.log(data=data, step=global_step)
         
         return original_add_scalar(self, *args, **kwargs)
+
+    def patched_add_scalars(self, *args, **kwargs):
+        # writer.add_scalars('Loss', {'train': loss_train, 'val': loss_val}, global_step=step)
+        tag, scalar_value_dict, global_step = _extract_args(
+            args, kwargs, ['tag', 'scalar_value_dict', 'global_step']
+        )
+        for dict_tag, value in scalar_value_dict.items():
+            data = {f"{tag}/{dict_tag}": value}
+            swanlab.log(data=data, step=global_step)
+        return original_add_scalars(self, *args, **kwargs)
 
     def patched_add_image(self, *args, **kwargs):
         import numpy as np
@@ -102,6 +113,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         data = {tag: swanlab.Text(text_string)}
         swanlab.log(data=data, step=global_step)
         return original_add_text(self, *args, **kwargs)
+    
 
     def patched_close(self):
         # 调用原始的close方法
@@ -109,7 +121,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         # 关闭SwanLab记录器
         swanlab.finish()
 
-    return patched_init, patched_add_scalar, patched_add_image, patched_add_text, patched_close
+    return patched_init, patched_add_scalar, patched_add_scalars, patched_add_image, patched_add_text, patched_close
 
 
 def _apply_patches(SummaryWriter, patched_methods):
@@ -120,10 +132,11 @@ def _apply_patches(SummaryWriter, patched_methods):
         SummaryWriter: SummaryWriter类
         patched_methods: (patched_init, patched_add_scalar, patched_add_image, patched_close)
     """
-    patched_init, patched_add_scalar, patched_add_image, patched_add_text, patched_close = patched_methods
+    patched_init, patched_add_scalar, patched_add_scalars, patched_add_image, patched_add_text, patched_close = patched_methods
     
     SummaryWriter.__init__ = patched_init
     SummaryWriter.add_scalar = patched_add_scalar
+    SummaryWriter.add_scalars = patched_add_scalars
     SummaryWriter.add_image = patched_add_image
     SummaryWriter.add_text = patched_add_text
     SummaryWriter.close = patched_close
