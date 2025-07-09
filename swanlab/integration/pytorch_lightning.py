@@ -29,7 +29,7 @@ elif importlib.util.find_spec("pytorch_lightning"):
             rank_zero_experiment,
         )
 
-    from pytorch_lightning.utilities import rank_zero_only
+    from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 else:
     raise RuntimeError(
         "This contrib module requires PyTorch Lightning to be installed. "
