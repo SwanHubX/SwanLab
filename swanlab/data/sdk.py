@@ -201,7 +201,6 @@ class SwanLabInitializer:
             resume = 'allow'
         elif resume is False:
             resume = 'never'
-        resume = resume or 'never'
         # for https://github.com/SwanHubX/SwanLab/issues/809
         if experiment_name is None and kwargs.get("name", None) is not None:
             experiment_name = kwargs.get("name")
@@ -273,6 +272,7 @@ class SwanLabInitializer:
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
         # 8. 校验 resume 与 id
+        resume = resume or 'never'
         if resume == 'never':
             # 不允许传递 id
             if id is not None:
