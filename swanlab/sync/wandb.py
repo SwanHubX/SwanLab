@@ -128,6 +128,26 @@ def sync_wandb(mode:str="cloud", wandb_run:bool=True):
                     # 如果转换失败，记录错误但继续处理其他数据
                     print(f"Warning: Failed to convert wandb.Image for key '{key}': {e}")
                     continue
+            elif isinstance(value, list) and value and hasattr(value[0], '__class__') and value[0].__class__.__name__ == 'Image':
+                # 检测是否为 wandb.Image 列表
+                try:
+                    import numpy as np
+                    swanlab_images = []
+                    for v in value:
+                        if hasattr(v, 'image') and v.image is not None:
+                            img_array = np.array(v.image)
+                            caption = getattr(v, '_caption', None)
+                            swanlab_images.append(swanlab.Image(img_array, caption=caption))
+                        elif hasattr(v, '_image') and v._image is not None:
+                            img_array = np.array(v._image)
+                            caption = getattr(v, '_caption', None)
+                            swanlab_images.append(swanlab.Image(img_array, caption=caption))
+                    if swanlab_images:
+                        processed_data[key] = swanlab_images
+                except Exception as e:
+                    # 如果转换失败，记录错误但继续处理其他数据
+                    print(f"Warning: Failed to convert wandb.Image list for key '{key}': {e}")
+                    continue
         
         if processed_data:
             swanlab.log(data=processed_data, step=step)
