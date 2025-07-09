@@ -19,5 +19,6 @@ writer.add_text('random_text', 'hello', global_step=10)
 for i in range(100):
     scalar_value = np.random.rand()
     writer.add_scalar('random_scalar', scalar_value, i)
+    writer.add_scalars('random_scalars', {'scalar1': scalar_value, 'scalar2': scalar_value * 2}, i)
 
 writer.close()
