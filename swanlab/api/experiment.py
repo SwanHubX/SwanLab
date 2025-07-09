@@ -7,8 +7,6 @@ r"""
 @Description:
     实验相关的开放API
 """
-import pandas as pd
-
 from swanlab.api.base import ApiBase, ApiHTTP, DataFrame
 from swanlab.api.types import ApiResponse, Experiment, Pagination
 
@@ -163,6 +161,7 @@ class ExperimentAPI(ApiBase):
         Returns:
             ApiResponse[DataFrame]:
         """
+        import pandas as pd
         metrics_list = [{"expId": exp_id, "key": key} for key in keys]
         data = {
             "metrics": metrics_list,
