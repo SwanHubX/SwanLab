@@ -77,7 +77,7 @@ def login(api_key: str = None, host: str = None, web_host: str = None, save: boo
         os.environ[SwanLabEnv.API_KEY.value] = api_key
 
 
-MODES = Literal["disabled", "cloud", "local", "offline"]
+MODES = Literal["disabled", "cloud", "local", "offline", "online"]
 
 
 class SwanLabInitializer:
@@ -148,11 +148,12 @@ class SwanLabInitializer:
             In this case, if you want to view the logs,
             you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
         mode : str, optional
-            Allowed values are 'cloud', 'local', 'disabled', 'backup'.
+            Allowed values are 'cloud', 'local', 'disabled', 'offline', 'online'.
             If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
             If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
             If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
             If the value is 'offline', data will be saved locally without uploading to the cloud.
+            If the value is 'online', effect is equivalent to cloud.
         load : str, optional
             If you pass this parameter,SwanLab will search for the configuration file you specified
             (which must be in JSON or YAML format)
@@ -268,6 +269,7 @@ class SwanLabInitializer:
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
         # 7. 校验mode参数并适配 backup 模式
+        mode = "cloud" if mode == "online" else mode
         mode, login_info = _init_mode(mode)
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
