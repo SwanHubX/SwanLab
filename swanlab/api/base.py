@@ -9,7 +9,7 @@ r"""
 """
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -19,6 +19,10 @@ from swanlab.api.types import ApiResponse
 from swanlab.core_python import auth
 from swanlab.log.log import SwanLog
 from swanlab.package import get_package_version
+
+if TYPE_CHECKING:
+    import pandas as pd
+    DataFrame = pd.DataFrame
 
 _logger: Optional[SwanLog] = None
 
