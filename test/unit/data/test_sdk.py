@@ -713,3 +713,13 @@ class TestResumeWithEnv:
         S.init(resume="never")
         run_store = get_run_store()
         assert run_store.resume == "never"
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_online():
+    """
+    测试在线模式
+    """
+    run = S.init(mode="online")
+    assert run.mode == "cloud"
+    run.finish()
