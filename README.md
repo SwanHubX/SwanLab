@@ -336,6 +336,36 @@ swanlab login --host http://localhost:8000
 
 <br>
 
+## 🔥 实战案例
+
+**使用SwanLab的优秀教程开源项目：**
+- [happy-llm](https://github.com/datawhalechina/happy-llm)：从零开始的大语言模型原理与实践教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
+- [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
+- [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
+
+**教程文章：**
+- [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
+- [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
+- [Cifar10图像分类](https://docs.swanlab.cn/examples/cifar10.html)
+- [Resnet猫狗分类](https://docs.swanlab.cn/examples/cats_dogs_classification.html)
+- [Yolo目标检测](https://docs.swanlab.cn/examples/yolo.html)
+- [UNet医学影像分割](https://docs.swanlab.cn/examples/unet-medical-segmentation.html)
+- [音频分类](https://docs.swanlab.cn/examples/audio_classification.html)
+- [DQN强化学习-推车倒立摆](https://docs.swanlab.cn/examples/dqn_cartpole.html)
+- [LSTM Google股票预测](https://docs.swanlab.cn/examples/audio_classification.html)
+- [BERT文本分类](https://docs.swanlab.cn/examples/bert.html)
+- [Stable Diffusion文生图微调](https://docs.swanlab.cn/examples/stable_diffusion.html)
+- [LLM预训练](https://docs.swanlab.cn/examples/pretrain_llm.html)
+- [GLM4指令微调](https://docs.swanlab.cn/examples/glm4-instruct.html)
+- [Qwen下游任务训练](https://docs.swanlab.cn/examples/qwen_finetune.html)
+- [NER命名实体识别](https://docs.swanlab.cn/examples/ner.html)
+- [Qwen3医学模型微调](https://docs.swanlab.cn/examples/qwen3-medical.html)
+- [Qwen2-VL多模态大模型微调实战](https://docs.swanlab.cn/examples/qwen_vl_coco.html)
+- [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
+
+
+<br>
+
 ## 🚗 框架集成
 
 将你最喜欢的框架与 SwanLab 结合使用！  
@@ -396,36 +426,6 @@ swanlab login --host http://localhost:8000
 
 <br>
 
-## 🔥 实战案例
-
-**使用SwanLab的优秀教程开源项目：**
-- [happy-llm](https://github.com/datawhalechina/happy-llm)：从零开始的大语言模型原理与实践教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
-- [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
-- [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
-
-**教程文章：**
-- [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
-- [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
-- [Cifar10图像分类](https://docs.swanlab.cn/examples/cifar10.html)
-- [Resnet猫狗分类](https://docs.swanlab.cn/examples/cats_dogs_classification.html)
-- [Yolo目标检测](https://docs.swanlab.cn/examples/yolo.html)
-- [UNet医学影像分割](https://docs.swanlab.cn/examples/unet-medical-segmentation.html)
-- [音频分类](https://docs.swanlab.cn/examples/audio_classification.html)
-- [DQN强化学习-推车倒立摆](https://docs.swanlab.cn/examples/dqn_cartpole.html)
-- [LSTM Google股票预测](https://docs.swanlab.cn/examples/audio_classification.html)
-- [BERT文本分类](https://docs.swanlab.cn/examples/bert.html)
-- [Stable Diffusion文生图微调](https://docs.swanlab.cn/examples/stable_diffusion.html)
-- [LLM预训练](https://docs.swanlab.cn/examples/pretrain_llm.html)
-- [GLM4指令微调](https://docs.swanlab.cn/examples/glm4-instruct.html)
-- [Qwen下游任务训练](https://docs.swanlab.cn/examples/qwen_finetune.html)
-- [NER命名实体识别](https://docs.swanlab.cn/examples/ner.html)
-- [Qwen3医学模型微调](https://docs.swanlab.cn/examples/qwen3-medical.html)
-- [Qwen2-VL多模态大模型微调实战](https://docs.swanlab.cn/examples/qwen_vl_coco.html)
-- [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
-
-
-
-<br>
 
 ## 🔌 插件与API
 
