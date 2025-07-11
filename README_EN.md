@@ -160,9 +160,13 @@ Here is a list of its core features:
 
 ![swanlab-table](readme_files/molecule.gif)
 
-- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts...
+- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts, [Custom charts](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 ![swanlab-echarts](readme_files/echarts.png)
+
+- **Text Chart**: A text chart for large language model training, supporting Markdown rendering.
+
+![text-chart](readme_files/text-chart.gif)
 
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 

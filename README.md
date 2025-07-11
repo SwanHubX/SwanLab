@@ -158,9 +158,13 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 ![swanlab-table](readme_files/molecule.gif)
 
-- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图...
+- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图、[自定义图表](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 [![swanlab-echarts](readme_files/echarts.png)](https://swanlab.cn/@ZeyiLin/swanlab-echarts-demo/charts)
+
+- **大模型图表方案**：为大语言模型训练场景打造的文本内容可视化图表，支持Markdown渲染
+
+![text-chart](readme_files/text-chart.gif)
 
 - **后台自动记录**：日志logging、硬件环境、Git 仓库、Python 环境、Python 库列表、项目运行目录
 
