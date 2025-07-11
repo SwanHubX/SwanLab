@@ -156,13 +156,13 @@ Here is a list of its core features:
 
 - **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules, Echarts custom chart...
 
+- **Resume Training Record**: Supports recording new metrics data to the same experiment after training is completed/interrupted.
+
+![swanlab-molecule](readme_files/molecule.gif)
+
 - **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts, [Custom charts](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 ![swanlab-echarts](readme_files/echarts.png)
-
-- **Resume Training Record**: Supports recording new metrics data to the same experiment after training is completed/interrupted.
-
-![swanlab-table](readme_files/molecule.gif)
 
 - **Text Chart**: A text chart for large language model training, supporting Markdown rendering.
 
