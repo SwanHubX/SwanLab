@@ -93,7 +93,7 @@ class SwanLabRun:
         # 定时采集系统信息
         # 测试时不开启此功能
         # resume时不开启此功能
-        if "PYTEST_VERSION" not in os.environ or run_store.resume == 'never':
+        if "PYTEST_VERSION" not in os.environ and run_store.resume == 'never':
             if monitor_funcs is not None and len(monitor_funcs) != 0:
                 swanlog.debug("Monitor on.")
 

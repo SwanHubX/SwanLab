@@ -30,7 +30,7 @@ def test_sync():
     record_logs: List[str] = []
     # ---------------------------------- 开启实验 ----------------------------------
     config = {
-        "epochs": 10,
+        "epochs": 10000,
         "learning_rate": 0.01,
         "offset": random.random() / 5,
     }

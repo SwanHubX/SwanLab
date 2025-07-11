@@ -61,11 +61,16 @@ def backup():
     def wrapper(wrapped, instance, args, kwargs):
         result: Union[List[BaseModel], BaseModel] = wrapped(*args, **kwargs)
         if result is not None:
-            f = getattr(instance, "_f")
-            if isinstance(result, list):
-                [f.write(item.to_record()) for item in result]
-            else:
-                f.write(result.to_record())
+            try:
+                f = getattr(instance, "_f")
+                if isinstance(result, list):
+                    [f.write(item.to_record()) for item in result]
+                else:
+                    f.write(result.to_record())
+            except ValueError:
+                # 写入备份文件失败，可能是因为没有开启备份模式或者备份文件未打开
+                # TODO: 记录本地日志
+                pass
         return result
 
     return wrapper
