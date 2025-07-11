@@ -54,6 +54,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.07.10: 📚 Added support for **text view**, supporting Markdown rendering and direction key switching, which can be created by `swanlab.echarts.table` and `swanlab.Text`, [Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
+
 - 2025.07.06: 🚄 Added support for resume training; new plugin [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); integrated [ray](https://github.com/ray-project/ray) framework, [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); integrated [ROLL](https://github.com/volcengine/ROLL) framework, thanks to [@PanAndy](https://github.com/PanAndy), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 - 2025.06.27: Added support for **small line chart zooming**; added support for configuring **single line chart smoothing**; significantly improved the interaction effect of image charts after zooming.
@@ -156,11 +158,15 @@ Here is a list of its core features:
 
 - **Resume Training Record**: Supports recording new metrics data to the same experiment after training is completed/interrupted.
 
-![swanlab-table](readme_files/molecule.gif)
+![swanlab-molecule](readme_files/molecule.gif)
 
-- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts...
+- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts, [Custom charts](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 ![swanlab-echarts](readme_files/echarts.png)
+
+- **Text Chart**: A text chart for large language model training, supporting Markdown rendering.
+
+![text-chart](readme_files/text-chart.gif)
 
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 

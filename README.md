@@ -48,9 +48,10 @@
 - [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
 - [💻 自托管](#-自托管)
+- [🔥 实战案例](#-实战案例)
+- [🎮 硬件记录](#-硬件记录)
 - [🚗 框架集成](#-框架集成)
 - [🔌 插件与API](#-插件与api)
-- [🎮 硬件记录](#-硬件记录)
 - [🆚 与熟悉的工具的比较](#-与熟悉的工具的比较)
 - [👥 社区](#-社区)
 - [📃 协议](#-协议)
@@ -59,6 +60,8 @@
 
 
 ## 🌟 最近更新
+
+- 2025.07.10：📚更强大的**文本视图**，支持Markdown渲染与方向键切换，可由`swanlab.echarts.table`与`swanlab.Text`创建，[Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
 - 2025.07.06：🚄支持**resume断点续训**；新插件**文件记录器**；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/volcengine/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
@@ -76,9 +79,9 @@
 
 - 2025.05.25：日志支持记录**标准错误流**，PyTorch Lightning等框架的打印信息可以被更好地记录；硬件监控支持**摩尔线程**；新增运行命令记录安全防护功能，API Key将被自动隐藏；
 
-- 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
-
 <details><summary>完整更新日志</summary>
+
+- 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
 
 - 2025.05.09：支持**折线图创建**；配置图表功能增加**数据源选择**功能，支持单张图表显示不同的指标；支持生成**训练项目GitHub徽章**；
 
@@ -156,9 +159,13 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 ![swanlab-table](readme_files/molecule.gif)
 
-- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图...
+- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图、[自定义图表](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 [![swanlab-echarts](readme_files/echarts.png)](https://swanlab.cn/@ZeyiLin/swanlab-echarts-demo/charts)
+
+- **LLM生成内容可视化组件**：为大语言模型训练场景打造的文本内容可视化图表，支持Markdown渲染
+
+![text-chart](readme_files/text-chart.gif)
 
 - **后台自动记录**：日志logging、硬件环境、Git 仓库、Python 环境、Python 库列表、项目运行目录
 
@@ -168,7 +175,7 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、MLU（**寒武纪Cambricon**）、XLU（**昆仑芯Kunlunxin**）内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、MLU（**寒武纪Cambricon**）、XLU（**昆仑芯Kunlunxin**）、DCU（**海光DCU**）、MetaX GPU（**沐曦XPU**）、Moore Threads GPU（**摩尔线程**）、内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -329,6 +336,59 @@ swanlab login --host http://localhost:8000
 
 <br>
 
+## 🔥 实战案例
+
+**使用SwanLab的优秀教程开源项目：**
+- [happy-llm](https://github.com/datawhalechina/happy-llm)：从零开始的大语言模型原理与实践教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
+- [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
+- [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
+
+**教程文章：**
+- [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
+- [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
+- [Cifar10图像分类](https://docs.swanlab.cn/examples/cifar10.html)
+- [Resnet猫狗分类](https://docs.swanlab.cn/examples/cats_dogs_classification.html)
+- [Yolo目标检测](https://docs.swanlab.cn/examples/yolo.html)
+- [UNet医学影像分割](https://docs.swanlab.cn/examples/unet-medical-segmentation.html)
+- [音频分类](https://docs.swanlab.cn/examples/audio_classification.html)
+- [DQN强化学习-推车倒立摆](https://docs.swanlab.cn/examples/dqn_cartpole.html)
+- [LSTM Google股票预测](https://docs.swanlab.cn/examples/audio_classification.html)
+- [BERT文本分类](https://docs.swanlab.cn/examples/bert.html)
+- [Stable Diffusion文生图微调](https://docs.swanlab.cn/examples/stable_diffusion.html)
+- [LLM预训练](https://docs.swanlab.cn/examples/pretrain_llm.html)
+- [GLM4指令微调](https://docs.swanlab.cn/examples/glm4-instruct.html)
+- [Qwen下游任务训练](https://docs.swanlab.cn/examples/qwen_finetune.html)
+- [NER命名实体识别](https://docs.swanlab.cn/examples/ner.html)
+- [Qwen3医学模型微调](https://docs.swanlab.cn/examples/qwen3-medical.html)
+- [Qwen2-VL多模态大模型微调实战](https://docs.swanlab.cn/examples/qwen_vl_coco.html)
+- [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
+
+
+<br>
+
+## 🎮 硬件记录
+
+SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情况**进行记录，下面是支持情况表格：
+
+| 硬件 | 信息记录 | 资源监控 | 脚本 |
+| --- | --- | --- | --- |
+| 英伟达GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/nvidia.py) |
+| 昇腾NPU | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/npu/ascend.py) |
+| 苹果SOC | ✅ | ✅ | [apple.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/soc/apple.py) |
+| 寒武纪MLU | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/mlu/cambricon.py) |
+| 昆仑芯XPU | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/xpu/kunlunxin.py) |
+| 摩尔线程GPU | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/moorethreads.py) |
+| 沐曦GPU | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/metax.py) |
+| 海光DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/dcu/hygon.py) |
+| CPU     | ✅        | ✅        | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/cpu.py) |
+| 内存        | ✅        | ✅        | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/memory.py) |
+| 硬盘        | ✅        | ✅        | [disk.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/disk.py) |
+| 网络 | ✅ | ✅ | [network.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/network.py) |
+
+如果你希望记录其他硬件，欢迎提交Issue与PR！
+
+<br>
+
 ## 🚗 框架集成
 
 将你最喜欢的框架与 SwanLab 结合使用！  
@@ -385,9 +445,10 @@ swanlab login --host http://localhost:8000
 - [OpenAI](https://docs.swanlab.cn/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/guide_cloud/integration/integration-zhipuai.html)
 
-[更多集成](https://docs.swanlab.cn/zh/guide_cloud/integration/integration-pytorch-lightning.html)
+[更多集成](https://docs.swanlab.cn/guide_cloud/integration/)
 
 <br>
+
 
 ## 🔌 插件与API
 
@@ -405,29 +466,6 @@ swanlab login --host http://localhost:8000
 
 开放接口：
 - [OpenAPI](https://docs.swanlab.cn/api/py-openapi.html)
-
-<br>
-
-## 🎮 硬件记录
-
-SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情况**进行记录，下面是支持情况表格：
-
-| 硬件 | 信息记录 | 资源监控 | 脚本 |
-| --- | --- | --- | --- |
-| 英伟达GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/nvidia.py) |
-| 昇腾NPU | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/npu/ascend.py) |
-| 苹果SOC | ✅ | ✅ | [apple.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/soc/apple.py) |
-| 寒武纪MLU | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/mlu/cambricon.py) |
-| 昆仑芯XPU | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/xpu/kunlunxin.py) |
-| 摩尔线程GPU | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/moorethreads.py) |
-| 沐曦GPU | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/metax.py) |
-| 海光DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/dcu/hygon.py) |
-| CPU     | ✅        | ✅        | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/cpu.py) |
-| 内存        | ✅        | ✅        | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/memory.py) |
-| 硬盘        | ✅        | ✅        | [disk.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/disk.py) |
-| 网络 | ✅ | ✅ | [network.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/network.py) |
-
-如果你希望记录其他硬件，欢迎提交Issue与PR！
 
 <br>
 
