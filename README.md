@@ -154,15 +154,15 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 - 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
 
-- **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子、Echarts自定义图表...
-
-![swanlab-table](readme_files/molecule.gif)
-
 - **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图、[自定义图表](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 [![swanlab-echarts](readme_files/echarts.png)](https://swanlab.cn/@ZeyiLin/swanlab-echarts-demo/charts)
 
-- **大模型图表方案**：为大语言模型训练场景打造的文本内容可视化图表，支持Markdown渲染
+- **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子、Echarts自定义图表...
+
+![swanlab-table](readme_files/molecule.gif)
+
+- **LLM生成内容可视化组件**：为大语言模型训练场景打造的文本内容可视化图表，支持Markdown渲染
 
 ![text-chart](readme_files/text-chart.gif)
 
