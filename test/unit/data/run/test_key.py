@@ -76,7 +76,7 @@ class TestMockKey:
                 key="test",
                 column_type="FLOAT",
                 column_class="CUSTOM",
-                error={"expected": "float", "got": "string"},
+                error={"excepted": "float", "data_class": "string"},
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
                 kid=0,
@@ -87,7 +87,7 @@ class TestMockKey:
 
     def test_column_with_error_unknown(self):
         """
-        测试传递错误信息时，如果 expected 或 got 为 None，应该报错
+        测试传递错误信息时，如果 excepted 或 data_class 为 None，应该报错
         因为这不符合目前的错误格式要求
         """
         with UseMockRunState() as run_state:
@@ -96,7 +96,7 @@ class TestMockKey:
                     key="test",
                     column_type="FLOAT",
                     column_class="CUSTOM",
-                    error={"expected": None, "got": "string"},
+                    error={"excepted": None, "data_class": "string"},
                     media_dir=run_state.store.media_dir,
                     log_dir=run_state.store.log_dir,
                     kid=0,
@@ -104,7 +104,7 @@ class TestMockKey:
                 )
             assert (
                 str(exc_info.value)
-                == "Invalid error format: {'expected': None, 'got': 'string'}, expected and got must be provided. "
+                == "Invalid error format: {'excepted': None, 'data_class': 'string'}, expected and got must be provided. "
                 "Maybe you need to update swanlab: pip install -U swanlab"
             )
 
