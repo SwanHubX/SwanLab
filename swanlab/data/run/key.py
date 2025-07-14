@@ -161,14 +161,17 @@ class SwanLabKey:
         """
         assert self.column_info is None, "Cannot create column info after creating it"
         result = data.parse()
-
-        # 如果section_type不为public,则section_name为None
-        if section_type != "PUBLIC":
+        # SYSTEM PINNED HIDDEN 三个类型的 section 不应该传递名称
+        # PUBLIC 可选是否传递名称，如果 key 包含斜杠，则使用斜杠前的部分作为section的名称
+        # CUSTOM 时如果 key 包含斜杠，则使用斜杠前的部分作为section的名称，并且将 section_type 设置为 PUBLIC
+        if section_type in ["PUBLIC", "CUSTOM"]:
+            split_key = key.split("/")
+            if len(split_key) > 1 and split_key[0]:
+                # 如果key包含斜杠，则使用斜杠前的部分作为section的名称
+                result.section = split_key[0]
+                section_type: SectionType = "PUBLIC"
+        else:
             result.section = None
-        # 如果斜杠，则使用斜杠前的部分作为section的名称
-        elif "/" in key and key[0] != "/":
-            result.section = key.split("/")[0]
-
         column_info = ColumnInfo(
             key=key,
             kid=str(num),
