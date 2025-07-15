@@ -273,14 +273,14 @@ class SwanLabKey:
             )
 
         if error is not None:
-            expected = error.get("expected")
-            got = error.get("got")
+            expected = error.get("excepted")
+            got = error.get("data_class")
             if expected is None or got is None:
                 raise RuntimeError(
                     f"Invalid error format: {error}, expected and got must be provided. "
                     f"Maybe you need to update swanlab: pip install -U swanlab"
                 )
-            error = ParseErrorInfo(expected=error.get("expected"), got=error.get("got"), chart=chart)
+            error = ParseErrorInfo(expected=expected, got=got, chart=chart)
 
         column_info = ColumnInfo(
             key,
