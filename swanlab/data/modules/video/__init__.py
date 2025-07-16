@@ -14,7 +14,7 @@ class Video(Image):
         caption: str = None,
     ):
         if not data_or_path.endswith(".gif"):
-            raise ValueError("swanlab.Video only supports gif format")
+            raise ValueError("swanlab.Video only supports gif format file paths")
         
         super().__init__(data_or_path, caption=caption, file_type="gif")
     
