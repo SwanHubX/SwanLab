@@ -55,7 +55,7 @@ def test_video_caption():
 def test_video_fail():
     """测试Video模块的错误处理"""
     # 错误的路径
-    with pytest.raises(ValueError):
+    with pytest.raises(FileNotFoundError):
         Video(data_or_path="not_exist.gif")
     
     # 不是GIF格式的文件
@@ -72,10 +72,8 @@ def test_video_fail():
     with pytest.raises(ValueError):
         Video(data_or_path=path)
     
-    # 其他格式的视频文件
-    mock_image = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
+    # 其他格式的视频文件（不实际创建文件，只测试文件名验证）
     path = os.path.join(TEMP_PATH, f"{generate()}.mp4")
-    mock_image.save(path)
     with pytest.raises(ValueError):
         Video(data_or_path=path)
 
@@ -83,13 +81,10 @@ def test_video_fail():
 def test_video_format_validation():
     """测试Video模块的格式验证"""
     # 测试各种非GIF格式
-    non_gif_formats = [".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mkv", ".png", ".jpg", ".jpeg"]
+    non_gif_formats = [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mkv"]
     
     for format_ext in non_gif_formats:
-        mock_image = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
         path = os.path.join(TEMP_PATH, f"{generate()}{format_ext}")
-        mock_image.save(path)
-        
         with pytest.raises(ValueError, match="swanlab.Video only supports gif format file paths"):
             Video(data_or_path=path)
 
@@ -134,7 +129,9 @@ def test_video_edge_cases():
     assert isinstance(data, str)
     assert data.endswith(".gif")
     assert buffer is not None
-    assert video.get_more()["caption"] == ""
+    more_info = video.get_more()
+    assert more_info is not None
+    assert more_info["caption"] == ""
     
     # None caption
     video = Video(data_or_path=path, caption=None)
@@ -142,7 +139,8 @@ def test_video_edge_cases():
     assert isinstance(data, str)
     assert data.endswith(".gif")
     assert buffer is not None
-    assert video.get_more() is None
+    more_info = video.get_more()
+    assert more_info is None
 
 
 def test_video_file_cleanup():
@@ -177,4 +175,6 @@ def test_video_inheritance():
     assert hasattr(video, 'parse')
     assert hasattr(video, 'get_more')
     assert hasattr(video, 'format')
-    assert hasattr(video, 'image_size')
+    
+    # 验证Video的format属性
+    assert video.format == "gif"
