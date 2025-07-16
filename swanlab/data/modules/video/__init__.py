@@ -1,13 +1,20 @@
 from swanlab.data.modules.image import Image
-from typing import Union
 
 class Video(Image):    
+    """
+    Video module. Currently, only GIF format file paths are supported.
+
+    Args:
+        data_or_path: The path to the video file.
+        caption: The caption of the video.
+    """
     def __init__(
         self,
         data_or_path: str,
         caption: str = None,
-        mode: str = None,
-        file_type: str = None,
-        size: Union[int, list, tuple] = None,
     ):
-        super().__init__(data_or_path, caption=caption, mode=mode, file_type=file_type, size=size)
+        if not data_or_path.endswith(".gif"):
+            raise ValueError("swanlab.Video only supports gif format")
+        
+        super().__init__(data_or_path, caption=caption, file_type="gif")
+    

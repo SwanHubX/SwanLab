@@ -7,6 +7,7 @@ from .data.modules import (
     Molecule,
     Text,
     echarts,
+    Video,
 )
 from .env import SwanLabEnv
 from .package import get_package_version

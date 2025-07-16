@@ -119,7 +119,9 @@ class Image(MediaType):
                 self.format = "gif"
                 # 直接保存到buffer中
                 with open(data_or_path, "rb") as f:
-                    self.buffer = MediaBuffer(f.read())
+                    self.buffer = MediaBuffer()
+                    self.buffer.write(f.read())
+                self.caption = D.check_caption(caption)
                 return
             
             # 否则，使用PILImage打开图像
@@ -239,7 +241,10 @@ class Image(MediaType):
 
     def parse(self):
         # 文件名称
-        hash_name = D.get_hash_by_pil(self.image_data)[:16]
+        if self.format == "gif":
+            hash_name = D.get_hash_by_bytes(self.buffer.getvalue())[:16]
+        else:
+            hash_name = D.get_hash_by_pil(self.image_data)[:16]
         save_name = f"image-step{self.step}-{hash_name}.{self.format}"
         return save_name, self.buffer
 
