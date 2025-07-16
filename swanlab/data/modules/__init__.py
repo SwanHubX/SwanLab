@@ -48,6 +48,7 @@ __all__ = [
     "Object3D",
     "Molecule",
     "Echarts",
+    "Video",
     # 模块
     "echarts",
 ]
