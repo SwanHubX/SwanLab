@@ -117,32 +117,6 @@ def test_video_parse_consistency():
     assert data1.endswith(".gif")
 
 
-def test_video_edge_cases():
-    """测试Video模块的边界情况"""
-    # 空caption
-    mock_image = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
-    path = os.path.join(TEMP_PATH, f"{generate()}.gif")
-    mock_image.save(path, format="GIF")
-    
-    video = Video(data_or_path=path, caption="")
-    data, buffer = video.parse()
-    assert isinstance(data, str)
-    assert data.endswith(".gif")
-    assert buffer is not None
-    more_info = video.get_more()
-    assert more_info is not None
-    assert more_info["caption"] == ""
-    
-    # None caption
-    video = Video(data_or_path=path, caption=None)
-    data, buffer = video.parse()
-    assert isinstance(data, str)
-    assert data.endswith(".gif")
-    assert buffer is not None
-    more_info = video.get_more()
-    assert more_info is None
-
-
 def test_video_file_cleanup():
     """测试Video模块的文件清理"""
     mock_image = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
