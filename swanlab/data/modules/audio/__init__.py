@@ -7,8 +7,9 @@ r"""
 @Description:
     音频模块
 """
-from swankit.core import MediaBuffer, DataSuite as D, MediaType
 from typing import Union, Any
+
+from swanlab.toolkit import MediaBuffer, DataSuite as D, MediaType
 
 try:
     # noinspection PyPackageRequirements

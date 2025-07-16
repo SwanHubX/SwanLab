@@ -1,6 +1,10 @@
+"""
+Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html
+"""
+
 from torchtune.utils._distributed import get_world_size_and_rank
 from torchtune.utils.metric_logging import MetricLoggerInterface
-from typing import Mapping, Optional, Union
+from typing import Mapping, Optional, Union, Any, Dict, List
 
 from numpy import ndarray
 from omegaconf import DictConfig, OmegaConf
@@ -38,6 +42,7 @@ class SwanLabLogger(MetricLoggerInterface):
         description: Optional[str] = None,
         mode: Optional[str] = None,
         log_dir: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         **kwargs,
     ):
         try:
@@ -47,6 +52,10 @@ class SwanLabLogger(MetricLoggerInterface):
                 "``swanlab`` package not found. Please install swanlab using `pip install swanlab` to use SwanLabLogger."
             ) from e
         self._swanlab = swanlab
+        swanlab.config["FRAMEWORK"] = "torchtune"
+
+        tags = tags or []
+        tags.append("torchtune") if "torchtune" not in tags else None
 
         # Use dir if specified, otherwise use log_dir.
         self.log_dir = kwargs.pop("dir", log_dir)
@@ -61,10 +70,14 @@ class SwanLabLogger(MetricLoggerInterface):
                 description=description,
                 mode=mode,
                 logdir=self.log_dir,
+                tags=tags,
                 **kwargs,
             )
 
         self.config_allow_val_change = kwargs.get("allow_val_change", False)
+
+    def update_config(self, config: Dict[str, Any]):
+        self._swanlab.config.update(config)
 
     def log_config(self, config: DictConfig) -> None:
         if self._swanlab.get_run():

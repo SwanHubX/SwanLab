@@ -1,4 +1,6 @@
 """
+Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html
+
 For adaptation to the stable_baseline3 framework. Detailed usage are as follows:
 ------trian.py in stable_baseline3------
 import swanlab
@@ -40,7 +42,7 @@ swanlab.finish()
 """
 
 import swanlab
-from typing import Optional, Dict, Any, Union, Tuple
+from typing import Optional, Dict, Any, Union, Tuple, List
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import KVWriter, Logger
 
@@ -72,10 +74,14 @@ class SwanLabCallback(BaseCallback):
         logdir: Optional[str] = None,
         mode: Optional[bool] = None,
         verbose: int = 0,
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ):
         super().__init__(verbose)
         self._run = None
+        
+        tags = tags or []
+        tags.append("🤖stable_baselines3") if "🤖stable_baselines3" not in tags else None   
 
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
@@ -84,6 +90,7 @@ class SwanLabCallback(BaseCallback):
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": tags,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -111,6 +118,9 @@ class SwanLabCallback(BaseCallback):
         )
 
         self.model.set_logger(loggers)
+    
+    def update_config(self, config: Dict[str, Any]):
+        swanlab.config.update(config)
 
     @property
     def experiment(self):
@@ -119,6 +129,7 @@ class SwanLabCallback(BaseCallback):
         return self._run
 
     def setup(self, config=None):
+        swanlab.config["FRAMEWORK"] = "🤖stable_baselines3"
         if swanlab.get_run() is None:
             self._run = swanlab.init(**self._swanlab_init)
         else:

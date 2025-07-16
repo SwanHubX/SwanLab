@@ -1,5 +1,5 @@
 """
-Docs: https://docs.swanlab.cn/zh/guide_cloud/integration/integration-ultralytics.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html
 
 For adaptation to the ultralytics framework. Detailed usage are as follows:
 ------train.py in ultralytics------
@@ -37,7 +37,7 @@ def add_integration_callbacks(instance):
 from ultralytics.models import YOLO
 from ultralytics.utils.torch_utils import model_info_for_loggers
 from collections import Counter
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import swanlab
 
 
@@ -53,11 +53,15 @@ class UltralyticsSwanlabCallback:
         description: Optional[str] = None,
         logdir: Optional[str] = None,
         mode: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
         self.step_counter = Counter()
         self._run = None
-
+        
+        tags = tags or []
+        tags.append("ultralytics") if "ultralytics" not in tags else None
+    
         self._swanlab_init: Dict[str, Any] = {
             "project": project,
             "workspace": workspace,
@@ -65,6 +69,7 @@ class UltralyticsSwanlabCallback:
             "description": description,
             "logdir": logdir,
             "mode": mode,
+            "tags": tags,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -93,6 +98,7 @@ class UltralyticsSwanlabCallback:
 
     def on_pretrain_routine_start(self, trainer):
         """初始化实验记录器"""
+        swanlab.config["FRAMEWORK"] = "ultralytics"
         if swanlab.get_run() is None:
             self._run = swanlab.init(
                 project=trainer.args.project if self._project is None else self._project,

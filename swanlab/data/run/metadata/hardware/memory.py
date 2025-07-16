@@ -8,10 +8,10 @@
 from typing import List
 
 import psutil
-from swankit.env import is_macos
 
+from swanlab.toolkit import is_macos
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
-from .utils import MemoryCollector as M
+from .utils import MemoryBaseCollector as M
 
 
 def get_memory_size() -> HardwareFuncResult:
@@ -21,7 +21,7 @@ def get_memory_size() -> HardwareFuncResult:
     try:
         # 获取系统总内存大小
         total = psutil.virtual_memory().total
-        total_memory = round(total / (1024**3))  # 单位为GB
+        total_memory = str(round(total / (1024**3)))  # 单位为GB
         return total_memory, MemoryCollector()
     except Exception:  # noqa
         return None, None

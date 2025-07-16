@@ -28,6 +28,14 @@ def generate_key(suffix: str) -> str:
     return "__swanlab__." + suffix
 
 
+def is_system_key(key: str) -> bool:
+    """
+    判断key是否为系统key
+    系统key以 __swanlab__. 开头
+    """
+    return key.startswith("__swanlab__.")
+
+
 # CPU 使用率
 CPU_PCT_KEY = generate_key("cpu.pct")
 CPU_PCT_CONFIG = HardwareConfig(
@@ -52,7 +60,7 @@ CPU_THDS_CONFIG = HardwareConfig(
 ).clone()
 
 
-class CpuCollector:
+class CpuBaseCollector:
     """
     cpu采集基类，为子类赋予cpu采集的能力
     """
@@ -129,7 +137,7 @@ PROC_MEM_AVAIL_CONFIG = HardwareConfig(
 ).clone()
 
 
-class MemoryCollector:
+class MemoryBaseCollector:
     """
     内存采集基类，为子类赋予内存采集的能力
     """

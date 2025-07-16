@@ -10,10 +10,10 @@ import multiprocessing
 import subprocess
 
 import psutil
-from swankit.env import is_macos
 
+from swanlab.toolkit import is_macos
 from ..type import HardwareFuncResult, HardwareInfoList, HardwareCollector as H
-from ..utils import CpuCollector as C, MemoryCollector as M
+from ..utils import CpuBaseCollector as C, MemoryBaseCollector as M
 
 
 def get_apple_chip_info() -> HardwareFuncResult:
@@ -34,7 +34,7 @@ def get_apple_chip_info() -> HardwareFuncResult:
         memory = str(memory).lower().replace("gb", "")
         # TODO: 获取GPU信息
         info["type"] = chip_type
-        info["memory"] = memory
+        info["memory"] = memory.rstrip()
     except Exception:  # noqa
         return None, None
     try:

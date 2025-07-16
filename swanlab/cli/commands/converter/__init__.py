@@ -17,7 +17,7 @@ import click
     "--type",
     "-t",
     default="tensorboard",
-    type=click.Choice(["tensorboard", "wandb"]),
+    type=click.Choice(["tensorboard", "wandb", "mlflow"]),
     help="The type of the experiment tracking tool you want to convert to.",
 )
 @click.option(
@@ -35,10 +35,10 @@ import click
     help="swanlab.init workspace parameter.",
 )
 @click.option(
-    "--cloud",
-    default=True,
-    type=bool,
-    help="swanlab.init cloud parameter.",
+    "--mode",
+    default="cloud",
+    type=click.Choice(["cloud", "local", "offline", "disabled"]),
+    help="The mode of the swanlab run.",
 )
 @click.option(
     "--logdir",
@@ -66,16 +66,29 @@ import click
     type=str,
     help="The run_id of the wandb run.",
 )
+@click.option(
+    "--mlflow-uri",
+    type=str,
+    help="The tracking uri of the mlflow runs.",
+)
+@click.option(
+    "--mlflow-exp",
+    type=str,
+    help="The experiment name or id of the mlflow runs.",
+)
+    
 def convert(
         type: str,
         project: str,
-        cloud: bool,
+        mode: str,
         workspace: str,
         logdir: str,
         tb_logdir: str,
         wb_project: str,
         wb_entity: str,
         wb_runid: str,
+        mlflow_uri: str,
+        mlflow_exp: str,
         **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
@@ -86,7 +99,7 @@ def convert(
             convert_dir=tb_logdir,
             project=project,
             workspace=workspace,
-            cloud=cloud,
+            mode=mode,
             logdir=logdir,
         )
         tfb_converter.run()
@@ -99,13 +112,28 @@ def convert(
         wb_converter = WandbConverter(
             project=project,
             workspace=workspace,
-            cloud=cloud,
+            mode=mode,
             logdir=logdir,
         )
         wb_converter.run(
             wb_project=wb_project,
             wb_entity=wb_entity,
             wb_run_id=wb_runid,
+        )
+
+    elif type == "mlflow":
+        from swanlab.converter.mlf import MLFLowConverter
+
+        mlf_converter = MLFLowConverter(
+            project=project,
+            workspace=workspace,
+            mode=mode,
+            logdir=logdir,
+        )
+        
+        mlf_converter.run(
+            tracking_uri=mlflow_uri,
+            experiment=mlflow_exp,
         )
 
     else:

@@ -12,3 +12,5 @@ freezegun
 build
 responses
 requests-mock==1.12.1 # Inconvenient to use, soon will be deleted
+mmengine
+grpcio-tools

@@ -8,11 +8,9 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict, Tuple, Optional, Any, List, Union
 
-from swankit.callback import YRange
-from swankit.callback.models import ColumnConfig
-
-from swanlab.data.run.namer import generate_colors
+from swanlab.data.namer import generate_colors
 from swanlab.log import swanlog
+from swanlab.toolkit import ColumnConfig, YRange
 
 
 # 定义硬件信息类型
@@ -121,19 +119,60 @@ class CollectGuard:
 class HardwareCollector(CollectGuard, ABC):
     @abstractmethod
     def collect(self) -> HardwareInfoList:
+        """
+        采集硬件信息的主函数，子类覆写此方法实现具体的硬件信息采集业务逻辑
+        """
         pass
 
+    @staticmethod
+    def try_run():
+        """
+        一个装饰器
+        可以选择对某个采集任务的单个函数进行异常捕获，避免因为某个采集任务失败导致整个采集任务失败
+        """
+
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    swanlog.debug(f"Atoms collection failed: {func.__name__}, {str(e)}")
+                    return None
+
+            return wrapper
+
+        return decorator
+
     def __call__(self) -> Optional[HardwareInfoList]:
+        """
+        聚合执行采集任务，包括采集任务的前置和后置操作
+        """
         try:
             self.before_collect()
-            return self.collect()
+            result = self.collect()
+            if result is None:
+                return None
+            # 过滤掉采集结果中的None
+            return [r for r in result if r is not None]
         except NotImplementedError as n:
             raise n
         except Exception as e:
-            swanlog.debug(f"Hardware info collection failed: {self.__class__.__name__}, {str(e)}")
+            swanlog.debug(f"Collection failed: {self.__class__.__name__}, {str(e)}")
             return None
         finally:
             self.after_collect()
+
+    @staticmethod
+    def division_guard(a: Union[int, float], b: Union[int, float]) -> float:
+        """
+        防止除零错误
+        :param a: 除数
+        :param b: 被除数
+        :return: 结果
+        """
+        if b == 0:
+            return 0
+        return a / b
 
 
 # 定义硬件信息执行函数的返回结果

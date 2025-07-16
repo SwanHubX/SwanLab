@@ -7,13 +7,14 @@ r"""
 @Description:
     watch命令
 """
+import os
+import socket
+import sys
+
+import click
+
 from swanlab.env import get_swanlog_dir, SwanLabEnv
 from swanlab.log import swanlog
-from swanboard import SwanBoardRun
-import click
-import os
-import sys
-import socket
 
 
 def get_free_port(address='0.0.0.0', default_port=5092) -> int:
@@ -88,7 +89,7 @@ def get_free_port(address='0.0.0.0', default_port=5092) -> int:
         readable=True,
     ),
     help="Specify the folder to store Swanlog, which is by default the folder where Swanlab Watch is run."
-         "The option will be deprecated in the future, you can just use `swanlab watch <LOG PATH>` to specify the path."
+    "The option will be deprecated in the future, you can just use `swanlab watch <LOG PATH>` to specify the path.",
 )
 @click.option(
     "--log-level",
@@ -101,6 +102,12 @@ def watch(path: str, host: str, port: int, logdir: str, log_level: str):
     """
     Run this commands to turn on the swanlab service.
     """
+    try:
+        # noinspection PyPackageRequirements
+        from swanboard import SwanBoardRun
+    except ModuleNotFoundError:
+        click.echo("Please install the swanboard package: `pip install swanlab[dashboard]`")
+        return sys.exit(1)
     swanlog.level = log_level
     # ----- 校验path，path如果被输入，已经由上层校验已存在，可读，是一个文件夹 -----
     if logdir is not None:

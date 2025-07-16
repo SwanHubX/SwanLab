@@ -11,12 +11,10 @@ import threading
 from enum import Enum
 from typing import List, Union, Dict, Any, Tuple, Callable, Optional
 
-from swankit.callback import SwanKitCallback
-from swankit.callback.models import MetricInfo, ColumnInfo, RuntimeInfo
-from swankit.core import SwanLabSharedSettings
-
 from swanlab.data.run.webhook import try_send_webhook
 from swanlab.log import swanlog
+from swanlab.swanlab_settings import get_settings
+from swanlab.toolkit import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo
 
 OperatorReturnType = Dict[str, Any]
 
@@ -71,40 +69,56 @@ class SwanLabRunOperator(SwanKitCallback):
             return ret[key]
         return next((v for v in ret.values() if v is not None), None)
 
-    def on_init(self, proj_name: str, workspace: str, logdir: str = None, **kwargs) -> OperatorReturnType:
-        return self.__run_all("on_init", proj_name, workspace, logdir=logdir)
+    def on_init(self, proj_name: str, workspace: str, logdir: str = None, *args, **kwargs) -> OperatorReturnType:
+        return self.__run_all(
+            "on_init",
+            proj_name,
+            workspace,
+            logdir=logdir,
+            *args,
+            **kwargs,
+        )
 
-    def before_run(self, settings: SwanLabSharedSettings):
-        return self.__run_all("before_run", settings)
+    def before_run(self, *args, **kwargs):
+        return self.__run_all("before_run", *args, **kwargs)
 
     def before_init_experiment(
         self,
         run_id: str,
         exp_name: str,
         description: str,
-        num: int,
         colors: Tuple[str, str],
+        *args,
+        **kwargs,
     ):
-        return self.__run_all("before_init_experiment", run_id, exp_name, description, num, colors)
+        return self.__run_all(
+            "before_init_experiment",
+            run_id,
+            exp_name,
+            description,
+            colors,
+            *args,
+            **kwargs,
+        )
 
-    def on_run(self):
-        self.__run_all("on_run")
+    def on_run(self, *args, **kwargs):
+        self.__run_all("on_run", *args, **kwargs)
         try_send_webhook()
 
-    def on_runtime_info_update(self, r: RuntimeInfo):
-        return self.__run_all("on_runtime_info_update", r)
+    def on_runtime_info_update(self, r: RuntimeInfo, *args, **kwargs):
+        return self.__run_all("on_runtime_info_update", r, *args, **kwargs)
 
-    def on_log(self):
-        return self.__run_all("on_log")
+    def on_log(self, *args, **kwargs):
+        return self.__run_all("on_log", *args, **kwargs)
 
-    def on_metric_create(self, metric_info: MetricInfo):
-        return self.__run_all("on_metric_create", metric_info)
+    def on_metric_create(self, metric_info: MetricInfo, *args, **kwargs):
+        return self.__run_all("on_metric_create", metric_info, *args, **kwargs)
 
-    def on_column_create(self, column_info: ColumnInfo):
-        return self.__run_all("on_column_create", column_info)
+    def on_column_create(self, column_info: ColumnInfo, *args, **kwargs):
+        return self.__run_all("on_column_create", column_info, *args, **kwargs)
 
-    def on_stop(self, error: str = None):
-        r = self.__run_all("on_stop", error)
+    def on_stop(self, error: str = None, epoch: int = None, *args, **kwargs):
+        r = self.__run_all("on_stop", error=error, epoch=epoch, *args, **kwargs)
         # 清空所有注册的回调函数
         self.callbacks.clear()
         return r
@@ -128,6 +142,7 @@ class MonitorCron:
 
     def __init__(self, monitor_func: Callable):
         self.count = 0  # 计数器,执行次数
+        self.monitor_interval = get_settings().hardware_interval  # 用户设置的采集间隔
 
         def _():
             monitor_func()
@@ -144,9 +159,12 @@ class MonitorCron:
     def cancel(self):
         if self.timer is not None:
             self.timer.cancel()
+            self.timer.join()
 
     @property
     def sleep_time(self):
+        if self.monitor_interval is not None:
+            return self.monitor_interval
         # 采集10次以下，每次间隔10秒
         # 采集10次到50次，每次间隔30秒
         # 采集50次以上，每次间隔60秒

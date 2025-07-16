@@ -1,11 +1,17 @@
-import math
-import yaml
-from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
-from swanlab.data.run.config import SwanLabConfig, parse, Line, RuntimeInfo, MutableMapping
-import pytest
-import omegaconf
-from dataclasses import dataclass
 import argparse
+import math
+import os
+from dataclasses import dataclass
+
+import omegaconf
+import pytest
+import yaml
+
+from swanlab.data.run.config import SwanLabConfig
+from swanlab.data.run.config import parse, Line, RuntimeInfo, MutableMapping
+from swanlab.data.run.main import SwanLabRun, get_run, swanlog, get_config
+from swanlab.env import SwanLabEnv
+from tutils.setup import UseMockRunState
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -35,6 +41,19 @@ def test_parse():
     config = parse(cfg)
     assert yaml.dump(config) == yaml.dump(config_data)
 
+    # ---------------------------------- mmengine ----------------------------------
+    from mmengine.config import Config
+
+    config_data = {
+        "a": 1,
+        "b": "mnist",
+        "c/d": [1, 2, 3],
+        "e/f/h": {"a": 1, "b": {"c": 2}},
+        "g": True,
+    }
+    cfg = Config(config_data)
+    config = parse(cfg)
+    assert yaml.dump(config) == yaml.dump(config_data)
     # ---------------------------------- 自定义继承自MutableMapping的类 ----------------------------------
 
     class Test(MutableMapping):
@@ -244,6 +263,11 @@ class TestSwanLabConfigOperation:
         _config.update(a=2, b=1)
         assert _config["a"] == 2
         assert _config["b"] == 1
+        # update bool
+        _config = SwanLabConfig()
+        _config.update({"a": True, "b": False})
+        assert _config["a"] is True
+        assert _config["b"] is False
 
 
 def test_on_setter():
@@ -312,104 +336,170 @@ class TestSwanLabConfigWithRun:
     测试SwanLabConfig与SwanLabRun的交互
     """
 
+    @staticmethod
+    def setup_method():
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
+
     def test_use_dict(self):
         """
         正常流程，输入字典
         """
-        run = SwanLabRun(
-            run_config={
-                "a": 1,
-                "b": "mnist",
-                "c/d": [1, 2, 3],
-                "e/f/h": {"a": 1, "b": {"c": 2}},
-            }
-        )
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c/d"] == _config["c/d"] == [1, 2, 3]
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config={
+                    "a": 1,
+                    "b": "mnist",
+                    "c/d": [1, 2, 3],
+                    "e/f/h": {"a": 1, "b": {"c": 2}},
+                    "g": True,
+                }
+            )
+            config = run.config
+            _config = get_config()
+            assert config.g is _config.g is True
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c/d"] == _config["c/d"] == [1, 2, 3]
 
     def test_use_omegaconf(self):
         """
         正常流程，输入OmegaConf
         """
-        run = SwanLabRun(
-            run_config=omegaconf.OmegaConf.create(
-                {
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config=omegaconf.OmegaConf.create(
+                    {
+                        "a": 1,
+                        "b": "mnist",
+                        "c/d": [1, 2, 3],
+                        "e/f/h": {"a": 1, "b": {"c": 2}},
+                    }
+                )
+            )
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c/d"] == _config["c/d"] == [1, 2, 3]
+
+    def test_use_argparse(self):
+        """
+        正常流程，输入argparse.Namespace
+        """
+        with UseMockRunState():
+            run = SwanLabRun(run_config=argparse.Namespace(a=1, b="mnist", c=[1, 2, 3], d={"a": 1, "b": {"c": 2}}))
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c"] == _config["c"] == [1, 2, 3]
+
+    def test_use_config(self):
+        """
+        正常流程，输入SwanLabConfig
+        """
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config=SwanLabConfig(
+                    {
+                        "a": 1,
+                        "b": "mnist",
+                        "c": [1, 2, 3],
+                        "e/f/h": {"a": 1, "b": {"c": 2}},
+                    }
+                )
+            )
+            config = run.config
+            _config = get_config()
+            assert config["a"] == _config["a"] == 1
+            assert config["b"] == _config["b"] == "mnist"
+            assert config["c"] == _config["c"] == [1, 2, 3]
+
+    def test_after_finish(self):
+        """
+        测试在finish之后config的变化
+        """
+        with UseMockRunState():
+            run = SwanLabRun(
+                run_config={
                     "a": 1,
                     "b": "mnist",
                     "c/d": [1, 2, 3],
                     "e/f/h": {"a": 1, "b": {"c": 2}},
                 }
             )
-        )
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c/d"] == _config["c/d"] == [1, 2, 3]
+            run.finish()
+            config = run.config
+            _config = get_config()
+            assert len(config) == 4
+            assert len(_config) == 0
 
-    def test_use_argparse(self):
-        """
-        正常流程，输入argparse.Namespace
-        """
-        run = SwanLabRun(run_config=argparse.Namespace(a=1, b="mnist", c=[1, 2, 3], d={"a": 1, "b": {"c": 2}}))
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c"] == _config["c"] == [1, 2, 3]
 
-    def test_use_config(self):
-        """
-        正常流程，输入SwanLabConfig
-        """
-        run = SwanLabRun(
-            run_config=SwanLabConfig(
-                {
-                    "a": 1,
-                    "b": "mnist",
-                    "c": [1, 2, 3],
-                    "e/f/h": {"a": 1, "b": {"c": 2}},
-                }
-            )
-        )
-        config = run.config
-        _config = get_config()
-        assert config["a"] == _config["a"] == 1
-        assert config["b"] == _config["b"] == "mnist"
-        assert config["c"] == _config["c"] == [1, 2, 3]
+class TestFmtConfig:
+    def test_fmt_config_empty_dict(self):
+        config = {}
+        SwanLabConfig.fmt_config(config)
+        assert config == {}
 
-    def test_after_finish(self):
-        """
-        测试在finish之后config的变化
-        """
-        run = SwanLabRun(
-            run_config={
-                "a": 1,
-                "b": "mnist",
-                "c/d": [1, 2, 3],
-                "e/f/h": {"a": 1, "b": {"c": 2}},
-            }
-        )
-        run.finish()
-        config = run.config
-        _config = get_config()
-        assert len(config) == 4
-        assert len(_config) == 0
+    def test_fmt_config_single_key_value(self):
+        config = {"key": 123}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"key": {"value": 123, "desc": "", "sort": 0}}
 
-    def test_error_config_input(self):
-        """
-        测试错误的输入
-        """
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=1)
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config="1")
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=[1, 2, 3])
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=(1, 2, 3))
-        with pytest.raises(TypeError):
-            SwanLabRun(run_config=True)
+    def test_fmt_config_multiple_keys(self):
+        config = {"a": 1, "b": 2}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"a": {"value": 1, "desc": "", "sort": 0}, "b": {"value": 2, "desc": "", "sort": 1}}
+
+    def test_fmt_config_non_string_keys(self):
+        config = {1: "x", 2: "y"}
+        SwanLabConfig.fmt_config(config)
+        assert config == {1: {"value": "x", "desc": "", "sort": 0}, 2: {"value": "y", "desc": "", "sort": 1}}
+
+    def test_fmt_config_nested_dict_value(self):
+        config = {"outer": {"inner": 42}}
+        SwanLabConfig.fmt_config(config)
+        assert config == {"outer": {"value": {"inner": 42}, "desc": "", "sort": 0}}
+
+
+def test_revert_config_removes_desc_and_sort_fields():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 2},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+    }
+    expected = {"key2": "val2", "key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_handles_missing_sort_field():
+    config = {
+        "key1": {"value": "val1", "desc": "description1"},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+    }
+    expected = {"key1": "val1", "key2": "val2"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_ignores_non_dict_values():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 2},
+        "key2": "invalid_value",
+    }
+    expected = {"key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_returns_empty_dict_for_empty_input():
+    config = {}
+    expected = {}
+    assert SwanLabConfig.revert_config(config) == expected
+
+
+def test_revert_config_preserves_order_based_on_sort_field():
+    config = {
+        "key1": {"value": "val1", "desc": "description1", "sort": 3},
+        "key2": {"value": "val2", "desc": "description2", "sort": 1},
+        "key3": {"value": "val3", "desc": "description3", "sort": 2},
+    }
+    expected = {"key2": "val2", "key3": "val3", "key1": "val1"}
+    assert SwanLabConfig.revert_config(config) == expected

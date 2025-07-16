@@ -3,6 +3,7 @@ import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
 from swanlab.log import swanlog as swl
+import time as t
 
 
 class TFBConverter:
@@ -11,14 +12,14 @@ class TFBConverter:
         convert_dir: str,
         project: str = None,
         workspace: str = None,
-        cloud: bool = True,
+        mode: str = "cloud",
         logdir: str = None,
         **kwargs,
     ):
         self.convert_dir = convert_dir
         self.project = project
         self.workspace = workspace
-        self.cloud = cloud
+        self.mode = mode
         self.logdir = logdir
 
     def run(self, depth=3):
@@ -51,7 +52,7 @@ class TFBConverter:
                         experiment_name=f"{dir}/{filename}",
                         workspace=self.workspace,
                         config={"tfevent_path": path},
-                        cloud=self.cloud,
+                        mode=self.mode,
                         logdir=self.logdir,
                     )
 
@@ -72,6 +73,7 @@ class TFBConverter:
                     # 遍历数据
                     if data_by_tags:
                         # 打印并转换数据到SwanLab
+                        index = 0
                         for tag, data in data_by_tags.items():
                             for step, value, time in data:
                                 times.append(time)
@@ -88,6 +90,11 @@ class TFBConverter:
                                 elif type_by_tags[tag] == "text":
                                     swanlab.log({tag: swanlab.Text(value)}, step=step)
                                 # TODO: 随着SwanLab的发展，支持转换更多类型
+                            # TODO: 等未来上传方案优化后解除延时
+                            if index % 5 == 0:
+                                t.sleep(1)
+                            index += 1
+                            print(f"Index {index}: Metric: {tag} log finished")
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)

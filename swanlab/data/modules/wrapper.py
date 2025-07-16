@@ -9,9 +9,9 @@ r"""
 """
 from typing import Union, List, Optional
 
-from swankit.core import ParseResult, ParseErrorInfo, MediaType, ChartReference
-
 from swanlab.error import DataTypeError
+from swanlab.toolkit import ParseResult, ParseErrorInfo, MediaType, ChartReference
+from .custom_charts import Echarts
 from .line import Line
 
 
@@ -51,6 +51,13 @@ class DataWrapper:
         return isinstance(self.__data[0], Line) and len(self.__data) == 1
 
     @property
+    def is_custom(self) -> bool:
+        """
+        是否是自定义类型（比如 ECharts）
+        """
+        return all(isinstance(i, Echarts) for i in self.__data)
+
+    @property
     def type(self):
         """
         数据类型
@@ -70,6 +77,12 @@ class DataWrapper:
         解析时候的错误信息
         """
         return self.__error
+
+    def get_class(self):
+        """
+        获取数据类型的类名
+        """
+        return self.__data[0].__class__
 
     def parse(self, **kwargs) -> Optional[ParseResult]:
         """

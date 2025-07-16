@@ -7,9 +7,9 @@ r"""
 @Description:
     文本模块
 """
-from swankit.core.data import MediaType
-from swankit.core import DataSuite as D
 from typing import Union
+
+from swanlab.toolkit import MediaType, DataSuite as D
 
 
 class Text(MediaType):

@@ -4,3 +4,4 @@ matplotlib
 numpy
 moviepy
 imageio[ffmpeg]
+rdkit

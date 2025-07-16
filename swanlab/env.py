@@ -8,24 +8,16 @@ r"""
     除了utils和error模块，其他模块都可以使用这个模块
 """
 import enum
+import io
+import netrc
 import os
+import re
+import sys
 from typing import List
+from urllib.parse import urlparse
 
-import swankit.env as E
-from swankit.env import SwanLabSharedEnv
-import requests
-
-
-DOMAIN = 'swanlab.cn'
-DOMAIN1 = 'swanlab.115.zone' # temporary domain
-
-# domain state detection
-try:
-    response = requests.get(f'https://{DOMAIN}/api', timeout=3)
-    if response.status_code != 200:
-        DOMAIN = DOMAIN1
-except Exception:
-    DOMAIN = DOMAIN1
+import swanlab.toolkit as E
+from swanlab.toolkit import SwanLabSharedEnv
 
 
 # ---------------------------------- 环境变量枚举类 ----------------------------------
@@ -46,7 +38,7 @@ class SwanLabEnv(enum.Enum):
     """
     MODE = SwanLabSharedEnv.SWANLAB_MODE.value
     """
-    swanlab的解析模式，涉及操作员注册的回调，目前有三种：local、cloud、disabled，默认为cloud
+    swanlab的解析模式，涉及操作员注册的回调，目前有四种：local、cloud、disabled、offline，默认为cloud
     大小写敏感
     """
     SWANBOARD_PROT = "SWANLAB_BOARD_PORT"
@@ -72,26 +64,73 @@ class SwanLabEnv(enum.Enum):
     * 如果login接口传入字符串，此环境变量无效，此时相当于绕过 get_key 接口
     * 如果用户已登录，此环境变量的优先级高于本地存储登录信息
     """
+    WORKSPACE = "SWANLAB_WORKSPACE"
+    """
+    swanlab的工作空间，默认为当前登录用户
+    """
+    PROJ_NAME = "SWANLAB_PROJ_NAME"
+    """
+    swanlab的项目名称
+    """
+    EXP_NAME = "SWANLAB_EXP_NAME"
+    """
+    swanlab的实验名称
+    """
+    RUN_ID = "SWANLAB_RUN_ID"
+    """
+    swanlab 实验运行 id，resume 时使用
+    """
+    RESUME = "SWANLAB_RESUME"
+
     RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud" "task"
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"
     """
     WEBHOOK = "SWANLAB_WEBHOOK"
     """
     webhook地址。swanlab初始化完毕时，如果此环境变量存在，会调用此地址，发送消息。
     """
 
+    @staticmethod
+    def is_hostname(value: str) -> bool:
+        """
+        判断是否为合法的主机名（支持 http/https 协议和端口号）
+        :param value: 待判断的字符串
+        :return: 是否为合法的主机名
+        """
+        # 解析 URL 以提取主机部分
+        parsed_url = urlparse(value)
+        if parsed_url.scheme in ["http", "https"]:
+            value = parsed_url.hostname  # 只取域名部分
+
+        # 处理 IP 地址
+        if re.fullmatch(r'((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(\.|$)){4}', value):
+            return True
+
+        # 处理域名（去掉端口）
+        if re.fullmatch(r'^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$', value):
+            return True
+
+        return False
+
     @classmethod
     def set_default(cls):
         """
-        设置默认的环境变量值
+        设置默认的环境变量值，如果netrc文件存在，使用netrc中第一个machine的信息
         """
-        api_host = f'https://api.{DOMAIN}/api'
-        if DOMAIN == DOMAIN1:
-            api_host = f'https://{DOMAIN}/api'
+        # 从netrc文件中读取host信息
+        path = os.path.join(get_save_dir(), ".netrc")
+        web_host = "https://swanlab.cn"
+        api_host = "https://api.swanlab.cn/api"
+        if os.path.exists(path):
+            nrc = netrc.netrc(path)
+            for host, info in nrc.hosts.items():
+                web_host = info[0] if cls.is_hostname(info[0]) else host.rstrip("/api")
+                api_host = host.rstrip("/api") + "/api"
+                break
 
         envs = {
-            cls.WEB_HOST.value: f"https://{DOMAIN}",
+            cls.WEB_HOST.value: web_host,
             cls.API_HOST.value: api_host,
             cls.RUNTIME.value: "user",
         }
@@ -105,8 +144,8 @@ class SwanLabEnv(enum.Enum):
         :raises ValueError: 如果环境变量的值不在预期值中
         """
         envs = {
-            cls.MODE.value: ["local", "cloud", "disabled"],
-            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud", "task"],
+            cls.MODE.value: ["local", "cloud", "disabled", "offline"],
+            cls.RUNTIME.value: ["user", "develop", "test", "test-no-cloud"],
         }
         for k, vs in envs.items():
             if k in os.environ and os.environ[k] not in vs:
@@ -144,3 +183,17 @@ def in_jupyter() -> bool:
         return True
     except NameError:
         return False
+
+
+def is_interactive():
+    """
+    是否为可交互式环境（输入连接tty设备）
+    特殊的环境：jupyter notebook
+    """
+    try:
+        fd = sys.stdin.fileno()
+        return os.isatty(fd) or in_jupyter()
+    # 当使用capsys、capfd或monkeypatch等fixture来捕获或修改标准输入输出时，会抛出io.UnsupportedOperation
+    # 多为测试情况，可交互
+    except io.UnsupportedOperation:
+        return True

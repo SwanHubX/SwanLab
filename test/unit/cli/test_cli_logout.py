@@ -7,10 +7,11 @@ r"""
 @Description:
     测试登出模块
 """
-from click.testing import CliRunner
-from swanlab.cli import cli
-import tutils as T
 import pytest
+from click.testing import CliRunner
+
+import tutils as T
+from swanlab.cli import cli
 
 
 # noinspection PyTypeChecker
@@ -19,7 +20,7 @@ def test_logout_ok(monkeypatch):
     runner = CliRunner()
     # 先登录
     runner.invoke(cli, ["login", "--api-key", T.API_KEY])
-    monkeypatch.setattr("builtins.input", lambda x: "y")
+    monkeypatch.setattr("builtins.input", lambda: "y")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0
 
@@ -30,7 +31,7 @@ def test_logout_cancel(monkeypatch):
     runner = CliRunner()
     # 先登录
     runner.invoke(cli, ["login", "--api-key", T.API_KEY])
-    monkeypatch.setattr("builtins.input", lambda x: "n")
+    monkeypatch.setattr("builtins.input", lambda: "n")
     result = runner.invoke(cli, ["logout"])
     assert result.exit_code == 0
 

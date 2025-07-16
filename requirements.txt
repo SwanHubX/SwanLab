@@ -1,10 +1,20 @@
-swankit==0.1.2b6
-swanboard==0.1.7b1
-cos-python-sdk-v5
+swankit==0.2.4
 urllib3>=1.26.0
-requests>=2.25.0
+requests>=2.28.0
+setuptools
 click
 pyyaml
 psutil>=5.0.0
 pynvml
-rich
+boto3>=1.35.49
+botocore
+pydantic>=2.9.0
+pyecharts>=2.0.0
+wrapt>=1.17.0
+platformdirs>=4.2.0
+typing_extensions; python_version < '3.9'
+protobuf>=3.12.0,!=4.21.0,!=5.28.0,<7; python_version < '3.9' and sys_platform == 'linux'
+protobuf>=3.15.0,!=4.21.0,!=5.28.0,<7; python_version == '3.9' and sys_platform == 'linux'
+protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; python_version > '3.9' and sys_platform == 'linux'
+protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; sys_platform != 'linux'
+rich>=13.6.0, <14.0.0

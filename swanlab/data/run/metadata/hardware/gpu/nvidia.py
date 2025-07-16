@@ -17,7 +17,8 @@ from ..utils import generate_key, HardwareConfig, random_index
 def get_nvidia_gpu_info() -> HardwareFuncResult:
     """获取 GPU 信息"""
 
-    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None}
+    info = {"driver": None, "cores": None, "type": [], "memory": [], "cuda": None, "architecture": [], "cudacores": []}
+    max_gpu_mem_mb = 0
     try:
         pynvml.nvmlInit()
     except Exception:  # noqa
@@ -42,16 +43,40 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
             if isinstance(gpu_name, bytes):  # Fix for pynvml 早期版本，关联 issue: #605
                 gpu_name = gpu_name.decode("utf-8")
             info["type"].append(gpu_name)
-            # 获取 GPU 的总显存, 单位为GB
-            info["memory"].append(round(pynvml.nvmlDeviceGetMemoryInfo(handle).total / (1024**3)))
+            # 获取 GPU 的总显存
+            total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total >> 20  # MB
+            max_gpu_mem_mb = max(max_gpu_mem_mb, total_memory)
+            info["memory"].append(str(round(total_memory / 1024)))  # GB
+            # 获取 GPU 架构
+            try:
+                NVIDIA_GPU_ARCHITECTURE = {
+                    pynvml.NVML_DEVICE_ARCH_KEPLER: "Kepler",  # example: GeForce GTX 680, GeForce GTX 780, Tesla K80
+                    pynvml.NVML_DEVICE_ARCH_MAXWELL: "Maxwell",  # example: GeForce GTX 750 Ti, GeForce GTX 980, Tesla M40
+                    pynvml.NVML_DEVICE_ARCH_PASCAL: "Pascal",  # example: GeForce GTX 1080 Ti, GeForce GTX 1060, Tesla P100
+                    pynvml.NVML_DEVICE_ARCH_VOLTA: "Volta",  # example: Tesla V100, Titan V
+                    pynvml.NVML_DEVICE_ARCH_TURING: "Turing",  # example: GeForce RTX 2080 Ti, GeForce GTX 1660 Ti, Tesla T4
+                    pynvml.NVML_DEVICE_ARCH_AMPERE: "Ampere",  # example: GeForce RTX 3080, GeForce RTX 3060, A100
+                    pynvml.NVML_DEVICE_ARCH_ADA: "Ada",  # example: GeForce RTX 4090, GeForce RTX 4080, L40
+                    pynvml.NVML_DEVICE_ARCH_HOPPER: "Hopper",  # example: H100, H800
+                    pynvml.NVML_DEVICE_ARCH_UNKNOWN: "Unknown",
+                }
+                info["architecture"].append(NVIDIA_GPU_ARCHITECTURE[pynvml.nvmlDeviceGetArchitecture(handle)])
+            except Exception:
+                pass
+            # 获取 GPU 的CUDA核心数
+            try:
+                info["cudacores"].append(pynvml.nvmlDeviceGetNumGpuCores(handle))
+            except Exception:
+                pass
+
     except UnicodeDecodeError:  # 部分GPU型号无法解码
         return None, None
     except pynvml.NVMLError:
         pass
     finally:
         pynvml.nvmlShutdown()
-    count = info["cores"]
-    return info, None if not count else GpuCollector(count)
+        count = info["cores"]
+        return info, None if not count else GpuCollector(count=count, max_mem_mb=max_gpu_mem_mb)
 
 
 def get_cuda_version():
@@ -68,15 +93,20 @@ def get_cuda_version():
 
 class GpuCollector(HardwareCollector):
 
-    def __init__(self, count: int):
+    def __init__(self, count: int, max_mem_mb: int):
         super().__init__()
         # GPU 利用率
-        self.gpu_util_key = generate_key("gpu.{idx}.ptc")
+        self.gpu_util_key = generate_key("gpu.{idx}.pct")
         util_config = HardwareConfig(y_range=(0, 100), chart_name="GPU Utilization (%)", chart_index=random_index())
         # GPU 内存使用率
-        self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.ptc")
+        self.gpu_mem_pct_key = generate_key("gpu.{idx}.mem.pct")
         mem_pct_config = HardwareConfig(
             y_range=(0, 100), chart_name="GPU Memory Allocated (%)", chart_index=random_index()
+        )
+        # GPU 内存使用量
+        self.gpu_mem_value_key = generate_key("gpu.{idx}.mem.value")
+        mem_value_config = HardwareConfig(
+            y_range=(0, max_mem_mb), chart_name="GPU Memory Allocated (MB)", chart_index=random_index()
         )
         # GPU 温度
         self.gpu_temp_key = generate_key("gpu.{idx}.temp")
@@ -84,27 +114,38 @@ class GpuCollector(HardwareCollector):
         # GPU 功耗
         self.gpu_power_key = generate_key("gpu.{idx}.power")
         power_config = HardwareConfig(chart_name="GPU Power Usage (W)", chart_index=random_index())
+        # GPU 访存时间百分比
+        self.gpu_mem_time_key = generate_key("gpu.{idx}.mem.time")
+        mem_time_config = HardwareConfig(
+            y_range=(0, 100), chart_name="GPU Time Spent Accessing Memory (%)", chart_index=random_index()
+        )
         # 每个GPU的配置信息
         self.per_gpu_configs = {
             self.gpu_mem_pct_key: [],
+            self.gpu_mem_value_key: [],
             self.gpu_temp_key: [],
             self.gpu_power_key: [],
+            self.gpu_mem_time_key: [],
             self.gpu_util_key: [],
         }
         self.handles = []
         for idx in range(count):
             metric_name = "GPU {idx}".format(idx=idx)
             self.per_gpu_configs[self.gpu_mem_pct_key].append(mem_pct_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_mem_value_key].append(mem_value_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_temp_key].append(tem_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_power_key].append(power_config.clone(metric_name=metric_name))
+            self.per_gpu_configs[self.gpu_mem_time_key].append(mem_time_config.clone(metric_name=metric_name))
             self.per_gpu_configs[self.gpu_util_key].append(util_config.clone(metric_name=metric_name))
 
+    @HardwareCollector.try_run()
     def get_gpu_config(self, key: str, idx: int) -> HardwareConfig:
         """
         获取 某个GPU的某个配置信息
         """
         return self.per_gpu_configs[key][idx]
 
+    @HardwareCollector.try_run()
     def get_gpu_util(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 利用率
@@ -118,6 +159,7 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_util_key, idx),
         }
 
+    @HardwareCollector.try_run()
     def get_gpu_mem_pct(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 内存使用率
@@ -132,6 +174,21 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_mem_pct_key, idx),
         }
 
+    @HardwareCollector.try_run()
+    def get_gpu_mem_value(self, idx: int) -> HardwareInfo:
+        """
+        获取 GPU 内存使用量(MB)
+        """
+        handle = self.handles[idx]
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        return {
+            "key": self.gpu_mem_value_key.format(idx=idx),
+            "value": mem_info.used >> 20,
+            "name": "GPU {idx} Memory Allocated (MB)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_mem_value_key, idx),
+        }
+
+    @HardwareCollector.try_run()
     def get_gpu_temp(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 温度
@@ -145,6 +202,7 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_temp_key, idx),
         }
 
+    @HardwareCollector.try_run()
     def get_gpu_power(self, idx: int) -> HardwareInfo:
         """
         获取 GPU 功耗
@@ -159,16 +217,32 @@ class GpuCollector(HardwareCollector):
             "config": self.get_gpu_config(self.gpu_power_key, idx),
         }
 
+    @HardwareCollector.try_run()
+    def get_gpu_mem_time(self, idx: int) -> HardwareInfo:
+        """
+        获取 GPU 访存时间百分比
+        """
+        handle = self.handles[idx]
+        info = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        return {
+            "key": self.gpu_mem_time_key.format(idx=idx),
+            "value": info.memory,
+            "name": "GPU {idx} Time Spent Accessing Memory (%)".format(idx=idx),
+            "config": self.get_gpu_config(self.gpu_mem_time_key, idx),
+        }
+
     def collect(self) -> HardwareInfoList:
         """
         采集信息
         """
         result: HardwareInfoList = []
         for idx, handle in enumerate(self.handles):
-            result.append(self.get_gpu_util(idx))
             result.append(self.get_gpu_mem_pct(idx))
+            result.append(self.get_gpu_mem_value(idx))
+            result.append(self.get_gpu_util(idx))
             result.append(self.get_gpu_temp(idx))
             result.append(self.get_gpu_power(idx))
+            result.append(self.get_gpu_mem_time(idx))
         return result
 
     def __del__(self):

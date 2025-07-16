@@ -9,16 +9,12 @@ r"""
 """
 from .check import *
 from .config import *
-from swanlab.env import SwanLabEnv
-
-API_HOST = os.getenv(SwanLabEnv.API_HOST.value)
-WEB_HOST = os.getenv(SwanLabEnv.WEB_HOST.value)
-API_KEY = os.getenv(SwanLabEnv.API_KEY.value)
 
 
 def reset_some_env():
     os.environ[SwanLabEnv.SWANLOG_FOLDER.value] = SWANLOG_FOLDER
     os.environ[SwanLabEnv.SWANLAB_FOLDER.value] = SWANLAB_FOLDER
+    os.environ[SwanLabEnv.RUNTIME.value] = runtime
     SwanLabEnv.set_default()
     SwanLabEnv.check()
     if not is_skip_cloud_test:
@@ -28,6 +24,14 @@ def reset_some_env():
             os.environ[SwanLabEnv.API_KEY.value] = "test_api_key"
         else:
             os.environ[SwanLabEnv.API_KEY.value] = str(API_KEY)
+
+
+# env 必须在 config 之后导入
+from swanlab.env import SwanLabEnv
+
+API_HOST = os.getenv(SwanLabEnv.API_HOST.value)
+WEB_HOST = os.getenv(SwanLabEnv.WEB_HOST.value)
+API_KEY = os.getenv(SwanLabEnv.API_KEY.value)
 
 
 if not os.path.exists(TEMP_PATH):

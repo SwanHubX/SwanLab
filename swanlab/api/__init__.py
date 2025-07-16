@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-@DATE: 2024/4/3 21:52
-@File: __init__.py.py
+@DATE: 2025/4/29 9:40
+@File: __init__.py
 @IDE: pycharm
 @Description:
-    API模块，封装api请求接口
+    SwanLab OpenAPI包
 """
-from .info import *
-from .auth.login import terminal_login, code_login
-from .http import create_http, get_http
 
-__all__ = ["LoginInfo", 'ExperimentInfo', 'ProjectInfo', "code_login", 'terminal_login', 'create_http', 'get_http']
+from swanlab.api.main import OpenApi
+
+__all__ = [
+    "OpenApi"
+]

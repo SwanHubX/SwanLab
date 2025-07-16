@@ -7,9 +7,10 @@ r"""
 @Description:
     swanlab脚本命令的主入口
 """
-from swanlab.package import get_package_version
-import swanlab.cli.commands as C
 import click
+
+import swanlab.cli.commands as C
+from swanlab.package import get_package_version
 
 
 @click.group(invoke_without_command=True)
@@ -33,13 +34,7 @@ cli.add_command(C.watch)  # 启动服务
 cli.add_command(C.convert)  # 转换命令，用于转换其他实验跟踪工具
 
 # noinspection PyTypeChecker
-cli.add_command(C.task)  # 列出、停止、查询任务接口（beta，后续可能删除）
-
-# noinspection PyTypeChecker
-cli.add_command(C.launch)  # 启动任务
-
-# noinspection PyTypeChecker
-cli.add_command(C.upload)  # 上传文件
+cli.add_command(C.sync)  # 同步命令，用于同步本地数据到云端
 
 
 if __name__ == "__main__":

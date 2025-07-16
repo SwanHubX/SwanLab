@@ -7,12 +7,10 @@
 
 from typing import TypedDict, Optional
 
-from swankit.env import get_swanlog_dir
-
-from swanlab.api import get_http
+from swanlab.core_python import get_client
 from swanlab.env import get_mode
-from swanlab.package import get_experiment_url
 from swanlab.package import get_package_version
+from swanlab.toolkit import get_swanlog_dir
 from .qing_cloud import get_qing_cloud_info
 
 
@@ -46,8 +44,8 @@ def get_swanlab_info() -> SwanLabInfo:
         "swanlog_dir": get_swanlog_dir(),
     }
     try:
-        http = get_http()
-        data["exp_url"] = get_experiment_url(http.username, http.projname, http.exp_id)
+        client = get_client()
+        data["exp_url"] = client.web_exp_url
     except ValueError:
         pass
     return data

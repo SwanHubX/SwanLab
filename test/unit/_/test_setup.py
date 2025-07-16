@@ -8,6 +8,7 @@ r"""
     测试tutils/setup.py
 """
 import pytest
+
 import tutils.setup as SU
 
 
@@ -25,18 +26,17 @@ def test_mock_login_info():
 
 
 def test_use_setup_http():
-    from swanlab.api import get_http
-    with SU.UseSetupHttp() as http:
-        assert http is not None
-        assert get_http() is not None
+    from swanlab.core_python import get_client
+    from swanlab.data.store import get_run_store
+
+    with SU.UseMockRunState() as run_state:
+        assert run_state.client is not None
+        assert get_client() is not None
+        assert run_state.store is not None
+        run_store = get_run_store()
+        run_store.run_dir = "1"
+        assert run_state.store.run_dir == "1"
+
+    assert get_run_store().run_dir is None, "Run store should be reset after UseMockRunState context manager exits"
     with pytest.raises(ValueError):
-        get_http()
-
-
-def test_use_mocker():
-    with SU.UseMocker() as m:
-        m.post("/tmp", text="mock")
-        import requests
-        from swanlab.package import get_host_api
-        resp = requests.post(get_host_api() + "/tmp")
-        assert resp.text == "mock"
+        get_client()

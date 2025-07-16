@@ -11,8 +11,15 @@ import socket
 import subprocess
 import sys
 
+from swanlab.core_python import get_client
+from swanlab.error import KeyFileError
+from swanlab.package import get_key
+from swanlab.swanlab_settings import get_settings
+
 
 def get_runtime_info():
+    if not get_settings().collect_runtime:
+        return {}
     return {
         **get_computer_info(),
         **get_python_info(),
@@ -23,6 +30,7 @@ def get_runtime_info():
 def get_computer_info():
     return {
         "os": platform.platform(),
+        "os_pretty_name": get_os_pretty_name(),
         "hostname": socket.gethostname(),
         "pid": os.getpid(),
         "cwd": os.getcwd(),
@@ -34,8 +42,42 @@ def get_python_info():
         "python": platform.python_version(),
         "python_verbose": sys.version,
         "executable": sys.executable,
-        "command": " ".join(sys.argv),
+        "command": _get_command(),
     }
+
+
+def _get_command() -> str:
+    """获取当前执行的命令行字符串，并可选地屏蔽敏感API密钥
+
+    Returns:
+        str: 处理后的命令行字符串，敏感信息可能被屏蔽
+
+    Note:
+        - 当安全屏蔽设置启用且发现API密钥时，密钥会被替换为'****'
+        - 自动尝试多种方式获取API密钥（HTTP接口 -> 密钥文件）
+    """
+    # 创建副本避免修改原始参数
+    args = sys.argv.copy()
+
+    # 仅在需要屏蔽时尝试获取API密钥
+    if get_settings().security_mask:
+        api_key = None
+
+        # 尝试从不同来源获取API密钥
+        # 未登录时 get_client 抛出 ValueError，此时需要换用 get_key 继续尝试获取
+        # 未设置环境变量且未找到本地保存的 api key 时， get_key 抛出 KeyFileError，此时 api_key 为 None
+        for key_provider in [lambda: get_client().api_key, get_key]:
+            try:
+                api_key = key_provider()
+                break
+            except (ValueError, KeyFileError):
+                continue
+
+        # 如果找到API密钥且在参数中，则进行屏蔽
+        if api_key is not None and api_key in args:
+            args[args.index(api_key)] = "****"
+
+    return " ".join(args)
 
 
 # ---------------------------------- git信息 ----------------------------------
@@ -47,6 +89,14 @@ def get_git_info():
         "git_remote": get_remote_url(),
         "git_info": get_git_branch_and_commit(),
     }
+
+
+def get_os_pretty_name():
+    """获取操作系统pretty name"""
+    try:
+        return platform.freedesktop_os_release().get("PRETTY_NAME", "")
+    except Exception as e:  # noqa
+        return None
 
 
 def get_remote_url():
@@ -65,24 +115,36 @@ def get_remote_url():
 
         # 检查命令是否成功运行
         if result.returncode == 0:
-            url = result.stdout.strip().replace("git@", "https://")
-            if url.endswith(".git"):
-                url = url[:-4]
-            return replace_second_colon(url, "/")
+            url = result.stdout.strip()
+            return parse_git_url(url)
         else:
             return None
     except Exception as e:  # noqa
         return None
 
 
+def parse_git_url(url):
+    """Return the remote URL of a git repository."""
+    if url.startswith("git@"):
+        parts = url[4:].split("/", 1)
+        host, path = parts[0], parts[1] if len(parts) > 1 else ""
+        if ":" in host:
+            host, port = host.rsplit(":", 1)
+            url = f"https://{host}:{port}/{path}" if port.isdigit() else f"https://{host}/{port}/{path}"
+        else:
+            url = f"https://{host}/{path}"
+    return url[:-4] if url.endswith(".git") else url
+
+
 def replace_second_colon(input_string, replacement):
-    """替换字符串中第二个‘:’"""
-    first_colon_index = input_string.find(":")
-    if first_colon_index != -1:
-        second_colon_index = input_string.find(":", first_colon_index + 1)
-        if second_colon_index != -1:
-            return input_string[:second_colon_index] + replacement + input_string[second_colon_index + 1 :]
-    return input_string
+    """Replace the second colon in a string."""
+    first_colon = input_string.find(":")
+    second_colon = input_string.find(":", first_colon + 1) if first_colon != -1 else -1
+    return (
+        input_string[:second_colon] + replacement + input_string[second_colon + 1 :]
+        if second_colon != -1
+        else input_string
+    )
 
 
 def get_git_branch_and_commit():

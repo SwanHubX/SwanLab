@@ -7,18 +7,23 @@ r"""
 @Description:
     用于管理swanlab的包管理器的模块，做一些封装
 """
+import json
+import netrc
+import os
+import re
+from pathlib import Path
+from typing import Optional
+
+import requests
+
 from .env import get_save_dir, SwanLabEnv
 from .error import KeyFileError
-from typing import Optional
-import requests
-import netrc
-import json
-import os
 
 package_path = os.path.join(os.path.dirname(__file__), "package.json")
 
 
 # ---------------------------------- 版本号相关 ----------------------------------
+
 
 def get_package_version() -> str:
     """获取swanlab的版本号
@@ -48,7 +53,57 @@ def get_package_latest_version(timeout=0.5) -> Optional[str]:
         return None
 
 
-# ---------------------------------- 云端url相关 ----------------------------------
+# ---------------------------------- 云端相关 ----------------------------------
+
+
+class HostFormatter:
+    def __init__(self, host: str = None, web_host: str = None):
+        # 更新后的正则模式，允许匹配标准域名、IP地址和localhost
+        self.pattern = re.compile(
+            r'^(?:(https?)://)?'  # 可选协议 http 或 https
+            r'('  # 主机部分（域名、IP、localhost）
+            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 标准域名
+            r'|'  # 或
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # IPv4地址
+            r'|'  # 或
+            r'(localhost)'  # 本地主机
+            r')'
+            r'(?::(\d{1,5}))?$'  # 可选端口号（1~5位数字）
+        )
+        self.host = host
+        self.web_host = web_host
+
+    def fmt(self, input_str: str) -> str:
+        match = self.pattern.match(input_str.rstrip("/"))
+        if match:
+            protocol = match.group(1) or "https"  # 默认协议为 https
+            host = match.group(2)
+            port = match.group(6)
+
+            # 构建标准化的 URL 输出
+            result = f"{protocol}://{host}"
+            if port:
+                result += f":{port}"
+            return result
+        else:
+            raise ValueError("Invalid host format")
+
+    def __call__(self):
+        """
+        如果host或web_host不为空，格式化并设置环境变量
+        :raises ValueError: host或web_host格式不正确
+        """
+        if self.host:
+            try:
+                os.environ[SwanLabEnv.API_HOST.value] = self.fmt(self.host) + "/api"
+            except ValueError:
+                raise ValueError("Invalid host: {}".format(self.host))
+            self.web_host = self.host if self.web_host is None else self.web_host
+        if self.web_host:
+            try:
+                os.environ[SwanLabEnv.WEB_HOST.value] = self.fmt(self.web_host)
+            except ValueError:
+                raise ValueError("Invalid web_host: {}".format(self.web_host))
 
 
 def get_host_web() -> str:
@@ -65,33 +120,42 @@ def get_host_api() -> str:
     return os.getenv(SwanLabEnv.API_HOST.value, "https://api.swanlab.cn/api")
 
 
-def get_user_setting_path() -> str:
+def fmt_web_host(web_host: str = None) -> str:
+    """
+    如果web_host为None，则使用默认的web_host
+    并且格式化web_host，去除结尾的/
+    :param web_host: web_host
+    :return: 格式化后的web_host
+    """
+    if web_host is None:
+        web_host = get_host_web()
+    return web_host.rstrip("/")
+
+
+def get_setting_url(web_host: str = None) -> str:
     """获取用户设置的url
+    与实验相关的url不同，这个url在http对象之前被使用，因此不绑定在http对象中
     :return: 用户设置的url
     """
-    return get_host_web() + "/settings"
+    return fmt_web_host(web_host) + "/space/~/settings"
 
 
-def get_project_url(username: str, projname: str) -> str:
-    """获取项目的url
-    :param username: 用户名
-    :param projname: 项目名
-    :return: 项目的url
+def get_login_url(web_host: str = None) -> str:
+    """获取登录的url
+    与实验相关的url不同，这个url在http对象之前被使用，因此不绑定在http对象中
+    :return: 登录的url
     """
-    return get_host_web() + "/@" + username + "/" + projname
-
-
-def get_experiment_url(username: str, projname: str, expid: str) -> str:
-    """获取实验的url
-    :param username: 用户名
-    :param projname: 项目名
-    :param expid: 实验id
-    :return: 实验的url
-    """
-    return get_project_url(username, projname) + "/runs/" + expid
+    return fmt_web_host(web_host) + "/login"
 
 
 # ---------------------------------- 登录相关 ----------------------------------
+
+
+def get_nrc_path() -> str:
+    """
+    获取netrc文件路径
+    """
+    return os.path.join(get_save_dir(), ".netrc")
 
 
 def get_key():
@@ -102,35 +166,59 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path = os.path.join(get_save_dir(), ".netrc")
-    host = get_host_api()
+    path, host = get_nrc_path(), get_host_api().rstrip("/api")
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
     info = nrc.authenticators(host)
+
+    # 向下兼容 https://github.com/SwanHubX/SwanLab/issues/792#issuecomment-2649685881
+    if info is None:
+        info = nrc.authenticators(host + "/api")
+        if info is not None:
+            nrc.hosts = {host: info}
+            with open(path, "w") as f:
+                f.write(repr(nrc))
+
     if info is None:
         raise KeyFileError(f"The host {host} does not exist")
     return info[2]
 
 
-def save_key(username: str, password: str, host: str = None):
+def save_key(username: str, password: str, host: str = None) -> bool:
     """
     保存key到对应的文件目录下，文件名称为.netrc（basename）
     此函数不考虑上层文件存在的清空，但是会在调用的get_save_dir()函数中进行检查
-    :param username: 保存的用户名
+    :param username: 保存的用户名，默认为user，可选择存储为前端网页ip或者域名
     :param password: 保存的密码
     :param host: 保存的host
+    :return: 是否保存，如果已经存在，则不保存
     """
     if host is None:
         host = get_host_api()
-    path = os.path.join(get_save_dir(), ".netrc")
+    host = host.rstrip()
+    if host.endswith("/api"):
+        host = host[:-4]
+    path = get_nrc_path()
     if not os.path.exists(path):
-        with open(path, "w") as f:
-            f.write("")
+        Path(path).touch()
     nrc = netrc.netrc(path)
-    nrc.hosts[host] = (username, None, password)
-    with open(path, "w") as f:
-        f.write(nrc.__repr__())
+    new_info = (username, "", password)
+    # 避免重复的写
+    info = nrc.authenticators(host)
+    if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
+        # 同时只允许存在一个host： https://github.com/SwanHubX/SwanLab/issues/797
+        nrc.hosts = {host: new_info}
+        with open(path, "w") as f:
+            f.write(nrc.__repr__())
+            try:
+                f.flush()
+                os.fsync(f.fileno())
+            except OSError:
+                # 如果操作系统不支持fsync，可能会抛出OSError，忽略此错误即可
+                pass
+        return True
+    return False
 
 
 class LoginCheckContext:
@@ -166,11 +254,10 @@ class LoginCheckContext:
         return True
 
 
-def is_login() -> bool:
+def has_api_key() -> bool:
     """判断是否已经登录，与当前的host相关
     如果环境变量中有api key，则认为已经登录
     但不会检查key的有效性
-    FIXME 目前存在一些bug，此函数只能在未登录前判断，登录后判断会有一些bug
     :return: 是否已经登录
     """
     with LoginCheckContext() as checker:
