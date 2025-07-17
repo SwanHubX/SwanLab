@@ -112,7 +112,20 @@ class TestProjName:
 class TestExpName:
     @pytest.mark.parametrize(
         "value",
-        [generate(size=95), generate(size=1), "-", "_", ".12", "1", "1.b", "a.b", "+", "1+1", "你好"],
+        [
+            generate(size=250),
+            generate(size=95),
+            generate(size=1),
+            "-",
+            "_",
+            ".12",
+            "1",
+            "1.b",
+            "a.b",
+            "+",
+            "1+1",
+            "你好",
+        ],
     )
     def test_exp_name_common(self, value):
         """
@@ -139,7 +152,7 @@ class TestExpName:
     @pytest.mark.parametrize(
         "value",
         [
-            generate(size=101),
+            generate(size=251),
             generate(size=1000),
             generate(size=10000),
         ],
@@ -148,12 +161,12 @@ class TestExpName:
         """
         测试自动截断
         """
-        assert len(check_exp_name_format(value)) == 95
+        assert len(check_exp_name_format(value)) == 250
 
     @pytest.mark.parametrize(
         "value",
         [
-            generate(size=96),
+            generate(size=251),
             generate(size=1000),
             generate(size=10000),
         ],
