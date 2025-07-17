@@ -6,8 +6,6 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
 </picture>
 
-<h1>SwanLab</h1>
-
 一个开源、现代化设计的深度学习训练跟踪与可视化工具  
 同时支持云端/离线使用，适配30+主流框架，与你的实验代码轻松集成
 
