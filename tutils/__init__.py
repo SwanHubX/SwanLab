@@ -20,10 +20,7 @@ def reset_some_env():
     if not is_skip_cloud_test:
         os.environ[SwanLabEnv.API_HOST.value] = API_HOST
         os.environ[SwanLabEnv.WEB_HOST.value] = WEB_HOST
-        if API_KEY is None:
-            os.environ[SwanLabEnv.API_KEY.value] = "test_api_key"
-        else:
-            os.environ[SwanLabEnv.API_KEY.value] = str(API_KEY)
+        os.environ[SwanLabEnv.API_KEY.value] = API_KEY
 
 
 # env 必须在 config 之后导入

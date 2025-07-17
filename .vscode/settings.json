@@ -1,6 +1,6 @@
 {
   /** 文件夹材质 */
-  "workbench.iconTheme": "symbols",
+  "workbench.iconTheme": "material-icon-theme",
   /* 自定义图标关联 */
   "material-icon-theme.folders.associations": {
     "swanlab": "api",
@@ -29,26 +29,7 @@
   /** 后端代码格式化部分，python格式化 */
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
-    "editor.formatOnSave": true,
-    "editor.semanticHighlighting.enabled": true,
-    "editor.bracketPairColorization.enabled": true,
-    "editor.guides.bracketPairs": true,
-    "editor.tokenColorCustomizations": {
-      "textMateRules": [
-        {
-          "scope": "keyword.control.flow.python",
-          "settings": {
-            "foreground": "#C586C0"
-          }
-        },
-        {
-          "scope": "support.function.builtin.python",
-          "settings": {
-            "foreground": "#DCDCAA"
-          }
-        }
-      ]
-    }
+    "editor.formatOnSave": true
   },
   /** TODO tree 配置 */
   "todo-tree.general.tags": [
