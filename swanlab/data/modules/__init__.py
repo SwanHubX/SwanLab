@@ -7,6 +7,9 @@ from .image import Image
 from .line import FloatConvertible, Line
 from .object3d import Object3D, Molecule
 from .text import Text
+from .line import Line, FloatConvertible
+from typing import Union, List
+from .video import Video
 from .wrapper import DataWrapper
 
 DataType = Union[
@@ -41,6 +44,7 @@ __all__ = [
     "Object3D",
     "Molecule",
     "Echarts",
+    "Video",
     # 模块
     "echarts",
 ]

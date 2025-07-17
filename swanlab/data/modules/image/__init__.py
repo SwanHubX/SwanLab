@@ -56,7 +56,7 @@ def convert_size(size=None):
 
 
 class Image(MediaType):
-    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
+    ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp", "gif"]
 
     def __init__(
         self,
@@ -81,7 +81,7 @@ class Image(MediaType):
             Caption for the image.
         file_type: (str)
             File type for the image. It is used to save the image in the specified format. The default is 'png'.
-            The supported file types are ['png', 'jpg', 'jpeg', 'bmp'].
+            The supported file types are ['png', 'jpg', 'jpeg', 'bmp', 'gif'].
         size: (int or list or tuple)
             The size of the image can be controlled in four ways:
             If int type, it represents the maximum side length of the image, that is,
@@ -112,8 +112,19 @@ class Image(MediaType):
         self.format = self.__convert_file_type(file_type)
         self.size = convert_size(size)
 
+        # 如果输入为路径字符串
         if isinstance(data_or_path, str):
-            # 如果输入为路径字符串
+            # 如果文件后缀为gif，则将format设置为gif
+            if data_or_path.endswith(".gif"):
+                self.format = "gif"
+                # 直接保存到buffer中
+                with open(data_or_path, "rb") as f:
+                    self.buffer = MediaBuffer()
+                    self.buffer.write(f.read())
+                self.caption = D.check_caption(caption)
+                return
+            
+            # 否则，使用PILImage打开图像
             try:
                 image_data = PILImage.open(data_or_path).convert(mode)
             except Exception as e:
@@ -230,7 +241,10 @@ class Image(MediaType):
 
     def parse(self):
         # 文件名称
-        hash_name = D.get_hash_by_pil(self.image_data)[:16]
+        if self.format == "gif":
+            hash_name = D.get_hash_by_bytes(self.buffer.getvalue())[:16]
+        else:
+            hash_name = D.get_hash_by_pil(self.image_data)[:16]
         save_name = f"image-step{self.step}-{hash_name}.{self.format}"
         return save_name, self.buffer
 
