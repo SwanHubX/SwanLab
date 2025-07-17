@@ -54,6 +54,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.07.17: 📊 更強力な**折れ線グラフ設定**をサポー、線型、色、太さ、グリッド、凡例位置などを柔軟に設定可能；📹 **swanlab.Video** データ型のサポートを追加、GIF形式のファイルを記録・可視化可能；グローバルチャートダッシュボードでY軸と最大表示実験数を設定可能；
+
 - 2025.07.10: 📚 更強力な**テキストビュー**をサポート、Markdownレンダリングと方向キー切り替えをサポート、`swanlab.echarts.table`と`swanlab.Text`で作成可能、[デモ](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
 - 2025.07.06: 🚄 再開トレーニングをサポート；新プラグイン [ファイルロガー](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)；[ray](https://github.com/ray-project/ray) フレームワークを統合、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；[ROLL](https://github.com/volcengine/ROLL) フレームワークを統合、[@PanAndy](https://github.com/PanAndy) 氏に感謝、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
@@ -70,10 +72,10 @@
 
 - 2025.06.01: 🏸 グラフの**自由なドラッグ**をサポート；**EChartsカスタムグラフ**をサポート；**PaddleNLP**フレームワークを統合；ハードウェア監視で**MetaX GPU**をサポート；
 
-- 2025.05.25: ログ機能で標準エラーストリームの記録をサポートし、PyTorch Lightningなどのフレームワークからの出力情報をより適切に記録可能に；ハードウェア監視でMoore Threadsをサポート；新たに実行コマンド記録のセキュリティ保護機能を追加、APIキーは自動的に非表示に；
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.05.25: ログ機能で標準エラーストリームの記録をサポートし、PyTorch Lightningなどのフレームワークからの出力情報をより適切に記録可能に；ハードウェア監視でMoore Threadsをサポート；新たに実行コマンド記録のセキュリティ保護機能を追加、APIキーは自動的に非表示に；
 
 - 2025.05.14: **実験Tag**をサポート；折れ線グラフの**Log Scale**をサポート；**分组拖拽**をサポート；大量の指標をアップロードする際の体験を大幅に最適化
 
