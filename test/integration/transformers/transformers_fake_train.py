@@ -16,12 +16,13 @@ config = Qwen2Config(
 model = Qwen2ForCausalLM(config)
 
 
-seq = torch.randint(0, 24, (10, 32)).tolist()
+seq = torch.randint(0, 24, (50, 32)).tolist()
 ds = Dataset.from_dict({"sequence": seq})
+ds = ds.train_test_split(0.2)
 
 args = TrainingArguments(
-    output_dir="./output",
-    max_steps=100,
+    output_dir="./test_transformers_output",
+    max_steps=120,
     per_device_train_batch_size=2,
     report_to="swanlab",
     logging_steps=1,
@@ -32,7 +33,6 @@ args = TrainingArguments(
 def collator(examples):
     data = [example["sequence"] for example in examples]
     data = torch.tensor(data, dtype=torch.int)
-    print(data.shape)
     return {
         "input_ids": data,
         "attention_mask": torch.ones_like(data),
@@ -40,6 +40,6 @@ def collator(examples):
     }
 
 
-trainer = Trainer(model, args, data_collator=collator, train_dataset=ds)
+trainer = Trainer(model, args, data_collator=collator, train_dataset=ds["train"], eval_dataset=ds["test"])
 
 trainer.train()
