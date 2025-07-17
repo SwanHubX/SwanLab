@@ -1,12 +1,10 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
-  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-type2-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-type2-light.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
-
-<h1>SwanLab</h1>
 
 Открытый инструмент для отслеживания и визуализации обучения глубоких нейронных сетей с современным дизайном  
 Поддерживает как облачное, так и оффлайн использование, совместим с 30+ популярными фреймворками, легко интегрируется с вашим кодом экспериментов
