@@ -346,6 +346,9 @@ swanlab login --host http://localhost:8000
 - [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 
+**使用SwanLab的优秀论文：**
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
+
 **教程文章：**
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
 - [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
