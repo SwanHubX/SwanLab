@@ -3,10 +3,8 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
-  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="300" height="130">
 </picture>
-
-<h1>SwanLab</h1>
 
 一个开源、现代化设计的深度学习训练跟踪与可视化工具  
 同时支持云端/离线使用，适配30+主流框架，与你的实验代码轻松集成
@@ -61,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2025.07.17：📊更强大的**折线图配置**，支持灵活配置线型、颜色、粗细、网格、图例位置等；📹支持**swanlab.Video**数据类型，支持记录与可视化GIF格式文件；全局图表仪表盘支持配置Y轴与最大显示实验数；
+
 - 2025.07.10：📚更强大的**文本视图**，支持Markdown渲染与方向键切换，可由`swanlab.echarts.table`与`swanlab.Text`创建，[Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
 - 2025.07.06：🚄支持**resume断点续训**；新插件**文件记录器**；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/volcengine/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
@@ -77,9 +77,10 @@
 
 - 2025.06.01：🏸支持**图表自由拖拽**；支持**ECharts自定义图表**，增加包括柱状图、饼状图、直方图在内的20+图表类型；硬件监控支持**沐曦GPU**；集成 **[PaddleNLP](https://github.com/PaddlePaddle/PaddleNLP)** 框架；
 
-- 2025.05.25：日志支持记录**标准错误流**，PyTorch Lightning等框架的打印信息可以被更好地记录；硬件监控支持**摩尔线程**；新增运行命令记录安全防护功能，API Key将被自动隐藏；
 
 <details><summary>完整更新日志</summary>
+
+- 2025.05.25：日志支持记录**标准错误流**，PyTorch Lightning等框架的打印信息可以被更好地记录；硬件监控支持**摩尔线程**；新增运行命令记录安全防护功能，API Key将被自动隐藏；
 
 - 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
 
@@ -155,11 +156,11 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 - 🌸 **可视化训练过程**: 通过UI界面对实验跟踪数据进行可视化，可以让训练师直观地看到实验每一步的结果，分析指标走势，判断哪些变化导致了模型效果的提升，从而整体性地提升模型迭代效率。
 
-- **支持的元数据类型**：标量指标、图像、音频、文本、3D点云、生物化学分子、Echarts自定义图表...
+- **支持的元数据类型**：标量指标、图像、音频、文本、视频、3D点云、生物化学分子、Echarts自定义图表...
 
 ![swanlab-table](readme_files/molecule.gif)
 
-- **支持的图表类型**：折线图、媒体图（图像、音频、文本）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图、[自定义图表](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
+- **支持的图表类型**：折线图、媒体图（图像、音频、文本、视频）、3D点云、生物化学分子、柱状图、散点图、箱线图、热力图、饼状图、雷达图、[自定义图表](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 [![swanlab-echarts](readme_files/echarts.png)](https://swanlab.cn/@ZeyiLin/swanlab-echarts-demo/charts)
 
@@ -343,6 +344,9 @@ swanlab login --host http://localhost:8000
 - [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 
+**使用SwanLab的优秀论文：**
+- [Animation Needs Attention](https://arxiv.org/abs/2507.03916)
+
 **教程文章：**
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
 - [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
@@ -362,7 +366,7 @@ swanlab login --host http://localhost:8000
 - [Qwen3医学模型微调](https://docs.swanlab.cn/examples/qwen3-medical.html)
 - [Qwen2-VL多模态大模型微调实战](https://docs.swanlab.cn/examples/qwen_vl_coco.html)
 - [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
-
+- [Qwen3-SmVL-0.6B多模态模型训练](https://docs.swanlab.cn/examples/qwen3_smolvlm_muxi.html)
 
 <br>
 
