@@ -365,7 +365,7 @@ swanlab login --host http://localhost:8000
 - [Qwen3医学模型微调](https://docs.swanlab.cn/examples/qwen3-medical.html)
 - [Qwen2-VL多模态大模型微调实战](https://docs.swanlab.cn/examples/qwen_vl_coco.html)
 - [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
-
+- [Qwen3-SmVL-0.6B多模态模型训练](https://docs.swanlab.cn/examples/qwen3_smolvlm_muxi.html)
 
 <br>
 
