@@ -147,6 +147,6 @@ class LocalRunCallback(SwanLabRunCallback):
                 print(error, file=fError)
         self.board.on_stop(error)
         # 打印信息
-        utils.print_watch(self.run_store.run_dir)
+        utils.print_watch(self.run_store.swanlog_dir)
         self._unregister_sys_callback()
         self.porter.close_trace(success=get_run().success, error=error, epoch=swanlog.epoch + 1)
