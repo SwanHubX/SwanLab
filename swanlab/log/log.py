@@ -183,7 +183,7 @@ class SwanLog(SwanKitLogger):
         self.level = self.__original_level
 
 
-_ANSI_ESCAPE_RE = re.compile(r'\x1b\[[0-9;]*[mK]')  # 匹配ANSI控制码
+_ANSI_ESCAPE_RE = re.compile(r'\x1b\[?[0-9;]*[a-zA-Z]?')  # 匹配ANSI控制码
 
 
 def clean_control_chars(text) -> Tuple[List[str], str]:
@@ -196,7 +196,34 @@ def clean_control_chars(text) -> Tuple[List[str], str]:
     # 最后一行不处理，因为可能是未完成的行
     # 这与当前 “如果当前字符串中不包含换行符，则直接返回，不处理” 的设计是一致的，并且有更多的灵活性: 最后一行将被作为 buffer 缓冲
     for line in lines[:-1]:
-        cleaned_line = line.split('\r')[-1]  # 取 \r 后内容
-        cleaned_line = _ANSI_ESCAPE_RE.sub('', cleaned_line)  # 使用预编译正则
-        cleaned_lines.append(cleaned_line)
+        # 移除控制序列
+        cleaned_line = remove_control_sequences(line)
+        # 使用预编译正则处理字符串，删除ANSI控制码
+        cleaned_line = _ANSI_ESCAPE_RE.sub('', cleaned_line)
+        if cleaned_line:
+            # 如果清理后的行不为空，则添加到结果列表中
+            # 注意这里不再添加换行符，因为我们已经在 split 时处理了换行
+            cleaned_lines.append(cleaned_line)
     return cleaned_lines, lines[-1]
+
+
+def remove_control_sequences(line: str) -> str:
+    """
+    高效移除控制序列，目前只处理 \r 和 \x1b[A：
+    1. \r：回车符，表示光标回到行首
+    2. \x1b[A：上移一行，通常用于终端覆盖输出
+    我们取最后一个控制序列后的内容
+    """
+    # 查找最后一个控制序列的位置
+    last_cr = line.rfind('\r')
+    last_up = line.rfind('\x1b[A')
+    # 确定最后出现的位置
+    last_control = max(last_cr, last_up)
+    if last_control == -1:
+        return line  # 没有控制序列，直接返回
+
+    # 根据控制序列类型确定截取位置
+    if last_control == last_up:
+        return line[last_control + 3 :]  # \x1b[A 长3字符
+    else:
+        return line[last_control + 1 :]  # \r 长1字符

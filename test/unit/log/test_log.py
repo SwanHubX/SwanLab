@@ -15,7 +15,7 @@ import pytest
 from nanoid import generate
 
 from swanlab.log import swanlog
-from swanlab.log.log import clean_control_chars
+from swanlab.log.log import clean_control_chars, remove_control_sequences
 from swanlab.log.type import LogData, ProxyType
 from tutils import TEMP_PATH
 
@@ -234,3 +234,35 @@ def test_clean_r():
     assert clean_control_chars("\r1234\n") == (["1234"], '')
     assert clean_control_chars("\r1234\r") == ([], "\r1234\r")
     assert clean_control_chars("\r1234\r\n\r") == ([""], '\r')
+
+
+class TestRemoveControlSequences:
+    @staticmethod
+    def test_removes_carriage_return_and_returns_content_after():
+        line = "Hello\rWorld"
+        assert remove_control_sequences(line) == "World"
+
+    @staticmethod
+    def removes_escape_sequence_and_returns_content_after():
+        line = "Hello\x1b[AWorld"
+        assert remove_control_sequences(line) == "World"
+
+    @staticmethod
+    def returns_original_line_if_no_control_sequence():
+        line = "Hello World"
+        assert remove_control_sequences(line) == "Hello World"
+
+    @staticmethod
+    def handles_multiple_control_sequences_and_returns_content_after_last():
+        line = "Hello\rWorld\x1b[AUniverse"
+        assert remove_control_sequences(line) == "Universe"
+
+    @staticmethod
+    def handles_empty_string_and_returns_empty():
+        line = ""
+        assert remove_control_sequences(line) == ""
+
+    @staticmethod
+    def handles_only_control_sequence_and_returns_empty():
+        line = "\r"
+        assert remove_control_sequences(line) == ""
