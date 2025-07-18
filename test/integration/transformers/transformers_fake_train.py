@@ -1,8 +1,17 @@
-import random
+"""
+@author: cunyue
+@file: transformers_fake_train.py
+@time: 2025/7/18 16:33
+@description: 模拟 transformers 训练过程，使用 Qwen2 模型进行简单的训练和评估
+NOTE: 该脚本运行于项目根目录，在项目根目录下执行: `python test/integration/transformers/transformers_fake_train.py`
+"""
 
-from transformers import Qwen2Config, Qwen2ForCausalLM, TrainingArguments, Trainer
-from datasets import Dataset
+import dotenv
 import torch
+from datasets import Dataset
+from transformers import Qwen2Config, Qwen2ForCausalLM, TrainingArguments, Trainer
+
+dotenv.load_dotenv()
 
 config = Qwen2Config(
     vocab_size=24,  # GPT-2 标准词汇表大小
