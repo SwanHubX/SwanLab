@@ -183,13 +183,14 @@ class SwanLog(SwanKitLogger):
         self.level = self.__original_level
 
 
-_ANSI_ESCAPE_RE = re.compile(r'\x1b\[?[0-9;]*[a-zA-Z]?')  # 匹配ANSI控制码
+_ANSI_ESCAPE_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')  # 匹配ANSI控制码
 
 
 def clean_control_chars(text) -> Tuple[List[str], str]:
     """
     清理终端控制字符（模拟终端覆盖行为）
     特别，如果当前字符串中不包含换行符，则直接返回，不处理
+    如果存在行为空字符串，则将其删除，不在结果中返回
     """
     lines = text.split('\n')
     cleaned_lines = []
@@ -200,10 +201,7 @@ def clean_control_chars(text) -> Tuple[List[str], str]:
         cleaned_line = remove_control_sequences(line)
         # 使用预编译正则处理字符串，删除ANSI控制码
         cleaned_line = _ANSI_ESCAPE_RE.sub('', cleaned_line)
-        if cleaned_line:
-            # 如果清理后的行不为空，则添加到结果列表中
-            # 注意这里不再添加换行符，因为我们已经在 split 时处理了换行
-            cleaned_lines.append(cleaned_line)
+        cleaned_line and cleaned_lines.append(cleaned_line)
     return cleaned_lines, lines[-1]
 
 
