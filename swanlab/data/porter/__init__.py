@@ -71,6 +71,10 @@ def backup():
                 # 写入备份文件失败，可能是因为没有开启备份模式或者备份文件未打开
                 # TODO: 记录本地日志
                 pass
+            except TypeError:
+                # 目前此错误会发生在与 transformers 集成时 ctrl + c，tqdm 没有立即退出
+                # TODO: 记录本地日志
+                pass
         return result
 
     return wrapper
