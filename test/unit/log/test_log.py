@@ -15,7 +15,7 @@ import pytest
 from nanoid import generate
 
 from swanlab.log import swanlog
-from swanlab.log.log import clean_control_chars
+from swanlab.log.log import clean_control_chars, remove_control_sequences
 from swanlab.log.type import LogData, ProxyType
 from tutils import TEMP_PATH
 
@@ -215,22 +215,77 @@ class TestSwanLogInstall:
     #         assert os.path.exists(p)
 
 
-def test_clean_ansi():
-    """
-    测试清理控制字符的函数
-    """
-    assert clean_control_chars("1234") == ([], "1234")
-    assert clean_control_chars("\x1b[0m1234") == ([], "\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m1234") == ([], "\x1b[0m\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m\x1b[0m1234") == ([], "\x1b[0m\x1b[0m\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m\x1b[0m\x1b[0m1234\n") == (["1234"], '')
+class TestCleanControlChars:
+    @staticmethod
+    def test_handles_text_with_no_newline():
+        text = "Hello World"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == "Hello World"
+
+    @staticmethod
+    def test_removes_control_sequences_and_returns_cleaned_lines():
+        text = "Hello\rWorld\nLine\x1b[AOne\nLine Two"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["World", "One"]
+        assert buffer == "Line Two"
+
+    @staticmethod
+    def test_handles_empty_text_and_returns_empty():
+        text = ""
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == ""
+
+    @staticmethod
+    def test_handles_text_with_only_newline():
+        text = "\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == ""
+
+    @staticmethod
+    def test_handles_text_with_multiple_newlines():
+        text = "Line One\nLine Two\nLine Three\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["Line One", "Line Two", "Line Three"]
+        assert buffer == ""
+
+    @staticmethod
+    def test_removes_ansi_escape_sequences():
+        text = "Line\x1b[31mRed\x1b[0mOne\nLine\x1b[32mGreen\x1b[0mTwo\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["LineRedOne", "LineGreenTwo"]
+        assert buffer == ""
 
 
-def test_clean_r():
-    """
-    测试在进度条情况下出现\r的情况
-    """
-    assert clean_control_chars("\r1234") == ([], "\r1234")
-    assert clean_control_chars("\r1234\n") == (["1234"], '')
-    assert clean_control_chars("\r1234\r") == ([], "\r1234\r")
-    assert clean_control_chars("\r1234\r\n\r") == ([""], '\r')
+class TestRemoveControlSequences:
+    @staticmethod
+    def test_removes_carriage_return_and_returns_content_after():
+        line = "Hello\rWorld"
+        assert remove_control_sequences(line) == "World"
+
+    @staticmethod
+    def removes_escape_sequence_and_returns_content_after():
+        line = "Hello\x1b[AWorld"
+        assert remove_control_sequences(line) == "World"
+
+    @staticmethod
+    def returns_original_line_if_no_control_sequence():
+        line = "Hello World"
+        assert remove_control_sequences(line) == "Hello World"
+
+    @staticmethod
+    def handles_multiple_control_sequences_and_returns_content_after_last():
+        line = "Hello\rWorld\x1b[AUniverse"
+        assert remove_control_sequences(line) == "Universe"
+
+    @staticmethod
+    def handles_empty_string_and_returns_empty():
+        line = ""
+        assert remove_control_sequences(line) == ""
+
+    @staticmethod
+    def handles_only_control_sequence_and_returns_empty():
+        line = "\r"
+        assert remove_control_sequences(line) == ""
