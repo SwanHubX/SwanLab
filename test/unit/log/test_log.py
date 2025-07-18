@@ -215,25 +215,48 @@ class TestSwanLogInstall:
     #         assert os.path.exists(p)
 
 
-def test_clean_ansi():
-    """
-    测试清理控制字符的函数
-    """
-    assert clean_control_chars("1234") == ([], "1234")
-    assert clean_control_chars("\x1b[0m1234") == ([], "\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m1234") == ([], "\x1b[0m\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m\x1b[0m1234") == ([], "\x1b[0m\x1b[0m\x1b[0m1234")
-    assert clean_control_chars("\x1b[0m\x1b[0m\x1b[0m\x1b[0m1234\n") == (["1234"], '')
+class TestCleanControlChars:
+    @staticmethod
+    def test_handles_text_with_no_newline():
+        text = "Hello World"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == "Hello World"
 
+    @staticmethod
+    def test_removes_control_sequences_and_returns_cleaned_lines():
+        text = "Hello\rWorld\nLine\x1b[AOne\nLine Two"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["World", "One"]
+        assert buffer == "Line Two"
 
-def test_clean_r():
-    """
-    测试在进度条情况下出现\r的情况
-    """
-    assert clean_control_chars("\r1234") == ([], "\r1234")
-    assert clean_control_chars("\r1234\n") == (["1234"], '')
-    assert clean_control_chars("\r1234\r") == ([], "\r1234\r")
-    assert clean_control_chars("\r1234\r\n\r") == ([""], '\r')
+    @staticmethod
+    def test_handles_empty_text_and_returns_empty():
+        text = ""
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == ""
+
+    @staticmethod
+    def test_handles_text_with_only_newline():
+        text = "\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == []
+        assert buffer == ""
+
+    @staticmethod
+    def test_handles_text_with_multiple_newlines():
+        text = "Line One\nLine Two\nLine Three\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["Line One", "Line Two", "Line Three"]
+        assert buffer == ""
+
+    @staticmethod
+    def test_removes_ansi_escape_sequences():
+        text = "Line\x1b[31mRed\x1b[0mOne\nLine\x1b[32mGreen\x1b[0mTwo\n"
+        cleaned_lines, buffer = clean_control_chars(text)
+        assert cleaned_lines == ["LineRedOne", "LineGreenTwo"]
+        assert buffer == ""
 
 
 class TestRemoveControlSequences:
