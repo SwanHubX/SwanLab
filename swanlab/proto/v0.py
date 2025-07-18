@@ -136,24 +136,25 @@ class Runtime(BaseModel):
             conda_path = os.path.join(file_dir, self.conda_filename)
             if not os.path.exists(os.path.join(file_dir, self.conda_filename)):
                 raise FileNotFoundError(f"Conda file {self.conda_filename} not found in {file_dir}")
-            conda = open(conda_path, "r").read()
+            conda = open(conda_path, "r", encoding="utf-8").read()
         if self.requirements_filename:
             requirements_path = os.path.join(file_dir, self.requirements_filename)
             if not os.path.exists(requirements_path):
                 raise FileNotFoundError(f"Requirements file {self.requirements_filename} not found in {file_dir}")
-            requirements = open(requirements_path, "r").read()
+            requirements = open(requirements_path, "r", encoding="utf-8").read()
         if self.metadata_filename:
             metadata_path = os.path.join(file_dir, self.metadata_filename)
             if not os.path.exists(metadata_path):
                 raise FileNotFoundError(f"Metadata file {self.metadata_filename} not found in {file_dir}")
-            metadata = json.loads(open(metadata_path, "r").read())
+            metadata = json.loads(open(metadata_path, "r", encoding="utf-8").read())
         if self.config_filename:
             config_path = os.path.join(file_dir, self.config_filename)
             if not os.path.exists(config_path):
                 raise FileNotFoundError(f"Config file {self.config_filename} not found in {file_dir}")
-            config = yaml.safe_load(open(config_path, "r").read())
+            config = yaml.safe_load(open(config_path, "r", encoding="utf-8").read())
 
         return FileModel(conda=conda, requirements=requirements, metadata=metadata, config=config)
+
 
 
 class Column(BaseModel):
