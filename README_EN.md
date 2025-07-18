@@ -41,6 +41,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - [📃 Online Demo](#-online-demo)
 - [🏁 Quick Start](#-quick-start)
 - [💻 Self-Hosting](#-self-hosting)
+- 🔥 [Tutorials](#-tutorials)
 - [🚗 Framework Integration](#-framework-integration)
 - [🔌 Plugins](#-plugins)
 - [🎮 Hardware Monitoring](#-hardware-monitoring)
@@ -327,6 +328,43 @@ swanlab login --host http://localhost:8000
 ```
 
 After logging in, you can record experiments to the self-hosted service.
+
+<br>
+
+## 🔥 Tutorials
+
+**Excellent Open-Source Tutorial Projects Using SwanLab:**
+
+- [happy-llm](https://github.com/datawhalechina/happy-llm): A tutorial on the principles and practice of large language models from scratch. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
+- [self-llm](https://github.com/datawhalechina/self-llm): "A Cookbook for Open-Source Large Models" - A tutorial tailored for Chinese users on quickly fine-tuning (full-parameter/LoRA) and deploying domestic and international open-source Large Language Models (LLMs) / Multi-modal Large Models (MLLMs) in a Linux environment. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
+- [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek): Interpretation, extension, and reproduction of the DeepSeek series of works. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
+
+**Excellent Research Papers Using SwanLab:**
+
+- [Animation Needs Attention](https://arxiv.org/abs/2407.03916)
+
+**Tutorial Articles:**
+
+-   [MNIST Handwritten Digit Recognition](https://docs.swanlab.cn/en/examples/mnist.html)
+-   [FashionMNIST Apparel Classification](https://docs.swanlab.cn/en/examples/fashionmnist.html)
+-   [CIFAR-10 Image Classification](https://docs.swanlab.cn/en/examples/cifar10.html)
+-   [ResNet Cat vs. Dog Classification](https://docs.swanlab.cn/en/examples/cats_dogs_classification.html)
+-   [YOLO Object Detection](https://docs.swanlab.cn/en/examples/yolo.html)
+-   [U-Net Medical Image Segmentation](https://docs.swanlab.cn/en/examples/unet-medical-segmentation.html)
+-   [Audio Classification](https://docs.swanlab.cn/en/examples/audio_classification.html)
+-   [DQN Reinforcement Learning - CartPole](https://docs.swanlab.cn/en/examples/dqn_cartpole.html)
+-   [LSTM Google Stock Price Prediction](https://docs.swanlab.cn/en/examples/audio_classification.html)
+-   [BERT Text Classification](https://docs.swanlab.cn/en/examples/bert.html)
+-   [Stable Diffusion Text-to-Image Fine-Tuning](https://docs.swanlab.cn/en/examples/stable_diffusion.html)
+-   [LLM Pre-training](https://docs.swanlab.cn/en/examples/pretrain_llm.html)
+-   [GLM4 Instruction Fine-Tuning](https://docs.swanlab.cn/en/examples/glm4-instruct.html)
+-   [Qwen Downstream Task Training](https://docs.swanlab.cn/en/examples/qwen_finetune.html)
+-   [NER (Named Entity Recognition)](https://docs.swanlab.cn/en/examples/ner.html)
+-   [Qwen3 Medical Model Fine-Tuning](https://docs.swanlab.cn/en/examples/qwen3-medical.html)
+-   [Qwen2-VL Multimodal Large Model Fine-Tuning in Practice](https://docs.swanlab.cn/en/examples/qwen_vl_coco.html)
+-   [GRPO Large Model Reinforcement Learning](https://docs.swanlab.cn/en/examples/qwen_grpo.html)
+-   [Training the Qwen3-SmVL-0.6B Multimodal Model](https://docs.swanlab.cn/en/examples/qwen3_smolvlm_muxi.html)
+-   [Getting Started with Embodied AI using LeRobot](https://docs.swanlab.cn/en/examples/robot/lerobot-guide.html)
 
 <br>
 
