@@ -32,7 +32,7 @@ class RunStore(BaseModel):
     # 实验名称
     run_name: Optional[str] = None
     # 实验颜色
-    run_colors: Optional[List[str]] = None
+    run_colors: Optional[Tuple[str, str]] = None
     # 实验标签
     tags: Optional[List[str]] = None
     # 实验描述
@@ -102,7 +102,7 @@ def inside(func):
                     raise RuntimeError("This function can only be called from swanlab.data module.")
         finally:
             del frame
-        return func(*args, **kwargs)
+        return func(*args, **kwargs)  # noqa: reachable
 
     return wrapper
 
