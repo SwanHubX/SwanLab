@@ -15,10 +15,7 @@ from typing import Union, Dict, Literal, List
 import platformdirs
 
 from swanlab.env import SwanLabEnv
-from swanlab.log import swanlog
-from swanlab.swanlab_settings import Settings, get_settings, set_settings
-from swanlab.toolkit import SwanKitCallback
-from .formatter import (
+from swanlab.formatter import (
     check_load_json_yaml,
     check_callback_format,
     check_exp_name_format,
@@ -27,6 +24,9 @@ from .formatter import (
     check_tags_format,
     check_run_id_format,
 )
+from swanlab.log import swanlog
+from swanlab.swanlab_settings import Settings, get_settings, set_settings
+from swanlab.toolkit import SwanKitCallback
 from .modules import DataType
 from .run import (
     SwanLabRunState,

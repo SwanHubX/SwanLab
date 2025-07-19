@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, List, Tuple
 
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
+from swanlab.formatter import check_key_format
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import reset_settings, get_settings
 from swanlab.toolkit import MediaType
@@ -20,7 +21,6 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron
 from .metadata import get_requirements, get_conda, HardwareCollector
 from .public import SwanLabPublicConfig
-from ..formatter import check_key_format
 from ..store import get_run_store, reset_run_store
 
 MAX_LIST_LENGTH = 108
