@@ -1,5 +1,6 @@
 import os.path
 from sys import stdout
+from typing import Literal, Union
 
 from rich.status import Status
 
@@ -12,26 +13,34 @@ __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_ml
 from ..core_python import get_client
 from ..data.namer import generate_colors
 from ..data.porter import DataPorter
+from ..formatter import check_proj_name_format
 from ..log import swanlog
 
 
 def sync(
     dir_path: str,
-    id: str = None,
     workspace: str = None,
-    project_name: str = None,
+    project: str = None,
+    id: Union[str, Literal['auto']] = None,
     raise_error: bool = True,
     login_required: bool = True,
 ):
     """
     Syncs backup files to the cloud. Before syncing, you must log in.
     :param dir_path: The directory path to sync.
-    :param id: The ID of the backup to sync. If not specified, it will create a new one.
+    :param id: The ID of the backup to sync. Use cases:
+        - None(default): Create a new experiment with a new ID.
+        - 'auto': Create a new experiment with the ID from the backup file.
+        - str: Use the specified ID to sync the logs.
     :param workspace: The workspace to sync the logs to. If not specified, it will use the default workspace.
-    :param project_name: The project to sync the logs to. If not specified, it will use the default project.
+    :param project: The project to sync the logs to. If not specified, it will use the default project.
     :param raise_error: Whether to raise an error if error occurs when syncing.
     :param login_required: Whether login is required before syncing, just for debugging.
     """
+    # 检查格式
+    project and check_proj_name_format(project)
+    if id != 'auto':
+        id and check_proj_name_format(id)
     # 第一部分，处理备份文件，读取备份信息到内存中
     try:
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
@@ -47,7 +56,7 @@ def sync(
                 assert client is not None, "Please log in first, use `swanlab login` to log in."
                 # 创建实验
                 client.mount_project(
-                    name=project_name or project.name,
+                    name=project or project.name,
                     username=workspace or project.workspace,
                     public=project.public,
                 )
