@@ -27,6 +27,8 @@ from .datastore import DataStore
 
 __all__ = ['DataPorter']
 
+from ...error import ValidationError
+
 
 def traced():
     @wrapt.decorator
@@ -380,14 +382,19 @@ class DataPorter:
             raise exc_val
 
     @synced()
-    def parse(self) -> Tuple[Project, Experiment]:
+    def parse(self, strict: bool = True) -> Tuple[Project, Experiment]:
         """
-        解析备份文件中的记录，必须在 open_for_sync() 后调用
+         解析备份文件中的记录，必须在 open_for_sync() 后调用
+        :param strict: 是否严格模式，严格模式下如果缺少必要的记录则抛出异常，否则基于已扫描的内容进行下一步操作
         """
-        for record in self._f:
-            if record is None:
-                continue
-            self._parse_record(record)
+        try:
+            for record in self._f:
+                if record is None:
+                    continue
+                self._parse_record(record)
+        except ValidationError as e:
+            if strict:
+                raise e
         # 检查是否所有必要的记录都已解析
         assert self._header is not None, "Header not parsed"
         # 检查备份文件

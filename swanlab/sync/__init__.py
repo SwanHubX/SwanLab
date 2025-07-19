@@ -17,6 +17,7 @@ from ..log import swanlog
 
 def sync(
     dir_path: str,
+    id: str = None,
     workspace: str = None,
     project_name: str = None,
     raise_error: bool = True,
@@ -25,6 +26,7 @@ def sync(
     """
     Syncs backup files to the cloud. Before syncing, you must log in.
     :param dir_path: The directory path to sync.
+    :param id: The ID of the backup to sync. If not specified, it will create a new one.
     :param workspace: The workspace to sync the logs to. If not specified, it will use the default workspace.
     :param project_name: The project to sync the logs to. If not specified, it will use the default project.
     :param raise_error: Whether to raise an error if error occurs when syncing.
@@ -43,6 +45,7 @@ def sync(
             with DataPorter().open_for_sync(run_dir=dir_path) as porter:
                 project, experiment = porter.parse()
                 assert client is not None, "Please log in first, use `swanlab login` to log in."
+                # 创建实验
                 client.mount_project(
                     name=project_name or project.name,
                     username=workspace or project.workspace,
@@ -55,8 +58,9 @@ def sync(
                     description=experiment.description,
                     tags=experiment.tags,
                 )
+
                 success = porter.synchronize()
-                # 3.5 更新实验状态
+                # 更新实验状态
                 client.update_state(success=success)
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
