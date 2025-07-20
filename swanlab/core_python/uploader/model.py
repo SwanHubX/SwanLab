@@ -11,7 +11,7 @@ from enum import Enum
 from typing import List, Optional, TypedDict, Literal
 
 from swanlab.data.modules import MediaBuffer
-from swanlab.toolkit import ColumnClass, ColumnConfig
+from swanlab.toolkit import ColumnClass, ColumnConfig, LogContent
 
 
 class ColumnModel:
@@ -239,22 +239,6 @@ class FileModel:
         return all(getattr(self, attr) is None for attr in ('requirements', 'metadata', 'config', 'conda'))
 
 
-class LogContent(TypedDict):
-    """日志内容字典类型
-
-    结构示例:
-    {
-        "message": "hello world",
-        "create_time": "2025-05-15 18:35:00",
-        "epoch": 1
-    }
-    """
-
-    message: str
-    create_time: str
-    epoch: int
-
-
 class LogModel(TypedDict):
     """
     日志信息上传模型
@@ -271,7 +255,6 @@ class LogModel(TypedDict):
 
 
 __all__ = [
-    "LogContent",
     "LogModel",
     "ColumnModel",
     "ScalarModel",

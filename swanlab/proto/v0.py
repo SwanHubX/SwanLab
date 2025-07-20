@@ -13,10 +13,20 @@ from typing import Optional, List, Literal, Tuple, Union
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
 
-from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel, LogContent
+from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
-from swanlab.toolkit import ChartReference, MediaBuffer
-from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
+from swanlab.toolkit import (
+    ColumnInfo,
+    ColumnConfig,
+    RuntimeInfo,
+    MetricInfo,
+    ColumnClass,
+    SectionType,
+    YRange,
+    ChartReference,
+    MediaBuffer,
+    LogContent,
+)
 
 
 class BaseModel(PydanticBaseModel):

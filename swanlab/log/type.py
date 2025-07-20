@@ -7,7 +7,7 @@
 
 from typing import TypedDict, Literal, Callable, List, Any
 
-from swanlab.core_python.uploader import LogContent
+from swanlab.toolkit import LogContent
 
 # 支持的代理类型
 ProxyType = Literal['all', 'stdout', 'stderr', 'none']
