@@ -11,3 +11,4 @@ from .auth import login, logout
 from .converter import convert
 from .dashboard import watch
 from .sync import sync
+from .offline import offline
