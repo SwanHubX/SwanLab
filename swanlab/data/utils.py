@@ -56,9 +56,8 @@ def should_call_after_init(text):
 def _init_mode(mode: str = None):
     """
     初始化mode参数
-    从环境变量中提取默认的mode参数，如果传入的mode参数不为None，则使用环境变量中的mode参数，否则使用传入的mode参数
+    优先级：传入的mode参数 > 环境变量 > 设置文件 > 默认值(cloud)
     传入的mode必须为SwanLabMode枚举中的一个值，否则报错ValueError
-    如果环境变量和传入的mode参数都为None，则默认为cloud
 
     从环境变量中提取mode参数以后，还有一步让用户选择运行模式的交互，详见issue： https://github.com/SwanHubX/SwanLab/issues/632
 
@@ -67,15 +66,47 @@ def _init_mode(mode: str = None):
     :return: str mode
     :raise ValueError: mode参数不合法
     """
+    import json
+    
     allowed = [m.value for m in SwanLabMode]
     mode_key = SwanLabEnv.MODE.value
-    mode_value = os.environ.get(mode_key)
-    if mode_value is not None and mode is not None:
-        swanlog.warning(f"The environment variable {mode_key} will be overwritten by the parameter mode")
-    mode = mode_value if mode is None else mode
-    if mode is not None and mode not in allowed:
-        raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
-    mode = "cloud" if mode is None else mode
+    
+    # 1. 如果传入了mode参数，直接使用
+    if mode is not None:
+        if mode not in allowed:
+            raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
+    else:
+        # 2. 检查环境变量
+        mode_value = os.environ.get(mode_key)
+        if mode_value is not None:
+            mode = mode_value
+            if mode not in allowed:
+                raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
+        else:
+            # 3. 检查设置文件
+            try:
+                # 获取swanlog目录路径
+                env_key = SwanLabEnv.SWANLOG_FOLDER.value
+                logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+                logdir = os.path.abspath(logdir)
+                settings_file = os.path.join(logdir, ".swanlab_settings.json")
+                
+                if os.path.exists(settings_file):
+                    with open(settings_file, "r", encoding="utf-8") as f:
+                        settings = json.load(f)
+                    file_mode = settings.get("mode")
+                    if file_mode is not None:
+                        mode = file_mode
+                        if mode not in allowed:
+                            raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
+                        swanlog.info(f"Mode loaded from settings file: {mode}")
+            except (IOError, json.JSONDecodeError, KeyError) as e:
+                # 设置文件读取失败，忽略错误，使用默认值
+                pass
+    
+    # 4. 使用默认值
+    if mode is None:
+        mode = "cloud"
     # 如果mode为cloud，且没找到 api key或者未登录，则提示用户输入
     try:
         get_key()
