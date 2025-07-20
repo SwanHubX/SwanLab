@@ -5,10 +5,11 @@ r"""
 @File: offline.py
 @IDE: pycharm
 @Description:
-    offline命令，设置SWANLAB_MODE环境变量为offline
+    offline命令，在swanlog文件夹中写入设置文件，设置mode为offline
 """
 
 import os
+import json
 import click
 
 from swanlab.env import SwanLabEnv
@@ -18,15 +19,38 @@ from swanlab.env import SwanLabEnv
 def offline():
     """Set SwanLab mode to offline.
     
-    This command sets the SWANLAB_MODE environment variable to "offline",
+    This command creates a settings file in the swanlog directory with mode=offline,
     which means SwanLab will save data locally without uploading to the cloud.
     
     Example:
         swanlab offline
         python your_script.py  # Now runs in offline mode
     """
-    mode_key = SwanLabEnv.MODE.value
-    os.environ[mode_key] = "offline"
-    click.echo(f"✅ SwanLab mode set to offline (SWANLAB_MODE={os.environ[mode_key]})")
+    # 获取swanlog目录路径
+    env_key = SwanLabEnv.SWANLOG_FOLDER.value
+    logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+    logdir = os.path.abspath(logdir)
+    
+    # 确保swanlog目录存在
+    try:
+        os.makedirs(logdir, exist_ok=True)
+        if not os.access(logdir, os.W_OK):
+            raise IOError(f"no write permission for path: {logdir}")
+    except Exception as error:
+        raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+    
+    # 创建设置文件路径
+    settings_file = os.path.join(logdir, ".swanlab_settings.json")
+    
+    # 写入设置文件
+    settings = {"mode": "offline"}
+    try:
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+    except Exception as error:
+        raise IOError(f"Failed to write settings file: {settings_file}, error: {error}")
+    
+    click.echo(f"✅ SwanLab mode set to offline")
+    click.echo(f"📁 Settings file created: {settings_file}")
     click.echo("💡 Your next SwanLab experiment will run in offline mode.")
     click.echo("   Data will be saved locally without uploading to the cloud.") 
