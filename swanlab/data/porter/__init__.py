@@ -510,7 +510,7 @@ class DataPorter:
         :param column: 列指标数据
         :return 是否需要被保留
         """
-        return filter_column(column.key, self.run_store.metrics)
+        return filter_column(column.key, self._run_store.metrics)
 
     def _filter_scalar_by_step(self, metric: ScalarModel) -> bool:
         """
@@ -518,7 +518,7 @@ class DataPorter:
         :param metric: 指标数据
         :return: 是否需要被保留
         """
-        return filter_metric(metric.key, metric.step, self.run_store.metrics)
+        return filter_metric(metric.key, metric.step, self._run_store.metrics)
 
     def _filter_media_by_step(self, metric: MediaModel) -> bool:
         """
@@ -526,7 +526,7 @@ class DataPorter:
         :param metric : 媒体数据
         :return: 是否需要被保留
         """
-        return filter_metric(metric.key, metric.step, self.run_store.metrics)
+        return filter_metric(metric.key, metric.step, self._run_store.metrics)
 
     def _filter_log_by_epoch(self, log: LogContent) -> LogModel:
         """
@@ -534,4 +534,4 @@ class DataPorter:
         :param log: 日志数据
         :return: 是否需要被保留
         """
-        return filter_epoch(log['epoch'], self.run_store.log_epoch)
+        return filter_epoch(log['epoch'], self._run_store.log_epoch)

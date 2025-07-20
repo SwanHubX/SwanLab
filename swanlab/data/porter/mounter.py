@@ -77,7 +77,7 @@ class Mounter:
         if not new:
             # 1. 解析 config，保存到 run_store.config
             config = http.exp.config
-            run_store.config = SwanLabConfig.revert_config(config)
+            run_store.config = SwanLabConfig.revert_config(config or {})
             # 2. 获取最新的指标数据，解析为 run_store.metrics
             # 指标总结数据，{log:[{key: '', step: int}] or None, media: [{key: str, step: int}, ...] or None, scalar: [{key: str, step: int}, ...] or None}
             summaries, _ = http.get(
