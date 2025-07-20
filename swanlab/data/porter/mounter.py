@@ -51,11 +51,13 @@ class Mounter:
         run_store = self.run_store
         http = self._client
         http.mount_project(run_store.project, run_store.workspace, run_store.visibility)
+        # 1. 挂载实验前执行必要的参数生成操作
         exp_count = http.history_exp_count
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
         run_store.description = "" if run_store.description is None else run_store.description
         run_store.run_colors = N.generate_colors(exp_count) if run_store.run_colors is None else run_store.run_colors
         run_store.tags = [] if run_store.tags is None else run_store.tags
+        # 2. 挂载实验
         try:
             new = http.mount_exp(
                 exp_name=run_store.run_name,
