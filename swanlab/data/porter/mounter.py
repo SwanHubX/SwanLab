@@ -12,7 +12,7 @@ from swanlab.core_python import get_client, Client
 from swanlab.data import namer as N
 from swanlab.data.run.config import SwanLabConfig
 from swanlab.data.run.metadata.hardware import is_system_key
-from swanlab.data.store import RunStore, get_run_store, reset_run_store, RemoteMetric
+from swanlab.data.store import RunStore, get_run_store, RemoteMetric
 
 
 class Mounter:
@@ -21,15 +21,13 @@ class Mounter:
     It initializes the run_store with the project and experiment information, and provides methods to execute the mounting process.
     """
 
-    def __init__(self, cleanup: bool = False):
+    def __init__(self):
         """
         Initializes the Mounter.
         example usage:
         >>> with Mounter() as mounter:
         >>>     mounter.execute()  # create project and experiment, and mount them to run_store
-        :param cleanup: Whether to clean up some state after exiting the context manager.
         """
-        self._cleanup = cleanup
         self._run_store: Optional[RunStore] = None
         self._client: Optional[Client] = None
 
@@ -39,11 +37,11 @@ class Mounter:
         return self._run_store
 
     def __enter__(self):
-        self._run_store = get_run_store()
         try:
             self._client = get_client()
         except ValueError:
             raise ValueError("You must create a client before using Mounter.")
+        self._run_store = get_run_store()
         return self
 
     def execute(self):
@@ -56,7 +54,7 @@ class Mounter:
         exp_count = http.history_exp_count
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
         run_store.description = "" if run_store.description is None else run_store.description
-        run_store.run_colors = N.generate_colors(exp_count)
+        run_store.run_colors = N.generate_colors(exp_count) if run_store.run_colors is None else run_store.run_colors
         run_store.tags = [] if run_store.tags is None else run_store.tags
         try:
             new = http.mount_exp(
@@ -121,6 +119,4 @@ class Mounter:
             run_store.metrics = metrics
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._cleanup:
-            reset_run_store()
         self._run_store = None

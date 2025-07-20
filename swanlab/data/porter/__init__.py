@@ -202,16 +202,20 @@ class DataPorter:
                 }
             ).to_record()
         )
-        project_name = self._run_store.project
-        run_name = self._run_store.run_name
+        # 项目
+        project = self._run_store.project
         workspace = self._run_store.workspace
         visibility = self._run_store.visibility
+        # 实验
+        id = self._run_store.run_id
+        name = self._run_store.run_name
+        colors = self._run_store.run_colors
         description = self._run_store.description
         tags = self._run_store.tags
         self._f.write(
             Project.model_validate(
                 {
-                    "name": project_name,
+                    "name": project,
                     "workspace": workspace,
                     "public": visibility,
                 }
@@ -220,7 +224,9 @@ class DataPorter:
         self._f.write(
             Experiment.model_validate(
                 {
-                    "name": run_name,
+                    "id": id,
+                    "name": name,
+                    "colors": colors,
                     "description": description,
                     "tags": tags,
                 }
@@ -370,9 +376,11 @@ class DataPorter:
         """
         开启本地数据备份和上传线程池
         使用方式为：
-        with DataPorter().open_for_sync(backup_file) as porter:
-            porter.parse()
-            porter.synchronize()
+        >>> backup_file = "path/to/backup/file"
+        >>> with DataPorter().open_for_sync(backup_file) as porter:
+        >>>    porter.parse()
+        >>>    ... # 创建实验
+        >>>    porter.synchronize()
         """
         assert self._mode == 2, "DataPorter is already in use, cannot open for sync."
         assert self._closed is False, "DataPorter has already rested, cannot open for sync."
@@ -387,19 +395,18 @@ class DataPorter:
             raise exc_val
 
     @synced()
-    def parse(self, strict: bool = True) -> Tuple[Project, Experiment]:
+    def parse(self) -> Tuple[Project, Experiment]:
         """
-         解析备份文件中的记录，必须在 open_for_sync() 后调用
-        :param strict: 是否严格模式，严格模式下如果缺少必要的记录则抛出异常，否则基于已扫描的内容进行下一步操作
+        解析备份文件中的记录，必须在 open_for_sync() 后调用
         """
         try:
             for record in self._f:
-                if record is None:
-                    continue
-                self._parse_record(record)
-        except ValidationError as e:
-            if strict:
-                raise e
+                if record is not None:
+                    self._parse_record(record)
+        except ValidationError:
+            # 略过坏的记录，直接退出
+            # TODO 写入日志文件
+            pass
         # 检查是否所有必要的记录都已解析
         assert self._header is not None, "Header not parsed"
         # 检查备份文件
@@ -467,6 +474,7 @@ class DataPorter:
         """
         同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
         返回最终的实验结果，true 代表实验状态为 success 否则为 false
+        NOTE: 执行此函数后，实验会话被关闭
         """
         assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
         assert self._closed is False, "DataPorter has already rested, cannot synchronize."
@@ -491,6 +499,9 @@ class DataPorter:
         self._publish((UploadType.LOG, logs))
         # 6. 等待上传完毕
         self._pool.finish()
+        # 7. 同步实验状态
+        success = self._footer.success if self._footer else False
+        get_client().update_state(success=success)
         return self._footer.success if self._footer else False
 
     def _filter_column_by_key(self, column: ColumnModel) -> bool:

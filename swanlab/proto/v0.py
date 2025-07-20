@@ -73,13 +73,15 @@ class Footer(BaseModel):
 
 
 class Project(BaseModel):
-    name: Optional[str]  # 项目名称
+    name: str  # 项目名称
     workspace: Optional[str]  # 工作空间名称
     public: Optional[bool]  # 项目是否公开
 
 
 class Experiment(BaseModel):
-    name: Optional[str]  # 实验名称
+    id: str  # 实验ID
+    name: str  # 实验名称
+    colors: List[str]  # 实验颜色
     description: Optional[str]  # 实验描述
     tags: Optional[List[str]]  # 实验标签
 

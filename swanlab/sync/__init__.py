@@ -11,8 +11,7 @@ from .wandb import sync_wandb
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
 from ..core_python import get_client
-from ..data.namer import generate_colors
-from ..data.porter import DataPorter
+from ..data.porter import DataPorter, Mounter
 from ..formatter import check_proj_name_format
 from ..log import swanlog
 
@@ -52,25 +51,26 @@ def sync(
         stdout.flush()
         with Status("🔁 Syncing...", spinner="dots"):
             with DataPorter().open_for_sync(run_dir=dir_path) as porter:
-                project, experiment = porter.parse()
+                proj, exp = porter.parse()
                 assert client is not None, "Please log in first, use `swanlab login` to log in."
-                # 创建实验
-                client.mount_project(
-                    name=project or project.name,
-                    username=workspace or project.workspace,
-                    public=project.public,
-                )
-                colors = generate_colors(client.history_exp_count)
-                client.mount_exp(
-                    exp_name=experiment.name,
-                    colors=colors,
-                    description=experiment.description,
-                    tags=experiment.tags,
-                )
-
-                success = porter.synchronize()
-                # 更新实验状态
-                client.update_state(success=success)
+                with Mounter() as mounter:
+                    run_store = mounter.run_store
+                    # 设置项目信息
+                    run_store.project = project or proj.name
+                    run_store.workspace = workspace or proj.workspace
+                    run_store.visibility = proj.public
+                    # 设置实验信息
+                    run_store.run_id = exp.id
+                    run_store.run_name = exp.name
+                    run_store.description = exp.description
+                    run_store.tags = exp.tags
+                    run_store.run_colors = exp.colors
+                    # 创建实验会话
+                    mounter.execute()
+                    # 同步
+                    success = porter.synchronize()
+                    # 更新实验状态
+                    client.update_state(success=success)
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
         if raise_error:

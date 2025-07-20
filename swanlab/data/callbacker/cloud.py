@@ -65,7 +65,7 @@ class CloudPyCallback(SwanLabRunCallback):
         # 检测是否有最新的版本
         U.check_latest_version()
         with Status("Creating experiment...", spinner="dots"):
-            with Mounter(cleanup=False) as mounter:
+            with Mounter() as mounter:
                 mounter.execute()
 
     def _terminal_handler(self, log_data: LogData):
