@@ -68,9 +68,7 @@ def sync(
                     # 创建实验会话
                     mounter.execute()
                     # 同步
-                    success = porter.synchronize()
-                    # 更新实验状态
-                    client.update_state(success=success)
+                    _ = porter.synchronize()
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
         if raise_error:
