@@ -43,7 +43,7 @@ def filter_metric(key: str, step: int, metrics: RemoteMetric) -> bool:
 
 
 # 将逻辑写出来的原因是方便测试
-def filter_epoch(epoch: int, now_epoch: Optional[int]):
+def filter_epoch(epoch: int, now_epoch: Optional[int]) -> bool:
     """
     筛选函数，检查给定的 epoch 是否大于 now_epoch
     :param epoch: 要检查的 epoch
