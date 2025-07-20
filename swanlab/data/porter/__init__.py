@@ -470,10 +470,9 @@ class DataPorter:
         DataPorter._reset()
 
     @synced()
-    def synchronize(self) -> bool:
+    def synchronize(self):
         """
         同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
-        返回最终的实验结果，true 代表实验状态为 success 否则为 false
         NOTE: 执行此函数后，实验会话被关闭
         """
         assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
@@ -500,9 +499,11 @@ class DataPorter:
         # 6. 等待上传完毕
         self._pool.finish()
         # 7. 同步实验状态
-        success = self._footer.success if self._footer else False
-        get_client().update_state(success=success)
-        return self._footer.success if self._footer else False
+        client = get_client()
+        if self._footer is None:
+            client.update_state(success=False)
+        else:
+            client.update_state(self._footer.success, self._footer.create_time)
 
     def _filter_column_by_key(self, column: ColumnModel) -> bool:
         """
