@@ -12,3 +12,6 @@ from .converter import convert
 from .dashboard import watch
 from .sync import sync
 from .offline import offline
+from .local import local
+from .online import online
+from .disabled import disabled
