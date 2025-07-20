@@ -11,7 +11,8 @@ import os
 import pytest
 import yaml
 
-from swanlab.log.type import LogData, LogContent
+from swanlab.core_python.uploader import LogContent
+from swanlab.log.type import LogData
 from swanlab.proto.v0 import BaseModel, Log, Runtime
 from swanlab.toolkit import create_time
 from tutils import TEMP_PATH

@@ -7,22 +7,7 @@
 
 from typing import TypedDict, Literal, Callable, List, Any
 
-
-class LogContent(TypedDict):
-    """日志内容字典类型
-
-    结构示例:
-    {
-        "message": "hello world",
-        "create_time": "2025-05-15 18:35:00",
-        "epoch": 1
-    }
-    """
-
-    message: str
-    create_time: str
-    epoch: int
-
+from swanlab.core_python.uploader import LogContent
 
 # 支持的代理类型
 ProxyType = Literal['all', 'stdout', 'stderr', 'none']

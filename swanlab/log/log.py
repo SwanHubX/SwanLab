@@ -11,7 +11,8 @@ from typing import List, Tuple, Callable
 
 from swanlab.toolkit import SwanKitLogger, create_time
 from .counter import AtomicCounter
-from .type import LogHandler, LogType, WriteHandler, LogData, LogContent, ProxyType
+from .type import LogHandler, LogType, WriteHandler, LogData, ProxyType
+from ..core_python.uploader import LogContent
 
 
 class SwanLog(SwanKitLogger):

@@ -13,7 +13,7 @@ from typing import Optional, List, Literal, Tuple, Union
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
 
-from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
+from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel, LogContent
 from swanlab.log.type import LogData
 from swanlab.toolkit import ChartReference, MediaBuffer
 from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
@@ -103,7 +103,7 @@ class Log(BaseModel):
     def to_log_model(self) -> LogModel:
         return LogModel(
             level=self.level,
-            contents=[{"create_time": self.create_time, "epoch": self.epoch, "message": self.message}],
+            contents=[LogContent(create_time=self.create_time, epoch=self.epoch, message=self.message)],
         )
 
 
