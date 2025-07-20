@@ -90,6 +90,18 @@ class SwanLabEnv(enum.Enum):
     """
     webhook地址。swanlab初始化完毕时，如果此环境变量存在，会调用此地址，发送消息。
     """
+    DESCRIPTION = "SWANLAB_DESCRIPTION"
+    """
+    实验描述，用于为实验提供更详细的介绍或标注
+    """
+    TAGS = "SWANLAB_TAGS"
+    """
+    实验标签，用于标注当前实验，多个标签用逗号分隔
+    """
+    DISABLE_GIT = "SWANLAB_DISABLE_GIT"
+    """
+    禁用Git功能，设置为true时不会采集Git信息
+    """
 
     @staticmethod
     def is_hostname(value: str) -> bool:

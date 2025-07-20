@@ -85,6 +85,11 @@ def _get_command() -> str:
 
 def get_git_info():
     """获取git信息"""
+    # 检查是否禁用Git功能
+    disable_git = os.getenv("SWANLAB_DISABLE_GIT", "").lower()
+    if disable_git in ["true", "1", "yes", "on"]:
+        return {}
+    
     return {
         "git_remote": get_remote_url(),
         "git_info": get_git_branch_and_commit(),
