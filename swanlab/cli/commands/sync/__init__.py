@@ -86,7 +86,7 @@ def sync(path, api_key, workspace, project, host, id, resume):
     # 0.3 如果 id 或者 resume 被设置，则 path 必须是单个目录
     if (id or resume) and len(path) != 1:
         raise click.UsageError("The --id or --resume option can only be used with a single directory path.")
-
+    id = "auto" if resume else id
     # 1. 创建 http 对象
     # 1.1 检查host是否合法，并格式化，注入到环境变量中
     HostFormatter(host)()
