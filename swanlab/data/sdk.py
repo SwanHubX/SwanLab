@@ -235,6 +235,8 @@ class SwanLabInitializer:
         workspace = _load_from_env(SwanLabEnv.WORKSPACE.value, workspace)
         project = _load_from_env(SwanLabEnv.PROJ_NAME.value, project)
         experiment_name = _load_from_env(SwanLabEnv.EXP_NAME.value, experiment_name)
+        description = _load_from_env(SwanLabEnv.DESCRIPTION.value, description)
+        tags = _load_from_env(SwanLabEnv.TAGS.value, tags)
         resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
 
