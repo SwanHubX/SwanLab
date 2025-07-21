@@ -10,6 +10,7 @@ from .wandb import sync_wandb
 
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
+from .sync_utils import set_run_store
 from ..core_python import create_client, get_client
 from ..core_python.auth.providers.api_key import code_login
 from ..data.porter import DataPorter, Mounter
@@ -37,6 +38,7 @@ def sync(
     :param project: The project to sync the logs to. If not specified, it will use the default project.
     :param raise_error: Whether to raise an error if error occurs when syncing.
     :param api_key: If provided, swanlab will sync using this API key. Or you need login first before run this function.
+        Attention: If you not provide api-key, you need login every time you run this function.
     """
     # 0. 参数检查
     # 0.1 检查项目名称
@@ -64,28 +66,8 @@ def sync(
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:
                     run_store = mounter.run_store
-                    # 设置项目信息
-                    run_store.project = project or proj.name
-                    run_store.workspace = workspace or proj.workspace
-                    run_store.visibility = proj.public
-                    # 设置实验信息
-                    run_store.run_name = exp.name
-                    run_store.description = exp.description
-                    run_store.tags = exp.tags
-                    run_store.run_colors = (exp.colors[0], exp.colors[1])
-                    # 设置实验 id 和 resume 模式
-                    # a. id 为 new，则 resume 为 never, id 为 None
-                    # b. id 为 auto，则 resume 为 allow, id 为 exp.id
-                    # c. 其他情况，则 resume 为 must, id 为 id
-                    if id == "new":
-                        run_store.resume = 'never'
-                        run_store.run_id = None
-                    elif id == "auto":
-                        run_store.resume = 'allow'
-                        run_store.run_id = exp.id
-                    else:
-                        run_store.resume = 'must'
-                        run_store.run_id = id
+                    # 设置运行存储相关信息
+                    set_run_store(run_store, proj, exp, project, workspace, id)
                     # 创建实验会话
                     mounter.execute()
                     # 同步
