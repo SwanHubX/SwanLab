@@ -72,7 +72,7 @@ def sync(
                     run_store.run_name = exp.name
                     run_store.description = exp.description
                     run_store.tags = exp.tags
-                    run_store.run_colors = exp.colors
+                    run_store.run_colors = (exp.colors[0], exp.colors[1])
                     # 设置实验 id 和 resume 模式
                     # a. id 为 new，则 resume 为 never, id 为 None
                     # b. id 为 auto，则 resume 为 allow, id 为 exp.id
