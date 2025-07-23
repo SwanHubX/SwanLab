@@ -37,10 +37,10 @@ def test_set_by_netrc():
     del os.environ[SwanLabEnv.RUNTIME.value]
     netrc_path = os.path.join(get_save_dir(), ".netrc")
     with open(netrc_path, "w") as f:
-        f.write("machine https://example.cn\nlogin test\npassword 123")
+        f.write("machine https://example.ai\nlogin test\npassword 123")
     swanlab.env.SwanLabEnv.set_default()
-    assert swanlab.package.get_host_web() == "https://example.cn"
-    assert swanlab.package.get_host_api() == "https://example.cn/api"
+    assert swanlab.package.get_host_web() == "https://example.ai"
+    assert swanlab.package.get_host_api() == "https://example.ai/api"
     assert os.getenv(SwanLabEnv.RUNTIME.value) == "user"
 
 
