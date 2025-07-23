@@ -129,7 +129,7 @@ def fmt_web_host(web_host: str = None) -> str:
     """
     if web_host is None:
         web_host = get_host_web()
-    return web_host.removesuffix("/")
+    return web_host[:-1] if web_host.endswith("/") else web_host
 
 
 def get_setting_url(web_host: str = None) -> str:
@@ -166,7 +166,9 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path, host = get_nrc_path(), get_host_api().removesuffix("/api")
+    path = get_nrc_path()
+    host_api = get_host_api()
+    host = host_api[:-4] if host_api.endswith("/api") else host_api
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)

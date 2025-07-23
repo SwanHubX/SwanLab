@@ -125,8 +125,9 @@ class SwanLabEnv(enum.Enum):
         if os.path.exists(path):
             nrc = netrc.netrc(path)
             for host, info in nrc.hosts.items():
-                web_host = info[0] if cls.is_hostname(info[0]) else host.removesuffix("/api")
-                api_host = host.removesuffix("/api") + "/api"
+                base_host = host[:-4] if host.endswith("/api") else host
+                web_host = info[0] if cls.is_hostname(info[0]) else base_host
+                api_host = base_host + "/api"
                 break
 
         envs = {
