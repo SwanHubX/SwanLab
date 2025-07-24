@@ -90,3 +90,15 @@ def test_handles_suffix_longer_than_host_and_returns_original_host():
     host = "api"
     suffix = "example.com/api"
     assert remove_host_suffix(host, suffix) == "api"
+
+
+def test_handles_host_with_multiple_suffixes():
+    host = "example.com/api/v1"
+    suffix = "/api/v1"
+    assert remove_host_suffix(host, suffix) == "example.com"
+
+
+def test_handles_host_with_blank_suffix():
+    host = "example.com  "
+    suffix = "api"
+    assert remove_host_suffix(host, suffix) == "example.com"
