@@ -7,7 +7,7 @@ import nanoid
 import pytest
 
 import swanlab.package as P
-from swanlab.env import SwanLabEnv, get_save_dir
+from swanlab.env import SwanLabEnv, get_save_dir, remove_host_suffix
 
 _ = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 package_data = json.load(open(os.path.join(_, "swanlab", "package.json")))
@@ -127,8 +127,7 @@ class TestGetKey:
         with open(file, "w") as f:
             f.write(repr(nrc))
         assert P.get_key() == key
-        host = host[:-4]
-        os.environ[SwanLabEnv.API_HOST.value] = host
+        os.environ[SwanLabEnv.API_HOST.value] = "https://api.swanlab.cn"
         self.remove_env_key()
         assert P.get_key() == key
 
@@ -140,7 +139,8 @@ class TestSaveKey:
         nrc = netrc.netrc(path)
         info = nrc.authenticators(host)
         if info is None:
-            info = nrc.authenticators(host[:-4])
+            # 去除 /api 后缀
+            info = nrc.authenticators(remove_host_suffix(host, "/api"))
         return info[2]
 
     @staticmethod
