@@ -127,7 +127,7 @@ class TestGetKey:
         with open(file, "w") as f:
             f.write(repr(nrc))
         assert P.get_key() == key
-        host = host.rstrip("/api")
+        host = host[:-4]
         os.environ[SwanLabEnv.API_HOST.value] = host
         self.remove_env_key()
         assert P.get_key() == key
@@ -140,7 +140,7 @@ class TestSaveKey:
         nrc = netrc.netrc(path)
         info = nrc.authenticators(host)
         if info is None:
-            info = nrc.authenticators(host.rstrip("/api"))
+            info = nrc.authenticators(host[:-4])
         return info[2]
 
     @staticmethod
