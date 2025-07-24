@@ -204,7 +204,7 @@ def remove_host_suffix(host: str, suffix: str) -> str:
     """
     移除host的后缀
     :param host: 待处理的host
-    :param suffix: 要移除的后
+    :param suffix: 要移除的后缀
     :return: 处理后的host
     """
     host = host.rstrip()
