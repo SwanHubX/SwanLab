@@ -16,7 +16,7 @@ from typing import Optional
 
 import requests
 
-from .env import get_save_dir, SwanLabEnv
+from .env import get_save_dir, SwanLabEnv, remove_host_suffix
 from .error import KeyFileError
 
 package_path = os.path.join(os.path.dirname(__file__), "package.json")
@@ -129,7 +129,7 @@ def fmt_web_host(web_host: str = None) -> str:
     """
     if web_host is None:
         web_host = get_host_web()
-    return web_host.rstrip("/")
+    return remove_host_suffix(web_host, "/")
 
 
 def get_setting_url(web_host: str = None) -> str:
@@ -166,7 +166,7 @@ def get_key():
     env_key = os.getenv(SwanLabEnv.API_KEY.value)
     if env_key is not None:
         return env_key
-    path, host = get_nrc_path(), get_host_api().rstrip("/api")
+    path, host = get_nrc_path(), remove_host_suffix(get_host_api(), "/api")
     if not os.path.exists(path):
         raise KeyFileError("The file does not exist")
     nrc = netrc.netrc(path)
@@ -196,9 +196,7 @@ def save_key(username: str, password: str, host: str = None) -> bool:
     """
     if host is None:
         host = get_host_api()
-    host = host.rstrip()
-    if host.endswith("/api"):
-        host = host[:-4]
+    host = remove_host_suffix(host, "/api")
     path = get_nrc_path()
     if not os.path.exists(path):
         Path(path).touch()
