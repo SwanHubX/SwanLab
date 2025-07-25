@@ -16,6 +16,8 @@ import struct
 import zlib
 from typing import Optional, Any, IO, Tuple
 
+from swanlab.error import ValidationError
+
 LEVELDBLOG_HEADER_LEN = 7
 LEVELDBLOG_BLOCK_LEN = 32768
 LEVELDBLOG_DATA_LEN = LEVELDBLOG_BLOCK_LEN - LEVELDBLOG_HEADER_LEN
@@ -28,7 +30,7 @@ LEVELDBLOG_LAST = 4
 
 LEVELDBLOG_HEADER_IDENT = ":SWL"
 LEVELDBLOG_HEADER_MAGIC = 0xE1D6  # zlib.crc32(bytes("SwanLab", 'utf-8')) & 0xffff
-LEVELDBLOG_HEADER_VERSION = 0
+LEVELDBLOG_HEADER_VERSION = 1
 
 
 def strtobytes(x):
@@ -82,7 +84,10 @@ class DataStore:
         if magic != LEVELDBLOG_HEADER_MAGIC:
             raise Exception("Invalid header")
         if version != LEVELDBLOG_HEADER_VERSION:
-            raise Exception(f"Invalid backup version: {version}, please check your swanlab version.")
+            # TODO 更换为文档链接
+            raise Exception(
+                f"Invalid backup version: {version}. For supported versions, see: https://github.com/SwanHubX/SwanLab/pull/1194"
+            )
         self._index += len(header)
 
     def _scan_record(self) -> Optional[Tuple[int, bytes]]:
@@ -102,7 +107,8 @@ class DataStore:
         self._index += LEVELDBLOG_HEADER_LEN
         data = self._fp.read(data_length)
         checksum_computed = zlib.crc32(data, self._crc[data_type]) & 0xFFFFFFFF
-        assert checksum == checksum_computed, "record checksum is invalid, data may be corrupt"
+        if checksum != checksum_computed:
+            raise ValidationError("Invalid record checksum, data may be corrupt")
         self._index += data_length
         # 3. 返回数据
         return int(data_type), data

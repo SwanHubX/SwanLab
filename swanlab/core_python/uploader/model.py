@@ -11,7 +11,7 @@ from enum import Enum
 from typing import List, Optional, TypedDict, Literal
 
 from swanlab.data.modules import MediaBuffer
-from swanlab.toolkit import ColumnClass, ColumnConfig
+from swanlab.toolkit import ColumnClass, ColumnConfig, LogContent
 
 
 class ColumnModel:
@@ -248,7 +248,7 @@ class LogModel(TypedDict):
     """
     日志级别
     """
-    contents: List[dict]
+    contents: List[LogContent]
     """
     当前日志级别的日志内容
     """

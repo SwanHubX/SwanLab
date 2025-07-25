@@ -73,8 +73,8 @@ def test_sync():
     assert os.path.exists(run_dir) is True
     # 解析日志文件成功（未登录）
     with pytest.raises(AssertionError) as e:
-        sync(run_dir.__str__(), login_required=False)
-    assert e.value.args[0] == "Please log in first, use `swanlab login` to log in."
+        sync(run_dir.__str__())
+    assert e.value.args[0] == "Please log in first before using sync."
     assert os.path.isfile(backup_file), "Backup file does not exist after sync"
     # ---------------------- 验证所有的日志都存在 ----------------------------------
     # 1. 解析日志文件

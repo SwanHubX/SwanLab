@@ -15,8 +15,18 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
-from swanlab.toolkit import ChartReference, MediaBuffer
-from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
+from swanlab.toolkit import (
+    ColumnInfo,
+    ColumnConfig,
+    RuntimeInfo,
+    MetricInfo,
+    ColumnClass,
+    SectionType,
+    YRange,
+    ChartReference,
+    MediaBuffer,
+    LogContent,
+)
 
 
 class BaseModel(PydanticBaseModel):
@@ -63,13 +73,15 @@ class Footer(BaseModel):
 
 
 class Project(BaseModel):
-    name: Optional[str]  # 项目名称
+    name: str  # 项目名称
     workspace: Optional[str]  # 工作空间名称
     public: Optional[bool]  # 项目是否公开
 
 
 class Experiment(BaseModel):
-    name: Optional[str]  # 实验名称
+    id: str  # 实验ID
+    name: str  # 实验名称
+    colors: List[str]  # 实验颜色
     description: Optional[str]  # 实验描述
     tags: Optional[List[str]]  # 实验标签
 
@@ -103,7 +115,7 @@ class Log(BaseModel):
     def to_log_model(self) -> LogModel:
         return LogModel(
             level=self.level,
-            contents=[{"create_time": self.create_time, "epoch": self.epoch, "message": self.message}],
+            contents=[LogContent(create_time=self.create_time, epoch=self.epoch, message=self.message)],
         )
 
 
