@@ -91,7 +91,7 @@ def pr_curve(ground_truth, predictions) -> Line:
     return line
 
 
-def confusion_matrix(ground_truth, predictions, class_names: list[str]) -> HeatMap:
+def confusion_matrix(ground_truth, predictions, class_names) -> HeatMap:
     """Compute and Plot Confusion Matrix
 
     Parameters
