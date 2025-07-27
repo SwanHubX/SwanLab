@@ -285,7 +285,7 @@ class SwanLabKey:
         if column_class == "SYSTEM":
             section_type: SectionType = "SYSTEM"
         else:
-            if chart.value == chart.ECHARTS.value:
+            if chart is ChartType.ECHARTS:
                 section_type = "CUSTOM"
             else:
                 section_type = "PUBLIC"
