@@ -71,9 +71,8 @@ def test_get_metrics():
     """
     api = OpenApi()
     exp_cuid = "test_cuid"
-    chart_index = "test_chart_index"
     keys = ["accuracy", "loss"]
-    res = api.get_metrics(exp_id=exp_cuid, chart_index=chart_index, keys=keys)
+    res = api.get_metrics(exp_id=exp_cuid, keys=keys)
     assert isinstance(res, ApiResponse)
     if res.code == 200:
         assert isinstance(res.data, pd.DataFrame)

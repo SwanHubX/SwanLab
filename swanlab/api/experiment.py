@@ -148,33 +148,53 @@ class ExperimentAPI(ApiBase):
     def get_metrics(
             self,
             exp_id: str,
-            chart_index: str,
             keys: List[str],
     ) -> ApiResponse[DataFrame]:
         """
-        获取实验的指标数据, 由用户自定义
-        从House获取, 需要考虑克隆实验
+        获取实验的指标数据, 可选择若干由用户自定义的列
 
         Args:
             exp_id (str): 实验CUID
-            chart_index (str): 图表Index
             keys (list[str]): 指标key列表
         
         Returns:
             ApiResponse[DataFrame]:
         """
         import pandas as pd
-        metrics_list = [{"expId": exp_id, "key": key} for key in keys]
-        data = {
-            "metrics": metrics_list,
-            "xType": "step"
-        }
 
-        resp = self.http.post(f"/experiment/{exp_id}/chart/{chart_index}/csv", data=data, params={})
-        if resp.errmsg:
-            return resp
+        dfs = []
+        prefix = ""
+        for idx, key in enumerate(keys):
+            resp = self.http.get(f"/experiment/{exp_id}/column/csv", params={"key": key})
+            if resp.errmsg:
+                continue
 
-        url = resp.data.get("url", "")
-        resp.data = pd.read_csv(url).set_index("step")
-        return resp
-    
+            url = resp.data.get("url", "")
+            df = pd.read_csv(url, index_col=0)
+
+            if idx == 0:
+                # 从第一列名提取 prefix，例如 "t0707-02:17-loss_step" 中提取 "t0707-02:17-"
+                first_col = df.columns[0]
+                suffix = f"{key}_"
+                if suffix in first_col:
+                    prefix = first_col.split(suffix)[0]  # 结果为 "t0707-02:17-"
+                else:
+                    prefix = ""
+
+            if prefix:
+                df.columns = [
+                    col[len(prefix):].removesuffix("_step") if col.startswith(prefix) else col.removesuffix("_step")
+                    for col in df.columns
+                ]
+            else:
+                df.columns = [col.removesuffix("_step") for col in df.columns]
+
+            dfs.append(df)
+
+        if not dfs:
+            return ApiResponse[DataFrame](code=404, errmsg="No data found", data=pd.DataFrame())
+
+        # 按列合并，使用 inner join 保证对齐 index
+        result_df = pd.concat(dfs, axis=1, join="inner")
+
+        return ApiResponse[DataFrame](code=200, errmsg="", data=result_df)

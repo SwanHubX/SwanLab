@@ -214,7 +214,6 @@ class OpenApi:
     def get_metrics(
         self,
         exp_id: str,
-        chart_index: str,
         keys: Union[str, List[str]],
     ) -> ApiResponse[DataFrame]:
         """
@@ -222,15 +221,15 @@ class OpenApi:
 
         Args:
             exp_id (str): 实验CUID
-            chart_index (str): 图表索引
-            metrics (str | List[str]): 指标key, 单个字符串或字符串列表
+            keys (str | List[str]): 指标key, 单个字符串或字符串列表
 
         Returns:
             ApiResponse[DataFrame]: 包含指标数据的响应, 指标数据以 DataFrame 格式返回
+            在DataFrame中, 每个key对应两个列, 分别为key和key_timestamp, 表示指标值和时间戳
         """
         if isinstance(keys, str):
             keys = [keys]
-        return self.experiment.get_metrics(exp_id, chart_index, keys)
+        return self.experiment.get_metrics(exp_id, keys)
 
     def get_exp_summary(self, *args, **kwargs) -> ApiResponse[Dict]:
         """
