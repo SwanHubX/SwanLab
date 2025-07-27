@@ -8,6 +8,9 @@ from .data.modules import (
     Text,
     Video,
     echarts,
+    roc_curve,
+    pr_curve,
+    confusion_matrix,
 )
 from .env import SwanLabEnv
 from .package import get_package_version

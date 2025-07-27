@@ -13,6 +13,7 @@ from pyecharts.charts.base import Base
 from swanlab.toolkit import MediaBuffer, DataSuite as D, MediaType
 from . import echarts
 from .table import Table
+from .metrics import confusion_matrix, pr_curve, roc_curve
 
 PyEchartsBase = pyecharts.charts.base.Base
 """
@@ -23,7 +24,7 @@ PyEchartsTable = Table
 custom Table inherited from pyecharts.components.table.Table
 """
 
-__all__ = ["echarts", 'Echarts', 'PyEchartsTable', 'PyEchartsBase']
+__all__ = ["echarts", 'Echarts', 'PyEchartsTable', 'PyEchartsBase', "roc_curve", "pr_curve", "confusion_matrix"]
 
 
 class Echarts(MediaType):
