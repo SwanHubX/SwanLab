@@ -281,7 +281,15 @@ class SwanLabKey:
                     f"Maybe you need to update swanlab: pip install -U swanlab"
                 )
             error = ParseErrorInfo(expected=expected, got=got, chart=chart)
-
+        # 3. 根据 column_class 和 chart 适配 section_type
+        if column_class == "SYSTEM":
+            section_type: SectionType = "SYSTEM"
+        else:
+            if chart.value == chart.ECHARTS.value:
+                section_type = "CUSTOM"
+            else:
+                section_type = "PUBLIC"
+        # 4. 创建 ColumnInfo 对象
         column_info = ColumnInfo(
             key,
             str(kid),
@@ -291,10 +299,10 @@ class SwanLabKey:
             chart_reference="STEP",
             error=error,
             section_name=None,
-            section_type="PUBLIC",
+            section_type=section_type,
         )
         key_obj.column_info = column_info
-        # 3. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
+        # 5. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
         if step is not None:
             for i in range(step + 1):
                 key_obj.steps.add(i)
