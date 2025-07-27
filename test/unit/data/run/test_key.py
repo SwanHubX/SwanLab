@@ -18,6 +18,59 @@ class TestMockKey:
     """
 
     @pytest.mark.parametrize(
+        "column_class, expected_section_type",
+        [
+            ["CUSTOM", "PUBLIC"],
+            ["SYSTEM", "SYSTEM"],
+        ],
+    )
+    def test_column_class_ok(self, column_class, expected_section_type):
+        """
+        测试不同的 column_class 是否能正确映射到预期的 SectionType
+        """
+        with UseMockRunState() as run_state:
+            key_obj, column_info = SwanLabKey.mock_from_remote(
+                key="test",
+                column_type="FLOAT",
+                column_class=column_class,
+                error=None,
+                media_dir=run_state.store.media_dir,
+                log_dir=run_state.store.log_dir,
+                kid=0,
+                step=None,
+            )
+            assert column_info.section_type == expected_section_type
+
+    @pytest.mark.parametrize(
+        "column_type, expected_section_type",
+        [
+            ["FLOAT", "PUBLIC"],
+            ["IMAGE", "PUBLIC"],
+            ["AUDIO", "PUBLIC"],
+            ["TEXT", "PUBLIC"],
+            ["OBJECT3D", "PUBLIC"],
+            ["MOLECULE", "PUBLIC"],
+            ["ECHARTS", "CUSTOM"],
+        ],
+    )
+    def test_column_type_section_type(self, column_type, expected_section_type):
+        """
+        测试不同的 column_type 是否能正确映射到预期的 SectionType
+        """
+        with UseMockRunState() as run_state:
+            key_obj, column_info = SwanLabKey.mock_from_remote(
+                key="test",
+                column_type=column_type,
+                column_class="CUSTOM",
+                error=None,
+                media_dir=run_state.store.media_dir,
+                log_dir=run_state.store.log_dir,
+                kid=0,
+                step=None,
+            )
+            assert column_info.section_type == expected_section_type
+
+    @pytest.mark.parametrize(
         "column_type, expected_chart_type",
         [
             ["FLOAT", ChartType.LINE],

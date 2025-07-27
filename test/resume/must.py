@@ -14,11 +14,6 @@ import swanlab
 run = swanlab.init()
 swanlab.log({"loss": 0.1, "accuracy": 0.9}, step=1)
 
-# 2. 继续一个不存在的实验
-try:
-    run = swanlab.init(id="".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21)), resume='must')
-except RuntimeError:
-    pass
 import time
 
 time.sleep(5)
@@ -33,3 +28,14 @@ assert not ll["loss"].is_error, "Expected loss metric to be logged successfully 
 assert not ll['accuracy'].is_error, "Expected accuracy metric to be logged successfully after reinit"
 assert ll['loss'].data == 0.5
 assert ll['accuracy'].data == 0.8
+
+# 2. 继续一个不存在的实验
+try:
+    run = swanlab.init(
+        id="".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=21)),
+        resume='must',
+        reinit=True,
+    )
+    raise Exception("Should have raised exception")
+except RuntimeError:
+    pass
