@@ -11,6 +11,7 @@ from .line import Line, FloatConvertible
 from typing import Union, List
 from .video import Video
 from .wrapper import DataWrapper
+from .custom_charts.metrics import roc_curve, pr_curve, confusion_matrix
 
 DataType = Union[
     int,
@@ -47,4 +48,8 @@ __all__ = [
     "Video",
     # 模块
     "echarts",
+    # metrics,
+    "roc_curve",
+    "pr_curve",
+    "confusion_matrix",
 ]
