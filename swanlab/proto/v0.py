@@ -15,8 +15,18 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from swanlab.core_python.uploader import FileModel, ScalarModel, ColumnModel, LogModel, MediaModel
 from swanlab.log.type import LogData
-from swanlab.toolkit import ChartReference, MediaBuffer
-from swanlab.toolkit import ColumnInfo, ColumnConfig, RuntimeInfo, MetricInfo, ColumnClass, SectionType, YRange
+from swanlab.toolkit import (
+    ColumnInfo,
+    ColumnConfig,
+    RuntimeInfo,
+    MetricInfo,
+    ColumnClass,
+    SectionType,
+    YRange,
+    ChartReference,
+    MediaBuffer,
+    LogContent,
+)
 
 
 class BaseModel(PydanticBaseModel):
@@ -63,13 +73,15 @@ class Footer(BaseModel):
 
 
 class Project(BaseModel):
-    name: Optional[str]  # 项目名称
+    name: str  # 项目名称
     workspace: Optional[str]  # 工作空间名称
     public: Optional[bool]  # 项目是否公开
 
 
 class Experiment(BaseModel):
-    name: Optional[str]  # 实验名称
+    id: str  # 实验ID
+    name: str  # 实验名称
+    colors: List[str]  # 实验颜色
     description: Optional[str]  # 实验描述
     tags: Optional[List[str]]  # 实验标签
 
@@ -103,7 +115,7 @@ class Log(BaseModel):
     def to_log_model(self) -> LogModel:
         return LogModel(
             level=self.level,
-            contents=[{"create_time": self.create_time, "epoch": self.epoch, "message": self.message}],
+            contents=[LogContent(create_time=self.create_time, epoch=self.epoch, message=self.message)],
         )
 
 
@@ -136,24 +148,25 @@ class Runtime(BaseModel):
             conda_path = os.path.join(file_dir, self.conda_filename)
             if not os.path.exists(os.path.join(file_dir, self.conda_filename)):
                 raise FileNotFoundError(f"Conda file {self.conda_filename} not found in {file_dir}")
-            conda = open(conda_path, "r").read()
+            conda = open(conda_path, "r", encoding="utf-8").read()
         if self.requirements_filename:
             requirements_path = os.path.join(file_dir, self.requirements_filename)
             if not os.path.exists(requirements_path):
                 raise FileNotFoundError(f"Requirements file {self.requirements_filename} not found in {file_dir}")
-            requirements = open(requirements_path, "r").read()
+            requirements = open(requirements_path, "r", encoding="utf-8").read()
         if self.metadata_filename:
             metadata_path = os.path.join(file_dir, self.metadata_filename)
             if not os.path.exists(metadata_path):
                 raise FileNotFoundError(f"Metadata file {self.metadata_filename} not found in {file_dir}")
-            metadata = json.loads(open(metadata_path, "r").read())
+            metadata = json.loads(open(metadata_path, "r", encoding="utf-8").read())
         if self.config_filename:
             config_path = os.path.join(file_dir, self.config_filename)
             if not os.path.exists(config_path):
                 raise FileNotFoundError(f"Config file {self.config_filename} not found in {file_dir}")
-            config = yaml.safe_load(open(config_path, "r").read())
+            config = yaml.safe_load(open(config_path, "r", encoding="utf-8").read())
 
         return FileModel(conda=conda, requirements=requirements, metadata=metadata, config=config)
+
 
 
 class Column(BaseModel):

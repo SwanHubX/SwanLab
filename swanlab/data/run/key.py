@@ -161,14 +161,17 @@ class SwanLabKey:
         """
         assert self.column_info is None, "Cannot create column info after creating it"
         result = data.parse()
-
-        # 如果section_type不为public,则section_name为None
-        if section_type != "PUBLIC":
+        # SYSTEM PINNED HIDDEN 三个类型的 section 不应该传递名称
+        # PUBLIC 可选是否传递名称，如果 key 包含斜杠，则使用斜杠前的部分作为section的名称
+        # CUSTOM 时如果 key 包含斜杠，则使用斜杠前的部分作为section的名称，并且将 section_type 设置为 PUBLIC
+        if section_type in ["PUBLIC", "CUSTOM"]:
+            split_key = key.split("/")
+            if len(split_key) > 1 and split_key[0]:
+                # 如果key包含斜杠，则使用斜杠前的部分作为section的名称
+                result.section = split_key[0]
+                section_type: SectionType = "PUBLIC"
+        else:
             result.section = None
-        # 如果斜杠，则使用斜杠前的部分作为section的名称
-        elif "/" in key and key[0] != "/":
-            result.section = key.split("/")[0]
-
         column_info = ColumnInfo(
             key=key,
             kid=str(num),
@@ -270,15 +273,23 @@ class SwanLabKey:
             )
 
         if error is not None:
-            expected = error.get("expected")
-            got = error.get("got")
+            expected = error.get("excepted")
+            got = error.get("data_class")
             if expected is None or got is None:
                 raise RuntimeError(
                     f"Invalid error format: {error}, expected and got must be provided. "
                     f"Maybe you need to update swanlab: pip install -U swanlab"
                 )
-            error = ParseErrorInfo(expected=error.get("expected"), got=error.get("got"), chart=chart)
-
+            error = ParseErrorInfo(expected=expected, got=got, chart=chart)
+        # 3. 根据 column_class 和 chart 适配 section_type
+        if column_class == "SYSTEM":
+            section_type: SectionType = "SYSTEM"
+        else:
+            if chart is ChartType.ECHARTS:
+                section_type = "CUSTOM"
+            else:
+                section_type = "PUBLIC"
+        # 4. 创建 ColumnInfo 对象
         column_info = ColumnInfo(
             key,
             str(kid),
@@ -288,10 +299,10 @@ class SwanLabKey:
             chart_reference="STEP",
             error=error,
             section_name=None,
-            section_type="PUBLIC",
+            section_type=section_type,
         )
         key_obj.column_info = column_info
-        # 3. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
+        # 5. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
         if step is not None:
             for i in range(step + 1):
                 key_obj.steps.add(i)

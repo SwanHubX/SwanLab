@@ -18,6 +18,59 @@ class TestMockKey:
     """
 
     @pytest.mark.parametrize(
+        "column_class, expected_section_type",
+        [
+            ["CUSTOM", "PUBLIC"],
+            ["SYSTEM", "SYSTEM"],
+        ],
+    )
+    def test_column_class_ok(self, column_class, expected_section_type):
+        """
+        测试不同的 column_class 是否能正确映射到预期的 SectionType
+        """
+        with UseMockRunState() as run_state:
+            key_obj, column_info = SwanLabKey.mock_from_remote(
+                key="test",
+                column_type="FLOAT",
+                column_class=column_class,
+                error=None,
+                media_dir=run_state.store.media_dir,
+                log_dir=run_state.store.log_dir,
+                kid=0,
+                step=None,
+            )
+            assert column_info.section_type == expected_section_type
+
+    @pytest.mark.parametrize(
+        "column_type, expected_section_type",
+        [
+            ["FLOAT", "PUBLIC"],
+            ["IMAGE", "PUBLIC"],
+            ["AUDIO", "PUBLIC"],
+            ["TEXT", "PUBLIC"],
+            ["OBJECT3D", "PUBLIC"],
+            ["MOLECULE", "PUBLIC"],
+            ["ECHARTS", "CUSTOM"],
+        ],
+    )
+    def test_column_type_section_type(self, column_type, expected_section_type):
+        """
+        测试不同的 column_type 是否能正确映射到预期的 SectionType
+        """
+        with UseMockRunState() as run_state:
+            key_obj, column_info = SwanLabKey.mock_from_remote(
+                key="test",
+                column_type=column_type,
+                column_class="CUSTOM",
+                error=None,
+                media_dir=run_state.store.media_dir,
+                log_dir=run_state.store.log_dir,
+                kid=0,
+                step=None,
+            )
+            assert column_info.section_type == expected_section_type
+
+    @pytest.mark.parametrize(
         "column_type, expected_chart_type",
         [
             ["FLOAT", ChartType.LINE],
@@ -76,7 +129,7 @@ class TestMockKey:
                 key="test",
                 column_type="FLOAT",
                 column_class="CUSTOM",
-                error={"expected": "float", "got": "string"},
+                error={"excepted": "float", "data_class": "string"},
                 media_dir=run_state.store.media_dir,
                 log_dir=run_state.store.log_dir,
                 kid=0,
@@ -87,7 +140,7 @@ class TestMockKey:
 
     def test_column_with_error_unknown(self):
         """
-        测试传递错误信息时，如果 expected 或 got 为 None，应该报错
+        测试传递错误信息时，如果 excepted 或 data_class 为 None，应该报错
         因为这不符合目前的错误格式要求
         """
         with UseMockRunState() as run_state:
@@ -96,7 +149,7 @@ class TestMockKey:
                     key="test",
                     column_type="FLOAT",
                     column_class="CUSTOM",
-                    error={"expected": None, "got": "string"},
+                    error={"excepted": None, "data_class": "string"},
                     media_dir=run_state.store.media_dir,
                     log_dir=run_state.store.log_dir,
                     kid=0,
@@ -104,7 +157,7 @@ class TestMockKey:
                 )
             assert (
                 str(exc_info.value)
-                == "Invalid error format: {'expected': None, 'got': 'string'}, expected and got must be provided. "
+                == "Invalid error format: {'excepted': None, 'data_class': 'string'}, expected and got must be provided. "
                 "Maybe you need to update swanlab: pip install -U swanlab"
             )
 

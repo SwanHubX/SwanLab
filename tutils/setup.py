@@ -28,10 +28,26 @@ class UseMockRunState:
     主要用于测试环境中，模拟登录状态以及方便测试
     """
 
-    def __init__(self, client: Optional[Client] = None, run_id: Optional[str] = None):
+    def __init__(
+        self,
+        client: Optional[Client] = None,
+        project: str = "Mock Project",
+        run_name: str = "Mock Run",
+        run_description: str = "This is a mock run for testing purposes.",
+        run_colors=None,
+        run_id: Optional[str] = None,
+    ):
         self.client: Optional[Client] = client
         self.store: Optional[RunStore] = None
-        self.run_id = run_id
+        if run_id is None:
+            run_id = nanoid.generate("0123456789abcdefghijklmnopqrstuvwxyz", 21)
+        self._run_id = run_id
+        self._project = project
+        self._run_name = run_name
+        self._description = run_description
+        if run_colors is None:
+            run_colors = ["#FF5733", "#33FF57"]
+        self._run_colors = run_colors
 
     def __enter__(self) -> "UseMockRunState":
         if self.client is None:
@@ -39,12 +55,15 @@ class UseMockRunState:
             self.client = create_client(login_info)
         reset_run_store()
         self.store = get_run_store()
+        # 写入每次实验必填信息
+        self.store.project = self._project
+        self.store.run_id = self._run_id
+        self.store.run_name = self._run_name
+        self.store.description = self._description
+        self.store.run_colors = self._run_colors
         # 创建运行目录结构，方便测试
         self.store.swanlog_dir = TEMP_PATH
-        if self.run_id is None:
-            self.run_id = nanoid.generate("0123456789abcdefghijklmnopqrstuvwxyz", 21)
-        self.store.run_id = self.run_id
-        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + self.run_id)
+        self.store.run_dir = os.path.join(TEMP_PATH, "run-" + self.store.run_id)
         os.mkdir(self.store.run_dir)
         os.mkdir(self.store.media_dir)
         os.mkdir(self.store.log_dir)

@@ -11,6 +11,7 @@ from swankit.core import *
 from swankit.env import *
 
 from .logger import SwanKitLogger
+from .model import LogContent
 
 __all__ = [
     # logger
@@ -25,6 +26,7 @@ __all__ = [
     "get_swanlog_dir",
     "get_mode",
     # callback
+    "LogContent",
     "SwanKitCallback",
     "ColumnInfo",
     "MetricInfo",

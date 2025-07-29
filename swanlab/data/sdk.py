@@ -15,10 +15,7 @@ from typing import Union, Dict, Literal, List
 import platformdirs
 
 from swanlab.env import SwanLabEnv
-from swanlab.log import swanlog
-from swanlab.swanlab_settings import Settings, get_settings, set_settings
-from swanlab.toolkit import SwanKitCallback
-from .formatter import (
+from swanlab.formatter import (
     check_load_json_yaml,
     check_callback_format,
     check_exp_name_format,
@@ -27,6 +24,9 @@ from .formatter import (
     check_tags_format,
     check_run_id_format,
 )
+from swanlab.log import swanlog
+from swanlab.swanlab_settings import Settings, get_settings, set_settings
+from swanlab.toolkit import SwanKitCallback
 from .modules import DataType
 from .run import (
     SwanLabRunState,
@@ -148,11 +148,12 @@ class SwanLabInitializer:
             In this case, if you want to view the logs,
             you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
         mode : str, optional
-            Allowed values are 'cloud', 'local', 'disabled', 'backup'.
+            Allowed values are 'cloud', 'local', 'disabled', 'offline'.
             If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
             If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
             If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
             If the value is 'offline', data will be saved locally without uploading to the cloud.
+            BTW, 'online' is an alias for 'cloud'.
         load : str, optional
             If you pass this parameter,SwanLab will search for the configuration file you specified
             (which must be in JSON or YAML format)
@@ -201,7 +202,6 @@ class SwanLabInitializer:
             resume = 'allow'
         elif resume is False:
             resume = 'never'
-        resume = resume or 'never'
         # for https://github.com/SwanHubX/SwanLab/issues/809
         if experiment_name is None and kwargs.get("name", None) is not None:
             experiment_name = kwargs.get("name")
@@ -269,10 +269,12 @@ class SwanLabInitializer:
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
         # 7. 校验mode参数并适配 backup 模式
+        mode = "cloud" if mode == "online" else mode
         mode, login_info = _init_mode(mode)
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
         # 8. 校验 resume 与 id
+        resume = resume or 'never'
         if resume == 'never':
             # 不允许传递 id
             if id is not None:

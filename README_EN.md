@@ -1,12 +1,10 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
-  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-type2-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-type2-light.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
-
-<h1>SwanLab</h1>
 
 An open-source, modern-designed deep learning training tracking and visualization tool  
 Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, and easily integrates with your experimental code.
@@ -43,6 +41,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 - [📃 Online Demo](#-online-demo)
 - [🏁 Quick Start](#-quick-start)
 - [💻 Self-Hosting](#-self-hosting)
+- 🔥 [Tutorials](#-tutorials)
 - [🚗 Framework Integration](#-framework-integration)
 - [🔌 Plugins](#-plugins)
 - [🎮 Hardware Monitoring](#-hardware-monitoring)
@@ -53,6 +52,12 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 <br/>
 
 ## 🌟 Recent Updates
+
+- 2025.07.17: 📊 Added support for **line chart configuration**, supporting flexible configuration of line type, color, thickness, grid, legend position, etc.; 📹 Added support for **swanlab.Video** data type, supporting recording and visualizing GIF format files; Global chart dashboard now supports configuring Y-axis and maximum number of experiments displayed.
+
+- 2025.07.10: 📚 Added support for **text view**, supporting Markdown rendering and direction key switching, which can be created by `swanlab.echarts.table` and `swanlab.Text`, [Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
+
+- 2025.07.06: 🚄 Added support for resume training; new plugin [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); integrated [ray](https://github.com/ray-project/ray) framework, [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); integrated [ROLL](https://github.com/volcengine/ROLL) framework, thanks to [@PanAndy](https://github.com/PanAndy), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 - 2025.06.27: Added support for **small line chart zooming**; added support for configuring **single line chart smoothing**; significantly improved the interaction effect of image charts after zooming.
 
@@ -68,11 +73,12 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.05.25: Logging now supports capturing the **standard error stream**, allowing better recording of output from frameworks like PyTorch Lightning; hardware monitoring now includes support for **Moore Threads**; added a security feature for logging runtime commands, where API Keys will be automatically hidden.
 
+
+<details><summary>Full Changelog</summary>
+
 - 2025.05.14: Added support for **experiment tags**; added support for **Log Scale** for line charts; added support for **group dragging**; significantly optimized the experience of uploading a large number of metrics.
 
 - 2025.05.09: Added support for line chart creation; enhanced the chart configuration feature with data source selection, enabling a single chart to display different metrics; introduced the ability to generate GitHub badges for training projects.
-
-<details><summary>Full Changelog</summary>
 
 - 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
 
@@ -148,13 +154,20 @@ Here is a list of its core features:
 ![swanlab-table](readme_files/swanlab-table.png)
 
 - Supports **hyperparameter recording** and table display.
+
 - **Supported metadata types**: Scalar metrics, images, audio, text, 3D point clouds, biological chemical molecules, Echarts custom chart...
 
-![swanlab-table](readme_files/molecule.gif)
+- **Resume Training Record**: Supports recording new metrics data to the same experiment after training is completed/interrupted.
 
-- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts...
+![swanlab-molecule](readme_files/molecule.gif)
+
+- **Supported chart types**: Line charts, media charts (images, audio, text, 3D point clouds, biological chemical molecules), Bar charts, Scatter charts, Box plots, Heat maps, Pie charts, Radar charts, [Custom charts](https://docs.swanlab.cn/guide_cloud/experiment_track/log-custom-chart.html)...
 
 ![swanlab-echarts](readme_files/echarts.png)
+
+- **Text Chart**: A text chart for large language model training, supporting Markdown rendering.
+
+![text-chart](readme_files/text-chart.gif)
 
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 
@@ -318,6 +331,43 @@ After logging in, you can record experiments to the self-hosted service.
 
 <br>
 
+## 🔥 Tutorials
+
+**Excellent Open-Source Tutorial Projects Using SwanLab:**
+
+- [happy-llm](https://github.com/datawhalechina/happy-llm): A tutorial on the principles and practice of large language models from scratch. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
+- [self-llm](https://github.com/datawhalechina/self-llm): "A Cookbook for Open-Source Large Models" - A tutorial tailored for Chinese users on quickly fine-tuning (full-parameter/LoRA) and deploying domestic and international open-source Large Language Models (LLMs) / Multi-modal Large Models (MLLMs) in a Linux environment. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
+- [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek): Interpretation, extension, and reproduction of the DeepSeek series of works. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
+
+**Excellent Research Papers Using SwanLab:**
+
+- [Animation Needs Attention](https://arxiv.org/abs/2407.03916)
+
+**Tutorial Articles:**
+
+-   [MNIST Handwritten Digit Recognition](https://docs.swanlab.cn/en/examples/mnist.html)
+-   [FashionMNIST Apparel Classification](https://docs.swanlab.cn/en/examples/fashionmnist.html)
+-   [CIFAR-10 Image Classification](https://docs.swanlab.cn/en/examples/cifar10.html)
+-   [ResNet Cat vs. Dog Classification](https://docs.swanlab.cn/en/examples/cats_dogs_classification.html)
+-   [YOLO Object Detection](https://docs.swanlab.cn/en/examples/yolo.html)
+-   [U-Net Medical Image Segmentation](https://docs.swanlab.cn/en/examples/unet-medical-segmentation.html)
+-   [Audio Classification](https://docs.swanlab.cn/en/examples/audio_classification.html)
+-   [DQN Reinforcement Learning - CartPole](https://docs.swanlab.cn/en/examples/dqn_cartpole.html)
+-   [LSTM Google Stock Price Prediction](https://docs.swanlab.cn/en/examples/audio_classification.html)
+-   [BERT Text Classification](https://docs.swanlab.cn/en/examples/bert.html)
+-   [Stable Diffusion Text-to-Image Fine-Tuning](https://docs.swanlab.cn/en/examples/stable_diffusion.html)
+-   [LLM Pre-training](https://docs.swanlab.cn/en/examples/pretrain_llm.html)
+-   [GLM4 Instruction Fine-Tuning](https://docs.swanlab.cn/en/examples/glm4-instruct.html)
+-   [Qwen Downstream Task Training](https://docs.swanlab.cn/en/examples/qwen_finetune.html)
+-   [NER (Named Entity Recognition)](https://docs.swanlab.cn/en/examples/ner.html)
+-   [Qwen3 Medical Model Fine-Tuning](https://docs.swanlab.cn/en/examples/qwen3-medical.html)
+-   [Qwen2-VL Multimodal Large Model Fine-Tuning in Practice](https://docs.swanlab.cn/en/examples/qwen_vl_coco.html)
+-   [GRPO Large Model Reinforcement Learning](https://docs.swanlab.cn/en/examples/qwen_grpo.html)
+-   [Training the Qwen3-SmVL-0.6B Multimodal Model](https://docs.swanlab.cn/en/examples/qwen3_smolvlm_muxi.html)
+-   [Getting Started with Embodied AI using LeRobot](https://docs.swanlab.cn/en/examples/robot/lerobot-guide.html)
+
+<br>
+
 ## 🚗 Framework Integration
 
 Use your favorite frameworks with SwanLab!  
@@ -359,13 +409,15 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
-- [AReaL](https://docs.swanlab.cn/guide_cloud/integration/integration-areal.html)
+- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **Other Frameworks:**
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Unsloth](https://docs.swanlab.cn/en/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
@@ -388,6 +440,7 @@ Enhance your experiment management experience by extending SwanLab's functionali
 -  [Discord Notification](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html)
 -  [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+-  [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 

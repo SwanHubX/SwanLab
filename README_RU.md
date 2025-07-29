@@ -1,12 +1,10 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-single-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-single.svg">
-  <img alt="SwanLab" src="readme_files/swanlab-logo-single.svg" width="70" height="70">
+  <source media="(prefers-color-scheme: dark)" srcset="readme_files/swanlab-logo-type2-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="readme_files/swanlab-logo-type2-light.svg">
+  <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
-
-<h1>SwanLab</h1>
 
 Открытый инструмент для отслеживания и визуализации обучения глубоких нейронных сетей с современным дизайном  
 Поддерживает как облачное, так и оффлайн использование, совместим с 30+ популярными фреймворками, легко интегрируется с вашим кодом экспериментов
@@ -53,6 +51,12 @@
 
 ## 🌟 Последние обновления
 
+- 2025.07.17: 📊 Добавлена поддержка **настройки линейных графиков**, поддержка гибкой настройки типа линии, цвета, толщины, сетки, позиции легенды и т.д.; 📹 Добавлена поддержка типа данных **swanlab.Video**, поддержка записи и визуализации файлов в формате GIF; глобальная панель диаграмм теперь поддерживает настройку оси Y и максимальное количество отображаемых экспериментов;
+
+- 2025.07.10: 📚 Добавлена поддержка **текстового представления**, поддержка Markdown-рендеринга и переключения направления клавиатуры, которые можно создать с помощью `swanlab.echarts.table` и `swanlab.Text`, [демонстрация](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
+
+- 2025.07.06: 🚄 Поддержка возобновления обучения; новый плагин [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); интеграция [ray](https://github.com/ray-project/ray) фреймворка, [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); интеграция [ROLL](https://github.com/volcengine/ROLL) фреймворка, спасибо [@PanAndy](https://github.com/PanAndy), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+
 - 2025.06.27: Добавлена поддержка **малого масштабирования** для линейных графиков; добавлена поддержка **плавного масштабирования** для отдельных линейных графиков; значительно улучшена интерактивность изображений после масштабирования.
 
 - 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), улучшает опыт записи и анализа экспериментов в распределенном обучении.
@@ -67,13 +71,13 @@
 
 - 2025.05.25: Поддержка записи **стандартного потока ошибок**, позволяет лучше записывать вывод из фреймворков, таких как PyTorch Lightning; мониторинг оборудования поддерживает **Moore Threads**; добавлена функция защиты записи команд запуска, где API Key будет автоматически скрыт.
 
+<details><summary>Полный список изменений</summary>
+
 - 2025.05.14: Добавлена поддержка **экспериментов с тегами**; поддерживается **Log Scale** для линейных графиков; поддерживается **перетаскивание** для групп; значительно улучшена производительность загрузки и отображения больших объемов данных.
 
 - 2025.05.09: Добавлена поддержка создания линейных графиков; в функции настройки графиков добавлена возможность выбора источника данных, что позволяет отображать разные показатели на одном графике; реализована возможность создания GitHub-значков для учебных проектов.
 
 - 2025.04.23: Добавлена поддержка ​​редактирования​​ линейных графиков, возможность свободной настройки диапазонов данных осей X и Y и стилей заголовков; поиск в графиках теперь поддерживает ​​регулярные выражения​​; добавлено обнаружение и мониторинг оборудования ​​Kunlun Core XPU​​.
-
-<details><summary>Полный список изменений</summary>
 
 - 2025.04.14: Добавлена поддержка **Kunlunxin XPU** для мониторинга оборудования, [#940](https://github.com/SwanHubX/SwanLab/pull/940).
 
@@ -347,12 +351,16 @@ swanlab login --host http://localhost:8000
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
+- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+
 
 **Другие фреймворки:**
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html)
+- [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Unsloth](https://docs.swanlab.cn/en/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
@@ -399,6 +407,7 @@ swanlab login --host http://localhost:8000
 -  [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
 -  [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+-  [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 

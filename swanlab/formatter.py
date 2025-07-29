@@ -92,8 +92,7 @@ def _auto_cut(name: str, value: str, max_len: int, cut: bool) -> str:
 
 def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
     """
-    检查实验名称格式，最大长度为95个字符，一个中文字符算一个字符
-    其他不做限制，实验名称可以包含任何字符
+    检查项目名称格式，最大长度为100个字符，支持 0-9, a-z, A-Z, _, -, +, .等字符
 
     Parameters
     ----------
@@ -126,13 +125,13 @@ def check_proj_name_format(name: str, auto_cut: bool = True) -> str:
 
 def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
     """
-    检查实验名称格式，最大长度为95个字符，一个中文字符算一个字符
+    检查实验名称格式，最大长度为250个字符，一个中文字符算一个字符
     其他不做限制，实验名称可以包含任何字符
     :param name: 实验名称
     :param auto_cut: 是否自动截断，默认为True
     :return: str 检查后的字符串
     """
-    max_len = 95
+    max_len = 250
     if not check_string(name):
         raise ValueError("Experiment name is an empty string")
     name = name.strip()

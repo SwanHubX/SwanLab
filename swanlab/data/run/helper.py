@@ -159,6 +159,7 @@ class MonitorCron:
     def cancel(self):
         if self.timer is not None:
             self.timer.cancel()
+            self.timer.join()
 
     @property
     def sleep_time(self):

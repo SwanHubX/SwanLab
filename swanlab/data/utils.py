@@ -11,12 +11,11 @@ from typing import Union, Optional, List
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.callbacker import *
-from swanlab.data.formatter import check_load_json_yaml
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
 from swanlab.env import is_interactive, SwanLabEnv
 from swanlab.error import KeyFileError
+from swanlab.formatter import check_load_json_yaml
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
 from swanlab.toolkit import SwanKitCallback, SwanLabMode
@@ -165,6 +164,8 @@ def _create_operator(
     :param cbs: 用户传递的回调函数列表
     :return: SwanLabRunOperator, CloudRunCallback
     """
+    from swanlab.data.callbacker import DisabledCallback, CloudPyCallback, OfflineCallback
+
     c = []
     # 1.1. 禁用模式
     if mode == SwanLabMode.DISABLED.value:
@@ -190,5 +191,6 @@ def _create_operator(
         raise ValueError(f"Unknown mode: {mode}, please use one of {SwanLabMode.list()}")
 
     # 2. 合并用户传递的回调函数并注册到 SwanLabRunOperator 中使其可被调用
-    callbacks = c + cbs
+    # WARNING: 因为官方回调接管了 SwanLabRun 的生命周期，所以用户传递的回调函数必须在官方回调函数之前执行，也就是排在列表前面
+    callbacks = cbs + c
     return SwanLabRunOperator(callbacks)

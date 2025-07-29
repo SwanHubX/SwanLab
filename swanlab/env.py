@@ -125,8 +125,9 @@ class SwanLabEnv(enum.Enum):
         if os.path.exists(path):
             nrc = netrc.netrc(path)
             for host, info in nrc.hosts.items():
-                web_host = info[0] if cls.is_hostname(info[0]) else host.rstrip("/api")
-                api_host = host.rstrip("/api") + "/api"
+                base_host = remove_host_suffix(host, "/api")
+                web_host = info[0] if cls.is_hostname(info[0]) else base_host
+                api_host = base_host + "/api"
                 break
 
         envs = {
@@ -197,3 +198,18 @@ def is_interactive():
     # 多为测试情况，可交互
     except io.UnsupportedOperation:
         return True
+
+
+def remove_host_suffix(host: str, suffix: str) -> str:
+    """
+    移除host的后缀
+    :param host: 待处理的host
+    :param suffix: 要移除的后缀
+    :return: 处理后的host
+    """
+    host = host.rstrip()
+    if len(suffix) == 0:
+        return host
+    if host.endswith(suffix):
+        return host[: -len(suffix)]
+    return host

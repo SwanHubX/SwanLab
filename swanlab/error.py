@@ -34,7 +34,10 @@ class APIKeyFormatError(Exception):
 
 
 class ValidationError(Exception):
-    """验证错误，此时后端验证用户的token或者api key失败"""
+    """验证错误，通常因为：
+    1. 此时后端验证用户的token或者api key失败
+    2. 本地日志文件完整性异常
+    """
 
     pass
 

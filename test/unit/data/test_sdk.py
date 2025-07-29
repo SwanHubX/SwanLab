@@ -684,3 +684,42 @@ class TestResume:
         with pytest.raises(ValueError) as e:
             S.init(resume='must')
         assert str(e.value) == "You must pass id when resume=must."
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+class TestResumeWithEnv:
+    @staticmethod
+    def teardown_method():
+        """
+        清理环境变量
+        """
+        if SwanLabEnv.RESUME.value in os.environ:
+            del os.environ[SwanLabEnv.RESUME.value]
+
+    def test_resume_env(self):
+        """
+        测试通过环境变量设置 resume 参数
+        """
+        os.environ[SwanLabEnv.RESUME.value] = "allow"
+        S.init()
+        run_store = get_run_store()
+        assert run_store.resume == "allow"
+
+    def test_resume_env_passed(self):
+        """
+        显式传递 resume 参数时，环境变量中的 resume 参数不生效
+        """
+        os.environ[SwanLabEnv.RESUME.value] = "allow"
+        S.init(resume="never")
+        run_store = get_run_store()
+        assert run_store.resume == "never"
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_online():
+    """
+    测试在线模式
+    """
+    run = S.init(mode="online")
+    assert run.mode == "cloud"
+    run.finish()

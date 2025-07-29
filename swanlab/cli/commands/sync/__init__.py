@@ -7,9 +7,8 @@
 
 import click
 
-from swanlab.core_python import create_client, auth
 from swanlab.error import KeyFileError
-from swanlab.package import get_key, HostFormatter
+from swanlab.package import HostFormatter, get_key
 from swanlab.sync import sync as sync_logs
 
 
@@ -55,21 +54,26 @@ from swanlab.sync import sync as sync_logs
     type=str,
     help="The project to sync the logs to. If not specified, it will use the default project.",
 )
-def sync(path, api_key, workspace, project, host):
+@click.option(
+    "--id",
+    "-i",
+    default=None,
+    type=str,
+    help="The experiment ID to sync the logs to. It can only be used when the path is a single directory."
+    "For more details, see https://github.com/SwanHubX/SwanLab/pull/1194",  # TODO 换成官网文档链接
+)
+def sync(path, api_key, workspace, project, host, id):
     """
     Synchronize local logs to the cloud.
     """
-    # 1. 创建 http 对象
-    # 1.1 检查host是否合法，并格式化，注入到环境变量中
+    # 1. 检查 host 参数是否符合规范，并注入环境变量中
     HostFormatter(host)()
-    # 1.2 如果输入了 api-key， 使用此 api-key 登录但不保存数据
+    # 2. 尝试获取 API key
     try:
-        api_key = get_key() if api_key is None else api_key
+        if api_key is None:
+            api_key = get_key()
     except KeyFileError:
         pass
+    # 2. 同步数据
     for p in path:
-        # 1.3 登录，创建 http 对象
-        log_info = auth.terminal_login(api_key=api_key, save_key=False)
-        create_client(log_info)
-        # 2. 同步日志
-        sync_logs(p, workspace=workspace, project_name=project, login_required=False, raise_error=len(path) == 1)
+        sync_logs(p, workspace=workspace, project=project, id=id, api_key=api_key, raise_error=len(path) == 1)

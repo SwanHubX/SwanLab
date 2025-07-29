@@ -6,6 +6,7 @@ from .data.modules import (
     Object3D,
     Molecule,
     Text,
+    Video,
     echarts,
 )
 from .env import SwanLabEnv
@@ -37,6 +38,7 @@ __all__ = [
     "Object3D",
     "Molecule",
     "Text",
+    "Video",
     "Run",
     "State",
     "get_run",

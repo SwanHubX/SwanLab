@@ -18,14 +18,18 @@ from typing import Optional, Literal, List, Union, Tuple
 import wrapt
 
 from swanlab.core_python import get_client
+from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel, LogModel
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 from swanlab.data.store import RunStore, get_run_store, reset_run_store
+from swanlab.error import ValidationError
 from swanlab.log.type import LogData
 from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
-from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo, create_time
+from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo, create_time, LogContent
 from .datastore import DataStore
+from .mounter import Mounter
+from .utils import filter_metric, filter_epoch, filter_column
 
-__all__ = ['DataPorter']
+__all__ = ['DataPorter', 'Mounter']
 
 
 def traced():
@@ -61,11 +65,20 @@ def backup():
     def wrapper(wrapped, instance, args, kwargs):
         result: Union[List[BaseModel], BaseModel] = wrapped(*args, **kwargs)
         if result is not None:
-            f = getattr(instance, "_f")
-            if isinstance(result, list):
-                [f.write(item.to_record()) for item in result]
-            else:
-                f.write(result.to_record())
+            try:
+                f = getattr(instance, "_f")
+                if isinstance(result, list):
+                    [f.write(item.to_record()) for item in result]
+                else:
+                    f.write(result.to_record())
+            except ValueError:
+                # 写入备份文件失败，可能是因为没有开启备份模式或者备份文件未打开
+                # TODO: 记录本地日志
+                pass
+            except TypeError:
+                # 目前此错误会发生在与 transformers 集成时 ctrl + c，tqdm 没有立即退出
+                # TODO: 记录本地日志
+                pass
         return result
 
     return wrapper
@@ -189,16 +202,20 @@ class DataPorter:
                 }
             ).to_record()
         )
-        project_name = self._run_store.project
-        run_name = self._run_store.run_name
+        # 项目
+        project = self._run_store.project
         workspace = self._run_store.workspace
         visibility = self._run_store.visibility
+        # 实验
+        id = self._run_store.run_id
+        name = self._run_store.run_name
+        colors = self._run_store.run_colors
         description = self._run_store.description
         tags = self._run_store.tags
         self._f.write(
             Project.model_validate(
                 {
-                    "name": project_name,
+                    "name": project,
                     "workspace": workspace,
                     "public": visibility,
                 }
@@ -207,7 +224,9 @@ class DataPorter:
         self._f.write(
             Experiment.model_validate(
                 {
-                    "name": run_name,
+                    "id": id,
+                    "name": name,
+                    "colors": colors,
                     "description": description,
                     "tags": tags,
                 }
@@ -257,6 +276,9 @@ class DataPorter:
                     # 组合路径
                     path = os.path.join(data.swanlab_media_dir, data.column_info.kid)
                     os.makedirs(path, exist_ok=True)
+                    if data.metric is None:
+                        # TODO: 记录日志
+                        raise ValueError("MetricInfo must have metric data when uploading media.")
                     # 写入数据
                     with open(os.path.join(path, data.metric["data"][i]), "wb") as f:
                         f.write(r.getvalue())
@@ -354,9 +376,11 @@ class DataPorter:
         """
         开启本地数据备份和上传线程池
         使用方式为：
-        with DataPorter().open_for_sync(backup_file) as porter:
-            porter.parse()
-            porter.synchronize()
+        >>> backup_file = "path/to/backup/file"
+        >>> with DataPorter().open_for_sync(backup_file) as porter:
+        >>>    porter.parse()
+        >>>    ... # 创建实验
+        >>>    porter.synchronize()
         """
         assert self._mode == 2, "DataPorter is already in use, cannot open for sync."
         assert self._closed is False, "DataPorter has already rested, cannot open for sync."
@@ -375,10 +399,14 @@ class DataPorter:
         """
         解析备份文件中的记录，必须在 open_for_sync() 后调用
         """
-        for record in self._f:
-            if record is None:
-                continue
-            self._parse_record(record)
+        try:
+            for record in self._f:
+                if record is not None:
+                    self._parse_record(record)
+        except ValidationError:
+            # 略过坏的记录，直接退出
+            # TODO 写入日志文件
+            pass
         # 检查是否所有必要的记录都已解析
         assert self._header is not None, "Header not parsed"
         # 检查备份文件
@@ -388,33 +416,6 @@ class DataPorter:
         assert self._project is not None, "Project not parsed"
         assert self._experiment is not None, "Experiment not parsed"
         return self._project, self._experiment
-
-    def close(self):
-        """
-        关闭实例，此函数用于没有开启 trace 和 sync 时关闭实例
-        """
-        assert self._closed is False, "DataPorter has already rested, cannot close."
-        assert self._mode == 0, "DataPorter is in use, cannot simply close."
-        DataPorter._reset()
-
-    @synced()
-    def synchronize(self) -> bool:
-        """
-        同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
-        返回最终的实验结果，true 代表实验状态为 success 否则为 false
-        """
-        assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
-        assert self._closed is False, "DataPorter has already rested, cannot synchronize."
-        # 同步上传数据到 SwanLab 服务器
-        self._publish((UploadType.FILE, [self._runtime.to_file_model(file_dir=self._run_store.file_dir)]))
-        self._publish((UploadType.COLUMN, [column.to_column_model() for column in self._columns]))
-        self._publish((UploadType.SCALAR_METRIC, [scalar.to_scalar_model() for scalar in self._scalars]))
-        self._publish(
-            (UploadType.MEDIA_METRIC, [media.to_media_model(self._run_store.media_dir) for media in self._medias])
-        )
-        self._publish((UploadType.LOG, [log.to_log_model() for log in self._logs]))
-        self._pool.finish()
-        return self._footer.success if self._footer else False
 
     def _parse_record(self, data: str):
         assert self._mode == 2, "Must parse records in sync mode (mode=2)."
@@ -459,3 +460,79 @@ class DataPorter:
             self._footer = record
             return
         raise ValueError(f"Unknown record type: {type(record)}")
+
+    def close(self):
+        """
+        关闭实例，此函数用于没有开启 trace 和 sync 时关闭实例
+        """
+        assert self._closed is False, "DataPorter has already rested, cannot close."
+        assert self._mode == 0, "DataPorter is in use, cannot simply close."
+        DataPorter._reset()
+
+    @synced()
+    def synchronize(self):
+        """
+        同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
+        NOTE: 执行此函数后，实验会话被关闭
+        """
+        assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
+        assert self._closed is False, "DataPorter has already rested, cannot synchronize."
+        # 同步上传数据到 SwanLab 服务器
+        # 1. 上传文件（配置、运行时）
+        self._publish((UploadType.FILE, [self._runtime.to_file_model(file_dir=self._run_store.file_dir)]))
+        # 2. 上传列信息
+        columns = filter(self._filter_column_by_key, [column.to_column_model() for column in self._columns])
+        self._publish((UploadType.COLUMN, list(columns)))
+        # 3. 上传标量指标
+        scalars = filter(self._filter_scalar_by_step, [scalar.to_scalar_model() for scalar in self._scalars])
+        self._publish((UploadType.SCALAR_METRIC, list(scalars)))
+        # 4. 上传媒体指标
+        medias = filter(
+            self._filter_media_by_step, [media.to_media_model(self._run_store.media_dir) for media in self._medias]
+        )
+        self._publish((UploadType.MEDIA_METRIC, list(medias)))
+        # 5. 上传日志
+        logs = [log.to_log_model() for log in self._logs]
+        for ls in logs:
+            ls['contents'] = list(filter(self._filter_log_by_epoch, ls['contents']))
+        self._publish((UploadType.LOG, logs))
+        # 6. 等待上传完毕
+        self._pool.finish()
+        # 7. 同步实验状态
+        client = get_client()
+        if self._footer is None:
+            client.update_state(success=False)
+        else:
+            client.update_state(self._footer.success, self._footer.create_time)
+
+    def _filter_column_by_key(self, column: ColumnModel) -> bool:
+        """
+        筛选列指标，排除已经上传的列，此函数用于 filter 高阶函数
+        :param column: 列指标数据
+        :return 是否需要被保留
+        """
+        return filter_column(column.key, self._run_store.metrics)
+
+    def _filter_scalar_by_step(self, metric: ScalarModel) -> bool:
+        """
+        筛选标量指标数据，排除已经上传的指标
+        :param metric: 指标数据
+        :return: 是否需要被保留
+        """
+        return filter_metric(metric.key, metric.step, self._run_store.metrics)
+
+    def _filter_media_by_step(self, metric: MediaModel) -> bool:
+        """
+        筛选媒体数据，排除已经上传的媒体
+        :param metric : 媒体数据
+        :return: 是否需要被保留
+        """
+        return filter_metric(metric.key, metric.step, self._run_store.metrics)
+
+    def _filter_log_by_epoch(self, log: LogContent) -> LogModel:
+        """
+        筛选日志数据，排除已经上传的日志
+        :param log: 日志数据
+        :return: 是否需要被保留
+        """
+        return filter_epoch(log['epoch'], self._run_store.log_epoch)
