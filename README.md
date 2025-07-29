@@ -347,7 +347,8 @@ swanlab login --host http://localhost:8000
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现。![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 
 **使用SwanLab的优秀论文：**
-- [Animation Needs Attention](https://arxiv.org/abs/2507.03916)
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
+- [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
 
 **教程文章：**
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
@@ -370,6 +371,8 @@ swanlab login --host http://localhost:8000
 - [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
 - [Qwen3-SmVL-0.6B多模态模型训练](https://docs.swanlab.cn/examples/qwen3_smolvlm_muxi.html)
 - [LeRobot 具身智能入门](https://docs.swanlab.cn/examples/robot/lerobot-guide.html)
+
+🌟如果你有想收录的教程，欢迎提交PR！
 
 <br>
 
