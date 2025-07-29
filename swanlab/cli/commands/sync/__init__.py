@@ -60,7 +60,7 @@ from swanlab.sync import sync as sync_logs
     default=None,
     type=str,
     help="The experiment ID to sync the logs to. It can only be used when the path is a single directory."
-    "For more details, see https://github.com/SwanHubX/SwanLab/pull/1194",  # TODO 换成官网文档链接
+    "For more details, see https://docs.swanlab.cn/api/cli-swanlab-sync.html",
 )
 def sync(path, api_key, workspace, project, host, id):
     """
