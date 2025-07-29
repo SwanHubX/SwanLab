@@ -8,9 +8,14 @@ r"""
     实验相关的开放API
 """
 from typing import List
-from pandas import DataFrame
+
 from swanlab.api.base import ApiBase, ApiHTTP
 from swanlab.api.types import ApiResponse, Experiment, Pagination
+
+try:
+    from pandas import DataFrame
+except ImportError:
+    DataFrame = None
 
 
 class ExperimentAPI(ApiBase):

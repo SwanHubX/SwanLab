@@ -9,8 +9,6 @@ r"""
 """
 from typing import Dict, List, Union
 
-from pandas import DataFrame
-
 from swanlab.api.base import ApiHTTP, get_logger
 from swanlab.api.experiment import ExperimentAPI
 from swanlab.api.group import GroupAPI
@@ -20,6 +18,11 @@ from swanlab.core_python import auth
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
+
+try:
+    from pandas import DataFrame
+except ImportError:
+    DataFrame = None
 
 
 class OpenApi:
