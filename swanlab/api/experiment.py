@@ -168,10 +168,8 @@ class ExperimentAPI(ApiBase):
         try:
             import pandas as pd
         except ImportError:
-            raise ImportError(
-                "OpenApi.get_metrics requires pandas when process wandb logs. Install with 'pip install pandas'."
-            )
-        
+            raise ImportError("OpenApi.get_metrics requires pandas module. Install with 'pip install pandas'.")
+
         # 去重 keys
         keys = list(set(keys))
         dfs = []
