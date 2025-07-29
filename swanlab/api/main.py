@@ -7,7 +7,7 @@ r"""
 @Description:
     SwanLab OpenAPI模块
 """
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from swanlab.api.base import ApiHTTP, get_logger
 from swanlab.api.experiment import ExperimentAPI
@@ -18,6 +18,11 @@ from swanlab.core_python import auth
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
+
+try:
+    from pandas import DataFrame
+except ImportError:
+    DataFrame = None
 
 
 class OpenApi:
@@ -208,6 +213,26 @@ class OpenApi:
             root_exp_id=exp.data.get("rootProId", ""), 
             root_pro_id=exp.data.get("rootExpId", "")
         )
+
+    def get_metrics(
+        self,
+        exp_id: str,
+        keys: Union[str, List[str]],
+    ) -> ApiResponse[DataFrame]:
+        """
+        获取实验的指标数据
+
+        Args:
+            exp_id (str): 实验CUID
+            keys (str | List[str]): 指标key, 单个字符串或字符串列表
+
+        Returns:
+            ApiResponse[DataFrame]: 包含指标数据的响应, 指标数据以 DataFrame 格式返回
+            在DataFrame中, 每个key对应两个列, 分别为key和key_timestamp, 表示指标值和时间戳
+        """
+        if isinstance(keys, str):
+            keys = [keys]
+        return self.experiment.get_metrics(exp_id, keys)
 
     def get_exp_summary(self, *args, **kwargs) -> ApiResponse[Dict]:
         """
