@@ -84,9 +84,8 @@ class DataStore:
         if magic != LEVELDBLOG_HEADER_MAGIC:
             raise Exception("Invalid header")
         if version != LEVELDBLOG_HEADER_VERSION:
-            # TODO 更换为文档链接
             raise Exception(
-                f"Invalid backup version: {version}. For supported versions, see: https://github.com/SwanHubX/SwanLab/pull/1194"
+                f"Invalid backup version: {version}. For supported versions, see: https://docs.swanlab.cn/api/cli-swanlab-sync.html"
             )
         self._index += len(header)
 
