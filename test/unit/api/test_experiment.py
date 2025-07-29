@@ -28,6 +28,7 @@ def test_get_experiment():
     if res.code == 200:
         assert isinstance(res.data, Experiment)
 
+
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_list_experiments():
     """
@@ -41,6 +42,7 @@ def test_list_experiments():
         for item in res.data:
             assert isinstance(item, Experiment)
 
+
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_get_summary():
     """
@@ -53,6 +55,7 @@ def test_get_summary():
     if res.code == 200:
         assert isinstance(res.data, dict)
 
+
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_delete_experiment():
     """
@@ -63,6 +66,7 @@ def test_delete_experiment():
     res = api.delete_experiment(project="test_project", exp_id=exp_cuid)
     assert isinstance(res, ApiResponse)
     assert res.code in [204, 404]
+
 
 @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
 def test_get_metrics():
@@ -78,4 +82,20 @@ def test_get_metrics():
         assert isinstance(res.data, pd.DataFrame)
         assert not res.data.empty
         assert all(key in res.data.columns for key in keys)
-        
+
+
+@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+def test_get_metrics_duplicate_keys():
+    """
+    获取实验的指标数据
+    """
+    api = OpenApi()
+    exp_cuid = "test_cuid"
+    keys = ["accuracy", "loss", "loss"]
+    res = api.get_metrics(exp_id=exp_cuid, keys=keys)
+    assert isinstance(res, ApiResponse)
+    if res.code == 200:
+        assert isinstance(res.data, pd.DataFrame)
+        assert not res.data.empty
+        assert len(res.data.columns.to_list()) == 2
+        assert all(key in res.data.columns for key in ["accuracy", "loss"])

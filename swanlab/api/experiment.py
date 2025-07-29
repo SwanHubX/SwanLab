@@ -165,8 +165,15 @@ class ExperimentAPI(ApiBase):
         Returns:
             ApiResponse[DataFrame]:
         """
-        import pandas as pd
-
+        try:
+            import pandas as pd
+        except ImportError:
+            raise ImportError(
+                "OpenApi.get_metrics requires pandas when process wandb logs. Install with 'pip install pandas'."
+            )
+        
+        # 去重 keys
+        keys = list(set(keys))
         dfs = []
         prefix = ""
         for idx, key in enumerate(keys):
