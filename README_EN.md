@@ -343,7 +343,8 @@ After logging in, you can record experiments to the self-hosted service.
 
 **Excellent Research Papers Using SwanLab:**
 
-- [Animation Needs Attention](https://arxiv.org/abs/2407.03916)
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2407.03916)
+- [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
 
 **Tutorial Articles:**
 
