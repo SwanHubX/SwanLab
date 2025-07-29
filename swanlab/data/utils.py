@@ -147,6 +147,9 @@ def _load_from_env(key: str, value):
     env_value = os.getenv(key)
     if env_value is not None:
         os.environ[key] = env_value
+        # 特殊处理tags环境变量，将逗号分隔的字符串转换为列表
+        if key == SwanLabEnv.TAGS.value:
+            return [tag.strip() for tag in env_value.split(",") if tag.strip()]
         return env_value
 
 
