@@ -371,6 +371,7 @@ swanlab login --host http://localhost:8000
 - [GRPO大模型强化学习](https://docs.swanlab.cn/examples/qwen_grpo.html)
 - [Qwen3-SmVL-0.6B多模态模型训练](https://docs.swanlab.cn/examples/qwen3_smolvlm_muxi.html)
 - [LeRobot 具身智能入门](https://docs.swanlab.cn/examples/robot/lerobot-guide.html)
+- [GLM-4.5-Air-LoRA 及 SwanLab 可视化记录](https://github.com/datawhalechina/self-llm/blob/master/models/GLM-4.5-Air/03-GLM-4.5-Air-Lora%20%E5%8F%8A%20Swanlab%20%E5%8F%AF%E8%A7%86%E5%8C%96%E5%BE%AE%E8%B0%83.md)
 
 🌟如果你有想收录的教程，欢迎提交PR！
 
