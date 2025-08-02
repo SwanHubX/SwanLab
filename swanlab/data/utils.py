@@ -105,7 +105,7 @@ def _init_mode(mode: str = None):
                 swanlog.warning("Invalid choice, please enter again:")
                 code = input("")
             if code == "3":
-                mode = "local"
+                mode = "offline"
             elif code == "2":
                 swanlog.info("You chose 'Use an existing swanlab account'")
                 swanlog.info("Logging into", Text(web_host, 'yellow'))
