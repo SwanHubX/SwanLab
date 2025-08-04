@@ -89,7 +89,7 @@ class TestInitModeFunc:
             del os.environ[SwanLabEnv.API_KEY.value]
         monkeypatch.setattr("builtins.input", lambda _: "3")
         mode, login_info = swanlab.data.utils._init_mode("cloud")
-        assert mode == "local"
+        assert mode == "offline"
         assert login_info is None
 
     @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
@@ -109,7 +109,7 @@ class TestInitModeFunc:
         # 选择第三种
         monkeypatch.setattr("builtins.input", lambda _: "3")
         mode, login_info = swanlab.data.utils._init_mode("cloud")
-        assert mode == "local"
+        assert mode == "offline"
         assert login_info is None
 
         # 选择第二种
@@ -149,7 +149,7 @@ class TestInitModeFunc:
         other_input = create_other_input()
         monkeypatch.setattr("builtins.input", lambda _: other_input())
         mode, login_info = swanlab.data.utils._init_mode("cloud")
-        assert mode == "local"
+        assert mode == "offline"
         assert login_info is None
 
 
