@@ -59,7 +59,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         )
         
         data = {tag: scalar_value}
-        swanlab.log(data=data, step=global_step)
+        swanlab.log(data=data, step=int(global_step))
         
         return original_add_scalar(self, *args, **kwargs)
 
@@ -70,7 +70,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         )
         for dict_tag, value in scalar_value_dict.items():
             data = {f"{tag}/{dict_tag}": value}
-            swanlab.log(data=data, step=global_step)
+            swanlab.log(data=data, step=int(global_step))
         return original_add_scalars(self, *args, **kwargs)
 
     def patched_add_image(self, *args, **kwargs):
@@ -102,7 +102,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
             pass
             
         data = {tag: swanlab.Image(img_tensor)}
-        swanlab.log(data=data, step=global_step)
+        swanlab.log(data=data, step=int(global_step))
 
         return original_add_image(self, *args, **kwargs)
     
@@ -111,7 +111,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
             args, kwargs, ['tag', 'text_string', 'global_step']
         )
         data = {tag: swanlab.Text(text_string)}
-        swanlab.log(data=data, step=global_step)
+        swanlab.log(data=data, step=int(global_step))
         return original_add_text(self, *args, **kwargs)
     
 
