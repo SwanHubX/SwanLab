@@ -125,8 +125,8 @@ class ExperimentAPI(ApiBase):
             "projectId": pro_id,
         }
         if root_exp_id and root_pro_id:
-            data["rootExperimentId"] = root_exp_id
-            data["rootProjectId"] = root_pro_id
+            data["rootExpId"] = root_exp_id
+            data["rootProId"] = root_pro_id
 
         resp = self.http.post("/house/metrics/summaries", data=[data], params={})
         if resp.errmsg:
