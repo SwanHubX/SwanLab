@@ -210,8 +210,8 @@ class OpenApi:
         return self.experiment.get_summary(
             exp_id=exp_id,
             pro_id=project_cuid,
-            root_exp_id=exp.data.get("rootProId", ""), 
-            root_pro_id=exp.data.get("rootExpId", "")
+            root_exp_id=exp.data.get("rootExpId", ""), 
+            root_pro_id=exp.data.get("rootProId", "")
         )
 
     def get_metrics(
