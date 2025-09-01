@@ -432,6 +432,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
+- [MLX-LM](https://docs.swanlab.cn/guide_cloud/integration/integration-mlx-lm.html)
 
 **评估框架**
 - [EvalScope](https://docs.swanlab.cn/guide_cloud/integration/integration-evalscope.html)
