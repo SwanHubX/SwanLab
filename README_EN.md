@@ -376,6 +376,7 @@ After logging in, you can record experiments to the self-hosted service.
 - [Training the Qwen3-SmVL-0.6B Multimodal Model](https://docs.swanlab.cn/en/examples/qwen3_smolvlm_muxi.html)
 - [Getting Started with Embodied AI using LeRobot](https://docs.swanlab.cn/en/examples/robot/lerobot-guide.html)
 - [GLM-4.5-Air-LoRA and SwanLab Visualization](https://github.com/datawhalechina/self-llm/blob/master/models/GLM-4.5-Air/03-GLM-4.5-Air-Lora%20%E5%8F%8A%20Swanlab%20%E5%8F%AF%E8%A7%86%E5%8C%96%E5%BE%AE%E8%B0%83.md)
+- [How to do RAG? SwanLab Document Assistant Solution Released](https://docs.swanlab.cn/course/prompt_engineering_course/11-swanlab_rag/1.swanlab-rag.html)
 
 <br>
 
