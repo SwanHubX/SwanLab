@@ -510,9 +510,9 @@ If you wish to document other hardware, feel free to submit an Issue or PR!
 
 ### Repositories
 
-• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
-• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
-• [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+- [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+- [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
+- [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
 
 
 ### Community and Support

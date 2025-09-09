@@ -520,9 +520,9 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 ### 周边仓库
 
+- [self-hosted](https://github.com/swanhubx/self-hosted)：私有化部署脚本仓库
 - [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs)：官方文档仓库
 - [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard)：离线看板仓库，存放了由`swanlab watch`打开的轻量离线看板的web代码
-- [self-hosted](https://github.com/swanhubx/self-hosted)：私有化部署脚本仓库
 
 ### 社区与支持
 
