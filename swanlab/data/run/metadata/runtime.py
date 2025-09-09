@@ -85,7 +85,7 @@ def _get_command() -> str:
 # ---------------------------------- git信息 ----------------------------------
 
 
-@check_env(SwanLabEnv.DISABLE_GIT.value)
+@check_env(SwanLabEnv.DISABLE_GIT.value, default_return={})
 def get_git_info():
     """获取git信息"""
     return {
