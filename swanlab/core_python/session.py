@@ -9,6 +9,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from swanlab.package import get_package_version
+
 
 def create_session() -> requests.Session:
     """
@@ -25,4 +27,5 @@ def create_session() -> requests.Session:
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
+    session.headers["swanlab-sdk"] = get_package_version()
     return session
