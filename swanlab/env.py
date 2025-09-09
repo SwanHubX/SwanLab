@@ -17,7 +17,6 @@ from typing import List
 from urllib.parse import urlparse
 
 import swanlab.toolkit as E
-from swanlab.toolkit import SwanLabSharedEnv
 
 
 # ---------------------------------- 环境变量枚举类 ----------------------------------
@@ -28,15 +27,15 @@ class SwanLabEnv(enum.Enum):
     swanlab环境变量枚举类，包含swankit的共享环境变量
     """
 
-    SWANLAB_FOLDER = SwanLabSharedEnv.SWANLAB_FOLDER.value
+    SWANLAB_FOLDER = "SWANLAB_SAVE_DIR"
     """
     swanlab全局文件夹保存的路径，默认为用户主目录下的.swanlab文件夹
     """
-    SWANLOG_FOLDER = SwanLabSharedEnv.SWANLOG_FOLDER.value
+    SWANLOG_FOLDER = "SWANLAB_LOG_DIR"
     """
     swanlab解析日志文件保存的路径，默认为当前运行目录的swanlog文件夹
     """
-    MODE = SwanLabSharedEnv.SWANLAB_MODE.value
+    MODE = "SWANLAB_MODE"
     """
     swanlab的解析模式，涉及操作员注册的回调，目前有四种：local、cloud、disabled、offline，默认为cloud
     大小写敏感
@@ -81,14 +80,28 @@ class SwanLabEnv(enum.Enum):
     swanlab 实验运行 id，resume 时使用
     """
     RESUME = "SWANLAB_RESUME"
-
+    """
+    swanlab 实验是否为恢复运行，resume 时使用，设置为 true 则表示恢复运行
+    """
     RUNTIME = "SWANLAB_RUNTIME"
     """
-    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"
+    swanlab的运行时环境，"user" "develop" "test" "test-no-cloud"，目前仅用于开发测试
     """
     WEBHOOK = "SWANLAB_WEBHOOK"
     """
     webhook地址。swanlab初始化完毕时，如果此环境变量存在，会调用此地址，发送消息。
+    """
+    DESCRIPTION = "SWANLAB_DESCRIPTION"
+    """
+    实验描述，用于为实验提供更详细的介绍或标注
+    """
+    TAGS = "SWANLAB_TAGS"
+    """
+    实验标签，用于标注当前实验，多个标签用逗号分隔
+    """
+    DISABLE_GIT = "SWANLAB_DISABLE_GIT"
+    """
+    禁用Git功能，设置为true时不会采集Git信息
     """
 
     @staticmethod

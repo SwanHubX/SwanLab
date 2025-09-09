@@ -12,6 +12,8 @@ import subprocess
 import sys
 
 from swanlab.core_python import get_client
+from swanlab.data.run.metadata.utils import check_env
+from swanlab.env import SwanLabEnv
 from swanlab.error import KeyFileError
 from swanlab.package import get_key
 from swanlab.swanlab_settings import get_settings
@@ -83,6 +85,7 @@ def _get_command() -> str:
 # ---------------------------------- git信息 ----------------------------------
 
 
+@check_env(SwanLabEnv.DISABLE_GIT.value, default_return={})
 def get_git_info():
     """获取git信息"""
     return {
