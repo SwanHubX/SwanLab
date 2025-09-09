@@ -13,11 +13,11 @@ import requests
 from rich.status import Status
 from rich.text import Text
 
-from swanlab.core_python import auth
 from swanlab.env import is_windows, is_interactive
 from swanlab.error import ValidationError, APIKeyFormatError, KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_setting_url, get_host_api, get_host_web, fmt_web_host, save_key as sk, get_key
+from ...session import create_session
 
 
 class LoginInfo:
@@ -102,7 +102,8 @@ class LoginInfo:
 
 def login_request(api_key: str, api_host: str, timeout: int = 20) -> requests.Response:
     """用户登录，请求后端接口完成验证"""
-    resp = requests.post(url=f"{api_host}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
+    session = create_session()
+    resp = session.post(url=f"{api_host}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
     return resp
 
 
@@ -220,7 +221,7 @@ def create_login_info(save: bool = True):
         raise KeyFileError(
             "api key not configured (no-tty), call `swanlab.login(api_key=[your_api_key])` or set `swanlab.init(mode=\"local\")`."
         )
-    return auth.terminal_login(key, save)
+    return terminal_login(key, save)
 
 
 def _abort_tip(tp, _, __):

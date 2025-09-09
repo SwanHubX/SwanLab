@@ -10,8 +10,6 @@ from datetime import datetime
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
@@ -20,6 +18,7 @@ from swanlab.toolkit import MediaBuffer
 from .cos import CosClient
 from .model import ProjectInfo, ExperimentInfo
 from .. import auth
+from ..session import create_session
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
@@ -164,16 +163,7 @@ class Client:
         创建会话，这将在HTTP类实例化时调用
         添加了重试策略
         """
-        session = requests.Session()
-        retry = Retry(
-            total=10,
-            backoff_factor=0.5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("https://", adapter)
-
+        session = create_session()
         session.headers["swanlab-sdk"] = self.__version
         session.cookies.update({"sid": self.__login_info.sid})
 
@@ -457,6 +447,7 @@ def sync_error_handler(func):
 __all__ = [
     "get_client",
     "reset_client",
+    "create_session",
     "create_client",
     "sync_error_handler",
     "decode_response",
