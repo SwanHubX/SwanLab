@@ -12,13 +12,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable, List, Optional, Union
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from swanlab.api.types import ApiResponse
-from swanlab.core_python import auth
+from swanlab.core_python import auth, create_session
 from swanlab.log.log import SwanLog
-from swanlab.package import get_package_version
 
 _logger: Optional[SwanLog] = None
 
@@ -94,19 +91,7 @@ class ApiHTTP:
         return datetime.strptime(self.__login_info.expired_at or "", "%Y-%m-%dT%H:%M:%S.%fZ")
 
     def __init_session(self) -> requests.Session:
-        session = requests.Session()
-        session.mount(
-            prefix="https://",
-            adapter=HTTPAdapter(
-                max_retries=Retry(
-                    total=3,
-                    backoff_factor=0.1,
-                    status_forcelist=[500, 502, 503, 504],
-                    allowed_methods=(["GET", "POST", "PUT", "DELETE", "PATCH"])
-                )
-            )
-        )
-        session.headers["swanlab-sdk"] = get_package_version()
+        session = create_session()
         session.cookies.update({"sid": self.__login_info.sid or ""})
         return session
 

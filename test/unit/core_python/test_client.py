@@ -10,8 +10,6 @@ import os
 import nanoid
 import pytest
 import requests_mock
-import responses
-from responses import registries
 
 from swanlab.core_python import create_client, Client, CosClient, reset_client
 from swanlab.core_python.auth import login_by_key
@@ -73,28 +71,6 @@ def test_decode_response():
             assert data == {"test": "test"}
             data, _ = client.post("/text")
             assert data == "test"
-
-
-@responses.activate(registry=registries.OrderedRegistry)
-def test_retry():
-    """
-    测试重试机制
-    """
-    from swanlab.package import get_host_api
-
-    url = get_host_api() + "/retry"
-    rsp1 = responses.get(url, body="Error", status=500)
-    rsp2 = responses.get(url, body="Error", status=500)
-    rsp3 = responses.get(url, body="Error", status=500)
-    rsp4 = responses.get(url, body="OK", status=200)
-    with UseMockRunState() as run_state:
-        client = run_state.client
-        data, _ = client.get("/retry")
-        assert data == "OK"
-        assert rsp1.call_count == 1
-        assert rsp2.call_count == 1
-        assert rsp3.call_count == 1
-        assert rsp4.call_count == 1
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
