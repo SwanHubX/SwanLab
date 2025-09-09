@@ -6,7 +6,7 @@
 """
 
 import os
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Any
 
 from rich.text import Text
 
@@ -141,16 +141,37 @@ def _load_from_dict(load_data: dict, key: str, value):
     return d
 
 
-def _load_from_env(key: str, value):
+def _load_from_env(key: Any, value) -> Optional[str]:
+    """
+    从环境变量中加载数据，如果value不是None，则直接返回value，如果为None，则返回环境变量中的key
+    :param key: 环境变量中的key
+    :param value: 传入的value
+    :return: 环境变量中的value
+    """
     if value is not None:
         return value
     env_value = os.getenv(key)
     if env_value is not None:
         os.environ[key] = env_value
-        # 特殊处理tags环境变量，将逗号分隔的字符串转换为列表
-        if key == SwanLabEnv.TAGS.value:
-            return [tag.strip() for tag in env_value.split(",") if tag.strip()]
         return env_value
+
+
+def _load_list_from_env(key: Any, value: Optional[List[str]]) -> Optional[List[str]]:
+    """
+    从环境变量中加载tags，如果value不是None，则直接返回value，如果为None，则返回环境变量中的key，按逗号分隔
+    处理逻辑与_load_from_env类似
+    例如：SWANLAB_TAGS="tag1, tag2, tag3"
+    结果返回 ['tag1', 'tag2', 'tag3']
+    :param key: 环境变量中的key
+    :param value: 传入的value
+    :return:
+    """
+    if value is not None:
+        return value
+    env_value = os.getenv(key)
+    if env_value is not None:
+        os.environ[key] = env_value
+        return [tag.strip() for tag in env_value.split(",") if tag.strip()]
 
 
 def _create_operator(
