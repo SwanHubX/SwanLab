@@ -83,18 +83,14 @@ def test_retry():
     from swanlab.package import get_host_api
 
     url = get_host_api() + "/retry"
-    rsp1 = responses.get(url, body="Error", status=500)
-    rsp2 = responses.get(url, body="Error", status=500)
-    rsp3 = responses.get(url, body="Error", status=500)
-    rsp4 = responses.get(url, body="OK", status=200)
+
+    [responses.add(responses.GET, url, body="Error", status=500) for _ in range(10)]
+    responses.add(responses.GET, url, body="Success", status=200)
     with UseMockRunState() as run_state:
         client = run_state.client
         data, _ = client.get("/retry")
-        assert data == "OK"
-        assert rsp1.call_count == 1
-        assert rsp2.call_count == 1
-        assert rsp3.call_count == 1
-        assert rsp4.call_count == 1
+        assert data == "Success"
+        assert len(responses.calls) == 11
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")

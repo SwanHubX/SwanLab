@@ -166,8 +166,8 @@ class Client:
         """
         session = requests.Session()
         retry = Retry(
-            total=3,
-            backoff_factor=0.1,
+            total=10,
+            backoff_factor=0.5,
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
         )
