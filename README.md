@@ -350,6 +350,7 @@ swanlab login --host http://localhost:8000
 - [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 - [Qwen3-SmVL](https://github.com/ShaohonChen/Qwen3-SmVL): 将SmolVLM2的视觉头与Qwen3-0.6B模型进行了拼接微调 ![GitHub Repo stars](https://img.shields.io/github/stars/ShaohonChen/Qwen3-SmVL)
+- [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): 通过多Agent蒸馏和Agent RL的端到端Agent基础模型。 ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
 
 **使用SwanLab的优秀论文：**
 - [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
@@ -519,9 +520,9 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 ### 周边仓库
 
+- [self-hosted](https://github.com/swanhubx/self-hosted)：私有化部署脚本仓库
 - [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs)：官方文档仓库
 - [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard)：离线看板仓库，存放了由`swanlab watch`打开的轻量离线看板的web代码
-- [self-hosted](https://github.com/swanhubx/self-hosted)：私有化部署脚本仓库
 
 ### 社区与支持
 

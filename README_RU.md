@@ -423,9 +423,9 @@ swanlab login --host http://localhost:8000
 
 ### Периферийные репозитории
 
-• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): Официальный репозиторий документации.
-• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): Репозиторий оффлайн-дашборда, содержащий веб-код для легковесного оффлайн-дашборда, открываемого командой `swanlab watch`.
-• [self-hosted](https://github.com/swanhubx/self-hosted): Репозиторий скриптов для частного развертывания.
+- [self-hosted](https://github.com/swanhubx/self-hosted): Репозиторий скриптов для частного развертывания.
+- [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): Официальный репозиторий документации.
+- [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): Репозиторий оффлайн-дашборда, содержащий веб-код для легковесного оффлайн-дашборда, открываемого командой `swanlab watch`.
 
 ### Сообщество и поддержка
 

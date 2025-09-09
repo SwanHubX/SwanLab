@@ -345,6 +345,7 @@ After logging in, you can record experiments to the self-hosted service.
 - [self-llm](https://github.com/datawhalechina/self-llm): "A Cookbook for Open-Source Large Models" - A tutorial tailored for Chinese users on quickly fine-tuning (full-parameter/LoRA) and deploying domestic and international open-source Large Language Models (LLMs) / Multi-modal Large Models (MLLMs) in a Linux environment. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek): Interpretation, extension, and reproduction of the DeepSeek series of works. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 - [Qwen3-SmVL](https://github.com/ShaohonChen/Qwen3-SmVL): The visual head of SmolVLM2 was concatenated and fine-tuned with the Qwen3-0.6B model. ![GitHub Repo stars](https://img.shields.io/github/stars/ShaohonChen/Qwen3-SmVL)
+- [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): Chain-of-Agents: A chain-of-agents model through multi-agent distillation and agent RL. ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
 
 **Excellent Research Papers Using SwanLab:**
 
@@ -509,9 +510,9 @@ If you wish to document other hardware, feel free to submit an Issue or PR!
 
 ### Repositories
 
-• [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
-• [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
-• [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+- [self-hosted](https://github.com/swanhubx/self-hosted): The repository for private deployment scripts.
+- [SwanLab-Docs](https://github.com/swanhubx/swanlab-docs): The official documentation repository.
+- [SwanLab-Dashboard](https://github.com/swanhubx/swanlab-dashboard): The offline dashboard repository, which contains the web code for the lightweight offline dashboard opened by `swanlab watch`.
 
 
 ### Community and Support
