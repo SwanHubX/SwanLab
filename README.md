@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2025.09.12：🔢支持创建**标量图**，灵活显示实验指标的统计值；组织管理页面大升级，提供更强大的权限控制与项目管理能力；
+
 - 2025.08.19：🤔更强大的图表渲染性能与低侵入式加载动画，让研究者更聚焦于实验分析本身；集成优秀的[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)框架，提供更多场景的训练体验；
 
 - 2025.08.06：👥**训练轻协作**上线，支持邀请项目协作者，分享项目链接与二维码；工作区支持列表视图，支持显示项目Tags；
@@ -75,10 +77,9 @@
 
 - 2025.06.20：🤗集成[accelerate](https://github.com/huggingface/accelerate)框架，[PR](https://github.com/huggingface/accelerate/pull/3605)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)，增强分布式训练中的实验记录体验；
 
-- 2025.06.18：🐜集成[AREAL](https://github.com/inclusionAI/AReaL)框架，感谢[@xichengpro](https://github.com/xichengpro)，[PR](https://github.com/inclusionAI/AReaL/pull/98)，[文档](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process)；🖱支持鼠标Hover到侧边栏实验时，高亮相应曲线；支持跨组对比折线图；支持设置实验名裁剪规则；
-
-
 <details><summary>完整更新日志</summary>
+
+- 2025.06.18：🐜集成[AREAL](https://github.com/inclusionAI/AReaL)框架，感谢[@xichengpro](https://github.com/xichengpro)，[PR](https://github.com/inclusionAI/AReaL/pull/98)，[文档](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process)；🖱支持鼠标Hover到侧边栏实验时，高亮相应曲线；支持跨组对比折线图；支持设置实验名裁剪规则；
 
 - 2025.06.11：📊支持 **swanlab.echarts.table** 数据类型，支持纯文本图表展示；支持对分组进行**拉伸交互**，以增大同时显示的图表数量；表格视图增加 **指标最大/最小值** 选项；
 

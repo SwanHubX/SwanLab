@@ -53,6 +53,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.09.12: 🔢 Added support for **scalar chart**, flexibly displaying the statistical values of experiment indicators; organization management page has been upgraded, providing more powerful permission control and project management capabilities;
+
 - 2025.08.19: 🤔 Optimized chart rendering performance, allowing researchers to focus more on experiment analysis; integrated excellent [MLX-LM](https://github.com/ml-explore/mlx-lm) and [SpecForge](https://github.com/sgl-project/SpecForge) frameworks, providing more training scenarios;
 
 - 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
@@ -69,10 +71,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.06.20: 🤗 Integrated the [accelerate](https://github.com/huggingface/accelerate) framework, [PR](https://github.com/huggingface/accelerate/pull/3605), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), enhancing the experience of recording and analyzing experiments in distributed training.
 
-- 2025.06.18: 🐜 Integrated the [AREAL](https://github.com/inclusionAI/AReaL) framework, thanks to [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [documentation](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Added support for highlighting corresponding curves when hovering the mouse over sidebar experiments; Added support for cross-group comparison line charts; Added support for setting experiment name trimming rules;
-
 
 <details><summary>Full Changelog</summary>
+
+- 2025.06.18: 🐜 Integrated the [AREAL](https://github.com/inclusionAI/AReaL) framework, thanks to [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [documentation](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Added support for highlighting corresponding curves when hovering the mouse over sidebar experiments; Added support for cross-group comparison line charts; Added support for setting experiment name trimming rules;
 
 - 2025.06.11: 📊 Added support for **swanlab.echarts.table** data type, supporting pure text chart display; added support for **stretch interaction** for groups, allowing more charts to be displayed at the same time; added **maximum/minimum value** options for table views;
 
