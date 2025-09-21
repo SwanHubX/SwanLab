@@ -51,6 +51,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.09.22: 📊 新UIが利用可能になりました；テーブルビューでグローバルソートとフィルタリングをサポート；データレベルでテーブルビューとグラフビューを統一；
+
 - 2025.09.12: 🔢 **スカラーチャート**のサポートを追加、実験指標の統計値を柔軟に表示可能；組織管理ページ大アップグレード、より強力な権限制御とプロジェクト管理機能を提供；
 
 - 2025.08.19: 🤔 より強力なグラフレンダリングパフォーマンスと低侵入性のローディングアニメーション、研究者が実験分析に集中できるように；優れた[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)フレームワークを統合、より多くのトレーニングシナリオを提供；
@@ -67,10 +69,11 @@
 
 - 2025.06.27: **小折れ線グラフの局所拡大**をサポート；**単一折れ線グラフの平滑化**をサポート；大幅に画像グラフの拡大後のインタラクション効果を改善；
 
-- 2025.06.20: 🤗 [accelerate](https://github.com/huggingface/accelerate) フレームワークを統合、[PR](https://github.com/huggingface/accelerate/pull/3605)、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)、分散トレーニング中の実験記録と分析の体験を向上させます。
 
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.06.20: 🤗 [accelerate](https://github.com/huggingface/accelerate) フレームワークを統合、[PR](https://github.com/huggingface/accelerate/pull/3605)、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)、分散トレーニング中の実験記録と分析の体験を向上させます。
 
 - 2025.06.18: 🐜 [AREAL](https://github.com/inclusionAI/AReaL) フレームワークを統合、[@xichengpro](https://github.com/xichengpro) 氏に感謝、[PR](https://github.com/inclusionAI/AReaL/pull/98)、[ドキュメント](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 サイドバーの実験にマウスをホバーすると対応する曲線がハイライト表示される機能をサポート; グループ間での折れ線グラフ比較をサポート; 実験名のトリミングルール設定をサポート;
 
