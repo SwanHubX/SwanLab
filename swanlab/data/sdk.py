@@ -14,7 +14,7 @@ from typing import Union, Dict, Literal, List
 
 import platformdirs
 
-from swanlab.env import SwanLabEnv
+from swanlab.env import SwanLabEnv, create_swanlog_dir, get_swanlog_dir
 from swanlab.formatter import (
     check_load_json_yaml,
     check_callback_format,
@@ -195,6 +195,8 @@ class SwanLabInitializer:
         merge_settings(settings)
         user_settings = get_settings()
         swanlog.level = kwargs.get("log_level", "info")
+        # 获取本地文件夹配置，默认从当前工作目录下的swanlog文件夹中读取
+        folder_settings = read_folder_settings(get_swanlog_dir())
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
         # 1. 加载参数
         if callbacks is None:
@@ -267,11 +269,6 @@ class SwanLabInitializer:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
-        # 2.5 校验日志路径，填写默认日志路径，生成基于文件夹的配置对象
-        if not logdir:
-            logdir = os.path.join(os.getcwd(), "swanlog")
-            logdir = os.path.abspath(logdir)
-        folder_settings = read_folder_settings(logdir)
         # 3. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
@@ -301,17 +298,13 @@ class SwanLabInitializer:
             # 设置 backup 为 false 时只是给用户一个没有备份的感觉，但是因为 swanlab 架构问题，必须有地方保存
             # 此时我们将日志存在系统运行时目录
             logdir = platformdirs.user_cache_dir(ensure_exists=True, appname="swanlab", appauthor="SwanHubX")
+        elif logdir is None:
+            # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
+            # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
+            logdir = get_swanlog_dir()
+        logdir = os.path.abspath(logdir)
         os.environ[env_key] = logdir
-        try:
-            os.makedirs(logdir, exist_ok=True)
-            if not os.access(logdir, os.W_OK):
-                raise IOError(f"no write permission for path: {logdir}")
-        except Exception as error:
-            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-        # 如果logdir是空的，创建.gitignore文件，写入*
-        if not os.listdir(logdir):
-            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-                f.write("*")
+        create_swanlog_dir(logdir)
         # ---------------------------------- 设置运行时配置 ----------------------------------
         # 1. 写入运行时配置
         run_store.resume = resume

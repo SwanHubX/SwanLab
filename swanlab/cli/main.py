@@ -37,16 +37,16 @@ cli.add_command(C.convert)  # 转换命令，用于转换其他实验跟踪工�
 cli.add_command(C.sync)  # 同步命令，用于同步本地数据到云端
 
 # noinspection PyTypeChecker
-cli.add_command(C.offline)  # 离线命令，设置SWANLAB_MODE为offline
+cli.add_command(C.offline)  # 开启默认离线模式
 
 # noinspection PyTypeChecker
-cli.add_command(C.local)  # 本地命令，设置SWANLAB_MODE为local
+cli.add_command(C.local)  # 开启默认本地模式
 
 # noinspection PyTypeChecker
-cli.add_command(C.online)  # 在线命令，设置SWANLAB_MODE为cloud
+cli.add_command(C.online)  # 开启默认在线模式
 
 # noinspection PyTypeChecker
-cli.add_command(C.disabled)  # 禁用命令，设置SWANLAB_MODE为disabled
+cli.add_command(C.disabled)  # 开启默认禁用模式
 
 
 if __name__ == "__main__":
