@@ -10,4 +10,5 @@ r"""
 from .auth import login, logout
 from .converter import convert
 from .dashboard import watch
+from .mode import *
 from .sync import sync

@@ -13,7 +13,8 @@ import netrc
 import os
 import re
 import sys
-from typing import List
+from pathlib import Path
+from typing import List, Union
 from urllib.parse import urlparse
 
 import swanlab.toolkit as E
@@ -226,3 +227,23 @@ def remove_host_suffix(host: str, suffix: str) -> str:
     if host.endswith(suffix):
         return host[: -len(suffix)]
     return host
+
+
+def create_swanlog_dir(logdir: Union[Path, str] = None):
+    """
+    获取swanlog文件夹，如果文件夹不存在则创建
+    :param logdir: swanlog文件夹路径，默认为当前工作目录下的swanlog文件夹
+    """
+    if logdir is None:
+        logdir = get_swanlog_dir()
+    try:
+        os.makedirs(logdir, exist_ok=True)
+        if not os.access(logdir, os.W_OK):
+            raise IOError(f"no write permission for path: {logdir}")
+    except Exception as error:
+        raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+    # 如果logdir是空的，创建.gitignore文件，写入*
+    if not os.listdir(logdir):
+        with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+            f.write("*")
+    return logdir

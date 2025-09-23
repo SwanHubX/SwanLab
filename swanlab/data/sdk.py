@@ -14,7 +14,7 @@ from typing import Union, Dict, Literal, List
 
 import platformdirs
 
-from swanlab.env import SwanLabEnv
+from swanlab.env import SwanLabEnv, create_swanlog_dir, get_swanlog_dir
 from swanlab.formatter import (
     check_load_json_yaml,
     check_callback_format,
@@ -25,7 +25,7 @@ from swanlab.formatter import (
     check_run_id_format,
 )
 from swanlab.log import swanlog
-from swanlab.swanlab_settings import Settings, get_settings, set_settings
+from swanlab.swanlab_settings import Settings, get_settings, set_settings, read_folder_settings
 from swanlab.toolkit import SwanKitCallback
 from .modules import DataType
 from .run import (
@@ -195,6 +195,8 @@ class SwanLabInitializer:
         merge_settings(settings)
         user_settings = get_settings()
         swanlog.level = kwargs.get("log_level", "info")
+        # 获取本地文件夹配置，默认从当前工作目录下的swanlog文件夹中读取
+        folder_settings = read_folder_settings(get_swanlog_dir())
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
         # 1. 加载参数
         if callbacks is None:
@@ -240,10 +242,9 @@ class SwanLabInitializer:
         tags = _load_list_from_env(SwanLabEnv.TAGS.value, tags)
         resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
-
-        # 2. 格式校验
-        # 2.1 校验项目名称
-        # 默认实验名称为当前目录名
+        logdir = _load_from_env(SwanLabEnv.SWANLOG_FOLDER.value, logdir)
+        # 2. 部分格式校验
+        # 2.1 校验项目名称，默认实验名称为当前目录名
         project = project if project else os.path.basename(os.getcwd())
         p = check_proj_name_format(project)
         if len(p) != len(project):
@@ -261,22 +262,22 @@ class SwanLabInitializer:
             if description != d:
                 swanlog.warning("The description has been truncated automatically.")
                 description = d
-        # 4. 校验标签
+        # 2.4 校验标签
         if tags:
             new_tags = check_tags_format(tags)
             for i in range(len(tags)):
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
-        # 6. 校验回调函数
+        # 3. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
-        # 7. 校验mode参数并适配 backup 模式
+        # 5. 校验mode参数并适配 backup 模式
         mode = "cloud" if mode == "online" else mode
-        mode, login_info = _init_mode(mode)
+        mode, login_info = _init_mode(mode, folder_settings.mode)
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
-        # 8. 校验 resume 与 id
+        # 6. 校验 resume 与 id
         resume = resume or 'never'
         if resume == 'never':
             # 不允许传递 id
@@ -300,20 +301,10 @@ class SwanLabInitializer:
         elif logdir is None:
             # 如果传入了logdir，则将logdir设置为环境变量，代表日志文件存放的路径
             # 如果没有传入logdir，则使用默认的logdir, 即当前工作目录下的swanlog文件夹，但是需要保证目录存在
-            logdir = os.environ.get(env_key) or os.path.join(os.getcwd(), "swanlog")
+            logdir = get_swanlog_dir()
         logdir = os.path.abspath(logdir)
         os.environ[env_key] = logdir
-        try:
-            os.makedirs(logdir, exist_ok=True)
-            if not os.access(logdir, os.W_OK):
-                raise IOError(f"no write permission for path: {logdir}")
-        except Exception as error:
-            raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-        # 如果logdir是空的，创建.gitignore文件，写入*
-        if not os.listdir(logdir):
-            with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-                f.write("*")
-        run_store.swanlog_dir = logdir
+        create_swanlog_dir(logdir)
         # ---------------------------------- 设置运行时配置 ----------------------------------
         # 1. 写入运行时配置
         run_store.resume = resume
