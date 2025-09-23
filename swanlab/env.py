@@ -229,11 +229,13 @@ def remove_host_suffix(host: str, suffix: str) -> str:
     return host
 
 
-def create_swanlog_dir(logdir: Union[Path, str] = get_swanlog_dir()):
+def create_swanlog_dir(logdir: Union[Path, str] = None):
     """
     获取swanlog文件夹，如果文件夹不存在则创建
     :param logdir: swanlog文件夹路径，默认为当前工作目录下的swanlog文件夹
     """
+    if logdir is None:
+        logdir = get_swanlog_dir()
     try:
         os.makedirs(logdir, exist_ok=True)
         if not os.access(logdir, os.W_OK):
