@@ -9,3 +9,4 @@ r"""
 """
 from .login import login
 from .logout import logout
+from .verify import verify

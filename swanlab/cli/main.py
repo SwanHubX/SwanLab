@@ -26,6 +26,8 @@ def cli():
 cli.add_command(C.login)  # 登录
 # noinspection PyTypeChecker
 cli.add_command(C.logout)  # 登出
+# noinspection PyTypeChecker
+cli.add_command(C.verify)  # 验证当前登录状态
 
 # noinspection PyTypeChecker
 cli.add_command(C.watch)  # 启动服务

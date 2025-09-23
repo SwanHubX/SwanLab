@@ -7,7 +7,7 @@ r"""
 @Description:
     暴露子命令
 """
-from .auth import login, logout
+from .auth import login, logout, verify
 from .converter import convert
 from .dashboard import watch
 from .sync import sync
