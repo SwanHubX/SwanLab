@@ -26,7 +26,8 @@ def test_verify_ok():
 # noinspection PyTypeChecker
 def test_verify_error():
     runner = CliRunner()
-    del os.environ[T.SwanLabEnv.API_KEY.value]
+    if T.SwanLabEnv.API_KEY.value in os.environ:
+        del os.environ[T.SwanLabEnv.API_KEY.value]
     result = runner.invoke(cli, ["verify"])
     assert result.exit_code == 1
     assert 'You are not verified. Please use `swanlab login` to login.' in result.output
