@@ -11,6 +11,7 @@ from typing import List
 
 from swanlab.api.base import ApiBase, ApiHTTP
 from swanlab.api.types import ApiResponse, Experiment, Pagination
+from swanlab.package import get_host_api
 
 try:
     from pandas import DataFrame
@@ -161,7 +162,7 @@ class ExperimentAPI(ApiBase):
         Args:
             exp_id (str): 实验CUID
             keys (list[str]): 指标key列表
-        
+
         Returns:
             ApiResponse[DataFrame]:
         """
@@ -179,7 +180,12 @@ class ExperimentAPI(ApiBase):
             if resp.errmsg:
                 continue
 
-            url = resp.data.get("url", "")
+            url:str = resp.data.get("url", "")
+            # 私有化环境可能不会携带 ip：https://github.com/SwanHubX/SwanLab/issues/1267
+            if not (url.startswith('https://') or url.startswith('http://')):
+                url = get_host_api() + url  # url 已添加前缀 /
+
+
             df = pd.read_csv(url, index_col=0)
 
             if idx == 0:
