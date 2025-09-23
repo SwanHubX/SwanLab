@@ -106,8 +106,7 @@ class DataStore:
         self._index += LEVELDBLOG_HEADER_LEN
         data = self._fp.read(data_length)
         checksum_computed = zlib.crc32(data, self._crc[data_type]) & 0xFFFFFFFF
-        if checksum != checksum_computed:
-            raise ValidationError("Invalid record checksum, data may be corrupt")
+        assert checksum == checksum_computed, "Invalid record checksum, data may be corrupt"
         self._index += data_length
         # 3. 返回数据
         return int(data_type), data
@@ -154,7 +153,10 @@ class DataStore:
         return self
 
     def __next__(self):
-        record = self.scan()
+        try:
+            record = self.scan()
+        except AssertionError:
+            raise ValidationError("One record is corrupted, cannot continue scanning")
         if record is None:
             raise StopIteration("End of file reached")
         return record
