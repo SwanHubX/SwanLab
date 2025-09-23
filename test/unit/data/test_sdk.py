@@ -263,6 +263,18 @@ class TestInitMode:
         assert os.environ[MODE] == folder_mode
         run.log({"TestInitMode": 1})
 
+    def test_init_folder_mode_diff_logdir(self, tmp_path):
+        """用户传入的 logdir 和环境变量不一样，settings 读取走环境变量"""
+        # 写入文件夹的 settings 文件
+        os.makedirs(T.SWANLOG_FOLDER, exist_ok=True)
+        # settings 为默认文件名
+        with open(os.path.join(T.SWANLOG_FOLDER, "settings"), 'w') as f:
+            f.write("[default]\nmode={}\n".format('offline'))
+        with open(os.path.join(tmp_path, "settings"), 'w') as f:
+            f.write("[default]\nmode={}\n".format('disabled'))
+        S.init(logdir=tmp_path)
+        assert os.environ[MODE] == 'offline'
+
     # -------------- 优先级问题（传入的mode参数 > 环境变量 > 设置文件 > 默认值(cloud)） -------------------
     def test_init_priority_1(self):
         """
