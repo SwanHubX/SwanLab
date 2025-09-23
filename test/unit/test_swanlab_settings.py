@@ -21,7 +21,7 @@ class TestSwanlabSettingsBasics:
         """测试Settings对象实例化后是不可变的"""
         settings = swanlab.Settings()
         with pytest.raises(ValidationError):
-            settings.hardware_monitor = False
+            settings.hardware_monitor = False  # noqa
 
     def test_settings_initialization(self):
         """测试Settings的初始化和验证"""
@@ -191,3 +191,60 @@ def test_filter_changed_fields():
     settings = swanlab.Settings(disk_io_dir=TEMP_PATH)
     changed = settings.filter_changed_fields()
     assert changed == {"disk_io_dir": TEMP_PATH}
+
+
+@pytest.mark.parametrize("mode", ["disabled", 'offline', 'cloud', 'local'])
+def test_app_settings_ok(mode):
+    settings = swanlab.swanlab_settings.FolderSettings(mode=mode)
+    assert settings.mode == mode
+
+
+def test_app_settings_invalid():
+    """错误的 mode 会被重置为 cloud，其他参数会被忽略"""
+    settings = swanlab.swanlab_settings.FolderSettings(mode="123", x="y")
+    # 默认为 cloud
+    assert settings.mode == "cloud"
+
+
+def test_read_folder_settings_ok(tmp_path):
+    """读取存在且格式正确的配置文件"""
+    file_path = tmp_path / "settings.ini"
+    with open(file_path, "w") as f:
+        f.write("[default]\nmode=offline\n")
+    settings = swanlab.swanlab_settings.read_folder_settings(folder_path=tmp_path, filename='settings.ini')
+    assert settings.mode == "offline"
+
+
+def test_read_folder_settings_invalid(tmp_path):
+    """读取存在但是格式错误的配置文件"""
+    file_path = tmp_path / "settings.ini"
+    with open(file_path, "w") as f:
+        f.write("invalid content")
+    settings = swanlab.swanlab_settings.read_folder_settings(folder_path=tmp_path, filename='settings.ini')
+    assert settings.mode == "cloud"
+
+
+def test_read_folder_settings_not_exist(tmp_path):
+    """
+    - 对于不存在的文件不会报错
+    - 对于存在但是格式错误的文件也不会报错
+    """
+    settings = swanlab.swanlab_settings.read_folder_settings(folder_path=tmp_path, filename="not_exist.ini")
+    assert settings.mode == "cloud"
+    open(tmp_path / "not_exist.ini", "w").close()
+    settings = swanlab.swanlab_settings.read_folder_settings(folder_path=tmp_path, filename="not_exist.ini")
+    assert settings.mode == "cloud"
+
+
+def test_write_folder_settings_ok(tmp_path):
+    """测试写入配置文件"""
+    file_path = tmp_path / "settings.ini"
+    swanlab.swanlab_settings.write_folder_settings(tmp_path, {'mode': 'local'}, filename="settings.ini")
+    assert file_path.exists()
+    with open(file_path, "r") as f:
+        content = f.read()
+    assert "[default]" in content
+    assert "mode = local" in content
+    # 测试读取
+    settings = swanlab.swanlab_settings.read_folder_settings(folder_path=tmp_path, filename="settings.ini")
+    assert settings.mode == "local"

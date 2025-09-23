@@ -53,20 +53,22 @@ def should_call_after_init(text):
     return decorator
 
 
-def _init_mode(mode: str = None):
+def _init_mode(mode: str = None, default_mode: str = 'cloud'):
     """
     初始化mode参数
-    优先级：传入的mode参数 > 环境变量 > 设置文件 > 默认值(cloud)
+    优先级：传入的mode参数 > 环境变量 > 默认值(default_mode)
     传入的mode必须为SwanLabMode枚举中的一个值，否则报错ValueError
 
     从环境变量中提取mode参数以后，还有一步让用户选择运行模式的交互，详见issue： https://github.com/SwanHubX/SwanLab/issues/632
 
     :param mode: str, optional
         传入的mode参数
+    :param default_mode: str, optional
+        文件夹配置中的mode参数
     :return: str mode
     :raise ValueError: mode参数不合法
     """
-    allowed = [m.value for m in SwanLabMode]
+    allowed = SwanLabMode.list()
     mode_key = SwanLabEnv.MODE.value
 
     mode_value = os.environ.get(mode_key)
@@ -75,7 +77,7 @@ def _init_mode(mode: str = None):
     mode = mode_value if mode is None else mode
     if mode is not None and mode not in allowed:
         raise ValueError(f"`mode` must be one of {allowed}, but got {mode}")
-    mode = "cloud" if mode is None else mode
+    mode = default_mode if mode is None else mode
     # 如果mode为cloud，且没找到 api key或者未登录，则提示用户输入
     try:
         get_key()

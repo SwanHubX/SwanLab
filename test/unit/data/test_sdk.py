@@ -69,6 +69,20 @@ class TestInitModeFunc:
         # S._init_mode(mode.upper())
         # assert os.environ[MODE] == mode
 
+    def test_init_invalid_mode(self):
+        """
+        初始化时mode参数错误
+        """
+        with pytest.raises(ValueError):
+            swanlab.data.utils._init_mode("123456")
+
+    def test_init_mode_with_default(self):
+        """
+        初始化时mode参数为None，使用默认值
+        """
+        swanlab.data.utils._init_mode(None, default_mode="local")
+        assert os.environ[MODE] == "local"
+
     @pytest.mark.parametrize("mode", ["disabled", "local", "cloud"])
     def test_overwrite_mode(self, mode, monkeypatch):
         """
@@ -228,8 +242,6 @@ class TestInitMode:
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
 
-    # ---------------------------------- 环境变量和mode的情况 ----------------------------------
-
     def test_init_disabled_env_mode(self):
         os.environ[MODE] = "local"
         run = S.init(mode="disabled")
@@ -238,6 +250,58 @@ class TestInitMode:
         a = run.public.run_dir
         assert os.path.exists(a)
         assert get_run() is not None
+
+    # ---------------------------------- 文件夹配置输入 ----------------------------------
+    @pytest.mark.parametrize("folder_mode", ["disabled", "local", "offline"])
+    def test_init_folder_mode(self, folder_mode):
+        # 写入文件夹的 settings 文件
+        os.makedirs(T.SWANLOG_FOLDER, exist_ok=True)
+        # settings 为默认文件名
+        with open(os.path.join(T.SWANLOG_FOLDER, "settings"), 'w') as f:
+            f.write("[default]\nmode={}\n".format(folder_mode))
+        run = S.init()
+        assert os.environ[MODE] == folder_mode
+        run.log({"TestInitMode": 1})
+
+    # -------------- 优先级问题（传入的mode参数 > 环境变量 > 设置文件 > 默认值(cloud)） -------------------
+    def test_init_priority_1(self):
+        """
+        传入的mode参数优先级最高
+        """
+        os.environ[MODE] = "disabled"
+        # 写入文件夹的 settings 文件
+        os.makedirs(T.SWANLOG_FOLDER, exist_ok=True)
+        # settings 为默认文件名
+        with open(os.path.join(T.SWANLOG_FOLDER, "settings"), 'w') as f:
+            f.write("[default]\nmode=local\n")
+        run = S.init(mode="offline")
+        assert os.environ[MODE] == "offline"
+        run.log({"TestInitMode": 1})
+
+    def test_init_priority_2(self):
+        """
+        环境变量优先级高于设置文件
+        """
+        os.environ[MODE] = "disabled"
+        # 写入文件夹的 settings 文件
+        os.makedirs(T.SWANLOG_FOLDER, exist_ok=True)
+        # settings 为默认文件名
+        with open(os.path.join(T.SWANLOG_FOLDER, "settings"), 'w') as f:
+            f.write("[default]\nmode=local\n")
+        run = S.init()
+        assert os.environ[MODE] == "disabled"
+        run.log({"TestInitMode": 1})
+
+    @pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
+    def test_init_priority_3(self):
+        """
+        默认情况下为 cloud 模式
+        """
+        if MODE in os.environ:
+            del os.environ[MODE]
+        run = S.init()
+        assert os.environ[MODE] == "cloud"
+        run.log({"TestInitMode": 1})
 
 
 class TestInitProject:
