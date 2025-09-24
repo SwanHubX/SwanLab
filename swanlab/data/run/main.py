@@ -124,7 +124,7 @@ class SwanLabRun:
 
                 self.__monitor_cron = MonitorCron(monitor_func)
 
-    def __cleanup(self, error: str = None):
+    def __cleanup(self, error: str = None, interrupt: bool = False):
         """
         停止部分功能，内部清理时调用
         """
@@ -136,7 +136,7 @@ class SwanLabRun:
         # 3. 触发回调
         if get_settings().log_proxy_type not in ['stderr', 'all']:
             error = None
-        self.__operator.on_stop(error)
+        self.__operator.on_stop(error, interrupt=interrupt)
         # 4. 更新实验 config
         _config = SwanLabConfig(config)
         self.__config = _config
@@ -210,7 +210,7 @@ class SwanLabRun:
         return self.__state == SwanLabRunState.RUNNING
 
     @staticmethod
-    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
+    def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None, interrupt: bool = False):
         """
         Finish the current run and close the current experiment
         Normally, swanlab will run this function automatically,
@@ -220,6 +220,7 @@ class SwanLabRun:
 
         :param state: The state of the experiment, it can be 'SUCCESS', 'CRASHED' or 'RUNNING'.
         :param error: The error message when the experiment is marked as 'CRASHED'. If not 'CRASHED', it should be None.
+        :param interrupt: Whether the experiment is interrupted by the user. If True, experiment will be marked as 'ABORTED'.
         """
         global run, config
         # 分为几步
@@ -234,7 +235,7 @@ class SwanLabRun:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         error = error if state == SwanLabRunState.CRASHED else None
         # 清理内部副作用，触发 on_stop 回调
-        getattr(run, "_SwanLabRun__cleanup")(error)
+        getattr(run, "_SwanLabRun__cleanup")(error, interrupt=interrupt)
         # 重置输出代理
         swanlog.reset()
         # 清空配置

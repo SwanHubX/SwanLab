@@ -66,9 +66,11 @@ class SwanLabRunCallback(SwanKitCallback):
         """
         异常退出清理函数
         """
+        interrupt = False
         # 1. 如果是KeyboardInterrupt异常，特殊显示
         if tp == KeyboardInterrupt:
             swanlog.info("KeyboardInterrupt by user")
+            interrupt = True
         else:
             swanlog.info("Error happened while training")
         # 2. 生成错误堆栈
@@ -78,7 +80,7 @@ class SwanLabRunCallback(SwanKitCallback):
             error += line
         error += str(val)
         # 3. 结束运行，注意此时终端错误还没打印
-        get_run().finish(SwanLabRunState.CRASHED, error=error)
+        get_run().finish(SwanLabRunState.CRASHED, error=error, interrupt=interrupt)
         assert swanlog.proxied is False, "except_handler should be called after swanlog.stop_proxy()"
         # 4. 打印终端错误，此时终端代理已经停止，不必担心此副作用
         print(error, file=sys.stderr)
