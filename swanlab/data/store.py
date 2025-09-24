@@ -47,7 +47,6 @@ class RunStore(BaseModel):
     metrics: Optional[RemoteMetric] = None
     # 恢复实验时，云端实验的日志条数
     log_epoch: Optional[int] = None
-
     # ---------------------------------- 目录 ----------------------------------
     # 是否为临时目录，标识一些运行时环境
     tmp_dir: Optional[bool] = None

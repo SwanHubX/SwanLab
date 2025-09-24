@@ -374,14 +374,19 @@ class Client:
         self.pending = False
         return new
 
-    def update_state(self, success: bool, finished_at: str = None):
+    def update_state(self, success: bool, finished_at: str = None, interrupt: bool = False):
         """
         更新实验状态
         :param success: 实验是否成功
         :param finished_at: 实验结束时间，格式为 ISO 8601，如果不提供则使用当前时间
+        :param interrupt: 实验是否被中断
         """
+        if success:
+            state = "FINISHED"
+        else:
+            state = "ABORTED" if interrupt else "CRASHED"
         put_data = {
-            "state": "FINISHED" if success else "CRASHED",
+            "state": state,
             "finishedAt": finished_at,
             "from": "sdk",
         }
