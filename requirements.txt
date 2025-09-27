@@ -5,7 +5,7 @@ setuptools
 click
 pyyaml
 psutil>=5.0.0
-pynvml
+nvidia-ml-py
 boto3>=1.35.49
 botocore
 pydantic~=2.0
