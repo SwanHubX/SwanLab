@@ -58,6 +58,7 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
                     pynvml.NVML_DEVICE_ARCH_AMPERE: "Ampere",  # example: GeForce RTX 3080, GeForce RTX 3060, A100
                     pynvml.NVML_DEVICE_ARCH_ADA: "Ada",  # example: GeForce RTX 4090, GeForce RTX 4080, L40
                     pynvml.NVML_DEVICE_ARCH_HOPPER: "Hopper",  # example: H100, H800
+                    pynvml.NVML_DEVICE_ARCH_BLACKWELL: "Blackwell",  # example: GeForce RTX 5090, GeForce RTX 5080
                     pynvml.NVML_DEVICE_ARCH_UNKNOWN: "Unknown",
                 }
                 info["architecture"].append(NVIDIA_GPU_ARCHITECTURE[pynvml.nvmlDeviceGetArchitecture(handle)])
