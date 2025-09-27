@@ -7,7 +7,6 @@
 
 import importlib.util
 
-import numpy as np
 import pyecharts.options as opts
 from pyecharts.charts import HeatMap, Line
 
@@ -33,7 +32,12 @@ def roc_curve(ground_truth, predictions, title=None) -> Line:
         If string, will use that as title. If None or False, no title.
     """
     _check_sklearn()
-    from sklearn import metrics
+    try:
+        from sklearn import metrics
+    except ImportError:
+        raise ImportError(
+            "scikit-learn is required for this function. Please install it via `pip install scikit-learn`."
+        )
 
     fpr, tpr, _ = metrics.roc_curve(ground_truth, predictions)
     roc_auc = metrics.auc(fpr, tpr)
@@ -98,7 +102,12 @@ def pr_curve(ground_truth, predictions, title=None) -> Line:
         If string, will use that as title. If None or False, no title.
     """
     _check_sklearn()
-    from sklearn import metrics
+    try:
+        from sklearn import metrics
+    except ImportError:
+        raise ImportError(
+            "scikit-learn is required for this function. Please install it via `pip install scikit-learn`."
+        )
 
     precision, recall, _ = metrics.precision_recall_curve(ground_truth, predictions)
     pr_auc = metrics.auc(recall, precision)
@@ -151,7 +160,13 @@ def confusion_matrix(ground_truth, predictions, class_names, title=None) -> Heat
             If string, will use that as title. If None or False, no title.
     """
     _check_sklearn()
-    from sklearn import metrics
+    try:
+        from sklearn import metrics
+        import numpy as np
+    except ImportError:
+        raise ImportError(
+            "scikit-learn and numpy are required for this function. Please install them via `pip install scikit-learn numpy`."
+        )
 
     cm = metrics.confusion_matrix(ground_truth, predictions)
     # normalized
