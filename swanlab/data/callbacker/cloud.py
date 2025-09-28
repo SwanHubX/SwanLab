@@ -100,6 +100,8 @@ class CloudPyCallback(SwanLabRunCallback):
 
     def on_stop(self, error: str = None, *args, **kwargs):
         success = get_run().success
+        # FIXME 等合并 swankit 以后优化一下 interrupt 的传递问题
+        interrupt = kwargs.get("interrupt", False)
         http = get_client()
         if http.pending:
             swanlog.warning("This run was destroyed but it is pending!")
@@ -109,7 +111,7 @@ class CloudPyCallback(SwanLabRunCallback):
         self._unregister_sys_callback()
         self.porter.close_trace(success, error=error, epoch=error_epoch)
         # 更新实验状态，在此之后实验会话关闭
-        http.update_state(success)
+        http.update_state(success, interrupt=interrupt)
         reset_client()
         if not self.user_settings.backup:
             shutil.rmtree(self.run_store.run_dir, ignore_errors=True)
