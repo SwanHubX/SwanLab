@@ -5,16 +5,8 @@
 @description: 基于 echarts 实现部分 metrics 图表
 """
 
-import importlib.util
-
 import pyecharts.options as opts
 from pyecharts.charts import HeatMap, Line
-
-
-def _check_sklearn():
-    """Check if scikit-learn is installed."""
-    if importlib.util.find_spec("sklearn") is None:
-        raise TypeError("scikit-learn is required for this function. Please install it via `pip install scikit-learn`.")
 
 
 def roc_curve(ground_truth, predictions, title=None) -> Line:
@@ -31,7 +23,6 @@ def roc_curve(ground_truth, predictions, title=None) -> Line:
         Title for the chart. If True, will use default title with AUC.
         If string, will use that as title. If None or False, no title.
     """
-    _check_sklearn()
     try:
         from sklearn import metrics
     except ImportError:
@@ -101,7 +92,6 @@ def pr_curve(ground_truth, predictions, title=None) -> Line:
         Title for the chart. If True, will use default title with AUC.
         If string, will use that as title. If None or False, no title.
     """
-    _check_sklearn()
     try:
         from sklearn import metrics
     except ImportError:
@@ -159,7 +149,6 @@ def confusion_matrix(ground_truth, predictions, class_names, title=None) -> Heat
             Title for the chart. If True, will use default title.
             If string, will use that as title. If None or False, no title.
     """
-    _check_sklearn()
     try:
         from sklearn import metrics
         import numpy as np
