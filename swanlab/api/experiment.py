@@ -183,7 +183,7 @@ class ExperimentAPI(ApiBase):
             url:str = resp.data.get("url", "")
             # 私有化环境可能不会携带 ip：https://github.com/SwanHubX/SwanLab/issues/1267
             if not (url.startswith('https://') or url.startswith('http://')):
-                url = get_host_api() + url  # url 已添加前缀 /
+                url = get_host_api().split('/api')[0] + url  # url 已添加前缀 /
 
 
             df = pd.read_csv(url, index_col=0)
