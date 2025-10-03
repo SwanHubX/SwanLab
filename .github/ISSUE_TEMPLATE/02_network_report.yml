@@ -1,4 +1,4 @@
-name: Network Report
+name: Network report
 description: Report a network-related problem
 labels:
   - 👾 network
