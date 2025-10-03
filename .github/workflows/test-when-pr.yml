@@ -23,9 +23,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' # 缓存 pip 依赖
 
-      - name: Install Dependencies
+      - name: Install base Dependency
         run: |
           pip install -r requirements.txt
+
+      - name: Run Import
+        run: python -c "import swanlab"
+
+      - name: Install Dependencies
+        run: |
           pip install -r requirements-media.txt
           pip install -r requirements-dev.txt
           pip install -r requirements-dashboard.txt
