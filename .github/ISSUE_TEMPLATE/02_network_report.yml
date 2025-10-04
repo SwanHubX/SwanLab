@@ -1,0 +1,69 @@
+name: Network report
+description: Report a network-related problem
+labels:
+  - 👾 network
+  - 🤔 unconfirmed
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a network issue!
+
+        **Critical Notes for Network Issues:**
+        1. Network problems often involve local environment (proxies, firewalls), server status, or client configs. Please provide detailed context.
+        2. Ensure the issue is SwanLab-specific: e.g., you can access [https://swanlab.cn](https://swanlab.cn) via a browser, but SwanLab SDK fails.
+        3. Include network test results (ping/traceroute/curl) and raw error logs.
+        4. Reports without sufficient network details may be closed temporarily.
+  - type: textarea
+    attributes:
+      label: Problem Description
+      description: A clear, concise summary of the network issue.
+      value: |
+        > Examples:
+        > - "SwanLab CLI fails to sync experiment data to the cloud with a timeout error."
+        > - "Real-time monitoring disconnects randomly when using a corporate proxy."
+        > - "Cannot connect to my private SwanLab server via `swanlab init`."
+        
+        SwanLab SDK error messages (include timestamps if possible): …
+
+        Browser Console Logs (for Web UI issues: Press F12 → Network Tab → Copy failed request details): …
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Pre-Verification Checks
+      options:
+        - label: I've searched [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) for similar network problems.
+          required: true
+        - label: I've tested basic connectivity to SwanLab services.
+          required: true
+        - label: I have attempted basic troubleshooting steps, including restarting the device, switching networks (Wi-Fi/mobile data), and temporarily disabling VPN/proxy.
+          required: true
+  - type: textarea
+    attributes:
+      label: Network Environment
+      description: Fill in details to help us reproduce the issue.
+      value: |
+        - Operating System: e.g., Windows 11 / macOS Sonoma / Ubuntu 22.04 LTS
+        - SwanLab Version: e.g., 0.6.10 (run `swanlab --version` or `pip show swanlab`)
+        - Network Setup:
+          - Type: Home WiFi / Corporate LAN (with proxy?) / Mobile Data / VPN
+          - Proxy/VPN: Used/Not used (details if used)
+          - Firewall: Any rules blocking SwanLab (ports 443/80 for cloud; custom ports for private servers)?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Network Test Results
+      description: Provide complete, raw data to help us diagnose.
+      value: |
+        - `ping swanlab.cn`
+        - `traceroute swanlab.cn` (Windows: `tracert`)
+        - `curl -v swanlab.cn`
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        **Why This Matters:**
+        Network issues require context about your environment and connectivity. Logs like `curl -v` or `traceroute` help us distinguish between client misconfigurations, proxy blocks, or server-side problems. Thank you for your patience—we’ll prioritize resolving this once we have enough details!
