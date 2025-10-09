@@ -14,24 +14,9 @@ body:
         2. Ensure the issue is SwanLab-specific: e.g., you can access [https://swanlab.cn](https://swanlab.cn) via a browser, but SwanLab SDK fails.
         3. Include network test results (ping/traceroute/curl) and raw error logs.
         4. Reports without sufficient network details may be closed temporarily.
-  - type: textarea
-    attributes:
-      label: Problem Description
-      description: A clear, concise summary of the network issue.
-      value: |
-        > Examples:
-        > - "SwanLab CLI fails to sync experiment data to the cloud with a timeout error."
-        > - "Real-time monitoring disconnects randomly when using a corporate proxy."
-        > - "Cannot connect to my private SwanLab server via `swanlab init`."
-        
-        SwanLab SDK error messages (include timestamps if possible): …
-
-        Browser Console Logs (for Web UI issues: Press F12 → Network Tab → Copy failed request details): …
-    validations:
-      required: true
   - type: checkboxes
     attributes:
-      label: Pre-Verification Checks
+      label: Verifications
       options:
         - label: I've searched [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) for similar network problems.
           required: true
@@ -41,27 +26,40 @@ body:
           required: true
   - type: textarea
     attributes:
-      label: Network Environment
-      description: Fill in details to help us reproduce the issue.
-      value: |
-        - Operating System: e.g., Windows 11 / macOS Sonoma / Ubuntu 22.04 LTS
-        - SwanLab Version: e.g., 0.6.10 (run `swanlab --version` or `pip show swanlab`)
-        - Network Setup:
-          - Type: Home WiFi / Corporate LAN (with proxy?) / Mobile Data / VPN
-          - Proxy/VPN: Used/Not used (details if used)
-          - Firewall: Any rules blocking SwanLab (ports 443/80 for cloud; custom ports for private servers)?
+      label: Problem Description
+      description: A clear, concise summary of the network issue.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: SwanLab Version
+      description: E.g., 0.6.11 (run `swanlab --version` or `pip show swanlab`)
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Network Test Results
-      description: Provide complete, raw data to help us diagnose.
-      value: |
-        - `ping swanlab.cn`
-        - `traceroute swanlab.cn` (Windows: `tracert`)
-        - `curl -v swanlab.cn`
+      label: Network Environment
+      description: E.g., OS, network type, proxy/VPN, firewall, corporate network, etc.
     validations:
       required: true
+  - type: textarea
+    attributes:
+      label: Ping Results
+      description: Run `ping swanlab.cn` and paste the complete results.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Traceroute Results
+      description: Run `traceroute swanlab.cn` (Windows `tracert swanlab.cn`) and paste the complete results.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Curl Results
+      description: Run `curl -v https://swanlab.cn` and paste the complete results.
+    validations:
+      required: false
   - type: markdown
     attributes:
       value: |

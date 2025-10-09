@@ -1,0 +1,49 @@
+name: Web report
+description: Report a web-related problem
+labels:
+  - 💥 web
+  - 🤔 unconfirmed
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a web issue!
+
+        **Critical Notes for Web Issues:**
+        1. Web problems often involve browser settings, extensions, or network issues. Please provide detailed context.
+        2. Ensure the issue is SwanLab-specific.
+        3. Include browser console logs and network test results if applicable.
+        4. Reports without sufficient details may be closed temporarily.
+  - type: checkboxes
+    attributes:
+      label: Verifications
+      options:
+        - label: I've searched [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) for similar network problems.
+          required: true
+        - label: I've tested basic connectivity to SwanLab services.
+          required: true
+        - label: I have attempted basic troubleshooting steps, including restarting the browser, clearing cache, disabling extensions, switching networks (Wi-Fi/mobile data), and temporarily disabling VPN/proxy.
+          required: true
+  - type: textarea
+    attributes:
+      label: Problem Description
+      description: A clear, concise summary of the network issue.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Browser Environment
+      description: E.g., browser type, version, OS. 
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Browser Console Logs
+      description: Press F12 → Network Tab → Copy failed request details
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        **Why This Matters:**
+        Providing detailed information helps us quickly identify and resolve issues, improving the experience for everyone. Thank you!
