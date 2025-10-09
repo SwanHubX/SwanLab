@@ -1,7 +1,7 @@
 name: Web report
 description: Report a web-related problem
 labels:
-  - 🐛 bug
+  - 💥 web
   - 🤔 unconfirmed
 body:
   - type: markdown
