@@ -12,14 +12,8 @@ body:
         **Please note:**
         1. General usage questions are not bug reports. If you're looking for support with your train, you can consider asking for help on the [community](https://docs.swanlab.cn/guide_cloud/community/online-support.html) instead.
         2. `swanlab` can be integrated into other AI training frameworks, therefore bugs in other frameworks might cause errors in training that use `swanlab`. Please make sure that the bug you're experiencing is _caused by_ by `swanlab`.
-        3. If your issue appears to be network-related, you might want to [Report a network-related problem](https://github.com/SwanHubX/SwanLab/issues/new/choose) instead.
+        3. If your issue appears to be network-related, you might want to [create a network-related bug report](https://github.com/SwanHubX/SwanLab/issues/new/choose) instead.
         4. Bug reports without a reproduction may be closed immediately.
-  - type: textarea
-    attributes:
-      label: Description
-      description: A clear and concise description of what the bug is.
-    validations:
-      required: true
   - type: checkboxes
     attributes:
       label: Verifications
@@ -30,6 +24,12 @@ body:
           required: true
         - label: I have confirmed that this issue was not caused by a network error.
           required: true
+  - type: textarea
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
   - type: textarea
     attributes:
       label: Mandatory reproduction Code
