@@ -1,16 +1,16 @@
-name: Web report
-description: Report a web-related problem
+name: Website report
+description: Report a website-related problem
 labels:
-  - 💥 web
+  - 💥 website
   - 🤔 unconfirmed
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a web issue!
+        Thanks for reporting a website issue!
 
-        **Critical Notes for Web Issues:**
-        1. Web problems often involve browser settings, extensions, or network issues. Please provide detailed context.
+        **Critical Notes for Website Issues:**
+        1. Website problems often involve browser settings, extensions, or network issues. Please provide detailed context.
         2. Ensure the issue is SwanLab-specific.
         3. Include browser console logs and network test results if applicable.
         4. Reports without sufficient details may be closed temporarily.
