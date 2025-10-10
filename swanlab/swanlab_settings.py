@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 
-from swanlab.toolkit import is_windows, SwanLabMode
+from swanlab.env import is_windows, SwanLabMode
 
 try:
     from typing import Annotated, Literal, Optional, Any, Union  # Python 3.9+

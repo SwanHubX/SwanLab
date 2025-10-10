@@ -9,7 +9,8 @@ import re
 import sys
 from typing import List, Tuple, Callable
 
-from swanlab.toolkit import SwanKitLogger, create_time, LogContent
+from swanlab.env import create_time
+from swanlab.toolkit import SwanKitLogger, LogContent
 from .counter import AtomicCounter
 from .type import LogHandler, LogType, WriteHandler, LogData, ProxyType
 

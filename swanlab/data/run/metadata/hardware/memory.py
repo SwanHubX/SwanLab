@@ -9,7 +9,7 @@ from typing import List
 
 import psutil
 
-from swanlab.toolkit import is_macos
+from swanlab.env import is_macos
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import MemoryBaseCollector as M
 

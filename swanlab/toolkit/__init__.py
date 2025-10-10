@@ -8,7 +8,6 @@
 from swankit.callback import SwanKitCallback
 from swankit.callback.models import *
 from swankit.core import *
-from swankit.env import *
 
 from .logger import SwanKitLogger
 from .model import LogContent
@@ -16,15 +15,6 @@ from .model import LogContent
 __all__ = [
     # logger
     "SwanKitLogger",
-    # env
-    "SwanLabSharedEnv",
-    "SwanLabMode",
-    "create_time",
-    "is_macos",
-    "is_windows",
-    "get_save_dir",
-    "get_swanlog_dir",
-    "get_mode",
     # callback
     "LogContent",
     "SwanKitCallback",

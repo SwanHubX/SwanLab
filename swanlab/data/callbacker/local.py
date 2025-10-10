@@ -21,7 +21,7 @@ from ...log import swanlog
 try:
     # noinspection PyPackageRequirements
     import swanboard
-except ImportError:
+except ImportError as e:
     raise ImportError("Please install swanboard to use 'local' mode: pip install 'swanlab[dashboard]'")
 
 from importlib.metadata import version
