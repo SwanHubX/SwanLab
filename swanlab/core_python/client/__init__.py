@@ -6,7 +6,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
@@ -128,13 +128,6 @@ class Client:
         return self.__exp.name
 
     @property
-    def sid_expired_at(self):
-        """
-        获取sid的过期时间，字符串格式转时间
-        """
-        return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-    @property
     def web_proj_url(self):
         return f"{self.web_host}/@{self.groupname}/{self.projname}"
 
@@ -148,7 +141,10 @@ class Client:
         """
         请求前的钩子
         """
-        if (self.sid_expired_at - utc_time()).total_seconds() <= self.REFRESH_TIME:
+        sid_expired_at = datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=timezone.utc
+        )
+        if (sid_expired_at - utc_time()).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
             self.__login_info = auth.login_by_key(self.__login_info.api_key, save=False)

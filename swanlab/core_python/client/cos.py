@@ -89,7 +89,7 @@ class CosClient:
     @property
     def should_refresh(self):
         # cos传递的是北京时间，需要添加8小时
-        now = utc_time() + timedelta(hours=8)
+        now = (utc_time() + timedelta(hours=8)).replace(tzinfo=None)
         # 过期时间减去当前时间小于刷新时间，需要注意为负数的情况
         if self.__expired_time < now:
             return True
