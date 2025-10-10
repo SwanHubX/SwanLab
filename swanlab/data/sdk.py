@@ -14,7 +14,7 @@ from typing import Union, Dict, Literal, List
 
 import platformdirs
 
-from swanlab.env import SwanLabEnv, create_swanlog_dir, get_swanlog_dir
+from swanlab.env import SwanLabEnv, create_swanlog_dir
 from swanlab.formatter import (
     check_load_json_yaml,
     check_callback_format,
@@ -26,7 +26,7 @@ from swanlab.formatter import (
 )
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings, read_folder_settings
-from swanlab.toolkit import SwanKitCallback
+from swanlab.toolkit import SwanKitCallback, get_swanlog_dir
 from .modules import DataType
 from .run import (
     SwanLabRunState,
