@@ -1,11 +1,13 @@
 """
 @author: cunyue
-@file: model.py
-@time: 2025/7/20 16:25
-@description: 部分新增的模型定义（patch)
+@file: log.py
+@time: 2025/10/10 22:01
+@description: 终端日志模型
 """
 
 from typing import TypedDict
+
+__all__ = ['LogContent']
 
 
 class LogContent(TypedDict):

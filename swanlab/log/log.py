@@ -10,9 +10,10 @@ import sys
 from typing import List, Tuple, Callable
 
 from swanlab.env import create_time
-from swanlab.toolkit import SwanKitLogger, LogContent
+from swanlab.toolkit import SwanKitLogger
 from .counter import AtomicCounter
 from .type import LogHandler, LogType, WriteHandler, LogData, ProxyType
+from ..toolkit.models.log import LogContent
 
 
 class SwanLog(SwanKitLogger):

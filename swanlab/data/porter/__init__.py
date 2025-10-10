@@ -25,10 +25,11 @@ from swanlab.env import create_time
 from swanlab.error import ValidationError
 from swanlab.log.type import LogData
 from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
-from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo, LogContent
+from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo
 from .datastore import DataStore
 from .mounter import Mounter
 from .utils import filter_metric, filter_epoch, filter_column
+from ...toolkit.models.log import LogContent
 
 __all__ = ['DataPorter', 'Mounter']
 

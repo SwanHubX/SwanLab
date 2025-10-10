@@ -14,8 +14,8 @@ import sys
 import click
 
 from swanlab.env import SwanLabEnv
+from swanlab.env import get_swanlog_dir
 from swanlab.log import swanlog
-from swanlab.toolkit import get_swanlog_dir
 
 
 def get_free_port(address='0.0.0.0', default_port=5092) -> int:

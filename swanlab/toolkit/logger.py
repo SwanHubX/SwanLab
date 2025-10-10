@@ -10,6 +10,8 @@ from typing import Literal, Union
 from rich.console import Console
 from rich.text import Text
 
+__all__ = ['SwanKitLogger']
+
 Levels = Union[Literal["debug", "info", "warning", "error", "critical"], str]
 
 
