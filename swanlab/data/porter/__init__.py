@@ -21,13 +21,15 @@ from swanlab.core_python import get_client
 from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel, LogModel
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 from swanlab.data.store import RunStore, get_run_store, reset_run_store
+from swanlab.env import create_time
 from swanlab.error import ValidationError
 from swanlab.log.type import LogData
 from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
-from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo, create_time, LogContent
+from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo
 from .datastore import DataStore
 from .mounter import Mounter
 from .utils import filter_metric, filter_epoch, filter_column
+from ...toolkit.models.log import LogContent
 
 __all__ = ['DataPorter', 'Mounter']
 

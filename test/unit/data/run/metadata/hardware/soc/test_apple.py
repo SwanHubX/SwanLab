@@ -8,7 +8,7 @@
 import pytest
 
 from swanlab.data.run.metadata.hardware.soc.apple import AppleChipCollector
-from swanlab.toolkit import is_macos
+from swanlab.env import is_macos
 
 
 @pytest.mark.skipif(not is_macos(), reason="Apple chip info only available on macOS")

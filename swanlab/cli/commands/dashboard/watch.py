@@ -13,7 +13,8 @@ import sys
 
 import click
 
-from swanlab.env import get_swanlog_dir, SwanLabEnv
+from swanlab.env import SwanLabEnv
+from swanlab.env import get_swanlog_dir
 from swanlab.log import swanlog
 
 

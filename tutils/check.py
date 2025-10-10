@@ -11,6 +11,7 @@ r"""
 import os
 import subprocess
 import sys
+
 from dotenv import load_dotenv
 
 swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -18,17 +19,13 @@ swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------- 检查swanboard、swankit包的版本号与当前系统是否一致 ----------------------------------
 
 swanboard = subprocess.run("pip show swanboard", shell=True, capture_output=True).stdout.decode()
-swankit = subprocess.run("pip show swankit", shell=True, capture_output=True).stdout.decode()
 swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0].split("\r")[0]
-swankit_version = [i.split(": ")[1] for i in swankit.split("\n") if i.startswith("Version")][0].split("\r")[0]
 with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
     packages = f.read().split("\n")
-packages = [i for i in packages if "swanboard" in i or "swankit" in i]
+packages = [x for x in packages if "swanboard" in x]
 for i in packages:
     if "swanboard" in i and swanboard_version not in i:
         raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.")
-    if "swankit" in i and swankit_version not in i:
-        raise Exception(f"swankit过时，运行 pip install -r requirements.txt 进行更新.")
 
 # ---------------------------------- 检查是否跳过云测试 ----------------------------------
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))

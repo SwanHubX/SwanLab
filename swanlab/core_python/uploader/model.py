@@ -10,8 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, TypedDict, Literal
 
-from swanlab.data.modules import MediaBuffer
-from swanlab.toolkit import ColumnClass, ColumnConfig, LogContent
+from swanlab.toolkit import ColumnClass, ColumnConfig, LogContent, MediaBuffer
 
 
 class ColumnModel:

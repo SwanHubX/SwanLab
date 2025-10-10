@@ -13,12 +13,12 @@ from rich.text import Text
 from swanlab.core_python import auth
 from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
-from swanlab.env import is_interactive, SwanLabEnv
+from swanlab.env import is_interactive, SwanLabEnv, SwanLabMode
 from swanlab.error import KeyFileError
 from swanlab.formatter import check_load_json_yaml
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
-from swanlab.toolkit import SwanKitCallback, SwanLabMode
+from swanlab.toolkit import SwanKitCallback
 
 
 def should_call_before_init(text):

@@ -7,20 +7,37 @@ r"""
     swanlab全局共用环境变量(运行时环境变量)
     除了utils和error模块，其他模块都可以使用这个模块
 """
+import datetime
 import enum
 import io
 import netrc
 import os
 import re
 import sys
+from enum import Enum
 from pathlib import Path
+from platform import platform
 from typing import List, Union
 from urllib.parse import urlparse
 
-import swanlab.toolkit as E
 
+class SwanLabMode(Enum):
+    """
+    swanlab的解析模式，枚举类
+    """
 
-# ---------------------------------- 环境变量枚举类 ----------------------------------
+    DISABLED = "disabled"
+    CLOUD = "cloud"
+    OFFLINE = "offline"
+    LOCAL = "local"
+
+    @classmethod
+    def list(cls) -> List[str]:
+        """
+        获取所有的枚举值
+        :return: 所有的枚举值
+        """
+        return [item.value for item in cls]
 
 
 class SwanLabEnv(enum.Enum):
@@ -175,15 +192,115 @@ class SwanLabEnv(enum.Enum):
         return [item.value for item in cls]
 
 
-# ---------------------------------- API ----------------------------------
+def create_time() -> str:
+    """获取当前时间(UTC时区)"""
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-is_windows = E.is_windows
 
-get_mode = E.get_mode
+def is_windows() -> bool:
+    """判断当前操作系统是否是windows还是类unix系统，主要是路径分隔上的差别
+    此外的系统会报错为 UnKnownSystemError
+    :raise OSError: 未知系统错误，此时swanlab运行在未知系统上，这个系统不是windows或者类unix系统
+    :return: True表示是windows系统，False表示是类unix系统
+    """
+    if sys.platform.startswith("win"):
+        return True
+    elif sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
+        return False
+    raise OSError("Unknown system, not windows or unix-like system")
 
-get_swanlog_dir = E.get_swanlog_dir
 
-get_save_dir = E.get_save_dir
+def is_macos() -> bool:
+    """判断当前操作系统是否是macos
+    :return: True表示是macos系统，False表示不是macos系统
+    """
+    return "mac" in platform().lower()
+
+
+def get_mode() -> str:
+    """
+    获取当前的swanlab解析模式，如果没有设置，默认为cloud
+    :raise ValueError: 未知的swanlab模式
+    :return: swanlab的解析模式
+    """
+    mode = os.getenv(SwanLabEnv.MODE.value)
+    if mode is None:
+        mode = SwanLabMode.CLOUD.value
+    mode = mode.lower()
+    if mode not in SwanLabMode.list():
+        raise ValueError(f"Unknown swanlab mode: {mode}")
+    return mode
+
+
+def get_save_dir() -> str:
+    """
+    获取存放swanlab全局文件的文件夹路径，如果不存在就创建
+    此函数对应为SWANLAB_SAVE_FOLDER全局变量，如果没有设置，默认为用户主目录下的.swanlab文件夹
+    执行此函数时，如果文件夹不存在，自动创建，但是出于安全考虑，不会自动创建父文件夹
+    :raises
+        :raise FileNotFoundError: folder的父目录不存在
+        :raise NotADirectoryError: folder不是一个文件夹
+    :return: swanlab全局文件夹保存的路径，返回处理后的绝对路径
+    """
+    folder = os.getenv(SwanLabEnv.SWANLAB_FOLDER.value)
+    if folder is None:
+        folder = os.path.join(os.path.expanduser("~"), ".swanlab")
+    folder = os.path.abspath(folder)
+    if not os.path.exists(os.path.dirname(folder)):
+        raise FileNotFoundError(f"{os.path.dirname(folder)} not found")
+    if not os.path.exists(folder):
+        # 只创建当前文件夹，不创建父文件夹，之所以还要捕捉 FileExistsError，是因为在多线程或多进程环境下，可能会有多个线程或进程同时创建同一个文件夹
+        # 比如：https://github.com/SwanHubX/SwanLab/issues/1033
+        try:
+            os.mkdir(folder)
+        except FileExistsError:
+            pass
+    if not os.path.isdir(folder):
+        raise NotADirectoryError(f"{folder} is not a directory")
+    return folder
+
+
+def get_swanlog_dir() -> str:
+    """
+    获取存放swanlog日志文件的文件夹路径
+    此函数对应为SWANLAB_LOG_FOLDER全局变量，如果没有设置，默认为当前运行目录下的swanlog文件夹
+    需要注意，此函数并不会保证文件夹的存在，但是会检查父文件夹是否存在以及folder是否是一个文件夹
+    :raises
+        :raise FileNotFoundError: folder的父目录不存在
+        :raise NotADirectoryError: folder不是一个文件夹
+    :return: swanlog日志文件保存的路径，返回处理后的绝对路径
+    """
+    folder = os.getenv(SwanLabEnv.SWANLOG_FOLDER.value)
+    if folder is None:
+        folder = os.path.join(os.getcwd(), "swanlog")
+    folder = os.path.abspath(folder)
+    if not os.path.exists(os.path.dirname(folder)):
+        raise FileNotFoundError(f"{os.path.dirname(folder)} not found")
+    if not os.path.exists(folder):
+        return folder
+    if not os.path.isdir(folder):
+        raise NotADirectoryError(f"{folder} is not a directory")
+    return folder
+
+
+def create_swanlog_dir(logdir: Union[Path, str] = None):
+    """
+    获取swanlog文件夹，如果文件夹不存在则创建
+    :param logdir: swanlog文件夹路径，默认为当前工作目录下的swanlog文件夹
+    """
+    if logdir is None:
+        logdir = get_swanlog_dir()
+    try:
+        os.makedirs(logdir, exist_ok=True)
+        if not os.access(logdir, os.W_OK):
+            raise IOError(f"no write permission for path: {logdir}")
+    except Exception as error:
+        raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
+    # 如果logdir是空的，创建.gitignore文件，写入*
+    if not os.listdir(logdir):
+        with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
+            f.write("*")
+    return logdir
 
 
 def in_jupyter() -> bool:
@@ -227,23 +344,3 @@ def remove_host_suffix(host: str, suffix: str) -> str:
     if host.endswith(suffix):
         return host[: -len(suffix)]
     return host
-
-
-def create_swanlog_dir(logdir: Union[Path, str] = None):
-    """
-    获取swanlog文件夹，如果文件夹不存在则创建
-    :param logdir: swanlog文件夹路径，默认为当前工作目录下的swanlog文件夹
-    """
-    if logdir is None:
-        logdir = get_swanlog_dir()
-    try:
-        os.makedirs(logdir, exist_ok=True)
-        if not os.access(logdir, os.W_OK):
-            raise IOError(f"no write permission for path: {logdir}")
-    except Exception as error:
-        raise IOError(f"Failed to create or access logdir: {logdir}, error: {error}")
-    # 如果logdir是空的，创建.gitignore文件，写入*
-    if not os.listdir(logdir):
-        with open(os.path.join(logdir, ".gitignore"), "w", encoding="utf-8") as f:
-            f.write("*")
-    return logdir

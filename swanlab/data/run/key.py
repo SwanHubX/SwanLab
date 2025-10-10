@@ -10,6 +10,7 @@ import math
 from typing import Optional, Tuple
 
 from swanlab.data.modules import DataWrapper, Line
+from swanlab.env import create_time
 from swanlab.log import swanlog
 from swanlab.toolkit import (
     MetricInfo,
@@ -18,7 +19,6 @@ from swanlab.toolkit import (
     ColumnClass,
     SectionType,
     ColumnConfig,
-    create_time,
     ParseErrorInfo,
     ChartType,
 )

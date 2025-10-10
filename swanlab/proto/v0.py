@@ -4,6 +4,7 @@
 @time: 2025/6/20 13:30
 @description: 历史版本的备份、上传协议采用 JSON 序列化实现
 为了保证向下兼容性，在此保留相关模型定义
+本质上是增加了一层中间层，此中间层的作用是实现 swanlab.toolkit 中模型与 swanlab.core_python.uploader 中模型的相互转换
 """
 
 import json
@@ -25,8 +26,8 @@ from swanlab.toolkit import (
     YRange,
     ChartReference,
     MediaBuffer,
-    LogContent,
 )
+from swanlab.toolkit.models.log import LogContent
 
 
 class BaseModel(PydanticBaseModel):
@@ -166,7 +167,6 @@ class Runtime(BaseModel):
             config = yaml.safe_load(open(config_path, "r", encoding="utf-8").read())
 
         return FileModel(conda=conda, requirements=requirements, metadata=metadata, config=config)
-
 
 
 class Column(BaseModel):
