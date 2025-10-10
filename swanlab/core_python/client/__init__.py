@@ -6,7 +6,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
@@ -147,8 +147,7 @@ class Client:
         """
         请求前的钩子
         """
-        # FIXME datetime.utcnow() -> datetime.now(datetime.UTC)
-        if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
+        if (self.sid_expired_at - datetime.now(UTC)).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
             self.__login_info = auth.login_by_key(self.__login_info.api_key, save=False)

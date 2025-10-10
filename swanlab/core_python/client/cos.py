@@ -6,7 +6,7 @@
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import List
 
 import boto3
@@ -88,8 +88,7 @@ class CosClient:
     @property
     def should_refresh(self):
         # cos传递的是北京时间，需要添加8小时
-        # FIXME Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.UTC)
-        now = datetime.utcnow() + timedelta(hours=8)
+        now = datetime.now(UTC) + timedelta(hours=8)
         # 过期时间减去当前时间小于刷新时间，需要注意为负数的情况
         if self.__expired_time < now:
             return True
