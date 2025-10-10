@@ -27,7 +27,7 @@ except ImportError as e:
 from importlib.metadata import version
 
 package_version = version("swanboard")
-if package_version != "0.1.9b0":
+if package_version != "0.1.9b1":
     raise ImportError(
         "Your swanboard version does not match, please use this command to install the matching version: pip install 'swanlab[dashboard]'"
     )
