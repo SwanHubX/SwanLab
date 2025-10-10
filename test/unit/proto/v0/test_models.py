@@ -11,9 +11,9 @@ import os
 import pytest
 import yaml
 
+from swanlab.env import create_time
 from swanlab.log.type import LogData
 from swanlab.proto.v0 import BaseModel, Log, Runtime
-from swanlab.toolkit import create_time
 from swanlab.toolkit.models.log import LogContent
 from tutils import TEMP_PATH
 
