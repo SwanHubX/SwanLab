@@ -6,13 +6,14 @@
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, UTC
+from datetime import timedelta, datetime
 from typing import List
 
 import boto3
 from botocore.config import Config as BotocoreConfig
 
 from swanlab.data.modules import MediaBuffer
+from swanlab.env import utc_time
 from swanlab.log import swanlog
 
 
@@ -88,7 +89,7 @@ class CosClient:
     @property
     def should_refresh(self):
         # cos传递的是北京时间，需要添加8小时
-        now = datetime.now(UTC) + timedelta(hours=8)
+        now = utc_time() + timedelta(hours=8)
         # 过期时间减去当前时间小于刷新时间，需要注意为负数的情况
         if self.__expired_time < now:
             return True

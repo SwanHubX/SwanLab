@@ -24,7 +24,17 @@ from swanlab.env import (
     create_swanlog_dir,
     create_time,
     SwanLabMode,
+    utc_time,
 )
+
+
+def test_utc_time():
+    t = utc_time()
+    assert isinstance(t, datetime.datetime)
+    assert t.tzinfo == datetime.timezone.utc
+    first_call = utc_time()
+    second_call = utc_time()
+    assert second_call >= first_call
 
 
 def test_create_time():

@@ -192,9 +192,14 @@ class SwanLabEnv(enum.Enum):
         return [item.value for item in cls]
 
 
-def create_time() -> str:
+def utc_time() -> datetime.datetime:
     """获取当前时间(UTC时区)"""
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def create_time() -> str:
+    """获取当前时间的iso字符串(UTC时区)"""
+    return utc_time().isoformat()
 
 
 def is_windows() -> bool:
