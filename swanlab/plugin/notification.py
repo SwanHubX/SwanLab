@@ -11,10 +11,10 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Literal
 
 import requests
-
+import json
 import swanlab
 from swanlab.toolkit import SwanKitCallback
 
@@ -439,3 +439,147 @@ class SlackCallback(WebhookCallback):
 
     def __str__(self):
         return "SlackBotCallback"
+
+
+class BarkCallback(SwanKitCallback):
+    """使用Bark对IOS设备进行通知"""
+
+    def __str__(self) -> str:
+        return "BarkCallback"
+
+    DEFAULT_TEMPLATES = {
+        'en': {
+            "subtitle_success": "Your experiment completed successfully",
+            "subtitle_error": "Your experiment encountered an error: {error}",
+            "link_text": "Project: {project}\nWorkspace: {workspace}\nName: {exp_name}\nDescription: {description}",
+            "offline_text": "Offline use of the project."
+        },
+        "zh": {
+            "subtitle_success": "您的实验已成功完成",
+            "subtitle_error": "您的实验遇到错误: {error}",
+            "link_text": "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}",
+            "offline_text": "项目离线使用。"
+        },
+    }
+    def __init__(
+            self,
+            key: str,
+            url: str = 'https://api.day.app',
+            title: str = 'SwanLab',
+            bark_level: Literal['critical', 'active', 'timeSensitive', 'passive'] = 'active',
+            icon: str = 'https://www.swanlab.cn/icon.png',
+            group: Literal['exp_name', 'project', 'workspace', None] = None,
+            click_jump: bool = True,
+            language: str = 'zh',
+    ):
+        """
+        初始化 Bark callback 配置
+        详细内容见 https://bark.day.app/#/tutorial?id=%e8%af%b7%e6%b1%82%e5%8f%82%e6%95%b0
+        :param key: bark中的device key
+        :param url: bark推送链接
+        :param title: 推送的通知标题，默认为SwanLab
+        :param bark_level: bark推送等级
+        :param icon: bark推送图标，默认为SwanLab图标
+        :param group: bark推送分组，默认为None为不分组
+        :param click_jump: 是否点击链接跳转，默认为True
+        :param language: 推送语言
+        """
+        self.key = key
+        self.url = url
+        self.title = title
+        if bark_level not in ['critical', 'active', 'timeSensitive', 'passive']:
+            raise ValueError(f'Invalid bark_level {bark_level}')
+        self.bark_level = bark_level
+        self.icon = icon
+        self.group = group
+        self.click_jump = click_jump
+        self.language = language
+
+
+    def _create_notification_message(self, error: Optional[str] = None) -> Dict[str, Optional[str]]:
+        """根据实验状态，生成对应的通知消息"""
+        templates = self.DEFAULT_TEMPLATES[self.language]
+        if error:
+            subtitle = templates['subtitle_error'].format(error=error)
+        else:
+            subtitle = templates['subtitle_success']
+
+        exp_link = swanlab.get_url()
+        if exp_link:
+            body = templates['link_text'].format(
+                project=self.project,
+                workspace=self.workspace,
+                exp_name=self.exp_name,
+                description=self.description
+            )
+            if self.group == 'exp_name':
+                group = self.exp_name
+            elif self.group == 'project':
+                group = self.project
+            elif self.group == 'workspace':
+                group = self.workspace
+            else:
+                group = None
+        else:
+            body = templates['offline_text']
+            group = None
+
+        # 构建post字典
+        data = {
+            'title': self.title,
+            'subtitle': subtitle,
+            'body': body,
+            'level': self.bark_level,
+            'icon': self.icon,
+            'group': group,
+            'device_key': self.key,
+            'url': exp_link if self.click_jump else None,
+        }
+        data = {k: v for k, v in data.items() if v is not None}
+        return data
+
+
+    def send_notification(self, data: dict):
+        """发送通知，也可以直接构建数据字典进行消息发送"""
+        if self.url.endswith('/'):
+            url = self.url + 'push'
+        else:
+            url = self.url + '/push'
+
+        headers = {
+            'Content-Type': 'application/json; charset=utf-8',
+        }
+
+        resp = requests.post(
+            url=url,
+            headers=headers,
+            data=json.dumps(data, ensure_ascii=False).encode('utf-8'),
+        )
+        resp.raise_for_status()
+        result: Dict[str, Any] = resp.json()
+        if result.get("errcode") and result["errcode"] != 0:
+            print(f"❌ Bark sending failed: {result.get('errmsg')}")
+            return
+        print("✅ Bark sending successfully")
+
+
+    def on_init(self, proj_name: str, workspace: str, public: bool = None, logdir: str = None, *args, **kwargs):
+        self.project = proj_name
+        self.workspace = workspace
+
+    def before_init_experiment(
+        self,
+        run_id: str,
+        exp_name: str,
+        description: str,
+        colors: Tuple[str, str],
+        *args,
+        **kwargs,
+    ):
+        self.run_id = run_id
+        self.exp_name = exp_name
+        self.description = description
+
+    def on_stop(self, error: str = None, *args, **kwargs):
+        content = self._create_notification_message(error)
+        self.send_notification(content)
