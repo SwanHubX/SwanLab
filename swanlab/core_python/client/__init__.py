@@ -6,7 +6,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
@@ -19,6 +19,7 @@ from .cos import CosClient
 from .model import ProjectInfo, ExperimentInfo
 from .. import auth
 from ..session import create_session
+from ...env import utc_time
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
@@ -127,13 +128,6 @@ class Client:
         return self.__exp.name
 
     @property
-    def sid_expired_at(self):
-        """
-        获取sid的过期时间，字符串格式转时间
-        """
-        return datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-    @property
     def web_proj_url(self):
         return f"{self.web_host}/@{self.groupname}/{self.projname}"
 
@@ -147,8 +141,10 @@ class Client:
         """
         请求前的钩子
         """
-        # FIXME datetime.utcnow() -> datetime.now(datetime.UTC)
-        if (self.sid_expired_at - datetime.utcnow()).total_seconds() <= self.REFRESH_TIME:
+        sid_expired_at = datetime.strptime(self.__login_info.expired_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=timezone.utc
+        )
+        if (sid_expired_at - utc_time()).total_seconds() <= self.REFRESH_TIME:
             # 刷新sid，新建一个会话
             swanlog.debug("Refresh sid...")
             self.__login_info = auth.login_by_key(self.__login_info.api_key, save=False)
@@ -267,7 +263,7 @@ class Client:
                 # 项目已经存在，从对象中解析信息
                 resp_data = decode_response(e.resp)
             elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
-                # WARNING: 早期 （私有化） swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
+                # 早期（主要是私有化）swanlab 后端没有 /project 接口，需要使用 /project/{username} 接口，此时没有默认空间的特性
                 self.__groupname = self.__groupname if username is None else username
                 try:
                     visibility = "PUBLIC" if public else "PRIVATE"
