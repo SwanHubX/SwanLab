@@ -11,4 +11,5 @@ __all__ = [
     "DiscordCallback",
     "SlackCallback",
     "LogdirFileWriter",
+    "BarkCallback",
 ]
