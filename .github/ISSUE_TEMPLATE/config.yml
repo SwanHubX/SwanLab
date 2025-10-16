@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Report self-hosting issue
+  - name: 报告自托管问题
     url: https://github.com/SwanHubX/self-hosted/issues
-    about: Report issues related to self-hosting SwanLab
-  - name: View documentation
+    about: 报告与自托管 SwanLab 相关的问题
+  - name: 查看文档
     url: https://docs.swanlab.cn
-    about: Check out the official docs for answers to common questions
-  - name: Get AI support
+    about: 查阅官方文档获取常见问题解答
+  - name: 获取 AI 支持
     url: https://chat.swanlab.cn
-    about: Chat with our AI assistant for quick answers to your questions
-  - name: Get community support
+    about: 与我们的 AI 助手交流，快速获取问题解答
+  - name: 获取社区支持
     url: https://docs.swanlab.cn/guide_cloud/community/online-support.html
-    about: Post your question where experienced developers can offer assistance
+    about: 在有经验的开发者可以提供帮助的社区发布您的问题

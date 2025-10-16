@@ -1,58 +1,58 @@
-name: Bug report
-description: Create a bug report
+name: Bug 报告
+description: 创建 Bug 报告
 labels:
-  - 🐛 bug
-  - 🤔 unconfirmed
+  - 🐛🐛🐛 bug
+  - 🤔🤔 unconfirmed
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to file a bug report!
+        感谢您花时间提交 Bug 报告！
 
-        **Please note:**
-        1. General usage questions are not bug reports. If you're looking for support with your train, you can consider asking for help on the [community](https://docs.swanlab.cn/guide_cloud/community/online-support.html) instead.
-        2. `swanlab` can be integrated into other AI training frameworks, therefore bugs in other frameworks might cause errors in training that use `swanlab`. Please make sure that the bug you're experiencing is _caused by_ by `swanlab`.
-        3. If your issue appears to be network-related, you might want to [Report a network-related problem](https://github.com/SwanHubX/SwanLab/issues/new/choose) instead.
-        4. Bug reports without a reproduction may be closed immediately.
+        **请注意：**
+        1. 常规使用问题不属于 Bug 报告。如果您需要训练相关的帮助，可以考虑在[社区](https://docs.swanlab.cn/guide_cloud/community/online-support.html)寻求支持。
+        2. `swanlab` 可集成到其他 AI 训练框架中，因此其他框架的 Bug 可能导致使用 `swanlab` 的训练出错。请确保您遇到的 Bug 是由 `swanlab` *引起*的。
+        3. 如果您的问题似乎与网络相关，您可能需要[报告网络相关问题](https://github.com/SwanHubX/SwanLab/issues/new/choose)。
+        4. 没有复现步骤的 Bug 报告可能会被立即关闭。
   - type: checkboxes
     attributes:
-      label: Verifications
+      label: 确认项
       options:
-        - label: I've verified that the problem I'm experiencing isn't covered in [the docs](https://docs.swanlab.cn).
+        - label: 我已确认我遇到的问题在[文档](https://docs.swanlab.cn)中未有说明。
           required: true
-        - label: I've searched for similar, existing issues on [GitHub](https://github.com/SwanHubX/SwanLab/issues).
+        - label: 我已在 [GitHub](https://github.com/SwanHubX/SwanLab/issues) 上搜索过类似或已有的问题。
           required: true
-        - label: I have confirmed that this issue was not caused by a network error.
+        - label: 我已确认此问题并非由网络错误引起。
           required: true
   - type: textarea
     attributes:
-      label: Description
-      description: A clear and concise description of what the bug is.
+      label: 问题描述
+      description: 清晰、简洁地描述 Bug 是什么。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Mandatory reproduction Code
+      label: 必须的复现代码
       description: |
-        Please attach the code that can reproduce the bug, which can be a snippet, file, or repository. Our [template](https://github.com/SwanHubX/swanlab-bug-repro) might help you quickly create a new repository/snippet.
+        请附上能够复现 Bug 的代码，可以是一个片段、文件或仓库。我们的[模板](https://github.com/SwanHubX/swanlab-bug-repro)可能有助于您快速创建新仓库/代码片段。
       value: |
-        The core code is …
+        核心代码是 …
         
-        Steps to reproduce:
-        1. Open reproduction
-        2. Click on …
-        3. See error: …
+        复现步骤：
+        1. 打开复现
+        2. 点击 …
+        3. 看到错误： …
     validations:
       required: true
   - type: markdown
     attributes:
       value: |
-        **Creating a good reproduction takes time.**
+        **创建一个好的复现需要时间。**
 
-        To help us resolve the issue quickly, please simplify the reproduction as much as possible by removing any unnecessary code, files, and dependencies that are not directly related to the problem. The easier it is for us to see the issue, the faster we can help you.
+        为帮助我们快速解决问题，请尽可能简化复现，移除与问题不直接相关的任何不必要的代码、文件和依赖项。我们越容易看到问题，就能越快帮助您。
   - type: textarea
     attributes:
-      label: Error message
-      description: Please provide a complete error stack trace so we can quickly identify the issue.
+      label: 错误信息
+      description: 请提供完整的错误堆栈跟踪，以便我们快速定位问题。
     validations:
       required: true

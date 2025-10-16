@@ -1,49 +1,49 @@
-name: Website report
-description: Report a website-related problem
+name: 网站问题报告
+description: 报告与网站相关的问题
 labels:
-  - 💥 website
-  - 🤔 unconfirmed
+  - 💥💥 website
+  - 🤔🤔 unconfirmed
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a website issue!
+        感谢您报告网站问题！
 
-        **Critical Notes for Website Issues:**
-        1. Website problems often involve browser settings, extensions, or network issues. Please provide detailed context.
-        2. Ensure the issue is SwanLab-specific.
-        3. Include browser console logs and network test results if applicable.
-        4. Reports without sufficient details may be closed temporarily.
+        **网站问题关键注意事项：**
+        1. 网站问题通常涉及浏览器设置、扩展程序或网络问题，请提供详细上下文。
+        2. 请确保问题是 SwanLab 特有的。
+        3. 请包含浏览器控制台日志和相关的网络测试结果。
+        4. 缺乏足够详情的报告可能会被暂时关闭。
   - type: checkboxes
     attributes:
-      label: Verifications
+      label: 确认项
       options:
-        - label: I've searched [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) for similar network problems.
+        - label: 我已在 [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) 中搜索过类似的网络问题。
           required: true
-        - label: I've tested basic connectivity to SwanLab services.
+        - label: 我已测试到 SwanLab 服务的基本连通性。
           required: true
-        - label: I have attempted basic troubleshooting steps, including restarting the browser, clearing cache, disabling extensions, switching networks (Wi-Fi/mobile data), and temporarily disabling VPN/proxy.
+        - label: 我已尝试基本故障排除步骤，包括重启浏览器、清除缓存、禁用扩展程序、切换网络（Wi-Fi/移动数据）以及临时禁用 VPN/代理。
           required: true
   - type: textarea
     attributes:
-      label: Problem Description
-      description: A clear, concise summary of the network issue.
+      label: 问题描述
+      description: 清晰、简洁地总结网络问题。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Browser Environment
-      description: E.g., browser type, version, OS. 
+      label: 浏览器环境
+      description: 例如：浏览器类型、版本、操作系统。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Browser Console Logs
-      description: Press F12 → Network Tab → Copy failed request details
+      label: 浏览器控制台日志
+      description: 按 F12 → 网络(Network)标签页 → 复制失败的请求详情
     validations:
       required: true
   - type: markdown
     attributes:
       value: |
-        **Why This Matters:**
-        Providing detailed information helps us quickly identify and resolve issues, improving the experience for everyone. Thank you!
+        **为何需要这些信息：**
+        提供详细信息有助于我们快速识别并解决问题，从而改善每个人的使用体验。感谢您的配合！
