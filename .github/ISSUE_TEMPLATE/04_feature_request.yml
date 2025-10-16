@@ -1,39 +1,39 @@
-name: Feature request
-description: Suggest an idea for this project
+name: 功能请求
+description: 为项目提出功能建议
 labels:
-  - 🏠 advice
-  - 💪 enhancement
-  - 🤔 unconfirmed
+  - 🏠🏠🏠 advice
+  - 💪💪 enhancement
+  - 🤔🤔 unconfirmed
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to improve swanlab!
+      value: 感谢您花时间改进 SwanLab！
   - type: markdown
     attributes:
       value: |
-        Please keep in mind:
+        请注意：
 
-        - If you're looking for specific support with your project, you can consider [asking for community support](https://docs.swanlab.cn/guide_cloud/community/online-support.html) instead.
-        - If something doesn't work as expected, you might want to [create a bug report](https://github.com/SwanHubX/SwanLab/issues/new/choose) instead.
-        - Please double check the [docs](https://docs.swanlab.cn) to see if your feature request is already supported.
-        - Please also check the [existing issues](https://github.com/SwanHubX/SwanLab/issues) to see if your feature request was already discussed.
+        - 如果您需要项目相关的具体支持，可以考虑[寻求社区支持](https://docs.swanlab.cn/guide_cloud/community/online-support.html)。
+        - 如果功能未按预期工作，您可能需要[创建 Bug 报告](https://github.com/SwanHubX/SwanLab/issues/new/choose)。
+        - 请仔细查阅[文档](https://docs.swanlab.cn)，确认您请求的功能是否已支持。
+        - 请检查[现有议题](https://github.com/SwanHubX/SwanLab/issues)，确认您的功能请求是否已被讨论过。
 
-        If you have a feature request that has not been discussed yet, please fill out this form completely.
+        如果您有尚未讨论的功能请求，请完整填写此表单。
   - type: textarea
     attributes:
-      label: Is your feature request related to a problem? Please describe.
-      description: A clear and concise description of what the problem is. E.g. I'm always frustrated when …
+      label: 功能请求是否与某个问题相关？请描述。
+      description: 清晰、简洁地描述问题所在。例如：当……时，我总是感到困扰。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Describe the solution you'd like
-      description: A clear and concise description of what you want to happen.
+      label: 描述您希望的解决方案
+      description: 清晰、简洁地描述您期望实现的效果。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Describe alternatives you've considered
-      description: A clear and concise description of any alternative solutions or features you've considered.
+      label: 描述您考虑过的替代方案
+      description: 清晰、简洁地描述您考虑过的任何替代解决方案或功能。
     validations:
       required: false

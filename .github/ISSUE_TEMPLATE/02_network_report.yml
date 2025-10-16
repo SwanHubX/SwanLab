@@ -1,67 +1,67 @@
-name: Network report
-description: Report a network-related problem
+name: 网络问题报告
+description: 报告网络相关问题
 labels:
-  - 👾 network
-  - 🤔 unconfirmed
+  - 👾👾 network
+  - 🤔🤔 unconfirmed
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a network issue!
+        感谢您报告网络问题！
 
-        **Critical Notes for Network Issues:**
-        1. Network problems often involve local environment (proxies, firewalls), server status, or client configs. Please provide detailed context.
-        2. Ensure the issue is SwanLab-specific: e.g., you can access [https://swanlab.cn](https://swanlab.cn) via a browser, but SwanLab SDK fails.
-        3. Include network test results (ping/traceroute/curl) and raw error logs.
-        4. Reports without sufficient network details may be closed temporarily.
+        **网络问题关键注意事项：**
+        1. 网络问题通常涉及本地环境（代理、防火墙）、服务器状态或客户端配置，请提供详细上下文。
+        2. 请确保问题是 SwanLab 特有的：例如，您可以通过浏览器访问 [https://swanlab.cn](https://swanlab.cn)，但 SwanLab SDK 却失败。
+        3. 请包含网络测试结果（ping/traceroute/curl）和原始错误日志。
+        4. 缺乏足够网络详情的报告可能会被暂时关闭。
   - type: checkboxes
     attributes:
-      label: Verifications
+      label: 确认项
       options:
-        - label: I've searched [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) for similar network problems.
+        - label: 我已在 [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues) 中搜索过类似的网络问题。
           required: true
-        - label: I've tested basic connectivity to SwanLab services.
+        - label: 我已测试到 SwanLab 服务的基本连通性。
           required: true
-        - label: I have attempted basic troubleshooting steps, including restarting the device, switching networks (Wi-Fi/mobile data), and temporarily disabling VPN/proxy.
+        - label: 我已尝试基本故障排除步骤，包括重启设备、切换网络（Wi-Fi/移动数据）以及临时禁用 VPN/代理。
           required: true
   - type: textarea
     attributes:
-      label: Problem Description
-      description: A clear, concise summary of the network issue.
+      label: 问题描述
+      description: 清晰、简洁地总结网络问题。
     validations:
       required: true
   - type: input
     attributes:
-      label: SwanLab Version
-      description: E.g., 0.6.11 (run `swanlab --version` or `pip show swanlab`)
+      label: SwanLab 版本
+      description: 例如：0.6.11（运行 `swanlab --version` 或 `pip show swanlab` 查看）
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Network Environment
-      description: E.g., OS, network type, proxy/VPN, firewall, corporate network, etc.
+      label: 网络环境
+      description: 例如：操作系统、网络类型、代理/VPN、防火墙、公司网络等。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Ping Results
-      description: Run `ping swanlab.cn` and paste the complete results.
+      label: Ping 结果
+      description: 运行 `ping swanlab.cn` 并粘贴完整结果。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Traceroute Results
-      description: Run `traceroute swanlab.cn` (Windows `tracert swanlab.cn`) and paste the complete results.
+      label: Traceroute 结果
+      description: 运行 `traceroute swanlab.cn`（Windows 系统使用 `tracert swanlab.cn`）并粘贴完整结果。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Curl Results
-      description: Run `curl -v https://swanlab.cn` and paste the complete results.
+      label: Curl 结果
+      description: 运行 `curl -v https://swanlab.cn` 并粘贴完整结果。
     validations:
       required: false
   - type: markdown
     attributes:
       value: |
-        **Why This Matters:**
-        Network issues require context about your environment and connectivity. Logs like `curl -v` or `traceroute` help us distinguish between client misconfigurations, proxy blocks, or server-side problems. Thank you for your patience—we’ll prioritize resolving this once we have enough details!
+        **为何需要这些信息：**
+        网络问题需要了解您的环境和连接状况。诸如 `curl -v` 或 `traceroute` 等日志有助于我们区分是客户端配置错误、代理阻止还是服务器端问题。感谢您的耐心——一旦获得足够详细信息，我们将优先解决此问题！
