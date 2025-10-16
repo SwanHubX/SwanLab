@@ -51,6 +51,8 @@
 
 ## 🌟 最近の更新
 
+- 2025.10.15: 📊 折れ線グラフ設定で**X軸データソース選択**をサポート；サイドバーでテーブルビューのPin列を表示し、実験データの整合性を向上；
+
 - 2025.09.22: 📊 新UIが利用可能になりました；テーブルビューでグローバルソートとフィルタリングをサポート；データレベルでテーブルビューとグラフビューを統一；
 
 - 2025.09.12: 🔢 **スカラーチャート**のサポートを追加、実験指標の統計値を柔軟に表示可能；組織管理ページ大アップグレード、より強力な権限制御とプロジェクト管理機能を提供；
@@ -67,11 +69,10 @@
 
 - 2025.07.06: 🚄 再開トレーニングをサポート；新プラグイン [ファイルロガー](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)；[ray](https://github.com/ray-project/ray) フレームワークを統合、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；[ROLL](https://github.com/volcengine/ROLL) フレームワークを統合、[@PanAndy](https://github.com/PanAndy) 氏に感謝、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
-- 2025.06.27: **小折れ線グラフの局所拡大**をサポート；**単一折れ線グラフの平滑化**をサポート；大幅に画像グラフの拡大後のインタラクション効果を改善；
-
-
 
 <details><summary>完全な更新履歴</summary>
+
+- 2025.06.27: **小折れ線グラフの局所拡大**をサポート；**単一折れ線グラフの平滑化**をサポート；大幅に画像グラフの拡大後のインタラクション効果を改善；
 
 - 2025.06.20: 🤗 [accelerate](https://github.com/huggingface/accelerate) フレームワークを統合、[PR](https://github.com/huggingface/accelerate/pull/3605)、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)、分散トレーニング中の実験記録と分析の体験を向上させます。
 
