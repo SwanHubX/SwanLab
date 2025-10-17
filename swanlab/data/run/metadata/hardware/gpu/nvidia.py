@@ -81,15 +81,32 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
 
 
 def get_cuda_version():
-    """获取 CUDA 版本"""
+    """获取 CUDA 版本，结合 nvcc 和 nvidia-smi 两种方法"""
+    cuda_version = None
+    
+    # Method 1: Use nvcc --version
     try:
         output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
         for line in output.split('\n'):
             if "release" in line:
                 version = line.split("release")[-1].strip().split(" ")[0][:-1]
-                return version
+                cuda_version = version
+                break
     except Exception:  # noqa
-        return None
+        pass
+    
+    # If the nvcc method is not obtained, use method 2: nvidia-smi
+    if cuda_version is None:
+        try:
+            # Use nvidia-smi to extract the CUDA version
+            cmd = "nvidia-smi | grep 'CUDA Version' | awk -F'CUDA Version: ' '{print $2}' | awk '{print $1}'"
+            output = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+            if output:
+                cuda_version = output
+        except Exception:  # noqa
+            pass
+    
+    return cuda_version
 
 
 class GpuCollector(HardwareCollector):
