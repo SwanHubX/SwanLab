@@ -1,8 +1,8 @@
 name: Bug 报告
 description: 创建 Bug 报告
 labels:
-  - 🐛🐛🐛 bug
-  - 🤔🤔 unconfirmed
+  - 🐛 bug
+  - 🤔 unconfirmed
 body:
   - type: markdown
     attributes:

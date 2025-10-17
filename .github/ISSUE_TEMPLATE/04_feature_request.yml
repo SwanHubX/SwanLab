@@ -1,9 +1,9 @@
 name: 功能请求
 description: 为项目提出功能建议
 labels:
-  - 🏠🏠🏠 advice
-  - 💪💪 enhancement
-  - 🤔🤔 unconfirmed
+  - 🏠 advice
+  - 💪 enhancement
+  - 🤔 unconfirmed
 body:
   - type: markdown
     attributes:
