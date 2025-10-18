@@ -17,7 +17,7 @@ import click
     "--type",
     "-t",
     default="tensorboard",
-    type=click.Choice(["tensorboard", "wandb", "mlflow"]),
+    type=click.Choice(["tensorboard", "wandb", "mlflow", "wandb-local"]),
     help="The type of the experiment tracking tool you want to convert to.",
 )
 @click.option(
@@ -46,11 +46,15 @@ import click
     type=str,
     help="The directory where the swanlab log files are stored.",
 )
+
+# tensorboard
 @click.option(
     "--tb_logdir",
     type=str,
     help="The directory where the tensorboard log files are stored.",
 )
+
+# wandb
 @click.option(
     "--wb-project",
     type=str,
@@ -66,6 +70,8 @@ import click
     type=str,
     help="The run_id of the wandb run.",
 )
+
+# mlflow
 @click.option(
     "--mlflow-uri",
     type=str,
@@ -75,6 +81,19 @@ import click
     "--mlflow-exp",
     type=str,
     help="The experiment name or id of the mlflow runs.",
+)
+
+# wandb local
+@click.option(
+    "--wb-dir",
+    type=str,
+    default="./wandb",
+    help="The directory where the wandb local log files are stored.",
+)
+@click.option(
+    "--wb-run-dir",
+    type=str,
+    help="The run directory of the wandb local log files.",
 )
     
 def convert(
@@ -89,6 +108,8 @@ def convert(
         wb_runid: str,
         mlflow_uri: str,
         mlflow_exp: str,
+        wb_dir: str,
+        wb_run_dir: str,
         **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
@@ -134,6 +155,21 @@ def convert(
         mlf_converter.run(
             tracking_uri=mlflow_uri,
             experiment=mlflow_exp,
+        )
+    
+    elif type == "wandb-local":
+        from swanlab.converter.wb import WandbLocalConverter
+        
+        wb_local_converter = WandbLocalConverter(
+            project=project,
+            workspace=workspace,
+            mode=mode,
+            logdir=logdir,
+        )
+        
+        wb_local_converter.run(
+            root_wandb_dir=wb_dir,
+            wandb_run_dir=wb_run_dir,
         )
 
     else:
