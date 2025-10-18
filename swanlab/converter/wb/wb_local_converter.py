@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 This code references: https://github.com/yuz1wan/localWandb2cloudSwanlab, thanks to @yuz1wan.
+
+------example.py------
+from swanlab.converter import WandbLocalConverter
+
+wb_local_converter = WandbLocalConverter()
+wb_local_converter.run(root_wandb_dir="WANDB_LOCAL_DIR", wandb_run_dir="WANDB_LOCAL_RUN_DIR")
+
+------command------
+swanlab convert -t wandb-local --wb-dir ./wandb --wb-run-dir run-1234567890
 """
 import argparse
 import glob
@@ -59,19 +68,23 @@ class WandbLocalConverter:
 
     def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> list[str]:
         """Finds all wandb run directories within a given root directory."""
-        patterns = [
-            os.path.join(root_wandb_dir, "run-*/"),
-            os.path.join(root_wandb_dir, "offline-run-*/")
-        ]
         if wandb_run_dir:
             patterns = [
                 os.path.join(root_wandb_dir, wandb_run_dir)
             ]
+            found_path = os.path.join(root_wandb_dir, wandb_run_dir)
+        else:
+            patterns = [
+                os.path.join(root_wandb_dir, "run-*/"),
+                os.path.join(root_wandb_dir, "offline-run-*/")
+            ]
+            found_path = root_wandb_dir
+
         run_dirs = []
         for pattern in patterns:
             run_dirs.extend(glob.glob(pattern))
         if not run_dirs:
-            swl.warning(f"No wandb run directories found in '{root_wandb_dir}'.")
+            swl.warning(f"No wandb run directories found in '{found_path}'.")
         return run_dirs
 
     def _unpack_key_value_json_list(self, items: list) -> dict:

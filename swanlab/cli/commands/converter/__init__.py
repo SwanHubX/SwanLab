@@ -85,12 +85,13 @@ import click
 
 # wandb local
 @click.option(
-    "--wb-local-dir",
+    "--wb-dir",
     type=str,
+    default="./wandb",
     help="The directory where the wandb local log files are stored.",
 )
 @click.option(
-    "--wb-local-run-dir",
+    "--wb-run-dir",
     type=str,
     help="The run directory of the wandb local log files.",
 )
@@ -107,8 +108,8 @@ def convert(
         wb_runid: str,
         mlflow_uri: str,
         mlflow_exp: str,
-        wb_local_dir: str,
-        wb_local_run_dir: str,
+        wb_dir: str,
+        wb_run_dir: str,
         **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
@@ -167,8 +168,8 @@ def convert(
         )
         
         wb_local_converter.run(
-            root_wandb_dir=wb_local_dir,
-            wandb_run_dir=wb_local_run_dir,
+            root_wandb_dir=wb_dir,
+            wandb_run_dir=wb_run_dir,
         )
 
     else:
