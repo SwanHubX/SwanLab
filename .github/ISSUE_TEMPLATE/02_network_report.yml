@@ -1,8 +1,8 @@
 name: 网络问题报告
 description: 报告网络相关问题
 labels:
-  - 👾👾 network
-  - 🤔🤔 unconfirmed
+  - 👾 network
+  - 🤔 unconfirmed
 body:
   - type: markdown
     attributes:
