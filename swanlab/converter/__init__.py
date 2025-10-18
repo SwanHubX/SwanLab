@@ -20,6 +20,11 @@ def __getattr__(name):
 
         return WandbConverter
     
+    if name == "WandbLocalConverter":
+        from .wb import WandbLocalConverter
+
+        return WandbLocalConverter
+    
     if name == "MLFlowConverter":
         from .mlf import MLFLowConverter
         
@@ -28,4 +33,4 @@ def __getattr__(name):
     raise AttributeError(f"module 'convert' has no attribute '{name}'")
 
 
-__all__ = ["TFBConverter", "WandbConverter", "MLFlowConverter"]
+__all__ = ["TFBConverter", "WandbConverter", "WandbLocalConverter", "MLFlowConverter"]
