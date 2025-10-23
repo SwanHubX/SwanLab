@@ -63,7 +63,7 @@ class SwanLabLogger(Logger):
         **kwargs: Any,
     ):
         super().__init__()
-        
+
         tags = tags or []
         tags.append("⚡️pytorch lightning") if "⚡️pytorch lightning" not in tags else None
 
@@ -91,7 +91,7 @@ class SwanLabLogger(Logger):
         if save_dir is not None:
             save_dir = os.fspath(save_dir)
         self._save_dir = save_dir
-    
+
     def update_config(self, config: Dict[str, Any]):
         swanlab.config.update(config)
 
@@ -100,7 +100,7 @@ class SwanLabLogger(Logger):
     def experiment(self) -> SwanLabRun:
         """创建实验"""
         swanlab.config["FRAMEWORK"] = "⚡️pytorch_lightning"
-        
+
         if swanlab.get_run() is None:
             self._experiment = swanlab.init(**self._swanlab_init)
         else:
@@ -205,6 +205,10 @@ class SwanLabLogger(Logger):
 
     @property
     def save_dir(self) -> Optional[str]:
+        return self._save_dir
+
+    @property
+    def log_dir(self) -> Optional[str]:
         return self._save_dir
 
     @property
