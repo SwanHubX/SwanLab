@@ -37,7 +37,7 @@ else:
         "or \n pip install lightning"
     )
 import swanlab
-from ..data.run import SwanLabRun
+from ..data.run import SwanLabRun, SwanLabRunState
 from lightning_fabric.utilities.logger import _add_prefix, _convert_params, _sanitize_callable_params
 
 
@@ -218,7 +218,7 @@ class SwanLabLogger(Logger):
     @rank_zero_only
     def finalize(self, status: str) -> None:
         if status != "success":
-            return
+            self.experiment.finish(SwanLabRunState.CRASHED, f"Closed by pytorch lightning. Status: {status}")
 
     @property
     def version(self) -> Optional[str]:
