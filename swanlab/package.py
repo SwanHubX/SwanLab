@@ -62,7 +62,7 @@ class HostFormatter:
         self.pattern = re.compile(
             r'^(?:(https?)://)?'  # 可选协议 http 或 https
             r'('  # 主机部分（域名、IP、localhost）
-            r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,63})'  # 标准域名
+            r'([a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]{2,})'  # 域名
             r'|'  # 或
             r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # IPv4地址
             r'|'  # 或
