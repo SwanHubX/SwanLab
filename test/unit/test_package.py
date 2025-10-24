@@ -258,6 +258,7 @@ class TestHostFormatter:
     def test_ok(self):
         formatter = P.HostFormatter()
         assert formatter.fmt("swanlab.cn") == "https://swanlab.cn"
+        assert formatter.fmt("tmp_backend.swanlab.cn") == "https://tmp_backend.swanlab.cn"
         assert formatter.fmt("https://swanlab.cn") == "https://swanlab.cn"
         assert formatter.fmt("http://swanlab.cn") == "http://swanlab.cn"  # noqa
         assert formatter.fmt("https://swanlab.cn:8443/") == "https://swanlab.cn:8443"
