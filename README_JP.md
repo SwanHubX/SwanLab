@@ -392,6 +392,7 @@ swanlab login --host http://localhost:8000
 -  [企業微信通知](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
 -  [Discord通知](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Slack通知](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+-  [Bark通知](https://docs.swanlab.cn/plugin/notification-bark.html)
 -  [CSVロガー](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 -  [ファイルロガー](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 

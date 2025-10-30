@@ -460,6 +460,7 @@ Enhance your experiment management experience by extending SwanLab's functionali
 -  [WXWork Notification](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
 -  [Discord Notification](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 -  [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+-  [Bark Notification](https://docs.swanlab.cn/plugin/notification-bark.html)
 -  [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html)
 -  [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 

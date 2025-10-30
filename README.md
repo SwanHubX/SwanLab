@@ -488,6 +488,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [企业微信通知](https://docs.swanlab.cn/plugin/notification-wxwork.html)
 - [Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)
 - [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)
+- [Bark通知](https://docs.swanlab.cn/plugin/notification-bark.html)
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
 - [文件记录器](https://docs.swanlab.cn/plugin/writer-filelogdir.html)
 
