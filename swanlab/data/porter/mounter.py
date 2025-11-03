@@ -117,7 +117,9 @@ class Mounter:
                         if media_summary["key"] == key:
                             latest_step = media_summary["step"]
                             break
-                metrics[key] = (column_type, column_class, error, latest_step)
+                # 极端情况下，总结数据中会不包含此key，此时 latest_step 仍为 None
+                # 具体情况就是列创建了，但是没有任何数据，这时候latest_step设置为-1即可，代表可接受所有step
+                metrics[key] = (column_type, column_class, error, latest_step or -1)
             run_store.metrics = metrics
 
     def __exit__(self, exc_type, exc_val, exc_tb):
