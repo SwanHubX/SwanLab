@@ -82,12 +82,15 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
 
 
 @sync_error_handler
-def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
+def upload_scalar_metrics(scalar_metrics: List[ScalarModel], per_request_len=3000):
     """
     上传指标的标量数据
     """
-    data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    trace_metrics(house_url, data)
+    metrics = [x.to_dict() for x in scalar_metrics]
+    # 分批上传
+    for i in range(0, len(metrics), per_request_len):
+        data = create_data(metrics[i : i + per_request_len], ScalarModel.type.value)
+        trace_metrics(house_url, data)
 
 
 @sync_error_handler
