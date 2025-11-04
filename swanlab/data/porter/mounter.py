@@ -63,6 +63,8 @@ class Mounter:
                 exp_name=run_store.run_name,
                 colors=run_store.run_colors,
                 description=run_store.description,
+                job_type=run_store.job_type,
+                group=run_store.group,
                 tags=run_store.tags,
                 cuid=run_store.run_id,
                 must_exist=run_store.resume == 'must',

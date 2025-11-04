@@ -95,6 +95,8 @@ class SwanLabInitializer:
         workspace: str = None,
         experiment_name: str = None,
         description: str = None,
+        job_type: str = None,
+        group: str = None,
         tags: List[str] = None,
         config: Union[dict, str] = None,
         logdir: str = None,
@@ -129,6 +131,10 @@ class SwanLabInitializer:
             The experiment description you currently have open,
             used for a more detailed introduction or labeling of the current experiment.
             If you do not provide this parameter, you can modify it later in the web interface.
+        job_type: str, optional
+            The job type of the current experiment, used to distinguish different types of experiments.
+        group : str, optional
+            The experiment group of the current experiment, used for grouping experiments.
         tags : List[str], optional
             The tags of the experiment, used for labeling the current experiment.
             If you do not provide this parameter, you can modify it later in the web interface.
@@ -177,7 +183,7 @@ class SwanLabInitializer:
                 - allow: If the run exists, it will be resumed, otherwise a new run will be created.
                 - never: You cannot pass the `id` parameter, and a new run will be created.
             You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
-            [Note that] This parameter is only valid when mode='cloud'
+            [Notice that] This parameter is only valid when mode='cloud'
         id : str, optional
             The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
@@ -216,6 +222,8 @@ class SwanLabInitializer:
             load_data = check_load_json_yaml(load, load)
             experiment_name = _load_from_dict(load_data, "experiment_name", experiment_name)
             description = _load_from_dict(load_data, "description", description)
+            job_type = _load_from_dict(load_data, "job_type", job_type)
+            group = _load_from_dict(load_data, "group", group)
             tags = _load_from_dict(load_data, "tags", tags)
             config = _load_from_dict(load_data, "config", config)
             logdir = _load_from_dict(load_data, "logdir", logdir)
@@ -239,6 +247,8 @@ class SwanLabInitializer:
         project = _load_from_env(SwanLabEnv.PROJ_NAME.value, project)
         experiment_name = _load_from_env(SwanLabEnv.EXP_NAME.value, experiment_name)
         description = _load_from_env(SwanLabEnv.DESCRIPTION.value, description)
+        job_type = _load_from_env(SwanLabEnv.JOB.value, job_type)
+        group = _load_from_env(SwanLabEnv.GROUP.value, group)
         tags = _load_list_from_env(SwanLabEnv.TAGS.value, tags)
         resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
@@ -262,7 +272,19 @@ class SwanLabInitializer:
             if description != d:
                 swanlog.warning("The description has been truncated automatically.")
                 description = d
-        # 2.4 校验标签
+        # 2.4 校验任务类型
+        if job_type:
+            j = job_type.strip()
+            if j != job_type:
+                swanlog.warning("The job type has been stripped automatically.")
+                job_type = j
+        # 2.5 校验实验组
+        if group:
+            g = group.strip()
+            if g != group:
+                swanlog.warning("The group has been stripped automatically.")
+                group = g
+        # 2.6 校验标签
         if tags:
             new_tags = check_tags_format(tags)
             for i in range(len(tags)):
@@ -312,6 +334,8 @@ class SwanLabInitializer:
         run_store.project = project
         run_store.workspace = workspace
         run_store.visibility = public
+        run_store.job_type = job_type
+        run_store.group = group
         run_store.tags = tags
         run_store.description = description
         run_store.run_name = experiment_name
