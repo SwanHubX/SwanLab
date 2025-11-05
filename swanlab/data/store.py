@@ -35,6 +35,10 @@ class RunStore(BaseModel):
     run_colors: Optional[Tuple[str, str]] = None
     # 实验标签
     tags: Optional[List[str]] = None
+    # 任务类型
+    job_type: Optional[str] = None
+    # 实验组
+    group: Optional[str] = None
     # 实验描述
     description: Optional[str] = None
     # 实验运行 ID

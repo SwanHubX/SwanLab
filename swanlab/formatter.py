@@ -163,6 +163,28 @@ def check_tags_format(tags: List[str], auto_cut: bool = True) -> List[str]:
     return new_tags
 
 
+def check_job_type_format(job_type: str, auto_cut: bool = True) -> str:
+    """
+    检查任务类型格式，最大长度为256个字符，一个中文字符算一个字符
+    :param job_type: 任务类型
+    :param auto_cut: 是否自动截断，默认为True
+    :return: str 检查后的字符串
+    """
+    max_len = 255
+    return _auto_cut("job_type", job_type, max_len, auto_cut)
+
+
+def check_group_format(group: str, auto_cut: bool = True) -> str:
+    """
+    检查实验组格式，最大长度为256个字符，一个中文字符算一个字符
+    :param group: 实验组
+    :param auto_cut: 是否自动截断，默认为True
+    :return: str 检查后的字符串
+    """
+    max_len = 256
+    return _auto_cut("group", group, max_len, auto_cut)
+
+
 def check_run_id_format(run_id: str = None) -> Optional[str]:
     """
     检查运行ID格式，要求：

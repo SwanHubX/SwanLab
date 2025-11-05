@@ -113,6 +113,14 @@ class SwanLabEnv(enum.Enum):
     """
     实验描述，用于为实验提供更详细的介绍或标注
     """
+    JOB = "SWANLAB_JOB_TYPE"
+    """
+    实验任务类型，用于标注当前实验的任务类型，例如分类、回归等
+    """
+    GROUP = "SWANLAB_GROUP"
+    """
+    实验组，用于将实验划分到不同的组别，便于管理和区分
+    """
     TAGS = "SWANLAB_TAGS"
     """
     实验标签，用于标注当前实验，多个标签用逗号分隔

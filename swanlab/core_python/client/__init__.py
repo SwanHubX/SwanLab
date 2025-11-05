@@ -296,6 +296,8 @@ class Client:
         exp_name,
         colors: Tuple[str, str],
         description: str = None,
+        job_type: str = None,
+        group: str = None,
         tags: List[str] = None,
         created_at: str = None,
         cuid: str = None,
@@ -306,6 +308,8 @@ class Client:
         :param exp_name: 所属实验名称
         :param colors: 实验颜色，有两个颜色
         :param description: 实验描述
+        :param job_type: 任务类型
+        :param group: 实验组
         :param tags: 实验标签
         :param created_at: 实验创建时间，格式为 ISO 8601
         :param cuid: 实验的唯一标识符，如果不提供则由后端生成
@@ -333,6 +337,8 @@ class Client:
             "createdAt": created_at,
             "colors": list(colors),
             "labels": labels if len(labels) else None,
+            "job": job_type,
+            "cluster": group,
             "cuid": cuid,
         }
         post_data = {k: v for k, v in post_data.items() if v is not None}  # 移除值为None的键
