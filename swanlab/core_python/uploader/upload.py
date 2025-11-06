@@ -5,7 +5,7 @@
 @description: 定义上传函数
 """
 
-from typing import List, Union, Literal
+from typing import List, Union, Literal, TypedDict
 
 from swanlab.log import swanlog
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
@@ -15,7 +15,16 @@ from ...error import ApiError
 house_url = '/house/metrics'
 
 
-def create_data(metrics: List[dict], metrics_type: str) -> dict:
+# 上传指标数据
+class MetricDict(TypedDict):
+    projectId: str
+    experimentId: str
+    type: str
+    metrics: List[dict]
+    flagId: Union[str, None]
+
+
+def create_data(metrics: List[dict], metrics_type: str) -> MetricDict:
     """
     携带上传日志的指标信息
     """
@@ -23,7 +32,8 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     # Move 等实验需要将数据上传到根实验上
     exp_id = client.exp.root_exp_cuid or client.exp.cuid
     proj_id = client.exp.root_proj_cuid or client.proj.cuid
-
+    assert proj_id is not None, "Project ID is empty."
+    assert exp_id is not None, "Experiment ID is empty."
     flag_id = client.exp.flag_id
     return {
         "projectId": proj_id,
@@ -34,19 +44,50 @@ def create_data(metrics: List[dict], metrics_type: str) -> dict:
     }
 
 
-def trace_metrics(url: str, data: Union[dict, list] = None, method: Literal['post', 'put'] = 'post'):
+def trace_metrics(
+    url: str,
+    data: Union[MetricDict, list] = None,
+    method: Literal['post', 'put'] = 'post',
+    per_request_len: int = 5000,
+):
     """
     创建指标数据方法，如果 client 处于挂起状态，则不进行上传
     :param url: 上传的URL地址
     :param data: 上传的数据，可以是字典或列表
     :param method: 请求方法，默认为 'post'
+    :param per_request_len: 每次请求的最大数据长度，如果设置为-1则不进行分批上传
     """
+    # TODO 用装饰器设置client的pending状态
     client = get_client()
     if client.pending:
         return
-    _, resp = getattr(client, method)(url, data)
-    if resp.status_code == 202:
-        client.pending = True
+    if per_request_len == -1:
+        _, resp = getattr(client, method)(url, data)
+        if resp.status_code == 202:
+            client.pending = True
+            return
+        return
+    # 分批上传
+    if isinstance(data, dict):
+        # 1. 指标数据
+        for i in range(0, len(data['metrics']), per_request_len):
+            _, resp = getattr(client, method)(
+                url,
+                {
+                    **data,
+                    "metrics": data['metrics'][i : i + per_request_len],
+                },
+            )
+            if resp.status_code == 202:
+                client.pending = True
+                return
+    else:
+        # 2. 列表数据（列等）
+        for i in range(0, len(data), per_request_len):
+            _, resp = getattr(client, method)(url, data[i : i + per_request_len])
+            if resp.status_code == 202:
+                client.pending = True
+                return
 
 
 @sync_error_handler
@@ -106,39 +147,38 @@ def upload_files(files: List[FileModel]):
     if file_model.empty:
         return
     data = file_model.to_dict()
-    trace_metrics(f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile', data, method="put")
+    trace_metrics(
+        f'/project/{http.groupname}/{http.projname}/runs/{http.exp_id}/profile',
+        data,
+        method="put",
+        per_request_len=-1,
+    )
     return
 
 
 @sync_error_handler
-def upload_columns(columns: List[ColumnModel], per_request_len: int = 3000):
+def upload_columns(columns: List[ColumnModel]):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值
     """
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
-    # 将columns拆分成多个小的列表，每个列表的长度不能超过单个请求的最大长度
-    columns_list = []
-    columns_count = len(columns)
-    for i in range(0, columns_count, per_request_len):
-        columns_list.append([columns[i + j].to_dict() for j in range(min(per_request_len, columns_count - i))])
-    # 上传每个列表
-    for columns in columns_list:
-        # 如果列表长度为0，则跳过
-        if len(columns) == 0:
-            continue
-        try:
-            trace_metrics(url, columns)
-        except ApiError as e:
-            # 处理实验不存在的异常
-            if e.resp.status_code == 404:
-                resp = decode_response(e.resp)
-                # 实验不存在，那么剩下的列也没有必要上传了，直接返回
-                if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
-                    swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
-                    return
-            raise e
-    return
+    # 如果列表长度为0，则跳过
+    if len(columns) == 0:
+        swanlog.debug("No columns to upload.")
+        return
+    # 分批上传
+    try:
+        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000)
+    except ApiError as e:
+        # 处理实验不存在的异常
+        if e.resp.status_code == 404:
+            resp = decode_response(e.resp)
+            # 实验不存在，那么剩下的列也没有必要上传了，直接返回
+            if isinstance(resp, dict) and resp.get('code') == 'Disabled_Resource':
+                swanlog.warning(f"Experiment {http.exp_id} has been deleted, skipping column upload.")
+                return
+        raise e
 
 
 __all__ = [
