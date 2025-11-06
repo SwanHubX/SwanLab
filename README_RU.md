@@ -24,7 +24,6 @@
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][colab-shield]][colab-shield-link]
 
-
 ![](readme_files/swanlab-overview.png)
 
 [中文](README.md) / [English](README_EN.md) / [日本語](README_JP.md) / Русский
@@ -32,7 +31,6 @@
 👋 Присоединяйтесь к нашей [группе в WeChat](https://docs.swanlab.cn/en/guide_cloud/community/online-support.html)
 
 </div>
-
 
 ## Содержание
 
@@ -51,6 +49,8 @@
 
 ## 🌟 Последние обновления
 
+- 2025.11.06: 🔪 **Группировка экспериментов** теперь доступна — поддержка управления группами для больших партий экспериментов; страница рабочего пространства обновлена, позволяя быстро переключаться между несколькими организациями; значительно улучшена производительность рендеринга линейных графиков; `swanlab.init` теперь поддерживает параметры `group` и `job_type`;
+
 - 2025.10.15: 📊 Добавлена поддержка выбора источника данных для оси X в настройке линейных графиков; в боковой панели теперь отображаются закрепленные столбцы в табличном представлении, что повышает согласованность данных экспериментов;
 
 - 2025.09.22: 📊 Новый UI запущен; табличное представление теперь поддерживает глобальную сортировку и фильтрацию; данные на уровне табличного представления и графического представления объединены.
@@ -67,22 +67,21 @@
 
 - 2025.07.10: 📚 Добавлена поддержка **текстового представления**, поддержка Markdown-рендеринга и переключения направления клавиатуры, которые можно создать с помощью `swanlab.echarts.table` и `swanlab.Text`, [демонстрация](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
-- 2025.07.06: 🚄 Поддержка возобновления обучения; новый плагин [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); интеграция [ray](https://github.com/ray-project/ray) фреймворка, [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); интеграция [ROLL](https://github.com/volcengine/ROLL) фреймворка, спасибо [@PanAndy](https://github.com/PanAndy), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
-
-
 <details><summary>Полный список изменений</summary>
+
+- 2025.07.06: 🚄 Поддержка возобновления обучения; новый плагин [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); интеграция [ray](https://github.com/ray-project/ray) фреймворка, [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); интеграция [ROLL](https://github.com/volcengine/ROLL) фреймворка, спасибо [@PanAndy](https://github.com/PanAndy), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 - 2025.06.27: Добавлена поддержка **малого масштабирования** для линейных графиков; добавлена поддержка **плавного масштабирования** для отдельных линейных графиков; значительно улучшена интерактивность изображений после масштабирования.
 
 - 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), улучшает опыт записи и анализа экспериментов в распределенном обучении.
 
-- 2025.06.18: 🐜 Интегрирована платформа [AREAL](https://github.com/inclusionAI/AReaL), спасибо [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [документация](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Добавлена подсветка соответствующих кривых при наведении мыши на эксперименты в боковой панели; Поддержка сравнения линейных графиков между группами; Возможность настройки правил обрезки названий экспериментов;  
+- 2025.06.18: 🐜 Интегрирована платформа [AREAL](https://github.com/inclusionAI/AReaL), спасибо [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [документация](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Добавлена подсветка соответствующих кривых при наведении мыши на эксперименты в боковой панели; Поддержка сравнения линейных графиков между группами; Возможность настройки правил обрезки названий экспериментов;
 
 - 2025.06.11: 📊 Добавлена поддержка типа данных **swanlab.echarts.table**, позволяющая отображать чистые текстовые диаграммы; добавлена поддержка **растягивающего взаимодействия** для групп, позволяющая отображать больше диаграмм одновременно; добавлены опции **максимального/минимального значения** для табличных представлений;
 
 - 2025.06.08: ♻️ Поддержка локального сохранения полных файлов журналов экспериментов и их синхронизации с облаком/частным размещением через **swanlab sync**; Мониторинг оборудования поддерживает **Hygon DCU**.
 
-- 2025.06.01: 🏸 Поддержка свободного перетаскивания диаграмм; Поддержка настройки диаграмм ECharts с добавлением 20+ типов, включая столбчатые, круговые и гистограммы; Мониторинг оборудования поддерживает GPU沐曦; Интеграция фреймворка PaddleNLP.
+- 2025.06.01: 🏸 Поддержка свободного перетаскивания диаграмм; Поддержка настройки диаграмм ECharts с добавлением 20+ типов, включая столбчатые, круговые и гистограммы; Мониторинг оборудования поддерживает GPU 沐曦; Интеграция фреймворка PaddleNLP.
 
 - 2025.05.25: Поддержка записи **стандартного потока ошибок**, позволяет лучше записывать вывод из фреймворков, таких как PyTorch Lightning; мониторинг оборудования поддерживает **Moore Threads**; добавлена функция защиты записи команд запуска, где API Key будет автоматически скрыт.
 
@@ -98,10 +97,9 @@
 
 - 2025.04.08: Добавлена поддержка типа данных **swanlab.Molecule**, позволяющая записывать и визуализировать биохимические молекулярные данные; поддерживается сохранение состояния сортировки, фильтрации и порядка столбцов в табличных представлениях.
 
-- 2025.04.07: Мы завершили совместную интеграцию с [EvalScope](https://github.com/ModelScope/EvalScope). Теперь вы можете использовать **SwanLab** в EvalScope для **оценки производительности больших моделей**.  
+- 2025.04.07: Мы завершили совместную интеграцию с [EvalScope](https://github.com/ModelScope/EvalScope). Теперь вы можете использовать **SwanLab** в EvalScope для **оценки производительности больших моделей**.
 
 - 2025.03.30: Добавлена поддержка метода **swanlab.Settings**, обеспечивающего более точный контроль над поведением экспериментов; добавлена поддержка мониторинга оборудования **Cambricon MLU**; интегрированы уведомления через [Slack](https://docs.swanlab.cn/plugin/notification-slack.html) и [Discord](https://docs.swanlab.cn/plugin/notification-discord.html).
-
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformers официально интегрировал SwanLab (версия >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433). Добавлена поддержка графиков Object3D, теперь вы можете отслеживать и визуализировать 3D облака точек, [docs](https://docs.swanlab.cn/en/api/py-object3d.html). Мониторинг оборудования поддерживает запись памяти GPU (МБ), использования диска, а также отправленных и полученных данных сети.
 
@@ -185,7 +183,7 @@ SwanLab ориентирован на исследователей в облас
 
 > \[!IMPORTANT]
 >
-> **Добавьте проект в избранное**, чтобы получать уведомления о всех новых выпусках без задержек～ ⭐️
+> **Добавьте проект в избранное**, чтобы получать уведомления о всех новых выпусках без задержек ～ ⭐️
 
 ![star-us](readme_files/star-us.png)
 
@@ -195,24 +193,24 @@ SwanLab ориентирован на исследователей в облас
 
 Ознакомьтесь с онлайн-демонстрацией SwanLab:
 
-| [Классификация кошек и собак с ResNet50][demo-cats-dogs] | [Обнаружение объектов с Yolov8-COCO128][demo-yolo] |
-| :--------: | :--------: |
-| [![][demo-cats-dogs-image]][demo-cats-dogs] | [![][demo-yolo-image]][demo-yolo] |
+|                         [Классификация кошек и собак с ResNet50][demo-cats-dogs]                          |                                       [Обнаружение объектов с Yolov8-COCO128][demo-yolo]                                       |
+| :-------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
+|                                [![][demo-cats-dogs-image]][demo-cats-dogs]                                |                                               [![][demo-yolo-image]][demo-yolo]                                                |
 | Отслеживание простой модели ResNet50 для задачи классификации изображений на наборе данных кошек и собак. | Использование Yolov8 для задачи обнаружения объектов на наборе данных COCO128, отслеживание гиперпараметров и метрик обучения. |
 
-| [Тонкая настройка Qwen2][demo-qwen2-sft] | [Прогнозирование акций Google с LSTM][demo-google-stock] |
-| :--------: | :--------: |
-| [![][demo-qwen2-sft-image]][demo-qwen2-sft] | [![][demo-google-stock-image]][demo-google-stock] |
+|                            [Тонкая настройка Qwen2][demo-qwen2-sft]                            |                        [Прогнозирование акций Google с LSTM][demo-google-stock]                        |
+| :--------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
+|                          [![][demo-qwen2-sft-image]][demo-qwen2-sft]                           |                           [![][demo-google-stock-image]][demo-google-stock]                            |
 | Отслеживание тонкой настройки большой языковой модели Qwen2 для выполнения простых инструкций. | Использование простой модели LSTM для прогнозирования будущих цен акций Google на наборе данных акций. |
 
-| [Классификация аудио с ResNeXt101][demo-audio-classification] | [Тонкая настройка Qwen2-VL на наборе данных COCO][demo-qwen2-vl] |
-| :--------: | :--------: |
-| [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
+|            [Классификация аудио с ResNeXt101][demo-audio-classification]            |                 [Тонкая настройка Qwen2-VL на наборе данных COCO][demo-qwen2-vl]                  |
+| :---------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: |
+|          [![][demo-audio-classification-image]][demo-audio-classification]          |                             [![][demo-qwen2-vl-image]][demo-qwen2-vl]                             |
 | Постепенный процесс экспериментов от ResNet к ResNeXt в задаче классификации аудио. | Тонкая настройка мультимодальной модели Qwen2-VL на наборе данных COCO2014 с использованием Lora. |
 
-| [EasyR1 multimodal LLM RL Training][demo-easyr1-rl] | [Qwen2.5-0.5B GRPO Training][demo-qwen2-grpo] |
-| :--------: | :--------: |
-| [![][demo-easyr1-rl-image]][demo-easyr1-rl] | [![][demo-qwen2-grpo-image]][demo-qwen2-grpo] |
+|   [EasyR1 multimodal LLM RL Training][demo-easyr1-rl]    |                   [Qwen2.5-0.5B GRPO Training][demo-qwen2-grpo]                    |
+| :------------------------------------------------------: | :--------------------------------------------------------------------------------: |
+|       [![][demo-easyr1-rl-image]][demo-easyr1-rl]        |                   [![][demo-qwen2-grpo-image]][demo-qwen2-grpo]                    |
 | Использование EasyR1 для многомодального RL обучения LLM | Тонкая настройка Qwen2.5-0.5B модели на наборе данных GSM8k с использованием GRPO. |
 
 [Больше примеров](https://docs.swanlab.cn/en/examples/mnist.html)
@@ -331,11 +329,13 @@ swanlab login --host http://localhost:8000
 Ниже приведен список уже интегрированных фреймворков. Если вы хотите предложить интеграцию с другим фреймворком, создайте [Issue](https://github.com/swanhubx/swanlab/issues).
 
 **Основные фреймворки**
+
 - [PyTorch](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/en/guide_cloud/integration/integration-keras.html)
 
 **Специализированные/фреймворки для тонкой настройки**
+
 - [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 - [HuggingFace Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/en/guide_cloud/integration/integration-llama-factory.html)
@@ -352,8 +352,8 @@ swanlab login --host http://localhost:8000
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
 - [MLX-LM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlx-lm.html)
 
-
 **Компьютерное зрение**
+
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmsegmentation.html)
@@ -361,6 +361,7 @@ swanlab login --host http://localhost:8000
 - [PaddleYOLO](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddleyolo.html)
 
 **Обучение с подкреплением**
+
 - [Stable Baseline3](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sb3.html)
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
@@ -368,8 +369,8 @@ swanlab login --host http://localhost:8000
 - [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
 - [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
-
 **Другие фреймворки:**
+
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
@@ -414,15 +415,15 @@ swanlab login --host http://localhost:8000
 Расширьте функциональность SwanLab и улучшите управление экспериментами с помощью плагинов!
 
 - [Настройте свой плагин](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
--  [Уведомления по электронной почте](https://docs.swanlab.cn/en/plugin/notification-email.html)
--  [Уведомления в Lark](https://docs.swanlab.cn/en/plugin/notification-lark.html)
--  [Уведомления в DingTalk](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
--  [Уведомления в WXWork](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
--  [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
--  [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
--  [Уведомления в Bark](https://docs.swanlab.cn/plugin/notification-bark.html)
--  [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
--  [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
+- [Уведомления по электронной почте](https://docs.swanlab.cn/en/plugin/notification-email.html)
+- [Уведомления в Lark](https://docs.swanlab.cn/en/plugin/notification-lark.html)
+- [Уведомления в DingTalk](https://docs.swanlab.cn/en/plugin/notification-dingtalk.html)
+- [Уведомления в WXWork](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
+- [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
+- [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
+- [Уведомления в Bark](https://docs.swanlab.cn/plugin/notification-bark.html)
+- [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
+- [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 
@@ -498,67 +499,45 @@ swanlab login --host http://localhost:8000
 
 [release-shield]: https://img.shields.io/github/v/release/swanhubx/swanlab?color=369eff&labelColor=black&logo=github&style=flat-square
 [release-link]: https://github.com/swanhubx/swanlab/releases
-
 [license-shield]: https://img.shields.io/badge/license-apache%202.0-white?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/SwanHubX/SwanLab/blob/main/LICENSE
-
 [last-commit-shield]: https://img.shields.io/github/last-commit/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
 [last-commit-shield-link]: https://github.com/swanhubx/swanlab/commits/main
-
 [pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange&labelColor=black&style=flat-square
 [pypi-version-shield-link]: https://pypi.org/project/swanlab/
-
 [pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab?labelColor=black&style=flat-square
 [pypi-downloads-shield-link]: https://pepy.tech/project/swanlab
-
 [swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f?labelColor=black&style=flat-square
 [swanlab-cloud-shield-link]: https://swanlab.cn/
-
 [wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e?labelColor=black&style=flat-square
 [wechat-shield-link]: https://docs.swanlab.cn/en/guide_cloud/community/online-support.html
-
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
-
 [github-stars-shield]: https://img.shields.io/github/stars/swanhubx/swanlab?labelColor&style=flat-square&color=ffcb47
 [github-stars-link]: https://github.com/swanhubx/swanlab
-
 [github-issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab?labelColor=black&style=flat-square&color=ff80eb
 [github-issues-shield-link]: https://github.com/swanhubx/swanlab/issues
-
 [github-contributors-shield]: https://img.shields.io/github/contributors/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
 [github-contributors-link]: https://github.com/swanhubx/swanlab/graphs/contributors
-
 [demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
 [demo-cats-dogs-image]: readme_files/example-catsdogs.png
-
 [demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
 [demo-yolo-image]: readme_files/example-yolo.png
-
 [demo-qwen2-sft]: https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart
 [demo-qwen2-sft-image]: readme_files/example-qwen2.png
-
-[demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-google-stock]: https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-google-stock-image]: readme_files/example-lstm.png
-
-[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/PyTorch_Audio_Classification/charts
+[demo-audio-classification]: https://swanlab.cn/@ZeyiLin/PyTorch_Audio_Classification/charts
 [demo-audio-classification-image]: readme_files/example-audio-classification.png
-
-[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
+[demo-qwen2-vl]: https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
-
-[demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
+[demo-easyr1-rl]: https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
 [demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
-
-[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
+[demo-qwen2-grpo]: https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
 [demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
-
-
-[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield-link]: https://swanlab.cn
 [tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
-
-[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield-link]: https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
-
 [dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
 [dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags

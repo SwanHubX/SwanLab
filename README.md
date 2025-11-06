@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2025.11.06：🔪**实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
+
 - 2025.10.15：📊折线图配置支持**X轴数据源选择**；侧边栏支持显示表格视图中Pin的列，增强实验数据对齐能力；
 
 - 2025.09.22：📊全新UI上线；表格视图支持全局排序和筛选；数据层面统一表格视图与图表视图；
@@ -75,9 +77,10 @@
 
 - 2025.07.10：📚更强大的**文本视图**，支持Markdown渲染与方向键切换，可由`swanlab.echarts.table`与`swanlab.Text`创建，[Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
-- 2025.07.06：🚄支持**resume断点续训**；新插件**文件记录器**；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/volcengine/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 <details><summary>完整更新日志</summary>
+
+- 2025.07.06：🚄支持**resume断点续训**；新插件**文件记录器**；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/volcengine/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 - 2025.06.27：📊支持**小折线图局部放大**；支持配置**单个折线图平滑**；大幅改进了图像图表放大后的交互效果；
 
