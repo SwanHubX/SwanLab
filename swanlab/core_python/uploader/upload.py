@@ -48,7 +48,7 @@ def trace_metrics(
     url: str,
     data: Union[MetricDict, list] = None,
     method: Literal['post', 'put'] = 'post',
-    per_request_len: int = 5000,
+    per_request_len: int = 1000,
 ):
     """
     创建指标数据方法，如果 client 处于挂起状态，则不进行上传
