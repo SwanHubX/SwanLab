@@ -10,6 +10,14 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
+from urllib3.exceptions import (
+    MaxRetryError,
+    TimeoutError,
+    NewConnectionError,
+    ConnectionError,
+    ReadTimeoutError,
+    ConnectTimeoutError,
+)
 
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
@@ -444,6 +452,16 @@ def sync_error_handler(func):
         except requests.exceptions.Timeout:
             return None, NetworkError()
         except requests.exceptions.ConnectionError:
+            return None, NetworkError()
+        # Catch urllib3 specific errors
+        except (
+            MaxRetryError,
+            TimeoutError,
+            NewConnectionError,
+            ConnectionError,
+            ReadTimeoutError,
+            ConnectTimeoutError,
+        ):
             return None, NetworkError()
         except Exception as e:
             return None, e
