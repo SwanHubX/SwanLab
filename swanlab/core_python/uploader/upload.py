@@ -182,6 +182,8 @@ def upload_columns(columns: List[ColumnModel]):
 
 
 __all__ = [
+    "trace_metrics",
+    "MetricDict",
     "upload_logs",
     "upload_media_metrics",
     "upload_scalar_metrics",
