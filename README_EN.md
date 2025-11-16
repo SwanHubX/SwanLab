@@ -413,6 +413,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
 - [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
+- [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 - [MLX-LM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlx-lm.html)
 
 **Evaluation Frameworks**
