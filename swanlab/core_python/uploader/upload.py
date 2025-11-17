@@ -5,6 +5,7 @@
 @description: 定义上传函数
 """
 
+import time
 from typing import List, Union, Literal, TypedDict
 
 from swanlab.log import swanlog
@@ -69,6 +70,7 @@ def trace_metrics(
         return
     # 分批上传
     if isinstance(data, dict):
+        need_split = len(data['metrics']) > per_request_len
         # 1. 指标数据
         for i in range(0, len(data['metrics']), per_request_len):
             _, resp = getattr(client, method)(
@@ -81,13 +83,18 @@ def trace_metrics(
             if resp.status_code == 202:
                 client.pending = True
                 return
+            if need_split:
+                time.sleep(1)
     else:
+        need_split = len(data) > per_request_len
         # 2. 列表数据（列等）
         for i in range(0, len(data), per_request_len):
             _, resp = getattr(client, method)(url, data[i : i + per_request_len])
             if resp.status_code == 202:
                 client.pending = True
                 return
+            if need_split:
+                time.sleep(1)
 
 
 @sync_error_handler
