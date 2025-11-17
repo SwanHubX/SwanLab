@@ -5,7 +5,7 @@
 @description: 合作信息采集
 """
 
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, Union
 
 from swanlab.core_python import get_client
 from swanlab.env import get_mode, get_swanlog_dir
@@ -17,7 +17,7 @@ class SwanLabInfo(TypedDict):
     version: str
     mode: str
     swanlog_dir: str
-    exp_url: str
+    exp_url: Union[str, None]
 
 
 class CoopInfo(TypedDict):
@@ -41,6 +41,7 @@ def get_swanlab_info() -> SwanLabInfo:
         "version": get_package_version(),
         "mode": get_mode(),
         "swanlog_dir": get_swanlog_dir(),
+        "exp_url": None,
     }
     try:
         client = get_client()

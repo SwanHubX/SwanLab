@@ -109,6 +109,10 @@ class SwanLabEnv(enum.Enum):
     """
     webhook地址。swanlab初始化完毕时，如果此环境变量存在，会调用此地址，发送消息。
     """
+    WEBHOOK_VALUE = "SWANLAB_WEBHOOK_VALUE"
+    """
+    webhook发送的自定义内容，以字符串读取此环境变量值后发送
+    """
     DESCRIPTION = "SWANLAB_DESCRIPTION"
     """
     实验描述，用于为实验提供更详细的介绍或标注
