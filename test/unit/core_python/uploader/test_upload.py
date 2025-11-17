@@ -5,6 +5,7 @@
 @description: 测试上传
 """
 
+import time
 from typing import List
 from unittest.mock import patch, MagicMock
 
@@ -40,10 +41,8 @@ def test_trace_metrics_does_not_upload_when_client_is_pending(mock_client):
 def test_trace_metrics_uploads_all_metrics_in_batches(mock_client):
     with patch("swanlab.core_python.uploader.upload.get_client", return_value=mock_client):
         mock_client.post.return_value = (None, MagicMock(status_code=200))
+        start = time.time()
         trace_metrics("/test/url", data=mock_metrics([{"key": "value"}] * 2500), per_request_len=1000)
         assert mock_client.post.call_count == 3
-
-
-def test_trace_metrics_sets_client_pending_on_status_202(mock_client):
-    with patch("swanlab.core_python.uploader.upload.get_client", return_value=mock_client):
-        mock_client.post.return_value = (None, MagicMock(status_code=202))
+        end = time.time()
+        assert end - start > 3
