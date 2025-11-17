@@ -18,7 +18,7 @@ from typing import Optional, Literal, List, Union, Tuple
 import wrapt
 
 from swanlab.core_python import get_client
-from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel, LogModel
+from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
 from swanlab.data.store import RunStore, get_run_store, reset_run_store
 from swanlab.env import create_time
@@ -531,7 +531,7 @@ class DataPorter:
         """
         return filter_metric(metric.key, metric.step, self._run_store.metrics)
 
-    def _filter_log_by_epoch(self, log: LogContent) -> LogModel:
+    def _filter_log_by_epoch(self, log: LogContent) -> bool:
         """
         筛选日志数据，排除已经上传的日志
         :param log: 日志数据
