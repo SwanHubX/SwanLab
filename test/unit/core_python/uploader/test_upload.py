@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from swanlab.core_python.uploader.upload import trace_metrics, MetricDict
+from swanlab.core_python.uploader.batch import trace_metrics, MetricDict
 
 
 @pytest.fixture
@@ -32,14 +32,14 @@ def mock_metrics(metrics: List[dict]) -> MetricDict:
 
 
 def test_trace_metrics_does_not_upload_when_client_is_pending(mock_client):
-    with patch("swanlab.core_python.uploader.upload.get_client", return_value=mock_client):
+    with patch("swanlab.core_python.uploader.batch.get_client", return_value=mock_client):
         mock_client.pending = True
         trace_metrics("/test/url", data=mock_metrics([]))
         mock_client.post.assert_not_called()
 
 
 def test_trace_metrics_uploads_all_metrics_in_batches(mock_client):
-    with patch("swanlab.core_python.uploader.upload.get_client", return_value=mock_client):
+    with patch("swanlab.core_python.uploader.batch.get_client", return_value=mock_client):
         mock_client.post.return_value = (None, MagicMock(status_code=200))
         start = time.time()
         trace_metrics("/test/url", data=mock_metrics([{"key": "value"}] * 2500), per_request_len=1000)

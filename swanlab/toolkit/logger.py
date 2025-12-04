@@ -12,7 +12,8 @@ from rich.text import Text
 
 __all__ = ['SwanKitLogger']
 
-Levels = Union[Literal["debug", "info", "warning", "error", "critical"], str]
+
+Levels = Literal["debug", "info", "warning", "error", "critical"]
 
 
 class SwanKitLogger:
@@ -51,7 +52,7 @@ class SwanKitLogger:
         return self.__level
 
     @level.setter
-    def level(self, level: Levels):
+    def level(self, level: Union[Levels, str]):
         """
         设置日志等级
         :param level: 日志等级，可选值为 debug, info, warning, error, critical，如果传入的值不在可选值中，则默认为 info
@@ -74,7 +75,7 @@ class SwanKitLogger:
         """
         self.__can_log = True
 
-    def __print(self, log_level: str, *args, **kwargs):
+    def __print(self, log_level: Levels, *args, **kwargs):
         """
         打印日志
         """
@@ -83,6 +84,7 @@ class SwanKitLogger:
         level, prefix = self.__config[log_level]
         if level < self.__level:
             return
+        # 处理 sep 参数，即使设置了 sep='' ，前缀后也会有一个空格
         if kwargs.get("sep") == '':
             prefix += " "
         self.console.print(prefix, *args, **kwargs)
