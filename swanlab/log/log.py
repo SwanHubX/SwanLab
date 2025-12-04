@@ -5,11 +5,12 @@
 @description: 标准输出、标准错误流拦截代理，支持外界设置/取消回调，基础作用为输出日志
 """
 
+import os
 import re
 import sys
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Union
 
-from swanlab.env import create_time
+from swanlab.env import create_time, SwanLabEnv
 from swanlab.toolkit import SwanKitLogger
 from .counter import AtomicCounter
 from .type import LogHandler, LogType, WriteHandler, LogData, ProxyType
@@ -22,7 +23,8 @@ class SwanLog(SwanKitLogger):
     继承自 SwanKitLogger 的同时增加标准输出、标准错误留拦截代理功能
     """
 
-    def __init__(self, name=__name__.lower(), level="info"):
+    def __init__(self, name=__name__.lower(), level: Union[str, None] = None):
+        level = level or os.getenv(SwanLabEnv.LOG_LEVEL.value, 'info')
         super().__init__(name=name, level=level)
         self.__original_level = level
         # 当前已经代理的输出行数

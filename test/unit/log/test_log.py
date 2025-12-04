@@ -14,8 +14,9 @@ import time
 import pytest
 from nanoid import generate
 
+from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
-from swanlab.log.log import clean_control_chars, remove_control_sequences
+from swanlab.log.log import clean_control_chars, remove_control_sequences, SwanLog
 from swanlab.log.type import LogData, ProxyType
 from tutils import TEMP_PATH
 
@@ -32,6 +33,8 @@ class TestSwanLogInstall:
             swanlog.reset()
         except RuntimeError:
             pass
+        if SwanLabEnv.LOG_LEVEL.value in os.environ:
+            del os.environ[SwanLabEnv.LOG_LEVEL.value]
 
     @staticmethod
     def setup_method():
@@ -40,6 +43,16 @@ class TestSwanLogInstall:
             swanlog.reset()
         except RuntimeError:
             pass
+        if SwanLabEnv.LOG_LEVEL.value in os.environ:
+            del os.environ[SwanLabEnv.LOG_LEVEL.value]
+
+    def test_env_level(self):
+        """
+        测试环境变量设置日志等级
+        """
+        os.environ[SwanLabEnv.LOG_LEVEL.value] = "error"
+        logger = SwanLog("swanlab-test")
+        assert logger.level == "error"
 
     @staticmethod
     def start_proxy(proxy_type: ProxyType = "all", max_log_length=1024):

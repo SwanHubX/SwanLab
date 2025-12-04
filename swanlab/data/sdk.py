@@ -201,7 +201,9 @@ class SwanLabInitializer:
         merge_settings(settings)
         user_settings = get_settings()
         # 加载日志级别配置
-        swanlog.level = kwargs.get("log_level", os.getenv(SwanLabEnv.LOG_LEVEL.value, 'info'))
+        log_level = kwargs.get("log_level")
+        if log_level is not None:
+            swanlog.level = log_level
         # 获取本地文件夹配置，默认从当前工作目录下的swanlog文件夹中读取
         folder_settings = read_folder_settings(get_swanlog_dir())
         # ---------------------------------- 一些变量、格式检查 ----------------------------------
