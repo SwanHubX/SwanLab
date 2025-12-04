@@ -72,6 +72,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 <details><summary>Full Changelog</summary>
 
+- 2025.07.17: 📊 Added support for **line chart configuration**, supporting flexible configuration of line type, color, thickness, grid, legend position, etc.; 📹 Added support for **swanlab.Video** data type, supporting recording and visualizing GIF format files; Global chart dashboard now supports configuring Y-axis and maximum number of experiments displayed.
+
 - 2025.07.10: 📚 Added support for **text view**, supporting Markdown rendering and direction key switching, which can be created by `swanlab.echarts.table` and `swanlab.Text`, [Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
 - 2025.07.06: 🚄 Added support for resume training; new plugin [File Logger](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); integrated [ray](https://github.com/ray-project/ray) framework, [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); integrated [ROLL](https://github.com/volcengine/ROLL) framework, thanks to [@PanAndy](https://github.com/PanAndy), [documentation](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)

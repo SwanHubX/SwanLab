@@ -70,6 +70,8 @@
 
 <details><summary>完全な更新履歴</summary>
 
+- 2025.07.17: 📊 更強力な**折れ線グラフ設定**をサポー、線型、色、太さ、グリッド、凡例位置などを柔軟に設定可能；📹 **swanlab.Video** データ型のサポートを追加、GIF 形式のファイルを記録・可視化可能；グローバルチャートダッシュボードで Y 軸と最大表示実験数を設定可能；
+
 - 2025.07.10: 📚 更強力な**テキストビュー**をサポート、Markdown レンダリングと方向キー切り替えをサポート、`swanlab.echarts.table`と`swanlab.Text`で作成可能、[デモ](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
 - 2025.07.06: 🚄 再開トレーニングをサポート；新プラグイン [ファイルロガー](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)；[ray](https://github.com/ray-project/ray) フレームワークを統合、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；[ROLL](https://github.com/volcengine/ROLL) フレームワークを統合、[@PanAndy](https://github.com/PanAndy) 氏に感謝、[ドキュメント](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
