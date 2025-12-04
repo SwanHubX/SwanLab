@@ -5,9 +5,8 @@
 @description: 分批上传函数
 """
 
-import functools
 import time
-from typing import Union, Literal, Dict, List, TypedDict
+from typing import Union, Literal, List, TypedDict
 
 from swanlab.core_python import get_client
 from swanlab.log import swanlog
@@ -42,36 +41,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> MetricDict:
     }
 
 
-def client_state_guard(func):
-    """
-    装饰器：
-    1. 前置检查：如果 client 处于 pending 状态，直接返回
-    2. 执行请求
-    3. 后置检查：如果响应状态码为 202，将 client 设置为 pending
-    """
-
-    @functools.wraps(func)
-    def wrapper(url, data, method, *args, **kwargs):
-        client = get_client()
-
-        # 执行被装饰的发送函数，传入 client 供内部使用
-        # 注意：这里我们将 client 注入到被装饰函数的第一个参数，避免重复获取
-        res, resp = func(client, url, data, method, *args, **kwargs)
-
-        return res, resp
-
-    return wrapper
-
-
-@client_state_guard
-def _send_request(client, url, data, method):
-    """
-    实际发送请求的原子操作，被装饰器包裹
-    """
-    return getattr(client, method)(url, data)
-
-
-def _generate_chunks(data: Union[Dict, List], per_request_len: int):
+def _generate_chunks(data: Union[MetricDict, List], per_request_len: int):
     """
     生成器：统一处理字典和列表的分片逻辑
     yield: (chunk_data, is_split_mode)
@@ -127,11 +97,10 @@ def trace_metrics(
         #     break
 
         # 调用被装饰的发送函数
-        _, resp = _send_request(url, chunk, method)
+        _, resp = getattr(client, method)(url, chunk)
         # 后置检查
         if resp and resp.status_code == 202:
             client.pending = True
             swanlog.warning("Client set to pending due to 202 response: %s" % url)
-        # 保持原逻辑：分批发送时需要 sleep
-        if is_split_mode:
-            time.sleep(1)
+        # 分批发送时需要 sleep
+        is_split_mode and time.sleep(1)
