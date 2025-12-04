@@ -51,7 +51,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.12.01: 2025.12.01: 🕰 When hovering over the mouse, clicking Shift will activate Detailed Mode, supporting the display of the log point time; 📊 Chart grouping supports displaying MIN/MAX range areas; fixed the bug caused by multiple hides in the “List” panel and other user-reported issues;
+- 2025.12.01: 🕰 When hovering over the mouse, clicking Shift will activate Detailed Mode, supporting the display of the log point time; 📊 Chart grouping supports displaying MIN/MAX range areas; fixed the bug caused by multiple hides in the “List” panel and other user-reported issues;
 
 - 2025.11.17: 📊 Global chart configuration now supports **X-axis data source selection** and **hover mode** functionality, enhancing chart analysis experience; added `SWANLAB_WEBHOOK` functionality, [documentation](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
 
