@@ -6,7 +6,7 @@
 """
 
 import time
-from typing import Union, Literal, List, TypedDict
+from typing import Union, Literal, List, TypedDict, Dict
 
 from swanlab.core_python import get_client
 from swanlab.log import swanlog
@@ -41,7 +41,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> MetricDict:
     }
 
 
-def _generate_chunks(data: Union[MetricDict, List], per_request_len: int):
+def _generate_chunks(data: Union[MetricDict, Dict, List], per_request_len: int):
     """
     生成器：统一处理字典和列表的分片逻辑
     yield: (chunk_data, is_split_mode)
@@ -80,13 +80,15 @@ def trace_metrics(
     per_request_len: int = 1000,
 ):
     """
-    优化后的指标上传方法
+    分片指标上传方法
     """
     # 判断是否开启了分片模式（用于决定是否 sleep）
     # 这里的逻辑是：如果 per_request_len 不是 -1，且数据量确实超过了限制，则认为是分片模式
     is_split_mode = False
     if per_request_len != -1:
         total_len = len(data.get('metrics', [])) if isinstance(data, dict) else len(data)
+        if total_len == 0:
+            return
         is_split_mode = total_len > per_request_len
     client = get_client()
     # 遍历生成器产生的每一个数据块
