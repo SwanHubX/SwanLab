@@ -59,7 +59,9 @@
 
 ## 🌟 最近更新
 
-- 2025.11.17：📊全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能，[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
+- 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
+
+- 2025.11.17：📊全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能；[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
 
 - 2025.11.06：🔪**实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
 
@@ -75,10 +77,10 @@
 
 - 2025.07.29：🚀侧边栏支持**实验筛选、排序**；📊表格视图上线**列控制面板**，能够方便地实现列的隐藏与显示；🔐**多API Key**管理上线，让你的数据更安全；swanlab sync提高了对日志文件完整性的兼容，适配训练崩溃等场景；新图表-PR曲线、ROC曲线、混淆矩阵上线，[文档](https://docs.swanlab.cn/api/py-pr_curve.html)；
 
-- 2025.07.17：📊更强大的**折线图配置**，支持灵活配置线型、颜色、粗细、网格、图例位置等；📹支持**swanlab.Video**数据类型，支持记录与可视化GIF格式文件；全局图表仪表盘支持配置Y轴与最大显示实验数；
-
 
 <details><summary>完整更新日志</summary>
+
+- 2025.07.17：📊更强大的**折线图配置**，支持灵活配置线型、颜色、粗细、网格、图例位置等；📹支持**swanlab.Video**数据类型，支持记录与可视化GIF格式文件；全局图表仪表盘支持配置Y轴与最大显示实验数；
 
 - 2025.07.10：📚更强大的**文本视图**，支持Markdown渲染与方向键切换，可由`swanlab.echarts.table`与`swanlab.Text`创建，[Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
