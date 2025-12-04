@@ -21,8 +21,6 @@ def reset_some_env():
         os.environ[SwanLabEnv.API_HOST.value] = API_HOST
         os.environ[SwanLabEnv.WEB_HOST.value] = WEB_HOST
         os.environ[SwanLabEnv.API_KEY.value] = API_KEY
-    if SwanLabEnv.LOG_LEVEL.value in os.environ:
-        del os.environ[SwanLabEnv.LOG_LEVEL.value]
 
 
 # env 必须在 config 之后导入

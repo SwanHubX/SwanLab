@@ -24,7 +24,7 @@ class SwanLog(SwanKitLogger):
     """
 
     def __init__(self, name=__name__.lower(), level: Union[str, None] = None):
-        level = level or os.getenv(SwanLabEnv.LOG_LEVEL.value, 'info')
+        level = (level or os.getenv(SwanLabEnv.LOG_LEVEL.value, 'info')).lower()
         super().__init__(name=name, level=level)
         self.__original_level = level
         # 当前已经代理的输出行数
