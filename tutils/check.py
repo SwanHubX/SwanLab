@@ -19,13 +19,15 @@ swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------- 检查swanboard、swankit包的版本号与当前系统是否一致 ----------------------------------
 
 swanboard = subprocess.run("pip show swanboard", shell=True, capture_output=True).stdout.decode()
-swanboard_version = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")][0].split("\r")[0]
-with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
-    packages = f.read().split("\n")
-packages = [x for x in packages if "swanboard" in x]
-for i in packages:
-    if "swanboard" in i and swanboard_version not in i:
-        raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.")
+swanboard_versions = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")]
+if swanboard_versions:
+    swanboard_version = swanboard_versions[0].split("\r")[0]
+    with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
+        packages = f.read().split("\n")
+    packages = [x for x in packages if "swanboard" in x]
+    for i in packages:
+        if "swanboard" in i and swanboard_version not in i:
+            raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.")
 
 # ---------------------------------- 检查是否跳过云测试 ----------------------------------
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
