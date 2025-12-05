@@ -13,6 +13,8 @@ from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
 from ..client import get_client, sync_error_handler, decode_response
 from ...error import ApiError
 
+HOUSE_URL = '/house/metrics'
+
 
 @sync_error_handler
 def upload_logs(logs: List[LogModel]):
@@ -26,7 +28,7 @@ def upload_logs(logs: List[LogModel]):
     if len(metrics) == 0:
         return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
-    trace_metrics('/house/metrics', data)
+    trace_metrics(HOUSE_URL, data)
     return None
 
 
@@ -43,7 +45,7 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     if not client.pending:
         client.upload_files(buffers)
         # 上传指标信息
-        trace_metrics('/house/metrics', create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
+        trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
 @sync_error_handler
@@ -52,7 +54,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     上传指标的标量数据
     """
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    trace_metrics('/house/metrics', data)
+    trace_metrics(HOUSE_URL, data)
 
 
 @sync_error_handler

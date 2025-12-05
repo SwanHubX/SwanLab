@@ -12,7 +12,6 @@ import shutil
 
 import pytest
 
-from swanlab.log import swanlog
 from tutils import TEMP_PATH, reset_some_env, SwanLabEnv
 
 
@@ -63,6 +62,7 @@ def setup_each():
     os.mkdir(TEMP_PATH)
     yield
     import swanlab
+    from swanlab.log import swanlog
 
     if swanlab.get_run() is not None:
         swanlab.finish()

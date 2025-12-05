@@ -31,11 +31,13 @@ def mock_metrics(metrics: List[dict]) -> MetricDict:
     }
 
 
-def test_trace_metrics_does_not_upload_when_client_is_pending(mock_client):
+def test_trace_metrics_uploads_when_client_is_pending(mock_client):
     with patch("swanlab.core_python.uploader.batch.get_client", return_value=mock_client):
         mock_client.pending = True
-        trace_metrics("/test/url", data=mock_metrics([]))
-        mock_client.post.assert_not_called()
+        mock_client.post.return_value = (None, MagicMock(status_code=200))
+        trace_metrics("/test/url", data=mock_metrics([{"key": "value"}]))
+        # 即使client处于pending状态，也会尝试上传一次
+        mock_client.post.assert_called_once()
 
 
 def test_trace_metrics_uploads_all_metrics_in_batches(mock_client):

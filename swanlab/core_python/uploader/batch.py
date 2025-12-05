@@ -44,7 +44,7 @@ def create_data(metrics: List[dict], metrics_type: str) -> MetricDict:
 def _generate_chunks(data: Union[MetricDict, Dict, List], per_request_len: int):
     """
     生成器：统一处理字典和列表的分片逻辑
-    yield: (chunk_data, is_split_mode)
+    yield: 分片后的数据块
     """
     # 情况1: 不分批
     if per_request_len == -1:
@@ -103,6 +103,6 @@ def trace_metrics(
         # 后置检查
         if resp and resp.status_code == 202:
             client.pending = True
-            swanlog.warning("Client set to pending due to 202 response: %s" % url)
+            swanlog.warning(f"Client set to pending due to 202 response: {url}")
         # 分批发送时需要 sleep
         is_split_mode and time.sleep(1)
