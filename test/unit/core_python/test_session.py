@@ -6,7 +6,9 @@
 """
 
 import pytest
+import requests
 import responses
+from requests.adapters import HTTPAdapter
 from responses import registries
 from unittest.mock import Mock, patch
 
@@ -145,8 +147,6 @@ def test_timeout_adapter_uses_default_timeout():
     """
     测试TimeoutHTTPAdapter在未显式指定timeout时使用默认timeout
     """
-    from requests.adapters import HTTPAdapter
-    
     test_url = "https://api.example.com/timeout-test"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -154,7 +154,6 @@ def test_timeout_adapter_uses_default_timeout():
     # 创建adapter并挂载到session
     adapter = TimeoutHTTPAdapter(timeout=25)
     
-    import requests
     session = requests.Session()
     session.mount("https://", adapter)
     
@@ -180,8 +179,6 @@ def test_timeout_adapter_respects_explicit_timeout():
     """
     测试TimeoutHTTPAdapter在显式指定timeout时覆盖默认timeout
     """
-    from requests.adapters import HTTPAdapter
-    
     test_url = "https://api.example.com/explicit-timeout"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -189,7 +186,6 @@ def test_timeout_adapter_respects_explicit_timeout():
     # 创建adapter，设置默认timeout为30
     adapter = TimeoutHTTPAdapter(timeout=30)
     
-    import requests
     session = requests.Session()
     session.mount("https://", adapter)
     
@@ -214,8 +210,6 @@ def test_timeout_adapter_with_none_timeout():
     """
     测试TimeoutHTTPAdapter当timeout为None时不注入超时
     """
-    from requests.adapters import HTTPAdapter
-    
     test_url = "https://api.example.com/none-timeout"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -223,7 +217,6 @@ def test_timeout_adapter_with_none_timeout():
     # 创建adapter，timeout为None
     adapter = TimeoutHTTPAdapter(timeout=None)
     
-    import requests
     session = requests.Session()
     session.mount("https://", adapter)
     
@@ -237,8 +230,7 @@ def test_timeout_adapter_with_none_timeout():
         
         adapter.send(prepared)
         
-        # 验证父类的send方法被调用时，timeout参数应该不存在
-        # （因为adapter的timeout是None，且我们没有显式传递）
+        # 验证父类的send方法被调用时不应包含timeout参数
         call_kwargs = mock_parent_send.call_args[1]
         assert 'timeout' not in call_kwargs
 
@@ -248,9 +240,6 @@ def test_create_session_uses_default_timeout():
     """
     测试create_session创建的会话使用DEFAULT_TIMEOUT
     """
-    from requests.adapters import HTTPAdapter
-    import requests
-    
     test_url = "https://api.example.com/session-timeout"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -282,8 +271,6 @@ def test_timeout_adapter_inherits_from_httpAdapter():
     """
     测试TimeoutHTTPAdapter正确继承自HTTPAdapter
     """
-    from requests.adapters import HTTPAdapter
-    
     adapter = TimeoutHTTPAdapter(timeout=20)
     
     assert isinstance(adapter, HTTPAdapter)
