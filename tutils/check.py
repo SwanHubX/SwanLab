@@ -19,9 +19,9 @@ swanlab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------- 检查swanboard、swankit包的版本号与当前系统是否一致 ----------------------------------
 
 swanboard = subprocess.run("pip show swanboard", shell=True, capture_output=True).stdout.decode()
-swanboard_versions = [i.split(": ")[1] for i in swanboard.split("\n") if i.startswith("Version")]
+swanboard_versions = [i.split(':', 1)[1].strip() for i in swanboard.splitlines() if i.startswith('Version:')]
 if swanboard_versions:
-    swanboard_version = swanboard_versions[0].split("\r")[0]
+    swanboard_version = swanboard_versions[0]
     with open(os.path.join(swanlab_dir, "requirements.txt"), "r") as f:
         packages = f.read().split("\n")
     packages = [x for x in packages if "swanboard" in x]
