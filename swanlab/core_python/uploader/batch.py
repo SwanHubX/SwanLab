@@ -86,7 +86,7 @@ def trace_metrics(
     # 这里的逻辑是：如果 per_request_len 不是 -1，且数据量确实超过了限制，则认为是分片模式
     is_split_mode = False
     if per_request_len != -1:
-        total_len = len(data.get('metrics', [])) if isinstance(data, dict) else len(data)
+        total_len = len(data.get('metrics', [])) if isinstance(data, dict) else len(data or [])
         if total_len == 0:
             return
         is_split_mode = total_len > per_request_len
