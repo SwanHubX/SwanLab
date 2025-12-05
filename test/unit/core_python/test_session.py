@@ -5,12 +5,13 @@
 @description: $END$
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
 import requests
 import responses
 from requests.adapters import HTTPAdapter
 from responses import registries
-from unittest.mock import Mock, patch
 from urllib3.util.retry import Retry
 
 from swanlab.core_python import create_session
