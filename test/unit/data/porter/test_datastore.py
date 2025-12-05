@@ -61,8 +61,8 @@ def test_tampered_data_content(temp_log_file):
     # 尝试读取应触发异常
     ds = DataStore()
     ds.open_for_scan(str(temp_log_file))
-    with pytest.raises(ValidationError, match="Invalid record checksum"):
-        next(ds)  # 读取第一条记录
+    with pytest.raises(AssertionError, match="Invalid record checksum"):
+        ds.scan()  # 读取第一条记录
 
 
 def test_tampered_checksum(temp_log_file):
@@ -74,8 +74,8 @@ def test_tampered_checksum(temp_log_file):
 
     ds = DataStore()
     ds.open_for_scan(str(temp_log_file))
-    with pytest.raises(ValidationError, match="Invalid record checksum"):
-        next(ds)
+    with pytest.raises(AssertionError, match="Invalid record checksum"):
+        ds.scan()
 
 
 def test_tampered_record_type(temp_log_file):
@@ -87,8 +87,8 @@ def test_tampered_record_type(temp_log_file):
 
     ds = DataStore()
     ds.open_for_scan(str(temp_log_file))
-    with pytest.raises(ValidationError, match="Invalid record checksum"):
-        next(ds)
+    with pytest.raises(AssertionError, match="Invalid record checksum"):
+        ds.scan()
 
 
 def test_tampered_multi_block_record(tmp_path):
@@ -113,7 +113,7 @@ def test_tampered_multi_block_record(tmp_path):
     # 验证读取时触发异常
     ds = DataStore()
     ds.open_for_scan(str(temp_log_file))
-    with pytest.raises(ValidationError, match="Invalid record checksum"):
+    with pytest.raises(ValidationError, match="One record is corrupted, cannot continue scanning"):
         next(ds)
 
 
@@ -139,7 +139,7 @@ def test_valid_records_after_tampered_one(temp_log_file):
     ds.open_for_scan(str(temp_log_file))
 
     # 第一条记录应失败
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="One record is corrupted, cannot continue scanning"):
         next(ds)
 
     # 第二条记录应正常读取

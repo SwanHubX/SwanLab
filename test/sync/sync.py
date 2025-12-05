@@ -3,8 +3,8 @@
 @file: sync.py
 @time: 2025/7/20 17:23
 @description: 测试同步功能，与同目录下的sync.sh文件配合使用，使用方式为：
-1. python test/sync/sync.py: 先运行 sync.sh，此时会要求输入 run_dir
-2. bash ./test/sync/sync.s: 然后在项目根目录下运行此脚本，他会打印出当前实验的路径，复制此路径到步骤一，按回车
+1. python test/sync/sync.py: 先运行 sync.py，此时会提示输出的日志文件夹路径，复制此路径
+2. bash ./test/sync/sync.sh: 然后在项目根目录下运行此脚本，将上一步复制的路径粘贴到命令行中，回车进行下一步
 这样将实现每五秒钟同步一次数据到云端
 """
 
