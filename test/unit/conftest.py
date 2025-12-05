@@ -62,9 +62,15 @@ def setup_each():
     os.mkdir(TEMP_PATH)
     yield
     import swanlab
+    from swanlab.log import swanlog
 
     if swanlab.get_run() is not None:
         swanlab.finish()
+    # 终端代理有可能没有释放
+    try:
+        swanlog.reset()
+    except RuntimeError:
+        pass
     from swanlab.data.store import reset_run_store
     from swanlab.data.porter import DataPorter
 

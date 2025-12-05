@@ -14,8 +14,9 @@ import time
 import pytest
 from nanoid import generate
 
+from swanlab.env import SwanLabEnv
 from swanlab.log import swanlog
-from swanlab.log.log import clean_control_chars, remove_control_sequences
+from swanlab.log.log import clean_control_chars, remove_control_sequences, SwanLog
 from swanlab.log.type import LogData, ProxyType
 from tutils import TEMP_PATH
 
@@ -25,27 +26,42 @@ class TestSwanLogInstall:
     目前在设计上不希望外界实例化SwanLog，所以不提供实例化测试
     """
 
-    @staticmethod
-    def teardown_method():
+    # 保存当前的 logger 实例，用于清理
+    logger = swanlog
+
+    def teardown_method(self):
         # 每个测试方法后执行
         try:
-            swanlog.reset()
+            self.logger.reset()
         except RuntimeError:
             pass
+        if SwanLabEnv.LOG_LEVEL.value in os.environ:
+            del os.environ[SwanLabEnv.LOG_LEVEL.value]
 
-    @staticmethod
-    def setup_method():
+    def setup_method(self):
         # 每个测试方法前执行
         try:
-            swanlog.reset()
+            self.logger.reset()
         except RuntimeError:
             pass
+        if SwanLabEnv.LOG_LEVEL.value in os.environ:
+            del os.environ[SwanLabEnv.LOG_LEVEL.value]
 
-    @staticmethod
-    def start_proxy(proxy_type: ProxyType = "all", max_log_length=1024):
+    def test_env_level(self):
+        """
+        测试环境变量设置日志等级
+        """
+        os.environ[SwanLabEnv.LOG_LEVEL.value] = "error"
+        logger = SwanLog("swanlab-test")
+        assert logger.level == "error"
+
+    def start_proxy(self, proxy_type: ProxyType = "all", max_log_length=1024, logger: SwanLog = None):
         """
         新建一个回调函数
         """
+        if logger is None:
+            logger = SwanLog("swanlab")
+        self.logger = logger
         console_dir = os.path.join(TEMP_PATH, str(generate()))
         os.mkdir(console_dir)
         # 日志文件路径
@@ -60,37 +76,38 @@ class TestSwanLogInstall:
                 for content in log_data["contents"]:
                     f.write(content["message"] + "\n")
 
-        swanlog.start_proxy(proxy_type, max_log_length, write_handler)
+        logger.start_proxy(proxy_type, max_log_length, write_handler)
         if proxy_type == 'all':
-            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is not None
-            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is not None
+            assert getattr(logger, '_SwanLog__origin_stdout_write') is not None
+            assert getattr(logger, '_SwanLog__origin_stderr_write') is not None
         elif proxy_type == 'stdout':
-            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is not None
-            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is None
+            assert getattr(logger, '_SwanLog__origin_stdout_write') is not None
+            assert getattr(logger, '_SwanLog__origin_stderr_write') is None
         elif proxy_type == 'stderr':
-            assert getattr(swanlog, '_SwanLog__origin_stdout_write') is None
-            assert getattr(swanlog, '_SwanLog__origin_stderr_write') is not None
+            assert getattr(logger, '_SwanLog__origin_stdout_write') is None
+            assert getattr(logger, '_SwanLog__origin_stderr_write') is not None
         else:
             raise ValueError(f"Invalid proxy type: {proxy_type}")
-        return log_file
+        return log_file, logger
 
     def test_global_install(self):
-        self.start_proxy()
-        assert swanlog.proxied is True
+
+        _, logger = self.start_proxy(logger=swanlog)
+        assert logger.proxied is True
         with pytest.raises(RuntimeError) as e:
-            self.start_proxy()
+            self.start_proxy(logger=swanlog)
         assert str(e.value) == "Std Proxy is already started"
-        swanlog.stop_proxy()
-        assert swanlog.proxied is False
-        self.start_proxy()
-        assert swanlog.proxied is True
+        logger.stop_proxy()
+        assert logger.proxied is False
+        self.start_proxy(logger=swanlog)
+        assert logger.proxied is True
 
     def test_write_after_uninstall(self):
         """
         在卸载后打印，此时应该不会写入日志文件
         """
-        log_file = self.start_proxy()
-        swanlog.stop_proxy()
+        log_file, logger = self.start_proxy()
+        logger.stop_proxy()
         print("\ntest write after uninstall")
         a = generate()
         print(a)
@@ -102,7 +119,7 @@ class TestSwanLogInstall:
         """
         测试写入日志到文件
         """
-        log_file = self.start_proxy()
+        log_file, logger = self.start_proxy()
         print("test write to file")
         a = generate()
         print(a)
@@ -115,7 +132,7 @@ class TestSwanLogInstall:
             assert content[-2] == a + "\n"
             assert content[-1] == b + "\n"
         # 卸载后再次 print，此时应该不会写入日志文件
-        swanlog.stop_proxy()
+        logger.stop_proxy()
         print("\ntest after stop proxy")
         with open(log_file, "r") as f:
             content = f.readlines()
@@ -123,7 +140,7 @@ class TestSwanLogInstall:
             assert content[-1] == b + "\n"
 
     def test_write_to_file_long_test(self):
-        log_file = self.start_proxy()
+        log_file, _ = self.start_proxy()
         # 获取默认最大长度
         max_len = 1024
         # 默认最大长度为1024
@@ -137,13 +154,13 @@ class TestSwanLogInstall:
     def test_write_logging_to_file(self):
         # FIXME 不知道为什么此函数在 pycharm 的测试中如果不设置路径为 ./test/unit 而是 ./test 会报错
         # FIXME 在云端测试模式、联合测试环境下，硬件监控的定时器好像没有在其他地方取消，这会导致设置 debug 级别的同时捕获硬件监控的日志导致报错
-        log_file = self.start_proxy()
-        swanlog.level = 'warning'
+        log_file, logger = self.start_proxy()
+        logger.level = 'warning'
         print("test write to file")
         a = generate()
-        swanlog.warning(a)
+        logger.warning(a)
         b = generate()
-        swanlog.error(b)
+        logger.error(b)
         time.sleep(0.1)
         with open(log_file, "r") as f:
             content = f.readlines()
@@ -152,13 +169,13 @@ class TestSwanLogInstall:
 
     def test_can_write_logging(self):
         # FIXME 不知道为什么此函数在 pycharm 的测试中如果不设置路径为 ./test/unit 而是 ./test 会报错
-        log_file = self.start_proxy()
+        log_file, logger = self.start_proxy()
         print("test write to file")
         a = generate()
         # debug 默认不打印
-        swanlog.debug(a)
+        logger.debug(a)
         b = generate()
-        swanlog.info(b)
+        logger.info(b)
         time.sleep(0.1)
         with open(log_file, "r") as f:
             content = f.readlines()
@@ -169,7 +186,7 @@ class TestSwanLogInstall:
         """
         测试stderr的写入
         """
-        log_file = self.start_proxy()
+        log_file, _ = self.start_proxy()
         print("test write to file")
         a = generate()
         sys.stderr.write(a + "\n")
@@ -185,7 +202,7 @@ class TestSwanLogInstall:
             assert content[2] == b + "\n"
 
     def test_stderr_only(self):
-        log_file = self.start_proxy('stderr')
+        log_file, _ = self.start_proxy('stderr')
         print("test write to file")
         a = generate()
         sys.stderr.write(a + "\n")

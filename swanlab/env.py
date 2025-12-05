@@ -45,6 +45,10 @@ class SwanLabEnv(enum.Enum):
     swanlab环境变量枚举类，包含swankit的共享环境变量
     """
 
+    LOG_LEVEL = "SWANLAB_LOG_LEVEL"
+    """
+    swanlab日志的输出级别，默认为info，可选值有debug、info、warning、error、critical
+    """
     SWANLAB_FOLDER = "SWANLAB_SAVE_DIR"
     """
     swanlab全局文件夹保存的路径，默认为用户主目录下的.swanlab文件夹

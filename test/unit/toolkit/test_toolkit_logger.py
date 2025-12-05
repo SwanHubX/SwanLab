@@ -15,6 +15,14 @@ class TestSwanKitLog:
     测试日志模块
     """
 
+    def test_invalid_level(self):
+        """
+        测试无效日志等级，默认设置为 info
+        """
+        name = nanoid.generate()
+        t = SwanKitLogger(name, level="invalid_level")
+        assert t.level == "info"
+
     def test_enable_default(self, capsys):
         """
         测试开启日志

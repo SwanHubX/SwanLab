@@ -176,6 +176,13 @@ class Client:
             """
             捕获所有的http不为2xx的错误，以ApiError的形式抛出
             """
+            # 1. 日志打印
+            swanlog.debug(
+                f"HTTP Request: {response.request.method.upper()} {response.url} | "
+                f"Response Status: {response.status_code} | "
+                f"Body: {decode_response(response)}"
+            )
+            # 2. 如果状态码不为2xx，抛出异常
             if response.status_code // 100 != 2:
                 traceid = f"Trace id: {response.headers.get('traceid')}"
                 request = f"{response.request.method.upper()} {response.url}"

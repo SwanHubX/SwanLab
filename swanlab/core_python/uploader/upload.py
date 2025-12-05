@@ -5,96 +5,15 @@
 @description: 定义上传函数
 """
 
-import time
-from typing import List, Union, Literal, TypedDict
+from typing import List
 
 from swanlab.log import swanlog
+from .batch import MetricDict, create_data, trace_metrics
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
 from ..client import get_client, sync_error_handler, decode_response
 from ...error import ApiError
 
-house_url = '/house/metrics'
-
-
-# 上传指标数据
-class MetricDict(TypedDict):
-    projectId: str
-    experimentId: str
-    type: str
-    metrics: List[dict]
-    flagId: Union[str, None]
-
-
-def create_data(metrics: List[dict], metrics_type: str) -> MetricDict:
-    """
-    携带上传日志的指标信息
-    """
-    client = get_client()
-    # Move 等实验需要将数据上传到根实验上
-    exp_id = client.exp.root_exp_cuid or client.exp.cuid
-    proj_id = client.exp.root_proj_cuid or client.proj.cuid
-    assert proj_id is not None, "Project ID is empty."
-    assert exp_id is not None, "Experiment ID is empty."
-    flag_id = client.exp.flag_id
-    return {
-        "projectId": proj_id,
-        "experimentId": exp_id,
-        "type": metrics_type,
-        "metrics": metrics,
-        "flagId": flag_id,
-    }
-
-
-def trace_metrics(
-    url: str,
-    data: Union[MetricDict, list] = None,
-    method: Literal['post', 'put'] = 'post',
-    per_request_len: int = 1000,
-):
-    """
-    创建指标数据方法，如果 client 处于挂起状态，则不进行上传
-    :param url: 上传的URL地址
-    :param data: 上传的数据，可以是字典或列表
-    :param method: 请求方法，默认为 'post'
-    :param per_request_len: 每次请求的最大数据长度，如果设置为-1则不进行分批上传
-    """
-    # TODO 用装饰器设置client的pending状态
-    client = get_client()
-    if client.pending:
-        return
-    if per_request_len == -1:
-        _, resp = getattr(client, method)(url, data)
-        if resp.status_code == 202:
-            client.pending = True
-            return
-        return
-    # 分批上传
-    if isinstance(data, dict):
-        need_split = len(data['metrics']) > per_request_len
-        # 1. 指标数据
-        for i in range(0, len(data['metrics']), per_request_len):
-            _, resp = getattr(client, method)(
-                url,
-                {
-                    **data,
-                    "metrics": data['metrics'][i : i + per_request_len],
-                },
-            )
-            if resp.status_code == 202:
-                client.pending = True
-                return
-            if need_split:
-                time.sleep(1)
-    else:
-        need_split = len(data) > per_request_len
-        # 2. 列表数据（列等）
-        for i in range(0, len(data), per_request_len):
-            _, resp = getattr(client, method)(url, data[i : i + per_request_len])
-            if resp.status_code == 202:
-                client.pending = True
-                return
-            if need_split:
-                time.sleep(1)
+HOUSE_URL = '/house/metrics'
 
 
 @sync_error_handler
@@ -109,7 +28,7 @@ def upload_logs(logs: List[LogModel]):
     if len(metrics) == 0:
         return swanlog.debug("No logs to upload.")
     data = create_data(metrics, "log")
-    trace_metrics(house_url, data)
+    trace_metrics(HOUSE_URL, data)
     return None
 
 
@@ -126,7 +45,7 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     if not client.pending:
         client.upload_files(buffers)
         # 上传指标信息
-        trace_metrics(house_url, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
+        trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
 @sync_error_handler
@@ -135,7 +54,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     上传指标的标量数据
     """
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    trace_metrics(house_url, data)
+    trace_metrics(HOUSE_URL, data)
 
 
 @sync_error_handler
@@ -189,7 +108,6 @@ def upload_columns(columns: List[ColumnModel]):
 
 
 __all__ = [
-    "trace_metrics",
     "MetricDict",
     "upload_logs",
     "upload_media_metrics",
