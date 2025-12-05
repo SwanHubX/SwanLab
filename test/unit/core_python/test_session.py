@@ -11,6 +11,7 @@ import responses
 from requests.adapters import HTTPAdapter
 from responses import registries
 from unittest.mock import Mock, patch
+from urllib3.util.retry import Retry
 
 from swanlab.core_python import create_session
 from swanlab.core_python.session import TimeoutHTTPAdapter, DEFAULT_TIMEOUT
@@ -133,8 +134,6 @@ def test_timeout_adapter_initialization_with_other_params():
     """
     测试TimeoutHTTPAdapter初始化时传递其他HTTPAdapter参数
     """
-    from urllib3.util.retry import Retry
-    
     retry = Retry(total=3)
     adapter = TimeoutHTTPAdapter(max_retries=retry, timeout=45)
     
@@ -142,14 +141,11 @@ def test_timeout_adapter_initialization_with_other_params():
     assert adapter.max_retries == retry
 
 
-@responses.activate
 def test_timeout_adapter_uses_default_timeout():
     """
     测试TimeoutHTTPAdapter在未显式指定timeout时使用默认timeout
     """
     test_url = "https://api.example.com/timeout-test"
-    
-    responses.add(responses.GET, test_url, body="OK", status=200)
     
     # 创建adapter并挂载到session
     adapter = TimeoutHTTPAdapter(timeout=25)
@@ -174,14 +170,11 @@ def test_timeout_adapter_uses_default_timeout():
         assert call_kwargs['timeout'] == 25
 
 
-@responses.activate
 def test_timeout_adapter_respects_explicit_timeout():
     """
     测试TimeoutHTTPAdapter在显式指定timeout时覆盖默认timeout
     """
     test_url = "https://api.example.com/explicit-timeout"
-    
-    responses.add(responses.GET, test_url, body="OK", status=200)
     
     # 创建adapter，设置默认timeout为30
     adapter = TimeoutHTTPAdapter(timeout=30)
@@ -205,14 +198,11 @@ def test_timeout_adapter_respects_explicit_timeout():
         assert call_kwargs['timeout'] == 10
 
 
-@responses.activate
 def test_timeout_adapter_with_none_timeout():
     """
     测试TimeoutHTTPAdapter当timeout为None时不注入超时
     """
     test_url = "https://api.example.com/none-timeout"
-    
-    responses.add(responses.GET, test_url, body="OK", status=200)
     
     # 创建adapter，timeout为None
     adapter = TimeoutHTTPAdapter(timeout=None)
