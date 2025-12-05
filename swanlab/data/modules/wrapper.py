@@ -134,13 +134,11 @@ class DataWrapper:
     @staticmethod
     def __filter_list(li: List, keep_none_list: bool = False) -> Optional[List]:
         """
-        过滤列表，如果列表为空或内部全是 None 则返回 None
+        过滤列表。默认情况下，如果列表为空或所有元素都为None，则返回None
         :param li: 待过滤的列表
         :param keep_none_list: 是否保留全为 None 的列表
         """
-        if not li:
-            return None
-        if keep_none_list or any(i is not None for i in li):
+        if li and (keep_none_list or any(i is not None for i in li)):
             return li
         return None
 
