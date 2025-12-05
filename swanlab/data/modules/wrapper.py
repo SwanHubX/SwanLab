@@ -125,18 +125,22 @@ class DataWrapper:
             buffers.append(r)
             more.append(i.get_more())
         result.strings = data
-        # 过滤掉空列表
         result.buffers = self.__filter_list(buffers)
-        result.more = self.__filter_list(more)
+        # more 字段需要保留列表结构，即使全为 None，否则前端访问 more[0] 会报错
+        result.more = self.__filter_list(more, keep_none_list=True)
         self.__result = result
         return self.__result
 
     @staticmethod
-    def __filter_list(li: List):
+    def __filter_list(li: List, keep_none_list: bool = False) -> Optional[List]:
         """
-        如果li长度大于0且如果l内部不全是None，返回l，否则返回None
+        过滤列表，如果列表为空或内部全是 None 则返回 None
+        :param li: 待过滤的列表
+        :param keep_none_list: 是否保留全为 None 的列表
         """
-        if len(li) > 0 and any(i is not None for i in li):
+        if not li:
+            return None
+        if keep_none_list or any(i is not None for i in li):
             return li
         return None
 
