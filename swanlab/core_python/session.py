@@ -24,7 +24,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
     def send(self, request, **kwargs):
         # 如果 kwargs 中没有显式设置 timeout，则使用 self.timeout
-        if self.timeout is not None and kwargs.get("timeout") is None:
+        if "timeout" not in kwargs and self.timeout is not None:
             kwargs["timeout"] = self.timeout
 
         return super().send(request, **kwargs)
