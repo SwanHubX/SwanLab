@@ -145,6 +145,8 @@ def test_timeout_adapter_uses_default_timeout():
     """
     测试TimeoutHTTPAdapter在未显式指定timeout时使用默认timeout
     """
+    from requests.adapters import HTTPAdapter
+    
     test_url = "https://api.example.com/timeout-test"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -162,7 +164,7 @@ def test_timeout_adapter_uses_default_timeout():
     
     # 直接调用adapter的send方法，不传timeout
     # 我们期望adapter会自动添加timeout=25
-    with patch.object(adapter.__class__.__bases__[0], 'send') as mock_parent_send:
+    with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
         
         adapter.send(prepared)
@@ -178,6 +180,8 @@ def test_timeout_adapter_respects_explicit_timeout():
     """
     测试TimeoutHTTPAdapter在显式指定timeout时覆盖默认timeout
     """
+    from requests.adapters import HTTPAdapter
+    
     test_url = "https://api.example.com/explicit-timeout"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -194,7 +198,7 @@ def test_timeout_adapter_respects_explicit_timeout():
     prepared = session.prepare_request(req)
     
     # 直接调用adapter的send方法，显式传timeout=10
-    with patch.object(adapter.__class__.__bases__[0], 'send') as mock_parent_send:
+    with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
         
         adapter.send(prepared, timeout=10)
@@ -210,6 +214,8 @@ def test_timeout_adapter_with_none_timeout():
     """
     测试TimeoutHTTPAdapter当timeout为None时不注入超时
     """
+    from requests.adapters import HTTPAdapter
+    
     test_url = "https://api.example.com/none-timeout"
     
     responses.add(responses.GET, test_url, body="OK", status=200)
@@ -226,7 +232,7 @@ def test_timeout_adapter_with_none_timeout():
     prepared = session.prepare_request(req)
     
     # 直接调用adapter的send方法，不传timeout
-    with patch.object(adapter.__class__.__bases__[0], 'send') as mock_parent_send:
+    with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
         
         adapter.send(prepared)
@@ -242,6 +248,7 @@ def test_create_session_uses_default_timeout():
     """
     测试create_session创建的会话使用DEFAULT_TIMEOUT
     """
+    from requests.adapters import HTTPAdapter
     import requests
     
     test_url = "https://api.example.com/session-timeout"
@@ -260,7 +267,7 @@ def test_create_session_uses_default_timeout():
     prepared = session.prepare_request(req)
     
     # 验证实际请求使用该timeout
-    with patch.object(adapter.__class__.__bases__[0], 'send') as mock_parent_send:
+    with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
         
         adapter.send(prepared)
