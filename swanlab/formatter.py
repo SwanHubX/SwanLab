@@ -170,7 +170,7 @@ def check_job_type_format(job_type: str, auto_cut: bool = True) -> str:
     :param auto_cut: 是否自动截断，默认为True
     :return: str 检查后的字符串
     """
-    max_len = 255
+    max_len = 256
     return _auto_cut("job_type", job_type, max_len, auto_cut)
 
 
