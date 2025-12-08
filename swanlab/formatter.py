@@ -140,12 +140,12 @@ def check_exp_name_format(name: str, auto_cut: bool = True) -> str:
 
 def check_desc_format(desc: str, auto_cut: bool = True) -> str:
     """
-    检查描述格式，最大长度为255个字符，一个中文字符算一个字符
+    检查描述格式，最大长度为1024个字符，一个中文字符算一个字符
     :param desc: 描述信息
     :param auto_cut: 是否自动截断，默认为True
     :return: str 检查后的字符串
     """
-    max_len = 255
+    max_len = 1024
     return _auto_cut("description", desc, max_len, auto_cut)
 
 
