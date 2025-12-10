@@ -22,7 +22,8 @@ func main() {
 	port := flag.Int("port", 0, "The server port")
 	flag.Parse()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	// TODO 未来使用context代替
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port)) //nolint:noctx
 	if err != nil {
 		slog.Error("failed to listen", "error", err)
 	}
