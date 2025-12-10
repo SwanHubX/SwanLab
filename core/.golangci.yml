@@ -392,6 +392,12 @@ linters:
       # Default: false
       os-temp-dir: true
 
+    revive:
+      rules:
+        - name: var-naming
+          arguments:
+            - ['API']
+
   exclusions:
     # Log a warning if an exclusion rule is unused.
     # Default: false
