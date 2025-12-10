@@ -116,10 +116,30 @@ class Image(MediaType):
         if isinstance(data_or_path, Image):
             self.format = data_or_path.format if file_type is None else self.__convert_file_type(file_type)
             self.size = convert_size(size) if size is not None else data_or_path.size
-            base_image = data_or_path.image_data.copy()
-            self.image_data = self.__resize(base_image, self.size)
-            self.buffer = MediaBuffer()
-            self.image_data.save(self.buffer, format=self.format if self.format != "jpg" else "jpeg")
+            
+            # Handle GIF images (which don't have image_data, only buffer)
+            if hasattr(data_or_path, 'image_data') and data_or_path.image_data is not None:
+                base_image = data_or_path.image_data.copy()
+                self.image_data = self.__resize(base_image, self.size)
+                self.buffer = MediaBuffer()
+                self.image_data.save(self.buffer, format=self.format if self.format != "jpg" else "jpeg")
+            else:
+                # For images without image_data (e.g., GIF loaded from path), load from buffer
+                data_or_path.buffer.seek(0)  # Reset buffer position
+                base_image = PILImage.open(data_or_path.buffer)
+                # If it's a GIF and no size change, just copy the buffer
+                if self.format == "gif" and (self.size is None or self.size == data_or_path.size):
+                    self.buffer = MediaBuffer()
+                    data_or_path.buffer.seek(0)  # Reset again before copying
+                    self.buffer.write(data_or_path.buffer.read())
+                    # Set image_data for size access, even though we use buffer for saving
+                    self.image_data = base_image
+                else:
+                    # Process and resize the image
+                    self.image_data = self.__resize(base_image, self.size)
+                    self.buffer = MediaBuffer()
+                    self.image_data.save(self.buffer, format=self.format if self.format != "jpg" else "jpeg")
+            
             self.caption = D.check_caption(caption) if caption is not None else data_or_path.caption
             return
 
