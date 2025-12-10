@@ -2,7 +2,7 @@
 // @Description  parse the proto message to json
 // @Create       cunyue 2025/6/12 18:49
 
-package api //nolint:revive // 暂时不改名
+package api
 
 import (
 	"errors"
