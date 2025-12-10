@@ -22,8 +22,30 @@ class Molecule(MediaType):
     pdb_data: str
     caption: Optional[str] = None
 
+    def __init__(self, pdb_data: Union[str, "Molecule"], caption: Optional[str] = None):
+        """Initialize Molecule instance.
+        
+        Args:
+            pdb_data: PDB data string or another Molecule instance.
+            caption: Optional descriptive text.
+        """
+        # Initialize MediaType parent class
+        super().__init__()
+        
+        # Support swanlab.Molecule as input (e.g., swanlab.Molecule(swanlab.Molecule(...)))
+        if isinstance(pdb_data, Molecule):
+            object.__setattr__(self, 'pdb_data', pdb_data.pdb_data)
+            object.__setattr__(self, 'caption', caption if caption is not None else pdb_data.caption)
+        else:
+            if not isinstance(pdb_data, str):
+                raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
+            object.__setattr__(self, 'pdb_data', pdb_data)
+            object.__setattr__(self, 'caption', caption)
+
     def __post_init__(self):
         """Validates input data after initialization."""
+        # This method is called by dataclass, but we override __init__ so this may not be called
+        # Keep it for compatibility, but validation is done in __init__
         if not isinstance(self.pdb_data, str):
             raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
 

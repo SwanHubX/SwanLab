@@ -112,6 +112,17 @@ class Image(MediaType):
         self.format = self.__convert_file_type(file_type)
         self.size = convert_size(size)
 
+        # Support swanlab.Image as input (e.g., swanlab.Image(swanlab.Image(fig)))
+        if isinstance(data_or_path, Image):
+            self.format = data_or_path.format if file_type is None else self.__convert_file_type(file_type)
+            self.size = convert_size(size) if size is not None else data_or_path.size
+            base_image = data_or_path.image_data.copy()
+            self.image_data = self.__resize(base_image, self.size)
+            self.buffer = MediaBuffer()
+            self.image_data.save(self.buffer, format=self.format if self.format != "jpg" else "jpeg")
+            self.caption = D.check_caption(caption) if caption is not None else data_or_path.caption
+            return
+
         # 如果输入为路径字符串
         if isinstance(data_or_path, str):
             # 如果文件后缀为gif，则将format设置为gif

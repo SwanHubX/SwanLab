@@ -16,6 +16,16 @@ class Video(MediaType):
 
     def __init__(self, data_or_path: str, caption: str = None):
         super().__init__()
+        # Support swanlab.Video as input (e.g., swanlab.Video(swanlab.Video(path)))
+        if isinstance(data_or_path, Video):
+            # Use Image's nested support to create a new Image from the existing one
+            self._image = Image(
+                data_or_path._image,
+                caption=caption if caption is not None else data_or_path._image.caption,
+                file_type="gif"
+            )
+            return
+
         if not data_or_path.endswith(".gif"):
             raise ValueError("swanlab.Video only supports gif format file paths")
 

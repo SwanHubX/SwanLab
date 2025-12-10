@@ -145,3 +145,32 @@ def test_video_inheritance():
     # 验证Video有Image的所有必要方法
     assert hasattr(video, 'parse')
     assert hasattr(video, 'get_more')
+
+
+def test_video_nested():
+    """测试Video类支持嵌套输入（套娃）"""
+    # 创建基础Video实例
+    mock_image = PILImage.fromarray(np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8))
+    path = os.path.join(TEMP_PATH, f"{generate()}.gif")
+    mock_image.save(path, format="GIF")
+    
+    base_video = Video(data_or_path=path, caption="original")
+    
+    # 测试嵌套输入
+    nested_video = Video(base_video)
+    
+    # 验证可以正常解析
+    data, buffer = nested_video.parse()
+    assert isinstance(data, str)
+    assert data.endswith(".gif")
+    assert buffer is not None
+    
+    # 验证caption被正确复制
+    assert nested_video.get_more()["caption"] == "original"
+    
+    # 测试可以覆盖caption
+    nested_with_new_caption = Video(base_video, caption="new caption")
+    assert nested_with_new_caption.get_more()["caption"] == "new caption"
+    
+    # 验证原始实例未被修改
+    assert base_video.get_more()["caption"] == "original"

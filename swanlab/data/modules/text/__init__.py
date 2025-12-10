@@ -26,6 +26,12 @@ class Text(MediaType):
 
     def __init__(self, data: Union[str, int, float], caption: str = None):
         super().__init__()
+        # Support swanlab.Text as input (e.g., swanlab.Text(swanlab.Text("hello")))
+        if isinstance(data, Text):
+            self.text_data = data.text_data
+            self.caption = D.check_caption(caption) if caption is not None else data.caption
+            return
+
         # 处理文本数据
 
         if isinstance(data, str):
