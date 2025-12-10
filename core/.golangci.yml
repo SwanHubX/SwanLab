@@ -392,12 +392,6 @@ linters:
       # Default: false
       os-temp-dir: true
 
-    revive:
-      rules:
-        - name: var-naming
-          arguments:
-            - ['API']
-
   exclusions:
     # Log a warning if an exclusion rule is unused.
     # Default: false
@@ -417,6 +411,9 @@ linters:
         linters: [revive]
       - text: 'package comment should be of the form ".+"'
         source: "// ?(nolint|TODO)"
+        linters: [revive]
+      - path: 'internal/api/*'
+        text: 'var-naming: avoid meaningless package names'
         linters: [revive]
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: "// ?(nolint|TODO)"
