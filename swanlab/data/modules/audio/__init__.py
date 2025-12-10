@@ -48,7 +48,7 @@ class Audio(MediaType):
         # Support swanlab.Audio as input (e.g., swanlab.Audio(swanlab.Audio(data)))
         if isinstance(data_or_path, Audio):
             self.audio_data = data_or_path.audio_data.copy()
-            self.sample_rate = data_or_path.sample_rate
+            self.sample_rate = sample_rate if sample_rate is not None else data_or_path.sample_rate
             self.buffer = MediaBuffer()
             sf.write(self.buffer, self.audio_data.T, self.sample_rate, format="wav")
             self.caption = D.check_caption(caption) if caption is not None else data_or_path.caption

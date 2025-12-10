@@ -14,7 +14,7 @@ class Video(MediaType):
         caption: The caption of the video.
     """
 
-    def __init__(self, data_or_path: str, caption: str = None):
+    def __init__(self, data_or_path: Union[str, "Video"], caption: str = None):
         super().__init__()
         # Support swanlab.Video as input (e.g., swanlab.Video(swanlab.Video(path)))
         if isinstance(data_or_path, Video):

@@ -108,13 +108,25 @@ class Object3D:
             # If caption is provided, create a new instance with the new caption
             # Otherwise, return the original instance
             if caption is not None:
-                # For most MediaType subclasses, we can create a new instance
-                # by extracting the underlying data
+                # Handle different MediaType subclasses
                 if isinstance(data, Molecule):
                     return Molecule(data.pdb_data, caption=caption)
-                # For other types, we might need to handle differently
-                # For now, if caption is provided, we'll try to create a copy
-                # Otherwise, just return the original
+                elif isinstance(data, PointCloud):
+                    # Create a new PointCloud with the same points and boxes, but new caption
+                    return PointCloud(
+                        points=data.points.copy(),
+                        boxes=list(data.boxes) if data.boxes else [],
+                        caption=caption,
+                        step=data.step,
+                        key=data.key,
+                    )
+                elif isinstance(data, Model3D):
+                    # Create a new Model3D with the same glb_path, but new caption
+                    return Model3D(
+                        glb_path=data.glb_path,
+                        caption=caption,
+                        step=data.step,
+                    )
             return data
 
         if isinstance(data, ndarray):
