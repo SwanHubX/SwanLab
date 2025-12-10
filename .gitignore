@@ -20,7 +20,7 @@ playground/
 
 
 # Jetbrains
-.idea/
+#.idea/
 .DS_Store
 
 # python
