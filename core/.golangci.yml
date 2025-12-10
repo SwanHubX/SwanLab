@@ -412,6 +412,9 @@ linters:
       - text: 'package comment should be of the form ".+"'
         source: "// ?(nolint|TODO)"
         linters: [revive]
+      - path: 'internal/api/*'
+        text: 'var-naming: avoid meaningless package names'
+        linters: [revive]
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: "// ?(nolint|TODO)"
         linters: [revive, staticcheck]
