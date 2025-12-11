@@ -370,6 +370,7 @@ swanlab login --host http://localhost:8000
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
 - [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
+- [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
 
 **その他のフレームワーク：**
 

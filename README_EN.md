@@ -443,6 +443,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
 - [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
+- [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
 
 **Other Frameworks:**
 
