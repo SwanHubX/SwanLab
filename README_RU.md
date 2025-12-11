@@ -373,7 +373,8 @@ swanlab login --host http://localhost:8000
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
 - [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
-- [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
+- [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
 
 **Другие фреймворки:**
 

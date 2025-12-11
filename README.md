@@ -469,6 +469,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [EasyR1](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
 - [AReaL](https://docs.swanlab.cn/guide_cloud/integration/integration-areal.html)
 - [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+- [NVIDIA-NeMo RL](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)
 
 **其他框架：**
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
