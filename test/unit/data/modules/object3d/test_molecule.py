@@ -124,6 +124,34 @@ M  END
             molecule = Molecule.from_mol(mol)
             assert molecule.get_more() is None
 
+    def test_nested_molecule(self, mol):
+        """Tests Molecule class supports nested input (套娃)."""
+        if mol:
+            # 创建基础Molecule实例
+            base_molecule = Molecule.from_mol(mol, caption="original")
+            
+            # 测试嵌套输入
+            nested_molecule = Molecule(base_molecule)
+            
+            # 验证属性被正确复制
+            assert nested_molecule.pdb_data == base_molecule.pdb_data
+            assert nested_molecule.caption == base_molecule.caption
+            
+            # 测试可以覆盖caption
+            nested_with_new_caption = Molecule(base_molecule, caption="new caption")
+            assert nested_with_new_caption.pdb_data == base_molecule.pdb_data
+            assert nested_with_new_caption.caption == "new caption"
+            
+            # 验证原始实例未被修改
+            assert base_molecule.caption == "original"
+            
+            # 测试从PDB字符串创建的嵌套
+            pdb_string = base_molecule.pdb_data
+            molecule_from_pdb = Molecule(pdb_string, caption="from pdb")
+            nested_from_pdb = Molecule(molecule_from_pdb)
+            assert nested_from_pdb.pdb_data == pdb_string
+            assert nested_from_pdb.caption == "from pdb"
+
 
 class TestObject3DWithMolecule:
     @pytest.fixture

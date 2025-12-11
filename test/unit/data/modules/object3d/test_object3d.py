@@ -50,3 +50,40 @@ class TestObject3D:
         obj = Object3D(xyz_points, caption="Test")
         assert obj.step is None
         assert obj.caption == "Test"
+
+    def test_nested_mediatype(self, xyz_points):
+        """测试Object3D类支持嵌套MediaType输入（套娃）"""
+        # 创建基础Object3D实例（PointCloud）
+        base_obj = Object3D(xyz_points, caption="original")
+        assert isinstance(base_obj, PointCloud)
+        
+        # 测试嵌套输入 - 没有提供新caption时，直接返回原实例
+        nested_obj = Object3D(base_obj)
+        assert nested_obj is base_obj  # 应该返回同一个实例
+        
+        # 测试可以覆盖caption - 应该创建新实例
+        nested_with_new_caption = Object3D(base_obj, caption="new caption")
+        assert nested_with_new_caption.caption == "new caption"
+        assert nested_with_new_caption is not base_obj  # 应该是新实例
+        assert base_obj.caption == "original"  # 原始实例未被修改
+        # 验证points数据被正确复制
+        assert np.array_equal(nested_with_new_caption.points, base_obj.points)
+        
+        # 测试从Molecule创建的嵌套
+        try:
+            from rdkit.Chem import MolFromSmiles
+            mol = MolFromSmiles("CCO")
+            if mol:
+                base_molecule = Object3D(mol, caption="molecule original")
+                nested_molecule = Object3D(base_molecule)
+                # Object3D应该返回Molecule实例
+                assert nested_molecule.caption == "molecule original"
+                assert nested_molecule is base_molecule  # 没有新caption时返回原实例
+                
+                nested_molecule_new_caption = Object3D(base_molecule, caption="molecule new")
+                assert nested_molecule_new_caption.caption == "molecule new"
+                assert nested_molecule_new_caption is not base_molecule  # 应该是新实例
+                assert base_molecule.caption == "molecule original"  # 原始实例未被修改
+        except ImportError:
+            # RDKit不可用时跳过Molecule测试
+            pass
