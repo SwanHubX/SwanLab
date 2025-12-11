@@ -20,7 +20,7 @@ def update_experiment_state(
     finished_at: str = None,
 ):
     """
-    更新实验状态
+    更新实验状态，注意此接口会将客户端标记为 pending 状态，表示实验已结束
     :param client: 已登录的客户端实例
     :param username: 实验所属用户名
     :param projname: 实验所属项目名称
@@ -35,3 +35,4 @@ def update_experiment_state(
     }
     put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
     client.put(f"/project/{username}/{projname}/runs/{cuid}/state", put_data)
+    client.pending = True
