@@ -22,6 +22,7 @@ def _upload(*, url: str, buffer: BytesIO):
     :param url: COS上传URL
     :param buffer: 文件内容的BytesIO对象
     """
+    buffer.seek(0)
     response = requests.put(url, data=buffer, headers={'Content-Type': 'application/octet-stream'})
     response.raise_for_status()
 
@@ -49,7 +50,6 @@ def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
             url = urls[index]
             try:
                 # 指针回到开头
-                buffer.seek(0)
                 futures.append(executor.submit(_upload, url=url, buffer=buffer))
             except RuntimeError:
                 failed_buffers.append((url, buffer))
