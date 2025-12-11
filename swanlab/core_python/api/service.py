@@ -67,17 +67,27 @@ def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         assert len(urls) == len(buffers), "URLs and buffers length mismatch"
+        # 2.1 在线程中并发上传
         for index, buffer in enumerate(buffers):
             url = urls[index]
             try:
+                future = executor.submit(upload_file, url=url, buffer=buffer)
                 # 指针回到开头
-                futures.append(executor.submit(upload_file, url=url, buffer=buffer))
+                futures.append((future, url, buffer))
             except RuntimeError:
                 failed_buffers.append((url, buffer))
-        for future in futures:
-            future.result()
-    # 重试失败的buffer
+        # 2.2 收集结果
+        for future, url, buffer in futures:
+            try:
+                future.result()
+            except Exception as e:
+                swanlog.warning(f"Failed to upload {url}: {e}, will retry...")
+                failed_buffers.append((url, buffer))
+    # 3. 重试失败的buffer，重新上传
     if len(failed_buffers):
         swanlog.debug("Retrying failed buffers: {}".format(len(failed_buffers)))
         for url, buffer in failed_buffers:
-            upload_file(url=url, buffer=buffer)
+            try:
+                upload_file(url=url, buffer=buffer)
+            except Exception as e:
+                swanlog.error(f"Failed to upload {url}: {e}")
