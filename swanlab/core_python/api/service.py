@@ -44,7 +44,7 @@ def upload_file(*, url: str, buffer: BytesIO, max_retries=3):
                 if attempt == max_retries:
                     raise
                 # 简单的指数退避（等待 1s, 2s, 4s...）
-                time.sleep(1 * attempt)
+                time.sleep(2 ** (attempt - 1))
 
 
 def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
@@ -72,7 +72,6 @@ def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
             url = urls[index]
             try:
                 future = executor.submit(upload_file, url=url, buffer=buffer)
-                # 指针回到开头
                 futures.append((future, url, buffer))
             except RuntimeError:
                 failed_buffers.append((url, buffer))
