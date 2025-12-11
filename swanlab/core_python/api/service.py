@@ -48,6 +48,8 @@ def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
         for index, buffer in enumerate(buffers):
             url = urls[index]
             try:
+                # 指针回到开头
+                buffer.seek(0)
                 futures.append(executor.submit(_upload, url=url, buffer=buffer))
             except RuntimeError:
                 failed_buffers.append((url, buffer))

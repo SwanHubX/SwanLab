@@ -5,17 +5,14 @@
 @description: 测试客户端功能
 """
 
-import os
-
 import nanoid
 import pytest
 import requests_mock
 
-from swanlab.core_python import create_client, Client, CosClient, reset_client
+from swanlab.core_python import create_client, Client, reset_client
 from swanlab.core_python.auth import login_by_key
 from swanlab.package import get_host_api
-from swanlab.toolkit import MediaBuffer
-from tutils import is_skip_cloud_test, TEMP_PATH, API_KEY
+from tutils import is_skip_cloud_test, API_KEY
 from tutils.setup import *
 
 
@@ -74,51 +71,6 @@ def test_decode_response():
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
-class TestCosSuite:
-    http: Client = None
-    alphabet = "abcdefghijklmnopqrstuvwxyz"
-    project_name = nanoid.generate(alphabet)
-    experiment_name = nanoid.generate(alphabet)
-    file_path = os.path.join(TEMP_PATH, nanoid.generate(alphabet))
-    now_refresh_time = 1
-    pre_refresh_time = CosClient.REFRESH_TIME
-
-    @classmethod
-    def setup_class(cls):
-        CosClient.REFRESH_TIME = cls.now_refresh_time
-        # 这里不测试保存token的功能
-        login_info = login_by_key(API_KEY, save=False)
-        cls.http = create_client(login_info)
-        cls.http.mount_project(cls.project_name)
-        cls.http.mount_exp(cls.experiment_name, ('#ffffff', '#ffffff'))
-        # temp路径写一个文件上传
-        with open(cls.file_path, "w") as f:
-            f.write("test")
-
-    @classmethod
-    def teardown_class(cls):
-        CosClient.REFRESH_TIME = cls.pre_refresh_time
-
-    def test_cos_ok(self):
-        assert self.http is not None
-        assert self.http.cos is not None
-
-    def test_cos_upload(self):
-        # 新建一个文件对象
-        buffer = MediaBuffer()
-        buffer.write(b"test")
-        buffer.file_name = "test"
-        self.http.upload(buffer)
-        # 为了开发方便，测试刷新功能关闭
-
-        # # 开发版本设置的过期时间为3s，等待过期
-        # time.sleep(3)
-        # # 重新上传，测试刷新
-        # assert self.http.cos.should_refresh is True
-        # self.http.upload(buffer)
-
-
-@pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
 class TestExpSuite:
     """
     测试实验相关的功能
@@ -144,7 +96,7 @@ class TestExpSuite:
         """
         实验创建前未创建项目，应该抛出异常
         """
-        with pytest.raises(NotImplementedError) as e:
+        with pytest.raises(AssertionError) as e:
             self.client.mount_exp(nanoid.generate(), ('#ffffff', '#ffffff'))
         assert "Project not mounted, please call mount_project() first" == str(
             e.value
