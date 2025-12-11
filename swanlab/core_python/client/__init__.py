@@ -22,11 +22,9 @@ from urllib3.exceptions import (
 from swanlab.error import NetworkError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from swanlab.toolkit import MediaBuffer
-from .cos import CosClient
 from .model import ProjectInfo, ExperimentInfo
+from .session import create_session
 from .. import auth
-from ..session import create_session
 from ...env import utc_time
 
 
@@ -46,6 +44,7 @@ def decode_response(resp: requests.Response) -> Union[Dict, AnyStr, List]:
 class Client:
     """
     封装请求函数，添加get、post、put、delete方法
+    会自动刷新会话信息
     """
 
     REFRESH_TIME = 60 * 60 * 24 * 7  # 7天
@@ -54,25 +53,20 @@ class Client:
     """
 
     def __init__(self, login_info: auth.LoginInfo):
-        """
-        初始化会话
-        """
         self.__login_info = login_info
-        # 当前cos信息
-        self.__cos: Optional[CosClient] = None
+        # 当前会话
+        self.__session: Optional[requests.Session] = None
+        self.__version = get_package_version()
+        self.__create_session()
+
+        # 标识当前实验会话（flagId）是否被其他进程顶掉
+        self.pending = False
+        # 当前项目所属的username
+        self.__groupname = login_info.username
         # 当前项目信息
         self.__proj: Optional[ProjectInfo] = None
         # 当前实验信息
         self.__exp: Optional[ExperimentInfo] = None
-        # 当前进程会话
-        self.__session: Optional[requests.Session] = None
-        # 当前项目所属的username
-        self.__groupname = login_info.username
-        self.__version = get_package_version()
-        # 创建会话
-        self.__create_session()
-        # 标识当前实验会话（flagId）是否被其他进程顶掉
-        self.pending = False
 
     # ---------------------------------- 一些辅助属性 ----------------------------------
     @property
@@ -86,20 +80,8 @@ class Client:
         return self.__proj
 
     @property
-    def base_url(self):
-        return self.__login_info.api_host
-
-    @property
-    def api_host(self):
-        return self.__login_info.web_host
-
-    @property
     def api_key(self):
         return self.__login_info.api_key
-
-    @property
-    def web_host(self):
-        return self.__login_info.web_host
 
     @property
     def groupname(self):
@@ -114,10 +96,6 @@ class Client:
         当前登录的用户名
         """
         return self.__login_info.username
-
-    @property
-    def cos(self):
-        return self.__cos
 
     @property
     def projname(self):
@@ -137,7 +115,7 @@ class Client:
 
     @property
     def web_proj_url(self):
-        return f"{self.web_host}/@{self.groupname}/{self.projname}"
+        return f"{self.__login_info.web_host}/@{self.groupname}/{self.projname}"
 
     @property
     def web_exp_url(self):
@@ -197,7 +175,7 @@ class Client:
         """
         post请求
         """
-        url = self.base_url + url
+        url = self.__login_info.api_host + url
         self.__before_request()
         resp = self.__session.post(url, json=data)
         return decode_response(resp), resp
@@ -206,7 +184,7 @@ class Client:
         """
         put请求
         """
-        url = self.base_url + url
+        url = self.__login_info.api_host + url
         self.__before_request()
         resp = self.__session.put(url, json=data)
         return decode_response(resp), resp
@@ -215,7 +193,7 @@ class Client:
         """
         get请求
         """
-        url = self.base_url + url
+        url = self.__login_info.api_host + url
         self.__before_request()
         resp = self.__session.get(url, params=params)
         return decode_response(resp), resp
@@ -224,39 +202,12 @@ class Client:
         """
         patch请求
         """
-        url = self.base_url + url
+        url = self.__login_info.api_host + url
         self.__before_request()
         resp = self.__session.patch(url, json=data)
         return decode_response(resp), resp
 
-    # ---------------------------------- 对象存储相关方法 ----------------------------------
-
-    def __get_cos(self):
-        self.__cos = CosClient(
-            data=self.get(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/sts")[0],
-        )
-
-    def upload(self, buffer: MediaBuffer):
-        """
-        上传文件，需要注意的是file_path应该为unix风格而不是windows风格
-        :param buffer: 自定义文件内存对象
-        """
-        if self.__cos.should_refresh:
-            self.__get_cos()
-        return self.__cos.upload(buffer)
-
-    def upload_files(self, buffers: List[MediaBuffer]) -> Dict[str, Union[bool, List]]:
-        """
-        批量上传文件，keys和local_paths的长度应该相等
-        :param buffers: 文件内存对象
-        :return: 返回上传结果, 包含success_all和detail两个字段，detail为每一个文件的上传结果（通过index索引对应）
-        """
-        if self.__cos.should_refresh:
-            swanlog.debug("Refresh cos...")
-            self.__get_cos()
-        return self.__cos.upload_files(buffers)
-
-    # ---------------------------------- 接入后端api ----------------------------------
+    # ---------------------------------- 训练相关接口 ----------------------------------
 
     def mount_project(self, name: str, username: str = None, public: bool = None):
         """
@@ -335,8 +286,7 @@ class Client:
 
         :return: 返回实验为新建的还是更新的，为 True 时为新建实验
         """
-        if self.__proj is None:
-            raise NotImplementedError("Project not mounted, please call mount_project() first")
+        assert self.__proj is not None, "Project not mounted, please call mount_project() first"
         if must_exist:
             assert cuid is not None, "cuid must be provided when must_exist is True"
             try:
@@ -385,31 +335,9 @@ class Client:
         new = resp.status_code == 201
         # 这部分信息暂时没有用到
         self.__exp = ExperimentInfo(data)
-        # 获取cos信息
-        self.__get_cos()
         # 重置挂起状态
         self.pending = False
         return new
-
-    def update_state(self, success: bool, finished_at: str = None, interrupt: bool = False):
-        """
-        更新实验状态
-        :param success: 实验是否成功
-        :param finished_at: 实验结束时间，格式为 ISO 8601，如果不提供则使用当前时间
-        :param interrupt: 实验是否被中断
-        """
-        if success:
-            state = "FINISHED"
-        else:
-            state = "ABORTED" if interrupt else "CRASHED"
-        put_data = {
-            "state": state,
-            "finishedAt": finished_at,
-            "from": "sdk",
-        }
-        put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
-        self.put(f"/project/{self.groupname}/{self.projname}/runs/{self.exp_id}/state", put_data)
-        self.pending = True
 
 
 client: Optional["Client"] = None
@@ -446,7 +374,7 @@ def reset_client():
     client = None
 
 
-def sync_error_handler(func):
+def safe_request(func):
     """
     在一些接口中我们不希望线程奔溃，而是返回一个错误对象
     """
@@ -481,8 +409,7 @@ __all__ = [
     "reset_client",
     "create_session",
     "create_client",
-    "sync_error_handler",
+    "safe_request",
     "decode_response",
-    "CosClient",
     "Client",
 ]

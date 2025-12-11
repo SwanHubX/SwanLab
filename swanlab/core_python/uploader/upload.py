@@ -10,13 +10,14 @@ from typing import List
 from swanlab.log import swanlog
 from .batch import MetricDict, create_data, trace_metrics
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
-from ..client import get_client, sync_error_handler, decode_response
+from ..api.service import upload_to_cos
+from ..client import get_client, safe_request, decode_response
 from ...error import ApiError
 
 HOUSE_URL = '/house/metrics'
 
 
-@sync_error_handler
+@safe_request
 def upload_logs(logs: List[LogModel]):
     """
     上传日志信息
@@ -32,7 +33,7 @@ def upload_logs(logs: List[LogModel]):
     return None
 
 
-@sync_error_handler
+@safe_request
 def upload_media_metrics(media_metrics: List[MediaModel]):
     """
     上传指标的媒体数据
@@ -43,12 +44,12 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     for media in media_metrics:
         media.buffers and buffers.extend(media.buffers)
     if not client.pending:
-        client.upload_files(buffers)
+        upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
         # 上传指标信息
         trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
-@sync_error_handler
+@safe_request
 def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     """
     上传指标的标量数据
@@ -57,7 +58,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     trace_metrics(HOUSE_URL, data)
 
 
-@sync_error_handler
+@safe_request
 def upload_files(files: List[FileModel]):
     """
     上传files文件夹中的内容
@@ -82,7 +83,7 @@ def upload_files(files: List[FileModel]):
     return
 
 
-@sync_error_handler
+@safe_request
 def upload_columns(columns: List[ColumnModel]):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值

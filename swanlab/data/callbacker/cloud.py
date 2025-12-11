@@ -26,6 +26,7 @@ from . import utils as U
 from ..porter import Mounter
 from ..run import get_run
 from ...core_python import *
+from ...core_python.api.experiment import update_experiment_state
 from ...log.type import LogData
 
 
@@ -111,7 +112,13 @@ class CloudPyCallback(SwanLabRunCallback):
         self._unregister_sys_callback()
         self.porter.close_trace(success, error=error, epoch=error_epoch)
         # 更新实验状态，在此之后实验会话关闭
-        http.update_state(success, interrupt=interrupt)
+        update_experiment_state(
+            http,
+            username=http.groupname,
+            projname=http.projname,
+            cuid=http.exp_id,
+            state="FINISHED" if success else "ABORTED" if interrupt else "CRASHED",
+        )
         reset_client()
         if not self.user_settings.backup:
             shutil.rmtree(self.run_store.run_dir, ignore_errors=True)
