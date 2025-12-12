@@ -13,11 +13,11 @@ import requests
 from rich.status import Status
 from rich.text import Text
 
+from swanlab.core_python.client.session import create_session
 from swanlab.env import is_windows, is_interactive
 from swanlab.error import ValidationError, APIKeyFormatError, KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_setting_url, get_host_api, get_host_web, fmt_web_host, save_key as sk, get_key
-from ...session import create_session
 
 
 class LoginInfo:

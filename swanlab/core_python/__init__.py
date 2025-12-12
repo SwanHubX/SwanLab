@@ -8,4 +8,3 @@
 """
 
 from .client import *
-from .session import create_session

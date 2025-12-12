@@ -15,7 +15,7 @@ from responses import registries
 from urllib3.util.retry import Retry
 
 from swanlab.core_python import create_session
-from swanlab.core_python.session import TimeoutHTTPAdapter, DEFAULT_TIMEOUT
+from swanlab.core_python.client.session import TimeoutHTTPAdapter, DEFAULT_TIMEOUT
 from swanlab.package import get_package_version
 
 
@@ -118,7 +118,7 @@ def test_timeout_adapter_initialization_with_timeout():
     """
     timeout_value = 30
     adapter = TimeoutHTTPAdapter(timeout=timeout_value)
-    
+
     assert adapter.timeout == timeout_value
 
 
@@ -127,7 +127,7 @@ def test_timeout_adapter_initialization_without_timeout():
     测试TimeoutHTTPAdapter初始化时未提供timeout参数的情况
     """
     adapter = TimeoutHTTPAdapter()
-    
+
     assert adapter.timeout is None
 
 
@@ -137,7 +137,7 @@ def test_timeout_adapter_initialization_with_other_params():
     """
     retry = Retry(total=3)
     adapter = TimeoutHTTPAdapter(max_retries=retry, timeout=45)
-    
+
     assert adapter.timeout == 45
     assert adapter.max_retries == retry
 
@@ -147,24 +147,24 @@ def test_timeout_adapter_uses_default_timeout():
     测试TimeoutHTTPAdapter在未显式指定timeout时使用默认timeout
     """
     test_url = "https://api.example.com/timeout-test"
-    
+
     # 创建adapter并挂载到session
     adapter = TimeoutHTTPAdapter(timeout=25)
-    
+
     session = requests.Session()
     session.mount("https://", adapter)
-    
+
     # 创建一个PreparedRequest来测试send方法
     req = requests.Request('GET', test_url)
     prepared = session.prepare_request(req)
-    
+
     # 直接调用adapter的send方法，不传timeout
     # 我们期望adapter会自动添加timeout=25
     with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
-        
+
         adapter.send(prepared)
-        
+
         # 验证父类的send方法被调用时包含了timeout参数
         call_kwargs = mock_parent_send.call_args[1]
         assert 'timeout' in call_kwargs
@@ -176,23 +176,23 @@ def test_timeout_adapter_respects_explicit_timeout():
     测试TimeoutHTTPAdapter在显式指定timeout时覆盖默认timeout
     """
     test_url = "https://api.example.com/explicit-timeout"
-    
+
     # 创建adapter，设置默认timeout为30
     adapter = TimeoutHTTPAdapter(timeout=30)
-    
+
     session = requests.Session()
     session.mount("https://", adapter)
-    
+
     # 创建一个PreparedRequest来测试send方法
     req = requests.Request('GET', test_url)
     prepared = session.prepare_request(req)
-    
+
     # 直接调用adapter的send方法，显式传timeout=10
     with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
-        
+
         adapter.send(prepared, timeout=10)
-        
+
         # 验证父类的send方法被调用时使用了显式指定的timeout=10
         call_kwargs = mock_parent_send.call_args[1]
         assert 'timeout' in call_kwargs
@@ -204,23 +204,23 @@ def test_timeout_adapter_with_none_timeout():
     测试TimeoutHTTPAdapter当timeout为None时不注入超时
     """
     test_url = "https://api.example.com/none-timeout"
-    
+
     # 创建adapter，timeout为None
     adapter = TimeoutHTTPAdapter(timeout=None)
-    
+
     session = requests.Session()
     session.mount("https://", adapter)
-    
+
     # 创建一个PreparedRequest来测试send方法
     req = requests.Request('GET', test_url)
     prepared = session.prepare_request(req)
-    
+
     # 直接调用adapter的send方法，不传timeout
     with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
-        
+
         adapter.send(prepared)
-        
+
         # 验证父类的send方法被调用时不应包含timeout参数
         call_kwargs = mock_parent_send.call_args[1]
         assert 'timeout' not in call_kwargs
@@ -232,26 +232,26 @@ def test_create_session_uses_default_timeout():
     测试create_session创建的会话使用DEFAULT_TIMEOUT
     """
     test_url = "https://api.example.com/session-timeout"
-    
+
     responses.add(responses.GET, test_url, body="OK", status=200)
-    
+
     session = create_session()
-    
+
     # 获取adapter
     adapter = session.get_adapter(test_url)
     assert isinstance(adapter, TimeoutHTTPAdapter)
     assert adapter.timeout == DEFAULT_TIMEOUT
-    
+
     # 创建一个PreparedRequest来测试send方法
     req = requests.Request('GET', test_url)
     prepared = session.prepare_request(req)
-    
+
     # 验证实际请求使用该timeout
     with patch.object(HTTPAdapter, 'send') as mock_parent_send:
         mock_parent_send.return_value = Mock(status_code=200, text="OK")
-        
+
         adapter.send(prepared)
-        
+
         # 验证使用了DEFAULT_TIMEOUT
         call_kwargs = mock_parent_send.call_args[1]
         assert 'timeout' in call_kwargs
@@ -263,6 +263,6 @@ def test_timeout_adapter_inherits_from_httpAdapter():
     测试TimeoutHTTPAdapter正确继承自HTTPAdapter
     """
     adapter = TimeoutHTTPAdapter(timeout=20)
-    
+
     assert isinstance(adapter, HTTPAdapter)
     assert isinstance(adapter, TimeoutHTTPAdapter)

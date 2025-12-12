@@ -29,6 +29,7 @@ from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo
 from .datastore import DataStore
 from .mounter import Mounter
 from .utils import filter_metric, filter_epoch, filter_column
+from ...core_python.api.experiment import update_experiment_state
 from ...toolkit.models.log import LogContent
 
 __all__ = ['DataPorter', 'Mounter']
@@ -503,9 +504,22 @@ class DataPorter:
         # 7. 同步实验状态
         client = get_client()
         if self._footer is None:
-            client.update_state(success=False)
+            update_experiment_state(
+                client,
+                username=client.groupname,
+                projname=client.projname,
+                cuid=client.exp_id,
+                state="CRASHED",
+            )
         else:
-            client.update_state(self._footer.success, self._footer.create_time)
+            update_experiment_state(
+                client,
+                username=client.groupname,
+                projname=client.projname,
+                cuid=client.exp_id,
+                state="FINISHED" if self._footer.success else "CRASHED",
+                finished_at=self._footer.create_time,
+            )
 
     def _filter_column_by_key(self, column: ColumnModel) -> bool:
         """
