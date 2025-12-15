@@ -51,7 +51,7 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [🔗 Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html) framework is now integrated with SwanLab;
+- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
 -2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
 
