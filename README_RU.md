@@ -294,38 +294,13 @@ for i in range(10):
 
 Самостоятельная версия для сообщества поддерживает офлайн-просмотр панели управления SwanLab.
 
-![swanlab-docker](./readme_files/swanlab-docker.png)
+![swanlab-kubernetes](./readme_files/swanlab-kubernetes.png)
 
-### 1. Развертывание самостоятельной версии с использованием Docker
+Подробные инструкции по развертыванию:
 
-Подробные инструкции см. в: [Документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-
-```bash
-git clone https://github.com/SwanHubX/self-hosted.git
-cd self-hosted/docker
-```
-
-Быстрая установка для Китая:
-
-```bash
-./install.sh
-```
-
-Скачивание и установка образа из DockerHub:
-
-```bash
-./install-dockerhub.sh
-```
-
-### 2. Направление экспериментов в самостоятельный сервис
-
-Вход в самостоятельный сервис:
-
-```bash
-swanlab login --host http://localhost:8000
-```
-
-После входа вы можете записывать эксперименты в самостоятельный сервис.
+- [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
+- [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
+- [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 <br>
 

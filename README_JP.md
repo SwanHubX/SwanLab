@@ -290,38 +290,13 @@ for i in range(10):
 
 セルフホスティングコミュニティ版は、SwanLab ダッシュボードをオフラインで閲覧することをサポートしています。
 
-![swanlab-docker](./readme_files/swanlab-docker.png)
+![swanlab-kubernetes](./readme_files/swanlab-kubernetes.png)
 
-### 1. Docker を使用してセルフホスティング版をデプロイ
+詳細なデプロイメントドキュメント：
 
-詳細な手順については、以下を参照してください: [ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-
-```bash
-git clone https://github.com/SwanHubX/self-hosted.git
-cd self-hosted/docker
-```
-
-中国向けのクイックインストール:
-
-```bash
-./install.sh
-```
-
-DockerHub からイメージをプルしてインストール:
-
-```bash
-./install-dockerhub.sh
-```
-
-### 2. 実験をセルフホスティングサービスに指定
-
-セルフホスティングサービスにログイン:
-
-```bash
-swanlab login --host http://localhost:8000
-```
-
-ログイン後、実験をセルフホスティングサービスに記録できます。
+- [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
+- [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
+- [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 <br>
 

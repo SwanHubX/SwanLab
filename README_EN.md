@@ -312,22 +312,13 @@ Done! Head over to [SwanLab](https://swanlab.cn) to view your first SwanLab expe
 
 The self-hosted community edition supports offline viewing of the SwanLab dashboard.
 
-![swanlab-docker](./readme_files/swanlab-docker.png)
+![swanlab-kubernetes](./readme_files/swanlab-kubernetes.png)
 
-### 1. Deploy the Self-Hosted Version Using Docker
+Detailed deployment documentation:
 
-For detailed instructions, refer to: [Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-
-```bash
-git clone https://github.com/SwanHubX/self-hosted.git
-cd self-hosted/docker
-```
-
-Quick installation for China:
-
-```bash
-./install.sh
-```
+- [🔗 Kubernetes Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
+- [🔗 Docker Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
+- [🔗 Migration from Docker to Kubernetes Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 Pull and install the image from DockerHub:
 

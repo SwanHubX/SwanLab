@@ -320,39 +320,13 @@ for i in range(10):
 
 自托管社区版支持离线查看 SwanLab 仪表盘。
 
-![swanlab-docker](./readme_files/swanlab-docker.png)
+![swanlab-kubernetes](./readme_files/swanlab-kubernetes.png)
 
-### 1. 使用Docker部署自托管版本
+详细部署文档见：
 
-详情请参考：[文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
-
-```bash
-git clone https://github.com/SwanHubX/self-hosted.git
-cd self-hosted/docker
-```
-
-中国地区快速安装：
-
-```bash
-./install.sh
-```
-
-从DockerHub拉取镜像安装：
-
-```bash
-./install-dockerhub.sh
-```
-
-### 2. 将实验指定到自托管服务
-
-登录到自托管服务：
-
-```bash
-swanlab login --host http://localhost:8000
-```
-
-完成登录后，即可将实验记录到自托管服务。
-
+- [🔗 Kubernetes部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)
+- [🔗 Docker部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
+- [🔗 从Docker到Kubernetes迁移文档](https://docs.swanlab.cn/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 <br>
 
