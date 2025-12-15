@@ -59,7 +59,7 @@
 
 ## 🌟 最近更新
 
-- 2025.12.15：🎉SwanLab**Kubernetes版**现已发布！[🔗部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html) 框架已集成SwanLab；
+- 2025.12.15：🎉SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
 - 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
 
