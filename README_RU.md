@@ -300,7 +300,7 @@ for i in range(10):
 
 - [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
 - [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-- [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
+- [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 <br>
 

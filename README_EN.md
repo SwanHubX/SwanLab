@@ -320,22 +320,6 @@ Detailed deployment documentation:
 - [🔗 Docker Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
 - [🔗 Migration from Docker to Kubernetes Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
-Pull and install the image from DockerHub:
-
-```bash
-./install-dockerhub.sh
-```
-
-### 2. Specify Experiments to the Self-Hosted Service
-
-Log in to the self-hosted service:
-
-```bash
-swanlab login --host http://localhost:8000
-```
-
-After logging in, you can record experiments to the self-hosted service.
-
 <br>
 
 ## 🔥 Tutorials
