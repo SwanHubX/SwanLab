@@ -4,11 +4,12 @@
 @time: 2025/12/17 11:39
 @description: OpenApi 模块
 """
+
 from typing import Optional
 
-from swanlab.log import swanlog
 from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
+from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
 
 try:
@@ -32,5 +33,5 @@ class OpenApi:
                 raise RuntimeError("Not logged in.") from e
 
         login_info = auth.code_login(api_key, save_key=False)
-        # OpenApi中，可以创建多个client
-        self.client: Client = Client(login_info)
+        # 一个OpenApi对应一个client，可创建多个api获取从不同的client获取不同账号下的实验信息
+        self._client: Client = Client(login_info)
