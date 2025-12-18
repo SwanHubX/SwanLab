@@ -62,6 +62,7 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     if len(scalar_metrics) == 0:
         return swanlog.debug("No scalar metrics to upload.")
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
+    # 上传指标信息
     trace_metrics(HOUSE_URL, data)
 
 
