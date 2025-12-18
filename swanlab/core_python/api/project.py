@@ -43,7 +43,7 @@ def get_entity_projects(
         projects_info: ProjResponseType = res[0]
         projects.extend(projects_info['list'])
         count = int(projects_info['size']) * int(projects_info['pages'])
-        if count > int(projects_info['total']):
+        if count >= int(projects_info['total']):
             break
         else:
             params['page'] += 1

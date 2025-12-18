@@ -52,7 +52,6 @@ class OpenApi:
         # 扩充一些后端返回中没有的字段
         for proj in projects:
             proj["url"] = f"{self._web_host}/@{proj['path']}"
-            print(len(proj))
         result = Projects(projects)
 
         return result
