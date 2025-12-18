@@ -27,8 +27,7 @@ def skip_if_empty(log_message: str):
         def wrapper(*args, **kwargs):
             # 获取第一个位置参数（通常是 logs, media_metrics 等列表）
             # 如果使用关键字参数调用，这里需要根据实际情况调整，但在你的代码中主要似乎是位置参数
-            data_list = args[0] if args else kwargs.get(list(kwargs.keys())[0]) if kwargs else []
-
+            data_list = args[0] if args else next(iter(kwargs.values())) if kwargs else []
             # 检查是否有长度且长度为0
             if hasattr(data_list, "__len__") and len(data_list) == 0:
                 return swanlog.debug(log_message)
@@ -73,7 +72,8 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
         media.buffers and buffers.extend(media.buffers)
     # TODO 与 trace_metrics一样，注释掉 pending 判断
     # if not client.pending:
-    len(buffers) and upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
+    if len(buffers) > 0:
+        upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
     # 上传指标信息
     trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
@@ -98,9 +98,6 @@ def upload_files(files: List[FileModel]):
     """
     http = get_client()
     # 去重所有的FileModel，留下一个
-    if len(files) == 0:
-        swanlog.warning("No files to upload.")
-        return
     file_model = FileModel.create(files)
     # 如果没有文件需要上传，直接返回
     if file_model.empty:
@@ -123,10 +120,6 @@ def upload_columns(columns: List[ColumnModel]):
     """
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
-    # 如果列表长度为0，则跳过
-    if len(columns) == 0:
-        swanlog.debug("No columns to upload.")
-        return
     # 分批上传
     try:
         trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000)
