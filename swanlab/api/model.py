@@ -4,9 +4,10 @@
 @time: 2025/12/18 20:10
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
+
 from typing import List, Dict
 
-from swanlab.api.types import ProjectType, ProjectLabelType, GroupType
+from .type import ProjectType, ProjectLabelType, GroupType
 
 
 class Group:

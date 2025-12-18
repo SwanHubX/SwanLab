@@ -7,17 +7,17 @@
 
 from typing import Optional, List
 
-from swanlab.api.types import ProjParamType, ProjResponseType, ProjectType
 from swanlab.core_python.client import Client
+from ..type import ProjParamType, ProjResponseType, ProjectType
 
 
 def get_entity_projects(
-        client: Client,
-        *,
-        username: str,
-        sort: Optional[List[str]] = None,
-        search: Optional[str] = None,
-        detail: Optional[bool] = True,
+    client: Client,
+    *,
+    username: str,
+    sort: Optional[List[str]] = None,
+    search: Optional[str] = None,
+    detail: Optional[bool] = True,
 ):
     """
     更新实验状态，注意此接口会将客户端标记为 pending 状态，表示实验已结束

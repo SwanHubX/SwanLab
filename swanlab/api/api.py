@@ -7,13 +7,13 @@
 
 from typing import Optional, List
 
-from swanlab.api.model import Projects
-from swanlab.api.types import ProjectType
 from swanlab.core_python import auth, Client
-from swanlab.core_python.api.project import get_entity_projects
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
+from .model import Projects
+from .type import ProjectType
+from .apis.project import get_entity_projects
 
 try:
     from pandas import DataFrame
@@ -41,14 +41,15 @@ class OpenApi:
         self._web_host = login_info.web_host
 
     def projects(
-            self,
-            entity: str,
-            sort: Optional[List[str]] = None,
-            search: Optional[str] = None,
-            detail: Optional[bool] = True,
+        self,
+        entity: str,
+        sort: Optional[List[str]] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
     ) -> Projects:
-        projects: List[ProjectType] = get_entity_projects(self._client, username=entity, sort=sort, search=search,
-                                                          detail=detail)
+        projects: List[ProjectType] = get_entity_projects(
+            self._client, username=entity, sort=sort, search=search, detail=detail
+        )
         # 扩充一些后端返回中没有的字段
         for proj in projects:
             proj["url"] = f"{self._web_host}/@{proj['path']}"
