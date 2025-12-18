@@ -23,6 +23,8 @@ def upload_logs(logs: List[LogModel]):
     上传日志信息
     :param logs: 日志信息集合
     """
+    if len(logs) == 0:
+        return swanlog.debug("No logs to upload.")
     metrics = []
     for log in logs:
         metrics.extend([{"level": log['level'], **l} for l in log['contents']])
@@ -39,14 +41,17 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据集合
     """
+    if len(media_metrics) == 0:
+        return swanlog.debug("No media metrics to upload.")
     client = get_client()
     buffers = []
     for media in media_metrics:
         media.buffers and buffers.extend(media.buffers)
-    if not client.pending:
-        upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
-        # 上传指标信息
-        trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
+    # TODO 与 trace_metrics一样，注释掉 pending 判断
+    # if not client.pending:
+    upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
+    # 上传指标信息
+    trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
 
 
 @safe_request
@@ -54,6 +59,8 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
     """
     上传指标的标量数据
     """
+    if len(scalar_metrics) == 0:
+        return swanlog.debug("No scalar metrics to upload.")
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     trace_metrics(HOUSE_URL, data)
 
@@ -64,6 +71,8 @@ def upload_files(files: List[FileModel]):
     上传files文件夹中的内容
     :param files: 文件列表，内部为文件信息（text/dict）
     """
+    if len(files) == 0:
+        return swanlog.debug("No files to upload.")
     http = get_client()
     # 去重所有的FileModel，留下一个
     if len(files) == 0:
@@ -88,6 +97,8 @@ def upload_columns(columns: List[ColumnModel]):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值
     """
+    if len(columns) == 0:
+        return swanlog.debug("No columns to upload.")
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
     # 如果列表长度为0，则跳过
