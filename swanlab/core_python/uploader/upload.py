@@ -5,6 +5,7 @@
 @description: 定义上传函数
 """
 
+import inspect
 from functools import wraps
 from typing import List
 
@@ -25,12 +26,14 @@ def skip_if_empty(log_message: str):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # 获取第一个位置参数（通常是 logs, media_metrics 等列表）
-            # 如果使用关键字参数调用，这里需要根据实际情况调整，但在你的代码中主要似乎是位置参数
-            data_list = args[0] if args else next(iter(kwargs.values())) if kwargs else []
-            # 检查是否有长度且长度为0
-            if hasattr(data_list, "__len__") and len(data_list) == 0:
-                return swanlog.debug(log_message)
+            sig = inspect.signature(func)
+            # The list to check is the first parameter of the decorated function
+            param_name = next(iter(sig.parameters))
+            bound_args = sig.bind_partial(*args, **kwargs)
+            if param_name in bound_args.arguments:
+                data_list = bound_args.arguments[param_name]
+                if hasattr(data_list, "__len__") and len(data_list) == 0:
+                    return swanlog.debug(log_message)
 
             return func(*args, **kwargs)
 
