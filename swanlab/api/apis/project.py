@@ -20,7 +20,7 @@ def get_entity_projects(
     detail: Optional[bool] = True,
 ):
     """
-    更新实验状态，注意此接口会将客户端标记为 pending 状态，表示实验已结束
+    获取指用户（或组织）下的所有项目信息。
     :param client: 已登录的客户端实例
     :param username: 组织的用户名
     :param sort: 排序规则, 可选
