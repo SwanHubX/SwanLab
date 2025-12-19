@@ -8,7 +8,7 @@
 from typing import Optional, List
 
 from swanlab.core_python.client import Client
-from ..type import ProjParamType, ProjResponseType, ProjectType
+from ..type import ProjParamType, ProjResponseType
 
 
 def get_entity_projects(
@@ -20,7 +20,7 @@ def get_entity_projects(
     detail: Optional[bool] = True,
 ):
     """
-    获取指用户（或组织）下的所有项目信息。
+    按当前遍历的情况获取项目信息，直到获取到所有项目
     :param client: 已登录的客户端实例
     :param workspace: 工作空间名称
     :param sort: 排序规则, 可选
@@ -34,17 +34,15 @@ def get_entity_projects(
         'search': search,
         'detail': detail,
     }
-    projects: List[ProjectType] = []
 
-    # 循环获取组织中的所有项目
     while True:
         res = client.get(f"/project/{workspace}", params=dict(params))
         projects_info: ProjResponseType = res[0]
-        projects.extend(projects_info['list'])
+        for project in projects_info['list']:
+            yield project
+
         count = int(projects_info['size']) * int(projects_info['pages'])
         if count >= int(projects_info['total']):
             break
         else:
             params['page'] += 1
-
-    return projects

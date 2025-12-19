@@ -5,9 +5,11 @@
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 
+from .apis.project import get_entity_projects
 from .type import ProjectType, ProjectLabelType
+from ..core_python import Client
 
 
 class Label:
@@ -117,8 +119,29 @@ class Projects:
     You can iterate over the projects by for-in loop.
     """
 
-    def __init__(self, data: List[ProjectType], web_host: str):
-        self._projects: List[Project] = [Project(d, web_host) for d in data]
+    def __init__(
+        self,
+        client: Client,
+        web_host: str,
+        workspace: str,
+        sort: Optional[List[str]] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
+    ):
+        self._client = client
+        self._web_host = web_host
+        self._workspace = workspace
+        self._sort = sort
+        self._search = search
+        self._detail = detail
 
     def __iter__(self):
-        return iter(self._projects)
+        # 按用户遍历情况获取项目信息
+        projects = get_entity_projects(
+            self._client,
+            workspace=self._workspace,
+            sort=self._sort,
+            search=self._search,
+            detail=self._detail,
+        )
+        return iter(Project(project, self._web_host) for project in projects)

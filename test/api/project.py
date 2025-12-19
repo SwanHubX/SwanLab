@@ -9,41 +9,82 @@ from unittest.mock import patch
 
 import swanlab
 
+
 # 测试数据
-fake_projects_raw = [
+def make_fake_projects(start, count):
+    return [
+        {
+            "cuid": f"c{n}",
+            "name": f"proj-{n}",
+            "path": f"user/proj-{n}",
+            "url": f"https://dev001.swanlab.cn/@user/proj-{n}",
+            "description": f"desc-{n}",
+            "visibility": "PUBLIC",
+            "createdAt": "2025-01-01T00:00:00Z",
+            "updatedAt": "2025-01-01T00:00:00Z",
+            "projectLabels": [{"name": "Nvidia"}],
+            "group": {"username": "user", "status": "ENABLED", "type": "TEAM"},
+            "_count": {},
+        }
+        for n in range(start, start + count)
+    ]
+
+
+performance_test_projects = [
+    [
+        {
+            "total": 40,
+            "pages": 1,
+            "size": 20,
+            "list": make_fake_projects(0, 20),
+        },
+    ],
+    [
+        {
+            "total": 40,
+            "pages": 2,
+            "size": 20,
+            "list": make_fake_projects(20, 20),
+        },
+    ],
+]
+
+params_test_projects = [
     {
-        "total": 10,
+        "total": 20,
         "pages": 1,
-        "size": 10,
-        "list": [
-            {
-                "cuid": "c1",
-                "name": "proj-1",
-                "path": "user/proj-1",
-                "url": "https://dev001.swanlab.cn/@user/proj-1",
-                "description": "desc-1",
-                "visibility": "PUBLIC",
-                "createdAt": "2025-01-01T00:00:00Z",
-                "updatedAt": "2025-01-01T00:00:00Z",
-                "projectLabels": [{"name": "Nvidia"}],
-                "group": {"username": "user", "status": "ENABLED", "type": "TEAM"},
-                "_count": {},
-            }
-        ],
-    }
+        "size": 20,
+        "list": make_fake_projects(0, 20),
+    },
 ]
 
 
-def test_projects_uses_correct_params():
+# 性能测试：是否按照当前遍历的项目动态获取
+def test_api_projects_performance():
     # patch: client.get 返回 fake_projects_raw
-    with patch("swanlab.core_python.client.Client.get", return_value=fake_projects_raw) as mock_get:
+    with patch("swanlab.core_python.client.Client.get", side_effect=performance_test_projects) as mock_get:
         api = swanlab.OpenApi()
 
         result = api.projects(workspace="bainiantest", detail=True)
 
-        # 断言返回值
+        # 断言请求调用次数
+        assert mock_get.call_count == 0
+        for project in result:
+            if project.name == "proj-19":
+                assert mock_get.call_count == 1
+            if project.name == "proj-20":
+                assert mock_get.call_count == 2
+
+
+# 功能测试：获取到的项目的属性是否齐全且正确
+def test_api_projects_params():
+    with patch("swanlab.core_python.client.Client.get", return_value=params_test_projects):
+        api = swanlab.OpenApi()
+
+        result = api.projects(workspace="bainiantest", detail=True)
+
         # 1. 字符串类型的字段
-        raw_list = fake_projects_raw[0]["list"]
+        raw_list = params_test_projects[0]["list"]
         fields = {
             "name": "name",
             "path": "path",

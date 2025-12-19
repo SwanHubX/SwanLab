@@ -11,9 +11,7 @@ from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from .apis.project import get_entity_projects
 from .model import Projects
-from .type import ProjectType
 
 try:
     from pandas import DataFrame
@@ -47,9 +45,11 @@ class OpenApi:
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:
-        projects: List[ProjectType] = get_entity_projects(
-            self._client, workspace=workspace, sort=sort, search=search, detail=detail
+        return Projects(
+            client=self._client,
+            web_host=self._web_host,
+            workspace=workspace,
+            sort=sort,
+            search=search,
+            detail=detail,
         )
-        result = Projects(projects, self._web_host)
-
-        return result
