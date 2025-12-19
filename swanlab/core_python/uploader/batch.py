@@ -93,7 +93,7 @@ def trace_metrics(
     client = get_client()
     # 遍历生成器产生的每一个数据块
     for chunk in _generate_chunks(data, per_request_len):
-        # TODO: 暂时注释掉前置检查
+        # TODO: 暂时注释掉前置检查，与 upload_media_metrics 一致
         # 如果在发送过程中 client 变成了 pending，则中断后续发送
         # if client.pending:
         #     break
