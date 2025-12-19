@@ -7,87 +7,118 @@
 
 from typing import List, Dict
 
-from .type import ProjectType, ProjectLabelType, GroupType
+from .type import ProjectType, ProjectLabelType
 
 
-class Group:
-    def __init__(self, data: GroupType):
-        self._data = data
+class Label:
+    """
+    Project label object
+    you can get the label name by str(label)
+    """
 
-    @property
-    def username(self):
-        return self._data['username']
-
-    @property
-    def status(self):
-        return self._data['status']
-
-    @property
-    def type(self):
-        return self._data['type']
-
-
-class ProjectLabel:
     def __init__(self, data: ProjectLabelType):
         self._data = data
 
     @property
     def name(self):
+        """
+        Label name.
+        """
         return self._data['name']
+
+    def __str__(self):
+        return str(self.name)
 
 
 class Project:
-    def __init__(self, data: ProjectType):
+    """
+    Representing a single project with some of its properties.
+    """
+
+    def __init__(self, data: ProjectType, web_host: str):
         self._data = data
+        self._web_host = web_host
 
     @property
-    def cuid(self):
-        return self._data['cuid']
-
-    @property
-    def name(self):
+    def name(self) -> str:
+        """
+        Project name.
+        """
         return self._data['name']
 
     @property
-    def path(self):
+    def path(self) -> str:
+        """
+        Project path in the format 'username/project-name'.
+        """
         return self._data['path']
 
     @property
-    def url(self):
-        return self._data['url']
+    def url(self) -> str:
+        """
+        Full URL to access the project.
+        """
+        return f"{self._web_host}/@{self._data['path']}"
 
     @property
-    def description(self):
+    def description(self) -> str:
+        """
+        Project description.
+        """
         return self._data['description']
 
     @property
-    def visibility(self):
+    def visibility(self) -> str:
+        """
+        Project visibility, either 'PUBLIC' or 'PRIVATE'.
+        """
         return self._data['visibility']
 
     @property
-    def createdAt(self):
+    def created_at(self) -> str:
+        """
+        Project creation timestamp
+        """
         return self._data['createdAt']
 
     @property
-    def updatedAt(self):
+    def updated_at(self) -> str:
+        """
+        Project last update timestamp
+        """
         return self._data['updatedAt']
 
     @property
-    def projectLabels(self) -> List[ProjectLabel]:
-        return [ProjectLabel(label) for label in self._data['projectLabels']]
+    def workspace(self) -> str:
+        """
+        Project workspace name.
+        """
+        return self._data["group"]["username"]
 
     @property
-    def group(self) -> Group:
-        return Group(self._data['group'])
+    def labels(self) -> List[Label]:
+        """
+        List of Label attached to this project.
+        """
+        return [Label(label) for label in self._data['projectLabels']]
 
     @property
     def count(self) -> Dict[str, int]:
+        """
+        Project statistics dictionary containing:
+        experiments, contributors, children, collaborators, runningExps.
+        """
         return self._data['_count']
 
 
 class Projects:
-    def __init__(self, data: List[ProjectType]):
-        self._projects: List[Project] = [Project(d) for d in data]
+    """
+    Container for a collection of Project objects.
+    You can iterate over the projects by for-in loop.
+    """
+
+    def __init__(self, data: List[ProjectType], web_host: str):
+        self._projects: List[Project] = [Project(d, web_host) for d in data]
 
     def __iter__(self):
         return iter(self._projects)

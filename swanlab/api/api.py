@@ -11,9 +11,9 @@ from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
+from .apis.project import get_entity_projects
 from .model import Projects
 from .type import ProjectType
-from .apis.project import get_entity_projects
 
 try:
     from pandas import DataFrame
@@ -42,17 +42,14 @@ class OpenApi:
 
     def projects(
         self,
-        entity: str,
+        workspace: str,
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:
         projects: List[ProjectType] = get_entity_projects(
-            self._client, username=entity, sort=sort, search=search, detail=detail
+            self._client, workspace=workspace, sort=sort, search=search, detail=detail
         )
-        # 扩充一些后端返回中没有的字段
-        for proj in projects:
-            proj["url"] = f"{self._web_host}/@{proj['path']}"
-        result = Projects(projects)
+        result = Projects(projects, self._web_host)
 
         return result

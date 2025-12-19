@@ -4,6 +4,7 @@
 @time: 2025/12/17 16:35
 @description: OpenApi 用到的类型文件
 """
+
 from typing import TypedDict, Optional, List, Dict
 
 
@@ -17,9 +18,7 @@ class ProjParamType(TypedDict):
 
 
 class GroupType(TypedDict):
-    username: str  # 组织或者个人的名称标识
-    status: str  # 组织或者个人的状态
-    type: str  # 用户身份（个人、团队）
+    username: str  # 工作空间名称 (workspace)
 
 
 class ProjectLabelType(TypedDict):
@@ -35,8 +34,8 @@ class ProjectType(TypedDict):
     visibility: str  # 可见性, 'PUBLIC' 或 'PRIVATE'
     createdAt: str  # e.g., '2024-11-23T12:28:04.286Z'
     updatedAt: str  # e.g., '2024-11-23T12:28:04.286Z'
+    group: GroupType  # 项目所属工作空间名称 (workspace)
     projectLabels: List[ProjectLabelType]  # 项目标签
-    group: GroupType  # 团队信息
     _count: Dict[str, int]  # 项目的统计信息
 
 
