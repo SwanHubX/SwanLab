@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.project import get_entity_projects
-from .type import ProjectType, ProjectLabelType
+from .type import ProjectType, ProjectLabelType, ProjResponseType
 
 
 class Label:
@@ -137,11 +137,11 @@ class Projects:
 
     def __iter__(self):
         # 按用户遍历情况获取项目信息
-        cur_page = 1
+        cur_page = 0
         page_size = 20
         while True:
             cur_page += 1
-            projects_info = get_entity_projects(
+            projects_info: ProjResponseType = get_entity_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
