@@ -39,7 +39,6 @@ def get_entity_projects(
     # 循环获取组织中的所有项目
     while True:
         res = client.get(f"/project/{username}", params=dict(params))
-        client.pending = True
         projects_info: ProjResponseType = res[0]
         projects.extend(projects_info['list'])
         count = int(projects_info['size']) * int(projects_info['pages'])
