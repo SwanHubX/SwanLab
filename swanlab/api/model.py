@@ -8,7 +8,7 @@
 from typing import List, Dict, Optional
 
 from swanlab.core_python import Client
-from .apis.project import get_entity_projects
+from swanlab.core_python.api.project import get_entity_projects
 from .type import ProjectType, ProjectLabelType
 
 
@@ -137,11 +137,20 @@ class Projects:
 
     def __iter__(self):
         # 按用户遍历情况获取项目信息
-        projects = get_entity_projects(
-            self._client,
-            workspace=self._workspace,
-            sort=self._sort,
-            search=self._search,
-            detail=self._detail,
-        )
-        return iter(Project(project, self._web_host) for project in projects)
+        cur_page = 1
+        page_size = 20
+        while True:
+            cur_page += 1
+            projects_info = get_entity_projects(
+                self._client,
+                workspace=self._workspace,
+                page=cur_page,
+                size=page_size,
+                sort=self._sort,
+                search=self._search,
+                detail=self._detail,
+            )
+            if cur_page * page_size >= projects_info['total']:
+                break
+
+        yield from iter(Project(project, self._web_host) for project in projects_info['list'])
