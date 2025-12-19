@@ -7,9 +7,9 @@
 
 from typing import List, Dict, Optional
 
+from swanlab.core_python import Client
 from .apis.project import get_entity_projects
 from .type import ProjectType, ProjectLabelType
-from ..core_python import Client
 
 
 class Label:
