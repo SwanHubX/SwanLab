@@ -87,7 +87,7 @@ class SwanLabLogger(Logger):
         self._project = self._swanlab_init.get("project")
         self._workspace = self._swanlab_init.get("workspace")
         self._experiment_name = self._swanlab_init.get("experiment_name")
-        self._description = self._swanlab_init.get("decsription")
+        self._description = self._swanlab_init.get("description")
         self._logdir = self._swanlab_init.get("logdir")
         self._mode = self._swanlab_init.get("mode")
         self._resume = self._swanlab_init.get("resume")
