@@ -4,7 +4,7 @@ Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightni
 
 import os
 import importlib.util
-from typing import Any, Dict, Optional, Union, Mapping, List
+from typing import Any, Dict, Optional, Union, Mapping, List, Literal
 from argparse import Namespace
 import packaging.version
 from pathlib import Path
@@ -60,6 +60,7 @@ class SwanLabLogger(Logger):
         mode: Optional[str] = None,
         save_dir: Union[str, Path] = ".",
         tags: Optional[List[str]] = None,
+        id: Optional[str] = None,
         **kwargs: Any,
     ):
         super().__init__()
@@ -77,6 +78,8 @@ class SwanLabLogger(Logger):
             "logdir": logdir,
             "mode": mode,
             "tags": tags,
+            "resume": "allow",
+            "id": id,
         }
 
         self._swanlab_init.update(**kwargs)
@@ -87,7 +90,8 @@ class SwanLabLogger(Logger):
         self._description = self._swanlab_init.get("decsription")
         self._logdir = self._swanlab_init.get("logdir")
         self._mode = self._swanlab_init.get("mode")
-
+        self._resume = self._swanlab_init.get("resume")
+        
         if save_dir is not None:
             save_dir = os.fspath(save_dir)
         self._save_dir = save_dir
