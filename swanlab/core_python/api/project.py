@@ -7,7 +7,7 @@
 
 from typing import Optional, List
 
-from swanlab.api.type import ProjParamType, ProjResponseType
+from swanlab.core_python.api.type import ProjParamType, ProjResponseType
 from .. import Client
 
 
