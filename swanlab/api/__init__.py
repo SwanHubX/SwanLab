@@ -8,8 +8,6 @@ r"""
     SwanLab OpenAPI包
 """
 
-from swanlab.api.main import OpenApi
+from .api import OpenApi
 
-__all__ = [
-    "OpenApi"
-]
+__all__ = ["OpenApi"]
