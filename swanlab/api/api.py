@@ -5,12 +5,13 @@
 @description: OpenApi 模块
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
+from .model import Projects
 
 try:
     from pandas import DataFrame
@@ -35,3 +36,20 @@ class OpenApi:
         login_info = auth.code_login(api_key, save_key=False)
         # 一个OpenApi对应一个client，可创建多个api获取从不同的client获取不同账号下的实验信息
         self._client: Client = Client(login_info)
+        self._web_host = login_info.web_host
+
+    def projects(
+        self,
+        workspace: str,
+        sort: Optional[List[str]] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
+    ) -> Projects:
+        return Projects(
+            client=self._client,
+            web_host=self._web_host,
+            workspace=workspace,
+            sort=sort,
+            search=search,
+            detail=detail,
+        )
