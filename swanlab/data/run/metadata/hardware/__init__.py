@@ -21,6 +21,7 @@ from .soc.apple import get_apple_chip_info
 from .type import HardwareFuncResult, HardwareCollector, HardwareInfo
 from .utils import is_system_key
 from .xpu.kunlunxin import get_kunlunxin_xpu_info
+from .rocm.amd import get_amd_gpu_info
 
 __all__ = ["get_hardware_info", "HardwareCollector", "HardwareInfo", "is_system_key"]
 
@@ -39,6 +40,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     kunlunxin = dec_hardware_func(get_kunlunxin_xpu_info, monitor_funcs)
     metax = dec_hardware_func(get_metax_gpu_info, monitor_funcs)
     hygon = dec_hardware_func(get_hygon_dcu_info, monitor_funcs)
+    amd = dec_hardware_func(get_amd_gpu_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
     d = dec_hardware_func(get_disk_info, monitor_funcs)
@@ -55,6 +57,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         "xpu": {},
         "soc": {},
         "dcu": {},
+        "rocm": {},
     }
     if nvidia is not None:
         info["gpu"]["nvidia"] = nvidia
@@ -72,6 +75,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["xpu"]["kunlunxin"] = kunlunxin
     if hygon is not None:
         info["dcu"]["hygon"] = hygon
+    if amd is not None:
+        info["rocm"]["amd"] = amd
     return filter_none(info, fallback={}), monitor_funcs
 
 
