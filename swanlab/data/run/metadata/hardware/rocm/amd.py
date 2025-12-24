@@ -1,7 +1,7 @@
 """
 @author: KMnO4-zx
 @file: amd.py
-@time: 2025-12-24
+@time: 2025-12-25
 @description: AMD ROCm GPU 信息采集 (稳定性优化版)
 """
 
