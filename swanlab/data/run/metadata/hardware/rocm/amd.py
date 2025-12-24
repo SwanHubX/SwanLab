@@ -17,6 +17,16 @@ from ..type import HardwareConfig, HardwareFuncResult, HardwareInfoList
 from ..utils import generate_key, random_index
 
 
+# 用于标记 rocm-smi 是否可用（可能在某些 GPU 环境下会崩溃）
+_ROCM_SMI_WORKING = True
+
+
+def _mark_rocm_smi_failed():
+    """标记 rocm-smi 不可用"""
+    global _ROCM_SMI_WORKING
+    _ROCM_SMI_WORKING = False
+
+
 def get_amd_gpu_info() -> HardwareFuncResult:
     """
     获取 AMD GPU 信息，包括驱动版本、设备信息等
@@ -121,12 +131,15 @@ def _map_amd_gpu_windows() -> Tuple[Optional[str], dict]:
 
 def _map_amd_gpu_via_rocm_smi() -> dict:
     """使用 rocm-smi 获取 GPU 设备信息"""
+    global _ROCM_SMI_WORKING
+    if not _ROCM_SMI_WORKING:
+        return {}
     gpu_map = {}
     try:
         # 获取产品名称
-        product_json = _run_rocm_smi(["--showproductname", "--json"])
+        product_json = _run_rocm_smi_safe(["--showproductname", "--json"])
         # 获取显存信息 (VRAM)
-        mem_json = _run_rocm_smi(["--showmeminfo", "vram", "--json"])
+        mem_json = _run_rocm_smi_safe(["--showmeminfo", "vram", "--json"])
 
         for card_key in product_json.keys():
             # card_key 通常是 "card0", "card1"
@@ -153,12 +166,28 @@ def _map_amd_gpu_via_rocm_smi() -> dict:
 def _run_rocm_smi(args: list) -> dict:
     """
     辅助函数：运行 rocm-smi 并返回解析后的 JSON
+    注意：如果 rocm-smi 崩溃，会标记为不可用
+    """
+    global _ROCM_SMI_WORKING
+    if not _ROCM_SMI_WORKING:
+        return {}
+    return _run_rocm_smi_safe(args)
+
+
+def _run_rocm_smi_safe(args: list) -> dict:
+    """
+    安全运行 rocm-smi，不修改全局状态
     """
     try:
         cmd = ["rocm-smi"] + args
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=5)
         return json.loads(result.stdout)
+    except subprocess.TimeoutExpired:
+        return {}
     except (subprocess.CalledProcessError, json.JSONDecodeError):
+        return {}
+    except Exception:
+        # 其他异常（如崩溃），返回空字典
         return {}
 
 
