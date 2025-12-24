@@ -158,6 +158,14 @@ def _map_amd_gpu_via_rocm_smi() -> dict:
 
             gpu_map[str(idx)] = {"name": name, "memory": mem_str}
 
+        # 测试监控命令是否会导致崩溃
+        # 如果监控命令崩溃，禁用后续监控
+        if gpu_map:
+            test_result = _run_rocm_smi_safe(["--showuse", "--json"])
+            if not test_result:
+                # 监控命令失败，标记为不可用
+                _mark_rocm_smi_failed()
+
     except Exception:
         pass
     return gpu_map
@@ -270,7 +278,12 @@ class AMDCollector(H):
             ]
 
         for method in usage_methods:
-            result.extend(method().values())
+            try:
+                result.extend(method().values())
+            except Exception:
+                # 如果监控方法抛出异常（如 rocm-smi 崩溃），禁用后续监控
+                _mark_rocm_smi_failed()
+                break
         return result
 
     def get_utilization_usage(self) -> dict:
