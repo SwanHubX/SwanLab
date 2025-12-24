@@ -22,8 +22,18 @@ from ..utils import generate_key, random_index
 _AMD_SMI_AVAILABLE = shutil.which("amd-smi") is not None
 _ROCM_SMI_AVAILABLE = shutil.which("rocm-smi") is not None
 
+# 用于标记 amd-smi 是否可用 (可能在运行时发现不兼容)
+_AMD_SMI_WORKING = True
+
 # 使用 amd-smi 作为首选工具
 _USE_AMD_SMI = _AMD_SMI_AVAILABLE
+
+
+def _mark_amd_smi_failed():
+    """标记 amd-smi 不可用，后续自动回退到 rocm-smi"""
+    global _AMD_SMI_WORKING, _USE_AMD_SMI
+    _AMD_SMI_WORKING = False
+    _USE_AMD_SMI = False
 
 
 def get_amd_gpu_info() -> HardwareFuncResult:
@@ -79,7 +89,11 @@ def map_amd_gpu(system: str) -> Tuple[Optional[str], dict]:
     if _USE_AMD_SMI:
         try:
             version_output = subprocess.run(
-                ["amd-smi", "version"], capture_output=True, check=True, text=True
+                ["amd-smi", "version"],
+                capture_output=True,
+                check=True,
+                text=True,
+                timeout=5,
             ).stdout
             # 解析 "ROCm version: 6.4.3"
             match = re.search(r"ROCm version:\s*([\d\.]+)", version_output)
@@ -88,18 +102,23 @@ def map_amd_gpu(system: str) -> Tuple[Optional[str], dict]:
             else:
                 driver_version = "Unknown"
         except Exception:
+            # amd-smi version 失败，标记为不可用
+            _mark_amd_smi_failed()
             driver_version = "Unknown"
-    elif _ROCM_SMI_AVAILABLE:
-        # 从 rocm-smi 获取版本 (作为备选)
-        driver_version = "Unknown"
 
     # 2. 获取设备名称和显存信息
     gpu_map = {}
 
     if _USE_AMD_SMI:
         gpu_map = _map_amd_gpu_via_amd_smi()
+        # 如果 amd-smi 获取失败且 rocm-smi 可用，尝试回退
+        if not gpu_map and _ROCM_SMI_AVAILABLE:
+            gpu_map = _map_amd_gpu_via_rocm_smi()
     elif _ROCM_SMI_AVAILABLE:
         gpu_map = _map_amd_gpu_via_rocm_smi()
+
+    if not driver_version:
+        driver_version = "Unknown"
 
     return driver_version, gpu_map
 
@@ -155,13 +174,18 @@ def _map_amd_gpu_windows() -> Tuple[Optional[str], dict]:
 
 def _map_amd_gpu_via_amd_smi() -> dict:
     """使用 amd-smi static 获取 GPU 设备信息"""
+    global _AMD_SMI_WORKING
+    if not _AMD_SMI_WORKING:
+        return {}
     gpu_map = {}
     try:
+        # 添加超时防止命令卡死
         result = subprocess.run(
             ["amd-smi", "static", "--json"],
             capture_output=True,
             check=True,
             text=True,
+            timeout=5,
         )
         static_info = json.loads(result.stdout)
 
@@ -181,8 +205,15 @@ def _map_amd_gpu_via_amd_smi() -> dict:
                 mem_str = "0GB"
 
             gpu_map[gpu_id] = {"name": name, "memory": mem_str}
+    except subprocess.TimeoutExpired:
+        # 命令超时，标记为失败并回退
+        _mark_amd_smi_failed()
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        # 命令执行失败，标记为失败并回退
+        _mark_amd_smi_failed()
     except Exception:
-        pass
+        # 其他异常（如崩溃），标记为失败并回退
+        _mark_amd_smi_failed()
     return gpu_map
 
 
@@ -219,15 +250,30 @@ def _map_amd_gpu_via_rocm_smi() -> dict:
 
 def _run_amd_smi_metric() -> List[dict]:
     """运行 amd-smi metric --json 并返回解析后的结果"""
+    global _AMD_SMI_WORKING
+    if not _AMD_SMI_WORKING:
+        return []
     try:
+        # 添加超时防止命令卡死，timeout 设为 5 秒
         result = subprocess.run(
             ["amd-smi", "metric", "--json"],
             capture_output=True,
             check=True,
             text=True,
+            timeout=5,
         )
         return json.loads(result.stdout)
+    except subprocess.TimeoutExpired:
+        # 命令超时，标记为失败并回退
+        _mark_amd_smi_failed()
+        return []
     except (subprocess.CalledProcessError, json.JSONDecodeError):
+        # 命令执行失败，标记为失败并回退
+        _mark_amd_smi_failed()
+        return []
+    except Exception:
+        # 其他异常（如崩溃），标记为失败并回退
+        _mark_amd_smi_failed()
         return []
 
 
