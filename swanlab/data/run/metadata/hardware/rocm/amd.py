@@ -10,6 +10,8 @@ import math
 import platform
 import subprocess
 import re
+import os
+import glob
 from typing import Optional, Tuple
 
 from ..type import HardwareCollector as H
@@ -19,7 +21,7 @@ from ..utils import generate_key, random_index
 
 def get_amd_gpu_info() -> HardwareFuncResult:
     """
-    获取 AMD GPU 信息，自动判断 Linux (rocm-smi) 或 Windows (hipinfo)
+    获取 AMD GPU 信息
     """
     system_name = platform.system()
     
@@ -43,7 +45,6 @@ def get_amd_gpu_info() -> HardwareFuncResult:
         for gpu_id in gpu_map:
             try:
                 mem_str = gpu_map[gpu_id]["memory"]
-                # 提取数字 (支持 107.87 GB 这种格式)
                 digits = re.findall(r"([\d\.]+)", mem_str)
                 if digits:
                     mem_val = float(digits[0])
@@ -51,7 +52,6 @@ def get_amd_gpu_info() -> HardwareFuncResult:
             except (ValueError, TypeError):
                 continue
         
-        # 将 GB 转为 MB (保留精度后转整型，防止 16.5GB 被截断)
         max_mem_value = int(max_mem_value * 1024)
         
         collector = AMDCollector(gpu_map, max_mem_value, system_name)
@@ -64,47 +64,84 @@ def get_amd_gpu_info() -> HardwareFuncResult:
 
 
 # ==========================================
-# Linux Logic (rocm-smi)
+# Linux Logic (Initialization)
 # ==========================================
 
 def map_amd_gpu_linux() -> Tuple[Optional[str], dict]:
+    """
+    初始化阶段：尝试获取显卡列表。
+    虽然 rocm-smi 可能不稳定，但我们只在启动时跑一次。
+    如果 rocm-smi 失败，尝试通过 lspci 或 sysfs 兜底。
+    """
     driver_version = "Unknown"
+    
+    # 1. 尝试获取版本
     try:
-        version_out = subprocess.run(["rocm-smi", "--showdriverversion", "--json"], capture_output=True, text=True).stdout
-        # 如果 rocm-smi 获取不到，尝试 amd-smi
-        if "Driver version" not in version_out:
-             res = subprocess.run(["amd-smi", "version"], capture_output=True, text=True)
-             match = re.search(r"ROCm version:\s*([\d\.]+)", res.stdout)
-             if match: driver_version = match.group(1)
+        # 读取 /sys/module/amdgpu/version (最安全的方式)
+        if os.path.exists("/sys/module/amdgpu/version"):
+            with open("/sys/module/amdgpu/version", "r") as f:
+                driver_version = f.read().strip()
+        else:
+            # 回退到命令
+            res = subprocess.run(["rocm-smi", "--showdriverversion", "--json"], capture_output=True, text=True)
+            if "Driver version" in res.stdout:
+                driver_version = json.loads(res.stdout).get("card0", {}).get("Driver version", "Unknown")
     except Exception:
         pass
 
     gpu_map = {}
+    
+    # 2. 尝试获取设备列表
+    # 优先使用 sysfs 扫描，避免调用 rocm-smi 导致崩溃
     try:
-        # 合并查询
-        data = _run_rocm_smi_linux(["--showproductname", "--showmeminfo", "vram", "--json"])
-        for card_key, info in data.items():
-            idx = card_key.replace("card", "")
-            name = info.get("Card Series", "AMD GPU")
-            mem_bytes_str = info.get("VRAM Total Memory (B)", "0")
-            try:
-                mem_gb = round(int(mem_bytes_str) / (1024**3))
-                mem_str = f"{mem_gb}GB"
-            except:
-                mem_str = "0GB"
+        cards = glob.glob("/sys/class/drm/card*")
+        # 过滤出是 GPU 的卡（排除 card0 可能是集成显卡的情况，如果都是 AMD，通常是 card0, card1...）
+        # 这里简单假设所有 /sys/class/drm/cardX 且包含 device/vendor 的都是目标卡
+        
+        amd_cards = []
+        for card_path in cards:
+            # 排除 renderD* 或 controlD*
+            if not re.search(r"card\d+$", card_path):
+                continue
+                
+            # 检查 vendor id, AMD 是 0x1002
+            vendor_path = os.path.join(card_path, "device/vendor")
+            if os.path.exists(vendor_path):
+                with open(vendor_path, "r") as f:
+                    vendor = f.read().strip()
+                if "0x1002" in vendor:
+                    idx = card_path.split("card")[-1]
+                    amd_cards.append(idx)
+        
+        amd_cards.sort(key=lambda x: int(x))
+        
+        for idx in amd_cards:
+            # 显存大小读取
+            mem_total_path = f"/sys/class/drm/card{idx}/device/mem_info_vram_total"
+            mem_str = "0GB"
+            if os.path.exists(mem_total_path):
+                with open(mem_total_path, "r") as f:
+                    mem_bytes = int(f.read().strip())
+                    mem_gb = round(mem_bytes / (1024**3))
+                    mem_str = f"{mem_gb}GB"
+            
+            # 名字读取 (sysfs 中没有漂亮的 Marketing Name，只有 device id)
+            # 为了获取名字，我们可以尝试 rocm-smi 一次，如果失败就用 "AMD GPU"
+            name = "AMD GPU" 
+            
             gpu_map[str(idx)] = {"name": name, "memory": mem_str}
+
     except Exception:
-        return driver_version, {}
+        # 如果 Sysfs 失败，最后尝试一次 rocm-smi
+        try:
+            data = json.loads(subprocess.run(["rocm-smi", "--showproductname", "--json"], capture_output=True, text=True).stdout)
+            for k, v in data.items():
+                idx = k.replace("card", "")
+                gpu_map[idx] = {"name": v.get("Card Series", "AMD GPU"), "memory": "0GB"} # 显存稍后补
+        except:
+            pass
 
     return driver_version, gpu_map
-
-def _run_rocm_smi_linux(args: list) -> dict:
-    try:
-        cmd = ["rocm-smi"] + args
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=5)
-        return json.loads(result.stdout)
-    except Exception:
-        return {}
 
 
 # ==========================================
@@ -112,54 +149,29 @@ def _run_rocm_smi_linux(args: list) -> dict:
 # ==========================================
 
 def map_amd_gpu_windows() -> Tuple[Optional[str], dict]:
-    """
-    Windows 解析 hipinfo 输出
-    """
-    driver_version = "Unknown" # hipinfo 输出中似乎没有明确的 Driver Version，暂定 Unknown
+    driver_version = "Unknown" 
     gpu_map = {}
-    
     try:
         output = subprocess.run(["hipinfo"], capture_output=True, text=True, check=True).stdout
-        
-        # 按 device# 分割，第一部分通常为空或头部信息
-        # 输出示例: device# 0 ...
         devices = re.split(r"device#\s+(\d+)", output)
-        
         if len(devices) < 2:
-            # 只有一个设备或格式不匹配，尝试直接全量解析
             gpu_map = _parse_hipinfo_text_block_windows("0", output)
         else:
-            # devices[0] 是头部，devices[1] 是 id，devices[2] 是内容...
             for i in range(1, len(devices), 2):
                 dev_id = devices[i].strip()
                 block_content = devices[i+1]
                 gpu_map.update(_parse_hipinfo_text_block_windows(dev_id, block_content))
-                
     except Exception:
         return None, None
-        
     return driver_version, gpu_map
 
 def _parse_hipinfo_text_block_windows(dev_id: str, content: str) -> dict:
-    """
-    解析 Windows hipinfo 的单个设备块
-    Name: AMD Radeon(TM) 8060S Graphics
-    totalGlobalMem: 107.87 GB
-    """
     name = "AMD GPU"
     memory = "0GB"
-    
-    # 解析名称
     name_match = re.search(r"Name:\s*(.+)", content)
-    if name_match:
-        name = name_match.group(1).strip()
-        
-    # 解析总显存
+    if name_match: name = name_match.group(1).strip()
     mem_match = re.search(r"totalGlobalMem:\s*([\d\.]+)\s*GB", content)
-    if mem_match:
-        # 直接使用获取到的浮点数显存，保留原貌
-        memory = f"{mem_match.group(1)}GB"
-        
+    if mem_match: memory = f"{mem_match.group(1)}GB"
     return {dev_id: {"name": name, "memory": memory}}
 
 
@@ -202,55 +214,85 @@ class AMDCollector(H):
 
     def collect(self) -> HardwareInfoList:
         if self.system_name == "Linux":
-            return self._collect_linux()
+            return self._collect_linux_sysfs()
         else:
             return self._collect_windows()
 
-    def _collect_linux(self) -> HardwareInfoList:
-        try:
-            data = _run_rocm_smi_linux(["--showuse", "--showmemuse", "--showtemp", "--showpower", "--json"])
-        except Exception:
-            return []
-
+    def _collect_linux_sysfs(self) -> HardwareInfoList:
+        """
+        Linux 采集 (Sysfs 版) - 不执行任何命令，只读文件，解决 Core Dump。
+        """
         result = []
+        
         for gpu_id in self.gpu_map:
-            card_key = f"card{gpu_id}"
-            info = data.get(card_key, {})
+            # 路径构造: /sys/class/drm/card0/device/
+            base_path = f"/sys/class/drm/card{gpu_id}/device"
             
-            # Util
-            u_val = info.get("GPU use (%)")
-            result.append(self._build_metric(gpu_id, self.util_key, self.per_util_configs, u_val))
+            # 1. Utilization
+            # 文件通常是 gpu_busy_percent，内容是 0-100 的整数
+            util_val = math.nan
+            try:
+                with open(os.path.join(base_path, "gpu_busy_percent"), "r") as f:
+                    util_val = float(f.read().strip())
+            except:
+                pass
+            result.append(self._build_metric(gpu_id, self.util_key, self.per_util_configs, util_val))
 
-            # Mem
-            m_pct_val = info.get("GPU Memory use (%)") or info.get("VRAM use (%)")
-            m_mb_val = None
-            if m_pct_val is not None:
-                try:
-                    mem_str = self.gpu_map[gpu_id]["memory"]
-                    total_mb = float(re.findall(r"[\d\.]+", mem_str)[0]) * 1024
-                    m_mb_val = float(m_pct_val) * 0.01 * total_mb
-                except: pass
-            result.append(self._build_metric(gpu_id, self.memory_key, self.per_memory_configs, m_pct_val))
-            result.append(self._build_metric(gpu_id, self.mem_value_key, self.per_mem_value_configs, m_mb_val))
+            # 2. Memory
+            # mem_info_vram_used (Bytes) / mem_info_vram_total (Bytes)
+            mem_pct = math.nan
+            mem_used_mb = math.nan
+            try:
+                with open(os.path.join(base_path, "mem_info_vram_used"), "r") as f:
+                    used_bytes = int(f.read().strip())
+                with open(os.path.join(base_path, "mem_info_vram_total"), "r") as f:
+                    total_bytes = int(f.read().strip())
+                
+                if total_bytes > 0:
+                    mem_pct = (used_bytes / total_bytes) * 100
+                    mem_used_mb = used_bytes / (1024 * 1024)
+            except:
+                pass
+            
+            result.append(self._build_metric(gpu_id, self.memory_key, self.per_memory_configs, mem_pct))
+            result.append(self._build_metric(gpu_id, self.mem_value_key, self.per_mem_value_configs, mem_used_mb))
 
-            # Temp
-            t_val = info.get("Temperature (Sensor junction) (C)") or info.get("Temperature (Sensor edge) (C)")
-            result.append(self._build_metric(gpu_id, self.temp_key, self.per_temp_configs, t_val))
+            # 3. Temp & Power
+            # 位于 hwmon 子目录，例如 /sys/class/drm/card0/device/hwmon/hwmon1/
+            # 需要动态寻找 hwmon 目录
+            temp_val = math.nan
+            power_val = math.nan
+            
+            try:
+                hwmon_pattern = os.path.join(base_path, "hwmon", "hwmon*")
+                hwmons = glob.glob(hwmon_pattern)
+                if hwmons:
+                    hwmon_path = hwmons[0] # 通常只有一个
+                    
+                    # Temp: temp1_input (millidegrees C) -> / 1000
+                    # 某些卡可能是 edge_input 或 junction_input，通常 temp1_input 是主要温度
+                    if os.path.exists(os.path.join(hwmon_path, "temp1_input")):
+                        with open(os.path.join(hwmon_path, "temp1_input"), "r") as f:
+                            temp_val = float(f.read().strip()) / 1000.0
+                            
+                    # Power: power1_average (microwatts) -> / 1000000 -> W
+                    # 有些是 power1_input
+                    p_file = os.path.join(hwmon_path, "power1_average")
+                    if not os.path.exists(p_file):
+                        p_file = os.path.join(hwmon_path, "power1_input")
+                        
+                    if os.path.exists(p_file):
+                        with open(p_file, "r") as f:
+                            power_val = float(f.read().strip()) / 1000000.0
+            except:
+                pass
 
-            # Power
-            p_val = info.get("Average Graphics Package Power (W)") or info.get("Socket Power (W)")
-            if p_val is None:
-                for k, v in info.items():
-                    if "Power" in k and "(W)" in k: p_val = v; break
-            result.append(self._build_metric(gpu_id, self.power_key, self.per_power_configs, p_val))
+            result.append(self._build_metric(gpu_id, self.temp_key, self.per_temp_configs, temp_val))
+            result.append(self._build_metric(gpu_id, self.power_key, self.per_power_configs, power_val))
+
         return result
 
     def _collect_windows(self) -> HardwareInfoList:
-        """
-        Windows 采集逻辑：
-        仅计算显存 (Total - Free)。
-        Temp, Power, Util 设为 NaN。
-        """
         result = []
         output = ""
         try:
@@ -258,10 +300,6 @@ class AMDCollector(H):
         except:
             pass
 
-        # 如果有多设备，这里其实需要按 device# 分割，但为简化起见，我们假设 output 里
-        # 包含了所有信息，且我们使用全文本正则搜索（不够严谨但能跑通单卡）
-        # 严谨做法是再次调用 map 里的分割逻辑
-        
         devices_content = {}
         parts = re.split(r"device#\s+(\d+)", output)
         if len(parts) >= 2:
@@ -273,9 +311,6 @@ class AMDCollector(H):
         for gpu_id in self.gpu_map:
             content = devices_content.get(gpu_id, "")
             
-            # 1. Memory Calculation (这是 Windows 唯一能动的)
-            # memInfo.total: 107.87 GB
-            # memInfo.free: 107.72 GB (100%)
             mem_total = self._extract_value_windows(content, r"memInfo\.total:\s*([\d\.]+)\s*GB")
             mem_free = self._extract_value_windows(content, r"memInfo\.free:\s*([\d\.]+)\s*GB")
             
@@ -284,13 +319,11 @@ class AMDCollector(H):
             
             if mem_total is not None and mem_free is not None and mem_total > 0:
                 mem_used = mem_total - mem_free
-                mem_used_mb = mem_used * 1024 # GB to MB
+                mem_used_mb = mem_used * 1024
                 mem_pct = (mem_used / mem_total) * 100
                 
             result.append(self._build_metric(gpu_id, self.memory_key, self.per_memory_configs, mem_pct))
             result.append(self._build_metric(gpu_id, self.mem_value_key, self.per_mem_value_configs, mem_used_mb))
-            
-            # 2. Others (Temp, Util, Power) -> NaN
             result.append(self._build_metric(gpu_id, self.temp_key, self.per_temp_configs, math.nan))
             result.append(self._build_metric(gpu_id, self.util_key, self.per_util_configs, math.nan))
             result.append(self._build_metric(gpu_id, self.power_key, self.per_power_configs, math.nan))
@@ -307,7 +340,7 @@ class AMDCollector(H):
     def _build_metric(self, gpu_id, key_template, config_map, value):
         key = key_template.format(gpu_index=gpu_id)
         final_val = math.nan
-        if value is not None:
+        if value is not None and not math.isnan(value):
             try: final_val = float(value)
             except: pass
         return {
