@@ -138,7 +138,7 @@ def map_amd_gpu_linux() -> Tuple[Optional[str], dict]:
             for k, v in data.items():
                 idx = k.replace("card", "")
                 gpu_map[idx] = {"name": v.get("Card Series", "AMD GPU"), "memory": "0GB"} # 显存稍后补
-        except:
+        except Exception:
             pass
 
     return driver_version, gpu_map
@@ -234,7 +234,7 @@ class AMDCollector(H):
             try:
                 with open(os.path.join(base_path, "gpu_busy_percent"), "r") as f:
                     util_val = float(f.read().strip())
-            except:
+            except Exception:
                 pass
             result.append(self._build_metric(gpu_id, self.util_key, self.per_util_configs, util_val))
 
@@ -251,7 +251,7 @@ class AMDCollector(H):
                 if total_bytes > 0:
                     mem_pct = (used_bytes / total_bytes) * 100
                     mem_used_mb = used_bytes / (1024 * 1024)
-            except:
+            except Exception:
                 pass
             
             result.append(self._build_metric(gpu_id, self.memory_key, self.per_memory_configs, mem_pct))
@@ -284,7 +284,7 @@ class AMDCollector(H):
                     if os.path.exists(p_file):
                         with open(p_file, "r") as f:
                             power_val = float(f.read().strip()) / 1000000.0
-            except:
+            except Exception:
                 pass
 
             result.append(self._build_metric(gpu_id, self.temp_key, self.per_temp_configs, temp_val))
@@ -297,7 +297,7 @@ class AMDCollector(H):
         output = ""
         try:
             output = subprocess.run(["hipinfo"], capture_output=True, text=True).stdout
-        except:
+        except Exception:
             pass
 
         devices_content = {}
@@ -334,7 +334,7 @@ class AMDCollector(H):
         try:
             match = re.search(regex, content, re.IGNORECASE)
             if match: return float(match.group(1))
-        except: pass
+        except Exception: pass
         return None
 
     def _build_metric(self, gpu_id, key_template, config_map, value):
@@ -342,7 +342,7 @@ class AMDCollector(H):
         final_val = math.nan
         if value is not None and not math.isnan(value):
             try: final_val = float(value)
-            except: pass
+            except Exception: pass
         return {
             "key": key,
             "name": config_map[f"GPU {gpu_id}"].chart_name,
