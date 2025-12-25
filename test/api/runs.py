@@ -46,11 +46,6 @@ grouped_test_runs = [[{"GG": {"user": test_runs[0][0]}}]]
 
 
 def test_get_runs():
-    # api = swanlab.OpenApi()
-    # exps = api.runs(path="bainiantest/test-line")
-    # for run in exps:
-    #     print(run)
-
     """测试获取所有实验的基本功能"""
     with patch("swanlab.core_python.client.Client.post", side_effect=test_runs):
         api = swanlab.OpenApi()
