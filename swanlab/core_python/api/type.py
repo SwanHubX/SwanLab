@@ -18,11 +18,11 @@ class ProjectLabelType(TypedDict):
 
 
 class UserType(TypedDict):
-    username: str
-    name: str
+    username: str # 用户名
+    name: str # 用户显示名称
 
 
-StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING']
+StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING'] # 实验状态
 
 
 # 项目信息

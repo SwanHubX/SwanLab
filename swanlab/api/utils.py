@@ -8,8 +8,10 @@
 from typing import Dict, List
 
 
-# 展平分组时的所有实验
 def flatten_runs(runs: Dict) -> List:
+    """
+    展开分组后的实验数据，返回一个包含所有实验的列表
+    """
     flat_runs = []
     for group in runs.values():
         if isinstance(group, Dict):
