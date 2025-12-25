@@ -8,8 +8,10 @@
 from typing import List, Dict, Optional
 
 from swanlab.core_python import Client
-from swanlab.core_python.api.project import get_entity_projects
-from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType
+from swanlab.core_python.api.experiment import get_project_experiments
+from swanlab.core_python.api.project import get_workspace_projects
+from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
+from .utils import flatten_runs
 
 
 class Label:
@@ -30,6 +32,19 @@ class Label:
 
     def __str__(self):
         return str(self.name)
+
+
+class User:
+    def __init__(self, data: UserType):
+        self._data = data
+
+    @property
+    def name(self) -> str:
+        return self._data['name']
+
+    @property
+    def username(self) -> str:
+        return self._data['username']
 
 
 class Project:
@@ -141,7 +156,7 @@ class Projects:
         page_size = 20
         while True:
             cur_page += 1
-            projects_info: ProjResponseType = get_entity_projects(
+            projects_info: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
@@ -154,3 +169,137 @@ class Projects:
                 break
 
         yield from iter(Project(project, self._web_host) for project in projects_info['list'])
+
+
+class Experiment:
+    def __init__(self, data: RunType, path: str, web_host: str, line_count: int):
+        self._data = data
+        self._path = path
+        self._web_host = web_host
+        self._line_count = line_count
+
+    @property
+    def name(self) -> str:
+        """
+        Experiment name.
+        """
+        return self._data['name']
+
+    @property
+    def id(self) -> str:
+        """
+        Experiment CUID.
+        """
+        return self._data['cuid']
+
+    @property
+    def url(self) -> str:
+        """
+        Full URL to access the experiment.
+        """
+        return f"{self._web_host}/@{self._path}/runs/{self.id}/chart"
+
+    @property
+    def created_at(self) -> str:
+        """
+        Experiment creation timestamp
+        """
+        return self._data['createdAt']
+
+    @property
+    def description(self) -> str:
+        """
+        Experiment description.
+        """
+        return self._data['description']
+
+    @property
+    def labels(self) -> List[Label]:
+        """
+        List of Label attached to this experiment.
+        """
+        return [Label(label) for label in self._data['labels']]
+
+    @property
+    def config(self) -> Dict[str, object]:
+        """
+        Experiment configuration.
+        """
+        return self._data['profile']['config']
+
+    @property
+    def summary(self) -> Dict[str, object]:
+        """
+        Experiment metrics data.
+        """
+        return self._data['profile']['scalar']
+
+    @property
+    def state(self) -> str:
+        """
+        Experiment state.
+        """
+        return self._data['state']
+
+    @property
+    def group(self) -> str:
+        """
+        Experiment group.
+        """
+        return self._data['cluster']
+
+    @property
+    def job(self) -> str:
+        """
+        Experiment job type.
+        """
+        return self._data['job']
+
+    @property
+    def runtime(self) -> str:
+        """
+        Experiment runtime.
+        """
+        return self._data['runtime']
+
+    @property
+    def user(self) -> User:
+        """
+        Experiment user.
+        """
+        return User(self._data['user'])
+
+    @property
+    def metric_keys(self) -> List[str]:
+        """
+        List of metric keys.
+        """
+        summary_keys = self.summary.keys()
+        return list(summary_keys)
+
+    @property
+    def history_line_count(self) -> int:
+        """
+        History line count.
+        """
+        return self._line_count
+
+
+class Experiments:
+    def __init__(self, client: Client, path: str, web_host: str):
+        assert len(path.split('/')) == 2
+        self._client = client
+        self._path = path
+        self._web_host = web_host
+
+    def __iter__(self):
+        # todo: 加入FGS条件参数
+        resp = get_project_experiments(self._client, path=self._path)
+        runs: List[RunType] = []
+        if isinstance(resp, List):
+            runs = resp
+        # 分组时需展平实验数据
+        elif isinstance(resp, Dict):
+            runs = flatten_runs(resp)
+        line_count = len(runs)
+        yield from iter(Experiment(run, self._path, self._web_host, line_count) for run in runs)
