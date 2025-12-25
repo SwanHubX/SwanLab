@@ -13,6 +13,7 @@ from .disk import get_disk_info
 from .gpu.metax import get_metax_gpu_info
 from .gpu.moorethreads import get_moorethreads_gpu_info
 from .gpu.nvidia import get_nvidia_gpu_info
+from .gpu.iluvatar import get_iluvatar_gpu_info
 from .memory import get_memory_size
 from .mlu.cambricon import get_cambricon_mlu_info
 from .network import get_network_info
@@ -32,6 +33,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     monitor_funcs = []
     # 我们希望计算芯片的信息放在最前面，前端展示用
     nvidia = dec_hardware_func(get_nvidia_gpu_info, monitor_funcs)
+    iluvatar = dec_hardware_func(get_iluvatar_gpu_info, monitor_funcs)
     moorethreads = dec_hardware_func(get_moorethreads_gpu_info, monitor_funcs)
     ascend = dec_hardware_func(get_ascend_npu_info, monitor_funcs)
     cambricon = dec_hardware_func(get_cambricon_mlu_info, monitor_funcs)
@@ -62,6 +64,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["gpu"]["moorethreads"] = moorethreads
     if metax is not None:
         info["gpu"]["metax"] = metax
+    if iluvatar is not None:
+        info["gpu"]["iluvatar"] = iluvatar
     if ascend is not None:
         info["npu"]["ascend"] = ascend
     if apple is not None:
