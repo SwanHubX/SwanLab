@@ -11,7 +11,7 @@ from swanlab.core_python.api.type import ProjParamType, ProjResponseType
 from .. import Client
 
 
-def get_entity_projects(
+def get_workspace_projects(
     client: Client,
     *,
     workspace: str,

@@ -36,3 +36,14 @@ def update_experiment_state(
     put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
     client.put(f"/project/{username}/{projname}/runs/{cuid}/state", put_data)
     client.pending = True
+
+
+def get_project_experiments(client: Client, *, path: str):
+    """
+    获取指定项目下的所有实验信息
+    若有实验分组，则返回一个字典，使用时需递归展平实验数据
+    :param client: 已登录的客户端实例
+    :param path: 项目路径
+    """
+    res = client.post(f"/project/{path}/runs/shows")[0]
+    return res
