@@ -45,5 +45,5 @@ def get_project_experiments(client: Client, *, path: str):
     :param client: 已登录的客户端实例
     :param path: 项目路径
     """
-    res = client.post(f"/project/{path}/runs/shows")[0]
-    return res
+    res = client.post(f"/project/{path}/runs/shows")
+    return res[0]

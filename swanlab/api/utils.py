@@ -12,5 +12,8 @@ from typing import Dict, List
 def flatten_runs(runs: Dict) -> List:
     flat_runs = []
     for group in runs.values():
-        flat_runs.extend(group)
+        if isinstance(group, Dict):
+            flat_runs.extend(flatten_runs(group))
+        else:
+            flat_runs.extend(group)
     return flat_runs
