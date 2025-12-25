@@ -7,7 +7,7 @@
 import platform
 import subprocess
 from typing import Optional, Tuple
-
+from swanlab.log import swanlog
 from ..type import HardwareCollector as H
 from ..type import HardwareConfig, HardwareFuncResult, HardwareInfoList
 from ..utils import generate_key, random_index
