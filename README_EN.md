@@ -463,6 +463,7 @@ SwanLab records the **hardware information** and **resource usage** during AI tr
 | Hardware         | Information Recording | Resource Monitoring | Script                                                                                                                  |
 | ---------------- | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Nvidia GPU       | ✅                    | ✅                  | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/nvidia.py)             |
+| AMD ROCm | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/amd.py) |
 | Ascend NPU       | ✅                    | ✅                  | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/npu/ascend.py)             |
 | Apple SOC        | ✅                    | ✅                  | [apple.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/soc/apple.py)               |
 | Combricon MLU    | ✅                    | ✅                  | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/mlu/cambricon.py)       |
