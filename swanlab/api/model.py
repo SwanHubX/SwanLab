@@ -12,6 +12,7 @@ from swanlab.core_python.api.experiment import get_project_experiments
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
+from ..error import ApiError
 
 
 class Label:
@@ -249,13 +250,13 @@ class Projects:
     """
 
     def __init__(
-            self,
-            client: Client,
-            web_host: str,
-            workspace: str,
-            sort: Optional[List[str]] = None,
-            search: Optional[str] = None,
-            detail: Optional[bool] = True,
+        self,
+        client: Client,
+        web_host: str,
+        workspace: str,
+        sort: Optional[List[str]] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
     ):
         self._client = client
         self._web_host = web_host
@@ -292,7 +293,8 @@ class Experiments:
     """
 
     def __init__(self, client: Client, path: str, web_host: str):
-        assert len(path.split('/')) == 2
+        if len(path.split('/')) == 2:
+            raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
         self._path = path
         self._web_host = web_host
