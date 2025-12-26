@@ -61,6 +61,9 @@ class WandbConverter:
                     description=wb_run.notes,
                     mode=self.mode,
                     logdir=self.logdir,
+                    tags=wb_run.tags,
+                    group=wb_run.group,
+                    job_type=wb_run.job_type,
                 )
             else:
                 swanlab_run = swanlab.get_run()
@@ -74,7 +77,7 @@ class WandbConverter:
                 "wandb_run_id": wb_run.id,
                 "wandb_run_name": wb_run.name,
                 "Created Time": wb_run.created_at,
-                "wandb_user": wb_run.user,
+                "wandb_entity": wb_run.entity,
                 "wandb_tags": wb_run.tags,
                 "wandb_url": wb_run.url,
             }
