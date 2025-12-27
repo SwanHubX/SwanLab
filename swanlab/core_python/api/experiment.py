@@ -59,7 +59,19 @@ def get_project_experiments(client: Client, *, path: str):
     获取指定项目下的所有实验信息
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
     :param client: 已登录的客户端实例
-    :param path: 项目路径
+    :param path: 项目路径 username/project
     """
     res = client.post(f"/project/{path}/runs/shows")
+    return res[0]
+
+
+def get_single_experiment(client: Client, *, path: str):
+    """
+    获取指定项目下的所有实验信息
+    若有实验分组，则返回一个字典，使用时需递归展平实验数据
+    :param client: 已登录的客户端实例
+    :param path: 实验路径 username/project/expid
+    """
+    proj_path, expid = path.rsplit('/', 1)
+    res = client.get(f"/project/{proj_path}/runs/{expid}")
     return res[0]

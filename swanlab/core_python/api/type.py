@@ -18,11 +18,11 @@ class ProjectLabelType(TypedDict):
 
 
 class UserType(TypedDict):
-    username: str # 用户名
-    name: str # 用户显示名称
+    username: str  # 用户名
+    name: str  # 用户显示名称
 
 
-StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING'] # 实验状态
+StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING']  # 实验状态
 
 
 # 项目信息
@@ -52,6 +52,8 @@ class RunType(TypedDict):
     job: str  # 任务类型
     runtime: str  # 运行时间
     user: UserType  # 实验所属用户
+    rootExpId: Optional[str]  # 祖宗实验对应的实验 cuid，如果为克隆实验则必传
+    rootProId: Optional[str]  # 祖宗实验对应的项目 cuid，如果为克隆实验则必传
 
 
 # ------------------------------------- 发送到后端请求体中的参数 -------------------------------------

@@ -11,7 +11,8 @@ from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from .model import Projects, Experiments
+from swanlab.core_python.api.experiment import get_single_experiment
+from .model import Projects, Experiments, Experiment
 
 try:
     from pandas import DataFrame
@@ -74,7 +75,7 @@ class OpenApi:
     ) -> Experiments:
         """
         获取指定项目下的所有实验信息
-        :param path: 项目路径，格式为 'username/project-name'
+        :param path: 项目路径，格式为 'username/project'
         :return: Experiments 实例，可遍历获取实验信息
         """
         return Experiments(
@@ -82,3 +83,17 @@ class OpenApi:
             path=path,
             web_host=self._web_host,
         )
+
+    def run(
+        self,
+        path: str,
+    ) -> Experiment:
+        """
+        获取指定实验的信息
+        :param path: 实验路径，格式为 'username/project/expid'
+        :return: Experiment 实例，包含实验信息
+        """
+        if len(path.split('/')) != 3:
+            raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/expid'")
+        data = get_single_experiment(self._client, path=path)
+        return Experiment(data=data, path=path.rsplit('/', 1)[0], web_host=self._web_host, line_count=1)
