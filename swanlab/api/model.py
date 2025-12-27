@@ -128,6 +128,21 @@ class Project:
         """
         return self._data['_count']
 
+    @property
+    def __dict__(self) -> Dict[str, object]:
+        """
+        Return a dictionary containing all @property fields.
+        """
+        result = {}
+        cls = type(self)
+        for attr_name in dir(cls):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(cls, attr_name, None)
+            if isinstance(attr, property):
+                result[attr_name] = self.__getattribute__(attr_name)
+        return result
+
 
 class Experiment:
     def __init__(self, data: RunType, path: str, web_host: str, line_count: int):
@@ -248,6 +263,21 @@ class Experiment:
         Root project cuid. If the experiment is a root experiment, it will be None.
         """
         return self._data['rootProId']
+
+    @property
+    def __dict__(self) -> Dict[str, object]:
+        """
+        Return a dictionary containing all @property fields.
+        """
+        result = {}
+        cls = type(self)
+        for attr_name in dir(cls):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(cls, attr_name, None)
+            if isinstance(attr, property):
+                result[attr_name] = self.__getattribute__(attr_name)
+        return result
 
 
 class Projects:

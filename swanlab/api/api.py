@@ -91,7 +91,8 @@ class OpenApi:
         if len(path.split('/')) != 3:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/expid'")
         _data = get_single_experiment(self._client, path=path)
+        proj_path = path.rsplit('/', 1)[0]
         data = get_project_experiments(
-            self._client, path=path.rsplit('/', 1)[0], filters={'name': _data['name'], 'created_at': _data['createdAt']}
+            self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
         )
-        return Experiment(data=data[0], path=path.rsplit('/', 1)[0], web_host=self._web_host, line_count=1)
+        return Experiment(data=data[0], path=proj_path, web_host=self._web_host, line_count=1)
