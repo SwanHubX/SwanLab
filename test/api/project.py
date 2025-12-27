@@ -10,6 +10,13 @@ from unittest.mock import patch
 import swanlab
 
 
+def example_code():
+    api = swanlab.OpenApi()
+    projects = api.projects(workspace='workspace')
+    for project in projects:
+        print(project.__dict__)
+
+
 # 测试数据
 def make_fake_projects(start, count):
     return [
@@ -65,7 +72,7 @@ def test_api_projects_performance():
     with patch("swanlab.core_python.client.Client.get", side_effect=performance_test_projects) as mock_get:
         api = swanlab.OpenApi()
 
-        result = api.projects(workspace="bainiantest", detail=True)
+        result = api.projects(workspace="user", detail=True)
 
         # 断言请求调用次数
         assert mock_get.call_count == 0
@@ -81,7 +88,7 @@ def test_api_projects_params():
     with patch("swanlab.core_python.client.Client.get", return_value=params_test_projects):
         api = swanlab.OpenApi()
 
-        result = api.projects(workspace="bainiantest", detail=True)
+        result = api.projects(workspace="user", detail=True)
 
         # 1. 字符串类型的字段
         raw_list = params_test_projects[0]["list"]

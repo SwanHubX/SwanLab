@@ -71,8 +71,8 @@ def sync_wandb(
     original_config_update = wandb_sdk.wandb_config.Config.update
     
     def patched_init(*args, **kwargs):
-        entity, project, dir, id, name, notes, tags, config, config_exclude_keys, reinit = _extract_args(
-            args, kwargs, ['entity', 'project', 'dir', 'id', 'name', 'notes', 'tags', 'config', 'config_exclude_keys', 'reinit']
+        entity, project, dir, id, name, notes, tags, config, config_exclude_keys, reinit, group, job_type = _extract_args(
+            args, kwargs, ['entity', 'project', 'dir', 'id', 'name', 'notes', 'tags', 'config', 'config_exclude_keys', 'reinit', 'group', 'job_type']
         )
         
         if swanlab.data.get_run() is None:
@@ -86,6 +86,8 @@ def sync_wandb(
                 mode=mode,
                 logdir=logdir,
                 reinit=reinit,
+                group=group,
+                job_type=job_type,
                 )
         else:
             swanlab.config.update(config)

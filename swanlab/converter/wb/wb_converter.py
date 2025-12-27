@@ -57,10 +57,13 @@ class WandbConverter:
                 swanlab_run = swanlab.init(
                     project=wb_project if self.project is None else self.project,
                     workspace=self.workspace,
-                    experiment_name=wb_run.name,
-                    description=wb_run.notes,
+                    experiment_name=getattr(wb_run, "name", None),
+                    description=getattr(wb_run, "notes", None),
                     mode=self.mode,
                     logdir=self.logdir,
+                    tags=getattr(wb_run, "tags", None),
+                    group=getattr(wb_run, "group", None),
+                    job_type=getattr(wb_run, "job_type", None),
                 )
             else:
                 swanlab_run = swanlab.get_run()
@@ -71,17 +74,17 @@ class WandbConverter:
                 wb_run_metadata = {}
 
             wb_config = {
-                "wandb_run_id": wb_run.id,
-                "wandb_run_name": wb_run.name,
-                "Created Time": wb_run.created_at,
-                "wandb_user": wb_run.user,
-                "wandb_tags": wb_run.tags,
-                "wandb_url": wb_run.url,
+                "wandb_run_id": getattr(wb_run, "id", None),
+                "wandb_run_name": getattr(wb_run, "name", None),
+                "Created Time": getattr(wb_run, "created_at", None),
+                "wandb_entity": getattr(wb_run, "entity", None),
+                "wandb_tags": getattr(wb_run, "tags", None),
+                "wandb_url": getattr(wb_run, "url", None),
             }
             wb_config.update(wb_run_metadata)
 
             swanlab_run.config.update(wb_config)
-            swanlab_run.config.update(wb_run.config)
+            swanlab_run.config.update(getattr(wb_run, "config", {}))
 
             # Get the first history record to extract available keys
             history = wb_run.history(stream="default")

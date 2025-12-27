@@ -7,11 +7,11 @@
 
 from typing import Optional, List
 
-from swanlab.core_python.api.type import ProjParamType, ProjResponseType
-from .. import Client
+from swanlab.core_python.client import Client
+from .type import ProjParamType, ProjResponseType
 
 
-def get_entity_projects(
+def get_workspace_projects(
     client: Client,
     *,
     workspace: str,
