@@ -21,14 +21,16 @@ def _extract_args(args, kwargs, param_names):
     return tuple(values)
 
 
-def _create_patched_methods(SummaryWriter, logdir_extractor):
+def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
     """
     创建patched方法的工厂函数
-    
+
     Args:
         SummaryWriter: SummaryWriter类
         logdir_extractor: 提取logdir的函数
-    
+        types: 要同步的数据类型列表，如 ['scalar', 'scalars', 'image', 'text']。
+               None 表示同步所有类型。
+
     Returns:
         tuple: (patched_init, patched_add_scalar, patched_add_image, patched_close)
     """
@@ -41,7 +43,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
 
     def patched_init(self, *args, **kwargs):
         tb_logdir = logdir_extractor(args, kwargs)
-        
+
         tb_config = {
             'tensorboard_logdir': tb_logdir,
         }
@@ -54,16 +56,20 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         return original_init(self, *args, **kwargs)
 
     def patched_add_scalar(self, *args, **kwargs):
+        if types is not None and 'scalar' not in types:
+            return original_add_scalar(self, *args, **kwargs)
         tag, scalar_value, global_step = _extract_args(
             args, kwargs, ['tag', 'scalar_value', 'global_step']
         )
-        
+
         data = {tag: scalar_value}
         swanlab.log(data=data, step=int(global_step))
-        
+
         return original_add_scalar(self, *args, **kwargs)
 
     def patched_add_scalars(self, *args, **kwargs):
+        if types is not None and 'scalars' not in types:
+            return original_add_scalars(self, *args, **kwargs)
         # writer.add_scalars('Loss', {'train': loss_train, 'val': loss_val}, global_step=step)
         tag, scalar_value_dict, global_step = _extract_args(
             args, kwargs, ['tag', 'scalar_value_dict', 'global_step']
@@ -74,19 +80,21 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         return original_add_scalars(self, *args, **kwargs)
 
     def patched_add_image(self, *args, **kwargs):
+        if types is not None and 'image' not in types:
+            return original_add_image(self, *args, **kwargs)
         import numpy as np
-        
+
         tag, img_tensor, global_step, dataformats = _extract_args(
             args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
         )
         dataformats = dataformats or 'CHW'  # 设置默认值
-        
+
         # Convert to numpy array if it's a tensor
         if hasattr(img_tensor, 'cpu'):
             img_tensor = img_tensor.cpu()
         if hasattr(img_tensor, 'numpy'):
             img_tensor = img_tensor.numpy()
-            
+
         # Handle different input formats
         if dataformats == 'CHW':
             # Convert CHW to HWC for swanlab
@@ -100,13 +108,15 @@ def _create_patched_methods(SummaryWriter, logdir_extractor):
         elif dataformats == 'HWC':
             # Already in correct format
             pass
-            
+
         data = {tag: swanlab.Image(img_tensor)}
         swanlab.log(data=data, step=int(global_step))
 
         return original_add_image(self, *args, **kwargs)
-    
+
     def patched_add_text(self, *args, **kwargs):
+        if types is not None and 'text' not in types:
+            return original_add_text(self, *args, **kwargs)
         tag, text_string, global_step = _extract_args(
             args, kwargs, ['tag', 'text_string', 'global_step']
         )
@@ -142,24 +152,26 @@ def _apply_patches(SummaryWriter, patched_methods):
     SummaryWriter.close = patched_close
 
 
-def _sync_tensorboard_generic(import_func, logdir_extractor):
+def _sync_tensorboard_generic(import_func, logdir_extractor, types=None):
     """
     通用的tensorboard同步函数
-    
+
     Args:
         import_func: 导入SummaryWriter的函数
         logdir_extractor: 提取logdir的函数
+        types: 要同步的数据类型列表，如 ['scalar', 'scalars', 'image', 'text']。
+               None 表示同步所有类型。
     """
     try:
         SummaryWriter = import_func()
     except ImportError as e:
         raise ImportError(f"Import failed: {e}")
 
-    patched_methods = _create_patched_methods(SummaryWriter, logdir_extractor)
+    patched_methods = _create_patched_methods(SummaryWriter, logdir_extractor, types)
     _apply_patches(SummaryWriter, patched_methods)
 
 
-def sync_tensorboardX():
+def sync_tensorboardX(types=None):
     """
     同步tensorboardX到swanlab
 
@@ -167,7 +179,12 @@ def sync_tensorboardX():
     import numpy as np
     import swanlab
 
+    # 同步所有类型
     swanlab.sync_tensorboardX()
+
+    # 只同步标量数据
+    swanlab.sync_tensorboardX(types=['scalar', 'scalars'])
+
     writer = SummaryWriter('runs/example')
 
     for i in range(100):
@@ -175,23 +192,27 @@ def sync_tensorboardX():
         writer.add_scalar('random_scalar', scalar_value, i)
 
     writer.close()
+
+    Args:
+        types: 要同步的数据类型列表，可选值: 'scalar', 'scalars', 'image', 'text'。
+               None 表示同步所有类型。
     """
     def import_tensorboardx():
         from tensorboardX import SummaryWriter
         return SummaryWriter
-    
+
     def extract_logdir_tensorboardx(args, kwargs):
         logdir, _, _, _, _, _, _, log_dir, _ = _extract_args(
-            args, kwargs, 
-            ['logdir', 'comment', 'purge_step', 'max_queue', 'flush_secs', 
+            args, kwargs,
+            ['logdir', 'comment', 'purge_step', 'max_queue', 'flush_secs',
              'filename_suffix', 'write_to_disk', 'log_dir', 'comet_config']
         )
         return logdir or log_dir
-    
-    _sync_tensorboard_generic(import_tensorboardx, extract_logdir_tensorboardx)
+
+    _sync_tensorboard_generic(import_tensorboardx, extract_logdir_tensorboardx, types)
 
 
-def sync_tensorboard_torch():
+def sync_tensorboard_torch(types=None):
     """
     同步torch自带的tensorboard到swanlab
 
@@ -199,7 +220,12 @@ def sync_tensorboard_torch():
     import numpy as np
     import swanlab
 
+    # 同步所有类型
     swanlab.sync_tensorboard_torch()
+
+    # 只同步标量数据（排除文本、图像等）
+    swanlab.sync_tensorboard_torch(types=['scalar', 'scalars'])
+
     writer = SummaryWriter('runs/example')
 
     for i in range(100):
@@ -207,13 +233,17 @@ def sync_tensorboard_torch():
         writer.add_scalar('random_scalar', scalar_value, i)
 
     writer.close()
+
+    Args:
+        types: 要同步的数据类型列表，可选值: 'scalar', 'scalars', 'image', 'text'。
+               None 表示同步所有类型。
     """
     def import_torch_tensorboard():
         from torch.utils.tensorboard import SummaryWriter
         return SummaryWriter
-    
+
     def extract_logdir_torch(args, kwargs):
         logdir, _ = _extract_args(args, kwargs, ['log_dir', 'comment'])
         return logdir
-    
-    _sync_tensorboard_generic(import_torch_tensorboard, extract_logdir_torch)
+
+    _sync_tensorboard_generic(import_torch_tensorboard, extract_logdir_torch, types)

@@ -37,3 +37,9 @@ runs/
 
 # test-integration-lightning
 LightningTest/
+
+# claude
+CLAUDE.md
+AGENTS.md
+FEATURE_SUMMARY.md
+.claude/
