@@ -5,14 +5,12 @@
 @description: 获取单个实验功能的单元测试
 """
 
-import wandb
-
 import swanlab
 
 
-def test_example_code():
+def example_code():
     api = swanlab.OpenApi()
-    exp = api.run(path="bainiantest/SwanLab122/o6b0auazzj9vxxyu6rjd1")  # 可通过api.runs()获取expid
-    print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy', pandas=True))
-
-    wandb.Api
+    exp = api.run(path="username/project/expid")  # 可通过api.runs()获取expid
+    print(exp.__dict__)
+    print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy', pandas=False))
+    print(exp.scan_history(max_step=10))
