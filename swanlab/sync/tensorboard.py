@@ -1,14 +1,16 @@
+import functools
 import swanlab
+
 
 def _extract_args(args, kwargs, param_names):
     """
     从args和kwargs中提取参数值的通用函数
-    
+
     Args:
         args: 位置参数元组
         kwargs: 关键字参数字典
         param_names: 参数名称列表
-    
+
     Returns:
         tuple: 按param_names顺序返回提取的参数值
     """
@@ -34,6 +36,9 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
     Returns:
         tuple: (patched_init, patched_add_scalar, patched_add_image, patched_close)
     """
+    # 将 types 转换为 set 以提高查找性能
+    types_set = set(types) if types is not None else None
+
     original_init = SummaryWriter.__init__
     original_add_scalar = SummaryWriter.add_scalar
     original_add_scalars = SummaryWriter.add_scalars
@@ -55,8 +60,9 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
 
         return original_init(self, *args, **kwargs)
 
+    @functools.wraps(original_add_scalar)
     def patched_add_scalar(self, *args, **kwargs):
-        if types is not None and 'scalar' not in types:
+        if types_set is not None and 'scalar' not in types_set:
             return original_add_scalar(self, *args, **kwargs)
         tag, scalar_value, global_step = _extract_args(
             args, kwargs, ['tag', 'scalar_value', 'global_step']
@@ -67,8 +73,9 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
 
         return original_add_scalar(self, *args, **kwargs)
 
+    @functools.wraps(original_add_scalars)
     def patched_add_scalars(self, *args, **kwargs):
-        if types is not None and 'scalars' not in types:
+        if types_set is not None and 'scalars' not in types_set:
             return original_add_scalars(self, *args, **kwargs)
         # writer.add_scalars('Loss', {'train': loss_train, 'val': loss_val}, global_step=step)
         tag, scalar_value_dict, global_step = _extract_args(
@@ -79,8 +86,9 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
             swanlab.log(data=data, step=int(global_step))
         return original_add_scalars(self, *args, **kwargs)
 
+    @functools.wraps(original_add_image)
     def patched_add_image(self, *args, **kwargs):
-        if types is not None and 'image' not in types:
+        if types_set is not None and 'image' not in types_set:
             return original_add_image(self, *args, **kwargs)
         import numpy as np
 
@@ -114,8 +122,9 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
 
         return original_add_image(self, *args, **kwargs)
 
+    @functools.wraps(original_add_text)
     def patched_add_text(self, *args, **kwargs):
-        if types is not None and 'text' not in types:
+        if types_set is not None and 'text' not in types_set:
             return original_add_text(self, *args, **kwargs)
         tag, text_string, global_step = _extract_args(
             args, kwargs, ['tag', 'text_string', 'global_step']
@@ -123,7 +132,6 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
         data = {tag: swanlab.Text(text_string)}
         swanlab.log(data=data, step=int(global_step))
         return original_add_text(self, *args, **kwargs)
-    
 
     def patched_close(self):
         # 调用原始的close方法
