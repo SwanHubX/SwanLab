@@ -310,19 +310,25 @@ class Experiment:
             raise TypeError(
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
-        df = pd.DataFrame()
+
+        # Collect all data into a dict first to avoid DataFrame fragmentation
+        data_dict = {}
 
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
-            df[x_axis] = csv_df.iloc[:, 1]
+            data_dict[x_axis] = csv_df.iloc[:, 1]
+
         for key in keys:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
             if csv_df is None:
                 continue
             if key == keys[0] and x_axis is None:
-                df['step'] = df[key] = csv_df.iloc[:, 0]
-            df[key] = csv_df.iloc[:, 1]
+                data_dict['step'] = csv_df.iloc[:, 0]
+            data_dict[key] = csv_df.iloc[:, 1]
+
+        # Create DataFrame in one operation
+        df = pd.DataFrame(data_dict)
 
         # 截取前sample行
         if sample is not None:
