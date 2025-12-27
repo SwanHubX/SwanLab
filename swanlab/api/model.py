@@ -293,7 +293,7 @@ class Experiments:
     """
 
     def __init__(self, client: Client, path: str, web_host: str):
-        if len(path.split('/')) == 2:
+        if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
         self._path = path
