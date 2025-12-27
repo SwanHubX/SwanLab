@@ -12,7 +12,6 @@ from swanlab.core_python.api.experiment import get_project_experiments
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
-from ..error import ApiError
 
 
 class Label:
@@ -238,9 +237,23 @@ class Experiment:
     @property
     def history_line_count(self) -> int:
         """
-        History line count.
+        The number of historical experiments in this project.
         """
         return self._line_count
+
+    @property
+    def root_exp_id(self) -> str:
+        """
+        Root experiment cuid. If the experiment is a root experiment, it will be None.
+        """
+        return self._data['rootExpId']
+
+    @property
+    def root_pro_id(self) -> str:
+        """
+        Root project cuid. If the experiment is a root experiment, it will be None.
+        """
+        return self._data['rootProId']
 
 
 class Projects:
