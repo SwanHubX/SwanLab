@@ -325,6 +325,15 @@ class Experiment:
             df = df.head(sample)
         return df if pandas else df.to_dict(orient='records')
 
+    def scan_history(self, min_step: int = 0, max_step: int = 1000):
+        """
+        Get all metric keys' data of the experiment in a range of steps.
+        :param min_step: The minimum step to get.
+        :param max_step: The maximum step to get.
+        :return: Metric data in dict.
+        """
+        return self.history(keys=self.metric_keys, pandas=False)[min_step:max_step]
+
 
 class Projects:
     """

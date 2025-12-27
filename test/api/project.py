@@ -10,6 +10,13 @@ from unittest.mock import patch
 import swanlab
 
 
+def example_code():
+    api = swanlab.OpenApi()
+    projects = api.projects(workspace='workspace')
+    for project in projects:
+        print(project.__dict__)
+
+
 # 测试数据
 def make_fake_projects(start, count):
     return [
