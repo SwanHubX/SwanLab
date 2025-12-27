@@ -5,13 +5,13 @@
 @description: OpenApi 模块
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from swanlab.core_python.api.experiment import get_single_experiment
+from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
 from .model import Projects, Experiments, Experiment
 
 try:
@@ -69,20 +69,14 @@ class OpenApi:
             detail=detail,
         )
 
-    def runs(
-        self,
-        path: str,
-    ) -> Experiments:
+    def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """
         获取指定项目下的所有实验信息
         :param path: 项目路径，格式为 'username/project'
         :return: Experiments 实例，可遍历获取实验信息
+        :param filters: 筛选实验的条件，可选
         """
-        return Experiments(
-            client=self._client,
-            path=path,
-            web_host=self._web_host,
-        )
+        return Experiments(client=self._client, path=path, web_host=self._web_host, filters=filters)
 
     def run(
         self,
@@ -93,7 +87,11 @@ class OpenApi:
         :param path: 实验路径，格式为 'username/project/expid'
         :return: Experiment 实例，包含实验信息
         """
+        # todo: 待后端完善后替换成专用的接口
         if len(path.split('/')) != 3:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/expid'")
-        data = get_single_experiment(self._client, path=path)
-        return Experiment(data=data, path=path.rsplit('/', 1)[0], web_host=self._web_host, line_count=1)
+        _data = get_single_experiment(self._client, path=path)
+        data = get_project_experiments(
+            self._client, path=path.rsplit('/', 1)[0], filters={'name': _data['name'], 'created_at': _data['createdAt']}
+        )
+        return Experiment(data=data[0], path=path.rsplit('/', 1)[0], web_host=self._web_host, line_count=1)

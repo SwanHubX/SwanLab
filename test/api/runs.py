@@ -10,6 +10,14 @@ from unittest.mock import patch
 
 import swanlab
 
+
+def example_code():
+    api = swanlab.OpenApi()
+    runs = api.runs(path="username/project")
+    for run in runs:
+        print(run.__dict__)
+
+
 # 测试实验数据
 test_runs = [
     [
@@ -33,7 +41,7 @@ test_runs = [
                 "description": "fake exp",
                 "labels": [{"name": "label1"}, {"name": "label2"}],
                 "user": {"username": "username", "name": "name"},
-                "profile": {"config": {"lr": 0.00001}, "scalar": {"acc": 0.92}},
+                "profile": {"config": {"lr": 0.00001, "loss": {"value": 123}}, "scalar": {"acc": 0.92}},
                 "resumes": [],
             }
             for n in range(50)
@@ -71,7 +79,7 @@ def test_get_runs():
             assert run.labels[1].name == "label2"
 
             # 测试配置和摘要
-            assert run.config == {"lr": 0.00001}
+            assert run.config == {"lr": 0.00001, "loss": {"value": 123}}
             assert run.summary == {"acc": 0.92}
 
             # 测试其他属性
