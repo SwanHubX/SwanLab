@@ -51,6 +51,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
+
 -2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
 
 - 2025.11.17: 📊 Global chart configuration now supports **X-axis data source selection** and **hover mode** functionality, enhancing chart analysis experience; added `SWANLAB_WEBHOOK` functionality, [documentation](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
@@ -67,10 +69,9 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
 
-- 2025.07.29: 🚀 Added support for experiment filtering and sorting in the sidebar; 📊 Added column control panel to the table view, allowing easy hiding and displaying of columns; 🔐 Added support for managing multiple API Keys, making your data more secure; swanlab sync now supports training crash log files; PR curve, ROC curve, confusion matrix are now available, [documentation](https://docs.swanlab.cn/api/py-pr_curve.html);
-
-
 <details><summary>Full Changelog</summary>
+
+- 2025.07.29: 🚀 Added support for experiment filtering and sorting in the sidebar; 📊 Added column control panel to the table view, allowing easy hiding and displaying of columns; 🔐 Added support for managing multiple API Keys, making your data more secure; swanlab sync now supports training crash log files; PR curve, ROC curve, confusion matrix are now available, [documentation](https://docs.swanlab.cn/api/py-pr_curve.html);
 
 - 2025.07.17: 📊 Added support for **line chart configuration**, supporting flexible configuration of line type, color, thickness, grid, legend position, etc.; 📹 Added support for **swanlab.Video** data type, supporting recording and visualizing GIF format files; Global chart dashboard now supports configuring Y-axis and maximum number of experiments displayed.
 
@@ -311,38 +312,13 @@ Done! Head over to [SwanLab](https://swanlab.cn) to view your first SwanLab expe
 
 The self-hosted community edition supports offline viewing of the SwanLab dashboard.
 
-![swanlab-docker](./readme_files/swanlab-docker.png)
+![swanlab-kubernetes](./readme_files/swanlab-kubernetes.png)
 
-### 1. Deploy the Self-Hosted Version Using Docker
+Detailed deployment documentation:
 
-For detailed instructions, refer to: [Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-
-```bash
-git clone https://github.com/SwanHubX/self-hosted.git
-cd self-hosted/docker
-```
-
-Quick installation for China:
-
-```bash
-./install.sh
-```
-
-Pull and install the image from DockerHub:
-
-```bash
-./install-dockerhub.sh
-```
-
-### 2. Specify Experiments to the Self-Hosted Service
-
-Log in to the self-hosted service:
-
-```bash
-swanlab login --host http://localhost:8000
-```
-
-After logging in, you can record experiments to the self-hosted service.
+- [🔗 Kubernetes Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
+- [🔗 Docker Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
+- [🔗 Migration from Docker to Kubernetes Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
 
 <br>
 
@@ -359,6 +335,7 @@ After logging in, you can record experiments to the self-hosted service.
 
 **Excellent Research Papers Using SwanLab:**
 
+- [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)
 - [CQLLM: A Framework for Generating CodeQL Security Vulnerability Detection Code Based on Large Language Model](https://www.preprints.org/manuscript/202510.1458)
 - [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2407.03916)
 - [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
@@ -486,6 +463,7 @@ SwanLab records the **hardware information** and **resource usage** during AI tr
 | Hardware         | Information Recording | Resource Monitoring | Script                                                                                                                  |
 | ---------------- | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Nvidia GPU       | ✅                    | ✅                  | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/nvidia.py)             |
+| AMD ROCm | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/gpu/amd.py) |
 | Ascend NPU       | ✅                    | ✅                  | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/npu/ascend.py)             |
 | Apple SOC        | ✅                    | ✅                  | [apple.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/soc/apple.py)               |
 | Combricon MLU    | ✅                    | ✅                  | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/data/run/metadata/hardware/mlu/cambricon.py)       |
