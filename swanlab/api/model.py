@@ -7,14 +7,16 @@
 
 from typing import List, Dict, Optional
 
-import pandas as pd
-
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
-from ..data.run.config import SwanLabConfig
+
+try:
+    import pandas as pd
+except ImportError:
+    raise TypeError("OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'.")
 
 
 class Label:
