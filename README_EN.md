@@ -399,6 +399,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
 - [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 - [MLX-LM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlx-lm.html)
+- [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
 **Evaluation Frameworks**
 
@@ -421,6 +422,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 - [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
+- [RLinf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-rlinf.html)
 
 **Other Frameworks:**
 
