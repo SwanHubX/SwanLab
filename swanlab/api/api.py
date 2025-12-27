@@ -95,4 +95,4 @@ class OpenApi:
         data = get_project_experiments(
             self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
         )
-        return Experiment(data=data[0], path=proj_path, web_host=self._web_host, line_count=1)
+        return Experiment(data=data[0], client=self._client, path=proj_path, web_host=self._web_host, line_count=1)
