@@ -13,11 +13,6 @@ from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
 
-try:
-    import pandas as pd
-except ImportError:
-    raise TypeError("OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'.")
-
 
 class Label:
     """
@@ -309,7 +304,14 @@ class Experiment:
         19   0.791999   0.180106
         ```
         """
+        try:
+            import pandas as pd
+        except ImportError:
+            raise TypeError(
+                "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
+            )
         df = pd.DataFrame()
+
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)

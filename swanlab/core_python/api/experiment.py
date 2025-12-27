@@ -16,11 +16,6 @@ from swanlab.error import ApiError
 from .type import ExpFilterType
 from .utils import to_camel_case, parse_column_type
 
-try:
-    import pandas as pd
-except ImportError:
-    raise TypeError("OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'.")
-
 
 def send_experiment_heartbeat(
     client: "Client",
@@ -110,6 +105,13 @@ def get_experiment_metrics(client: Client, *, expid: str, key: str):
     :param expid: 实验cuid
     :param key: 指定字段列表
     """
+    try:
+        import pandas as pd
+    except ImportError:
+        raise TypeError(
+            "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
+        )
+
     csv_df = pd.DataFrame()
     try:
         res = client.get(f"/experiment/{expid}/column/csv", params={'key': key})
