@@ -23,6 +23,7 @@ class UserType(TypedDict):
 
 
 StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING']  # 实验状态
+ColumnType = Literal['STABLE', 'SCALAR', 'CONFIG']
 
 
 # 项目信息
@@ -57,12 +58,22 @@ class RunType(TypedDict):
 
 
 # ------------------------------------- 发送到后端请求体中的参数 -------------------------------------
+# 项目信息分页查询参数
 class ProjParamType(TypedDict):
     page: int  # 页码
     size: int  # 每页项目数量
     sort: Optional[List[str]]  # 排序方式（包含多个条件的列表）
     search: Optional[str]  # 搜索关键词
     detail: Optional[bool]  # 是否返回详细信息（_count）
+
+
+# 实验筛选条件
+class ExpFilterType(TypedDict):
+    key: str  # 筛选条件名
+    active: bool  # 是否激活
+    value: List[str]  # 筛选条件值
+    op: Literal['EQ']  # 筛选条件
+    type: ColumnType  # 筛选条件列类型
 
 
 # ------------------------------------- 后端返回信息 -------------------------------------

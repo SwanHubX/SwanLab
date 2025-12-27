@@ -12,6 +12,7 @@ from swanlab.core_python.api.experiment import get_project_experiments
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
+from ..data.run.config import SwanLabConfig
 
 
 class Label:
@@ -180,14 +181,14 @@ class Experiment:
     @property
     def config(self) -> Dict[str, object]:
         """
-        Experiment configuration.
+        Experiment configuration. Can be used as filter in the format of 'config.<key>'
         """
         return self._data['profile']['config']
 
     @property
     def summary(self) -> Dict[str, object]:
         """
-        Experiment metrics data.
+        Experiment metrics data. Can be used as filter in the format of 'summary.<key>'
         """
         return self._data['profile']['scalar']
 
@@ -211,13 +212,6 @@ class Experiment:
         Experiment job type.
         """
         return self._data['job']
-
-    @property
-    def runtime(self) -> str:
-        """
-        Experiment runtime.
-        """
-        return self._data['runtime']
 
     @property
     def user(self) -> User:
@@ -305,16 +299,17 @@ class Experiments:
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: Client, path: str, web_host: str):
+    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None):
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
         self._path = path
         self._web_host = web_host
+        self._filters = filters
 
     def __iter__(self):
-        # todo: 加入FGS条件参数
-        resp = get_project_experiments(self._client, path=self._path)
+        # todo: 完善filter的功能（正则、条件判断）
+        resp = get_project_experiments(self._client, path=self._path, filters=self._filters)
         runs: List[RunType] = []
         if isinstance(resp, List):
             runs = resp

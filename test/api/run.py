@@ -8,7 +8,7 @@
 import swanlab
 
 
-def test_get_single_exp():
+def example_code():
     api = swanlab.OpenApi()
-    exp = api.run(path="bainiantest/resume_test/f59muc3gkbwkjns37b9aw")
+    exp = api.run(path="username/project/expid")  # 可通过api.runs()获取expid
     print(exp.__dict__)
