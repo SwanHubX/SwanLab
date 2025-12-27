@@ -11,13 +11,15 @@ from typing import Literal, Dict, TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-import pandas as pd
-from pandas import DataFrame
-
-from swanlab.error import ApiError
 from swanlab.core_python.client import Client
+from swanlab.error import ApiError
 from .type import ExpFilterType
 from .utils import to_camel_case, parse_column_type
+
+try:
+    import pandas as pd
+except ImportError:
+    raise TypeError("OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'.")
 
 
 def send_experiment_heartbeat(
@@ -101,7 +103,7 @@ def get_single_experiment(client: Client, *, path: str):
     return res[0]
 
 
-def get_experiment_metrics(client: Client, *, expid: str, key: str) -> DataFrame:
+def get_experiment_metrics(client: Client, *, expid: str, key: str):
     """
     获取指定字段的指标数据，并将csv转为DataFrame
     :param client: 已登录的客户端实例
