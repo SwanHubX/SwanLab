@@ -23,7 +23,7 @@ class UserType(TypedDict):
 
 
 StateType = Literal['FINISHED', 'CRASHED', 'ABORTED', 'RUNNING']  # 实验状态
-ColumnType = Literal['STABLE', 'SCALAR', 'CONFIG']
+ColumnType = Literal['STABLE', 'SCALAR', 'CONFIG']  # 列类型
 
 
 # 项目信息

@@ -5,8 +5,14 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import Literal, Dict, Optional, List
+from io import BytesIO
 
+import pandas as pd
+import requests
+from pandas import DataFrame
+from typing import Literal, Dict, List
+
+from swanlab.error import ApiError
 from swanlab.core_python.client import Client
 from .type import ExpFilterType
 from .utils import to_camel_case, parse_column_type
@@ -76,3 +82,22 @@ def get_single_experiment(client: Client, *, path: str):
     proj_path, expid = path.rsplit('/', 1)
     res = client.get(f"/project/{proj_path}/runs/{expid}")
     return res[0]
+
+
+def get_experiment_metrics(client: Client, *, expid: str, key: str) -> DataFrame:
+    """
+    获取指定字段的指标数据，并将csv转为DataFrame
+    :param client: 已登录的客户端实例
+    :param expid: 实验cuid
+    :param key: 指定字段列表
+    """
+    csv_df = pd.DataFrame()
+    try:
+        res = client.get(f"/experiment/{expid}/column/csv", params={'key': key})
+        # 从返回网址中解析csv内容
+        with requests.get(res[0]['url']) as response:
+            csv_df = pd.read_csv(BytesIO(response.content))
+    except ApiError:
+        csv_df = None
+
+    return csv_df

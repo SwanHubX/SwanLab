@@ -7,8 +7,10 @@
 
 from typing import List, Dict, Optional
 
+import pandas as pd
+
 from swanlab.core_python import Client
-from swanlab.core_python.api.experiment import get_project_experiments
+from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
@@ -145,8 +147,9 @@ class Project:
 
 
 class Experiment:
-    def __init__(self, data: RunType, path: str, web_host: str, line_count: int):
+    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int):
         self._data = data
+        self._client = client
         self._path = path
         self._web_host = web_host
         self._line_count = line_count
@@ -279,6 +282,49 @@ class Experiment:
                 result[attr_name] = self.__getattribute__(attr_name)
         return result
 
+    def history(self, keys: List[str], x_axis: str = None, sample: int = None, pandas: bool = True):
+        """
+        Get specific metric data of the experiment.
+        :param keys: List of metric keys to obtain.
+        :param x_axis: The metric to be used as x-axis. If None, 'step' will be used as the x-axis.
+        :param sample: Number of rows to select from the beginning.
+        :param pandas: Whether to return a pandas DataFrame. If False, returns dict format: {key: [values], ...}
+        :return: Metric data.
+
+        Example:
+        ```python
+        api = swanlab.OpenApi()
+        exp = api.run(path="username/project/expid")  # You can get expid from api.runs()
+        print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy'))
+
+        Returns:
+            t/accuracy    loss
+        0    0.310770   0.525776
+        1    0.642817   0.479186
+        2    0.646031   0.362428
+        3    0.608820   0.230555
+        ...
+        19   0.791999   0.180106
+        ```
+        """
+        df = pd.DataFrame()
+        # x轴不为空时，将step替换为x_axis的指标数据
+        if x_axis is not None:
+            csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
+            df[x_axis] = csv_df.iloc[:, 1]
+        for key in keys:
+            csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
+            if csv_df is None:
+                continue
+            if key == keys[0] and x_axis is None:
+                df['step'] = df[key] = csv_df.iloc[:, 0]
+            df[key] = csv_df.iloc[:, 1]
+
+        # 截取前sample行
+        if sample is not None:
+            df = df.head(sample)
+        return df if pandas else df.to_dict(orient='records')
+
 
 class Projects:
     """
@@ -347,4 +393,4 @@ class Experiments:
         elif isinstance(resp, Dict):
             runs = flatten_runs(resp)
         line_count = len(runs)
-        yield from iter(Experiment(run, self._path, self._web_host, line_count) for run in runs)
+        yield from iter(Experiment(run, self._client, self._path, self._web_host, line_count) for run in runs)
