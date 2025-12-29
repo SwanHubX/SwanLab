@@ -8,9 +8,12 @@
 import swanlab
 
 
-def example_code():
+def test_history_example_code():
     api = swanlab.OpenApi()
-    exp = api.run(path="username/project/expid")  # 可通过api.runs()获取expid
-    print(exp.__dict__)
-    print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy', pandas=False))
-    print(exp.scan_history(max_step=10))
+    exp = api.run(path="bainiantest/SwanLab122/o6b0auazzj9vxxyu6rjd1")  # 可通过api.runs()获取expid
+    print(exp.history())
+    print(exp.history(keys=['loss']))
+    print(exp.history(keys=['loss'], x_axis='t/accuracy'))
+    print(exp.history(x_axis='t/accuracy'))
+    print(exp.history(sample=10))
+    print(exp.history(pandas=False))

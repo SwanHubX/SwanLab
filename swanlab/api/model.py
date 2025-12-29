@@ -12,6 +12,7 @@ from swanlab.core_python.api.experiment import get_project_experiments, get_expe
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from .utils import flatten_runs
+from ..log import swanlog
 
 
 class Label:
@@ -279,11 +280,34 @@ class Experiment:
                 result[attr_name] = self.__getattribute__(attr_name)
         return result
 
-    def history(self, keys: List[str], x_axis: str = None, sample: int = None, pandas: bool = True):
+    def __full_history(self):
+        """
+        Get all metric keys' data of the experiment with timestamp.
+        """
+        try:
+            import pandas as pd
+        except ImportError:
+            raise TypeError(
+                "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
+            )
+
+        data_dict = {}
+
+        for key in self.metric_keys:
+            csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
+            data_dict[key] = csv_df.iloc[:, 1]
+            # 添加_step和_timestamp列
+            if key == self.metric_keys[0]:
+                data_dict['_step'] = csv_df.iloc[:, 0]
+                data_dict['_timestamp'] = csv_df.iloc[:, 2]
+
+        return data_dict
+
+    def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True):
         """
         Get specific metric data of the experiment.
-        :param keys: List of metric keys to obtain.
-        :param x_axis: The metric to be used as x-axis. If None, 'step' will be used as the x-axis.
+        :param keys: List of metric keys to obtain. If None, all metrics keys will be used.
+        :param x_axis: The metric to be used as x-axis. If None, '_step' will be used as the x-axis.
         :param sample: Number of rows to select from the beginning.
         :param pandas: Whether to return a pandas DataFrame. If False, returns dict format: {key: [values], ...}
         :return: Metric data.
@@ -311,38 +335,50 @@ class Experiment:
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
 
-        # Collect all data into a dict first to avoid DataFrame fragmentation
+        if keys is not None and not isinstance(keys, list):
+            swanlog.warning('keys must be specified as a list')
+            return pd.DataFrame()
+        elif keys is not None and len(keys) and not isinstance(keys[0], str):
+            swanlog.warning('keys must be a list of string')
+            return pd.DataFrame()
+
+        # 将每个key的数据先存入一个字典，之后统一生成dataFrame
         data_dict = {}
+        data_column = ['_step' if x_axis is None else x_axis]
+
+        # 遍历获取所有的key的指标数据
+        if keys is not None:
+            data_column.extend(keys)
+            for key in keys:
+                csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
+                if csv_df is None:
+                    swanlog.warning(f'key {key} does not exist in experiment: {self.id}')
+                    continue
+                else:
+                    data_dict[key] = csv_df.iloc[:, 1]
+
+                # 添加_step列
+                if key == keys[0] and x_axis is None:
+                    data_dict['_step'] = csv_df.iloc[:, 0]
 
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
-            data_dict[x_axis] = csv_df.iloc[:, 1]
-
-        for key in keys:
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
             if csv_df is None:
-                continue
-            if key == keys[0] and x_axis is None:
-                data_dict['step'] = csv_df.iloc[:, 0]
-            data_dict[key] = csv_df.iloc[:, 1]
+                swanlog.warning(f'key {x_axis} does not exist in experiment: {self.id}')
+                pass
+            else:
+                data_dict[x_axis] = csv_df.iloc[:, 1]
+        # x轴与keys都未指定时，返回带时间戳的所有指标数据
+        elif keys is None:
+            data_column.extend(['_timestamp', *self.metric_keys])
+            data_dict = self.__full_history()
 
-        # Create DataFrame in one operation
-        df = pd.DataFrame(data_dict)
-
+        df = pd.DataFrame(data_dict).reindex(columns=data_column)
         # 截取前sample行
         if sample is not None:
             df = df.head(sample)
         return df if pandas else df.to_dict(orient='records')
-
-    def scan_history(self, min_step: int = 0, max_step: int = 1000):
-        """
-        Get all metric keys' data of the experiment in a range of steps.
-        :param min_step: The minimum step to get.
-        :param max_step: The maximum step to get.
-        :return: Metric data in dict.
-        """
-        return self.history(keys=self.metric_keys, pandas=False)[min_step:max_step]
 
 
 class Projects:
