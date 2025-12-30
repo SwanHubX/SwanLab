@@ -27,9 +27,6 @@ class Timer:
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._immediate = immediate
-
-        # 互斥锁，用于标记“任务正在运行中”
-        self._run_lock = threading.Lock()
         # 标记调用次数
         self._count = 0
 
@@ -84,13 +81,12 @@ class Timer:
         """
         执行任务，并使用锁保护
         """
-        with self._run_lock:
-            try:
-                self._task()
-            except Exception as e:
-                swanlog.error(f"Error executing task: {e}")
-            finally:
-                self._count += 1
+        try:
+            self._task()
+        except Exception as e:
+            swanlog.error(f"Error executing task: {e}")
+        finally:
+            self._count += 1
 
     @property
     def _sleep_time(self) -> float:
