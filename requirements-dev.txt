@@ -1,5 +1,6 @@
 build
 pytest
+pytest-mock
 nanoid
 omegaconf
 ipython

@@ -7,4 +7,7 @@
 2. http 客户端代码
 """
 
-from .client import *
+from . import auth
+from . import uploader
+from .client import Client, create_client, reset_client, get_client, create_session
+from .utils import timer
