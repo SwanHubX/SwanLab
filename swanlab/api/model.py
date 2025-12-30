@@ -5,7 +5,7 @@
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
 
-from typing import List, Dict, Optional, Iterator, Union, Any
+from typing import List, Dict, Optional, Iterator, Any
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
@@ -295,11 +295,11 @@ class Experiment:
 
         for key in self.metric_keys:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
-            data_dict[key] = csv_df.iloc[:, 1]
             # 添加_step和_timestamp列
             if key == self.metric_keys[0]:
                 data_dict['_step'] = csv_df.iloc[:, 0]
                 data_dict['_timestamp'] = csv_df.iloc[:, 2]
+            data_dict[key] = csv_df.iloc[:, 1]
 
         return data_dict
 
@@ -345,6 +345,8 @@ class Experiment:
         # 使用 merge 按 step 对齐不同指标的数据
         df = None
         x_col = '_step' if x_axis is None else x_axis
+        if x_col != '_step':
+            keys = [x_col] + keys
 
         # 遍历获取所有的key的指标数据
         if keys is not None:
@@ -353,43 +355,20 @@ class Experiment:
                 if csv_df is None:
                     swanlog.warning(f'key {key} does not exist in experiment: {self.id}')
                     continue
-
                 # csv_df 的列: [step, value, timestamp]
-                key_df = pd.DataFrame({
-                    '_step': csv_df.iloc[:, 0],
-                    key: csv_df.iloc[:, 1]
-                })
-
+                key_df = pd.DataFrame({'_step': csv_df.iloc[:, 0], key: csv_df.iloc[:, 1]})
                 if df is None:
                     df = key_df
                 else:
                     df = pd.merge(df, key_df, on='_step', how='outer')
 
-            if df is None:
-                df = pd.DataFrame()
-
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
-            if csv_df is None:
-                swanlog.warning(f'key {x_axis} does not exist in experiment: {self.id}')
-            else:
-                x_df = pd.DataFrame({
-                    '_step': csv_df.iloc[:, 0],
-                    x_axis: csv_df.iloc[:, 1]
-                })
-                if df is None:
-                    df = x_df
-                else:
-                    df = pd.merge(df, x_df, on='_step', how='outer')
-                # 用 x_axis 列替换 _step 作为索引列
-                if df is not None and x_axis in df.columns:
-                    df = df.drop(columns=['_step'])
+            df = df.drop(columns=['_step'])
         # x轴与keys都未指定时，返回带时间戳的所有指标数据
         elif keys is None:
             data_dict = self.__full_history()
             df = pd.DataFrame(data_dict)
-            x_col = '_step'
 
         if df is None:
             df = pd.DataFrame()
