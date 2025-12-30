@@ -33,7 +33,7 @@ class Timer:
         # 标记调用次数
         self._count = 0
 
-    def run(self):
+    def run(self) -> "Timer":
         """
         启动定时器
         """
@@ -47,6 +47,7 @@ class Timer:
         # 如果用户需要保证数据不丢失，应手动调用 cancel() + join()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
+        return self
 
     def cancel(self):
         """
