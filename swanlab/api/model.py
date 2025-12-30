@@ -292,17 +292,21 @@ class Experiment:
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
 
-        # 添加_step和_timestamp列及第一列数据
-        csv_df = get_experiment_metrics(self._client, expid=self.id, key=self.metric_keys[0])
-        df = pd.DataFrame(
-            {'_step': csv_df.iloc[:, 0], '_timestamp': csv_df.iloc[:, 2], self.metric_keys[0]: csv_df.iloc[:, 1]}
-        )
+        if self.metric_keys is None or self.metric_keys == []:
+            df = pd.DataFrame()
+        else:
+            # 添加_step和_timestamp列及第一列数据
+            csv_df = get_experiment_metrics(self._client, expid=self.id, key=self.metric_keys[0])
+            df = pd.DataFrame(
+                {'_step': csv_df.iloc[:, 0], '_timestamp': csv_df.iloc[:, 2], self.metric_keys[0]: csv_df.iloc[:, 1]}
+            )
 
-        pool = HistoryPool(self._client, self.id, self.metric_keys[1:])
-        pool.start()
-        pending_df = pool.wait_completion()
+            if len(self.metric_keys) >= 2:
+                pool = HistoryPool(self._client, self.id, self.metric_keys[1:])
+                pool.start()
+                pending_df = pool.wait_completion()
+                df = pd.merge(df, pending_df, on='_step', how='outer')
 
-        df = pd.merge(df, pending_df, on='_step', how='outer')
         return df
 
     def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
@@ -340,7 +344,7 @@ class Experiment:
         if keys is not None and not isinstance(keys, list):
             swanlog.warning('keys must be specified as a list')
             return pd.DataFrame()
-        elif keys is not None and len(keys) and not isinstance(keys[0], str):
+        elif keys is not None and len(keys) and not all(isinstance(k, str) for k in keys):
             swanlog.warning('keys must be a list of string')
             return pd.DataFrame()
 
