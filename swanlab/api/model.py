@@ -5,7 +5,7 @@
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Iterator, Union, Any
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
@@ -21,22 +21,22 @@ class Label:
     you can get the label name by str(label)
     """
 
-    def __init__(self, data: ProjectLabelType):
+    def __init__(self, data: ProjectLabelType) -> None:
         self._data = data
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Label name.
         """
         return self._data['name']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.name)
 
 
 class User:
-    def __init__(self, data: UserType):
+    def __init__(self, data: UserType) -> None:
         self._data = data
 
     @property
@@ -53,7 +53,7 @@ class Project:
     Representing a single project with some of its properties.
     """
 
-    def __init__(self, data: ProjectType, web_host: str):
+    def __init__(self, data: ProjectType, web_host: str) -> None:
         self._data = data
         self._web_host = web_host
 
@@ -145,7 +145,7 @@ class Project:
 
 
 class Experiment:
-    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int):
+    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
         self._data = data
         self._client = client
         self._path = path
@@ -280,7 +280,7 @@ class Experiment:
                 result[attr_name] = self.__getattribute__(attr_name)
         return result
 
-    def __full_history(self):
+    def __full_history(self) -> Dict[str, Any]:
         """
         Get all metric keys' data of the experiment with timestamp.
         """
@@ -303,7 +303,7 @@ class Experiment:
 
         return data_dict
 
-    def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True):
+    def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get specific metric data of the experiment.
         :param keys: List of metric keys to obtain. If None, all metrics keys will be used.
@@ -342,39 +342,61 @@ class Experiment:
             swanlog.warning('keys must be a list of string')
             return pd.DataFrame()
 
-        # 将每个key的数据先存入一个字典，之后统一生成dataFrame
-        data_dict = {}
-        data_column = ['_step' if x_axis is None else x_axis]
+        # 使用 merge 按 step 对齐不同指标的数据
+        df = None
+        x_col = '_step' if x_axis is None else x_axis
 
         # 遍历获取所有的key的指标数据
         if keys is not None:
-            data_column.extend(keys)
             for key in keys:
                 csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
                 if csv_df is None:
                     swanlog.warning(f'key {key} does not exist in experiment: {self.id}')
                     continue
-                else:
-                    data_dict[key] = csv_df.iloc[:, 1]
 
-                # 添加_step列
-                if key == keys[0] and x_axis is None:
-                    data_dict['_step'] = csv_df.iloc[:, 0]
+                # csv_df 的列: [step, value, timestamp]
+                key_df = pd.DataFrame({
+                    '_step': csv_df.iloc[:, 0],
+                    key: csv_df.iloc[:, 1]
+                })
+
+                if df is None:
+                    df = key_df
+                else:
+                    df = pd.merge(df, key_df, on='_step', how='outer')
+
+            if df is None:
+                df = pd.DataFrame()
 
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
             csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
             if csv_df is None:
                 swanlog.warning(f'key {x_axis} does not exist in experiment: {self.id}')
-                pass
             else:
-                data_dict[x_axis] = csv_df.iloc[:, 1]
+                x_df = pd.DataFrame({
+                    '_step': csv_df.iloc[:, 0],
+                    x_axis: csv_df.iloc[:, 1]
+                })
+                if df is None:
+                    df = x_df
+                else:
+                    df = pd.merge(df, x_df, on='_step', how='outer')
+                # 用 x_axis 列替换 _step 作为索引列
+                if df is not None and x_axis in df.columns:
+                    df = df.drop(columns=['_step'])
         # x轴与keys都未指定时，返回带时间戳的所有指标数据
         elif keys is None:
-            data_column.extend(['_timestamp', *self.metric_keys])
             data_dict = self.__full_history()
+            df = pd.DataFrame(data_dict)
+            x_col = '_step'
 
-        df = pd.DataFrame(data_dict).reindex(columns=data_column)
+        if df is None:
+            df = pd.DataFrame()
+
+        # 按 x 轴排序
+        if x_col in df.columns:
+            df = df.sort_values(by=x_col).reset_index(drop=True)
         # 截取前sample行
         if sample is not None:
             df = df.head(sample)
@@ -395,7 +417,7 @@ class Projects:
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ):
+    ) -> None:
         self._client = client
         self._web_host = web_host
         self._workspace = workspace
@@ -403,7 +425,7 @@ class Projects:
         self._search = search
         self._detail = detail
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
         page_size = 20
@@ -430,7 +452,7 @@ class Experiments:
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None):
+    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
@@ -438,7 +460,7 @@ class Experiments:
         self._web_host = web_host
         self._filters = filters
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Experiment]:
         # todo: 完善filter的功能（正则、条件判断）
         resp = get_project_experiments(self._client, path=self._path, filters=self._filters)
         runs: List[RunType] = []
