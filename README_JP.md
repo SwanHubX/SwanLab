@@ -306,62 +306,72 @@ for i in range(10):
 以下は既に統合されているフレームワークのリストです。統合してほしいフレームワークがあれば、[Issue](https://github.com/swanhubx/swanlab/issues)を提出してフィードバックをお願いします。
 
 **基本フレームワーク**
-
 - [PyTorch](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/en/guide_cloud/integration/integration-keras.html)
 
-**専用/ファインチューニングフレームワーク**
-
-- [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
+**LLMトレーニングフレームワーク**
 - [HuggingFace Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/en/guide_cloud/integration/integration-llama-factory.html)
-- [Modelscope Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
-- [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
-- [Sentence Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sentence-transformers.html)
-- [PaddleNLP](https://docs.swanlab.cn/guide_cloud/integration/integration-paddlenlp.html)
-- [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
+- [MS-Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
+- [Unsloth](https://docs.swanlab.cn/en/guide_cloud/integration/integration-unsloth.html)
+- [MLX-LM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlx-lm.html)
 - [Torchtune](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-torchtune.html)
+- [Sentence Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sentence-transformers.html)
 - [XTuner](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xtuner.html)
+- [OpenMind](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#install-swanlab)
+
+**LLM強化学習フレームワーク**
+- [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
+- [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
+- [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
+- [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
+- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
+- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
+
+**ロボットフレームワーク**
+- [RLinf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-rlinf.html)
+
+**テキストから画像/動画生成フレームワーク**
+- [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
+
+**ディープラーニングフレームワーク**
+- [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 - [MMEngine](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
-- [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
-- [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
-- [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
-- [MLX-LM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlx-lm.html)
 
-**コンピュータビジョン**
-
+**コンピュータビジョンフレームワーク**
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmsegmentation.html)
 - [PaddleDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddledetection.html)
 - [PaddleYOLO](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddleyolo.html)
+- [PaddleNLP](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddlenlp.html)
 
-**強化学習**
+**機械学習フレームワーク**
+- [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
+- [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
+- [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 
+**評価フレームワーク**
+- [EvalScope](https://docs.swanlab.cn/en/guide_cloud/integration/integration-evalscope.html)
+
+**伝統的強化学習フレームワーク**
 - [Stable Baseline3](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sb3.html)
-- [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
-- [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
-- [EasyR1](https://docs.swanlab.cn/en/guide_cloud/integration/integration-easyr1.html)
-- [AReaL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-areal.html)
-- [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
-- [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
 
 **その他のフレームワーク：**
-
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
 - [HuggingFace Accelerate](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html)
 - [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
-- [Unsloth](https://docs.swanlab.cn/en/guide_cloud/integration/integration-unsloth.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
 - [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
 - [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
+- [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
-[その他の統合](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
+[その他の統合](https://docs.swanlab.cn/en/guide_cloud/integration/)
 
 <br>
 
