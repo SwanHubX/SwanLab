@@ -14,6 +14,7 @@ from .gpu.metax import get_metax_gpu_info
 from .gpu.moorethreads import get_moorethreads_gpu_info
 from .gpu.nvidia import get_nvidia_gpu_info
 from .gpu.iluvatar import get_iluvatar_gpu_info
+from .gpu.amd import get_amd_gpu_info
 from .memory import get_memory_size
 from .mlu.cambricon import get_cambricon_mlu_info
 from .network import get_network_info
@@ -41,6 +42,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     kunlunxin = dec_hardware_func(get_kunlunxin_xpu_info, monitor_funcs)
     metax = dec_hardware_func(get_metax_gpu_info, monitor_funcs)
     hygon = dec_hardware_func(get_hygon_dcu_info, monitor_funcs)
+    amd = dec_hardware_func(get_amd_gpu_info, monitor_funcs)
     c = dec_hardware_func(get_cpu_info, monitor_funcs)
     m = dec_hardware_func(get_memory_size, monitor_funcs)
     d = dec_hardware_func(get_disk_info, monitor_funcs)
@@ -60,6 +62,8 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
     }
     if nvidia is not None:
         info["gpu"]["nvidia"] = nvidia
+    if amd is not None:
+        info["gpu"]["amd"] = amd
     if moorethreads is not None:
         info["gpu"]["moorethreads"] = moorethreads
     if metax is not None:
@@ -76,6 +80,7 @@ def get_hardware_info() -> Tuple[Optional[Any], List[HardwareCollector]]:
         info["xpu"]["kunlunxin"] = kunlunxin
     if hygon is not None:
         info["dcu"]["hygon"] = hygon
+
     return filter_none(info, fallback={}), monitor_funcs
 
 
