@@ -11,9 +11,8 @@ from typing import List
 
 try:
     import pandas as pd
-    from pandas import DataFrame
 except ImportError:
-    raise TypeError("OpenApi requires pandas to use the HistoryPool. Please install with 'pip install pandas'.")
+    raise ImportError("OpenApi requires pandas to use the HistoryPool. Please install with 'pip install pandas'.")
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_experiment_metrics
