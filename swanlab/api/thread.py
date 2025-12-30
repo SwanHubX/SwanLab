@@ -7,13 +7,7 @@
 
 import queue
 import threading
-from typing import List
-
-try:
-    import pandas as pd
-    from pandas import DataFrame
-except ImportError:
-    raise ImportError("OpenApi requires pandas to use the HistoryPool. Please install with 'pip install pandas'.")
+from typing import List, Any
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_experiment_metrics
@@ -28,7 +22,15 @@ def parse_key(key: str):
 
 
 class HistoryPool:
+
     def __init__(self, client: Client, expid: str, keys: List[str], num_threads: int = 10):
+        try:
+            import pandas as pd
+        except ImportError:
+            raise TypeError(
+                "OpenApi requires pandas to init the HistoryPool. Please install with 'pip install pandas'."
+            )
+
         self._client = client
         self._expid = expid
         self._keys = keys
@@ -62,6 +64,8 @@ class HistoryPool:
         """
         工作线程函数，从队列中取 key ，获取对应csv添加到 _result 中
         """
+        import pandas as pd
+
         while True:
             key = self._task_queue.get()
             if key is None:  # 结束信号
@@ -83,7 +87,9 @@ class HistoryPool:
             finally:
                 self._task_queue.task_done()
 
-    def wait_completion(self) -> DataFrame:
+    def wait_completion(self) -> Any:
+        import pandas as pd
+
         # 等待所有任务完成，发送结束信号给所有工作线程
         self._task_queue.join()
         for _ in range(self._num_threads):
