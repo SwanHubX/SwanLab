@@ -11,6 +11,7 @@ from typing import List
 
 try:
     import pandas as pd
+    from pandas import DataFrame
 except ImportError:
     raise ImportError("OpenApi requires pandas to use the HistoryPool. Please install with 'pip install pandas'.")
 
