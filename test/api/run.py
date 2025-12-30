@@ -5,15 +5,20 @@
 @description: 获取单个实验功能的单元测试
 """
 
+import time
+
 import swanlab
 
 
 def test_history_example_code():
     api = swanlab.OpenApi()
-    exp = api.run(path="bainiantest/SwanLab122/o6b0auazzj9vxxyu6rjd1")  # 可通过api.runs()获取expid
+    exp = api.run(path="username/project/expid")  # 可通过api.runs()获取expid
+    start = time.perf_counter()
+
     print(exp.history())
-    print(exp.history(keys=['loss']))
-    print(exp.history(keys=['loss'], x_axis='t/accuracy'))
-    print(exp.history(x_axis='t/accuracy'))
-    print(exp.history(sample=10))
-    print(exp.history(pandas=False))
+    end = time.perf_counter()
+    print(f"total time: {end - start} seconds")
+
+    print(exp.history(keys=exp.metric_keys))
+    end = time.perf_counter()
+    print(f"total time: {end - start} seconds")

@@ -11,8 +11,9 @@ from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
+from swanlab.log import swanlog
+from .thread import HistoryPool, parse_key
 from .utils import flatten_runs
-from ..log import swanlog
 
 
 class Label:
@@ -280,7 +281,7 @@ class Experiment:
                 result[attr_name] = self.__getattribute__(attr_name)
         return result
 
-    def __full_history(self) -> Dict[str, Any]:
+    def __full_history(self):
         """
         Get all metric keys' data of the experiment with timestamp.
         """
@@ -291,17 +292,18 @@ class Experiment:
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
 
-        data_dict = {}
+        # 添加_step和_timestamp列及第一列数据
+        csv_df = get_experiment_metrics(self._client, expid=self.id, key=self.metric_keys[0])
+        df = pd.DataFrame(
+            {'_step': csv_df.iloc[:, 0], '_timestamp': csv_df.iloc[:, 2], self.metric_keys[0]: csv_df.iloc[:, 1]}
+        )
 
-        for key in self.metric_keys:
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
-            # 添加_step和_timestamp列
-            if key == self.metric_keys[0]:
-                data_dict['_step'] = csv_df.iloc[:, 0]
-                data_dict['_timestamp'] = csv_df.iloc[:, 2]
-            data_dict[key] = csv_df.iloc[:, 1]
+        pool = HistoryPool(self._client, self.id, self.metric_keys[1:])
+        pool.start()
+        pending_df = pool.wait_completion()
 
-        return data_dict
+        df = pd.merge(df, pending_df, on='_step', how='outer')
+        return df
 
     def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
@@ -343,42 +345,34 @@ class Experiment:
             return pd.DataFrame()
 
         # 使用 merge 按 step 对齐不同指标的数据
-        df = None
+        df = pd.DataFrame()
         x_col = '_step' if x_axis is None else x_axis
         if x_col != '_step':
             keys = [x_col] + keys
 
-        # 遍历获取所有的key的指标数据
+        # 使用线程池并发获取所有的key的指标数据
         if keys is not None:
-            for key in keys:
-                csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
-                if csv_df is None:
-                    swanlog.warning(f'key {key} does not exist in experiment: {self.id}')
-                    continue
-                # csv_df 的列: [step, value, timestamp]
-                key_df = pd.DataFrame({'_step': csv_df.iloc[:, 0], key: csv_df.iloc[:, 1]})
-                if df is None:
-                    df = key_df
-                else:
-                    df = pd.merge(df, key_df, on='_step', how='outer')
+            pool = HistoryPool(self._client, self.id, keys)
+            pool.start()
+            df = pool.wait_completion()
 
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
             df = df.drop(columns=['_step'])
         # x轴与keys都未指定时，返回带时间戳的所有指标数据
         elif keys is None:
-            data_dict = self.__full_history()
-            df = pd.DataFrame(data_dict)
-
-        if df is None:
-            df = pd.DataFrame()
+            df = self.__full_history()
 
         # 按 x 轴排序
         if x_col in df.columns:
             df = df.sort_values(by=x_col).reset_index(drop=True)
+
         # 截取前sample行
         if sample is not None:
             df = df.head(sample)
+
+        # 去掉每一列列名第一个@
+        df.columns = [col.replace('@', '', 1) if col != parse_key(x_axis) else col for col in df.columns]
         return df if pandas else df.to_dict(orient='records')
 
 
