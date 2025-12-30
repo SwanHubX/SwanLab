@@ -11,7 +11,7 @@ import swanlab
 
 
 def example_code():
-    api = swanlab.OpenApi()
+    api = swanlab.Api()
     projects = api.projects(workspace='workspace')
     for project in projects:
         print(project.__dict__)
@@ -70,7 +70,7 @@ params_test_projects = [
 def test_api_projects_performance():
     # patch: client.get 返回 fake_projects_raw
     with patch("swanlab.core_python.client.Client.get", side_effect=performance_test_projects) as mock_get:
-        api = swanlab.OpenApi()
+        api = swanlab.Api()
 
         result = api.projects(workspace="user", detail=True)
 
@@ -86,7 +86,7 @@ def test_api_projects_performance():
 # 功能测试：获取到的项目的属性是否齐全且正确
 def test_api_projects_params():
     with patch("swanlab.core_python.client.Client.get", return_value=params_test_projects):
-        api = swanlab.OpenApi()
+        api = swanlab.Api()
 
         result = api.projects(workspace="user", detail=True)
 

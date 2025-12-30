@@ -8,10 +8,10 @@
 from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
+from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
 from .model import Projects, Experiments, Experiment
 
 try:
@@ -20,7 +20,7 @@ except ImportError:
     DataFrame = None
 
 
-class OpenApi:
+class Api:
     def __init__(self, api_key: Optional[str] = None, host: Optional[str] = None, web_host: Optional[str] = None):
         """
         初始化 OpenApi 实例，用户需提前登录，或者提供API密钥

@@ -11,7 +11,7 @@ import swanlab
 
 
 def test_history_example_code():
-    api = swanlab.OpenApi()
+    api = swanlab.Api()
     exp = api.run(path="username/project/expid")  # 可通过api.runs()获取expid
     start = time.perf_counter()
 
