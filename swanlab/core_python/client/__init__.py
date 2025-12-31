@@ -368,9 +368,10 @@ def reset_client():
     client = None
 
 
-def create_client_heartbeat():
+def create_client_heartbeat(interval: int = 10 * 60):
     """
     创建客户端心跳定时器，保持实验处于活跃状态
+    :param interval: 心跳间隔，单位秒，默认10分钟
     :return: 心跳定时器实例
     """
     cl = get_client()
@@ -381,10 +382,10 @@ def create_client_heartbeat():
         try:
             send_experiment_heartbeat(c, cuid=cuid, flag_id=flag_id)
         except ApiError as e:
-            swanlog.debug("Failed to send heartbeat: " + str(e))
+            swanlog.debug(f"Failed to send heartbeat: {e}")
 
     task = lambda: func(cl, cuid=cl.exp.cuid, flag_id=cl.exp.flag_id)
-    return timer.Timer(task, interval=10, immediate=True).run()
+    return timer.Timer(task, interval=interval, immediate=True).run()
 
 
 __all__ = [

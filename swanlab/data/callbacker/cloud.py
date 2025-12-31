@@ -106,8 +106,9 @@ class CloudPyCallback(SwanLabRunCallback):
 
     def on_stop(self, error: str = None, *args, **kwargs):
         # 删除心跳
-        self.heartbeat.cancel()
-        self.heartbeat.join()
+        if self.heartbeat:
+            self.heartbeat.cancel()
+            self.heartbeat.join()
         # 删除终端代理和系统回调
         success = get_run().success
         # FIXME 等合并 swankit 以后优化一下 interrupt 的传递问题
