@@ -1,11 +1,53 @@
 """
 @author: cunyue
-@file: model.py
-@time: 2025/6/16 14:55
-@description: 实验、项目元信息
+@file: utils.py
+@time: 2025/12/31 13:29
+@description: 客户端工具函数
 """
 
-from typing import Optional
+from typing import Tuple, Optional, Union
+
+import requests
+from urllib3.exceptions import (
+    MaxRetryError,
+    TimeoutError,
+    NewConnectionError,
+    ConnectionError,
+    ReadTimeoutError,
+    ConnectTimeoutError,
+)
+
+from swanlab.error import NetworkError
+
+
+def safe_request(func):
+    """
+    在一些接口中我们不希望线程奔溃，而是返回一个错误对象
+    """
+
+    def wrapper(*args, **kwargs) -> Tuple[Optional[Union[dict, str]], Optional[Exception]]:
+        try:
+            # 在装饰器中调用被装饰的异步函数
+            result = func(*args, **kwargs)
+            return result, None
+        except requests.exceptions.Timeout:
+            return None, NetworkError()
+        except requests.exceptions.ConnectionError:
+            return None, NetworkError()
+        # Catch urllib3 specific errors
+        except (
+            MaxRetryError,
+            TimeoutError,
+            NewConnectionError,
+            ConnectionError,
+            ReadTimeoutError,
+            ConnectTimeoutError,
+        ):
+            return None, NetworkError()
+        except Exception as e:
+            return None, e
+
+    return wrapper
 
 
 class ProjectInfo:

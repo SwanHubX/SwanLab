@@ -10,21 +10,15 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Union, List, AnyStr
 
 import requests
-from urllib3.exceptions import (
-    MaxRetryError,
-    TimeoutError,
-    NewConnectionError,
-    ConnectionError,
-    ReadTimeoutError,
-    ConnectTimeoutError,
-)
 
-from swanlab.error import NetworkError, ApiError
+from swanlab.error import ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from .model import ProjectInfo, ExperimentInfo
 from .session import create_session
+from .utils import safe_request, ProjectInfo, ExperimentInfo
 from .. import auth
+from ..api.experiment import send_experiment_heartbeat
+from ..utils import timer
 from ...env import utc_time
 
 
@@ -114,11 +108,11 @@ class Client:
         return self.__exp.name
 
     @property
-    def web_proj_url(self):
+    def web_proj_url(self) -> str:
         return f"{self.__login_info.web_host}/@{self.groupname}/{self.projname}"
 
     @property
-    def web_exp_url(self):
+    def web_exp_url(self) -> str:
         return f"{self.web_proj_url}/runs/{self.exp_id}"
 
     # ---------------------------------- http方法 ----------------------------------
@@ -374,34 +368,23 @@ def reset_client():
     client = None
 
 
-def safe_request(func):
+def create_client_heartbeat():
     """
-    在一些接口中我们不希望线程奔溃，而是返回一个错误对象
+    创建客户端心跳定时器，保持实验处于活跃状态
+    :return: 心跳定时器实例
     """
+    cl = get_client()
 
-    def wrapper(*args, **kwargs) -> Tuple[Optional[Union[dict, str]], Optional[Exception]]:
+    # TODO 目前保证乡下兼容，如果报错也不提示用户，后续使用safe_request装饰器
+    # func = safe_request(func=send_experiment_heartbeat)
+    def func(c: Client, *, cuid: str, flag_id: str):
         try:
-            # 在装饰器中调用被装饰的异步函数
-            result = func(*args, **kwargs)
-            return result, None
-        except requests.exceptions.Timeout:
-            return None, NetworkError()
-        except requests.exceptions.ConnectionError:
-            return None, NetworkError()
-        # Catch urllib3 specific errors
-        except (
-            MaxRetryError,
-            TimeoutError,
-            NewConnectionError,
-            ConnectionError,
-            ReadTimeoutError,
-            ConnectTimeoutError,
-        ):
-            return None, NetworkError()
-        except Exception as e:
-            return None, e
+            send_experiment_heartbeat(c, cuid=cuid, flag_id=flag_id)
+        except ApiError as e:
+            swanlog.debug("Failed to send heartbeat: " + str(e))
 
-    return wrapper
+    task = lambda: func(cl, cuid=cl.exp.cuid, flag_id=cl.exp.flag_id)
+    return timer.Timer(task, interval=10, immediate=True).run()
 
 
 __all__ = [
@@ -409,6 +392,7 @@ __all__ = [
     "reset_client",
     "create_session",
     "create_client",
+    "create_client_heartbeat",
     "safe_request",
     "decode_response",
     "Client",
