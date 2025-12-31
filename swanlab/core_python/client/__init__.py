@@ -376,7 +376,7 @@ def create_client_heartbeat(interval: int = 10 * 60):
     """
     cl = get_client()
 
-    # TODO 目前保证乡下兼容，如果报错也不提示用户，后续使用safe_request装饰器
+    # TODO 目前保证向下兼容，如果报错也不提示用户，后续使用safe_request装饰器
     # func = safe_request(func=send_experiment_heartbeat)
     def func(c: Client, *, cuid: str, flag_id: str):
         try:
