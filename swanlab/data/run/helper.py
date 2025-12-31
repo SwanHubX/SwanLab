@@ -7,13 +7,10 @@ r"""
 @Description:
     回调函数操作员，批量处理回调函数的调用
 """
-import threading
 from enum import Enum
-from typing import List, Union, Dict, Any, Tuple, Callable, Optional
+from typing import List, Union, Dict, Any, Tuple
 
 from swanlab.data.run.webhook import try_send_webhook
-from swanlab.log import swanlog
-from swanlab.swanlab_settings import get_settings
 from swanlab.toolkit import SwanKitCallback, MetricInfo, ColumnInfo, RuntimeInfo
 
 OperatorReturnType = Dict[str, Any]
@@ -135,54 +132,14 @@ class SwanLabRunState(Enum):
     RUNNING = 0
 
 
-class MonitorCron:
+def monitor_interval(count: int) -> float:
     """
-    用于定时采集系统信息
+    根据传入的参数（本质是调用次数）选择间隔
+    :param count: (调用)次数
     """
-
-    def __init__(self, monitor_func: Callable):
-        self.count = 0  # 计数器,执行次数
-        self.monitor_interval = get_settings().hardware_interval  # 用户设置的采集间隔
-
-        def _():
-            monitor_func()
-            self.count += 1
-            self.timer = threading.Timer(self.sleep_time, _)
-            self.timer.daemon = True
-            self.timer.start()
-
-        # 立即执行
-        self.timer = threading.Timer(0, _)
-        self.timer.daemon = True
-        self.timer.start()
-
-    def cancel(self):
-        if self.timer is not None:
-            self.timer.cancel()
-            self.timer.join()
-
-    @property
-    def sleep_time(self):
-        if self.monitor_interval is not None:
-            return self.monitor_interval
-        # 采集10次以下，每次间隔10秒
-        # 采集10次到50次，每次间隔30秒
-        # 采集50次以上，每次间隔60秒
-        if self.count < 10:
-            return 10
-        elif self.count < 50:
-            return 30
-        else:
-            return 60
-
-
-def check_log_level(log_level: Optional[str]) -> str:
-    """检查日志等级是否合法"""
-    valid = ["debug", "info", "warning", "error", "critical"]
-    if log_level is None:
-        return "info"
-    elif log_level.lower() in valid:
-        return log_level.lower()
+    if count < 10:
+        return 10
+    elif count < 50:
+        return 30
     else:
-        swanlog.warning(f"The log level you provided is not valid, it has been set to {log_level}.")
-        return "info"
+        return 60

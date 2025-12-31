@@ -10,6 +10,7 @@ r"""
 import os
 from typing import Any, Dict, Optional, List, Tuple
 
+from swanlab.core_python import timer
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
 from swanlab.formatter import check_key_format
@@ -18,7 +19,7 @@ from swanlab.swanlab_settings import reset_settings, get_settings
 from swanlab.toolkit import MediaType
 from .config import SwanLabConfig
 from .exp import SwanLabExp
-from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, MonitorCron
+from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, monitor_interval
 from .metadata import get_requirements, get_conda, HardwareCollector
 from .public import SwanLabPublicConfig
 from ..store import get_run_store, reset_run_store
@@ -59,7 +60,7 @@ class SwanLabRun:
         # 0. 下面的参数会在实验结束后进行副作用清理
         self.__operator = operator
         self.__state = SwanLabRunState.RUNNING
-        self.__monitor_cron: Optional[MonitorCron] = None
+        self.__monitor_timer: Optional[timer.Timer] = None
         self.__config: Optional[SwanLabConfig] = None
         # 1. 设置常规参数
         self.__mode = get_mode()
@@ -122,15 +123,16 @@ class SwanLabRun:
                                 section_type="SYSTEM",
                             )
 
-                self.__monitor_cron = MonitorCron(monitor_func)
+                self.__monitor_timer = timer.Timer(monitor_func, interval=monitor_interval, immediate=True).run()
 
     def __cleanup(self, error: str = None, interrupt: bool = False):
         """
         停止部分功能，内部清理时调用
         """
         # 1. 停止硬件监控
-        if self.__monitor_cron is not None:
-            self.__monitor_cron.cancel()
+        if self.__monitor_timer is not None:
+            self.__monitor_timer.cancel()
+            self.__monitor_timer.join()
         # 2. 更新状态
         self.__state = SwanLabRunState.SUCCESS if error is None else SwanLabRunState.CRASHED
         # 3. 触发回调
