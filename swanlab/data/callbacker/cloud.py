@@ -27,6 +27,7 @@ from ..porter import Mounter
 from ..run import get_run
 from ...core_python import *
 from ...core_python.api.experiment import update_experiment_state
+from ...core_python.utils.timer import Timer
 from ...log.type import LogData
 
 
@@ -36,6 +37,7 @@ class CloudPyCallback(SwanLabRunCallback):
     def __init__(self):
         super().__init__()
         self.executor = ThreadPoolExecutor(max_workers=1)
+        self.heartbeat: Optional[Timer] = None
 
     def __str__(self):
         return "SwanLabCloudPyCallback"
@@ -62,12 +64,15 @@ class CloudPyCallback(SwanLabRunCallback):
         pass
 
     def on_init(self, *args, **kwargs):
-        _ = self._create_client()
+        self._create_client()
         # 检测是否有最新的版本
         U.check_latest_version()
+        # 挂载项目、实验
         with Status("Creating experiment...", spinner="dots"):
             with Mounter() as mounter:
                 mounter.execute()
+        # 创建客户端心跳
+        self.heartbeat = create_client_heartbeat()
 
     def _terminal_handler(self, log_data: LogData):
         self.porter.trace_log(log_data)
@@ -100,6 +105,11 @@ class CloudPyCallback(SwanLabRunCallback):
         self.porter.trace_metric(metric_info)
 
     def on_stop(self, error: str = None, *args, **kwargs):
+        # 删除心跳
+        if self.heartbeat:
+            self.heartbeat.cancel()
+            self.heartbeat.join()
+        # 删除终端代理和系统回调
         success = get_run().success
         # FIXME 等合并 swankit 以后优化一下 interrupt 的传递问题
         interrupt = kwargs.get("interrupt", False)

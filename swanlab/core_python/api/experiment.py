@@ -5,13 +5,29 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
-from swanlab.core_python.client import Client
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
+
+
+def send_experiment_heartbeat(
+    client: "Client",
+    *,
+    cuid: str,
+    flag_id: str,
+):
+    """
+    发送实验心跳，保持实验处于活跃状态
+    :param client: 已登录的客户端实例
+    :param cuid: 实验唯一标识符
+    :param flag_id: 实验标记ID
+    """
+    client.post(f"/house/experiments/{cuid}/heartbeat", {"flagId": flag_id})
 
 
 def update_experiment_state(
-    client: Client,
+    client: "Client",
     *,
     username: str,
     projname: str,
