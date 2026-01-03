@@ -9,15 +9,50 @@ from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
+from swanlab.core_python.api.type import ApiKeyType
+from swanlab.core_python.api.user import create_api_key, get_latest_api_key, get_api_keys, delete_api_key
+from swanlab.core_python.auth.providers.api_key import LoginInfo
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from .model import Projects, Experiments, Experiment
+from .model import Projects, Experiments, Experiment, ApiBase
 
 try:
     from pandas import DataFrame
 except ImportError:
     DataFrame = None
+
+
+class ApiUser(ApiBase):
+    def __init__(self, client: Client, login_info: LoginInfo) -> None:
+        super().__init__()
+        self._client = client
+        self._login_info = login_info
+        self._api_keys: List[ApiKeyType] = []
+
+    @property
+    def username(self) -> str:
+        return self._login_info.username
+
+    @property
+    def api_keys(self) -> List[str]:
+        self._api_keys = get_api_keys(self._client)
+        return [r['key'] for r in self._api_keys]
+
+    def generate_api_key(self, description: str = None) -> Optional[str]:
+        api_key: Optional[ApiKeyType] = None
+        res = create_api_key(self._client, name=description)
+        if res.status_code == 201:
+            api_key = get_latest_api_key(self._client)
+        return api_key['key']
+
+    def delete_api_key(self, api_key: str) -> bool:
+        for key in self._api_keys:
+            if key['key'] == api_key:
+                res = delete_api_key(self._client, key_id=key['id'])
+                if res.status_code == 200:
+                    return True
+        return False
 
 
 class Api:
@@ -40,10 +75,14 @@ class Api:
                 swanlog.error("To use SwanLab OpenAPI, please login first.")
                 raise RuntimeError("Not logged in.") from e
 
-        login_info = auth.code_login(api_key, save_key=False)
+        self._login_info = auth.code_login(api_key, save_key=False)
         # 一个OpenApi对应一个client，可创建多个api获取从不同的client获取不同账号下的实验信息
-        self._client: Client = Client(login_info)
-        self._web_host = login_info.web_host
+        self._client: Client = Client(self._login_info)
+        self._web_host = self._login_info.web_host
+
+    @property
+    def user(self) -> ApiUser:
+        return ApiUser(self._client, self._login_info)
 
     def projects(
         self,

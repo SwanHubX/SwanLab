@@ -16,7 +16,24 @@ from .thread import HistoryPool, parse_key
 from .utils import flatten_runs
 
 
-class Label:
+class ApiBase:
+    @property
+    def __dict__(self) -> Dict[str, object]:
+        """
+        Return a dictionary containing all @property fields.
+        """
+        result = {}
+        cls = type(self)
+        for attr_name in dir(cls):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(cls, attr_name, None)
+            if isinstance(attr, property):
+                result[attr_name] = self.__getattribute__(attr_name)
+        return result
+
+
+class Label(ApiBase):
     """
     Project label object
     you can get the label name by str(label)
@@ -36,7 +53,7 @@ class Label:
         return str(self.name)
 
 
-class User:
+class User(ApiBase):
     def __init__(self, data: UserType) -> None:
         self._data = data
 
@@ -49,7 +66,7 @@ class User:
         return self._data['username']
 
 
-class Project:
+class Project(ApiBase):
     """
     Representing a single project with some of its properties.
     """
@@ -129,23 +146,8 @@ class Project:
         """
         return self._data['_count']
 
-    @property
-    def __dict__(self) -> Dict[str, object]:
-        """
-        Return a dictionary containing all @property fields.
-        """
-        result = {}
-        cls = type(self)
-        for attr_name in dir(cls):
-            if attr_name.startswith('_'):
-                continue
-            attr = getattr(cls, attr_name, None)
-            if isinstance(attr, property):
-                result[attr_name] = self.__getattribute__(attr_name)
-        return result
 
-
-class Experiment:
+class Experiment(ApiBase):
     def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
         self._data = data
         self._client = client
@@ -266,21 +268,6 @@ class Experiment:
         """
         return self._data['rootProId']
 
-    @property
-    def __dict__(self) -> Dict[str, object]:
-        """
-        Return a dictionary containing all @property fields.
-        """
-        result = {}
-        cls = type(self)
-        for attr_name in dir(cls):
-            if attr_name.startswith('_'):
-                continue
-            attr = getattr(cls, attr_name, None)
-            if isinstance(attr, property):
-                result[attr_name] = self.__getattribute__(attr_name)
-        return result
-
     def __full_history(self):
         """
         Get all metric keys' data of the experiment with timestamp.
@@ -380,7 +367,7 @@ class Experiment:
         return df if pandas else df.to_dict(orient='records')
 
 
-class Projects:
+class Projects(ApiBase):
     """
     Container for a collection of Project objects.
     You can iterate over the projects by for-in loop.
@@ -423,7 +410,7 @@ class Projects:
         yield from iter(Project(project, self._web_host) for project in projects_info['list'])
 
 
-class Experiments:
+class Experiments(ApiBase):
     """
     Container for a collection of Experiment objects.
     You can iterate over the experiments by for-in loop.

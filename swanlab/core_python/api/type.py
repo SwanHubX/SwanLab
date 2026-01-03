@@ -17,6 +17,13 @@ class ProjectLabelType(TypedDict):
     name: str  # 项目标签名称
 
 
+class ApiKeyType(TypedDict):
+    id: int
+    name: str
+    createdAt: str
+    key: str
+
+
 class UserType(TypedDict):
     username: str  # 用户名
     name: str  # 用户显示名称
