@@ -12,7 +12,7 @@ import swanlab
 
 
 def example_code():
-    api = swanlab.OpenApi()
+    api = swanlab.Api()
     runs = api.runs(path="username/project")
     for run in runs:
         print(run.__dict__)
@@ -56,7 +56,7 @@ grouped_test_runs = [[{"GG": {"user": test_runs[0][0]}}]]
 def test_get_runs():
     """测试获取所有实验的基本功能"""
     with patch("swanlab.core_python.client.Client.post", side_effect=test_runs):
-        api = swanlab.OpenApi()
+        api = swanlab.Api()
         exps = api.runs(path="user/test-project")
 
         for run, index in zip(exps, range(50)):
@@ -90,7 +90,7 @@ def test_get_runs():
 def test_get_grouped_runs():
     """测试分组情况下，返回格式字典的实验数据"""
     with patch("swanlab.core_python.client.Client.post", side_effect=grouped_test_runs):
-        api = swanlab.OpenApi()
+        api = swanlab.Api()
         exps = api.runs(path="user/test-project")
 
         for run, index in zip(exps, range(50)):

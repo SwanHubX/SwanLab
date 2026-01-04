@@ -5,37 +5,56 @@
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Iterator, Any
 
 from swanlab.core_python import Client
 from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
+from swanlab.log import swanlog
+from .thread import HistoryPool, parse_key
 from .utils import flatten_runs
 
 
-class Label:
+class ApiBase:
+    @property
+    def __dict__(self) -> Dict[str, object]:
+        """
+        Return a dictionary containing all @property fields.
+        """
+        result = {}
+        cls = type(self)
+        for attr_name in dir(cls):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(cls, attr_name, None)
+            if isinstance(attr, property):
+                result[attr_name] = self.__getattribute__(attr_name)
+        return result
+
+
+class Label(ApiBase):
     """
     Project label object
     you can get the label name by str(label)
     """
 
-    def __init__(self, data: ProjectLabelType):
+    def __init__(self, data: ProjectLabelType) -> None:
         self._data = data
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Label name.
         """
         return self._data['name']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.name)
 
 
-class User:
-    def __init__(self, data: UserType):
+class User(ApiBase):
+    def __init__(self, data: UserType) -> None:
         self._data = data
 
     @property
@@ -47,12 +66,12 @@ class User:
         return self._data['username']
 
 
-class Project:
+class Project(ApiBase):
     """
     Representing a single project with some of its properties.
     """
 
-    def __init__(self, data: ProjectType, web_host: str):
+    def __init__(self, data: ProjectType, web_host: str) -> None:
         self._data = data
         self._web_host = web_host
 
@@ -127,24 +146,9 @@ class Project:
         """
         return self._data['_count']
 
-    @property
-    def __dict__(self) -> Dict[str, object]:
-        """
-        Return a dictionary containing all @property fields.
-        """
-        result = {}
-        cls = type(self)
-        for attr_name in dir(cls):
-            if attr_name.startswith('_'):
-                continue
-            attr = getattr(cls, attr_name, None)
-            if isinstance(attr, property):
-                result[attr_name] = self.__getattribute__(attr_name)
-        return result
 
-
-class Experiment:
-    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int):
+class Experiment(ApiBase):
+    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
         self._data = data
         self._client = client
         self._path = path
@@ -264,26 +268,39 @@ class Experiment:
         """
         return self._data['rootProId']
 
-    @property
-    def __dict__(self) -> Dict[str, object]:
+    def __full_history(self):
         """
-        Return a dictionary containing all @property fields.
+        Get all metric keys' data of the experiment with timestamp.
         """
-        result = {}
-        cls = type(self)
-        for attr_name in dir(cls):
-            if attr_name.startswith('_'):
-                continue
-            attr = getattr(cls, attr_name, None)
-            if isinstance(attr, property):
-                result[attr_name] = self.__getattribute__(attr_name)
-        return result
+        try:
+            import pandas as pd
+        except ImportError:
+            raise TypeError(
+                "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
+            )
 
-    def history(self, keys: List[str], x_axis: str = None, sample: int = None, pandas: bool = True):
+        if self.metric_keys is None or self.metric_keys == []:
+            df = pd.DataFrame()
+        else:
+            # 添加_step和_timestamp列及第一列数据
+            csv_df = get_experiment_metrics(self._client, expid=self.id, key=self.metric_keys[0])
+            df = pd.DataFrame(
+                {'_step': csv_df.iloc[:, 0], '_timestamp': csv_df.iloc[:, 2], self.metric_keys[0]: csv_df.iloc[:, 1]}
+            )
+
+            if len(self.metric_keys) >= 2:
+                pool = HistoryPool(self._client, self.id, self.metric_keys[1:])
+                pool.start()
+                pending_df = pool.wait_completion()
+                df = pd.merge(df, pending_df, on='_step', how='outer')
+
+        return df
+
+    def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get specific metric data of the experiment.
-        :param keys: List of metric keys to obtain.
-        :param x_axis: The metric to be used as x-axis. If None, 'step' will be used as the x-axis.
+        :param keys: List of metric keys to obtain. If None, all metrics keys will be used.
+        :param x_axis: The metric to be used as x-axis. If None, '_step' will be used as the x-axis.
         :param sample: Number of rows to select from the beginning.
         :param pandas: Whether to return a pandas DataFrame. If False, returns dict format: {key: [values], ...}
         :return: Metric data.
@@ -311,41 +328,46 @@ class Experiment:
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
 
-        # Collect all data into a dict first to avoid DataFrame fragmentation
-        data_dict = {}
+        if keys is not None and not isinstance(keys, list):
+            swanlog.warning('keys must be specified as a list')
+            return pd.DataFrame()
+        elif keys is not None and len(keys) and not all(isinstance(k, str) for k in keys):
+            swanlog.warning('keys must be a list of string')
+            return pd.DataFrame()
+
+        # 使用 merge 按 step 对齐不同指标的数据
+        df = pd.DataFrame()
+        x_col = '_step' if x_axis is None else x_axis
+        if x_col != '_step':
+            keys = [x_col] + keys
+
+        # 使用线程池并发获取所有的key的指标数据
+        if keys is not None:
+            pool = HistoryPool(self._client, self.id, keys)
+            pool.start()
+            df = pool.wait_completion()
 
         # x轴不为空时，将step替换为x_axis的指标数据
         if x_axis is not None:
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=x_axis)
-            data_dict[x_axis] = csv_df.iloc[:, 1]
+            df = df.drop(columns=['_step'])
+        # x轴与keys都未指定时，返回带时间戳的所有指标数据
+        elif keys is None:
+            df = self.__full_history()
 
-        for key in keys:
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=key)
-            if csv_df is None:
-                continue
-            if key == keys[0] and x_axis is None:
-                data_dict['step'] = csv_df.iloc[:, 0]
-            data_dict[key] = csv_df.iloc[:, 1]
-
-        # Create DataFrame in one operation
-        df = pd.DataFrame(data_dict)
+        # 按 x 轴排序
+        if x_col in df.columns:
+            df = df.sort_values(by=x_col).reset_index(drop=True)
 
         # 截取前sample行
         if sample is not None:
             df = df.head(sample)
+
+        # 去掉每一列列名第一个@
+        df.columns = [col.replace('@', '', 1) if col != parse_key(x_axis) else col for col in df.columns]
         return df if pandas else df.to_dict(orient='records')
 
-    def scan_history(self, min_step: int = 0, max_step: int = 1000):
-        """
-        Get all metric keys' data of the experiment in a range of steps.
-        :param min_step: The minimum step to get.
-        :param max_step: The maximum step to get.
-        :return: Metric data in dict.
-        """
-        return self.history(keys=self.metric_keys, pandas=False)[min_step:max_step]
 
-
-class Projects:
+class Projects(ApiBase):
     """
     Container for a collection of Project objects.
     You can iterate over the projects by for-in loop.
@@ -359,7 +381,7 @@ class Projects:
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ):
+    ) -> None:
         self._client = client
         self._web_host = web_host
         self._workspace = workspace
@@ -367,7 +389,7 @@ class Projects:
         self._search = search
         self._detail = detail
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
         page_size = 20
@@ -388,13 +410,13 @@ class Projects:
         yield from iter(Project(project, self._web_host) for project in projects_info['list'])
 
 
-class Experiments:
+class Experiments(ApiBase):
     """
     Container for a collection of Experiment objects.
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None):
+    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
@@ -402,7 +424,7 @@ class Experiments:
         self._web_host = web_host
         self._filters = filters
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Experiment]:
         # todo: 完善filter的功能（正则、条件判断）
         resp = get_project_experiments(self._client, path=self._path, filters=self._filters)
         runs: List[RunType] = []
