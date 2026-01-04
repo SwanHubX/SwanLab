@@ -5,14 +5,15 @@
 @description: 定义项目相关的后端API接口
 """
 
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
-from swanlab.core_python.client import Client
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
 from .type import ProjParamType, ProjResponseType
 
 
 def get_workspace_projects(
-    client: Client,
+    client: "Client",
     *,
     workspace: str,
     page: int = 1,

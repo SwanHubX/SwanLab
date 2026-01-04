@@ -5,10 +5,13 @@
 @description: 定义用户相关的后端API接口
 """
 
-from swanlab.core_python.client import Client
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
 
 
-def create_api_key(client: Client, *, name: str = None):
+def create_api_key(client: "Client", *, name: str = None):
     """
     创建一个api_key，完成后返回成功信息
     :param client: 已登录的客户端实例
@@ -22,7 +25,7 @@ def create_api_key(client: Client, *, name: str = None):
     return res[1]
 
 
-def delete_api_key(client: Client, *, key_id: int):
+def delete_api_key(client: "Client", *, key_id: int):
     """
     删除指定id的api_key
     :param client: 已登录的客户端实例
@@ -32,7 +35,7 @@ def delete_api_key(client: Client, *, key_id: int):
     return res[1]
 
 
-def get_api_keys(client: Client):
+def get_api_keys(client: "Client"):
     """
     获取当前全部的api_key
     :param client: 已登录的客户端实例
@@ -41,7 +44,7 @@ def get_api_keys(client: Client):
     return res[0]
 
 
-def get_latest_api_key(client: Client):
+def get_latest_api_key(client: "Client"):
     """
     获取最新的api_key
     :param client: 已登录的客户端实例

@@ -5,13 +5,13 @@
 @description: 定义实验相关的后端API接口
 """
 
-import requests
 from io import BytesIO
 from typing import Literal, Dict, TYPE_CHECKING, List
 
+import requests
+
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-from swanlab.core_python.client import Client
 from swanlab.error import ApiError
 from .type import ExpFilterType
 from .utils import to_camel_case, parse_column_type
@@ -86,7 +86,7 @@ def get_project_experiments(client: "Client", *, path: str, filters: Dict[str, o
     return res[0]
 
 
-def get_single_experiment(client: Client, *, path: str):
+def get_single_experiment(client: "Client", *, path: str):
     """
     获取指定项目下的所有实验信息
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
@@ -98,7 +98,7 @@ def get_single_experiment(client: Client, *, path: str):
     return res[0]
 
 
-def get_experiment_metrics(client: Client, *, expid: str, key: str):
+def get_experiment_metrics(client: "Client", *, expid: str, key: str):
     """
     获取指定字段的指标数据，并将csv转为DataFrame
     :param client: 已登录的客户端实例
