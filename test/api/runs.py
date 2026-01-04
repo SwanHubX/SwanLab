@@ -10,12 +10,11 @@ from unittest.mock import patch
 
 import swanlab
 
-
-def example_code():
-    api = swanlab.Api()
-    runs = api.runs(path="username/project")
-    for run in runs:
-        print(run.__dict__)
+# example_code:
+#     api = swanlab.Api()
+#     runs = api.runs(path="username/project")
+#     for run in runs:
+#         print(run.__dict__)
 
 
 # 测试实验数据
