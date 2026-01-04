@@ -44,9 +44,10 @@ class ApiUser(ApiBase):
         res = create_api_key(self._client, name=description)
         if res.status_code == 201:
             api_key = get_latest_api_key(self._client)
-        return api_key['key']
+        return api_key['key'] if api_key else None
 
     def delete_api_key(self, api_key: str) -> bool:
+        self._api_keys = get_api_keys(self._client)
         for key in self._api_keys:
             if key['key'] == api_key:
                 res = delete_api_key(self._client, key_id=key['id'])

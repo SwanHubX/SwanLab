@@ -337,12 +337,10 @@ class Experiment(ApiBase):
 
         # 使用 merge 按 step 对齐不同指标的数据
         df = pd.DataFrame()
-        x_col = '_step' if x_axis is None else x_axis
-        if x_col != '_step':
-            keys = [x_col] + keys
 
         # 使用线程池并发获取所有的key的指标数据
         if keys is not None:
+            keys = [x_axis] + [k for k in keys if k != x_axis]
             pool = HistoryPool(self._client, self.id, keys)
             pool.start()
             df = pool.wait_completion()
@@ -355,15 +353,15 @@ class Experiment(ApiBase):
             df = self.__full_history()
 
         # 按 x 轴排序
-        if x_col in df.columns:
-            df = df.sort_values(by=x_col).reset_index(drop=True)
+        if x_axis in df.columns:
+            df = df.sort_values(by=x_axis).reset_index(drop=True)
 
         # 截取前sample行
         if sample is not None:
             df = df.head(sample)
 
         # 去掉每一列列名第一个@
-        df.columns = [col.replace('@', '', 1) if col != parse_key(x_axis) else col for col in df.columns]
+        df.columns = [col.lstrip('@') if col != parse_key(x_axis) else col for col in df.columns]
         return df if pandas else df.to_dict(orient='records')
 
 
