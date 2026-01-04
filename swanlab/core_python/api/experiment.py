@@ -10,7 +10,7 @@ from typing import Literal, Dict, TYPE_CHECKING, List, Union
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
-from .type import ExpFilterType, RunType
+from .type import RunType
 from .utils import to_camel_case, parse_column_type
 
 
@@ -70,7 +70,7 @@ def get_project_experiments(
     :param path: 项目路径 username/project
     :param filters: 筛选实验的条件，可选
     """
-    parsed_filters: List[ExpFilterType] = (
+    parsed_filters = (
         [
             {
                 "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],

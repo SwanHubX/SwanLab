@@ -10,7 +10,7 @@ from typing import Optional, List, TYPE_CHECKING
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
-from .type import ProjParamType, ProjResponseType
+from .type import ProjResponseType
 
 
 def get_workspace_projects(
@@ -33,7 +33,7 @@ def get_workspace_projects(
     :param search: 搜索的项目名称关键字, 可选
     :param detail: 是否包含项目下实验的相关信息, 可选, 默认为true
     """
-    params: ProjParamType = {
+    params = {
         'page': page,
         'size': size,
         'sort': sort,
@@ -41,5 +41,4 @@ def get_workspace_projects(
         'detail': detail,
     }
     res = client.get(f"/project/{workspace}", params=dict(params))
-    projects_info: ProjResponseType = res[0]
-    return projects_info
+    return res[0]
