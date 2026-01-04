@@ -5,13 +5,15 @@
 @description: 定义用户相关的后端API接口
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
+from swanlab.core_python.api.type import ApiKeyType
 
-def create_api_key(client: "Client", *, name: str = None):
+
+def create_api_key(client: "Client", *, name: str = None) -> str:
     """
     创建一个api_key，完成后返回成功信息
     :param client: 已登录的客户端实例
@@ -22,20 +24,20 @@ def create_api_key(client: "Client", *, name: str = None):
         res = client.post(f"/user/key", data=data)
     else:
         res = client.post(f"/user/key")
-    return res[1]
+    return res[0]
 
 
-def delete_api_key(client: "Client", *, key_id: int):
+def delete_api_key(client: "Client", *, key_id: int) -> str:
     """
     删除指定id的api_key
     :param client: 已登录的客户端实例
     :param key_id: api_key的id
     """
     res = client.delete(f"/user/key/{key_id}")
-    return res[1]
+    return res[0]
 
 
-def get_api_keys(client: "Client"):
+def get_api_keys(client: "Client") -> List[ApiKeyType]:
     """
     获取当前全部的api_key
     :param client: 已登录的客户端实例
@@ -44,7 +46,7 @@ def get_api_keys(client: "Client"):
     return res[0]
 
 
-def get_latest_api_key(client: "Client"):
+def get_latest_api_key(client: "Client") -> ApiKeyType:
     """
     获取最新的api_key
     :param client: 已登录的客户端实例

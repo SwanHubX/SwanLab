@@ -9,6 +9,6 @@ r"""
 """
 
 from .api import Api
-from .open_api import OpenApi
+from .deprecated import OpenApi
 
 __all__ = ["Api", "OpenApi"]

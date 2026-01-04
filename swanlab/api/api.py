@@ -16,11 +16,7 @@ from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
 from .model import Projects, Experiments, Experiment, ApiBase
-
-try:
-    from pandas import DataFrame
-except ImportError:
-    DataFrame = None
+from .utils import STATUS_OK, STATUS_CREATED
 
 
 class ApiUser(ApiBase):
@@ -42,7 +38,7 @@ class ApiUser(ApiBase):
     def generate_api_key(self, description: str = None) -> Optional[str]:
         api_key: Optional[ApiKeyType] = None
         res = create_api_key(self._client, name=description)
-        if res.status_code == 201:
+        if res == STATUS_CREATED:
             api_key = get_latest_api_key(self._client)
         return api_key['key'] if api_key else None
 
@@ -51,7 +47,7 @@ class ApiUser(ApiBase):
         for key in self._api_keys:
             if key['key'] == api_key:
                 res = delete_api_key(self._client, key_id=key['id'])
-                if res.status_code == 200:
+                if res == STATUS_OK:
                     return True
         return False
 

@@ -5,14 +5,16 @@
 @description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
 """
 
-from typing import List, Dict, Optional, Iterator, Any
+from typing import List, Dict, Optional, Iterator, Any, TYPE_CHECKING
 
-from swanlab.core_python import Client
-from swanlab.core_python.api.experiment import get_project_experiments, get_experiment_metrics
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
+
+from swanlab.core_python.api.experiment import get_project_experiments
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from swanlab.log import swanlog
-from .thread import HistoryPool, parse_key
+from .thread import HistoryPool
 from .utils import flatten_runs
 
 
@@ -148,7 +150,7 @@ class Project(ApiBase):
 
 
 class Experiment(ApiBase):
-    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
+    def __init__(self, data: RunType, client: "Client", path: str, web_host: str, line_count: int) -> None:
         self._data = data
         self._client = client
         self._path = path
@@ -268,7 +270,7 @@ class Experiment(ApiBase):
         """
         return self._data['rootProId']
 
-    def __full_history(self):
+    def __full_history(self) -> Any:
         """
         Get all metric keys' data of the experiment with timestamp.
         """
@@ -279,20 +281,11 @@ class Experiment(ApiBase):
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
 
-        if self.metric_keys is None or self.metric_keys == []:
-            df = pd.DataFrame()
-        else:
-            # 添加_step和_timestamp列及第一列数据
-            csv_df = get_experiment_metrics(self._client, expid=self.id, key=self.metric_keys[0])
-            df = pd.DataFrame(
-                {'_step': csv_df.iloc[:, 0], '_timestamp': csv_df.iloc[:, 2], self.metric_keys[0]: csv_df.iloc[:, 1]}
-            )
-
-            if len(self.metric_keys) >= 2:
-                pool = HistoryPool(self._client, self.id, self.metric_keys[1:])
-                pool.start()
-                pending_df = pool.wait_completion()
-                df = pd.merge(df, pending_df, on='_step', how='outer')
+        df = pd.DataFrame()
+        if len(self.metric_keys) >= 1:
+            pool = HistoryPool(self._client, self.id, self.metric_keys)
+            pool.start()
+            df = pool.wait_completion()
 
         return df
 
@@ -360,8 +353,6 @@ class Experiment(ApiBase):
         if sample is not None:
             df = df.head(sample)
 
-        # 去掉每一列列名第一个@
-        df.columns = [col.lstrip('@') if col != parse_key(x_axis) else col for col in df.columns]
         return df if pandas else df.to_dict(orient='records')
 
 
@@ -373,7 +364,7 @@ class Projects(ApiBase):
 
     def __init__(
         self,
-        client: Client,
+            client: "Client",
         web_host: str,
         workspace: str,
         sort: Optional[List[str]] = None,
@@ -414,7 +405,7 @@ class Experiments(ApiBase):
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: Client, path: str, web_host: str, filters: Dict[str, object] = None) -> None:
+    def __init__(self, client: "Client", path: str, web_host: str, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client

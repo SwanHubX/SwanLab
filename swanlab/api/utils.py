@@ -1,11 +1,14 @@
 """
-@author: Zhou Qiyang
+@author: Zhou QiYang
 @file: utils.py
-@time: 2025/12/25 21:32
-@description: OpenApi 中使用的工具函数
+@time: 2026/1/4 18:03
+@description: OpenApi 使用的常量和工具函数
 """
 
 from typing import Dict, List
+
+STATUS_OK = "OK"
+STATUS_CREATED = "Created"
 
 
 def flatten_runs(runs: Dict) -> List:

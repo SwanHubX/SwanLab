@@ -7,23 +7,22 @@
 
 import queue
 import threading
-from typing import List, Any
+from io import BytesIO
+from typing import List, Any, TYPE_CHECKING
 
-from swanlab.core_python import Client
+import requests
+
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
+
 from swanlab.core_python.api.experiment import get_experiment_metrics
+from swanlab.error import ApiError
 from swanlab.log import swanlog
-
-
-def parse_key(key: str):
-    """
-    防止指标与默认x轴 _step 重名，导致之后排序混乱
-    """
-    return f'@{key}'
 
 
 class HistoryPool:
 
-    def __init__(self, client: Client, expid: str, keys: List[str], num_threads: int = 10):
+    def __init__(self, client: "Client", expid: str, keys: List[str], num_threads: int = 10):
         try:
             import pandas as pd
         except ImportError:
@@ -73,15 +72,19 @@ class HistoryPool:
                 break
 
             try:
-                csv_df = get_experiment_metrics(self._client, expid=self._expid, key=key)
-                if csv_df is None:
+                csv_df = pd.DataFrame()
+                resp = get_experiment_metrics(self._client, expid=self._expid, key=key)
+                try:
+                    # 从返回网址中解析csv内容
+                    with requests.get(resp['url']) as response:
+                        csv_df = pd.read_csv(BytesIO(response.content))
+                        csv_df = csv_df.drop(csv_df.columns[-1], axis=1)
+                except ApiError:
                     swanlog.warning(f'key {key} does not exist in experiment: {self._expid}')
                     pass
-                else:
-                    key_df = pd.DataFrame({'_step': csv_df.iloc[:, 0], parse_key(key): csv_df.iloc[:, 1]})
-                    # 只存储结果，不进行 merge
-                    with self._results_lock:
-                        self._results[parse_key(key)] = key_df
+                # 只存储结果，不进行 merge
+                with self._results_lock:
+                    self._results[key] = csv_df
             except Exception as e:
                 swanlog.warning(f'Error processing key {key} in experiment {self._expid}: {e}')
             finally:
@@ -99,13 +102,13 @@ class HistoryPool:
 
         # 按照 keys 的顺序统一合并
         for key in self._keys:
-            key = parse_key(key)
             if key not in self._results:
                 continue
             key_df = self._results[key]
             if self._history.empty:
                 self._history = key_df
             else:
-                self._history = pd.merge(self._history, key_df, on='_step', how='outer')
+                self._history = pd.merge(self._history, key_df, on='step', how='outer')
 
+        self._history.rename(columns={'step': '_step'}, inplace=True)
         return self._history

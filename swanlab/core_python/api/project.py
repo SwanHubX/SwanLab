@@ -9,6 +9,7 @@ from typing import Optional, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
+
 from .type import ProjParamType, ProjResponseType
 
 
@@ -21,7 +22,7 @@ def get_workspace_projects(
     sort: Optional[List[str]] = None,
     search: Optional[str] = None,
     detail: Optional[bool] = True,
-):
+) -> ProjResponseType:
     """
     获取指定页数和条件下的项目信息
     :param client: 已登录的客户端实例
