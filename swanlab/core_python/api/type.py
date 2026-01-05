@@ -72,3 +72,12 @@ class ApiKeyType(TypedDict):
     name: str
     createdAt: str
     key: str
+
+
+# 私有化部署信息
+class SelfHostedInfoType(TypedDict):
+    enabled: bool  # 是否成功部署
+    expired: bool  # licence是否过期
+    root: bool  # 是否为根用户
+    plan: Literal["free", "commercial"]  # 私有化版本（免费、商业）
+    seats: int  # 余剩席位

@@ -5,62 +5,15 @@
 @description: OpenApi 模块
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
-from swanlab.core_python.api.type import ApiKeyType
-from swanlab.core_python.api.user import (
-    create_api_key,
-    get_latest_api_key,
-    get_api_keys,
-    delete_api_key,
-    get_user_groups,
-)
-from swanlab.core_python.auth.providers.api_key import LoginInfo
-from swanlab.error import KeyFileError
+from swanlab.core_python.api.self_hosted import get_self_hosted_init
+from swanlab.error import KeyFileError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_key, HostFormatter
-from .model import Projects, Experiments, Experiment, ApiBase
-from .utils import STATUS_OK, STATUS_CREATED
-
-
-class ApiUser(ApiBase):
-    def __init__(self, client: Client, login_info: LoginInfo) -> None:
-        super().__init__()
-        self._client = client
-        self._login_info = login_info
-        self._api_keys: List[ApiKeyType] = []
-
-    @property
-    def username(self) -> str:
-        return self._login_info.username
-
-    @property
-    def teams(self) -> List[str]:
-        resp = get_user_groups(self._client, username=self.username)
-        return [r['name'] for r in resp]
-
-    @property
-    def api_keys(self) -> List[str]:
-        self._api_keys = get_api_keys(self._client)
-        return [r['key'] for r in self._api_keys]
-
-    def generate_api_key(self, description: str = None) -> Optional[str]:
-        api_key: Optional[ApiKeyType] = None
-        res = create_api_key(self._client, name=description)
-        if res == STATUS_CREATED:
-            api_key = get_latest_api_key(self._client)
-        return api_key['key'] if api_key else None
-
-    def delete_api_key(self, api_key: str) -> bool:
-        self._api_keys = get_api_keys(self._client)
-        for key in self._api_keys:
-            if key['key'] == api_key:
-                res = delete_api_key(self._client, key_id=key['id'])
-                if res == STATUS_OK:
-                    return True
-        return False
+from .model import Projects, Experiments, Experiment, ApiUser, SuperUser
 
 
 class Api:
@@ -88,9 +41,40 @@ class Api:
         self._client: Client = Client(self._login_info)
         self._web_host = self._login_info.web_host
 
-    @property
-    def user(self) -> ApiUser:
-        return ApiUser(self._client, self._login_info)
+    def user(self, username: str = None) -> Optional[Union[ApiUser, SuperUser]]:
+        # 尝试获取私有化服务信息，如果不是私有化服务，则会报错退出，因为指定user功能仅供私有化用户使用
+        try:
+            self_hosted_info = get_self_hosted_init(self._client)
+        except ApiError as e:
+            if username is not None:
+                swanlog.error(
+                    "You haven't launched a swanlab self-hosted instance. Please check your login status using 'swanlab verify'."
+                )
+                raise e
+            else:
+                return ApiUser(self._client, self._login_info)
+
+        if not self_hosted_info["enabled"]:
+            raise RuntimeError("SwanLab self-hosted instance hasn't been ready yet.")
+        if self_hosted_info["expired"]:
+            raise RuntimeError("SwanLab self-hosted instance has expired. Please refresh your licence.")
+
+        # 免费版仅能获取当前api_key登录的用户
+        if self_hosted_info["plan"] == 'free':
+            if username != self._login_info.username:
+                swanlog.warning("Your self-hosted plan is 'free', You will be access to your own account.")
+            return ApiUser(self._client, self._login_info)
+        # 商业版的根用户可以获取到任何一个用户
+        elif self_hosted_info["plan"] == 'commercial':
+            if self_hosted_info['root']:
+                return SuperUser(self._client, self._login_info, self_hosted=self_hosted_info)
+            elif username != self._login_info.username:
+                swanlog.warning("Your are not the root user, You will be access to your own account.")
+            return ApiUser(self._client, self._login_info)
+        # 为教育版预留功能
+        else:
+            swanlog.warning("The self-hosted plan hasn't been supported yet.")
+            return None
 
     def projects(
         self,

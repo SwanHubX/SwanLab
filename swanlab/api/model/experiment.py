@@ -1,152 +1,22 @@
 """
-@author: Zhou Qiyang
-@file: model.py
-@time: 2025/12/18 20:10
-@description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
+@author: Zhou QiYang
+@file: experiment.py
+@time: 2026/1/5 17:58
+@description: OpenApi 中的实验对象
 """
 
-from typing import List, Dict, Optional, Iterator, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Dict, Any, Iterator
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
-from swanlab.core_python.api.experiment import get_project_experiments
-from swanlab.core_python.api.project import get_workspace_projects
-from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType, UserType, RunType
 from swanlab.log import swanlog
-from .thread import HistoryPool
-from .utils import flatten_runs
+from swanlab.core_python.api.experiment import get_project_experiments
+from swanlab.core_python.api.type import RunType
+from swanlab.api.thread import HistoryPool
+from swanlab.api.utils import flatten_runs
 
-
-class ApiBase:
-    @property
-    def __dict__(self) -> Dict[str, object]:
-        """
-        Return a dictionary containing all @property fields.
-        """
-        result = {}
-        cls = type(self)
-        for attr_name in dir(cls):
-            if attr_name.startswith('_'):
-                continue
-            attr = getattr(cls, attr_name, None)
-            if isinstance(attr, property):
-                result[attr_name] = self.__getattribute__(attr_name)
-        return result
-
-
-class Label(ApiBase):
-    """
-    Project label object
-    you can get the label name by str(label)
-    """
-
-    def __init__(self, data: ProjectLabelType) -> None:
-        self._data = data
-
-    @property
-    def name(self) -> str:
-        """
-        Label name.
-        """
-        return self._data['name']
-
-    def __str__(self) -> str:
-        return str(self.name)
-
-
-class User(ApiBase):
-    def __init__(self, data: UserType) -> None:
-        self._data = data
-
-    @property
-    def name(self) -> str:
-        return self._data['name']
-
-    @property
-    def username(self) -> str:
-        return self._data['username']
-
-
-class Project(ApiBase):
-    """
-    Representing a single project with some of its properties.
-    """
-
-    def __init__(self, data: ProjectType, web_host: str) -> None:
-        self._data = data
-        self._web_host = web_host
-
-    @property
-    def name(self) -> str:
-        """
-        Project name.
-        """
-        return self._data['name']
-
-    @property
-    def path(self) -> str:
-        """
-        Project path in the format 'username/project-name'.
-        """
-        return self._data['path']
-
-    @property
-    def url(self) -> str:
-        """
-        Full URL to access the project.
-        """
-        return f"{self._web_host}/@{self._data['path']}"
-
-    @property
-    def description(self) -> str:
-        """
-        Project description.
-        """
-        return self._data['description']
-
-    @property
-    def visibility(self) -> str:
-        """
-        Project visibility, either 'PUBLIC' or 'PRIVATE'.
-        """
-        return self._data['visibility']
-
-    @property
-    def created_at(self) -> str:
-        """
-        Project creation timestamp
-        """
-        return self._data['createdAt']
-
-    @property
-    def updated_at(self) -> str:
-        """
-        Project last update timestamp
-        """
-        return self._data['updatedAt']
-
-    @property
-    def workspace(self) -> str:
-        """
-        Project workspace name.
-        """
-        return self._data["group"]["username"]
-
-    @property
-    def labels(self) -> List[Label]:
-        """
-        List of Label attached to this project.
-        """
-        return [Label(label) for label in self._data['projectLabels']]
-
-    @property
-    def count(self) -> Dict[str, int]:
-        """
-        Project statistics dictionary containing:
-        experiments, contributors, children, collaborators, runningExps.
-        """
-        return self._data['_count']
+from .base import ApiBase, Label, User
 
 
 class Experiment(ApiBase):
@@ -354,49 +224,6 @@ class Experiment(ApiBase):
             df = df.head(sample)
 
         return df if pandas else df.to_dict(orient='records')
-
-
-class Projects(ApiBase):
-    """
-    Container for a collection of Project objects.
-    You can iterate over the projects by for-in loop.
-    """
-
-    def __init__(
-        self,
-            client: "Client",
-        web_host: str,
-        workspace: str,
-        sort: Optional[List[str]] = None,
-        search: Optional[str] = None,
-        detail: Optional[bool] = True,
-    ) -> None:
-        self._client = client
-        self._web_host = web_host
-        self._workspace = workspace
-        self._sort = sort
-        self._search = search
-        self._detail = detail
-
-    def __iter__(self) -> Iterator[Project]:
-        # 按用户遍历情况获取项目信息
-        cur_page = 0
-        page_size = 20
-        while True:
-            cur_page += 1
-            projects_info: ProjResponseType = get_workspace_projects(
-                self._client,
-                workspace=self._workspace,
-                page=cur_page,
-                size=page_size,
-                sort=self._sort,
-                search=self._search,
-                detail=self._detail,
-            )
-            if cur_page * page_size >= projects_info['total']:
-                break
-
-        yield from iter(Project(project, self._web_host) for project in projects_info['list'])
 
 
 class Experiments(ApiBase):
