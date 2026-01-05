@@ -7,7 +7,7 @@
 </picture>
 
 An open-source, modern-designed deep learning training tracking and visualization tool  
-Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, and easily integrates with your experimental code.
+Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, and easily integrates with your experimental code.
 
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
 
@@ -51,6 +51,8 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2026.01.02: 🥳 Added support for **AMD ROCm** and **Iluvatar GPU** hardware monitoring; SDK added heartbeat package feature, implementing more robust cloud/offline connection;
+
 - 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
 -2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
@@ -67,9 +69,10 @@ Supports both cloud/offline usage, integrates with 30+ mainstream frameworks, an
 
 - 2025.08.19: 🤔 Optimized chart rendering performance, allowing researchers to focus more on experiment analysis; integrated excellent [MLX-LM](https://github.com/ml-explore/mlx-lm) and [SpecForge](https://github.com/sgl-project/SpecForge) frameworks, providing more training scenarios;
 
-- 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
 
 <details><summary>Full Changelog</summary>
+
+- 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
 
 - 2025.07.29: 🚀 Added support for experiment filtering and sorting in the sidebar; 📊 Added column control panel to the table view, allowing easy hiding and displaying of columns; 🔐 Added support for managing multiple API Keys, making your data more secure; swanlab sync now supports training crash log files; PR curve, ROC curve, confusion matrix are now available, [documentation](https://docs.swanlab.cn/api/py-pr_curve.html);
 

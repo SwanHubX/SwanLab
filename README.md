@@ -7,7 +7,7 @@
 </picture>
 
 一个开源、现代化设计的深度学习训练跟踪与可视化工具  
-同时支持云端/离线使用，适配30+主流框架，与你的实验代码轻松集成
+同时支持云端/离线使用，适配40+主流框架，与你的实验代码轻松集成
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a>
 
@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
+
 - 2025.12.15：🎉SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
 - 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
@@ -75,9 +77,9 @@
 
 - 2025.08.19：🤔更强大的图表渲染性能与低侵入式加载动画，让研究者更聚焦于实验分析本身；集成优秀的[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)框架，提供更多场景的训练体验；
 
-- 2025.08.06：👥**训练轻协作**上线，支持邀请项目协作者，分享项目链接与二维码；工作区支持列表视图，支持显示项目Tags；
-
 <details><summary>完整更新日志</summary>
+
+- 2025.08.06：👥**训练轻协作**上线，支持邀请项目协作者，分享项目链接与二维码；工作区支持列表视图，支持显示项目Tags；
 
 - 2025.07.29：🚀侧边栏支持**实验筛选、排序**；📊表格视图上线**列控制面板**，能够方便地实现列的隐藏与显示；🔐**多API Key**管理上线，让你的数据更安全；swanlab sync提高了对日志文件完整性的兼容，适配训练崩溃等场景；新图表-PR曲线、ROC曲线、混淆矩阵上线，[文档](https://docs.swanlab.cn/api/py-pr_curve.html)；
 
