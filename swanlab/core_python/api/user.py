@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
-from swanlab.core_python.api.type import ApiKeyType
+from swanlab.core_python.api.type import ApiKeyType, GroupType
 
 
 def create_api_key(client: "Client", *, name: str = None) -> str:
@@ -34,6 +34,16 @@ def delete_api_key(client: "Client", *, key_id: int) -> str:
     :param key_id: api_key的id
     """
     res = client.delete(f"/user/key/{key_id}")
+    return res[0]
+
+
+def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:
+    """
+    获取当前全部的api_key
+    :param client: 已登录的客户端实例
+    :param username: 用户名称
+    """
+    res = client.get(f"/user/{username}/groups")
     return res[0]
 
 

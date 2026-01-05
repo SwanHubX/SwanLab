@@ -10,7 +10,13 @@ from typing import Optional, List, Dict
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
 from swanlab.core_python.api.type import ApiKeyType
-from swanlab.core_python.api.user import create_api_key, get_latest_api_key, get_api_keys, delete_api_key
+from swanlab.core_python.api.user import (
+    create_api_key,
+    get_latest_api_key,
+    get_api_keys,
+    delete_api_key,
+    get_user_groups,
+)
 from swanlab.core_python.auth.providers.api_key import LoginInfo
 from swanlab.error import KeyFileError
 from swanlab.log import swanlog
@@ -29,6 +35,11 @@ class ApiUser(ApiBase):
     @property
     def username(self) -> str:
         return self._login_info.username
+
+    @property
+    def teams(self) -> List[str]:
+        resp = get_user_groups(self._client, username=self.username)
+        return [r['name'] for r in resp]
 
     @property
     def api_keys(self) -> List[str]:

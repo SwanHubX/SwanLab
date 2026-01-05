@@ -9,19 +9,14 @@ from typing import TypedDict, Optional, List, Dict, Literal
 
 
 # ------------------------------------- 通用类型 -------------------------------------
+# 在项目信息和用户信息的返回结果中，该类型的字段含义不同，注意区分
 class GroupType(TypedDict):
-    username: str  # 工作空间名称 (workspace)
+    name: str  # 组织名称 (用于user.teams)
+    username: str  # 工作空间名称 (用于project.workspace)
 
 
 class ProjectLabelType(TypedDict):
     name: str  # 项目标签名称
-
-
-class ApiKeyType(TypedDict):
-    id: int
-    name: str
-    createdAt: str
-    key: str
 
 
 class UserType(TypedDict):
@@ -70,3 +65,10 @@ class ProjResponseType(TypedDict):
     size: int  # 每页项目数量
     pages: int  # 总页数
     total: int  # 总项目数量
+
+
+class ApiKeyType(TypedDict):
+    id: int
+    name: str
+    createdAt: str
+    key: str
