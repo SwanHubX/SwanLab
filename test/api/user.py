@@ -9,7 +9,8 @@ import random
 from unittest.mock import patch, MagicMock
 
 import swanlab
-from swanlab.api.utils import STATUS_OK, STATUS_CREATED
+from swanlab.api.utils import STATUS_CREATED, STATUS_OK
+from swanlab.error import ApiError
 
 
 # example_code:
@@ -58,6 +59,15 @@ def make_fake_latest_api_key():
     }
 
 
+def make_fake_self_hosted_404(*args, **kwargs):
+    """构造一个指向 /self_hosted/info 的 404 ApiError"""
+    resp = MagicMock()
+    resp.status_code = 404
+    resp.reason = "Not Found"
+    raise ApiError(resp=resp)
+
+
+# 模拟普通用户登录
 class ApiUserContext:
     def __init__(self, fake_login_info=None):
         self.fake_login_info = fake_login_info or make_fake_login_info()
@@ -67,13 +77,14 @@ class ApiUserContext:
 
     def __enter__(self):
         patch1 = patch("swanlab.api.api.auth.code_login", return_value=self.fake_login_info)
-        self.patches.append(patch1)
+        patch2 = patch("swanlab.api.api.get_self_hosted_init", side_effect=make_fake_self_hosted_404)
+        self.patches.extend([patch1, patch2])
 
         for p in self.patches:
             p.start()
 
         self.api = swanlab.Api(api_key="fake_key")
-        self.user = self.api.user
+        self.user = self.api.user()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -82,13 +93,22 @@ class ApiUserContext:
         return False
 
 
-def test_api_user_username():
-    """测试获取用户名属性"""
+def test_api_user_info():
+    """测试获取用户名和团队列表"""
     fake_login_info = make_fake_login_info()
+    fake_teams = [
+        {"name": "team-alpha"},
+        {"name": "team-beta"},
+        {"name": "team-gamma"},
+    ]
 
-    with ApiUserContext(fake_login_info=fake_login_info) as ctx:
+    with ApiUserContext() as ctx:
         user = ctx.user
         assert user.username == fake_login_info.username
+        with patch("swanlab.api.model.user.get_user_groups", return_value=fake_teams):
+            teams = user.teams
+            assert isinstance(teams, list)
+            assert teams == [t["name"] for t in fake_teams]
 
 
 def test_api_user_api_keys():
@@ -97,7 +117,7 @@ def test_api_user_api_keys():
 
     with ApiUserContext() as ctx:
         user = ctx.user
-        with patch("swanlab.api.api.get_api_keys", return_value=fake_api_keys):
+        with patch("swanlab.api.model.user.get_api_keys", return_value=fake_api_keys):
             api_keys = user.api_keys
             assert isinstance(api_keys, list)
             assert len(api_keys) == len(fake_api_keys)
@@ -113,13 +133,13 @@ def test_api_user_generate_api_key():
 
     with ApiUserContext() as ctx:
         user = ctx.user
-        with patch("swanlab.api.api.create_api_key", return_value=STATUS_CREATED):
-            with patch("swanlab.api.api.get_latest_api_key", return_value=fake_latest_key):
+        with patch("swanlab.api.model.user.create_api_key", return_value=STATUS_CREATED):
+            with patch("swanlab.api.model.user.get_latest_api_key", return_value=fake_latest_key):
                 new_key = user.generate_api_key()
                 assert new_key is not None
                 assert new_key == fake_latest_key['key']
 
-        with patch("swanlab.api.api.create_api_key", return_value="Failed"):
+        with patch("swanlab.api.model.user.create_api_key", return_value="Failed"):
             new_key_failed = user.generate_api_key()
             assert new_key_failed is None
 
@@ -129,30 +149,18 @@ def test_api_user_delete_api_key_success():
     fake_api_keys = make_fake_api_keys(count=3)
     key_to_delete = fake_api_keys[1]['key']
 
-    def mock_delete_api_key(*args, **kwargs):
-        id_to_delete = kwargs.get('key_id')
-        if id_to_delete:
-            fake_api_keys[:] = [k for k in fake_api_keys if k['id'] != id_to_delete]
-        return STATUS_OK
-
     with ApiUserContext() as ctx:
         user = ctx.user
-
-        with patch("swanlab.api.api.get_api_keys", return_value=fake_api_keys):
-            with patch("swanlab.api.api.delete_api_key", side_effect=mock_delete_api_key):
+        with patch("swanlab.api.model.user.get_api_keys", return_value=fake_api_keys):
+            with patch("swanlab.api.model.user.delete_api_key", return_value=STATUS_OK) as delete_key:
                 api_keys_before = user.api_keys
                 assert key_to_delete in api_keys_before
                 assert len(api_keys_before) == 3
 
                 result = user.delete_api_key(key_to_delete)
+                # swanlab.api.model.user.delete_api_key 方法被调用了一次
+                assert delete_key.call_count == 1
                 assert result is True
-
-                api_keys_after = user.api_keys
-                assert key_to_delete not in api_keys_after
-                assert len(api_keys_after) == 2
-                remaining_keys = [k['key'] for k in fake_api_keys]
-                for key in remaining_keys:
-                    assert key in api_keys_after
 
 
 def test_api_user_delete_api_key_not_found():
@@ -161,14 +169,11 @@ def test_api_user_delete_api_key_not_found():
 
     with ApiUserContext() as ctx:
         user = ctx.user
+        with patch("swanlab.api.model.user.get_api_keys", return_value=fake_api_keys):
+            with patch("swanlab.api.model.user.delete_api_key", return_value="Not Found") as delete_key:
+                api_keys_before = user.api_keys
+                assert len(api_keys_before) == 3
 
-        with patch("swanlab.api.api.get_api_keys", return_value=fake_api_keys):
-            api_keys_before = user.api_keys
-            assert len(api_keys_before) == 3
-
-            result_not_found = user.delete_api_key("non-existent-key")
-            assert result_not_found is False
-
-            api_keys_after = user.api_keys
-            assert len(api_keys_after) == 3
-            assert api_keys_after == api_keys_before
+                result_not_found = user.delete_api_key("non-existent-key")
+                assert delete_key.call_count == 0
+                assert result_not_found is False
