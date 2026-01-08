@@ -153,9 +153,8 @@ class Experiment(ApiBase):
 
         df = pd.DataFrame()
         if len(self.metric_keys) >= 1:
-            pool = HistoryPool(self._client, self.id, self.metric_keys)
-            pool.start()
-            df = pool.wait_completion()
+            pool = HistoryPool(self._client, self.id, keys=self.metric_keys)
+            df = pool.execute()
 
         return df
 
@@ -198,26 +197,13 @@ class Experiment(ApiBase):
             swanlog.warning('keys must be a list of string')
             return pd.DataFrame()
 
-        # 使用 merge 按 step 对齐不同指标的数据
-        df = pd.DataFrame()
-
-        # 使用线程池并发获取所有的key的指标数据
-        if keys is not None:
-            keys = [x_axis] + [k for k in keys if k != x_axis]
-            pool = HistoryPool(self._client, self.id, keys)
-            pool.start()
-            df = pool.wait_completion()
-
-        # x轴不为空时，将step替换为x_axis的指标数据
-        if x_axis is not None:
-            df = df.drop(columns=['_step'])
-        # x轴与keys都未指定时，返回带时间戳的所有指标数据
-        elif keys is None:
+        if keys is None and x_axis is None:
+            # x轴与keys都未指定时，获取所有指标数据
             df = self.__full_history()
-
-        # 按 x 轴排序
-        if x_axis in df.columns:
-            df = df.sort_values(by=x_axis).reset_index(drop=True)
+        else:
+            # 使用线程池并发获取所有的key的指标数据
+            pool = HistoryPool(self._client, self.id, keys=keys, x_axis=x_axis)
+            df = pool.execute()
 
         # 截取前sample行
         if sample is not None:

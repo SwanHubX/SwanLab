@@ -5,8 +5,7 @@
 @description: 用于api并发请求的封装类
 """
 
-import queue
-import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import List, Any, TYPE_CHECKING
 
@@ -16,13 +15,12 @@ if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
 from swanlab.core_python.api.experiment import get_experiment_metrics
-from swanlab.error import ApiError
 from swanlab.log import swanlog
 
 
 class HistoryPool:
 
-    def __init__(self, client: "Client", expid: str, keys: List[str], num_threads: int = 10):
+    def __init__(self, client: "Client", expid: str, *, keys: List[str], x_axis: str = None, num_threads: int = 10):
         try:
             import pandas as pd
         except ImportError:
@@ -33,82 +31,69 @@ class HistoryPool:
         self._client = client
         self._expid = expid
         self._keys = keys
-        self._num_threads = min(num_threads, len(keys)) if keys else num_threads
-        self._task_queue = queue.Queue()
-        self._threads = []
-        # 使用 _results 字典收集每个 key 的 DataFrame，最后统一 merge 到 _history
-        self._history = pd.DataFrame()
+        self._x_axis = x_axis
+        if self._x_axis is not None:
+            self._keys = [self._x_axis] + [k for k in self._keys if k != self._x_axis]
+        self._num_threads = num_threads
+
+        # 使用 _results 字典收集每个 key 的 DataFrame，最后统一按顺序合并到 _history
+        self._executor = ThreadPoolExecutor(max_workers=self._num_threads)
+        self._futures = []
         self._results = dict()
-        self._results_lock = threading.Lock()
+        self._history = pd.DataFrame()
 
-    def start(self):
+    def _task(self, key: str):
         """
-        启动工作线程
+        处理单个key，获取对应csv
         """
+        import pandas as pd
+
+        try:
+            csv_df = pd.DataFrame()
+            resp = get_experiment_metrics(self._client, expid=self._expid, key=key)
+            # 从返回网址中解析csv内容
+            with requests.get(resp['url']) as response:
+                csv_df = pd.read_csv(BytesIO(response.content))
+            return key, csv_df
+        except Exception as e:
+            swanlog.warning(f'Error processing key {key} in experiment {self._expid}: {e}')
+            return key, pd.DataFrame()
+
+    def execute(self) -> Any:
         if not self._keys:
-            return
+            return self._history
 
-        # 将所有key放入队列
+        # 将所有key提交到线程池
         for key in self._keys:
-            self._task_queue.put(key)
+            future = self._executor.submit(self._task, key)
+            self._futures.append((key, future))
 
-        # 创建固定数量的工作线程
-        for _ in range(self._num_threads):
-            thread = threading.Thread(target=self._worker)
-            thread.daemon = True
-            self._threads.append(thread)
-            thread.start()
-
-    def _worker(self):
-        """
-        工作线程函数，从队列中取 key ，获取对应csv添加到 _result 中
-        """
-        import pandas as pd
-
-        while True:
-            key = self._task_queue.get()
-            if key is None:  # 结束信号
-                self._task_queue.task_done()
-                break
-
+        # 等待所有任务完成并收集结果
+        for key, future in self._futures:
             try:
-                csv_df = pd.DataFrame()
-                resp = get_experiment_metrics(self._client, expid=self._expid, key=key)
-                try:
-                    # 从返回网址中解析csv内容
-                    with requests.get(resp['url']) as response:
-                        csv_df = pd.read_csv(BytesIO(response.content))
-                        csv_df = csv_df.drop(csv_df.columns[-1], axis=1)
-                except ApiError:
-                    swanlog.warning(f'key {key} does not exist in experiment: {self._expid}')
-                    pass
-                # 只存储结果，不进行 merge
-                with self._results_lock:
-                    self._results[key] = csv_df
+                result_key, csv_df = future.result()
+                self._results[result_key] = csv_df
             except Exception as e:
-                swanlog.warning(f'Error processing key {key} in experiment {self._expid}: {e}')
-            finally:
-                self._task_queue.task_done()
-
-    def wait_completion(self) -> Any:
-        import pandas as pd
-
-        # 等待所有任务完成，发送结束信号给所有工作线程
-        self._task_queue.join()
-        for _ in range(self._num_threads):
-            self._task_queue.put(None)
-        for thread in self._threads:
-            thread.join()
+                swanlog.warning(f'Error getting result for key {key} in experiment {self._expid}: {e}')
+        self._executor.shutdown(wait=True)
 
         # 按照 keys 的顺序统一合并
         for key in self._keys:
             if key not in self._results:
                 continue
             key_df = self._results[key]
-            if self._history.empty:
-                self._history = key_df
-            else:
-                self._history = pd.merge(self._history, key_df, on='step', how='outer')
+            step_col, value_col = key_df.columns[:2]  # step 列, 指标值列
 
-        self._history.rename(columns={'step': '_step'}, inplace=True)
+            # 将 step 设为索引，其后基于索引自动对齐
+            if self._history.empty:
+                self._history = key_df.set_index(step_col)
+            else:
+                self._history[value_col] = key_df.set_index(step_col)[value_col]
+
+        # 若指定x轴，重置索引
+        if self._x_axis is not None:
+            self._history = self._history.reset_index().iloc[:, 1:]
+            self._history = self._history.set_index(self._history.columns[0])
+        else:
+            self._history.rename(columns={'step': '_step'}, inplace=True)
         return self._history
