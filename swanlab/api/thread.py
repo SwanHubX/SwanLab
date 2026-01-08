@@ -24,9 +24,7 @@ class HistoryPool:
         try:
             import pandas as pd
         except ImportError:
-            raise TypeError(
-                "OpenApi requires pandas to init the HistoryPool. Please install with 'pip install pandas'."
-            )
+            raise TypeError("Api requires pandas to init the HistoryPool. Please install with 'pip install pandas'.")
 
         self._client = client
         self._expid = expid
