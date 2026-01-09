@@ -5,14 +5,16 @@
 @description: 定义项目相关的后端API接口
 """
 
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
-from swanlab.core_python.api.type import ProjParamType, ProjResponseType
-from .. import Client
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
+
+from .type import ProjResponseType
 
 
-def get_entity_projects(
-    client: Client,
+def get_workspace_projects(
+    client: "Client",
     *,
     workspace: str,
     page: int = 1,
@@ -20,7 +22,7 @@ def get_entity_projects(
     sort: Optional[List[str]] = None,
     search: Optional[str] = None,
     detail: Optional[bool] = True,
-):
+) -> ProjResponseType:
     """
     获取指定页数和条件下的项目信息
     :param client: 已登录的客户端实例
@@ -31,7 +33,7 @@ def get_entity_projects(
     :param search: 搜索的项目名称关键字, 可选
     :param detail: 是否包含项目下实验的相关信息, 可选, 默认为true
     """
-    params: ProjParamType = {
+    params = {
         'page': page,
         'size': size,
         'sort': sort,
@@ -39,5 +41,4 @@ def get_entity_projects(
         'detail': detail,
     }
     res = client.get(f"/project/{workspace}", params=dict(params))
-    projects_info: ProjResponseType = res[0]
-    return projects_info
+    return res[0]

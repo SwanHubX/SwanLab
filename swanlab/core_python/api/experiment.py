@@ -5,10 +5,13 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import Literal, TYPE_CHECKING
+from typing import Literal, Dict, TYPE_CHECKING, List, Union
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
+
+from .type import RunType
+from .utils import to_camel_case, parse_column_type
 
 
 def send_experiment_heartbeat(
@@ -52,3 +55,57 @@ def update_experiment_state(
     put_data = {k: v for k, v in put_data.items() if v is not None}  # 移除值为None的键
     client.put(f"/project/{username}/{projname}/runs/{cuid}/state", put_data)
     client.pending = True
+
+
+def get_project_experiments(
+    client: "Client",
+    *,
+    path: str,
+    filters: Dict[str, object] = None,
+) -> Union[List[RunType], Dict[str, List[RunType]]]:
+    """
+    获取指定项目下的所有实验信息
+    若有实验分组，则返回一个字典，使用时需递归展平实验数据
+    :param client: 已登录的客户端实例
+    :param path: 项目路径 username/project
+    :param filters: 筛选实验的条件，可选
+    """
+    parsed_filters = (
+        [
+            {
+                "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
+                "active": True,
+                "value": [value],
+                "op": 'EQ',
+                "type": parse_column_type(key),
+            }
+            for key, value in filters.items()
+        ]
+        if filters
+        else []
+    )
+    res = client.post(f"/project/{path}/runs/shows", data={'filters': parsed_filters})
+    return res[0]
+
+
+def get_single_experiment(client: "Client", *, path: str) -> RunType:
+    """
+    获取指定项目下的所有实验信息
+    若有实验分组，则返回一个字典，使用时需递归展平实验数据
+    :param client: 已登录的客户端实例
+    :param path: 实验路径 username/project/expid
+    """
+    proj_path, expid = path.rsplit('/', 1)
+    res = client.get(f"/project/{proj_path}/runs/{expid}")
+    return res[0]
+
+
+def get_experiment_metrics(client: "Client", *, expid: str, key: str) -> Dict[str, str]:
+    """
+    获取指定字段的指标数据，返回csv网址
+    :param client: 已登录的客户端实例
+    :param expid: 实验cuid
+    :param key: 指定字段列表
+    """
+    res = client.get(f"/experiment/{expid}/column/csv", params={'key': key})
+    return res[0]

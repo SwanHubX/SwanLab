@@ -1,43 +1,27 @@
 """
-@author: Zhou Qiyang
-@file: model.py
-@time: 2025/12/18 20:10
-@description: OpenApi查询结果将以对象返回，并且对后端的返回字段进行一些筛选
+@author: Zhou QiYang
+@file: project.py
+@time: 2026/1/5 17:58
+@description: OpenApi 中的项目对象
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Iterator, TYPE_CHECKING
 
-from swanlab.core_python import Client
-from swanlab.core_python.api.project import get_entity_projects
-from swanlab.core_python.api.type import ProjectType, ProjectLabelType, ProjResponseType
+if TYPE_CHECKING:
+    from swanlab.core_python.client import Client
 
+from swanlab.core_python.api.project import get_workspace_projects
+from swanlab.core_python.api.type import ProjectType, ProjResponseType
 
-class Label:
-    """
-    Project label object
-    you can get the label name by str(label)
-    """
-
-    def __init__(self, data: ProjectLabelType):
-        self._data = data
-
-    @property
-    def name(self):
-        """
-        Label name.
-        """
-        return self._data['name']
-
-    def __str__(self):
-        return str(self.name)
+from .base import ApiBase, Label
 
 
-class Project:
+class Project(ApiBase):
     """
     Representing a single project with some of its properties.
     """
 
-    def __init__(self, data: ProjectType, web_host: str):
+    def __init__(self, data: ProjectType, web_host: str) -> None:
         self._data = data
         self._web_host = web_host
 
@@ -113,7 +97,7 @@ class Project:
         return self._data['_count']
 
 
-class Projects:
+class Projects(ApiBase):
     """
     Container for a collection of Project objects.
     You can iterate over the projects by for-in loop.
@@ -121,13 +105,13 @@ class Projects:
 
     def __init__(
         self,
-        client: Client,
+        client: "Client",
         web_host: str,
         workspace: str,
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ):
+    ) -> None:
         self._client = client
         self._web_host = web_host
         self._workspace = workspace
@@ -135,13 +119,13 @@ class Projects:
         self._search = search
         self._detail = detail
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
         page_size = 20
         while True:
             cur_page += 1
-            projects_info: ProjResponseType = get_entity_projects(
+            projects_info: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
