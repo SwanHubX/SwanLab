@@ -8,7 +8,7 @@
 from typing import List, Dict, Any
 
 from swanlab.api.base import ApiBase, Label
-from swanlab.api.user._user import User
+from swanlab.api.user import User
 from swanlab.core_python.api.experiments import RunType
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
@@ -16,11 +16,14 @@ from .thread import HistoryPool
 
 
 class Experiment(ApiBase):
-    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
+    def __init__(
+        self, data: RunType, client: Client, path: str, web_host: str, login_user: str, line_count: int
+    ) -> None:
         self._data = data
         self._client = client
         self._path = path
         self._web_host = web_host
+        self._login_user = login_user
         self._line_count = line_count
 
     @property
@@ -105,7 +108,7 @@ class Experiment(ApiBase):
         """
         Experiment user.
         """
-        return User(self._data['user'])
+        return User(client=self._client, login_user=self._login_user, username=self._data['user']['username'])
 
     @property
     def metric_keys(self) -> List[str]:

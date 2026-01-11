@@ -7,18 +7,17 @@ r"""
 @Description:
     SwanLab OpenAPI包
 """
-from typing import Optional, Union, List, Dict
+from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiments import get_single_experiment, get_project_experiments
-from swanlab.core_python.api.user.self_hosted import get_self_hosted_init
-from swanlab.error import KeyFileError, ApiError
+from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
 from .experiments import Experiments, Experiment
 from .projects import Projects
-from .user import ApiUser, SuperUser
+from .user import User
 
 
 class Api:
@@ -46,40 +45,13 @@ class Api:
         self._client: Client = Client(self._login_info)
         self._web_host = self._login_info.web_host
 
-    def user(self, username: str = None) -> Optional[Union[ApiUser, SuperUser]]:
-        # 尝试获取私有化服务信息，如果不是私有化服务，则会报错退出，因为指定user功能仅供私有化用户使用
-        try:
-            self_hosted_info = get_self_hosted_init(self._client)
-        except ApiError as e:
-            if username is not None:
-                swanlog.error(
-                    "You haven't launched a swanlab self-hosted instance. Please check your login status using 'swanlab verify'."
-                )
-                raise e
-            else:
-                return ApiUser(self._client, self._login_info)
-
-        if not self_hosted_info["enabled"]:
-            raise RuntimeError("SwanLab self-hosted instance hasn't been ready yet.")
-        if self_hosted_info["expired"]:
-            raise RuntimeError("SwanLab self-hosted instance has expired. Please refresh your licence.")
-
-        # 免费版仅能获取当前api_key登录的用户
-        if self_hosted_info["plan"] == 'free':
-            if username != self._login_info.username:
-                swanlog.warning("Your self-hosted plan is 'free', You will be access to your own account.")
-            return ApiUser(self._client, self._login_info)
-        # 商业版的根用户可以获取到任何一个用户
-        elif self_hosted_info["plan"] == 'commercial':
-            if self_hosted_info['root']:
-                return SuperUser(self._client, self._login_info, self_hosted=self_hosted_info)
-            elif username != self._login_info.username:
-                swanlog.warning("Your are not the root user, You will be access to your own account.")
-            return ApiUser(self._client, self._login_info)
-        # 为教育版预留功能
-        else:
-            swanlog.warning("The self-hosted plan hasn't been supported yet.")
-            return None
+    def user(self, username: str = None) -> User:
+        """
+        获取指定工作空间（组织）下的所有项目信息
+        :param username: 指定用户名
+        :return: User 实例，可对当前/指定用户进行操作
+        """
+        return User(client=self._client, login_user=self._login_info.username, username=username)
 
     def projects(
         self,
@@ -112,7 +84,7 @@ class Api:
         :return: Experiments 实例，可遍历获取实验信息
         :param filters: 筛选实验的条件，可选
         """
-        return Experiments(client=self._client, path=path, web_host=self._web_host, filters=filters)
+        return Experiments(client=self._client, path=path, login_info=self._login_info, filters=filters)
 
     def run(
         self,
@@ -131,7 +103,14 @@ class Api:
         data = get_project_experiments(
             self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
         )
-        return Experiment(data=data[0], client=self._client, path=proj_path, web_host=self._web_host, line_count=1)
+        return Experiment(
+            data=data[0],
+            client=self._client,
+            path=proj_path,
+            web_host=self._web_host,
+            login_user=self._login_info.username,
+            line_count=1,
+        )
 
 
 __all__ = ["Api", "OpenApi"]

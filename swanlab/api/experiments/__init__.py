@@ -11,6 +11,7 @@ from swanlab.api.base import ApiBase
 from swanlab.core_python.api.experiments import get_project_experiments, RunType
 from swanlab.core_python.client import Client
 from .experiment import Experiment
+from ...core_python.auth.providers.api_key import LoginInfo
 
 
 def flatten_runs(runs: Dict) -> List:
@@ -32,12 +33,13 @@ class Experiments(ApiBase):
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: "Client", path: str, web_host: str, filters: Dict[str, object] = None) -> None:
+    def __init__(self, client: "Client", path: str, login_info: LoginInfo, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
         self._client = client
         self._path = path
-        self._web_host = web_host
+        self._web_host = login_info.web_host
+        self._login_user = login_info.username
         self._filters = filters
 
     def __iter__(self) -> Iterator[Experiment]:
@@ -50,7 +52,17 @@ class Experiments(ApiBase):
         elif isinstance(resp, Dict):
             runs = flatten_runs(resp)
         line_count = len(runs)
-        yield from iter(Experiment(run, self._client, self._path, self._web_host, line_count) for run in runs)
+        yield from iter(
+            Experiment(
+                run,
+                self._client,
+                path=self._path,
+                web_host=self._web_host,
+                login_user=self._login_user,
+                line_count=line_count,
+            )
+            for run in runs
+        )
 
 
 __all__ = ["Experiment", "Experiments"]
