@@ -1,16 +1,17 @@
 """
 @author: Zhou QiYang
-@file: user.py
-@time: 2026/1/2 21:01
+@file: __init__.py.py
+@time: 2026/1/10 21:44
 @description: 定义用户相关的后端API接口
 """
 
 from typing import TYPE_CHECKING, List
 
+from .self_hosted import get_self_hosted_init, create_user
+from .type import GroupType, ApiKeyType, SelfHostedInfoType
+
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-from swanlab.core_python.api.type import ApiKeyType, GroupType
 
 
 def create_api_key(client: "Client", *, name: str = None) -> str:
@@ -63,3 +64,16 @@ def get_latest_api_key(client: "Client") -> ApiKeyType:
     """
     res = client.get(f"/user/key/latest")
     return res[0]
+
+
+__all__ = [
+    "create_api_key",
+    "delete_api_key",
+    "get_user_groups",
+    "get_api_keys",
+    "get_latest_api_key",
+    "get_self_hosted_init",
+    "create_user",
+    "ApiKeyType",
+    "SelfHostedInfoType",
+]

@@ -1,26 +1,22 @@
 """
 @author: Zhou QiYang
 @file: experiment.py
-@time: 2026/1/5 17:58
-@description: OpenApi 中的实验对象
+@time: 2026/1/11 16:36
+@description: OpenApi 的单个实验对象
 """
 
-from typing import TYPE_CHECKING, List, Dict, Any, Iterator
+from typing import List, Dict, Any
 
-if TYPE_CHECKING:
-    from swanlab.core_python.client import Client
-
+from swanlab.api.base import ApiBase, Label
+from swanlab.api.user._user import User
+from swanlab.core_python.api.experiments import RunType
+from swanlab.core_python.client import Client
 from swanlab.log import swanlog
-from swanlab.core_python.api.experiment import get_project_experiments
-from swanlab.core_python.api.type import RunType
-from swanlab.api.thread import HistoryPool
-from swanlab.api.utils import flatten_runs
-
-from .base import ApiBase, Label, User
+from .thread import HistoryPool
 
 
 class Experiment(ApiBase):
-    def __init__(self, data: RunType, client: "Client", path: str, web_host: str, line_count: int) -> None:
+    def __init__(self, data: RunType, client: Client, path: str, web_host: str, line_count: int) -> None:
         self._data = data
         self._client = client
         self._path = path
@@ -67,7 +63,7 @@ class Experiment(ApiBase):
         """
         List of Label attached to this experiment.
         """
-        return [Label(label) for label in self._data['labels']]
+        return [Label(label['name']) for label in self._data['labels']]
 
     @property
     def config(self) -> Dict[str, object]:
@@ -210,33 +206,3 @@ class Experiment(ApiBase):
             df = df.head(sample)
 
         return df if pandas else df.to_dict(orient='records')
-
-
-
-
-class Experiments(ApiBase):
-    """
-    Container for a collection of Experiment objects.
-    You can iterate over the experiments by for-in loop.
-    """
-
-    def __init__(self, client: "Client", path: str, web_host: str, filters: Dict[str, object] = None) -> None:
-        if len(path.split('/')) != 2:
-            raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
-        self._client = client
-        self._path = path
-        self._web_host = web_host
-        self._filters = filters
-
-    def __iter__(self) -> Iterator[Experiment]:
-        # TODO: 完善filter的功能（正则、条件判断）
-        resp = get_project_experiments(self._client, path=self._path, filters=self._filters)
-        runs: List[RunType] = []
-        if isinstance(resp, List):
-            runs = resp
-        # 分组时需展平实验数据
-        elif isinstance(resp, Dict):
-            runs = flatten_runs(resp)
-        line_count = len(runs)
-        yield from iter(Experiment(run, self._client, self._path, self._web_host, line_count) for run in runs)
-

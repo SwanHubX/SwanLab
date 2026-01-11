@@ -17,7 +17,7 @@ from swanlab.package import get_package_version
 from .session import create_session
 from .utils import safe_request, ProjectInfo, ExperimentInfo
 from .. import auth
-from ..api.experiment import send_experiment_heartbeat
+from ..api.experiments import send_experiment_heartbeat
 from ..utils import timer
 from ...env import utc_time
 

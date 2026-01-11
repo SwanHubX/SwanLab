@@ -9,17 +9,16 @@ r"""
 """
 from typing import Optional, Union, List, Dict
 
+from swanlab.core_python import auth, Client
+from swanlab.core_python.api.experiments import get_single_experiment, get_project_experiments
+from swanlab.core_python.api.user.self_hosted import get_self_hosted_init
+from swanlab.error import KeyFileError, ApiError
+from swanlab.log import swanlog
+from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
-from .model import ApiUser, SuperUser, Projects, Experiments, Experiment
-from .model import ApiUser, SuperUser, Projects, Experiments, Experiment
-from ..core_python import auth, Client
-from ..core_python.api.experiment import get_single_experiment, get_project_experiments
-from ..core_python.api.self_hosted import get_self_hosted_init
-from ..error import KeyFileError, ApiError
-from ..log import swanlog
-from ..package import HostFormatter, get_key
-
-__all__ = ["Api", "OpenApi"]
+from .experiments import Experiments, Experiment
+from .projects import Projects
+from .user import ApiUser, SuperUser
 
 
 class Api:
@@ -133,3 +132,6 @@ class Api:
             self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
         )
         return Experiment(data=data[0], client=self._client, path=proj_path, web_host=self._web_host, line_count=1)
+
+
+__all__ = ["Api", "OpenApi"]

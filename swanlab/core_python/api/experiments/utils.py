@@ -1,11 +1,11 @@
 """
 @author: Zhou QiYang
 @file: utils.py
-@time: 2025/12/27 18:53
-@description: 与后端交互时所需的工具函数
+@time: 2026/1/10 22:09
+@description: 实验相关的后端API接口中的工具函数
 """
 
-from .type import ColumnType
+from swanlab.core_python.api.experiments.type import ColumnType
 
 
 # 从前缀中获取指标类型

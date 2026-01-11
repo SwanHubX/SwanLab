@@ -1,33 +1,33 @@
 """
 @author: Zhou QiYang
-@file: user.py
-@time: 2026/1/5 17:58
+@file: __init__.py.py
+@time: 2026/1/11 16:40
 @description: OpenApi 中的用户对象
 """
 
 import re
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
-if TYPE_CHECKING:
-    from swanlab.core_python.client import Client
-
-from swanlab.api.utils import STATUS_CREATED, STATUS_OK
-from swanlab.core_python.api.self_hosted import create_user
-from swanlab.core_python.api.type import ApiKeyType, SelfHostedInfoType
+from swanlab.api.base import ApiBase
 from swanlab.core_python.api.user import (
     get_user_groups,
     get_api_keys,
     create_api_key,
     get_latest_api_key,
     delete_api_key,
+    ApiKeyType,
 )
+from swanlab.core_python.api.user.self_hosted import create_user
+from swanlab.core_python.api.user.type import SelfHostedInfoType
 from swanlab.core_python.auth.providers.api_key import LoginInfo
+from swanlab.core_python.client import Client
 
-from .base import ApiBase
+STATUS_OK = "OK"
+STATUS_CREATED = "Created"
 
 
 class ApiUser(ApiBase):
-    def __init__(self, client: "Client", login_info: LoginInfo) -> None:
+    def __init__(self, client: Client, login_info: LoginInfo) -> None:
         super().__init__()
         self._client = client
         self._login_info = login_info
@@ -65,7 +65,7 @@ class ApiUser(ApiBase):
 
 
 class SuperUser(ApiUser):
-    def __init__(self, client: "Client", login_info: LoginInfo, self_hosted: SelfHostedInfoType) -> None:
+    def __init__(self, client: Client, login_info: LoginInfo, self_hosted: SelfHostedInfoType) -> None:
         super().__init__(client, login_info)
         self._self_hosted_info = self_hosted
 

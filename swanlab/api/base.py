@@ -5,9 +5,8 @@
 @description: OpenApi 中的基础对象
 """
 
+from dataclasses import dataclass
 from typing import Dict
-
-from swanlab.core_python.api.type import ProjectLabelType, UserType
 
 
 class ApiBase:
@@ -27,34 +26,14 @@ class ApiBase:
         return result
 
 
-class Label(ApiBase):
+@dataclass
+class Label:
     """
     Project label object
     you can get the label name by str(label)
     """
 
-    def __init__(self, data: ProjectLabelType) -> None:
-        self._data = data
-
-    @property
-    def name(self) -> str:
-        """
-        Label name.
-        """
-        return self._data['name']
+    name: str
 
     def __str__(self) -> str:
         return str(self.name)
-
-
-class User(ApiBase):
-    def __init__(self, data: UserType) -> None:
-        self._data = data
-
-    @property
-    def name(self) -> str:
-        return self._data['name']
-
-    @property
-    def username(self) -> str:
-        return self._data['username']
