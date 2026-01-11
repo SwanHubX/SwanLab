@@ -2,7 +2,7 @@
 @author: Zhou QiYang
 @file: type.py
 @time: 2026/1/10 22:12
-@description: 后端API接口实验相关类型
+@description: 实验相关后端API接口类型
 """
 
 from typing import TypedDict, List, Dict, Optional, Literal

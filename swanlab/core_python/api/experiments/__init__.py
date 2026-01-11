@@ -7,7 +7,7 @@
 
 from typing import Literal, Dict, TYPE_CHECKING, List, Union
 
-from .type import RunType
+from swanlab.core_python.api.types import RunType
 from .utils import to_camel_case, parse_column_type
 
 if TYPE_CHECKING:
@@ -117,5 +117,4 @@ __all__ = [
     "get_project_experiments",
     "get_single_experiment",
     "get_experiment_metrics",
-    "RunType",
 ]

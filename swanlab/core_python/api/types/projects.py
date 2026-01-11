@@ -2,7 +2,7 @@
 @author: Zhou QiYang
 @file: projects.py
 @time: 2026/1/10 21:48
-@description: $END$
+@description: 项目相关后端API接口类型
 """
 
 from typing import TypedDict, List, Dict

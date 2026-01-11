@@ -7,7 +7,7 @@
 
 from typing import TYPE_CHECKING
 
-from swanlab.core_python.api.user.type import SelfHostedInfoType
+from swanlab.core_python.api.types import SelfHostedInfoType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client

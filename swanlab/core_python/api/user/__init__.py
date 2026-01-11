@@ -7,8 +7,8 @@
 
 from typing import TYPE_CHECKING, List
 
+from swanlab.core_python.api.types import GroupType, ApiKeyType
 from .self_hosted import get_self_hosted_init, create_user
-from .type import GroupType, ApiKeyType, SelfHostedInfoType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
@@ -74,6 +74,4 @@ __all__ = [
     "get_latest_api_key",
     "get_self_hosted_init",
     "create_user",
-    "ApiKeyType",
-    "SelfHostedInfoType",
 ]

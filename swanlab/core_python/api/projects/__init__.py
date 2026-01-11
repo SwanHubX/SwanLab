@@ -7,7 +7,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 
-from .type import ProjResponseType, ProjectType
+from swanlab.core_python.api.types import ProjResponseType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
@@ -44,4 +44,4 @@ def get_workspace_projects(
     return res[0]
 
 
-__all__ = ["get_workspace_projects", "ProjResponseType", "ProjectType"]
+__all__ = ["get_workspace_projects"]

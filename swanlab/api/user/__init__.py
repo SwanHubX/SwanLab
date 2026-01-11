@@ -10,13 +10,13 @@ from functools import cached_property
 from typing import List, Optional
 
 from swanlab.api.base import ApiBase
+from swanlab.core_python.api.types import ApiKeyType
 from swanlab.core_python.api.user import (
     get_user_groups,
     get_api_keys,
     create_api_key,
     get_latest_api_key,
     delete_api_key,
-    ApiKeyType,
 )
 from swanlab.core_python.api.user.self_hosted import create_user, get_self_hosted_init
 from swanlab.core_python.client import Client

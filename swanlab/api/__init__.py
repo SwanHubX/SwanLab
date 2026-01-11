@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2025/4/29 9:40
-@File: __init__.py
-@IDE: pycharm
-@Description:
-    SwanLab OpenAPI包
 """
+@author: Zhou QiYang
+@file: __init__.py
+@time: 2026/1/5 17:58
+@description: SwanLab OpenAPI包
+"""
+
 from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client

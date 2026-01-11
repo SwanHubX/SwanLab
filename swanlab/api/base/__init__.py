@@ -1,12 +1,13 @@
 """
-@author: Zhou Qiyang
-@file: model.py
-@time: 2025/12/18 20:10
+@author: Zhou QiYang
+@file: __init__.py.py
+@time: 2026/1/11 23:44
 @description: OpenApi 中的基础对象
 """
 
-from dataclasses import dataclass
 from typing import Dict
+
+from .utils import Label
 
 
 class ApiBase:
@@ -26,14 +27,4 @@ class ApiBase:
         return result
 
 
-@dataclass
-class Label:
-    """
-    Project label object
-    you can get the label name by str(label)
-    """
-
-    name: str
-
-    def __str__(self) -> str:
-        return str(self.name)
+__all__ = ['ApiBase', 'Label']

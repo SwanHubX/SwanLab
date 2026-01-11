@@ -5,7 +5,7 @@
 @description: 实验相关的后端API接口中的工具函数
 """
 
-from swanlab.core_python.api.experiments.type import ColumnType
+from swanlab.core_python.api.types import ColumnType
 
 
 # 从前缀中获取指标类型

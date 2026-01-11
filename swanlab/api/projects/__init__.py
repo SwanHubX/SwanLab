@@ -8,7 +8,8 @@
 from typing import List, Optional, Iterator
 
 from swanlab.api.base import ApiBase
-from swanlab.core_python.api.projects import ProjResponseType, get_workspace_projects
+from swanlab.core_python.api.projects import get_workspace_projects
+from swanlab.core_python.api.types import ProjResponseType
 from swanlab.core_python.client import Client
 from .project import Project
 
@@ -54,3 +55,6 @@ class Projects(ApiBase):
                 break
 
         yield from iter(Project(p, self._web_host) for p in projects_info['list'])
+
+
+__all__ = ["Projects"]
