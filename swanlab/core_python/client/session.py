@@ -5,6 +5,9 @@
 @description: 创建会话
 """
 
+import functools
+from typing import Callable
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -13,6 +16,7 @@ from swanlab.package import get_package_version
 
 # 设置默认超时时间为 60s
 DEFAULT_TIMEOUT = 60
+DEFAULT_RETRIES = 5
 
 
 # 创建一个自定义的 HTTPAdapter，用于注入默认超时
@@ -37,7 +41,7 @@ def create_session() -> requests.Session:
     """
     session = requests.Session()
     retry = Retry(
-        total=5,
+        total=DEFAULT_RETRIES,
         backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
@@ -49,18 +53,40 @@ def create_session() -> requests.Session:
     return session
 
 
-def modify_session_retry(session: requests.Session, new_retry_times: int = None) -> None:
+def modify_session_retry(session: requests.Session, retry_times: int) -> None:
     """
     更改会话的重试次数
     :return: requests.Session
     """
-    if new_retry_times is not None:
-        new_retry = Retry(
-            total=new_retry_times,
-            backoff_factor=0.5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
-        )
-        for prefix in ["https://", "http://"]:
-            adapter = session.get_adapter(prefix)
-            adapter.max_retries = new_retry
+    new_retry = Retry(
+        total=retry_times,
+        backoff_factor=0.5,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+    )
+    for prefix in ["https://", "http://"]:
+        adapter = session.get_adapter(prefix)
+        adapter.max_retries = new_retry
+
+
+def custom_retry(func: Callable) -> Callable:
+    """
+    临时修改 session 的重试次数，请求后恢复默认值
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        retry_times = kwargs.get('retry_times')
+
+        if retry_times is not None:
+            # 获取 session，修改重试次数
+            session = getattr(self, '_Client__session')
+            modify_session_retry(session, retry_times)
+            try:
+                return func(self, *args, **kwargs)
+            finally:
+                modify_session_retry(session, DEFAULT_RETRIES)
+        else:
+            return func(self, *args, **kwargs)
+
+    return wrapper

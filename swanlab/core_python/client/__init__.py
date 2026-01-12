@@ -14,7 +14,7 @@ import requests
 from swanlab.error import ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from .session import create_session, modify_session_retry
+from .session import create_session, custom_retry
 from .utils import safe_request, ProjectInfo, ExperimentInfo
 from .. import auth
 from ..api.experiment import send_experiment_heartbeat
@@ -165,25 +165,23 @@ class Client:
 
         self.__session = session
 
+    @custom_retry
     def post(self, url: str, data: Union[dict, list] = None, retry_times: int = None):
         """
         post请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        if retry_times is not None:
-            modify_session_retry(self.__session, retry_times)
         resp = self.__session.post(url, json=data)
         return decode_response(resp), resp
 
+    @custom_retry
     def put(self, url: str, data: dict = None, retry_times: int = None):
         """
         put请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        if retry_times is not None:
-            modify_session_retry(self.__session, retry_times)
         resp = self.__session.put(url, json=data)
         return decode_response(resp), resp
 
@@ -196,14 +194,13 @@ class Client:
         resp = self.__session.get(url, params=params)
         return decode_response(resp), resp
 
+    @custom_retry
     def patch(self, url: str, data: dict = None, retry_times: int = None):
         """
         patch请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        if retry_times is not None:
-            modify_session_retry(self.__session, retry_times)
         resp = self.__session.patch(url, json=data)
         return decode_response(resp), resp
 
