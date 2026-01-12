@@ -29,7 +29,7 @@ from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo
 from .datastore import DataStore
 from .mounter import Mounter
 from .utils import filter_metric, filter_epoch, filter_column
-from ...core_python.api.experiments import update_experiment_state
+from ...core_python.api.experiment import update_experiment_state
 from ...toolkit.models.log import LogContent
 
 __all__ = ['DataPorter', 'Mounter']

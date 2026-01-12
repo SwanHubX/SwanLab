@@ -7,7 +7,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 
-from swanlab.core_python.api.types import ProjResponseType
+from swanlab.core_python.api.type import ProjResponseType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client

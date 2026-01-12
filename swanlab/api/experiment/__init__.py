@@ -7,9 +7,9 @@
 
 from typing import List, Dict, Any
 
-from swanlab.api.base import ApiBase, Label
 from swanlab.api.user import User
-from swanlab.core_python.api.types import RunType
+from swanlab.api.utils import ApiBase, Label
+from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 from .thread import HistoryPool
@@ -209,3 +209,6 @@ class Experiment(ApiBase):
             df = df.head(sample)
 
         return df if pandas else df.to_dict(orient='records')
+
+
+__all__ = ['Experiment']

@@ -7,12 +7,12 @@
 
 from typing import List, Dict, Iterator
 
-from swanlab.api.base import ApiBase
-from swanlab.core_python.api.experiments import get_project_experiments
-from swanlab.core_python.api.types import RunType
+from swanlab.api.experiment import Experiment
+from swanlab.api.utils import ApiBase
+from swanlab.core_python.api.experiment import get_project_experiments
+from swanlab.core_python.api.type import RunType
 from swanlab.core_python.auth.providers.api_key import LoginInfo
 from swanlab.core_python.client import Client
-from .experiment import Experiment
 
 
 def flatten_runs(runs: Dict) -> List:
@@ -66,4 +66,4 @@ class Experiments(ApiBase):
         )
 
 
-__all__ = ["Experiment", "Experiments"]
+__all__ = ["Experiments"]

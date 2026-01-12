@@ -8,14 +8,15 @@
 from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
-from swanlab.core_python.api.experiments import get_single_experiment, get_project_experiments
-from swanlab.core_python.api.types.user import IdentityType
+from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
+from swanlab.core_python.api.type import IdentityType
 from swanlab.core_python.api.user import get_self_hosted_init
 from swanlab.error import KeyFileError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
-from .experiments import Experiments, Experiment
+from .experiment import Experiment
+from .experiments import Experiments
 from .projects import Projects
 from .user import User
 

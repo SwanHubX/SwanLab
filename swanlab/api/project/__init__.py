@@ -7,8 +7,8 @@
 
 from typing import List, Dict
 
-from swanlab.api.base import ApiBase, Label
-from swanlab.core_python.api.types import ProjectType
+from swanlab.api.utils import ApiBase, Label
+from swanlab.core_python.api.type import ProjectType
 
 
 class Project(ApiBase):

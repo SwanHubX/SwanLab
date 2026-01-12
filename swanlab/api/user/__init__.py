@@ -9,9 +9,9 @@ import re
 from functools import cached_property
 from typing import List, Optional
 
-from swanlab.api.base import ApiBase
-from swanlab.core_python.api.types import ApiKeyType
-from swanlab.core_python.api.types.user import IdentityType
+from swanlab.api.utils import ApiBase
+from swanlab.core_python.api.type import ApiKeyType
+from swanlab.core_python.api.type.user import IdentityType
 from swanlab.core_python.api.user import (
     get_user_groups,
     get_api_keys,

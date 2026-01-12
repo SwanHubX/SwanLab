@@ -26,7 +26,7 @@ from . import utils as U
 from ..porter import Mounter
 from ..run import get_run
 from ...core_python import *
-from ...core_python.api.experiments import update_experiment_state
+from ...core_python.api.experiment import update_experiment_state
 from ...core_python.utils.timer import Timer
 from ...log.type import LogData
 

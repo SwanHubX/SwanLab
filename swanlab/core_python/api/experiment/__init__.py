@@ -7,7 +7,7 @@
 
 from typing import Literal, Dict, TYPE_CHECKING, List, Union
 
-from swanlab.core_python.api.types import RunType
+from swanlab.core_python.api.type import RunType
 from .utils import to_camel_case, parse_column_type
 
 if TYPE_CHECKING:

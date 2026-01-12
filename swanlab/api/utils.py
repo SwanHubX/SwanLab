@@ -5,9 +5,21 @@
 @description: OpenApi 中的基础对象
 """
 
+from dataclasses import dataclass
 from typing import Dict
 
-from .utils import Label
+
+@dataclass
+class Label:
+    """
+    Project label object
+    you can get the label name by str(label)
+    """
+
+    name: str
+
+    def __str__(self) -> str:
+        return str(self.name)
 
 
 class ApiBase:

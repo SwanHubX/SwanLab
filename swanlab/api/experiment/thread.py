@@ -11,7 +11,7 @@ from typing import List, Any
 
 import requests
 
-from swanlab.core_python.api.experiments import get_experiment_metrics
+from swanlab.core_python.api.experiment import get_experiment_metrics
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 

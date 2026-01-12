@@ -7,7 +7,7 @@
 
 from typing import TYPE_CHECKING, List
 
-from swanlab.core_python.api.types import GroupType, ApiKeyType
+from swanlab.core_python.api.type import GroupType, ApiKeyType
 from .self_hosted import get_self_hosted_init, create_user
 
 if TYPE_CHECKING:

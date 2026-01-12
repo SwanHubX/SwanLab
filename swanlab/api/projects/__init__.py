@@ -7,11 +7,11 @@
 
 from typing import List, Optional, Iterator
 
-from swanlab.api.base import ApiBase
-from swanlab.core_python.api.projects import get_workspace_projects
-from swanlab.core_python.api.types import ProjResponseType
+from swanlab.api.project import Project
+from swanlab.api.utils import ApiBase
+from swanlab.core_python.api.project import get_workspace_projects
+from swanlab.core_python.api.type import ProjResponseType
 from swanlab.core_python.client import Client
-from .project import Project
 
 
 class Projects(ApiBase):
