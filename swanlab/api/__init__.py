@@ -89,7 +89,7 @@ class Api:
         :return: Projects 实例，可遍历获取项目信息
         """
         return Projects(
-            client=self._client,
+            self._client,
             web_host=self._web_host,
             workspace=workspace,
             sort=sort,
@@ -104,7 +104,7 @@ class Api:
         :return: Experiments 实例，可遍历获取实验信息
         :param filters: 筛选实验的条件，可选
         """
-        return Experiments(client=self._client, path=path, login_info=self._login_info, filters=filters)
+        return Experiments(self._client, path=path, login_info=self._login_info, filters=filters)
 
     def run(
         self,
@@ -124,8 +124,8 @@ class Api:
             self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
         )
         return Experiment(
+            self._client,
             data=data[0],
-            client=self._client,
             path=proj_path,
             web_host=self._web_host,
             login_user=self._login_info.username,

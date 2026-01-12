@@ -23,13 +23,14 @@ class Projects(ApiBase):
     def __init__(
         self,
         client: Client,
+        *,
         web_host: str,
         workspace: str,
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
-        self._client = client
+        super().__init__(client)
         self._web_host = web_host
         self._workspace = workspace
         self._sort = sort
@@ -54,7 +55,7 @@ class Projects(ApiBase):
             if cur_page * page_size >= projects_info['total']:
                 break
 
-        yield from iter(Project(p, self._web_host) for p in projects_info['list'])
+        yield from iter(Project(data=p, web_host=self._web_host) for p in projects_info['list'])
 
 
 __all__ = ["Projects"]

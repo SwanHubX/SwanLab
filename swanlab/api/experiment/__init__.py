@@ -17,10 +17,10 @@ from .thread import HistoryPool
 
 class Experiment(ApiBase):
     def __init__(
-        self, data: RunType, client: Client, path: str, web_host: str, login_user: str, line_count: int
+        self, client: Client, *, data: RunType, path: str, web_host: str, login_user: str, line_count: int
     ) -> None:
+        super().__init__(client)
         self._data = data
-        self._client = client
         self._path = path
         self._web_host = web_host
         self._login_user = login_user

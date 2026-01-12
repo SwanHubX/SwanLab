@@ -34,10 +34,10 @@ class Experiments(ApiBase):
     You can iterate over the experiments by for-in loop.
     """
 
-    def __init__(self, client: "Client", path: str, login_info: LoginInfo, filters: Dict[str, object] = None) -> None:
+    def __init__(self, client: Client, *, path: str, login_info: LoginInfo, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
-        self._client = client
+        super().__init__(client)
         self._path = path
         self._web_host = login_info.web_host
         self._login_user = login_info.username
@@ -55,8 +55,8 @@ class Experiments(ApiBase):
         line_count = len(runs)
         yield from iter(
             Experiment(
-                run,
                 self._client,
+                data=run,
                 path=self._path,
                 web_host=self._web_host,
                 login_user=self._login_user,

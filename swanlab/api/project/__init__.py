@@ -16,7 +16,8 @@ class Project(ApiBase):
     Representing a single project with some of its properties.
     """
 
-    def __init__(self, data: ProjectType, web_host: str) -> None:
+    def __init__(self, *, data: ProjectType, web_host: str) -> None:
+        super().__init__()
         self._data = data
         self._web_host = web_host
 

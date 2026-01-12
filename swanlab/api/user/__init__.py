@@ -45,8 +45,7 @@ class User(ApiBase):
         if login_user is None and username is None:
             raise ValueError("login_user or username are required")
 
-        super().__init__()
-        self._client = client
+        super().__init__(client)
         self._identity = identity
         self._api_keys: List[ApiKeyType] = []
         self._cur_username = username or login_user

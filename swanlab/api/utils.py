@@ -8,6 +8,8 @@
 from dataclasses import dataclass
 from typing import Dict
 
+from swanlab.core_python import Client
+
 
 @dataclass
 class Label:
@@ -23,6 +25,9 @@ class Label:
 
 
 class ApiBase:
+    def __init__(self, client: Client = None):
+        self._client = client
+
     @property
     def __dict__(self) -> Dict[str, object]:
         """
