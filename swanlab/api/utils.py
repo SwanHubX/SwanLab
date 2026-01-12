@@ -1,6 +1,6 @@
 """
 @author: Zhou QiYang
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/1/11 23:44
 @description: OpenApi 中的基础对象
 """
@@ -21,7 +21,7 @@ class Label:
     name: str
 
     def __str__(self) -> str:
-        return str(self.name)
+        return self.name
 
 
 class ApiBase:

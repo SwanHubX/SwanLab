@@ -1,6 +1,6 @@
 """
 @author: Zhou QiYang
-@file: thread.py
+@file: __init__.py
 @time: 2025/12/30 15:08
 @description: OpenApi 的实验对象迭代器
 """

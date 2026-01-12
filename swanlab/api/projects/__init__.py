@@ -1,6 +1,6 @@
 """
 @author: Zhou QiYang
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/1/11 16:31
 @description: OpenApi 中的项目对象迭代器
 """

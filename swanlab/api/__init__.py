@@ -65,8 +65,8 @@ class Api:
 
     def user(self, username: str = None) -> User:
         """
-        获取指定工作空间（组织）下的所有项目信息
-        :param username: 指定用户名
+        获取用户实例，用于操作用户相关信息
+        :param username: 指定用户名，如果为 None，则返回当前登录用户
         :return: User 实例，可对当前/指定用户进行操作
         """
         return User(

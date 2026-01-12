@@ -1,6 +1,6 @@
 """
 @author: Zhou QiYang
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/1/11 16:40
 @description: OpenApi 中的用户对象
 """
