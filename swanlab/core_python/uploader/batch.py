@@ -99,7 +99,7 @@ def trace_metrics(
         #     break
 
         # 调用被装饰的发送函数
-        _, resp = getattr(client, method)(url, chunk)
+        _, resp = getattr(client, method)(url, chunk, 0)
         # 后置检查
         if resp and resp.status_code == 202:
             client.pending = True

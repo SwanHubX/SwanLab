@@ -47,3 +47,20 @@ def create_session() -> requests.Session:
     session.mount("http://", adapter)
     session.headers["swanlab-sdk"] = get_package_version()
     return session
+
+
+def modify_session_retry(session: requests.Session, new_retry_times: int = None) -> None:
+    """
+    更改会话的重试次数
+    :return: requests.Session
+    """
+    if new_retry_times is not None:
+        new_retry = Retry(
+            total=new_retry_times,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+        )
+        for prefix in ["https://", "http://"]:
+            adapter = session.get_adapter(prefix)
+            adapter.max_retries = new_retry
