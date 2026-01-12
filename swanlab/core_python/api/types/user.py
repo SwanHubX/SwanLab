@@ -9,6 +9,9 @@ from typing import Literal, TypedDict
 
 
 # ------------------------------------- 通用类型 -------------------------------------
+IdentityType = Literal['user', 'root']
+
+
 # 在项目信息和用户信息的返回结果中，该类型的字段含义不同，注意区分
 class GroupType(TypedDict):
     name: str  # 组织名称 (用于user.teams)

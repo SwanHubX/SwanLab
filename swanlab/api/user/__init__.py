@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from swanlab.api.base import ApiBase
 from swanlab.core_python.api.types import ApiKeyType
+from swanlab.core_python.api.types.user import IdentityType
 from swanlab.core_python.api.user import (
     get_user_groups,
     get_api_keys,
@@ -18,41 +19,38 @@ from swanlab.core_python.api.user import (
     get_latest_api_key,
     delete_api_key,
 )
-from swanlab.core_python.api.user.self_hosted import create_user, get_self_hosted_init
+from swanlab.core_python.api.user.self_hosted import create_user
 from swanlab.core_python.client import Client
-from swanlab.error import ApiError
 from swanlab.log import swanlog
 
 STATUS_OK = "OK"
 STATUS_CREATED = "Created"
 
 
+def check_create_info(username: str, password: str) -> bool:
+    # 用户名为大小写字母、数字及-、_组成
+    # 密码必须包含数字+英文且至少8位
+    if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        raise ValueError("Username must be alphanumeric and can contain - and _")
+    if not re.match(r'^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$', password):
+        raise ValueError("Password must contain at least 8 characters and include numbers and letters")
+    else:
+        return True
+
+
 class User(ApiBase):
-    def __init__(self, client: Client, login_user: str = None, username: str = None) -> None:
+    def __init__(
+        self, client: Client, login_user: str = None, username: str = None, identity: IdentityType = 'user'
+    ) -> None:
         if login_user is None and username is None:
             raise ValueError("login_user or username are required")
 
         super().__init__()
         self._client = client
+        self._identity = identity
         self._api_keys: List[ApiKeyType] = []
         self._cur_username = username or login_user
         self._is_other_user = username is not None and username != login_user
-
-        # 尝试获取私有化服务信息，如果不是私有化服务，则会报错退出，因为指定user功能仅供私有化用户使用
-        try:
-            self._self_hosted_info = get_self_hosted_init(self._client)
-        except ApiError:
-            swanlog.warning("You haven't launched a swanlab self-hosted instance. Some usages are not available.")
-            self._self_hosted_info = None
-
-        if self._self_hosted_info is not None and self._self_hosted_info["plan"] == 'commercial':
-            self._identity = 'root' if self._self_hosted_info['root'] else 'user'
-
-        if self._self_hosted_info is not None:
-            if not self._self_hosted_info["enabled"]:
-                swanlog.warning("SwanLab self-hosted instance hasn't been ready yet.")
-            if self._self_hosted_info["expired"]:
-                swanlog.warning("SwanLab self-hosted instance has expired.")
 
     @property
     def username(self) -> str:
@@ -105,12 +103,7 @@ class User(ApiBase):
         if self._identity != "root" or self._is_other_user:
             swanlog.warning(f"{self._cur_username} is not allowed to create other user.")
             return False
-        # 用户名为大小写字母、数字及-、_组成
-        # 密码必须包含数字+英文且至少8位
-        if not re.match(r'^[a-zA-Z0-9_-]+$', username):
-            raise ValueError("Username must be alphanumeric and can contain - and _")
-        if not re.match(r'^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$', password):
-            raise ValueError("Password must contain at least 8 characters and include numbers and letters")
+        check_create_info(username, password)
         resp = create_user(self._client, username=username, password=password)
         if resp == STATUS_CREATED:
             return True
