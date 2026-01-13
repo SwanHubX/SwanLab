@@ -1,24 +1,47 @@
 """
 @author: Zhou QiYang
-@file: utils.py
-@time: 2026/1/4 18:03
-@description: OpenApi 使用的常量和工具函数
+@file: __init__.py
+@time: 2026/1/11 23:44
+@description: OpenApi 中的基础对象
 """
 
-from typing import Dict, List
+from dataclasses import dataclass
+from typing import Dict
 
-STATUS_OK = "OK"
-STATUS_CREATED = "Created"
+from swanlab.core_python import Client
 
 
-def flatten_runs(runs: Dict) -> List:
+@dataclass
+class Label:
     """
-    展开分组后的实验数据，返回一个包含所有实验的列表
+    Project label object
+    you can get the label name by str(label)
     """
-    flat_runs = []
-    for group in runs.values():
-        if isinstance(group, Dict):
-            flat_runs.extend(flatten_runs(group))
-        else:
-            flat_runs.extend(group)
-    return flat_runs
+
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class ApiBase:
+    def __init__(self, client: Client = None):
+        self._client = client
+
+    @property
+    def __dict__(self) -> Dict[str, object]:
+        """
+        Return a dictionary containing all @property fields.
+        """
+        result = {}
+        cls = type(self)
+        for attr_name in dir(cls):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(cls, attr_name, None)
+            if isinstance(attr, property):
+                result[attr_name] = self.__getattribute__(attr_name)
+        return result
+
+
+__all__ = ['ApiBase', 'Label']

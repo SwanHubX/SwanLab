@@ -7,10 +7,10 @@
 
 from typing import TYPE_CHECKING
 
+from swanlab.core_python.api.type import SelfHostedInfoType
+
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-from .type import SelfHostedInfoType
 
 
 def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:

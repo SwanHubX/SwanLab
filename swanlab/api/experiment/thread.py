@@ -2,25 +2,23 @@
 @author: Zhou QiYang
 @file: thread.py
 @time: 2025/12/30 15:08
-@description: 用于api并发请求的封装类
+@description: 用于并发请求实验指标数据的封装类
 """
 
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import List, Any, TYPE_CHECKING
+from typing import List, Any
 
 import requests
 
-if TYPE_CHECKING:
-    from swanlab.core_python.client import Client
-
 from swanlab.core_python.api.experiment import get_experiment_metrics
+from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 
 
 class HistoryPool:
 
-    def __init__(self, client: "Client", expid: str, *, keys: List[str], x_axis: str = None, num_threads: int = 10):
+    def __init__(self, client: Client, expid: str, *, keys: List[str], x_axis: str = None, num_threads: int = 10):
         try:
             import pandas as pd
         except ImportError:

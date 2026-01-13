@@ -1,16 +1,16 @@
 """
 @author: Zhou QiYang
-@file: project.py
+@file: __init__.py
 @time: 2025/12/19 23:49
 @description: 定义项目相关的后端API接口
 """
 
 from typing import Optional, List, TYPE_CHECKING
 
+from swanlab.core_python.api.type import ProjResponseType
+
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-from .type import ProjResponseType
 
 
 def get_workspace_projects(
@@ -42,3 +42,6 @@ def get_workspace_projects(
     }
     res = client.get(f"/project/{workspace}", params=dict(params))
     return res[0]
+
+
+__all__ = ["get_workspace_projects"]
