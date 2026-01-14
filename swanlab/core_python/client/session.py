@@ -31,8 +31,8 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
     def send(self, request, **kwargs):
         # 如果 kwargs 中没有显式设置 timeout，则使用 self.timeout
-        if "timeout" not in kwargs:
-            kwargs["timeout"] = self.timeout if self.timeout is not None else DEFAULT_TIMEOUT
+        if "timeout" not in kwargs and self.timeout is not None:
+            kwargs["timeout"] = self.timeout
 
         # 检查 headers 中是否有用户注入的重试次数
         _retry = request.headers.pop(RETRY_HEADER, None)
