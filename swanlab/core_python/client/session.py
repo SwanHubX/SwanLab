@@ -38,7 +38,10 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         _retry = request.headers.pop(RETRY_HEADER, None)
         if _retry is not None:
             _adapter = copy.copy(self)
-            _adapter.max_retries = self.max_retries.new(total=int(_retry))
+            try:
+                _adapter.max_retries = self.max_retries.new(total=int(_retry))
+            except ValueError:
+                raise ValueError(f"Invalid element {RETRY_HEADER} in request headers: {_retry}")
 
             return _adapter.send(request, **kwargs)
 
@@ -56,11 +59,7 @@ class SwanSession(requests.Session):
 
         # 将用户指定的重试次数注入到 headers 中
         if retries is not None:
-            headers = kwargs.get('headers')
-            if headers is None:
-                kwargs['headers'] = {RETRY_HEADER: str(retries)}
-            else:
-                headers[RETRY_HEADER] = str(retries)
+            kwargs.setdefault('headers', {})[RETRY_HEADER] = str(retries)
 
         return super().request(method, url, *args, **kwargs)
 
