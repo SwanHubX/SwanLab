@@ -18,8 +18,12 @@ RETRY_HEADER = "X-Custom-Retry"
 DEFAULT_TIMEOUT = 60
 
 
-# 创建一个自定义的 HTTPAdapter，用于注入默认超时
 class TimeoutHTTPAdapter(HTTPAdapter):
+    """
+    创建一个自定义的 HTTPAdapter，用于注入默认超时
+    并可以通过请求 headers 中的 {RETRY_HEADER} 指定并临时修改重试次数
+    """
+
     def __init__(self, *args, **kwargs):
         # 从 kwargs 中取出默认超时时间，如果没有则设为 None
         self.timeout = kwargs.pop("timeout", None)
@@ -42,6 +46,11 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
 
 class SwanSession(requests.Session):
+    """
+    自定义会话，用于自定义会话重试次数
+    可以接受一个 retries 参数，并将其放在 headers 中的 {RETRY_HEADER} 字段中
+    """
+
     def request(self, method, url, *args, **kwargs):
         retries = kwargs.pop('retries', None)
 
