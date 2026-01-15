@@ -49,6 +49,8 @@
 
 ## 🌟 最近の更新
 
+- 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** が利用可能になりました、超大規模チャート数のシナリオに最適化；チャート埋め込みリンクを追加、オンラインドキュメント（Notion、Lark など）にチャートを埋め込むことができます；
+
 - 2026.01.02: 🥳 **AMD ROCm** と **Iluvatar GPU** のハードウェア監視をサポート；SDK に心跳パッケージ機能を追加、より安定したクラウド/オフライン接続を実現；
 
 - 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
@@ -65,10 +67,9 @@
 
 - 2025.09.12: 🔢 **スカラーチャート**のサポートを追加、実験指標の統計値を柔軟に表示可能；組織管理ページ大アップグレード、より強力な権限制御とプロジェクト管理機能を提供；
 
-- 2025.08.19: 🤔 より強力なグラフレンダリングパフォーマンスと低侵入性のローディングアニメーション、研究者が実験分析に集中できるように；優れた[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)フレームワークを統合、より多くのトレーニングシナリオを提供；
-
-
 <details><summary>完全な更新履歴</summary>
+
+- 2025.08.19: 🤔 より強力なグラフレンダリングパフォーマンスと低侵入性のローディングアニメーション、研究者が実験分析に集中できるように；優れた[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)フレームワークを統合、より多くのトレーニングシナリオを提供；
 
 - 2025.08.06: 👥 **トレーニング軽度コラボレーション**が利用可能になりました、プロジェクト協作者の招待、プロジェクトリンクと QR コードの共有、プロジェクト Tags の表示をサポート；ワークスペースでリストビューをサポート；
 

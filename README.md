@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2026.01.16：⚡️**LightningBoard（闪电看板）V1**现已上线，专为超大图表数量级场景打造；新增图表嵌入链接，现在可以把你的图表嵌入到在线文档当中啦（如Notion、飞书云文档等）；
+
 - 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
 
 - 2025.12.15：🎉SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
@@ -75,9 +77,10 @@
 
 - 2025.09.12：🔢支持创建**标量图**，灵活显示实验指标的统计值；组织管理页面大升级，提供更强大的权限控制与项目管理能力；
 
-- 2025.08.19：🤔更强大的图表渲染性能与低侵入式加载动画，让研究者更聚焦于实验分析本身；集成优秀的[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)框架，提供更多场景的训练体验；
 
 <details><summary>完整更新日志</summary>
+
+- 2025.08.19：🤔更强大的图表渲染性能与低侵入式加载动画，让研究者更聚焦于实验分析本身；集成优秀的[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)框架，提供更多场景的训练体验；
 
 - 2025.08.06：👥**训练轻协作**上线，支持邀请项目协作者，分享项目链接与二维码；工作区支持列表视图，支持显示项目Tags；
 
