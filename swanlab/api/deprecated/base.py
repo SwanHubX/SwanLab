@@ -13,9 +13,9 @@ from typing import Any, Callable, List, Optional, Union
 
 import requests
 
-from swanlab.api.types import ApiResponse
 from swanlab.core_python import auth, create_session
 from swanlab.log.log import SwanLog
+from .types import ApiResponse
 
 _logger: Optional[SwanLog] = None
 
@@ -64,7 +64,7 @@ class ApiHTTP:
         self.__login_info: auth.LoginInfo = login_info
         self.__session: requests.Session = self.__init_session()
         self.service: OpenApiService = OpenApiService(self)
-    
+
     @property
     def session(self) -> requests.Session:
         """
@@ -131,7 +131,7 @@ class OpenApiService:
         获取项目详情
         """
         return self.http.get(f"/project/{username}/{projname}", params={})
-    
+
     @staticmethod
     def fetch_paginated_api(
         api_func: Callable[..., ApiResponse],  # 分页 API 请求函数
