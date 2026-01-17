@@ -11,6 +11,7 @@ import pytest
 import requests
 import responses
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RetryError
 from responses import registries
 from urllib3.util.retry import Retry
 
@@ -32,6 +33,23 @@ def test_retry(url):
     resp = s.get(url)
     assert resp.text == "Success"
     assert len(responses.calls) == 6
+
+
+@pytest.mark.parametrize(
+    ("url", "retries"), [("https://api.example.com/retry", 1), ("http://api.example.com/retry", 0)]
+)
+@responses.activate(registry=registries.OrderedRegistry)
+def test_custom_retry(url, retries):
+    """
+    测试自定义重试次数
+    """
+
+    [responses.add(responses.POST, url, body="Error", status=500) for _ in range(2)]
+    s = create_session()
+    with pytest.raises(RetryError):
+        s.post(url, retries=retries)
+
+    assert len(responses.calls) == retries + 1
 
 
 @responses.activate(registry=registries.OrderedRegistry)
