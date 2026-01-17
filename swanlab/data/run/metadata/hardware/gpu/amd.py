@@ -67,7 +67,7 @@ def get_amd_gpu_info() -> HardwareFuncResult:
 # Linux Logic (Initialization)
 # ==========================================
 
-def map_amd_gpu_linux() -> Tuple[Optional[str], dict]:
+def map_amd_gpu_linux() -> Tuple[Optional[str], Optional[dict]]:
     """
     初始化阶段：尝试获取显卡列表。
     虽然 rocm-smi 可能不稳定，但我们只在启动时跑一次。
@@ -140,6 +140,9 @@ def map_amd_gpu_linux() -> Tuple[Optional[str], dict]:
                 gpu_map[idx] = {"name": v.get("Card Series", "AMD GPU"), "memory": "0GB"} # 显存稍后补
         except Exception:
             pass
+
+    if len(gpu_map) == 0:
+        return (None, None)
 
     return driver_version, gpu_map
 
