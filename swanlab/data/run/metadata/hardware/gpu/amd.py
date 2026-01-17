@@ -141,6 +141,9 @@ def map_amd_gpu_linux() -> Tuple[Optional[str], dict]:
         except Exception:
             pass
 
+    if len(gpu_map) == 0:
+        return (None, None)
+
     return driver_version, gpu_map
 
 
