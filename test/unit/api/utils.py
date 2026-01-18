@@ -1,7 +1,9 @@
 import csv
 from io import StringIO
 from typing import Dict, List
+
 import nanoid
+
 from swanlab.core_python.api.type import RunType, ProjResponseType, ProjectType
 from swanlab.package import get_host_web
 
@@ -59,10 +61,10 @@ def create_project_data(size: int = 20, pages: int = 1, total: int = 20) -> Proj
 
     for j in range(size):
         project: ProjectType = {
-            'cuid': f'proj_0_{j}',
-            'name': f'project_0_{j}',
-            'path': f'test_user/project_0_{j}',
-            'url': f'{get_host_web()}/test_user/project_0_{j}',
+            'cuid': f'proj_{pages}_{j}',
+            'name': f'project_{pages}_{j}',
+            'path': f'test_user/project_{pages}_{j}',
+            'url': f'{get_host_web()}/test_user/project_{pages}_{j}',
             'description': '',
             'visibility': 'PRIVATE',
             'createdAt': '',

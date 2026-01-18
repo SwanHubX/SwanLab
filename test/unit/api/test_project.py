@@ -11,9 +11,11 @@ def test_projects():
     with patch('swanlab.api.projects.get_workspace_projects') as mock_get_projects:
         total_pages = 4
         page_size = 20
-        mock_get_projects.return_value = create_project_data(
-            pages=mock_get_projects.call_count + 1, size=page_size, total=page_size * total_pages
-        )
+
+        def side_effect(*args, **kwargs):
+            return create_project_data(size=page_size, pages=kwargs.get("page", 1), total=page_size * total_pages)
+
+        mock_get_projects.side_effect = side_effect
 
         mock_projects = Projects(
             MagicMock(spec=Client),

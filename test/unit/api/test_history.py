@@ -5,8 +5,9 @@
 @description: 测试 Experiment.history() 方法，使用 MagicMock 和 monkeypatch 模拟网络请求
 """
 
-import pytest
 from unittest.mock import patch, MagicMock
+
+import pytest
 import requests_mock
 
 from swanlab.api.experiment import Experiment
@@ -77,7 +78,7 @@ def test_history_with_x_axis(experiment, metrics_data):
         result = experiment.history(keys=['loss'], x_axis='accuracy')
 
     # x_axis 应该作为索引
-    assert result.index.name == 'accuracy' or result.index.name is None
+    assert result.index.name == 'accuracy'
 
 
 def test_history_with_sample(experiment, metrics_data):
