@@ -41,9 +41,10 @@ class Projects(ApiBase):
         # 按用户遍历情况获取项目信息
         cur_page = 0
         page_size = 20
+        projects = []
         while True:
             cur_page += 1
-            projects_info: ProjResponseType = get_workspace_projects(
+            resp: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
@@ -52,10 +53,11 @@ class Projects(ApiBase):
                 search=self._search,
                 detail=self._detail,
             )
-            if cur_page * page_size >= projects_info['total']:
+            projects.extend(resp['list'])
+            if cur_page * page_size >= resp['total']:
                 break
 
-        yield from iter(Project(data=p, web_host=self._web_host) for p in projects_info['list'])
+        yield from iter(Project(data=p, web_host=self._web_host) for p in projects)
 
 
 __all__ = ["Projects"]
