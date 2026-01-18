@@ -6,24 +6,24 @@ from swanlab.core_python.api.type import RunType, ProjResponseType, ProjectType
 from swanlab.package import get_host_web
 
 
-def create_run_type_data(**kwargs) -> RunType:
+def create_run_type_data(cuid=None) -> RunType:
     """
     创建 RunType 类型的测试数据
     """
     return {
-        'cuid': kwargs.get('cuid', nanoid.generate('0123456789', 10)),
-        'name': kwargs.get('name', ''),
-        'createdAt': kwargs.get('createdAt', ''),
-        'description': kwargs.get('description', ''),
-        'labels': kwargs.get('labels', []),
-        'profile': kwargs.get('profile', {'config': {}, 'scalar': {'loss': [], 'accuracy': []}}),
-        'state': kwargs.get('state', 'FINISHED'),
-        'cluster': kwargs.get('cluster', ''),
-        'job': kwargs.get('job', ''),
-        'runtime': kwargs.get('runtime', ''),
-        'user': kwargs.get('user', {'username': '', 'name': ''}),
-        'rootExpId': kwargs.get('rootExpId', None),
-        'rootProId': kwargs.get('rootProId', None),
+        'cuid': cuid if cuid is not None else nanoid.generate('0123456789', 10),
+        'name': '',
+        'createdAt': '',
+        'description': '',
+        'labels': [],
+        'profile': {'config': {}, 'scalar': {'loss': [], 'accuracy': []}},
+        'state': 'FINISHED',
+        'cluster': '',
+        'job': '',
+        'runtime': '',
+        'user': {'username': '', 'name': ''},
+        'rootExpId': None,
+        'rootProId': None,
     }
 
 
@@ -91,11 +91,8 @@ def create_csv_data(step_values, metric_name, metric_values):
     """
     output = StringIO()
     writer = csv.writer(output)
-    # 写入表头：step, metric_name
     writer.writerow(['step', metric_name])
-    # 写入数据
     for step, value in zip(step_values, metric_values):
         writer.writerow([step, value])
-    # 获取文本内容并编码为字节
     csv_text = output.getvalue()
     return csv_text.encode('utf-8')

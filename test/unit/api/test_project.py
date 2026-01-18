@@ -1,10 +1,8 @@
 from unittest.mock import patch, MagicMock
-import responses
-from responses import registries
 
 from swanlab.api.projects import Projects
 from swanlab.core_python import Client
-from swanlab.package import get_host_web, get_host_api
+from swanlab.package import get_host_web
 from utils import create_project_data
 
 
