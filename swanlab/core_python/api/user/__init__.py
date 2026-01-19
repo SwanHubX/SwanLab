@@ -8,12 +8,11 @@
 from typing import TYPE_CHECKING, List
 
 from swanlab.core_python.api.type import GroupType, ApiKeyType
-from .self_hosted import get_self_hosted_init, create_user, STATUS_CREATED
+from .self_hosted import get_self_hosted_init, create_user
+from .utils import check_created, check_deleted
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-STATUS_OK = 200
 
 
 def create_api_key(client: "Client", *, name: str = None) -> bool:
@@ -27,7 +26,7 @@ def create_api_key(client: "Client", *, name: str = None) -> bool:
         _, res = client.post(f"/user/key", data=data)
     else:
         _, res = client.post(f"/user/key")
-    return res.status_code == STATUS_CREATED
+    return check_created(res.status_code)
 
 
 def delete_api_key(client: "Client", *, key_id: int) -> bool:
@@ -37,7 +36,7 @@ def delete_api_key(client: "Client", *, key_id: int) -> bool:
     :param key_id: api_key的id
     """
     _, res = client.delete(f"/user/key/{key_id}")
-    return res.status_code == STATUS_CREATED
+    return check_deleted(res.status_code)
 
 
 def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:

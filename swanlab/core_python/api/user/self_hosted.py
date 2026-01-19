@@ -8,11 +8,10 @@
 from typing import TYPE_CHECKING
 
 from swanlab.core_python.api.type import SelfHostedInfoType
+from .utils import check_created
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-STATUS_CREATED = 201
 
 
 def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:
@@ -33,4 +32,4 @@ def create_user(client: "Client", *, username: str, password: str) -> bool:
     """
     data = {"users": [{"username": username, "password": password}]}
     _, res = client.post("/self_hosted/users", data=data)
-    return res.status_code == STATUS_CREATED
+    return check_created(res.status_code)
