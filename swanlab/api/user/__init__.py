@@ -9,7 +9,6 @@ import re
 from functools import cached_property
 from typing import List, Optional
 
-from swanlab.api.utils import ApiBase
 from swanlab.core_python.api.type import ApiKeyType
 from swanlab.core_python.api.type.user import IdentityType
 from swanlab.core_python.api.user import (
@@ -38,14 +37,14 @@ def check_create_info(username: str, password: str) -> bool:
         return True
 
 
-class User(ApiBase):
+class User:
     def __init__(
         self, client: Client, login_user: str = None, username: str = None, identity: IdentityType = 'user'
     ) -> None:
         if login_user is None and username is None:
             raise ValueError("login_user or username are required")
 
-        super().__init__(client)
+        self._client = client
         self._identity = identity
         self._api_keys: List[ApiKeyType] = []
         self._cur_username = username or login_user

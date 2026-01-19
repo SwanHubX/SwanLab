@@ -8,18 +8,18 @@
 from typing import List, Dict, Any
 
 from swanlab.api.user import User
-from swanlab.api.utils import ApiBase, Label
+from swanlab.api.utils import Label
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 from .thread import HistoryPool
 
 
-class Experiment(ApiBase):
+class Experiment:
     def __init__(
         self, client: Client, *, data: RunType, path: str, web_host: str, login_user: str, line_count: int
     ) -> None:
-        super().__init__(client)
+        self._client = client
         self._data = data
         self._path = path
         self._web_host = web_host

@@ -8,13 +8,12 @@
 from typing import List, Optional, Iterator
 
 from swanlab.api.project import Project
-from swanlab.api.utils import ApiBase
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjResponseType
 from swanlab.core_python.client import Client
 
 
-class Projects(ApiBase):
+class Projects:
     """
     Container for a collection of Project objects.
     You can iterate over the projects by for-in loop.
@@ -30,7 +29,7 @@ class Projects(ApiBase):
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
-        super().__init__(client)
+        self._client = client
         self._web_host = web_host
         self._workspace = workspace
         self._sort = sort
