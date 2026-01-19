@@ -6,6 +6,7 @@
 """
 
 import copy
+from typing import Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -48,7 +49,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         return super().send(request, **kwargs)
 
 
-class SwanSession(requests.Session):
+class SessionWithRetry(requests.Session):
     """
     自定义会话，用于自定义会话重试次数
     可以接受一个 retries 参数，并将其放在 headers 中的 {RETRY_HEADER} 字段中
@@ -63,13 +64,36 @@ class SwanSession(requests.Session):
 
         return super().request(method, url, *args, **kwargs)
 
+    # ---------------------------------- 重写方法的函数签名，避免IDE警告 ----------------------------------
 
-def create_session() -> SwanSession:
+    def get(self, url, params=None, retries: Optional[int] = None, **kwargs):
+        return self.request("GET", url, params=params, retries=retries, **kwargs)
+
+    def options(self, url, retries: Optional[int] = None, **kwargs):
+        return self.request("OPTIONS", url, retries=retries, **kwargs)
+
+    def head(self, url, retries: Optional[int] = None, **kwargs):
+        return self.request("HEAD", url, retries=retries, **kwargs)
+
+    def post(self, url, data=None, json=None, retries: Optional[int] = None, **kwargs):
+        return self.request("POST", url, data=data, json=json, retries=retries, **kwargs)
+
+    def put(self, url, data=None, retries: Optional[int] = None, **kwargs):
+        return self.request("PUT", url, data=data, retries=retries, **kwargs)
+
+    def patch(self, url, data=None, retries: Optional[int] = None, **kwargs):
+        return self.request("PATCH", url, data=data, retries=retries, **kwargs)
+
+    def delete(self, url, retries: Optional[int] = None, **kwargs):
+        return self.request("DELETE", url, retries=retries, **kwargs)
+
+
+def create_session() -> SessionWithRetry:
     """
     创建一个带重试机制的会话
     :return: requests.Session
     """
-    session = SwanSession()
+    session = SessionWithRetry()
     retry = Retry(
         total=5,
         backoff_factor=0.5,
