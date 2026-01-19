@@ -12,6 +12,8 @@ from swanlab.core_python.api.type import SelfHostedInfoType
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
+STATUS_CREATED = 201
+
 
 def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:
     """
@@ -22,7 +24,7 @@ def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:
     return res[0]
 
 
-def create_user(client: "Client", *, username: str, password: str) -> str:
+def create_user(client: "Client", *, username: str, password: str) -> bool:
     """
     根用户添加用户
     :param client: 已登录的客户端实例
@@ -30,5 +32,5 @@ def create_user(client: "Client", *, username: str, password: str) -> str:
     :param password: 用户密码
     """
     data = {"users": [{"username": username, "password": password}]}
-    res = client.post("/self_hosted/users", data=data)
-    return res[0]
+    _, res = client.post("/self_hosted/users", data=data)
+    return res.status_code == STATUS_CREATED

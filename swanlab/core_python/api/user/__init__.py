@@ -8,13 +8,15 @@
 from typing import TYPE_CHECKING, List
 
 from swanlab.core_python.api.type import GroupType, ApiKeyType
-from .self_hosted import get_self_hosted_init, create_user
+from .self_hosted import get_self_hosted_init, create_user, STATUS_CREATED
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
+STATUS_OK = 200
 
-def create_api_key(client: "Client", *, name: str = None) -> str:
+
+def create_api_key(client: "Client", *, name: str = None) -> bool:
     """
     创建一个api_key，完成后返回成功信息
     :param client: 已登录的客户端实例
@@ -22,20 +24,20 @@ def create_api_key(client: "Client", *, name: str = None) -> str:
     """
     if name is not None:
         data = {'name': name}
-        res = client.post(f"/user/key", data=data)
+        _, res = client.post(f"/user/key", data=data)
     else:
-        res = client.post(f"/user/key")
-    return res[0]
+        _, res = client.post(f"/user/key")
+    return res.status_code == STATUS_CREATED
 
 
-def delete_api_key(client: "Client", *, key_id: int) -> str:
+def delete_api_key(client: "Client", *, key_id: int) -> bool:
     """
     删除指定id的api_key
     :param client: 已登录的客户端实例
     :param key_id: api_key的id
     """
-    res = client.delete(f"/user/key/{key_id}")
-    return res[0]
+    _, res = client.delete(f"/user/key/{key_id}")
+    return res.status_code == STATUS_CREATED
 
 
 def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:

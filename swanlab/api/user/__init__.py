@@ -22,9 +22,6 @@ from swanlab.core_python.api.user.self_hosted import create_user
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 
-STATUS_OK = "OK"
-STATUS_CREATED = "Created"
-
 
 def check_create_info(username: str, password: str) -> bool:
     # 用户名为大小写字母、数字及-、_组成
@@ -47,22 +44,38 @@ class User:
         self._client = client
         self._identity = identity
         self._api_keys: List[ApiKeyType] = []
-        self._cur_username = username or login_user
-        self._is_other_user = username is not None and username != login_user
+        self._login_user = login_user
+        self._cur_username = username or self._login_user
 
     @property
     def username(self) -> str:
+        """
+        User name. (if username is not None, return username, otherwise return login_user)
+        """
         return self._cur_username
+
+    @property
+    def is_self(self) -> bool:
+        """
+        Check if the user is the current login user.
+        """
+        return self._cur_username == self._login_user
 
     @cached_property
     def teams(self) -> List[str]:
+        """
+        List of teams the user belongs to.
+        """
         resp = get_user_groups(self._client, username=self._cur_username)
         return [r['name'] for r in resp]
 
     # TODO: 管理员可以对指定用户的api_key进行操作
     @cached_property
     def api_keys(self) -> List[str]:
-        if self._is_other_user:
+        """
+        List of api keys the user has.
+        """
+        if not self.is_self:
             swanlog.warning("Getting api keys of other users has not been supported yet.")
             return []
         else:
@@ -70,43 +83,49 @@ class User:
             return [r['key'] for r in self._api_keys]
 
     def _refresh_api_keys(self):
+        """
+        Refresh the list of api keys.
+        """
         del self.api_keys
         self._api_keys = get_api_keys(self._client)
 
     def generate_api_key(self, description: str = None) -> Optional[str]:
-        if self._is_other_user:
+        """
+        Generate a new api key.
+        """
+        if not self.is_self:
             swanlog.warning("Generating api key of other users has not been supported yet.")
             return None
         else:
             api_key: Optional[ApiKeyType] = None
             res = create_api_key(self._client, name=description)
-            if res == STATUS_CREATED:
+            if res:
                 api_key = get_latest_api_key(self._client)
             return api_key['key'] if api_key else None
 
     def delete_api_key(self, api_key: str) -> bool:
-        if self._is_other_user:
+        """
+        Delete an api key.
+        """
+        if not self.is_self:
             swanlog.warning("Deleting api key of other users has not been supported yet.")
             return False
         else:
             self._refresh_api_keys()
             for key in self._api_keys:
                 if key['key'] == api_key:
-                    res = delete_api_key(self._client, key_id=key['id'])
-                    if res == STATUS_OK:
-                        return True
+                    return delete_api_key(self._client, key_id=key['id'])
             return False
 
     def create(self, username: str, password: str) -> bool:
-        if self._identity != "root" or self._is_other_user:
+        """
+        Create a new user. (Only root user can create other user)
+        """
+        if self._identity != "root" or not self.is_self:
             swanlog.warning(f"{self._cur_username} is not allowed to create other user.")
             return False
         check_create_info(username, password)
-        resp = create_user(self._client, username=username, password=password)
-        if resp == STATUS_CREATED:
-            return True
-        else:
-            raise False
+        return create_user(self._client, username=username, password=password)
 
 
 __all__ = ["User"]
