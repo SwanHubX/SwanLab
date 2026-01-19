@@ -3,6 +3,7 @@ import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
 from swanlab.log import swanlog as swl
+import time
 
 
 SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
@@ -101,6 +102,8 @@ class TFBConverter:
                                 times.append(t)
                                 swanlab.log({tag: handler(value)}, step=step)
                             print(f"Metric [{index}]: {tag} log finished")
+                            if index % 5 == 0:
+                                time.sleep(1)
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)
