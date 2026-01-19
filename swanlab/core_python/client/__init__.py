@@ -14,7 +14,7 @@ import requests
 from swanlab.error import ApiError
 from swanlab.log import swanlog
 from swanlab.package import get_package_version
-from .session import create_session
+from .session import create_session, SessionWithRetry
 from .utils import safe_request, ProjectInfo, ExperimentInfo
 from .. import auth
 from ..api.experiment import send_experiment_heartbeat
@@ -49,7 +49,7 @@ class Client:
     def __init__(self, login_info: auth.LoginInfo):
         self.__login_info = login_info
         # 当前会话
-        self.__session: Optional[requests.Session] = None
+        self.__session: Optional[SessionWithRetry] = None
         self.__version = get_package_version()
         self.__create_session()
 
@@ -139,9 +139,9 @@ class Client:
         创建会话，这将在HTTP类实例化时调用
         添加了重试策略
         """
-        session = create_session()
-        session.headers["swanlab-sdk"] = self.__version
-        session.cookies.update({"sid": self.__login_info.sid})
+        swr = create_session()
+        swr.headers["swanlab-sdk"] = self.__version
+        swr.cookies.update({"sid": self.__login_info.sid})
 
         # 注册响应钩子
         def response_interceptor(response: requests.Response, *args, **kwargs):
@@ -161,44 +161,44 @@ class Client:
                 resp = f"{response.status_code} {response.reason}"
                 raise ApiError(response, traceid, request, resp)
 
-        session.hooks["response"] = response_interceptor
+        swr.hooks["response"] = response_interceptor
 
-        self.__session = session
+        self.__session = swr
 
-    def post(self, url: str, data: Union[dict, list] = None):
+    def post(self, url: str, data: Union[dict, list] = None, retries: Optional[int] = None):
         """
         post请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        resp = self.__session.post(url, json=data)
+        resp = self.__session.post(url, json=data, retries=retries)
         return decode_response(resp), resp
 
-    def put(self, url: str, data: dict = None):
+    def put(self, url: str, data: dict = None, retries: Optional[int] = None):
         """
         put请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        resp = self.__session.put(url, json=data)
+        resp = self.__session.put(url, json=data, retries=retries)
         return decode_response(resp), resp
 
-    def get(self, url: str, params: dict = None):
+    def get(self, url: str, params: dict = None, retries: Optional[int] = None):
         """
         get请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        resp = self.__session.get(url, params=params)
+        resp = self.__session.get(url, params=params, retries=retries)
         return decode_response(resp), resp
 
-    def patch(self, url: str, data: dict = None):
+    def patch(self, url: str, data: dict = None, retries: Optional[int] = None):
         """
         patch请求
         """
         url = self.__login_info.api_host + url
         self.__before_request()
-        resp = self.__session.patch(url, json=data)
+        resp = self.__session.patch(url, json=data, retries=retries)
         return decode_response(resp), resp
 
     # ---------------------------------- 训练相关接口 ----------------------------------
