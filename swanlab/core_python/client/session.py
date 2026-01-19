@@ -40,9 +40,14 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         if _retry is not None:
             _adapter = copy.copy(self)
             try:
-                _adapter.max_retries = self.max_retries.new(total=int(_retry))
+                retry_count = int(_retry)
+                if retry_count < 0:
+                    raise ValueError("Retry count must be a non-negative integer.")
+                _adapter.max_retries = self.max_retries.new(total=retry_count)
             except ValueError:
-                raise ValueError(f"Invalid element {RETRY_HEADER} in request headers: {_retry}")
+                raise ValueError(
+                    f"Invalid retry count in {RETRY_HEADER}: '{_retry}'. Must be a non-negative integer."
+                ) from None
 
             return _adapter.send(request, **kwargs)
 

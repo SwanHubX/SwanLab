@@ -52,6 +52,19 @@ def test_custom_retry(url, retries):
     assert len(responses.calls) == retries + 1
 
 
+@pytest.mark.parametrize("url", ["https://api.example.com/retry"])
+@responses.activate(registry=registries.OrderedRegistry)
+def test_custom_retry_with_not_number(url):
+    """
+    测试自定义重试次数
+    """
+
+    [responses.add(responses.POST, url, body="Error", status=500) for _ in range(2)]
+    s = create_session()
+    with pytest.raises(ValueError):
+        s.post(url, retries="not-a-number")
+
+
 @responses.activate(registry=registries.OrderedRegistry)
 def test_session_headers():
     """
