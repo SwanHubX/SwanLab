@@ -48,23 +48,24 @@ def create_nested_exps(groups: int = 2, num_per_group: int = 2) -> Dict:
     return result
 
 
-def create_project_data(size: int = 20, pages: int = 1, total: int = 20) -> ProjResponseType:
+def create_project_data(page: int = 1, total: int = 20) -> ProjResponseType:
     """
-    创建单页项目数据（用于模拟 get_workspace_projects 的返回值，仅生成一页）
+    创建分页项目数据（用于模拟 get_workspace_projects 的返回值）
 
-    :param size: 项目数
-    :param pages: 当前页数
+    :param page: 当前页数
     :param total: 项目总数
     :return: ProjResponseType 格式的数据
     """
+    page_size = 20
+    pages = (total + page_size - 1) // page_size
     project_list: List[ProjectType] = []
 
-    for j in range(size):
+    for j in range(page_size):
         project: ProjectType = {
-            'cuid': f'proj_{pages}_{j}',
-            'name': f'project_{pages}_{j}',
-            'path': f'test_user/project_{pages}_{j}',
-            'url': f'{get_host_web()}/test_user/project_{pages}_{j}',
+            'cuid': f'proj_{page}_{j}',
+            'name': f'project_{page}_{j}',
+            'path': f'test_user/project_{page}_{j}',
+            'url': f'{get_host_web()}/test_user/project_{page}_{j}',
             'description': '',
             'visibility': 'PRIVATE',
             'createdAt': '',
@@ -77,7 +78,7 @@ def create_project_data(size: int = 20, pages: int = 1, total: int = 20) -> Proj
 
     return {
         'list': project_list,
-        'size': size,
+        'size': page_size,
         'pages': pages,
         'total': total,
     }

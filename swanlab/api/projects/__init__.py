@@ -8,7 +8,7 @@
 from typing import List, Optional, Iterator
 
 from swanlab.api.project import Project
-from swanlab.core_python.api.project import get_workspace_projects, PAGE_SIZE
+from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjResponseType
 from swanlab.core_python.client import Client
 
@@ -39,14 +39,13 @@ class Projects:
     def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
-        page_size = PAGE_SIZE
         while True:
             cur_page += 1
             resp: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
-                size=page_size,
+                size=20,
                 sort=self._sort,
                 search=self._search,
                 detail=self._detail,
@@ -54,7 +53,7 @@ class Projects:
             for p in resp['list']:
                 yield Project(data=p, web_host=self._web_host)
 
-            if len(resp['list']) < page_size or cur_page * page_size >= resp['total']:
+            if cur_page >= resp['pages']:
                 break
 
 

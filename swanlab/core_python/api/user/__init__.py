@@ -15,28 +15,22 @@ if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
 
-def create_api_key(client: "Client", *, name: str = None) -> bool:
+def create_api_key(client: "Client", *, name: str = None) -> None:
     """
     创建一个api_key，完成后返回成功信息
     :param client: 已登录的客户端实例
     :param name: api_key 的名称
     """
-    if name is not None:
-        data = {'name': name}
-        _, res = client.post(f"/user/key", data=data)
-    else:
-        _, res = client.post(f"/user/key")
-    return check_created(res)
+    client.post(f"/user/key", data={'name': name} if name else None)
 
 
-def delete_api_key(client: "Client", *, key_id: int) -> bool:
+def delete_api_key(client: "Client", *, key_id: int) -> None:
     """
     删除指定id的api_key
     :param client: 已登录的客户端实例
     :param key_id: api_key的id
     """
-    _, res = client.delete(f"/user/key/{key_id}")
-    return check_deleted(res)
+    client.delete(f"/user/key/{key_id}")
 
 
 def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:
