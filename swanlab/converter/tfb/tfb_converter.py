@@ -29,7 +29,7 @@ class TFBConverter:
             self.types = SUPPORTED_TYPES
         else:
             self.types = self.types.split(",")
-            self.types = [type.strip().lower() for type in self.types]
+            self.types = [t.strip().lower() for t in self.types]
             self.types = list(set(self.types))
             if not all(type in SUPPORTED_TYPES for type in self.types):
                 raise ValueError(f"Unsupported types: {self.types}")
@@ -94,9 +94,7 @@ class TFBConverter:
                             tag_type = type_by_tags[tag]
                             if tag_type not in self.types:
                                 continue
-                            handler = handlers.get(tag_type)
-                            if not handler:
-                                continue
+                            handler = handlers[tag_type]
                             index += 1
                             for step, value, t in data:
                                 times.append(t)

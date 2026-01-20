@@ -109,7 +109,7 @@ def convert(
         workspace: str,
         logdir: str,
         tb_logdir: str,
-        tb_types: list,
+        tb_types: str,
         wb_project: str,
         wb_entity: str,
         wb_runid: str,
