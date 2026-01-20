@@ -26,7 +26,7 @@ def create_api_key(client: "Client", *, name: str = None) -> bool:
         _, res = client.post(f"/user/key", data=data)
     else:
         _, res = client.post(f"/user/key")
-    return check_created(res.status_code)
+    return check_created(res)
 
 
 def delete_api_key(client: "Client", *, key_id: int) -> bool:
@@ -36,7 +36,7 @@ def delete_api_key(client: "Client", *, key_id: int) -> bool:
     :param key_id: api_key的id
     """
     _, res = client.delete(f"/user/key/{key_id}")
-    return check_deleted(res.status_code)
+    return check_deleted(res)
 
 
 def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:

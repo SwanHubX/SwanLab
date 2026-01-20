@@ -32,4 +32,4 @@ def create_user(client: "Client", *, username: str, password: str) -> bool:
     """
     data = {"users": [{"username": username, "password": password}]}
     _, res = client.post("/self_hosted/users", data=data)
-    return check_created(res.status_code)
+    return check_created(res)

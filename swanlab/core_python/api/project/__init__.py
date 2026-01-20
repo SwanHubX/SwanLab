@@ -12,13 +12,15 @@ from swanlab.core_python.api.type import ProjResponseType
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
 
+PAGE_SIZE = 20
+
 
 def get_workspace_projects(
     client: "Client",
     *,
     workspace: str,
     page: int = 1,
-    size: int = 20,
+    size: int = PAGE_SIZE,
     sort: Optional[List[str]] = None,
     search: Optional[str] = None,
     detail: Optional[bool] = True,
@@ -44,4 +46,4 @@ def get_workspace_projects(
     return res[0]
 
 
-__all__ = ["get_workspace_projects"]
+__all__ = ["get_workspace_projects", "PAGE_SIZE"]
