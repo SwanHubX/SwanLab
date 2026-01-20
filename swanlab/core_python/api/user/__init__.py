@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, List
 
 from swanlab.core_python.api.type import GroupType, ApiKeyType
 from .self_hosted import get_self_hosted_init, create_user
-from .utils import check_created, check_deleted
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
