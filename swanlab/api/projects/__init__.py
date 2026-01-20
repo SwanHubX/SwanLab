@@ -41,7 +41,6 @@ class Projects(ApiBase):
         # 按用户遍历情况获取项目信息
         cur_page = 0
         page_size = 20
-        projects = []
         while True:
             cur_page += 1
             resp: ProjResponseType = get_workspace_projects(
@@ -53,11 +52,13 @@ class Projects(ApiBase):
                 search=self._search,
                 detail=self._detail,
             )
-            projects.extend(resp['list'])
-            if cur_page * page_size >= resp['total']:
+            # 立即 yield 当前页的数据
+            for p in resp['list']:
+                yield Project(data=p, web_host=self._web_host)
+            
+            # 检查是否已获取所有数据：当前页数据少于 page_size 或已达到总数
+            if len(resp['list']) < page_size or cur_page * page_size >= resp['total']:
                 break
-
-        yield from iter(Project(data=p, web_host=self._web_host) for p in projects)
 
 
 __all__ = ["Projects"]
