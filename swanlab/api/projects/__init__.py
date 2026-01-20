@@ -39,21 +39,22 @@ class Projects:
     def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
+        page_size = 20
         while True:
             cur_page += 1
-            projects_info: ProjResponseType = get_workspace_projects(
+            resp: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
-                size=20,
+                size=page_size,
                 sort=self._sort,
                 search=self._search,
                 detail=self._detail,
             )
-            project_list = projects_info.get("list", [])
-            yield from (Project(data=p, web_host=self._web_host) for p in project_list)
+            for p in resp['list']:
+                yield Project(data=p, web_host=self._web_host)
 
-            if not project_list or cur_page >= projects_info.get("pages", 0):
+            if len(resp['list']) < page_size or cur_page * page_size >= resp['total']:
                 break
 
 
