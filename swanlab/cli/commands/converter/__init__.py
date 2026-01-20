@@ -53,6 +53,12 @@ import click
     type=str,
     help="The directory where the tensorboard log files are stored.",
 )
+@click.option(
+    "--tb-types",
+    default=None,
+    type=str,
+    help="The types of the tensorboard log files to convert, default is all types.",
+)
 
 # wandb
 @click.option(
@@ -103,6 +109,7 @@ def convert(
         workspace: str,
         logdir: str,
         tb_logdir: str,
+        tb_types: str,
         wb_project: str,
         wb_entity: str,
         wb_runid: str,
@@ -122,6 +129,7 @@ def convert(
             workspace=workspace,
             mode=mode,
             logdir=logdir,
+            types=tb_types,
         )
         tfb_converter.run()
 

@@ -3,8 +3,10 @@ import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
 from swanlab.log import swanlog as swl
-import time as t
+import time
 
+
+SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
 
 class TFBConverter:
     def __init__(
@@ -14,6 +16,7 @@ class TFBConverter:
         workspace: str = None,
         mode: str = "cloud",
         logdir: str = None,
+        types: str = None,
         **kwargs,
     ):
         self.convert_dir = convert_dir
@@ -21,6 +24,15 @@ class TFBConverter:
         self.workspace = workspace
         self.mode = mode
         self.logdir = logdir
+        self.types = types
+        if self.types is None:
+            self.types = SUPPORTED_TYPES
+        else:
+            self.types = self.types.split(",")
+            self.types = [t.strip().lower() for t in self.types]
+            self.types = list(set(self.types))
+            if not all(type in SUPPORTED_TYPES for type in self.types):
+                raise ValueError(f"Unsupported types: {self.types}")
 
     def run(self, depth=3):
         swl.info("Start converting TFEvent files to SwanLab format...")
@@ -70,31 +82,26 @@ class TFBConverter:
                     data_by_tags = get_tf_events_tags_data(path, type_by_tags)
 
                     times = []
-                    # 遍历数据
                     if data_by_tags:
-                        # 打印并转换数据到SwanLab
+                        handlers = {
+                            "scalar": lambda v: v,
+                            "image": lambda v: swanlab.Image(v),
+                            "audio": lambda v: swanlab.Audio(v[0], sample_rate=v[1]),
+                            "text": lambda v: swanlab.Text(v),
+                        }
                         index = 0
                         for tag, data in data_by_tags.items():
-                            for step, value, time in data:
-                                times.append(time)
-                                # 如果是标量
-                                if type_by_tags[tag] == "scalar":
-                                    swanlab.log({tag: value}, step=step)
-                                # 如果是图片
-                                elif type_by_tags[tag] == "image":
-                                    swanlab.log({tag: swanlab.Image(value)}, step=step)
-                                # 如果是音频
-                                elif type_by_tags[tag] == "audio":
-                                    swanlab.log({tag: swanlab.Audio(value[0], sample_rate=value[1])}, step=step)
-                                # 如果是文本
-                                elif type_by_tags[tag] == "text":
-                                    swanlab.log({tag: swanlab.Text(value)}, step=step)
-                                # TODO: 随着SwanLab的发展，支持转换更多类型
-                            # TODO: 等未来上传方案优化后解除延时
-                            if index % 5 == 0:
-                                t.sleep(1)
+                            tag_type = type_by_tags[tag]
+                            if tag_type not in self.types:
+                                continue
+                            handler = handlers[tag_type]
                             index += 1
-                            print(f"Index {index}: Metric: {tag} log finished")
+                            for step, value, t in data:
+                                times.append(t)
+                                swanlab.log({tag: handler(value)}, step=step)
+                            print(f"Metric [{index}]: {tag} log finished")
+                            if index % 5 == 0:
+                                time.sleep(1)
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)
