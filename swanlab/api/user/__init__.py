@@ -114,17 +114,16 @@ class User:
             return False
 
     @self_hosted("root")
-    def create(self, username: str, password: str) -> bool:
+    def create(self, username: str, password: str) -> Optional[bool]:
         """
         Create a new user. (Only root user can create other user)
         """
         if not self.is_self:
             swanlog.warning(f"{self._cur_username} is not allowed to create other user.")
             return False
-        if check_create_info(username, password):
-            create_user(self._client, username=username, password=password)
-            return True
-        return False
+        check_create_info(username, password)
+        create_user(self._client, username=username, password=password)
+        return True
 
 
 __all__ = ["User"]

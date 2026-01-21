@@ -58,7 +58,7 @@ def self_hosted(identity: IdentityType = "user"):
                 return None
 
             # 2. 检测用户权限（商业版root用户功能）
-            if identity == "root" and not self_hosted_info["root"]:
+            if identity == "root" and not self_hosted_info.get("root", False):
                 swanlog.warning("You don't have permission to perform this action. Please login as a root user")
                 return None
 
