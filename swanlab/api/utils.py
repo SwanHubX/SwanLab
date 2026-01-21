@@ -46,8 +46,7 @@ def self_hosted(identity: IdentityType = "user"):
             try:
                 self_hosted_info = get_self_hosted_init(client)
             except ApiError:
-                swanlog.warning("You haven't launched a swanlab self-hosted instance. This usages are not available.")
-                return None
+                raise ValueError("You haven't launched a swanlab self-hosted instance. This usages are not available.")
 
             if not self_hosted_info.get("enabled", False):
                 swanlog.warning("SwanLab self-hosted instance hasn't been ready yet.")

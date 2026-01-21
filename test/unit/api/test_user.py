@@ -45,7 +45,8 @@ def test_create_permission():
     """测试普通用户尝试创建用户是否会被拦截"""
     user = create_user()
     with SelfHosted():
-        assert user.create(username='test_user', password='123456aa') is None
+        with pytest.raises(ValueError):
+            user.create(username='test_user', password='123456aa')
     with SelfHosted(start=True, enabled=False):
         assert user.create(username='test_user', password='123456aa') is None
     with SelfHosted(start=True, expired=True):
