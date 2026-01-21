@@ -219,3 +219,20 @@ def test_image_size():
 
     image = Image(mock, size=128)
     assert image.image_size == (128, 64)
+
+
+def test_image_accepts_image_instance():
+    base = Image(np.random.randint(0, 255, (4, 4, 3), dtype=np.uint8), caption="first")
+
+    nested = Image(base)
+
+    assert nested.format == base.format
+    assert nested.caption == base.caption
+    assert nested.image_data.size == base.image_data.size
+    assert nested.buffer.getbuffer().nbytes > 0
+
+    resized = Image(base, size=2, caption="second")
+
+    assert resized.caption == "second"
+    assert max(resized.image_data.size) <= 2
+    assert base.image_data.size == (4, 4)  # base image remains unchanged
