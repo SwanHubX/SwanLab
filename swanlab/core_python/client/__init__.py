@@ -192,15 +192,6 @@ class Client:
         resp = self.__session.get(url, params=params)
         return decode_response(resp), resp
 
-    def delete(self, url: str):
-        """
-        delete请求
-        """
-        url = self.__login_info.api_host + url
-        self.__before_request()
-        resp = self.__session.delete(url)
-        return decode_response(resp), resp
-
     def patch(self, url: str, data: dict = None):
         """
         patch请求
@@ -208,6 +199,15 @@ class Client:
         url = self.__login_info.api_host + url
         self.__before_request()
         resp = self.__session.patch(url, json=data)
+        return decode_response(resp), resp
+
+    def delete(self, url: str, retries: Optional[int] = None):
+        """
+        delete请求
+        """
+        url = self.__login_info.api_host + url
+        self.__before_request()
+        resp = self.__session.delete(url, retries=retries)
         return decode_response(resp), resp
 
     # ---------------------------------- 训练相关接口 ----------------------------------
