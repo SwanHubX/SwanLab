@@ -41,27 +41,31 @@ class SelfHosted:
         patch.stopall()
 
 
-def test_create_permission():
-    """测试普通用户尝试创建用户是否会被拦截"""
-    user = create_user()
-    with SelfHosted():
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},  # 私有化未启动
+        {'start': True, 'enabled': False},  # 启动，但未启用
+        {'start': True, 'expired': True},  # licence过期
+        {'start': True},  # 启动，正常，但不是root
+        {'username': 'test_other_user'},
+    ],
+)
+def test_create_permission(kwargs):
+    """测试尝试创建用户是否会被拦截"""
+    user = create_user(kwargs.get('username', None))
+    with SelfHosted(**kwargs):
         with pytest.raises(ValueError):
             user.create(username='test_user', password='123456aa')
-    with SelfHosted(start=True, enabled=False):
-        assert user.create(username='test_user', password='123456aa') is None
-    with SelfHosted(start=True, expired=True):
-        assert user.create(username='test_user', password='123456aa') is None
-    with SelfHosted(start=True):
-        assert user.create(username='test_user', password='123456aa') is None
 
 
 @pytest.mark.parametrize(
     ("username", "password"),
     [
-        ('user@name', 'password123'),
-        ('test_user', 'short'),
-        ('test_user', '12345678'),
-        ('test_user', 'ABCDEFGH'),
+        ('user@name', 'password123'),  # 无效的用户名
+        ('test_user', 'short'),  # 无效密码（密码长度小于8）
+        ('test_user', '12345678'),  # 无效密码（全是数字）
+        ('test_user', 'ABCDEFGH'),  # 有效密码（全是字母）
     ],
 )
 def test_check_create_info(username, password):
@@ -76,5 +80,7 @@ def test_other_user():
     """测试是否对未开发的功能进行拦截"""
     other_user = create_user(username="other_user")
     with SelfHosted(start=True, root=True):
-        assert other_user.generate_api_key() is None
-        assert other_user.delete_api_key(api_key='test_api_key') == False
+        with pytest.raises(ValueError):
+            assert other_user.generate_api_key() is None
+        with pytest.raises(ValueError):
+            assert other_user.delete_api_key(api_key='test_api_key') == False

@@ -12,7 +12,6 @@ from swanlab.core_python.api.type import IdentityType
 from swanlab.core_python.api.user import get_self_hosted_init
 from swanlab.core_python.client import Client
 from swanlab.error import ApiError
-from swanlab.log import swanlog
 
 
 @dataclass
@@ -39,8 +38,7 @@ def self_hosted(identity: IdentityType = "user"):
         def wrapper(self, *args, **kwargs):
             client = getattr(self, '_client', None)
             if not isinstance(client, Client):
-                swanlog.warning("There is no SwanLab client instance.")
-                return None
+                raise AttributeError("There is no SwanLab client instance.")
 
             # 1. 尝试获取私有化服务信息
             try:
@@ -49,17 +47,13 @@ def self_hosted(identity: IdentityType = "user"):
                 raise ValueError("You haven't launched a swanlab self-hosted instance. This usages are not available.")
 
             if not self_hosted_info.get("enabled", False):
-                swanlog.warning("SwanLab self-hosted instance hasn't been ready yet.")
-                return None
-
+                raise ValueError("SwanLab self-hosted instance hasn't been ready yet.")
             if self_hosted_info.get("expired", True):
-                swanlog.warning("SwanLab self-hosted instance has expired.")
-                return None
+                raise ValueError("SwanLab self-hosted instance has expired.")
 
             # 2. 检测用户权限（商业版root用户功能）
             if identity == "root" and not self_hosted_info.get("root", False):
-                swanlog.warning("You don't have permission to perform this action. Please login as a root user")
-                return None
+                raise ValueError("You don't have permission to perform this action. Please login as a root user")
 
             return func(self, *args, **kwargs)
 

@@ -20,7 +20,6 @@ from swanlab.core_python.api.user import (
 )
 from swanlab.core_python.api.user.self_hosted import create_user
 from swanlab.core_python.client import Client
-from swanlab.log import swanlog
 
 
 def check_create_info(username: str, password: str) -> bool:
@@ -73,8 +72,7 @@ class User:
         List of api keys the user has.
         """
         if not self.is_self:
-            swanlog.warning("Getting api keys of other users has not been supported yet.")
-            return []
+            raise ValueError("Getting api keys of other users has not been supported yet.")
         else:
             self._api_keys = get_api_keys(self._client)
             return [r['key'] for r in self._api_keys]
@@ -91,8 +89,7 @@ class User:
         Generate a new api key.
         """
         if not self.is_self:
-            swanlog.warning("Generating api key of other users has not been supported yet.")
-            return None
+            raise ValueError("Generating api key of other users has not been supported yet.")
         else:
             create_api_key(self._client, name=description)
             api_key = get_latest_api_key(self._client)
@@ -103,8 +100,7 @@ class User:
         Delete an api key.
         """
         if not self.is_self:
-            swanlog.warning("Deleting api key of other users has not been supported yet.")
-            return False
+            raise ValueError("Deleting api key of other users has not been supported yet.")
         else:
             self._refresh_api_keys()
             for key in self._api_keys:
@@ -119,8 +115,7 @@ class User:
         Create a new user. (Only root user can create other user)
         """
         if not self.is_self:
-            swanlog.warning(f"{self._cur_username} is not allowed to create other user.")
-            return False
+            raise ValueError(f"{self._cur_username} is not allowed to create other user.")
         check_create_info(username, password)
         create_user(self._client, username=username, password=password)
         return True
