@@ -22,7 +22,7 @@ def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:
     return res[0]
 
 
-def create_user(client: "Client", *, username: str, password: str) -> str:
+def create_user(client: "Client", *, username: str, password: str) -> None:
     """
     根用户添加用户
     :param client: 已登录的客户端实例
@@ -30,5 +30,4 @@ def create_user(client: "Client", *, username: str, password: str) -> str:
     :param password: 用户密码
     """
     data = {"users": [{"username": username, "password": password}]}
-    res = client.post("/self_hosted/users", data=data)
-    return res[0]
+    client.post("/self_hosted/users", data=data)

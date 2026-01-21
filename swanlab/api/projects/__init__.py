@@ -8,13 +8,12 @@
 from typing import List, Optional, Iterator
 
 from swanlab.api.project import Project
-from swanlab.api.utils import ApiBase
 from swanlab.core_python.api.project import get_workspace_projects
 from swanlab.core_python.api.type import ProjResponseType
 from swanlab.core_python.client import Client
 
 
-class Projects(ApiBase):
+class Projects:
     """
     Container for a collection of Project objects.
     You can iterate over the projects by for-in loop.
@@ -30,7 +29,7 @@ class Projects(ApiBase):
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
-        super().__init__(client)
+        self._client = client
         self._web_host = web_host
         self._workspace = workspace
         self._sort = sort
@@ -40,24 +39,22 @@ class Projects(ApiBase):
     def __iter__(self) -> Iterator[Project]:
         # 按用户遍历情况获取项目信息
         cur_page = 0
-        page_size = 20
-        projects = []
         while True:
             cur_page += 1
             resp: ProjResponseType = get_workspace_projects(
                 self._client,
                 workspace=self._workspace,
                 page=cur_page,
-                size=page_size,
+                size=20,
                 sort=self._sort,
                 search=self._search,
                 detail=self._detail,
             )
-            projects.extend(resp['list'])
-            if cur_page * page_size >= resp['total']:
-                break
+            for p in resp['list']:
+                yield Project(data=p, web_host=self._web_host)
 
-        yield from iter(Project(data=p, web_host=self._web_host) for p in projects)
+            if cur_page >= resp['pages']:
+                break
 
 
 __all__ = ["Projects"]

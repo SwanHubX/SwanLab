@@ -9,11 +9,11 @@ from utils import create_project_data
 def test_projects():
     """测试能否分页获取所有项目"""
     with patch('swanlab.api.projects.get_workspace_projects') as mock_get_projects:
-        total_pages = 4
+        total = 80
         page_size = 20
 
         def side_effect(*args, **kwargs):
-            return create_project_data(size=page_size, pages=kwargs.get("page", 1), total=page_size * total_pages)
+            return create_project_data(page=kwargs.get("page", 1), total=total)
 
         mock_get_projects.side_effect = side_effect
 
@@ -23,5 +23,5 @@ def test_projects():
             workspace='test_user',
         )
         projects = list(mock_projects)
-        assert len(projects) == page_size * total_pages
-        assert mock_get_projects.call_count == total_pages
+        assert len(projects) == total
+        assert mock_get_projects.call_count == (total + page_size - 1) // page_size

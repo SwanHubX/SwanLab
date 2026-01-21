@@ -7,17 +7,16 @@
 
 from typing import List, Dict
 
-from swanlab.api.utils import ApiBase, Label
+from swanlab.api.utils import Label
 from swanlab.core_python.api.type import ProjectType
 
 
-class Project(ApiBase):
+class Project:
     """
     Representing a single project with some of its properties.
     """
 
     def __init__(self, *, data: ProjectType, web_host: str) -> None:
-        super().__init__()
         self._data = data
         self._web_host = web_host
 

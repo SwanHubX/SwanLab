@@ -8,7 +8,6 @@
 from typing import List, Dict, Iterator
 
 from swanlab.api.experiment import Experiment
-from swanlab.api.utils import ApiBase
 from swanlab.core_python.api.experiment import get_project_experiments
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.auth.providers.api_key import LoginInfo
@@ -28,7 +27,7 @@ def flatten_runs(runs: Dict) -> List:
     return flat_runs
 
 
-class Experiments(ApiBase):
+class Experiments:
     """
     Container for a collection of Experiment objects.
     You can iterate over the experiments by for-in loop.
@@ -37,7 +36,7 @@ class Experiments(ApiBase):
     def __init__(self, client: Client, *, path: str, login_info: LoginInfo, filters: Dict[str, object] = None) -> None:
         if len(path.split('/')) != 2:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project'")
-        super().__init__(client)
+        self._client = client
         self._path = path
         self._web_host = login_info.web_host
         self._login_user = login_info.username
