@@ -9,9 +9,7 @@ from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
-from swanlab.core_python.api.type import IdentityType
-from swanlab.core_python.api.user import get_self_hosted_init
-from swanlab.error import KeyFileError, ApiError
+from swanlab.error import KeyFileError
 from swanlab.log import swanlog
 from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
@@ -46,32 +44,13 @@ class Api:
         self._client: Client = Client(self._login_info)
         self._web_host = self._login_info.web_host
 
-        # 尝试获取私有化服务信息，如果不是私有化服务，则会报错退出，因为指定user功能仅供私有化用户使用
-        try:
-            self._self_hosted_info = get_self_hosted_init(self._client)
-        except ApiError:
-            swanlog.warning("You haven't launched a swanlab self-hosted instance. Some usages are not available.")
-            self._self_hosted_info = None
-
-        self._identity: IdentityType = 'user'
-        if self._self_hosted_info is not None and self._self_hosted_info["plan"] == 'commercial':
-            self._identity = 'root' if self._self_hosted_info['root'] else 'user'
-
-        if self._self_hosted_info is not None:
-            if not self._self_hosted_info["enabled"]:
-                swanlog.warning("SwanLab self-hosted instance hasn't been ready yet.")
-            if self._self_hosted_info["expired"]:
-                swanlog.warning("SwanLab self-hosted instance has expired.")
-
     def user(self, username: str = None) -> User:
         """
         获取用户实例，用于操作用户相关信息
         :param username: 指定用户名，如果为 None，则返回当前登录用户
         :return: User 实例，可对当前/指定用户进行操作
         """
-        return User(
-            client=self._client, login_user=self._login_info.username, username=username, identity=self._identity
-        )
+        return User(client=self._client, login_user=self._login_info.username, username=username)
 
     def projects(
         self,

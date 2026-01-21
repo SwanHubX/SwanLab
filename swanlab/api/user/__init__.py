@@ -9,8 +9,8 @@ import re
 from functools import cached_property
 from typing import List, Optional
 
+from swanlab.api.utils import self_hosted
 from swanlab.core_python.api.type import ApiKeyType
-from swanlab.core_python.api.type.user import IdentityType
 from swanlab.core_python.api.user import (
     get_user_groups,
     get_api_keys,
@@ -35,14 +35,11 @@ def check_create_info(username: str, password: str) -> bool:
 
 
 class User:
-    def __init__(
-        self, client: Client, login_user: str = None, username: str = None, identity: IdentityType = 'user'
-    ) -> None:
+    def __init__(self, client: Client, login_user: str = None, username: str = None) -> None:
         if login_user is None and username is None:
             raise ValueError("login_user or username are required")
 
         self._client = client
-        self._identity = identity
         self._api_keys: List[ApiKeyType] = []
         self._login_user = login_user
         self._cur_username = username or self._login_user
@@ -97,10 +94,8 @@ class User:
             swanlog.warning("Generating api key of other users has not been supported yet.")
             return None
         else:
-            api_key: Optional[ApiKeyType] = None
-            res = create_api_key(self._client, name=description)
-            if res:
-                api_key = get_latest_api_key(self._client)
+            create_api_key(self._client, name=description)
+            api_key = get_latest_api_key(self._client)
             return api_key['key'] if api_key else None
 
     def delete_api_key(self, api_key: str) -> bool:
@@ -114,18 +109,22 @@ class User:
             self._refresh_api_keys()
             for key in self._api_keys:
                 if key['key'] == api_key:
-                    return delete_api_key(self._client, key_id=key['id'])
+                    delete_api_key(self._client, key_id=key['id'])
+                    return True
             return False
 
+    @self_hosted("root")
     def create(self, username: str, password: str) -> bool:
         """
         Create a new user. (Only root user can create other user)
         """
-        if self._identity != "root" or not self.is_self:
+        if not self.is_self:
             swanlog.warning(f"{self._cur_username} is not allowed to create other user.")
             return False
-        check_create_info(username, password)
-        return create_user(self._client, username=username, password=password)
+        if check_create_info(username, password):
+            create_user(self._client, username=username, password=password)
+            return True
+        return False
 
 
 __all__ = ["User"]
