@@ -29,3 +29,4 @@ class GroupAPI(ApiBase):
             }
             for item in groups
         ]
+        return resp
