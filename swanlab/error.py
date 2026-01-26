@@ -7,6 +7,8 @@ r"""
 @Description:
     swanlab全局错误定义
 """
+from datetime import datetime
+
 import requests
 
 
@@ -78,8 +80,9 @@ class NetworkError(SyncError):
 
     def __init__(self, *args):
         super().__init__(*args)
+        timestamp = datetime.now().strftime("%Y.%m.%d %H:%M:%S")
         self.log_level = "warning"
-        self.message = "network error, swanlab will resume uploads when the network improves"
+        self.message = f"[{timestamp}] " + "network error, swanlab will resume uploads when the network improves"
 
 
 class DataTypeError(Exception):

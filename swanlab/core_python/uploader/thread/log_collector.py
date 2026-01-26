@@ -10,12 +10,14 @@ r"""
 import time
 from typing import List
 
-from swanlab.error import SyncError
+from swanlab.error import NetworkError, SyncError
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
 from .task_types import UploadType
 from .utils import LogQueue
 from .utils import ThreadUtil, ThreadTaskABC
+
+NETWORK_ERROR_INTERVAL = 30
 
 
 class LogCollectorTask(ThreadTaskABC):
@@ -32,9 +34,9 @@ class LogCollectorTask(ThreadTaskABC):
         self.lock = False
         self.upload_type = upload_type
         self.upload_interval = get_settings().upload_interval
+        self._last_network_error_log_timestamp = 0.0
 
-    @staticmethod
-    def report_known_error(errors: List[SyncError]):
+    def report_known_error(self, errors: List[SyncError]):
         """
         上报错误信息
         :param errors: 错误信息列表
@@ -43,7 +45,12 @@ class LogCollectorTask(ThreadTaskABC):
             return
         # 去重
         errors = list(set(errors))
+        now = time.time()
         for error in errors:
+            if isinstance(error, NetworkError):
+                if now - self._last_network_error_log_timestamp < NETWORK_ERROR_INTERVAL:
+                    continue
+                self._last_network_error_log_timestamp = time.time()
             swanlog.__getattribute__(error.log_level)(error.message)
 
     def upload(self):
