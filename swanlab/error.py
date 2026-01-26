@@ -82,7 +82,7 @@ class NetworkError(SyncError):
         super().__init__(*args)
         timestamp = datetime.now().strftime("%Y.%m.%d %H:%M:%S")
         self.log_level = "warning"
-        self.message = f"[{timestamp}] " + "network error, swanlab will resume uploads when the network improves"
+        self.message = f"[{timestamp}] network error, swanlab will resume uploads when the network improves"
 
 
 class DataTypeError(Exception):

@@ -50,7 +50,7 @@ class LogCollectorTask(ThreadTaskABC):
             if isinstance(error, NetworkError):
                 if now - self._last_network_error_log_timestamp < NETWORK_ERROR_INTERVAL:
                     continue
-                self._last_network_error_log_timestamp = time.time()
+                self._last_network_error_log_timestamp = now
             swanlog.__getattribute__(error.log_level)(error.message)
 
     def upload(self):
