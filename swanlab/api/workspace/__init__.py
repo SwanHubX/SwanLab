@@ -19,7 +19,7 @@ class Workspace:
 
         if data is None:
             if workspace is None or client is None:
-                raise ValueError('username or client cannot both None')
+                raise ValueError('workspace or client cannot both None')
             data = get_workspace_info(self._client, workspace=workspace)
         self._data = data
 
