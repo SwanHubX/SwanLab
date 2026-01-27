@@ -17,6 +17,8 @@ from .experiment import Experiment
 from .experiments import Experiments
 from .projects import Projects
 from .user import User
+from .workspace import Workspace
+from .workspaces import Workspaces
 
 
 class Api:
@@ -43,6 +45,7 @@ class Api:
         # 一个OpenApi对应一个client，可创建多个api获取从不同的client获取不同账号下的实验信息
         self._client: Client = Client(self._login_info)
         self._web_host = self._login_info.web_host
+        self._login_user = self._login_info.username
 
     def user(self, username: str = None) -> User:
         """
@@ -50,7 +53,7 @@ class Api:
         :param username: 指定用户名，如果为 None，则返回当前登录用户
         :return: User 实例，可对当前/指定用户进行操作
         """
-        return User(client=self._client, login_user=self._login_info.username, username=username)
+        return User(client=self._client, login_user=self._login_user, username=username)
 
     def projects(
         self,
@@ -107,9 +110,32 @@ class Api:
             data=data[0],
             path=proj_path,
             web_host=self._web_host,
-            login_user=self._login_info.username,
+            login_user=self._login_user,
             line_count=1,
         )
+
+    def workspaces(
+        self,
+        username: str = None,
+    ):
+        """
+        获取当前登录用户的工作空间迭代器
+        当username为其他用户时，可以作为visitor访问其工作空间
+        """
+        if username is None:
+            username = self._login_user
+        return Workspaces(self._client, username=username)
+
+    def workspace(
+        self,
+        username: str = None,
+    ):
+        """
+        获取当前登录用户的工作空间
+        """
+        if username is None:
+            username = self._login_user
+        return Workspace(client=self._client, workspace=username)
 
 
 __all__ = ["Api", "OpenApi"]

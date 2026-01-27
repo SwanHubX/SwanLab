@@ -8,6 +8,7 @@
 from .experiment import RunType, ColumnType
 from .project import ProjectType, ProjResponseType
 from .user import GroupType, IdentityType, ApiKeyType, SelfHostedInfoType
+from .workspace import WorkspaceType, RoleType
 
 __all__ = [
     "RunType",
@@ -18,4 +19,6 @@ __all__ = [
     "IdentityType",
     "ApiKeyType",
     "SelfHostedInfoType",
+    "WorkspaceType",
+    "RoleType",
 ]
