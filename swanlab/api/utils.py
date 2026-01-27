@@ -7,6 +7,7 @@
 
 from dataclasses import dataclass
 from functools import wraps
+from typing import Dict
 
 from swanlab.core_python.api.type import IdentityType
 from swanlab.core_python.api.user import get_self_hosted_init
@@ -62,4 +63,17 @@ def self_hosted(identity: IdentityType = "user"):
     return decorator
 
 
-__all__ = ['Label', 'self_hosted']
+def get_properties(obj: object) -> Dict[str, object]:
+    """递归获取实例中所有property"""
+    result = dict()
+    for name in dir(obj):
+        if name.startswith("_"):
+            continue
+        if isinstance(getattr(type(obj), name, None), property):
+            value = getattr(obj, name, None)
+            result[name] = value if type(value).__module__ == 'builtins' else get_properties(value)
+
+    return result
+
+
+__all__ = ['Label', 'self_hosted', 'get_properties']

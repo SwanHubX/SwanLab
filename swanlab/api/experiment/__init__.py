@@ -8,7 +8,7 @@
 from typing import List, Dict, Any
 
 from swanlab.api.user import User
-from swanlab.api.utils import Label
+from swanlab.api.utils import Label, get_properties
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
@@ -138,6 +138,12 @@ class Experiment:
         Root project cuid. If the experiment is a root experiment, it will be None.
         """
         return self._data['rootProId']
+
+    def json(self):
+        """
+        JSON-serializable dict of all @property values.
+        """
+        return get_properties(self)
 
     def __full_history(self) -> Any:
         """

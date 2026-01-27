@@ -7,7 +7,7 @@
 
 from typing import List, Dict
 
-from swanlab.api.utils import Label
+from swanlab.api.utils import Label, get_properties
 from swanlab.core_python.api.type import ProjectType
 
 
@@ -90,3 +90,9 @@ class Project:
         experiments, contributors, children, collaborators, runningExps.
         """
         return self._data['_count']
+
+    def json(self):
+        """
+        JSON-serializable dict of all @property values.
+        """
+        return get_properties(self)

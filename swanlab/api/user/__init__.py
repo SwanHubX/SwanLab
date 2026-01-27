@@ -9,7 +9,7 @@ import re
 from functools import cached_property
 from typing import List, Optional
 
-from swanlab.api.utils import self_hosted
+from swanlab.api.utils import self_hosted, get_properties
 from swanlab.core_python.api.type import ApiKeyType
 from swanlab.core_python.api.user import (
     get_user_groups,
@@ -76,6 +76,12 @@ class User:
         else:
             self._api_keys = get_api_keys(self._client)
             return [r['key'] for r in self._api_keys]
+
+    def json(self):
+        """
+        JSON-serializable dict of all @property values.
+        """
+        return get_properties(self)
 
     def _refresh_api_keys(self):
         """
