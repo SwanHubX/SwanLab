@@ -5,6 +5,7 @@
 @description: OpenApi 中的项目对象
 """
 
+from functools import cached_property
 from typing import List, Dict
 
 from swanlab.api.utils import Label, get_properties
@@ -72,10 +73,10 @@ class Project:
         """
         return self._data['updatedAt']
 
-    @property
+    @cached_property
     def workspace(self) -> Workspace:
         """
-        Project workspace name.
+        Project workspace object.
         """
         return Workspace(client=self._client, workspace=self._data["group"]["username"])
 
