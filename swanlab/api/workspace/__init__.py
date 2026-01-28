@@ -70,3 +70,6 @@ class Workspace:
         JSON-serializable dict of all @property values.
         """
         return get_properties(self)
+
+
+__all__ = ['Workspace']
