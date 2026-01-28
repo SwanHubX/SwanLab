@@ -51,7 +51,7 @@ Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
-- 2025.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
+- 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** is now available, designed for extremely large chart number scenarios; added chart embedding link, now you can embed your charts into online documents (such as Notion, Lark, etc.);
 
