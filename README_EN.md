@@ -51,6 +51,8 @@ Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
+
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** is now available, designed for extremely large chart number scenarios; added chart embedding link, now you can embed your charts into online documents (such as Notion, Lark, etc.);
 
 - 2026.01.02: 🥳 Added support for **AMD ROCm** and **Iluvatar GPU** hardware monitoring; SDK added heartbeat package feature, implementing more robust cloud/offline connection;
@@ -67,12 +69,12 @@ Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, an
 
 - 2025.09.22: 📊 New UI launched; table view now supports global sorting and filtering; unified data level for table view and chart view.
 
-- 2025.09.12: 🔢 Added support for **scalar chart**, flexibly displaying the statistical values of experiment indicators; organization management page has been upgraded, providing more powerful permission control and project management capabilities;
 
 <details><summary>Full Changelog</summary>
 
-- 2025.08.19: 🤔 Optimized chart rendering performance, allowing researchers to focus more on experiment analysis; integrated excellent [MLX-LM](https://github.com/ml-explore/mlx-lm) and [SpecForge](https://github.com/sgl-project/SpecForge) frameworks, providing more training scenarios;
+- 2025.09.12: 🔢 Added support for **scalar chart**, flexibly displaying the statistical values of experiment indicators; organization management page has been upgraded, providing more powerful permission control and project management capabilities;
 
+- 2025.08.19: 🤔 Optimized chart rendering performance, allowing researchers to focus more on experiment analysis; integrated excellent [MLX-LM](https://github.com/ml-explore/mlx-lm) and [SpecForge](https://github.com/sgl-project/SpecForge) frameworks, providing more training scenarios;
 
 - 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
 
