@@ -28,3 +28,6 @@ class Workspaces:
         for space in self.get_all_workspaces():
             data = get_workspace_info(self._client, workspace=space)
             yield Workspace(data=data)
+
+
+__all__ = ['Workspaces']
