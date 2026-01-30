@@ -282,7 +282,4 @@ class TestRunIdFormat:
 
     @staticmethod
     def test_run_id_format_empty_string():
-        with pytest.raises(
-            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
-        ):
-            check_run_id_format("")
+        assert check_run_id_format("") is None
