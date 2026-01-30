@@ -303,6 +303,7 @@ class SwanLabInitializer:
         if mode in ["offline", "local"] and user_settings.backup is False:
             raise RuntimeError("You can't use offline or local mode with backup=False!")
         # 6. 校验 resume 与 id
+        id = check_run_id_format(id)
         resume = resume or 'never'
         if resume == 'never':
             # 不允许传递 id
@@ -314,8 +315,6 @@ class SwanLabInitializer:
                 raise RuntimeError("You can only use resume in cloud mode.")
         if resume == "must" and id is None:
             raise ValueError('You must pass id when resume=must.')
-        if id is not None:
-            check_run_id_format(id)
         run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value

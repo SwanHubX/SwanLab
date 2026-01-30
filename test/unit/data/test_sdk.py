@@ -702,7 +702,7 @@ class TestResume:
         never 模式不允许传递 id 参数
         """
         with pytest.raises(RuntimeError) as e:
-            S.init(resume='never', id='test_id')
+            S.init(resume='never', id='abcdefghijklmnopqrstu')
         assert str(e.value) == "You can't pass id when resume=never or resume=False."
 
     # ---------------------------------- allow 部分 ----------------------------------
