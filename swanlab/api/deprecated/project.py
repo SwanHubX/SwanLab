@@ -8,8 +8,8 @@ r"""
     项目相关的开放API
 """
 
-from swanlab.api.base import ApiBase, ApiHTTP
-from swanlab.api.types import ApiResponse, Pagination, Project
+from .base import ApiBase, ApiHTTP
+from .types import ApiResponse, Pagination, Project
 
 
 class ProjectAPI(ApiBase):
