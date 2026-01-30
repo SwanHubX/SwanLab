@@ -194,7 +194,7 @@ def check_run_id_format(run_id: str = None) -> Optional[str]:
     :return: str 检查后的字符串
     :raises ValueError: 如果运行ID不符合要求
     """
-    if run_id is None:
+    if run_id is None or run_id == "":
         return None
     run_id_str = str(run_id)
     if not re.match(r"^[a-z0-9]{21}$", run_id_str):
