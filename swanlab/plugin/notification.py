@@ -542,9 +542,9 @@ class BarkCallback(SwanKitCallback):
     def send_notification(self, data: dict):
         """发送通知，也可以直接构建数据字典进行消息发送"""
         if self.url.endswith('/'):
-            url = self.url + 'push'
+            url = self.url
         else:
-            url = self.url + '/push'
+            url = self.url + '/'
 
         headers = {
             'Content-Type': 'application/json; charset=utf-8',
