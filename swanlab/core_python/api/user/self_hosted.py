@@ -24,7 +24,7 @@ def get_self_hosted_init(client: "Client") -> SelfHostedInfoType:
 
 def create_user(client: "Client", *, username: str, password: str) -> None:
     """
-    根用户添加用户
+    添加用户（管理员限定）
     :param client: 已登录的客户端实例
     :param username: 用户名
     :param password: 用户密码
@@ -34,6 +34,12 @@ def create_user(client: "Client", *, username: str, password: str) -> None:
 
 
 def get_users(client: "Client", *, page: int = 1, size: int = 20):
+    """
+    分页获取用户（管理员限定）
+    :param client: 已登录的客户端实例
+    :param page: 页码
+    :param size: 每页大小
+    """
     params = {"page": page, "size": size}
     res = client.get("/self_hosted/users", params=params)
     return res[0]

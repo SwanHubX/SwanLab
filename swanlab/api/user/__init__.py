@@ -130,7 +130,7 @@ class User:
     @self_hosted("root")
     def list_user(self) -> Iterator["User"]:
         """
-        Get all users. (Only root user can create other user)
+        Get all users. (Only root user can list all users)
         """
         cur_page = 0
         while True:
