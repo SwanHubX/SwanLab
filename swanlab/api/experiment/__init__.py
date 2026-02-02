@@ -73,14 +73,14 @@ class Experiment:
         """
         Experiment configuration. Can be used as filter in the format of 'config.<key>'
         """
-        return self._data['profile']['config']
+        return self._data.get('profile', dict()).get('config', dict())
 
     @property
     def summary(self) -> Dict[str, object]:
         """
         Experiment metrics data. Can be used as filter in the format of 'summary.<key>'
         """
-        return self._data['profile']['scalar']
+        return self._data.get('profile', dict()).get('scalar', dict())
 
     @property
     def state(self) -> str:
@@ -115,8 +115,7 @@ class Experiment:
         """
         List of metric keys.
         """
-        summary_keys = self.summary.keys()
-        return list(summary_keys)
+        return list(self.summary.keys())
 
     @property
     def history_line_count(self) -> int:

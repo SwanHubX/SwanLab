@@ -49,7 +49,7 @@ class Workspace:
         """
         Workspace profile.
         """
-        return self._data['profile']
+        return self._data.get('profile', dict())
 
     @property
     def comment(self) -> str:
