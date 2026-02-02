@@ -15,6 +15,7 @@ from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
 from .experiment import Experiment
 from .experiments import Experiments
+from .project import Project
 from .projects import Projects
 from .user import User
 from .workspace import Workspace
@@ -78,6 +79,17 @@ class Api:
             search=search,
             detail=detail,
         )
+
+    def project(
+        self,
+        path: str,
+    ) -> Project:
+        """
+        获取指定工作空间（组织）下的指定项目信息
+        :param path: 项目路径 'username/project'
+        :return: Project 实例，单个项目的信息
+        """
+        return Project(self._client, web_host=self._web_host, path=path)
 
     def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """

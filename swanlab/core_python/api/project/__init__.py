@@ -44,4 +44,14 @@ def get_workspace_projects(
     return res[0]
 
 
-__all__ = ["get_workspace_projects"]
+def get_project_info(client: "Client", *, path: str) -> ProjResponseType:
+    """
+    获取指定路径的项目信息
+    :param client: 已登录的客户端实例
+    :param path: 项目路径 'username/project'
+    """
+    res = client.get(f"/project/{path}")
+    return res[0]
+
+
+__all__ = ["get_workspace_projects", "get_project_info"]

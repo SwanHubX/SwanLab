@@ -10,6 +10,7 @@ from typing import List, Dict
 
 from swanlab.api.utils import Label, get_properties
 from swanlab.api.workspace import Workspace
+from swanlab.core_python.api.project import get_project_info
 from swanlab.core_python.api.type import ProjectType
 from swanlab.core_python.client import Client
 
@@ -19,10 +20,15 @@ class Project:
     Representing a single project with some of its properties.
     """
 
-    def __init__(self, client: Client, *, data: ProjectType, web_host: str) -> None:
+    def __init__(self, client: Client, *, web_host: str, data: ProjectType = None, path: str = None) -> None:
         self._client = client
-        self._data = data
         self._web_host = web_host
+        if data is not None:
+            self._data = data
+        else:
+            if path is None:
+                raise ValueError("Project path must be provided")
+            self._data = get_project_info(self._client, path=path)
 
     @property
     def name(self) -> str:
