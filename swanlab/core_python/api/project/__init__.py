@@ -7,7 +7,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 
-from swanlab.core_python.api.type import ProjResponseType
+from swanlab.core_python.api.type import ProjResponseType, ProjectType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
@@ -44,7 +44,7 @@ def get_workspace_projects(
     return res[0]
 
 
-def get_project_info(client: "Client", *, path: str) -> ProjResponseType:
+def get_project_info(client: "Client", *, path: str) -> ProjectType:
     """
     获取指定路径的项目信息
     :param client: 已登录的客户端实例
