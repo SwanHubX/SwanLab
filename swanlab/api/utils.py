@@ -56,6 +56,9 @@ def self_hosted(identity: IdentityType = "user"):
             if identity == "root" and not self_hosted_info.get("root", False):
                 raise ValueError("You don't have permission to perform this action. Please login as a root user")
 
+            if getattr(self, "is_self", False) is not True:
+                raise ValueError("only root user himself/herself is allowed to perform this action.")
+
             return func(self, *args, **kwargs)
 
         return wrapper

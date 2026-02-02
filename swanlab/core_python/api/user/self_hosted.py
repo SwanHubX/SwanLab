@@ -31,3 +31,9 @@ def create_user(client: "Client", *, username: str, password: str) -> None:
     """
     data = {"users": [{"username": username, "password": password}]}
     client.post("/self_hosted/users", data=data)
+
+
+def get_users(client: "Client", *, page: int = 1, size: int = 20):
+    params = {"page": page, "size": size}
+    res = client.get("/self_hosted/users", params=params)
+    return res[0]

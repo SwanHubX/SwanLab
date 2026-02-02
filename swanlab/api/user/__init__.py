@@ -7,7 +7,7 @@
 
 import re
 from functools import cached_property
-from typing import List, Optional
+from typing import List, Optional, Iterator
 
 from swanlab.api.utils import self_hosted, get_properties
 from swanlab.core_python.api.type import ApiKeyType
@@ -17,8 +17,9 @@ from swanlab.core_python.api.user import (
     create_api_key,
     get_latest_api_key,
     delete_api_key,
+    create_user,
+    get_users,
 )
-from swanlab.core_python.api.user.self_hosted import create_user
 from swanlab.core_python.client import Client
 
 
@@ -125,6 +126,25 @@ class User:
         check_create_info(username, password)
         create_user(self._client, username=username, password=password)
         return True
+
+    @self_hosted("root")
+    def list_user(self) -> Iterator["User"]:
+        """
+        Get all users. (Only root user can create other user)
+        """
+        cur_page = 0
+        while True:
+            cur_page += 1
+            resp = get_users(
+                self._client,
+                page=cur_page,
+                size=20,
+            )
+            for user in resp['list']:
+                yield User(self._client, login_user=self._cur_username, username=user['username'])
+
+            if cur_page >= resp['pages']:
+                break
 
 
 __all__ = ["User"]
