@@ -73,22 +73,14 @@ class Experiment:
         """
         Experiment configuration. Can be used as filter in the format of 'config.<key>'
         """
-        profile = getattr(self._data, 'profile', None)
-        if profile is not None:
-            return dict()
-        else:
-            return getattr(profile, 'config', dict())
+        return self._data.get('profile', dict()).get('config', dict())
 
     @property
     def summary(self) -> Dict[str, object]:
         """
         Experiment metrics data. Can be used as filter in the format of 'summary.<key>'
         """
-        profile = getattr(self._data, 'profile', None)
-        if profile is not None:
-            return dict()
-        else:
-            return getattr(profile, 'scalar', dict())
+        return self._data.get('profile', dict()).get('scalar', dict())
 
     @property
     def state(self) -> str:
@@ -123,10 +115,7 @@ class Experiment:
         """
         List of metric keys.
         """
-        if self.summary is not None:
-            return list(self.summary.keys())
-        else:
-            return list()
+        return list(self.summary.keys())
 
     @property
     def history_line_count(self) -> int:
