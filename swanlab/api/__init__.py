@@ -21,6 +21,7 @@ from .user import User
 from .workspace import Workspace
 from .workspaces import Workspaces
 from ..core_python.api.project import get_project_info
+from ..core_python.api.user import get_workspace_info
 
 
 class Api:
@@ -149,7 +150,8 @@ class Api:
         """
         if username is None:
             username = self._login_user
-        return Workspace(client=self._client, path=username)
+        data = get_workspace_info(self._client, path=username)
+        return Workspace(self._client, data=data)
 
 
 __all__ = ["Api", "OpenApi"]

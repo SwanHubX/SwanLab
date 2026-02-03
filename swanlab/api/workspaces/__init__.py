@@ -27,7 +27,7 @@ class Workspaces:
     def __iter__(self) -> Iterator[Workspace]:
         for space in self.get_all_workspaces():
             data = get_workspace_info(self._client, path=space)
-            yield Workspace(data=data)
+            yield Workspace(self._client, data=data)
 
 
 __all__ = ['Workspaces']

@@ -51,7 +51,7 @@ class Projects:
                 detail=self._detail,
             )
             for p in resp['list']:
-                yield Project(self._client, data=p, web_host=self._web_host)
+                yield Project(self._client, web_host=self._web_host, data=p)
 
             if cur_page >= resp['pages']:
                 break

@@ -11,6 +11,7 @@ from typing import List, Dict
 from swanlab.api.utils import Label, get_properties
 from swanlab.api.workspace import Workspace
 from swanlab.core_python.api.type import ProjectType
+from swanlab.core_python.api.user import get_workspace_info
 from swanlab.core_python.client import Client
 
 
@@ -78,7 +79,8 @@ class Project:
         """
         Project workspace object.
         """
-        return Workspace(client=self._client, path=self._data["group"]["username"])
+        data = get_workspace_info(self._client, path=self._data["group"]["username"])
+        return Workspace(self._client, data=data)
 
     @property
     def labels(self) -> List[Label]:
