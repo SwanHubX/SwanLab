@@ -24,14 +24,14 @@ class Projects:
         client: Client,
         *,
         web_host: str,
-        workspace: str,
+        path: str,
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
         self._client = client
         self._web_host = web_host
-        self._workspace = workspace
+        self._path = path
         self._sort = sort
         self._search = search
         self._detail = detail
@@ -43,7 +43,7 @@ class Projects:
             cur_page += 1
             resp: ProjResponseType = get_workspace_projects(
                 self._client,
-                workspace=self._workspace,
+                path=self._path,
                 page=cur_page,
                 size=20,
                 sort=self._sort,
@@ -51,7 +51,7 @@ class Projects:
                 detail=self._detail,
             )
             for p in resp['list']:
-                yield Project(self._client, data=p, web_host=self._web_host)
+                yield Project(self._client, web_host=self._web_host, data=p)
 
             if cur_page >= resp['pages']:
                 break

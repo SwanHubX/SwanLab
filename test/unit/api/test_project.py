@@ -20,7 +20,7 @@ def test_projects():
         mock_projects = Projects(
             MagicMock(spec=Client),
             web_host=get_host_web(),
-            workspace='test_user',
+            path='test_user',
         )
         projects = list(mock_projects)
         assert len(projects) == total

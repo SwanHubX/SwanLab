@@ -10,17 +10,11 @@ from typing import Literal, Dict
 from swanlab.api.utils import get_properties
 from swanlab.core_python import Client
 from swanlab.core_python.api.type import WorkspaceType, RoleType
-from swanlab.core_python.api.user import get_workspace_info
 
 
 class Workspace:
-    def __init__(self, *, data: WorkspaceType = None, client: Client = None, workspace: str = None) -> None:
+    def __init__(self, client: Client, *, data: WorkspaceType):
         self._client = client
-
-        if data is None:
-            if workspace is None or client is None:
-                raise ValueError('workspace or client cannot both None')
-            data = get_workspace_info(self._client, workspace=workspace)
         self._data = data
 
     @property

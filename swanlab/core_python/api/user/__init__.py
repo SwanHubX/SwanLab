@@ -42,13 +42,13 @@ def get_user_groups(client: "Client", *, username: str) -> List[GroupType]:
     return res[0]
 
 
-def get_workspace_info(client: "Client", *, workspace: str) -> WorkspaceType:
+def get_workspace_info(client: "Client", *, path: str) -> WorkspaceType:
     """
     获取指定工作空间的信息
     :param client: 已登录的客户端实例
-    :param workspace: 工作空间名称
+    :param path: 工作空间名称
     """
-    res = client.get(f"/group/{workspace}")
+    res = client.get(f"/group/{path}")
     return res[0]
 
 

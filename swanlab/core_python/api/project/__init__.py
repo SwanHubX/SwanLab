@@ -7,7 +7,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 
-from swanlab.core_python.api.type import ProjResponseType
+from swanlab.core_python.api.type import ProjResponseType, ProjectType
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def get_workspace_projects(
     client: "Client",
     *,
-    workspace: str,
+    path: str,
     page: int = 1,
     size: int = 20,
     sort: Optional[List[str]] = None,
@@ -26,7 +26,7 @@ def get_workspace_projects(
     """
     获取指定页数和条件下的项目信息
     :param client: 已登录的客户端实例
-    :param workspace: 工作空间名称
+    :param path: 工作空间名称
     :param page: 页码
     :param size: 每页项目数量
     :param sort: 排序规则, 可选
@@ -40,8 +40,18 @@ def get_workspace_projects(
         'search': search,
         'detail': detail,
     }
-    res = client.get(f"/project/{workspace}", params=dict(params))
+    res = client.get(f"/project/{path}", params=dict(params))
     return res[0]
 
 
-__all__ = ["get_workspace_projects"]
+def get_project_info(client: "Client", *, path: str) -> ProjectType:
+    """
+    获取指定路径的项目信息
+    :param client: 已登录的客户端实例
+    :param path: 项目路径 'username/project'
+    """
+    res = client.get(f"/project/{path}")
+    return res[0]
+
+
+__all__ = ["get_workspace_projects", "get_project_info"]
