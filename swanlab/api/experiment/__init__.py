@@ -162,14 +162,20 @@ class Experiment:
             raise TypeError(
                 "OpenApi requires pandas to implement the run.metrics(). Please install with 'pip install pandas'."
             )
-        
-        if keys is None:
-            raise ValueError("keys cannot be None")
-        
-        x_axis_state = x_axis is not None and x_axis != "step"
 
-        if isinstance(keys, str):
+        if keys is None:
+            swanlog.warning('keys cannot be None')
+            return pd.DataFrame()
+        elif not isinstance(keys, list):
+            swanlog.warning('keys must be specified as a list')
+            return pd.DataFrame()
+        elif isinstance(keys, str):
             keys = [keys]
+        elif len(keys) and not all(isinstance(k, str) for k in keys):
+            swanlog.warning('keys must be a list of string')
+            return pd.DataFrame()
+
+        x_axis_state = x_axis is not None and x_axis != "step"
         if x_axis_state:
             keys += [x_axis]
 

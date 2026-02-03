@@ -1,8 +1,8 @@
 """
 @author: Zhou QiYang
-@file: test_history.py
+@file: test_metrics.py
 @time: 2026/1/11 16:36
-@description: 测试 Experiment.history() 方法，使用 MagicMock 和 monkeypatch 模拟网络请求
+@description: 测试 Experiment.metrics() 方法，使用 MagicMock 和 monkeypatch 模拟网络请求
 """
 
 from unittest.mock import patch, MagicMock
@@ -62,47 +62,47 @@ class MockSetup:
         self.m.stop()
 
 
-def test_history_basic(experiment, metrics_data):
+def test_metrics_basic(experiment, metrics_data):
     """测试使用指定 keys 获取历史数据"""
     with MockSetup(metrics_data):
-        result = experiment.history(keys=['loss', 'accuracy'])
+        result = experiment.metrics(keys=['loss', 'accuracy'])
 
     assert len(result) == 10
     assert 'loss' in result.columns
     assert 'accuracy' in result.columns
 
 
-def test_history_with_x_axis(experiment, metrics_data):
+def test_metrics_with_x_axis(experiment, metrics_data):
     """测试使用 x_axis 参数"""
     with MockSetup(metrics_data):
-        result = experiment.history(keys=['loss'], x_axis='accuracy')
+        result = experiment.metrics(keys=['loss'], x_axis='accuracy')
 
     # x_axis 应该作为索引
     assert result.index.name == 'accuracy'
 
 
-def test_history_with_sample(experiment, metrics_data):
+def test_metrics_with_sample(experiment, metrics_data):
     """测试使用 sample 参数限制返回行数"""
     with MockSetup(metrics_data):
-        result = experiment.history(keys=['loss'], sample=5)
+        result = experiment.metrics(keys=['loss'], sample=5)
 
     # 只返回前 5 行
     assert len(result) == 5
 
 
-def test_history_dict_mode(experiment, metrics_data):
+def test_metrics_dict_mode(experiment, metrics_data):
     """测试 pandas=False 时返回 dict 格式"""
     with MockSetup(metrics_data):
-        result = experiment.history(keys=['loss'], pandas=False)
+        result = experiment.metrics(keys=['loss'], pandas=False)
 
     # 应该返回字典列表
     assert all(isinstance(item, dict) for item in result)
 
 
-def test_full_history(experiment, metrics_data):
-    """测试 keys 和 x_axis 都为 None 时调用 __full_history"""
+def test_full_metrics(experiment, metrics_data):
+    """测试 keys 和 x_axis 都为 None 时调用 __full_metrics"""
     with MockSetup(metrics_data):
-        result = experiment.history()
+        result = experiment.metrics()
 
     assert len(result) == 10
     assert 'loss' in result.columns
@@ -110,8 +110,8 @@ def test_full_history(experiment, metrics_data):
 
 
 @pytest.mark.parametrize("keys", ('invalid_keys', ['loss', 123, 'accuracy']))
-def test_history_invalid_keys(experiment, metrics_data, keys):
+def test_metrics_invalid_keys(experiment, metrics_data, keys):
     """测试 keys 参数类型错误的情况，返回空 DataFrame"""
     with MockSetup(metrics_data):
-        result = experiment.history(keys=keys)
+        result = experiment.metrics(keys=keys)
     assert len(result) == 0
