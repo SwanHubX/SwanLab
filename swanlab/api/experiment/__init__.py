@@ -12,7 +12,7 @@ from swanlab.api.utils import Label, get_properties
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
 from swanlab.log import swanlog
-from .thread import HistoryPool
+
 
 
 class Experiment:
@@ -144,24 +144,6 @@ class Experiment:
         """
         return get_properties(self)
 
-    def __full_history(self) -> Any:
-        """
-        Get all metric keys' data of the experiment with timestamp.
-        """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise TypeError(
-                "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
-            )
-
-        df = pd.DataFrame()
-        if len(self.metric_keys) >= 1:
-            pool = HistoryPool(self._client, self.id, keys=self.metric_keys)
-            df = pool.execute()
-
-        return df
-
     def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get specific metric data of the experiment.
@@ -178,7 +160,8 @@ class Experiment:
         print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy'))
 
         Returns:
-            t/accuracy    loss
+             t/accuracy    loss
+        step
         0    0.310770   0.525776
         1    0.642817   0.479186
         2    0.646031   0.362428
@@ -193,27 +176,66 @@ class Experiment:
             raise TypeError(
                 "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
             )
+        
+        if keys is None:
+            raise ValueError("keys cannot be None")
 
-        if keys is not None and not isinstance(keys, list):
-            swanlog.warning('keys must be specified as a list')
-            return pd.DataFrame()
-        elif keys is not None and len(keys) and not all(isinstance(k, str) for k in keys):
-            swanlog.warning('keys must be a list of string')
-            return pd.DataFrame()
+        if isinstance(keys, str):
+            keys = [keys]
+        if x_axis is not None:
+            keys += [x_axis]
 
-        if keys is None and x_axis is None:
-            # x轴与keys都未指定时，获取所有指标数据
-            df = self.__full_history()
-        else:
-            # 使用线程池并发获取所有的key的指标数据
-            pool = HistoryPool(self._client, self.id, keys=keys, x_axis=x_axis)
-            df = pool.execute()
+        # 去重 keys
+        keys = list(set(keys))
+        dfs = []
+        prefix = ""
+        for idx, key in enumerate(keys):
+            resp = self._client.get(f"/experiment/{self.id}/column/csv", params={"key": key})
 
-        # 截取前sample行
+            url:str = resp[0].get("url", "")
+            df = pd.read_csv(url, index_col=0)
+
+            if idx == 0:
+                # 从第一列名提取 prefix，例如 "t0707-02:17-loss_step" 中提取 "t0707-02:17-"
+                first_col = df.columns[0]
+                suffix = f"{key}_"
+                if suffix in first_col:
+                    prefix = first_col.split(suffix)[0]  # 结果为 "t0707-02:17-"
+                else:
+                    prefix = ""
+
+            if prefix:
+                df.columns = [
+                    col[len(prefix):].removesuffix("_step") if col.startswith(prefix) else col.removesuffix("_step")
+                    for col in df.columns
+                ]
+            else:
+                df.columns = [col.removesuffix("_step") for col in df.columns]
+            
+            dfs.append(df)
+
+        # 如果有 x_axis，使用 inner join（交集）；否则使用 outer join（并集）
+        join_type = "inner" if x_axis is not None else "outer"
+        result_df = pd.concat(dfs, axis=1, join=join_type)
+
+        # 如果有 x_axis，进行特殊处理
+        if x_axis is not None:
+            # 去掉所有带 _timestamp 后缀的列
+            timestamp_cols = [col for col in result_df.columns if col.endswith("_timestamp")]
+            result_df = result_df.drop(columns=timestamp_cols)
+            
+            # 确保 x_axis 列存在
+            if x_axis not in result_df.columns:
+                raise ValueError(f"x_axis '{x_axis}' not found in the result DataFrame")
+            
+            # 将 x_axis 列放到第一列
+            cols = [x_axis] + [col for col in result_df.columns if col != x_axis]
+            result_df = result_df[cols]
+        
         if sample is not None:
-            df = df.head(sample)
+            result_df = result_df.head(sample)
 
-        return df if pandas else df.to_dict(orient='records')
+        return result_df
 
 
 __all__ = ['Experiment']
