@@ -84,6 +84,30 @@ def create_project_data(page: int = 1, total: int = 20) -> ProjResponseType:
     }
 
 
+def create_user_data(page: int = 1, total: int = 20) -> Dict:
+    """
+    创建分页用户数据（用于模拟 get_users 的返回值）
+
+    :param page: 当前页数
+    :param total: 用户总数
+    :return: 包含 list, pages, total 等字段的字典
+    """
+    page_size = 20
+    pages = (total + page_size - 1) // page_size
+    user_list = []
+
+    for j in range(page_size):
+        user_list.append({
+            'username': f'user_{ (page - 1) * page_size + j }'
+        })
+
+    return {
+        'list': user_list,
+        'pages': pages,
+        'total': total,
+    }
+
+
 def create_csv_data(step_values, metric_name, metric_values):
     """
     创建 CSV 格式的数据

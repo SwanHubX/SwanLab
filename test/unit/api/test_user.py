@@ -3,8 +3,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from swanlab.api.user import User
+from swanlab.api.users import Users
 from swanlab.core_python import Client
 from swanlab.error import ApiError
+from utils import create_user_data
 
 
 def create_user(username=None):
@@ -84,3 +86,24 @@ def test_other_user():
             assert other_user.generate_api_key() is None
         with pytest.raises(ValueError):
             assert other_user.delete_api_key(api_key='test_api_key') == False
+
+
+def test_users():
+    """测试能否分页获取所有用户"""
+    with patch('swanlab.api.users.get_users') as mock_get_users:
+        total = 80
+        page_size = 20
+
+        def side_effect(*args, **kwargs):
+            return create_user_data(page=kwargs.get("page", 1), total=total)
+
+        mock_get_users.side_effect = side_effect
+        client = MagicMock(spec=Client)
+        users = Users(client, login_user="test_user")
+
+        user_list = list(users)
+        assert len(user_list) == total
+        for i, user in enumerate(user_list):
+            assert user.username == f'user_{i}'
+
+        assert mock_get_users.call_count == (total + page_size - 1) // page_size
