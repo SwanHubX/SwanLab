@@ -165,10 +165,12 @@ class Experiment:
         
         if keys is None:
             raise ValueError("keys cannot be None")
+        
+        x_axis_state = x_axis is not None and x_axis != "step"
 
         if isinstance(keys, str):
             keys = [keys]
-        if x_axis is not None:
+        if x_axis_state:
             keys += [x_axis]
 
         # 去重 keys
@@ -200,12 +202,14 @@ class Experiment:
             
             dfs.append(df)
 
-        # 如果有 x_axis，使用 inner join（交集）；否则使用 outer join（并集）
-        join_type = "inner" if x_axis is not None else "outer"
-        result_df = pd.concat(dfs, axis=1, join=join_type)
+        # 拼接整张表
+        result_df = dfs[0]
+        if len(dfs) > 1:
+            for df in dfs[1:]:
+                result_df = result_df.join(df, how='outer').sort_index()
 
         # 如果有 x_axis，进行特殊处理
-        if x_axis is not None:
+        if x_axis_state:
             # 去掉所有带 _timestamp 后缀的列
             timestamp_cols = [col for col in result_df.columns if col.endswith("_timestamp")]
             result_df = result_df.drop(columns=timestamp_cols)
@@ -217,6 +221,7 @@ class Experiment:
             # 将 x_axis 列放到第一列
             cols = [x_axis] + [col for col in result_df.columns if col != x_axis]
             result_df = result_df[cols]
+            result_df = result_df[result_df[x_axis].notna()]
         
         if sample is not None:
             result_df = result_df.head(sample)
