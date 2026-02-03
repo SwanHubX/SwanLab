@@ -69,20 +69,6 @@ class Experiment:
         return [Label(label['name']) for label in self._data['labels']]
 
     @property
-    def config(self) -> Dict[str, object]:
-        """
-        Experiment configuration. Can be used as filter in the format of 'config.<key>'
-        """
-        return self._data.get('profile', dict()).get('config', dict())
-
-    @property
-    def summary(self) -> Dict[str, object]:
-        """
-        Experiment metrics data. Can be used as filter in the format of 'summary.<key>'
-        """
-        return self._data.get('profile', dict()).get('scalar', dict())
-
-    @property
     def state(self) -> str:
         """
         Experiment state.
@@ -144,7 +130,7 @@ class Experiment:
         """
         return get_properties(self)
 
-    def history(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
+    def metrics(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get specific metric data of the experiment.
         :param keys: List of metric keys to obtain. If None, all metrics keys will be used.
@@ -157,7 +143,7 @@ class Experiment:
         ```python
         api = swanlab.OpenApi()
         exp = api.run(path="username/project/expid")  # You can get expid from api.runs()
-        print(exp.history(keys=['loss'], sample=20, x_axis='t/accuracy'))
+        print(exp.metrics(keys=['loss'], sample=20, x_axis='t/accuracy'))
 
         Returns:
              t/accuracy    loss
@@ -174,7 +160,7 @@ class Experiment:
             import pandas as pd
         except ImportError:
             raise TypeError(
-                "OpenApi requires pandas to implement the run.history(). Please install with 'pip install pandas'."
+                "OpenApi requires pandas to implement the run.metrics(). Please install with 'pip install pandas'."
             )
         
         if keys is None:
