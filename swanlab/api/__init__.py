@@ -20,6 +20,7 @@ from .projects import Projects
 from .user import User
 from .workspace import Workspace
 from .workspaces import Workspaces
+from ..core_python.api.project import get_project_info
 
 
 class Api:
@@ -58,14 +59,14 @@ class Api:
 
     def projects(
         self,
-        workspace: str,
+        path: str,
         sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:
         """
         获取指定工作空间（组织）下的所有项目信息
-        :param workspace: 工作空间（组织）名称
+        :param path: 工作空间（组织）名称 'username'
         :param sort: 排序方式，可选
         :param search: 搜索关键词，可选
         :param detail: 是否返回详细信息，可选
@@ -74,7 +75,7 @@ class Api:
         return Projects(
             self._client,
             web_host=self._web_host,
-            workspace=workspace,
+            path=path,
             sort=sort,
             search=search,
             detail=detail,
@@ -89,7 +90,8 @@ class Api:
         :param path: 项目路径 'username/project'
         :return: Project 实例，单个项目的信息
         """
-        return Project(self._client, web_host=self._web_host, path=path)
+        data = get_project_info(self._client, path=path)
+        return Project(self._client, web_host=self._web_host, data=data)
 
     def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """
@@ -147,7 +149,7 @@ class Api:
         """
         if username is None:
             username = self._login_user
-        return Workspace(client=self._client, workspace=username)
+        return Workspace(client=self._client, path=username)
 
 
 __all__ = ["Api", "OpenApi"]

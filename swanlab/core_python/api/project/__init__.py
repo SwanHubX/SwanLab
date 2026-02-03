@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def get_workspace_projects(
     client: "Client",
     *,
-    workspace: str,
+    path: str,
     page: int = 1,
     size: int = 20,
     sort: Optional[List[str]] = None,
@@ -26,7 +26,7 @@ def get_workspace_projects(
     """
     获取指定页数和条件下的项目信息
     :param client: 已登录的客户端实例
-    :param workspace: 工作空间名称
+    :param path: 工作空间名称
     :param page: 页码
     :param size: 每页项目数量
     :param sort: 排序规则, 可选
@@ -40,7 +40,7 @@ def get_workspace_projects(
         'search': search,
         'detail': detail,
     }
-    res = client.get(f"/project/{workspace}", params=dict(params))
+    res = client.get(f"/project/{path}", params=dict(params))
     return res[0]
 
 

@@ -14,13 +14,13 @@ from swanlab.core_python.api.user import get_workspace_info
 
 
 class Workspace:
-    def __init__(self, *, data: WorkspaceType = None, client: Client = None, workspace: str = None) -> None:
+    def __init__(self, *, data: WorkspaceType = None, client: Client = None, path: str = None) -> None:
         self._client = client
 
         if data is None:
-            if workspace is None or client is None:
+            if path is None or client is None:
                 raise ValueError('workspace or client cannot both None')
-            data = get_workspace_info(self._client, workspace=workspace)
+            data = get_workspace_info(self._client, path=path)
         self._data = data
 
     @property
