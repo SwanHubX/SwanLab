@@ -17,8 +17,8 @@ from swanlab.core_python.api.user import (
     create_api_key,
     get_latest_api_key,
     delete_api_key,
+    create_user,
 )
-from swanlab.core_python.api.user.self_hosted import create_user
 from swanlab.core_python.client import Client
 
 

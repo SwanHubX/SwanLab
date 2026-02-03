@@ -17,6 +17,8 @@ from .experiment import Experiment
 from .experiments import Experiments
 from .projects import Projects
 from .user import User
+from .users import Users
+from .utils import self_hosted
 from .workspace import Workspace
 from .workspaces import Workspaces
 
@@ -54,6 +56,14 @@ class Api:
         :return: User 实例，可对当前/指定用户进行操作
         """
         return User(client=self._client, login_user=self._login_user, username=username)
+
+    @self_hosted("root")
+    def users(self) -> Users:
+        """
+        超级管理员获取所有用户
+        :return: User 实例，可对当前/指定用户进行操作
+        """
+        return Users(self._client, login_user=self._login_user)
 
     def projects(
         self,

@@ -53,8 +53,11 @@ def self_hosted(identity: IdentityType = "user"):
                 raise ValueError("SwanLab self-hosted instance has expired.")
 
             # 2. 检测用户权限（商业版root用户功能）
-            if identity == "root" and not self_hosted_info.get("root", False):
-                raise ValueError("You don't have permission to perform this action. Please login as a root user")
+            if identity == 'root':
+                if not self_hosted_info.get('root', False):
+                    raise ValueError("You don't have permission to perform this action. Please login as a root user")
+                if not getattr(self, 'is_self', True):
+                    raise ValueError('This root-only action can only be performed by the logged-in root user.')
 
             return func(self, *args, **kwargs)
 
