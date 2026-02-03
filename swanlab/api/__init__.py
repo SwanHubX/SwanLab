@@ -5,7 +5,7 @@
 @description: SwanLab OpenAPI包
 """
 
-from typing import Optional, List, Dict, Iterator
+from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
@@ -17,10 +17,10 @@ from .experiment import Experiment
 from .experiments import Experiments
 from .projects import Projects
 from .user import User
+from .users import Users
 from .utils import self_hosted
 from .workspace import Workspace
 from .workspaces import Workspaces
-from ..core_python.api.user import get_users
 
 
 class Api:
@@ -58,24 +58,12 @@ class Api:
         return User(client=self._client, login_user=self._login_user, username=username)
 
     @self_hosted("root")
-    def users(self) -> Iterator[User]:
+    def users(self) -> Users:
         """
         超级管理员获取所有用户
         :return: User 实例，可对当前/指定用户进行操作
         """
-        cur_page = 0
-        while True:
-            cur_page += 1
-            resp = get_users(
-                self._client,
-                page=cur_page,
-                size=20,
-            )
-            for u in resp['list']:
-                yield User(self._client, login_user=self._login_user, username=u['username'])
-
-            if cur_page >= resp['pages']:
-                break
+        return Users(self._client, login_user=self._login_user)
 
     def projects(
         self,
