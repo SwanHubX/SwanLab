@@ -463,7 +463,6 @@ class BarkCallback(SwanKitCallback):
     }
     def __init__(
             self,
-            key: str,
             url: str = 'https://api.day.app',
             title: str = 'SwanLab',
             bark_level: Literal['critical', 'active', 'timeSensitive', 'passive'] = 'active',
@@ -475,7 +474,6 @@ class BarkCallback(SwanKitCallback):
         """
         初始化 Bark callback 配置
         详细内容见 https://bark.day.app/#/tutorial?id=%e8%af%b7%e6%b1%82%e5%8f%82%e6%95%b0
-        :param key: bark中的device key
         :param url: bark推送链接
         :param title: 推送的通知标题，默认为SwanLab
         :param bark_level: bark推送等级
@@ -484,7 +482,6 @@ class BarkCallback(SwanKitCallback):
         :param click_jump: 是否点击链接跳转，默认为True
         :param language: 推送语言
         """
-        self.key = key
         self.url = url
         self.title = title
         if bark_level not in ['critical', 'active', 'timeSensitive', 'passive']:
@@ -532,14 +529,13 @@ class BarkCallback(SwanKitCallback):
             'level': self.bark_level,
             'icon': self.icon,
             'group': group,
-            'device_key': self.key,
             'url': exp_link if self.click_jump else None,
         }
         data = {k: v for k, v in data.items() if v is not None}
         return data
 
 
-    def send_notification(self, data: dict):
+    def _send_notification(self, data: dict):
         """发送通知，也可以直接构建数据字典进行消息发送"""
         if self.url.endswith('/'):
             url = self.url
@@ -562,6 +558,23 @@ class BarkCallback(SwanKitCallback):
             return
         print("✅ Bark sending successfully")
 
+    def send_msg(self, content: str, title: str="SwanLab Message"):
+        """发送通知，也可以直接构建数据字典进行消息发送"""
+        url = self.url.rstrip('/') + '/'
+        if title:
+            url += f"{title}/{content}"
+        else:
+            url += content
+
+        resp = requests.post(
+            url=url,
+        )
+        resp.raise_for_status()
+        result: Dict[str, Any] = resp.json()
+        if result.get("errcode") and result["errcode"] != 0:
+            print(f"❌ Bark sending failed: {result.get('errmsg')}")
+            return
+        print("✅ Bark sending successfully")
 
     def on_init(self, proj_name: str, workspace: str, public: Optional[bool] = None, logdir: Optional[str] = None, *args, **kwargs):
         self.project = proj_name
@@ -582,7 +595,7 @@ class BarkCallback(SwanKitCallback):
 
     def on_stop(self, error: Optional[str] = None, *args, **kwargs):
         content = self._create_notification_message(error)
-        self.send_notification(content)
+        self._send_notification(content)
 
 
 class TelegramBot:
