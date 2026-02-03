@@ -1,40 +1,27 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2025/5/8 16:14
-@File: test_project.py
-@IDE: VSCode
-@Description:
-    测试开放API的项目相关接口
-"""
+from unittest.mock import patch, MagicMock
 
-import pytest
-
-import tutils as T
-from swanlab import OpenApi
-from swanlab.api.types import ApiResponse, Project, Pagination
+from swanlab.api.projects import Projects
+from swanlab.core_python import Client
+from swanlab.package import get_host_web
+from utils import create_project_data
 
 
-@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
-def test_list_projects():
-    """
-    测试列出一个 workspace 下的所有项目
-    """
-    api = OpenApi()
-    resp = api.list_projects(detail=False)
-    assert isinstance(resp, ApiResponse)
-    if resp.code == 200:
-        assert isinstance(resp.data, list)
-        for item in resp.data:
-            assert isinstance(item, Project)
+def test_projects():
+    """测试能否分页获取所有项目"""
+    with patch('swanlab.api.projects.get_workspace_projects') as mock_get_projects:
+        total = 80
+        page_size = 20
 
-@pytest.mark.skipif(T.is_skip_cloud_test, reason="skip cloud test")
-def test_delete_project():
-    """
-    测试删除一个项目
-    """
-    api = OpenApi()
-    project_name = "test_project"
-    resp = api.delete_project(project=project_name)
-    assert isinstance(resp, ApiResponse)
-    assert resp.code in [204, 404]
+        def side_effect(*args, **kwargs):
+            return create_project_data(page=kwargs.get("page", 1), total=total)
+
+        mock_get_projects.side_effect = side_effect
+
+        mock_projects = Projects(
+            MagicMock(spec=Client),
+            web_host=get_host_web(),
+            path='test_user',
+        )
+        projects = list(mock_projects)
+        assert len(projects) == total
+        assert mock_get_projects.call_count == (total + page_size - 1) // page_size

@@ -201,6 +201,15 @@ class Client:
         resp = self.__session.patch(url, json=data, retries=retries)
         return decode_response(resp), resp
 
+    def delete(self, url: str, retries: Optional[int] = None):
+        """
+        delete请求
+        """
+        url = self.__login_info.api_host + url
+        self.__before_request()
+        resp = self.__session.delete(url, retries=retries)
+        return decode_response(resp), resp
+
     # ---------------------------------- 训练相关接口 ----------------------------------
 
     def mount_project(self, name: str, username: str = None, public: bool = None):

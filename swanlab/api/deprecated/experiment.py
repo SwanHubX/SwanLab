@@ -9,8 +9,8 @@ r"""
 """
 from typing import List
 
-from swanlab.api.base import ApiBase, ApiHTTP
-from swanlab.api.types import ApiResponse, Experiment, Pagination
+from .base import ApiBase, ApiHTTP
+from .types import ApiResponse, Experiment, Pagination
 
 try:
     from pandas import DataFrame

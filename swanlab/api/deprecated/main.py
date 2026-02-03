@@ -9,15 +9,15 @@ r"""
 """
 from typing import Dict, List, Union
 
-from swanlab.api.base import ApiHTTP, get_logger
-from swanlab.api.experiment import ExperimentAPI
-from swanlab.api.group import GroupAPI
-from swanlab.api.project import ProjectAPI
-from swanlab.api.types import ApiResponse, Experiment, Project
 from swanlab.core_python import auth
 from swanlab.error import KeyFileError
 from swanlab.log.log import SwanLog
 from swanlab.package import get_key
+from .base import ApiHTTP, get_logger
+from .experiment import ExperimentAPI
+from .group import GroupAPI
+from .project import ProjectAPI
+from .types import ApiResponse, Experiment, Project
 
 try:
     from pandas import DataFrame
@@ -28,6 +28,7 @@ except ImportError:
 class OpenApi:
     def __init__(self, api_key: str = "", log_level: str = "info"):
         self.__logger: SwanLog = get_logger(log_level)
+        self.__logger.warning("OpenApi will be soon deprecated in swanlab 0.8.0. Please use swanlab.Api() instead.")
 
         if api_key:
             self.__logger.debug("Using API key", api_key)
@@ -210,7 +211,7 @@ class OpenApi:
         return self.experiment.get_summary(
             exp_id=exp_id,
             pro_id=project_cuid,
-            root_exp_id=exp.data.get("rootExpId", ""), 
+            root_exp_id=exp.data.get("rootExpId", ""),
             root_pro_id=exp.data.get("rootProId", "")
         )
 
