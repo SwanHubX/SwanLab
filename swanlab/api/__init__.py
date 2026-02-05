@@ -90,12 +90,12 @@ class Api:
         if username is None:
             username = self._login_user
         data = get_workspace_info(self._client, path=username)
-        return Workspace(self._client, data=data)
+        return Workspace(self._client, data=data, web_host=self._web_host, login_info=self._login_info)
 
     def projects(
         self,
         path: str,
-        sort: Optional[List[str]] = None,
+        sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:

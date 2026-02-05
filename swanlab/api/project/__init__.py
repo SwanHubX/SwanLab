@@ -85,7 +85,7 @@ class Project:
         Project workspace object.
         """
         data = get_workspace_info(self._client, path=self._data["group"]["username"])
-        return Workspace(self._client, data=data)
+        return Workspace(self._client, data=data, web_host=self._web_host, login_info=self._login_info)
 
     @property
     def labels(self) -> List[Label]:

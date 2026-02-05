@@ -166,13 +166,6 @@ class Experiment:
         username = self._data.get('user', {}).get('username', '')
         return User(client=self._client, login_user=self._login_user, username=username)
 
-    @property
-    def history_line_count(self) -> int:
-        """
-        The number of historical experiments in this project.
-        """
-        return self._line_count
-
     def metrics(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get metric data from the experiment.
