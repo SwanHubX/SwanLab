@@ -63,7 +63,7 @@ class User:
         List of teams the user belongs to.
         """
         resp = get_user_groups(self._client, username=self._cur_username)
-        return [r['name'] for r in resp]
+        return [r['username'] for r in resp]
 
     # TODO: 管理员可以对指定用户的api_key进行操作
     @cached_property
