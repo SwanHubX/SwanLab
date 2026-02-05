@@ -82,6 +82,13 @@ class Experiment:
         return self._data.get('cuid', '')
 
     @property
+    def path(self) -> str:
+        """
+        Experiment path in format 'username/project/id'.
+        """
+        return f"{self._path}/{self.id}"
+
+    @property
     def url(self) -> str:
         """
         Full URL to access the experiment.
