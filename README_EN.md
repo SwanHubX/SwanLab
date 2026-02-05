@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-An open-source, modern-designed deep learning training tracking and visualization tool  
-Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, and easily integrates with your experimental code.
+Professional, Advanced AI Training Analysis Platform  
+Deep Insights into Millions of Metrics, Faster Experiment Iteration, Integration with 50+ Leading AI Training
 
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
 
