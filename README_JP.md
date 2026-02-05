@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-プロフェッショナルかつ高度な AI トレーニング分析プラットフォーム  
-数百万のメトリクスから深いインサイトを抽出、実験のイテレーションを高速化、トップクラスの AI トレーニングツール 50 種以上と无缝統合
+プロフェッショナルな AI トレーニング分析プラットフォーム  
+実験のイテレーションを高速化、50 種以上のトップクラスの AI トレーニングフレームワークと統合
 
 <a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
 

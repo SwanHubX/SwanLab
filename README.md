@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-专业、先进的AI训练分析平台  
-深度洞察百万指标，加速实验迭代，与50+主流AI训练框架集成
+一个专业、现代化设计的AI训练分析平台  
+面向模型训练团队，与50+主流框架集成，与你的实验代码轻松结合
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a>
 
@@ -168,7 +168,7 @@
 
 ## 👋🏻 什么是SwanLab
 
-SwanLab 是一款专业、强大的**AI训练分析与指标观测平台**，为顶尖模型团队而生，提供训练可视化、自动日志记录、超参数记录、实验对比、多人协同等功能，帮助团队快速发现训练问题，加速模型迭代。
+SwanLab 是一款**AI训练分析与指标观测平台**，面向模型训练团队，提供训练可视化、自动日志记录、超参数记录、实验对比、多人协同等功能，帮助团队快速发现训练问题，加速模型迭代。
 
 在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
 
