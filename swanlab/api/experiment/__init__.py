@@ -152,7 +152,7 @@ class Experiment:
         return self._data.get('cluster', '')
 
     @property
-    def job(self) -> str:
+    def job_type(self) -> str:
         """
         Experiment job type.
         """
