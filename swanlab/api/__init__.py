@@ -122,17 +122,13 @@ class Api:
         :param path: 实验路径，格式为 'username/project/run_id'
         :return: Experiment 实例，包含实验信息
         """
-        # TODO: 待后端完善后替换成专用的接口
         if len(path.split('/')) != 3:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/run_id'")
-        _data = get_single_experiment(self._client, path=path)
+        data = get_single_experiment(self._client, path=path)
         proj_path = path.rsplit('/', 1)[0]
-        data = get_project_experiments(
-            self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
-        )
         return Experiment(
             self._client,
-            data=data[0],
+            data=data,
             path=proj_path,
             web_host=self._web_host,
             login_user=self._login_user,

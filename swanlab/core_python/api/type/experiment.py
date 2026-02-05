@@ -21,9 +21,11 @@ class RunType(TypedDict):
     cuid: str  # 实验CUID, 唯一标识符
     name: str  # 实验名称
     createdAt: str  # 创建时间, e.g., '2024-11-23T12:28:04.286Z'
+    finishedAt: str  # 结束时间, e.g., '2024-11-23T12:28:04.286Z'
     description: str  # 实验描述
     labels: List[Dict[str, str]]  # 实验标签列表
     profile: Dict[str, Dict[str, object]]  # 实验配置和摘要信息，包含 'config' 和 'scalar'
+    show: bool  # 是否显示
     state: StateType  # 实验状态
     cluster: str  # 实验组
     job: str  # 任务类型

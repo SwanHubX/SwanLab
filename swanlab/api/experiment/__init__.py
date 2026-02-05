@@ -31,14 +31,14 @@ class Experiment:
         """
         Experiment name.
         """
-        return self._data['name']
+        return self._data.get('name', '')
 
     @property
     def id(self) -> str:
         """
         Experiment CUID.
         """
-        return self._data['cuid']
+        return self._data.get('cuid', '')
 
     @property
     def url(self) -> str:
@@ -52,56 +52,78 @@ class Experiment:
         """
         Experiment creation timestamp
         """
-        return self._data['createdAt']
+        return self._data.get('createdAt', '')
+
+    @property
+    def finished_at(self) -> str:
+        """
+        Experiment finished timestamp
+        """
+        return self._data.get('finishedAt', '')
+
+    @property
+    def profile(self) -> Dict:
+        """
+        Experiment profile containing config and summary.
+        """
+        return self._data.get('profile', {})
+
+    @property
+    def show(self) -> bool:
+        """
+        Whether the experiment is visible.
+        """
+        return self._data.get('show', True)
 
     @property
     def description(self) -> str:
         """
         Experiment description.
         """
-        return self._data['description']
+        return self._data.get('description', '')
 
     @property
     def labels(self) -> List[Label]:
         """
         List of Label attached to this experiment.
         """
-        return [Label(label['name']) for label in self._data['labels']]
+        return [Label(label['name']) for label in self._data.get('labels', [])]
 
     @property
     def state(self) -> str:
         """
         Experiment state.
         """
-        return self._data['state']
+        return self._data.get('state', '')
 
     @property
     def group(self) -> str:
         """
         Experiment group.
         """
-        return self._data['cluster']
+        return self._data.get('cluster', '')
 
     @property
     def job(self) -> str:
         """
         Experiment job type.
         """
-        return self._data['job']
+        return self._data.get('job', '')
 
     @property
     def user(self) -> User:
         """
         Experiment user.
         """
-        return User(client=self._client, login_user=self._login_user, username=self._data['user']['username'])
+        username = self._data.get('user', {}).get('username', '')
+        return User(client=self._client, login_user=self._login_user, username=username)
 
     @property
     def metric_keys(self) -> List[str]:
         """
         List of metric keys.
         """
-        return list(self.summary.keys())
+        return list(self.profile.get('scalar', {}).keys())
 
     @property
     def history_line_count(self) -> int:
@@ -115,14 +137,14 @@ class Experiment:
         """
         Root experiment cuid. If the experiment is a root experiment, it will be None.
         """
-        return self._data['rootExpId']
+        return self._data.get('rootExpId', '')
 
     @property
     def root_pro_id(self) -> str:
         """
         Root project cuid. If the experiment is a root experiment, it will be None.
         """
-        return self._data['rootProId']
+        return self._data.get('rootProId', '')
 
     def json(self):
         """
