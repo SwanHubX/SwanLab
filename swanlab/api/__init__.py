@@ -52,6 +52,14 @@ class Api:
         self._web_host = self._login_info.web_host
         self._login_user = self._login_info.username
 
+    @self_hosted("root")
+    def users(self) -> Users:
+        """
+        超级管理员获取所有用户
+        :return: User 实例，可对当前/指定用户进行操作
+        """
+        return Users(self._client, login_user=self._login_user)
+
     def user(self, username: str = None) -> User:
         """
         获取用户实例，用于操作用户相关信息
@@ -60,13 +68,29 @@ class Api:
         """
         return User(client=self._client, login_user=self._login_user, username=username)
 
-    @self_hosted("root")
-    def users(self) -> Users:
+    def workspaces(
+        self,
+        username: str = None,
+    ):
         """
-        超级管理员获取所有用户
-        :return: User 实例，可对当前/指定用户进行操作
+        获取当前登录用户的工作空间迭代器
+        当username为其他用户时，可以作为visitor访问其工作空间
         """
-        return Users(self._client, login_user=self._login_user)
+        if username is None:
+            username = self._login_user
+        return Workspaces(self._client, username=username)
+
+    def workspace(
+        self,
+        username: str = None,
+    ):
+        """
+        获取当前登录用户的工作空间
+        """
+        if username is None:
+            username = self._login_user
+        data = get_workspace_info(self._client, path=username)
+        return Workspace(self._client, data=data)
 
     def projects(
         self,
@@ -134,30 +158,6 @@ class Api:
             login_user=self._login_user,
             line_count=1,
         )
-
-    def workspaces(
-        self,
-        username: str = None,
-    ):
-        """
-        获取当前登录用户的工作空间迭代器
-        当username为其他用户时，可以作为visitor访问其工作空间
-        """
-        if username is None:
-            username = self._login_user
-        return Workspaces(self._client, username=username)
-
-    def workspace(
-        self,
-        username: str = None,
-    ):
-        """
-        获取当前登录用户的工作空间
-        """
-        if username is None:
-            username = self._login_user
-        data = get_workspace_info(self._client, path=username)
-        return Workspace(self._client, data=data)
 
 
 __all__ = ["Api", "OpenApi"]
