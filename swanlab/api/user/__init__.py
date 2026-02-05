@@ -87,7 +87,8 @@ class User:
         """
         Refresh the list of api keys.
         """
-        del self.api_keys
+        # Delete the cached property by removing it from instance __dict__
+        self.__dict__.pop('_api_keys', None)
         self._api_keys = get_api_keys(self._client)
 
     def generate_api_key(self, description: str = None) -> Optional[str]:
