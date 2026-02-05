@@ -151,20 +151,6 @@ class Experiment:
         """
         return self._line_count
 
-    @property
-    def root_exp_id(self) -> str:
-        """
-        Root experiment cuid. If the experiment is a root experiment, it will be None.
-        """
-        return self._data.get('rootExpId', '')
-
-    @property
-    def root_pro_id(self) -> str:
-        """
-        Root project cuid. If the experiment is a root experiment, it will be None.
-        """
-        return self._data.get('rootProId', '')
-
     def metrics(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
         Get metric data from the experiment.
