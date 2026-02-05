@@ -40,11 +40,6 @@ class Profile:
         """Conda environment."""
         return self._data.get('conda', '')
 
-    @property
-    def scalar(self) -> Dict:
-        """Experiment scalar metrics."""
-        return self._data.get('scalar', {})
-
 
 class Experiment:
     def __init__(
