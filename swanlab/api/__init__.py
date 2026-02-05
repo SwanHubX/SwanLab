@@ -126,7 +126,7 @@ class Api:
         :return: Project 实例，单个项目的信息
         """
         data = get_project_info(self._client, path=path)
-        return Project(self._client, web_host=self._web_host, data=data)
+        return Project(self._client, web_host=self._web_host, data=data, login_info=self._login_info)
 
     def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """
