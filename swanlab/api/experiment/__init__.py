@@ -145,13 +145,6 @@ class Experiment:
         return User(client=self._client, login_user=self._login_user, username=username)
 
     @property
-    def metric_keys(self) -> List[str]:
-        """
-        List of metric keys.
-        """
-        return list(self.profile.scalar.keys())
-
-    @property
     def history_line_count(self) -> int:
         """
         The number of historical experiments in this project.
