@@ -20,10 +20,25 @@ class Profile:
     def __init__(self, data: Dict):
         self._data = data
 
+    @staticmethod
+    def _clean_field(value: Any) -> Any:
+        """Recursively clean config field, removing desc/sort and keeping value."""
+        if isinstance(value, dict):
+            if 'value' in value:
+                # Standard format: {'desc': ..., 'sort': ..., 'value': ...}
+                return Profile._clean_field(value['value'])
+            else:
+                # Nested dict without standard format, clean recursively
+                return {k: Profile._clean_field(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [Profile._clean_field(item) for item in value]
+        return value
+
     @property
     def config(self) -> Dict:
-        """Experiment configuration."""
-        return self._data.get('config', {})
+        """Experiment configuration (cleaned, without desc/sort fields)."""
+        raw_config = self._data.get('config', {})
+        return {k: Profile._clean_field(v) for k, v in raw_config.items()}
 
     @property
     def metadata(self) -> Dict:
