@@ -14,6 +14,37 @@ from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 
 
+class Profile:
+    """Experiment profile containing config, metadata, requirements, and conda info."""
+
+    def __init__(self, data: Dict):
+        self._data = data
+
+    @property
+    def config(self) -> Dict:
+        """Experiment configuration."""
+        return self._data.get('config', {})
+
+    @property
+    def metadata(self) -> Dict:
+        """Experiment metadata."""
+        return self._data.get('metadata', {})
+
+    @property
+    def requirements(self) -> str:
+        """Python requirements."""
+        return self._data.get('requirements', '')
+
+    @property
+    def conda(self) -> str:
+        """Conda environment."""
+        return self._data.get('conda', '')
+
+    @property
+    def scalar(self) -> Dict:
+        """Experiment scalar metrics."""
+        return self._data.get('scalar', {})
+
 
 class Experiment:
     def __init__(
@@ -62,11 +93,11 @@ class Experiment:
         return self._data.get('finishedAt', '')
 
     @property
-    def profile(self) -> Dict:
+    def profile(self) -> Profile:
         """
-        Experiment profile containing config and summary.
+        Experiment profile containing config, metadata, requirements, and conda.
         """
-        return self._data.get('profile', {})
+        return Profile(self._data.get('profile', {}))
 
     @property
     def show(self) -> bool:
@@ -123,7 +154,7 @@ class Experiment:
         """
         List of metric keys.
         """
-        return list(self.profile.get('scalar', {}).keys())
+        return list(self.profile.scalar.keys())
 
     @property
     def history_line_count(self) -> int:
@@ -145,12 +176,6 @@ class Experiment:
         Root project cuid. If the experiment is a root experiment, it will be None.
         """
         return self._data.get('rootProId', '')
-
-    def json(self):
-        """
-        JSON-serializable dict of all @property values.
-        """
-        return get_properties(self)
 
     def metrics(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
@@ -239,6 +264,12 @@ class Experiment:
             result_df = result_df.head(sample)
 
         return result_df
+    
+    def json(self):
+        """
+        JSON-serializable dict of all @property values.
+        """
+        return get_properties(self)
 
 
-__all__ = ['Experiment']
+__all__ = ['Experiment', 'Profile']
