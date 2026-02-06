@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-An open-source, modern-designed deep learning training tracking and visualization tool  
-Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, and easily integrates with your experimental code.
+An Professional, Modern-Designed AI Training Analysis Platform  
+For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Easily Combined with Your Experimental Code
 
 <a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
 
@@ -51,6 +51,8 @@ Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, an
 
 ## 🌟 Recent Updates
 
+- 2026.02.06: 🔥**swanlab.Api** is now available, providing a more powerful, object-oriented open API interface, [documentation](https://docs.swanlab.cn/api/py-api.html); ECharts.Table supports CSV download; now supports one-click placement of charts at the top of sections;
+
 - 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** is now available, designed for extremely large chart number scenarios; added chart embedding link, now you can embed your charts into online documents (such as Notion, Lark, etc.);
@@ -67,10 +69,9 @@ Supports both cloud/offline usage, integrates with 40+ mainstream frameworks, an
 
 - 2025.10.15: 📊 Line chart configuration now supports **X-axis data source selection**; sidebar now supports displaying pinned columns in table view, enhancing experiment data alignment capabilities;
 
-- 2025.09.22: 📊 New UI launched; table view now supports global sorting and filtering; unified data level for table view and chart view.
-
-
 <details><summary>Full Changelog</summary>
+
+- 2025.09.22: 📊 New UI launched; table view now supports global sorting and filtering; unified data level for table view and chart view.
 
 - 2025.09.12: 🔢 Added support for **scalar chart**, flexibly displaying the statistical values of experiment indicators; organization management page has been upgraded, providing more powerful permission control and project management capabilities;
 

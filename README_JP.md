@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-オープンソースでモダンなデザインのディープラーニングトレーニング追跡・可視化ツール  
-クラウド/オフライン使用に対応し、40 以上の主要フレームワークと互換性があり、実験コードと簡単に統合可能
+プロフェッショナルな AI トレーニング分析プラットフォーム  
+実験のイテレーションを高速化、50 種以上のトップクラスの AI トレーニングフレームワークと統合
 
 <a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
 
@@ -49,6 +49,8 @@
 
 ## 🌟 最近の更新
 
+- 2026.02.06: 🔥**swanlab.Api** が利用可能になりました、より強力な、オブジェクト指向のオープン API インターフェースを提供、[ドキュメント](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table は CSV ダウンロードをサポート；今はグラフをグループのトップに配置することができます；
+
 - 2026.01.28: ⚡️ **LightningBoard V2** が利用可能になりました、ダッシュボードのパフォーマンスを大幅に向上；
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** が利用可能になりました、超大規模チャート数のシナリオに最適化；チャート埋め込みリンクを追加、オンラインドキュメント（Notion、Lark など）にチャートを埋め込むことができます；
@@ -65,9 +67,9 @@
 
 - 2025.10.15: 📊 折れ線グラフ設定で**X 軸データソース選択**をサポート；サイドバーでテーブルビューの Pin 列を表示し、実験データの整合性を向上；
 
-- 2025.09.22: 📊 新 UI が利用可能になりました；テーブルビューでグローバルソートとフィルタリングをサポート；データレベルでテーブルビューとグラフビューを統一；
-
 <details><summary>完全な更新履歴</summary>
+
+- 2025.09.22: 📊 新 UI が利用可能になりました；テーブルビューでグローバルソートとフィルタリングをサポート；データレベルでテーブルビューとグラフビューを統一；
 
 - 2025.09.12: 🔢 **スカラーチャート**のサポートを追加、実験指標の統計値を柔軟に表示可能；組織管理ページ大アップグレード、より強力な権限制御とプロジェクト管理機能を提供；
 

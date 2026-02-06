@@ -6,8 +6,8 @@
   <img alt="SwanLab" src="readme_files/swanlab-logo-type2-light.svg" width="300" height="130">
 </picture>
 
-一个开源、现代化设计的深度学习训练跟踪与可视化工具  
-同时支持云端/离线使用，适配40+主流框架，与你的实验代码轻松集成
+一个专业、现代化设计的AI训练分析平台  
+面向模型训练团队，与50+主流框架集成，与你的实验代码轻松结合
 
 <a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">建议反馈</a> · <a href="https://docs.swanlab.cn/zh/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a>
 
@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2026.02.06: 🔥**swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
+
 - 2026.01.28：⚡️**LightningBoard V2**上线，进一步提升仪表盘性能；
 
 - 2026.01.16：⚡️**LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
@@ -75,9 +77,10 @@
 
 - 2025.10.15：📊折线图配置支持**X轴数据源选择**；侧边栏支持显示表格视图中Pin的列，增强实验数据对齐能力；
 
-- 2025.09.22：📊全新UI上线；表格视图支持全局排序和筛选；数据层面统一表格视图与图表视图；
 
 <details><summary>完整更新日志</summary>
+
+- 2025.09.22：📊全新UI上线；表格视图支持全局排序和筛选；数据层面统一表格视图与图表视图；
 
 - 2025.09.12：🔢支持创建**标量图**，灵活显示实验指标的统计值；组织管理页面大升级，提供更强大的权限控制与项目管理能力；
 
@@ -165,9 +168,9 @@
 
 ## 👋🏻 什么是SwanLab
 
-SwanLab 是一款开源、轻量的 AI 模型训练跟踪与可视化工具，提供了一个跟踪、记录、比较、和协作实验的平台。
+SwanLab 是一款**AI训练分析与指标观测平台**，面向模型训练团队，提供训练可视化、自动日志记录、超参数记录、实验对比、多人协同等功能，帮助团队快速发现训练问题，加速模型迭代。
 
-SwanLab 面向人工智能研究者，设计了友好的Python API 和漂亮的UI界面，并提供**训练可视化、自动日志记录、超参数记录、实验对比、多人协同**等功能。在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
+在SwanLab上，研究者能基于直观的可视化图表发现训练问题，对比多个实验找到研究灵感，并通过**在线网页**的分享与基于组织的**多人协同训练**，打破团队沟通的壁垒，提高组织训练效率。
 
 https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
