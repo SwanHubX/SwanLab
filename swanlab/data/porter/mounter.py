@@ -6,7 +6,7 @@
 一般情况下，他与 Porter 一起使用，作为 Porter 的前置操作
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from swanlab.core_python import get_client, Client
 from swanlab.data import namer as N
@@ -97,32 +97,41 @@ class Mounter:
             # 列信息, [{error: dict or None, key:str, type:str, class:str}]
             columns = columns_resp.get("list", [])
             # key -> (column_type, column_class, error, latest step)
-            metrics: RemoteMetric = {}
-            for column in columns:
-                # 从列信息中获取指标信息
-                key = column["key"]
-                column_type = column["type"]
-                column_class = column["class"]
-                error = column.get("error", None)
-                if column_class == "SYSTEM" and not is_system_key(key):
-                    # 只记录 sdk 生成的系统指标
-                    continue
-                # 从总结数据中获取最新的 step
-                # 这里需要同时查找 media 和 scalar
-                latest_step = None
-                for scalar_summary in summaries.get("scalar") or []:
-                    if scalar_summary["key"] == key:
-                        latest_step = scalar_summary["step"]
-                        break
-                if latest_step is None:
-                    for media_summary in summaries.get("media") or []:
-                        if media_summary["key"] == key:
-                            latest_step = media_summary["step"]
-                            break
-                # 极端情况下，总结数据中会不包含此key，此时 latest_step 仍为 None
-                # 具体情况就是列创建了，但是没有任何数据，这时候latest_step设置为-1即可，代表可接受所有step
-                metrics[key] = (column_type, column_class, error, latest_step or -1)
-            run_store.metrics = metrics
+            run_store.metrics = self.get_metrics(columns, summaries)
+
+    @staticmethod
+    def get_metrics(columns: List, summaries) -> RemoteMetric:
+        """
+        获取指标信息
+        :param columns: 列信息
+        :param summaries: 指标总结数据
+        :return: key -> (column_type, column_class, error, latest step)
+        """
+        metrics: RemoteMetric = {}
+        # 优化：构建快速查找字典，避免在循环中重复遍历 summaries
+        # 优先级：scalar > media，所以先存 media，再存 scalar（覆盖）
+        summary_steps = {}
+        for item in summaries.get("media") or []:
+            summary_steps[item["key"]] = item["step"]
+        for item in summaries.get("scalar") or []:
+            summary_steps[item["key"]] = item["step"]
+
+        for column in columns:
+            # 从列信息中获取指标信息
+            key = column["key"]
+            column_type = column["type"]
+            column_class = column["class"]
+            error = column.get("error", None)
+            if column_class == "SYSTEM" and not is_system_key(key):
+                # 只记录 sdk 生成的系统指标
+                continue
+            # 从总结数据中获取最新的 step
+            latest_step = summary_steps.get(key)
+
+            # 极端情况下，总结数据中会不包含此key，此时 latest_step 仍为 None
+            # 具体情况就是列创建了，但是没有任何数据，这时候latest_step设置为-1即可，代表可接受所有step
+            metrics[key] = (column_type, column_class, error, latest_step if latest_step is not None else -1)
+        return metrics
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._run_store = None
