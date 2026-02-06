@@ -95,7 +95,7 @@ class Api:
     def projects(
         self,
         path: str,
-        sort: Optional[str] = None,
+        sort: Optional[List[str]] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:
