@@ -312,7 +312,8 @@ class SwanLabInitializer:
         elif resume == 'must' or resume == 'allow':
             # 只允许在 cloud 模式下使用 resume
             if mode != "cloud":
-                raise RuntimeError("You can only use resume in cloud mode.")
+                swanlog.warning(f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'.")
+                resume = 'never'
         if resume == "must" and id is None:
             raise ValueError('You must pass id when resume=must.')
         run_store = get_run_store()
