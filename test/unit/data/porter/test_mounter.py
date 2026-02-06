@@ -1,3 +1,5 @@
+import time
+
 from swanlab.data.porter.mounter import Mounter
 
 
@@ -104,35 +106,27 @@ class TestMounterMetrics:
 
         assert metrics["broken"] == ("float", "SCALAR", {"msg": "failed"}, -1)
 
-    def test_get_metrics_large_scale(self):
+    def test_get_metrics_large_scale(self, count=1_000_000):
         """
         Test performance of get_metrics with 1 million columns.
         """
-        import time
-
-        N = 1_000_000
 
         # Generate 1 million columns
-        print(f"\nGenerating {N} columns...")
-        columns = [{"key": f"metric_{i}", "type": "float", "class": "SCALAR"} for i in range(N)]
+        columns = [{"key": f"metric_{i}", "type": "float", "class": "SCALAR"} for i in range(count)]
 
         # Generate summaries for half of them
         # 500k scalar summaries
-        print(f"Generating summaries...")
         summaries = {
-            "scalar": [{"key": f"metric_{i}", "step": i} for i in range(0, N, 2)],
+            "scalar": [{"key": f"metric_{i}", "step": i} for i in range(0, count, 2)],
             "media": [],
         }
 
-        print("Starting execution...")
         start_time = time.time()
 
         metrics = Mounter.get_metrics(columns, summaries)
 
         end_time = time.time()
         duration = end_time - start_time
-
-        print(f"Processed {N} columns in {duration:.4f} seconds.")
 
         # Verify correctness for a few items
         assert metrics["metric_0"][3] == 0
