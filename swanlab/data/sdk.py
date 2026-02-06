@@ -305,17 +305,23 @@ class SwanLabInitializer:
         # 6. 校验 resume 与 id
         id = check_run_id_format(id)
         resume = resume or 'never'
+        # 非 cloud 模式下，resume 只支持 'never'
+        if resume in ('must', 'allow') and mode != "cloud":
+            swanlog.warning(f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'.")
+            resume = 'never'
+            id = None
+        # 根据 resume 的最终值进行校验
         if resume == 'never':
             # 不允许传递 id
             if id is not None:
                 raise RuntimeError("You can't pass id when resume=never or resume=False.")
-        elif resume == 'must' or resume == 'allow':
-            # 只允许在 cloud 模式下使用 resume
-            if mode != "cloud":
-                swanlog.warning(f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'.")
-                resume = 'never'
-        if resume == "must" and id is None:
-            raise ValueError('You must pass id when resume=must.')
+        elif resume == 'allow':
+            # allow 模式下，id 可选
+            pass
+        elif resume == 'must':
+            # must 模式下，必须传递 id
+            if id is None:
+                raise ValueError('You must pass id when resume=must.')
         run_store = get_run_store()
         # ---------------------------------- 初始化swanlog文件夹 ----------------------------------
         env_key = SwanLabEnv.SWANLOG_FOLDER.value
