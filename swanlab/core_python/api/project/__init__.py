@@ -19,7 +19,7 @@ def get_workspace_projects(
     path: str,
     page: int = 1,
     size: int = 20,
-    sort: Optional[List[str]] = None,
+    sort: Optional[str] = None,
     search: Optional[str] = None,
     detail: Optional[bool] = True,
 ) -> ProjResponseType:

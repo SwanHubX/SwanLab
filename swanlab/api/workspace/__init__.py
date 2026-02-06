@@ -66,7 +66,7 @@ class Workspace:
 
     def projects(
         self,
-        sort: Optional[List[str]] = None,
+        sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ):

@@ -25,7 +25,7 @@ class Projects:
         *,
         web_host: str,
         path: str,
-        sort: Optional[List[str]] = None,
+        sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
