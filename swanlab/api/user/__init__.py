@@ -63,7 +63,7 @@ class User:
         List of teams the user belongs to.
         """
         resp = get_user_groups(self._client, username=self._cur_username)
-        return [r['name'] for r in resp]
+        return [r['username'] for r in resp]
 
     # TODO: 管理员可以对指定用户的api_key进行操作
     @cached_property
@@ -87,7 +87,8 @@ class User:
         """
         Refresh the list of api keys.
         """
-        del self.api_keys
+        # Delete the cached property by removing it from instance __dict__
+        self.__dict__.pop('api_keys', None)
         self._api_keys = get_api_keys(self._client)
 
     def generate_api_key(self, description: str = None) -> Optional[str]:

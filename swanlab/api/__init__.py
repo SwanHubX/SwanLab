@@ -52,14 +52,6 @@ class Api:
         self._web_host = self._login_info.web_host
         self._login_user = self._login_info.username
 
-    def user(self, username: str = None) -> User:
-        """
-        获取用户实例，用于操作用户相关信息
-        :param username: 指定用户名，如果为 None，则返回当前登录用户
-        :return: User 实例，可对当前/指定用户进行操作
-        """
-        return User(client=self._client, login_user=self._login_user, username=username)
-
     @self_hosted("root")
     def users(self) -> Users:
         """
@@ -68,10 +60,42 @@ class Api:
         """
         return Users(self._client, login_user=self._login_user)
 
+    def user(self, username: str = None) -> User:
+        """
+        获取用户实例，用于操作用户相关信息
+        :param username: 指定用户名，如果为 None，则返回当前登录用户
+        :return: User 实例，可对当前/指定用户进行操作
+        """
+        return User(client=self._client, login_user=self._login_user, username=username)
+
+    def workspaces(
+        self,
+        username: str = None,
+    ):
+        """
+        获取当前登录用户的工作空间迭代器
+        当username为其他用户时，可以作为visitor访问其工作空间
+        """
+        if username is None:
+            username = self._login_user
+        return Workspaces(self._client, username=username)
+
+    def workspace(
+        self,
+        username: str = None,
+    ):
+        """
+        获取当前登录用户的工作空间
+        """
+        if username is None:
+            username = self._login_user
+        data = get_workspace_info(self._client, path=username)
+        return Workspace(self._client, data=data, web_host=self._web_host, login_info=self._login_info)
+
     def projects(
         self,
         path: str,
-        sort: Optional[List[str]] = None,
+        sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> Projects:
@@ -102,7 +126,7 @@ class Api:
         :return: Project 实例，单个项目的信息
         """
         data = get_project_info(self._client, path=path)
-        return Project(self._client, web_host=self._web_host, data=data)
+        return Project(self._client, web_host=self._web_host, data=data, login_info=self._login_info)
 
     def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """
@@ -122,46 +146,18 @@ class Api:
         :param path: 实验路径，格式为 'username/project/run_id'
         :return: Experiment 实例，包含实验信息
         """
-        # TODO: 待后端完善后替换成专用的接口
         if len(path.split('/')) != 3:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/run_id'")
-        _data = get_single_experiment(self._client, path=path)
+        data = get_single_experiment(self._client, path=path)
         proj_path = path.rsplit('/', 1)[0]
-        data = get_project_experiments(
-            self._client, path=proj_path, filters={'name': _data['name'], 'created_at': _data['createdAt']}
-        )
         return Experiment(
             self._client,
-            data=data[0],
+            data=data,
             path=proj_path,
             web_host=self._web_host,
             login_user=self._login_user,
             line_count=1,
         )
-
-    def workspaces(
-        self,
-        username: str = None,
-    ):
-        """
-        获取当前登录用户的工作空间迭代器
-        当username为其他用户时，可以作为visitor访问其工作空间
-        """
-        if username is None:
-            username = self._login_user
-        return Workspaces(self._client, username=username)
-
-    def workspace(
-        self,
-        username: str = None,
-    ):
-        """
-        获取当前登录用户的工作空间
-        """
-        if username is None:
-            username = self._login_user
-        data = get_workspace_info(self._client, path=username)
-        return Workspace(self._client, data=data)
 
 
 __all__ = ["Api", "OpenApi"]

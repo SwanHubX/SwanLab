@@ -14,6 +14,47 @@ from swanlab.core_python.client import Client
 from swanlab.log import swanlog
 
 
+class Profile:
+    """Experiment profile containing config, metadata, requirements, and conda info."""
+
+    def __init__(self, data: Dict):
+        self._data = data
+
+    @staticmethod
+    def _clean_field(value: Any) -> Any:
+        """Recursively clean config field, removing desc/sort and keeping value."""
+        if isinstance(value, dict):
+            if 'value' in value:
+                # Standard format: {'desc': ..., 'sort': ..., 'value': ...}
+                return Profile._clean_field(value['value'])
+            else:
+                # Nested dict without standard format, clean recursively
+                return {k: Profile._clean_field(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [Profile._clean_field(item) for item in value]
+        return value
+
+    @property
+    def config(self) -> Dict:
+        """Experiment configuration (cleaned, without desc/sort fields)."""
+        raw_config = self._data.get('config', {})
+        return {k: Profile._clean_field(v) for k, v in raw_config.items()}
+
+    @property
+    def metadata(self) -> Dict:
+        """Experiment metadata."""
+        return self._data.get('metadata', {})
+
+    @property
+    def requirements(self) -> str:
+        """Python requirements."""
+        return self._data.get('requirements', '')
+
+    @property
+    def conda(self) -> str:
+        """Conda environment."""
+        return self._data.get('conda', '')
+
 
 class Experiment:
     def __init__(
@@ -31,14 +72,21 @@ class Experiment:
         """
         Experiment name.
         """
-        return self._data['name']
+        return self._data.get('name', '')
 
     @property
     def id(self) -> str:
         """
         Experiment CUID.
         """
-        return self._data['cuid']
+        return self._data.get('cuid', '')
+
+    @property
+    def path(self) -> str:
+        """
+        Experiment path in format 'username/project/id'.
+        """
+        return f"{self._path}/{self.id}"
 
     @property
     def url(self) -> str:
@@ -52,83 +100,71 @@ class Experiment:
         """
         Experiment creation timestamp
         """
-        return self._data['createdAt']
+        return self._data.get('createdAt', '')
+
+    @property
+    def finished_at(self) -> str:
+        """
+        Experiment finished timestamp
+        """
+        return self._data.get('finishedAt', '')
+
+    @property
+    def profile(self) -> Profile:
+        """
+        Experiment profile containing config, metadata, requirements, and conda.
+        """
+        return Profile(self._data.get('profile', {}))
+
+    @property
+    def show(self) -> bool:
+        """
+        Whether the experiment is visible.
+        """
+        return self._data.get('show', True)
 
     @property
     def description(self) -> str:
         """
         Experiment description.
         """
-        return self._data['description']
+        return self._data.get('description', '')
 
     @property
     def labels(self) -> List[Label]:
         """
         List of Label attached to this experiment.
         """
-        return [Label(label['name']) for label in self._data['labels']]
+        return [Label(label['name']) for label in self._data.get('labels', [])]
 
     @property
     def state(self) -> str:
         """
         Experiment state.
         """
-        return self._data['state']
+        return self._data.get('state', '')
 
     @property
     def group(self) -> str:
         """
         Experiment group.
         """
-        return self._data['cluster']
+        return self._data.get('cluster', '')
 
     @property
-    def job(self) -> str:
+    def job_type(self) -> str:
         """
         Experiment job type.
         """
-        return self._data['job']
+        return self._data.get('job', '')
 
     @property
     def user(self) -> User:
         """
         Experiment user.
         """
-        return User(client=self._client, login_user=self._login_user, username=self._data['user']['username'])
-
-    @property
-    def metric_keys(self) -> List[str]:
-        """
-        List of metric keys.
-        """
-        return list(self.summary.keys())
-
-    @property
-    def history_line_count(self) -> int:
-        """
-        The number of historical experiments in this project.
-        """
-        return self._line_count
-
-    @property
-    def root_exp_id(self) -> str:
-        """
-        Root experiment cuid. If the experiment is a root experiment, it will be None.
-        """
-        return self._data['rootExpId']
-
-    @property
-    def root_pro_id(self) -> str:
-        """
-        Root project cuid. If the experiment is a root experiment, it will be None.
-        """
-        return self._data['rootProId']
-
-    def json(self):
-        """
-        JSON-serializable dict of all @property values.
-        """
-        return get_properties(self)
+        username = self._data.get('user', {}).get('username', '')
+        return User(client=self._client, login_user=self._login_user, username=username)
 
     def metrics(self, keys: List[str] = None, x_axis: str = None, sample: int = None, pandas: bool = True) -> Any:
         """
@@ -217,6 +253,12 @@ class Experiment:
             result_df = result_df.head(sample)
 
         return result_df
+    
+    def json(self):
+        """
+        JSON-serializable dict of all @property values.
+        """
+        return get_properties(self)
 
 
-__all__ = ['Experiment']
+__all__ = ['Experiment', 'Profile']
