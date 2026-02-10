@@ -264,6 +264,10 @@ class SwanLabInitializer:
             swanlog.warning(f"project name is too long, auto cut to {p}")
             project = p
         # 2.2 校验实验名称
+        # 处理空字符串情况
+        if experiment_name == "":
+            swanlog.warning("The experiment name is an empty string, automatically converted to None.")
+            experiment_name = None
         if experiment_name:
             e = check_exp_name_format(experiment_name)
             if experiment_name != e:
