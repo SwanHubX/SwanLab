@@ -93,7 +93,7 @@ class Object3D:
 
     def __new__(
         cls,
-        data: Union[ndarray, str, Path, Dict, Mol],
+        data: Union[ndarray, str, Path, Dict, Mol, MediaType],
         *,
         caption: Optional[str] = None,
         **kwargs,
@@ -101,6 +101,33 @@ class Object3D:
         cls._check_numpy()
 
         kwargs['caption'] = caption
+
+        # Support MediaType instances as input (e.g., Object3D(Object3D(...)))
+        # This includes PointCloud, Model3D, Molecule, etc.
+        if isinstance(data, MediaType):
+            # If caption is provided, create a new instance with the new caption
+            # Otherwise, return the original instance
+            if caption is not None:
+                # Handle different MediaType subclasses
+                if isinstance(data, Molecule):
+                    return Molecule(data.pdb_data, caption=caption)
+                elif isinstance(data, PointCloud):
+                    # Create a new PointCloud with the same points and boxes, but new caption
+                    return PointCloud(
+                        points=data.points.copy(),
+                        boxes=list(data.boxes) if data.boxes else [],
+                        caption=caption,
+                        step=data.step,
+                        key=data.key,
+                    )
+                elif isinstance(data, Model3D):
+                    # Create a new Model3D with the same glb_path, but new caption
+                    return Model3D(
+                        glb_path=data.glb_path,
+                        caption=caption,
+                        step=data.step,
+                    )
+            return data
 
         if isinstance(data, ndarray):
             return cls._handle_ndarray(data, **kwargs)

@@ -45,6 +45,15 @@ class Audio(MediaType):
                 "you can install them by `pip install soundfile numpy`"
             )
         super().__init__()
+        # Support swanlab.Audio as input (e.g., swanlab.Audio(swanlab.Audio(data)))
+        if isinstance(data_or_path, Audio):
+            self.audio_data = data_or_path.audio_data.copy()
+            self.sample_rate = sample_rate if sample_rate is not None else data_or_path.sample_rate
+            self.buffer = MediaBuffer()
+            sf.write(self.buffer, self.audio_data.T, self.sample_rate, format="wav")
+            self.caption = D.check_caption(caption) if caption is not None else data_or_path.caption
+            return
+
         if isinstance(data_or_path, str):
             # 如果输入为路径字符串
             try:

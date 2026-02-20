@@ -22,10 +22,25 @@ class Molecule(MediaType):
     pdb_data: str
     caption: Optional[str] = None
 
-    def __post_init__(self):
-        """Validates input data after initialization."""
-        if not isinstance(self.pdb_data, str):
-            raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
+    def __init__(self, pdb_data: Union[str, "Molecule"], caption: Optional[str] = None):
+        """Initialize Molecule instance.
+        
+        Args:
+            pdb_data: PDB data string or another Molecule instance.
+            caption: Optional descriptive text.
+        """
+        # Initialize MediaType parent class
+        super().__init__()
+        
+        # Support swanlab.Molecule as input (e.g., swanlab.Molecule(swanlab.Molecule(...)))
+        if isinstance(pdb_data, Molecule):
+            self.pdb_data = pdb_data.pdb_data
+            self.caption = caption if caption is not None else pdb_data.caption
+        else:
+            if not isinstance(pdb_data, str):
+                raise TypeError("pdb_data must be a string, use RDKit.Chem.MolToPDBBlock to convert.")
+            self.pdb_data = pdb_data
+            self.caption = caption
 
     @staticmethod
     def check_is_available():

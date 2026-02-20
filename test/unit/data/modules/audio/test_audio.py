@@ -114,3 +114,27 @@ def test_audio_fail():
     mock = np.random.randn(3, 100000)
     with pytest.raises(TypeError):
         Audio(data_or_path=mock, sample_rate=44100)
+
+
+def test_audio_nested():
+    """测试Audio类支持嵌套输入（套娃）"""
+    # 创建基础Audio实例
+    mock = np.random.randn(2, 100000).astype(np.float32)
+    base_audio = Audio(data_or_path=mock, sample_rate=44100, caption="original")
+    
+    # 测试嵌套输入
+    nested_audio = Audio(base_audio)
+    
+    # 验证属性被正确复制
+    assert np.array_equal(nested_audio.audio_data, base_audio.audio_data)
+    assert nested_audio.sample_rate == base_audio.sample_rate
+    assert nested_audio.caption == base_audio.caption
+    assert nested_audio.buffer.getbuffer().nbytes > 0
+    
+    # 测试可以覆盖caption
+    nested_with_new_caption = Audio(base_audio, caption="new caption")
+    assert nested_with_new_caption.caption == "new caption"
+    assert nested_with_new_caption.sample_rate == base_audio.sample_rate
+    
+    # 验证原始实例未被修改
+    assert base_audio.caption == "original"
