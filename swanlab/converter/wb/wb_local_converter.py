@@ -12,6 +12,7 @@ wb_local_converter.run(root_wandb_dir="WANDB_LOCAL_DIR", wandb_run_dir="WANDB_LO
 swanlab convert -t wandb-local --wb-dir ./wandb --wb-run-dir run-1234567890
 """
 import argparse
+import gc
 import glob
 import json
 import os
@@ -212,11 +213,15 @@ class WandbLocalConverter:
                 step = int(data_dict.get('_step', 0))
                 if log_dict:
                     swanlab_run.log(log_dict, step=step)
+
+                # 清理临时变量，减少内存占用
+                del log_dict
+                del history_data
             elif record_type == "summary":
                 initialize_swanlab_run_if_needed()
                 log_dict = {}
                 summary_data = self._unpack_key_value_json_list(data_dict.get('update', []))
-                
+
                 for key, value in summary_data.items():
                     if key == "_runtime" or key == "_step" or key == "_timestamp":
                         key = "_wandb/" + key
@@ -224,6 +229,17 @@ class WandbLocalConverter:
                         log_dict[key] = value
                 if log_dict:
                     swanlab_run.log(log_dict)
+
+                # 清理临时变量，减少内存占用
+                del log_dict
+                del summary_data
+
+            # 清理公共变量，释放内存
+            del data_dict
+            del record_dict
+            del record_pb
+            del record_bin
+            gc.collect()
 
         if swanlab_run:
             swl.info(f"Finished converting run: {run_metadata['name']}")
@@ -236,6 +252,10 @@ class WandbLocalConverter:
                     swanlab_run.finish()
             except RuntimeError as e:
                 swl.error(str(e))
+
+        # 清理 DataStore 对象，释放文件句柄
+        del ds
+        gc.collect()
 
     def run(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None):
         """The main entry point to start the conversion process."""
