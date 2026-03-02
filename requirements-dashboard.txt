@@ -1,1 +1,1 @@
-swanboard==0.1.9b2
+swanboard==0.1.9b3
