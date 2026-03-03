@@ -8,8 +8,9 @@ r"""
     日志集合和上传记录器
 """
 import time
-from typing import List
+from typing import List, Optional
 
+from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.error import NetworkError, SyncError
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
@@ -26,7 +27,7 @@ class LogCollectorTask(ThreadTaskABC):
     并且定义日志上传接口
     """
 
-    def __init__(self, upload_type=UploadType, progress_callback=None):
+    def __init__(self, upload_type=UploadType, upload_callback: Optional[UploadCallback] = None):
         self.container: List[LogQueue.MsgType] = []
         """
         日志容器，存储从管道中获取的日志信息
@@ -35,10 +36,7 @@ class LogCollectorTask(ThreadTaskABC):
         self.upload_type = upload_type
         self.upload_interval = get_settings().upload_interval
         self._last_network_error_log_timestamp = 0.0
-        self.progress_callback = progress_callback
-        """
-        进度回调函数，签名: callback(uploaded_count, total_count)
-        """
+        self.upload_callback = upload_callback
 
     def report_known_error(self, errors: List[SyncError]):
         """
@@ -90,12 +88,12 @@ class LogCollectorTask(ThreadTaskABC):
             types_with_progress = {UploadType.SCALAR_METRIC, UploadType.COLUMN, UploadType.LOG}
 
             # 执行单个上传任务，根据类型决定是否传递进度回调
-            if key in types_with_progress and self.progress_callback:
+            if key in types_with_progress and self.upload_callback:
                 # 计算当前全局进度（之前已上传的 + 该类型总数）
                 base_progress = uploaded_count
                 result = key.value['upload'](
                     upload_tasks_dict[key],
-                    progress_callback=lambda u, t, bp=base_progress: self.progress_callback(bp + u, t)
+                    upload_callback=lambda u, t, bp=base_progress: self.upload_callback(bp + u, t),
                 )
             else:
                 # 执行单个上传任务
@@ -118,8 +116,8 @@ class LogCollectorTask(ThreadTaskABC):
             uploaded_count += current_batch_size
 
             # 每种数据类型上传完成后立即触发进度回调
-            if self.progress_callback and uploaded_count > 0:
-                self.progress_callback(uploaded_count, total_count)
+            if self.upload_callback and uploaded_count > 0:
+                self.upload_callback(uploaded_count, total_count)
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 

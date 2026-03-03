@@ -8,7 +8,7 @@ from .wandb import sync_wandb
 
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
-from .sync_utils import set_run_store
+from .sync_utils import set_run_store, SyncProgress
 from ..core_python import create_client, get_client
 from ..core_python.auth.providers.api_key import code_login
 from ..data.porter import DataPorter, Mounter
@@ -58,7 +58,8 @@ def sync(
     try:
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
         stdout.flush()
-        with DataPorter().open_for_sync(run_dir=dir_path) as porter:
+        with SyncProgress() as pbar:
+            with DataPorter().open_for_sync(run_dir=dir_path, progress_callback=pbar.update) as porter:
                 proj, exp = porter.parse()
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:
@@ -70,7 +71,7 @@ def sync(
                     # 显示最终 URL（在上传进度条开始前）
                     swanlog.info(f"🔁 Syncing data to cloud... (View at {client.web_exp_url})")
                     # 同步
-                    porter.synchronize()
+                    porter.synchronize(set_total_callback=pbar.set_total)
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
         if raise_error:

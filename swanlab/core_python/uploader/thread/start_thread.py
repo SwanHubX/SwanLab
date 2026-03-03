@@ -33,12 +33,10 @@ class ThreadPool:
     数据上传线程的名称
     """
 
-    def __init__(self, upload_sleep_time: float = None, progress_callback: Callable = None):
+    def __init__(self, upload_sleep_time: float = None, upload_callback: Callable = None):
         self.thread_pool = {}
-        # 进度回调函数
-        self.progress_callback = progress_callback
         # 日志聚合器，传入进度回调
-        self.collector = LogCollectorTask(progress_callback=progress_callback)
+        self.collector = LogCollectorTask(upload_callback=upload_callback)
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []

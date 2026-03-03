@@ -9,6 +9,7 @@ import time
 from typing import Union, Literal, List, TypedDict, Dict
 
 from swanlab.core_python import get_client
+from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.log import swanlog
 
 
@@ -78,7 +79,7 @@ def trace_metrics(
     data: Union[MetricDict, list] = None,
     method: Literal['post', 'put'] = 'post',
     per_request_len: int = 1000,
-    progress_callback=None,
+    upload_callback: UploadCallback = None,
     total_count: int = 0,
 ):
     """
@@ -87,7 +88,7 @@ def trace_metrics(
     :param data: 要上传的数据
     :param method: HTTP 方法
     :param per_request_len: 每批上传的数量
-    :param progress_callback: 进度回调函数，签名为 callback(uploaded_count, total_count)
+    :param upload_callback: 上传进度回调函数
     :param total_count: 数据总条数
     """
     # 判断是否开启了分片模式（用于决定是否 sleep）
@@ -117,9 +118,9 @@ def trace_metrics(
             client.pending = True
             swanlog.warning(f"Client set to pending due to 202 response: {url}")
         # 触发进度回调
-        if progress_callback:
+        if upload_callback:
             chunk_len = len(chunk.get('metrics', [])) if isinstance(chunk, dict) else len(chunk or [])
             uploaded_count += chunk_len
-            progress_callback(uploaded_count, total_count)
+            upload_callback(uploaded_count, total_count)
         # 分批发送时需要 sleep
         is_split_mode and time.sleep(1)
