@@ -11,6 +11,10 @@ wb_local_converter.run(root_wandb_dir="WANDB_LOCAL_DIR", wandb_run_dir="WANDB_LO
 ------command------
 swanlab convert -t wandb-local --wb-dir ./wandb --wb-run-dir run-1234567890
 """
+
+# GC frequency: collect garbage every N records
+GC_INTERVAL = 10000
+
 import argparse
 import gc
 import glob
@@ -222,6 +226,7 @@ class WandbLocalConverter:
         # 初始化进度条
         progress = None
         task_id = None
+        record_count = 0
 
         if Progress is not None:
             progress = Progress(
@@ -315,7 +320,11 @@ class WandbLocalConverter:
             del record_dict
             del record_pb
             del record_bin
-            gc.collect()
+
+            # GC every GC_INTERVAL records to reduce overhead
+            record_count += 1
+            if record_count % GC_INTERVAL == 0:
+                gc.collect()
 
         # 关闭进度条
         if progress is not None:
