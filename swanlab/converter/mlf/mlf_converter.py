@@ -7,6 +7,7 @@ mlf_converter.run(tracking_uri="MLFLOW_TRACKING_URL", experiment=0)
 """
 import swanlab
 from swanlab.log import swanlog as swl
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 import time
 
 class MLFLowConverter:
@@ -79,16 +80,42 @@ class MLFLowConverter:
                     mlflow_run_params=run.data.params,
                     mlflow_run_tags={k: v for k, v in run.data.tags.items() if not k.startswith('mlflow')},
                 ))
-                
-                index = 0
+
+                # 预先获取所有 metric 历史数据，避免重复调用
+                all_metric_histories = {}
                 for key in run.data.metrics.keys():
-                    for m in client.get_metric_history(run_id, key):
+                    history = client.get_metric_history(run_id, key)
+                    all_metric_histories[key] = history
+
+                # 计算总 metric 数量用于进度条
+                total_metrics = sum(len(history) for history in all_metric_histories.values())
+
+                progress = None
+                task_id = None
+                if Progress is not None:
+                    progress = Progress(
+                        TextColumn("[bold blue]{task.description}"),
+                        BarColumn(bar_width=40),
+                        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                        TimeElapsedColumn(),
+                        TimeRemainingColumn(),
+                    )
+                    progress.start()
+                    task_id = progress.add_task(mlflow_run_name or run_id[:8], total=total_metrics)
+
+                index = 0
+                for key, history in all_metric_histories.items():
+                    for m in history:
                         swanlab_run.log({m.key: m.value}, step=m.step)
                         index += 1
-                        print(f"Index {index}: Metric: {m.key} log finished")
+                        if progress is not None and task_id is not None:
+                            progress.update(task_id, advance=1)
                         # TODO: 等未来上传方案优化后解除延时
                         if index % 5 == 0:
                             time.sleep(1)
+
+                if progress is not None:
+                    progress.stop()
                 
                 swanlab_run.finish()
                 

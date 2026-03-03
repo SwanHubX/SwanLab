@@ -2,6 +2,7 @@ import os
 import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from swanlab.log import swanlog as swl
 import time
 
@@ -89,6 +90,24 @@ class TFBConverter:
                             "audio": lambda v: swanlab.Audio(v[0], sample_rate=v[1]),
                             "text": lambda v: swanlab.Text(v),
                         }
+
+                        # 计算总数据点数量用于进度条
+                        total_points = sum(len(data) for tag, data in data_by_tags.items()
+                                          if type_by_tags.get(tag) in self.types)
+
+                        progress = None
+                        task_id = None
+                        if Progress is not None:
+                            progress = Progress(
+                                TextColumn("[bold blue]{task.description}"),
+                                BarColumn(bar_width=40),
+                                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                                TimeElapsedColumn(),
+                                TimeRemainingColumn(),
+                            )
+                            progress.start()
+                            task_id = progress.add_task(os.path.basename(path), total=total_points)
+
                         index = 0
                         for tag, data in data_by_tags.items():
                             tag_type = type_by_tags[tag]
@@ -99,9 +118,13 @@ class TFBConverter:
                             for step, value, t in data:
                                 times.append(t)
                                 swanlab.log({tag: handler(value)}, step=step)
-                            print(f"Metric [{index}]: {tag} log finished")
+                                if progress is not None and task_id is not None:
+                                    progress.update(task_id, advance=1)
                             if index % 5 == 0:
                                 time.sleep(1)
+
+                        if progress is not None:
+                            progress.stop()
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)
