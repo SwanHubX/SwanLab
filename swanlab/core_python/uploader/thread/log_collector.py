@@ -83,8 +83,7 @@ class LogCollectorTask(ThreadTaskABC):
 
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
 
-        # 同步执行所有的上传任务，每种类型上传完成后立即触发回调
-        uploaded_count = 0
+        # 同步执行所有的上传任务
         for key in tasks_key_list:
             # 需要细粒度进度的类型
             # 执行单个上传任务，根据类型决定是否传递进度回调
@@ -105,9 +104,6 @@ class LogCollectorTask(ThreadTaskABC):
                 # raise e
             # 标记该任务类型成功
             success_tasks_type.append(key)
-            # 统计成功上传的数量
-            current_batch_size = len(upload_tasks_dict[key])
-            uploaded_count += current_batch_size
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 
