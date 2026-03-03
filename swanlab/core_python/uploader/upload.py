@@ -83,13 +83,16 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
 
 @safe_request
 @skip_if_empty("No scalar metrics to upload.")
-def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
+def upload_scalar_metrics(scalar_metrics: List[ScalarModel], progress_callback=None):
     """
     上传指标的标量数据
+    :param scalar_metrics: 标量指标列表
+    :param progress_callback: 进度回调函数，签名为 callback(uploaded_count, total_count)
     """
+    total_count = len(scalar_metrics)
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    # 上传指标信息
-    trace_metrics(HOUSE_URL, data)
+    # 上传指标信息，支持进度回调
+    trace_metrics(HOUSE_URL, data, progress_callback=progress_callback, total_count=total_count)
 
 
 @safe_request

@@ -26,7 +26,7 @@ class LogCollectorTask(ThreadTaskABC):
     并且定义日志上传接口
     """
 
-    def __init__(self, upload_type=UploadType):
+    def __init__(self, upload_type=UploadType, progress_callback=None):
         self.container: List[LogQueue.MsgType] = []
         """
         日志容器，存储从管道中获取的日志信息
@@ -35,6 +35,10 @@ class LogCollectorTask(ThreadTaskABC):
         self.upload_type = upload_type
         self.upload_interval = get_settings().upload_interval
         self._last_network_error_log_timestamp = 0.0
+        self.progress_callback = progress_callback
+        """
+        进度回调函数，签名: callback(uploaded_count, total_count)
+        """
 
     def report_known_error(self, errors: List[SyncError]):
         """
@@ -70,28 +74,62 @@ class LogCollectorTask(ThreadTaskABC):
         # ---------------------------------- 处理upload任务 ----------------------------------
 
         # 聚合所有的上传任务
+        total_count = 0
         for msg in self.container:
             if msg[0] in self.upload_type:
+                msg_count = len(msg[1])
+                total_count += msg_count
                 upload_tasks_dict[msg[0]].extend(msg[1])
 
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
 
-        # 同步执行所有的上传任务
-        results = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
-        for index, result in enumerate(results):
-            # 如果出现已知问题
+        # 同步执行所有的上传任务，每种类型上传完成后立即触发回调
+        uploaded_count = 0
+        for key in tasks_key_list:
+            # 创建该类型的进度回调
+            def make_progress_callback(k, current_total):
+                def callback(uploaded, total):
+                    # 计算全局进度
+                    global_uploaded = uploaded_count + uploaded
+                    self.progress_callback(global_uploaded, current_total)
+                return callback
+
+            # 获取该类型的数据量
+            type_data_count = len(upload_tasks_dict[key])
+
+            # 对于 SCALAR_METRIC，传递进度回调以实现细粒度更新
+            if key.name == 'SCALAR_METRIC' and self.progress_callback:
+                # 计算当前全局进度（之前已上传的 + 该类型总数）
+                base_progress = uploaded_count
+                result = key.value['upload'](
+                    upload_tasks_dict[key],
+                    progress_callback=lambda u, t, bp=base_progress: self.progress_callback(bp + u, t)
+                )
+            else:
+                # 执行单个上传任务
+                result = key.value['upload'](upload_tasks_dict[key])
             _, e = result
+            # 如果出现已知问题
             if isinstance(e, SyncError):
                 known_errors.append(e)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif e is not None:
-                error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
+                error = f"{key.name} error: {e}, it might be a swanlab bug, data will be lost!"
                 swanlog.error(error)
                 # continue
                 # raise e
-            # 标记所有已经成功的任务
-            success_tasks_type.append(tasks_key_list[index])
+            # 标记该任务类型成功
+            success_tasks_type.append(key)
+            # 统计成功上传的数量
+            current_batch_size = len(upload_tasks_dict[key])
+            uploaded_count += current_batch_size
+
+            # 每种数据类型上传完成后立即触发进度回调
+            if self.progress_callback and uploaded_count > 0:
+                # remaining = 总数 - 已上传数量
+                remaining = total_count - uploaded_count
+                self.progress_callback(uploaded_count, total_count)
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 
