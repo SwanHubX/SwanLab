@@ -28,6 +28,11 @@ from swanlab.log import swanlog as swl
 import google.protobuf.json_format as protobuf_json
 
 try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
+try:
     from wandb.sdk.internal.datastore import DataStore
     from wandb.proto import wandb_internal_pb2
 except ImportError:
@@ -115,6 +120,9 @@ class WandbLocalConverter:
         wandb_file_path = wandb_files[0]
         files_root_dir = os.path.join(run_dir, "files")
 
+        # 获取文件大小用于进度条
+        wandb_file_size = os.path.getsize(wandb_file_path)
+
         ds = DataStore()
         ds.open_for_scan(wandb_file_path)
 
@@ -162,10 +170,28 @@ class WandbLocalConverter:
             swanlab_run.config.update(final_config)
 
         # Core Logic: Scan the .wandb file record by record
+        # 初始化进度条
+        pbar = None
+
+        if tqdm is not None:
+            pbar = tqdm(
+                total=wandb_file_size,
+                unit='B',
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=os.path.basename(run_dir.rstrip('/\\')),
+                leave=True,
+                ncols=80
+            )
+
         while True:
             record_bin = ds.scan_data()
             if record_bin is None:
                 break
+
+            # 更新进度条
+            if pbar is not None:
+                pbar.update(len(record_bin))
 
             record_pb = wandb_internal_pb2.Record()
             record_pb.ParseFromString(record_bin)
@@ -194,7 +220,7 @@ class WandbLocalConverter:
                 initialize_swanlab_run_if_needed()
                 log_dict = {}
                 history_data = self._unpack_key_value_json_list(data_dict.get('item', []))
-                
+
                 for key, value in history_data.items():
                     # 把指标中的runtime、_step、_timestamp都放到_wandb分组里
                     if key == "_runtime" or key == "_step" or key == "_timestamp":
@@ -206,10 +232,10 @@ class WandbLocalConverter:
                         path = os.path.join(files_root_dir, value.get("path", ""))
                         if not os.path.exists(path):
                             continue
-                        
+
                         if media_type == "image-file":
                             log_dict[key] = swanlab.Image(path)
-                
+
                 step = int(data_dict.get('_step', 0))
                 if log_dict:
                     swanlab_run.log(log_dict, step=step)
@@ -240,6 +266,10 @@ class WandbLocalConverter:
             del record_pb
             del record_bin
             gc.collect()
+
+        # 关闭进度条
+        if pbar is not None:
+            pbar.close()
 
         if swanlab_run:
             swl.info(f"Finished converting run: {run_metadata['name']}")
