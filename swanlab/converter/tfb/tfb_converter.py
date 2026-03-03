@@ -6,9 +6,13 @@ from swanlab.log import swanlog as swl
 import time
 
 try:
-    from tqdm import tqdm
+    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+    from rich.progress import ProgressColumn
+    from rich.text import Text
 except ImportError:
-    tqdm = None
+    Progress = None
+    ProgressColumn = None
+    Text = None
 
 
 SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
@@ -99,15 +103,18 @@ class TFBConverter:
                         total_points = sum(len(data) for tag, data in data_by_tags.items()
                                           if type_by_tags.get(tag) in self.types)
 
-                        pbar = None
-                        if tqdm is not None:
-                            pbar = tqdm(
-                                total=total_points,
-                                desc=os.path.basename(path),
-                                unit="pts",
-                                leave=True,
-                                ncols=80
+                        progress = None
+                        task_id = None
+                        if Progress is not None:
+                            progress = Progress(
+                                TextColumn("[bold blue]{task.description}"),
+                                BarColumn(bar_width=40),
+                                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                                TimeElapsedColumn(),
+                                TimeRemainingColumn(),
                             )
+                            progress.start()
+                            task_id = progress.add_task(os.path.basename(path), total=total_points)
 
                         index = 0
                         for tag, data in data_by_tags.items():
@@ -119,13 +126,13 @@ class TFBConverter:
                             for step, value, t in data:
                                 times.append(t)
                                 swanlab.log({tag: handler(value)}, step=step)
-                                if pbar is not None:
-                                    pbar.update(1)
+                                if progress is not None and task_id is not None:
+                                    progress.update(task_id, advance=1)
                             if index % 5 == 0:
                                 time.sleep(1)
 
-                        if pbar is not None:
-                            pbar.close()
+                        if progress is not None:
+                            progress.stop()
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)

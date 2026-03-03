@@ -10,9 +10,13 @@ from swanlab.log import swanlog as swl
 import time
 
 try:
-    from tqdm import tqdm
+    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+    from rich.progress import ProgressColumn
+    from rich.text import Text
 except ImportError:
-    tqdm = None
+    Progress = None
+    ProgressColumn = None
+    Text = None
 
 class MLFLowConverter:
     def __init__(
@@ -94,29 +98,32 @@ class MLFLowConverter:
                 # 计算总 metric 数量用于进度条
                 total_metrics = sum(len(history) for history in all_metric_histories.values())
 
-                pbar = None
-                if tqdm is not None:
-                    pbar = tqdm(
-                        total=total_metrics,
-                        desc=mlflow_run_name or run_id[:8],
-                        unit="pts",
-                        leave=True,
-                        ncols=80
+                progress = None
+                task_id = None
+                if Progress is not None:
+                    progress = Progress(
+                        TextColumn("[bold blue]{task.description}"),
+                        BarColumn(bar_width=40),
+                        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                        TimeElapsedColumn(),
+                        TimeRemainingColumn(),
                     )
+                    progress.start()
+                    task_id = progress.add_task(mlflow_run_name or run_id[:8], total=total_metrics)
 
                 index = 0
                 for key, history in all_metric_histories.items():
                     for m in history:
                         swanlab_run.log({m.key: m.value}, step=m.step)
                         index += 1
-                        if pbar is not None:
-                            pbar.update(1)
+                        if progress is not None and task_id is not None:
+                            progress.update(task_id, advance=1)
                         # TODO: 等未来上传方案优化后解除延时
                         if index % 5 == 0:
                             time.sleep(1)
 
-                if pbar is not None:
-                    pbar.close()
+                if progress is not None:
+                    progress.stop()
                 
                 swanlab_run.finish()
                 
