@@ -152,6 +152,7 @@ class WandbLocalConverter:
 
         wandb_file_path = wandb_files[0]
         files_root_dir = os.path.join(run_dir, "files")
+        run_basename = os.path.basename(run_dir.rstrip('/\\'))
 
         # 获取文件大小用于进度条
         wandb_file_size = os.path.getsize(wandb_file_path)
@@ -167,6 +168,7 @@ class WandbLocalConverter:
         porter = None           # set after swanlab.init()
         _conv_column_kids = {}  # key -> kid str
         _conv_epoch_counters = {}  # key -> cumulative epoch count
+        _upload_pre_count = [0]  # items uploaded before upload progress bar appears
 
         def _log_scalars_direct(scalars, step):
             """Write float scalars directly to the porter, bypassing log() overhead."""
@@ -186,6 +188,35 @@ class WandbLocalConverter:
             for key in scalars:
                 _conv_epoch_counters[key] = _conv_epoch_counters.get(key, 0) + 1
             porter.trace_scalars_step(step, scalars, dict(_conv_epoch_counters), create_time())
+
+        def _finish_with_progress():
+            """Run swanlab_run.finish() while showing a Rich upload progress bar."""
+            _pool = porter._pool if porter is not None else None
+            if _pool is None:
+                swanlab_run.finish()
+                return
+            total = len(_conv_column_kids) + sum(_conv_epoch_counters.values())
+            up = Progress(
+                TextColumn("[bold green]{task.description}"),
+                BarColumn(bar_width=40),
+                TextColumn("{task.completed}/{task.total} items"),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+            )
+            up.start()
+            t = up.add_task("Uploading to SwanLab", total=total, completed=_upload_pre_count[0])
+            def _upload_cb(n):
+                up.update(t, advance=n)
+            _pool.collector.upload_callback = _upload_cb
+            # Suppress swanlog.info during finish() to hide the "View project/run" URL reprints
+            _orig_info = swl.info
+            swl.info = lambda *a, **k: None
+            try:
+                swanlab_run.finish()
+            finally:
+                swl.info = _orig_info
+            up.update(t, completed=total)
+            up.stop()
 
         def initialize_swanlab_run_if_needed():
             """Lazy initializer for the SwanLab run."""
@@ -219,6 +250,11 @@ class WandbLocalConverter:
                 tags=self.tags,
             )
             porter = DataPorter._instance
+            # Set pre-count callback: track items uploaded during parse before the upload bar appears
+            if porter is not None and porter._pool is not None:
+                def _pre_upload_cb(n):
+                    _upload_pre_count[0] += n
+                porter._pool.collector.upload_callback = _pre_upload_cb
 
             # 恢复进度条
             if progress is not None and task_id is not None:
@@ -236,7 +272,7 @@ class WandbLocalConverter:
                     )
                     progress.start()
                     task_id = progress.add_task(
-                        os.path.basename(run_dir.rstrip('/\\')),
+                        f"Parsing  {run_basename}",
                         total=wandb_file_size,
                         completed=current_progress
                     )
@@ -283,7 +319,7 @@ class WandbLocalConverter:
                 TimeRemainingColumn(),
             )
             progress.start()
-            task_id = progress.add_task(os.path.basename(run_dir.rstrip('/\\')), total=wandb_file_size)
+            task_id = progress.add_task(f"Parsing  {run_basename}", total=wandb_file_size)
 
         while True:
             t0 = time.perf_counter()
@@ -419,13 +455,13 @@ class WandbLocalConverter:
 
         if swanlab_run:
             swl.info(f"Finished converting run: {run_metadata['name']}")
-            swanlab_run.finish()
+            _finish_with_progress()
         else:
             try:
                 initialize_swanlab_run_if_needed()
                 if swanlab_run:
                     swl.warning(f"Run in {run_dir} has no metrics, but its config was saved.")
-                    swanlab_run.finish()
+                    _finish_with_progress()
             except RuntimeError as e:
                 swl.error(str(e))
 
