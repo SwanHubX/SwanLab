@@ -262,6 +262,28 @@ class DataPorter:
     @async_io()
     @backup()
     @traced()
+    def trace_scalars_step(
+        self,
+        step: int,
+        scalars: dict,
+        epochs: dict,
+        timestamp: str,
+    ) -> List[BaseModel]:
+        """Direct write path for float scalar metrics. Bypasses DataWrapper/MetricInfo overhead."""
+        results = []
+        scalar_models = []
+        for key, value in scalars.items():
+            metric = {"index": int(step), "data": value, "create_time": timestamp}
+            scalar = Scalar.model_validate({"metric": metric, "key": key, "step": step, "epoch": epochs[key]})
+            results.append(scalar)
+            scalar_models.append(scalar.to_scalar_model())
+        if scalar_models:
+            self._publish((UploadType.SCALAR_METRIC, scalar_models))
+        return results
+
+    @async_io()
+    @backup()
+    @traced()
     def trace_metric(self, data: MetricInfo) -> BaseModel:
         """
         追踪指标数据

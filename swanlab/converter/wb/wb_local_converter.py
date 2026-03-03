@@ -35,6 +35,9 @@ from typing import Optional, List
 import yaml
 import swanlab
 from swanlab.log import swanlog as swl
+from swanlab.data.porter import DataPorter
+from swanlab.env import create_time
+from swanlab.toolkit import ColumnInfo, ChartType
 
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress import ProgressColumn
@@ -160,9 +163,33 @@ class WandbLocalConverter:
         run_metadata = {'id': None, 'name': None, 'notes': None, 'project': None}
         run_config = {}
 
+        # Direct-write state (bypasses swanlab_run.log() overhead for scalar metrics)
+        porter = None           # set after swanlab.init()
+        _conv_column_kids = {}  # key -> kid str
+        _conv_epoch_counters = {}  # key -> cumulative epoch count
+
+        def _log_scalars_direct(scalars, step):
+            """Write float scalars directly to the porter, bypassing log() overhead."""
+            if not scalars or porter is None:
+                return
+            for key in scalars:
+                if key not in _conv_column_kids:
+                    kid = len(_conv_column_kids)
+                    _conv_column_kids[key] = str(kid)
+                    split_key = key.split("/")
+                    sname = split_key[0] if len(split_key) > 1 and split_key[0] else None
+                    porter.trace_column(ColumnInfo(
+                        key=key, kid=str(kid), name=key, cls='CUSTOM',
+                        chart_type=ChartType.LINE, chart_reference='STEP',
+                        section_name=sname, section_type="PUBLIC",
+                    ))
+            for key in scalars:
+                _conv_epoch_counters[key] = _conv_epoch_counters.get(key, 0) + 1
+            porter.trace_scalars_step(step, scalars, dict(_conv_epoch_counters), create_time())
+
         def initialize_swanlab_run_if_needed():
             """Lazy initializer for the SwanLab run."""
-            nonlocal swanlab_run, progress, task_id
+            nonlocal swanlab_run, progress, task_id, porter
             if swanlab_run is not None:
                 return
 
@@ -191,6 +218,7 @@ class WandbLocalConverter:
                 mode=self.mode,
                 tags=self.tags,
             )
+            porter = DataPorter._instance
 
             # 恢复进度条
             if progress is not None and task_id is not None:
@@ -294,7 +322,8 @@ class WandbLocalConverter:
             elif record_type == "history":
                 t0 = time.perf_counter()
                 initialize_swanlab_run_if_needed()
-                log_dict = {}
+                scalar_dict = {}
+                media_dict = {}
                 step = 0
                 # Single-pass: parse proto items directly, fast-path float() for scalars
                 for item in record_pb.history.item:
@@ -312,7 +341,7 @@ class WandbLocalConverter:
                         continue
                     # Fast path: direct float conversion (avoids full JSON parse for scalars)
                     try:
-                        log_dict[key] = float(vj)
+                        scalar_dict[key] = float(vj)
                         continue
                     except (ValueError, TypeError):
                         pass
@@ -322,22 +351,24 @@ class WandbLocalConverter:
                     except (ValueError, Exception):
                         continue
                     if isinstance(value, int):
-                        log_dict[key] = value
+                        scalar_dict[key] = float(value)
                     elif isinstance(value, dict) and "_type" in value:
                         media_type = value["_type"]
                         path = os.path.join(files_root_dir, value.get("path", ""))
                         if os.path.exists(path) and media_type == "image-file":
-                            log_dict[key] = swanlab.Image(path)
+                            media_dict[key] = swanlab.Image(path)
 
                 timing_stats["process_history"] += time.perf_counter() - t0
 
-                if log_dict:
+                if scalar_dict or media_dict:
                     t1 = time.perf_counter()
-                    swanlab_run.log(log_dict, step=step)
+                    if scalar_dict:
+                        _log_scalars_direct(scalar_dict, step)
+                    if media_dict:
+                        swanlab_run.log(media_dict, step=step)
                     timing_stats["swanlab_log"] += time.perf_counter() - t1
                     last_summary_step = step
-
-                del log_dict
+                del scalar_dict, media_dict
             elif record_type == "summary":
                 t0 = time.perf_counter()
                 # Accumulate into last_summary; only log once after the loop ends.
@@ -373,7 +404,7 @@ class WandbLocalConverter:
             initialize_swanlab_run_if_needed()
             if swanlab_run:
                 t0 = time.perf_counter()
-                swanlab_run.log(last_summary, step=last_summary_step)
+                _log_scalars_direct(last_summary, last_summary_step)
                 timing_stats["swanlab_log"] += time.perf_counter() - t0
 
         # 打印性能时间统计
