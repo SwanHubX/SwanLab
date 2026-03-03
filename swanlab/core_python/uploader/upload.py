@@ -59,9 +59,8 @@ def upload_logs(logs: List[LogModel], upload_callback: UploadCallback = None):
         metrics.extend([{"level": log['level'], **l} for l in log['contents']])
     if len(metrics) == 0:
         return swanlog.debug("No log metrics to upload.")
-    total_count = len(metrics)
     data = create_data(metrics, "log")
-    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback, total_count=total_count)
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
     return None
 
 
@@ -81,10 +80,9 @@ def upload_media_metrics(media_metrics: List[MediaModel], upload_callback: Uploa
     # if not client.pending:
     if len(buffers) > 0:
         upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
-    total_count = len(media_metrics)
     data = create_data([x.to_dict() for x in media_metrics], MediaModel.type.value)
     # 上传指标信息
-    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback, total_count=total_count)
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
 
 
 @safe_request
@@ -95,10 +93,9 @@ def upload_scalar_metrics(scalar_metrics: List[ScalarModel], upload_callback: Up
     :param scalar_metrics: 标量指标列表
     :param upload_callback: 上传进度回调函数
     """
-    total_count = len(scalar_metrics)
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
     # 上传指标信息，支持进度回调
-    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback, total_count=total_count)
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
 
 
 @safe_request
@@ -134,16 +131,9 @@ def upload_columns(columns: List[ColumnModel], upload_callback: UploadCallback =
     """
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
-    total_count = len(columns)
     # 分批上传
     try:
-        trace_metrics(
-            url,
-            [x.to_dict() for x in columns],
-            per_request_len=3000,
-            upload_callback=upload_callback,
-            total_count=total_count,
-        )
+        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000, upload_callback=upload_callback)
     except ApiError as e:
         # 处理实验不存在的异常
         if e.resp.status_code == 404:

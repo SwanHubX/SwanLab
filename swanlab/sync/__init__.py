@@ -59,7 +59,7 @@ def sync(
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
         stdout.flush()
         with SyncProgress() as pbar:
-            with DataPorter().open_for_sync(run_dir=dir_path, progress_callback=pbar.update) as porter:
+            with DataPorter().open_for_sync(run_dir=dir_path, upload_callback=pbar.update) as porter:
                 proj, exp = porter.parse()
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:

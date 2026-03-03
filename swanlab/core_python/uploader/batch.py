@@ -5,6 +5,7 @@
 @description: 分批上传函数
 """
 
+import math
 import time
 from typing import Union, Literal, List, TypedDict, Dict
 
@@ -49,29 +50,33 @@ def _generate_chunks(data: Union[MetricDict, Dict, List], per_request_len: int):
     """
     # 情况1: 不分批
     if per_request_len == -1:
-        yield data
+        yield data, math.inf
         return
 
     # 情况2: 字典分批
     if isinstance(data, dict):
         metrics = data.get('metrics', [])
+        curr_len = len(metrics)
         # 如果 metrics 为空或长度不足，视为不需要分片的一整块
-        if len(metrics) <= per_request_len:
-            yield data
+        if curr_len <= per_request_len:
+            yield data, curr_len
         else:
-            for i in range(0, len(metrics), per_request_len):
+            for i in range(0, curr_len, per_request_len):
+                metrics_chunk = metrics[i : i + per_request_len]
                 yield {
                     **data,
-                    "metrics": metrics[i : i + per_request_len],
-                }
+                    "metrics": metrics_chunk,
+                }, len(metrics_chunk)
 
     # 情况3: 列表分批
     elif isinstance(data, list):
-        if len(data) <= per_request_len:
-            yield data
+        curr_len = len(data)
+        if curr_len <= per_request_len:
+            yield data, curr_len
         else:
-            for i in range(0, len(data), per_request_len):
-                yield data[i : i + per_request_len]
+            for i in range(0, curr_len, per_request_len):
+                data_chunk = data[i : i + per_request_len]
+                yield data_chunk, len(data_chunk)
 
 
 def trace_metrics(
@@ -80,7 +85,6 @@ def trace_metrics(
     method: Literal['post', 'put'] = 'post',
     per_request_len: int = 1000,
     upload_callback: UploadCallback = None,
-    total_count: int = 0,
 ):
     """
     分片指标上传方法
@@ -89,7 +93,6 @@ def trace_metrics(
     :param method: HTTP 方法
     :param per_request_len: 每批上传的数量
     :param upload_callback: 上传进度回调函数
-    :param total_count: 数据总条数
     """
     # 判断是否开启了分片模式（用于决定是否 sleep）
     # 这里的逻辑是：如果 per_request_len 不是 -1，且数据量确实超过了限制，则认为是分片模式
@@ -99,13 +102,9 @@ def trace_metrics(
         if total_len == 0:
             return
         is_split_mode = total_len > per_request_len
-    # 如果没有传入 total_count，则使用实际数据长度
-    if total_count == 0:
-        total_count = len(data.get('metrics', [])) if isinstance(data, dict) else len(data or [])
     client = get_client()
     # 遍历生成器产生的每一个数据块
-    uploaded_count = 0
-    for chunk in _generate_chunks(data, per_request_len):
+    for chunk, chunk_len in _generate_chunks(data, per_request_len):
         # TODO: 暂时注释掉前置检查，与 upload_media_metrics 一致
         # 如果在发送过程中 client 变成了 pending，则中断后续发送
         # if client.pending:
@@ -118,9 +117,6 @@ def trace_metrics(
             client.pending = True
             swanlog.warning(f"Client set to pending due to 202 response: {url}")
         # 触发进度回调
-        if upload_callback:
-            chunk_len = len(chunk.get('metrics', [])) if isinstance(chunk, dict) else len(chunk or [])
-            uploaded_count += chunk_len
-            upload_callback(uploaded_count, total_count)
+        upload_callback and upload_callback(chunk_len)
         # 分批发送时需要 sleep
         is_split_mode and time.sleep(1)

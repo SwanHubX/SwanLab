@@ -20,6 +20,8 @@ from .utils import ThreadUtil, ThreadTaskABC
 
 NETWORK_ERROR_INTERVAL = 30
 
+TYPES_WITH_CALLBACK = {UploadType.SCALAR_METRIC, UploadType.COLUMN, UploadType.LOG, UploadType.MEDIA_METRIC}
+
 
 class LogCollectorTask(ThreadTaskABC):
     """
@@ -50,7 +52,7 @@ class LogCollectorTask(ThreadTaskABC):
         now = time.time()
         for error in errors:
             if isinstance(error, NetworkError):
-                if now - self._last_network_error_log_timestamp < NETWORK_ERROR_INTERVAL:
+                if int(now) - int(self._last_network_error_log_timestamp) < NETWORK_ERROR_INTERVAL:
                     continue
                 self._last_network_error_log_timestamp = now
             swanlog.__getattribute__(error.log_level)(error.message)
@@ -85,18 +87,10 @@ class LogCollectorTask(ThreadTaskABC):
         uploaded_count = 0
         for key in tasks_key_list:
             # 需要细粒度进度的类型
-            types_with_progress = {UploadType.SCALAR_METRIC, UploadType.COLUMN, UploadType.LOG}
-
             # 执行单个上传任务，根据类型决定是否传递进度回调
-            if key in types_with_progress and self.upload_callback:
-                # 计算当前全局进度（之前已上传的 + 该类型总数）
-                base_progress = uploaded_count
-                result = key.value['upload'](
-                    upload_tasks_dict[key],
-                    upload_callback=lambda u, t, bp=base_progress: self.upload_callback(bp + u, t),
-                )
+            if key in TYPES_WITH_CALLBACK and self.upload_callback:
+                result = key.value['upload'](upload_tasks_dict[key], upload_callback=self.upload_callback)
             else:
-                # 执行单个上传任务
                 result = key.value['upload'](upload_tasks_dict[key])
             _, e = result
             # 如果出现已知问题
@@ -114,10 +108,6 @@ class LogCollectorTask(ThreadTaskABC):
             # 统计成功上传的数量
             current_batch_size = len(upload_tasks_dict[key])
             uploaded_count += current_batch_size
-
-            # 每种数据类型上传完成后立即触发进度回调
-            if self.upload_callback and uploaded_count > 0:
-                self.upload_callback(uploaded_count, total_count)
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 

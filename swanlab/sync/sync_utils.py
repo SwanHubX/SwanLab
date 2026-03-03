@@ -8,7 +8,15 @@
 import threading
 from typing import Optional, Union, Literal
 
-from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn, TimeRemainingColumn, MofNCompleteColumn
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    MofNCompleteColumn,
+    Task,
+)
 
 from ..data.store import RunStore
 from ..proto.v0 import Project, Experiment
@@ -34,13 +42,19 @@ class SyncProgress:
         self._pbar.start()
         return self
 
+    @property
+    def task(self) -> Task:
+        t = getattr(self._pbar, '_tasks', {}).get(self._task)
+        if t is None:
+            raise RuntimeError("No task found.")
+        return t
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # 确保进度条到达100%
-        if self._task is not None:
+        # 如果没有错误，确保进度条到达100%
+        if exc_type is None and self._task is not None:
             with self._lock:
-                task = self._pbar._tasks[self._task]
-                if task.completed < task.total:
-                    self._pbar.update(self._task, completed=task.total)
+                if self.task.completed < self.task.total:
+                    self._pbar.update(self._task, completed=self.task.total)
         self._pbar.stop()
 
     def set_total(self, total: int):
@@ -49,16 +63,15 @@ class SyncProgress:
         """
         self._task = self._pbar.add_task("Syncing data...", total=total)
 
-    def update(self, uploaded: int, total: int):
+    def update(self, uploaded: int):
         """
         进度回调函数
+        :param uploaded: 本次已上传的数量
         """
+        print("uploaded:", uploaded)
         if self._task is not None and uploaded > 0:
             with self._lock:
-                # 直接通过 completed 计算增量
-                diff = uploaded - self._pbar._tasks[self._task].completed
-                if diff > 0:
-                    self._pbar.update(self._task, advance=diff)
+                self._pbar.update(self._task, advance=uploaded)
 
 
 def set_run_store(

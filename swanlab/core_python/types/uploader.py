@@ -8,7 +8,7 @@
 from typing import Callable
 
 
-UploadCallback = Callable[[int, int], None]
+UploadCallback = Callable[[int], None]
 """
-上传进度回调函数，参数为已上传数量和总数
+上传进度回调函数，参数为本次已上传的数量
 """

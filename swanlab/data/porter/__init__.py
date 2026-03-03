@@ -142,8 +142,8 @@ class DataPorter:
         self._scalars: List[Scalar] = []
         self._medias: List[Media] = []
         self._footer: Optional[Footer] = None
-        # 同步时的进度回调函数
-        self._progress_callback: Optional[UploadCallback] = None
+        # 同步时的上传回调函数
+        self._upload_callback: Optional[UploadCallback] = None
 
     def __new__(cls):
         """
@@ -361,7 +361,7 @@ class DataPorter:
         self,
         run_dir: str,
         backend: Literal['python', 'go'] = 'python',
-        progress_callback: Optional[UploadCallback] = None,
+        upload_callback: Optional[UploadCallback] = None,
     ) -> "DataPorter":
         """
         开启同步模式，此函数应该与 __enter__() 一起使用
@@ -374,10 +374,10 @@ class DataPorter:
         assert os.path.isfile(backup_file), f"Backup file {backup_file} does not exist."
         self._f.open_for_scan(backup_file)
 
-        self._progress_callback = progress_callback
+        self._upload_callback = upload_callback
 
         if backend == 'python':
-            self._pool = ThreadPool(upload_callback=self._progress_callback)
+            self._pool = ThreadPool(upload_callback=self._upload_callback)
         elif backend == 'go':
             raise NotImplementedError("swanlab-core is not ready yet.")
         else:
