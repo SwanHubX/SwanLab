@@ -354,6 +354,7 @@ class WandbLocalConverter:
         swl.info(f"Found {len(run_dirs)} runs to import.")
         
         for i, run_dir in enumerate(run_dirs):
+            print("\n")
             swl.info(f"--- Processing run {i+1}/{len(run_dirs)} ---")
             try:
                 self._parse_run(run_dir)
