@@ -17,8 +17,16 @@ GC_INTERVAL = 10000
 
 import argparse
 import gc
+import time
 import glob
 import json
+
+try:
+    import orjson as _orjson
+    _json_loads = _orjson.loads
+except ImportError:
+    _json_loads = json.loads
+
 import os
 import re
 import traceback
@@ -27,9 +35,6 @@ from typing import Optional, List
 import yaml
 import swanlab
 from swanlab.log import swanlog as swl
-
-# Dependency for converting Protobuf objects to dictionaries
-import google.protobuf.json_format as protobuf_json
 
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress import ProgressColumn
@@ -119,21 +124,20 @@ class WandbLocalConverter:
             swl.warning(f"No wandb run directories found in '{found_path}'.")
         return run_dirs
 
-    def _unpack_key_value_json_list(self, items: list) -> dict:
-        """A helper function to unpack wandb's specific key-value_json list format."""
-        if not (isinstance(items, list) and items and 'value_json' in items[0]):
-            return items
+    def _proto_items_to_dict(self, items) -> dict:
+        """Directly read proto repeated item fields (key/nested_key/value_json) into a dict.
 
+        This avoids the expensive MessageToDict conversion by accessing proto fields directly.
+        """
         mapping = {}
         for item in items:
-            key = item.get('key') or '/'.join(item.get('nested_key', []))
+            key = item.key or '/'.join(item.nested_key)
             if not key:
                 continue
             try:
-                value = json.loads(item['value_json'])
-                mapping[key] = value
-            except json.JSONDecodeError:
-                swl.warning(f"Could not decode json for key '{key}': {item['value_json']}")
+                mapping[key] = _json_loads(item.value_json)
+            except (ValueError, Exception):
+                swl.warning(f"Could not decode json for key '{key}': {item.value_json}")
         return mapping
 
     def _parse_run(self, run_dir: str):
@@ -227,6 +231,20 @@ class WandbLocalConverter:
         progress = None
         task_id = None
         record_count = 0
+        last_summary = {}
+        last_summary_step = 0
+
+        # Performance timing stats
+        timing_stats = {
+            "scan_data": 0.0,
+            "parse_proto": 0.0,
+            "process_run": 0.0,
+            "process_config": 0.0,
+            "process_history": 0.0,
+            "process_summary": 0.0,
+            "swanlab_log": 0.0,
+            "gc_collect": 0.0,
+        }
 
         if Progress is not None:
             progress = Progress(
@@ -240,7 +258,9 @@ class WandbLocalConverter:
             task_id = progress.add_task(os.path.basename(run_dir.rstrip('/\\')), total=wandb_file_size)
 
         while True:
+            t0 = time.perf_counter()
             record_bin = ds.scan_data()
+            timing_stats["scan_data"] += time.perf_counter() - t0
             if record_bin is None:
                 break
 
@@ -248,38 +268,42 @@ class WandbLocalConverter:
             if progress is not None and task_id is not None:
                 progress.update(task_id, advance=len(record_bin))
 
+            t0 = time.perf_counter()
             record_pb = wandb_internal_pb2.Record()
             record_pb.ParseFromString(record_bin)
+            timing_stats["parse_proto"] += time.perf_counter() - t0
 
-            record_dict = protobuf_json.MessageToDict(record_pb, preserving_proto_field_name=True)
             record_type = record_pb.WhichOneof("record_type")
-            data_dict = record_dict.get(record_type, {})
 
-            if not data_dict:
-                continue
-
-            # Process the converted dictionary data based on record type
+            # Process record by directly accessing protobuf fields (no MessageToDict)
             if record_type == "run":
+                t0 = time.perf_counter()
+                run = record_pb.run
                 run_metadata.update({
-                    'id': data_dict.get('run_id'),
-                    'name': data_dict.get('display_name'),
-                    'notes': data_dict.get('notes'),
-                    'project': data_dict.get('project')
+                    'id': run.run_id or None,
+                    'name': run.display_name or None,
+                    'notes': run.notes or None,
+                    'project': run.project or None,
                 })
-                config_items = data_dict.get('config', {}).get('update', [])
-                run_config.update(self._unpack_key_value_json_list(config_items))
+                run_config.update(self._proto_items_to_dict(run.config.update))
+                timing_stats["process_run"] += time.perf_counter() - t0
             elif record_type == "config":
-                config_items = data_dict.get('update', [])
-                run_config.update(self._unpack_key_value_json_list(config_items))
+                t0 = time.perf_counter()
+                run_config.update(self._proto_items_to_dict(record_pb.config.update))
+                timing_stats["process_config"] += time.perf_counter() - t0
             elif record_type == "history":
+                t0 = time.perf_counter()
                 initialize_swanlab_run_if_needed()
                 log_dict = {}
-                history_data = self._unpack_key_value_json_list(data_dict.get('item', []))
+                history_data = self._proto_items_to_dict(record_pb.history.item)
+
+                # Fix: extract step from history_data before renaming keys
+                step = int(history_data.get('_step', 0))
 
                 for key, value in history_data.items():
-                    # 把指标中的runtime、_step、_timestamp都放到_wandb分组里
-                    if key == "_runtime" or key == "_step" or key == "_timestamp":
-                        key = "_wandb/" + key
+                    # 跳过 wandb 内部指标（_step, _runtime, _timestamp 等）
+                    if key.startswith('_'):
+                        continue
                     if isinstance(value, (int, float)):
                         log_dict[key] = value
                     elif isinstance(value, dict) and "_type" in value:
@@ -291,44 +315,65 @@ class WandbLocalConverter:
                         if media_type == "image-file":
                             log_dict[key] = swanlab.Image(path)
 
-                step = int(data_dict.get('_step', 0))
                 if log_dict:
+                    t1 = time.perf_counter()
                     swanlab_run.log(log_dict, step=step)
+                    timing_stats["swanlab_log"] += time.perf_counter() - t1
+
+                timing_stats["process_history"] += time.perf_counter() - t0
 
                 # 清理临时变量，减少内存占用
                 del log_dict
                 del history_data
             elif record_type == "summary":
+                t0 = time.perf_counter()
                 initialize_swanlab_run_if_needed()
                 log_dict = {}
-                summary_data = self._unpack_key_value_json_list(data_dict.get('update', []))
+                summary_data = self._proto_items_to_dict(record_pb.summary.update)
 
                 for key, value in summary_data.items():
-                    if key == "_runtime" or key == "_step" or key == "_timestamp":
-                        key = "_wandb/" + key
+                    if key.startswith('_'):
+                        continue
                     if isinstance(value, (int, float)):
                         log_dict[key] = value
                 if log_dict:
                     swanlab_run.log(log_dict)
 
-                # 清理临时变量，减少内存占用
-                del log_dict
+                timing_stats["process_summary"] += time.perf_counter() - t0
+
+                # 清理临时变量
                 del summary_data
 
             # 清理公共变量，释放内存
-            del data_dict
-            del record_dict
             del record_pb
             del record_bin
 
             # GC every GC_INTERVAL records to reduce overhead
             record_count += 1
             if record_count % GC_INTERVAL == 0:
+                t0 = time.perf_counter()
                 gc.collect()
+                timing_stats["gc_collect"] += time.perf_counter() - t0
 
         # 关闭进度条
         if progress is not None:
             progress.stop()
+
+        # Log 最终的 summary 数据（只在最后 log 一次）
+        if swanlab_run and 'last_summary' in dir() and last_summary:
+            t0 = time.perf_counter()
+            swanlab_run.log(last_summary, step=last_summary_step)
+            timing_stats["swanlab_log"] += time.perf_counter() - t0
+
+        # 打印性能时间统计
+        total_time = sum(timing_stats.values())
+        swl.info("=" * 30)
+        swl.info("Performance Timing Stats:")
+        for name, secs in timing_stats.items():
+            pct = (secs / total_time * 100) if total_time > 0 else 0
+            swl.info(f"  {name:20s}: {secs:8.3f}s ({pct:5.1f}%)")
+        swl.info(f"  {'TOTAL':20s}: {total_time:8.3f}s")
+        swl.info("=" * 30)
 
         if swanlab_run:
             swl.info(f"Finished converting run: {run_metadata['name']}")

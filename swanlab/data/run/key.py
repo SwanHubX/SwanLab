@@ -129,8 +129,8 @@ class SwanLabKey:
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
             column_info=self.column_info,
-            metric=json.loads(json.dumps(new_data)),
-            metric_summary=json.loads(json.dumps(self._summary)),
+            metric=new_data.copy() if result.more is None else json.loads(json.dumps(new_data)),
+            metric_summary=self._summary.copy(),
             metric_epoch=epoch,
             metric_step=result.step,
             metric_buffers=result.buffers,
