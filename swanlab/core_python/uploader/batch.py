@@ -5,7 +5,6 @@
 @description: 分批上传函数
 """
 
-import math
 import time
 from typing import Union, Literal, List, TypedDict, Dict
 
@@ -50,7 +49,12 @@ def _generate_chunks(data: Union[MetricDict, Dict, List], per_request_len: int):
     """
     # 情况1: 不分批
     if per_request_len == -1:
-        yield data, math.inf
+        if isinstance(data, list):
+            yield data, len(data)
+        elif isinstance(data, dict) and "metrics" in data:
+            yield data, len(data["metrics"])
+        else:
+            yield data, 1
         return
 
     # 情况2: 字典分批

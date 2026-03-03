@@ -44,7 +44,11 @@ class SyncProgress:
 
     @property
     def task(self) -> Task:
-        t = getattr(self._pbar, '_tasks', {}).get(self._task)
+        t = None
+        for task in self._pbar.tasks:
+            if task.id == self._task:
+                t = task
+                break
         if t is None:
             raise RuntimeError("No task found.")
         return t
