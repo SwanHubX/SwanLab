@@ -9,6 +9,11 @@ import swanlab
 from swanlab.log import swanlog as swl
 import time
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 class MLFLowConverter:
     def __init__(
         self,
@@ -79,16 +84,36 @@ class MLFLowConverter:
                     mlflow_run_params=run.data.params,
                     mlflow_run_tags={k: v for k, v in run.data.tags.items() if not k.startswith('mlflow')},
                 ))
-                
+
+                # 计算总 metric 数量用于进度条
+                total_metrics = sum(
+                    len(client.get_metric_history(run_id, key))
+                    for key in run.data.metrics.keys()
+                )
+
+                pbar = None
+                if tqdm is not None:
+                    pbar = tqdm(
+                        total=total_metrics,
+                        desc=mlflow_run_name or run_id[:8],
+                        unit="pts",
+                        leave=True,
+                        ncols=80
+                    )
+
                 index = 0
                 for key in run.data.metrics.keys():
                     for m in client.get_metric_history(run_id, key):
                         swanlab_run.log({m.key: m.value}, step=m.step)
                         index += 1
-                        print(f"Index {index}: Metric: {m.key} log finished")
+                        if pbar is not None:
+                            pbar.update(1)
                         # TODO: 等未来上传方案优化后解除延时
                         if index % 5 == 0:
                             time.sleep(1)
+
+                if pbar is not None:
+                    pbar.close()
                 
                 swanlab_run.finish()
                 

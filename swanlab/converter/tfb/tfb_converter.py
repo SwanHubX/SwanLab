@@ -5,6 +5,11 @@ from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_d
 from swanlab.log import swanlog as swl
 import time
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 
 SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
 
@@ -89,6 +94,21 @@ class TFBConverter:
                             "audio": lambda v: swanlab.Audio(v[0], sample_rate=v[1]),
                             "text": lambda v: swanlab.Text(v),
                         }
+
+                        # 计算总数据点数量用于进度条
+                        total_points = sum(len(data) for tag, data in data_by_tags.items()
+                                          if type_by_tags.get(tag) in self.types)
+
+                        pbar = None
+                        if tqdm is not None:
+                            pbar = tqdm(
+                                total=total_points,
+                                desc=os.path.basename(path),
+                                unit="pts",
+                                leave=True,
+                                ncols=80
+                            )
+
                         index = 0
                         for tag, data in data_by_tags.items():
                             tag_type = type_by_tags[tag]
@@ -99,9 +119,13 @@ class TFBConverter:
                             for step, value, t in data:
                                 times.append(t)
                                 swanlab.log({tag: handler(value)}, step=step)
-                            print(f"Metric [{index}]: {tag} log finished")
+                                if pbar is not None:
+                                    pbar.update(1)
                             if index % 5 == 0:
                                 time.sleep(1)
+
+                        if pbar is not None:
+                            pbar.close()
 
                     # 计算完整的运行时间
                     runtime = max(times) - min(times)
