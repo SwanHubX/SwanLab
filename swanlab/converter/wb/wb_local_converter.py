@@ -295,54 +295,63 @@ class WandbLocalConverter:
                 t0 = time.perf_counter()
                 initialize_swanlab_run_if_needed()
                 log_dict = {}
-                history_data = self._proto_items_to_dict(record_pb.history.item)
-
-                # Fix: extract step from history_data before renaming keys
-                step = int(history_data.get('_step', 0))
-
-                for key, value in history_data.items():
-                    # 跳过 wandb 内部指标（_step, _runtime, _timestamp 等）
+                step = 0
+                # Single-pass: parse proto items directly, fast-path float() for scalars
+                for item in record_pb.history.item:
+                    key = item.key or '/'.join(item.nested_key)
+                    if not key:
+                        continue
+                    vj = item.value_json
+                    if key == '_step':
+                        try:
+                            step = int(float(vj))
+                        except (ValueError, TypeError):
+                            pass
+                        continue
                     if key.startswith('_'):
                         continue
-                    if isinstance(value, (int, float)):
+                    # Fast path: direct float conversion (avoids full JSON parse for scalars)
+                    try:
+                        log_dict[key] = float(vj)
+                        continue
+                    except (ValueError, TypeError):
+                        pass
+                    # Slow path: full JSON parse for complex types (media, etc.)
+                    try:
+                        value = _json_loads(vj)
+                    except (ValueError, Exception):
+                        continue
+                    if isinstance(value, int):
                         log_dict[key] = value
                     elif isinstance(value, dict) and "_type" in value:
                         media_type = value["_type"]
                         path = os.path.join(files_root_dir, value.get("path", ""))
-                        if not os.path.exists(path):
-                            continue
-
-                        if media_type == "image-file":
+                        if os.path.exists(path) and media_type == "image-file":
                             log_dict[key] = swanlab.Image(path)
+
+                timing_stats["process_history"] += time.perf_counter() - t0
 
                 if log_dict:
                     t1 = time.perf_counter()
                     swanlab_run.log(log_dict, step=step)
                     timing_stats["swanlab_log"] += time.perf_counter() - t1
+                    last_summary_step = step
 
-                timing_stats["process_history"] += time.perf_counter() - t0
-
-                # 清理临时变量，减少内存占用
                 del log_dict
-                del history_data
             elif record_type == "summary":
                 t0 = time.perf_counter()
-                initialize_swanlab_run_if_needed()
-                log_dict = {}
-                summary_data = self._proto_items_to_dict(record_pb.summary.update)
-
-                for key, value in summary_data.items():
-                    if key.startswith('_'):
+                # Accumulate into last_summary; only log once after the loop ends.
+                # wandb writes a summary record after every step, so calling log() here
+                # would result in N redundant log calls (N = number of steps).
+                for item in record_pb.summary.update:
+                    key = item.key or '/'.join(item.nested_key)
+                    if not key or key.startswith('_'):
                         continue
-                    if isinstance(value, (int, float)):
-                        log_dict[key] = value
-                if log_dict:
-                    swanlab_run.log(log_dict)
-
+                    try:
+                        last_summary[key] = float(item.value_json)
+                    except (ValueError, TypeError):
+                        pass
                 timing_stats["process_summary"] += time.perf_counter() - t0
-
-                # 清理临时变量
-                del summary_data
 
             # 清理公共变量，释放内存
             del record_pb
@@ -359,11 +368,13 @@ class WandbLocalConverter:
         if progress is not None:
             progress.stop()
 
-        # Log 最终的 summary 数据（只在最后 log 一次）
-        if swanlab_run and 'last_summary' in dir() and last_summary:
-            t0 = time.perf_counter()
-            swanlab_run.log(last_summary, step=last_summary_step)
-            timing_stats["swanlab_log"] += time.perf_counter() - t0
+        # Log 最终的 summary 数据（只 log 一次，避免对每条 summary record 都 log）
+        if last_summary:
+            initialize_swanlab_run_if_needed()
+            if swanlab_run:
+                t0 = time.perf_counter()
+                swanlab_run.log(last_summary, step=last_summary_step)
+                timing_stats["swanlab_log"] += time.perf_counter() - t0
 
         # 打印性能时间统计
         total_time = sum(timing_stats.values())
