@@ -27,14 +27,9 @@ from swanlab.log import swanlog as swl
 # Dependency for converting Protobuf objects to dictionaries
 import google.protobuf.json_format as protobuf_json
 
-try:
-    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
-    from rich.progress import ProgressColumn
-    from rich.text import Text
-except ImportError:
-    Progress = None
-    ProgressColumn = None
-    Text = None
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.progress import ProgressColumn
+from rich.text import Text
 
 
 class SizeColumn(ProgressColumn):

@@ -7,16 +7,8 @@ mlf_converter.run(tracking_uri="MLFLOW_TRACKING_URL", experiment=0)
 """
 import swanlab
 from swanlab.log import swanlog as swl
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 import time
-
-try:
-    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
-    from rich.progress import ProgressColumn
-    from rich.text import Text
-except ImportError:
-    Progress = None
-    ProgressColumn = None
-    Text = None
 
 class MLFLowConverter:
     def __init__(

@@ -2,17 +2,9 @@ import os
 import swanlab
 from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from swanlab.log import swanlog as swl
 import time
-
-try:
-    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
-    from rich.progress import ProgressColumn
-    from rich.text import Text
-except ImportError:
-    Progress = None
-    ProgressColumn = None
-    Text = None
 
 
 SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
