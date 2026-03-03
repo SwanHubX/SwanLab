@@ -28,9 +28,36 @@ from swanlab.log import swanlog as swl
 import google.protobuf.json_format as protobuf_json
 
 try:
-    from tqdm import tqdm
+    from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+    from rich.progress import ProgressColumn
+    from rich.text import Text
 except ImportError:
-    tqdm = None
+    Progress = None
+    ProgressColumn = None
+    Text = None
+
+
+class SizeColumn(ProgressColumn):
+    """自定义列：显示文件大小（如 84.3M/7.61G）"""
+
+    def __init__(self):
+        super().__init__()
+
+    def render(self, task: "Task") -> "Text":  # type: ignore
+        completed = task.completed
+        total = task.total
+        if total is None:
+            return Text("-/-", style="progress.filesize")
+        return Text(f"{_format_size(int(completed))}/{_format_size(int(total))}", style="progress.filesize")
+
+
+def _format_size(size_bytes: int) -> str:
+    """格式化字节为人类可读格式"""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f}{unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f}PB"
 
 try:
     from wandb.sdk.internal.datastore import DataStore
@@ -132,9 +159,15 @@ class WandbLocalConverter:
 
         def initialize_swanlab_run_if_needed():
             """Lazy initializer for the SwanLab run."""
-            nonlocal swanlab_run
+            nonlocal swanlab_run, progress, task_id
             if swanlab_run is not None:
                 return
+
+            # 暂停进度条，避免与 swanlab.init 中的 rich Status 冲突
+            current_progress = 0
+            if progress is not None and task_id is not None:
+                current_progress = int(progress.tasks[task_id].completed)
+                progress.stop()
 
             if run_metadata['id'] is None:
                 match = re.search(r"-([a-zA-Z0-9]+)$", os.path.basename(run_dir.rstrip('/\\')))
@@ -156,6 +189,27 @@ class WandbLocalConverter:
                 tags=self.tags,
             )
 
+            # 恢复进度条
+            if progress is not None and task_id is not None:
+                try:
+                    progress.start()
+                    progress.update(task_id, completed=current_progress)
+                except Exception:
+                    # 如果 start 失败，重新创建进度条并恢复进度
+                    progress = Progress(
+                        TextColumn("[bold blue]{task.description}"),
+                        BarColumn(bar_width=40),
+                        SizeColumn(),
+                        TimeElapsedColumn(),
+                        TimeRemainingColumn(),
+                    )
+                    progress.start()
+                    task_id = progress.add_task(
+                        os.path.basename(run_dir.rstrip('/\\')),
+                        total=wandb_file_size,
+                        completed=current_progress
+                    )
+
             try:
                 config_path = os.path.join(files_root_dir, "config.yaml")
                 with open(config_path, 'r', encoding='utf-8') as f:
@@ -171,18 +225,19 @@ class WandbLocalConverter:
 
         # Core Logic: Scan the .wandb file record by record
         # 初始化进度条
-        pbar = None
+        progress = None
+        task_id = None
 
-        if tqdm is not None:
-            pbar = tqdm(
-                total=wandb_file_size,
-                unit='B',
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=os.path.basename(run_dir.rstrip('/\\')),
-                leave=True,
-                ncols=80
+        if Progress is not None:
+            progress = Progress(
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(bar_width=40),
+                SizeColumn(),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
             )
+            progress.start()
+            task_id = progress.add_task(os.path.basename(run_dir.rstrip('/\\')), total=wandb_file_size)
 
         while True:
             record_bin = ds.scan_data()
@@ -190,8 +245,8 @@ class WandbLocalConverter:
                 break
 
             # 更新进度条
-            if pbar is not None:
-                pbar.update(len(record_bin))
+            if progress is not None and task_id is not None:
+                progress.update(task_id, advance=len(record_bin))
 
             record_pb = wandb_internal_pb2.Record()
             record_pb.ParseFromString(record_bin)
@@ -268,8 +323,8 @@ class WandbLocalConverter:
             gc.collect()
 
         # 关闭进度条
-        if pbar is not None:
-            pbar.close()
+        if progress is not None:
+            progress.stop()
 
         if swanlab_run:
             swl.info(f"Finished converting run: {run_metadata['name']}")
