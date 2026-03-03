@@ -47,18 +47,20 @@ HOUSE_URL = '/house/metrics'
 
 @safe_request
 @skip_if_empty("No logs to upload.")
-def upload_logs(logs: List[LogModel]):
+def upload_logs(logs: List[LogModel], progress_callback=None):
     """
     上传日志信息
     :param logs: 日志信息集合
+    :param progress_callback: 进度回调函数，签名为 callback(uploaded_count, total_count)
     """
     metrics = []
     for log in logs:
         metrics.extend([{"level": log['level'], **l} for l in log['contents']])
     if len(metrics) == 0:
         return swanlog.debug("No log metrics to upload.")
+    total_count = len(metrics)
     data = create_data(metrics, "log")
-    trace_metrics(HOUSE_URL, data)
+    trace_metrics(HOUSE_URL, data, progress_callback=progress_callback, total_count=total_count)
     return None
 
 
@@ -120,15 +122,18 @@ def upload_files(files: List[FileModel]):
 
 @safe_request
 @skip_if_empty("No columns to upload.")
-def upload_columns(columns: List[ColumnModel]):
+def upload_columns(columns: List[ColumnModel], progress_callback=None):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值
+    :param columns: 列模型列表
+    :param progress_callback: 进度回调函数，签名为 callback(uploaded_count, total_count)
     """
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
+    total_count = len(columns)
     # 分批上传
     try:
-        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000)
+        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000, progress_callback=progress_callback, total_count=total_count)
     except ApiError as e:
         # 处理实验不存在的异常
         if e.resp.status_code == 404:
