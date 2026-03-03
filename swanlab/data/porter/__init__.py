@@ -144,6 +144,7 @@ class DataPorter:
         self._footer: Optional[Footer] = None
         # 同步时的上传回调函数
         self._upload_callback: Optional[UploadCallback] = None
+        self._set_total_callback: Optional[Callable[[int], None]] = None
 
     def __new__(cls):
         """
@@ -360,12 +361,20 @@ class DataPorter:
     def open_for_sync(
         self,
         run_dir: str,
+        *,
         backend: Literal['python', 'go'] = 'python',
         upload_callback: Optional[UploadCallback] = None,
+        set_total_callback: Optional[Callable[[int], None]] = None,
     ) -> "DataPorter":
         """
         开启同步模式，此函数应该与 __enter__() 一起使用
+        :param run_dir: 实验备份文件所在目录
+        :param backend: 上传后端类型，默认为 'python'，可选 'go' 或 'none', none 表示不开启上传
+        :param upload_callback: 上传进度回调函数，必须与 set_total_callback 配合使用
+        :param set_total_callback: 进度条设置总数的回调函数，必须与 upload_callback 配合使用
         """
+        if (upload_callback is None) != (set_total_callback is None):
+            raise ValueError("upload_callback and set_total_callback must be used together.")
         self._run_store.run_dir = run_dir
         assert self._run_store.media_dir, "Media directory must be set before creating ProtoTransfer instance"
         assert self._run_store.file_dir, "File directory must be set before creating ProtoTransfer instance"
@@ -375,6 +384,7 @@ class DataPorter:
         self._f.open_for_scan(backup_file)
 
         self._upload_callback = upload_callback
+        self._set_total_callback = set_total_callback
 
         if backend == 'python':
             self._pool = ThreadPool(upload_callback=self._upload_callback)
@@ -485,11 +495,10 @@ class DataPorter:
         DataPorter._reset()
 
     @synced()
-    def synchronize(self, set_total_callback: Optional[Callable[[int], None]] = None):
+    def synchronize(self):
         """
         同步上传数据到 SwanLab 服务器，必须在 open_for_sync() 后调用
         NOTE: 执行此函数后，实验会话被关闭
-        :param set_total_callback: 进度条设置总数的回调函数
         """
         assert self._mode == 2, "Must synchronize in sync mode (mode=2)."
         assert self._closed is False, "DataPorter has already rested, cannot synchronize."
@@ -503,14 +512,14 @@ class DataPorter:
             )
         )
         logs = [log.to_log_model() for log in self._logs]
+        log_count = 0
         for ls in logs:
             ls['contents'] = list(filter(self._filter_log_by_epoch, ls['contents']))
-        log_count = sum(len(ls['contents']) for ls in logs)
+            log_count += len(ls['contents'])
 
         # 设置进度条，total 为实际要上传的数据项数量
         pending_items = 1 + len(columns) + len(scalars) + len(medias) + log_count
-        if set_total_callback is not None:
-            set_total_callback(pending_items)
+        self._set_total_callback and self._set_total_callback(pending_items)
 
         # 同步上传数据到 SwanLab 服务器（将任务提交到队列，由后台线程异步上传）
         # 1. 上传文件（配置、运行时）

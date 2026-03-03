@@ -59,7 +59,9 @@ def sync(
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
         stdout.flush()
         with SyncProgress() as pbar:
-            with DataPorter().open_for_sync(run_dir=dir_path, upload_callback=pbar.update) as porter:
+            with DataPorter().open_for_sync(
+                dir_path, upload_callback=pbar.update, set_total_callback=pbar.set_total
+            ) as porter:
                 proj, exp = porter.parse()
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:
@@ -71,7 +73,7 @@ def sync(
                     # 显示最终 URL（在上传进度条开始前）
                     swanlog.info(f"🔁 Syncing data to cloud... (View at {client.web_exp_url})")
                     # 同步
-                    porter.synchronize(set_total_callback=pbar.set_total)
+                    porter.synchronize()
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
     except Exception as e:
         if raise_error:

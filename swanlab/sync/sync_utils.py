@@ -68,7 +68,6 @@ class SyncProgress:
         进度回调函数
         :param uploaded: 本次已上传的数量
         """
-        print("uploaded:", uploaded)
         if self._task is not None and uploaded > 0:
             with self._lock:
                 self._pbar.update(self._task, advance=uploaded)
