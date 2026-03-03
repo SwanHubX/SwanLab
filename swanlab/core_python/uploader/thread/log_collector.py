@@ -8,8 +8,9 @@ r"""
     日志集合和上传记录器
 """
 import time
-from typing import List
+from typing import List, Optional
 
+from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.error import NetworkError, SyncError
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
@@ -19,6 +20,8 @@ from .utils import ThreadUtil, ThreadTaskABC
 
 NETWORK_ERROR_INTERVAL = 30
 
+TYPES_WITH_CALLBACK = {UploadType.SCALAR_METRIC, UploadType.COLUMN, UploadType.LOG, UploadType.MEDIA_METRIC}
+
 
 class LogCollectorTask(ThreadTaskABC):
     """
@@ -26,7 +29,7 @@ class LogCollectorTask(ThreadTaskABC):
     并且定义日志上传接口
     """
 
-    def __init__(self, upload_type=UploadType):
+    def __init__(self, upload_type=UploadType, upload_callback: Optional[UploadCallback] = None):
         self.container: List[LogQueue.MsgType] = []
         """
         日志容器，存储从管道中获取的日志信息
@@ -35,6 +38,7 @@ class LogCollectorTask(ThreadTaskABC):
         self.upload_type = upload_type
         self.upload_interval = get_settings().upload_interval
         self._last_network_error_log_timestamp = 0.0
+        self.upload_callback = upload_callback
 
     def report_known_error(self, errors: List[SyncError]):
         """
@@ -48,7 +52,7 @@ class LogCollectorTask(ThreadTaskABC):
         now = time.time()
         for error in errors:
             if isinstance(error, NetworkError):
-                if now - self._last_network_error_log_timestamp < NETWORK_ERROR_INTERVAL:
+                if int(now) - int(self._last_network_error_log_timestamp) < NETWORK_ERROR_INTERVAL:
                     continue
                 self._last_network_error_log_timestamp = now
             swanlog.__getattribute__(error.log_level)(error.message)
@@ -70,28 +74,36 @@ class LogCollectorTask(ThreadTaskABC):
         # ---------------------------------- 处理upload任务 ----------------------------------
 
         # 聚合所有的上传任务
+        total_count = 0
         for msg in self.container:
             if msg[0] in self.upload_type:
+                msg_count = len(msg[1])
+                total_count += msg_count
                 upload_tasks_dict[msg[0]].extend(msg[1])
 
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
 
         # 同步执行所有的上传任务
-        results = [x.value['upload'](upload_tasks_dict[x]) for x in tasks_key_list]
-        for index, result in enumerate(results):
-            # 如果出现已知问题
+        for key in tasks_key_list:
+            # 需要细粒度进度的类型
+            # 执行单个上传任务，根据类型决定是否传递进度回调
+            if key in TYPES_WITH_CALLBACK and self.upload_callback:
+                result = key.value['upload'](upload_tasks_dict[key], upload_callback=self.upload_callback)
+            else:
+                result = key.value['upload'](upload_tasks_dict[key])
             _, e = result
+            # 如果出现已知问题
             if isinstance(e, SyncError):
                 known_errors.append(e)
                 continue
             # 如果出现其他问题，没有办法处理，就直接跳过，但是会有警告
             elif e is not None:
-                error = f"{tasks_key_list[index].name} error: {e}, it might be a swanlab bug, data will be lost!"
+                error = f"{key.name} error: {e}, it might be a swanlab bug, data will be lost!"
                 swanlog.error(error)
                 # continue
                 # raise e
-            # 标记所有已经成功的任务
-            success_tasks_type.append(tasks_key_list[index])
+            # 标记该任务类型成功
+            success_tasks_type.append(key)
 
         # ---------------------------------- 最后错误处理 ----------------------------------
 

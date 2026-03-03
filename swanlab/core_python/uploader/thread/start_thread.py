@@ -10,8 +10,9 @@ r"""
 import threading
 import time
 from queue import Queue
-from typing import List, Tuple, Callable, Dict
+from typing import List, Tuple, Callable, Dict, Optional
 
+from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.log import swanlog
 from .log_collector import LogCollectorTask
 from .utils import LogQueue, TimerFlag
@@ -33,10 +34,10 @@ class ThreadPool:
     数据上传线程的名称
     """
 
-    def __init__(self, upload_sleep_time: float = None):
+    def __init__(self, upload_sleep_time: float = None, upload_callback: Optional[UploadCallback] = None):
         self.thread_pool = {}
-        # 日志聚合器
-        self.collector = LogCollectorTask()
+        # 日志聚合器，传入进度回调
+        self.collector = LogCollectorTask(upload_callback=upload_callback)
         # timer集合
         self.thread_timer: Dict[str, TimerFlag] = {}
         self.__callbacks: List[Callable] = []

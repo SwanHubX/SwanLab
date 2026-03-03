@@ -2,15 +2,13 @@ import os.path
 from sys import stdout
 from typing import Literal, Union
 
-from rich.status import Status
-
 from .mlflow import sync_mlflow
 from .tensorboard import sync_tensorboardX, sync_tensorboard_torch
 from .wandb import sync_wandb
 
 __all__ = ["sync_wandb", "sync_tensorboardX", "sync_tensorboard_torch", "sync_mlflow", "sync"]
 
-from .sync_utils import set_run_store
+from .sync_utils import set_run_store, SyncProgress
 from ..core_python import create_client, get_client
 from ..core_python.auth.providers.api_key import code_login
 from ..data.porter import DataPorter, Mounter
@@ -60,8 +58,10 @@ def sync(
     try:
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
         stdout.flush()
-        with Status("🔁 Syncing...", spinner="dots"):
-            with DataPorter().open_for_sync(run_dir=dir_path) as porter:
+        with SyncProgress() as pbar:
+            with DataPorter().open_for_sync(
+                dir_path, upload_callback=pbar.update, set_total_callback=pbar.set_total
+            ) as porter:
                 proj, exp = porter.parse()
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:
@@ -70,6 +70,8 @@ def sync(
                     set_run_store(run_store, proj, exp, project, workspace, id)
                     # 创建实验会话
                     mounter.execute()
+                    # 显示最终 URL（在上传进度条开始前）
+                    swanlog.info(f"🔁 Syncing data to cloud... (View at {client.web_exp_url})")
                     # 同步
                     porter.synchronize()
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)

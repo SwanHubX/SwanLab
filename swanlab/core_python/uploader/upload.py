@@ -9,6 +9,7 @@ import inspect
 from functools import wraps
 from typing import List
 
+from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.log import swanlog
 from .batch import MetricDict, create_data, trace_metrics
 from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
@@ -47,10 +48,11 @@ HOUSE_URL = '/house/metrics'
 
 @safe_request
 @skip_if_empty("No logs to upload.")
-def upload_logs(logs: List[LogModel]):
+def upload_logs(logs: List[LogModel], upload_callback: UploadCallback = None):
     """
     上传日志信息
     :param logs: 日志信息集合
+    :param upload_callback: 上传进度回调函数
     """
     metrics = []
     for log in logs:
@@ -58,16 +60,17 @@ def upload_logs(logs: List[LogModel]):
     if len(metrics) == 0:
         return swanlog.debug("No log metrics to upload.")
     data = create_data(metrics, "log")
-    trace_metrics(HOUSE_URL, data)
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
     return None
 
 
 @safe_request
 @skip_if_empty("No media metrics to upload.")
-def upload_media_metrics(media_metrics: List[MediaModel]):
+def upload_media_metrics(media_metrics: List[MediaModel], upload_callback: UploadCallback = None):
     """
     上传指标的媒体数据
     :param media_metrics: 媒体指标数据集合
+    :param upload_callback: 上传进度回调函数
     """
     client = get_client()
     buffers = []
@@ -77,19 +80,22 @@ def upload_media_metrics(media_metrics: List[MediaModel]):
     # if not client.pending:
     if len(buffers) > 0:
         upload_to_cos(client, cuid=client.exp_id, buffers=buffers)
+    data = create_data([x.to_dict() for x in media_metrics], MediaModel.type.value)
     # 上传指标信息
-    trace_metrics(HOUSE_URL, create_data([x.to_dict() for x in media_metrics], MediaModel.type.value))
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
 
 
 @safe_request
 @skip_if_empty("No scalar metrics to upload.")
-def upload_scalar_metrics(scalar_metrics: List[ScalarModel]):
+def upload_scalar_metrics(scalar_metrics: List[ScalarModel], upload_callback: UploadCallback = None):
     """
     上传指标的标量数据
+    :param scalar_metrics: 标量指标列表
+    :param upload_callback: 上传进度回调函数
     """
     data = create_data([x.to_dict() for x in scalar_metrics], ScalarModel.type.value)
-    # 上传指标信息
-    trace_metrics(HOUSE_URL, data)
+    # 上传指标信息，支持进度回调
+    trace_metrics(HOUSE_URL, data, upload_callback=upload_callback)
 
 
 @safe_request
@@ -117,15 +123,17 @@ def upload_files(files: List[FileModel]):
 
 @safe_request
 @skip_if_empty("No columns to upload.")
-def upload_columns(columns: List[ColumnModel]):
+def upload_columns(columns: List[ColumnModel], upload_callback: UploadCallback = None):
     """
     批量上传并创建 columns，每个请求的列长度有一个最大值
+    :param columns: 列模型列表
+    :param upload_callback: 上传进度回调函数
     """
     http = get_client()
     url = f'/experiment/{http.exp_id}/columns'
     # 分批上传
     try:
-        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000)
+        trace_metrics(url, [x.to_dict() for x in columns], per_request_len=3000, upload_callback=upload_callback)
     except ApiError as e:
         # 处理实验不存在的异常
         if e.resp.status_code == 404:

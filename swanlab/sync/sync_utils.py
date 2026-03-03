@@ -5,10 +5,67 @@
 @description: swanlab sync 函数的工具函数
 """
 
+import threading
 from typing import Optional, Union, Literal
+
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    MofNCompleteColumn,
+)
 
 from ..data.store import RunStore
 from ..proto.v0 import Project, Experiment
+
+
+class SyncProgress:
+    """
+    同步进度条上下文管理器，处理进度条展示
+    """
+
+    def __init__(self):
+        self._pbar = Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            MofNCompleteColumn(),
+        )
+        self._task = None
+        self._lock = threading.Lock()
+
+    def __enter__(self):
+        self._pbar.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 如果没有错误，确保进度条到达100%
+        if exc_type is None and self._task is not None:
+            with self._lock:
+                # 直接获取 task 的 total 并设置为完成
+                for task in self._pbar.tasks:
+                    if task.id == self._task:
+                        self._pbar.update(self._task, completed=task.total)
+                        break
+        self._pbar.stop()
+
+    def set_total(self, total: int):
+        """
+        设置进度条总数并开始任务
+        """
+        self._task = self._pbar.add_task("Syncing data...", total=total)
+
+    def update(self, uploaded: int):
+        """
+        进度回调函数
+        :param uploaded: 本次已上传的数量
+        """
+        if self._task is not None and uploaded > 0:
+            with self._lock:
+                self._pbar.update(self._task, advance=uploaded)
 
 
 def set_run_store(
