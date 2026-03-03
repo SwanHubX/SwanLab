@@ -146,7 +146,6 @@ class DataPorter:
         # 同步时的进度条
         self._pbar = None
         self._pbar_lock = None
-        self._total_items = 0
         self._uploaded_items = 0
 
     def __new__(cls):
@@ -439,15 +438,6 @@ class DataPorter:
         ), f"Backup type mismatch: {self._header.backup_type}, please update your swanlab package."
         assert self._project is not None, "Project not parsed"
         assert self._experiment is not None, "Experiment not parsed"
-
-        # 统计总数据量（用于进度条）
-        self._total_items = (
-            1  # files
-            + len(self._columns)
-            + len(self._scalars)
-            + len(self._medias)
-            + len(self._logs)
-        )
 
         return self._project, self._experiment
 

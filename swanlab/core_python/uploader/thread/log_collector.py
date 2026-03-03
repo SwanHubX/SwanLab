@@ -87,10 +87,10 @@ class LogCollectorTask(ThreadTaskABC):
         uploaded_count = 0
         for key in tasks_key_list:
             # 需要细粒度进度的类型
-            types_with_progress = ['SCALAR_METRIC', 'COLUMN', 'LOG']
+            types_with_progress = {UploadType.SCALAR_METRIC, UploadType.COLUMN, UploadType.LOG}
 
             # 执行单个上传任务，根据类型决定是否传递进度回调
-            if key.name in types_with_progress and self.progress_callback:
+            if key in types_with_progress and self.progress_callback:
                 # 计算当前全局进度（之前已上传的 + 该类型总数）
                 base_progress = uploaded_count
                 result = key.value['upload'](
@@ -119,8 +119,6 @@ class LogCollectorTask(ThreadTaskABC):
 
             # 每种数据类型上传完成后立即触发进度回调
             if self.progress_callback and uploaded_count > 0:
-                # remaining = 总数 - 已上传数量
-                remaining = total_count - uploaded_count
                 self.progress_callback(uploaded_count, total_count)
 
         # ---------------------------------- 最后错误处理 ----------------------------------
