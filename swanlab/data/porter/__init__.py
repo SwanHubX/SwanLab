@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Literal, List, Union, Tuple
 
 import wrapt
-from tqdm import tqdm
+from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn, TimeRemainingColumn
 
 from swanlab.core_python import get_client
 from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel
@@ -381,10 +381,9 @@ class DataPorter:
             if self._pbar is not None and uploaded > 0:
                 with self._pbar_lock:
                     # 直接设置进度条位置到当前进度
-                    diff = uploaded - self._pbar.n
+                    diff = uploaded - self._pbar._tasks[self._pbar_task].completed
                     if diff > 0:
-                        self._pbar.update(diff)
-                        self._pbar.set_postfix_str(f"Uploaded {uploaded}/{self._pbar.total}")
+                        self._pbar.update(self._pbar_task, advance=diff, description=f"Syncing data... Uploaded {uploaded}/{self._pbar._tasks[self._pbar_task].total}")
                     self._uploaded_items = uploaded
 
         if backend == 'python':
@@ -526,9 +525,17 @@ class DataPorter:
 
         # 设置进度条，total 为实际要上传的数据项数量
         pending_items = 1 + len(columns) + len(scalars) + len(medias) + log_count
-        self._pbar = tqdm(total=pending_items, desc="Syncing data", unit="item", mininterval=0.1)
+        self._pbar = Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeRemainingColumn(),
+        )
+        self._pbar.start()
+        self._pbar_task = self._pbar.add_task("Syncing data...", total=pending_items)
         self._uploaded_items = 0
-        self._pbar.set_postfix_str("Starting upload...")
+        self._pbar.update(self._pbar_task, description="Syncing data... Starting upload...")
 
         # 同步上传数据到 SwanLab 服务器（将任务提交到队列，由后台线程异步上传）
         # 1. 上传文件（配置、运行时）
@@ -547,10 +554,10 @@ class DataPorter:
 
         # 确保进度条到达100%
         with self._pbar_lock:
-            if self._pbar.n < self._pbar.total:
-                self._pbar.update(self._pbar.total - self._pbar.n)
-        self._pbar.set_postfix_str("Upload complete!")
-        self._pbar.close()
+            task = self._pbar._tasks[self._pbar_task]
+            if task.completed < task.total:
+                self._pbar.update(self._pbar_task, completed=task.total, description="Syncing data... Upload complete!")
+        self._pbar.stop()
 
         # 7. 同步实验状态
         client = get_client()
