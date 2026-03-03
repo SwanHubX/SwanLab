@@ -85,11 +85,14 @@ class MLFLowConverter:
                     mlflow_run_tags={k: v for k, v in run.data.tags.items() if not k.startswith('mlflow')},
                 ))
 
+                # 预先获取所有 metric 历史数据，避免重复调用
+                all_metric_histories = {}
+                for key in run.data.metrics.keys():
+                    history = client.get_metric_history(run_id, key)
+                    all_metric_histories[key] = history
+
                 # 计算总 metric 数量用于进度条
-                total_metrics = sum(
-                    len(client.get_metric_history(run_id, key))
-                    for key in run.data.metrics.keys()
-                )
+                total_metrics = sum(len(history) for history in all_metric_histories.values())
 
                 pbar = None
                 if tqdm is not None:
@@ -102,8 +105,8 @@ class MLFLowConverter:
                     )
 
                 index = 0
-                for key in run.data.metrics.keys():
-                    for m in client.get_metric_history(run_id, key):
+                for key, history in all_metric_histories.items():
+                    for m in history:
                         swanlab_run.log({m.key: m.value}, step=m.step)
                         index += 1
                         if pbar is not None:
