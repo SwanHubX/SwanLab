@@ -2,8 +2,6 @@ import os.path
 from sys import stdout
 from typing import Literal, Union
 
-from rich.status import Status
-
 from .mlflow import sync_mlflow
 from .tensorboard import sync_tensorboardX, sync_tensorboard_torch
 from .wandb import sync_wandb
@@ -60,8 +58,7 @@ def sync(
     try:
         assert os.path.exists(dir_path), f"Directory {dir_path} does not exist."
         stdout.flush()
-        with Status("🔁 Syncing...", spinner="dots"):
-            with DataPorter().open_for_sync(run_dir=dir_path) as porter:
+        with DataPorter().open_for_sync(run_dir=dir_path) as porter:
                 proj, exp = porter.parse()
                 assert client is not None, "Please log in first before using sync."
                 with Mounter() as mounter:
@@ -70,6 +67,8 @@ def sync(
                     set_run_store(run_store, proj, exp, project, workspace, id)
                     # 创建实验会话
                     mounter.execute()
+                    # 显示最终 URL（在上传进度条开始前）
+                    swanlog.info(f"🔁 Syncing data to cloud... (View at {client.web_exp_url})")
                     # 同步
                     porter.synchronize()
         swanlog.info("🚀 Sync completed, View run at ", client.web_exp_url)
