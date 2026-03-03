@@ -15,7 +15,6 @@ from rich.progress import (
     TextColumn,
     TimeRemainingColumn,
     MofNCompleteColumn,
-    Task,
 )
 
 from ..data.store import RunStore
@@ -42,23 +41,15 @@ class SyncProgress:
         self._pbar.start()
         return self
 
-    @property
-    def task(self) -> Task:
-        t = None
-        for task in self._pbar.tasks:
-            if task.id == self._task:
-                t = task
-                break
-        if t is None:
-            raise RuntimeError("No task found.")
-        return t
-
     def __exit__(self, exc_type, exc_val, exc_tb):
         # 如果没有错误，确保进度条到达100%
         if exc_type is None and self._task is not None:
             with self._lock:
-                if self.task.completed < self.task.total:
-                    self._pbar.update(self._task, completed=self.task.total)
+                # 直接获取 task 的 total 并设置为完成
+                for task in self._pbar.tasks:
+                    if task.id == self._task:
+                        self._pbar.update(self._task, completed=task.total)
+                        break
         self._pbar.stop()
 
     def set_total(self, total: int):
