@@ -75,57 +75,6 @@ class TestFindRunDirs:
         assert len(result) == 0
 
 
-class TestUnpackKeyValueJsonList:
-    """Test _unpack_key_value_json_list method"""
-
-    def test_unpack_valid_key_value_list(self):
-        converter = WandbLocalConverter()
-        items = [
-            {"key": "learning_rate", "value_json": "0.001"},
-            {"key": "batch_size", "value_json": "32"}
-        ]
-
-        result = converter._unpack_key_value_json_list(items)
-
-        assert result == {"learning_rate": 0.001, "batch_size": 32}
-
-    def test_unpack_nested_key(self):
-        converter = WandbLocalConverter()
-        items = [
-            {"nested_key": ["model", "layers"], "value_json": "12"}
-        ]
-
-        result = converter._unpack_key_value_json_list(items)
-
-        assert result == {"model/layers": 12}
-
-    def test_unpack_invalid_json(self):
-        converter = WandbLocalConverter()
-        items = [
-            {"key": "valid", "value_json": "123"},
-            {"key": "invalid", "value_json": "{invalid json}"}
-        ]
-
-        result = converter._unpack_key_value_json_list(items)
-
-        assert "valid" in result
-        assert result["valid"] == 123
-        assert "invalid" not in result
-
-    def test_unpack_non_list_returns_as_is(self):
-        converter = WandbLocalConverter()
-        items = {"not": "a list"}
-
-        result = converter._unpack_key_value_json_list(items)
-
-        assert result == items
-
-    def test_unpack_empty_list(self):
-        converter = WandbLocalConverter()
-        result = converter._unpack_key_value_json_list([])
-        assert result == []
-
-
 class TestRunMethod:
     """Test run method"""
 

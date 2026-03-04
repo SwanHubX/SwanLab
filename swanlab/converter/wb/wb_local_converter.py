@@ -106,7 +106,7 @@ class WandbLocalConverter:
         self.tags = tags
         self.logdir = logdir
 
-    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> list[str]:
+    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> List[str]:
         """Finds all wandb run directories within a given root directory."""
         if wandb_run_dir:
             patterns = [
