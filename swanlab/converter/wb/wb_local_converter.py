@@ -11,10 +11,22 @@ wb_local_converter.run(root_wandb_dir="WANDB_LOCAL_DIR", wandb_run_dir="WANDB_LO
 ------command------
 swanlab convert -t wandb-local --wb-dir ./wandb --wb-run-dir run-1234567890
 """
+
+# GC frequency: collect garbage every N records
+GC_INTERVAL = 10000
+
 import argparse
 import gc
+import time
 import glob
 import json
+
+try:
+    import orjson as _orjson
+    _json_loads = _orjson.loads
+except ImportError:
+    _json_loads = json.loads
+
 import os
 import re
 import traceback
@@ -23,9 +35,9 @@ from typing import Optional, List
 import yaml
 import swanlab
 from swanlab.log import swanlog as swl
-
-# Dependency for converting Protobuf objects to dictionaries
-import google.protobuf.json_format as protobuf_json
+from swanlab.data.porter import DataPorter
+from swanlab.env import create_time
+from swanlab.toolkit import ColumnInfo, ChartType
 
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress import ProgressColumn
@@ -94,7 +106,7 @@ class WandbLocalConverter:
         self.tags = tags
         self.logdir = logdir
 
-    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> list[str]:
+    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> List[str]:
         """Finds all wandb run directories within a given root directory."""
         if wandb_run_dir:
             patterns = [
@@ -115,21 +127,20 @@ class WandbLocalConverter:
             swl.warning(f"No wandb run directories found in '{found_path}'.")
         return run_dirs
 
-    def _unpack_key_value_json_list(self, items: list) -> dict:
-        """A helper function to unpack wandb's specific key-value_json list format."""
-        if not (isinstance(items, list) and items and 'value_json' in items[0]):
-            return items
+    def _proto_items_to_dict(self, items) -> dict:
+        """Directly read proto repeated item fields (key/nested_key/value_json) into a dict.
 
+        This avoids the expensive MessageToDict conversion by accessing proto fields directly.
+        """
         mapping = {}
         for item in items:
-            key = item.get('key') or '/'.join(item.get('nested_key', []))
+            key = item.key or '/'.join(item.nested_key)
             if not key:
                 continue
             try:
-                value = json.loads(item['value_json'])
-                mapping[key] = value
-            except json.JSONDecodeError:
-                swl.warning(f"Could not decode json for key '{key}': {item['value_json']}")
+                mapping[key] = _json_loads(item.value_json)
+            except (ValueError, Exception):
+                swl.warning(f"Could not decode json for key '{key}': {item.value_json}")
         return mapping
 
     def _parse_run(self, run_dir: str):
@@ -141,6 +152,7 @@ class WandbLocalConverter:
 
         wandb_file_path = wandb_files[0]
         files_root_dir = os.path.join(run_dir, "files")
+        run_basename = os.path.basename(run_dir.rstrip('/\\'))
 
         # 获取文件大小用于进度条
         wandb_file_size = os.path.getsize(wandb_file_path)
@@ -152,9 +164,93 @@ class WandbLocalConverter:
         run_metadata = {'id': None, 'name': None, 'notes': None, 'project': None}
         run_config = {}
 
+        # Direct-write state (bypasses swanlab_run.log() overhead for scalar metrics)
+        porter = None           # set after swanlab.init()
+        _conv_column_kids = {}  # key -> kid str
+        _conv_epoch_counters = {}  # key -> cumulative epoch count
+        _upload_pre_count = [0]  # items uploaded before upload progress bar appears
+        _total_scalars_logged = [0]  # total scalar data points logged
+
+        def _log_scalars_direct(scalars, step):
+            """Write float scalars directly to the porter, bypassing log() overhead."""
+            if not scalars or porter is None:
+                return
+            for key in scalars:
+                if key not in _conv_column_kids:
+                    kid = len(_conv_column_kids)
+                    _conv_column_kids[key] = str(kid)
+                    split_key = key.split("/")
+                    sname = split_key[0] if len(split_key) > 1 and split_key[0] else None
+                    porter.trace_column(ColumnInfo(
+                        key=key, kid=str(kid), name=key, cls='CUSTOM',
+                        chart_type=ChartType.LINE, chart_reference='STEP',
+                        section_name=sname, section_type="PUBLIC",
+                    ))
+            for key in scalars:
+                _conv_epoch_counters[key] = _conv_epoch_counters.get(key, 0) + 1
+            _total_scalars_logged[0] += len(scalars)
+            porter.trace_scalars_step(step, scalars, dict(_conv_epoch_counters), create_time())
+
+        def _finish_with_progress():
+            """Run swanlab_run.finish() while showing a Rich upload progress bar."""
+            _pool = porter._pool if porter is not None else None
+            if _pool is None:
+                swanlab_run.finish()
+                return
+            total = len(_conv_column_kids) + _total_scalars_logged[0]
+            up = Progress(
+                TextColumn("[bold green]{task.description}"),
+                BarColumn(bar_width=40),
+                TextColumn("{task.completed}/{task.total} items"),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+            )
+            up.start()
+            t = up.add_task("Uploading to SwanLab", total=total, completed=_upload_pre_count[0])
+
+            _last_completed = [_upload_pre_count[0]]
+            _stall_check_time = [time.time()]
+
+            def _upload_cb(n):
+                _last_completed[0] += n
+                _stall_check_time[0] = time.time()
+                up.update(t, advance=n)
+
+            _pool.collector.upload_callback = _upload_cb
+
+            # Monitor for stalls and update description
+            import threading
+            _stop_monitor = [False]
+            def _monitor_stalls():
+                while not _stop_monitor[0]:
+                    time.sleep(1)
+                    if _stop_monitor[0]:
+                        break
+                    elapsed = time.time() - _stall_check_time[0]
+                    if elapsed > 5 and _last_completed[0] < total:
+                        remaining = total - _last_completed[0]
+                        batch_info = f"batch ~{min(1000, remaining)} items" if remaining > 0 else "final batch"
+                        up.update(t, description=f"[bold yellow]Uploading to SwanLab (processing {batch_info}, {int(elapsed)}s)")
+                    elif _last_completed[0] < total:
+                        up.update(t, description="[bold green]Uploading to SwanLab")
+
+            monitor_thread = threading.Thread(target=_monitor_stalls, daemon=True)
+            monitor_thread.start()
+
+            # Suppress swanlog.info during finish() to hide the "View project/run" URL reprints
+            _orig_info = swl.info
+            swl.info = lambda *a, **k: None
+            try:
+                swanlab_run.finish()
+            finally:
+                swl.info = _orig_info
+                _stop_monitor[0] = True
+            up.update(t, completed=total, description="[bold green]Uploading to SwanLab")
+            up.stop()
+
         def initialize_swanlab_run_if_needed():
             """Lazy initializer for the SwanLab run."""
-            nonlocal swanlab_run, progress, task_id
+            nonlocal swanlab_run, progress, task_id, porter
             if swanlab_run is not None:
                 return
 
@@ -183,6 +279,12 @@ class WandbLocalConverter:
                 mode=self.mode,
                 tags=self.tags,
             )
+            porter = DataPorter._instance
+            # Set pre-count callback: track items uploaded during parse before the upload bar appears
+            if porter is not None and porter._pool is not None:
+                def _pre_upload_cb(n):
+                    _upload_pre_count[0] += n
+                porter._pool.collector.upload_callback = _pre_upload_cb
 
             # 恢复进度条
             if progress is not None and task_id is not None:
@@ -200,7 +302,7 @@ class WandbLocalConverter:
                     )
                     progress.start()
                     task_id = progress.add_task(
-                        os.path.basename(run_dir.rstrip('/\\')),
+                        f"Parsing  {run_basename}",
                         total=wandb_file_size,
                         completed=current_progress
                     )
@@ -222,6 +324,9 @@ class WandbLocalConverter:
         # 初始化进度条
         progress = None
         task_id = None
+        record_count = 0
+        last_summary = {}
+        last_summary_step = 0
 
         if Progress is not None:
             progress = Progress(
@@ -232,7 +337,7 @@ class WandbLocalConverter:
                 TimeRemainingColumn(),
             )
             progress.start()
-            task_id = progress.add_task(os.path.basename(run_dir.rstrip('/\\')), total=wandb_file_size)
+            task_id = progress.add_task(f"Parsing  {run_basename}", total=wandb_file_size)
 
         while True:
             record_bin = ds.scan_data()
@@ -246,90 +351,106 @@ class WandbLocalConverter:
             record_pb = wandb_internal_pb2.Record()
             record_pb.ParseFromString(record_bin)
 
-            record_dict = protobuf_json.MessageToDict(record_pb, preserving_proto_field_name=True)
             record_type = record_pb.WhichOneof("record_type")
-            data_dict = record_dict.get(record_type, {})
 
-            if not data_dict:
-                continue
-
-            # Process the converted dictionary data based on record type
+            # Process record by directly accessing protobuf fields (no MessageToDict)
             if record_type == "run":
+                run = record_pb.run
                 run_metadata.update({
-                    'id': data_dict.get('run_id'),
-                    'name': data_dict.get('display_name'),
-                    'notes': data_dict.get('notes'),
-                    'project': data_dict.get('project')
+                    'id': run.run_id or None,
+                    'name': run.display_name or None,
+                    'notes': run.notes or None,
+                    'project': run.project or None,
                 })
-                config_items = data_dict.get('config', {}).get('update', [])
-                run_config.update(self._unpack_key_value_json_list(config_items))
+                run_config.update(self._proto_items_to_dict(run.config.update))
             elif record_type == "config":
-                config_items = data_dict.get('update', [])
-                run_config.update(self._unpack_key_value_json_list(config_items))
+                run_config.update(self._proto_items_to_dict(record_pb.config.update))
             elif record_type == "history":
                 initialize_swanlab_run_if_needed()
-                log_dict = {}
-                history_data = self._unpack_key_value_json_list(data_dict.get('item', []))
-
-                for key, value in history_data.items():
-                    # 把指标中的runtime、_step、_timestamp都放到_wandb分组里
-                    if key == "_runtime" or key == "_step" or key == "_timestamp":
-                        key = "_wandb/" + key
-                    if isinstance(value, (int, float)):
-                        log_dict[key] = value
+                scalar_dict = {}
+                media_dict = {}
+                step = 0
+                # Single-pass: parse proto items directly, fast-path float() for scalars
+                for item in record_pb.history.item:
+                    key = item.key or '/'.join(item.nested_key)
+                    if not key:
+                        continue
+                    vj = item.value_json
+                    if key == '_step':
+                        try:
+                            step = int(float(vj))
+                        except (ValueError, TypeError):
+                            pass
+                        continue
+                    if key.startswith('_'):
+                        continue
+                    # Fast path: direct float conversion (avoids full JSON parse for scalars)
+                    try:
+                        scalar_dict[key] = float(vj)
+                        continue
+                    except (ValueError, TypeError):
+                        pass
+                    # Slow path: full JSON parse for complex types (media, etc.)
+                    try:
+                        value = _json_loads(vj)
+                    except (ValueError, Exception):
+                        continue
+                    if isinstance(value, int):
+                        scalar_dict[key] = float(value)
                     elif isinstance(value, dict) and "_type" in value:
                         media_type = value["_type"]
                         path = os.path.join(files_root_dir, value.get("path", ""))
-                        if not os.path.exists(path):
-                            continue
+                        if os.path.exists(path) and media_type == "image-file":
+                            media_dict[key] = swanlab.Image(path)
 
-                        if media_type == "image-file":
-                            log_dict[key] = swanlab.Image(path)
-
-                step = int(data_dict.get('_step', 0))
-                if log_dict:
-                    swanlab_run.log(log_dict, step=step)
-
-                # 清理临时变量，减少内存占用
-                del log_dict
-                del history_data
+                if scalar_dict or media_dict:
+                    if scalar_dict:
+                        _log_scalars_direct(scalar_dict, step)
+                    if media_dict:
+                        swanlab_run.log(media_dict, step=step)
+                    last_summary_step = step
+                del scalar_dict, media_dict
             elif record_type == "summary":
-                initialize_swanlab_run_if_needed()
-                log_dict = {}
-                summary_data = self._unpack_key_value_json_list(data_dict.get('update', []))
-
-                for key, value in summary_data.items():
-                    if key == "_runtime" or key == "_step" or key == "_timestamp":
-                        key = "_wandb/" + key
-                    if isinstance(value, (int, float)):
-                        log_dict[key] = value
-                if log_dict:
-                    swanlab_run.log(log_dict)
-
-                # 清理临时变量，减少内存占用
-                del log_dict
-                del summary_data
+                # Accumulate into last_summary; only log once after the loop ends.
+                # wandb writes a summary record after every step, so calling log() here
+                # would result in N redundant log calls (N = number of steps).
+                for item in record_pb.summary.update:
+                    key = item.key or '/'.join(item.nested_key)
+                    if not key or key.startswith('_'):
+                        continue
+                    try:
+                        last_summary[key] = float(item.value_json)
+                    except (ValueError, TypeError):
+                        pass
 
             # 清理公共变量，释放内存
-            del data_dict
-            del record_dict
             del record_pb
             del record_bin
-            gc.collect()
+
+            # GC every GC_INTERVAL records to reduce overhead
+            record_count += 1
+            if record_count % GC_INTERVAL == 0:
+                gc.collect()
 
         # 关闭进度条
         if progress is not None:
             progress.stop()
 
+        # Log 最终的 summary 数据（只 log 一次，避免对每条 summary record 都 log）
+        if last_summary:
+            initialize_swanlab_run_if_needed()
+            if swanlab_run:
+                _log_scalars_direct(last_summary, last_summary_step)
+
         if swanlab_run:
-            swl.info(f"Finished converting run: {run_metadata['name']}")
-            swanlab_run.finish()
+            swl.info(f"Finished Parsing run: {run_metadata['name']}")
+            _finish_with_progress()
         else:
             try:
                 initialize_swanlab_run_if_needed()
                 if swanlab_run:
                     swl.warning(f"Run in {run_dir} has no metrics, but its config was saved.")
-                    swanlab_run.finish()
+                    _finish_with_progress()
             except RuntimeError as e:
                 swl.error(str(e))
 

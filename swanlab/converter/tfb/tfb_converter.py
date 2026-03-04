@@ -4,6 +4,9 @@ from datetime import datetime
 from ._utils import find_tfevents, get_tf_events_tags_type, get_tf_events_tags_data
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from swanlab.log import swanlog as swl
+from swanlab.data.porter import DataPorter
+from swanlab.env import create_time
+from swanlab.toolkit import ColumnInfo, ChartType
 import time
 
 
@@ -68,6 +71,13 @@ class TFBConverter:
                         mode=self.mode,
                         logdir=self.logdir,
                     )
+                    _porter = DataPorter._instance
+                    _pre = [0]
+                    if _porter is not None and _porter._pool is not None:
+                        def _pre_cb(n): _pre[0] += n
+                        _porter._pool.collector.upload_callback = _pre_cb
+                    _conv_column_kids = {}
+                    _conv_epoch_counters = {}
 
                     """
                     根据tag提取数据, 格式为{tag: [(step, value, wall_time), ...]}, example:
@@ -83,6 +93,7 @@ class TFBConverter:
                     data_by_tags = get_tf_events_tags_data(path, type_by_tags)
 
                     times = []
+                    total_points = 0
                     if data_by_tags:
                         handlers = {
                             "scalar": lambda v: v,
@@ -106,7 +117,7 @@ class TFBConverter:
                                 TimeRemainingColumn(),
                             )
                             progress.start()
-                            task_id = progress.add_task(os.path.basename(path), total=total_points)
+                            task_id = progress.add_task(f"Parsing  {os.path.basename(path)}", total=total_points)
 
                         index = 0
                         for tag, data in data_by_tags.items():
@@ -115,9 +126,24 @@ class TFBConverter:
                                 continue
                             handler = handlers[tag_type]
                             index += 1
+                            # Register column once per scalar tag
+                            if tag_type == "scalar" and _porter is not None and tag not in _conv_column_kids:
+                                kid = len(_conv_column_kids)
+                                _conv_column_kids[tag] = str(kid)
+                                split_key = tag.split("/")
+                                sname = split_key[0] if len(split_key) > 1 and split_key[0] else None
+                                _porter.trace_column(ColumnInfo(
+                                    key=tag, kid=str(kid), name=tag, cls='CUSTOM',
+                                    chart_type=ChartType.LINE, chart_reference='STEP',
+                                    section_name=sname, section_type="PUBLIC",
+                                ))
                             for step, value, t in data:
                                 times.append(t)
-                                swanlab.log({tag: handler(value)}, step=step)
+                                if tag_type == "scalar" and _porter is not None:
+                                    _conv_epoch_counters[tag] = _conv_epoch_counters.get(tag, 0) + 1
+                                    _porter.trace_scalars_step(step, {tag: value}, dict(_conv_epoch_counters), create_time())
+                                else:
+                                    swanlab.log({tag: handler(value)}, step=step)
                                 if progress is not None and task_id is not None:
                                     progress.update(task_id, advance=1)
                             if index % 5 == 0:
@@ -130,5 +156,27 @@ class TFBConverter:
                     runtime = max(times) - min(times)
                     swanlab.config.update({"RunTime(s)": runtime})
 
-                    # 结束当前实验
-                    run.finish()
+                    # 结束当前实验（显示上传进度条）
+                    _pool = _porter._pool if _porter is not None else None
+                    if _pool is not None:
+                        up = Progress(
+                            TextColumn("[bold green]{task.description}"),
+                            BarColumn(bar_width=40),
+                            TextColumn("{task.completed}/{task.total} items"),
+                            TimeElapsedColumn(),
+                            TimeRemainingColumn(),
+                        )
+                        up.start()
+                        t = up.add_task("Uploading to SwanLab", total=total_points, completed=_pre[0])
+                        def _ucb(n): up.update(t, advance=n)
+                        _pool.collector.upload_callback = _ucb
+                        _oi = swl.info
+                        swl.info = lambda *a, **k: None
+                        try:
+                            run.finish()
+                        finally:
+                            swl.info = _oi
+                        up.update(t, completed=total_points)
+                        up.stop()
+                    else:
+                        run.finish()
