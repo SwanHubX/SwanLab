@@ -169,6 +169,7 @@ class WandbLocalConverter:
         _conv_column_kids = {}  # key -> kid str
         _conv_epoch_counters = {}  # key -> cumulative epoch count
         _upload_pre_count = [0]  # items uploaded before upload progress bar appears
+        _total_scalars_logged = [0]  # total scalar data points logged
 
         def _log_scalars_direct(scalars, step):
             """Write float scalars directly to the porter, bypassing log() overhead."""
@@ -187,6 +188,7 @@ class WandbLocalConverter:
                     ))
             for key in scalars:
                 _conv_epoch_counters[key] = _conv_epoch_counters.get(key, 0) + 1
+            _total_scalars_logged[0] += len(scalars)
             porter.trace_scalars_step(step, scalars, dict(_conv_epoch_counters), create_time())
 
         def _finish_with_progress():
@@ -195,7 +197,7 @@ class WandbLocalConverter:
             if _pool is None:
                 swanlab_run.finish()
                 return
-            total = len(_conv_column_kids) + sum(_conv_epoch_counters.values())
+            total = len(_conv_column_kids) + _total_scalars_logged[0]
             up = Progress(
                 TextColumn("[bold green]{task.description}"),
                 BarColumn(bar_width=40),
@@ -205,9 +207,34 @@ class WandbLocalConverter:
             )
             up.start()
             t = up.add_task("Uploading to SwanLab", total=total, completed=_upload_pre_count[0])
+
+            _last_completed = [_upload_pre_count[0]]
+            _stall_check_time = [time.time()]
+
             def _upload_cb(n):
+                _last_completed[0] += n
+                _stall_check_time[0] = time.time()
                 up.update(t, advance=n)
+
             _pool.collector.upload_callback = _upload_cb
+
+            # Monitor for stalls and update description
+            import threading
+            _stop_monitor = [False]
+            def _monitor_stalls():
+                while not _stop_monitor[0]:
+                    time.sleep(2)
+                    if _stop_monitor[0]:
+                        break
+                    elapsed = time.time() - _stall_check_time[0]
+                    if elapsed > 5 and _last_completed[0] < total:
+                        up.update(t, description="[bold yellow]Uploading to SwanLab (flushing buffer...)")
+                    elif _last_completed[0] < total:
+                        up.update(t, description="[bold green]Uploading to SwanLab")
+
+            monitor_thread = threading.Thread(target=_monitor_stalls, daemon=True)
+            monitor_thread.start()
+
             # Suppress swanlog.info during finish() to hide the "View project/run" URL reprints
             _orig_info = swl.info
             swl.info = lambda *a, **k: None
@@ -215,7 +242,8 @@ class WandbLocalConverter:
                 swanlab_run.finish()
             finally:
                 swl.info = _orig_info
-            up.update(t, completed=total)
+                _stop_monitor[0] = True
+            up.update(t, completed=total, description="[bold green]Uploading to SwanLab")
             up.stop()
 
         def initialize_swanlab_run_if_needed():
@@ -298,18 +326,6 @@ class WandbLocalConverter:
         last_summary = {}
         last_summary_step = 0
 
-        # Performance timing stats
-        timing_stats = {
-            "scan_data": 0.0,
-            "parse_proto": 0.0,
-            "process_run": 0.0,
-            "process_config": 0.0,
-            "process_history": 0.0,
-            "process_summary": 0.0,
-            "swanlab_log": 0.0,
-            "gc_collect": 0.0,
-        }
-
         if Progress is not None:
             progress = Progress(
                 TextColumn("[bold blue]{task.description}"),
@@ -322,9 +338,7 @@ class WandbLocalConverter:
             task_id = progress.add_task(f"Parsing  {run_basename}", total=wandb_file_size)
 
         while True:
-            t0 = time.perf_counter()
             record_bin = ds.scan_data()
-            timing_stats["scan_data"] += time.perf_counter() - t0
             if record_bin is None:
                 break
 
@@ -332,16 +346,13 @@ class WandbLocalConverter:
             if progress is not None and task_id is not None:
                 progress.update(task_id, advance=len(record_bin))
 
-            t0 = time.perf_counter()
             record_pb = wandb_internal_pb2.Record()
             record_pb.ParseFromString(record_bin)
-            timing_stats["parse_proto"] += time.perf_counter() - t0
 
             record_type = record_pb.WhichOneof("record_type")
 
             # Process record by directly accessing protobuf fields (no MessageToDict)
             if record_type == "run":
-                t0 = time.perf_counter()
                 run = record_pb.run
                 run_metadata.update({
                     'id': run.run_id or None,
@@ -350,13 +361,9 @@ class WandbLocalConverter:
                     'project': run.project or None,
                 })
                 run_config.update(self._proto_items_to_dict(run.config.update))
-                timing_stats["process_run"] += time.perf_counter() - t0
             elif record_type == "config":
-                t0 = time.perf_counter()
                 run_config.update(self._proto_items_to_dict(record_pb.config.update))
-                timing_stats["process_config"] += time.perf_counter() - t0
             elif record_type == "history":
-                t0 = time.perf_counter()
                 initialize_swanlab_run_if_needed()
                 scalar_dict = {}
                 media_dict = {}
@@ -394,19 +401,14 @@ class WandbLocalConverter:
                         if os.path.exists(path) and media_type == "image-file":
                             media_dict[key] = swanlab.Image(path)
 
-                timing_stats["process_history"] += time.perf_counter() - t0
-
                 if scalar_dict or media_dict:
-                    t1 = time.perf_counter()
                     if scalar_dict:
                         _log_scalars_direct(scalar_dict, step)
                     if media_dict:
                         swanlab_run.log(media_dict, step=step)
-                    timing_stats["swanlab_log"] += time.perf_counter() - t1
                     last_summary_step = step
                 del scalar_dict, media_dict
             elif record_type == "summary":
-                t0 = time.perf_counter()
                 # Accumulate into last_summary; only log once after the loop ends.
                 # wandb writes a summary record after every step, so calling log() here
                 # would result in N redundant log calls (N = number of steps).
@@ -418,7 +420,6 @@ class WandbLocalConverter:
                         last_summary[key] = float(item.value_json)
                     except (ValueError, TypeError):
                         pass
-                timing_stats["process_summary"] += time.perf_counter() - t0
 
             # 清理公共变量，释放内存
             del record_pb
@@ -427,9 +428,7 @@ class WandbLocalConverter:
             # GC every GC_INTERVAL records to reduce overhead
             record_count += 1
             if record_count % GC_INTERVAL == 0:
-                t0 = time.perf_counter()
                 gc.collect()
-                timing_stats["gc_collect"] += time.perf_counter() - t0
 
         # 关闭进度条
         if progress is not None:
@@ -439,22 +438,10 @@ class WandbLocalConverter:
         if last_summary:
             initialize_swanlab_run_if_needed()
             if swanlab_run:
-                t0 = time.perf_counter()
                 _log_scalars_direct(last_summary, last_summary_step)
-                timing_stats["swanlab_log"] += time.perf_counter() - t0
-
-        # 打印性能时间统计
-        total_time = sum(timing_stats.values())
-        swl.info("=" * 30)
-        swl.info("Performance Timing Stats:")
-        for name, secs in timing_stats.items():
-            pct = (secs / total_time * 100) if total_time > 0 else 0
-            swl.info(f"  {name:20s}: {secs:8.3f}s ({pct:5.1f}%)")
-        swl.info(f"  {'TOTAL':20s}: {total_time:8.3f}s")
-        swl.info("=" * 30)
 
         if swanlab_run:
-            swl.info(f"Finished converting run: {run_metadata['name']}")
+            swl.info(f"Finished Parsing run: {run_metadata['name']}")
             _finish_with_progress()
         else:
             try:
