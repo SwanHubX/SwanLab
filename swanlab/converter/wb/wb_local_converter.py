@@ -223,12 +223,14 @@ class WandbLocalConverter:
             _stop_monitor = [False]
             def _monitor_stalls():
                 while not _stop_monitor[0]:
-                    time.sleep(2)
+                    time.sleep(1)
                     if _stop_monitor[0]:
                         break
                     elapsed = time.time() - _stall_check_time[0]
                     if elapsed > 5 and _last_completed[0] < total:
-                        up.update(t, description="[bold yellow]Uploading to SwanLab (flushing buffer...)")
+                        remaining = total - _last_completed[0]
+                        batch_info = f"batch ~{min(1000, remaining)} items" if remaining > 0 else "final batch"
+                        up.update(t, description=f"[bold yellow]Uploading to SwanLab (processing {batch_info}, {int(elapsed)}s)")
                     elif _last_completed[0] < total:
                         up.update(t, description="[bold green]Uploading to SwanLab")
 
