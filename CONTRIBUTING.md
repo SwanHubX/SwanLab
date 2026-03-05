@@ -5,13 +5,11 @@
 ## 📦 目录
 
 - [标准开发流程](#标准开发流程)
-- [本地调试](#本地调试)
-    - [IDE 与插件](#IDE与插件)
-    - [配置 Python 环境](#配置python环境)
-    - [调试脚本](#调试脚本)
+- [本地开发](#本地开发)
+  - [环境配置](#环境配置)
 - [本地测试](#本地测试)
-    - [python 脚本调试](#python-脚本调试)
-    - [单元测试](#单元测试)
+  - [python 脚本调试](#python-脚本调试)
+  - [单元测试](#单元测试)
 
 ## 标准开发流程
 
@@ -77,63 +75,13 @@
 
     - 一旦您的拉取请求被审阅者批准，它将被合并到存储库的主分支中。
 
-## 本地调试
+## 本地开发
 
-### IDE 与插件
+### 环境配置
 
-1. **使用 VSCode 作为你的开发 IDE**
+SwanLab 使用 uv 管理依赖和测试，使用 [hatch](https://hatch.pypa.io/) 进行构建。
 
-   SwanLab 仓库已经配好了[VSCode](https://code.visualstudio.com/)的环境、插件与调试脚本（位于`.vscode`
-   文件夹中），使用 VSCode 开发 SwanLab 会有最好的体验。
 
-2. **安装 VSCode 插件（可选）**
-
-   用 VSCode 打开项目，进入 [扩展] ，在搜索框输入“@recommended”，会出现一系列推荐插件，推荐全部安装这些插件。
-
-   ![vscode-recommend](/readme_files/contribution_images/vscode_recommend.png)
-
-### 配置 Python 环境
-
-SwanLab 项目环境需要`python>=3.8`的支持。
-
-必须性的 python 依赖集中记录在项目根目录下的 `requirements.txt`。
-
-同样在项目根目录启动终端，运行以下命令安装依赖：
-
-```Bash
-# swanlab所依赖的包
-pip install -r requirements.txt
-pip install -r requirements-media.txt
-```
-
-编译、开发、单元测试等工作需要使用以下命令额外安装依赖：
-
-```Bash
-# 编译、单元测试等功能需要使用的包
-pip install -r requirements-dev.txt
-```
-
-### 调试脚本
-
-1. **VSCode 调试脚本**
-
-在 VSCode-运行和调试 中，项目配置好了一系列调试脚本：
-
-![img](/readme_files/contribution_images/debug.png)
-
-- **开启一个实验**：运行`test/create_experiment.py`脚本
-
-- **运行当前文件**：使用配置好的 Python 环境运行你选中的文件
-
-- **测试当前文件**：使用 debug 模式测试你选中的文件
-
-- **进行所有单元测试**：运行`test/unit`中的脚本对 swanlab 基础功能进行完整单元测试
-
-- **(跳过云)进行所有单元测试**：运行`test/unit`中的脚本对 swanlab 基础功能进行完整单元测试，但是跳过云测试
-
-- **构建项目**：打包项目为 whl 文件（pip 安装包格式）
-
-Ps: 如果你不想使用 VSCode 进行开发，可以前往`.vscode/launch.json`，查看每个调试项对应的命令，了解其配置。
 
 ## 本地测试
 
@@ -143,31 +91,3 @@ Ps: 如果你不想使用 VSCode 进行开发，可以前往`.vscode/launch.json
 
 在完成你的改动后，可以将你用于测试的 python 脚本放到根目录或`test`文件夹下，然后通过[VSCode 脚本](#调试脚本)中的"
 运行当前文件"来运行你的 Python 测试脚本, 这样你的脚本运行将使用到已改动后的 swanlab。
-
-### 单元测试
-
-可以通过[VSCode 脚本](#调试脚本)或者在项目根目录下运行以下命令进行单元测试：
-
-```Bash
-export PYTHONPATH=. && pytest test/unit
-```
-
-由于 swanlab 涉及与云端的交互，而云端部分是闭源的，所以如果你是第一次贡献代码，最简单的方式是只进行本地测试。
-针对这种情况，请在本地根目录下创建`.env`文件，并填写如下环境变量配置：
-
-```dotenv
-SWANLAB_RUNTIME=test-no-cloud
-```
-
-这样就可以跳过云端测试，只进行本地的部分功能测试。 如果想进行完整的测试，请在`.env`中补充如下信息：
-
-```dotenv
-SWANLAB_RUNTIME=test
-SWANLAB_API_KEY=<你的API KEY>
-SWANLAB_API_HOST=https://swanlab.cn/api
-SWANLAB_WEB_HOST=https://swanlab.cn
-```
-
-*注意：在进行云端版测试时会在您的云端账号下生成一些无用的测试实验数据，需要手动删除*
-
-配置完后即可运行完整测试

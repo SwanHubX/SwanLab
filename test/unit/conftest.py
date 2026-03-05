@@ -1,79 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/4/3 16:52
-@File: conftest.py.py
-@IDE: pycharm
-@Description:
-    配置pytest
-"""
-import os
-import shutil
-
 import pytest
 
-from tutils import TEMP_PATH, reset_some_env, SwanLabEnv
 
-
-def count_files_in_directory(directory, exclude_prefixes=("__", ".", "~")):
+@pytest.fixture(autouse=True, scope="function")
+def setup_tmp_dir(tmp_path, monkeypatch):
     """
-    计算目录下的文件数量
+    自动为每个测试用例切换到独立的临时目录
     """
-    file_count, folder_count = 0, 0
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        if any(filename.startswith(prefix) for prefix in exclude_prefixes):
-            continue
-        if os.path.isfile(file_path):
-            file_count += 1
-        elif os.path.isdir(file_path):
-            folder_count += 1
-            r = count_files_in_directory(file_path)
-            file_count += r[0]
-            folder_count += r[1]
-    return file_count, folder_count
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 记住当前文件夹下的所有文件数量，用于测试结束后比较，确保测试结束后没有多余文件
-    pre_file_count, pre_folder_count = count_files_in_directory(current_dir)
-    yield
-    # 确保测试结束后没有多余文件
-    now_file_count, now_folder_count = count_files_in_directory(current_dir)
-    assert pre_file_count == now_file_count
-    assert pre_folder_count == now_folder_count
-
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_each():
-    """
-    对每一个测试函数进行设置
-    对于每一个测试函数，将环境变量恢复原状，清空temp文件夹后重新创建一个新的
-    """
-    for key in SwanLabEnv.list():
-        if key in os.environ:
-            del os.environ[key]
-    reset_some_env()
-    # 清空temp文件夹
-    if os.path.exists(TEMP_PATH):
-        shutil.rmtree(TEMP_PATH)
-    os.mkdir(TEMP_PATH)
-    yield
-    import swanlab
-    from swanlab.log import swanlog
-
-    if swanlab.get_run() is not None:
-        swanlab.finish()
-    # 终端代理有可能没有释放
-    try:
-        swanlog.reset()
-    except RuntimeError:
-        pass
-    from swanlab.data.store import reset_run_store
-    from swanlab.data.porter import DataPorter
-
-    DataPorter._reset()  # noqa: _reset 是内部函数，但在测试中需要重置数据导入器
-
-    reset_run_store()
+    monkeypatch.chdir(tmp_path)

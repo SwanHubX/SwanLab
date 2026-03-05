@@ -1,1 +1,0 @@
-jupyter 环境下的 sync 测试，其实与[sync.py](../sync.py)类似，具体步骤参考它就行

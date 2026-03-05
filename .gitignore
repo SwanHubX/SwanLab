@@ -1,19 +1,9 @@
-# frontend
-swanlog/
-swanlog.bak/
-node_modules/
-dist/
-vue/
-swanlab/template/
-package-lock.json
-.eslintrc-auto-import.json
-**/**.html
-
 # test
 temp/
-tutils/config.json
+deprecated/tutils/config.json
 package.mock.json
 .env
+deprecated/
 
 # playground
 playground/
@@ -24,9 +14,10 @@ playground/
 .DS_Store
 
 # python
+swanlog/
 __pycache__
 .pytest_cache/
-uv.lock
+dist/
 
 # test-integration-ultralytics
 yolov8n-cls.pt

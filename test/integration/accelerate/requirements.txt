@@ -1,3 +1,0 @@
-swanlab
-accelerate
-torchvision
