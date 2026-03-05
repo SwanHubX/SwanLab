@@ -9,7 +9,7 @@ from typing import Optional, List, Dict
 
 from swanlab.core_python import auth, Client
 from swanlab.core_python.api.experiment import get_single_experiment, get_project_experiments
-from swanlab.error import KeyFileError
+from swanlab.error import KeyFileError, ApiError
 from swanlab.log import swanlog
 from swanlab.package import HostFormatter, get_key
 from .deprecated import OpenApi
@@ -89,8 +89,12 @@ class Api:
         """
         if username is None:
             username = self._login_user
-        data = get_workspace_info(self._client, path=username)
-        return Workspace(self._client, data=data, web_host=self._web_host, login_info=self._login_info)
+        try:
+            data = get_workspace_info(self._client, path=username)
+            return Workspace(self._client, data=data, web_host=self._web_host, login_info=self._login_info)
+        except ApiError as e:
+            swanlog.error(f"Failed to get workspace {username}: {e.message}")
+            raise
 
     def projects(
         self,
@@ -125,8 +129,12 @@ class Api:
         :param path: 项目路径 'username/project'
         :return: Project 实例，单个项目的信息
         """
-        data = get_project_info(self._client, path=path)
-        return Project(self._client, web_host=self._web_host, data=data, login_info=self._login_info)
+        try:
+            data = get_project_info(self._client, path=path)
+            return Project(self._client, web_host=self._web_host, data=data, login_info=self._login_info)
+        except ApiError as e:
+            swanlog.error(f"Failed to get project {path}: {e.message}")
+            raise
 
     def runs(self, path: str, filters: Dict[str, object] = None) -> Experiments:
         """
@@ -148,16 +156,20 @@ class Api:
         """
         if len(path.split('/')) != 3:
             raise ValueError(f"User's {path} is invaded. Correct path should be like 'username/project/run_id'")
-        data = get_single_experiment(self._client, path=path)
-        proj_path = path.rsplit('/', 1)[0]
-        return Experiment(
-            self._client,
-            data=data,
-            path=proj_path,
-            web_host=self._web_host,
-            login_user=self._login_user,
-            line_count=1,
-        )
+        try:
+            data = get_single_experiment(self._client, path=path)
+            proj_path = path.rsplit('/', 1)[0]
+            return Experiment(
+                self._client,
+                data=data,
+                path=proj_path,
+                web_host=self._web_host,
+                login_user=self._login_user,
+                line_count=1,
+            )
+        except ApiError as e:
+            swanlog.error(f"Failed to get run {path}: {e.message}")
+            raise
 
 
 __all__ = ["Api", "OpenApi"]
