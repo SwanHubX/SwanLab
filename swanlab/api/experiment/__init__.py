@@ -254,6 +254,13 @@ class Experiment:
 
         return result_df
     
+    def delete(self):
+        """
+        Delete this experiment.
+        """
+        self._client.delete(f"/project/{self._path}/runs/{self.id}")
+        swanlog.info(f"Deleted run: {self.path}")
+
     def json(self):
         """
         JSON-serializable dict of all @property values.

@@ -15,6 +15,7 @@ from swanlab.core_python.api.type import ProjectType
 from swanlab.core_python.api.user import get_workspace_info
 from swanlab.core_python.auth.providers.api_key import LoginInfo
 from swanlab.core_python.client import Client
+from swanlab.log import swanlog
 
 
 class Project:
@@ -111,6 +112,13 @@ class Project:
         if self._login_info is None:
             raise RuntimeError("login_info is required to access runs. Use api.project() instead of creating Project directly.")
         return Experiments(self._client, path=self._data['path'], login_info=self._login_info, filters=filters)
+
+    def delete(self):
+        """
+        Delete this project.
+        """
+        self._client.delete(f"/project/{self._data['path']}")
+        swanlog.info(f"Deleted project: {self.path}")
 
     def json(self):
         """
