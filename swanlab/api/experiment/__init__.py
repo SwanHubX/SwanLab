@@ -11,6 +11,7 @@ from swanlab.api.user import User
 from swanlab.api.utils import Label, get_properties
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
+from swanlab.error import ApiError
 from swanlab.log import swanlog
 
 
@@ -258,8 +259,12 @@ class Experiment:
         """
         Delete this experiment.
         """
-        self._client.delete(f"/project/{self._path}/runs/{self.id}")
-        swanlog.info(f"Deleted run: {self.path}")
+        try:
+            self._client.delete(f"/project/{self._path}/runs/{self.id}")
+            swanlog.info(f"Deleted run: {self.path}")
+        except ApiError as e:
+            swanlog.error(f"Failed to delete run {self.path}: {e.message}")
+            raise
 
     def json(self):
         """
