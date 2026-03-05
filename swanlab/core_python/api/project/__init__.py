@@ -54,4 +54,13 @@ def get_project_info(client: "Client", *, path: str) -> ProjectType:
     return res[0]
 
 
-__all__ = ["get_workspace_projects", "get_project_info"]
+def delete_project(client: "Client", *, path: str):
+    """
+    删除指定项目
+    :param client: 已登录的客户端实例
+    :param path: 项目路径 'username/project'
+    """
+    client.delete(f"/project/{path}")
+
+
+__all__ = ["get_workspace_projects", "get_project_info", "delete_project"]

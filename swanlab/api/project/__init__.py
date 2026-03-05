@@ -11,6 +11,7 @@ from typing import List, Dict, Optional
 from swanlab.api.experiments import Experiments
 from swanlab.api.utils import Label, get_properties
 from swanlab.api.workspace import Workspace
+from swanlab.core_python.api.project import delete_project
 from swanlab.core_python.api.type import ProjectType
 from swanlab.core_python.api.user import get_workspace_info
 from swanlab.core_python.auth.providers.api_key import LoginInfo
@@ -119,7 +120,7 @@ class Project:
         Delete this project.
         """
         try:
-            self._client.delete(f"/project/{self._data['path']}")
+            delete_project(self._client, path=self._data['path'])
             swanlog.info(f"Deleted project: {self.path}")
         except ApiError as e:
             swanlog.error(f"Failed to delete project {self.path}: {e.message}")

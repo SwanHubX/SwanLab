@@ -111,10 +111,21 @@ def get_experiment_metrics(client: "Client", *, expid: str, key: str) -> Dict[st
     return res[0]
 
 
+def delete_experiment(client: "Client", *, path: str):
+    """
+    删除指定实验
+    :param client: 已登录的客户端实例
+    :param path: 实验路径 'username/project/expid'
+    """
+    proj_path, expid = path.rsplit('/', 1)
+    client.delete(f"/project/{proj_path}/runs/{expid}")
+
+
 __all__ = [
     "send_experiment_heartbeat",
     "update_experiment_state",
     "get_project_experiments",
     "get_single_experiment",
     "get_experiment_metrics",
+    "delete_experiment",
 ]
