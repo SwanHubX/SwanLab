@@ -9,15 +9,32 @@ deprecated/
 playground/
 
 
-# Jetbrains
-#.idea/
+# IDEs & OS
+.idea/
+.vscode/
+.cursor/
+.trae/
 .DS_Store
+*.swp
 
 # python
 swanlog/
-__pycache__
-.pytest_cache/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
 dist/
+*.egg-info/
+.eggs/
+
+# testing & linting
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
 
 # test-integration-ultralytics
 yolov8n-cls.pt
@@ -29,8 +46,14 @@ runs/
 # test-integration-lightning
 LightningTest/
 
-# claude
+# Coding Agent docs
 CLAUDE.md
 AGENTS.md
 FEATURE_SUMMARY.md
 .claude/
+.skill/
+GEMINI.md
+QWEN.md
+
+# playground
+playground/
