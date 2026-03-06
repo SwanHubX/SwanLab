@@ -348,6 +348,8 @@ for i in range(10):
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek)：DeepSeek 系列工作解读、扩展和复现 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 - [Qwen3-SmVL](https://github.com/ShaohonChen/Qwen3-SmVL): 将SmolVLM2的视觉头与Qwen3-0.6B模型进行了拼接微调 ![GitHub Repo stars](https://img.shields.io/github/stars/ShaohonChen/Qwen3-SmVL)
 - [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): 通过多Agent蒸馏和Agent RL的端到端Agent基础模型。 ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
+- [Tree-GRPO](https://github.com/AMAP-ML/Tree-GRPO):[ICLR 2026] 树搜索在LLM Agent RL中的应用 ![GitHub Repo stars](https://img.shields.io/github/stars/AMAP-ML/Tree-GRPO)
+
 
 **使用SwanLab的优秀论文：**
 - [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)

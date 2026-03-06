@@ -340,6 +340,7 @@ Detailed deployment documentation:
 - [unlock-deepseek](https://github.com/datawhalechina/unlock-deepseek): Interpretation, extension, and reproduction of the DeepSeek series of works. ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/unlock-deepseek)
 - [Qwen3-SmVL](https://github.com/ShaohonChen/Qwen3-SmVL): The visual head of SmolVLM2 was concatenated and fine-tuned with the Qwen3-0.6B model. ![GitHub Repo stars](https://img.shields.io/github/stars/ShaohonChen/Qwen3-SmVL)
 - [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): Chain-of-Agents: A chain-of-agents model through multi-agent distillation and agent RL. ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
+- [Tree-GRPO](https://github.com/AMAP-ML/Tree-GRPO):[ICLR 2026] Tree Search for LLM Agent Reinforcement Learning ![GitHub Repo stars](https://img.shields.io/github/stars/AMAP-ML/Tree-GRPO)
 
 **Excellent Research Papers Using SwanLab:**
 
