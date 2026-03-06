@@ -1,31 +1,22 @@
-# 在此处完成python项目的配置以及依赖安装
-[build-system]  # 指定构建系统与一些依赖
-requires = [
-    "hatchling",
-    "hatch-requirements-txt",
-    "hatch-fancy-pypi-readme>=22.5.0",
-]
-build-backend = "hatchling.build"
-
-
 [project]
-name = "swanlab" # 项目名称
-dynamic = ["version", "dependencies", "optional-dependencies", "readme"] # 动态配置版本，依赖，可选依赖，readme
-description = "Python library for streamlined tracking and management of AI training processes." # 项目描述
-license = "Apache-2.0" # 项目许可证
-requires-python = ">=3.8" # python版本要求，我们只维护python3.8以上版本
-authors = [# 项目作者
+name = "swanlab"
+dynamic = ["readme", "version"]
+license = "Apache-2.0"
+description = "Python library for streamlined tracking and management of AI training processes."
+requires-python = ">=3.8"
+authors = [
     { name = "Cunyue", email = "team@swanhub.co" },
-    { name = "Feudalman", email = "team@swanhub.co" },
     { name = "ZeYi Lin", email = "team@swanhub.co" },
-    { name = "KashiwaByte", email = "team@swanhub.co" },
+    { name = "Kaikaikaifang", email = "team@swanhub.co" },
+    { name = "Feudalman", email = "team@swanhub.co" },
 ]
-keywords = [# 项目关键词
+keywords = [
     "machine learning",
     "reproducibility",
     "visualization"
 ]
-classifiers = [# 项目分类
+
+classifiers = [
     'Development Status :: 3 - Alpha',
     'License :: OSI Approved :: Apache Software License',
     'Operating System :: OS Independent',
@@ -40,76 +31,167 @@ classifiers = [# 项目分类
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
     'Topic :: Scientific/Engineering :: Visualization',
 ]
-[project.scripts] # 项目脚本
-swanlab = "swanlab.cli:cli" # 项目命令行工具(可添加多个)
 
-[project.urls] # 项目链接
+dependencies = [
+    "urllib3>=1.26.0",
+    "requests>=2.28.0",
+    "setuptools",
+    "click",
+    "pyyaml",
+    "psutil>=5.0.0",
+    "nvidia-ml-py",
+    "pydantic~=2.0",
+    "pyecharts>=2.0.0",
+    "wrapt>=1.17.0",
+    "platformdirs>=4.2.0",
+    "typing_extensions; python_version < '3.9'",
+    "protobuf>=3.12.0,!=4.21.0,!=5.28.0,<7; python_version < '3.9' and sys_platform == 'linux'",
+    "protobuf>=3.15.0,!=4.21.0,!=5.28.0,<7; python_version == '3.9' and sys_platform == 'linux'",
+    "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; python_version > '3.9' and sys_platform == 'linux'",
+    "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; sys_platform != 'linux'",
+    "rich>=13.6.0,<14.0.0",
+    "pydantic-settings>=2.8.1",
+]
+
+# 对应 requirements-media.txt 和 requirements-dashboard.txt [cite: 3, 5]
+[project.optional-dependencies]
+media = [
+    "soundfile",
+    "pillow",
+    "matplotlib",
+    "numpy",
+    "moviepy",
+    "imageio[ffmpeg]",
+    "rdkit",
+]
+dashboard = [
+    "swanboard==0.1.9b3",
+]
+
+[dependency-groups]
+dev = [
+    "build",
+    "pytest",
+    "pytest-mock",
+    "nanoid",
+    "omegaconf",
+    "ipython",
+    "ipython<8.13; python_version < '3.9'",
+    "ipykernel",
+    "torch",
+    "torchvision",
+    "pandas",
+    "python-dotenv",
+    "freezegun",
+    "responses",
+    "requests-mock==1.12.1",
+    "mmengine",
+    "grpcio-tools",
+    "wandb",
+    "ruff>=0.15.4",
+    "pre-commit>=3.5.0",
+    "pyright>=1.1.408",
+]
+
+[project.scripts]
+swanlab = "swanlab.cli:cli"
+
+[project.urls]
 "Homepage" = "https://swanlab.cn"
 "Source" = "https://github.com/SwanHubX/SwanLab"
 "Bug Reports" = "https://github.com/SwanHubX/SwanLab/issues"
 "Documentation" = "https://docs.swanlab.cn/zh/guide_cloud/general/what-is-swanlab.html"
 
-[tool.hatch.version] # 动态设置项目版本
-path = "swanlab/package.json"  # package.json文件，从中获取版本号
+[build-system]
+requires = ["hatchling", "hatch-fancy-pypi-readme>=22.5.0"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch.version]
+path = "swanlab/package.json"
 pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
-[tool.hatch.metadata.hooks.requirements_txt]
-filename = "requirements.txt"
-
-[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
-media = ["requirements-media.txt"]  # pip install "swanlab[meida]"
-dashboard = ["requirements-dashboard.txt"]  # pip install "swanlab[dashboard]"
-
-[tool.hatch.metadata.hooks.fancy-pypi-readme]  # 动态设置readme
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置readme中的图片链接，渲染为html格式，gradio设置了，暂时不知道有什么用
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = "(readme_files)/"
 replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
 
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置中文README跳转规则
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = "README_en.md"
 replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_en.md'
 
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]  # 动态设置README跳转规则
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = "README.md"
 replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
 
-[tool.hatch.build]
-artifacts = [
-    "*.json",
-    "*.pyi", # 类型提示文件
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
 ]
-
-
-[tool.hatch.build.targets.sdist]  # 在执行构建之前，将一些必要文件拷贝到虚拟环境中，以便构建，此时已经完成了vue的编译
-include = [
-    "/swanlab",
-    "/test", # 包含一些测试脚本，确保测试成功
-    "/README.md", # 包含readme
-    "/requirements.txt", # 包含依赖
-    "/requirements-media.txt", # 包含可选依赖
-    "/requirements-dashboard.txt", # 包含可选依赖
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["swanlab"]  # 指定项目包名
-
-[tool.pyright] # 静态类型检查，暂时没有配置
-include = ["swanlab/**/*.py"]  # 检查的文件
-exclude = []  # 排除的文件
-
-[tool.ruff]  # 代码风格检查，暂时没有配置
-target-version = "py37"
-extend-select = ["B", "C", "I", "N", "SIM", "UP"]
-ignore = []
-
-
-# black配置，与构建无关
-[tool.black]
 line-length = 120
-skip-string-normalization = true
+indent-width = 4
+target-version = "py38"
 
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default, and isort (`I`).
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = []
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+testpaths = ["test/unit"]
+python_files = "test_*.py"
+python_functions = "test_*"
+python_classes = "Test*"
