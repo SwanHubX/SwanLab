@@ -38,6 +38,7 @@ from swanlab.log import swanlog as swl
 from swanlab.data.porter import DataPorter
 from swanlab.env import create_time
 from swanlab.toolkit import ColumnInfo, ChartType
+from swanlab.echarts import table as swanlab_table
 
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress import ProgressColumn
@@ -402,6 +403,22 @@ class WandbLocalConverter:
                         path = os.path.join(files_root_dir, value.get("path", ""))
                         if os.path.exists(path) and media_type == "image-file":
                             media_dict[key] = swanlab.Image(path)
+                        elif media_type == "table-file" and os.path.exists(path):
+                            try:
+                                with open(path, 'r', encoding='utf-8') as f:
+                                    table_data = _json_loads(f.read())
+                                columns = table_data.get("columns", [])
+                                data = table_data.get("data", [])
+                                # Filter text-only columns
+                                text_col_indices = [i for i, col in enumerate(columns) if not any(
+                                    isinstance(row[i], dict) and "_type" in row[i] for row in data if i < len(row)
+                                )]
+                                if text_col_indices:
+                                    filtered_cols = [columns[i] for i in text_col_indices]
+                                    filtered_data = [[row[i] for i in text_col_indices if i < len(row)] for row in data]
+                                    media_dict[key] = swanlab_table(filtered_data, filtered_cols)
+                            except Exception:
+                                pass
 
                 if scalar_dict or media_dict:
                     if scalar_dict:
