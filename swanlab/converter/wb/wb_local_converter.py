@@ -34,11 +34,11 @@ from typing import Optional, List
 
 import yaml
 import swanlab
+from swanlab import echarts
 from swanlab.log import swanlog as swl
 from swanlab.data.porter import DataPorter
 from swanlab.env import create_time
 from swanlab.toolkit import ColumnInfo, ChartType
-from swanlab.echarts import table as swanlab_table
 
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress import ProgressColumn
@@ -144,6 +144,17 @@ class WandbLocalConverter:
                 swl.warning(f"Could not decode json for key '{key}': {item.value_json}")
         return mapping
 
+    def _filter_text_columns(self, columns, data):
+        """Filter out non-text columns (images, media) from table data."""
+        text_indices = [
+            i for i in range(len(columns))
+            if not any(isinstance(row[i], dict) and "_type" in row[i] for row in data if i < len(row))
+        ]
+        return (
+            [columns[i] for i in text_indices],
+            [[row[i] for i in text_indices if i < len(row)] for row in data]
+        )
+
     def _parse_run(self, run_dir: str):
         """Parses a single wandb run directory and converts it to a SwanLab run."""
         wandb_files = glob.glob(os.path.join(run_dir, "*.wandb"))
@@ -167,19 +178,20 @@ class WandbLocalConverter:
 
         # Direct-write state (bypasses swanlab_run.log() overhead for scalar metrics)
         porter = None           # set after swanlab.init()
-        _conv_column_kids = {}  # key -> kid str
-        _conv_epoch_counters = {}  # key -> cumulative epoch count
-        _upload_pre_count = [0]  # items uploaded before upload progress bar appears
-        _total_scalars_logged = [0]  # total scalar data points logged
+        column_kids = {}  # key -> kid str
+        epoch_counters = {}  # key -> cumulative epoch count
+        upload_pre_count = 0  # items uploaded before upload progress bar appears
+        total_scalars_logged = 0  # total scalar data points logged
 
         def _log_scalars_direct(scalars, step):
             """Write float scalars directly to the porter, bypassing log() overhead."""
+            nonlocal total_scalars_logged
             if not scalars or porter is None:
                 return
             for key in scalars:
-                if key not in _conv_column_kids:
-                    kid = len(_conv_column_kids)
-                    _conv_column_kids[key] = str(kid)
+                if key not in column_kids:
+                    kid = len(column_kids)
+                    column_kids[key] = str(kid)
                     split_key = key.split("/")
                     sname = split_key[0] if len(split_key) > 1 and split_key[0] else None
                     porter.trace_column(ColumnInfo(
@@ -187,10 +199,9 @@ class WandbLocalConverter:
                         chart_type=ChartType.LINE, chart_reference='STEP',
                         section_name=sname, section_type="PUBLIC",
                     ))
-            for key in scalars:
-                _conv_epoch_counters[key] = _conv_epoch_counters.get(key, 0) + 1
-            _total_scalars_logged[0] += len(scalars)
-            porter.trace_scalars_step(step, scalars, dict(_conv_epoch_counters), create_time())
+                epoch_counters[key] = epoch_counters.get(key, 0) + 1
+            total_scalars_logged += len(scalars)
+            porter.trace_scalars_step(step, scalars, dict(epoch_counters), create_time())
 
         def _finish_with_progress():
             """Run swanlab_run.finish() while showing a Rich upload progress bar."""
@@ -198,7 +209,7 @@ class WandbLocalConverter:
             if _pool is None:
                 swanlab_run.finish()
                 return
-            total = len(_conv_column_kids) + _total_scalars_logged[0]
+            total = len(column_kids) + total_scalars_logged
             up = Progress(
                 TextColumn("[bold green]{task.description}"),
                 BarColumn(bar_width=40),
@@ -207,32 +218,34 @@ class WandbLocalConverter:
                 TimeRemainingColumn(),
             )
             up.start()
-            t = up.add_task("Uploading to SwanLab", total=total, completed=_upload_pre_count[0])
+            t = up.add_task("Uploading to SwanLab", total=total, completed=upload_pre_count)
 
-            _last_completed = [_upload_pre_count[0]]
-            _stall_check_time = [time.time()]
+            last_completed = upload_pre_count
+            stall_check_time = time.time()
 
             def _upload_cb(n):
-                _last_completed[0] += n
-                _stall_check_time[0] = time.time()
+                nonlocal last_completed, stall_check_time
+                last_completed += n
+                stall_check_time = time.time()
                 up.update(t, advance=n)
 
             _pool.collector.upload_callback = _upload_cb
 
             # Monitor for stalls and update description
             import threading
-            _stop_monitor = [False]
+            stop_monitor = False
             def _monitor_stalls():
-                while not _stop_monitor[0]:
+                nonlocal stop_monitor
+                while not stop_monitor:
                     time.sleep(1)
-                    if _stop_monitor[0]:
+                    if stop_monitor:
                         break
-                    elapsed = time.time() - _stall_check_time[0]
-                    if elapsed > 5 and _last_completed[0] < total:
-                        remaining = total - _last_completed[0]
+                    elapsed = time.time() - stall_check_time
+                    if elapsed > 5 and last_completed < total:
+                        remaining = total - last_completed
                         batch_info = f"batch ~{min(1000, remaining)} items" if remaining > 0 else "final batch"
                         up.update(t, description=f"[bold yellow]Uploading to SwanLab (processing {batch_info}, {int(elapsed)}s)")
-                    elif _last_completed[0] < total:
+                    elif last_completed < total:
                         up.update(t, description="[bold green]Uploading to SwanLab")
 
             monitor_thread = threading.Thread(target=_monitor_stalls, daemon=True)
@@ -245,7 +258,7 @@ class WandbLocalConverter:
                 swanlab_run.finish()
             finally:
                 swl.info = _orig_info
-                _stop_monitor[0] = True
+                stop_monitor = True
             up.update(t, completed=total, description="[bold green]Uploading to SwanLab")
             up.stop()
 
@@ -284,7 +297,8 @@ class WandbLocalConverter:
             # Set pre-count callback: track items uploaded during parse before the upload bar appears
             if porter is not None and porter._pool is not None:
                 def _pre_upload_cb(n):
-                    _upload_pre_count[0] += n
+                    nonlocal upload_pre_count
+                    upload_pre_count += n
                 porter._pool.collector.upload_callback = _pre_upload_cb
 
             # 恢复进度条
@@ -370,55 +384,68 @@ class WandbLocalConverter:
                 initialize_swanlab_run_if_needed()
                 scalar_dict = {}
                 media_dict = {}
+                grouped_items = {}
                 step = 0
-                # Single-pass: parse proto items directly, fast-path float() for scalars
+                # First pass: group items by base key
                 for item in record_pb.history.item:
                     key = item.key or '/'.join(item.nested_key)
                     if not key:
                         continue
-                    vj = item.value_json
+                    value_json = item.value_json
                     if key == '_step':
                         try:
-                            step = int(float(vj))
+                            step = int(float(value_json))
                         except (ValueError, TypeError):
                             pass
                         continue
                     if key.startswith('_'):
                         continue
-                    # Fast path: direct float conversion (avoids full JSON parse for scalars)
-                    try:
-                        scalar_dict[key] = float(vj)
-                        continue
-                    except (ValueError, TypeError):
-                        pass
-                    # Slow path: full JSON parse for complex types (media, etc.)
-                    try:
-                        value = _json_loads(vj)
-                    except (ValueError, Exception):
-                        continue
-                    if isinstance(value, int):
-                        scalar_dict[key] = float(value)
-                    elif isinstance(value, dict) and "_type" in value:
-                        media_type = value["_type"]
-                        path = os.path.join(files_root_dir, value.get("path", ""))
-                        if os.path.exists(path) and media_type == "image-file":
-                            media_dict[key] = swanlab.Image(path)
-                        elif media_type == "table-file" and os.path.exists(path):
+                    # Check if key has nested structure (e.g., "table/_type")
+                    if '/' in key:
+                        base_key, sub_key = key.split('/', 1)
+                        if base_key not in grouped_items:
+                            grouped_items[base_key] = {}
+                        try:
+                            grouped_items[base_key][sub_key] = _json_loads(value_json)
+                        except (ValueError, Exception):
+                            grouped_items[base_key][sub_key] = value_json
+                    else:
+                        # Fast path: direct float conversion for scalars
+                        try:
+                            scalar_dict[key] = float(value_json)
+                            continue
+                        except (ValueError, TypeError):
+                            pass
+                        # Slow path: full JSON parse
+                        try:
+                            value = _json_loads(value_json)
+                            if isinstance(value, int):
+                                scalar_dict[key] = float(value)
+                        except (ValueError, Exception):
+                            pass
+
+                # Second pass: process grouped items for tables and media
+                for base_key, props in grouped_items.items():
+                    if props.get('_type') == 'table-file' and 'path' in props:
+                        path = os.path.join(files_root_dir, props['path'])
+                        if os.path.exists(path):
                             try:
                                 with open(path, 'r', encoding='utf-8') as f:
                                     table_data = _json_loads(f.read())
                                 columns = table_data.get("columns", [])
                                 data = table_data.get("data", [])
                                 # Filter text-only columns
-                                text_col_indices = [i for i, col in enumerate(columns) if not any(
-                                    isinstance(row[i], dict) and "_type" in row[i] for row in data if i < len(row)
-                                )]
-                                if text_col_indices:
-                                    filtered_cols = [columns[i] for i in text_col_indices]
-                                    filtered_data = [[row[i] for i in text_col_indices if i < len(row)] for row in data]
-                                    media_dict[key] = swanlab_table(filtered_data, filtered_cols)
-                            except Exception:
-                                pass
+                                filtered_cols, filtered_data = self._filter_text_columns(columns, data)
+                                if filtered_cols:
+                                    table = echarts.Table()
+                                    table.add(filtered_cols, filtered_data)
+                                    media_dict[base_key] = table
+                            except Exception as e:
+                                swl.warning(f"Failed to parse table from {path}: {e}")
+                    elif props.get('_type') == 'image-file' and 'path' in props:
+                        path = os.path.join(files_root_dir, props['path'])
+                        if os.path.exists(path):
+                            media_dict[base_key] = swanlab.Image(path)
 
                 if scalar_dict or media_dict:
                     if scalar_dict:
@@ -433,16 +460,12 @@ class WandbLocalConverter:
                 # would result in N redundant log calls (N = number of steps).
                 for item in record_pb.summary.update:
                     key = item.key or '/'.join(item.nested_key)
-                    if not key or key.startswith('_'):
+                    if not key or key.startswith('_') or '/' in key:
                         continue
                     try:
                         last_summary[key] = float(item.value_json)
                     except (ValueError, TypeError):
                         pass
-
-            # 清理公共变量，释放内存
-            del record_pb
-            del record_bin
 
             # GC every GC_INTERVAL records to reduce overhead
             record_count += 1
