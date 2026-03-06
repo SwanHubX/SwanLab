@@ -56,9 +56,12 @@ def test_merge_settings_dict_deep_update():
 def test_merge_settings_object_exclude_unset(tmp_path, monkeypatch):
     """测试对象合并，确保未设置的默认值不会覆盖已有配置"""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
     settings = Settings(api_key="current_key")
+    assert settings.api_key == "current_key"
 
     # 用户只传入了 log_dir，没有设置 metadata 和 api_key
+    monkeypatch.delenv("SWANLAB_API_KEY")
     new_settings = Settings(log_dir=Path("./new_log"))
     settings.merge_settings(new_settings)
 
