@@ -144,12 +144,23 @@ class WandbLocalConverter:
                 swl.warning(f"Could not decode json for key '{key}': {item.value_json}")
         return mapping
 
+    def _validate_path(self, base_dir: str, file_path: str) -> Optional[str]:
+        """Validate that file_path stays within base_dir to prevent path traversal."""
+        if not file_path:
+            return None
+        abs_base = os.path.abspath(base_dir)
+        abs_path = os.path.abspath(os.path.join(base_dir, file_path))
+        if not abs_path.startswith(abs_base + os.sep) and abs_path != abs_base:
+            swl.warning(f"Path traversal attempt detected: {file_path}")
+            return None
+        return abs_path
+
     def _filter_text_columns(self, columns, data):
         """Filter out non-text columns (images, media) from table data."""
-        text_indices = [
-            i for i in range(len(columns))
-            if not any(isinstance(row[i], dict) and "_type" in row[i] for row in data if i < len(row))
-        ]
+        non_text_indices = {
+            i for row in data for i, cell in enumerate(row) if isinstance(cell, dict) and "_type" in cell
+        }
+        text_indices = [i for i in range(len(columns)) if i not in non_text_indices]
         return (
             [columns[i] for i in text_indices],
             [[row[i] for i in text_indices if i < len(row)] for row in data]
@@ -421,16 +432,23 @@ class WandbLocalConverter:
                             value = _json_loads(value_json)
                             if isinstance(value, int):
                                 scalar_dict[key] = float(value)
+                            elif isinstance(value, dict) and "path" in value:
+                                validated_path = self._validate_path(files_root_dir, value["path"])
+                                if validated_path and os.path.exists(validated_path):
+                                    if value.get("_type") == "image-file":
+                                        media_dict[key] = swanlab.Image(validated_path)
+                                    elif value.get("_type") == "audio-file":
+                                        media_dict[key] = swanlab.Audio(validated_path)
                         except (ValueError, Exception):
                             pass
 
                 # Second pass: process grouped items for tables and media
                 for base_key, props in grouped_items.items():
                     if props.get('_type') == 'table-file' and 'path' in props:
-                        path = os.path.join(files_root_dir, props['path'])
-                        if os.path.exists(path):
+                        validated_path = self._validate_path(files_root_dir, props['path'])
+                        if validated_path and os.path.exists(validated_path):
                             try:
-                                with open(path, 'r', encoding='utf-8') as f:
+                                with open(validated_path, 'r', encoding='utf-8') as f:
                                     table_data = _json_loads(f.read())
                                 columns = table_data.get("columns", [])
                                 data = table_data.get("data", [])
@@ -441,11 +459,15 @@ class WandbLocalConverter:
                                     table.add(filtered_cols, filtered_data)
                                     media_dict[base_key] = table
                             except Exception as e:
-                                swl.warning(f"Failed to parse table from {path}: {e}")
+                                swl.warning(f"Failed to parse table from {validated_path}: {e}")
                     elif props.get('_type') == 'image-file' and 'path' in props:
-                        path = os.path.join(files_root_dir, props['path'])
-                        if os.path.exists(path):
-                            media_dict[base_key] = swanlab.Image(path)
+                        validated_path = self._validate_path(files_root_dir, props['path'])
+                        if validated_path and os.path.exists(validated_path):
+                            media_dict[base_key] = swanlab.Image(validated_path)
+                    elif props.get('_type') == 'audio-file' and 'path' in props:
+                        validated_path = self._validate_path(files_root_dir, props['path'])
+                        if validated_path and os.path.exists(validated_path):
+                            media_dict[base_key] = swanlab.Audio(validated_path)
 
                 if scalar_dict or media_dict:
                     if scalar_dict:
@@ -475,12 +497,6 @@ class WandbLocalConverter:
         # 关闭进度条
         if progress is not None:
             progress.stop()
-
-        # Log 最终的 summary 数据（只 log 一次，避免对每条 summary record 都 log）
-        if last_summary:
-            initialize_swanlab_run_if_needed()
-            if swanlab_run:
-                _log_scalars_direct(last_summary, last_summary_step)
 
         if swanlab_run:
             swl.info(f"Finished Parsing run: {run_metadata['name']}")
