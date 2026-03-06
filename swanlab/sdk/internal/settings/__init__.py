@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     * `offline`: Run SwanLab in offline mode.
     """
 
-    save_dir: DirectoryPath = Field(default=Path("~/.swanlab"), validate_default=True)
+    save_dir: DirectoryPath = Field(default=Path.home() / ".swanlab", validate_default=True)
     """
     Directory for SwanLab saved files.
     """
