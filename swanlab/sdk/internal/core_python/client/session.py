@@ -14,6 +14,8 @@ from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from swanlab.sdk.internal.core_python.client.helper import decode_error_response
+from swanlab.sdk.pkg.exceptions import ApiError
 from swanlab.sdk.pkg.version import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
@@ -76,21 +78,22 @@ class SessionWithRetry(Session):
         # 调用父类（或 Adapter）获取响应
         response = super().send(request, **kwargs)
 
-        # 1. 记录日志
-        method = (response.request.method or "UNKNOWN").upper()
-        # 这里可以使用你定义的 console 对象
-        # console.debug(f"HTTP Request: {method} {response.url} | Status: {response.status_code}")
+        # 1. 2xx 响应直接放行
+        if response.ok:
+            return response
 
-        # 2. 统一错误处理：如果状态码不为 2xx，直接抛出异常
-        if not response.ok:
-            # 你可以在这里封装更详细的 ApiError
-            raise Exception(
-                response,
-                f"Trace id: {response.headers.get('traceid')} {method} {response.url}",
-                f"{response.status_code} {response.reason}",
-            )
+        # 2. 准备 Fallback 默认值
+        trace_id = response.headers.get("traceid", "unknown")
+        error_code = "unknown code"
+        error_message = "unknown error"
 
-        return response
+        # 3. 尝试解码后端详细错误信息（安全调用，失败返回 None）
+        decoded = decode_error_response(response)
+        if decoded is not None:
+            error_code, error_message = decoded
+
+        # 4. 抛出友好的自定义 ApiError
+        raise ApiError(response=response, code=error_code, message=error_message, trace_id=trace_id)
 
     # ---------------------------------- 类型提示占位符，保留以保证 IDE 友好 ----------------------------------
 

@@ -87,7 +87,6 @@ dev = [
     "python-dotenv",
     "freezegun",
     "responses",
-    "requests-mock>=1.12.1",
     "mmengine",
     "grpcio-tools",
     "wandb",

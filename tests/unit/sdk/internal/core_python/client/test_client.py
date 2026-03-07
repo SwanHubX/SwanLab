@@ -29,28 +29,15 @@ def mock_url():
 
 @pytest.fixture
 def mock_login():
-    """
-    Mock 掉底层的登录接口，避免发起真实的 HTTP 请求。
-    使用 yield 确保测试结束后自动清理 Mock 状态。
-    """
     patcher = patch("swanlab.sdk.internal.core_python.client.login_by_api_key")
     mock_func = patcher.start()
-
-    # 配置模拟的返回值
-    mock_func.return_value = {"sid": "mock-token-123", "expiredAt": "2030-01-01T00:00:00.000Z"}
-
+    mock_func.return_value = {"sid": "mock-token-123", "expiredAt": "2999-01-01T00:00:00.000Z"}
     yield mock_func
-
-    # 测试结束，停止 Mock
     patcher.stop()
 
 
 @pytest.fixture
 def client(mock_login, mock_url):
-    """
-    提供一个已经初始化、并且鉴权被 Mock 的 Client 实例。
-    """
-    _ = mock_login
     return Client(api_key="test-key", base_url=mock_url)
 
 
@@ -137,25 +124,30 @@ def test_global_proxy_functions(mock_login, mock_url):
 # -------------------------------------------------------------------
 
 
-def test_retry_default_on_server_error(client, requests_mock, mock_url):
+@responses.activate()
+def test_retry_default_on_server_error(client, mock_url):
     """默认重试：服务端持续返回 500，最终应抛出异常（而非静默失败）"""
     client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
     # 注册一个始终返回 500 的端点
-    requests_mock.get(mock_url + "/health", status_code=500)
+    responses.add(responses.GET, mock_url + "/health", status=500)
 
     with pytest.raises(Exception):
         client.get("/health")
 
+    assert len(responses.calls) == 6
 
-def test_retry_custom_zero_disables_retry(client, requests_mock, mock_url):
+
+@responses.activate()
+def test_retry_custom_zero_disables_retry(client, mock_url):
     """retries=0：禁用重试，第一次失败后立即抛出，调用次数恰好为 1"""
     client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
-    requests_mock.post(mock_url + "/run", status_code=503)
+    responses.add(responses.POST, mock_url + "/run", status=503)
 
     with pytest.raises(Exception):
         client.post("/run", data={"name": "test"}, retries=0)
 
-    assert requests_mock.call_count == 1
+    # 优化：验证 calls 的长度
+    assert len(responses.calls) == 1
 
 
 @responses.activate()
