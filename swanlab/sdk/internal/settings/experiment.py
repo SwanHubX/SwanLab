@@ -8,12 +8,18 @@
 
 import json
 import os
-from typing import Annotated, Any, List, Literal, cast
+import sys
+from typing import Any, List, Literal, cast
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import NoDecode
 
-from swanlab.sdk.types.run import ResumeType
+from swanlab.sdk.typing.run import ResumeType
 
 
 def project_name_factory() -> str:
