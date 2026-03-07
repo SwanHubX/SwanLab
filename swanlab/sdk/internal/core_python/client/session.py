@@ -130,6 +130,7 @@ def create(timeout: int = 60, default_retry: int = 5) -> SessionWithRetry:
         backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+        raise_on_status=False,
     )
 
     adapter = TimeoutHTTPAdapter(max_retries=retry_strategy, timeout=timeout)
