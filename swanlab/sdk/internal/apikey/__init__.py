@@ -36,7 +36,8 @@ def _get_or_none() -> Optional[str]:
         info = nrc.authenticators(host + "/api")
         if info is not None:
             nrc.hosts = {host: info}
-            open(nrc_path, "w").write(repr(nrc))
+            with open(nrc_path, "w") as f:
+                f.write(repr(nrc))
 
     if info is None:
         return None
@@ -65,7 +66,8 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
         # 同时只允许存在一个host： https://github.com/SwanHubX/SwanLab/issues/797
         nrc.hosts = {host: new_info}
-        open(nrc_path, "w").write(repr(nrc))
+        with open(nrc_path, "w") as f:
+            f.write(repr(nrc))
     current_settings.merge_settings({"api_key": api_key})
 
 
