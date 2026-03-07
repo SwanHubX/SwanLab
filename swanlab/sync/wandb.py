@@ -1,4 +1,5 @@
 import swanlab
+from swanlab.log import swanlog as swl
 
 def _extract_args(args, kwargs, param_names):
     """
@@ -62,6 +63,8 @@ def sync_wandb(
     try:
         import wandb
         from wandb import sdk as wandb_sdk
+        from wandb import Image as WandbImage
+        WANDB_IMAGE_AVAILABLE = True
     except ImportError:
         raise ImportError("please install wandb first, command: `pip install wandb`")
     
@@ -94,9 +97,7 @@ def sync_wandb(
         
         if wandb_run is False:
             kwargs["mode"] = "offline"
-            return original_init(*args, **kwargs)
-        else:
-            return original_init(*args, **kwargs)
+        return original_init(*args, **kwargs)
 
     def patched_config_update(self, *args, **kwargs):
         d, _ = _extract_args(args, kwargs, ['d', 'allow_val_change'])
@@ -107,45 +108,51 @@ def sync_wandb(
 
     def patched_log(self, *args, **kwargs):
         data, step, commit, sync = _extract_args(args, kwargs, ['data', 'step', 'commit', 'sync'])
-        
+
         if data is None:
             return original_log(self, *args, **kwargs)
-        
+
+        # Import numpy once
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
+
         # 处理数据，支持 wandb.Image
         processed_data = {}
         for key, value in data.items():
             if isinstance(value, (int, float, bool, str)):
                 # 标量类型直接保留
                 processed_data[key] = value
-            elif hasattr(value, '__class__') and value.__class__.__name__ == 'Image' and hasattr(value, 'image'):
+            elif WANDB_IMAGE_AVAILABLE and isinstance(value, WandbImage):
                 # 检测是否为 wandb.Image
                 try:
+                    if np is None:
+                        swl.warning(f"numpy not available, skipping wandb.Image conversion for key '{key}'")
+                        continue
                     # 获取 wandb.Image 的图像数据
                     if value.image is not None:
-                        # 将 PIL Image 转换为 numpy 数组
-                        import numpy as np
                         img_array = np.array(value.image)
-                        
-                        # 创建 swanlab.Image
                         caption = getattr(value, '_caption', None)
                         swanlab_image = swanlab.Image(img_array, caption=caption)
                         processed_data[key] = swanlab_image
                     else:
                         # 如果 image 为 None，尝试使用 _image
                         if hasattr(value, '_image') and value._image is not None:
-                            import numpy as np
                             img_array = np.array(value._image)
                             caption = getattr(value, '_caption', None)
                             swanlab_image = swanlab.Image(img_array, caption=caption)
                             processed_data[key] = swanlab_image
                 except Exception as e:
                     # 如果转换失败，记录错误但继续处理其他数据
-                    print(f"Warning: Failed to convert wandb.Image for key '{key}': {e}")
+                    swl.warning(f"Failed to convert wandb.Image for key '{key}': {e}")
                     continue
-            elif isinstance(value, list) and value and hasattr(value[0], '__class__') and value[0].__class__.__name__ == 'Image':
+            elif isinstance(value, list) and value and WANDB_IMAGE_AVAILABLE and isinstance(value[0], WandbImage):
                 # 检测是否为 wandb.Image 列表
                 try:
-                    import numpy as np
+                    if np is None:
+                        swl.warning(f"numpy not available, skipping wandb.Image list conversion for key '{key}'")
+                        continue
                     swanlab_images = []
                     for v in value:
                         if hasattr(v, 'image') and v.image is not None:
@@ -160,7 +167,7 @@ def sync_wandb(
                         processed_data[key] = swanlab_images
                 except Exception as e:
                     # 如果转换失败，记录错误但继续处理其他数据
-                    print(f"Warning: Failed to convert wandb.Image list for key '{key}': {e}")
+                    swl.warning(f"Failed to convert wandb.Image list for key '{key}': {e}")
                     continue
         
         if processed_data:
