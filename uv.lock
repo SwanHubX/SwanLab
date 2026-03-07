@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.8"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'linux'",
@@ -6534,6 +6534,7 @@ dev = [
     { name = "nanoid" },
     { name = "omegaconf" },
     { name = "pandas" },
+    { name = "pre-commit" },
     { name = "pre-commit", specifier = ">=3.5.0" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest" },
