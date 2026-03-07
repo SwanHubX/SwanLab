@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/3/7 14:11
 @description: SwanLab SDK 版本信息
 """
@@ -13,7 +13,7 @@ import requests
 
 from swanlab.sdk.pkg.helper import catch_and_return_none
 
-package_path = Path(__file__).parent.parent.parent.parent / "package.json"
+package_path = Path(__file__).resolve().parents[3] / "package.json"
 
 
 def get_swanlab_version() -> str:

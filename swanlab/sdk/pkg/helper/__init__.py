@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/3/7 14:18
 @description: SwanLab SDK 辅助函数
 """

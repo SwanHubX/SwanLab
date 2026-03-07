@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/3/6 13:29
 @description: SwanLab SDK 运行模块，涉及：
 1. 数据处理

@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: __init__.py.py
+@file: __init__.py
 @time: 2026/3/5 14:35
 @description: SwanLab SDK，负责SwanLab库的核心指标上传功能
 """
