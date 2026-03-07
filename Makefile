@@ -1,4 +1,8 @@
-.PHONY: format test
+.PHONY:  init sync format test
+
+init:
+	uv sync --all-extras
+	pre-commit install
 
 sync:
 	uv sync --all-extras

@@ -13,7 +13,7 @@ from rich.status import Status
 from ..internal.context import get_context, has_context
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
-from ..typing.run import ModeType, ResumeType
+from ..typings.run import ModeType, ResumeType
 
 
 def with_loading_animation(message: str = "Initializing SwanLab...", spinner_name: str = "dots"):

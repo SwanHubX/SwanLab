@@ -19,7 +19,7 @@ else:
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import NoDecode
 
-from swanlab.sdk.typing.run import ResumeType
+from swanlab.sdk.typings.run import ResumeType
 
 
 def project_name_factory() -> str:

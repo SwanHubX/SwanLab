@@ -5,6 +5,8 @@
 @description: 测试 SwanLab 一些环境配置的向下兼容提取
 """
 
+from pathlib import Path
+
 from swanlab.sdk.internal.settings import Settings
 
 
@@ -19,12 +21,15 @@ def test_e2e_legacy_env_compatibility(monkeypatch):
         "SWANLAB_WEBHOOK_VALUE": "ping",
         "SWANLAB_DASHBOARD_HOST": "0.0.0.0",
         "SWANLAB_DASHBOARD_PORT": "9090",
+        "SWANLAB_SAVE_DIR": "/tmp/swanlab",
     }
     for k, v in envs.items():
         monkeypatch.setenv(k, v)
 
     # 核心：通过根 Settings 实例进行端到端加载
     s = Settings()
+    # 验证 root 的兼容映射
+    assert s.root == Path("/tmp/swanlab")
 
     # 验证 experiment 子模块的兼容映射
     assert s.experiment.name == "legacy_exp"

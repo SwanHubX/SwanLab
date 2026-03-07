@@ -20,6 +20,7 @@
 import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
@@ -31,7 +32,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from swanlab.sdk.typing.run import ModeType
+from swanlab.sdk.typings.run import ModeType
 
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
@@ -118,34 +119,48 @@ class Settings(BaseSettings):
     """
     API key for SwanLab services.
     """
-    api_url: str = Field(default="https://api.swanlab.cn/api")
+    api_host: str = Field(default="https://api.swanlab.cn")
     """
     Base URL for SwanLab API services.
     """
-    web_url: str = Field(default="https://swanlab.cn")
+    web_host: str = Field(default="https://swanlab.cn")
     """
     Base URL for SwanLab web services.
-    If you set `web_url`, `api_url` will be automatically derived from it.
+    It just a display URL for SwanLab web services, no actual effect on SDK behavior.
     """
 
     @model_validator(mode="before")
     @classmethod
-    def validate_urls(cls, data: Dict) -> Dict:
+    def validate_hosts(cls, data: Dict) -> Dict:
+        """
+        校验并清理 HOST 字段，确保它们以正确的格式存在
+        在设计上，api_host 是最基础URL，但是有时候展示的前端URL和后端URL可能不一致
+        所以在处理时，我们优先使用 api_host，然后根据需要（当没有显式配置 web_host 时）推导 web_host
+        """
         if isinstance(data, dict):
-            web_url: str = data.get("web_url", cls.model_fields["web_url"].default)
-            # 1. 当且仅当用户显式配置了 web_url，而没有显式配置 api_url
-            # 注意：在 before 模式下，我们要检查 data 这个字典里是否存在对应的 key
-            if "web_url" in data:
-                clean_web = web_url.rstrip("/")
-                data["web_url"] = clean_web
-                if "api_url" not in data:
-                    data["api_url"] = f"{clean_web}/api"
+            if "api_host" in data:
+                raw_api = str(data["api_host"]).strip().rstrip("/")
 
-            # 2. 统一处理 api_url 末尾的斜杠
-            # 即使是默认值，我们也需要处理它（如果 data 中没有，则取默认值处理）
-            current_api: str = data.get("api_url", cls.model_fields["api_url"].default)
-            if current_api and current_api.endswith("/"):
-                data["api_url"] = current_api.rstrip("/")
+                # 1. 如果没有携带协议头，默认拼接 https://
+                if not raw_api.startswith(("http://", "https://")):
+                    raw_api = f"https://{raw_api}"
+
+                # 2. 交给 urlparse 解析，此时必然有 scheme 和 netloc
+                parsed = urlparse(raw_api)
+                # 重新拼接，完美清除掉所有的 path/query 等冗余信息
+                clean_api = f"{parsed.scheme}://{parsed.netloc}"
+
+                # 将纯净的 URL 写回
+                data["api_host"] = clean_api
+
+                # 3. 当且仅当没有显式配置 web_host 时，自动推导 web_host
+                if "web_host" not in data:
+                    data["web_host"] = clean_api
+
+            # 统一处理 web_host 末尾的斜杠
+            current_web: str = data.get("web_host", cls.model_fields["web_host"].default)
+            if current_web and current_web.endswith("/"):
+                data["web_host"] = current_web.rstrip("/")
 
         return data
 
