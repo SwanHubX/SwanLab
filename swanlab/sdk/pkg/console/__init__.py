@@ -5,9 +5,8 @@
 @description: SwanLab SDK 控制台日志模块，负责打印日志
 """
 
-from re import escape
-
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 
 from swanlab.sdk.internal.pkg.settings import get_current_settings
