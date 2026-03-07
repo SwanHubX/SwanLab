@@ -13,13 +13,15 @@
 在设计上 Settings 仅是与用户交互的配置入口，不包含业务逻辑，这意味着仅检查必要的类型和格式和必要的默认值，不产生副作用：
 1. 文件夹创建
 2. 具体业务逻辑，如实验id生成与格式校验、实验名称长度校验等
+
+用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
 import os
 from pathlib import Path
-from typing import ClassVar, Dict, Optional, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
-from pydantic import DirectoryPath, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
@@ -68,21 +70,29 @@ class Settings(BaseSettings):
     * `offline`: Run SwanLab in offline mode.
     """
 
-    save_dir: DirectoryPath = Field(default=Path.home() / ".swanlab", validate_default=True)
+    @field_validator("mode", mode="before")
+    def validate_mode(cls, v: Any) -> ModeType:
+        if v in list(get_args(ModeType)):
+            return v
+        if v == "online":
+            return "cloud"
+        raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
+
+    save_dir: Path = Field(default=Path.home() / ".swanlab", validate_default=True)
     """
     Directory for SwanLab saved files.
     """
 
-    @field_validator("save_dir", mode="before")
-    def validate_save_dir(cls, v: Union[str, Path]) -> Path:
-        """在 Pydantic 校验它是 DirectoryPath 之前，先把它建出来"""
-        path_v = Path(v)
+    # @field_validator("save_dir", mode="before")
+    # def validate_save_dir(cls, v: Union[str, Path]) -> Path:
+    #     """在 Pydantic 校验它是 DirectoryPath 之前，先把它建出来"""
+    #     path_v = Path(v)
+    #
+    #     if not path_v.exists():
+    #         path_v.mkdir(parents=True, exist_ok=True)
+    #     return path_v
 
-        if not path_v.exists():
-            path_v.mkdir(parents=True, exist_ok=True)
-        return path_v
-
-    log_dir: Path = Field(default=Path("./swanlog"), validate_default=True)
+    log_dir: Path = Field(default=Path.cwd() / "swanlog", validate_default=True)
     """
     Directory for SwanLab logs.
     Semantically, this is just a path representation and the directory may NOT exist when loaded. 
