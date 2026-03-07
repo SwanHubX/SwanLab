@@ -44,7 +44,7 @@ dependencies = [
     "pyecharts>=2.0.0",
     "wrapt>=1.17.0",
     "platformdirs>=4.2.0",
-    "typing_extensions; python_version < '3.9'",
+    "typing_extensions>=4.0.0; python_version < '3.9'",
     "protobuf>=3.12.0,!=4.21.0,!=5.28.0,<7; python_version < '3.9' and sys_platform == 'linux'",
     "protobuf>=3.15.0,!=4.21.0,!=5.28.0,<7; python_version == '3.9' and sys_platform == 'linux'",
     "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; python_version > '3.9' and sys_platform == 'linux'",
@@ -62,7 +62,8 @@ media = [
     "numpy",
     "moviepy",
     "imageio[ffmpeg]",
-    "rdkit",
+    "rdkit>=2025.9.6; python_version > '3.9'",
+    "rdkit<=2023.9.6; python_version <= '3.9'",
 ]
 dashboard = [
     "swanboard==0.1.9b3",
@@ -75,11 +76,13 @@ dev = [
     "pytest-mock",
     "nanoid",
     "omegaconf",
-    "ipython",
+    "ipython; python_version >= '3.9'",
     "ipython<8.13; python_version < '3.9'",
     "ipykernel",
-    "torch",
-    "torchvision",
+    "torch>=2.5.0; python_version >= '3.9'",
+    "torch<=2.4.1; python_version < '3.9'",
+    "torchvision>=0.12.0; python_version >= '3.9'",
+    "torchvision<=0.12.0; python_version < '3.9'",
     "pandas",
     "python-dotenv",
     "freezegun",
@@ -191,7 +194,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.pytest.ini_options]
-testpaths = ["test/unit"]
+testpaths = ["tests/unit"]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"

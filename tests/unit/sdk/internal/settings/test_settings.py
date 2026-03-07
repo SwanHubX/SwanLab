@@ -15,8 +15,8 @@ from swanlab.sdk.internal.settings import Settings
 
 def test_path_validation(tmp_path):
     """测试默认值加载，以及路径是否会自动创建"""
-    settings = Settings(save_dir=Path(tmp_path) / "test", log_dir=Path(tmp_path) / "log")
-    assert not settings.save_dir.exists()
+    settings = Settings(root=Path(tmp_path) / "test", log_dir=Path(tmp_path) / "log")
+    assert not settings.root.exists()
     # log_dir 不会自动创建
     assert not settings.log_dir.exists()
 
