@@ -191,7 +191,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.pytest.ini_options]
-testpaths = ["test/unit"]
+testpaths = ["tests/unit"]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"
