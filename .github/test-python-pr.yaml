@@ -1,0 +1,35 @@
+name: Test When Python PR
+
+on:
+  pull_request:
+    paths:
+      - 'swanlab/**'
+      - 'test/**'
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # 设为 false，这样如果 Windows 挂了，Ubuntu 的测试依然会跑完，方便一次性排查所有系统的问题
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          # 开启缓存，进一步加速后续的 CI 运行
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests with pytest
+        # uv run 会自动识别当前的虚拟环境并执行 pytest
+        run: uv run pytest
