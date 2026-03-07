@@ -302,7 +302,7 @@ class SwanLabKey:
             section_type=section_type,
         )
         key_obj.column_info = column_info
-        # 5. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
+        # 5. 「同步云端最新 step」设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
         if step is not None:
             for i in range(step + 1):
                 key_obj.steps.add(i)
