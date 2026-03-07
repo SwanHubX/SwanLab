@@ -57,7 +57,7 @@ def _get_or_none() -> Optional[str]:
         info = nrc.authenticators(host + "/api")
         if info is not None:
             nrc.hosts = {host: info}
-            with open(nrc_path, "w") as f:
+            with open(nrc_path, "w", encoding="utf-8") as f:
                 f.write(repr(nrc))
 
     if info is None:
@@ -115,7 +115,7 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
         nrc.hosts = {host: new_info}
         try:
-            with open(nrc_path, "w") as f:
+            with open(nrc_path, "w", encoding="utf-8") as f:
                 f.write(repr(nrc))
             os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
         except OSError as e:
