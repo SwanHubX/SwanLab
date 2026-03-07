@@ -165,19 +165,21 @@ def init(
         run_settings.merge_settings(settings)
     # 3. 基于传入的参数，合并当前配置，此步骤必须在合并全局配置之后，因为传入的参数的优先级是高于全局配置的
     args_dict = compatible_kwargs({}, **kwargs)
-    set_nested_value(args_dict, "logdir", logdir)
-    set_nested_value(args_dict, "mode", mode)
-    set_nested_value(args_dict, "project.name", project)
-    set_nested_value(args_dict, "project.workspace", workspace)
-    set_nested_value(args_dict, "project.public", public)
-    set_nested_value(args_dict, "experiment.name", experiment_name)
-    set_nested_value(args_dict, "experiment.description", description)
-    set_nested_value(args_dict, "experiment.job_type", job_type)
-    set_nested_value(args_dict, "experiment.group", group)
-    set_nested_value(args_dict, "experiment.tags", tags)
-    set_nested_value(args_dict, "run.resume", resume)
-    set_nested_value(args_dict, "run.id", id)
-    run_settings.merge_settings(strip_none(args_dict))
+    for key, value in {
+        "logdir": logdir,
+        "mode": mode,
+        "project.name": project,
+        "project.workspace": workspace,
+        "project.public": public,
+        "experiment.name": experiment_name,
+        "experiment.description": description,
+        "experiment.job_type": job_type,
+        "experiment.group": group,
+        "experiment.tags": tags,
+        "run.resume": resume,
+        "run.id": id,
+    }.items():
+        set_nested_value(args_dict, key, value)
     # 4. 获取上下文中已有的配置
     if has_context():
         context_settings = get_context().config.settings
