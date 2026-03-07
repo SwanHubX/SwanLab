@@ -62,7 +62,7 @@ media = [
     "numpy",
     "moviepy",
     "imageio[ffmpeg]",
-"rdkit; python_version >= '3.9'",
+    "rdkit; python_version >= '3.9'",
     "rdkit<=2023.9.6; python_version < '3.9'",
 ]
 dashboard = [

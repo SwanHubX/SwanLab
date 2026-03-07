@@ -6,6 +6,7 @@
 """
 
 import netrc
+from pathlib import Path
 from typing import Optional
 
 from swanlab.sdk.internal.pkg.settings import get_current_settings
@@ -13,6 +14,17 @@ from swanlab.sdk.internal.pkg.settings import get_current_settings
 from .helper import get_nrc_path, remove_host_suffix
 
 __all__ = ["get", "save", "exists"]
+
+
+def create_nrc(path: Path) -> netrc.netrc:
+    try:
+        return netrc.netrc(path)
+    except (netrc.NetrcParseError, IsADirectoryError):
+        raise IOError(
+            f"Failed to access or parse netrc file at {path}. "
+            f"Please check if the path is a directory, has incorrect permissions, "
+            f"or contains syntax errors."
+        )
 
 
 def _get_or_none() -> Optional[str]:
@@ -27,7 +39,7 @@ def _get_or_none() -> Optional[str]:
     if not nrc_path.exists():
         return None
 
-    nrc = netrc.netrc(nrc_path)
+    nrc = create_nrc(nrc_path)
     host = remove_host_suffix(current_settings.api_url, "/api")
     info = nrc.authenticators(host)
 
@@ -59,7 +71,7 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     if not nrc_path.exists():
         current_settings.save_dir.mkdir(parents=True, exist_ok=True)
         nrc_path.touch()
-    nrc = netrc.netrc(nrc_path)
+    nrc = create_nrc(nrc_path)
     new_info = (username, "", api_key)
     # 避免重复的写
     info = nrc.authenticators(host)
