@@ -6530,7 +6530,7 @@ requires-dist = [
     { name = "setuptools" },
     { name = "soundfile", marker = "extra == 'media'" },
     { name = "swanboard", marker = "extra == 'dashboard'", specifier = "==0.1.9b3" },
-    { name = "typing-extensions", marker = "python_full_version < '3.9'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.9'", specifier = ">=4.0.0" },
     { name = "urllib3", specifier = ">=1.26.0" },
     { name = "wrapt", specifier = ">=1.17.0" },
 ]
