@@ -62,8 +62,8 @@ media = [
     "numpy",
     "moviepy",
     "imageio[ffmpeg]",
-    "rdkit>=2025.9.6; python_version >= '3.9'",
-    "rdkit<=2023.9.6; python_version < '3.9'",
+    "rdkit>=2025.9.6; python_version > '3.9'",
+    "rdkit<=2023.9.6; python_version <= '3.9'",
 ]
 dashboard = [
     "swanboard==0.1.9b3",
