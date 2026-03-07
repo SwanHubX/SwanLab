@@ -6,6 +6,8 @@
 """
 
 import netrc
+import os
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -36,7 +38,12 @@ def test_save_and_get_flow(mock_env):
 
     # 验证文件权限与内容
     assert nrc_file.exists()
-    assert (nrc_file.stat().st_mode & 0o777) == 0o600
+    # 权限校验：仅在非 Windows 系统上执行数值比对
+    if sys.platform != "win32":
+        assert (nrc_file.stat().st_mode & 0o777) == 0o600
+    else:
+        # Windows 上仅验证文件是否仍可读
+        assert os.access(nrc_file, os.R_OK)
 
     parsed_nrc = netrc.netrc(nrc_file)
     auth = parsed_nrc.authenticators("api.swanlab.cn")
