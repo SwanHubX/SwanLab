@@ -1,5 +1,6 @@
 import functools
 import swanlab
+from swanlab.log import swanlog as swl
 
 
 def _extract_args(args, kwargs, param_names):
@@ -69,7 +70,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
         )
 
         data = {tag: scalar_value}
-        swanlab.log(data=data, step=int(global_step))
+        swanlab.log(data=data, step=int(global_step) if global_step is not None else None)
 
         return original_add_scalar(self, *args, **kwargs)
 
@@ -83,42 +84,53 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
         )
         for dict_tag, value in scalar_value_dict.items():
             data = {f"{tag}/{dict_tag}": value}
-            swanlab.log(data=data, step=int(global_step))
+            swanlab.log(data=data, step=int(global_step) if global_step is not None else None)
         return original_add_scalars(self, *args, **kwargs)
 
     @functools.wraps(original_add_image)
     def patched_add_image(self, *args, **kwargs):
         if types_set is not None and 'image' not in types_set:
             return original_add_image(self, *args, **kwargs)
-        import numpy as np
+
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
+
+        if np is None:
+            swl.warning("numpy not available, skipping image conversion")
+            return original_add_image(self, *args, **kwargs)
 
         tag, img_tensor, global_step, dataformats = _extract_args(
             args, kwargs, ['tag', 'img_tensor', 'global_step', 'dataformats']
         )
-        dataformats = dataformats or 'CHW'  # 设置默认值
+        dataformats = dataformats or 'CHW'
 
-        # Convert to numpy array if it's a tensor
-        if hasattr(img_tensor, 'cpu'):
-            img_tensor = img_tensor.cpu()
-        if hasattr(img_tensor, 'numpy'):
-            img_tensor = img_tensor.numpy()
+        try:
+            # Convert to numpy array if it's a tensor
+            if hasattr(img_tensor, 'cpu'):
+                img_tensor = img_tensor.cpu()
+            if hasattr(img_tensor, 'numpy'):
+                img_tensor = img_tensor.numpy()
 
-        # Handle different input formats
-        if dataformats == 'CHW':
-            # Convert CHW to HWC for swanlab
-            img_tensor = np.transpose(img_tensor, (1, 2, 0))
-        elif dataformats == 'NCHW':
-            # Take first image if batch dimension exists and convert to HWC
-            img_tensor = np.transpose(img_tensor, (1, 2, 0))
-        elif dataformats == 'HW':
-            # Add channel dimension for grayscale
-            img_tensor = np.expand_dims(img_tensor, axis=-1)
-        elif dataformats == 'HWC':
-            # Already in correct format
-            pass
+            # Handle different input formats
+            if dataformats == 'CHW':
+                # Convert CHW to HWC for swanlab
+                img_tensor = np.transpose(img_tensor, (1, 2, 0))
+            elif dataformats == 'NCHW':
+                # Take first image if batch dimension exists and convert to HWC
+                img_tensor = np.transpose(img_tensor[0], (1, 2, 0))
+            elif dataformats == 'HW':
+                # Add channel dimension for grayscale
+                img_tensor = np.expand_dims(img_tensor, axis=-1)
+            elif dataformats == 'HWC':
+                # Already in correct format
+                pass
 
-        data = {tag: swanlab.Image(img_tensor)}
-        swanlab.log(data=data, step=int(global_step))
+            data = {tag: swanlab.Image(img_tensor)}
+            swanlab.log(data=data, step=int(global_step) if global_step is not None else None)
+        except Exception as e:
+            swl.warning(f"Failed to convert image for tag '{tag}': {e}")
 
         return original_add_image(self, *args, **kwargs)
 
@@ -130,7 +142,7 @@ def _create_patched_methods(SummaryWriter, logdir_extractor, types=None):
             args, kwargs, ['tag', 'text_string', 'global_step']
         )
         data = {tag: swanlab.Text(text_string)}
-        swanlab.log(data=data, step=int(global_step))
+        swanlab.log(data=data, step=int(global_step) if global_step is not None else None)
         return original_add_text(self, *args, **kwargs)
 
     def patched_close(self):
