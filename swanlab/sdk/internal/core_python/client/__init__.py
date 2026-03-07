@@ -75,6 +75,7 @@ class Client:
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
             tzinfo=timezone.utc
         )
+        return None
 
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""
@@ -84,6 +85,7 @@ class Client:
         if (self._expired_at - datetime.now(timezone.utc)).total_seconds() <= self.REFRESH_TIME:
             console.debug("Session is about to expire. Triggering token refresh.")
             self._refresh_auth()
+        return None
 
     # ---------------------------------- 实例 HTTP 方法 ----------------------------------
     def request(self, method: str, url: str, **kwargs):
