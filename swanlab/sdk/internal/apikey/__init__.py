@@ -6,6 +6,8 @@
 """
 
 import netrc
+import os
+import stat
 from pathlib import Path
 from typing import Optional
 
@@ -68,10 +70,24 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     if host is None:
         host = remove_host_suffix(current_settings.api_url, "/api")
     nrc_path = get_nrc_path()
+
+    # 确保目录存在
+    current_settings.save_dir.mkdir(parents=True, exist_ok=True)
+
+    # 如果文件不存在，创建并设置安全权限
     if not nrc_path.exists():
-        current_settings.save_dir.mkdir(parents=True, exist_ok=True)
-        nrc_path.touch()
-    nrc = create_nrc(nrc_path)
+        nrc_path.touch(mode=0o600)  # 仅所有者可读写
+    else:
+        # 如果文件已存在，确保权限正确
+        os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+
+    # 尝试解析或创建新的 netrc 对象
+    try:
+        nrc = netrc.netrc(nrc_path)
+    except netrc.NetrcParseError:
+        # 文件损坏或为空，创建新的 netrc 对象
+        nrc = netrc.netrc()
+
     new_info = (username, "", api_key)
     # 避免重复的写
     info = nrc.authenticators(host)
@@ -80,6 +96,9 @@ def save(username: str, api_key: str, host: Optional[str] = None):
         nrc.hosts = {host: new_info}
         with open(nrc_path, "w") as f:
             f.write(repr(nrc))
+        # 再次确保权限正确（以防 open 重置了权限）
+        os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
+
     current_settings.merge_settings({"api_key": api_key})
 
 
