@@ -55,7 +55,11 @@ def test_save_and_get_from_netrc(mock_env):
     # 验证文件是否正确生成并包含了正确的格式
     assert nrc_file.exists()
     parsed_nrc = netrc.netrc(nrc_file)
-    assert parsed_nrc.authenticators("api.swanlab.cn") == ("test_user", "", "test-key-from-file")
+    auth = parsed_nrc.authenticators("api.swanlab.cn")
+    assert auth is not None
+    # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+    # assert parsed_nrc.authenticators("api.swanlab.cn") == ("test_user", "", "test-key-from-file")
+    assert (auth[0], auth[2]) == ("test_user", "test-key-from-file")
 
     # 验证内存中的 settings 被更新
     mock_settings.merge_settings.assert_called_once_with({"api_key": "test-key-from-file"})
