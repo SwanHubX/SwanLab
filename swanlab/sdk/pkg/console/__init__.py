@@ -5,6 +5,8 @@
 @description: SwanLab SDK 控制台日志模块，负责打印日志
 """
 
+from re import escape
+
 from rich.console import Console
 from rich.text import Text
 
@@ -60,8 +62,9 @@ def _print_formatted(level_name: str, *args, **kwargs):
 
     if kwargs.get("sep") == "":
         prefix_text.append(" ")
-
-    _console.print(prefix_text, *args, **kwargs)
+    # 对 args 里的每一个字符串进行转义
+    safe_args = [escape(str(arg)) if isinstance(arg, str) else arg for arg in args]
+    _console.print(prefix_text, *safe_args, **kwargs)
 
 
 # -----------------------------------------------------------------------------

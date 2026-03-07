@@ -104,7 +104,7 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     try:
         # 即使文件为空，部分版本的 netrc() 也会报错，所以加一层 try
         nrc = netrc.netrc(nrc_path)
-    except (netrc.NetrcParseError, IOError, Exception):
+    except (netrc.NetrcParseError, IOError):
         nrc_path.write_text("")
         nrc = netrc.netrc(nrc_path)
 
