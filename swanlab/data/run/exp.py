@@ -133,8 +133,12 @@ class SwanLabExp:
         else:
             step = len(key_obj.steps) if step is None else step
             if step in key_obj.steps:
-                swanlog.debug(f"Step {step} on key {key} already exists, ignored.")
-                return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
+                # 目前仅在 resume 模式下且显式指定了 step 再 overwrite
+                if self._run_store.resume in ('allow', 'must'):
+                    swanlog.debug(f"Step {step} on key {key} already exists, overwriting in resume mode.")
+                else:
+                    swanlog.debug(f"Step {step} on key {key} already exists, ignored.")
+                    return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
         data.parse(step=step, key=key)
 
         # ---------------------------------- 图表创建 ----------------------------------
