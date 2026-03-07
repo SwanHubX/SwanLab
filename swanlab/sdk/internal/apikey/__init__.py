@@ -105,8 +105,8 @@ def save(username: str, api_key: str, host: Optional[str] = None):
         # 即使文件为空，部分版本的 netrc() 也会报错，所以加一层 try
         nrc = netrc.netrc(nrc_path)
     except (netrc.NetrcParseError, IOError, Exception):
-        # 如果文件损坏、格式不对或为空，退回到内存中的空对象
-        nrc = netrc.netrc()
+        nrc_path.write_text("")
+        nrc = netrc.netrc(nrc_path)
 
     # 5. 写入逻辑
     new_info = (username, "", api_key)
