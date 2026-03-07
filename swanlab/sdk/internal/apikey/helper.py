@@ -33,4 +33,4 @@ def get_nrc_path() -> Path:
     获取netrc文件路径，并不保证文件、目录存在
     """
     current_settings = get_current_settings()
-    return current_settings.save_dir / ".netrc"
+    return current_settings.root / ".netrc"

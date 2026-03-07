@@ -45,6 +45,11 @@ secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 
+def root_factory() -> Path:
+    # 向下兼容旧版本环境变量
+    return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ".swanlab")))
+
+
 class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
@@ -78,7 +83,7 @@ class Settings(BaseSettings):
             return "cloud"
         raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
 
-    save_dir: Path = Field(default=Path.home() / ".swanlab", validate_default=True)
+    root: Path = Field(default_factory=root_factory)
     """
     Directory for SwanLab saved files.
     """

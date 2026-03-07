@@ -41,7 +41,14 @@ def _get_or_none() -> Optional[str]:
     if not nrc_path.exists():
         return None
 
-    nrc = create_nrc(nrc_path)
+    try:
+        nrc = netrc.netrc(nrc_path)
+    except (netrc.NetrcParseError, IsADirectoryError):
+        raise IOError(
+            f"Failed to access or parse netrc file at {nrc_path}. "
+            f"Please check if the path is a directory, has incorrect permissions, "
+            f"or contains syntax errors."
+        )
     host = remove_host_suffix(current_settings.api_url, "/api")
     info = nrc.authenticators(host)
 
@@ -65,39 +72,54 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     :param username: 保存的用户名，默认为user，可选择存储为前端网页ip或者域名
     :param api_key: 保存的API Key
     :param host: 保存的host
+    :raise IOError: 如果保存过程中出现错误
+    :raise OSError: 如果文件权限设置失败或者无法写入文件
     """
     current_settings = get_current_settings()
     if host is None:
         host = remove_host_suffix(current_settings.api_url, "/api")
     nrc_path = get_nrc_path()
 
-    # 确保目录存在
-    current_settings.save_dir.mkdir(parents=True, exist_ok=True)
+    # 1. 核心防御：处理路径冲突（如果是目录则无法继续）
+    if nrc_path.exists() and nrc_path.is_dir():
+        raise IOError(
+            f"The path {nrc_path} is a directory, but a file is expected. "
+            f"Please remove the directory or change the SWANLAB_ROOT settings."
+        )
 
-    # 如果文件不存在，创建并设置安全权限
+    # 2. 确保父目录存在
+    nrc_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 3. 文件初始化与权限控制
     if not nrc_path.exists():
-        nrc_path.touch(mode=0o600)  # 仅所有者可读写
+        try:
+            # 创建文件并限制权限
+            nrc_path.touch(mode=0o600)
+        except OSError as e:
+            raise OSError(f"Failed to create netrc file at {nrc_path}: {e}. Check your permissions.")
     else:
-        # 如果文件已存在，确保权限正确
-        os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+        os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
 
-    # 尝试解析或创建新的 netrc 对象
+    # 4. 尝试加载或重置 netrc 对象
     try:
+        # 即使文件为空，部分版本的 netrc() 也会报错，所以加一层 try
         nrc = netrc.netrc(nrc_path)
-    except netrc.NetrcParseError:
-        # 文件损坏或为空，创建新的 netrc 对象
+    except (netrc.NetrcParseError, IOError, Exception):
+        # 如果文件损坏、格式不对或为空，退回到内存中的空对象
         nrc = netrc.netrc()
 
+    # 5. 写入逻辑
     new_info = (username, "", api_key)
-    # 避免重复的写
     info = nrc.authenticators(host)
+
     if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
-        # 同时只允许存在一个host： https://github.com/SwanHubX/SwanLab/issues/797
         nrc.hosts = {host: new_info}
-        with open(nrc_path, "w") as f:
-            f.write(repr(nrc))
-        # 再次确保权限正确（以防 open 重置了权限）
-        os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
+        try:
+            with open(nrc_path, "w") as f:
+                f.write(repr(nrc))
+            os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError as e:
+            raise OSError(f"Failed to write API Key to {nrc_path}: {e}")
 
     current_settings.merge_settings({"api_key": api_key})
 
