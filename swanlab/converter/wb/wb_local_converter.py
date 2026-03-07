@@ -351,8 +351,6 @@ class WandbLocalConverter:
         progress = None
         task_id = None
         record_count = 0
-        last_summary = {}
-        last_summary_step = 0
 
         if Progress is not None:
             progress = Progress(
@@ -474,20 +472,7 @@ class WandbLocalConverter:
                         _log_scalars_direct(scalar_dict, step)
                     if media_dict:
                         swanlab_run.log(media_dict, step=step)
-                    last_summary_step = step
                 del scalar_dict, media_dict
-            elif record_type == "summary":
-                # Accumulate into last_summary; only log once after the loop ends.
-                # wandb writes a summary record after every step, so calling log() here
-                # would result in N redundant log calls (N = number of steps).
-                for item in record_pb.summary.update:
-                    key = item.key or '/'.join(item.nested_key)
-                    if not key or key.startswith('_') or '/' in key:
-                        continue
-                    try:
-                        last_summary[key] = float(item.value_json)
-                    except (ValueError, TypeError):
-                        pass
 
             # GC every GC_INTERVAL records to reduce overhead
             record_count += 1
