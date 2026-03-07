@@ -1,12 +1,12 @@
 """
 @author: cunyue
-@file: auth.py
+@file: bootstrap.py
 @time: 2026/3/7 18:30
-@description: 鉴权相关API封装
+@description: 这部分接口不经过Client调用，因为会在Client初始化之前调用
 """
 
 from swanlab.sdk.internal.core_python.client import session
-from swanlab.sdk.typings.core_python.api.auth import LoginResponse
+from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
 
 def login_by_api_key(base_url: str, api_key: str, timeout: int = 20) -> LoginResponse:

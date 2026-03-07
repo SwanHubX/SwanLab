@@ -31,7 +31,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from swanlab.sdk.typing.run import ModeType
+from swanlab.sdk.typings.run import ModeType
 
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings

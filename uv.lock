@@ -6553,7 +6553,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-mock" },
     { name = "python-dotenv" },
-    { name = "requests-mock", specifier = "==1.12.1" },
+    { name = "requests-mock", specifier = ">=1.12.1" },
     { name = "responses" },
     { name = "ruff", specifier = ">=0.15.4" },
     { name = "torch", marker = "python_full_version < '3.9'", specifier = "<=2.4.1" },

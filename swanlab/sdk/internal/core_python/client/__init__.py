@@ -8,9 +8,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Union
 
-import requests
-
-from swanlab.sdk.internal.core_python.api.auth import login_by_api_key
+from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
 from swanlab.sdk.pkg import console
 from swanlab.sdk.pkg.version import get_swanlab_version
 
@@ -37,7 +35,7 @@ class Client:
     仅负责请求、重试拦截及鉴权生命周期管理。
     """
 
-    # 提前刷新的缓冲时间（原逻辑为7天）
+    # 提前刷新的缓冲时间（7天）
     REFRESH_TIME = 60 * 60 * 24 * 7
 
     def __init__(self, api_key: str, base_url: str):
@@ -47,28 +45,10 @@ class Client:
         self._base_url = base_url.rstrip("/")
         self._expired_at: Optional[datetime] = None
 
-        # 1. 初始化时仅创建一次会话，以复用底层 TCP 连接池
+        # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
-        self._setup_interceptor()
-
-        # 2. 立即进行首次鉴权并挂载凭证
+        # 立即进行首次鉴权并挂载凭证
         self._refresh_auth()
-
-    def _setup_interceptor(self):
-        """挂载全局响应拦截器"""
-
-        def response_interceptor(response: requests.Response):
-            method = (response.request.method or "UNKNOWN").upper()
-            console.debug(f"HTTP Request: {method} {response.url} | Response Status: {response.status_code}")
-            if response.status_code // 100 != 2:
-                # TODO 解析错误信息
-                raise Exception(
-                    response,
-                    f"Trace id: {response.headers.get('traceid')} {method} {response.url}",
-                    f"{response.status_code} {response.reason}",
-                )
-
-        self._session.hooks["response"] = response_interceptor
 
     def _refresh_auth(self):
         """
@@ -76,11 +56,12 @@ class Client:
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
         """
         console.debug("Refreshing authentication token...")
-
         login_resp = login_by_api_key(self._base_url, self._api_key)
-
-        # 核心修改：只需更新当前 session 的 cookie 即可
+        # 只需更新当前 session 的 cookie 即可
         self._session.cookies.update({"sid": login_resp["sid"]})
+        self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=timezone.utc
+        )
 
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""

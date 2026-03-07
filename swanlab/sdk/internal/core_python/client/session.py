@@ -17,8 +17,8 @@ from urllib3.util.retry import Retry
 from swanlab.sdk.pkg.version import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
-
 VERSION_HEADER = "X-SwanLab-SDK-Version"
+# 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx = contextvars.ContextVar("request_retries", default=None)
 
 
@@ -69,6 +69,29 @@ class SessionWithRetry(Session):
         else:
             return super().request(method, url, *args, **kwargs)
 
+    def send(self, request, **kwargs):
+        """
+        重写底层发送方法，统一处理所有响应的校验逻辑
+        """
+        # 调用父类（或 Adapter）获取响应
+        response = super().send(request, **kwargs)
+
+        # 1. 记录日志
+        method = (response.request.method or "UNKNOWN").upper()
+        # 这里可以使用你定义的 console 对象
+        # console.debug(f"HTTP Request: {method} {response.url} | Status: {response.status_code}")
+
+        # 2. 统一错误处理：如果状态码不为 2xx，直接抛出异常
+        if not response.ok:
+            # 你可以在这里封装更详细的 ApiError
+            raise Exception(
+                response,
+                f"Trace id: {response.headers.get('traceid')} {method} {response.url}",
+                f"{response.status_code} {response.reason}",
+            )
+
+        return response
+
     # ---------------------------------- 类型提示占位符，保留以保证 IDE 友好 ----------------------------------
 
     def get(self, url, params=None, retries: Optional[int] = None, **kwargs):
@@ -93,14 +116,14 @@ class SessionWithRetry(Session):
         return self.request("DELETE", url, retries=retries, **kwargs)
 
 
-def create(timeout: int = 60) -> SessionWithRetry:
+def create(timeout: int = 60, default_retry: int = 5) -> SessionWithRetry:
     """
     创建一个挂载了超时和重试机制的会话实例。
     """
     session = SessionWithRetry()
 
     retry_strategy = Retry(
-        total=5,
+        total=default_retry,
         backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),

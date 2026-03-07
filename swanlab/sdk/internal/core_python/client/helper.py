@@ -19,3 +19,7 @@ def decode_response(resp: requests.Response) -> Union[Dict, List, str]:
         return resp.json()
     except (json.decoder.JSONDecodeError, requests.JSONDecodeError):
         return resp.text
+
+
+class ApiError(Exception):
+    pass
