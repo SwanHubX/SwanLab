@@ -5,8 +5,11 @@
 @description: SwanLab 运行时客户端，用于与 SwanLab API 进行交互
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional, Union
+
+import requests
 
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
 from swanlab.sdk.pkg import console
@@ -27,6 +30,12 @@ __all__ = [
     "patch",
     "delete",
 ]
+
+
+@dataclass
+class ApiResponse:
+    data: Union[dict, list, str]
+    raw: requests.Response
 
 
 class Client:
@@ -57,6 +66,10 @@ class Client:
         """
         console.debug("Refreshing authentication token...")
         login_resp = login_by_api_key(self._base_url, self._api_key)
+        if not login_resp:
+            return console.warning(
+                "Failed to refresh authentication token, swanlab may not work properly, please check your API key."
+            )
         # 只需更新当前 session 的 cookie 即可
         self._session.cookies.update({"sid": login_resp["sid"]})
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
@@ -66,8 +79,7 @@ class Client:
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""
         if self._expired_at is None:
-            self._refresh_auth()
-            return
+            return self._refresh_auth()
 
         if (self._expired_at - datetime.now(timezone.utc)).total_seconds() <= self.REFRESH_TIME:
             console.debug("Session is about to expire. Triggering token refresh.")
@@ -80,7 +92,7 @@ class Client:
         self._before_request()
 
         resp = self._session.request(method, full_url, **kwargs)
-        return decode_response(resp), resp
+        return ApiResponse(data=decode_response(resp), raw=resp)
 
     def get(self, url: str, params: Optional[dict] = None, retries: Optional[int] = None):
         return self.request("GET", url, params=params, retries=retries)

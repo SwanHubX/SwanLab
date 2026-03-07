@@ -38,6 +38,7 @@ def mock_login():
 
 @pytest.fixture
 def client(mock_login, mock_url):
+    _ = mock_login
     return Client(api_key="test-key", base_url=mock_url)
 
 
@@ -159,10 +160,10 @@ def test_retry_custom_count(client, mock_url):
     responses.add(responses.GET, target_url, status=500)
     responses.add(responses.GET, target_url, json={"result": "ok"}, status=200)
 
-    body, resp = client.get("/data", retries=2)
+    resp = client.get("/data", retries=2)
 
-    assert resp.status_code == 200
-    assert body == {"result": "ok"}
+    assert resp.raw.status_code == 200
+    assert resp.data == {"result": "ok"}
 
     # 验证总共确实发生了 3 次网络调用
     assert len(responses.calls) == 3
@@ -189,6 +190,6 @@ def test_retry_context_isolation(client, mock_url):
         client.get("/a", retries=0)
 
     # 第二次请求不带 retries，ContextVar 应已被清理，正常走默认重试策略并成功
-    body, resp = client.get("/b")
-    assert resp.status_code == 200
-    assert body == {"ok": True}
+    resp = client.get("/b")
+    assert resp.raw.status_code == 200
+    assert resp.data == {"ok": True}
