@@ -77,7 +77,11 @@ def test_netrc_backward_compatibility(mock_env):
 
     # 断言文件已经被自动修复：后缀被移除
     parsed_nrc = netrc.netrc(nrc_file)
-    assert parsed_nrc.authenticators("api.swanlab.cn") == ("old_user", "", "old_key")
+    auth = parsed_nrc.authenticators("api.swanlab.cn")
+    assert auth is not None
+    # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+    # assert parsed_nrc.authenticators("api.swanlab.cn") == ("old_user", "", "old_key")
+    assert (auth[0], auth[2]) == ("old_user", "old_key")
 
 
 def test_get_not_found(mock_env):
