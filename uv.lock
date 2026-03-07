@@ -6496,7 +6496,7 @@ dev = [
     { name = "torch", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "torchvision", version = "0.19.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "torchvision", version = "0.11.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "torchvision", version = "0.25.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "wandb", version = "0.24.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
@@ -6522,7 +6522,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pyecharts", specifier = ">=2.0.0" },
     { name = "pyyaml" },
-    { name = "rdkit", marker = "python_full_version >= '3.9' and extra == 'media'" },
+    { name = "rdkit", marker = "python_full_version >= '3.9' and extra == 'media'", specifier = ">=2025.9.6" },
     { name = "rdkit", marker = "python_full_version < '3.9' and extra == 'media'", specifier = "<=2023.9.6" },
     { name = "requests", specifier = ">=2.28.0" },
     { name = "rich", specifier = ">=13.6.0,<14.0.0" },
@@ -6556,9 +6556,9 @@ dev = [
     { name = "responses" },
     { name = "ruff", specifier = ">=0.15.4" },
     { name = "torch", marker = "python_full_version < '3.9'", specifier = "<=2.4.1" },
-    { name = "torch", marker = "python_full_version >= '3.9'" },
-    { name = "torchvision", marker = "python_full_version < '3.9'", specifier = "<=0.19.1" },
-    { name = "torchvision", marker = "python_full_version >= '3.9'" },
+    { name = "torch", marker = "python_full_version >= '3.9'", specifier = ">=2.5.0" },
+    { name = "torchvision", marker = "python_full_version < '3.9'", specifier = "<=0.12.0" },
+    { name = "torchvision", marker = "python_full_version >= '3.9'", specifier = ">=0.12.0" },
     { name = "wandb" },
 ]
 
@@ -6906,7 +6906,7 @@ wheels = [
 
 [[package]]
 name = "torchvision"
-version = "0.19.1"
+version = "0.11.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version < '3.9' and sys_platform == 'linux'",
@@ -6918,26 +6918,17 @@ dependencies = [
     { name = "torch", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/90/cab820b96d4d1a36b088774209d2379cf49eda8210c8fee13552383860b7/torchvision-0.19.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:54e8513099e6f586356c70f809d34f391af71ad182fe071cc328a28af2c40608", size = 1660236, upload-time = "2024-09-04T19:15:18.78Z" },
-    { url = "https://files.pythonhosted.org/packages/72/55/e0b3821c5595a9a2c8ec98d234b4a0d1142d91daac61f007503d3158f857/torchvision-0.19.1-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:20a1f5e02bfdad7714e55fa3fa698347c11d829fa65e11e5a84df07d93350eed", size = 7026373, upload-time = "2024-09-04T19:15:15.085Z" },
-    { url = "https://files.pythonhosted.org/packages/db/71/da0f71c2765feee125b1dc280a6432aa88c510aedf9a36987f3fe7ed05ea/torchvision-0.19.1-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:7b063116164be52fc6deb4762de7f8c90bfa3a65f8d5caf17f8e2d5aadc75a04", size = 14072253, upload-time = "2024-09-04T19:14:55.825Z" },
-    { url = "https://files.pythonhosted.org/packages/f7/8e/cbae11f8046d433881b478afc9e7589a76158124779cbc3a40163ec716bf/torchvision-0.19.1-cp310-cp310-win_amd64.whl", hash = "sha256:f40b6acabfa886da1bc3768f47679c61feee6bde90deb979d9f300df8c8a0145", size = 1288329, upload-time = "2024-09-04T19:15:12.385Z" },
-    { url = "https://files.pythonhosted.org/packages/66/f6/a2f07a3f5385b37c45b8e14448b8610a8618dfad18ea437cb23b4edc50c5/torchvision-0.19.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:40514282b4896d62765b8e26d7091c32e17c35817d00ec4be2362ea3ba3d1787", size = 1660235, upload-time = "2024-09-04T19:15:16.809Z" },
-    { url = "https://files.pythonhosted.org/packages/28/9d/40d1b943bbbd02a30d6b4f691d6de37a7e4c92f90bed0f8f47379e90eec6/torchvision-0.19.1-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:5a91be061ae5d6d5b95e833b93e57ca4d3c56c5a57444dd15da2e3e7fba96050", size = 7026152, upload-time = "2024-09-04T19:15:09.422Z" },
-    { url = "https://files.pythonhosted.org/packages/36/04/36e1d35b864f4a7c8f3056a427542b14b3bcdbc66edd36faadee109b86c5/torchvision-0.19.1-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:d71a6a6fe3a5281ca3487d4c56ad4aad20ff70f82f1d7c79bcb6e7b0c2af00c8", size = 14072255, upload-time = "2024-09-04T19:14:53.495Z" },
-    { url = "https://files.pythonhosted.org/packages/f8/69/dc769cf54df8e828c0b8957b4521f35178f5bd4cc5b8fbe8a37ffd89a27c/torchvision-0.19.1-cp311-cp311-win_amd64.whl", hash = "sha256:70dea324174f5e9981b68e4b7cd524512c106ba64aedef560a86a0bbf2fbf62c", size = 1288330, upload-time = "2024-09-04T19:15:13.694Z" },
-    { url = "https://files.pythonhosted.org/packages/a4/d0/b1029ab95d9219cac2dfc0d835e9ab4cebb01f5cb6b48e736778020fb995/torchvision-0.19.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:27ece277ff0f6cdc7fed0627279c632dcb2e58187da771eca24b0fbcf3f8590d", size = 1660230, upload-time = "2024-09-04T19:15:10.799Z" },
-    { url = "https://files.pythonhosted.org/packages/8b/34/fdd2d9e01228a069b28473a7c020bf1812c8ecab8565666feb247659ed30/torchvision-0.19.1-cp312-cp312-manylinux1_x86_64.whl", hash = "sha256:c659ff92a61f188a1a7baef2850f3c0b6c85685447453c03d0e645ba8f1dcc1c", size = 7026404, upload-time = "2024-09-04T19:15:06.316Z" },
-    { url = "https://files.pythonhosted.org/packages/da/b2/9da42d67dfc30d9e3b161f7a37f6c7eca86a80e6caef4a9aa11727faa4f5/torchvision-0.19.1-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:c07bf43c2a145d792ecd9d0503d6c73577147ece508d45600d8aac77e4cdfcf9", size = 14072022, upload-time = "2024-09-04T19:14:59.312Z" },
-    { url = "https://files.pythonhosted.org/packages/6b/b2/fd577e1622b43cdeb74782a60cea4909f88f471813c215ea7b4e7ea84a74/torchvision-0.19.1-cp312-cp312-win_amd64.whl", hash = "sha256:b4283d283675556bb0eae31d29996f53861b17cbdcdf3509e6bc050414ac9289", size = 1288328, upload-time = "2024-09-04T19:15:04.278Z" },
-    { url = "https://files.pythonhosted.org/packages/5a/1a/61529a059f89b36543f7749c31630a87f212cdefb8ca9a6dc718dd539efc/torchvision-0.19.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:4c4e4f5b24ea6b087b02ed492ab1e21bba3352c4577e2def14248cfc60732338", size = 1683619, upload-time = "2024-09-04T19:15:08.029Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/15/74800e103ea652bef9fc572661b74a081e2194700f0f5f4f184918218af6/torchvision-0.19.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:9281d63ead929bb19143731154cd1d8bf0b5e9873dff8578a40e90a6bec3c6fa", size = 7039881, upload-time = "2024-09-04T19:14:44.13Z" },
-    { url = "https://files.pythonhosted.org/packages/95/14/b7dadde3ef929936e2139aa3f51f078887b6cc8bee702410979b929224e8/torchvision-0.19.1-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:4d10bc9083c4d5fadd7edd7b729700a7be48dab4f62278df3bc73fa48e48a155", size = 14072231, upload-time = "2024-09-04T19:14:48.1Z" },
-    { url = "https://files.pythonhosted.org/packages/f6/4e/17d3137e893e878d2c165268b3f80d59e306e1ac1e0d89d8cccb27cc1d76/torchvision-0.19.1-cp38-cp38-win_amd64.whl", hash = "sha256:ccf085ef1824fb9e16f1901285bf89c298c62dfd93267a39e8ee42c71255242f", size = 1288329, upload-time = "2024-09-04T19:15:01.342Z" },
-    { url = "https://files.pythonhosted.org/packages/61/37/3aff3b9d89b8676f11702840fba7d7ef1d8e91d750426214cc55f6c3fee1/torchvision-0.19.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:731f434d91586769e255b5d70ed1a4457e0a1394a95f4aacf0e1e7e21f80c098", size = 1660246, upload-time = "2024-09-04T19:15:02.703Z" },
-    { url = "https://files.pythonhosted.org/packages/c3/4f/67b40e50d5dd1f9200421ab31b17d337162742b4f6676a0f4a917b3acdf1/torchvision-0.19.1-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:febe4f14d4afcb47cc861d8be7760ab6a123cd0817f97faf5771488cb6aa90f4", size = 7027693, upload-time = "2024-09-04T19:14:51.741Z" },
-    { url = "https://files.pythonhosted.org/packages/6d/11/16d63ede75bd1433aa84f1d9156b058b3ed4976749972220a90c13a1df64/torchvision-0.19.1-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:e328309b8670a2e889b2fe76a1c2744a099c11c984da9a822357bd9debd699a5", size = 1702641, upload-time = "2024-09-04T19:14:46.32Z" },
-    { url = "https://files.pythonhosted.org/packages/b0/7b/2e55c0c613af4df93ef5b9ab8f652226c07b3fb9b0c742ceedcdd6cec2e5/torchvision-0.19.1-cp39-cp39-win_amd64.whl", hash = "sha256:6616f12e00a22e7f3fedbd0fccb0804c05e8fe22871668f10eae65cf3f283614", size = 1288330, upload-time = "2024-09-04T19:14:50.418Z" },
+    { url = "https://files.pythonhosted.org/packages/48/20/380758a94be49d38798a6cfd25824f72ec1f230b00c0014efb15903777c6/torchvision-0.11.3-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:8bc8a7db80c97ca254be362ba883a202192e361ba2f6dff7ff5bb010d4bfc23a", size = 14675721, upload-time = "2022-01-27T20:36:45.882Z" },
+    { url = "https://files.pythonhosted.org/packages/00/a8/0d59336acc849c5d6beb1d38d59b16e4a2e6ac66036ae92ba748f7f02575/torchvision-0.11.3-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:63647dfb9b0354bc8c5bb120f2dc15a123cee7f5fd6a8e84561da46cc2c89e3a", size = 1243751, upload-time = "2022-01-27T20:37:33.121Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/1f/3ae670bb65fa932cf7b22db62ef088a5069165844c0b186e61ecbe315c9b/torchvision-0.11.3-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:a82d7d383fabb45fb54aa569ab216b87b98f9eb9de75b3cbfedab555a71209fa", size = 636312, upload-time = "2022-01-27T20:46:10.284Z" },
+    { url = "https://files.pythonhosted.org/packages/21/f4/0a2978512bab69a1bd2626e311a45c37b4dec100025661df70d1ede69de4/torchvision-0.11.3-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:0eda00afc5176b35e69eddd018ee633e3e3d74bbcf139eccdc150781c4ae83a7", size = 23200556, upload-time = "2022-01-27T20:36:27.589Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/cf/d19fc48359f888607bac25d1102b72540b40316587fc572efe9fdc7642a6/torchvision-0.11.3-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:b237b39e1c558ad5c9043b6e56bc568ee745f7f064f53270a3fceb53b9725c4b", size = 14675013, upload-time = "2022-01-27T20:37:03.424Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/cb/b484ba727714926cbebe68687960da3481df5619280d17b1d5c90fb610bc/torchvision-0.11.3-cp38-cp38-win_amd64.whl", hash = "sha256:dc144114d5991a33bf8909277b02ea082d99cee4cdcf3f7a9c6b48f0c6c8ddde", size = 947989, upload-time = "2022-01-27T20:37:19.952Z" },
+    { url = "https://files.pythonhosted.org/packages/59/33/eecbba97ef527f40b25f9cbdc54ddb4f057e4150698615a518f6a75dc546/torchvision-0.11.3-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:3380211bf061d114c380f52fb33f55d2fbe483e2fd297f6aa596803f7cbdb408", size = 1187105, upload-time = "2022-01-27T20:37:36.399Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/cb/d3bf0ffa1bdf83ee2fcd360f9794e48687831655cda1247eae4c7309e099/torchvision-0.11.3-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:a3997b63bd8fac985323b6068e689c9617b0b36e1126616f7b380e17c501aefa", size = 585749, upload-time = "2022-01-27T20:46:13.759Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/b1/9702d02e233bec7ce231cc8be94489ee31084fb6d350703f0ed22086ebed/torchvision-0.11.3-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:eca0b0f7a0e462bdecf7926d89faae6dcd51da418ca0cf70e725981ed775a11b", size = 23199346, upload-time = "2022-01-27T20:36:38.508Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/d3/913e25d7775c74f76d174a82eba45bf68e384dc78373598f6c2b3a727fed/torchvision-0.11.3-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:25e72231be8ce03467a77806d9c3f5fd34b9cd23b9543d3e999bf57622377532", size = 14674764, upload-time = "2022-01-27T20:37:09.227Z" },
+    { url = "https://files.pythonhosted.org/packages/8b/68/5a976d601c11f527cb278dbd510521e3d6e192d7c5fd60471e64d1c84c25/torchvision-0.11.3-cp39-cp39-win_amd64.whl", hash = "sha256:5263770a9a91011206b3566b33bbba040b92932885c63cfe5ac9c720ed1fdaca", size = 947974, upload-time = "2022-01-27T20:37:23.629Z" },
 ]
 
 [[package]]

@@ -62,7 +62,7 @@ media = [
     "numpy",
     "moviepy",
     "imageio[ffmpeg]",
-    "rdkit; python_version >= '3.9'",
+    "rdkit>=2025.9.6; python_version >= '3.9'",
     "rdkit<=2023.9.6; python_version < '3.9'",
 ]
 dashboard = [
@@ -79,10 +79,10 @@ dev = [
     "ipython; python_version >= '3.9'",
     "ipython<8.13; python_version < '3.9'",
     "ipykernel",
-    "torch; python_version >= '3.9'",
+    "torch>=2.5.0; python_version >= '3.9'",
     "torch<=2.4.1; python_version < '3.9'",
-    "torchvision; python_version >= '3.9'",
-    "torchvision<=0.19.1; python_version < '3.9'",
+    "torchvision>=0.12.0; python_version >= '3.9'",
+    "torchvision<=0.12.0; python_version < '3.9'",
     "pandas",
     "python-dotenv",
     "freezegun",
