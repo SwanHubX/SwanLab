@@ -83,6 +83,7 @@ class SessionWithRetry(Session):
             return response
 
         # 2. 准备 Fallback 默认值
+        method = (request.method or "unknown").upper()
         trace_id = response.headers.get("traceid", "unknown")
         error_code = "unknown code"
         error_message = "unknown error"
@@ -93,7 +94,7 @@ class SessionWithRetry(Session):
             error_code, error_message = decoded
 
         # 4. 抛出友好的自定义 ApiError
-        raise ApiError(response=response, code=error_code, message=error_message, trace_id=trace_id)
+        raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
 
     # ---------------------------------- 类型提示占位符，保留以保证 IDE 友好 ----------------------------------
 
