@@ -13,7 +13,7 @@ import requests
 
 from swanlab.sdk.pkg.helper import catch_and_return_none
 
-package_path = Path(__file__).parent.parent / "package.json"
+package_path = Path(__file__).parent.parent.parent.parent / "package.json"
 
 
 def get_swanlab_version() -> str:
