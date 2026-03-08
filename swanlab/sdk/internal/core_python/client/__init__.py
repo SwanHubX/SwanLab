@@ -139,6 +139,7 @@ def new(api_key: str, base_url: str, timeout: int = 10) -> Client:
 
 def exists() -> bool:
     """检查当前的 SwanLab 运行时客户端是否已存在。"""
+    global _default_client
     return _default_client is not None
 
 

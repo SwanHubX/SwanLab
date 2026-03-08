@@ -6,6 +6,7 @@
 """
 
 from typing import Optional
+from urllib.parse import urlparse
 
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal import apikey
@@ -72,18 +73,33 @@ def login(
 
     :return: Returns True if login was successful, False otherwise.
     """
-    # 1. 如果已经登录且不需要重新登录，则直接返回
-    if not relogin and client.exists():
-        console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")
-        return True
+    # 1. 判断是是否允许重新登录
     # 如果已经初始化了运行上下文，则不允许重新登录
     if has_context():
         console.error("Cannot relogin while SwanLab Context is active. Please clear the context first.")
         return False
+    # 如果已经登录且不需要重新登录，则直接返回
+    if not relogin and client.exists():
+        console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")
+        return True
+    elif client.exists() and relogin:
+        client.reset()
     # 2. 获取当前配置
+    # 如果提供了host且没有http前缀添加https://前缀
+    if host is not None:
+        host = host.strip().rstrip("/")
+        if not host.startswith(("http://", "https://")):
+            host = f"https://{host}"
+        parsed = urlparse(host)
+        host = f"{parsed.scheme}://{parsed.netloc}"
+    # 与settings中同步
     api_key = api_key or settings.api_key
     api_host = host or settings.api_host
-    web_host = host or settings.web_host
+    # 防止用户通过 login(host="api.swanlab.cn") 强行覆盖 web_host
+    if host and "api.swanlab.cn" in host:
+        web_host = settings.web_host  # 保持官方默认 web_host
+    else:
+        web_host = host or settings.web_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
     with use_temp_context(RunContext(config=RunConfig(settings=login_settings))) as ctx:

@@ -18,6 +18,57 @@ from swanlab.sdk.internal.settings import settings
 
 
 class TestLoginE2E:
+    @responses.activate
+    def test_login_host_cleaning(self):
+        """测试：传入不规范的 host 时，SDK 应自动清洗（补全协议、去除路径和 query）"""
+        # 带有前后空格、没有 http 头、带有 path 和斜杠的“脏数据”
+        messy_host = "  10.0.0.1:8080/api/v1/?token=123  "
+        expected_clean_host = "https://10.0.0.1:8080"
+        api_key = "test-key"
+
+        # 验证清洗后的 URL 是否被正确用于请求
+        responses.add(
+            responses.POST,
+            f"{expected_clean_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 这里用 relogin=True 绕过已登录状态检查
+        result = login(api_key=api_key, host=messy_host)
+
+        assert result is True
+        # 验证 api_host 被清洗干净
+        assert settings.api_host == expected_clean_host
+        # 验证私有化部署下，web_host 跟随 api_host 更新
+        assert settings.web_host == expected_clean_host
+
+    @responses.activate
+    def test_login_official_host_protection(self):
+        """测试：传入官方 api_host 时，不应错误覆盖 web_host"""
+        # 用户可能只传入了 api 子域名
+        official_host = "api.swanlab.cn"
+        expected_api_host = "https://api.swanlab.cn"
+        api_key = "test-key"
+
+        responses.add(
+            responses.POST,
+            f"{expected_api_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 假装当前环境未被污染，默认 web_host 是正确的
+        assert settings.web_host == "https://swanlab.cn"
+
+        result = login(api_key=api_key, host=official_host, relogin=True)
+
+        assert result is True
+        # 验证 api_host 正常更新了协议头
+        assert settings.api_host == expected_api_host
+        # 【核心断言】：验证官方 web_host 没有被改成 api 域名，防线生效
+        assert settings.web_host == "https://swanlab.cn"
+
     def test_login_skip_if_already_logged_in(self):
         """测试：如果已经登录且没有强制 relogin，应直接跳过并返回 True"""
         with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
@@ -96,15 +147,16 @@ class TestLoginE2E:
         )
 
         with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
-            result = login(api_key=custom_key, host=custom_host, relogin=True)
+            with patch("swanlab.sdk.cmd.login.client.reset"):
+                result = login(api_key=custom_key, host=custom_host, relogin=True)
 
-            assert result is True
-            assert len(responses.calls) == 1
-            assert responses.calls[0].request.url == f"{custom_host}/api/login/api_key"
+                assert result is True
+                assert len(responses.calls) == 1
+                assert responses.calls[0].request.url == f"{custom_host}/api/login/api_key"
 
-            # 验证配置的同步更新
-            assert settings.api_host == custom_host
-            assert settings.api_key == custom_key
+                # 验证配置的同步更新
+                assert settings.api_host == custom_host
+                assert settings.api_key == custom_key
 
     @responses.activate
     def test_login_network_failure(self):
