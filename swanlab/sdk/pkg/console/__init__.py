@@ -71,6 +71,14 @@ def _print_formatted(level_name: str, *args, **kwargs):
 # -----------------------------------------------------------------------------
 
 
+# noinspection PyShadowingBuiltins
+def print(*args, **kwargs):  # noqa: A001
+    """发送普通消息"""
+    if not _can_log:
+        return
+    _console.print(*args, **kwargs)
+
+
 def debug(*args, **kwargs):
     """发送调试消息"""
     if not _can_log or not is_debug():

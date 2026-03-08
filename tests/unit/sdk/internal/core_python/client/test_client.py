@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import responses
 
+from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client import (
     Client,
     _get_client,
@@ -19,7 +20,6 @@ from swanlab.sdk.internal.core_python.client import (
     reset,
 )
 from swanlab.sdk.internal.core_python.client import get as global_get
-from swanlab.sdk.pkg.exceptions import ApiError
 
 
 @pytest.fixture()

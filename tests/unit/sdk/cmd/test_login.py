@@ -10,58 +10,11 @@ from unittest.mock import patch
 import pytest
 import responses
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
-from swanlab.sdk.internal.context import RunConfig, RunContext, clear_context, set_context
+from swanlab.sdk.internal.context import RunConfig, RunContext, set_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.settings import settings
-
-
-@pytest.fixture(autouse=True)
-def cleanup_swanlab(monkeypatch, tmp_path):
-    # 1. 路径隔离（最重要）：利用 pytest 自带的 tmp_path，配合环境变量隔离
-    # monkeypatch 的好处是测试一结束它会自动恢复原样，不需要手动 teardown
-    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
-    monkeypatch.delenv("SWANLAB_API_KEY", raising=False)
-    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
-    monkeypatch.delenv("SWANLAB_WEB_HOST", raising=False)
-
-    yield  # 这里是执行测试用例的地方
-
-    # --- 下面是手动 Teardown 阶段 ---
-
-    # 2. 释放全局 Client（防止下一个测试报 "Client already exists"）
-    from swanlab.sdk.internal.core_python import client
-
-    if client.exists():
-        client.reset()
-
-    # 3. 清理运行上下文（防止 use_temp_context 报错或残留）
-    from swanlab.sdk.internal.context import clear_context
-
-    clear_context()
-
-
-@pytest.fixture(autouse=True)
-def isolate_env(tmp_path, monkeypatch):
-    """
-    全局环境隔离固件：
-    1. 将 SWANLAB_SAVE_DIR 指向临时目录，隔离真实的 .netrc 和本地配置。
-    2. 确保每次测试前，全局的 client 状态被彻底清空。
-    """
-    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
-    monkeypatch.delenv("SWANLAB_API_KEY", raising=False)
-    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
-
-    # 测试前如果存在残留，清理掉
-    if client.exists():
-        client.reset()
-
-    yield
-
-    # 测试结束后的清理工作
-    if client.exists():
-        client.reset()
-    clear_context()
 
 
 class TestLoginE2E:
@@ -79,14 +32,11 @@ class TestLoginE2E:
         result = login(api_key="some_key")
         assert result is False
 
-        clear_context()
-
     @responses.activate
     def test_login_success_with_explicit_key(self):
         """测试：显式传入 API Key 并成功完成网络请求登录"""
         api_key = "test-explicit-key"
 
-        # 注意：此处加上了 /api 前缀，并补充了合法的 expiredAt
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
@@ -114,13 +64,19 @@ class TestLoginE2E:
             status=200,
         )
 
+        # 这里的 patch 路径改为了具体的模块引用路径
         with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=prompt_key) as mock_prompt:
             result = login(api_key=None, save=True)
+
+            # 验证全局单例被正确更新
+            assert settings.web_host == "https://swanlab.cn"
+            assert settings.api_host == "https://api.swanlab.cn"
+            assert settings.api_key == prompt_key
 
             assert result is True
             mock_prompt.assert_called_once()
 
-            # 验证凭证保存
+            # 验证凭证保存到了物理文件
             nrc_path = tmp_path / ".netrc"
             assert nrc_path.exists()
             content = nrc_path.read_text()
@@ -132,7 +88,6 @@ class TestLoginE2E:
         custom_host = "http://private-swanlab.local"
         custom_key = "private-key"
 
-        # 拦截私有化节点的请求（加上 /api）
         responses.add(
             responses.POST,
             f"{custom_host}/api/login/api_key",
@@ -140,7 +95,6 @@ class TestLoginE2E:
             status=200,
         )
 
-        # 为了测试 relogin=True，先造一个假象让系统以为已经登录了
         with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
             result = login(api_key=custom_key, host=custom_host, relogin=True)
 
@@ -155,7 +109,7 @@ class TestLoginE2E:
     @responses.activate
     def test_login_network_failure(self):
         """测试：网络请求失败或者 API Key 错误的情况"""
-        # 模拟 401
+        # 模拟 401 鉴权失败
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
@@ -163,7 +117,6 @@ class TestLoginE2E:
             status=401,
         )
 
-        # 鉴权失败时 login_resp 为 None，login() 里面有一句 assert login_resp is not None
-        # 所以这里应当捕获到 AssertionError
-        with pytest.raises(AssertionError, match="Failed to get login response"):
+        # 修复：捕获你在 login.py 中抛出的自定义 AuthenticationError
+        with pytest.raises(AuthenticationError, match="Failed to login"):
             login(api_key="wrong-key")

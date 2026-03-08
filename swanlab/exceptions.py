@@ -2,7 +2,7 @@
 @author: cunyue
 @file: exceptions.py
 @time: 2026/3/7 21:36
-@description: SwanLab 运行时客户端异常定义
+@description: SwanLab 运行时异常定义
 """
 
 from typing import Union
@@ -25,3 +25,11 @@ class ApiError(HTTPError):
         # 构造友好的报错信息
         error_str = f"API Request Failed: [{code}] {message} | Trace ID: {trace_id} | {method} {response.url}"
         super().__init__(error_str, response=response)
+
+
+class AuthenticationError(Exception):
+    """
+    SwanLab 认证失败异常。
+    """
+
+    pass

@@ -60,11 +60,11 @@ class Client:
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证
-        login_resp = self._refresh_auth(timeout=timeout)
+        login_resp = self._refresh_auth(timeout=timeout, warning=False)
         # 写入登录响应到上下文，由调用者判断是否需要使用
         set_context("login_resp", login_resp)
 
-    def _refresh_auth(self, timeout: int = 10) -> Optional[LoginResponse]:
+    def _refresh_auth(self, timeout: int = 10, warning: bool = True) -> Optional[LoginResponse]:
         """
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
@@ -72,9 +72,12 @@ class Client:
         console.debug("Refreshing authentication token...")
         login_resp = login_by_api_key(self._base_url, self._api_key, timeout=timeout)
         if not login_resp:
-            return console.warning(
-                "Failed to refresh authentication token, swanlab may not work properly, please check your API key."
-            )
+            if warning:
+                console.warning(
+                    "Failed to refresh authentication token,",
+                    "swanlab may not work properly, please check your API key.",
+                )
+            return None
         # 只需更新当前 session 的 cookie 即可
         self._session.cookies.update({"sid": login_resp["sid"]})
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(

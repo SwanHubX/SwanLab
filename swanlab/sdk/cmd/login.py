@@ -7,6 +7,7 @@
 
 from typing import Optional
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
@@ -48,6 +49,8 @@ def login(
     :param timeout: int, optional
         Timeout in seconds for the login network request. Defaults to 10.
 
+    :raises RuntimeError: If the environment does not support interactive input.
+    :raises AuthenticationError: If login fails.
     :return: Returns True if login was successful, False otherwise.
     """
     # 1. 如果已经登录且不需要重新登录，则直接返回
@@ -60,9 +63,9 @@ def login(
         return False
     # 2. 获取当前配置
     api_key = api_key or settings.api_key
-    host = host or settings.api_host
+    api_host = host or settings.api_host
     web_host = host or settings.web_host
-    login_settings = Settings.model_validate({"api_key": api_key, "api_host": host, "web_host": web_host})
+    login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
     with use_temp_context(RunContext(config=RunConfig(settings=login_settings))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
@@ -73,8 +76,9 @@ def login(
         with Scope() as scope:
             create_client(timeout=timeout)
             assert client.exists(), "Failed to create client"
-            login_resp: LoginResponse = scope.get("login_resp", None)
-            assert login_resp is not None, "Failed to get login response"
+            login_resp: Optional[LoginResponse] = scope.get("login_resp", None)
+            if login_resp is None:
+                raise AuthenticationError("Failed to login, please check your API Key or network connection.")
             if save:
                 apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host)
         # 4. 将登录设置合并到全局配置中

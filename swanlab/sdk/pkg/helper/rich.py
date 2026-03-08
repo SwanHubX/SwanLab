@@ -9,6 +9,8 @@ from functools import wraps
 
 from rich.status import Status
 
+__all__ = ["with_loading_animation"]
+
 
 def with_loading_animation(message: str = "Initializing SwanLab...", spinner_name: str = "dots"):
     """
