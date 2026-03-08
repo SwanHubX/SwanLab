@@ -17,6 +17,7 @@
 用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
+import netrc
 import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
@@ -197,6 +198,60 @@ class Settings(BaseSettings):
                 data["web_host"] = current_web.rstrip("/")
 
         return data
+
+    @model_validator(mode="after")
+    def load_netrc_fallback(self) -> "Settings":
+        """
+        在所有配置加载完成后，作为最后的回退机制读取 root/.netrc 文件。
+        前提保障：只会覆盖未被显式设置（如环境变量/YAML）的默认配置。
+
+        映射规则：
+        - machine (host) -> api_host
+        - login (username) -> web_host
+        - password -> api_key
+        """
+        nrc_path = self.root / ".netrc"
+        if not nrc_path.exists():
+            return self
+
+        # noinspection PyBroadException
+        try:
+            nrc = netrc.netrc(nrc_path)
+
+            if not nrc.hosts:
+                return self
+
+            # 得益于“全局单点登录”机制，.netrc 中理论上只有一个 host，直接取第一个
+            machine = list(nrc.hosts.keys())[0]
+
+            # netrc 标准格式解析结果为: (login, account, password)
+            login, _, password = nrc.hosts[machine]
+
+            # 获取被显式设置过的字段集合（在 Env 或 Yaml 中指定过的字段，跳过覆盖）
+            fields_set = self.__pydantic_fields_set__
+
+            # 1. 赋值 api_key (对应读取到的密码)
+            if "api_key" not in fields_set and password:
+                object.__setattr__(self, "api_key", password)
+                fields_set.add("api_key")
+
+            # 2. 赋值 api_host (对应读取到的 host)
+            if "api_host" not in fields_set and machine:
+                clean_api = machine if machine.startswith(("http://", "https://")) else f"https://{machine}"
+                object.__setattr__(self, "api_host", clean_api)
+                fields_set.add("api_host")
+
+            # 3. 赋值 web_host (对应读取到的用户名)
+            if "web_host" not in fields_set and login:
+                clean_web = login if login.startswith(("http://", "https://")) else f"https://{login}"
+                object.__setattr__(self, "web_host", clean_web)
+                fields_set.add("web_host")
+
+        except Exception:  # noqa: E722
+            # 任何解析错误（文件损坏、格式不对等）统统忽略，作为兜底机制绝不能阻断程序启动
+            pass
+
+        return self
 
     project: ProjectSettings = Field(default_factory=ProjectSettings)
     """

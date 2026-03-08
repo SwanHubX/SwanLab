@@ -6,9 +6,10 @@
 此上下文应该只在swanlab.init中使用
 """
 
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generator, Optional
 
 from swanlab.sdk.internal.settings import Settings
 
@@ -16,6 +17,7 @@ __all__ = ["RunConfig", "RunContext", "set_context", "clear_context", "get_conte
 
 
 # 运行配置，包含当前运行上下文的必要状态
+@dataclass
 class RunConfig:
     settings: Settings
 
@@ -78,3 +80,26 @@ def has_context() -> bool:
     检查SwanLab运行上下文是否已初始化。
     """
     return _current_ctx.get() is not None
+
+
+@contextmanager
+def use_temp_context(ctx: RunContext) -> Generator[RunContext, None, None]:
+    """
+    临时使用 SwanLab 运行上下文的上下文管理器。
+
+    前置条件：仅允许在当前不存在上下文时使用。
+    退出行为：无论是否发生异常，离开 with 块时都会自动清空上下文。
+    """
+    # 1. 严格检查：如果已经存在上下文，直接拦截报错
+    if has_context():
+        raise RuntimeError("SwanLab Context is already active. Cannot nest or overwrite temp contexts.")
+
+    # 2. 前置操作：设置上下文
+    set_context(ctx)
+
+    try:
+        # 3. 交出执行权，并把 ctx yield 出去，方便外部直接用 `as` 接收
+        yield ctx
+    finally:
+        # 4. 最终清理（回退）：无论业务代码报什么错，绝对保证上下文被清空，不会污染全局 ContextVar
+        clear_context()

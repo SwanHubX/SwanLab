@@ -13,6 +13,19 @@ from pydantic_settings import SettingsConfigDict
 from swanlab.sdk.internal.settings import Settings, strip_none
 
 
+@pytest.fixture(autouse=True)
+def isolate_global_env(tmp_path, monkeypatch):
+    """
+    全局环境隔离固件：
+    将 SWANLAB_SAVE_DIR 强制指向 tmp_path，确保测试过程绝对不会读取开发者本机的 .netrc 文件。
+    同时清理相关的环境变量，防止本机环境变量污染测试用例。
+    """
+    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+    monkeypatch.delenv("SWANLAB_API_KEY", raising=False)
+    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
+    monkeypatch.delenv("SWANLAB_WEB_HOST", raising=False)
+
+
 class TestStripNone:
     """测试 strip_none 函数"""
 
@@ -193,3 +206,76 @@ def test_url_env_resolution(monkeypatch):
     # 我们配置的 WEB_HOST 环境变量被保留（清理了斜杠）
     assert s_mixed.api_host == "http://code-api.local"
     assert s_mixed.web_host == "http://env-web.local"
+
+
+@pytest.fixture
+def netrc_file(tmp_path, monkeypatch):
+    """
+    预先准备 .netrc 文件的测试固件。
+    将 SWANLAB_SAVE_DIR 环境变量指向 tmp_path，使得 Settings.root 解析到这里。
+    返回 .netrc 的 Path 对象以便测试用例写入内容。
+    """
+    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+    nrc_path = tmp_path / ".netrc"
+    return nrc_path
+
+
+class TestNetrcFallback:
+    """测试 Settings 基于 .netrc 的兜底加载逻辑"""
+
+    def test_netrc_fallback_basic(self, netrc_file):
+        """测试正常情况下的兜底读取和格式推导"""
+        # machine -> api_host, login -> web_host, password -> api_key
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
+
+        settings = Settings()
+
+        # 验证读取与自动补全 scheme
+        assert settings.api_host == "https://api.custom.com"
+        assert settings.web_host == "https://web.custom.com"
+        assert settings.api_key == "secret_token"
+
+    def test_netrc_fallback_priority(self, netrc_file, monkeypatch):
+        """测试优先级：显式传参 > 环境变量 > .netrc 兜底"""
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
+
+        # 1. 环境变量设置 web_host
+        monkeypatch.setenv("SWANLAB_WEB_HOST", "http://env-web.local")
+
+        # 2. 代码显式传入 api_key
+        settings = Settings(api_key="explicit_token")
+
+        # 断言优先级
+        assert settings.api_key == "explicit_token"  # 显式参数生效 (覆盖了 netrc 的 secret_token)
+        assert settings.web_host == "http://env-web.local"  # 环境变量生效 (覆盖了 netrc 的 web.custom.com)
+        assert settings.api_host == "https://api.custom.com"  # 只有未被碰过的 api_host 成功使用了 netrc 兜底
+
+    def test_netrc_empty_or_corrupted(self, netrc_file):
+        """测试 netrc 文件为空或格式损坏时，不阻断流程且使用默认值"""
+        # 1. 损坏的文件格式
+        netrc_file.write_text("invalid garbage data...")
+        settings_corrupted = Settings()
+        assert settings_corrupted.api_host == "https://api.swanlab.cn"  # 保持默认
+        assert settings_corrupted.api_key is None
+
+        # 2. 文件存在但没有任何 host
+        netrc_file.write_text("")
+        settings_empty = Settings()
+        assert settings_empty.api_host == "https://api.swanlab.cn"
+        assert settings_empty.api_key is None
+
+    def test_netrc_merge_settings_sync(self, netrc_file):
+        """测试 netrc 兜底的字段是否被正确加入 fields_set，防止 merge_settings 时丢失"""
+        netrc_file.write_text("machine api.sync.com login web.sync.com password sync_token\n")
+
+        settings = Settings()
+        assert settings.api_key == "sync_token"
+        assert "api_key" in settings.__pydantic_fields_set__
+
+        # 执行 merge_settings 更新毫不相干的字段
+        settings.merge_settings({"debug": True})
+
+        # 验证 netrc 读取进来的属性没有因为 merge (exclude_unset=True) 而丢失
+        assert settings.debug is True
+        assert settings.api_key == "sync_token"
+        assert settings.api_host == "https://api.sync.com"

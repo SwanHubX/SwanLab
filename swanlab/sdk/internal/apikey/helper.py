@@ -5,10 +5,6 @@
 @description: API Key管理工具函数
 """
 
-from pathlib import Path
-
-from swanlab.sdk.internal.pkg import get_current_settings
-
 
 def remove_host_suffix(host: str, *suffixes: str) -> str:
     """
@@ -26,11 +22,3 @@ def remove_host_suffix(host: str, *suffixes: str) -> str:
         if host.endswith(suffix):
             return host[: -len(suffix)]
     return host
-
-
-def get_nrc_path() -> Path:
-    """
-    获取netrc文件路径，并不保证文件、目录存在
-    """
-    current_settings = get_current_settings()
-    return current_settings.root / ".netrc"

@@ -27,7 +27,7 @@ def mock_url():
     return "http://mock.example.com"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_login():
     patcher = patch("swanlab.sdk.internal.core_python.client.login_by_api_key")
     mock_func = patcher.start()
@@ -36,7 +36,7 @@ def mock_login():
     patcher.stop()
 
 
-@pytest.fixture
+@pytest.fixture()
 def client(mock_login, mock_url):
     _ = mock_login
     return Client(api_key="test-key", base_url=mock_url)

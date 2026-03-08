@@ -1,7 +1,7 @@
 """
 @author: cunyue
-@file: settings.py
-@time: 2026/3/7 14:41
+@file: __init__.py
+@time: 2026/3/8 15:41
 @description: SwanLab SDK 配置信息工具
 """
 

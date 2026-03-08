@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from swanlab.sdk.internal import apikey
+from swanlab.sdk.internal.pkg.netrc import read_netrc_by_host
 
 
 @pytest.fixture
@@ -21,10 +22,14 @@ def mock_env(mocker, tmp_path, monkeypatch):
     统一准备测试环境，拦截外部依赖
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    mock_settings = MagicMock(api_host="https://api.swanlab.cn/api", api_key=None)
+
+    # 模拟当前的 Settings 实例
+    mock_settings = MagicMock(api_host="https://api.swanlab.cn/api", api_key=None, root=tmp_path)
     mocker.patch("swanlab.sdk.internal.apikey.get_current_settings", return_value=mock_settings)
 
     nrc_file = tmp_path / ".netrc"
+
+    # 注意：在模块被引入后，函数在 apikey 命名空间中，拦截 apikey 里的引用
     mocker.patch("swanlab.sdk.internal.apikey.get_nrc_path", return_value=nrc_file)
     mocker.patch("swanlab.sdk.internal.apikey.remove_host_suffix", return_value="api.swanlab.cn")
 
@@ -49,11 +54,15 @@ def test_save_and_get_flow(mock_env):
     auth = parsed_nrc.authenticators("api.swanlab.cn")
     assert auth is not None
     # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
-    # assert parsed_nrc.authenticators("api.swanlab.cn") == ("test_user", "", "test-key-from-file")
     assert (auth[0], auth[2]) == ("test_user", "test-key-from-file")
 
-    # 验证内存更新与获取
+    # 验证内存更新逻辑是否被调用
     mock_settings.merge_settings.assert_called_once_with({"api_key": "test-key-from-file"})
+
+    # 模拟真实世界中，merge_settings 成功后 Settings 实例属性被更新的现象
+    mock_settings.api_key = "test-key-from-file"
+
+    # 验证获取逻辑（现在只依赖 current_settings.api_key）
     assert apikey.get() == "test-key-from-file"
 
 
@@ -67,19 +76,31 @@ def test_directory_conflict(mock_env):
 
 def test_corrupted_file_recovery(mock_env):
     """测试 netrc 文件损坏时能自动重置并保存"""
-    _, nrc_file = mock_env
+    mock_settings, nrc_file = mock_env
     nrc_file.write_text("invalid netrc content...")
+
+    # save 应该能捕获解析错误，重置文件并成功写入
     apikey.save("new_user", "new_key")
+
+    # 模拟 Settings 被同步更新
+    mock_settings.api_key = "new_key"
     assert apikey.get() == "new_key"
 
 
 def test_netrc_backward_compatibility(mock_env):
-    """测试旧版 host (/api) 的读取与自动修复"""
+    """
+    测试旧版 host (/api) 的读取与自动修复
+    由于 apikey 不再直接读文件，这里直接测试底层的 read_netrc_by_host 工具函数
+    """
     _, nrc_file = mock_env
+    # 写入旧版本的携带 /api 的配置
     nrc_file.write_text("machine api.swanlab.cn/api login old_user password old_key")
 
-    assert apikey.get() == "old_key"
-    # 验证修复：后缀应已被移除
+    # 调用底层读取工具，它应该能兼容读取，并且触发修复动作
+    credentials = read_netrc_by_host(nrc_file, "api.swanlab.cn")
+    assert credentials == ("old_user", "old_key")
+
+    # 验证修复：文件中 /api 后缀应已被移除
     auth = netrc.netrc(nrc_file).authenticators("api.swanlab.cn")
     assert auth is not None
     assert (auth[0], auth[2]) == ("old_user", "old_key")
@@ -87,6 +108,9 @@ def test_netrc_backward_compatibility(mock_env):
 
 def test_get_not_found(mock_env):
     """测试找不到 API Key 时的异常"""
+    mock_settings, _ = mock_env
+    mock_settings.api_key = None  # 确保内存中没有 Key
+
     assert apikey.exists() is False
     with pytest.raises(FileNotFoundError, match="does not exist"):
         apikey.get()
