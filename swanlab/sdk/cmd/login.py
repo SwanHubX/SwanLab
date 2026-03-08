@@ -30,27 +30,46 @@ def login(
     This function authenticates your environment with SwanLab. If an API key is
     already configured locally and `relogin` is False, this function will do nothing.
 
-    [Note that] this function should be called before `swanlab.init`, like swanlab.merge_settings.
+    [Note that] this function should be called before `swanlab.init`, like `swanlab.merge_settings`.
 
-    :param api_key: str, optional
-        Your SwanLab authentication key. If not provided, the SDK will attempt to
+    Examples:
+    ---------
+    >>> import swanlab
+    >>> # 1. Basic login with explicit API key
+    >>> swanlab.login("your_api_key")
+    >>>
+    >>> # 2. Interactive login (prompts for input if no key is found in env/config)
+    >>> swanlab.login()
+    >>>
+    >>> # 3. Force re-login and save the new credential to local .netrc
+    >>> swanlab.login("new_api_key", relogin=True, save=True)
+    >>>
+    >>> # 4. Login to a private SwanLab deployment
+    >>> swanlab.login("private_key", host="https://private-swanlab.com")
+    >>>
+    >>> # Now you can start your experiment
+    >>> swanlab.init()
+
+    :param api_key: Your SwanLab authentication key. If not provided, the SDK will attempt to
         read it from the local environment or prompt you to input it interactively.
-    :param relogin: bool, optional
-        If True, forces a re-authentication and overwrites the existing API key.
-        When `relogin` is True and you already logged in, this function will return immediately.
-        Defaults to False.
-    :param host: str, optional
-        The API host URL. If not provided, the default SwanLab cloud host will be used.
-        This parameter equivalent to setting the `SWANLAB_API_HOST` environment variable.
-        If you set this parameter, settings and environment variables will be ignored and updated.
-    :param save: bool, optional
-        Whether to save the provided api_key to the local netrc/credential file
-        for future sessions. Defaults to False.
-    :param timeout: int, optional
-        Timeout in seconds for the login network request. Defaults to 10.
 
-    :raises RuntimeError: If the environment does not support interactive input.
-    :raises AuthenticationError: If login fails.
+    :param relogin: If True, forces a re-authentication and overwrites the existing API key.
+        When `relogin` is False and you are already logged in, this function will return immediately.
+        Defaults to False.
+
+    :param host: The API host URL. If not provided, the default SwanLab cloud host will be used.
+        This parameter is equivalent to setting the `SWANLAB_API_HOST` environment variable.
+        If you set this parameter, global settings and environment variables will be overwritten.
+
+    :param save: Whether to save the provided api_key to the local netrc/credential file
+        for future sessions. Defaults to False.
+
+    :param timeout: Timeout in seconds for the login network request. Defaults to 10.
+
+    :raises RuntimeError: If the environment does not support interactive input and no key is provided.
+
+    :raises AuthenticationError: If the login request fails (e.g., invalid key or network issue).
+
     :return: Returns True if login was successful, False otherwise.
     """
     # 1. 如果已经登录且不需要重新登录，则直接返回
