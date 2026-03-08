@@ -11,7 +11,7 @@ import stat
 from pathlib import Path
 from typing import Optional
 
-from swanlab.sdk.internal.pkg.settings import get_current_settings
+from swanlab.sdk.internal.pkg import get_current_settings
 
 from .helper import get_nrc_path, remove_host_suffix
 

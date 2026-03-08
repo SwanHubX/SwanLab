@@ -38,12 +38,28 @@ from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvSettings, HardwareSettings
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "settings", "strip_none"]
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
 secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
+
+
+def strip_none(data: dict) -> dict:
+    """
+    递归剔除字典中的 None 值和空字典，主要用于配置项合并时的空值处理
+    """
+    clean_data = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            cleaned_v = strip_none(v)
+            # 只有当嵌套字典里真的有非 None 的值时，才保留这个 key
+            if cleaned_v:
+                clean_data[k] = cleaned_v
+        elif v is not None:
+            clean_data[k] = v
+    return clean_data
 
 
 def root_factory() -> Path:
@@ -64,6 +80,13 @@ class Settings(BaseSettings):
     """
     Whether to enable debug mode for SwanLab.
     If enabled, SwanLab will output more detailed logs.
+    """
+
+    interactive: bool = True
+    """
+    Whether to enable interactive mode.
+    If False, all user input prompts and related interactions will be disabled.
+    Useful for CI/CD environments or background batch jobs.
     """
 
     mode: ModeType = "cloud"
@@ -131,6 +154,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="before")
     @classmethod
+    def strip_non_empty(cls, data: Dict) -> Dict:
+        """
+        删除空值和空字典，以适配传入None的情况，一般情况下此校验必须在其他model_validator之前定义
+        如果出现部分字段需要识别None值，则在此校验之前定义model_validator
+        """
+        if isinstance(data, dict):
+            data = strip_none(data)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def validate_hosts(cls, data: Dict) -> Dict:
         """
         校验并清理 HOST 字段，确保它们以正确的格式存在
@@ -138,7 +172,7 @@ class Settings(BaseSettings):
         所以在处理时，我们优先使用 api_host，然后根据需要（当没有显式配置 web_host 时）推导 web_host
         """
         if isinstance(data, dict):
-            if "api_host" in data:
+            if "api_host" in data and data["api_host"]:
                 raw_api = str(data["api_host"]).strip().rstrip("/")
 
                 # 1. 如果没有携带协议头，默认拼接 https://

@@ -3,6 +3,7 @@
 @file: __init__.py
 @time: 2026/3/6 12:45
 @description: SwanLab 运行时上下文，存储Key等存粹的动态信息
+此上下文应该只在swanlab.init中使用
 """
 
 from contextvars import ContextVar

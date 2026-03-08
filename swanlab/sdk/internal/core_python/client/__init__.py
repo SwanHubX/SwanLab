@@ -12,8 +12,10 @@ from typing import Optional, Union
 import requests
 
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
+from swanlab.sdk.internal.pkg.scope import set_context
 from swanlab.sdk.pkg import console
 from swanlab.sdk.pkg.version import get_swanlab_version
+from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
 from . import session
 from .helper import decode_response
@@ -21,9 +23,9 @@ from .helper import decode_response
 __all__ = [
     "Client",
     "session",
-    "init_client",
-    "get_client",
-    "reset_client",
+    "exists",
+    "reset",
+    "new",
     "get",
     "post",
     "put",
@@ -47,7 +49,7 @@ class Client:
     # 提前刷新的缓冲时间（7天）
     REFRESH_TIME = 60 * 60 * 24 * 7
 
-    def __init__(self, api_key: str, base_url: str):
+    def __init__(self, api_key: str, base_url: str, timeout: int = 10):
         self._api_key = api_key
         self._version = get_swanlab_version()
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
@@ -57,15 +59,17 @@ class Client:
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证
-        self._refresh_auth()
+        login_resp = self._refresh_auth(timeout=timeout)
+        # 写入登录响应到上下文，由调用者判断是否需要使用
+        set_context("login_resp", login_resp)
 
-    def _refresh_auth(self):
+    def _refresh_auth(self, timeout: int = 10) -> Optional[LoginResponse]:
         """
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
         """
         console.debug("Refreshing authentication token...")
-        login_resp = login_by_api_key(self._base_url, self._api_key)
+        login_resp = login_by_api_key(self._base_url, self._api_key, timeout=timeout)
         if not login_resp:
             return console.warning(
                 "Failed to refresh authentication token, swanlab may not work properly, please check your API key."
@@ -119,41 +123,52 @@ class Client:
 _default_client: Optional[Client] = None
 
 
-def init_client(api_key: str, base_url: str) -> Client:
-    """初始化全局默认客户端。"""
+def new(api_key: str, base_url: str, timeout: int = 10) -> Client:
+    """创建一个新的 SwanLab 运行时客户端。"""
     global _default_client
-    _default_client = Client(api_key=api_key, base_url=base_url)
+    console.debug("Creating new SwanLab client.")
+    if _default_client is not None:
+        raise RuntimeError("SwanLab client already exists. Call `reset` first.")
+    _default_client = Client(api_key=api_key, base_url=base_url, timeout=timeout)
     return _default_client
 
 
-def get_client() -> Client:
-    """获取当前的默认客户端。"""
+def exists() -> bool:
+    """检查当前的 SwanLab 运行时客户端是否已存在。"""
+    return _default_client is not None
+
+
+def reset():
+    """重置/销毁当前的 SwanLab 运行时客户端。"""
+    global _default_client
+    console.debug("Resetting SwanLab client.")
     if _default_client is None:
-        raise RuntimeError("SwanLab client is not initialized. Call `init_client` first.")
-    return _default_client
-
-
-def reset_client():
-    """重置/销毁全局客户端。"""
-    global _default_client
+        raise RuntimeError("SwanLab client is not initialized. Call `new` first.")
     _default_client = None
 
 
+def _get_client() -> Client:
+    """获取当前的默认客户端。"""
+    if _default_client is None:
+        raise RuntimeError("SwanLab client is not initialized. Call `new` first.")
+    return _default_client
+
+
 def get(url: str, params: Optional[dict] = None, retries: Optional[int] = None):
-    return get_client().get(url, params=params, retries=retries)
+    return _get_client().get(url, params=params, retries=retries)
 
 
 def post(url: str, data: Optional[Union[dict, list]] = None, retries: Optional[int] = None):
-    return get_client().post(url, data=data, retries=retries)
+    return _get_client().post(url, data=data, retries=retries)
 
 
 def put(url: str, data: Optional[dict] = None, retries: Optional[int] = None):
-    return get_client().put(url, data=data, retries=retries)
+    return _get_client().put(url, data=data, retries=retries)
 
 
 def patch(url: str, data: Optional[dict] = None, retries: Optional[int] = None):
-    return get_client().patch(url, data=data, retries=retries)
+    return _get_client().patch(url, data=data, retries=retries)
 
 
 def delete(url: str, retries: Optional[int] = None):
-    return get_client().delete(url, retries=retries)
+    return _get_client().delete(url, retries=retries)

@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-from swanlab.sdk.internal.pkg.settings import get_current_settings
+from swanlab.sdk.internal.pkg import get_current_settings
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
 

@@ -9,6 +9,10 @@ import sys
 from functools import wraps
 from typing import Callable, Optional, Type, TypeVar
 
+from . import rich
+
+__all__ = ["catch_and_return_none", "rich"]
+
 # Python 3.10+ 直接用: from typing import ParamSpec
 if sys.version_info >= (3, 10):
     from typing import ParamSpec

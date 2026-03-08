@@ -5,34 +5,12 @@
 @description: SwanLab SDK 初始化方法
 """
 
-from functools import wraps
 from typing import Any, List, Optional, Union
-
-from rich.status import Status
 
 from ..internal.context import get_context, has_context
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-
-
-def with_loading_animation(message: str = "Initializing SwanLab...", spinner_name: str = "dots"):
-    """
-    一个使用 rich 包装的加载动画装饰器
-    :param message: 动画旁边显示的文字
-    :param spinner_name: 动画样式（如 'dots', 'bouncingBar', 'point' 等）
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # 使用 rich 的 status 作为上下文管理器包裹函数的执行
-            with Status(f"[bold green]{message}[/bold green]", spinner=spinner_name):
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -67,23 +45,6 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     return model_dict
 
 
-def strip_none(data: dict) -> dict:
-    """
-    递归剔除字典中的 None 值和空字典，主要用于配置项合并时的空值处理
-    """
-    clean_data = {}
-    for k, v in data.items():
-        if isinstance(v, dict):
-            cleaned_v = strip_none(v)
-            # 只有当嵌套字典里真的有非 None 的值时，才保留这个 key
-            if cleaned_v:
-                clean_data[k] = cleaned_v
-        elif v is not None:
-            clean_data[k] = v
-    return clean_data
-
-
-@with_loading_animation()
 def init(
     *,
     reinit: Optional[bool] = None,

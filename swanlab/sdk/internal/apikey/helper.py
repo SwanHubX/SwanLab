@@ -7,7 +7,7 @@
 
 from pathlib import Path
 
-from swanlab.sdk.internal.pkg.settings import get_current_settings
+from swanlab.sdk.internal.pkg import get_current_settings
 
 
 def remove_host_suffix(host: str, *suffixes: str) -> str:
