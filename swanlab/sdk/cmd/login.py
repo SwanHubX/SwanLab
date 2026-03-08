@@ -49,20 +49,18 @@ def login(
 
     :return: Returns True if login was successful, False otherwise.
     """
+    # 1. 如果已经登录且不需要重新登录，则直接返回
     if not relogin and client.exists():
         console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")
         return True
+    # 2. 获取当前配置
     current_settings = get_current_settings()
     api_key = api_key or current_settings.api_key
+    host = host or current_settings.api_host
     # 如果 API Key 不存在，则提示用户输入
     if api_key is None:
-        if not current_settings.interactive:
-            raise RuntimeError(
-                "API Key not provided and interactive mode is disabled",
-                "use `swanlab.login(interactive=True)` or SWANLAB_INTERACTIVE=1 to enable interactive mode.",
-            )
         api_key = apikey.prompt()
-    # 进入登录流程
+    # 3. 进入登录流程
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": host})
     with Scope() as scope:
         create_client(login_settings, timeout=timeout)
@@ -71,7 +69,7 @@ def login(
         assert login_resp is not None, "Failed to get login response"
         if save:
             apikey.save(username=login_resp["userInfo"]["username"], api_key=api_key, host=login_settings.api_host)
-    # 将登录设置合并到全局配置中
+    # 4. 将登录设置合并到全局配置中
     settings.merge_settings(login_settings)
     return True
 

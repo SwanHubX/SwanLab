@@ -144,6 +144,13 @@ def get() -> str:
 
 def prompt() -> str:
     """
-    提示用户输入API Key
+    提示用户输入API Key，如果交互模式未启用，则抛出异常
+    输入API Key时会使用password保护，有部分终端不支持，此时依然抛出异常
     """
+    # current_settings = get_current_settings()
+    # if not current_settings.interactive:
+    #     raise RuntimeError(
+    #         "API Key not provided and interactive mode is disabled",
+    #         "use `swanlab.login(interactive=True)` or SWANLAB_INTERACTIVE=1 to enable interactive mode.",
+    #     )
     ...
