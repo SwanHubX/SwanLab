@@ -34,6 +34,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from swanlab.sdk.pkg import console
 from swanlab.sdk.typings.run import ModeType
 
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
@@ -77,12 +78,6 @@ class Settings(BaseSettings):
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Env: ClassVar[Type[EnvSettings]] = EnvSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
-
-    debug: bool = False
-    """
-    Whether to enable debug mode for SwanLab.
-    If enabled, SwanLab will output more detailed logs.
-    """
 
     interactive: bool = True
     """
@@ -248,9 +243,9 @@ class Settings(BaseSettings):
                 object.__setattr__(self, "web_host", clean_web)
                 fields_set.add("web_host")
 
-        except Exception:  # noqa: E722
+        except Exception as e:  # noqa: E722
             # 任何解析错误（文件损坏、格式不对等）统统忽略，作为兜底机制绝不能阻断程序启动
-            pass
+            console.warning(f"Skipping .netrc file loading due to an error: {e}")
 
         return self
 

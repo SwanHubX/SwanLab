@@ -276,6 +276,6 @@ class TestNetrcFallback:
         settings.merge_settings({"debug": True})
 
         # 验证 netrc 读取进来的属性没有因为 merge (exclude_unset=True) 而丢失
-        assert settings.debug is True
         assert settings.api_key == "sync_token"
         assert settings.api_host == "https://api.sync.com"
+        assert settings.mode == "cloud"

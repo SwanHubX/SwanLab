@@ -5,13 +5,18 @@
 @description: SwanLab SDK 控制台日志模块，负责打印日志
 """
 
+import os
+
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-from swanlab.sdk.internal.pkg.settings import get_current_settings
+# 设计上 console 独立于其他模块，包括settings。但是我们又希望有一个环境变量去控制是否打印debug信息，所以这里额外绑定一个环境变量
+DEBUG = os.getenv("SWANLAB_DEBUG", "false").lower() in ["true", "1", "yes", "on"]
+
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
+
 
 _console = Console()
 _can_log = True
@@ -43,15 +48,6 @@ def enable_log():
     _can_log = True
 
 
-def is_debug() -> bool:
-    """
-    Determine whether the current context is in debug mode.
-
-    Used to allow users to manually short-circuit in advance before performing high-overhead debugging calculations or complex string concatenation.
-    """
-    return get_current_settings().debug
-
-
 def _print_formatted(level_name: str, *args, **kwargs):
     """
     纯粹的打印执行逻辑，剥离了所有的校验，减少判断开销
@@ -81,7 +77,7 @@ def print(*args, **kwargs):  # noqa: A001
 
 def debug(*args, **kwargs):
     """发送调试消息"""
-    if not _can_log or not is_debug():
+    if not _can_log or not DEBUG:
         return
     _print_formatted("debug", *args, **kwargs)
 
