@@ -69,7 +69,11 @@ class TestReadNetrc:
         parsed = netrc.netrc(nrc_path)
         assert "api.swanlab.cn/api" not in parsed.hosts
         assert "api.swanlab.cn" in parsed.hosts
-        assert parsed.authenticators("api.swanlab.cn") == ("old_user", "", "old_key")
+        # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+        # assert parsed.authenticators("api.swanlab.cn") == ("old_user", "", "old_key")
+        auth = parsed.authenticators("api.swanlab.cn")
+        assert auth is not None
+        assert (auth[0], auth[2]) == ("old_user", "old_key")
 
     def test_read_exceptions(self, tmp_path):
         """测试读取时的异常处理（目录冲突和格式损坏）"""
@@ -103,7 +107,11 @@ class TestWriteNetrc:
 
         # 验证写入内容
         parsed = netrc.netrc(nrc_path)
-        assert parsed.authenticators("api.swanlab.cn") == ("test_user", "", "test_key")
+        # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+        # assert parsed.authenticators("api.swanlab.cn") == ("test_user", "", "test_key")
+        auth = parsed.authenticators("api.swanlab.cn")
+        assert auth is not None
+        assert (auth[0], auth[2]) == ("test_user", "test_key")
 
     def test_write_global_sso(self, tmp_path):
         """测试全局单点登录机制：后写入的必须清空之前不同环境的所有凭证"""
@@ -118,7 +126,11 @@ class TestWriteNetrc:
         parsed = netrc.netrc(nrc_path)
 
         # 验证新节点已生效
-        assert parsed.authenticators("private.company.com") == ("user2", "", "key2")
+        # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+        # assert parsed.authenticators("private.company.com") == ("user2", "", "key2")
+        auth = parsed.authenticators("private.company.com")
+        assert auth is not None
+        assert (auth[0], auth[2]) == ("user2", "key2")
         # 验证旧节点已被强行清除（只保留了 1 个 host）
         assert "api.swanlab.cn" not in parsed.hosts
         assert len(parsed.hosts) == 1
@@ -132,7 +144,11 @@ class TestWriteNetrc:
         write_netrc(nrc_path, "api.swanlab.cn", "new_user", "new_key")
 
         parsed = netrc.netrc(nrc_path)
-        assert parsed.authenticators("api.swanlab.cn") == ("new_user", "", "new_key")
+        # 旧版本的 netrc 文件中，auth[1] 可能是 None 而非空字符串，并且我们并不关心 auth[1] 的值，所以这里不比较即可
+        # assert parsed_nrc.authenticators("api.swanlab.cn") == ("test_user", "", "test-key-from-file")
+        auth = parsed.authenticators("api.swanlab.cn")
+        assert auth is not None
+        assert (auth[0], auth[2]) == ("new_user", "new_key")
 
     def test_write_directory_conflict(self, tmp_path):
         """测试目标路径被目录占用时的防御策略"""
