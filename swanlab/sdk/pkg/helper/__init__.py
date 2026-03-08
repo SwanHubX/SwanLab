@@ -5,20 +5,33 @@
 @description: SwanLab SDK 辅助函数
 """
 
+import sys
 from functools import wraps
+from typing import Callable, Optional, Type, TypeVar
+
+# Python 3.10+ 直接用: from typing import ParamSpec
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+# 定义参数规范 P 和返回值类型 R
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def catch_and_return_none(*exceptions):
+def catch_and_return_none(*exceptions: Type[BaseException]):
     """
-    Catch the specified exception and return None.
-    If no argument is passed, it defaults to catching Exception (though this is not recommended).
+    捕获指定异常并返回 None。
+    使用 ParamSpec 和 TypeVar 动态修改类型签名，使 IDE 能正确推断出 Optional[R]。
     """
-    # 如果没传具体的异常类，就用最宽泛的 Exception 兜底
     catch_types = exceptions if exceptions else (Exception,)
 
-    def decorator(func):
+    # 这里的关键：明确告诉 IDE，接收 Callable[P, R]，返回 Callable[P, Optional[R]]
+    def decorator(func: Callable[P, R]) -> Callable[P, Optional[R]]:
+
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Optional[R]:
             try:
                 return func(*args, **kwargs)
             except catch_types:

@@ -21,7 +21,7 @@ def mock_env(mocker, tmp_path, monkeypatch):
     统一准备测试环境，拦截外部依赖
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    mock_settings = MagicMock(api_url="https://api.swanlab.cn/api", api_key=None)
+    mock_settings = MagicMock(api_host="https://api.swanlab.cn/api", api_key=None)
     mocker.patch("swanlab.sdk.internal.apikey.get_current_settings", return_value=mock_settings)
 
     nrc_file = tmp_path / ".netrc"

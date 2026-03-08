@@ -49,7 +49,7 @@ def _get_or_none() -> Optional[str]:
             f"Please check if the path is a directory, has incorrect permissions, "
             f"or contains syntax errors."
         )
-    host = remove_host_suffix(current_settings.api_url, "/api")
+    host = remove_host_suffix(current_settings.api_host, "/api")
     info = nrc.authenticators(host)
 
     # 向下兼容逻辑
@@ -77,7 +77,7 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     """
     current_settings = get_current_settings()
     if host is None:
-        host = remove_host_suffix(current_settings.api_url, "/api")
+        host = remove_host_suffix(current_settings.api_host, "/api")
     nrc_path = get_nrc_path()
 
     # 1. 核心防御：处理路径冲突（如果是目录则无法继续）
