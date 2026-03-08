@@ -61,7 +61,8 @@ def login(
     # 2. 获取当前配置
     api_key = api_key or settings.api_key
     host = host or settings.api_host
-    login_settings = Settings.model_validate({"api_key": api_key, "api_host": host})
+    web_host = host or settings.web_host
+    login_settings = Settings.model_validate({"api_key": api_key, "api_host": host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
     with use_temp_context(RunContext(config=RunConfig(settings=login_settings))):
         # 如果 API Key 不存在，则提示用户输入
@@ -75,7 +76,7 @@ def login(
             login_resp: LoginResponse = scope.get("login_resp", None)
             assert login_resp is not None, "Failed to get login response"
             if save:
-                apikey.save(username=login_resp["userInfo"]["username"], api_key=api_key, host=login_settings.api_host)
+                apikey.save(username=web_host, api_key=api_key, host=login_settings.api_host)
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(login_settings)
         return True
