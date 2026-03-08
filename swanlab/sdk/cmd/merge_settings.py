@@ -15,6 +15,9 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
     """
     Merge custom settings into the current SwanLab settings.
     Note that this function must be called before calling `swanlab.init`.
+
+    Examples:
+    ---------
     >>> import swanlab
     >>> # 1. Merge from dict
     >>> swanlab.merge_settings({"hardware": {"monitor": False}})
@@ -23,6 +26,7 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
     >>>
     >>> # Now you can call swanlab.init(), which will use the merged settings
     >>> swanlab.init()
+
     :param settings: The custom settings to merge.
     """
     swanlab_settings.merge_settings(settings)

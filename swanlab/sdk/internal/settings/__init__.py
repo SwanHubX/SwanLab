@@ -4,11 +4,12 @@
 @time: 2026/3/5 14:38
 @description: SwanLab 包配置项，根据优先级从低到高加载配置：
 1. 默认值
-2. 环境变量
-3. 当前目录下 .env 文件
-4. /etc/swanlab/*.{yaml,yml}
-5. 当前目录下 swanlab.{yaml,yml}
-6. K8S/Docker 容器 Secret 配置项文件
+2. settings.root
+3. 环境变量
+4. 当前目录下 .env 文件
+5. /etc/swanlab/*.{yaml,yml}
+6. 当前目录下 swanlab.{yaml,yml}
+7. K8S/Docker 容器 Secret 配置项文件
 
 在设计上 Settings 仅是与用户交互的配置入口，不包含业务逻辑，这意味着仅检查必要的类型和格式和必要的默认值，不产生副作用：
 1. 文件夹创建
@@ -17,6 +18,7 @@
 用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
+import netrc
 import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
@@ -32,18 +34,35 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from swanlab.sdk.pkg import console
 from swanlab.sdk.typings.run import ModeType
 
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvSettings, HardwareSettings
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "settings", "strip_none"]
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
 secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
+
+
+def strip_none(data: dict) -> dict:
+    """
+    递归剔除字典中的 None 值和空字典，主要用于配置项合并时的空值处理
+    """
+    clean_data = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            cleaned_v = strip_none(v)
+            # 只有当嵌套字典里真的有非 None 的值时，才保留这个 key
+            if cleaned_v:
+                clean_data[k] = cleaned_v
+        elif v is not None:
+            clean_data[k] = v
+    return clean_data
 
 
 def root_factory() -> Path:
@@ -60,10 +79,11 @@ class Settings(BaseSettings):
     Env: ClassVar[Type[EnvSettings]] = EnvSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
 
-    debug: bool = False
+    interactive: bool = True
     """
-    Whether to enable debug mode for SwanLab.
-    If enabled, SwanLab will output more detailed logs.
+    Whether to enable interactive mode.
+    If False, all user input prompts and related interactions will be disabled.
+    Useful for CI/CD environments or background batch jobs.
     """
 
     mode: ModeType = "cloud"
@@ -131,6 +151,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="before")
     @classmethod
+    def strip_non_empty(cls, data: Dict) -> Dict:
+        """
+        删除空值和空字典，以适配传入None的情况，一般情况下此校验必须在其他model_validator之前定义
+        如果出现部分字段需要识别None值，则在此校验之前定义model_validator
+        """
+        if isinstance(data, dict):
+            data = strip_none(data)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def validate_hosts(cls, data: Dict) -> Dict:
         """
         校验并清理 HOST 字段，确保它们以正确的格式存在
@@ -138,7 +169,7 @@ class Settings(BaseSettings):
         所以在处理时，我们优先使用 api_host，然后根据需要（当没有显式配置 web_host 时）推导 web_host
         """
         if isinstance(data, dict):
-            if "api_host" in data:
+            if "api_host" in data and data["api_host"]:
                 raw_api = str(data["api_host"]).strip().rstrip("/")
 
                 # 1. 如果没有携带协议头，默认拼接 https://
@@ -163,6 +194,60 @@ class Settings(BaseSettings):
                 data["web_host"] = current_web.rstrip("/")
 
         return data
+
+    @model_validator(mode="after")
+    def load_netrc_fallback(self) -> "Settings":
+        """
+        在所有配置加载完成后，作为最后的回退机制读取 root/.netrc 文件。
+        前提保障：只会覆盖未被显式设置（如环境变量/YAML）的默认配置。
+
+        映射规则：
+        - machine (host) -> api_host
+        - login (username) -> web_host
+        - password -> api_key
+        """
+        nrc_path = self.root / ".netrc"
+        if not nrc_path.exists():
+            return self
+
+        # noinspection PyBroadException
+        try:
+            nrc = netrc.netrc(nrc_path)
+
+            if not nrc.hosts:
+                return self
+
+            # 得益于“全局单点登录”机制，.netrc 中理论上只有一个 host，直接取第一个
+            machine = list(nrc.hosts.keys())[0]
+
+            # netrc 标准格式解析结果为: (login, account, password)
+            login, _, password = nrc.hosts[machine]
+
+            # 获取被显式设置过的字段集合（在 Env 或 Yaml 中指定过的字段，跳过覆盖）
+            fields_set = self.__pydantic_fields_set__
+
+            # 1. 赋值 api_key (对应读取到的密码)
+            if "api_key" not in fields_set and password:
+                object.__setattr__(self, "api_key", password)
+                fields_set.add("api_key")
+
+            # 2. 赋值 api_host (对应读取到的 host)
+            if "api_host" not in fields_set and machine:
+                clean_api = machine if machine.startswith(("http://", "https://")) else f"https://{machine}"
+                object.__setattr__(self, "api_host", clean_api)
+                fields_set.add("api_host")
+
+            # 3. 赋值 web_host (对应读取到的用户名)
+            if "web_host" not in fields_set and login:
+                clean_web = login if login.startswith(("http://", "https://")) else f"https://{login}"
+                object.__setattr__(self, "web_host", clean_web)
+                fields_set.add("web_host")
+
+        except Exception as e:  # noqa: E722
+            # 任何解析错误（文件损坏、格式不对等）统统忽略，作为兜底机制绝不能阻断程序启动
+            console.warning(f"Skipping .netrc file loading due to an error: {e}")
+
+        return self
 
     project: ProjectSettings = Field(default_factory=ProjectSettings)
     """

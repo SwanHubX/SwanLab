@@ -1,4 +1,4 @@
-from swanlab.sdk import Settings, finish, init, merge_settings
+from swanlab.sdk import Settings, finish, init, login, merge_settings
 from swanlab.sdk.pkg.version import get_swanlab_version
 
 __all__ = [
@@ -6,6 +6,7 @@ __all__ = [
     "Settings",
     "init",
     "finish",
+    "login",
 ]
 
 

@@ -8,8 +8,8 @@
 import pytest
 import responses
 
+from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.session import TimeoutHTTPAdapter, create, request_retries_ctx
-from swanlab.sdk.pkg.exceptions import ApiError
 
 
 @pytest.fixture
