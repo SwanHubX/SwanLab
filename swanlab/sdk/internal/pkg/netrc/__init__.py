@@ -42,7 +42,8 @@ def read_netrc_by_host(nrc_path: Path, target_host: str) -> Optional[Tuple[str, 
 
     try:
         nrc = netrc.netrc(nrc_path)
-    except (netrc.NetrcParseError, IsADirectoryError):
+    # 增加 PermissionError 以兼容 Windows 这种“把目录当文件开”会报权限错误的特性
+    except (netrc.NetrcParseError, IsADirectoryError, PermissionError):
         raise IOError(
             f"Failed to access or parse netrc file at {nrc_path}. "
             f"Please check if the path is a directory, has incorrect permissions, or contains syntax errors."

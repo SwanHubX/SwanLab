@@ -8,7 +8,7 @@
 from typing import Optional
 
 from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.context import RunConfig, RunContext, has_context, use_temp_context
+from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg.scope import Scope
 from swanlab.sdk.internal.settings import Settings, settings
@@ -64,25 +64,26 @@ def login(
     web_host = host or settings.web_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
-    with use_temp_context(RunContext(config=RunConfig(settings=login_settings))):
+    with use_temp_context(RunContext(config=RunConfig(settings=login_settings))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
         if api_key is None:
             api_key = apikey.prompt()
         # 3. 进入登录流程
-        login_settings = Settings.model_validate({"api_key": api_key, "api_host": host})
+        ctx.config.settings.merge_settings({"api_key": api_key})
         with Scope() as scope:
-            create_client(login_settings, timeout=timeout)
+            create_client(timeout=timeout)
             assert client.exists(), "Failed to create client"
             login_resp: LoginResponse = scope.get("login_resp", None)
             assert login_resp is not None, "Failed to get login response"
             if save:
-                apikey.save(username=web_host, api_key=api_key, host=login_settings.api_host)
+                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host)
         # 4. 将登录设置合并到全局配置中
-        settings.merge_settings(login_settings)
+        settings.merge_settings(ctx.config.settings)
         return True
 
 
 @helper.rich.with_loading_animation()
-def create_client(login_settings: Settings, timeout: int = 10):
-    assert login_settings.api_key is not None, "API Key not provided"
-    return client.new(login_settings.api_key, login_settings.api_host, timeout=timeout)
+def create_client(timeout: int = 10):
+    ctx = get_context()
+    assert ctx.config.settings.api_key is not None, "API Key not provided"
+    return client.new(ctx.config.settings.api_key, ctx.config.settings.api_host, timeout=timeout)
