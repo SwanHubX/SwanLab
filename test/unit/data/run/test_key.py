@@ -8,6 +8,7 @@
 import pytest
 
 from swanlab.data.run.key import SwanLabKey
+from swanlab.data.modules import Line, DataWrapper
 from swanlab.toolkit import ChartType
 from tutils.setup import UseMockRunState
 
@@ -196,3 +197,38 @@ class TestMockKey:
             assert len(key_obj.steps) == 101, "Steps should contain one entry when step is provided"
             assert 1 in key_obj.steps, "Step 1 should be present in the steps"
             assert 101 not in key_obj.steps, "Step 10 should be present in the steps"
+
+    @pytest.mark.parametrize(
+        "key, expected_section",
+        [
+            ("loss/metrics/label1", "loss/metrics"),  # 多个斜杠，取最后一个斜杠前的部分
+            ("train/loss", "train"),                   # 单个斜杠
+            ("accuracy", "default"),                   # 无斜杠，保持默认
+            ("a/b/c/d", "a/b/c"),                     # 更多斜杠
+        ],
+    )
+    def test_section_split(self, key, expected_section):
+        """
+        测试 section 按最后一个斜杠分割的逻辑
+        """
+        with UseMockRunState() as run_state:
+            # 创建 DataWrapper 并解析
+            data = DataWrapper(key=key, data=[Line(0.5)])
+            data.parse(step=0, key=key)
+
+            # 创建 SwanLabKey 对象
+            swanlab_key = SwanLabKey(key=key, media_dir=run_state.store.media_dir, log_dir=run_state.store.log_dir)
+
+            # 创建列信息
+            column_info = swanlab_key.create_column(
+                key=key,
+                name=None,
+                column_class="CUSTOM",
+                column_config=None,
+                section_type="PUBLIC",
+                data=data,
+                num=0
+            )
+
+            # 验证 section_name
+            assert column_info.section_name == expected_section
