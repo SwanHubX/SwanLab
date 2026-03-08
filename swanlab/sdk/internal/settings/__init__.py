@@ -4,11 +4,12 @@
 @time: 2026/3/5 14:38
 @description: SwanLab 包配置项，根据优先级从低到高加载配置：
 1. 默认值
-2. 环境变量
-3. 当前目录下 .env 文件
-4. /etc/swanlab/*.{yaml,yml}
-5. 当前目录下 swanlab.{yaml,yml}
-6. K8S/Docker 容器 Secret 配置项文件
+2. settings.root
+3. 环境变量
+4. 当前目录下 .env 文件
+5. /etc/swanlab/*.{yaml,yml}
+6. 当前目录下 swanlab.{yaml,yml}
+7. K8S/Docker 容器 Secret 配置项文件
 
 在设计上 Settings 仅是与用户交互的配置入口，不包含业务逻辑，这意味着仅检查必要的类型和格式和必要的默认值，不产生副作用：
 1. 文件夹创建
