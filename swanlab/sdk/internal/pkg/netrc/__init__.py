@@ -74,7 +74,12 @@ def write_netrc(nrc_path: Path, host: str, username: str, password: str) -> None
     将凭证写入 netrc 文件。
     遵循全局单点登录原则：每次写入都会清空其他所有历史/不同环境的登录凭证。
     """
-    # 1. 核心防御：处理路径冲突
+    # 1. 核心防御
+    # 检查字段是否合法
+    for field_name, value in [("host", host), ("username", username), ("password", password)]:
+        if any(c in value for c in ("\n", "\r", " ", "\t")):
+            raise ValueError(f"Invalid characters in {field_name}. Newlines and spaces are not allowed.")
+    # 核心防御：处理路径冲突
     if nrc_path.exists() and nrc_path.is_dir():
         raise IOError(
             f"The path {nrc_path} is a directory, but a file is expected. "
