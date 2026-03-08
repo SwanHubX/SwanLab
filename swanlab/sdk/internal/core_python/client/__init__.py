@@ -12,6 +12,7 @@ from typing import Optional, Union
 import requests
 
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
+from swanlab.sdk.internal.pkg.netrc import remove_host_suffix
 from swanlab.sdk.internal.pkg.scope import set_context
 from swanlab.sdk.pkg import console
 from swanlab.sdk.pkg.version import get_swanlab_version
@@ -53,7 +54,7 @@ class Client:
         self._api_key = api_key
         self._version = get_swanlab_version()
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
-        self._base_url = base_url.rstrip("/")
+        self._base_url = remove_host_suffix(base_url, "/api") + "/api"
         self._expired_at: Optional[datetime] = None
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
@@ -79,7 +80,7 @@ class Client:
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
             tzinfo=timezone.utc
         )
-        return None
+        return login_resp
 
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""
