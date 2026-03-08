@@ -11,5 +11,5 @@ format:
 	-uvx ruff check --select I --fix . --quiet
 	-uvx ruff format . --quiet
 
-test:
-	uv run pytest
+unit:
+	uv run pytest tests/unit
