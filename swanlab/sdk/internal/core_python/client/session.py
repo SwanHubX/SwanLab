@@ -55,7 +55,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
 
 @helper.catch_and_return_none()
-def format_body_preview(body: bytes | str | None, max_len: int = 1000) -> str:
+def format_body_preview(body: Optional[bytes | str], max_len: int = 1000) -> str:
     """
     统一格式化并截断请求/响应体，安全处理二进制乱码。
     如果是 bytes，尝试用 utf-8 解码；超过 max_len 则截断防刷屏。
