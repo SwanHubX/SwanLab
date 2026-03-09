@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-from swanlab.sdk.internal.pkg import log as _log
+from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.pkg import helper
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
@@ -92,7 +92,7 @@ def debug(*args, **kwargs):
     if not _can_log or not helper.env.DEBUG:
         return
     _print_formatted("debug", *args, **kwargs)
-    _log.debug("[CONSOLE] %s", _to_plain_text(*args))
+    log.debug("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def info(*args, **kwargs):
@@ -100,7 +100,8 @@ def info(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("info", *args, **kwargs)
-    _log.info("[CONSOLE] %s", _to_plain_text(*args))
+    if helper.env.DEBUG:
+        log.info("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def warning(*args, **kwargs):
@@ -108,7 +109,8 @@ def warning(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("warning", *args, **kwargs)
-    _log.warning("[CONSOLE] %s", _to_plain_text(*args))
+    if helper.env.DEBUG:
+        log.warning("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def error(*args, **kwargs):
@@ -116,7 +118,8 @@ def error(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("error", *args, **kwargs)
-    _log.error("[CONSOLE] %s", _to_plain_text(*args))
+    if helper.env.DEBUG:
+        log.error("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def critical(*args, **kwargs):
@@ -124,5 +127,5 @@ def critical(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("critical", *args, **kwargs)
-
-    _log.critical("[CONSOLE] %s", _to_plain_text(*args))
+    if helper.env.DEBUG:
+        log.critical("[CONSOLE] %s", _to_plain_text(*args))
