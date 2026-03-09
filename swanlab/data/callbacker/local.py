@@ -79,7 +79,7 @@ class LocalRunCallback(SwanLabRunCallback):
         exp_count = random.randint(0, 20)
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
         if run_store.run_colors is None:
-            run_store.run_colors = generate_colors(random.randint(0, 20))
+            run_store.run_colors = generate_colors(exp_count)
         run_store.run_id = N.generate_run_id()
         run_store.new = True
 
