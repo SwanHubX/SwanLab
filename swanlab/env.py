@@ -133,6 +133,10 @@ class SwanLabEnv(enum.Enum):
     """
     实验标签，用于标注当前实验，多个标签用逗号分隔
     """
+    EXP_COLOR = "SWANLAB_EXP_COLOR"
+    """
+    实验颜色，用于控制实验在网页端的显示颜色
+    """
     DISABLE_GIT = "SWANLAB_DISABLE_GIT"
     """
     禁用Git功能，设置为true时不会采集Git信息
