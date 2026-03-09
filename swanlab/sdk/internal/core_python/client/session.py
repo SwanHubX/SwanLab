@@ -54,6 +54,25 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         return super().send(request, *args, **kwargs)
 
 
+@helper.catch_and_return_none()
+def format_body_preview(body: bytes | str | None, max_len: int = 1000) -> str:
+    """
+    统一格式化并截断请求/响应体，安全处理二进制乱码。
+    如果是 bytes，尝试用 utf-8 解码；超过 max_len 则截断防刷屏。
+    """
+    if not body:
+        return ""
+
+    if isinstance(body, bytes):
+        body_str = body.decode("utf-8", errors="replace")
+    else:
+        body_str = str(body)
+
+    if len(body_str) > max_len:
+        return body_str[:max_len] + " ... (truncated)"
+    return body_str
+
+
 class SessionWithRetry(Session):
     """
     支持在请求级别自定义重试次数的 Session。
@@ -82,12 +101,10 @@ class SessionWithRetry(Session):
 
         # --- [DEBUG] 记录请求详情 ---
         if helper.env.DEBUG:
+            # 这里的 request.url 已经包含了 params 拼接后的完整 query 字符串
             log.debug("[HTTP-REQ] %s %s | Headers: %s", method, request.url, request.headers)
             if request.body:
-                # 防止大文件或超长 JSON 刷屏，截断前 1000 个字符
-                body_preview = str(request.body)[:1000]
-                if len(str(request.body)) > 1000:
-                    body_preview += " ... (truncated)"
+                body_preview = format_body_preview(request.body) or "<unknown binary data>"
                 log.debug("[HTTP-REQ-BODY] %s", body_preview)
         # ---------------------------
 
@@ -113,10 +130,9 @@ class SessionWithRetry(Session):
             # --- [DEBUG] 记录成功响应详情 ---
             if helper.env.DEBUG:
                 log.debug("[HTTP-RES] Headers: %s", response.headers)
+                # 直接传 response.text (str) 给格式化函数
                 if response.text:
-                    resp_preview = response.text[:1000]
-                    if len(response.text) > 1000:
-                        resp_preview += " ... (truncated)"
+                    resp_preview = format_body_preview(response.text) or "<unknown data>"
                     log.debug("[HTTP-RES-BODY] %s", resp_preview)
             # -------------------------------
 
@@ -148,7 +164,8 @@ class SessionWithRetry(Session):
             log.debug("[HTTP-RES-ERR] Headers: %s", response.headers)
             if response.text and not decoded:
                 # 只有当解码失败时，才额外把原始错误 body 打印出来
-                log.debug("[HTTP-RES-ERR-BODY] %s", response.text[:1000])
+                err_preview = format_body_preview(response.text) or "<unknown data>"
+                log.debug("[HTTP-RES-ERR-BODY] %s", err_preview)
         # -------------------------------
 
         # 5. 抛出友好的自定义 ApiError
