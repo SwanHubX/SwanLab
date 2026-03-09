@@ -289,9 +289,7 @@ def check_color_format(color: str) -> Optional[str]:
         return PRESET_COLORS[color]
 
     # RGB格式
-    rgb_match = re.match(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color)
-    if not rgb_match:
-        rgb_match = re.match(r'\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color)
+    rgb_match = re.match(r'(?:rgb\s*)?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color)
     if rgb_match:
         r, g, b = map(int, rgb_match.groups())
         if all(0 <= v <= 255 for v in [r, g, b]):
@@ -303,7 +301,7 @@ def check_color_format(color: str) -> Optional[str]:
     if len(hex_color) == 3:
         hex_color = "".join(c * 2 for c in hex_color)
 
-    if len(hex_color) == 6 and all(c in "0123456789abcdef" for c in hex_color):
+    if re.fullmatch(r'[0-9a-f]{6}', hex_color):
         return f"#{hex_color}"
 
     raise ValueError(f"Invalid color format: {color}")
