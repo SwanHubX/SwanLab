@@ -6,6 +6,8 @@
 当 SWANLAB_DEBUG=true 时，终端输出会同步镜像到诊断日志文件（通过 log 模块）
 """
 
+from typing import Any
+
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
@@ -60,7 +62,7 @@ def _print_formatted(level_name: str, *args, **kwargs):
     _console.print(prefix_text, *safe_args, **kwargs)
 
 
-def _to_plain_text(*args) -> str:
+def _to_plain_text(*args: Any) -> str:
     """
     将 console 的 *args 转为纯文本字符串，用于写入诊断日志文件。
     去除 rich markup，保留原始语义。

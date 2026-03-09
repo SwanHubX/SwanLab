@@ -24,7 +24,7 @@ from swanlab.sdk.pkg.version import get_swanlab_version
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
-request_retries_ctx = contextvars.ContextVar("request_retries", default=None)
+request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 
 
 class TimeoutHTTPAdapter(HTTPAdapter):
@@ -103,8 +103,9 @@ class SessionWithRetry(Session):
         if helper.env.DEBUG:
             # 这里的 request.url 已经包含了 params 拼接后的完整 query 字符串
             log.debug("[HTTP-REQ] %s %s | Headers: %s", method, request.url, request.headers)
-            if request.body:
-                body_preview = format_body_preview(request.body) or "<unknown binary data>"
+            body = request.body
+            if body:
+                body_preview = format_body_preview(body) or "<unknown binary data>"
                 log.debug("[HTTP-REQ-BODY] %s", body_preview)
         # ---------------------------
 
@@ -131,8 +132,9 @@ class SessionWithRetry(Session):
             if helper.env.DEBUG:
                 log.debug("[HTTP-RES] Headers: %s", response.headers)
                 # 直接传 response.text (str) 给格式化函数
-                if response.text:
-                    resp_preview = format_body_preview(response.text) or "<unknown data>"
+                text = response.text
+                if text:
+                    resp_preview = format_body_preview(text) or "<unknown data>"
                     log.debug("[HTTP-RES-BODY] %s", resp_preview)
             # -------------------------------
 
@@ -162,9 +164,10 @@ class SessionWithRetry(Session):
         # --- [DEBUG] 记录失败响应详情 ---
         if helper.env.DEBUG:
             log.debug("[HTTP-RES-ERR] Headers: %s", response.headers)
-            if response.text and not decoded:
+            text = response.text
+            if text and not decoded:
                 # 只有当解码失败时，才额外把原始错误 body 打印出来
-                err_preview = format_body_preview(response.text) or "<unknown data>"
+                err_preview = format_body_preview(text) or "<unknown data>"
                 log.debug("[HTTP-RES-ERR-BODY] %s", err_preview)
         # -------------------------------
 
