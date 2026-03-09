@@ -30,12 +30,11 @@ class OfflineCallback(SwanLabRunCallback):
         run_store.workspace = workspace
         run_store.visibility = public
         run_store.tags = [] if run_store.tags is None else run_store.tags
-        # 设置颜色，随机生成一个
+        # 设置颜色和名称
         exp_count = random.randint(0, 20)
-        run_store.run_colors = N.generate_colors(exp_count)
-        # 设置名称，随机生成
+        if run_store.run_colors is None:
+            run_store.run_colors = N.generate_colors(exp_count)
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
-        run_store.run_colors = N.generate_colors(exp_count)
         run_store.run_id = N.generate_run_id()
         run_store.new = True
 
