@@ -5,11 +5,18 @@
 @description: 测试 SwanLab 运行时客户端会话辅助函数
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 import responses
 
 from swanlab.exceptions import ApiError
-from swanlab.sdk.internal.core_python.client.session import TimeoutHTTPAdapter, create, request_retries_ctx
+from swanlab.sdk.internal.core_python.client.session import (
+    TimeoutHTTPAdapter,
+    create,
+    format_body_preview,
+    request_retries_ctx,
+)
 
 
 @pytest.fixture
@@ -99,3 +106,121 @@ def test_request_retries_context_cleanup(session):
 
     # 无论中间发生了什么（包括抛出异常），finally 块必须确保清理了上下文
     assert request_retries_ctx.get() is None
+
+
+# ==============================================================================
+# Helper Function: format_body_preview 测试
+# ==============================================================================
+
+
+def test_format_body_preview():
+    """测试格式化截断函数的各项能力"""
+    # 1. 空值处理
+    assert format_body_preview(None) == ""
+    assert format_body_preview(b"") == ""
+    assert format_body_preview("") == ""
+
+    # 2. 基础字符串及未越界截断
+    assert format_body_preview("hello world", max_len=20) == "hello world"
+    assert format_body_preview("hello world", max_len=5) == "hello ... (truncated)"
+
+    # 3. 正常 utf-8 bytes 解码
+    assert format_body_preview(b'{"key":"value"}') == '{"key":"value"}'
+
+    # 4. 无法正常解码的乱码 bytes（预期会被 errors="replace" 替换为占位符，不会抛错）
+    bad_bytes = b"\xff\xfe\xfd"
+    result = format_body_preview(bad_bytes)
+    assert result is not None
+    assert "\ufffd" in result  # \ufffd 就是那个长得像问号的替换字符
+
+
+# ==============================================================================
+# DEBUG 日志相关测试
+# ==============================================================================
+
+
+@responses.activate()
+def test_session_debug_logging_success(session, monkeypatch):
+    """测试开启 DEBUG 时，成功请求会记录详细的请求/响应体和 Headers"""
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    responses.add(
+        responses.POST,
+        "http://api.test/debug-success",
+        json={"status": "ok"},
+        status=200,
+    )
+
+    session.post("http://api.test/debug-success", json={"req_key": "req_val"})
+
+    all_logged_args = [str(arg) for call in mock_debug.call_args_list for arg in call.args]
+
+    # 验证格式化字符串标签存在
+    assert any("[HTTP-REQ]" in msg for msg in all_logged_args)
+    assert any("[HTTP-REQ-BODY] %s" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES]" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES-BODY] %s" in msg for msg in all_logged_args)
+
+    # 验证实际的请求/响应体被解码并当做变量传入
+    assert any('{"req_key": "req_val"}' in msg for msg in all_logged_args)
+    assert any('{"status": "ok"}' in msg for msg in all_logged_args)
+
+
+@responses.activate()
+def test_session_debug_logging_error(session, monkeypatch):
+    """测试开启 DEBUG 时，失败请求会记录详细的响应 Headers 和原始 Body"""
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    responses.add(
+        responses.GET,
+        "http://api.test/debug-error",
+        body="<html>Nginx 502 Bad Gateway</html>",
+        status=502,
+    )
+
+    with pytest.raises(ApiError):
+        session.get("http://api.test/debug-error")
+
+    all_logged_args = [str(arg) for call in mock_debug.call_args_list for arg in call.args]
+
+    assert any("[HTTP-REQ]" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES-ERR]" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES-ERR-BODY] %s" in msg for msg in all_logged_args)
+
+    # 验证实际的响应体被当做变量传入
+    assert any("502 Bad Gateway" in msg for msg in all_logged_args)
+
+
+@responses.activate()
+def test_session_debug_logging_truncation(session, monkeypatch):
+    """测试开启 DEBUG 时，超长请求/响应体会按预期截断，防止刷屏"""
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    # 构造长度为 2000 的超长字符串
+    long_string = "a" * 2000
+    responses.add(
+        responses.POST,
+        "http://api.test/debug-truncate",
+        body=long_string,
+        status=200,
+    )
+
+    session.post("http://api.test/debug-truncate", data=long_string)
+
+    truncation_marker = " ... (truncated)"
+
+    # 直接在所有打出的变量里寻找包含 truncation_marker 的长字符串
+    logged_vars = [str(arg) for call in mock_debug.call_args_list for arg in call.args]
+    truncated_bodies = [msg for msg in logged_vars if truncation_marker in msg]
+
+    # 预期有两个被截断的 body (请求体 和 响应体)
+    assert len(truncated_bodies) == 2
+    for body in truncated_bodies:
+        # 总长度应等于 1000 + 截断后缀长度
+        assert len(body) == 1000 + len(truncation_marker)
