@@ -14,8 +14,8 @@ import requests
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
 from swanlab.sdk.internal.pkg.netrc import remove_host_suffix
 from swanlab.sdk.internal.pkg.scope import set_context
-from swanlab.sdk.pkg.version import get_swanlab_version
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
+from swanlab.sdk.utils.version import get_swanlab_version
 
 from ...pkg import console
 from . import session

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import requests
 
-from swanlab.sdk.pkg.helper import catch_and_return_none
+from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, List, str]:

@@ -14,7 +14,7 @@ from rich.text import Text
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
 from swanlab.sdk.internal.pkg.settings import get_current_settings
-from swanlab.sdk.pkg import helper
+from swanlab.sdk.utils import helper
 
 __all__ = ["get", "save", "exists"]
 

@@ -11,7 +11,7 @@ from typing import Optional
 
 import requests
 
-from swanlab.sdk.pkg.helper import catch_and_return_none
+from swanlab.sdk.utils.helper import catch_and_return_none
 
 package_path = Path(__file__).resolve().parents[3] / "package.json"
 

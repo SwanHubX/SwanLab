@@ -13,7 +13,7 @@ from rich.markup import escape
 from rich.text import Text
 
 from swanlab.sdk.internal.pkg import log
-from swanlab.sdk.pkg import helper
+from swanlab.sdk.utils import helper
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
 
