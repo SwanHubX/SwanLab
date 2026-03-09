@@ -8,6 +8,7 @@
 
 import contextvars
 import copy
+import time
 from typing import Optional
 
 from requests import Session
@@ -16,6 +17,7 @@ from urllib3.util.retry import Retry
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
+from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.pkg.version import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
@@ -73,18 +75,30 @@ class SessionWithRetry(Session):
 
     def send(self, request, **kwargs):
         """
-        重写底层发送方法，统一处理所有响应的校验逻辑
+        重写底层发送方法，统一处理所有响应的校验逻辑和网络日志记录
         """
+        method = (request.method or "unknown").upper()
+        start = time.perf_counter()
+
         # 调用父类（或 Adapter）获取响应
         response = super().send(request, **kwargs)
 
-        # 1. 2xx 响应直接放行
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        trace_id = response.headers.get("traceid", "unknown")
+
+        # 1. 2xx 响应：记录正常日志后放行
         if response.ok:
+            log.debug(
+                "[HTTP] %s %s -> %s (%.0fms) trace:%s",
+                method,
+                request.url,
+                response.status_code,
+                elapsed_ms,
+                trace_id,
+            )
             return response
 
-        # 2. 准备 Fallback 默认值
-        method = (request.method or "unknown").upper()
-        trace_id = response.headers.get("traceid", "unknown")
+        # 2. 非 2xx 响应：准备 Fallback 默认值
         error_code = "unknown code"
         error_message = "unknown error"
 
@@ -93,7 +107,19 @@ class SessionWithRetry(Session):
         if decoded is not None:
             error_code, error_message = decoded
 
-        # 4. 抛出友好的自定义 ApiError
+        # 4. 记录错误日志（附带响应体，方便排查）
+        log.error(
+            "[HTTP] %s %s -> %s (%.0fms) trace:%s | [ERR] code=%s message=%s",
+            method,
+            request.url,
+            response.status_code,
+            elapsed_ms,
+            trace_id,
+            error_code,
+            error_message,
+        )
+
+        # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
 
     # ---------------------------------- 类型提示占位符，保留以保证 IDE 友好 ----------------------------------

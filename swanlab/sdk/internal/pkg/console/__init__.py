@@ -3,6 +3,7 @@
 @file: __init__.py
 @time: 2026/3/6 13:20
 @description: SwanLab SDK 控制台日志模块，负责打印日志
+当 SWANLAB_DEBUG=true 时，终端输出会同步镜像到诊断日志文件（通过 log 模块）
 """
 
 import os
@@ -11,13 +12,13 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-# 设计上 console 独立于其他模块，包括settings。但是我们又希望有一个环境变量去控制是否打印debug信息，所以这里额外绑定一个环境变量
-DEBUG = os.getenv("SWANLAB_DEBUG", "false").lower() in ["true", "1", "yes", "on"]
-
+from swanlab.sdk.internal.pkg import log as _log
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
 
 
+# 设计上 console 独立于其他模块，包括settings。但是我们又希望有一个环境变量去控制是否打印debug信息，所以这里额外绑定一个环境变量
+_DEBUG = os.getenv("SWANLAB_DEBUG", "false").lower() in ["true", "1", "yes", "on"]
 _console = Console()
 _can_log = True
 _name = "swanlab"
@@ -62,6 +63,20 @@ def _print_formatted(level_name: str, *args, **kwargs):
     _console.print(prefix_text, *safe_args, **kwargs)
 
 
+def _to_plain_text(*args) -> str:
+    """
+    将 console 的 *args 转为纯文本字符串，用于写入诊断日志文件。
+    去除 rich markup，保留原始语义。
+    """
+    parts = []
+    for arg in args:
+        if isinstance(arg, Text):
+            parts.append(arg.plain)
+        else:
+            parts.append(str(arg))
+    return " ".join(parts)
+
+
 # -----------------------------------------------------------------------------
 # 导出的模块级日志函数
 # -----------------------------------------------------------------------------
@@ -77,9 +92,10 @@ def print(*args, **kwargs):  # noqa: A001
 
 def debug(*args, **kwargs):
     """发送调试消息"""
-    if not _can_log or not DEBUG:
+    if not _can_log or not _DEBUG:
         return
     _print_formatted("debug", *args, **kwargs)
+    _log.debug("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def info(*args, **kwargs):
@@ -87,6 +103,7 @@ def info(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("info", *args, **kwargs)
+    _log.info("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def warning(*args, **kwargs):
@@ -94,6 +111,7 @@ def warning(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("warning", *args, **kwargs)
+    _log.warning("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def error(*args, **kwargs):
@@ -101,6 +119,7 @@ def error(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("error", *args, **kwargs)
+    _log.error("[CONSOLE] %s", _to_plain_text(*args))
 
 
 def critical(*args, **kwargs):
@@ -108,3 +127,5 @@ def critical(*args, **kwargs):
     if not _can_log:
         return
     _print_formatted("critical", *args, **kwargs)
+
+    _log.critical("[CONSOLE] %s", _to_plain_text(*args))

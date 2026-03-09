@@ -2,6 +2,7 @@ import pytest
 
 from swanlab.sdk.internal.context import clear_context
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.internal.settings import Settings, settings
 
 
@@ -50,6 +51,10 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
 
     # --- 4. 手动 Teardown 清理 ---
     # 确保测试结束后没有任何残留进入下一个用例
+    # 1. 清理 Client 单例
     if client.exists():
         client.reset()
+    # 2. 清理 RunContext
     clear_context()
+    # 3. 清理 logger
+    log.reset()

@@ -12,9 +12,10 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.scope import Scope
 from swanlab.sdk.internal.settings import Settings, settings
-from swanlab.sdk.pkg import console, helper
+from swanlab.sdk.pkg import helper
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
 
