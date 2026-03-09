@@ -7,7 +7,6 @@
 
 from typing import Any, List, Optional, Union
 
-from ..internal.context import get_context, has_context
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -38,8 +37,8 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     由于不同库的参数名不同，并且照顾到用户习惯，我们需要针对一些参数进行兼容性处理。
     将一些额外的参数合并到 model_dict 中
     """
-    # name --> experiment_name
-    set_nested_value(model_dict, "experiment.name", kwargs.pop("name", None))
+    # experiment_name --> name
+    set_nested_value(model_dict, "experiment.name", kwargs.pop("experiment_name", None))
     # notes --> description
     set_nested_value(model_dict, "experiment.description", kwargs.pop("notes", None))
     return model_dict
@@ -54,7 +53,8 @@ def init(
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
-    experiment_name: Optional[str] = None,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
     description: Optional[str] = None,
     job_type: Optional[str] = None,
     group: Optional[str] = None,
@@ -69,7 +69,9 @@ def init(
     the current run. Meanwhile, you can use 'swanlab.finish' to finish the current run and close the current
     experiment. After calling this function, SwanLab will begin to record the console output of the current process,
     and register a callback function to the exit function.
+
     :param reinit: Whether to reinitialize SwanLabRun, the default is False.
+
     :param logdir: The folder will store all the log information generated during the execution of SwanLab.
         If the parameter is None,
         SwanLab will generate a folder named "swanlog" in the same path as the code execution to store the data.
@@ -81,36 +83,53 @@ def init(
         In this case, if you want to view the logs,
         you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
         Note that `swanlab watch` only available in local mode.
+
     :param mode: The mode of the current experiment. Allowed values are 'cloud', 'local', 'disabled', 'offline'.
         If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
         If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
         If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
         If the value is 'offline', data will be saved locally without uploading to the cloud.
         BTW, 'online' is an alias for 'cloud'.
+
     :param settings: The settings for the current experiment.
+
     :param workspace: Where the current project is located, it can be an organization or a user.
         The default is None, which means the current entity is the same as the current user.
+
     :param project: The project name of the current experiment.
+
     :param public: Whether the project can be seen by anyone, the default is None, which means the project is private.
         Only available in cloud mode while the first time you create the project.
-    :param experiment_name: The experiment name you currently have open.
+
+    :param name: The experiment name you currently have open.
         If this parameter is not provided, SwanLab will generate one for you by default.
+
+    :param color: The color of the experiment, used for distinguishing different experiments.
+        SwanLab will automatically generate a color for you if you do not provide this parameter.
+
     :param resume: Resume the previous run or not:
         - must: You must pass the `id` parameter and the run must exist.
         - allow: If the run exists, it will be resumed, otherwise a new run will be created.
         - never: You cannot pass the `id` parameter, and a new run will be created.
         You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
         [Notice that] This parameter is only valid when mode='cloud'
+
     :param id: The run ID of the previous run, which is used to resume the previous run.
         If you do not provide this parameter, a new run will be created.
+
     :param description: The experiment description you currently have open,
         used for a more detailed introduction or labeling of the current experiment.
         If you do not provide this parameter, you can modify it later in the web interface.
+
     :param job_type: The job type of the current experiment, used to distinguish different types of experiments.
+
     :param group: The experiment group of the current experiment, used for grouping experiments.
+
     :param tags: The tags of the experiment, used for labeling the current experiment.
         If you do not provide this parameter, you can modify it later in the web interface.
+
     :param config: The configuration of the current experiment.
+
     :return: The SwanLabRun object.
     """
     if reinit:
@@ -118,7 +137,7 @@ def init(
     # 运行时配置
     run_settings = Settings()
     # --------------------- 第一次处理，合并配置，检查格式，与业务无关 ----------------------------
-    # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数 --> 上下文中已有配置
+    # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数
     # 1. 合并全局配置
     run_settings.merge_settings(global_settings)
     # 2. 合并自定义配置
@@ -132,7 +151,8 @@ def init(
         "project.name": project,
         "project.workspace": workspace,
         "project.public": public,
-        "experiment.name": experiment_name,
+        "experiment.name": name,
+        "experiment.color": color,
         "experiment.description": description,
         "experiment.job_type": job_type,
         "experiment.group": group,
@@ -141,10 +161,6 @@ def init(
         "run.id": id,
     }.items():
         set_nested_value(args_dict, key, value)
-    # 4. 获取上下文中已有的配置
-    if has_context():
-        context_settings = get_context().config.settings
-        run_settings.merge_settings(context_settings)
     # ------------------- 如果是云端版本，提示输入API Key或自动登录 ---------------------------
     if run_settings.mode == "cloud":
         ...
