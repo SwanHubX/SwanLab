@@ -18,6 +18,7 @@
 """
 
 import logging
+import os
 from logging.handlers import MemoryHandler, RotatingFileHandler
 from pathlib import Path
 from typing import Optional
@@ -57,6 +58,24 @@ _BACKUP_COUNT = 3  # 保留 3 个备份（共 ~40 MB）
 _LOG_FILENAME = "debug.log"
 
 
+class SecureRotatingFileHandler(RotatingFileHandler):
+    """
+    安全的日志轮转处理器。
+    确保每次创建/打开日志文件时，文件权限都被强制设置为 0600 (仅属主可读写)。
+    主要用于防护在 Linux/macOS 共享算力集群上的敏感凭证泄露。
+    """
+
+    def _open(self):
+        stream = super()._open()
+
+        # 仅在类 Unix 系统（Linux/macOS）上应用 POSIX 权限
+        if os.name == "posix":
+            os.chmod(self.baseFilename, 0o600)
+
+        # 注意：Windows 环境下多为个人开发机，且 os.chmod 无法操作 ACL，故跳过
+        return stream
+
+
 def reset() -> None:
     """
     重置日志模块状态，恢复到初始的内存缓冲模式。
@@ -91,7 +110,7 @@ def bindfile(log_dir: Path) -> None:
     将诊断日志绑定到文件。应在 log_dir 目录创建后调用。
 
     执行流程：
-    1. 创建 RotatingFileHandler 指向 log_dir/debug.log
+    1. 创建 SecureRotatingFileHandler 指向 log_dir/debug.log
     2. 将内存缓冲中的日志 flush 到文件
     3. 移除内存缓冲 Handler，后续日志直接写文件
 
@@ -111,7 +130,7 @@ def bindfile(log_dir: Path) -> None:
 
     # 1. 创建文件 Handler
     log_path = log_dir / _LOG_FILENAME
-    _file_handler = RotatingFileHandler(
+    _file_handler = SecureRotatingFileHandler(
         filename=str(log_path),
         maxBytes=_MAX_BYTES,
         backupCount=_BACKUP_COUNT,

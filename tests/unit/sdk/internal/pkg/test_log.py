@@ -5,6 +5,9 @@
 @description: 测试 swanlab.sdk.pkg.log 诊断日志模块 (极简黑盒版)
 """
 
+import os
+import stat
+
 import pytest
 
 import swanlab.sdk.internal.pkg.log as log_mod
@@ -75,3 +78,26 @@ def test_log_format(tmp_path):
     content = (log_dir / "debug.log").read_text(encoding="utf-8")
     # 预期格式：时间 | ERROR   | swanlab.internal | 消息
     assert " | ERROR   | swanlab.internal | check format" in content
+
+
+def test_secure_file_permissions(tmp_path):
+    """测试生成的诊断日志文件是否具备安全的 0600 权限 (仅限 POSIX 系统)"""
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    # 绑定并写入一条日志，确保底层 _open 方法被真实触发
+    log_mod.bindfile(log_dir)
+    log_mod.info("trigger file creation for permission check")
+
+    log_file = log_dir / "debug.log"
+    assert log_file.exists()
+
+    # 仅在类 Unix 系统下校验 POSIX 权限
+    if os.name == "posix":
+        # 获取文件的完整状态信息
+        mode = os.stat(log_file).st_mode
+        # 提取底部的八进制权限位
+        permissions = stat.S_IMODE(mode)
+
+        # 验证权限是否被严格限制为 0o600 (即 rw-------，仅所有者可读写)
+        assert permissions == 0o600
