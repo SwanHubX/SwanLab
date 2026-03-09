@@ -50,7 +50,7 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
-CONFIG_DIR: str = config_dir_env or "/etc/swanlab/"
+CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
 def strip_none(data: dict) -> dict:

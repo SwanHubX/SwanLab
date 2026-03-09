@@ -24,7 +24,7 @@ def generate_id(length: int = 8) -> str:
     if length <= 0 or length > 64:
         raise ValueError("Length must be between 1 and 64.")
     characters = string.ascii_lowercase + string.digits
-    return "".join(random.choice(characters) for _ in range(length))
+    return "".join(random.choices(characters, k=length))
 
 
 PRESET_COLORS = [

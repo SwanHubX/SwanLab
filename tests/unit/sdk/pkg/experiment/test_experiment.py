@@ -19,8 +19,9 @@ class TestGenerateId:
         """测试默认生成的 ID 长度为 8"""
         run_id = generate_id()
         assert len(run_id) == 8
+        assert run_id.lower() == run_id
         assert run_id.isalnum()
-        assert run_id.islower() or run_id.isdigit()
+        assert run_id.islower()
 
     @pytest.mark.parametrize("length", [1, 16, 64])
     def test_custom_length(self, length):
