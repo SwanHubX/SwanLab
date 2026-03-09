@@ -18,6 +18,7 @@ from urllib3.util.retry import Retry
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
 from swanlab.sdk.internal.pkg import log
+from swanlab.sdk.pkg import helper
 from swanlab.sdk.pkg.version import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
@@ -78,6 +79,18 @@ class SessionWithRetry(Session):
         重写底层发送方法，统一处理所有响应的校验逻辑和网络日志记录
         """
         method = (request.method or "unknown").upper()
+
+        # --- [DEBUG] 记录请求详情 ---
+        if helper.env.DEBUG:
+            log.debug("[HTTP-REQ] %s %s | Headers: %s", method, request.url, request.headers)
+            if request.body:
+                # 防止大文件或超长 JSON 刷屏，截断前 1000 个字符
+                body_preview = str(request.body)[:1000]
+                if len(str(request.body)) > 1000:
+                    body_preview += " ... (truncated)"
+                log.debug("[HTTP-REQ-BODY] %s", body_preview)
+        # ---------------------------
+
         start = time.perf_counter()
 
         # 调用父类（或 Adapter）获取响应
@@ -96,6 +109,17 @@ class SessionWithRetry(Session):
                 elapsed_ms,
                 trace_id,
             )
+
+            # --- [DEBUG] 记录成功响应详情 ---
+            if helper.env.DEBUG:
+                log.debug("[HTTP-RES] Headers: %s", response.headers)
+                if response.text:
+                    resp_preview = response.text[:1000]
+                    if len(response.text) > 1000:
+                        resp_preview += " ... (truncated)"
+                    log.debug("[HTTP-RES-BODY] %s", resp_preview)
+            # -------------------------------
+
             return response
 
         # 2. 非 2xx 响应：准备 Fallback 默认值
@@ -118,6 +142,14 @@ class SessionWithRetry(Session):
             error_code,
             error_message,
         )
+
+        # --- [DEBUG] 记录失败响应详情 ---
+        if helper.env.DEBUG:
+            log.debug("[HTTP-RES-ERR] Headers: %s", response.headers)
+            if response.text and not decoded:
+                # 只有当解码失败时，才额外把原始错误 body 打印出来
+                log.debug("[HTTP-RES-ERR-BODY] %s", response.text[:1000])
+        # -------------------------------
 
         # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)

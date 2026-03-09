@@ -6,19 +6,16 @@
 当 SWANLAB_DEBUG=true 时，终端输出会同步镜像到诊断日志文件（通过 log 模块）
 """
 
-import os
-
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
 from swanlab.sdk.internal.pkg import log as _log
+from swanlab.sdk.pkg import helper
 
 __all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
 
 
-# 设计上 console 独立于其他模块，包括settings。但是我们又希望有一个环境变量去控制是否打印debug信息，所以这里额外绑定一个环境变量
-_DEBUG = os.getenv("SWANLAB_DEBUG", "false").lower() in ["true", "1", "yes", "on"]
 _console = Console()
 _can_log = True
 _name = "swanlab"
@@ -92,7 +89,7 @@ def print(*args, **kwargs):  # noqa: A001
 
 def debug(*args, **kwargs):
     """发送调试消息"""
-    if not _can_log or not _DEBUG:
+    if not _can_log or not helper.env.DEBUG:
         return
     _print_formatted("debug", *args, **kwargs)
     _log.debug("[CONSOLE] %s", _to_plain_text(*args))

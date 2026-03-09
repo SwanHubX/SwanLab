@@ -5,6 +5,8 @@
 @description: 测试 SwanLab 运行时客户端会话辅助函数
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 import responses
 
@@ -99,3 +101,93 @@ def test_request_retries_context_cleanup(session):
 
     # 无论中间发生了什么（包括抛出异常），finally 块必须确保清理了上下文
     assert request_retries_ctx.get() is None
+
+
+@responses.activate()
+def test_session_debug_logging_success(session, monkeypatch):
+    """测试开启 DEBUG 时，成功请求会记录详细的请求/响应体和 Headers"""
+    # 1. 模拟开启 DEBUG
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+
+    # 2. Mock 日志函数拦截输出
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    responses.add(
+        responses.POST,
+        "http://api.test/debug-success",
+        json={"status": "ok"},
+        status=200,
+    )
+
+    session.post("http://api.test/debug-success", json={"req_key": "req_val"})
+
+    # 3. 提取所有的 log.debug 调用第一个参数（即 format string）
+    debug_msgs = [call.args[0] for call in mock_debug.call_args_list if call.args]
+
+    assert any("[HTTP-REQ]" in msg for msg in debug_msgs)
+    assert any("[HTTP-REQ-BODY]" in msg for msg in debug_msgs)
+    assert any("[HTTP-RES]" in msg for msg in debug_msgs)
+    assert any("[HTTP-RES-BODY]" in msg for msg in debug_msgs)
+
+
+@responses.activate()
+def test_session_debug_logging_error(session, monkeypatch):
+    """测试开启 DEBUG 时，失败请求会记录详细的响应 Headers 和原始 Body"""
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    responses.add(
+        responses.GET,
+        "http://api.test/debug-error",
+        body="<html>Nginx 502 Bad Gateway</html>",
+        status=502,
+    )
+
+    with pytest.raises(ApiError):
+        session.get("http://api.test/debug-error")
+
+    all_logged_args = [str(arg) for call in mock_debug.call_args_list for arg in call.args]
+
+    # 验证格式化字符串（标记）被打印了
+    assert any("[HTTP-REQ]" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES-ERR]" in msg for msg in all_logged_args)
+    assert any("[HTTP-RES-ERR-BODY] %s" in msg for msg in all_logged_args)
+
+    # 【完美通过】：验证实际的响应体也被当做变量传入了
+    assert any("502 Bad Gateway" in msg for msg in all_logged_args)
+
+
+@responses.activate()
+def test_session_debug_logging_truncation(session, monkeypatch):
+    """测试开启 DEBUG 时，超长请求/响应体会按预期截断，防止刷屏"""
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.helper.env.DEBUG", True)
+    mock_debug = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.client.session.log.debug", mock_debug)
+
+    # 构造长度为 2000 的超长字符串
+    long_string = "a" * 2000
+    responses.add(
+        responses.POST,
+        "http://api.test/debug-truncate",
+        body=long_string,
+        status=200,
+    )
+
+    session.post("http://api.test/debug-truncate", data=long_string)
+
+    truncation_marker = " ... (truncated)"
+
+    # 提取请求体日志参数
+    req_body_calls = [call.args[1] for call in mock_debug.call_args_list if "[HTTP-REQ-BODY]" in call.args[0]]
+    assert len(req_body_calls) > 0
+    # 长度应为 1000 + len(truncation_marker)
+    assert req_body_calls[0].endswith(truncation_marker)
+    assert len(req_body_calls[0]) == 1000 + len(truncation_marker)
+
+    # 提取响应体日志参数
+    res_body_calls = [call.args[1] for call in mock_debug.call_args_list if "[HTTP-RES-BODY]" in call.args[0]]
+    assert len(res_body_calls) > 0
+    assert res_body_calls[0].endswith(truncation_marker)
+    assert len(res_body_calls[0]) == 1000 + len(truncation_marker)
