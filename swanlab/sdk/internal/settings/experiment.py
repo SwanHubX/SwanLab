@@ -49,6 +49,11 @@ def experiment_name_factory() -> str:
     return os.environ.get("SWANLAB_EXP_NAME", "")
 
 
+def experiment_color_factory() -> str:
+    # 向下兼容旧版本环境变量
+    return os.environ.get("SWANLAB_EXP_COLOR", "")
+
+
 def experiment_description_factory() -> str:
     # 向下兼容旧版本环境变量
     return os.environ.get("SWANLAB_DESCRIPTION", "")
@@ -74,6 +79,11 @@ class ExperimentSettings(BaseModel):
     name: str = Field(default_factory=experiment_name_factory)
     """
     Experiment name for this SwanLab run.
+    """
+
+    color: str = Field(default_factory=experiment_color_factory)
+    """
+    Color for this SwanLab run.
     """
 
     description: str = Field(default_factory=experiment_description_factory)
