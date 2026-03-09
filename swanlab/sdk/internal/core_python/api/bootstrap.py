@@ -6,8 +6,8 @@
 """
 
 from swanlab.sdk.internal.core_python.client import session
-from swanlab.sdk.pkg.helper import catch_and_return_none
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
+from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 @catch_and_return_none()

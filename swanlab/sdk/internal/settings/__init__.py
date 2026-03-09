@@ -48,6 +48,10 @@ __all__ = ["Settings", "settings", "strip_none"]
 secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
+# 根据环境变量选择全局配置文件路径
+config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
+CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
+
 
 def strip_none(data: dict) -> dict:
     """
@@ -319,7 +323,7 @@ class Settings(BaseSettings):
                 sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=local_file))
 
         # 4. /etc/swanlab/*.{yaml,yml}
-        etc_dir = Path("/etc/swanlab")
+        etc_dir = Path(CONFIG_DIR)
         if etc_dir.exists() and etc_dir.is_dir():
             etc_files = sorted(list(etc_dir.glob("*.yaml")) + list(etc_dir.glob("*.yml")), reverse=True)
             for file in etc_files:

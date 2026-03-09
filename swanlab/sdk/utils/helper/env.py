@@ -9,7 +9,7 @@ import io
 import os
 import sys
 
-__all__ = ["is_jupyter", "is_interactive"]
+__all__ = ["is_jupyter", "is_interactive", "DEBUG"]
 
 # 设计上，DEBUG 变量独立于其他模块，包括 settings。但是我们又希望有一个环境变量去控制是否打印 debug 信息，所以这里额外绑定一个环境变量
 DEBUG = os.getenv("SWANLAB_DEBUG", "false").lower() in ["true", "1", "yes", "on"]
