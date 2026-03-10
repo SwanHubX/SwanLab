@@ -3,6 +3,7 @@ description: 报告网络相关问题
 labels:
   - 👾 network
   - 🤔 unconfirmed
+type: bug
 body:
   - type: markdown
     attributes:
