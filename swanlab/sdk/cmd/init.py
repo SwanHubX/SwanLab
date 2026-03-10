@@ -3,13 +3,26 @@
 @file: init.py
 @time: 2026/3/6 21:47
 @description: SwanLab SDK 初始化方法
+我们在设计上将init前后作为分界线，在init之前出现的错误（如登录失败）被视为critical错误，一旦报错直接退出（大多数情况下）
+在init之后的swanlab内部错误被视为non-critical错误，会尝试继续运行，但会记录错误日志
+init函数执行时被视为init之前
 """
 
-from typing import Any, List, Optional, Union
+import json
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import yaml
+
+from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.utils import helper
 
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
+from .login import interactive_login
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -44,6 +57,9 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     return model_dict
 
 
+ConfigLike = Union[Dict[str, Any], str, os.PathLike]
+
+
 def init(
     *,
     reinit: Optional[bool] = None,
@@ -61,7 +77,7 @@ def init(
     tags: Optional[List[str]] = None,
     id: Optional[str] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
-    config: Optional[Union[dict, str]] = None,
+    config: Optional[ConfigLike] = None,
     **kwargs,
 ):
     """
@@ -129,6 +145,7 @@ def init(
         If you do not provide this parameter, you can modify it later in the web interface.
 
     :param config: The configuration of the current experiment.
+        If you provide a string, it will be loaded from a file.
 
     :return: The SwanLabRun object.
     """
@@ -159,9 +176,109 @@ def init(
         "experiment.tags": tags,
         "run.resume": resume,
         "run.id": id,
+        "run.config": Path(config) if isinstance(config, (str, os.PathLike)) else None,
     }.items():
         set_nested_value(args_dict, key, value)
-    # ------------------- 如果是云端版本，提示输入API Key或自动登录 ---------------------------
-    if run_settings.mode == "cloud":
-        ...
-    # ---------------------------------- 根据业务校验参数 ----------------------------------
+    run_settings.merge_settings(args_dict)
+    # 执行初始化
+    _init(run_settings, config)
+
+
+@helper.rich.with_loading_animation()
+def _init(run_settings: Settings, config: Optional[ConfigLike]):
+    """
+    初始化运行时配置，在这之前，所有引导式交互都已经完成
+    """
+    _ = load_config(run_settings, config)
+    mode, _ = prompt_init_mode(run_settings)
+    if mode == "cloud":
+        pass
+
+
+def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
+    """
+    优雅地加载配置：支持字典直接返回，或从 JSON/YAML 文件加载。
+    """
+    config = config or run_settings.run.config
+    # 1. 如果 config 为 None，则返回空字典
+    if config is None:
+        return {}
+
+    # 2. 如果 config 是字典，则直接返回
+    if isinstance(config, dict):
+        return config
+
+    # 3. 处理路径类型（包括字符串字面量）
+    if isinstance(config, (str, os.PathLike)):
+        path = Path(config)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+
+        # 根据后缀名选择加载器
+        suffix = path.suffix.lower()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if suffix == ".json":
+                    return json.load(f)
+                elif suffix in (".yaml", ".yml"):
+                    # 使用 safe_load 保证安全
+                    return yaml.safe_load(f)
+                else:
+                    # 如果没有后缀或者后缀未知，尝试先按 JSON 读，失败再按 YAML 读
+                    content = f.read()
+                    try:
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        return yaml.safe_load(content)
+        except Exception as e:
+            raise ValueError(f"Error parsing config file {path}: {e}")
+
+    # 4. 如果 config 不是上述类型，直接报错
+    raise ValueError(f"Invalid config type: {type(config).__name__}. Expected dict, str, or PathLike.")
+
+
+def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
+    """
+    在 swanlab.init 阶段，针对 cloud 模式且未登录的用户进行交互式引导。
+
+    规则：
+    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'cloud' 时触发 。
+    2. 如果 client 已存在（已登录），直接跳过 。
+    3. 提供三个选项：(1) 注册 (2) 登录 (3) 切换为 offline 模式。
+
+    :param settings: 当前的 Settings 实例 。
+    :return: (最终确定的 mode, 是否成功登录)
+    """
+    # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
+    if settings.mode != "cloud" or client.exists() or not settings.interactive:
+        return settings.mode, client.exists()
+
+    console.info("Using SwanLab to track your experiments. For more information, please visit:", "yellow")
+    console.info(f"Docs: {settings.web_host}/docs", "blue")
+
+    console.info("(1) Create a SwanLab account.")
+    console.info("(2) Use an existing SwanLab account.")
+    console.info("(3) Don't visualize my results (Offline mode).")
+
+    while True:
+        choice = input("Enter your choice (1/2/3): ").strip()
+
+        if choice == "3":
+            console.info("Switching to 'offline' mode. Results will be saved locally.")
+            return "offline", False
+
+        if choice == "1":
+            console.info("Create a SwanLab account here:", "yellow")
+            console.info(f"{settings.web_host}/login", "blue")
+            # 注册后紧接着触发登录循环
+            success = interactive_login(save=True)
+            return "cloud", success
+
+        if choice == "2":
+            console.info(f"Logging into {settings.web_host}...")
+            # 触发带循环容错的登录接口
+            success = interactive_login(save=True)
+            return "cloud", success
+
+        console.warning("Invalid choice, please enter 1, 2, or 3.")

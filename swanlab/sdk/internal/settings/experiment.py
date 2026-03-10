@@ -9,7 +9,8 @@
 import json
 import os
 import sys
-from typing import Any, List, Literal, cast
+from pathlib import Path
+from typing import Any, List, Literal, Optional, cast
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -186,3 +187,5 @@ class RunSettings(BaseModel):
     @field_validator("resume", mode="before")
     def validate_resume(cls, v: Any) -> Any:
         return map_resume_value(v)
+
+    config: Optional[Path] = Field(default=None)

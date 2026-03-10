@@ -75,6 +75,11 @@ def root_factory() -> Path:
     return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ".swanlab")))
 
 
+def log_dir_factory() -> Path:
+    # 向下兼容旧版本环境变量
+    return Path.cwd() / "swanlog"
+
+
 class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
@@ -124,7 +129,7 @@ class Settings(BaseSettings):
     #         path_v.mkdir(parents=True, exist_ok=True)
     #     return path_v
 
-    log_dir: Path = Field(default=Path.cwd() / "swanlog", validate_default=True)
+    log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
     Directory for SwanLab logs.
     Semantically, this is just a path representation and the directory may NOT exist when loaded. 

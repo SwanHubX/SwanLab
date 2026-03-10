@@ -95,6 +95,10 @@ def login(
         host = f"{parsed.scheme}://{parsed.netloc}"
     # 与settings中同步
     api_key = api_key or settings.api_key
+    # 如果输入了host，检查与settings中的api_host是否一致，不一致则清空api_key
+    # 额外还需要判断是否存在本地.netrc文件，如果存在则不覆盖
+    if host and api_key and settings.api_host != host and apikey.exists_locally():
+        api_key = None
     api_host = host or settings.api_host
     # 防止用户通过 login(host="api.swanlab.cn") 强行覆盖 web_host
     if host and "api.swanlab.cn" in host:
@@ -120,6 +124,41 @@ def login(
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(ctx.config.settings)
         return True
+
+
+def interactive_login(
+    api_key: Optional[str] = None,
+    relogin: bool = False,
+    host: Optional[str] = None,
+    save: bool = False,
+    timeout: int = 10,
+) -> bool:
+    """
+    带循环输入容错的交互式登录接口。
+    主要为 CLI 环境或需要极高容错的终端调用设计。
+    当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
+    """
+    try:
+        # 首次尝试登录，复用原子接口
+        return login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+    except AuthenticationError as e:
+        # 如果全局配置禁用了交互模式，直接抛出异常
+        if not settings.interactive:
+            raise e
+        console.error(str(e))
+
+    # 进入容错重试循环
+    while True:
+        try:
+            # 重新要求用户输入新的 Key
+            new_key = apikey.prompt()
+            # 必须设置 relogin=True，确保重置底层的旧 client 状态
+            return login(api_key=new_key, relogin=True, host=host, save=save, timeout=timeout)
+        except AuthenticationError as e:
+            console.error(str(e))
+        except (KeyboardInterrupt, EOFError):
+            console.info("\nLogin cancelled by user.")
+            return False
 
 
 @helper.rich.with_loading_animation()
