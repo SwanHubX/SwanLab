@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-from swanlab.sdk.internal.context import RunConfig, RunContext, set_context, use_temp_context
+from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, set_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, log
@@ -202,6 +202,13 @@ def init(
             assert run_settings.run.id is None, "Run id should not be provided when resume=never."
     # ---------------------------------- 初始化 ----------------------------------
     _init(run_settings, config)
+    assert has_context(), "SwanLab Context is not initialized after init."
+    ctx = get_context()
+    # 初始化成功，触发回调
+    ctx.callbacker.on_run_init(
+        ctx.run_dir,
+        f"{ctx.config.settings.project.workspace}/{ctx.config.settings.project.name}/{ctx.config.settings.run.id}",
+    )
 
 
 @helper.rich.with_loading_animation()
@@ -273,6 +280,7 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
+            # 注册回调器
 
         elif mode == "local":
             raise NotImplementedError("Local mode is not supported yet.")
