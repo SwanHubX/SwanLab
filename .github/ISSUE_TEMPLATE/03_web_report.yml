@@ -3,6 +3,7 @@ description: 报告与网站相关的问题
 labels:
   - 💥 website
   - 🤔 unconfirmed
+type: bug
 body:
   - type: markdown
     attributes:

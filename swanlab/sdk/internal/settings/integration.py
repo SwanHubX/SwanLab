@@ -8,7 +8,7 @@
 import os
 from typing import ClassVar, Type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def webhook_url_factory() -> str:
@@ -65,3 +65,35 @@ class IntegrationSettings(BaseModel):
 
     webhook: WebhookSettings = Field(default_factory=WebhookSettings)
     dashboard: DashBoardSettings = Field(default_factory=DashBoardSettings)
+
+    @model_validator(mode="before")
+    @classmethod
+    def assemble_nested_env(cls, data: dict) -> dict:
+        """
+        拦截 Pydantic 因 max_split=1 截断生成的平铺环境变量，
+        将其重新组装为嵌套字典，以适配内部结构。
+        """
+        if isinstance(data, dict):
+            # 处理 webhook_xxx -> webhook: {xxx: ...}
+            webhook_data = data.get("webhook", {})
+            if isinstance(webhook_data, dict):
+                has_update = False
+                for key in list(data.keys()):
+                    if key.startswith("webhook_"):
+                        webhook_data[key[8:]] = data.pop(key)
+                        has_update = True
+                if has_update:
+                    data["webhook"] = webhook_data
+
+            # 处理 dashboard_xxx -> dashboard: {xxx: ...}
+            dashboard_data = data.get("dashboard", {})
+            if isinstance(dashboard_data, dict):
+                has_update = False
+                for key in list(data.keys()):
+                    if key.startswith("dashboard_"):
+                        dashboard_data[key[10:]] = data.pop(key)
+                        has_update = True
+                if has_update:
+                    data["dashboard"] = dashboard_data
+
+        return data
