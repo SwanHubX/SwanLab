@@ -68,6 +68,10 @@ media = [
 dashboard = [
     "swanboard==0.1.9b3",
 ]
+s3 = [
+    "boto3>=1.35.49",
+    "botocore",
+]
 
 [dependency-groups]
 dev = [
