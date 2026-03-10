@@ -7,13 +7,14 @@
 
 import getpass
 import sys
+from pathlib import Path
 from typing import Optional
 
 from rich.text import Text
 
+from swanlab.sdk.internal.context.settings import get_current_settings
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
-from swanlab.sdk.internal.pkg.settings import get_current_settings
 from swanlab.sdk.utils import helper
 
 __all__ = ["get", "save", "exists"]
@@ -42,6 +43,17 @@ def exists() -> bool:
     检查当前的API Key是否存在
     """
     return get_current_settings().api_key is not None
+
+
+def exists_locally() -> bool:
+    """
+    检查本地是否存在API Key
+    仅简单判断文件是否存在，不考虑是否有效
+    :return: True表示存在，False表示不存在
+    """
+    current_settings = get_current_settings()
+    nrc_path = Path(get_nrc_path(current_settings.root))
+    return nrc_path.exists()
 
 
 def get() -> str:

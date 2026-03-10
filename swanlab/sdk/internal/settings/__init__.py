@@ -42,7 +42,9 @@ from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvSettings, HardwareSettings
 
-__all__ = ["Settings", "settings", "strip_none"]
+__all__ = ["Settings", "settings"]
+
+from ...utils.helper import strip_none
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
@@ -54,25 +56,14 @@ config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
-def strip_none(data: dict) -> dict:
-    """
-    递归剔除字典中的 None 值和空字典，主要用于配置项合并时的空值处理
-    """
-    clean_data = {}
-    for k, v in data.items():
-        if isinstance(v, dict):
-            cleaned_v = strip_none(v)
-            # 只有当嵌套字典里真的有非 None 的值时，才保留这个 key
-            if cleaned_v:
-                clean_data[k] = cleaned_v
-        elif v is not None:
-            clean_data[k] = v
-    return clean_data
-
-
 def root_factory() -> Path:
     # 向下兼容旧版本环境变量
     return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ".swanlab")))
+
+
+def log_dir_factory() -> Path:
+    # 向下兼容旧版本环境变量
+    return Path.cwd() / "swanlog"
 
 
 class Settings(BaseSettings):
@@ -124,7 +115,7 @@ class Settings(BaseSettings):
     #         path_v.mkdir(parents=True, exist_ok=True)
     #     return path_v
 
-    log_dir: Path = Field(default=Path.cwd() / "swanlog", validate_default=True)
+    log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
     Directory for SwanLab logs.
     Semantically, this is just a path representation and the directory may NOT exist when loaded. 

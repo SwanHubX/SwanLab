@@ -11,7 +11,7 @@ from typing import Callable, Optional, Type, TypeVar
 
 from . import env, rich
 
-__all__ = ["catch_and_return_none", "rich", "env"]
+__all__ = ["catch_and_return_none", "rich", "env", "strip_none"]
 
 # Python 3.10+ 直接用: from typing import ParamSpec
 if sys.version_info >= (3, 10):
@@ -44,3 +44,25 @@ def catch_and_return_none(*exceptions: Type[BaseException]):
         return wrapper
 
     return decorator
+
+
+def strip_none(data: dict, strip_empty_dict: bool = True) -> dict:
+    """
+    递归剔除字典中的 None 值。
+
+    :param data: 待处理的字典
+    :param strip_empty_dict: 是否连同空字典一起剔除（包含剔除 None 后变为空的嵌套字典），默认为 True
+    """
+    clean_data = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            # 递归调用时，记得把参数透传下去
+            cleaned_v = strip_none(v, strip_empty_dict=strip_empty_dict)
+
+            # 只有当嵌套字典里有值，或者我们明确声明“不剔除空字典”时，才保留这个 key
+            if cleaned_v or not strip_empty_dict:
+                clean_data[k] = cleaned_v
+        elif v is not None:
+            clean_data[k] = v
+
+    return clean_data

@@ -10,21 +10,20 @@ from swanlab.sdk.internal.settings import Settings, settings
 def isolate_sdk_environment(tmp_path, monkeypatch):
     """
     自动为每个测试用例隔离环境。
-    1. 隔离磁盘路径 (SWANLAB_SAVE_DIR)
+    1. 隔离磁盘路径 (SWANLAB_ROOT)
     2. 重置 Settings 单例
     3. 重置 Client 单例
     4. 清理 RunContext
     """
 
     # --- 1. 路径与环境变量隔离 ---
-    # 将 root 锁定在临时目录，确保不会读写用户真实配置
-    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
     # 清理可能干扰测试的常见环境变量
-    for env_var in ["SWANLAB_API_KEY", "SWANLAB_API_HOST", "SWANLAB_WEB_HOST"]:
+    for env_var in ["SWANLAB_API_KEY", "SWANLAB_API_HOST", "SWANLAB_WEB_HOST", "SWANLAB_ROOT", "SWANLAB_LOG_DIR"]:
         monkeypatch.delenv(env_var, raising=False)
 
     # 切换当前工作目录，防止加载到项目根目录的 .env 或 swanlab.yaml
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
     # --- 2. 内存单例重置 (Settings) ---
     # 创建一个全新的 Settings 实例

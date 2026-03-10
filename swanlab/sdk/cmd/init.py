@@ -3,14 +3,33 @@
 @file: init.py
 @time: 2026/3/6 21:47
 @description: SwanLab SDK 初始化方法
+我们在设计上将init前后作为分界线，在init之前出现的错误（如登录失败）被视为critical错误，一旦报错直接退出（大多数情况下）
+在init之后的swanlab内部错误被视为non-critical错误，会尝试继续运行，但会记录错误日志
+init函数执行时被视为init之前
 """
 
-from typing import Any, List, Optional, Union
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..internal.context import get_context, has_context
+import yaml
+
+from swanlab.sdk.internal.context import RunConfig, RunContext, set_context, use_temp_context
+from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
+from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.utils import generate_id, helper
+from swanlab.sdk.utils.experiment import generate_color, generate_name
+
+from ..internal import apikey
+from ..internal.core_python.api.experiment import create_or_resume_experiment
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
+from ..utils.callbacker import SwanLabCallback
+from .login import interactive_login, login
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -38,11 +57,14 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     由于不同库的参数名不同，并且照顾到用户习惯，我们需要针对一些参数进行兼容性处理。
     将一些额外的参数合并到 model_dict 中
     """
-    # name --> experiment_name
-    set_nested_value(model_dict, "experiment.name", kwargs.pop("name", None))
+    # experiment_name --> name
+    set_nested_value(model_dict, "experiment.name", kwargs.pop("experiment_name", None))
     # notes --> description
     set_nested_value(model_dict, "experiment.description", kwargs.pop("notes", None))
     return model_dict
+
+
+ConfigLike = Union[Dict[str, Any], str, os.PathLike]
 
 
 def init(
@@ -50,18 +72,20 @@ def init(
     reinit: Optional[bool] = None,
     logdir: Optional[str] = None,
     mode: Optional[ModeType] = None,
-    settings: Optional[Settings] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
-    experiment_name: Optional[str] = None,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
     description: Optional[str] = None,
     job_type: Optional[str] = None,
     group: Optional[str] = None,
     tags: Optional[List[str]] = None,
     id: Optional[str] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
-    config: Optional[Union[dict, str]] = None,
+    config: Optional[ConfigLike] = None,
+    settings: Optional[Settings] = None,
+    callbacks: Optional[List[SwanLabCallback]] = None,
     **kwargs,
 ):
     """
@@ -69,7 +93,9 @@ def init(
     the current run. Meanwhile, you can use 'swanlab.finish' to finish the current run and close the current
     experiment. After calling this function, SwanLab will begin to record the console output of the current process,
     and register a callback function to the exit function.
+
     :param reinit: Whether to reinitialize SwanLabRun, the default is False.
+
     :param logdir: The folder will store all the log information generated during the execution of SwanLab.
         If the parameter is None,
         SwanLab will generate a folder named "swanlog" in the same path as the code execution to store the data.
@@ -81,44 +107,64 @@ def init(
         In this case, if you want to view the logs,
         you must use something like `swanlab watch -l ./your_specified_folder` to specify the folder path.
         Note that `swanlab watch` only available in local mode.
+
     :param mode: The mode of the current experiment. Allowed values are 'cloud', 'local', 'disabled', 'offline'.
         If the value is 'cloud', data will be uploaded to the cloud and the local log will be saved.
         If the value is 'local', data will only be saved locally and will not be uploaded to the cloud.
         If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
         If the value is 'offline', data will be saved locally without uploading to the cloud.
         BTW, 'online' is an alias for 'cloud'.
-    :param settings: The settings for the current experiment.
+
     :param workspace: Where the current project is located, it can be an organization or a user.
         The default is None, which means the current entity is the same as the current user.
+
     :param project: The project name of the current experiment.
+
     :param public: Whether the project can be seen by anyone, the default is None, which means the project is private.
         Only available in cloud mode while the first time you create the project.
-    :param experiment_name: The experiment name you currently have open.
+
+    :param name: The experiment name you currently have open.
         If this parameter is not provided, SwanLab will generate one for you by default.
+
+    :param color: The color of the experiment, used for distinguishing different experiments.
+        SwanLab will automatically generate a color for you if you do not provide this parameter.
+
     :param resume: Resume the previous run or not:
         - must: You must pass the `id` parameter and the run must exist.
         - allow: If the run exists, it will be resumed, otherwise a new run will be created.
         - never: You cannot pass the `id` parameter, and a new run will be created.
         You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
         [Notice that] This parameter is only valid when mode='cloud'
+
     :param id: The run ID of the previous run, which is used to resume the previous run.
         If you do not provide this parameter, a new run will be created.
+
     :param description: The experiment description you currently have open,
         used for a more detailed introduction or labeling of the current experiment.
         If you do not provide this parameter, you can modify it later in the web interface.
+
     :param job_type: The job type of the current experiment, used to distinguish different types of experiments.
+
     :param group: The experiment group of the current experiment, used for grouping experiments.
+
     :param tags: The tags of the experiment, used for labeling the current experiment.
         If you do not provide this parameter, you can modify it later in the web interface.
+
     :param config: The configuration of the current experiment.
+        If you provide a string, it will be loaded from a file.
+
+    :param settings: The settings for the current experiment.
+
+    :param callbacks: The callback functions that will be triggered when the experiment is finished.
+
     :return: The SwanLabRun object.
     """
     if reinit:
         ...
     # 运行时配置
     run_settings = Settings()
-    # --------------------- 第一次处理，合并配置，检查格式，与业务无关 ----------------------------
-    # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数 --> 上下文中已有配置
+    # --------------------- 合并配置，检查格式，与业务无关 ----------------------------
+    # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数
     # 1. 合并全局配置
     run_settings.merge_settings(global_settings)
     # 2. 合并自定义配置
@@ -129,23 +175,209 @@ def init(
     for key, value in {
         "logdir": logdir,
         "mode": mode,
-        "project.name": project,
+        "project.name": project or Path.cwd().name,
         "project.workspace": workspace,
         "project.public": public,
-        "experiment.name": experiment_name,
+        "experiment.name": name,
+        "experiment.color": color,
         "experiment.description": description,
         "experiment.job_type": job_type,
         "experiment.group": group,
         "experiment.tags": tags,
         "run.resume": resume,
         "run.id": id,
+        "run.config": Path(config) if isinstance(config, (str, os.PathLike)) else None,
     }.items():
         set_nested_value(args_dict, key, value)
-    # 4. 获取上下文中已有的配置
-    if has_context():
-        context_settings = get_context().config.settings
-        run_settings.merge_settings(context_settings)
-    # ------------------- 如果是云端版本，提示输入API Key或自动登录 ---------------------------
+    run_settings.merge_settings(args_dict)
+    # ---------------------------------- 再次确认参数 ----------------------------------
+    # 根据交互式引导确定最终的模式
+    mode, _ = prompt_init_mode(run_settings)
+    run_settings.merge_settings({"mode": mode})
+    # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
     if run_settings.mode == "cloud":
-        ...
-    # ---------------------------------- 根据业务校验参数 ----------------------------------
+        if run_settings.run.resume == "must":
+            assert run_settings.run.id is not None, "Run id must be provided when resume=must."
+        elif run_settings.run.resume == "never":
+            assert run_settings.run.id is None, "Run id should not be provided when resume=never."
+    # ---------------------------------- 初始化 ----------------------------------
+    _init(run_settings, config)
+
+
+@helper.rich.with_loading_animation()
+def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optional[List[SwanLabCallback]] = None):
+    """
+    初始化运行时配置，在这之前，所有引导式交互都已经完成
+    """
+    if callbacks is None:
+        callbacks = []
+    mode = run_settings.mode
+    _ = load_config(run_settings, config)
+    # 生成run_id
+    run_id = run_settings.run.id or generate_id()
+    run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
+    # 创建一个临时的上下文，避免出现任何问题导致上下文残留
+    with use_temp_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+        # 1. 进行通用处理
+        ctx.run_dir.mkdir(parents=True, exist_ok=True)
+        ctx.media_dir.mkdir(parents=True, exist_ok=True)
+        ctx.files_dir.mkdir(parents=True, exist_ok=True)
+        ctx.metadata_file.parent.mkdir(parents=True, exist_ok=True)
+        ctx.debug_dir.mkdir(parents=True, exist_ok=True)
+        # 类型断言
+        assert run_settings.project.name, "Project name is required."
+        # 2. 根据模式进行特定处理
+        if mode == "cloud":
+            assert client.exists(), "No client found, please login first."
+            # 获取当前项目，如果不存在则创建
+            project = get_or_create_project(
+                username=run_settings.project.workspace,
+                name=run_settings.project.name,
+                public=run_settings.project.public,
+            )
+            username, project = project["username"], project["name"]
+            # 获取当前项目详细信息
+            project_info = get_project(username=username, name=project)
+            # 获取当前实验
+            experiment = run_settings.experiment
+            history_experiment_count = project_info["_count"]["experiments"]
+            name = experiment.name or generate_name(history_experiment_count)
+            color = experiment.color or generate_color(history_experiment_count)
+            # 获取当前运行
+            run = run_settings.run
+            # 开启实验
+            _ = create_or_resume_experiment(
+                username,
+                project,
+                name=name,
+                resume=run_settings.run.resume,
+                run_id=run.id,
+                color=color,
+                description=experiment.description,
+                job_type=experiment.job_type,
+                group=experiment.group,
+                tags=experiment.tags,
+            )
+            # TODO resume 时向后端获取数据或向本地获取数据
+
+            # 最后同步一次配置
+            args_dict = {}
+            for key, value in {
+                "experiment.name": name,
+                "experiment.color": color,
+                "experiment.description": experiment.description,
+                "experiment.job_type": experiment.job_type,
+                "experiment.group": experiment.group,
+                "experiment.tags": experiment.tags,
+                "run.id": run.id,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
+
+        elif mode == "local":
+            raise NotImplementedError("Local mode is not supported yet.")
+        elif mode == "offline":
+            raise NotImplementedError("Offline mode is not supported yet.")
+        elif mode == "disabled":
+            raise NotImplementedError("Disabled mode is not supported yet.")
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+    # 最后将上下文作为全局上下文使用
+    set_context(ctx)
+    log.bindfile(ctx.debug_dir)
+
+
+def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
+    """
+    优雅地加载配置：支持字典直接返回，或从 JSON/YAML 文件加载。
+    """
+    config = config or run_settings.run.config
+    # 1. 如果 config 为 None，则返回空字典
+    if config is None:
+        return {}
+
+    # 2. 如果 config 是字典，则直接返回
+    if isinstance(config, dict):
+        return config
+
+    # 3. 处理路径类型（包括字符串字面量）
+    if isinstance(config, (str, os.PathLike)):
+        path = Path(config)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+
+        # 根据后缀名选择加载器
+        suffix = path.suffix.lower()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if suffix == ".json":
+                    return json.load(f)
+                elif suffix in (".yaml", ".yml"):
+                    # 使用 safe_load 保证安全
+                    return yaml.safe_load(f)
+                else:
+                    # 如果没有后缀或者后缀未知，尝试先按 JSON 读，失败再按 YAML 读
+                    content = f.read()
+                    try:
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        return yaml.safe_load(content)
+        except Exception as e:
+            raise ValueError(f"Error parsing config file {path}: {e}")
+
+    # 4. 如果 config 不是上述类型，直接报错
+    raise ValueError(f"Invalid config type: {type(config).__name__}. Expected dict, str, or PathLike.")
+
+
+def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
+    """
+    在 swanlab.init 阶段，针对 cloud 模式且未登录的用户进行交互式引导。
+
+    规则：
+    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'cloud' 时触发 。
+    2. 如果 client 已存在（已登录），直接跳过 。
+    3. 提供三个选项：(1) 注册 (2) 登录 (3) 切换为 offline 模式。
+
+    :param settings: 当前的 Settings 实例 。
+    :return: (最终确定的 mode, 是否成功登录)
+    """
+    # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
+    mode = settings.mode
+    if mode != "cloud" or client.exists() or not settings.interactive:
+        return mode, client.exists()
+    if mode == "cloud":
+        if apikey.exists():
+            login(api_key=apikey.get())
+            return "cloud", True
+
+        console.info("Using SwanLab to track your experiments.")
+        console.info(f" For more information, please review the docs at {settings.web_host}/docs")
+
+        console.info("(1) Create a SwanLab account.")
+        console.info("(2) Use an existing SwanLab account.")
+        console.info("(3) Don't visualize my results (Offline mode).")
+
+        while True:
+            choice = input("Enter your choice (1/2/3): ").strip()
+
+            if choice == "3":
+                console.info("Switching to 'offline' mode. Results will be saved locally.")
+                return "offline", False
+
+            if choice == "1":
+                console.info("Create a SwanLab account here:", "yellow")
+                console.info(f"{settings.web_host}/login", "blue")
+                # 注册后紧接着触发登录循环
+                success = interactive_login(save=True)
+                return "cloud", success
+
+            if choice == "2":
+                console.info(f"Logging into {settings.web_host}...")
+                # 触发带循环容错的登录接口
+                success = interactive_login(save=True)
+                return "cloud", success
+
+            console.warning("Invalid choice, please enter 1, 2, or 3.")
+    # 其他模式不登录
+    return mode, False

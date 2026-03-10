@@ -75,9 +75,9 @@ class TestLoginE2E:
             result = login(api_key="some_key", relogin=False)
             assert result is True
 
-    def test_login_block_if_context_active(self):
+    def test_login_block_if_context_active(self, tmp_path):
         """测试：如果运行上下文已存在（比如实验进行中），不允许登录"""
-        mock_config = RunConfig(settings=settings)
+        mock_config = RunConfig(settings=settings, run_dir=tmp_path / "run")
         set_context(RunContext(config=mock_config))
 
         result = login(api_key="some_key")
@@ -128,7 +128,7 @@ class TestLoginE2E:
             mock_prompt.assert_called_once()
 
             # 验证凭证保存到了物理文件
-            nrc_path = tmp_path / ".netrc"
+            nrc_path = settings.root / ".netrc"
             assert nrc_path.exists()
             content = nrc_path.read_text()
             assert prompt_key in content
@@ -172,3 +172,42 @@ class TestLoginE2E:
         # 修复：捕获你在 login.py 中抛出的自定义 AuthenticationError
         with pytest.raises(AuthenticationError, match="Failed to login"):
             login(api_key="wrong-key")
+
+    @responses.activate
+    def test_login_host_changed_triggers_prompt(self):
+        """测试：上次登录保存了旧 API KEY，本次传入全新 host 时，不得复用旧 key，应触发重新输入"""
+        old_host = "https://old.swanlab.cn"
+        old_prompt_key = "old-private-key"
+        new_host = "https://private.swanlab.com"
+        new_prompt_key = "new-private-key"
+
+        responses.add(
+            responses.POST,
+            f"{old_host}/api/login/api_key",
+            json={"sid": "mock_old_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+        responses.add(
+            responses.POST,
+            f"{new_host}/api/login/api_key",
+            json={"sid": "mock_new_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 1. 先登录一次
+        with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=old_prompt_key):
+            login(api_key=None, host=old_host, save=True)
+            assert len(responses.calls) == 1
+
+        # 2. 模拟 client.exists 为 False 并拦截 prompt 输入
+        with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=new_prompt_key) as mock_prompt:
+            # 用户仅传入了新 host
+            result = login(api_key=None, host=new_host, relogin=True)
+
+            assert result is True
+            # 验证是否因为 host 变更而触发了 prompt [cite: 1]
+            mock_prompt.assert_called_once()
+
+            # 验证最终发出的请求使用的是 prompt 输入的新 key
+            assert len(responses.calls) == 2
+            assert responses.calls[1].request.headers["authorization"] == new_prompt_key

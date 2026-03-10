@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: __init__.py
-@time: 2026/3/8 15:41
-@description: SwanLab SDK 配置信息工具
+@file: settings.py
+@time: 2026/3/10 18:15
+@description: $END$
 """
 
 from swanlab.sdk.internal.context import get_context, has_context
