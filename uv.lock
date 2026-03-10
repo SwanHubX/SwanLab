@@ -6636,8 +6636,6 @@ media = [
 s3 = [
     { name = "boto3", version = "1.37.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "boto3", version = "1.42.64", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "botocore", version = "1.37.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "botocore", version = "1.42.64", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
 ]
 
 [package.dev-dependencies]
@@ -6687,7 +6685,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.49" },
-    { name = "botocore", marker = "extra == 's3'" },
     { name = "click" },
     { name = "imageio", extras = ["ffmpeg"], marker = "extra == 'media'" },
     { name = "matplotlib", marker = "extra == 'media'" },

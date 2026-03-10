@@ -19,13 +19,15 @@ class S3Settings(BaseModel):
             return v
 
         v = v.strip()
-        # 1. 自动剥离用户误填的协议头
-        if v.startswith("http://"):
-            v = v[7:]
-        elif v.startswith("https://"):
-            v = v[8:]
+        # 1. 发现协议头直接报错，并指导用户如何正确配置
+        if v.startswith(("http://", "https://")):
+            raise ValueError(
+                f"Invalid s3_endpoint: '{v}'. "
+                "The endpoint should not contain the protocol (http:// or https://). "
+                "Please remove the protocol prefix and use the 's3_use_ssl' configuration instead."
+            )
 
-        # 2. 剥离末尾可能多余的斜杠
+        # 2. 剥离末尾可能多余的斜杠（这个属于无害的格式纠正，可以保留）
         v = v.rstrip("/")
         return v
 

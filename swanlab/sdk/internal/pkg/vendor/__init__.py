@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 # 1. Type hinting block: Only executed by static type checkers (e.g., Pyright, MyPy, IDEs)
 if TYPE_CHECKING:
     import boto3
-    import botocore
     import imageio
     import matplotlib
     import moviepy
@@ -36,7 +35,6 @@ __all__ = [
     "soundfile",
     "swanboard",
     "boto3",
-    "botocore",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
 ]
@@ -52,7 +50,6 @@ _LAZY_IMPORTS = {
     "soundfile": "soundfile",
     "swanboard": "swanboard",
     "boto3": "boto3",
-    "botocore": "botocore",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd": "pandas",
 }
@@ -64,8 +61,7 @@ _EXTRA_DEPS = {
     "soundfile": "media",
     "PIL": "media",  # Package 'pillow' is imported as 'PIL'
     "matplotlib": "media",
-    "np": "media",  # 'numpy' is mapped to 'media'
-    "numpy": "media",
+    "np": "media",
     "moviepy": "media",
     "imageio": "media",
     "rdkit": "media",
@@ -73,7 +69,6 @@ _EXTRA_DEPS = {
     "swanboard": "dashboard",
     # [project.optional-dependencies.s3]
     "boto3": "s3",
-    "botocore": "s3",
 }
 
 
