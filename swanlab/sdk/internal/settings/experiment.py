@@ -223,6 +223,11 @@ class RunSettings(BaseModel):
     Resume policy for this SwanLab run.
     """
 
+    history: Optional[Path] = Field(default=None)
+    """
+    History path for this SwanLab run, useful for resuming from a previous run.
+    """
+
     @field_validator("resume", mode="before")
     def validate_resume(cls, v: Any) -> Any:
         return map_resume_value(v)
