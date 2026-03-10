@@ -124,25 +124,18 @@ class SwanLabExp:
         key_obj: SwanLabKey = self._keys.get(key_index, None)
 
         # ---------------------------------- 包装器解析 ----------------------------------
-        explicit_step = step is not None
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
             step = None
-            explicit_step = False
 
         if key_obj is None:
             step = 0 if step is None else step
         else:
             if step is None:
                 step = len(key_obj.steps)
-            
             if step in key_obj.steps:
-                # overwrite only in resume mode AND when step is explicitly specified
-                if self._run_store.resume in ('allow', 'must') and explicit_step:
-                    swanlog.debug(f"Step {step} on key {key} already exists, overwriting in resume mode.")
-                else:
-                    swanlog.debug(f"Step {step} on key {key} already exists, ignored.")
-                    return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
+                # 允许 overwrite
+                swanlog.debug(f"Step {step} on key {key} already exists, overwriting.")
         data.parse(step=step, key=key)
         # ---------------------------------- 图表创建 ----------------------------------
 
