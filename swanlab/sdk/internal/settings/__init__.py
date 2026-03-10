@@ -34,6 +34,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from swanlab.sdk.internal.settings.save import SaveSettings
 from swanlab.sdk.typings.run import ModeType
 
 from ..pkg import console
@@ -82,6 +83,7 @@ class Settings(BaseSettings):
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Env: ClassVar[Type[EnvSettings]] = EnvSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
+    Save: ClassVar[Type[SaveSettings]] = SaveSettings
 
     interactive: bool = True
     """
@@ -280,6 +282,10 @@ class Settings(BaseSettings):
     integration: IntegrationSettings = Field(default_factory=IntegrationSettings)
     """
     Configuration for SwanLab integrations, including webhook, dashboard, etc.
+    """
+    save: SaveSettings = Field(default_factory=SaveSettings)
+    """
+    File storage settings for SwanLab.
     """
 
     model_config = SettingsConfigDict(

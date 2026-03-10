@@ -3,6 +3,7 @@ description: 创建 Bug 报告
 labels:
   - 🐛 bug
   - 🤔 unconfirmed
+type: bug
 body:
   - type: markdown
     attributes:

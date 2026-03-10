@@ -4,6 +4,7 @@ labels:
   - 🏠 advice
   - 💪 enhancement
   - 🤔 unconfirmed
+type: feature
 body:
   - type: markdown
     attributes:
