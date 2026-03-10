@@ -16,9 +16,9 @@ MOCK_ADJECTIVES = ["mockgood", "mocknice"]
 
 class TestGenerateId:
     def test_default_length(self):
-        """测试默认生成的 ID 长度为 8"""
+        """测试默认生成的 ID 长度"""
         run_id = generate_id()
-        assert len(run_id) == 8
+        assert len(run_id) == 21
         assert run_id.lower() == run_id
         assert run_id.isalnum()
         assert run_id.islower()

@@ -258,7 +258,7 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
                 group=experiment.group,
                 tags=experiment.tags,
             )
-            # TODO: resume 时向后端获取数据或向本地获取数据
+            # TODO resume 时向后端获取数据或向本地获取数据
 
             # 最后同步一次配置
             args_dict = {}
