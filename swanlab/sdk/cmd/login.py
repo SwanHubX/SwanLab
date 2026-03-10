@@ -5,6 +5,7 @@
 @description: swanlab.login 方法，登录到 SwanLab 平台
 """
 
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -107,7 +108,8 @@ def login(
         web_host = host or settings.web_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
-    with use_temp_context(RunContext(config=RunConfig(settings=login_settings))) as ctx:
+    fake_run_dir = Path.cwd()
+    with use_temp_context(RunContext(config=RunConfig(settings=login_settings, run_dir=fake_run_dir))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
         if api_key is None:
             api_key = apikey.prompt()

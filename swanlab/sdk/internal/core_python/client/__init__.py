@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import requests
 
@@ -37,7 +37,7 @@ __all__ = [
 
 @dataclass
 class ApiResponse:
-    data: Union[dict, list, str]
+    data: Any
     raw: requests.Response
 
 

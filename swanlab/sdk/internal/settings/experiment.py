@@ -23,41 +23,56 @@ from pydantic_settings import NoDecode
 from swanlab.sdk.typings.run import ResumeType
 
 
-def project_name_factory() -> str:
+def project_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_PROJ_NAME", "")
+    return os.environ.get("SWANLAB_PROJ_NAME", None)
 
 
-def workspace_factory() -> str:
+def workspace_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_WORKSPACE", "")
+    return os.environ.get("SWANLAB_WORKSPACE", None)
+
+
+def project_public_factory() -> bool:
+    # 向下兼容旧版本环境变量
+    return os.environ.get("SWANLAB_PUBLIC", "").lower() in ["true", "yes", "1"]
 
 
 class ProjectSettings(BaseModel):
-    name: str = Field(default_factory=project_name_factory)
+    name: Optional[str] = Field(
+        default_factory=project_name_factory,
+        max_length=100,
+        pattern=r"^[0-9a-zA-Z_\-+.]+$",
+        validate_default=True,
+    )
     """
     Project name for this SwanLab run.
     """
 
-    workspace: str = Field(default_factory=workspace_factory)
+    workspace: Optional[str] = Field(default_factory=workspace_factory)
     """
     Workspace name for this SwanLab run belongs to.
     """
 
+    public: bool = Field(default_factory=project_public_factory)
+    """
+    Whether this SwanLab run is public.
+    """
 
-def experiment_name_factory() -> str:
+
+def experiment_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_EXP_NAME", "")
+    return os.environ.get("SWANLAB_EXP_NAME", None)
 
 
-def experiment_color_factory() -> str:
+def experiment_color_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_EXP_COLOR", "")
+    return os.environ.get("SWANLAB_EXP_COLOR", None)
 
 
-def experiment_description_factory() -> str:
+def experiment_description_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_DESCRIPTION", "")
+    return os.environ.get("SWANLAB_DESCRIPTION", None)
 
 
 def experiment_tags_factory() -> List[str]:
@@ -66,33 +81,53 @@ def experiment_tags_factory() -> List[str]:
     return [item.strip() for item in env_value.split(",") if item.strip()]
 
 
-def experiment_group_factory() -> str:
+def experiment_group_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_GROUP", "")
+    return os.environ.get("SWANLAB_GROUP", None)
 
 
-def experiment_job_type_factory() -> str:
+def experiment_job_type_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_JOB_TYPE", "")
+    return os.environ.get("SWANLAB_JOB_TYPE", None)
+
+
+ValidTagString = Annotated[str, Field(max_length=200)]
+
+ValidTags = Field(default_factory=experiment_tags_factory, max_length=50, validate_default=True)
 
 
 class ExperimentSettings(BaseModel):
-    name: str = Field(default_factory=experiment_name_factory)
+    name: Optional[str] = Field(
+        default_factory=experiment_name_factory,
+        min_length=1,
+        max_length=250,
+        validate_default=True,
+    )
     """
     Experiment name for this SwanLab run.
     """
 
-    color: str = Field(default_factory=experiment_color_factory)
+    color: Optional[str] = Field(
+        default_factory=experiment_color_factory,
+        max_length=7,
+        min_length=7,
+        pattern=r"^#[0-9a-fA-F]{6}$",
+        validate_default=True,
+    )
     """
     Color for this SwanLab run.
     """
 
-    description: str = Field(default_factory=experiment_description_factory)
+    description: Optional[str] = Field(
+        default_factory=experiment_description_factory,
+        min_length=1,
+        max_length=1024,
+        validate_default=True,
+    )
     """
     Description for this SwanLab run.
     """
-
-    tags: Annotated[List[str], NoDecode] = Field(default_factory=experiment_tags_factory)  # noqa: cannot specify `Annotated` and value `Field`s together for 'tags'
+    tags: Annotated[List[ValidTagString], NoDecode] = ValidTags
     """
     Tags for this SwanLab run.
     """
@@ -120,12 +155,16 @@ class ExperimentSettings(BaseModel):
             return [item.strip() for item in v.split(",") if item.strip()]
         raise ValueError(f"tags must be a list, dict, or string, but got {type(v).__name__}")
 
-    group: str = Field(default_factory=experiment_group_factory)
+    group: Optional[str] = Field(
+        default_factory=experiment_group_factory, min_length=1, max_length=256, validate_default=True
+    )
     """
     Group for this SwanLab run.
     """
 
-    job_type: str = Field(default_factory=experiment_job_type_factory)
+    job_type: Optional[str] = Field(
+        default_factory=experiment_job_type_factory, min_length=1, max_length=256, validate_default=True
+    )
     """
     Job type for this SwanLab run.
     """
@@ -174,7 +213,7 @@ def map_resume_value(value: Any) -> ResumeType:
 
 
 class RunSettings(BaseModel):
-    id: str = Field(default_factory=run_id_factory)
+    id: Optional[str] = Field(default_factory=run_id_factory)
     """
     Run ID for this SwanLab run.
     """

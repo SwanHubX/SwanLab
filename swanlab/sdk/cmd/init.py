@@ -10,19 +10,24 @@ init函数执行时被视为init之前
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
+from swanlab.sdk.internal.context import RunConfig, RunContext, set_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.utils import helper
+from swanlab.sdk.internal.core_python.api.project import get_or_create_project
+from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.utils import generate_id, helper
 
+from ..internal import apikey
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from .login import interactive_login
+from ..utils.callbacker import SwanLabCallback
+from .login import interactive_login, login
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -65,7 +70,6 @@ def init(
     reinit: Optional[bool] = None,
     logdir: Optional[str] = None,
     mode: Optional[ModeType] = None,
-    settings: Optional[Settings] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -78,6 +82,8 @@ def init(
     id: Optional[str] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
     config: Optional[ConfigLike] = None,
+    settings: Optional[Settings] = None,
+    callbacks: Optional[List[SwanLabCallback]] = None,
     **kwargs,
 ):
     """
@@ -106,8 +112,6 @@ def init(
         If the value is 'disabled', data will not be saved or uploaded, just parsing the data.
         If the value is 'offline', data will be saved locally without uploading to the cloud.
         BTW, 'online' is an alias for 'cloud'.
-
-    :param settings: The settings for the current experiment.
 
     :param workspace: Where the current project is located, it can be an organization or a user.
         The default is None, which means the current entity is the same as the current user.
@@ -147,13 +151,17 @@ def init(
     :param config: The configuration of the current experiment.
         If you provide a string, it will be loaded from a file.
 
+    :param settings: The settings for the current experiment.
+
+    :param callbacks: The callback functions that will be triggered when the experiment is finished.
+
     :return: The SwanLabRun object.
     """
     if reinit:
         ...
     # 运行时配置
     run_settings = Settings()
-    # --------------------- 第一次处理，合并配置，检查格式，与业务无关 ----------------------------
+    # --------------------- 合并配置，检查格式，与业务无关 ----------------------------
     # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数
     # 1. 合并全局配置
     run_settings.merge_settings(global_settings)
@@ -165,7 +173,7 @@ def init(
     for key, value in {
         "logdir": logdir,
         "mode": mode,
-        "project.name": project,
+        "project.name": project or Path.cwd().name,
         "project.workspace": workspace,
         "project.public": public,
         "experiment.name": name,
@@ -180,19 +188,55 @@ def init(
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
-    # 执行初始化
+    # ---------------------------------- 再次确认 mode 参数 ----------------------------------
+    # 根据交互式引导确定最终的模式
+    mode, _ = prompt_init_mode(run_settings)
+    run_settings.merge_settings({"mode": mode})
+    # ---------------------------------- 初始化 ----------------------------------
     _init(run_settings, config)
 
 
 @helper.rich.with_loading_animation()
-def _init(run_settings: Settings, config: Optional[ConfigLike]):
+def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optional[List[SwanLabCallback]] = None):
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     """
+    if callbacks is None:
+        callbacks = []
+    mode = run_settings.mode
     _ = load_config(run_settings, config)
-    mode, _ = prompt_init_mode(run_settings)
-    if mode == "cloud":
-        pass
+    # 生成run_id
+    run_id = run_settings.run.id or generate_id()
+    run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
+    # 创建一个临时的上下文，避免出现任何问题导致上下文残留
+    with use_temp_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+        # 1. 进行通用处理
+        ctx.run_dir.mkdir(parents=True, exist_ok=True)
+        ctx.media_dir.mkdir(parents=True, exist_ok=True)
+        ctx.files_dir.mkdir(parents=True, exist_ok=True)
+        ctx.metadata_file.parent.mkdir(parents=True, exist_ok=True)
+        ctx.debug_dir.mkdir(parents=True, exist_ok=True)
+        # 类型断言
+        assert run_settings.project.name, "Project name is required."
+        # 2. 根据模式进行特定处理
+        if mode == "cloud":
+            assert client.exists(), "No client found, please login first."
+            # 获取当前项目，如果不存在则创建
+            _ = get_or_create_project(
+                username=run_settings.project.workspace,
+                name=run_settings.project.name,
+                public=run_settings.project.public,
+            )
+            # 获取当前实验
+        elif mode == "local":
+            raise NotImplementedError("Local mode is not supported yet.")
+        elif mode == "offline":
+            raise NotImplementedError("Offline mode is not supported yet.")
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+    # 最后将上下文作为全局上下文使用
+    set_context(ctx)
+    log.bindfile(ctx.debug_dir)
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
@@ -251,34 +295,41 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
     :return: (最终确定的 mode, 是否成功登录)
     """
     # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
-    if settings.mode != "cloud" or client.exists() or not settings.interactive:
-        return settings.mode, client.exists()
+    mode = settings.mode
+    if mode != "cloud" or client.exists() or not settings.interactive:
+        return mode, client.exists()
+    if mode == "cloud":
+        if apikey.exists():
+            login(api_key=apikey.get())
+            return "cloud", True
 
-    console.info("Using SwanLab to track your experiments. For more information, please visit:", "yellow")
-    console.info(f"Docs: {settings.web_host}/docs", "blue")
+        console.info("Using SwanLab to track your experiments.")
+        console.info(f" For more information, please review the docs at {settings.web_host}/docs")
 
-    console.info("(1) Create a SwanLab account.")
-    console.info("(2) Use an existing SwanLab account.")
-    console.info("(3) Don't visualize my results (Offline mode).")
+        console.info("(1) Create a SwanLab account.")
+        console.info("(2) Use an existing SwanLab account.")
+        console.info("(3) Don't visualize my results (Offline mode).")
 
-    while True:
-        choice = input("Enter your choice (1/2/3): ").strip()
+        while True:
+            choice = input("Enter your choice (1/2/3): ").strip()
 
-        if choice == "3":
-            console.info("Switching to 'offline' mode. Results will be saved locally.")
-            return "offline", False
+            if choice == "3":
+                console.info("Switching to 'offline' mode. Results will be saved locally.")
+                return "offline", False
 
-        if choice == "1":
-            console.info("Create a SwanLab account here:", "yellow")
-            console.info(f"{settings.web_host}/login", "blue")
-            # 注册后紧接着触发登录循环
-            success = interactive_login(save=True)
-            return "cloud", success
+            if choice == "1":
+                console.info("Create a SwanLab account here:", "yellow")
+                console.info(f"{settings.web_host}/login", "blue")
+                # 注册后紧接着触发登录循环
+                success = interactive_login(save=True)
+                return "cloud", success
 
-        if choice == "2":
-            console.info(f"Logging into {settings.web_host}...")
-            # 触发带循环容错的登录接口
-            success = interactive_login(save=True)
-            return "cloud", success
+            if choice == "2":
+                console.info(f"Logging into {settings.web_host}...")
+                # 触发带循环容错的登录接口
+                success = interactive_login(save=True)
+                return "cloud", success
 
-        console.warning("Invalid choice, please enter 1, 2, or 3.")
+            console.warning("Invalid choice, please enter 1, 2, or 3.")
+    # 其他模式不登录
+    return mode, False
