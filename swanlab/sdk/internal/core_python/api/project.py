@@ -10,7 +10,17 @@ from typing import Optional, cast
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.client.helper import decode_response
-from swanlab.sdk.typings.core_python.api.project import InitProjectType
+from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
+
+
+def get_project(*, username: str, name: str) -> ProjectType:
+    """
+    获取项目信息
+    :param username: 项目所属的用户名
+    :param name: 项目名称
+    :return: 项目信息
+    """
+    return client.get(f"/project/{username}/{name}").data
 
 
 def get_or_create_project(*, username: Optional[str], name: str, public: bool) -> InitProjectType:

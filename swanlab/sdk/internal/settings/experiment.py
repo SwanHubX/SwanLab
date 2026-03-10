@@ -170,9 +170,9 @@ class ExperimentSettings(BaseModel):
     """
 
 
-def run_id_factory() -> str:
+def run_id_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_RUN_ID", "")
+    return os.environ.get("SWANLAB_RUN_ID", None)
 
 
 def run_resume_factory() -> ResumeType:

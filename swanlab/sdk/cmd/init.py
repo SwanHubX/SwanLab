@@ -18,11 +18,13 @@ import yaml
 
 from swanlab.sdk.internal.context import RunConfig, RunContext, set_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.api.project import get_or_create_project
+from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.utils import generate_id, helper
+from swanlab.sdk.utils.experiment import generate_color, generate_name
 
 from ..internal import apikey
+from ..internal.core_python.api.experiment import create_or_resume_experiment
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -188,10 +190,16 @@ def init(
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
-    # ---------------------------------- 再次确认 mode 参数 ----------------------------------
+    # ---------------------------------- 再次确认参数 ----------------------------------
     # 根据交互式引导确定最终的模式
     mode, _ = prompt_init_mode(run_settings)
     run_settings.merge_settings({"mode": mode})
+    # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
+    if run_settings.mode == "cloud":
+        if run_settings.run.resume == "must":
+            assert run_settings.run.id is not None, "Run id must be provided when resume=must."
+        elif run_settings.run.resume == "never":
+            assert run_settings.run.id is None, "Run id should not be provided when resume=never."
     # ---------------------------------- 初始化 ----------------------------------
     _init(run_settings, config)
 
@@ -222,12 +230,50 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
         if mode == "cloud":
             assert client.exists(), "No client found, please login first."
             # 获取当前项目，如果不存在则创建
-            _ = get_or_create_project(
+            project = get_or_create_project(
                 username=run_settings.project.workspace,
                 name=run_settings.project.name,
                 public=run_settings.project.public,
             )
+            username, project = project["username"], project["name"]
+            # 获取当前项目详细信息
+            project_info = get_project(username=username, name=project)
             # 获取当前实验
+            experiment = run_settings.experiment
+            history_experiment_count = project_info["_count"]["experiments"]
+            name = experiment.name or generate_name(history_experiment_count)
+            color = experiment.color or generate_color(history_experiment_count)
+            # 获取当前运行
+            run = run_settings.run
+            # 开启实验
+            _ = create_or_resume_experiment(
+                username,
+                project,
+                name=name,
+                resume=run_settings.run.resume,
+                run_id=run.id,
+                color=color,
+                description=experiment.description,
+                job_type=experiment.job_type,
+                group=experiment.group,
+                tags=experiment.tags,
+            )
+            # TODO: resume 时向后端获取数据
+
+            # 最后同步一次配置
+            args_dict = {}
+            for key, value in {
+                "experiment.name": name,
+                "experiment.color": color,
+                "experiment.description": experiment.description,
+                "experiment.job_type": experiment.job_type,
+                "experiment.group": experiment.group,
+                "experiment.tags": experiment.tags,
+                "run.id": run.id,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
+
         elif mode == "local":
             raise NotImplementedError("Local mode is not supported yet.")
         elif mode == "offline":

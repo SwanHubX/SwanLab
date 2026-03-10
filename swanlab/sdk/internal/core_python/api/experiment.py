@@ -5,76 +5,63 @@
 @description: SwanLab 运行时实验API
 """
 
+from typing import List, Optional
 
-# def create_or_resume_experiment(
-#     exp_name,
-#     colors: Tuple[str, str],
-#     description: Optional[str] = None,
-#     job_type: Optional[str] = None,
-#     group: Optional[str] = None,
-#     tags: Optional[List[str]] = None,
-#     created_at: Optional[str] = None,
-#     cuid: Optional[str] = None,
-#     must_exist: bool = False,
-# ) -> bool:
-#     """
-#     初始化实验，获取存储信息
-#     :param exp_name: 所属实验名称
-#     :param colors: 实验颜色，有两个颜色
-#     :param description: 实验描述
-#     :param job_type: 任务类型
-#     :param group: 实验组
-#     :param tags: 实验标签
-#     :param created_at: 实验创建时间，格式为 ISO 8601
-#     :param cuid: 实验的唯一标识符，如果不提供则由后端生成
-#     :param must_exist: 如果 cuid 被传递，是否限制实验必须存在
-#
-#     :raises RuntimeError: 如果实验不存在且must_exist为True
-#     :raises NotImplementedError: 如果项目未挂载
-#
-#     :return: 返回实验为新建的还是更新的，为 True 时为新建实验
-#     """
-#     if must_exist:
-#         assert cuid is not None, "cuid must be provided when must_exist is True"
-#         try:
-#             self.get(f"/project/{self.groupname}/{self.__proj.name}/runs/{cuid}")
-#         except ApiError as e:
-#             if e.resp.status_code == 404 and e.resp.reason == "Not Found":
-#                 raise RuntimeError(f"Experiment {cuid} does not exist in project {self.projname}")
-#
-#     labels = [{"name": tag} for tag in tags] if tags else []
-#     post_data = {
-#         "name": exp_name,
-#         "description": description,
-#         "createdAt": created_at,
-#         "colors": list(colors),
-#         "labels": labels if len(labels) else None,
-#         "job": job_type,
-#         "cluster": group,
-#         "cuid": cuid,
-#     }
-#     post_data = {k: v for k, v in post_data.items() if v is not None}  # 移除值为None的键
-#
-#     # 这部分错误将不会被上层捕获，直接抛出异常
-#     try:
-#         data, resp = self.post(f"/project/{self.groupname}/{self.__proj.name}/experiment", post_data)
-#     except ApiError as e:
-#         if e.resp.status_code == 400 and e.resp.reason == "Bad Request":
-#             # 指定的 cuid 对应的实验是克隆实验
-#             raise ValueError(
-#                 f"Experiment with CUID {cuid} is a cloned experiment (cloned experiments cannot be resumed).",
-#             )
-#         elif e.resp.status_code == 403 and e.resp.reason == "Forbidden":
-#             # 权限不足
-#             raise ValueError(f"Project permission denied: {self.projname}")
-#         elif e.resp.status_code == 404 and e.resp.reason == "Not Found":
-#             # 传入的项目不存在
-#             raise ValueError(f"Project {self.projname} not found")
-#         elif e.resp.status_code == 404 and e.resp.reason == "Disabled Resource":
-#             # 传入的实验被删除
-#             raise ValueError(f"Experiment {cuid} has been deleted")
-#         elif e.resp.status_code == 409 and e.resp.reason == "Conflict":
-#             # 传入 cuid 但是实验不属于当前项目
-#             raise ValueError(f"Experiment with CUID {cuid} does not belong to project {self.projname}")
-#         raise e
-#     return new
+from swanlab.exceptions import ApiError
+from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.typings.run import ResumeType
+
+
+def create_or_resume_experiment(
+    username: str,
+    project: str,
+    *,
+    name: str,
+    resume: ResumeType,
+    run_id: Optional[str] = None,
+    color: str,
+    description: Optional[str],
+    job_type: Optional[str],
+    group: Optional[str],
+    tags: Optional[List[str]],
+    created_at: Optional[str] = None,
+) -> bool:
+    """
+    初始化实验，获取存储信息
+    :param username: 所属用户名
+    :param project: 所属项目名称
+    :param name: 所属实验名称
+    :param resume: 恢复上一次实验的状态
+    :param run_id: 上一次实验的ID
+    :param color: 实验颜色
+    :param description: 实验描述
+    :param job_type: 任务类型
+    :param group: 实验组
+    :param tags: 实验标签
+    :param created_at: 实验创建时间，格式为 ISO 8601
+    """
+    if resume == "never":
+        assert run_id is None, "run_id must be None when resume is 'never'"
+        assert created_at is None, "created_at must be None when resume is 'never'"
+    if resume == "must":
+        assert run_id is not None, "run_id must be provided when resume is 'must'"
+        try:
+            client.get(f"/project/{username}/{project}/runs/{run_id}")
+        except ApiError as e:
+            if e.response.status_code == 404 and e.response.reason == "Not Found":
+                raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
+    labels = [{"name": tag} for tag in tags] if tags else []
+    body = {
+        "name": name,
+        "description": description,
+        "createdAt": created_at,
+        "colors": [color, color],
+        "labels": labels if len(labels) else None,
+        "job": job_type,
+        "cluster": group,
+        "cuid": run_id,
+    }
+    resp = client.post(f"/project/{username}/{project}/experiment", body)
+    # 200代表实验已存在，开启更新模式
+    # 201代表实验不存在，新建实验
+    return resp.raw.status_code == 201
