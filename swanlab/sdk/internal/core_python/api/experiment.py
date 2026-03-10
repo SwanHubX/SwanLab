@@ -10,6 +10,7 @@ from typing import List, Optional
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.typings.run import ResumeType
+from swanlab.sdk.utils.helper import strip_none
 
 
 def create_or_resume_experiment(
@@ -61,7 +62,7 @@ def create_or_resume_experiment(
         "cluster": group,
         "cuid": run_id,
     }
-    resp = client.post(f"/project/{username}/{project}/experiment", body)
+    resp = client.post(f"/project/{username}/{project}/experiment", strip_none(body))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
     return resp.raw.status_code == 201

@@ -42,7 +42,9 @@ from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvSettings, HardwareSettings
 
-__all__ = ["Settings", "settings", "strip_none"]
+__all__ = ["Settings", "settings"]
+
+from ...utils.helper import strip_none
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
@@ -52,22 +54,6 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
-
-
-def strip_none(data: dict) -> dict:
-    """
-    递归剔除字典中的 None 值和空字典，主要用于配置项合并时的空值处理
-    """
-    clean_data = {}
-    for k, v in data.items():
-        if isinstance(v, dict):
-            cleaned_v = strip_none(v)
-            # 只有当嵌套字典里真的有非 None 的值时，才保留这个 key
-            if cleaned_v:
-                clean_data[k] = cleaned_v
-        elif v is not None:
-            clean_data[k] = v
-    return clean_data
 
 
 def root_factory() -> Path:
