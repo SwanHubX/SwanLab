@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
+from swanlab.sdk.internal.callbackers.callbacker import callbacker
+from swanlab.sdk.internal.callbackers.cloud import CloudCallback
 from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, set_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
@@ -25,6 +27,7 @@ from swanlab.sdk.utils.experiment import generate_color, generate_name
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
+from ..internal.run import SwanLabRun
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -201,25 +204,33 @@ def init(
         elif run_settings.run.resume == "never":
             assert run_settings.run.id is None, "Run id should not be provided when resume=never."
     # ---------------------------------- 初始化 ----------------------------------
-    _init(run_settings, config)
+    # 合并回调
+    callbacker.merge_callbacks(callbacks or [])
+    # 开始初始化
+    _init(run_settings)
     assert has_context(), "SwanLab Context is not initialized after init."
     ctx = get_context()
+    # 初始化run
+    run = SwanLabRun(ctx)
+    # 发送webhook回调
+
     # 初始化成功，触发回调
     ctx.callbacker.on_run_init(
         ctx.run_dir,
         f"{ctx.config.settings.project.workspace}/{ctx.config.settings.project.name}/{ctx.config.settings.run.id}",
     )
+    # 加载配置
+    _ = load_config(run_settings, config)
+    # TODO 触发配置加载
+    return run
 
 
 @helper.rich.with_loading_animation()
-def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optional[List[SwanLabCallback]] = None):
+def _init(run_settings: Settings):
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     """
-    if callbacks is None:
-        callbacks = []
     mode = run_settings.mode
-    _ = load_config(run_settings, config)
     # 生成run_id
     run_id = run_settings.run.id or generate_id()
     run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
@@ -250,15 +261,13 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
             history_experiment_count = project_info["_count"]["experiments"]
             name = experiment.name or generate_name(history_experiment_count)
             color = experiment.color or generate_color(history_experiment_count)
-            # 获取当前运行
-            run = run_settings.run
             # 开启实验
             _ = create_or_resume_experiment(
                 username,
                 project,
                 name=name,
                 resume=run_settings.run.resume,
-                run_id=run.id,
+                run_id=run_id,
                 color=color,
                 description=experiment.description,
                 job_type=experiment.job_type,
@@ -272,16 +281,12 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
             for key, value in {
                 "experiment.name": name,
                 "experiment.color": color,
-                "experiment.description": experiment.description,
-                "experiment.job_type": experiment.job_type,
-                "experiment.group": experiment.group,
-                "experiment.tags": experiment.tags,
-                "run.id": run.id,
+                "run.id": run_id,
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
             # 注册回调器
-
+            callbacker.merge_callbacks([CloudCallback()])
         elif mode == "local":
             raise NotImplementedError("Local mode is not supported yet.")
         elif mode == "offline":
@@ -292,6 +297,7 @@ def _init(run_settings: Settings, config: Optional[ConfigLike], callbacks: Optio
             raise ValueError(f"Invalid mode: {mode}")
     # 最后将上下文作为全局上下文使用
     set_context(ctx)
+    # 绑定日志文件
     log.bindfile(ctx.debug_dir)
 
 
