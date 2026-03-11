@@ -8,9 +8,14 @@
 3. 触发回调
 """
 
+import queue
+import threading
 from functools import cached_property, singledispatchmethod
-from typing import Any, Dict, Optional, Union, get_args
+from typing import Any, Dict, Optional, Tuple, Union, get_args
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.data.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
@@ -21,9 +26,23 @@ from .data.transforms import Text
 __all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
 
 
+LogData = Dict[str, Any]
+"""
+日志数据代表的是单次 swanlab.log({...}, step=N) 调用中的数据字典（展开后）。
+"""
+LogPayload = Tuple[LogData, int, Timestamp]
+"""
+日志负载代表的是单次 swanlab.log({...}, step=N) 调用，0代表log的日志字典（展开后），1代表step，2代表时间戳。
+"""
+
+
 class SwanLabRun:
     def __init__(self, ctx: "RunContext"):
         self._ctx = ctx
+        self._queue: queue.Queue[Union[LogPayload, None]] = queue.Queue(maxsize=100_000)
+        # 2. 启动后台处理线程
+        self._background_logger = threading.Thread(target=self._background_log, daemon=False)
+        self._background_logger.start()
 
     @cached_property
     def id(self) -> str:
@@ -33,7 +52,7 @@ class SwanLabRun:
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
         return self._ctx.config.settings.run.id
 
-    def log(self, data: Dict[str, Any], step: Optional[int] = None):
+    def log(self, data: LogData, step: Optional[int] = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
         SwanRun instance, removing the initialization process. Of course, after you call the finish method,
@@ -42,28 +61,52 @@ class SwanLabRun:
         :param data: The data to log.
         :param step: The global step at which the data was logged. Can be None if not explicitly tracked.
         """
-        # 1. 类型检查
+        # 类型检查
         if not isinstance(data, dict):
             console.error("Log data must be a dict, but got {}. SwanLab will ignore records it.".format(type(data)))
             return
-        # 2. 展开字典，例如 {"a": {"b": {"c": 1}}} -> {"a/b/c": 1}
+        # 如果没有传递step，获取全局step，并将全局step+1
+        step = self._ctx.metrics.next_step(step)
+        # 获取当前时间
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        # 展开字典，例如 {"a": {"b": {"c": 1}}} -> {"a/b/c": 1}
         data = flatten_dict(data)
-        # 3. 依次处理
-        for key, value in data.items():
-            self._dispatch_log(value=value, key=key, step=step)
+        # 放入队列
+        self._queue.put((data, step, ts))
+
+    def _background_log(self):
+        """将数据放入队列，异步处理"""
+        while True:
+            try:
+                # 阻塞等待数据到来
+                payload = self._queue.get()
+                # 如果收到结束信号 (比如 None)，退出线程
+                if payload is None:
+                    break
+                # 解析数据
+                data, step, timestamp = payload
+                # 处理数据
+                for key, value in data.items():
+                    # TODO: 判断是否为首次写入，如果为首次写入，需要创建列
+
+                    _: LogRecord = self._dispatch_log(value=value, key=key, timestamp=timestamp, step=step)
+                    # TODO: 写入文件
+                    # TODO: 触发回调器
+            except Exception as e:
+                console.error(f"Error in background writer: {e}")
 
     @singledispatchmethod
-    def _dispatch_log(self, value: Any, key: str, step: Optional[int] = None):
+    def _dispatch_log(self, value: Any, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
         """默认的回退处理逻辑
         此部分用于处理基础标量数据类型
         """
-        # self.log_scalar(key=key, step=step, value=value)
-        pass
+        ...
 
     @_dispatch_log.register
-    def _(self, value: Text, key: str, step: Optional[int]):
+    def _(self, value: Text, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
         """Log一个Text"""
-        return self.log_text(key=key, step=step, data=value)
+        ...
 
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
@@ -72,6 +115,18 @@ class SwanLabRun:
         :param data: The text content or a Text object.
         :param caption: An optional caption for the text.
         :param step: The global step at which the data was logged. Can be None if not explicitly tracked.
+        """
+        ...
+
+    def define_media(self):
+        """
+        Define a media record to the current run.
+        """
+        ...
+
+    def define_scalar(self):
+        """
+        Define a scalar record to the current run.
         """
         ...
 
@@ -94,7 +149,10 @@ class SwanLabRun:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
-        ...
+        # 清理副作用
+        # 1. 清理log队列
+        self._queue.put(None)
+        self._background_logger.join()
 
 
 def flatten_dict(

@@ -6,6 +6,7 @@
 """
 
 import sys
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Literal, Optional, Union
@@ -92,5 +93,27 @@ class MediaMetric:
 # 指标状态，实验运行过程中不断更新
 @dataclass
 class RunMetrics:
-    global_step: int = 0
+    _global_step: int = 0
+    _step_lock: threading.Lock = field(default_factory=threading.Lock)
     _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
+
+    def next_step(self, user_step: Optional[int] = None) -> int:
+        """
+        线程安全地获取下一个 global_step。
+        如果用户传入了 step，则同步更新内部的 global_step 最大值。
+        """
+        with self._step_lock:
+            if user_step is not None:
+                # 如果用户显式传了 step，如果step大于当前global_step，则更新global_step，否则不更新
+                if user_step > self._global_step:
+                    self._global_step = user_step
+                return user_step
+            else:
+                # 隐式递增
+                self._global_step += 1
+                return self._global_step
+
+    @property
+    def global_step(self) -> int:
+        """只读属性"""
+        return self._global_step

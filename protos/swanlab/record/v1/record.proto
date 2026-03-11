@@ -27,7 +27,6 @@ service RecordService {
 //   init()  → RunRecord, MetadataRecord, ConfigRecord
 //   log()   → LogRecord（每次调用一条）
 //   stdout  → ConsoleRecord（每行一条）
-//   timer   → StatsRecord（每 interval 秒一条）
 //   finish()→ FinishRecord
 message Record {
   int64 num = 1;  // 单调递增序号，从 1 开始
