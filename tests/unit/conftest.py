@@ -1,5 +1,6 @@
 import pytest
 
+from swanlab.sdk.internal.callbackers.callbacker import callbacker
 from swanlab.sdk.internal.context import clear_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import log
@@ -57,3 +58,6 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     clear_context()
     # 3. 清理 logger
     log.reset()
+    # 4. 清理 callbacker
+    for callback in callbacker.registered_callbacks:
+        callbacker.remove_callback(callback.name)

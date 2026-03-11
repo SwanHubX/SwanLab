@@ -6,6 +6,7 @@
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 __all__ = ["SwanLabCallback"]
@@ -18,11 +19,11 @@ class SwanLabCallback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_init(self, logdir: str, path: str) -> None:
+    def on_run_init(self, run_dir: Path, path: str) -> None:
         """
         Called immediately after `swanlab.init` has successfully executed.
 
-        :param logdir: The directory path where the user's local logs are stored.
+        :param run_dir: The directory path where the run is stored.
         :param path: The routing path of the experiment, formatted as `/:workspace/:project/:run_id`.
         """
         pass

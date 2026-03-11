@@ -11,7 +11,7 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils.callbacker import SwanLabCallback
 
 
-class CallbackManager:
+class _CallbackManager:
     """
     SwanLab 回调函数的管理器。
     维护当前上下文中的全局回调状态，支持批量合并与指定移除。
@@ -62,7 +62,7 @@ class CallbackManager:
                         console.error(f"Error executing '{name}' in callback '{cb.name}': {e}")
 
             # 3. 性能优化：将生成好的代理函数缓存到当前实例上
-            # 这样第二次调用 cm.on_log 时，就变成了普通的 O(1) 属性访问，性能极高！
+            # 这样第二次调用 callbacker.on_log 时，就变成了普通的 O(1) 属性访问，性能极高！
             setattr(self, name, dispatcher)
             return dispatcher
 
@@ -75,14 +75,15 @@ class CallbackManager:
 # 这一段代码在真实运行时根本不会被执行，它完全是写给 PyCharm/VSCode 看的
 # =========================================================================
 if TYPE_CHECKING:
-    # 让 IDE 认为全局的 cm 同时拥有 CallbackManager 和 SwanLabCallback 的所有方法
-    class FakeCallbackManager(CallbackManager, SwanLabCallback):
+    # 让 IDE 认为全局的 callbacker 同时拥有 CallbackManager 和 SwanLabCallback 的所有方法
+    class CallbackManager(_CallbackManager, SwanLabCallback):
         @property
         def name(self) -> str:
             return "FakeCallback"
 
-    callbacker: FakeCallbackManager
+    callbacker: CallbackManager
 else:
+    CallbackManager = _CallbackManager
     # 全局 CallBacker
     callbacker = CallbackManager()
 

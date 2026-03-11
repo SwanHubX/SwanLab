@@ -250,3 +250,44 @@ class TestNetrcFallback:
         assert settings.api_key == "sync_token"
         assert settings.api_host == "https://api.sync.com"
         assert settings.mode == "cloud"
+
+
+def test_directory_validators(tmp_path):
+    """测试 root 和 log_dir 的路径校验逻辑：如果存在，必须是文件夹"""
+
+    # 1. 正常情况：路径存在且是文件夹
+    valid_root = tmp_path / "valid_root"
+    valid_root.mkdir()
+    valid_log = tmp_path / "valid_log"
+    valid_log.mkdir()
+
+    # 正常初始化，不抛异常
+    s_valid = Settings(root=valid_root, log_dir=valid_log)
+    assert s_valid.root == valid_root
+    assert s_valid.log_dir == valid_log
+
+    # 2. 异常情况：root 存在但是个文件
+    invalid_root = tmp_path / "invalid_root.txt"
+    invalid_root.write_text("dummy file content")
+
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        Settings(root=invalid_root)
+
+    # 3. 异常情况：log_dir 存在但是个文件
+    invalid_log = tmp_path / "invalid_log.txt"
+    invalid_log.write_text("dummy file content")
+
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        Settings(log_dir=invalid_log)
+
+
+def test_directory_validators_with_merge(tmp_path):
+    """测试通过 merge_settings 传入异常路径时的表现"""
+    settings = Settings()
+
+    invalid_path = tmp_path / "invalid_merge.txt"
+    invalid_path.write_text("dummy")
+
+    # merge_settings 内部也应该触发一样的校验逻辑
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        settings.merge_settings({"log_dir": invalid_path})

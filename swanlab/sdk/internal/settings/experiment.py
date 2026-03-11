@@ -41,6 +41,7 @@ def project_public_factory() -> bool:
 class ProjectSettings(BaseModel):
     name: Optional[str] = Field(
         default_factory=project_name_factory,
+        min_length=1,
         max_length=100,
         pattern=r"^[0-9a-zA-Z_\-+.]+$",
         validate_default=True,
@@ -49,7 +50,13 @@ class ProjectSettings(BaseModel):
     Project name for this SwanLab run.
     """
 
-    workspace: Optional[str] = Field(default_factory=workspace_factory)
+    workspace: Optional[str] = Field(
+        default_factory=workspace_factory,
+        min_length=1,
+        max_length=25,
+        pattern=r"^[0-9a-zA-Z\-_]+$",
+        validate_default=True,
+    )
     """
     Workspace name for this SwanLab run belongs to.
     """
@@ -213,7 +220,7 @@ def map_resume_value(value: Any) -> ResumeType:
 
 
 class RunSettings(BaseModel):
-    id: Optional[str] = Field(default_factory=run_id_factory)
+    id: Optional[str] = Field(default_factory=run_id_factory, max_length=64, min_length=1, pattern=r"^[a-z0-9_]{1,64}$")
     """
     Run ID for this SwanLab run.
     """

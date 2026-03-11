@@ -12,12 +12,12 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional
 
-from swanlab.sdk.internal.run.callbacker import CallbackManager, callbacker
+from swanlab.sdk.internal.callbackers.callbacker import CallbackManager, callbacker
 from swanlab.sdk.internal.settings import Settings
 
 
 # 运行配置，包含当前运行上下文的必要状态
-@dataclass
+@dataclass(frozen=True)
 class RunConfig:
     run_dir: Path
     settings: Settings
