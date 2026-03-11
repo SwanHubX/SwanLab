@@ -8,6 +8,7 @@
 from numbers import Number
 from typing import Any, Union
 
+from swanlab.proto.swanlab.data.v1.scalar_pb2 import ScalarValue
 from swanlab.sdk.internal.run.data.transforms.abc import TransformType
 
 
@@ -18,7 +19,7 @@ class Scalar(TransformType):
         self.value = attrs.get("value", value)
 
     @staticmethod
-    def transform(key: str, data: Union["Scalar", Number, str, bool]) -> Any:
+    def transform(key: str, data: Union["Scalar", Number, str, bool]) -> ScalarValue:
         """
         处理标量数据，包括数字、字符串、布尔值等。
 
@@ -29,4 +30,4 @@ class Scalar(TransformType):
         :param key: 数据的键名，用于标识数据类型，此为必填项
         :param data: 待处理的数据
         """
-        return data
+        return ScalarValue(number=1)

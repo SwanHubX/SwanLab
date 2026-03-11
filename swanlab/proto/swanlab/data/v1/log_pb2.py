@@ -23,12 +23,12 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-from swanlab.data.v1 import scalar_pb2 as swanlab_dot_data_dot_v1_dot_scalar__pb2
-from swanlab.data.v1 import image_pb2 as swanlab_dot_data_dot_v1_dot_image__pb2
-from swanlab.data.v1 import audio_pb2 as swanlab_dot_data_dot_v1_dot_audio__pb2
-from swanlab.data.v1 import video_pb2 as swanlab_dot_data_dot_v1_dot_video__pb2
-from swanlab.data.v1 import text_pb2 as swanlab_dot_data_dot_v1_dot_text__pb2
-from swanlab.data.v1 import echarts_pb2 as swanlab_dot_data_dot_v1_dot_echarts__pb2
+from swanlab.proto.swanlab.data.v1 import scalar_pb2 as swanlab_dot_data_dot_v1_dot_scalar__pb2
+from swanlab.proto.swanlab.data.v1 import image_pb2 as swanlab_dot_data_dot_v1_dot_image__pb2
+from swanlab.proto.swanlab.data.v1 import audio_pb2 as swanlab_dot_data_dot_v1_dot_audio__pb2
+from swanlab.proto.swanlab.data.v1 import video_pb2 as swanlab_dot_data_dot_v1_dot_video__pb2
+from swanlab.proto.swanlab.data.v1 import text_pb2 as swanlab_dot_data_dot_v1_dot_text__pb2
+from swanlab.proto.swanlab.data.v1 import echarts_pb2 as swanlab_dot_data_dot_v1_dot_echarts__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19swanlab/data/v1/log.proto\x12\x0fswanlab.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cswanlab/data/v1/scalar.proto\x1a\x1bswanlab/data/v1/image.proto\x1a\x1bswanlab/data/v1/audio.proto\x1a\x1bswanlab/data/v1/video.proto\x1a\x1aswanlab/data/v1/text.proto\x1a\x1dswanlab/data/v1/echarts.proto\"t\n\tLogRecord\x12\x0c\n\x04step\x18\x01 \x01(\x03\x12*\n\x05items\x18\x02 \x03(\x0b\x32\x1b.swanlab.data.v1.MetricItem\x12-\n\ttimestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xbe\x02\n\nMetricItem\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x06scalar\x18\n \x01(\x0b\x32\x1c.swanlab.data.v1.ScalarValueH\x00\x12-\n\x06images\x18\x0b \x01(\x0b\x32\x1b.swanlab.data.v1.ImageValueH\x00\x12-\n\x06\x61udios\x18\x0c \x01(\x0b\x32\x1b.swanlab.data.v1.AudioValueH\x00\x12-\n\x06videos\x18\r \x01(\x0b\x32\x1b.swanlab.data.v1.VideoValueH\x00\x12+\n\x05texts\x18\x0e \x01(\x0b\x32\x1a.swanlab.data.v1.TextValueH\x00\x12\x30\n\x07\x65\x63harts\x18\x0f \x01(\x0b\x32\x1d.swanlab.data.v1.EChartsValueH\x00\x42\x07\n\x05valueB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3')

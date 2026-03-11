@@ -8,6 +8,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from google.protobuf.message import Message
+
 
 class TransformType(ABC):
     """
@@ -44,7 +46,7 @@ class TransformType(ABC):
 
     @staticmethod
     @abstractmethod
-    def transform(key: str, data: Any) -> Any:
+    def transform(key: str, data: Any) -> Message:
         """
         将数据转换为Protobuf格式，
         此方法必须为静态方法，且不依赖于实例状态，这是为了方便实现“套娃加载”、“懒加载”等策略
