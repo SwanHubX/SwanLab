@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, Generator, Optional, Union
+from typing import Dict, Generator, Literal, Optional, Union
 
 from swanlab.sdk.internal.context.transformer import TransformType
 from swanlab.sdk.internal.pkg import console
@@ -37,9 +37,20 @@ DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
 # 使用解包的方式传入参数
 @dataclass(**DATACLASS_KWARGS)
 class RunScalarMetric:
-    # 1. 必须是普通实例变量，初始值为 None
-    _type: Optional["TransformType"] = None
-
+    # 必须是普通实例变量，初始值为 None
+    _type: TransformType
+    # 指标对应的单实验图表索引
+    _chart: str
+    # 指标对应的图表名称，默认为列名称
+    _chart_name: Optional[str] = None
+    # 指标名称，默认为列名称
+    _name: Optional[str] = None
+    # 指标颜色
+    _color: Optional[str] = None
+    # x轴，可以是其他的标量，也可以是系统值"_step"或"_relative_time"
+    _x_axis: Optional[Union[str, Literal["_step", "_relative_time"]]] = "_step"
+    # 是否为系统指标
+    _system: bool = False
     # 指标最新值
     latest: Optional[Union[float, int]] = None
     # 指标的最大值
@@ -47,11 +58,12 @@ class RunScalarMetric:
     # 指标的最小值
     min: Optional[Union[float, int]] = None
 
-    def update(self, _type: "TransformType", value: Union[float, int]):
+    def update(self, _type: "TransformType", value: Union[float, int]) -> bool:
         """
         更新指标值
         :param _type: 传入的指标类型
         :param value: 指标值
+        :return: 是否成功更新
         """
         # 首次写入逻辑：如果当前没有类型，则锁定为传入的类型
         if self._type is None:
@@ -60,7 +72,7 @@ class RunScalarMetric:
         # 后续写入逻辑：校验类型是否一致
         elif self._type != _type:
             console.error(f"Invalid type for scalar metric: expected {self._type}, got {_type}")
-            return
+            return False
 
         # 更新值
         self.latest = value
@@ -68,25 +80,28 @@ class RunScalarMetric:
             self.max = value
         if self.min is None or value < self.min:
             self.min = value
+        return True
 
 
 @dataclass(**DATACLASS_KWARGS)
 class RunMediaMetric:
     # 媒体类型
-    _type: Optional["TransformType"] = None
+    _type: TransformType
     # 媒体存储路径
-    path: Optional[Path] = None
+    path: Path
 
-    def update(self, _type: TransformType, path: Path):
+    def update(self, _type: TransformType, path: Path) -> bool:
         """
         更新媒体信息
         :param _type: 媒体类型
         :param path: 媒体存储路径
+        :return: 是否成功更新
         """
         if _type != self._type:
             console.error(f"Invalid type for media metric: expected {_type}, got {_type}")
-            return
+            return False
         self.path = path
+        return True
 
 
 # 指标状态，实验运行过程中不断更新
