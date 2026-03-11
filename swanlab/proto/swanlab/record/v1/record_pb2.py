@@ -24,11 +24,11 @@ _sym_db = _symbol_database.Default()
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-from swanlab.run.v1 import run_pb2 as swanlab_dot_run_dot_v1_dot_run__pb2
-from swanlab.data.v1 import log_pb2 as swanlab_dot_data_dot_v1_dot_log__pb2
-from swanlab.config.v1 import config_pb2 as swanlab_dot_config_dot_v1_dot_config__pb2
-from swanlab.system.v1 import env_pb2 as swanlab_dot_system_dot_v1_dot_env__pb2
-from swanlab.system.v1 import console_pb2 as swanlab_dot_system_dot_v1_dot_console__pb2
+from swanlab.proto.swanlab.run.v1 import run_pb2 as swanlab_dot_run_dot_v1_dot_run__pb2
+from swanlab.proto.swanlab.data.v1 import log_pb2 as swanlab_dot_data_dot_v1_dot_log__pb2
+from swanlab.proto.swanlab.config.v1 import config_pb2 as swanlab_dot_config_dot_v1_dot_config__pb2
+from swanlab.proto.swanlab.system.v1 import env_pb2 as swanlab_dot_system_dot_v1_dot_env__pb2
+from swanlab.proto.swanlab.system.v1 import console_pb2 as swanlab_dot_system_dot_v1_dot_console__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x19swanlab/data/v1/log.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"\xe7\x03\n\x06Record\x12\x0b\n\x03num\x18\x01 \x01(\x03\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12(\n\x03run\x18\n \x01(\x0b\x32\x19.swanlab.run.v1.RunRecordH\x00\x12.\n\x06\x66inish\x18\x0b \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecordH\x00\x12)\n\x03log\x18\x0c \x01(\x0b\x32\x1a.swanlab.data.v1.LogRecordH\x00\x12\x31\n\x06\x63onfig\x18\r \x01(\x0b\x32\x1f.swanlab.config.v1.ConfigRecordH\x00\x12\x35\n\x08metadata\x18\x0e \x01(\x0b\x32!.swanlab.system.v1.MetadataRecordH\x00\x12=\n\x0crequirements\x18\x11 \x01(\x0b\x32%.swanlab.system.v1.RequirementsRecordH\x00\x12/\n\x05\x63onda\x18\x12 \x01(\x0b\x32\x1e.swanlab.system.v1.CondaRecordH\x00\x12\x33\n\x07\x63onsole\x18\x10 \x01(\x0b\x32 .swanlab.system.v1.ConsoleRecordH\x00\x42\r\n\x0brecord_type2R\n\rRecordService\x12\x41\n\x0cUpsertRecord\x12\x19.swanlab.record.v1.Record\x1a\x16.google.protobuf.EmptyBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3')

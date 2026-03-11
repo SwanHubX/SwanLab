@@ -26,10 +26,12 @@ const (
 // 一次调用可携带多个不同类型的 metric。
 type LogRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// 记录的 key，如 "train/loss"
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// 用户显式传入或由 SDK 自动递增的全局步数
-	Step          int64                  `protobuf:"varint,1,opt,name=step,proto3" json:"step,omitempty"`
-	Items         []*MetricItem          `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Step          int64                  `protobuf:"varint,2,opt,name=step,proto3" json:"step,omitempty"`
+	Items         []*MetricItem          `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -62,6 +64,13 @@ func (x *LogRecord) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LogRecord.ProtoReflect.Descriptor instead.
 func (*LogRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_data_v1_log_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *LogRecord) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
 }
 
 func (x *LogRecord) GetStep() int64 {
@@ -244,11 +253,12 @@ var File_swanlab_data_v1_log_proto protoreflect.FileDescriptor
 
 const file_swanlab_data_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"\x19swanlab/data/v1/log.proto\x12\x0fswanlab.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cswanlab/data/v1/scalar.proto\x1a\x1bswanlab/data/v1/image.proto\x1a\x1bswanlab/data/v1/audio.proto\x1a\x1bswanlab/data/v1/video.proto\x1a\x1aswanlab/data/v1/text.proto\x1a\x1dswanlab/data/v1/echarts.proto\"\x8c\x01\n" +
-	"\tLogRecord\x12\x12\n" +
-	"\x04step\x18\x01 \x01(\x03R\x04step\x121\n" +
-	"\x05items\x18\x02 \x03(\v2\x1b.swanlab.data.v1.MetricItemR\x05items\x128\n" +
-	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xf3\x02\n" +
+	"\x19swanlab/data/v1/log.proto\x12\x0fswanlab.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cswanlab/data/v1/scalar.proto\x1a\x1bswanlab/data/v1/image.proto\x1a\x1bswanlab/data/v1/audio.proto\x1a\x1bswanlab/data/v1/video.proto\x1a\x1aswanlab/data/v1/text.proto\x1a\x1dswanlab/data/v1/echarts.proto\"\x9e\x01\n" +
+	"\tLogRecord\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04step\x18\x02 \x01(\x03R\x04step\x121\n" +
+	"\x05items\x18\x03 \x03(\v2\x1b.swanlab.data.v1.MetricItemR\x05items\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xf3\x02\n" +
 	"\n" +
 	"MetricItem\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +

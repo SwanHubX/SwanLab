@@ -13,6 +13,7 @@
 """
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -33,7 +34,7 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
         print("No .proto files found.")
         return
 
-    # Base command for protoc
+    # 1. 执行生成
     command = [
         sys.executable,
         "-m",
@@ -41,6 +42,7 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
         f"-I{proto_dir}",
         f"--python_out={output_dir}",
         f"--grpc_python_out={output_dir}",
+        f"--pyi_out={output_dir}",
     ]
 
     command.extend([str(p.relative_to(proto_dir)) for p in proto_files])
@@ -52,19 +54,43 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
     else:
         print("Python protos generated successfully.")
 
-    for root, dirs, files in os.walk(output_dir):
-        root_path = Path(root)
-        if not (root_path / "__init__.py").exists():
-            (root_path / "__init__.py").touch()
+    # 2. 修复导入路径 (SwanLab 特供逻辑)
+    # 我们需要将 'from swanlab.xxx.v1 import ...'
+    # 替换为 'from swanlab.proto.swanlab.xxx.v1 import ...'
+    print("Fixing import paths for internal SDK usage...")
+
+    # 匹配模式：针对你展示的生成的代码格式
+    # 寻找以 from swanlab 开头的导入行
+    import_re = re.compile(r"^from swanlab\.(.*) import (.*) as (.*)$", re.MULTILINE)
+
+    for py_file in output_dir.rglob("*.py"):
+        if py_file.name == "__init__.py":
+            continue
+
+        with open(py_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 核心修复：插入 .proto 路径层级
+        # 结果会变成: from swanlab.proto.swanlab.run.v1 import run_pb2 as ...
+        fixed_content = import_re.sub(r"from swanlab.proto.swanlab.\1 import \2 as \3", content)
+
+        # 兼容性修复：处理可能存在的 'import xxx_pb2' 相对引用
+        fixed_content = re.sub(r"^import (.*_pb2)", r"from . import \1", fixed_content, flags=re.MULTILINE)
+
+        with open(py_file, "w", encoding="utf-8") as f:
+            f.write(fixed_content)
+
+    # 3. 补全 __init__.py (确保整个 proto 树都是可导入的 package)
+    for root, _, _ in os.walk(output_dir):
+        init_file = Path(root) / "__init__.py"
+        if not init_file.exists():
+            init_file.touch()
 
 
 def generate_go_protos(proto_dir: Path, output_dir: Path):
     """
     Placeholder and guide for Go proto generation within the 'core' module.
     """
-    print("\n[Go Generation Guide (Monorepo: swanlab-core)]")
-    print("To generate Go protos for the 'core' module, run:")
-
     # In a monorepo, we typically want the generated files to be within the module directory.
     # --go_opt=paths=source_relative ensures the directory structure mirrors the source.
     go_cmd = [

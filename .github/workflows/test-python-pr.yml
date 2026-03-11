@@ -14,7 +14,7 @@ jobs:
       fail-fast: false # 设为 false，这样如果 Windows 挂了，Ubuntu 的测试依然会跑完，方便一次性排查所有系统的问题
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code

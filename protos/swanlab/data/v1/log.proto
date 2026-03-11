@@ -15,10 +15,12 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;data
 // 对应一次 swanlab.log({...}, step=N) 调用。
 // 一次调用可携带多个不同类型的 metric。
 message LogRecord {
+  // 记录的 key，如 "train/loss"
+  string key = 1;
   // 用户显式传入或由 SDK 自动递增的全局步数
-  int64 step = 1;
-  repeated MetricItem items    = 2;
-  google.protobuf.Timestamp timestamp = 3;
+  int64 step = 2;
+  repeated MetricItem items    = 3;
+  google.protobuf.Timestamp timestamp = 4;
 }
 
 // 单个 metric 条目，key 支持 "/" 作为命名空间分隔符（如 "train/loss"）

@@ -22,10 +22,11 @@ const (
 )
 
 // 一个 key 在某个 step 下记录的全部文本（1..N 条）。
-// 文本内容长度可控，直接内联存储，不走文件引用。
 type TextValue struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*TextItem            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 存储目录，相对于 run_dir，如 "media/text"
+	Path          string      `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Items         []*TextItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -60,6 +61,13 @@ func (*TextValue) Descriptor() ([]byte, []int) {
 	return file_swanlab_data_v1_text_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *TextValue) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
 func (x *TextValue) GetItems() []*TextItem {
 	if x != nil {
 		return x.Items
@@ -69,8 +77,11 @@ func (x *TextValue) GetItems() []*TextItem {
 
 // 单条文本内容。
 type TextItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 文件名，如 "log_10_b3f4.txt"
+	Filename      string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Caption       string `protobuf:"bytes,3,opt,name=caption,proto3" json:"caption,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -105,9 +116,23 @@ func (*TextItem) Descriptor() ([]byte, []int) {
 	return file_swanlab_data_v1_text_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TextItem) GetContent() string {
+func (x *TextItem) GetFilename() string {
 	if x != nil {
-		return x.Content
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *TextItem) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
+}
+
+func (x *TextItem) GetCaption() string {
+	if x != nil {
+		return x.Caption
 	}
 	return ""
 }
@@ -116,11 +141,14 @@ var File_swanlab_data_v1_text_proto protoreflect.FileDescriptor
 
 const file_swanlab_data_v1_text_proto_rawDesc = "" +
 	"\n" +
-	"\x1aswanlab/data/v1/text.proto\x12\x0fswanlab.data.v1\"<\n" +
-	"\tTextValue\x12/\n" +
-	"\x05items\x18\x01 \x03(\v2\x19.swanlab.data.v1.TextItemR\x05items\"$\n" +
-	"\bTextItem\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontentB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
+	"\x1aswanlab/data/v1/text.proto\x12\x0fswanlab.data.v1\"P\n" +
+	"\tTextValue\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12/\n" +
+	"\x05items\x18\x02 \x03(\v2\x19.swanlab.data.v1.TextItemR\x05items\"X\n" +
+	"\bTextItem\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
+	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x18\n" +
+	"\acaption\x18\x03 \x01(\tR\acaptionB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_data_v1_text_proto_rawDescOnce sync.Once
