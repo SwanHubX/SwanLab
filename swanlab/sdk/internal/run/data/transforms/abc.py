@@ -95,23 +95,30 @@ class TransformMediaType(TransformType, ABC):
                         f"💡 Suggested fix: Add a bare asterisk '*' after the 'path' parameter, for example:",
                         "def transform(key: str, step: int, path: str, *, {param.name}, ...) -> Message:",
                     )
-            # 4. 检查返回值类型注解是否为 Message
+            # 4. 检查返回值类型注解是否继承自 Message
             return_ann = sig.return_annotation
 
             # 如果完全没有写返回值注解
             if return_ann is inspect.Signature.empty:
                 raise TypeError(
                     f"The transform method of [{cls.__name__}] is missing a return type annotation.\n"
-                    f"💡 Suggested fix: def transform(...) -> Message:"
+                    f"💡 Suggested fix: def transform(...) -> Message: (or its subclasses)"
                 )
 
-            # 校验是否为 Message (兼容直接导入的 Message 类，以及字符串 'Message')
-            is_valid_return = (
-                return_ann is Message or return_ann == "Message" or getattr(return_ann, "__name__", "") == "Message"
-            )
+            # 校验是否继承自 Message
+            if isinstance(return_ann, type):
+                # 如果是真实的类对象，严格校验是否为 Message 的子类（或 Message 本身）
+                is_valid_return = issubclass(return_ann, Message)
+            elif isinstance(return_ann, str):
+                # 如果是字符串类型的延迟注解，由于在类创建阶段难以完美解析外部命名空间，
+                # 为了防止误杀合法子类（如 'ScalarValue'），这里采取宽容策略直接放行
+                is_valid_return = True
+            else:
+                # 拦截类似 Optional[Message] 或 Union 等非常规返回类型
+                is_valid_return = False
 
             if not is_valid_return:
                 raise TypeError(
-                    f"The return type annotation of the transform method of [{cls.__name__}] must be 'Message'.\n"
+                    f"The return type annotation of the transform method of [{cls.__name__}] must be a subclass of 'Message'.\n"
                     f"Got: {return_ann}"
                 )
