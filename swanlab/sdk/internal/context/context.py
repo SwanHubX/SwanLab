@@ -89,10 +89,20 @@ class RunContext:
 _current_ctx: ContextVar[Optional[RunContext]] = ContextVar("swanlab_run_ctx", default=None)
 
 
+def has_context() -> bool:
+    """
+    检查SwanLab运行上下文是否已初始化。
+    """
+    return _current_ctx.get() is not None
+
+
 def set_context(ctx: RunContext):
     """
     设置SwanLab运行上下文，这将在实验开始前/开始时调用。
+    如果上下文已存在，则报错
     """
+    if has_context():
+        raise RuntimeError("SwanLab Context is already active. Cannot set another context.")
     _current_ctx.set(ctx)
 
 
@@ -113,13 +123,6 @@ def get_context() -> RunContext:
     if ctx is None:
         raise RuntimeError("SwanLab Context is not initialized.")
     return ctx
-
-
-def has_context() -> bool:
-    """
-    检查SwanLab运行上下文是否已初始化。
-    """
-    return _current_ctx.get() is not None
 
 
 @contextmanager
