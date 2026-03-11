@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+option java_package = "com.swanlab.proto.data.v1";
+option java_outer_classname = "TextProto";
+option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
+
+// 文本值，对应 swanlab.Text(...)。
+// 文本内容较小，直接内联存储。
+message TextValue {
+  string content = 1;
+}

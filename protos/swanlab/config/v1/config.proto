@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package swanlab.config.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.swanlab.proto.config.v1";
+option java_outer_classname = "ConfigProto";
+option go_package = "github.com/swanlab/swanlab/proto/swanlab/config/v1;configv1";
+
+// 用户传入的实验配置引用。
+// config 数据写入磁盘（files/config.yaml），Record 只保存路径引用和更新类型。
+// PATCH 更新时覆写同一个文件，消费方以最新文件内容为准。
+message ConfigRecord {
+  // 相对于 run_dir 的文件路径，固定为 "files/config.yaml"
+  string path        = 1;
+  string format      = 2;  // 固定为 "yaml"
+  UpdateType update_type  = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+enum UpdateType {
+  UPDATE_TYPE_UNSPECIFIED = 0;
+  UPDATE_TYPE_INIT        = 1;  // init() 时传入的完整 config
+  UPDATE_TYPE_PATCH       = 2;  // 运行中通过 run.config.update() 的增量更新（覆写同文件）
+}
