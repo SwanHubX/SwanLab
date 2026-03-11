@@ -16,12 +16,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
+from swanlab.sdk.internal.callbackers import CloudCallback, LocalCallback, OfflineCallback
 from swanlab.sdk.internal.callbackers.callbacker import callbacker
-from swanlab.sdk.internal.callbackers.cloud import CloudCallback
 from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, set_context, use_temp_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir
+from swanlab.sdk.internal.pkg.fs.write import safe_write
 from swanlab.sdk.utils import generate_id, helper
 from swanlab.sdk.utils.experiment import generate_color, generate_name
 
@@ -236,15 +238,8 @@ def _init(run_settings: Settings):
     run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
     # 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_temp_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
-        # 1. 进行通用处理
-        ctx.run_dir.mkdir(parents=True, exist_ok=True)
-        ctx.media_dir.mkdir(parents=True, exist_ok=True)
-        ctx.files_dir.mkdir(parents=True, exist_ok=True)
-        ctx.metadata_file.parent.mkdir(parents=True, exist_ok=True)
-        ctx.debug_dir.mkdir(parents=True, exist_ok=True)
-        # 类型断言
         assert run_settings.project.name, "Project name is required."
-        # 2. 根据模式进行特定处理
+        # 根据模式进行特定处理
         if mode == "cloud":
             assert client.exists(), "No client found, please login first."
             # 获取当前项目，如果不存在则创建
@@ -288,11 +283,16 @@ def _init(run_settings: Settings):
             # 注册回调器
             callbacker.merge_callbacks([CloudCallback()])
         elif mode == "local":
-            raise NotImplementedError("Local mode is not supported yet.")
+            _mkdirs(ctx)
+            # 注册回调器
+            callbacker.merge_callbacks([LocalCallback()])
         elif mode == "offline":
-            raise NotImplementedError("Offline mode is not supported yet.")
+            _mkdirs(ctx)
+            # 注册回调器
+            callbacker.merge_callbacks([OfflineCallback()])
         elif mode == "disabled":
-            raise NotImplementedError("Disabled mode is not supported yet.")
+            # 不进行任何处理
+            pass
         else:
             raise ValueError(f"Invalid mode: {mode}")
     # 最后将上下文作为全局上下文使用
@@ -342,6 +342,35 @@ def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[st
 
     # 4. 如果 config 不是上述类型，直接报错
     raise ValueError(f"Invalid config type: {type(config).__name__}. Expected dict, str, or PathLike.")
+
+
+def _mkdirs(ctx: RunContext):
+    """
+    创建运行所需的目录
+    :param ctx: 运行上下文
+    """
+    # 对于 logdir 而言，如果不存在则创建，如果为空则写入 .gitignore
+    log_dir = ctx.config.settings.log_dir
+    safe_mkdir(log_dir)
+    # 1. 安全创建目录（如果不存在）
+    safe_mkdir(log_dir)
+
+    # 2. 高效判断文件夹是否为空
+    # 如果 iterdir() 里什么都抽不出来，not any(...) 就会返回 True
+    if not any(log_dir.iterdir()):
+        # 3. 如果为空，写入 .gitignore
+        gitignore_path = log_dir / ".gitignore"
+        # 忽略目录下所有文件，但保留 .gitignore 自身（常见做法）
+        ignore_content = "*\n!.gitignore\n"
+        safe_write(gitignore_path, ignore_content)
+
+    if not ctx.config.settings.log_dir.exists():
+        ctx.config.settings.log_dir.mkdir(parents=True, exist_ok=True)
+    ctx.run_dir.mkdir(parents=True, exist_ok=True)
+    ctx.media_dir.mkdir(parents=True, exist_ok=True)
+    ctx.files_dir.mkdir(parents=True, exist_ok=True)
+    ctx.metadata_file.parent.mkdir(parents=True, exist_ok=True)
+    ctx.debug_dir.mkdir(parents=True, exist_ok=True)
 
 
 def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:

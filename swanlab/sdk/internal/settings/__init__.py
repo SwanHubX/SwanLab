@@ -62,7 +62,6 @@ def root_factory() -> Path:
 
 
 def log_dir_factory() -> Path:
-    # 向下兼容旧版本环境变量
     return Path.cwd() / "swanlog"
 
 
@@ -106,14 +105,16 @@ class Settings(BaseSettings):
     Directory for SwanLab saved files.
     """
 
-    # @field_validator("save_dir", mode="before")
-    # def validate_save_dir(cls, v: Union[str, Path]) -> Path:
-    #     """在 Pydantic 校验它是 DirectoryPath 之前，先把它建出来"""
-    #     path_v = Path(v)
-    #
-    #     if not path_v.exists():
-    #         path_v.mkdir(parents=True, exist_ok=True)
-    #     return path_v
+    @field_validator("root", mode="before")
+    def validate_root(cls, v: Union[str, Path]) -> Path:
+        """
+        如果 root 存在，必须是目录
+        """
+        path_v = Path(v)
+
+        if path_v.exists() and not path_v.is_dir():
+            raise ValueError(f"Root path {path_v} exists but is not a directory.")
+        return path_v
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
@@ -122,15 +123,14 @@ class Settings(BaseSettings):
     The actual folder creation is deferred to the SDK initialization phase to avoid side effects.
     """
 
-    # 不在此处创建文件夹，而是在 sdk init 时创建
-    # @field_validator("log_dir", mode="before")
-    # def validate_log_dir(cls, v: Union[str, Path]) -> Path:
-    #     """在 Pydantic 校验它是 DirectoryPath 之前，先把它建出来"""
-    #     path_v = Path(v)
-    #     # 即使它是一个已存在的同名文件，这里不报错，交给后面的 DirectoryPath 去报错
-    #     if not path_v.exists():
-    #         path_v.mkdir(parents=True, exist_ok=True)
-    #     return path_v
+    @field_validator("log_dir", mode="before")
+    def validate_log_dir(cls, v: Union[str, Path]) -> Path:
+        """
+        如果 log_dir 存在，必须是目录
+        """
+        if Path(v).exists() and not Path(v).is_dir():
+            raise ValueError(f"Log directory {v} exists but is not a directory.")
+        return Path(v)
 
     api_key: Optional[str] = Field(default=None)
     """
