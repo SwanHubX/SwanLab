@@ -54,7 +54,7 @@ def test_scalar_transform_numpy():
     assert res2.number == 42.0
 
     # 3. 多元素数组拦截
-    with pytest.raises(ValueError, match="无法将多元素 Tensor/Array 转换为单一标量记录"):
+    with pytest.raises(TypeError, match="Failed to extract scalar value from numpy.ndarray"):
         Scalar.transform(np.array([1.0, 2.0]))  # type: ignore
 
 
@@ -71,7 +71,7 @@ def test_scalar_transform_torch():
     assert res2.number == -99.0
 
     # 3. 多元素张量拦截
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError, match="Failed to extract scalar value from torch.Tensor"):
         Scalar.transform(torch.tensor([1.0, 2.0, 3.0]))  # type: ignore
 
 

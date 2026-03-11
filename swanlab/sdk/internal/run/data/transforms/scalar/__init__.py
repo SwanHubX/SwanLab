@@ -6,10 +6,11 @@
 """
 
 import math
-from typing import Union
+from typing import Any, Union
 
 from swanlab.proto.swanlab.data.v1.scalar_pb2 import ScalarValue
 from swanlab.sdk.internal.run.data.transforms.abc import TransformType
+from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 class Scalar(TransformType):
@@ -31,14 +32,14 @@ class Scalar(TransformType):
         :raises TypeError: 如果数据类型不支持转换为浮点数
         """
         # 0. 鸭子类型检测：如果是 Tensor 或 numpy array，尝试提取其标量值
-        if hasattr(data, "item") and callable(data.item):  # type: ignore
-            try:
-                # .item() 会将 0维 或 1元素张量 转化为原生 Python int/float/bool
-                data = data.item()  # type: ignore
-            except ValueError as e:
-                # 如果传入的是多维张量 (例如 tensor([1.0, 2.0]))，.item() 会抛出 ValueError
-                raise ValueError(f"无法将多元素 Tensor/Array 转换为单一标量记录。异常: {e}")
-
+        this_value = _transform_tensor_or_array(data)
+        if this_value is None:
+            full_type_name = f"{type(data).__module__}.{type(data).__name__}"
+            raise TypeError(
+                f"Failed to extract scalar value from {full_type_name}. "
+                "If it's a Tensor or Array, please ensure it's a scalar value.",
+            )
+        data = this_value
         # 1. 优先判断 bool，因为 bool 是 int 的子类
         if isinstance(data, bool):
             return ScalarValue(number=float(data))
@@ -56,4 +57,11 @@ class Scalar(TransformType):
                 return ScalarValue(number=math.nan)
 
         # 兜底：类型不匹配
-        raise TypeError(f"Unsupported scalar type: {type(data).__name__}")
+        raise TypeError(f"Unsupported scalar type: {type(data).__name__}.")
+
+
+@catch_and_return_none()
+def _transform_tensor_or_array(data: Any) -> Union[float, int, str, bool]:
+    if hasattr(data, "item") and callable(data.item):
+        return data.item()  # type: ignore
+    return data

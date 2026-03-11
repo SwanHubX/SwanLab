@@ -3939,13 +3939,63 @@ wheels = [
 
 [[package]]
 name = "rdkit"
-version = "2025.9.6"
+version = "2023.9.6"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.10' and sys_platform == 'linux'",
+    "python_full_version < '3.10' and sys_platform != 'linux'",
+]
 dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pillow", marker = "python_full_version < '3.10'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/15/15c991ceccdeed152e617a6261b2f31de83458bf3442c13c21114f25206e/rdkit-2023.9.6-cp310-cp310-macosx_10_13_x86_64.whl", hash = "sha256:a2b47368c0eb12d8ecbccbb8afb752f149fdc182a9841a192cdb1dc4ea141741", size = 28683310, upload-time = "2024-04-27T10:58:37.534Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/00/7425a367c2624526ebf52a9cbfcdab8510b0024f4e3f29b2d76dc8c1744b/rdkit-2023.9.6-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:780035c7bc024fa093fa05794b507316068e383f063c16b1a1239243a70ba010", size = 27605477, upload-time = "2024-04-27T10:58:56.853Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/56/955fb94c25f4d975e7f730db48f4d7a89f9f8f4e78bb48d44175152e9aec/rdkit-2023.9.6-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:209c2b0049c019bd3b9f17e5d947cf94a221ce61222016528dad6deed4da2de9", size = 34051377, upload-time = "2024-04-27T10:59:22.275Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/5a/f18e7af8f7f332af02176add4ff78cd6bc1cc96ea6a11c4f6d364f4796f2/rdkit-2023.9.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9b6dbed06f61efd5d293b8397d5719944dc8fa3f2b6704c43d9f50d851a0f2db", size = 34855365, upload-time = "2024-04-27T10:59:27.839Z" },
+    { url = "https://files.pythonhosted.org/packages/13/ef/f75f9e0d5f866733ee1fa6dfb18d337301096fe5f0a1a21b9d1999ec3162/rdkit-2023.9.6-cp310-cp310-win_amd64.whl", hash = "sha256:2a0aed7070c725e660f9bfbbd77678b3dda7b4a975342371559b98fb0179967e", size = 20970134, upload-time = "2024-04-27T10:59:32.29Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/8a/73957722ece84d4a294a58261abf8f888980890ea27d39b9d2b5abd6395e/rdkit-2023.9.6-cp311-cp311-macosx_10_13_x86_64.whl", hash = "sha256:07b49918d5ab68ea12c91fccc0bc5733f191cc4937775c72e7dd46c136610d51", size = 28683225, upload-time = "2024-04-27T10:59:36.661Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/d0/2fba772df6120156ee687a9cbc7a276a2c7ab2c777395324e1f16bb2a4fe/rdkit-2023.9.6-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:9c0eb1bbfe19a2441b24bfa8bde1dff405e8394691fd27f8e6310db8db42e96d", size = 27605626, upload-time = "2024-04-27T10:59:41.832Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/f0/8931bb78ca1dc606c517bbb40d48b36624a9cbd70f3d7623e504409dd5b2/rdkit-2023.9.6-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:07a9e45b88a08cfb857afa523c23ddcaf79a1b783e5ab40ecd28050addaaa3e4", size = 34045886, upload-time = "2024-04-27T10:59:46.414Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/f4/175c81046af3e958e57cabd87d594878501dc7dde0ab0f5e4014c5f4a302/rdkit-2023.9.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3d674a280fe84b9048c07cfa0aee546c5b21394ea38a689d37481790fc0d996b", size = 34851659, upload-time = "2024-04-27T10:59:51.106Z" },
+    { url = "https://files.pythonhosted.org/packages/28/e7/ae3e52603abe2a979b7b60bde78dc909e71c027cd896861e756cdf8357af/rdkit-2023.9.6-cp311-cp311-win_amd64.whl", hash = "sha256:33db7a021ce3406386a6bc9fd5bd25f387e6bef63239cd00a534cad250dba9ab", size = 20970167, upload-time = "2024-04-27T10:59:55.526Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/f0/a70e65fd68dedf505ef3b2dbf5084e899d6efdcddccd61bcc08d387f10da/rdkit-2023.9.6-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:8dc279618e32a33164b9ceef13f2094d4cf6bf4d55c63b70ae669181538c9f79", size = 28768388, upload-time = "2024-04-27T10:59:59.459Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/57/d30e0e8668b4193cce751bf578ec06f76ebd2c3ab2add84485fb535cfdd5/rdkit-2023.9.6-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:155f83476846a88b5c31efe6369ce16477b093a0c8f525d20107c1442cfd0d88", size = 27646813, upload-time = "2024-04-27T11:00:04.384Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/c2/5f5f1bb4f9080c6ffb110bfa6454d898ac8a96b3a09cdf7a24f6194da16f/rdkit-2023.9.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bb5ec50177537382d9273bbce04f259b504931d7a6f33ebee0cfe3921b094951", size = 33887663, upload-time = "2024-04-27T11:00:10.308Z" },
+    { url = "https://files.pythonhosted.org/packages/05/f6/3a0063ef9e868cf5fbc6308edc80e2a04d3627088a0eb801d744acdcfaa7/rdkit-2023.9.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:dc43b8af98866d851467cb9eea8e636c9c192c589476ed0e4930db204e9e8b98", size = 34757246, upload-time = "2024-04-27T11:00:16.423Z" },
+    { url = "https://files.pythonhosted.org/packages/46/46/85acf7041c6295b0c8a15c23e36604ea48dc78f3691bbc984a60c8ebf1c5/rdkit-2023.9.6-cp312-cp312-win_amd64.whl", hash = "sha256:e6e09f47df092511d756b3b1a38a98e66e9a6944e0ed09b8d989381148fa4b7f", size = 20988528, upload-time = "2024-04-27T11:00:21.558Z" },
+    { url = "https://files.pythonhosted.org/packages/44/38/14b311e2ff52e77466eecff0ba422e80812b239d69f60c015db3a8c940b1/rdkit-2023.9.6-cp39-cp39-macosx_10_13_x86_64.whl", hash = "sha256:9cc210e3cdad79ce13e571a532d0cdf07b11ccfd231f160eb54065f5a01dfb46", size = 28683583, upload-time = "2024-04-27T11:00:51.424Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/7f/00b5d8332d9c93379a5b9d58618dd1ebb54c566c5e46f7e31219def8c9ec/rdkit-2023.9.6-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:8876e33e393f500f9593f560b1df8cd67c7108615767eb5565678a17b8bdfe33", size = 27605090, upload-time = "2024-04-27T11:00:56.877Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/2b/226808ed74f10f79793341e70ff8a225c60a775c6d30e8555dbb4e91746f/rdkit-2023.9.6-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5091976a6c631fa8d563bbf48480b01917b0ff94a1ffce7d586131cf848d41d8", size = 34051380, upload-time = "2024-04-27T11:01:01.972Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/3f/b8e2c9ed148172f7201c64980c1a4eb1b70a10ac6e86d740a9ced27318d1/rdkit-2023.9.6-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0d95242699ac52ddc2806fced1273dd0f87b35ca0c2afe11cdbd7a771e1f708f", size = 34854829, upload-time = "2024-05-29T12:36:33.444Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/be/4bb11f4149c939c8d46b013bb889cde5cd285fa4b2fdcccf7c1c41e76f3f/rdkit-2023.9.6-cp39-cp39-win_amd64.whl", hash = "sha256:9ceff79c372c017857d154c7f433b8588f004f910e6d9dead0f00da62092dfa7", size = 20973533, upload-time = "2024-05-29T12:37:38.253Z" },
+]
+
+[[package]]
+name = "rdkit"
+version = "2025.9.6"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'linux'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'linux'",
+    "python_full_version == '3.11.*' and sys_platform == 'linux'",
+    "python_full_version == '3.10.*' and sys_platform == 'linux'",
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
+    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version == '3.10.*' and sys_platform != 'linux'",
+]
+dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pillow" },
+    { name = "pillow", marker = "python_full_version >= '3.10'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/28/cd/864924bb0606c8d90869f1f460f7a5b6911e98d67d56ad404b5eab1852b3/rdkit-2025.9.6-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ce558b4f8e63a52ec932b59e867a8e1b2e3cde304e17b652cd54e4f73a6f5607", size = 29513135, upload-time = "2026-03-02T18:08:24.822Z" },
@@ -4376,7 +4426,8 @@ media = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pillow" },
-    { name = "rdkit" },
+    { name = "rdkit", version = "2023.9.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "rdkit", version = "2025.9.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "soundfile" },
 ]
 s3 = [
@@ -4434,7 +4485,8 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pyecharts", specifier = ">=2.0.0" },
     { name = "pyyaml" },
-    { name = "rdkit", marker = "extra == 'media'", specifier = ">=2025.9.6" },
+    { name = "rdkit", marker = "python_full_version == '3.9.*' and extra == 'media'", specifier = "<=2023.9.6" },
+    { name = "rdkit", marker = "python_full_version >= '3.10' and extra == 'media'", specifier = ">=2025.9.6" },
     { name = "requests", specifier = ">=2.28.0" },
     { name = "rich", specifier = ">=13.6.0,<14.0.0" },
     { name = "setuptools" },
