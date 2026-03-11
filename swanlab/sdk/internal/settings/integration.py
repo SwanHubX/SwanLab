@@ -21,6 +21,11 @@ def webhook_value_factory() -> str:
     return os.environ.get("SWANLAB_WEBHOOK_VALUE", "")
 
 
+def webhook_timeout_factory() -> int:
+    # 使用额外的 SWANLAB_WEBHOOK_TIMEOUT 环境变量，因为自动生成的环境变量太长了
+    return int(os.environ.get("SWANLAB_WEBHOOK_TIMEOUT", "5"))
+
+
 def dashboard_host_factory() -> str:
     # 使用额外的 SWANLAB_DASHBOARD_HOST 环境变量，因为自动生成的环境变量太长了
     return os.environ.get("SWANLAB_DASHBOARD_HOST", "127.0.0.1")
@@ -40,6 +45,11 @@ class WebhookSettings(BaseModel):
     value: str = Field(default_factory=webhook_value_factory)
     """
     Webhook value for SwanLab notifications.
+    """
+
+    timeout: int = Field(default_factory=webhook_timeout_factory)
+    """
+    Webhook timeout for SwanLab notifications.
     """
 
 
