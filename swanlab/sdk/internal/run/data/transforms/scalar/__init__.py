@@ -19,7 +19,7 @@ class Scalar(TransformType):
         self.value = attrs.get("value", value)
 
     @staticmethod
-    def _transform(key: str, step: int, *, data: Union["Scalar", Number, str, bool]) -> ScalarValue:
+    def transform(key: str, step: int, *, data: Union["Scalar", Number, str, bool]) -> ScalarValue:
         """
         处理标量数据，包括数字、字符串、布尔值等。
 
