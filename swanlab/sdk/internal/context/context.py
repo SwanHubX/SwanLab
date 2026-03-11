@@ -43,7 +43,7 @@ class RunMetrics:
 class RunContext:
     def __init__(self, config: RunConfig):
         self.config: RunConfig = config
-        self.callbacker = CallbackManager()
+        self.callbacker: CallbackManager = CallbackManager()
         # 使用 callbacker.registered_callbacks 作为初始回调集合
         self.callbacker.merge_callbacks(callbacker.registered_callbacks)
         self.metrics: RunMetrics = RunMetrics()

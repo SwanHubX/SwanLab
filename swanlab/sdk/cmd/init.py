@@ -242,6 +242,7 @@ def _init(run_settings: Settings):
         # 根据模式进行特定处理
         if mode == "cloud":
             assert client.exists(), "No client found, please login first."
+            _mkdirs(ctx)
             # 获取当前项目，如果不存在则创建
             project = get_or_create_project(
                 username=run_settings.project.workspace,
