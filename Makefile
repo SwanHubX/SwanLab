@@ -1,4 +1,4 @@
-.PHONY:  init sync format test
+.PHONY:  init sync format test proto
 
 init:
 	uv sync --all-extras
@@ -6,6 +6,9 @@ init:
 
 sync:
 	uv sync --all-extras
+
+proto:
+	uv run scripts/generate_protos.py
 
 format:
 	-uvx ruff check --select I --fix . --quiet

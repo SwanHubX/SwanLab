@@ -29,10 +29,10 @@ message MetricItem {
 
   oneof value {
     ScalarValue  scalar  = 10;
-    ImageValue   image   = 11;
-    AudioValue   audio   = 12;
-    VideoValue   video   = 13;
-    TextValue    text    = 14;
+    ImageValue   images  = 11;
+    AudioValue   audios  = 12;
+    VideoValue   videos  = 13;
+    TextValue    texts   = 14;
     EChartsValue echarts = 15;
   }
 }

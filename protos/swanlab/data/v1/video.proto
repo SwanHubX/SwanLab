@@ -6,11 +6,17 @@ option java_package = "com.swanlab.proto.data.v1";
 option java_outer_classname = "VideoProto";
 option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
 
-// 视频引用，对应 swanlab.Video(...)。
-// 视频数据写入磁盘，Record 只保存元数据和相对路径引用。
+// 一个 key 在某个 step 下记录的全部视频（1..N 条）。
 message VideoValue {
-  // 相对于 run_dir 的文件路径，如 "media/video/rollout_20_d4e5.mp4"
-  string path             = 1;
+  // 存储目录，相对于 run_dir，如 "media/video"
+  string path = 1;
+  repeated VideoItem items = 2;
+}
+
+// 单条视频的文件引用与元数据。
+message VideoItem {
+  // 文件名，如 "rollout_20_d4e5.mp4"
+  string filename         = 1;
   string sha256           = 2;
   int64  size             = 3;  // 文件大小（bytes）
   string format           = 4;  // "mp4" | "gif" | "webm"

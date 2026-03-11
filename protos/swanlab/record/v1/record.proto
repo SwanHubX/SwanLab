@@ -7,7 +7,6 @@ import "swanlab/run/v1/run.proto";
 import "swanlab/data/v1/log.proto";
 import "swanlab/config/v1/config.proto";
 import "swanlab/system/v1/env.proto";
-import "swanlab/system/v1/hardware.proto";
 import "swanlab/system/v1/console.proto";
 
 option java_package = "com.swanlab.proto.record.v1";
@@ -40,9 +39,10 @@ message Record {
 
     // ── 主机元数据（一次性，init 时写入）──
     swanlab.system.v1.MetadataRecord metadata = 14;
+    swanlab.system.v1.RequirementsRecord requirements = 17;
+    swanlab.system.v1.CondaRecord conda = 18;
 
-    // ── 运行时周期采集 ──
-    swanlab.system.v1.StatsRecord   stats   = 15;
+    // ── 运行时自动采集 ──
     swanlab.system.v1.ConsoleRecord console = 16;
   }
 }

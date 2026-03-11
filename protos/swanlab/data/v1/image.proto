@@ -6,12 +6,18 @@ option java_package = "com.swanlab.proto.data.v1";
 option java_outer_classname = "ImageProto";
 option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
 
-// 图像引用，对应 swanlab.Image(...)。
-// 图像数据写入磁盘，Record 只保存元数据和相对路径引用。
+// 一个 key 在某个 step 下记录的全部图像（1..N 张）。
 message ImageValue {
-  // 相对于 run_dir 的文件路径，如 "media/images/loss_10_a3f2.png"
-  string path     = 1;
-  string sha256   = 2;  // 文件内容哈希，用于去重和完整性校验
+  // 存储目录，相对于 run_dir，如 "media/images"
+  string path = 1;
+  repeated ImageItem items = 2;
+}
+
+// 单张图像的文件引用与元数据。
+message ImageItem {
+  // 文件名，如 "pred_10_a3f2.png"
+  string filename = 1;
+  string sha256   = 2;
   int64  size     = 3;  // 文件大小（bytes）
   string format   = 4;  // "png" | "jpeg" | "gif" | "webp"
   int32  width    = 5;

@@ -40,8 +40,8 @@ protos/
     │
     └── system/
         └── v1/
-            ├── hardware.proto      # 硬件静态信息（HardwareInfo）+ 运行时监控（StatsRecord）
-            ├── env.proto           # 软件环境信息（MetadataRecord、EnvironmentInfo、GitInfo）
+            ├── hardware.proto      # 运行时硬件监控（StatsRecord）
+            ├── env.proto           # 软件环境与主机元数据引用（MetadataRecord、RequirementsRecord、CondaRecord）
             └── console.proto       # 终端代理捕获的 stdout/stderr 输出
 ```
 
@@ -49,9 +49,11 @@ protos/
 
 ```
 swanlab.init(...)
-  → Record { run:      RunRecord       }   # run 基本信息，写入一次
-  → Record { metadata: MetadataRecord  }   # 主机 + 环境快照，写入一次
-  → Record { config:   ConfigRecord    }   # 实验 config，写入一次
+  → Record { run:          RunRecord          }   # run 基本信息，写入一次
+  → Record { metadata:     MetadataRecord     }   # 主机与环境快照引用，写入一次
+  → Record { requirements: RequirementsRecord }   # Python 依赖引用，写入一次
+  → Record { conda:        CondaRecord        }   # Conda 环境引用，写入一次
+  → Record { config:       ConfigRecord       }   # 实验 config，写入一次
 
 # 训练循环中
 swanlab.log({"loss": 0.5, "img": Image(...)}, step=10)
