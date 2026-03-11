@@ -35,9 +35,9 @@ class Scalar(TransformType):
             try:
                 # .item() 会将 0维 或 1元素张量 转化为原生 Python int/float/bool
                 data = data.item()  # type: ignore
-            except ValueError as e:
+            except (ValueError, RuntimeError) as e:
                 # 如果传入的是多维张量 (例如 tensor([1.0, 2.0]))，.item() 会抛出 ValueError
-                raise ValueError(f"无法将多元素 Tensor/Array 转换为单一标量记录。异常: {e}")
+                raise ValueError(f"Error extracting scalar value from Tensor/Array: {e}")
 
         # 1. 优先判断 bool，因为 bool 是 int 的子类
         if isinstance(data, bool):

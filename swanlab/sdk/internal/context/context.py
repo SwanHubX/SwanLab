@@ -39,7 +39,7 @@ class RunMetrics:
             self.summary[key] = value
 
 
-# 上下文宿主，纯粹的数据容器
+# 上下文宿主
 class RunContext:
     def __init__(self, config: RunConfig):
         self.config: RunConfig = config
