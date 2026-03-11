@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import requests
 import yaml
 
 from swanlab.sdk.internal.callbackers import CloudCallback, LocalCallback, OfflineCallback
@@ -26,6 +27,7 @@ from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
 from swanlab.sdk.utils import generate_id, helper
 from swanlab.sdk.utils.experiment import generate_color, generate_name
+from swanlab.sdk.utils.version import get_swanlab_version
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
@@ -342,6 +344,8 @@ def _init_cloud(ctx: RunContext, run_id: str):
     # 最后同步一次配置
     args_dict = {}
     for key, value in {
+        "project.workspace": username,
+        "project.name": project,
         "experiment.name": name,
         "experiment.color": color,
         "run.id": run_id,
@@ -474,6 +478,45 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
 def send_webhook(ctx: RunContext):
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
+
+    请求体结构 (JSON):
+    {
+      "value": "string",  // 即 SWANLAB_WEBHOOK_VALUE 的值
+      "swanlab": {
+        "version": "string",     // swanlab 版本号
+        "mode": "cloud" | "local", // swanlab 运行模式
+        "run_dir": "string",  // 日志存储路径
+        "exp_url": "string"       // 云端实验路径
+      }
+    }
+
+    :param ctx: 运行上下文
     """
-    if ctx.config.settings.mode != "disabled":
-        ctx.callbacker.on_run_webhook(ctx.run_dir)
+    if ctx.config.settings.mode == "disabled":
+        return console.debug("Skipping webhook because mode is disabled.")
+    settings = ctx.config.settings
+    webhook = settings.integration.webhook
+    webhook_url = webhook.url
+    if not webhook_url:
+        return console.debug("Skipping webhook because SWANLAB_WEBHOOK is not set.")
+    webhook_value = webhook.value
+    webhook_timeout = webhook.timeout
+    # 获取实验url
+    if settings.mode == "cloud":
+        exp_url = f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+    else:
+        exp_url = None
+    # 发送请求
+    requests.post(
+        webhook_url,
+        timeout=webhook_timeout,
+        json={
+            "value": webhook_value,
+            "swanlab": {
+                "version": get_swanlab_version(),
+                "mode": ctx.config.settings.mode,
+                "run_dir": ctx.run_dir,
+                "exp_url": exp_url,
+            },
+        },
+    )
