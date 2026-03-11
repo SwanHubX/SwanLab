@@ -217,7 +217,10 @@ def init(
     # 初始化run
     run = SwanLabRun(ctx)
     # 发送webhook回调，在除了disabled模式外，都会触发
-    send_webhook(ctx)
+    success = send_webhook(ctx)
+    if not success:
+        webhook_url = ctx.config.settings.integration.webhook.url
+        console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
     # 初始化成功，触发回调
     ctx.callbacker.on_run_init(
         ctx.run_dir,
@@ -475,7 +478,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
 
 
 @helper.catch_and_return_none()
-def send_webhook(ctx: RunContext):
+def send_webhook(ctx: RunContext) -> bool:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
 
@@ -493,12 +496,14 @@ def send_webhook(ctx: RunContext):
     :param ctx: 运行上下文
     """
     if ctx.config.settings.mode == "disabled":
-        return console.debug("Skipping webhook because mode is disabled.")
+        console.debug("Skipping webhook because mode is disabled.")
+        return False
     settings = ctx.config.settings
     webhook = settings.integration.webhook
     webhook_url = webhook.url
     if not webhook_url:
-        return console.debug("Skipping webhook because SWANLAB_WEBHOOK is not set.")
+        console.debug("Skipping webhook because SWANLAB_WEBHOOK is not set.")
+        return False
     webhook_value = webhook.value
     webhook_timeout = webhook.timeout
     # 获取实验url
@@ -520,3 +525,4 @@ def send_webhook(ctx: RunContext):
             },
         },
     )
+    return True

@@ -35,7 +35,6 @@ def mock_ctx():
 def setup_mocks(monkeypatch):
     """使用 monkeypatch 模拟外部依赖"""
     # 模拟 get_swanlab_version
-    # 请确保 "your_module.get_swanlab_version" 是正确的导入路径
     monkeypatch.setattr("swanlab.sdk.cmd.init.get_swanlab_version", lambda: "1.0.0")
 
     # 模拟 console.debug
