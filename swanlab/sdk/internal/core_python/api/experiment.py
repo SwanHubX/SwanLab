@@ -42,7 +42,6 @@ def create_or_resume_experiment(
     :param created_at: 实验创建时间，格式为 ISO 8601
     """
     if resume == "never":
-        assert run_id is None, "run_id must be None when resume is 'never'"
         assert created_at is None, "created_at must be None when resume is 'never'"
     if resume == "must":
         assert run_id is not None, "run_id must be provided when resume is 'must'"

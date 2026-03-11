@@ -214,8 +214,8 @@ def init(
     ctx = get_context()
     # 初始化run
     run = SwanLabRun(ctx)
-    #  TODO 发送webhook回调
-
+    # 发送webhook回调，在除了disabled模式外，都会触发
+    send_webhook(ctx)
     # 初始化成功，触发回调
     ctx.callbacker.on_run_init(
         ctx.run_dir,
@@ -227,7 +227,6 @@ def init(
     return run
 
 
-@helper.rich.with_loading_animation()
 def _init(run_settings: Settings):
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
@@ -241,65 +240,116 @@ def _init(run_settings: Settings):
         assert run_settings.project.name, "Project name is required."
         # 根据模式进行特定处理
         if mode == "cloud":
-            assert client.exists(), "No client found, please login first."
+            _init_cloud(ctx, run_id)
+        elif mode == "local":
             _mkdirs(ctx)
-            # 获取当前项目，如果不存在则创建
-            project = get_or_create_project(
-                username=run_settings.project.workspace,
-                name=run_settings.project.name,
-                public=run_settings.project.public,
-            )
-            username, project = project["username"], project["name"]
-            # 获取当前项目详细信息
-            project_info = get_project(username=username, name=project)
-            # 获取当前实验
-            experiment = run_settings.experiment
-            history_experiment_count = project_info["_count"]["experiments"]
-            name = experiment.name or generate_name(history_experiment_count)
-            color = experiment.color or generate_color(history_experiment_count)
-            # 开启实验
-            _ = create_or_resume_experiment(
-                username,
-                project,
-                name=name,
-                resume=run_settings.run.resume,
-                run_id=run_id,
-                color=color,
-                description=experiment.description,
-                job_type=experiment.job_type,
-                group=experiment.group,
-                tags=experiment.tags,
-            )
-            # TODO resume 时向后端获取数据或向本地获取数据
-
-            # 最后同步一次配置
+            name = generate_name("beauty")
+            color = generate_color("beauty")
+            workspace = "local"
+            # 合并配置
             args_dict = {}
             for key, value in {
                 "experiment.name": name,
                 "experiment.color": color,
                 "run.id": run_id,
+                "project.workspace": workspace,
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
-            # 注册回调器
-            callbacker.merge_callbacks([CloudCallback()])
-        elif mode == "local":
-            _mkdirs(ctx)
+
             # 注册回调器
             callbacker.merge_callbacks([LocalCallback()])
         elif mode == "offline":
             _mkdirs(ctx)
+            name = generate_name("beauty")
+            color = generate_color("beauty")
+            workspace = "offline"
+            # 合并配置
+            args_dict = {}
+            for key, value in {
+                "experiment.name": name,
+                "experiment.color": color,
+                "project.workspace": workspace,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
             # 注册回调器
             callbacker.merge_callbacks([OfflineCallback()])
         elif mode == "disabled":
-            # 不进行任何处理
+            name = generate_name("beauty")
+            color = generate_color("beauty")
+            workspace = "disabled"
+            # 合并配置
+            args_dict = {}
+            for key, value in {
+                "experiment.name": name,
+                "experiment.color": color,
+                "project.workspace": workspace,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
+            # 不注册回调器
             pass
         else:
             raise ValueError(f"Invalid mode: {mode}")
     # 最后将上下文作为全局上下文使用
     set_context(ctx)
     # 绑定日志文件
-    log.bindfile(ctx.debug_dir)
+    if ctx.config.settings.mode != "disabled":
+        log.bindfile(ctx.debug_dir)
+
+
+@helper.rich.with_loading_animation()
+def _init_cloud(ctx: RunContext, run_id: str):
+    """
+    在云模式下初始化运行上下文。
+    :param ctx: 运行上下文
+    :param run_id: 当前运行的唯一标识符
+    """
+    run_settings = ctx.config.settings
+    assert run_settings.project.name, "Project name is required."
+    assert client.exists(), "No client found, please login first."
+    _mkdirs(ctx)
+    # 获取当前项目，如果不存在则创建
+    project = get_or_create_project(
+        username=run_settings.project.workspace,
+        name=run_settings.project.name,
+        public=run_settings.project.public,
+    )
+    username, project = project["username"], project["name"]
+    # 获取当前项目详细信息
+    project_info = get_project(username=username, name=project)
+    # 获取当前实验
+    experiment = run_settings.experiment
+    history_experiment_count = project_info["_count"]["experiments"]
+    name = experiment.name or generate_name(history_experiment_count)
+    color = experiment.color or generate_color(history_experiment_count)
+    # 开启实验
+    _ = create_or_resume_experiment(
+        username,
+        project,
+        name=name,
+        resume=run_settings.run.resume,
+        run_id=run_id,
+        color=color,
+        description=experiment.description,
+        job_type=experiment.job_type,
+        group=experiment.group,
+        tags=experiment.tags,
+    )
+    # TODO resume 时向后端获取数据或向本地获取数据
+
+    # 最后同步一次配置
+    args_dict = {}
+    for key, value in {
+        "experiment.name": name,
+        "experiment.color": color,
+        "run.id": run_id,
+    }.items():
+        set_nested_value(args_dict, key, value)
+    run_settings.merge_settings(args_dict)
+    # 注册回调器
+    callbacker.merge_callbacks([CloudCallback()])
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
@@ -418,3 +468,12 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
             console.warning("Invalid choice, please enter 1, 2, or 3.")
     # 其他模式不登录
     return mode, False
+
+
+@helper.catch_and_return_none()
+def send_webhook(ctx: RunContext):
+    """
+    发送 webhook 回调，仅在非 disabled 模式下触发。
+    """
+    if ctx.config.settings.mode != "disabled":
+        ctx.callbacker.on_run_webhook(ctx.run_dir)
