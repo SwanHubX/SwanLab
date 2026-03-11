@@ -22,7 +22,7 @@ from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, log
-from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir
+from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
 from swanlab.sdk.utils import generate_id, helper
 from swanlab.sdk.utils.experiment import generate_color, generate_name
@@ -214,7 +214,7 @@ def init(
     ctx = get_context()
     # 初始化run
     run = SwanLabRun(ctx)
-    # 发送webhook回调
+    #  TODO 发送webhook回调
 
     # 初始化成功，触发回调
     ctx.callbacker.on_run_init(
@@ -351,10 +351,8 @@ def _mkdirs(ctx: RunContext):
     """
     # 对于 logdir 而言，如果不存在则创建，如果为空则写入 .gitignore
     log_dir = ctx.config.settings.log_dir
-    safe_mkdir(log_dir)
     # 1. 安全创建目录（如果不存在）
     safe_mkdir(log_dir)
-
     # 2. 高效判断文件夹是否为空
     # 如果 iterdir() 里什么都抽不出来，not any(...) 就会返回 True
     if not any(log_dir.iterdir()):
@@ -364,13 +362,8 @@ def _mkdirs(ctx: RunContext):
         ignore_content = "*\n!.gitignore\n"
         safe_write(gitignore_path, ignore_content)
 
-    if not ctx.config.settings.log_dir.exists():
-        ctx.config.settings.log_dir.mkdir(parents=True, exist_ok=True)
-    ctx.run_dir.mkdir(parents=True, exist_ok=True)
-    ctx.media_dir.mkdir(parents=True, exist_ok=True)
-    ctx.files_dir.mkdir(parents=True, exist_ok=True)
-    ctx.metadata_file.parent.mkdir(parents=True, exist_ok=True)
-    ctx.debug_dir.mkdir(parents=True, exist_ok=True)
+    # 3. 创建别的目录
+    safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
 
 
 def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:

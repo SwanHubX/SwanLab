@@ -113,7 +113,10 @@ class Settings(BaseSettings):
         path_v = Path(v)
 
         if path_v.exists() and not path_v.is_dir():
-            raise ValueError(f"Root path {path_v} exists but is not a directory.")
+            raise ValueError(
+                f"Root path {path_v} exists but is not a directory.",
+                "Please remove the file or choose a different path.",
+            )
         return path_v
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
