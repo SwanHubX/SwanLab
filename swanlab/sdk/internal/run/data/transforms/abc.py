@@ -5,6 +5,7 @@
 @description: SwanLab 数据转换模块抽象基类
 """
 
+import inspect
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -26,7 +27,7 @@ class TransformType(ABC):
     >>>         self.text = attrs.get("text", text)
     >>>         self.foo = foo if foo is not None else attrs.get("foo")
     >>>     @staticmethod
-    >>>     def transform(key:str, data: Any) -> Any:
+    >>>     def transform(key: str, step: int, *, data: Any = None, **kwargs: Any) -> Any:
     >>>         return "example"
 
     那么此时：
@@ -44,14 +45,46 @@ class TransformType(ABC):
             return {k: v for k, v in vars(instance_or_val).items() if not k.startswith("_")}
         return {}
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # 只要子类实现了 transform 方法，就检查其签名
+        if "transform" in cls.__dict__:
+            sig = inspect.signature(cls.transform)
+            parameters = list(sig.parameters.values())
+
+            # 至少需要 key 和 step 两个参数
+            if len(parameters) < 2:
+                raise TypeError(
+                    f"The transform method of [{cls.__name__}] must at least include 'key' and 'step' parameters"
+                )
+
+            # 1. 检查第一个参数是否为 key
+            first_param = parameters[0]
+            if first_param.name != "key":
+                raise TypeError(f"The first parameter of the transform method of [{cls.__name__}] must be named 'key'")
+
+            # 2. 检查第二个参数是否为 step
+            second_param = parameters[1]
+            if second_param.name != "step":
+                raise TypeError(
+                    f"The second parameter of the transform method of [{cls.__name__}] must be named 'step'"
+                )
+
+            # 3. 检查从第三个参数开始，是否都是 KEYWORD_ONLY (或者是 **kwargs)
+            for param in parameters[2:]:
+                # POSITIONAL_OR_KEYWORD 就是普通的参数，如果没有 * 隔离，就会是这种类型
+                if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                    raise TypeError(
+                        f"The parameters of the transform method of [{cls.__name__}] after 'step' must be keyword-only\n"
+                        f"💡 Suggested fix: Add a bare asterisk '*' after the 'step' parameter, for example: def transform(key: str, step: int, *, {param.name}, ...) -> Message:"
+                    )
+
     @staticmethod
     @abstractmethod
-    def transform(key: str, data: Any) -> Message:
+    def transform(*args: Any, **kwargs: Any) -> Message:
         """
-        将数据转换为Protobuf格式，
-        此方法必须为静态方法，且不依赖于实例状态，这是为了方便实现“套娃加载”、“懒加载”等策略
-        :param key: 数据的键名，用于标识数据类型，此为必填项
-        :param data: 待处理的数据
+        将数据转换为Protobuf格式。
         """
         # 套娃加载需求详见 https://github.com/SwanHubX/SwanLab/issues/1367
         ...
