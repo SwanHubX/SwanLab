@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+
+// 标量值，对应 swanlab.log({"loss": 0.5}) 中的数值类型。
+// 支持数字、字符串（无法转换为数字时原样保留）、布尔值。
+message ScalarValue {
+  oneof value {
+    double number     = 1;
+    string string_val = 2;
+    bool   bool_val   = 3;
+  }
+  // 特殊浮点状态，number 字段无法直接表达时由生产方填充
+  bool is_nan = 4;
+  bool is_inf = 5;
+}

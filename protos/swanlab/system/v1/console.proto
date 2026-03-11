@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package swanlab.system.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1";
+
+// 终端代理捕获的单行输出。
+// 由 console.proxy_type 配置决定捕获 stdout、stderr 或两者。
+// 超出 console.max_log_length 的部分由 SDK 在写入前截断。
+message ConsoleRecord {
+  string     line      = 1;
+  StreamType stream    = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+enum StreamType {
+  STREAM_TYPE_UNSPECIFIED = 0;
+  STREAM_TYPE_STDOUT      = 1;
+  STREAM_TYPE_STDERR      = 2;
+}

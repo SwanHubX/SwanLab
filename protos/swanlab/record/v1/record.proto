@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package swanlab.record.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "swanlab/run/v1/run.proto";
+import "swanlab/data/v1/log.proto";
+import "swanlab/config/v1/config.proto";
+import "swanlab/system/v1/env.proto";
+import "swanlab/system/v1/console.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1";
+
+// RecordService 用于同步或异步地接收实验记录。
+service RecordService {
+  // UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
+  rpc UpsertRecord(Record) returns (google.protobuf.Empty);
+}
+
+// 所有消息的顶层信封。
+//
+// SwanLab 的运行日志以 append-only 的方式写入磁盘，每条写入均为一个 Record。
+// num 字段保证全局单调递增，可用于重放和断点续传。
+//
+// 消息流示意：
+//   init()  → RunRecord, MetadataRecord, ConfigRecord
+//   log()   → LogRecord（每次调用一条）
+//   stdout  → ConsoleRecord（每行一条）
+//   timer   → StatsRecord（每 interval 秒一条）
+//   finish()→ FinishRecord
+message Record {
+  int64 num = 1;  // 单调递增序号，从 1 开始
+  google.protobuf.Timestamp timestamp = 2;
+
+  oneof record_type {
+    // ── Run 生命周期 ──
+    swanlab.run.v1.RunRecord    run    = 10;
+    swanlab.run.v1.FinishRecord finish = 11;
+
+    // ── 用户数据 ──
+    swanlab.data.v1.LogRecord      log    = 12;
+    swanlab.config.v1.ConfigRecord config = 13;
+
+    // ── 主机元数据（一次性，init 时写入）──
+    swanlab.system.v1.MetadataRecord metadata = 14;
+    swanlab.system.v1.RequirementsRecord requirements = 17;
+    swanlab.system.v1.CondaRecord conda = 18;
+
+    // ── 运行时自动采集 ──
+    swanlab.system.v1.ConsoleRecord console = 16;
+  }
+}

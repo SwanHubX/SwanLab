@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+
+// 一个 key 在某个 step 下记录的全部音频（1..N 条）。
+message AudioValue {
+  // 存储目录，相对于 run_dir，如 "media/audio"
+  string path = 1;
+  repeated AudioItem items = 2;
+}
+
+// 单条音频的文件引用与元数据。
+message AudioItem {
+  // 文件名，如 "sample_5_b1c2.wav"
+  string filename         = 1;
+  string sha256           = 2;
+  int64  size             = 3;  // 文件大小（bytes）
+  string format           = 4;  // "wav" | "mp3" | "flac" | "ogg"
+  int32  sample_rate      = 5;  // 采样率（Hz）
+  float  duration_seconds = 6;
+  int32  channels         = 7;  // 1=mono, 2=stereo
+  string caption          = 8;
+}

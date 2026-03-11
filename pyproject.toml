@@ -136,9 +136,15 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+]
+ignore=["swanlab/proto"]
 
 [tool.ruff]
 exclude = [
+    "swanlab/proto",
     ".bzr",
     ".direnv",
     ".eggs",

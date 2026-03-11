@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+
+// ECharts 可视化引用，对应 swanlab.ECharts(...)。
+// ECharts option 对象序列化为 JSON 写入磁盘，Record 只保存路径引用。
+message EChartsValue {
+  // 存储目录，相对于 run_dir，如 "media/echarts"
+  string path     = 1;
+  // 文件名，如 "chart_10_a3f2.json"
+  string filename = 2;
+  string sha256   = 3;
+  int64  size     = 4;  // 文件大小（bytes）
+  string caption  = 5;
+}

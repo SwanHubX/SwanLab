@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+
+// 一个 key 在某个 step 下记录的全部文本（1..N 条）。
+// 文本内容长度可控，直接内联存储，不走文件引用。
+message TextValue {
+  repeated TextItem items = 1;
+}
+
+// 单条文本内容。
+message TextItem {
+  string content = 1;
+}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package swanlab.data.v1;
+
+import "google/protobuf/timestamp.proto";
+import "swanlab/data/v1/scalar.proto";
+import "swanlab/data/v1/image.proto";
+import "swanlab/data/v1/audio.proto";
+import "swanlab/data/v1/video.proto";
+import "swanlab/data/v1/text.proto";
+import "swanlab/data/v1/echarts.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+
+// 对应一次 swanlab.log({...}, step=N) 调用。
+// 一次调用可携带多个不同类型的 metric。
+message LogRecord {
+  // 用户显式传入或由 SDK 自动递增的全局步数
+  int64 step = 1;
+  repeated MetricItem items    = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// 单个 metric 条目，key 支持 "/" 作为命名空间分隔符（如 "train/loss"）
+message MetricItem {
+  string key = 1;
+
+  oneof value {
+    ScalarValue  scalar  = 10;
+    ImageValue   images  = 11;
+    AudioValue   audios  = 12;
+    VideoValue   videos  = 13;
+    TextValue    texts   = 14;
+    EChartsValue echarts = 15;
+  }
+}
