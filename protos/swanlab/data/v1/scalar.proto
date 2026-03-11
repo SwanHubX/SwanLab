@@ -2,9 +2,7 @@ syntax = "proto3";
 
 package swanlab.data.v1;
 
-option java_package = "com.swanlab.proto.data.v1";
-option java_outer_classname = "ScalarProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
 // 标量值，对应 swanlab.log({"loss": 0.5}) 中的数值类型。
 // 支持数字、字符串（无法转换为数字时原样保留）、布尔值。

@@ -2,9 +2,7 @@ syntax = "proto3";
 
 package swanlab.data.v1;
 
-option java_package = "com.swanlab.proto.data.v1";
-option java_outer_classname = "EChartsProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
 // ECharts 可视化引用，对应 swanlab.ECharts(...)。
 // ECharts option 对象序列化为 JSON 写入磁盘，Record 只保存路径引用。

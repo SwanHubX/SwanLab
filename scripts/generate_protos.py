@@ -1,3 +1,17 @@
+"""
+@author: cunyue
+@file: generate_protos.py
+@time: 2026/3/11 18:36
+@description: 生成 SwanLab ProtoBuf 文件
+
+对于Go部分，你需要安装：
+
+1. brew install protobuf
+2. go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+3. go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+
+"""
+
 import os
 import subprocess
 import sys
@@ -26,6 +40,7 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
         "grpc_tools.protoc",
         f"-I{proto_dir}",
         f"--python_out={output_dir}",
+        f"--grpc_python_out={output_dir}",
     ]
 
     command.extend([str(p.relative_to(proto_dir)) for p in proto_files])
@@ -57,14 +72,26 @@ def generate_go_protos(proto_dir: Path, output_dir: Path):
         f"-I{proto_dir}",
         f"--go_out={output_dir}",
         "--go_opt=paths=source_relative",
+        f"--go-grpc_out={output_dir}",
+        "--go-grpc_opt=paths=source_relative",
     ]
 
     proto_files = [str(p.relative_to(proto_dir)) for p in proto_dir.glob("**/*.proto")]
     go_cmd.extend(proto_files)
 
-    print(f"Command: {' '.join(go_cmd)}")
-    print(f"Output directory: {output_dir}")
-    print("Note: The generated files will be placed in 'core/proto/' to support the 'swanlab-core' module.")
+    try:
+        result = subprocess.run(go_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error generating Go protos:\n{result.stderr}")
+            # 提示：如果报错 command not found，说明没装 protoc-gen-go
+            if "not found" in result.stderr or "executable file not found" in result.stderr:
+                print(
+                    "\nTip: Install Go plugins via:\n  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"
+                )
+        else:
+            print("Go protos generated successfully.")
+    except FileNotFoundError:
+        print("Error: 'protoc' command not found. Please install protoc first.")
 
 
 if __name__ == "__main__":
@@ -80,7 +107,7 @@ if __name__ == "__main__":
     go_output = project_root / "core" / "proto"
 
     # Ensure core/proto exists for the guide/placeholder
-    # go_output.mkdir(parents=True, exist_ok=True)
+    go_output.mkdir(parents=True, exist_ok=True)
 
     # Run generation
     generate_python_protos(proto_source, python_output)

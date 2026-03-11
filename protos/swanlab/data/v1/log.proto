@@ -10,9 +10,7 @@ import "swanlab/data/v1/video.proto";
 import "swanlab/data/v1/text.proto";
 import "swanlab/data/v1/echarts.proto";
 
-option java_package = "com.swanlab.proto.data.v1";
-option java_outer_classname = "LogProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
 // 对应一次 swanlab.log({...}, step=N) 调用。
 // 一次调用可携带多个不同类型的 metric。

@@ -3,15 +3,20 @@ syntax = "proto3";
 package swanlab.record.v1;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 import "swanlab/run/v1/run.proto";
 import "swanlab/data/v1/log.proto";
 import "swanlab/config/v1/config.proto";
 import "swanlab/system/v1/env.proto";
 import "swanlab/system/v1/console.proto";
 
-option java_package = "com.swanlab.proto.record.v1";
-option java_outer_classname = "RecordProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/record/v1;recordv1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1";
+
+// RecordService 用于同步或异步地接收实验记录。
+service RecordService {
+  // UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
+  rpc UpsertRecord(Record) returns (google.protobuf.Empty);
+}
 
 // 所有消息的顶层信封。
 //

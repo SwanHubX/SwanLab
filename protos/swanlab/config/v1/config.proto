@@ -4,9 +4,7 @@ package swanlab.config.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option java_package = "com.swanlab.proto.config.v1";
-option java_outer_classname = "ConfigProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/config/v1;configv1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/config/v1;configv1";
 
 // 用户传入的实验配置引用。
 // config 数据写入磁盘（files/config.yaml），Record 只保存路径引用和更新类型。

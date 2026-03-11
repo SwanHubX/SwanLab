@@ -2,9 +2,7 @@ syntax = "proto3";
 
 package swanlab.data.v1;
 
-option java_package = "com.swanlab.proto.data.v1";
-option java_outer_classname = "TextProto";
-option go_package = "github.com/swanlab/swanlab/proto/swanlab/data/v1;datav1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
 // 一个 key 在某个 step 下记录的全部文本（1..N 条）。
 // 文本内容长度可控，直接内联存储，不走文件引用。
