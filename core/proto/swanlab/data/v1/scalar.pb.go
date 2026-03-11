@@ -22,18 +22,10 @@ const (
 )
 
 // 标量值，对应 swanlab.log({"loss": 0.5}) 中的数值类型。
-// 支持数字、字符串（无法转换为数字时原样保留）、布尔值。
+// 留数字类型，原生支持 IEEE 754 标准的 NaN 和 Infinity。
 type ScalarValue struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Value:
-	//
-	//	*ScalarValue_Number
-	//	*ScalarValue_StringVal
-	//	*ScalarValue_BoolVal
-	Value isScalarValue_Value `protobuf_oneof:"value"`
-	// 特殊浮点状态，number 字段无法直接表达时由生产方填充
-	IsNan         bool `protobuf:"varint,4,opt,name=is_nan,json=isNan,proto3" json:"is_nan,omitempty"`
-	IsInf         bool `protobuf:"varint,5,opt,name=is_inf,json=isInf,proto3" json:"is_inf,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Number        float64                `protobuf:"fixed64,1,opt,name=number,proto3" json:"number,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,89 +60,20 @@ func (*ScalarValue) Descriptor() ([]byte, []int) {
 	return file_swanlab_data_v1_scalar_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ScalarValue) GetValue() isScalarValue_Value {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
 func (x *ScalarValue) GetNumber() float64 {
 	if x != nil {
-		if x, ok := x.Value.(*ScalarValue_Number); ok {
-			return x.Number
-		}
+		return x.Number
 	}
 	return 0
 }
-
-func (x *ScalarValue) GetStringVal() string {
-	if x != nil {
-		if x, ok := x.Value.(*ScalarValue_StringVal); ok {
-			return x.StringVal
-		}
-	}
-	return ""
-}
-
-func (x *ScalarValue) GetBoolVal() bool {
-	if x != nil {
-		if x, ok := x.Value.(*ScalarValue_BoolVal); ok {
-			return x.BoolVal
-		}
-	}
-	return false
-}
-
-func (x *ScalarValue) GetIsNan() bool {
-	if x != nil {
-		return x.IsNan
-	}
-	return false
-}
-
-func (x *ScalarValue) GetIsInf() bool {
-	if x != nil {
-		return x.IsInf
-	}
-	return false
-}
-
-type isScalarValue_Value interface {
-	isScalarValue_Value()
-}
-
-type ScalarValue_Number struct {
-	Number float64 `protobuf:"fixed64,1,opt,name=number,proto3,oneof"`
-}
-
-type ScalarValue_StringVal struct {
-	StringVal string `protobuf:"bytes,2,opt,name=string_val,json=stringVal,proto3,oneof"`
-}
-
-type ScalarValue_BoolVal struct {
-	BoolVal bool `protobuf:"varint,3,opt,name=bool_val,json=boolVal,proto3,oneof"`
-}
-
-func (*ScalarValue_Number) isScalarValue_Value() {}
-
-func (*ScalarValue_StringVal) isScalarValue_Value() {}
-
-func (*ScalarValue_BoolVal) isScalarValue_Value() {}
 
 var File_swanlab_data_v1_scalar_proto protoreflect.FileDescriptor
 
 const file_swanlab_data_v1_scalar_proto_rawDesc = "" +
 	"\n" +
-	"\x1cswanlab/data/v1/scalar.proto\x12\x0fswanlab.data.v1\"\x9c\x01\n" +
-	"\vScalarValue\x12\x18\n" +
-	"\x06number\x18\x01 \x01(\x01H\x00R\x06number\x12\x1f\n" +
-	"\n" +
-	"string_val\x18\x02 \x01(\tH\x00R\tstringVal\x12\x1b\n" +
-	"\bbool_val\x18\x03 \x01(\bH\x00R\aboolVal\x12\x15\n" +
-	"\x06is_nan\x18\x04 \x01(\bR\x05isNan\x12\x15\n" +
-	"\x06is_inf\x18\x05 \x01(\bR\x05isInfB\a\n" +
-	"\x05valueB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
+	"\x1cswanlab/data/v1/scalar.proto\x12\x0fswanlab.data.v1\"%\n" +
+	"\vScalarValue\x12\x16\n" +
+	"\x06number\x18\x01 \x01(\x01R\x06numberB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_data_v1_scalar_proto_rawDescOnce sync.Once
@@ -180,11 +103,6 @@ func init() { file_swanlab_data_v1_scalar_proto_init() }
 func file_swanlab_data_v1_scalar_proto_init() {
 	if File_swanlab_data_v1_scalar_proto != nil {
 		return
-	}
-	file_swanlab_data_v1_scalar_proto_msgTypes[0].OneofWrappers = []any{
-		(*ScalarValue_Number)(nil),
-		(*ScalarValue_StringVal)(nil),
-		(*ScalarValue_BoolVal)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

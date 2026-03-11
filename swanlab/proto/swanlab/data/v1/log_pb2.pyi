@@ -16,14 +16,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class LogRecord(_message.Message):
-    __slots__ = ("step", "items", "timestamp")
+    __slots__ = ("key", "step", "items", "timestamp")
+    KEY_FIELD_NUMBER: _ClassVar[int]
     STEP_FIELD_NUMBER: _ClassVar[int]
     ITEMS_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    key: str
     step: int
     items: _containers.RepeatedCompositeFieldContainer[MetricItem]
     timestamp: _timestamp_pb2.Timestamp
-    def __init__(self, step: _Optional[int] = ..., items: _Optional[_Iterable[_Union[MetricItem, _Mapping]]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, key: _Optional[str] = ..., step: _Optional[int] = ..., items: _Optional[_Iterable[_Union[MetricItem, _Mapping]]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class MetricItem(_message.Message):
     __slots__ = ("key", "scalar", "images", "audios", "videos", "texts", "echarts")

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aswanlab/data/v1/text.proto\x12\x0fswanlab.data.v1\"5\n\tTextValue\x12(\n\x05items\x18\x01 \x03(\x0b\x32\x19.swanlab.data.v1.TextItem\"\x1b\n\x08TextItem\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\tB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aswanlab/data/v1/text.proto\x12\x0fswanlab.data.v1\"C\n\tTextValue\x12\x0c\n\x04path\x18\x01 \x01(\t\x12(\n\x05items\x18\x02 \x03(\x0b\x32\x19.swanlab.data.v1.TextItem\"=\n\x08TextItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0f\n\x07\x63\x61ption\x18\x03 \x01(\tB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1'
   _globals['_TEXTVALUE']._serialized_start=47
-  _globals['_TEXTVALUE']._serialized_end=100
-  _globals['_TEXTITEM']._serialized_start=102
-  _globals['_TEXTITEM']._serialized_end=129
+  _globals['_TEXTVALUE']._serialized_end=114
+  _globals['_TEXTITEM']._serialized_start=116
+  _globals['_TEXTITEM']._serialized_end=177
 # @@protoc_insertion_point(module_scope)

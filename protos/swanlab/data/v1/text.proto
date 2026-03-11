@@ -5,12 +5,16 @@ package swanlab.data.v1;
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
 // 一个 key 在某个 step 下记录的全部文本（1..N 条）。
-// 文本内容长度可控，直接内联存储，不走文件引用。
 message TextValue {
-  repeated TextItem items = 1;
+  // 存储目录，相对于 run_dir，如 "media/text"
+  string path = 1;
+  repeated TextItem items = 2;
 }
 
 // 单条文本内容。
 message TextItem {
-  string content = 1;
+  // 文件名，如 "log_10_b3f4.txt"
+  string filename         = 1;
+  string sha256           = 2;
+  string caption          = 3;
 }
