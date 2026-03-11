@@ -2,18 +2,24 @@
 @author: cunyue
 @file: context.py
 @time: 2026/3/10 18:31
-@description: SwanLab 运行时上下文
+@description: SwanLab 运行时上下文，包含：
+1. 实验配置
+2. 运行时指标状态
 """
 
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, Generator, Optional
+from typing import Dict, Generator, Optional, Union
 
-from swanlab.sdk.internal.callbackers.callbacker import CallbackManager, callbacker
+from swanlab.sdk.internal.context.transformer import TransformType
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.settings import Settings
+
+from .callbacker import CallbackManager, callbacker
 
 
 # 运行配置，包含当前运行上下文的必要状态
@@ -23,20 +29,71 @@ class RunConfig:
     settings: Settings
 
 
+# 开启 slots 可以减少内存占用，提高性能，但是仅适用于 Python 3.10 及以上版本
+# 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典
+DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
+
+
+# 使用解包的方式传入参数
+@dataclass(**DATACLASS_KWARGS)
+class RunScalarMetric:
+    # 1. 必须是普通实例变量，初始值为 None
+    _type: Optional["TransformType"] = None
+
+    # 指标最新值
+    latest: Optional[Union[float, int]] = None
+    # 指标的最大值
+    max: Optional[Union[float, int]] = None
+    # 指标的最小值
+    min: Optional[Union[float, int]] = None
+
+    def update(self, _type: "TransformType", value: Union[float, int]):
+        """
+        更新指标值
+        :param _type: 传入的指标类型
+        :param value: 指标值
+        """
+        # 首次写入逻辑：如果当前没有类型，则锁定为传入的类型
+        if self._type is None:
+            self._type = _type
+
+        # 后续写入逻辑：校验类型是否一致
+        elif self._type != _type:
+            console.error(f"Invalid type for scalar metric: expected {self._type}, got {_type}")
+            return
+
+        # 更新值
+        self.latest = value
+        if self.max is None or value > self.max:
+            self.max = value
+        if self.min is None or value < self.min:
+            self.min = value
+
+
+@dataclass(**DATACLASS_KWARGS)
+class RunMediaMetric:
+    # 媒体类型
+    _type: Optional["TransformType"] = None
+    # 媒体存储路径
+    path: Optional[Path] = None
+
+    def update(self, _type: TransformType, path: Path):
+        """
+        更新媒体信息
+        :param _type: 媒体类型
+        :param path: 媒体存储路径
+        """
+        if _type != self._type:
+            console.error(f"Invalid type for media metric: expected {_type}, got {_type}")
+            return
+        self.path = path
+
+
 # 指标状态，实验运行过程中不断更新
 @dataclass
 class RunMetrics:
     global_step: int = 0
-    _metric_steps: Dict[str, int] = field(default_factory=dict)
-    summary: Dict[str, Any] = field(default_factory=dict)
-
-    def update(self, metrics: Dict[str, Any], explicit_step: Optional[int] = None):
-        if explicit_step is None:
-            self.global_step += 1
-        for key, value in metrics.items():
-            current_step = explicit_step if explicit_step is not None else self._metric_steps.get(key, 0) + 1
-            self._metric_steps[key] = current_step
-            self.summary[key] = value
+    _metrics: Dict[str, Union[RunScalarMetric, RunMediaMetric]] = field(default_factory=dict)
 
 
 # 上下文宿主

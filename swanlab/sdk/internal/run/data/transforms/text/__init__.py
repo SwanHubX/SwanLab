@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Optional, Union
 
 from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem, TextValue
+from swanlab.sdk.internal.context import TransformMediaType
 from swanlab.sdk.internal.pkg.fs import safe_write
-from swanlab.sdk.internal.run.data.transforms.abc import TransformMediaType
 
 
 class Text(TransformMediaType):

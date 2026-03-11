@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: abc.py
-@time: 2026/3/11 16:32
-@description: SwanLab 数据转换模块抽象基类
+@file: transformer.py
+@time: 2026/3/12 00:49
+@description: SwanLab 运行时数据转换器抽象类，负责将用户输入的数据转换为Protobuf格式
 """
 
 import inspect

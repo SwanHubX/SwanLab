@@ -9,7 +9,7 @@ import math
 from typing import Any, Union
 
 from swanlab.proto.swanlab.data.v1.scalar_pb2 import ScalarValue
-from swanlab.sdk.internal.run.data.transforms.abc import TransformType
+from swanlab.sdk.internal.context import TransformType
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
