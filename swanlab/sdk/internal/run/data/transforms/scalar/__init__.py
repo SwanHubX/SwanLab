@@ -25,7 +25,7 @@ class Scalar(TransformType):
 
         1. 布尔值：转为 1.0 或 0.0
         2. 数字（int/float）：正常转换为 float
-        3. 字符串：尝试转换为数字，如果失败则使用 NaN
+        3. 字符串：尝试转换为数字，如果能转换为数字则转换为数字，否则报错，额外处理 NaN 和 Inf 的情况，此时都返回 NaN
 
         :param data: 待处理的数据
 
@@ -51,10 +51,13 @@ class Scalar(TransformType):
         # 3. 判断字符串
         if isinstance(data, str):
             try:
-                return ScalarValue(number=float(data))
+                value = float(data)
             except ValueError:
-                # 转换失败时，安全地返回 NaN
+                raise TypeError(f"Unsupported scalar string value: '{data}'.")
+            # NaN 和 Inf 都归一化为 NaN
+            if math.isnan(value) or math.isinf(value):
                 return ScalarValue(number=math.nan)
+            return ScalarValue(number=value)
 
         # 兜底：类型不匹配
         raise TypeError(f"Unsupported scalar type: {type(data).__name__}.")

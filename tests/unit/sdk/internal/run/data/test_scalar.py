@@ -36,8 +36,18 @@ def test_scalar_transform_basic_types(input_data, expected_number):
 
 
 def test_scalar_transform_invalid_string():
-    """测试非法字符串转换为 NaN"""
-    result = Scalar.transform("invalid_number_string")
+    """测试非法字符串转换抛出 TypeError"""
+    with pytest.raises(TypeError, match="Unsupported scalar string value"):
+        Scalar.transform("invalid_number_string")
+
+
+@pytest.mark.parametrize(
+    "input_data",
+    ["nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"],
+)
+def test_scalar_transform_nan_inf_string(input_data):
+    """测试 NaN 和 Inf 字符串归一化为 NaN"""
+    result = Scalar.transform(input_data)
     assert math.isnan(result.number)
 
 

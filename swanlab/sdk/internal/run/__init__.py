@@ -113,14 +113,16 @@ class SwanLabRun:
                 for key, value in data.items():
                     try:
                         # 内存态转换
-                        _: LogRecord = self._dispatch_log(value, key=key, timestamp=timestamp, step=step)
-                        # TODO 如果是首次写入，需要创建列
-
+                        _: LogRecord = self._dispatch_parse(value, key=key, timestamp=timestamp, step=step)
+                        # 如果是首次写入，需要创建列
+                        if not metrics.has_metric(self._ctx, key):
+                            # 定义指标
+                            ...
                         # TODO: 写入文件
 
                         # TODO: 触发回调器
                     except Exception as e:
-                        console.error(f"Error in background logger: {e}")
+                        console.error(f"Error when parsing metric '{key}': {e}")
                 if len(batch_records) >= batch_size:
                     self._flush_to_disk(batch_records)
                     batch_records.clear()
@@ -149,13 +151,13 @@ class SwanLabRun:
             console.error(f"SwanLab failed to write disk: {e}")
 
     @singledispatchmethod
-    def _dispatch_log(self, value: Any, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
+    def _dispatch_parse(self, value: Any, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
         """默认的回退处理逻辑
         此部分用于处理基础标量数据类型
         """
         ...
 
-    @_dispatch_log.register
+    @_dispatch_parse.register
     def _(self, value: Text, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
         """Log一个Text"""
         ...
