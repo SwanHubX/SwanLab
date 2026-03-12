@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, Mapping, Optional
 
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 
 def flatten_dict(
@@ -72,6 +73,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
     :param key: 待检查的键名
     :param max_len: 键名的最大长度，默认为255
     :return: 清洗后的键名
+    :raises ValueError: 如果清洗后为空字符串
     """
     # 宽容处理类型：如果是 int/float，直接转 str，不抛异常
     if not isinstance(key, str):
@@ -84,7 +86,9 @@ def validate_key(key: str, max_len: int = 255) -> str:
 
     if not key:
         # 只有在清洗后完全为空这种极端且无法挽救的情况下，才抛出异常
-        raise ValueError(f"SwanLab key: '{original_key}' is invalid or empty after sanitization.")
+        raise ValueError(
+            f"SwanLab key: '{original_key}' is invalid or empty after sanitization, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
+        )
 
     # 3. 使用预编译的正则进行替换，速度极快
     sanitized_key = _INVALID_KEY_PATTERN.sub("_", key)
@@ -97,8 +101,91 @@ def validate_key(key: str, max_len: int = 255) -> str:
     if sanitized_key != original_key:
         if original_key not in _WARNED_KEYS:
             console.warning(
-                f"Key '{original_key}' has been sanitized to '{sanitized_key}', please use valid characters."
+                f"Key '{original_key}' has been sanitized to '{sanitized_key}', due to invalid characters or length exceeding limit."
             )
             _WARNED_KEYS.add(original_key)
 
     return sanitized_key
+
+
+def safe_validate_step(step: Optional[int]) -> Optional[int]:
+    """
+    检查并清洗 step 整数格式，如果出现非法值，返回 None。
+    :param step: 待检查的步数
+    :return: 清洗后的步数或 None
+    """
+    if step is None:
+        return None
+    if not isinstance(step, int):
+        return None
+    return step
+
+
+def safe_validate_key(key: str) -> Optional[str]:
+    """
+    检查并清洗 key 字符串格式，如果出现非法字符或长度超过限制，返回 None。
+    :param key: 待检查的键名
+    :return: 清洗后的键名或 None
+    """
+    try:
+        return validate_key(key)
+    except ValueError:
+        return None
+
+
+def safe_validate_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
+    """
+    检查并清洗指标名称，如果出现非法字符或长度超过限制，返回 None。
+    :param name: 待检查的指标名称
+    :param max_len: 名称的最大长度，默认为255
+    :return: 清洗后的指标名称或 None
+    """
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        return None
+    if len(name) > max_len:
+        return None
+    return name
+
+
+def safe_validate_chart_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
+    """
+    检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
+    :param name: 待检查的图表名称
+    :param max_len: 名称的最大长度，默认为255
+    :return: 清洗后的图表名称或 None
+    """
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        return None
+    if len(name) > max_len:
+        return None
+    return name
+
+
+def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXAxisType]:
+    if x_axis is None:
+        x_axis = "_step"
+    try:
+        return validate_key(x_axis)
+    except ValueError:
+        return None
+
+
+def safe_validate_color(color: Optional[str]) -> Optional[str]:
+    """
+    检查并清洗颜色字符串格式，必须是#开头的十六进制颜色代码
+    :param color: 待检查的颜色字符串
+    :return: 清洗后的颜色字符串或 None
+    """
+    if color is None:
+        return None
+    if not color.startswith("#"):
+        return None
+    if len(color) != 7:
+        return None
+    if not all(c in "0123456789abcdefABCDEF" for c in color[1:]):
+        return None
+    return color
