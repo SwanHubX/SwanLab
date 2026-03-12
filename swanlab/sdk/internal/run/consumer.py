@@ -69,15 +69,7 @@ class BackgroundConsumer:
                     self._flush(batch)
                     break
 
-                # 2. 显式创建列 (Explicit Define)
-                elif isinstance(event, DefineEvent):
-                    if event.key not in _emitted_columns:
-                        batch.append(self._builder.build_column_from_define(event))
-                        _emitted_columns.add(event.key)
-                    else:
-                        console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
-
-                # 3. 记录数据（可能触发隐式创建 Implicit Define）
+                # 2. 记录数据（可能触发隐式创建 Implicit Define）
                 elif isinstance(event, LogEvent):
                     for key, value in event.data.items():
                         try:
@@ -90,6 +82,14 @@ class BackgroundConsumer:
                             batch.append(record)
                         except Exception as e:
                             console.error(f"Error when parsing metric '{key}': {e}")
+
+                # 3. 显式创建列 (Explicit Define)
+                elif isinstance(event, DefineEvent):
+                    if event.key not in _emitted_columns:
+                        batch.append(self._builder.build_column_from_define(event))
+                        _emitted_columns.add(event.key)
+                    else:
+                        console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
 
                 # 4. 系统事件
                 elif isinstance(event, RunStartEvent):
