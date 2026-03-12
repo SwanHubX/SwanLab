@@ -7,7 +7,10 @@
 
 from typing import Literal
 
-DataModuleType = Literal["scalar", "image", "audio", "video", "text", "table", "echarts"]
+MediaTransferType = Literal["image", "audio", "video", "text", "echarts"]
+
+
+DataTransferType = Literal["scalar", MediaTransferType]
 """
 数据类型，包括scalar、image、audio、video、text、table、echarts
 """

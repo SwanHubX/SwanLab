@@ -19,14 +19,8 @@ message LogRecord {
   string key = 1;
   // 用户显式传入或由 SDK 自动递增的全局步数
   int64 step = 2;
-  repeated MetricItem items    = 3;
+  // 记录的时间戳
   google.protobuf.Timestamp timestamp = 4;
-}
-
-// 单个 metric 条目，key 支持 "/" 作为命名空间分隔符（如 "train/loss"）
-message MetricItem {
-  string key = 1;
-
   oneof value {
     ScalarValue  scalar  = 10;
     ImageValue   images  = 11;

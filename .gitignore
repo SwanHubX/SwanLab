@@ -35,6 +35,7 @@ dist/
 .coverage
 htmlcov/
 .tox/
+.benchmarks/
 
 # test-integration-ultralytics
 yolov8n-cls.pt

@@ -19,7 +19,7 @@ class Scalar(TransformType):
         raise NotImplementedError("Scalar should not be instantiated directly.")
 
     @staticmethod
-    def transform(data: Union[float, int, str, bool]) -> ScalarValue:
+    def transform(data: Any) -> ScalarValue:
         """
         处理标量数据，包括数字、字符串、布尔值等。
 

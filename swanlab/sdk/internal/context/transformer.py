@@ -11,6 +11,8 @@ from typing import Any
 
 from google.protobuf.message import Message
 
+from swanlab.sdk.typings.run.data import MediaTransferType
+
 
 class TransformType(ABC):
     """
@@ -122,3 +124,9 @@ class TransformMediaType(TransformType, ABC):
                     f"The return type annotation of the transform method of [{cls.__name__}] must be a subclass of 'Message'.\n"
                     f"Got: {return_ann}"
                 )
+
+    @classmethod
+    @abstractmethod
+    def type(cls) -> MediaTransferType:
+        """返回当前 TransformType 的类型标识"""
+        ...
