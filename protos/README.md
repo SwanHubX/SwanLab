@@ -58,8 +58,10 @@ swanlab.init(...)
 
 # 训练循环中，首次出现某 key 时先发送列定义
   → Record { column: ColumnRecord { key="loss", type=FLOAT, ... } }
-swanlab.log({"loss": 0.5, "img": Image(...)}, step=10)
-  → Record { log: LogRecord { step=10, items=[...] } }
+  → Record { column: ColumnRecord { key="img",  type=IMAGE, ... } }
+# 每个指标独立生成一条 LogRecord，swanlab.log({"loss": 0.5, "img": Image(...)}, step=10) 产生两条：
+  → Record { log: LogRecord { key="loss", step=10, value=ScalarValue{...} } }
+  → Record { log: LogRecord { key="img",  step=10, value=ImageValue{...}  } }
 
 # 终端代理（每行）
   → Record { console: ConsoleRecord { line="...", stream=STDOUT } }

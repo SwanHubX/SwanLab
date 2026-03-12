@@ -305,7 +305,7 @@ type ColumnRecord struct {
 	Class ColumnClass `protobuf:"varint,1,opt,name=class,proto3,enum=swanlab.data.v1.ColumnClass" json:"class,omitempty"`
 	// 数据类型，必填
 	Type ColumnType `protobuf:"varint,2,opt,name=type,proto3,enum=swanlab.data.v1.ColumnType" json:"type,omitempty"`
-	// 键名，必填，须与 MetricItem.key 对应
+	// 键名，必填，须与 LogRecord.key 对应
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
 	// 显示名称，可选，不填时默认取 key
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
