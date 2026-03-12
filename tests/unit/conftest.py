@@ -1,7 +1,6 @@
 import pytest
 
-from swanlab.sdk.internal.callbackers.callbacker import callbacker
-from swanlab.sdk.internal.context import clear_context
+from swanlab.sdk.internal.context import callbacker, clear_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.internal.settings import Settings, settings

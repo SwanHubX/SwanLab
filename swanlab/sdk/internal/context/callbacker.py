@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: __init__.py
-@time: 2026/3/10 17:12
-@description: SwanLab 运行时回调函数
+@file: callbacker.py
+@time: 2026/3/12 00:52
+@description: SwanLab 运行时回调函数管理器
 """
 
 from typing import TYPE_CHECKING, Dict, Iterable, List

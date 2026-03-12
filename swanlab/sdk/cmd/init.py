@@ -17,9 +17,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 import yaml
 
-from swanlab.sdk.internal.callbackers import CloudCallback, LocalCallback, OfflineCallback
-from swanlab.sdk.internal.callbackers.callbacker import callbacker
-from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, set_context, use_temp_context
+from swanlab.sdk.internal.context import (
+    RunConfig,
+    RunContext,
+    callbacker,
+    get_context,
+    has_context,
+    set_context,
+    use_temp_context,
+)
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, log
@@ -31,7 +37,7 @@ from swanlab.sdk.utils.version import get_swanlab_version
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
-from ..internal.run import SwanLabRun
+from ..internal.run import CloudCallback, LocalCallback, OfflineCallback, SwanLabRun
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -478,7 +484,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
 
 
 @helper.catch_and_return_none()
-def send_webhook(ctx: RunContext) -> bool:
+def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
 
@@ -494,16 +500,17 @@ def send_webhook(ctx: RunContext) -> bool:
     }
 
     :param ctx: 运行上下文
+    :return: (是否发送，是否成功)
     """
     if ctx.config.settings.mode == "disabled":
         console.debug("Skipping webhook because mode is disabled.")
-        return False
+        return False, False
     settings = ctx.config.settings
     webhook = settings.integration.webhook
     webhook_url = webhook.url
     if not webhook_url:
         console.debug("Skipping webhook because SWANLAB_WEBHOOK is not set.")
-        return False
+        return False, False
     webhook_value = webhook.value
     webhook_timeout = webhook.timeout
     # 获取实验url
@@ -525,4 +532,4 @@ def send_webhook(ctx: RunContext) -> bool:
             },
         },
     )
-    return True
+    return True, True

@@ -8,14 +8,8 @@
 
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, List, Literal, Optional, cast
-
-if sys.version_info >= (3, 9):
-    from typing import Annotated
-else:
-    from typing_extensions import Annotated
+from typing import Annotated, Any, List, Literal, Optional, cast
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import NoDecode

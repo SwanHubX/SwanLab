@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: abc.py
-@time: 2026/3/11 16:32
-@description: SwanLab 数据转换模块抽象基类
+@file: transformer.py
+@time: 2026/3/12 00:49
+@description: SwanLab 运行时数据转换器抽象类，负责将用户输入的数据转换为Protobuf格式
 """
 
 import inspect
@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from google.protobuf.message import Message
+
+from swanlab.sdk.typings.run.data import MediaTransferType
 
 
 class TransformType(ABC):
@@ -122,3 +124,9 @@ class TransformMediaType(TransformType, ABC):
                     f"The return type annotation of the transform method of [{cls.__name__}] must be a subclass of 'Message'.\n"
                     f"Got: {return_ann}"
                 )
+
+    @classmethod
+    @abstractmethod
+    def type(cls) -> MediaTransferType:
+        """返回当前 TransformType 的类型标识"""
+        ...

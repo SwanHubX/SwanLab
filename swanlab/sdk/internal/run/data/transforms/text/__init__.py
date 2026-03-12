@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Optional, Union
 
 from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem, TextValue
+from swanlab.sdk.internal.context import TransformMediaType
 from swanlab.sdk.internal.pkg.fs import safe_write
-from swanlab.sdk.internal.run.data.transforms.abc import TransformMediaType
+from swanlab.sdk.typings.run.data import MediaTransferType
 
 
 class Text(TransformMediaType):
@@ -38,3 +39,7 @@ class Text(TransformMediaType):
         # 写入数据
         safe_write(path / filename, this.content)
         return TextValue(items=[TextItem(filename=filename, caption=this.caption)])
+
+    @classmethod
+    def type(cls) -> MediaTransferType:
+        return "text"
