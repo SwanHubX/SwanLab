@@ -22,6 +22,7 @@ from .transformer import TransformMediaType, TransformType
 __all__ = [
     "RunContext",
     "RunConfig",
+    "RunMetrics",
     "set_context",
     "clear_context",
     "get_context",
