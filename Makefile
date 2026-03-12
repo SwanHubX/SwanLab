@@ -1,4 +1,4 @@
-.PHONY:  init sync format test proto
+.PHONY:  init sync format proto unit bench
 
 init:
 	uv sync --all-extras
@@ -16,3 +16,6 @@ format:
 
 unit:
 	uv run pytest tests/unit
+
+bench:
+	uv run pytest tests/benchmark

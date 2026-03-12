@@ -11,7 +11,8 @@
 import queue
 import threading
 from functools import cached_property, singledispatchmethod
-from typing import Any, Dict, Mapping, Optional, Tuple, Union, get_args
+from pathlib import Path
+from typing import Any, Mapping, Optional, Tuple, Union, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -26,6 +27,7 @@ from .data.transforms import Text
 
 __all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
 
+from .helper import flatten_dict
 
 LogData = Mapping[str, Any]
 """
@@ -41,7 +43,7 @@ class SwanLabRun:
     def __init__(self, ctx: "RunContext"):
         self._ctx = ctx
         self._queue: queue.Queue[Union[LogPayload, None]] = queue.Queue(maxsize=100_000)
-        # 2. 启动后台处理线程
+        # 启动后台处理线程，相关的落盘、回调触发等处理不会阻塞主线程
         self._background_logger = threading.Thread(target=self._background_log, daemon=False)
         self._background_logger.start()
 
@@ -52,6 +54,22 @@ class SwanLabRun:
         """
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
         return self._ctx.config.settings.run.id
+
+    @cached_property
+    def run_dir(self) -> Path:
+        """
+        This property returns the directory where the current SwanLab run is saved.
+        """
+        assert self._ctx.run_dir is not None, "Run dir is not set."
+        return self._ctx.run_dir
+
+    @cached_property
+    def _flush_file(self) -> Path:
+        """
+        指向存储文件
+        """
+        assert self.run_dir is not None, "Run dir is not set when attempting to access _flush_file."
+        return self._ctx.backup_file
 
     def log(self, data: LogData, step: Optional[int] = None):
         """
@@ -74,31 +92,61 @@ class SwanLabRun:
         # 展开字典，例如 {"a": {"b": {"c": 1}}} -> {"a/b/c": 1}
         data = flatten_dict(data)
         # 放入队列
-        self._queue.put((data, step, ts))
+        # 如果队列已满，阻塞等待直到有空位，否则会丢弃数据
+        self._queue.put((data, step, ts), block=True)
 
-    def _background_log(self):
+    def _background_log(self, flush_timeout: float = 0.5, batch_size: int = 100) -> None:
         """将数据放入队列，异步处理"""
+        batch_records = []
+        self._registered_columns = set()
         while True:
             try:
                 # 阻塞等待数据到来
-                payload = self._queue.get()
-                # 如果收到结束信号 (比如 None)，退出线程
+                payload = self._queue.get(timeout=flush_timeout)
+                # 收到 finish 信号
                 if payload is None:
+                    self._flush_to_disk(batch_records)
                     break
                 # 解析数据
                 data, step, timestamp = payload
                 # 处理数据
                 for key, value in data.items():
-                    # 校验Key格式
+                    try:
+                        # 内存态转换
+                        _: LogRecord = self._dispatch_log(value, key=key, timestamp=timestamp, step=step)
+                        # TODO 如果是首次写入，需要创建列
 
-                    # 处理数据
-                    _: LogRecord = self._dispatch_log(value=value, key=key, timestamp=timestamp, step=step)
-                    # TODO 如果是首次写入，需要创建列
+                        # TODO: 写入文件
 
-                    # TODO: 写入文件
-                    # TODO: 触发回调器
+                        # TODO: 触发回调器
+                    except Exception as e:
+                        console.error(f"Error in background logger: {e}")
+                if len(batch_records) >= batch_size:
+                    self._flush_to_disk(batch_records)
+                    batch_records.clear()
+            except queue.Empty:
+                # 超时，把缓存的数据刷盘
+                if batch_records:
+                    self._flush_to_disk(batch_records)
+                    batch_records.clear()
             except Exception as e:
-                console.error(f"Error in background writer: {e}")
+                # 无论发生什么，后台线程不能死
+                console.error(f"SwanLab background logger thread error: {e}")
+
+    def _flush_to_disk(self, records: list):
+        """
+        将日志写入本地文件，落盘成功后，会通知回调器，进入下一步处理
+        :param records: 待落盘的日志记录
+        :return: None
+        """
+        if not records:
+            return
+        try:
+            # TODO: 批量追加到本地文件
+            # TODO: 落盘成功后，才通知回调器
+            ...
+        except Exception as e:
+            console.error(f"SwanLab failed to write disk: {e}")
 
     @singledispatchmethod
     def _dispatch_log(self, value: Any, key: str, timestamp: Timestamp, step: Optional[int]) -> LogRecord:
@@ -157,36 +205,3 @@ class SwanLabRun:
         # 1. 清理log队列
         self._queue.put(None)
         self._background_logger.join()
-
-
-def flatten_dict(
-    d: Mapping[str, Any], parent_key: str = "", parent_dict: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    展开字典，例如 {"a": {"b": {"c": 1}}} -> {"a/b/c": 1}
-    如果出现重复键名，根据顺序，顺序靠后的键名会覆盖靠前的键名
-    :param d: 待展开的字典
-    :param parent_key: 父级键名，用于构建新键名
-    :param parent_dict: 父级字典，用于存储展开后的结果
-    :return: 展开后的字典
-    """
-    # 顶层调用时初始化字典（避免可变默认参数陷阱）
-    if parent_dict is None:
-        parent_dict = {}
-
-    for k, v in d.items():
-        # 防御性编程：用户可能会传非字符串的 key（比如整数），强制转为 str
-        k_str = str(k)
-        new_key = f"{parent_key}/{k_str}" if parent_key else k_str
-
-        if isinstance(v, Mapping):
-            # 递归调用，将同一个 parent_dict 引用传递下去
-            flatten_dict(v, new_key, parent_dict)
-        else:
-            # 检查冲突并警告
-            if new_key in parent_dict:
-                console.warning(f"Duplicate key found: '{new_key}'. The latter value will overwrite the former one.")
-            # 直接在共享的字典上赋值
-            parent_dict[new_key] = v
-
-    return parent_dict
