@@ -26,6 +26,7 @@ protos/
     ├── data/
     │   └── v1/
     │       ├── log.proto           # 用户 swanlab.log() 产生的 metric 记录
+    │       ├── column.proto        # 列定义（ColumnRecord），描述 metric 的展示与归类配置
     │       ├── scalar.proto        # 标量值（数字 / 字符串 / bool）
     │       ├── image.proto         # 图像引用
     │       ├── audio.proto         # 音频引用
@@ -55,7 +56,8 @@ swanlab.init(...)
   → Record { conda:        CondaRecord        }   # Conda 环境引用，写入一次
   → Record { config:       ConfigRecord       }   # 实验 config，写入一次
 
-# 训练循环中
+# 训练循环中，首次出现某 key 时先发送列定义
+  → Record { column: ColumnRecord { key="loss", type=FLOAT, ... } }
 swanlab.log({"loss": 0.5, "img": Image(...)}, step=10)
   → Record { log: LogRecord { step=10, items=[...] } }
 

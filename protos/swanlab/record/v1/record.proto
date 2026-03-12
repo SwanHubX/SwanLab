@@ -6,6 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 import "swanlab/run/v1/run.proto";
 import "swanlab/data/v1/log.proto";
+import "swanlab/data/v1/column.proto";
 import "swanlab/config/v1/config.proto";
 import "swanlab/system/v1/env.proto";
 import "swanlab/system/v1/console.proto";
@@ -40,6 +41,7 @@ message Record {
     // ── 用户数据 ──
     swanlab.data.v1.LogRecord      log    = 12;
     swanlab.config.v1.ConfigRecord config = 13;
+    swanlab.data.v1.ColumnRecord   column = 19;
 
     // ── 主机元数据（一次性，init 时写入）──
     swanlab.system.v1.MetadataRecord metadata = 14;

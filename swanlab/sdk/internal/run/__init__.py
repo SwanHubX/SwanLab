@@ -11,7 +11,7 @@
 import queue
 import threading
 from functools import cached_property, singledispatchmethod
-from typing import Any, Dict, Optional, Tuple, Union, get_args
+from typing import Any, Dict, Mapping, Optional, Tuple, Union, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -20,13 +20,14 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
 
+from . import metrics
 from .callbackers import CloudCallback, LocalCallback, OfflineCallback
 from .data.transforms import Text
 
 __all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
 
 
-LogData = Dict[str, Any]
+LogData = Mapping[str, Any]
 """
 日志数据代表的是单次 swanlab.log({...}, step=N) 调用中的数据字典（展开后）。
 """
@@ -62,11 +63,11 @@ class SwanLabRun:
         :param step: The global step at which the data was logged. Can be None if not explicitly tracked.
         """
         # 类型检查
-        if not isinstance(data, dict):
-            console.error("Log data must be a dict, but got {}. SwanLab will ignore records it.".format(type(data)))
+        if not isinstance(data, Mapping):
+            console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore it.")
             return
         # 如果没有传递step，获取全局step，并将全局step+1
-        step = self._ctx.metrics.next_step(step)
+        step = metrics.next_step(self._ctx, step)
         # 获取当前时间
         ts = Timestamp()
         ts.GetCurrentTime()
@@ -88,9 +89,12 @@ class SwanLabRun:
                 data, step, timestamp = payload
                 # 处理数据
                 for key, value in data.items():
-                    # TODO: 判断是否为首次写入，如果为首次写入，需要创建列
+                    # 校验Key格式
 
+                    # 处理数据
                     _: LogRecord = self._dispatch_log(value=value, key=key, timestamp=timestamp, step=step)
+                    # TODO 如果是首次写入，需要创建列
+
                     # TODO: 写入文件
                     # TODO: 触发回调器
             except Exception as e:
@@ -156,7 +160,7 @@ class SwanLabRun:
 
 
 def flatten_dict(
-    d: Dict[str, Any], parent_key: str = "", parent_dict: Optional[Dict[str, Any]] = None
+    d: Mapping[str, Any], parent_key: str = "", parent_dict: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     展开字典，例如 {"a": {"b": {"c": 1}}} -> {"a/b/c": 1}
@@ -171,9 +175,11 @@ def flatten_dict(
         parent_dict = {}
 
     for k, v in d.items():
-        new_key = f"{parent_key}/{k}" if parent_key else k
+        # 防御性编程：用户可能会传非字符串的 key（比如整数），强制转为 str
+        k_str = str(k)
+        new_key = f"{parent_key}/{k_str}" if parent_key else k_str
 
-        if isinstance(v, dict):
+        if isinstance(v, Mapping):
             # 递归调用，将同一个 parent_dict 引用传递下去
             flatten_dict(v, new_key, parent_dict)
         else:
