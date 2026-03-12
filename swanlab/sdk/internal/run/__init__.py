@@ -11,7 +11,7 @@
 import queue
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union, get_args
+from typing import Any, Mapping, Optional, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -29,7 +29,10 @@ from .helper import (
     safe_validate_chart_name,
     safe_validate_color,
     safe_validate_key,
+    safe_validate_log_data,
     safe_validate_name,
+    safe_validate_state,
+    safe_validate_step,
     safe_validate_x_axis,
 )
 from .record_builder import RecordBuilder
@@ -44,9 +47,14 @@ class SwanLabRun:
         # 事件总线：最大积压 10 万个事件（防 OOM 兜底）
         self._queue: queue.Queue[EventPayload] = queue.Queue(maxsize=100_000)
 
+        # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
+        # 后台消费者：负责将 Record 刷盘到文件系统
         self._consumer = BackgroundConsumer(self._queue, self._builder, ctx.callbacker, ctx.metrics)
         self._consumer.start()
+        # TODO: 触发启动事件
+        # TODO: 硬件监控与metadata采集
+        # TODO: Config 事件
 
     # ----------------------------------
     # 属性 (Properties)
@@ -68,23 +76,23 @@ class SwanLabRun:
 
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
-        if not isinstance(data, Mapping):
+        if not (this_data := safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore it.")
             return
-        if not isinstance(step, int) and step is not None:
+        if not (this_step := safe_validate_step(step)):
             console.error(f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore it.")
             return
 
-        step = self._ctx.metrics.next_step(step)
+        next_step = self._ctx.metrics.next_step(this_step)
 
         ts = Timestamp()
         ts.GetCurrentTime()
 
         # 展平字典并在内部进行合规性验证和截断
-        safe_data = flatten_dict(data)
+        flatten_data = flatten_dict(this_data)
 
         # 推送日志事件
-        self._queue.put(LogEvent(data=safe_data, step=step, timestamp=ts), block=True)
+        self._queue.put(LogEvent(data=flatten_data, step=next_step, timestamp=ts), block=True)
 
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
@@ -146,7 +154,7 @@ class SwanLabRun:
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         state = state.lower()  # type: ignore
-        if state not in get_args(FinishType):
+        if not (this_state := safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
 
@@ -154,15 +162,14 @@ class SwanLabRun:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
 
-        console.info("SwanLab Run is finishing, waiting for logs to flush...")
-
-        # 发送强类型的退出信号
-        self._queue.put(FinishEvent())
-
+        console.debug("SwanLab Run is finishing, waiting for logs to flush...")
+        # 线程退出
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        self._queue.put(FinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
-
-        console.info(f"Run finished with state: {state}")
+        console.debug(f"Run finished with state: {state}")
 
     def _define_scalar(
         self,

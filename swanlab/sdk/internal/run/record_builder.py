@@ -11,10 +11,8 @@ from typing import Optional, Tuple
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
-from swanlab.proto.swanlab.data.v1.log_pb2 import LogRecord
+from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-
-# from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunRecord, RunState
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
@@ -49,14 +47,14 @@ class RecordBuilder:
         ts.GetCurrentTime()
         return Record(num=self._num, timestamp=ts, **kwargs)
 
-    # ── 用户数据（原 _dispatch_parse + _dispatch_define） ──
+    # ── 用户数据 ──
 
     @singledispatchmethod
     def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """默认回退：标量"""
         scalar_value = Scalar.transform(value)
-        log = LogRecord(key=key, step=step, timestamp=timestamp, scalar=scalar_value)
-        return self._wrap(log=log), "scalar"
+        metric = MetricRecord(key=key, step=step, timestamp=timestamp, scalar=scalar_value)
+        return self._wrap(metric=metric), "scalar"
 
     @build_log.register
     def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
@@ -66,18 +64,18 @@ class RecordBuilder:
         path = self._ctx.media_dir / cls_type
         safe_mkdir(path)
         media_value = cls.transform(key=key, step=step, path=path, content=value)
-        log = LogRecord(key=key, step=step, timestamp=timestamp)
-        getattr(log, cls_type).CopyFrom(media_value)
-        return self._wrap(log=log), cls_type
+        metric = MetricRecord(key=key, step=step, timestamp=timestamp)
+        getattr(metric, cls_type).CopyFrom(media_value)
+        return self._wrap(metric=metric), cls_type
 
-    def build_column_from_log(self, log_record: LogRecord, key: str) -> Record:
-        """隐式创建列：从 LogRecord 推断 ColumnType，并同步 RunMetrics"""
-        col_type, section_type = self._infer_column_type(log_record)
+    def build_column_from_log(self, metric_record: MetricRecord, key: str) -> Record:
+        """隐式创建列：从 MetricRecord 推断 ColumnType，并同步 RunMetrics"""
+        col_type, section_type = self._infer_column_type(metric_record)
         metrics = self._ctx.metrics
         if col_type == ColumnType.COLUMN_TYPE_FLOAT:
             metrics.define_scalar(key)
         else:
-            media_type = self._log_to_media_type(log_record)
+            media_type = self._metric_to_media_type(metric_record)
             metrics.define_media(key, media_type, self._ctx.media_dir / media_type)
         col = ColumnRecord(
             key=key,
@@ -161,9 +159,9 @@ class RecordBuilder:
 
     # ── 内部工具 ──
 
-    def _infer_column_type(self, log: LogRecord) -> Tuple[ColumnType, SectionType]:
-        """根据 LogRecord.value oneof 推断 ColumnType"""
-        field_name = log.WhichOneof("value")
+    def _infer_column_type(self, metric: MetricRecord) -> Tuple[ColumnType, SectionType]:
+        """根据 MetricRecord.value oneof 推断 ColumnType"""
+        field_name = metric.WhichOneof("value")
         section_type = SectionType.SECTION_TYPE_PUBLIC
         mapping = {
             "scalar": ColumnType.COLUMN_TYPE_FLOAT,
@@ -176,9 +174,9 @@ class RecordBuilder:
         col_type = mapping.get(field_name, ColumnType.COLUMN_TYPE_UNSPECIFIED)
         return col_type, section_type
 
-    def _log_to_media_type(self, log: LogRecord) -> MediaTransferType:
-        """将 LogRecord oneof 字段名映射为 MediaTransferType"""
-        field_name = log.WhichOneof("value")
+    def _metric_to_media_type(self, metric: MetricRecord) -> MediaTransferType:
+        """将 MetricRecord oneof 字段名映射为 MediaTransferType"""
+        field_name = metric.WhichOneof("value")
         mapping: dict = {
             "images": "image",
             "audios": "audio",

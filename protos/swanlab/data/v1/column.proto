@@ -42,7 +42,7 @@ message YRange {
 }
 
 // ColumnRecord 列定义，描述一个 metric key 的显示配置和归类规则。
-// 通常在该 key 首次出现时随 LogRecord 之前发送一次。
+// 通常在该 key 首次出现时随 MetricRecord 之前发送一次。
 //
 // Section 归类优先级规则：
 //   1. PINNED / HIDDEN / SCALAR / MEDIA 同类只允许一个 section；
@@ -58,7 +58,7 @@ message ColumnRecord {
   // 数据类型，必填
   ColumnType type = 2;
 
-  // 键名，必填，须与 LogRecord.key 对应
+  // 键名，必填，须与 MetricRecord.key 对应
   string key = 3;
 
   // 显示名称，可选，不填时默认取 key

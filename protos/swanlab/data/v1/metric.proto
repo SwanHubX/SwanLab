@@ -12,9 +12,9 @@ import "swanlab/data/v1/echarts.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
 
-// 对应一次 swanlab.log({...}, step=N) 调用。
-// 一次调用可携带多个不同类型的 metric。
-message LogRecord {
+// 对应一次 swanlab.log({...}, step=N) 调用中的单条 metric。
+// 一次调用可产生多条 MetricRecord，每条对应 dict 中的一个 key。
+message MetricRecord {
   // 记录的 key，如 "train/loss"
   string key = 1;
   // 用户显式传入或由 SDK 自动递增的全局步数

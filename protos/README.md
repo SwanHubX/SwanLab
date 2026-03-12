@@ -25,7 +25,7 @@ protos/
     │
     ├── data/
     │   └── v1/
-    │       ├── log.proto           # 用户 swanlab.log() 产生的 metric 记录
+    │       ├── metric.proto        # 用户 swanlab.log() 产生的 metric 记录（MetricRecord）
     │       ├── column.proto        # 列定义（ColumnRecord），描述 metric 的展示与归类配置
     │       ├── scalar.proto        # 标量值（数字 / 字符串 / bool）
     │       ├── image.proto         # 图像引用
@@ -59,9 +59,9 @@ swanlab.init(...)
 # 训练循环中，首次出现某 key 时先发送列定义
   → Record { column: ColumnRecord { key="loss", type=FLOAT, ... } }
   → Record { column: ColumnRecord { key="img",  type=IMAGE, ... } }
-# 每个指标独立生成一条 LogRecord，swanlab.log({"loss": 0.5, "img": Image(...)}, step=10) 产生两条：
-  → Record { log: LogRecord { key="loss", step=10, value=ScalarValue{...} } }
-  → Record { log: LogRecord { key="img",  step=10, value=ImageValue{...}  } }
+# 每个指标独立生成一条 MetricRecord，swanlab.log({"loss": 0.5, "img": Image(...)}, step=10) 产生两条：
+  → Record { metric: MetricRecord { key="loss", step=10, value=ScalarValue{...} } }
+  → Record { metric: MetricRecord { key="img",  step=10, value=ImageValue{...}  } }
 
 # 终端代理（每行）
   → Record { console: ConsoleRecord { line="...", stream=STDOUT } }

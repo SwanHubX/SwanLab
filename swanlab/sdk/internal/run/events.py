@@ -14,6 +14,7 @@ from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import RunRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import DataTransferType, ScalarXAxisType
 
 # ==========================================
@@ -56,7 +57,9 @@ class DefineEvent:
 class FinishEvent:
     """运行结束的毒丸信号 (Poison Pill)"""
 
-    pass
+    state: FinishType
+    error: Optional[str]
+    timestamp: Optional[Timestamp]
 
 
 @dataclass

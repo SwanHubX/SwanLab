@@ -227,13 +227,9 @@ def init(
     if not success:
         webhook_url = ctx.config.settings.integration.webhook.url
         console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
-    # 初始化成功，触发回调
-    ctx.callbacker.on_run_init(
-        ctx.run_dir,
-        f"{ctx.config.settings.project.workspace}/{ctx.config.settings.project.name}/{ctx.config.settings.run.id}",
-    )
     # 加载配置
     _ = load_config(run_settings, config)
+    # TODO 触发init事件
     # TODO 触发配置加载
     return run
 

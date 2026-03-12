@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class LogRecord(_message.Message):
+class MetricRecord(_message.Message):
     __slots__ = ("key", "step", "timestamp", "scalar", "images", "audios", "videos", "texts", "echarts")
     KEY_FIELD_NUMBER: _ClassVar[int]
     STEP_FIELD_NUMBER: _ClassVar[int]

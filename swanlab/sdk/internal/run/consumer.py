@@ -83,10 +83,10 @@ class BackgroundConsumer:
                         try:
                             record, data_type = self._builder.build_log(value, key, event.timestamp, event.step)
                             if key not in _emitted_columns:
-                                batch.append(self._builder.build_column_from_log(record.log, key))
+                                batch.append(self._builder.build_column_from_log(record.metric, key))
                                 _emitted_columns.add(key)
                             if data_type == "scalar":
-                                self._metrics.update_scalar(key, record.log.scalar.number)
+                                self._metrics.update_scalar(key, record.metric.scalar.number)
                             batch.append(record)
                         except Exception as e:
                             console.error(f"Error when parsing metric '{key}': {e}")
@@ -125,6 +125,8 @@ class BackgroundConsumer:
             return
         try:
             # TODO: 批量追加到本地文件
-            self._callbacker.on_batch_log(records)
+            ...
+            # TODO: 分类数据，根据语义依次触发回调
+
         except Exception as e:
             console.error(f"SwanLab failed to write disk or trigger callbacks: {e}")

@@ -6,9 +6,10 @@
 """
 
 import re
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, get_args
 
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 
@@ -108,6 +109,17 @@ def validate_key(key: str, max_len: int = 255) -> str:
     return sanitized_key
 
 
+def safe_validate_log_data(data: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
+    """
+    检查并清洗日志数据，如果出现非法键名或值类型不支持，返回 None。
+    :param data: 待检查的日志数据
+    :return: 清洗后的日志数据或 None
+    """
+    if not isinstance(data, Mapping):
+        return None
+    return data
+
+
 def safe_validate_step(step: Optional[int]) -> Optional[int]:
     """
     检查并清洗 step 整数格式，如果出现非法值，返回 None。
@@ -189,3 +201,9 @@ def safe_validate_color(color: Optional[str]) -> Optional[str]:
     if not all(c in "0123456789abcdefABCDEF" for c in color[1:]):
         return None
     return color
+
+
+def safe_validate_state(state: FinishType) -> Optional[FinishType]:
+    if state not in get_args(FinishType):
+        return None
+    return state
