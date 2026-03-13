@@ -302,8 +302,8 @@ def _init(run_settings: Settings):
             # 不注册回调器
             pass
         else:
-            raise ValueError(f"Invalid mode: {mode}")
-    # 最后将上下文作为全局上下文使用
+            raise ValueError(f"Invalid mode for `swanlab.init`: {mode}")
+    # 将上下文作为全局上下文使用
     set_context(ctx)
     # 绑定日志文件
     if ctx.config.settings.mode != "disabled":

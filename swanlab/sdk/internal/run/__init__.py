@@ -54,10 +54,13 @@ class SwanLabRun:
 
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
-        self._consumer.start()
         # TODO: 触发启动事件
         # TODO: 硬件监控与metadata采集
         # TODO: Config 事件
+        self._consumer.start()
+
+        # 设置全局运行实例
+        set_run(self)
 
     # ----------------------------------
     # 属性 (Properties)
