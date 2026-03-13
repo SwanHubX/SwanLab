@@ -16,7 +16,7 @@ from typing import Any, Literal, Mapping, Optional, Union, cast, get_args
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent
+from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console
@@ -54,9 +54,16 @@ class SwanLabRun:
 
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
-        # TODO: 触发启动事件
+
+        # 触发启动事件
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        self._emitter.emit(RunStartEvent(timestamp=ts))
+
         # TODO: 硬件监控与metadata采集
         # TODO: Config 事件
+
+        # 启动后台消费者
         self._consumer.start()
 
         # 设置全局运行实例

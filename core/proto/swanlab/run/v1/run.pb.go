@@ -25,28 +25,25 @@ const (
 type RunState int32
 
 const (
-	RunState_RUN_STATE_UNSPECIFIED RunState = 0
-	RunState_RUN_STATE_RUNNING     RunState = 1
-	RunState_RUN_STATE_FINISHED    RunState = 2 // 正常结束
-	RunState_RUN_STATE_CRASHED     RunState = 3 // 异常退出
-	RunState_RUN_STATE_STOPPED     RunState = 4 // 用户主动中断（KeyboardInterrupt 等）
+	RunState_RUN_STATE_RUNNING  RunState = 0
+	RunState_RUN_STATE_FINISHED RunState = 1 // 正常结束
+	RunState_RUN_STATE_CRASHED  RunState = 2 // 异常退出
+	RunState_RUN_STATE_STOPPED  RunState = 3 // 用户主动中断（KeyboardInterrupt 等）
 )
 
 // Enum value maps for RunState.
 var (
 	RunState_name = map[int32]string{
-		0: "RUN_STATE_UNSPECIFIED",
-		1: "RUN_STATE_RUNNING",
-		2: "RUN_STATE_FINISHED",
-		3: "RUN_STATE_CRASHED",
-		4: "RUN_STATE_STOPPED",
+		0: "RUN_STATE_RUNNING",
+		1: "RUN_STATE_FINISHED",
+		2: "RUN_STATE_CRASHED",
+		3: "RUN_STATE_STOPPED",
 	}
 	RunState_value = map[string]int32{
-		"RUN_STATE_UNSPECIFIED": 0,
-		"RUN_STATE_RUNNING":     1,
-		"RUN_STATE_FINISHED":    2,
-		"RUN_STATE_CRASHED":     3,
-		"RUN_STATE_STOPPED":     4,
+		"RUN_STATE_RUNNING":  0,
+		"RUN_STATE_FINISHED": 1,
+		"RUN_STATE_CRASHED":  2,
+		"RUN_STATE_STOPPED":  3,
 	}
 )
 
@@ -80,25 +77,22 @@ func (RunState) EnumDescriptor() ([]byte, []int) {
 type ResumeMode int32
 
 const (
-	ResumeMode_RESUME_MODE_UNSPECIFIED ResumeMode = 0
-	ResumeMode_RESUME_MODE_NEVER       ResumeMode = 1
-	ResumeMode_RESUME_MODE_ALLOW       ResumeMode = 2
-	ResumeMode_RESUME_MODE_MUST        ResumeMode = 3
+	ResumeMode_RESUME_MODE_NEVER ResumeMode = 0
+	ResumeMode_RESUME_MODE_ALLOW ResumeMode = 1
+	ResumeMode_RESUME_MODE_MUST  ResumeMode = 2
 )
 
 // Enum value maps for ResumeMode.
 var (
 	ResumeMode_name = map[int32]string{
-		0: "RESUME_MODE_UNSPECIFIED",
-		1: "RESUME_MODE_NEVER",
-		2: "RESUME_MODE_ALLOW",
-		3: "RESUME_MODE_MUST",
+		0: "RESUME_MODE_NEVER",
+		1: "RESUME_MODE_ALLOW",
+		2: "RESUME_MODE_MUST",
 	}
 	ResumeMode_value = map[string]int32{
-		"RESUME_MODE_UNSPECIFIED": 0,
-		"RESUME_MODE_NEVER":       1,
-		"RESUME_MODE_ALLOW":       2,
-		"RESUME_MODE_MUST":        3,
+		"RESUME_MODE_NEVER": 0,
+		"RESUME_MODE_ALLOW": 1,
+		"RESUME_MODE_MUST":  2,
 	}
 )
 
@@ -131,20 +125,20 @@ func (ResumeMode) EnumDescriptor() ([]byte, []int) {
 
 // Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
 type RunRecord struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	RunId          string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	ExperimentName string                 `protobuf:"bytes,2,opt,name=experiment_name,json=experimentName,proto3" json:"experiment_name,omitempty"`
-	ProjectName    string                 `protobuf:"bytes,3,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
-	Workspace      string                 `protobuf:"bytes,4,opt,name=workspace,proto3" json:"workspace,omitempty"` // 组织或用户名
-	Description    string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	Tags           []string               `protobuf:"bytes,6,rep,name=tags,proto3" json:"tags,omitempty"`
-	Group          string                 `protobuf:"bytes,7,opt,name=group,proto3" json:"group,omitempty"`
-	JobType        string                 `protobuf:"bytes,8,opt,name=job_type,json=jobType,proto3" json:"job_type,omitempty"`
-	Color          string                 `protobuf:"bytes,9,opt,name=color,proto3" json:"color,omitempty"` // 十六进制颜色，如 "#FF5733"
-	Resume         ResumeMode             `protobuf:"varint,10,opt,name=resume,proto3,enum=swanlab.run.v1.ResumeMode" json:"resume,omitempty"`
-	StartedAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Project       string                 `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`
+	Workspace     string                 `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"` // 组织或用户名
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	Group         string                 `protobuf:"bytes,6,opt,name=group,proto3" json:"group,omitempty"`
+	JobType       string                 `protobuf:"bytes,7,opt,name=job_type,json=jobType,proto3" json:"job_type,omitempty"`
+	Color         string                 `protobuf:"bytes,8,opt,name=color,proto3" json:"color,omitempty"` // 十六进制颜色，如 "#FF5733"
+	Id            string                 `protobuf:"bytes,9,opt,name=id,proto3" json:"id,omitempty"`
+	Resume        ResumeMode             `protobuf:"varint,10,opt,name=resume,proto3,enum=swanlab.run.v1.ResumeMode" json:"resume,omitempty"`
+	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunRecord) Reset() {
@@ -177,23 +171,9 @@ func (*RunRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *RunRecord) GetRunId() string {
+func (x *RunRecord) GetProject() string {
 	if x != nil {
-		return x.RunId
-	}
-	return ""
-}
-
-func (x *RunRecord) GetExperimentName() string {
-	if x != nil {
-		return x.ExperimentName
-	}
-	return ""
-}
-
-func (x *RunRecord) GetProjectName() string {
-	if x != nil {
-		return x.ProjectName
+		return x.Project
 	}
 	return ""
 }
@@ -201,6 +181,13 @@ func (x *RunRecord) GetProjectName() string {
 func (x *RunRecord) GetWorkspace() string {
 	if x != nil {
 		return x.Workspace
+	}
+	return ""
+}
+
+func (x *RunRecord) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -240,11 +227,18 @@ func (x *RunRecord) GetColor() string {
 	return ""
 }
 
+func (x *RunRecord) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 func (x *RunRecord) GetResume() ResumeMode {
 	if x != nil {
 		return x.Resume
 	}
-	return ResumeMode_RESUME_MODE_UNSPECIFIED
+	return ResumeMode_RESUME_MODE_NEVER
 }
 
 func (x *RunRecord) GetStartedAt() *timestamppb.Timestamp {
@@ -300,7 +294,7 @@ func (x *FinishRecord) GetState() RunState {
 	if x != nil {
 		return x.State
 	}
-	return RunState_RUN_STATE_UNSPECIFIED
+	return RunState_RUN_STATE_RUNNING
 }
 
 func (x *FinishRecord) GetExitCode() int32 {
@@ -328,17 +322,17 @@ var File_swanlab_run_v1_run_proto protoreflect.FileDescriptor
 
 const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	"\n" +
-	"\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x02\n" +
-	"\tRunRecord\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12'\n" +
-	"\x0fexperiment_name\x18\x02 \x01(\tR\x0eexperimentName\x12!\n" +
-	"\fproject_name\x18\x03 \x01(\tR\vprojectName\x12\x1c\n" +
-	"\tworkspace\x18\x04 \x01(\tR\tworkspace\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
-	"\x04tags\x18\x06 \x03(\tR\x04tags\x12\x14\n" +
-	"\x05group\x18\a \x01(\tR\x05group\x12\x19\n" +
-	"\bjob_type\x18\b \x01(\tR\ajobType\x12\x14\n" +
-	"\x05color\x18\t \x01(\tR\x05color\x122\n" +
+	"\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd3\x02\n" +
+	"\tRunRecord\x12\x18\n" +
+	"\aproject\x18\x01 \x01(\tR\aproject\x12\x1c\n" +
+	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04tags\x18\x05 \x03(\tR\x04tags\x12\x14\n" +
+	"\x05group\x18\x06 \x01(\tR\x05group\x12\x19\n" +
+	"\bjob_type\x18\a \x01(\tR\ajobType\x12\x14\n" +
+	"\x05color\x18\b \x01(\tR\x05color\x12\x0e\n" +
+	"\x02id\x18\t \x01(\tR\x02id\x122\n" +
 	"\x06resume\x18\n" +
 	" \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
@@ -348,19 +342,17 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x12;\n" +
 	"\vfinished_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"finishedAt*\x82\x01\n" +
-	"\bRunState\x12\x19\n" +
-	"\x15RUN_STATE_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11RUN_STATE_RUNNING\x10\x01\x12\x16\n" +
-	"\x12RUN_STATE_FINISHED\x10\x02\x12\x15\n" +
-	"\x11RUN_STATE_CRASHED\x10\x03\x12\x15\n" +
-	"\x11RUN_STATE_STOPPED\x10\x04*m\n" +
+	"finishedAt*g\n" +
+	"\bRunState\x12\x15\n" +
+	"\x11RUN_STATE_RUNNING\x10\x00\x12\x16\n" +
+	"\x12RUN_STATE_FINISHED\x10\x01\x12\x15\n" +
+	"\x11RUN_STATE_CRASHED\x10\x02\x12\x15\n" +
+	"\x11RUN_STATE_STOPPED\x10\x03*P\n" +
 	"\n" +
-	"ResumeMode\x12\x1b\n" +
-	"\x17RESUME_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11RESUME_MODE_NEVER\x10\x01\x12\x15\n" +
-	"\x11RESUME_MODE_ALLOW\x10\x02\x12\x14\n" +
-	"\x10RESUME_MODE_MUST\x10\x03B=Z;github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1b\x06proto3"
+	"ResumeMode\x12\x15\n" +
+	"\x11RESUME_MODE_NEVER\x10\x00\x12\x15\n" +
+	"\x11RESUME_MODE_ALLOW\x10\x01\x12\x14\n" +
+	"\x10RESUME_MODE_MUST\x10\x02B=Z;github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1b\x06proto3"
 
 var (
 	file_swanlab_run_v1_run_proto_rawDescOnce sync.Once

@@ -10,10 +10,11 @@ from typing import Optional, Tuple
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunRecord, RunState
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.bus.events import (
@@ -115,7 +116,27 @@ class RecordBuilder:
 
     def build_run(self, event: RunStartEvent) -> Record:
         """构建 RunRecord envelope"""
-        return self._wrap(run=event.run_record)
+        resume_map = {
+            "never": ResumeMode.RESUME_MODE_NEVER,
+            "allow": ResumeMode.RESUME_MODE_ALLOW,
+            "must": ResumeMode.RESUME_MODE_MUST,
+        }
+
+        settings = self._ctx.config.settings
+        run_record = RunRecord(
+            project=settings.project.name,
+            workspace=settings.project.workspace,
+            name=settings.experiment.name,
+            color=settings.experiment.color,
+            description=settings.experiment.description,
+            job_type=settings.experiment.job_type,
+            group=settings.experiment.group,
+            tags=settings.experiment.tags,
+            id=settings.run.id,
+            resume=resume_map.get(settings.run.resume, ResumeMode.RESUME_MODE_NEVER),
+            started_at=event.timestamp,
+        )
+        return self._wrap(run=run_record)
 
     def build_finish(self, state: FinishType, error: Optional[str] = None) -> Record:
         """构建 FinishRecord envelope"""
@@ -137,7 +158,8 @@ class RecordBuilder:
 
     def build_config(self, event: ConfigEvent) -> Record:
         """构建 ConfigRecord envelope"""
-        return self._wrap(config=event.config_record)
+        config_record = ConfigRecord(path=event.path, update_type=event.update, format="yaml")
+        return self._wrap(config=config_record)
 
     def build_console(self, event: ConsoleEvent) -> Record:
         """构建 ConsoleRecord envelope"""
@@ -160,6 +182,7 @@ class RecordBuilder:
 
     # ── 内部工具 ──
 
+    @singledispatchmethod
     def _infer_column_type(self, metric: MetricRecord) -> Tuple["ColumnType", "SectionType"]:
         """根据 MetricRecord.value oneof 推断 ColumnType"""
         field_name = metric.WhichOneof("value")
@@ -175,6 +198,7 @@ class RecordBuilder:
         col_type = mapping.get(field_name, ColumnType.COLUMN_TYPE_UNSPECIFIED)
         return col_type, section_type
 
+    @singledispatchmethod
     def _metric_to_media_type(self, metric: MetricRecord) -> MediaTransferType:
         """将 MetricRecord oneof 字段名映射为 MediaTransferType"""
         field_name = metric.WhichOneof("value")
