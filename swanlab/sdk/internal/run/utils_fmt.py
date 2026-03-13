@@ -78,6 +78,8 @@ def validate_key(key: str, max_len: int = 255) -> str:
     if not isinstance(key, str):
         key = str(key)
 
+    max_len = min(max_len, 255)
+
     original_key = key
 
     # 剥离头尾的空白字符、'.' 和 '/'
