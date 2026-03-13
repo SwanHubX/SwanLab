@@ -112,6 +112,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
 def safe_validate_log_data(data: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
     """
     检查并清洗日志数据，如果出现非法键名或值类型不支持，返回 None。
+
     :param data: 待检查的日志数据
     :return: 清洗后的日志数据或 None
     """
@@ -123,6 +124,7 @@ def safe_validate_log_data(data: Mapping[str, Any]) -> Optional[Mapping[str, Any
 def safe_validate_step(step: Optional[int]) -> Optional[int]:
     """
     检查并清洗 step 整数格式，如果出现非法值，返回 None。
+
     :param step: 待检查的步数
     :return: 清洗后的步数或 None
     """
@@ -136,6 +138,7 @@ def safe_validate_step(step: Optional[int]) -> Optional[int]:
 def safe_validate_key(key: str) -> Optional[str]:
     """
     检查并清洗 key 字符串格式，如果出现非法字符或长度超过限制，返回 None。
+
     :param key: 待检查的键名
     :return: 清洗后的键名或 None
     """
@@ -148,6 +151,7 @@ def safe_validate_key(key: str) -> Optional[str]:
 def safe_validate_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
     """
     检查并清洗指标名称，如果出现非法字符或长度超过限制，返回 None。
+
     :param name: 待检查的指标名称
     :param max_len: 名称的最大长度，默认为255
     :return: 清洗后的指标名称或 None
@@ -164,6 +168,7 @@ def safe_validate_name(name: Optional[str], max_len: int = 255) -> Optional[str]
 def safe_validate_chart_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
     """
     检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
+
     :param name: 待检查的图表名称
     :param max_len: 名称的最大长度，默认为255
     :return: 清洗后的图表名称或 None
@@ -178,6 +183,12 @@ def safe_validate_chart_name(name: Optional[str], max_len: int = 255) -> Optiona
 
 
 def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXAxisType]:
+    """
+    检查并清洗 x 轴指标名称，如果出现非法字符或长度超过限制，返回 None。
+
+    :param x_axis: 待检查的 x 轴指标名称
+    :return: 清洗后的 x 轴指标名称或 None
+    """
     if x_axis is None:
         x_axis = "_step"
     try:
@@ -189,6 +200,7 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
 def safe_validate_color(color: Optional[str]) -> Optional[str]:
     """
     检查并清洗颜色字符串格式，必须是#开头的十六进制颜色代码
+
     :param color: 待检查的颜色字符串
     :return: 清洗后的颜色字符串或 None
     """
@@ -204,6 +216,12 @@ def safe_validate_color(color: Optional[str]) -> Optional[str]:
 
 
 def safe_validate_state(state: FinishType) -> Optional[FinishType]:
+    """
+    检查并清洗运行结束状态，如果出现非法值，返回 None。
+
+    :param state: 待检查的运行结束状态
+    :return: 清洗后的运行结束状态或 None
+    """
     if state not in get_args(FinishType):
         return None
     return state
