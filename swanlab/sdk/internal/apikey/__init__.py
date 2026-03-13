@@ -12,7 +12,7 @@ from typing import Optional
 
 from rich.text import Text
 
-from swanlab.sdk.internal.context import get_context, has_context
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
 from swanlab.sdk.internal.settings import Settings, settings
@@ -21,11 +21,11 @@ from swanlab.sdk.utils import helper
 __all__ = ["get", "save", "exists"]
 
 
-def save(username: str, api_key: str, host: Optional[str] = None):
+def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[RunContext] = None):
     """
     保存API Key到本地存储，并更新当前settings中的API Key
     """
-    current_settings = get_current_settings()
+    current_settings = get_current_settings(ctx=ctx)
 
     if host is None:
         host = remove_host_suffix(current_settings.api_host, "/api")
@@ -39,29 +39,29 @@ def save(username: str, api_key: str, host: Optional[str] = None):
     current_settings.merge_settings({"api_key": api_key})
 
 
-def exists() -> bool:
+def exists(ctx: Optional[RunContext] = None) -> bool:
     """
     检查当前的API Key是否存在
     """
-    return get_current_settings().api_key is not None
+    return get_current_settings(ctx=ctx).api_key is not None
 
 
-def exists_locally() -> bool:
+def exists_locally(ctx: Optional[RunContext] = None) -> bool:
     """
     检查本地是否存在API Key
     仅简单判断文件是否存在，不考虑是否有效
     :return: True表示存在，False表示不存在
     """
-    current_settings = get_current_settings()
+    current_settings = get_current_settings(ctx=ctx)
     nrc_path = Path(get_nrc_path(current_settings.root))
     return nrc_path.exists()
 
 
-def get() -> str:
+def get(ctx: Optional[RunContext] = None) -> str:
     """
     获取当前的API Key，如果不存在则报错
     """
-    api_key = get_current_settings().api_key
+    api_key = get_current_settings(ctx=ctx).api_key
     if api_key is None:
         raise FileNotFoundError("The API key file or target host does not exist. Please check your API Key.")
     return api_key
@@ -70,6 +70,7 @@ def get() -> str:
 def prompt(
     tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL + C' to quit",
     again: bool = False,
+    ctx: Optional[RunContext] = None,
 ) -> str:
     """
     让用户在终端安全地输入 API Key。
@@ -77,10 +78,12 @@ def prompt(
 
     :param tip: 提示信息
     :param again: 是否是重新输入，如果是，则不显示获取 Key 的链接 URL
+    :param ctx: 当前运行上下文，如果提供则使用上下文中的配置信息，否则使用全局配置信息
+
     :raises RuntimeError: 如果当前环境不支持交互式输入
     :return: 用户输入的 API Key
     """
-    current_settings = get_current_settings()
+    current_settings = get_current_settings(ctx=ctx)
     if not current_settings.interactive:
         raise RuntimeError(
             "API Key not provided and interactive mode is disabled",
@@ -125,10 +128,8 @@ def prompt(
         raise RuntimeError(f"Failed to read API Key from terminal: {e}")
 
 
-def get_current_settings() -> Settings:
+def get_current_settings(ctx: Optional[RunContext] = None) -> Settings:
     """
     获取当前SwanLab配置信息，如果上下文中存在，则使用上下文中的配置信息，否则使用全局配置信息
     """
-    if has_context():
-        return get_context().config.settings
-    return settings
+    return settings if ctx is None else ctx.config.settings

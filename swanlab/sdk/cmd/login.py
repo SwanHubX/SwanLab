@@ -125,7 +125,7 @@ def raw_login(
     with use_context(RunContext(config=RunConfig(settings=login_settings, run_dir=fake_run_dir))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
         if api_key is None:
-            api_key = apikey.prompt()
+            api_key = apikey.prompt(ctx=ctx)
         # 3. 进入登录流程
         ctx.config.settings.merge_settings({"api_key": api_key})
         with Scope() as scope:
@@ -135,7 +135,7 @@ def raw_login(
             if login_resp is None:
                 raise AuthenticationError("Failed to login, please check your API Key or network connection.")
             if save:
-                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host)
+                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host, ctx=ctx)
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(ctx.config.settings)
         return True

@@ -23,8 +23,6 @@ __all__ = [
     "RunContext",
     "RunConfig",
     "RunMetrics",
-    "get_context",
-    "has_context",
     "use_context",
     "TransformType",
     "TransformMediaType",
@@ -122,7 +120,7 @@ def use_context(ctx: RunContext) -> Generator[RunContext, None, None]:
     退出行为：无论是否发生异常，离开 with 块时都会自动清空上下文。
     """
     # 1. 严格检查：如果已经存在上下文，直接拦截报错
-    if has_context():
+    if _current_ctx.get() is not None:
         raise RuntimeError("SwanLab Context is already active. Cannot nest or overwrite temp contexts.")
 
     # 2. 前置操作：设置上下文
