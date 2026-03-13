@@ -1,4 +1,4 @@
-from swanlab.sdk import Settings, SwanLabRun, clear_run, finish, get_run, has_run, init, login, merge_settings
+from swanlab.sdk import Settings, SwanLabRun, finish, get_run, has_run, init, login, merge_settings
 from swanlab.sdk.utils.version import get_swanlab_version
 
 from . import utils
@@ -14,7 +14,6 @@ __all__ = [
     "SwanLabRun",
     "has_run",
     "get_run",
-    "clear_run",
     # utils
     "utils",
 ]

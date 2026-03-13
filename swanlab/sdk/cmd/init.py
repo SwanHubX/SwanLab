@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 import yaml
 
+from swanlab.sdk.cmd.helper import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
@@ -37,7 +38,7 @@ from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
-from ..internal.run import SwanLabRun
+from ..internal.run import SwanLabRun, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -80,6 +81,7 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
 ConfigLike = Union[Dict[str, Any], str, os.PathLike]
 
 
+@with_cmd_lock
 def init(
     *,
     reinit: Optional[bool] = None,
@@ -100,7 +102,7 @@ def init(
     settings: Optional[Settings] = None,
     callbacks: Optional[List[SwanLabCallback]] = None,
     **kwargs,
-):
+) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
     the current run. Meanwhile, you can use 'swanlab.finish' to finish the current run and close the current
@@ -172,8 +174,13 @@ def init(
 
     :return: The SwanLabRun object.
     """
-    if reinit:
-        ...
+    if has_run():
+        run = get_run()
+        if reinit:
+            run.finish()
+        else:
+            console.error("Cannot init while SwanLab Run is active. Please finish the run first.")
+            return run
     # 运行时配置
     run_settings = Settings()
     # --------------------- 合并配置，检查格式，与业务无关 ----------------------------

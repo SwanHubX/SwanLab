@@ -8,9 +8,10 @@
 3. 触发异步微批处理落盘与回调
 """
 
-from functools import cached_property
+import threading
+from functools import cached_property, wraps
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union, cast, get_args
+from typing import Any, Literal, Mapping, Optional, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -38,6 +39,9 @@ class SwanLabRun:
 
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
+        self._state: Union[FinishType, Literal["running"]] = "running"
+        # 外部API锁，防止并发调用
+        self._api_lock = threading.RLock()
 
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
         self._emitter = RunEmitter(maxsize=100_000)
@@ -69,10 +73,38 @@ class SwanLabRun:
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
+    @cached_property
+    def project_url(self) -> Optional[str]:
+        settings = self._ctx.config.settings
+        if settings.mode != "cloud":
+            return None
+        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}"
+
+    @cached_property
+    def url(self) -> str:
+        settings = self._ctx.config.settings
+        if settings.mode != "cloud":
+            raise RuntimeError("Run URL is only available in cloud mode.")
+        return f"{self.project_url}/runs/{settings.run.id}"
+
+    # ----------------------------------
+    # 私有 API：内部辅助函数
+    # ----------------------------------
+    @staticmethod
+    def _with_lock(func):
+        """线程安全装饰器，自动获取和释放外部API锁"""
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            with self._api_lock:
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
     # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-
+    @_with_lock
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if not (this_data := fmt.safe_validate_log_data(data)):
@@ -99,6 +131,7 @@ class SwanLabRun:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
+    @_with_lock
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -111,6 +144,7 @@ class SwanLabRun:
             data = Text(data, caption=caption)
         self.log({key: data}, step=step)
 
+    @_with_lock
     def define_scalar(
         self,
         key: str,
@@ -159,8 +193,13 @@ class SwanLabRun:
             )
         )
 
+    @_with_lock
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
+        if self._state != "running":
+            console.error("Run has already finished or is not active, cannot call finish() again.")
+            return
+        self._state = state
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")

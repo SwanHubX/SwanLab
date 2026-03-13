@@ -75,6 +75,12 @@ class TestLoginE2E:
             result = login(api_key="some_key", relogin=False)
             assert result is True
 
+    def test_login_block_if_run_active(self):
+        """测试：如果 SwanLab Run 正在运行，不允许登录"""
+        with patch("swanlab.sdk.cmd.login.has_run", return_value=True):
+            result = login(api_key="some_key")
+            assert result is False
+
     def test_login_block_if_context_active(self, tmp_path):
         """测试：如果运行上下文已存在（比如实验进行中），不允许登录"""
         mock_config = RunConfig(settings=settings, run_dir=tmp_path / "run")
