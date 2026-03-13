@@ -9,6 +9,7 @@ r"""
 """
 import os
 import random
+import secrets
 import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
@@ -109,7 +110,7 @@ class SwanLabInitializer:
         settings: Settings = None,
         id: str = None,
         resume: Union[Literal['must', 'allow', 'never'], bool] = None,
-        parallel: Literal['none', 'shared'] = None,
+        parallel: Union[Literal['none', 'shared'], bool] = None,
         reinit: bool = None,
         color: str = None,
         **kwargs,
@@ -329,7 +330,7 @@ class SwanLabInitializer:
         if str(parallel).lower() in ["shared", "true", "yes"]:
             resume = "allow"
             mode = "cloud"
-            id = id or "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8))
+            id = id or secrets.token_hex(4)
         # 5. 校验mode参数并适配 backup 模式
         mode = "cloud" if mode == "online" else mode
         mode, login_info = _init_mode(mode, folder_settings.mode)
