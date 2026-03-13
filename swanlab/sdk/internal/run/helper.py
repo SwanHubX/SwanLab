@@ -5,13 +5,12 @@
 @description:
 """
 
-import re
 from typing import Any, Dict, Mapping, Optional, get_args
 
 from pydantic import ValidationError
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.constraints import ta_hex_color, ta_label
+from swanlab.sdk.internal.pkg.constraints import METRIC_KEY_INVALID_RE, ta_hex_color, ta_label, ta_metric_key
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -61,9 +60,6 @@ def flatten_dict(
     return parent_dict
 
 
-# 在模块顶层预编译正则，性能更好
-_INVALID_KEY_PATTERN = re.compile(r"[^\w./-]")
-
 # 全局警告缓存池，保证相同的非法 key 在同一进程中只警告一次
 # 不过在设计上可能每次实验都需要重新初始化更符合直觉一些，不过这属于小概率事件，考虑到性能，将其作为进程级别全局变量
 _WARNED_KEYS = set()
@@ -77,7 +73,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
     :param key: 待检查的键名
     :param max_len: 键名的最大长度，默认为255
     :return: 清洗后的键名
-    :raises ValueError: 如果清洗后为空字符串
+    :raises ValueError: 如果清洗后为空字符串或者无法通过 MetricKey 校验
     """
     # 宽容处理类型：如果是 int/float，直接转 str，不抛异常
     if not isinstance(key, str):
@@ -94,8 +90,8 @@ def validate_key(key: str, max_len: int = 255) -> str:
             f"SwanLab key: '{original_key}' is invalid or empty after sanitization, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
         )
 
-    # 3. 使用预编译的正则进行替换，速度极快
-    sanitized_key = _INVALID_KEY_PATTERN.sub("_", key)
+    # 使用来自 constraints 的预编译正则替换非法字符
+    sanitized_key = METRIC_KEY_INVALID_RE.sub("_", key)
 
     # 长度截断
     if len(sanitized_key) > max_len:
@@ -109,7 +105,11 @@ def validate_key(key: str, max_len: int = 255) -> str:
             )
             _WARNED_KEYS.add(original_key)
 
-    return sanitized_key
+    # 5. 使用 MetricKey 约束做最终校验，确保输出始终是合法的 MetricKey
+    try:
+        return ta_metric_key.validate_python(sanitized_key)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
 
 
 def safe_validate_log_data(data: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
@@ -140,14 +140,14 @@ def safe_validate_step(step: Optional[int]) -> Optional[int]:
 
 def safe_validate_key(key: str) -> Optional[str]:
     """
-    检查并清洗 key 字符串格式，如果出现非法字符或长度超过限制，返回 None。
+    检查 key 字符串格式，如果出现非法字符或长度超过限制，返回 None。
 
     :param key: 待检查的键名
-    :return: 清洗后的键名或 None
+    :return: 合法的键名或 None
     """
     try:
-        return validate_key(key)
-    except ValueError:
+        return ta_metric_key.validate_python(key)
+    except ValidationError:
         return None
 
 
@@ -191,8 +191,8 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
     if x_axis is None:
         x_axis = "_step"
     try:
-        return validate_key(x_axis)
-    except ValueError:
+        return ta_metric_key.validate_python(x_axis)
+    except ValidationError:
         return None
 
 

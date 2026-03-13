@@ -6,6 +6,7 @@
 作为 settings 各子模型字段约束的单一来源（Single Source of Truth）。
 """
 
+import re
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
@@ -24,6 +25,8 @@ __all__ = [
     "RunId",
     "MetricKey",
     "Label",
+    # MetricKey sanitization regex
+    "METRIC_KEY_INVALID_RE",
     # TypeAdapters
     "ta_project",
     "ta_workspace",
@@ -102,9 +105,16 @@ def _no_dot_slash_edges(v: str) -> str:
     return v
 
 
+# 合法字符集：word chars（\w）、点、斜杠、连字符
+# 同时作为 MetricKey pattern 约束和 sanitize 用的反向正则的来源
+_METRIC_KEY_VALID_CHARS = r"\w./-"
+
+METRIC_KEY_INVALID_RE = re.compile(rf"[^{_METRIC_KEY_VALID_CHARS}]")
+"""预编译的非法字符正则，供 sanitize 场景（如 validate_key）使用。"""
+
 MetricKey = Annotated[
     str,
-    Field(min_length=1, max_length=255),
+    Field(min_length=1, max_length=255, pattern=rf"^[{_METRIC_KEY_VALID_CHARS}]+$"),
     AfterValidator(_no_dot_slash_edges),
 ]
 """Metric / log key: 1-255 chars, must not start or end with ``'.'`` or ``'/'``."""
