@@ -14,6 +14,17 @@ from typing import Annotated, Any, List, Literal, Optional, cast
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import NoDecode
 
+from swanlab.sdk.internal.pkg.constraints import (
+    Description,
+    ExperimentName,
+    Group,
+    HexColor,
+    JobType,
+    ProjectName,
+    RunId,
+    TagString,
+    Workspace,
+)
 from swanlab.sdk.typings.run import ResumeType
 
 
@@ -33,22 +44,16 @@ def project_public_factory() -> bool:
 
 
 class ProjectSettings(BaseModel):
-    name: Optional[str] = Field(
+    name: Optional[ProjectName] = Field(
         default_factory=project_name_factory,
-        min_length=1,
-        max_length=100,
-        pattern=r"^[0-9a-zA-Z_\-+.]+$",
         validate_default=True,
     )
     """
     Project name for this SwanLab run.
     """
 
-    workspace: Optional[str] = Field(
+    workspace: Optional[Workspace] = Field(
         default_factory=workspace_factory,
-        min_length=1,
-        max_length=25,
-        pattern=r"^[0-9a-zA-Z\-_]+$",
         validate_default=True,
     )
     """
@@ -92,43 +97,35 @@ def experiment_job_type_factory() -> Optional[str]:
     return os.environ.get("SWANLAB_JOB_TYPE", None)
 
 
-ValidTagString = Annotated[str, Field(max_length=200)]
-
-ValidTags = Field(default_factory=experiment_tags_factory, max_length=50, validate_default=True)
+Tags = Field(default_factory=experiment_tags_factory, max_length=50, validate_default=True)
 
 
 class ExperimentSettings(BaseModel):
-    name: Optional[str] = Field(
+    name: Optional[ExperimentName] = Field(
         default_factory=experiment_name_factory,
-        min_length=1,
-        max_length=250,
         validate_default=True,
     )
     """
     Experiment name for this SwanLab run.
     """
 
-    color: Optional[str] = Field(
+    color: Optional[HexColor] = Field(
         default_factory=experiment_color_factory,
-        max_length=7,
-        min_length=7,
-        pattern=r"^#[0-9a-fA-F]{6}$",
         validate_default=True,
     )
     """
     Color for this SwanLab run.
     """
 
-    description: Optional[str] = Field(
+    description: Optional[Description] = Field(
         default_factory=experiment_description_factory,
-        min_length=1,
-        max_length=1024,
         validate_default=True,
     )
     """
     Description for this SwanLab run.
     """
-    tags: Annotated[List[ValidTagString], NoDecode] = ValidTags
+
+    tags: Annotated[List[TagString], NoDecode] = Tags
     """
     Tags for this SwanLab run.
     """
@@ -156,16 +153,12 @@ class ExperimentSettings(BaseModel):
             return [item.strip() for item in v.split(",") if item.strip()]
         raise ValueError(f"tags must be a list, dict, or string, but got {type(v).__name__}")
 
-    group: Optional[str] = Field(
-        default_factory=experiment_group_factory, min_length=1, max_length=256, validate_default=True
-    )
+    group: Optional[Group] = Field(default_factory=experiment_group_factory, validate_default=True)
     """
     Group for this SwanLab run.
     """
 
-    job_type: Optional[str] = Field(
-        default_factory=experiment_job_type_factory, min_length=1, max_length=256, validate_default=True
-    )
+    job_type: Optional[JobType] = Field(default_factory=experiment_job_type_factory, validate_default=True)
     """
     Job type for this SwanLab run.
     """
@@ -214,7 +207,7 @@ def map_resume_value(value: Any) -> ResumeType:
 
 
 class RunSettings(BaseModel):
-    id: Optional[str] = Field(default_factory=run_id_factory, max_length=64, min_length=1, pattern=r"^[a-z0-9_]{1,64}$")
+    id: Optional[RunId] = Field(default_factory=run_id_factory)
     """
     Run ID for this SwanLab run.
     """

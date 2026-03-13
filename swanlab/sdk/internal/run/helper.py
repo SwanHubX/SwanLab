@@ -8,7 +8,10 @@
 import re
 from typing import Any, Dict, Mapping, Optional, get_args
 
+from pydantic import ValidationError
+
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.constraints import ta_hex_color, ta_label
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -148,38 +151,34 @@ def safe_validate_key(key: str) -> Optional[str]:
         return None
 
 
-def safe_validate_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
+def safe_validate_name(name: Optional[str]) -> Optional[str]:
     """
-    检查并清洗指标名称，如果出现非法字符或长度超过限制，返回 None。
+    检查并清洗指标名称，如果出现非法字符或长度超过限制（255），返回 None。
 
     :param name: 待检查的指标名称
-    :param max_len: 名称的最大长度，默认为255
     :return: 清洗后的指标名称或 None
     """
     if name is None:
         return None
-    if not isinstance(name, str):
+    try:
+        return ta_label.validate_python(name)
+    except ValidationError:
         return None
-    if len(name) > max_len:
-        return None
-    return name
 
 
-def safe_validate_chart_name(name: Optional[str], max_len: int = 255) -> Optional[str]:
+def safe_validate_chart_name(name: Optional[str]) -> Optional[str]:
     """
-    检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
+    检查并清洗图表名称，如果出现非法字符或长度超过限制（255），返回 None。
 
     :param name: 待检查的图表名称
-    :param max_len: 名称的最大长度，默认为255
     :return: 清洗后的图表名称或 None
     """
     if name is None:
         return None
-    if not isinstance(name, str):
+    try:
+        return ta_label.validate_python(name)
+    except ValidationError:
         return None
-    if len(name) > max_len:
-        return None
-    return name
 
 
 def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXAxisType]:
@@ -206,13 +205,10 @@ def safe_validate_color(color: Optional[str]) -> Optional[str]:
     """
     if color is None:
         return None
-    if not color.startswith("#"):
+    try:
+        return ta_hex_color.validate_python(color)
+    except ValidationError:
         return None
-    if len(color) != 7:
-        return None
-    if not all(c in "0123456789abcdefABCDEF" for c in color[1:]):
-        return None
-    return color
 
 
 def safe_validate_state(state: FinishType) -> Optional[FinishType]:
