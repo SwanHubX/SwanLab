@@ -17,12 +17,13 @@ from urllib3.util.retry import Retry
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
-from swanlab.sdk.internal.pkg import log
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils import helper
 from swanlab.sdk.utils.version import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
+TRACE_ID = "swanlab.client"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 
@@ -102,11 +103,11 @@ class SessionWithRetry(Session):
         # --- [DEBUG] 记录请求详情 ---
         if helper.env.DEBUG:
             # 这里的 request.url 已经包含了 params 拼接后的完整 query 字符串
-            log.debug("[HTTP-REQ] %s %s | Headers: %s", method, request.url, request.headers)
+            console.trace(f"[HTTP-REQ] {method} {request.url} | Headers: {request.headers}", id=TRACE_ID)
             body = request.body
             if body:
                 body_preview = format_body_preview(body) or "<unknown binary data>"
-                log.debug("[HTTP-REQ-BODY] %s", body_preview)
+                console.trace(f"[HTTP-REQ-BODY] {body_preview}", id=TRACE_ID)
         # ---------------------------
 
         start = time.perf_counter()
@@ -119,23 +120,19 @@ class SessionWithRetry(Session):
 
         # 1. 2xx 响应：记录正常日志后放行
         if response.ok:
-            log.debug(
-                "[HTTP] %s %s -> %s (%.0fms) trace:%s",
-                method,
-                request.url,
-                response.status_code,
-                elapsed_ms,
-                trace_id,
+            console.trace(
+                f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}",
+                id=TRACE_ID,
             )
 
             # --- [DEBUG] 记录成功响应详情 ---
             if helper.env.DEBUG:
-                log.debug("[HTTP-RES] Headers: %s", response.headers)
+                console.trace(f"[HTTP-RES] Headers: {response.headers}", id=TRACE_ID)
                 # 直接传 response.text (str) 给格式化函数
                 text = response.text
                 if text:
                     resp_preview = format_body_preview(text) or "<unknown data>"
-                    log.debug("[HTTP-RES-BODY] %s", resp_preview)
+                    console.trace(f"[HTTP-RES-BODY] {resp_preview}", id=TRACE_ID)
             # -------------------------------
 
             return response
@@ -150,25 +147,21 @@ class SessionWithRetry(Session):
             error_code, error_message = decoded
 
         # 4. 记录错误日志（附带响应体，方便排查）
-        log.error(
-            "[HTTP] %s %s -> %s (%.0fms) trace:%s | [ERR] code=%s message=%s",
-            method,
-            request.url,
-            response.status_code,
-            elapsed_ms,
-            trace_id,
-            error_code,
-            error_message,
+        console.trace(
+            f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
+            f" | [ERR] code={error_code} message={error_message}",
+            level="error",
+            id=TRACE_ID,
         )
 
         # --- [DEBUG] 记录失败响应详情 ---
         if helper.env.DEBUG:
-            log.debug("[HTTP-RES-ERR] Headers: %s", response.headers)
+            console.trace(f"[HTTP-RES-ERR] Headers: {response.headers}", id=TRACE_ID)
             text = response.text
             if text and not decoded:
                 # 只有当解码失败时，才额外把原始错误 body 打印出来
                 err_preview = format_body_preview(text) or "<unknown data>"
-                log.debug("[HTTP-RES-ERR-BODY] %s", err_preview)
+                console.trace(f"[HTTP-RES-ERR-BODY] {err_preview}", id="http-session")
         # -------------------------------
 
         # 5. 抛出友好的自定义 ApiError

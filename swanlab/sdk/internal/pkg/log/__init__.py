@@ -35,11 +35,8 @@ _logger.propagate = False
 # 内部诊断日志默认捕获 DEBUG 及以上级别的所有信息
 _logger.setLevel(logging.DEBUG)
 
-# 日志格式：时间 | 级别 | 来源 | 消息
-_FORMATTER = logging.Formatter(
-    fmt="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
+# 日志格式：由调用方（console 模块）负责按 loguru 风格预格式化后传入，此处直接写原始消息
+_FORMATTER = logging.Formatter(fmt="%(message)s")
 
 # ---------------------------------------------------------------------------
 # 内存缓冲 Handler（阶段 1：log_dir 就绪前）
