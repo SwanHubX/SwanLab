@@ -31,6 +31,19 @@ from .record_builder import RecordBuilder
 __all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
 
 
+def with_lock(func):
+    """线程安全装饰器，自动获取和释放外部API锁
+    Python 3.9 中无法定义在类内部
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with self._api_lock:
+            return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class SwanLabRun:
     """
     The SwanLabRun class is used for logging during a single run.
@@ -102,23 +115,9 @@ class SwanLabRun:
         return f"{self.project_url}/runs/{settings.run.id}"
 
     # ----------------------------------
-    # 私有 API：内部辅助函数
-    # ----------------------------------
-    @staticmethod
-    def _with_lock(func):
-        """线程安全装饰器，自动获取和释放外部API锁"""
-
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            with self._api_lock:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
-    # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-    @_with_lock
+    @with_lock
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if self._state != "running":
@@ -148,7 +147,7 @@ class SwanLabRun:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
-    @_with_lock
+    @with_lock
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -161,7 +160,7 @@ class SwanLabRun:
             data = Text(data, caption=caption)
         self.log({key: data}, step=step)
 
-    @_with_lock
+    @with_lock
     def define_scalar(
         self,
         key: str,
@@ -210,7 +209,7 @@ class SwanLabRun:
             )
         )
 
-    @_with_lock
+    @with_lock
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         if self._state != "running":
