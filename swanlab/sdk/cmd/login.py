@@ -78,6 +78,16 @@ def login(
 
     :return: Returns True if login was successful, False otherwise.
     """
+    return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+
+
+def raw_login(
+    api_key: Optional[str] = None,
+    relogin: bool = False,
+    host: Optional[str] = None,
+    save: bool = False,
+    timeout: int = 10,
+) -> bool:
     if has_run():
         console.error("Cannot login while SwanLab Run is active. Please finish the run first.")
         return False

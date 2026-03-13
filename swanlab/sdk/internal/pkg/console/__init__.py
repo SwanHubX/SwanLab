@@ -15,7 +15,7 @@ from rich.text import Text
 from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.utils import helper
 
-__all__ = ["debug", "info", "warning", "error", "critical", "disable_log", "enable_log"]
+__all__ = ["debug", "info", "warning", "error", "critical", "disable_console", "enable_console"]
 
 
 _console = Console()
@@ -32,7 +32,7 @@ _config = {
 }
 
 
-def disable_log():
+def disable_console():
     """
     Disable logging.
     """
@@ -40,7 +40,7 @@ def disable_log():
     _can_log = False
 
 
-def enable_log():
+def enable_console():
     """
     Enable logging.
     """

@@ -43,7 +43,7 @@ from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
 from ..utils.callbacker import SwanLabCallback
-from .login import interactive_login, login
+from .login import interactive_login, raw_login
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -446,7 +446,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
         return mode, client.exists()
     if mode == "cloud":
         if apikey.exists():
-            login(api_key=apikey.get())
+            raw_login(api_key=apikey.get())
             return "cloud", True
 
         console.info("Using SwanLab to track your experiments.")

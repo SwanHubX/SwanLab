@@ -17,9 +17,9 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.context import RunContext, clear_context
 from swanlab.sdk.internal.core_python import CorePython
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -117,6 +117,9 @@ class SwanLabRun:
     @_with_lock
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
+        if self._state != "running":
+            console.error("Run has already finished or is not active, cannot call log() again.")
+            return
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -226,7 +229,13 @@ class SwanLabRun:
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
+        # 清理全局运行实例
+        clear_run()
+        # 清空上下文
+        clear_context()
         console.debug(f"Run finished with state: {state}")
+        # 释放全局logger
+        log.reset()
 
 
 _current_run: Optional[SwanLabRun] = None

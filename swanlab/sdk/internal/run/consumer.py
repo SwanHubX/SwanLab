@@ -72,6 +72,7 @@ class BackgroundConsumer:
 
                 # 1. 退出信号
                 if isinstance(event, RunFinishEvent):
+                    batch.append(self._builder.build_finish(event))
                     self._flush(batch)
                     self._core.shutdown()
                     break

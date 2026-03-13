@@ -6,7 +6,7 @@
 """
 
 from functools import singledispatchmethod
-from typing import Optional, Tuple
+from typing import Tuple
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -25,11 +25,11 @@ from swanlab.sdk.internal.bus.events import (
     MetricDefineEvent,
     ParseResult,
     RequirementsEvent,
+    RunFinishEvent,
     RunStartEvent,
 )
 from swanlab.sdk.internal.context import RunContext, TransformMediaType
 from swanlab.sdk.internal.pkg.fs import safe_mkdir
-from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import MediaTransferType
 
 from .data.transforms import Scalar
@@ -138,7 +138,7 @@ class RecordBuilder:
         )
         return self._wrap(run=run_record)
 
-    def build_finish(self, state: FinishType, error: Optional[str] = None) -> Record:
+    def build_finish(self, event: RunFinishEvent) -> Record:
         """构建 FinishRecord envelope"""
         state_map = {
             "success": RunState.RUN_STATE_FINISHED,
@@ -148,8 +148,8 @@ class RecordBuilder:
         ts = Timestamp()
         ts.GetCurrentTime()
         finish = FinishRecord(
-            state=state_map.get(state, RunState.RUN_STATE_FINISHED),
-            error=error or "",
+            state=state_map.get(event.state, RunState.RUN_STATE_FINISHED),
+            error=event.error or "",
             finished_at=ts,
         )
         return self._wrap(finish=finish)
