@@ -22,14 +22,11 @@ from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
     callbacker,
-    get_context,
-    has_context,
-    set_context,
-    use_temp_context,
+    use_context,
 )
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
-from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
 from swanlab.sdk.utils import helper
@@ -224,9 +221,7 @@ def init(
     # 合并回调
     callbacker.merge_callbacks(callbacks or [])
     # 开始初始化
-    _init(run_settings)
-    assert has_context(), "SwanLab Context is not initialized after init."
-    ctx = get_context()
+    ctx = _init(run_settings)
     # 初始化run
     run = SwanLabRun(ctx)
     # 发送webhook回调，在除了disabled模式外，都会触发
@@ -241,7 +236,7 @@ def init(
     return run
 
 
-def _init(run_settings: Settings):
+def _init(run_settings: Settings) -> RunContext:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     """
@@ -250,7 +245,7 @@ def _init(run_settings: Settings):
     run_id = run_settings.run.id or generate_id()
     run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
     # 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_temp_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 根据模式进行特定处理
         if mode == "cloud":
@@ -303,11 +298,7 @@ def _init(run_settings: Settings):
             pass
         else:
             raise ValueError(f"Invalid mode for `swanlab.init`: {mode}")
-    # 将上下文作为全局上下文使用
-    set_context(ctx)
-    # 绑定日志文件
-    if ctx.config.settings.mode != "disabled":
-        log.bindfile(ctx.debug_dir)
+    return ctx
 
 
 @helper.rich.with_loading_animation()

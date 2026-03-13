@@ -17,7 +17,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
-from swanlab.sdk.internal.context import RunContext, clear_context
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.typings.run import FinishType
@@ -68,6 +68,10 @@ class SwanLabRun:
 
         # 设置全局运行实例
         set_run(self)
+
+        # 绑定日志文件
+        if self._ctx.config.settings.mode != "disabled":
+            log.bindfile(self._ctx.debug_dir)
 
     # ----------------------------------
     # 属性 (Properties)
@@ -231,11 +235,10 @@ class SwanLabRun:
         self._consumer.join()
         # 清理全局运行实例
         clear_run()
-        # 清空上下文
-        clear_context()
         console.debug(f"Run finished with state: {state}")
         # 释放全局logger
-        log.reset()
+        if self._ctx.config.settings.mode != "disabled":
+            log.reset()
 
 
 _current_run: Optional[SwanLabRun] = None

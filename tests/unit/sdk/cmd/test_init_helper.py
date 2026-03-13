@@ -87,7 +87,7 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
     monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.get", lambda: "fake-key")
 
     mock_login = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login", mock_login)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.raw_login", mock_login)
 
     assert prompt_init_mode(mock_settings) == ("cloud", True)
     mock_login.assert_called_once_with(api_key="fake-key")

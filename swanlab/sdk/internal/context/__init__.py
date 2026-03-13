@@ -13,7 +13,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generator, Optional
 
-from swanlab.sdk.internal.settings import Settings, settings
+from swanlab.sdk.internal.settings import Settings
 
 from .callbacker import CallbackManager, callbacker
 from .metrics import MediaMetric, RunMetrics, ScalarMetric
@@ -23,12 +23,9 @@ __all__ = [
     "RunContext",
     "RunConfig",
     "RunMetrics",
-    "set_context",
-    "clear_context",
     "get_context",
     "has_context",
-    "use_temp_context",
-    "get_current_settings",
+    "use_context",
     "TransformType",
     "TransformMediaType",
     "CallbackManager",
@@ -104,23 +101,6 @@ def has_context() -> bool:
     return _current_ctx.get() is not None
 
 
-def set_context(ctx: RunContext):
-    """
-    设置SwanLab运行上下文，这将在实验开始前/开始时调用。
-    如果上下文已存在，则报错
-    """
-    if has_context():
-        raise RuntimeError("SwanLab Context is already active. Cannot set another context.")
-    _current_ctx.set(ctx)
-
-
-def clear_context():
-    """
-    清空SwanLab运行上下文，这将在每个实验结束后调用。
-    """
-    _current_ctx.set(None)
-
-
 def get_context() -> RunContext:
     """
     获取SwanLab运行上下文。
@@ -134,7 +114,7 @@ def get_context() -> RunContext:
 
 
 @contextmanager
-def use_temp_context(ctx: RunContext) -> Generator[RunContext, None, None]:
+def use_context(ctx: RunContext) -> Generator[RunContext, None, None]:
     """
     临时使用 SwanLab 运行上下文的上下文管理器。
 
@@ -146,20 +126,11 @@ def use_temp_context(ctx: RunContext) -> Generator[RunContext, None, None]:
         raise RuntimeError("SwanLab Context is already active. Cannot nest or overwrite temp contexts.")
 
     # 2. 前置操作：设置上下文
-    set_context(ctx)
+    _current_ctx.set(ctx)
 
     try:
         # 3. 交出执行权，并把 ctx yield 出去，方便外部直接用 `as` 接收
         yield ctx
     finally:
         # 4. 最终清理（回退）：无论业务代码报什么错，绝对保证上下文被清空，不会污染全局 ContextVar
-        clear_context()
-
-
-def get_current_settings() -> Settings:
-    """
-    获取当前SwanLab配置信息，如果上下文中存在，则使用上下文中的配置信息，否则使用全局配置信息
-    """
-    if has_context():
-        return get_context().config.settings
-    return settings
+        _current_ctx.set(None)

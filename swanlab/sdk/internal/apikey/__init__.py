@@ -12,9 +12,10 @@ from typing import Optional
 
 from rich.text import Text
 
-from swanlab.sdk.internal.context import get_current_settings
+from swanlab.sdk.internal.context import get_context, has_context
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
+from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.utils import helper
 
 __all__ = ["get", "save", "exists"]
@@ -122,3 +123,12 @@ def prompt(
         sys.exit(0)
     except Exception as e:
         raise RuntimeError(f"Failed to read API Key from terminal: {e}")
+
+
+def get_current_settings() -> Settings:
+    """
+    获取当前SwanLab配置信息，如果上下文中存在，则使用上下文中的配置信息，否则使用全局配置信息
+    """
+    if has_context():
+        return get_context().config.settings
+    return settings

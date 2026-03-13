@@ -12,7 +12,6 @@ import responses
 
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
-from swanlab.sdk.internal.context import RunConfig, RunContext, set_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.settings import settings
 
@@ -81,13 +80,11 @@ class TestLoginE2E:
             result = login(api_key="some_key")
             assert result is False
 
-    def test_login_block_if_context_active(self, tmp_path):
-        """测试：如果运行上下文已存在（比如实验进行中），不允许登录"""
-        mock_config = RunConfig(settings=settings, run_dir=tmp_path / "run")
-        set_context(RunContext(config=mock_config))
-
-        result = login(api_key="some_key")
-        assert result is False
+    def test_login_block_if_context_active(self):
+        """测试：如果实验已经开始，不允许登录"""
+        with patch("swanlab.sdk.cmd.login.has_run", return_value=True):
+            result = login(api_key="some_key")
+            assert result is False
 
     @responses.activate
     def test_login_success_with_explicit_key(self):
