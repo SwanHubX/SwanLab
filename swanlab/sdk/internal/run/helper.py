@@ -9,8 +9,7 @@ from typing import Any, Dict, Mapping, Optional, get_args
 
 from pydantic import ValidationError
 
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.constraints import METRIC_KEY_INVALID_RE, ta_hex_color, ta_label, ta_metric_key
+from swanlab.sdk.internal.pkg import console, constraints
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -91,7 +90,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
         )
 
     # 使用来自 constraints 的预编译正则替换非法字符
-    sanitized_key = METRIC_KEY_INVALID_RE.sub("_", key)
+    sanitized_key = constraints.METRIC_KEY_INVALID_RE.sub("_", key)
 
     # 长度截断
     if len(sanitized_key) > max_len:
@@ -107,7 +106,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
 
     # 5. 使用 MetricKey 约束做最终校验，确保输出始终是合法的 MetricKey
     try:
-        return ta_metric_key.validate_python(sanitized_key)
+        return constraints.ta_metric_key.validate_python(sanitized_key)
     except ValidationError as e:
         raise ValueError(str(e)) from e
 
@@ -146,7 +145,7 @@ def safe_validate_key(key: str) -> Optional[str]:
     :return: 合法的键名或 None
     """
     try:
-        return ta_metric_key.validate_python(key)
+        return constraints.ta_metric_key.validate_python(key)
     except ValidationError:
         return None
 
@@ -161,7 +160,7 @@ def safe_validate_name(name: Optional[str]) -> Optional[str]:
     if name is None:
         return None
     try:
-        return ta_label.validate_python(name)
+        return constraints.ta_label.validate_python(name)
     except ValidationError:
         return None
 
@@ -176,7 +175,7 @@ def safe_validate_chart_name(name: Optional[str]) -> Optional[str]:
     if name is None:
         return None
     try:
-        return ta_label.validate_python(name)
+        return constraints.ta_chart_name.validate_python(name)
     except ValidationError:
         return None
 
@@ -190,10 +189,7 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
     """
     if x_axis is None:
         x_axis = "_step"
-    try:
-        return ta_metric_key.validate_python(x_axis)
-    except ValidationError:
-        return None
+    return safe_validate_key(x_axis)
 
 
 def safe_validate_color(color: Optional[str]) -> Optional[str]:
@@ -206,7 +202,7 @@ def safe_validate_color(color: Optional[str]) -> Optional[str]:
     if color is None:
         return None
     try:
-        return ta_hex_color.validate_python(color)
+        return constraints.ta_hex_color.validate_python(color)
     except ValidationError:
         return None
 

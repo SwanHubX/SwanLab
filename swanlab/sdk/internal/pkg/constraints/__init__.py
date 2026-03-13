@@ -38,15 +38,7 @@ __all__ = [
     "ta_run_id",
     "ta_metric_key",
     "ta_label",
-    # Validation functions
-    "validate_project",
-    "validate_workspace",
-    "validate_experiment",
-    "validate_description",
-    "validate_job_type",
-    "validate_group",
-    "validate_run_id",
-    "validate_metric_key",
+    "ta_chart_name",
 ]
 
 # ---------------------------------------------------------------------------
@@ -120,7 +112,10 @@ MetricKey = Annotated[
 """Metric / log key: 1-255 chars, must not start or end with ``'.'`` or ``'/'``."""
 
 Label = Annotated[str, Field(max_length=255)]
-"""Display label for metrics and charts: up to 255 chars."""
+"""Display label for metrics and runs: up to 255 chars."""
+
+ChartName = Annotated[str, Field(min_length=1, max_length=255)]
+"""Display name for charts: 1-255 chars."""
 
 # ---------------------------------------------------------------------------
 # TypeAdapters (module-level singletons — build once, reuse everywhere)
@@ -136,39 +131,4 @@ ta_job_type = TypeAdapter(JobType)
 ta_run_id = TypeAdapter(RunId)
 ta_metric_key = TypeAdapter(MetricKey)
 ta_label = TypeAdapter(Label)
-
-# ---------------------------------------------------------------------------
-# Validation helpers — thin wrappers around TypeAdapter.validate_python()
-# ---------------------------------------------------------------------------
-
-
-def validate_project(name: str) -> str:
-    return ta_project.validate_python(name.strip() if isinstance(name, str) else name)
-
-
-def validate_workspace(workspace: str) -> str:
-    return ta_workspace.validate_python(workspace.strip() if isinstance(workspace, str) else workspace)
-
-
-def validate_experiment(name: str) -> str:
-    return ta_experiment.validate_python(name.strip() if isinstance(name, str) else name)
-
-
-def validate_description(desc: str) -> str:
-    return ta_description.validate_python(desc)
-
-
-def validate_group(group: str) -> str:
-    return ta_group.validate_python(group)
-
-
-def validate_job_type(job_type: str) -> str:
-    return ta_job_type.validate_python(job_type)
-
-
-def validate_run_id(run_id: str) -> str:
-    return ta_run_id.validate_python(run_id.strip() if isinstance(run_id, str) else run_id)
-
-
-def validate_metric_key(key: str) -> str:
-    return ta_metric_key.validate_python(key.strip() if isinstance(key, str) else key)
+ta_chart_name = TypeAdapter(ChartName)

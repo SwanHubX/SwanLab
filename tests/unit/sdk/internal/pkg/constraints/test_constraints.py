@@ -19,14 +19,6 @@ from swanlab.sdk.internal.pkg.constraints import (
     RunId,
     TagString,
     Workspace,
-    validate_description,
-    validate_experiment,
-    validate_group,
-    validate_job_type,
-    validate_metric_key,
-    validate_project,
-    validate_run_id,
-    validate_workspace,
 )
 
 # ---------------------------------------------------------------------------
@@ -57,16 +49,6 @@ class TestProjectName:
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
 
-    def test_validate_project_strips_whitespace(self):
-        assert validate_project("  myproject  ") == "myproject"
-
-    def test_validate_project_valid(self):
-        assert validate_project("valid-project") == "valid-project"
-
-    def test_validate_project_invalid(self):
-        with pytest.raises(ValidationError):
-            validate_project("invalid name!")
-
 
 # ---------------------------------------------------------------------------
 # Workspace
@@ -96,9 +78,6 @@ class TestWorkspace:
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
 
-    def test_validate_workspace_strips_whitespace(self):
-        assert validate_workspace("  myspace  ") == "myspace"
-
 
 # ---------------------------------------------------------------------------
 # ExperimentName
@@ -125,9 +104,6 @@ class TestExperimentName:
     def test_invalid(self, value):
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
-
-    def test_validate_experiment_strips_whitespace(self):
-        assert validate_experiment("  my experiment  ") == "my experiment"
 
 
 # ---------------------------------------------------------------------------
@@ -180,16 +156,9 @@ class TestDescription:
         with pytest.raises(ValidationError):
             self.adapter.validate_python("")
 
-    def test_validate_description_valid(self):
-        assert validate_description("hello") == "hello"
-
-    def test_validate_description_too_long(self):
-        with pytest.raises(ValidationError):
-            validate_description("x" * 1025)
-
 
 # ---------------------------------------------------------------------------
-# TagString / Tags
+# TagString
 # ---------------------------------------------------------------------------
 
 
@@ -222,9 +191,6 @@ class TestGroup:
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
 
-    def test_validate_group(self):
-        assert validate_group("experiment-group") == "experiment-group"
-
 
 # ---------------------------------------------------------------------------
 # JobType
@@ -242,9 +208,6 @@ class TestJobType:
     def test_invalid(self, value):
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
-
-    def test_validate_job_type(self):
-        assert validate_job_type("eval") == "eval"
 
 
 # ---------------------------------------------------------------------------
@@ -279,20 +242,6 @@ class TestRunId:
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
 
-    def test_validate_run_id_strips_whitespace(self):
-        assert validate_run_id("  abc123  ") == "abc123"
-
-    def test_validate_run_id_valid(self):
-        assert validate_run_id("run_001") == "run_001"
-
-    def test_validate_run_id_uppercase_valid(self):
-        assert validate_run_id("RunID") == "RunID"
-
-    def test_validate_run_id_forbidden_chars(self):
-        for char in ["/", "\\", "#", "?", "%", ":"]:
-            with pytest.raises(ValidationError):
-                validate_run_id(f"run{char}id")
-
 
 # ---------------------------------------------------------------------------
 # MetricKey
@@ -318,29 +267,12 @@ class TestMetricKey:
             "/starts_with_slash",
             "ends_with_dot.",
             "ends_with_slash/",
+            "invalid key",  # space not in [\w./-]
         ],
     )
     def test_invalid(self, value):
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
-
-    def test_validate_metric_key_strips_whitespace(self):
-        assert validate_metric_key("  loss  ") == "loss"
-
-    def test_validate_metric_key_valid(self):
-        assert validate_metric_key("train/loss") == "train/loss"
-
-    def test_validate_metric_key_edge_dots(self):
-        with pytest.raises(ValidationError):
-            validate_metric_key(".hidden")
-        with pytest.raises(ValidationError):
-            validate_metric_key("hidden.")
-
-    def test_validate_metric_key_edge_slashes(self):
-        with pytest.raises(ValidationError):
-            validate_metric_key("/root")
-        with pytest.raises(ValidationError):
-            validate_metric_key("root/")
 
 
 # ---------------------------------------------------------------------------
