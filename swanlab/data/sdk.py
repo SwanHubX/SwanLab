@@ -326,7 +326,7 @@ class SwanLabInitializer:
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
         # 4. 校验并行模式
-        if parallel.lower() in ["shared", "true", "yes"]:
+        if str(parallel).lower() in ["shared", "true", "yes"]:
             resume = "allow"
             mode = "cloud"
             id = id or "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8))
