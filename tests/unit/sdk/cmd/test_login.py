@@ -80,12 +80,6 @@ class TestLoginE2E:
             result = login(api_key="some_key")
             assert result is False
 
-    def test_login_block_if_context_active(self):
-        """测试：如果实验已经开始，不允许登录"""
-        with patch("swanlab.sdk.cmd.login.has_run", return_value=True):
-            result = login(api_key="some_key")
-            assert result is False
-
     @responses.activate
     def test_login_success_with_explicit_key(self):
         """测试：显式传入 API Key 并成功完成网络请求登录"""

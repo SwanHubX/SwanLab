@@ -239,6 +239,7 @@ def init(
 def _init(run_settings: Settings) -> RunContext:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
+    上下文生命周期通过 `SwanLabRun` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
     # 生成run_id

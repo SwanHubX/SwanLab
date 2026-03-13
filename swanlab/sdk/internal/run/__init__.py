@@ -67,6 +67,7 @@ class SwanLabRun:
 
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
+        self._consumer.start()
 
         # 触发启动事件
         ts = Timestamp()
@@ -75,9 +76,6 @@ class SwanLabRun:
 
         # TODO: 硬件监控与metadata采集
         # TODO: Config 事件
-
-        # 启动后台消费者
-        self._consumer.start()
 
         # 设置全局运行实例
         set_run(self)
@@ -231,11 +229,12 @@ class SwanLabRun:
         if self._state != "running":
             console.error("Run has already finished or is not active, cannot call finish() again.")
             return
-        self._state = state
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
+
+        self._state = this_state
 
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
