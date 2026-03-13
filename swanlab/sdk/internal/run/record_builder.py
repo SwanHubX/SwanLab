@@ -159,7 +159,7 @@ class RecordBuilder:
 
     # ── 内部工具 ──
 
-    def _infer_column_type(self, metric: MetricRecord) -> Tuple[ColumnType, SectionType]:
+    def _infer_column_type(self, metric: MetricRecord) -> Tuple["ColumnType", "SectionType"]:
         """根据 MetricRecord.value oneof 推断 ColumnType"""
         field_name = metric.WhichOneof("value")
         section_type = SectionType.SECTION_TYPE_PUBLIC
