@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from swanlab.sdk.utils.experiment import (
+from swanlab.utils.experiment import (
     generate_color,
     generate_id,
     generate_name,
@@ -40,7 +40,7 @@ class TestGenerateColor:
     @pytest.fixture(autouse=True)
     def mock_constants(self, monkeypatch):
         """自动在每个测试前替换常量列表"""
-        monkeypatch.setattr("swanlab.sdk.utils.experiment.PRESET_COLORS", MOCK_COLORS)
+        monkeypatch.setattr("swanlab.utils.experiment.PRESET_COLORS", MOCK_COLORS)
 
     def test_default_color(self):
         """测试 slug=None 时，返回 Mock 列表中的随机颜色"""
@@ -68,8 +68,8 @@ class TestGenerateName:
     @pytest.fixture(autouse=True)
     def mock_constants(self, monkeypatch):
         """自动在每个测试前替换常量列表"""
-        monkeypatch.setattr("swanlab.sdk.utils.experiment.PRESET_ANIMALS", MOCK_ANIMALS)
-        monkeypatch.setattr("swanlab.sdk.utils.experiment.BEAUTY_ADJECTIVES", MOCK_ADJECTIVES)
+        monkeypatch.setattr("swanlab.utils.experiment.PRESET_ANIMALS", MOCK_ANIMALS)
+        monkeypatch.setattr("swanlab.utils.experiment.BEAUTY_ADJECTIVES", MOCK_ADJECTIVES)
 
     def test_default_name(self):
         """测试 slug=None 时，生成 '动物-4位随机字符' 的格式"""

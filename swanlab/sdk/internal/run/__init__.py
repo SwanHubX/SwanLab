@@ -27,10 +27,15 @@ from .consumer import BackgroundConsumer
 from .data.transforms import Text
 from .record_builder import RecordBuilder
 
-__all__ = ["SwanLabRun"]
+__all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
 
 
 class SwanLabRun:
+    """
+    The SwanLabRun class is used for logging during a single run.
+    There should be only one instance of the SwanLabRun class for each experiment.
+    """
+
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
 
@@ -42,6 +47,7 @@ class SwanLabRun:
 
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
+
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
         self._consumer.start()
@@ -172,3 +178,26 @@ class SwanLabRun:
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
         console.debug(f"Run finished with state: {state}")
+
+
+_current_run: Optional[SwanLabRun] = None
+
+
+def has_run() -> bool:
+    return _current_run is not None
+
+
+def get_run() -> SwanLabRun:
+    if _current_run is None:
+        raise RuntimeError("No active SwanLabRun. Call swanlab.init() first.")
+    return _current_run
+
+
+def set_run(run: SwanLabRun) -> None:
+    global _current_run
+    _current_run = run
+
+
+def clear_run() -> None:
+    global _current_run
+    _current_run = None

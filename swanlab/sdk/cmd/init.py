@@ -31,9 +31,9 @@ from swanlab.sdk.internal.core_python.api.project import get_or_create_project, 
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
-from swanlab.sdk.utils import generate_id, helper
-from swanlab.sdk.utils.experiment import generate_color, generate_name
+from swanlab.sdk.utils import helper
 from swanlab.sdk.utils.version import get_swanlab_version
+from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
