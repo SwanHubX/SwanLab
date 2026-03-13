@@ -37,7 +37,7 @@ from swanlab.sdk.utils.version import get_swanlab_version
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
-from ..internal.run import CloudCallback, LocalCallback, OfflineCallback, SwanLabRun
+from ..internal.run import SwanLabRun
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -264,8 +264,7 @@ def _init(run_settings: Settings):
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
 
-            # 注册回调器
-            callbacker.merge_callbacks([LocalCallback()])
+            # TODO: 注册回调器
         elif mode == "offline":
             _mkdirs(ctx)
             name = generate_name("beauty")
@@ -280,8 +279,6 @@ def _init(run_settings: Settings):
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
-            # 注册回调器
-            callbacker.merge_callbacks([OfflineCallback()])
         elif mode == "disabled":
             name = generate_name("beauty")
             color = generate_color("beauty")
@@ -357,8 +354,6 @@ def _init_cloud(ctx: RunContext, run_id: str):
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
-    # 注册回调器
-    callbacker.merge_callbacks([CloudCallback()])
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:

@@ -6,7 +6,7 @@
 供 run/ 和 system/ 等模块共同引用，避免循环导入。
 """
 
-from .emitter import RunEmitter
+from .emitter import RunEmitter, RunQueue
 from .events import (
     CondaEvent,
     ConfigEvent,
@@ -24,6 +24,7 @@ from .events import (
 
 __all__ = [
     "RunEmitter",
+    "RunQueue",
     "MetricLogEvent",
     "MetricDefineEvent",
     "RunFinishEvent",

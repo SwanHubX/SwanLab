@@ -9,7 +9,10 @@ import queue
 
 from .events import EventPayload
 
-__all__ = ["RunEmitter"]
+__all__ = ["RunEmitter", "RunQueue"]
+
+
+RunQueue = queue.Queue[EventPayload]
 
 
 class RunEmitter:
@@ -23,10 +26,10 @@ class RunEmitter:
     """
 
     def __init__(self, maxsize: int = 100_000):
-        self._queue: queue.Queue[EventPayload] = queue.Queue(maxsize=maxsize)
+        self._queue: RunQueue = RunQueue(maxsize=maxsize)
 
     @property
-    def queue(self) -> "queue.Queue[EventPayload]":
+    def queue(self) -> RunQueue:
         """只读暴露给 BackgroundConsumer，外部不应直接操作队列"""
         return self._queue
 

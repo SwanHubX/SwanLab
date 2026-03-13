@@ -9,11 +9,11 @@ import queue
 import threading
 from typing import Set
 
+from swanlab.sdk.internal.bus.emitter import RunQueue
 from swanlab.sdk.internal.bus.events import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
-    EventPayload,
     FlushPayload,
     MetadataEvent,
     MetricDefineEvent,
@@ -23,6 +23,7 @@ from swanlab.sdk.internal.bus.events import (
     RunStartEvent,
 )
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core import CoreProtocol
 from swanlab.sdk.internal.pkg import console
 
 from .record_builder import RecordBuilder
@@ -32,20 +33,22 @@ class BackgroundConsumer:
     def __init__(
         self,
         ctx: RunContext,
-        event_queue: "queue.Queue[EventPayload]",
+        event_queue: RunQueue,
         builder: RecordBuilder,
+        core: CoreProtocol,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
         self._ctx = ctx
         self._queue = event_queue
         self._builder = builder
+        self._core = core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
-        self._thread = threading.Thread(target=self._run, name="SwanLab-Background-Logger", daemon=True)
-        # 初始化属性
-        self._disabled = self._ctx.config.settings.mode == "disabled"
+        self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
+        # 指标状态，完全避免多线程锁竞争
         self._metrics = self._ctx.metrics
+        # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
 
     def start(self) -> None:
@@ -56,6 +59,8 @@ class BackgroundConsumer:
             self._thread.join()
 
     def _run(self) -> None:
+        mode = self._ctx.config.settings.mode
+        self._core.startup(cloud=mode == "cloud", persistence=mode != "disabled")
         batch: FlushPayload = []
         # 记录已创建的列，完全避免多线程锁竞争
         _emitted_columns: Set[str] = set()
@@ -68,6 +73,7 @@ class BackgroundConsumer:
                 # 1. 退出信号
                 if isinstance(event, RunFinishEvent):
                     self._flush(batch)
+                    self._core.shutdown()
                     break
 
                 # 2. 记录数据（可能触发隐式创建 Implicit Define）
@@ -121,13 +127,11 @@ class BackgroundConsumer:
                 console.error(f"SwanLab background logger thread error: {e}")
 
     def _flush(self, records: FlushPayload) -> None:
-        """刷盘与回调触发"""
-        if not records or self._disabled:
+        """处理一批 Record：持久化、回调、上传等"""
+        if not records:
             return
         try:
-            # TODO: 批量追加到本地文件
-            ...
+            self._core.handle_records(records)
             # TODO: 分类数据，根据语义依次触发回调
-
         except Exception as e:
-            console.error(f"SwanLab failed to write disk or trigger callbacks: {e}")
+            console.error(f"SwanLab failed to handle records: {e}")

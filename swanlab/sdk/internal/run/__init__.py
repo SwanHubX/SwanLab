@@ -17,17 +17,17 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 from . import utils_fmt as fmt
-from .callbackers import CloudCallback, LocalCallback, OfflineCallback
 from .consumer import BackgroundConsumer
 from .data.transforms import Text
 from .record_builder import RecordBuilder
 
-__all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
+__all__ = ["SwanLabRun"]
 
 
 class SwanLabRun:
@@ -37,10 +37,13 @@ class SwanLabRun:
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
         self._emitter = RunEmitter(maxsize=100_000)
 
+        # Core：Record 落盘与后端交互的统一入口
+        self._core = CorePython(ctx)
+
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
         # 后台消费者：从 emitter.queue 消费事件并落盘
-        self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder)
+        self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
         self._consumer.start()
         # TODO: 触发启动事件
         # TODO: 硬件监控与metadata采集
