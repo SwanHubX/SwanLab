@@ -1,12 +1,12 @@
 import datetime
 
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from swanlab.data.v1 import scalar_pb2 as _scalar_pb2
-from swanlab.data.v1 import image_pb2 as _image_pb2
-from swanlab.data.v1 import audio_pb2 as _audio_pb2
-from swanlab.data.v1 import video_pb2 as _video_pb2
-from swanlab.data.v1 import text_pb2 as _text_pb2
-from swanlab.data.v1 import echarts_pb2 as _echarts_pb2
+from swanlab.proto.swanlab.data.v1 import scalar_pb2 as _scalar_pb2
+from swanlab.proto.swanlab.data.v1 import image_pb2 as _image_pb2
+from swanlab.proto.swanlab.data.v1 import audio_pb2 as _audio_pb2
+from swanlab.proto.swanlab.data.v1 import video_pb2 as _video_pb2
+from swanlab.proto.swanlab.data.v1 import text_pb2 as _text_pb2
+from swanlab.proto.swanlab.data.v1 import echarts_pb2 as _echarts_pb2
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from collections.abc import Mapping as _Mapping

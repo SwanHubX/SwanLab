@@ -16,22 +16,22 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.sdk.internal.bus.events import (
+    CondaEvent,
+    ConfigEvent,
+    ConsoleEvent,
+    MetadataEvent,
+    MetricDefineEvent,
+    ParseResult,
+    RequirementsEvent,
+    RunStartEvent,
+)
 from swanlab.sdk.internal.context import RunContext, TransformMediaType
 from swanlab.sdk.internal.pkg.fs import safe_mkdir
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import MediaTransferType
 
 from .data.transforms import Scalar
-from .events import (
-    CondaEvent,
-    ConfigEvent,
-    ConsoleEvent,
-    DefineEvent,
-    MetadataEvent,
-    ParseResult,
-    RequirementsEvent,
-    RunStartEvent,
-)
 
 
 class RecordBuilder:
@@ -78,14 +78,14 @@ class RecordBuilder:
             media_type = self._metric_to_media_type(metric_record)
             metrics.define_media(key, media_type, self._ctx.media_dir / media_type)
         col = ColumnRecord(
-            key=key,
-            type=col_type,
+            column_key=key,
+            column_type=col_type,
+            column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
             section_type=section_type,
-            class_=ColumnClass.COLUMN_CLASS_CUSTOM,
         )
         return self._wrap(column=col)
 
-    def build_column_from_define(self, event: DefineEvent) -> Record:
+    def build_column_from_define(self, event: MetricDefineEvent) -> Record:
         """显式创建列（DefineEvent），仅支持 scalar"""
         metrics = self._ctx.metrics
         metrics.define_scalar(
@@ -99,14 +99,15 @@ class RecordBuilder:
         )
         section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
         col = ColumnRecord(
-            key=event.key,
-            type=ColumnType.COLUMN_TYPE_FLOAT,
-            class_=ColumnClass.COLUMN_CLASS_CUSTOM,
+            column_key=event.key,
+            column_type=ColumnType.COLUMN_TYPE_FLOAT,
+            column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
+            section_name=event.chart_name or "",
             section_type=section_type,
             chart_index=event.chart or "",
             chart_name=event.chart_name or "",
             metric_name=event.name or "",
-            metric_colors=[event.color] if event.color else [],
+            metric_colors=[event.color, event.color] if event.color else [],
         )
         return self._wrap(column=col)
 

@@ -125,20 +125,6 @@ def safe_validate_log_data(data: Mapping[str, Any]) -> Optional[Mapping[str, Any
     return data
 
 
-def safe_validate_step(step: Optional[int]) -> Optional[int]:
-    """
-    检查并清洗 step 整数格式，如果出现非法值，返回 None。
-
-    :param step: 待检查的步数
-    :return: 清洗后的步数或 None
-    """
-    if step is None:
-        return None
-    if not isinstance(step, int):
-        return None
-    return step
-
-
 def safe_validate_key(key: str) -> Optional[str]:
     """
     检查 key 字符串格式，如果出现非法字符或长度超过限制，返回 None。

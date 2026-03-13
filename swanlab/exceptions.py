@@ -33,3 +33,11 @@ class AuthenticationError(Exception):
     """
 
     pass
+
+
+class DataStoreError(Exception):
+    """
+    DataStore 读写异常。
+    """
+
+    pass

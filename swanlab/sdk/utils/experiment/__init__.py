@@ -14,7 +14,7 @@ from typing import Literal, Optional, Union
 __all__ = ["generate_color", "generate_id", "generate_name"]
 
 
-def generate_id(length: int = 21) -> str:
+def generate_id(length: int = 8) -> str:
     """
     Generate a unique ID for a run.
 

@@ -8,39 +8,42 @@
 3. 触发异步微批处理落盘与回调
 """
 
-import queue
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Mapping, Optional, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.sdk.internal.bus import RunEmitter
+from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 from . import utils_fmt as fmt
-from .callbackers import CloudCallback, LocalCallback, OfflineCallback
 from .consumer import BackgroundConsumer
 from .data.transforms import Text
-from .events import DefineEvent, EventPayload, FinishEvent, LogEvent
-from .record import RecordBuilder
+from .record_builder import RecordBuilder
 
-__all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
+__all__ = ["SwanLabRun"]
 
 
 class SwanLabRun:
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
 
-        # 事件总线：最大积压 10 万个事件（防 OOM 兜底）
-        self._queue: queue.Queue[EventPayload] = queue.Queue(maxsize=100_000)
+        # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
+        self._emitter = RunEmitter(maxsize=100_000)
+
+        # Core：Record 落盘与后端交互的统一入口
+        self._core = CorePython(ctx)
 
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
-        # 后台消费者：负责将 Record 刷盘到文件系统
-        self._consumer = BackgroundConsumer(self._queue, self._builder, ctx.callbacker, ctx.metrics)
+        # 后台消费者：从 emitter.queue 消费事件并落盘
+        self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
         self._consumer.start()
         # TODO: 触发启动事件
         # TODO: 硬件监控与metadata采集
@@ -67,13 +70,19 @@ class SwanLabRun:
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if not (this_data := fmt.safe_validate_log_data(data)):
-            console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore it.")
+            console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
-        if not (this_step := fmt.safe_validate_step(step)):
-            console.error(f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore it.")
-            return
+        if step is not None:
+            if not isinstance(step, int):
+                console.error(
+                    f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore this log."
+                )
+                return
+            if step < 0:
+                console.error(f"Step must be non-negative, but got {step}. SwanLab will ignore this log.")
+                return
 
-        next_step = self._ctx.metrics.next_step(this_step)
+        next_step = self._ctx.metrics.next_step(step)
 
         ts = Timestamp()
         ts.GetCurrentTime()
@@ -82,7 +91,7 @@ class SwanLabRun:
         flatten_data = fmt.flatten_dict(this_data)
 
         # 推送日志事件
-        self._queue.put(LogEvent(data=flatten_data, step=next_step, timestamp=ts), block=True)
+        self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
@@ -132,13 +141,16 @@ class SwanLabRun:
         if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
-        self._define_scalar(
-            key=this_key,
-            name=name,
-            color=color,
-            x_axis=this_x_axis,
-            system=False,
-            chart_name=chart_name,
+        self._emitter.emit(
+            MetricDefineEvent(
+                key=this_key,
+                name=name,
+                color=color,
+                system=False,
+                x_axis=this_x_axis,
+                chart_name=chart_name,
+                chart=None,
+            )
         )
 
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
@@ -156,41 +168,7 @@ class SwanLabRun:
         # 线程退出
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._queue.put(FinishEvent(state=this_state, error=error, timestamp=ts))
+        self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
         console.debug(f"Run finished with state: {state}")
-
-    def _define_scalar(
-        self,
-        key: str,
-        name: Optional[str],
-        color: Optional[str],
-        x_axis: ScalarXAxisType = "_step",
-        system: bool = False,
-        chart_name: Optional[str] = None,
-        chart_index: Optional[str] = None,
-    ):
-        """
-        定义一个标量指标
-        内部方法，供系统指标使用
-        :param key: 指标键
-        :param name: 指标名称，默认为列名称
-        :param color: 指标颜色
-        :param x_axis: x轴，可以是其他的标量，也可以是系统值"_step"或"_relative_time"
-        :param system: 是否为系统指标
-        :param chart_name: 图表名称，默认为列名称
-        :param chart_index: 图表索引
-        """
-        self._queue.put(
-            DefineEvent(
-                key=key,
-                name=name,
-                color=color,
-                system=system,
-                x_axis=x_axis,
-                chart_name=chart_name,
-                chart=chart_index,
-            ),
-            block=True,
-        )

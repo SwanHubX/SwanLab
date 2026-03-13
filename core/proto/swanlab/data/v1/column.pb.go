@@ -302,15 +302,15 @@ func (x *YRange) GetMax() float64 {
 type ColumnRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 列类别，默认 CUSTOM
-	Class ColumnClass `protobuf:"varint,1,opt,name=class,proto3,enum=swanlab.data.v1.ColumnClass" json:"class,omitempty"`
+	ColumnClass ColumnClass `protobuf:"varint,1,opt,name=column_class,json=columnClass,proto3,enum=swanlab.data.v1.ColumnClass" json:"column_class,omitempty"`
 	// 数据类型，必填
-	Type ColumnType `protobuf:"varint,2,opt,name=type,proto3,enum=swanlab.data.v1.ColumnType" json:"type,omitempty"`
+	ColumnType ColumnType `protobuf:"varint,2,opt,name=column_type,json=columnType,proto3,enum=swanlab.data.v1.ColumnType" json:"column_type,omitempty"`
 	// 键名，必填，须与 MetricRecord.key 对应
-	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	ColumnKey string `protobuf:"bytes,3,opt,name=column_key,json=columnKey,proto3" json:"column_key,omitempty"`
 	// 显示名称，可选，不填时默认取 key
-	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	ColumnName string `protobuf:"bytes,4,opt,name=column_name,json=columnName,proto3" json:"column_name,omitempty"`
 	// 错误信息，type=ANY 时必填
-	Error *ColumnError `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	ColumnError *ColumnError `protobuf:"bytes,5,opt,name=column_error,json=columnError,proto3" json:"column_error,omitempty"`
 	// 自定义 section 名称，优先级高于由 key 推断的 section
 	SectionName string `protobuf:"bytes,6,opt,name=section_name,json=sectionName,proto3" json:"section_name,omitempty"`
 	// Section 类型，默认 PUBLIC
@@ -359,37 +359,37 @@ func (*ColumnRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_data_v1_column_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *ColumnRecord) GetClass() ColumnClass {
+func (x *ColumnRecord) GetColumnClass() ColumnClass {
 	if x != nil {
-		return x.Class
+		return x.ColumnClass
 	}
 	return ColumnClass_COLUMN_CLASS_UNSPECIFIED
 }
 
-func (x *ColumnRecord) GetType() ColumnType {
+func (x *ColumnRecord) GetColumnType() ColumnType {
 	if x != nil {
-		return x.Type
+		return x.ColumnType
 	}
 	return ColumnType_COLUMN_TYPE_UNSPECIFIED
 }
 
-func (x *ColumnRecord) GetKey() string {
+func (x *ColumnRecord) GetColumnKey() string {
 	if x != nil {
-		return x.Key
+		return x.ColumnKey
 	}
 	return ""
 }
 
-func (x *ColumnRecord) GetName() string {
+func (x *ColumnRecord) GetColumnName() string {
 	if x != nil {
-		return x.Name
+		return x.ColumnName
 	}
 	return ""
 }
 
-func (x *ColumnRecord) GetError() *ColumnError {
+func (x *ColumnRecord) GetColumnError() *ColumnError {
 	if x != nil {
-		return x.Error
+		return x.ColumnError
 	}
 	return nil
 }
@@ -453,13 +453,16 @@ const file_swanlab_data_v1_column_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\",\n" +
 	"\x06YRange\x12\x10\n" +
 	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x01R\x03max\"\xe9\x03\n" +
-	"\fColumnRecord\x122\n" +
-	"\x05class\x18\x01 \x01(\x0e2\x1c.swanlab.data.v1.ColumnClassR\x05class\x12/\n" +
-	"\x04type\x18\x02 \x01(\x0e2\x1b.swanlab.data.v1.ColumnTypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x03 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x122\n" +
-	"\x05error\x18\x05 \x01(\v2\x1c.swanlab.data.v1.ColumnErrorR\x05error\x12!\n" +
+	"\x03max\x18\x02 \x01(\x01R\x03max\"\xaa\x04\n" +
+	"\fColumnRecord\x12?\n" +
+	"\fcolumn_class\x18\x01 \x01(\x0e2\x1c.swanlab.data.v1.ColumnClassR\vcolumnClass\x12<\n" +
+	"\vcolumn_type\x18\x02 \x01(\x0e2\x1b.swanlab.data.v1.ColumnTypeR\n" +
+	"columnType\x12\x1d\n" +
+	"\n" +
+	"column_key\x18\x03 \x01(\tR\tcolumnKey\x12\x1f\n" +
+	"\vcolumn_name\x18\x04 \x01(\tR\n" +
+	"columnName\x12?\n" +
+	"\fcolumn_error\x18\x05 \x01(\v2\x1c.swanlab.data.v1.ColumnErrorR\vcolumnError\x12!\n" +
 	"\fsection_name\x18\x06 \x01(\tR\vsectionName\x12?\n" +
 	"\fsection_type\x18\a \x01(\x0e2\x1c.swanlab.data.v1.SectionTypeR\vsectionType\x120\n" +
 	"\ay_range\x18\b \x01(\v2\x17.swanlab.data.v1.YRangeR\x06yRange\x12\x1f\n" +
@@ -512,9 +515,9 @@ var file_swanlab_data_v1_column_proto_goTypes = []any{
 	(*ColumnRecord)(nil), // 5: swanlab.data.v1.ColumnRecord
 }
 var file_swanlab_data_v1_column_proto_depIdxs = []int32{
-	0, // 0: swanlab.data.v1.ColumnRecord.class:type_name -> swanlab.data.v1.ColumnClass
-	1, // 1: swanlab.data.v1.ColumnRecord.type:type_name -> swanlab.data.v1.ColumnType
-	3, // 2: swanlab.data.v1.ColumnRecord.error:type_name -> swanlab.data.v1.ColumnError
+	0, // 0: swanlab.data.v1.ColumnRecord.column_class:type_name -> swanlab.data.v1.ColumnClass
+	1, // 1: swanlab.data.v1.ColumnRecord.column_type:type_name -> swanlab.data.v1.ColumnType
+	3, // 2: swanlab.data.v1.ColumnRecord.column_error:type_name -> swanlab.data.v1.ColumnError
 	2, // 3: swanlab.data.v1.ColumnRecord.section_type:type_name -> swanlab.data.v1.SectionType
 	4, // 4: swanlab.data.v1.ColumnRecord.y_range:type_name -> swanlab.data.v1.YRange
 	5, // [5:5] is the sub-list for method output_type
