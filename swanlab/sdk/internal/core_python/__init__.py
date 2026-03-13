@@ -20,6 +20,7 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core import CoreProtocol
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.utils.helper.env import DEBUG
 
 __all__ = ["CorePython"]
 
@@ -47,6 +48,8 @@ class CorePython(CoreProtocol):
             return
         for record in records:
             self._store.write(record.SerializeToString())
+            if DEBUG:
+                console.debug("[CORE-PY] Write record:", record.WhichOneof("record_type"))
 
     def shutdown(self) -> None:
         if self._store is None:

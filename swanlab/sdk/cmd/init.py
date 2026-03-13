@@ -17,32 +17,30 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 import yaml
 
+from swanlab.sdk.cmd.helper import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
     callbacker,
-    get_context,
-    has_context,
-    set_context,
-    use_temp_context,
+    use_context,
 )
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
-from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
-from swanlab.sdk.utils import generate_id, helper
-from swanlab.sdk.utils.experiment import generate_color, generate_name
+from swanlab.sdk.utils import helper
 from swanlab.sdk.utils.version import get_swanlab_version
+from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
-from ..internal.run import SwanLabRun
+from ..internal.run import SwanLabRun, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
 from ..utils.callbacker import SwanLabCallback
-from .login import interactive_login, login
+from .login import interactive_login, raw_login
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -80,6 +78,7 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
 ConfigLike = Union[Dict[str, Any], str, os.PathLike]
 
 
+@with_cmd_lock
 def init(
     *,
     reinit: Optional[bool] = None,
@@ -100,7 +99,7 @@ def init(
     settings: Optional[Settings] = None,
     callbacks: Optional[List[SwanLabCallback]] = None,
     **kwargs,
-):
+) -> SwanLabRun:
     """
     Start a new run to track and log. Once you have called this function, you can use 'swanlab.log' to log data to
     the current run. Meanwhile, you can use 'swanlab.finish' to finish the current run and close the current
@@ -172,8 +171,13 @@ def init(
 
     :return: The SwanLabRun object.
     """
-    if reinit:
-        ...
+    if has_run():
+        run = get_run()
+        if reinit:
+            run.finish()
+        else:
+            console.error("Cannot init while SwanLab Run is active. Please finish the run first.")
+            return run
     # 运行时配置
     run_settings = Settings()
     # --------------------- 合并配置，检查格式，与业务无关 ----------------------------
@@ -217,9 +221,7 @@ def init(
     # 合并回调
     callbacker.merge_callbacks(callbacks or [])
     # 开始初始化
-    _init(run_settings)
-    assert has_context(), "SwanLab Context is not initialized after init."
-    ctx = get_context()
+    ctx = _init(run_settings)
     # 初始化run
     run = SwanLabRun(ctx)
     # 发送webhook回调，在除了disabled模式外，都会触发
@@ -234,16 +236,17 @@ def init(
     return run
 
 
-def _init(run_settings: Settings):
+def _init(run_settings: Settings) -> RunContext:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
+    上下文生命周期通过 `SwanLabRun` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
     # 生成run_id
     run_id = run_settings.run.id or generate_id()
     run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
     # 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_temp_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 根据模式进行特定处理
         if mode == "cloud":
@@ -295,12 +298,8 @@ def _init(run_settings: Settings):
             # 不注册回调器
             pass
         else:
-            raise ValueError(f"Invalid mode: {mode}")
-    # 最后将上下文作为全局上下文使用
-    set_context(ctx)
-    # 绑定日志文件
-    if ctx.config.settings.mode != "disabled":
-        log.bindfile(ctx.debug_dir)
+            raise ValueError(f"Invalid mode for `swanlab.init`: {mode}")
+    return ctx
 
 
 @helper.rich.with_loading_animation()
@@ -439,7 +438,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
         return mode, client.exists()
     if mode == "cloud":
         if apikey.exists():
-            login(api_key=apikey.get())
+            raw_login(api_key=apikey.get())
             return "cloud", True
 
         console.info("Using SwanLab to track your experiments.")

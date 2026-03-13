@@ -8,17 +8,18 @@
 3. 触发异步微批处理落盘与回调
 """
 
-from functools import cached_property
+import threading
+from functools import cached_property, wraps
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union, cast, get_args
+from typing import Any, Literal, Mapping, Optional, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent
+from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -27,12 +28,33 @@ from .consumer import BackgroundConsumer
 from .data.transforms import Text
 from .record_builder import RecordBuilder
 
-__all__ = ["SwanLabRun"]
+__all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
+
+
+def with_lock(func):
+    """线程安全装饰器，自动获取和释放外部API锁
+    Python 3.9 中无法定义在类内部
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with self._api_lock:
+            return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 class SwanLabRun:
+    """
+    The SwanLabRun class is used for logging during a single run.
+    There should be only one instance of the SwanLabRun class for each experiment.
+    """
+
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
+        self._state: Union[FinishType, Literal["running"]] = "running"
+        # 外部API锁，防止并发调用
+        self._api_lock = threading.RLock()
 
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
         self._emitter = RunEmitter(maxsize=100_000)
@@ -42,12 +64,25 @@ class SwanLabRun:
 
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
+
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
         self._consumer.start()
-        # TODO: 触发启动事件
+
+        # 触发启动事件
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        self._emitter.emit(RunStartEvent(timestamp=ts))
+
         # TODO: 硬件监控与metadata采集
         # TODO: Config 事件
+
+        # 设置全局运行实例
+        set_run(self)
+
+        # 绑定日志文件
+        if self._ctx.config.settings.mode != "disabled":
+            log.bindfile(self._ctx.debug_dir)
 
     # ----------------------------------
     # 属性 (Properties)
@@ -55,20 +90,53 @@ class SwanLabRun:
 
     @cached_property
     def id(self) -> str:
+        """
+        Current run ID.
+        :return: Run ID
+        """
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
         return self._ctx.config.settings.run.id
 
     @cached_property
     def run_dir(self) -> Path:
+        """
+        Current run directory.
+        :return: Run directory path
+        """
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
+
+    @cached_property
+    def project_url(self) -> Optional[str]:
+        """
+        Current project URL if in cloud mode, otherwise None.
+        :return: Project URL or None
+        """
+        settings = self._ctx.config.settings
+        if settings.mode != "cloud":
+            return None
+        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}"
+
+    @cached_property
+    def url(self) -> Optional[str]:
+        """
+        Current run URL if in cloud mode, otherwise None.
+        :return: Run URL or None
+        """
+        settings = self._ctx.config.settings
+        if settings.mode != "cloud":
+            return None
+        return f"{self.project_url}/runs/{settings.run.id}"
 
     # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-
+    @with_lock
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
+        if self._state != "running":
+            console.error("Run has already finished or is not active, cannot call log() again.")
+            return
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -93,6 +161,7 @@ class SwanLabRun:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
+    @with_lock
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -105,6 +174,7 @@ class SwanLabRun:
             data = Text(data, caption=caption)
         self.log({key: data}, step=step)
 
+    @with_lock
     def define_scalar(
         self,
         key: str,
@@ -153,12 +223,18 @@ class SwanLabRun:
             )
         )
 
+    @with_lock
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
+        if self._state != "running":
+            console.error("Run has already finished or is not active, cannot call finish() again.")
+            return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
+
+        self._state = this_state
 
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
@@ -171,4 +247,32 @@ class SwanLabRun:
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
+        # 清理全局运行实例
+        clear_run()
         console.debug(f"Run finished with state: {state}")
+        # 释放全局logger
+        if self._ctx.config.settings.mode != "disabled":
+            log.reset()
+
+
+_current_run: Optional[SwanLabRun] = None
+
+
+def has_run() -> bool:
+    return _current_run is not None
+
+
+def get_run() -> SwanLabRun:
+    if _current_run is None:
+        raise RuntimeError("No active SwanLabRun. Call swanlab.init() first.")
+    return _current_run
+
+
+def set_run(run: SwanLabRun) -> None:
+    global _current_run
+    _current_run = run
+
+
+def clear_run() -> None:
+    global _current_run
+    _current_run = None

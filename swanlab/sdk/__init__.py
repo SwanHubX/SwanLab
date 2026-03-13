@@ -9,5 +9,17 @@ from swanlab.sdk.cmd.finish import finish
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login
 from swanlab.sdk.cmd.merge_settings import Settings, merge_settings
+from swanlab.sdk.internal.run import SwanLabRun, clear_run, get_run, has_run, set_run
 
-__all__ = ["merge_settings", "Settings", "init", "finish", "login"]
+__all__ = [
+    "merge_settings",
+    "Settings",
+    "init",
+    "finish",
+    "login",
+    "SwanLabRun",
+    "has_run",
+    "get_run",
+    "set_run",
+    "clear_run",
+]

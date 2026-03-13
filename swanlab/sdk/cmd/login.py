@@ -10,16 +10,19 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from swanlab.exceptions import AuthenticationError
+from swanlab.sdk.cmd.helper import with_cmd_lock
 from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.context import RunConfig, RunContext, get_context, has_context, use_temp_context
+from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.scope import Scope
+from swanlab.sdk.internal.run import has_run
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 from swanlab.sdk.utils import helper
 
 
+@with_cmd_lock
 def login(
     api_key: Optional[str] = None,
     relogin: bool = False,
@@ -75,10 +78,20 @@ def login(
 
     :return: Returns True if login was successful, False otherwise.
     """
+    return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+
+
+def raw_login(
+    api_key: Optional[str] = None,
+    relogin: bool = False,
+    host: Optional[str] = None,
+    save: bool = False,
+    timeout: int = 10,
+) -> bool:
     # 1. 判断是是否允许重新登录
-    # 如果已经初始化了运行上下文，则不允许重新登录
-    if has_context():
-        console.error("Cannot relogin while SwanLab Context is active. Please clear the context first.")
+    # 如果已经初始化了运行，不允许重新登录
+    if has_run():
+        console.error("Cannot relogin while SwanLab Run is active. Please use `swanlab.finish()` first.")
         return False
     # 如果已经登录且不需要重新登录，则直接返回
     if not relogin and client.exists():
@@ -109,20 +122,20 @@ def login(
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
     # 临时使用运行上下文，在结束后清除
     fake_run_dir = Path.cwd()
-    with use_temp_context(RunContext(config=RunConfig(settings=login_settings, run_dir=fake_run_dir))) as ctx:
+    with use_context(RunContext(config=RunConfig(settings=login_settings, run_dir=fake_run_dir))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
         if api_key is None:
-            api_key = apikey.prompt()
+            api_key = apikey.prompt(ctx=ctx)
         # 3. 进入登录流程
         ctx.config.settings.merge_settings({"api_key": api_key})
         with Scope() as scope:
-            create_client(timeout=timeout)
+            create_client(ctx, timeout=timeout)
             assert client.exists(), "Failed to create client"
             login_resp: Optional[LoginResponse] = scope.get("login_resp", None)
             if login_resp is None:
                 raise AuthenticationError("Failed to login, please check your API Key or network connection.")
             if save:
-                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host)
+                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host, ctx=ctx)
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(ctx.config.settings)
         return True
@@ -164,7 +177,6 @@ def interactive_login(
 
 
 @helper.rich.with_loading_animation()
-def create_client(timeout: int = 10):
-    ctx = get_context()
+def create_client(ctx: RunContext, timeout: int = 10):
     assert ctx.config.settings.api_key is not None, "API Key not provided"
     return client.new(ctx.config.settings.api_key, ctx.config.settings.api_host, timeout=timeout)

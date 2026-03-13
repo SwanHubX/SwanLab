@@ -8,15 +8,15 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1
 
 // Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
 message RunRecord {
-  string run_id          = 1;
-  string experiment_name = 2;
-  string project_name    = 3;
-  string workspace       = 4;  // 组织或用户名
-  string description     = 5;
-  repeated string tags   = 6;
-  string group           = 7;
-  string job_type        = 8;
-  string color           = 9;  // 十六进制颜色，如 "#FF5733"
+  string project         = 1;
+  string workspace       = 2;  // 组织或用户名
+  string name            = 3;
+  string description     = 4;
+  repeated string tags   = 5;
+  string group           = 6;
+  string job_type        = 7;
+  string color           = 8;  // 十六进制颜色，如 "#FF5733"
+  string id              = 9;
   ResumeMode resume      = 10;
   google.protobuf.Timestamp started_at = 11;
 }
@@ -31,16 +31,14 @@ message FinishRecord {
 }
 
 enum RunState {
-  RUN_STATE_UNSPECIFIED = 0;
-  RUN_STATE_RUNNING     = 1;
-  RUN_STATE_FINISHED    = 2;  // 正常结束
-  RUN_STATE_CRASHED     = 3;  // 异常退出
-  RUN_STATE_STOPPED     = 4;  // 用户主动中断（KeyboardInterrupt 等）
+  RUN_STATE_RUNNING     = 0;
+  RUN_STATE_FINISHED    = 1;  // 正常结束
+  RUN_STATE_CRASHED     = 2;  // 异常退出
+  RUN_STATE_STOPPED     = 3;  // 用户主动中断（KeyboardInterrupt 等）
 }
 
 enum ResumeMode {
-  RESUME_MODE_UNSPECIFIED = 0;
-  RESUME_MODE_NEVER       = 1;
-  RESUME_MODE_ALLOW       = 2;
-  RESUME_MODE_MUST        = 3;
+  RESUME_MODE_NEVER       = 0;
+  RESUME_MODE_ALLOW       = 1;
+  RESUME_MODE_MUST        = 2;
 }

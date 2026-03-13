@@ -7,10 +7,12 @@
 
 from typing import Union
 
+from swanlab.sdk.cmd.helper import with_cmd_lock
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as swanlab_settings
 
 
+@with_cmd_lock
 def merge_settings(settings: Union[Settings, dict]) -> None:
     """
     Merge custom settings into the current SwanLab settings.
