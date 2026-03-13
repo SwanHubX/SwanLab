@@ -9,8 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-import swanlab.sdk.internal.run.helper as helper_module
-from swanlab.sdk.internal.run.helper import flatten_dict, validate_key
+import swanlab.sdk.internal.run.utils_fmt as fmt
 
 
 @pytest.fixture(params=[10, 100, 1000], ids=["n=10", "n=100", "n=1000"])
@@ -37,12 +36,12 @@ def deep_dict():
 
 def test_flatten_wide(benchmark, wide_dict):
     """宽字典展开吞吐量（n=10/100/1000）"""
-    benchmark(flatten_dict, wide_dict)
+    benchmark(fmt.flatten_dict, wide_dict)
 
 
 def test_flatten_deep(benchmark, deep_dict):
     """深层嵌套字典展开（depth=50）"""
-    benchmark(flatten_dict, deep_dict)
+    benchmark(fmt.flatten_dict, deep_dict)
 
 
 # ─────────────────────────── validate_key ────────────────────────────
@@ -51,25 +50,25 @@ def test_flatten_deep(benchmark, deep_dict):
 @pytest.fixture(autouse=True)
 def reset_warned_keys():
     # noinspection PyProtectedMember
-    helper_module._WARNED_KEYS.clear()
+    fmt._WARNED_KEYS.clear()
     yield
     # noinspection PyProtectedMember
-    helper_module._WARNED_KEYS.clear()
+    fmt._WARNED_KEYS.clear()
 
 
 def test_validate_valid(benchmark):
     """合法 key，无需清洗（最快路径）"""
-    benchmark(validate_key, "train/accuracy_top1")
+    benchmark(fmt.validate_key, "train/accuracy_top1")
 
 
 def test_validate_dirty(benchmark):
     """含非法字符的 key，触发 regex 替换"""
     with patch("swanlab.sdk.internal.run.helper.console"):
-        benchmark(validate_key, "  bad key@epoch  ")
+        benchmark(fmt.validate_key, "  bad key@epoch  ")
 
 
 def test_validate_long(benchmark):
     """超长 key（300 字符），触发截断"""
     key = "x" * 300
     with patch("swanlab.sdk.internal.run.helper.console"):
-        benchmark(validate_key, key)
+        benchmark(fmt.validate_key, key)

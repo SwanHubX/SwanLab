@@ -35,7 +35,7 @@ const (
 // 消息流示意：
 //
 //	init()  → RunRecord, MetadataRecord, ConfigRecord
-//	log()   → LogRecord（每次调用一条）
+//	log()   → MetricRecord（每个 key 一条）
 //	stdout  → ConsoleRecord（每行一条）
 //	finish()→ FinishRecord
 type Record struct {
@@ -46,7 +46,7 @@ type Record struct {
 	//
 	//	*Record_Run
 	//	*Record_Finish
-	//	*Record_Log
+	//	*Record_Metric
 	//	*Record_Config
 	//	*Record_Column
 	//	*Record_Metadata
@@ -127,10 +127,10 @@ func (x *Record) GetFinish() *v1.FinishRecord {
 	return nil
 }
 
-func (x *Record) GetLog() *v11.LogRecord {
+func (x *Record) GetMetric() *v11.MetricRecord {
 	if x != nil {
-		if x, ok := x.RecordType.(*Record_Log); ok {
-			return x.Log
+		if x, ok := x.RecordType.(*Record_Metric); ok {
+			return x.Metric
 		}
 	}
 	return nil
@@ -203,9 +203,9 @@ type Record_Finish struct {
 	Finish *v1.FinishRecord `protobuf:"bytes,11,opt,name=finish,proto3,oneof"`
 }
 
-type Record_Log struct {
+type Record_Metric struct {
 	// ── 用户数据 ──
-	Log *v11.LogRecord `protobuf:"bytes,12,opt,name=log,proto3,oneof"`
+	Metric *v11.MetricRecord `protobuf:"bytes,12,opt,name=metric,proto3,oneof"`
 }
 
 type Record_Config struct {
@@ -238,7 +238,7 @@ func (*Record_Run) isRecord_RecordType() {}
 
 func (*Record_Finish) isRecord_RecordType() {}
 
-func (*Record_Log) isRecord_RecordType() {}
+func (*Record_Metric) isRecord_RecordType() {}
 
 func (*Record_Config) isRecord_RecordType() {}
 
@@ -256,14 +256,14 @@ var File_swanlab_record_v1_record_proto protoreflect.FileDescriptor
 
 const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\n" +
-	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x19swanlab/data/v1/log.proto\x1a\x1cswanlab/data/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"\xf2\x04\n" +
+	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x1cswanlab/data/v1/metric.proto\x1a\x1cswanlab/data/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"\xfb\x04\n" +
 	"\x06Record\x12\x10\n" +
 	"\x03num\x18\x01 \x01(\x03R\x03num\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
 	"\x03run\x18\n" +
 	" \x01(\v2\x19.swanlab.run.v1.RunRecordH\x00R\x03run\x126\n" +
-	"\x06finish\x18\v \x01(\v2\x1c.swanlab.run.v1.FinishRecordH\x00R\x06finish\x12.\n" +
-	"\x03log\x18\f \x01(\v2\x1a.swanlab.data.v1.LogRecordH\x00R\x03log\x129\n" +
+	"\x06finish\x18\v \x01(\v2\x1c.swanlab.run.v1.FinishRecordH\x00R\x06finish\x127\n" +
+	"\x06metric\x18\f \x01(\v2\x1d.swanlab.data.v1.MetricRecordH\x00R\x06metric\x129\n" +
 	"\x06config\x18\r \x01(\v2\x1f.swanlab.config.v1.ConfigRecordH\x00R\x06config\x127\n" +
 	"\x06column\x18\x13 \x01(\v2\x1d.swanlab.data.v1.ColumnRecordH\x00R\x06column\x12?\n" +
 	"\bmetadata\x18\x0e \x01(\v2!.swanlab.system.v1.MetadataRecordH\x00R\bmetadata\x12K\n" +
@@ -292,7 +292,7 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),  // 1: google.protobuf.Timestamp
 	(*v1.RunRecord)(nil),           // 2: swanlab.run.v1.RunRecord
 	(*v1.FinishRecord)(nil),        // 3: swanlab.run.v1.FinishRecord
-	(*v11.LogRecord)(nil),          // 4: swanlab.data.v1.LogRecord
+	(*v11.MetricRecord)(nil),       // 4: swanlab.data.v1.MetricRecord
 	(*v12.ConfigRecord)(nil),       // 5: swanlab.config.v1.ConfigRecord
 	(*v11.ColumnRecord)(nil),       // 6: swanlab.data.v1.ColumnRecord
 	(*v13.MetadataRecord)(nil),     // 7: swanlab.system.v1.MetadataRecord
@@ -305,7 +305,7 @@ var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	1,  // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: swanlab.record.v1.Record.run:type_name -> swanlab.run.v1.RunRecord
 	3,  // 2: swanlab.record.v1.Record.finish:type_name -> swanlab.run.v1.FinishRecord
-	4,  // 3: swanlab.record.v1.Record.log:type_name -> swanlab.data.v1.LogRecord
+	4,  // 3: swanlab.record.v1.Record.metric:type_name -> swanlab.data.v1.MetricRecord
 	5,  // 4: swanlab.record.v1.Record.config:type_name -> swanlab.config.v1.ConfigRecord
 	6,  // 5: swanlab.record.v1.Record.column:type_name -> swanlab.data.v1.ColumnRecord
 	7,  // 6: swanlab.record.v1.Record.metadata:type_name -> swanlab.system.v1.MetadataRecord
@@ -329,7 +329,7 @@ func file_swanlab_record_v1_record_proto_init() {
 	file_swanlab_record_v1_record_proto_msgTypes[0].OneofWrappers = []any{
 		(*Record_Run)(nil),
 		(*Record_Finish)(nil),
-		(*Record_Log)(nil),
+		(*Record_Metric)(nil),
 		(*Record_Config)(nil),
 		(*Record_Column)(nil),
 		(*Record_Metadata)(nil),

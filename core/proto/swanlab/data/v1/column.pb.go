@@ -290,7 +290,7 @@ func (x *YRange) GetMax() float64 {
 }
 
 // ColumnRecord 列定义，描述一个 metric key 的显示配置和归类规则。
-// 通常在该 key 首次出现时随 LogRecord 之前发送一次。
+// 通常在该 key 首次出现时随 MetricRecord 之前发送一次。
 //
 // Section 归类优先级规则：
 //  1. PINNED / HIDDEN / SCALAR / MEDIA 同类只允许一个 section；
@@ -305,7 +305,7 @@ type ColumnRecord struct {
 	Class ColumnClass `protobuf:"varint,1,opt,name=class,proto3,enum=swanlab.data.v1.ColumnClass" json:"class,omitempty"`
 	// 数据类型，必填
 	Type ColumnType `protobuf:"varint,2,opt,name=type,proto3,enum=swanlab.data.v1.ColumnType" json:"type,omitempty"`
-	// 键名，必填，须与 MetricItem.key 对应
+	// 键名，必填，须与 MetricRecord.key 对应
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
 	// 显示名称，可选，不填时默认取 key
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`

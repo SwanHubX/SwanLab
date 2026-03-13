@@ -5,7 +5,7 @@
 @description: SwanLab 运行时数据类型
 """
 
-from typing import Literal
+from typing import Literal, Union
 
 MediaTransferType = Literal["image", "audio", "video", "text", "echarts"]
 
@@ -14,3 +14,5 @@ DataTransferType = Literal["scalar", MediaTransferType]
 """
 数据类型，包括scalar、image、audio、video、text、table、echarts
 """
+
+ScalarXAxisType = Union[Literal["_step", "_relative_time"], str]

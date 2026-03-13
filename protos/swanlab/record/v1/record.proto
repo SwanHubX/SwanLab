@@ -5,7 +5,7 @@ package swanlab.record.v1;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 import "swanlab/run/v1/run.proto";
-import "swanlab/data/v1/log.proto";
+import "swanlab/data/v1/metric.proto";
 import "swanlab/data/v1/column.proto";
 import "swanlab/config/v1/config.proto";
 import "swanlab/system/v1/env.proto";
@@ -26,7 +26,7 @@ service RecordService {
 //
 // 消息流示意：
 //   init()  → RunRecord, MetadataRecord, ConfigRecord
-//   log()   → LogRecord（每次调用一条）
+//   log()   → MetricRecord（每个 key 一条）
 //   stdout  → ConsoleRecord（每行一条）
 //   finish()→ FinishRecord
 message Record {
@@ -39,7 +39,7 @@ message Record {
     swanlab.run.v1.FinishRecord finish = 11;
 
     // ── 用户数据 ──
-    swanlab.data.v1.LogRecord      log    = 12;
+    swanlab.data.v1.MetricRecord   metric = 12;
     swanlab.config.v1.ConfigRecord config = 13;
     swanlab.data.v1.ColumnRecord   column = 19;
 
