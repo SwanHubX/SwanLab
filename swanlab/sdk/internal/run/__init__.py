@@ -20,22 +20,12 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
+from . import utils_fmt as F
 from .callbackers import CloudCallback, LocalCallback, OfflineCallback
 from .consumer import BackgroundConsumer
 from .data.transforms import Text
 from .events import DefineEvent, EventPayload, FinishEvent, LogEvent
-from .helper import (
-    flatten_dict,
-    safe_validate_chart_name,
-    safe_validate_color,
-    safe_validate_key,
-    safe_validate_log_data,
-    safe_validate_name,
-    safe_validate_state,
-    safe_validate_step,
-    safe_validate_x_axis,
-)
-from .record_builder import RecordBuilder
+from .record import RecordBuilder
 
 __all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
 
@@ -76,10 +66,10 @@ class SwanLabRun:
 
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
-        if not (this_data := safe_validate_log_data(data)):
+        if not (this_data := F.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore it.")
             return
-        if not (this_step := safe_validate_step(step)):
+        if not (this_step := F.safe_validate_step(step)):
             console.error(f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore it.")
             return
 
@@ -89,7 +79,7 @@ class SwanLabRun:
         ts.GetCurrentTime()
 
         # 展平字典并在内部进行合规性验证和截断
-        flatten_data = flatten_dict(this_data)
+        flatten_data = F.flatten_dict(this_data)
 
         # 推送日志事件
         self._queue.put(LogEvent(data=flatten_data, step=next_step, timestamp=ts), block=True)
@@ -122,24 +112,24 @@ class SwanLabRun:
         :param x_axis: Optional x-axis for the scalar column.
         :param chart_name: Optional name for the chart.
         """
-        if not (this_key := safe_validate_key(key)):
+        if not (this_key := F.safe_validate_key(key)):
             return console.error(
                 f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
             )
 
         original_name = name
-        if name and not (name := safe_validate_name(name)):
+        if name and not (name := F.safe_validate_name(name)):
             return console.error(f"Invalid name for define scalar: {original_name}, must be a string.")
 
         original_color = color
-        if color and not (color := safe_validate_color(color)):
+        if color and not (color := F.safe_validate_color(color)):
             return console.error(f"Invalid color for define scalar: {original_color}, must be a hex color code.")
 
-        if (this_x_axis := safe_validate_x_axis(x_axis)) is None:
+        if (this_x_axis := F.safe_validate_x_axis(x_axis)) is None:
             return console.error(f"Invalid x_axis for define scalar: {x_axis}, must be a valid ScalarXAxisType.")
 
         original_chart_name = chart_name
-        if chart_name and not (chart_name := safe_validate_chart_name(chart_name)):
+        if chart_name and not (chart_name := F.safe_validate_chart_name(chart_name)):
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
         self._define_scalar(
@@ -154,7 +144,7 @@ class SwanLabRun:
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         state = state.lower()  # type: ignore
-        if not (this_state := safe_validate_state(cast(FinishType, state))):
+        if not (this_state := F.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
 

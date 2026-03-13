@@ -26,7 +26,7 @@ from .events import (
     RequirementsEvent,
     RunStartEvent,
 )
-from .record_builder import RecordBuilder
+from .record import RecordBuilder
 
 
 class BackgroundConsumer:
