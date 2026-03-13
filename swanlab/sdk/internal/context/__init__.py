@@ -83,7 +83,7 @@ class RunContext:
         return self.config.run_dir / "debug"
 
     @cached_property
-    def backup_file(self) -> Path:
+    def run_file(self) -> Path:
         run_id = self.config.settings.run.id
         assert run_id, "Run ID is not set."
         return self.config.run_dir / f"run-{run_id}.swanlab"

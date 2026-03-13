@@ -40,7 +40,7 @@ class CorePython(CoreProtocol):
             raise RuntimeError("CorePython has already been started.")
         if persistence:
             self._store = DataStoreWriter()
-            self._store.open(str(self._ctx.backup_file))
+            self._store.open(str(self._ctx.run_file))
 
     def handle_records(self, records: List[Record]) -> None:
         if self._store is None:
