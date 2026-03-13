@@ -255,30 +255,36 @@ class TestTag:
 
 class TestRunIdFormat:
     @staticmethod
-    def test_run_id_format_valid_run_id():
+    def test_run_id_format_valid_short():
+        assert check_run_id_format("abc") == "abc"
+
+    @staticmethod
+    def test_run_id_format_valid_21_chars():
         assert check_run_id_format("abcdefghijklmnopqrstu") == "abcdefghijklmnopqrstu"
 
     @staticmethod
-    def test_run_id_format_invalid_length():
-        with pytest.raises(
-            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
-        ):
-            check_run_id_format("shortid")
+    def test_run_id_format_valid_64_chars():
+        value = "a" * 64
+        assert check_run_id_format(value) == value
 
     @staticmethod
-    def test_run_id_format_invalid_characters():
-        with pytest.raises(
-            ValueError, match=r"id .* is invalid, it must be 21 characters of lowercase letters and digits"
-        ):
-            check_run_id_format("abc123!@#def456ghi789")
+    def test_run_id_format_valid_mixed_chars():
+        assert check_run_id_format("Hello_World-2024.run") == "Hello_World-2024.run"
+
+    @staticmethod
+    def test_run_id_format_invalid_too_long():
+        with pytest.raises(ValueError, match=r"id .* is invalid, length must be between 1 and 64 characters"):
+            check_run_id_format("a" * 65)
+
+    @staticmethod
+    @pytest.mark.parametrize("invalid_id", ["abc/def", "abc\\def", "abc#def", "abc?def", "abc%def", "abc:def"])
+    def test_run_id_format_invalid_characters(invalid_id):
+        with pytest.raises(ValueError, match=r"id .* is invalid, it must not contain"):
+            check_run_id_format(invalid_id)
 
     @staticmethod
     def test_run_id_format_none_input():
         assert check_run_id_format(None) is None
-
-    @staticmethod
-    def test_run_id_format_numeric_input():
-        assert check_run_id_format(123456789012345678901) == "123456789012345678901"
 
     @staticmethod
     def test_run_id_format_empty_string():

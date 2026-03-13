@@ -113,7 +113,7 @@ class Client:
 
     @property
     def web_exp_url(self) -> str:
-        return f"{self.web_proj_url}/runs/{self.exp_id}"
+        return f"{self.web_proj_url}/runs/{self.exp.slug or self.exp_id}"
 
     # ---------------------------------- http方法 ----------------------------------
 
