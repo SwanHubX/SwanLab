@@ -279,6 +279,7 @@ def _init(run_settings: Settings) -> RunContext:
                 "experiment.name": name,
                 "experiment.color": color,
                 "project.workspace": workspace,
+                "run.id": run_id,
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
@@ -292,6 +293,7 @@ def _init(run_settings: Settings) -> RunContext:
                 "experiment.name": name,
                 "experiment.color": color,
                 "project.workspace": workspace,
+                "run.id": run_id,
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)

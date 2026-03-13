@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 # 请替换为你的实际导入路径
-from swanlab.sdk.cmd.init import load_config, prompt_init_mode
+from swanlab.sdk.cmd.init import compatible_kwargs, load_config, prompt_init_mode, set_nested_value
 
 
 # ==========================================
@@ -121,3 +121,79 @@ def test_prompt_interactive_choices(
     monkeypatch.setattr("builtins.input", lambda prompt: next(input_iterator))
 
     assert prompt_init_mode(mock_settings) == (expected_mode, expected_success)
+
+
+class TestSetNestedValue:
+    """测试 set_nested_value 函数"""
+
+    def test_simple_key(self):
+        """测试简单的单层键"""
+        d = {}
+        set_nested_value(d, "a", 1)
+        assert d == {"a": 1}
+
+    def test_nested_key(self):
+        """测试嵌套键路径"""
+        d = {}
+        set_nested_value(d, "a.b.c", 123)
+        assert d == {"a": {"b": {"c": 123}}}
+
+    def test_update_existing_nested_value(self):
+        """测试更新已存在的嵌套值"""
+        d = {"a": {"b": {"c": 1}}}
+        set_nested_value(d, "a.b.c", 999)
+        assert d == {"a": {"b": {"c": 999}}}
+
+    def test_partial_existing_path(self):
+        """测试部分路径已存在的情况"""
+        d = {"a": {"x": 1}}
+        set_nested_value(d, "a.b.c", 2)
+        assert d == {"a": {"x": 1, "b": {"c": 2}}}
+
+    def test_none_value_not_set(self):
+        """测试 None 值不会被设置"""
+        d = {}
+        set_nested_value(d, "a", None)
+        assert d == {}
+
+    def test_none_value_nested_not_set(self):
+        """测试嵌套路径的 None 值不会被设置"""
+        d = {"x": 1}
+        set_nested_value(d, "a.b.c", None)
+        assert d == {"x": 1}
+
+
+class TestCompatibleKwargs:
+    """测试 compatible_kwargs 的参数兼容性映射"""
+
+    def test_experiment_name_maps_to_nested_key(self):
+        """experiment_name → experiment.name"""
+        result = compatible_kwargs({}, experiment_name="my_exp")
+
+        assert result == {"experiment": {"name": "my_exp"}}
+
+    def test_notes_maps_to_description(self):
+        """notes → experiment.description"""
+        result = compatible_kwargs({}, notes="my description")
+
+        assert result == {"experiment": {"description": "my description"}}
+
+    def test_both_kwargs_mapped_simultaneously(self):
+        """experiment_name 和 notes 同时传入时，均应被正确映射"""
+        result = compatible_kwargs({}, experiment_name="exp", notes="desc")
+
+        assert result["experiment"]["name"] == "exp"
+        assert result["experiment"]["description"] == "desc"
+
+    def test_no_extra_kwargs_returns_model_dict_unchanged(self):
+        """无额外 kwargs 时，model_dict 原样返回"""
+        d = {"key": "value"}
+        result = compatible_kwargs(d)
+
+        assert result == {"key": "value"}
+
+    def test_none_values_not_written_to_dict(self):
+        """experiment_name=None 和 notes=None 不应写入任何键"""
+        result = compatible_kwargs({}, experiment_name=None, notes=None)
+
+        assert result == {}
