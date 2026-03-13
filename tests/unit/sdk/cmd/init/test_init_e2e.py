@@ -26,7 +26,8 @@ from swanlab.sdk.internal.settings import Settings
 # ============================================================
 # Cloud 模式测试常量
 # ============================================================
-API_HOST = "https://api.swanlab.cn"
+API_HOST = "https://api.fake.swanlab.cn"
+WEB_HOST = "https://test.swanlab.cn"
 USERNAME = "test-user"
 PROJECT = "test-project"
 RUN_ID = "test-run-id"
@@ -134,7 +135,14 @@ def mock_experiment_create_api(rsps):
 
 
 @pytest.fixture
+def mock_cloud_settings():
+    """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
+    merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
+
+
+@pytest.fixture
 def mock_cloud_init_apis(
+    mock_cloud_settings,
     mock_login_api,
     mock_project_create_api,
     mock_project_get_api,
@@ -150,7 +158,7 @@ def mock_cloud_init_apis(
 
 
 @pytest.fixture
-def logged_in_client(mock_login_api):
+def logged_in_client(mock_login_api, mock_cloud_settings):
     """
     调用 raw_login() 完成登录流程，确保全局 client 已创建。
     依赖 mock_login_api，故登录请求不会触及真实网络。
