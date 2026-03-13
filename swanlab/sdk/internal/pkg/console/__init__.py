@@ -144,6 +144,9 @@ def info(*args, color: str = "blue", **kwargs):
     prefix = Text(_name, style=f"{color} bold", no_wrap=True) + Text(":", style="default")
     safe_args = [Text(str(a)) if not isinstance(a, Text) else a for a in args]
     _console.print(prefix, *safe_args, **kwargs)
+    if helper.env.DEBUG:
+        _, plain = _loguru_build("info", "", *args)
+        log.info(plain)
 
 
 def warning(*args, **kwargs):
@@ -168,6 +171,7 @@ def error(*args, **kwargs):
 
 _LOG_FUNCS = {
     "debug": log.debug,
+    "info": log.info,
     "warning": log.warning,
     "error": log.error,
 }

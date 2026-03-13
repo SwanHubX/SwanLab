@@ -161,7 +161,7 @@ class SessionWithRetry(Session):
             if text and not decoded:
                 # 只有当解码失败时，才额外把原始错误 body 打印出来
                 err_preview = format_body_preview(text) or "<unknown data>"
-                console.trace(f"[HTTP-RES-ERR-BODY] {err_preview}", id="http-session")
+                console.trace(f"[HTTP-RES-ERR-BODY] {err_preview}", id=TRACE_ID)
         # -------------------------------
 
         # 5. 抛出友好的自定义 ApiError
