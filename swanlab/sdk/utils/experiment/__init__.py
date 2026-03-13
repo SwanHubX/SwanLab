@@ -7,6 +7,7 @@
 
 import colorsys
 import random
+import secrets
 import string
 from typing import Literal, Optional, Union
 
@@ -24,7 +25,7 @@ def generate_id(length: int = 21) -> str:
     if length <= 0 or length > 64:
         raise ValueError("Length must be between 1 and 64.")
     characters = string.ascii_lowercase + string.digits
-    return "".join(random.choices(characters, k=length))
+    return "".join(secrets.choice(characters) for _ in range(length))
 
 
 PRESET_COLORS = [
