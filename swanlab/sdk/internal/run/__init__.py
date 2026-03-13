@@ -92,26 +92,42 @@ class SwanLabRun:
 
     @cached_property
     def id(self) -> str:
+        """
+        Current run ID.
+        :return: Run ID
+        """
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
         return self._ctx.config.settings.run.id
 
     @cached_property
     def run_dir(self) -> Path:
+        """
+        Current run directory.
+        :return: Run directory path
+        """
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
     @cached_property
     def project_url(self) -> Optional[str]:
+        """
+        Current project URL if in cloud mode, otherwise None.
+        :return: Project URL or None
+        """
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
             return None
         return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}"
 
     @cached_property
-    def url(self) -> str:
+    def url(self) -> Optional[str]:
+        """
+        Current run URL if in cloud mode, otherwise None.
+        :return: Run URL or None
+        """
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
-            raise RuntimeError("Run URL is only available in cloud mode.")
+            return None
         return f"{self.project_url}/runs/{settings.run.id}"
 
     # ----------------------------------
