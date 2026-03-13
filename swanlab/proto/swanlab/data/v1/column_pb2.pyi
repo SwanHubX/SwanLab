@@ -59,12 +59,12 @@ class YRange(_message.Message):
     def __init__(self, min: _Optional[float] = ..., max: _Optional[float] = ...) -> None: ...
 
 class ColumnRecord(_message.Message):
-    __slots__ = ("type", "key", "name", "error", "section_name", "section_type", "y_range", "chart_index", "chart_name", "metric_name", "metric_colors")
-    CLASS_FIELD_NUMBER: _ClassVar[int]
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    ERROR_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("column_class", "column_type", "column_key", "column_name", "column_error", "section_name", "section_type", "y_range", "chart_index", "chart_name", "metric_name", "metric_colors")
+    COLUMN_CLASS_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_TYPE_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_KEY_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_ERROR_FIELD_NUMBER: _ClassVar[int]
     SECTION_NAME_FIELD_NUMBER: _ClassVar[int]
     SECTION_TYPE_FIELD_NUMBER: _ClassVar[int]
     Y_RANGE_FIELD_NUMBER: _ClassVar[int]
@@ -72,10 +72,11 @@ class ColumnRecord(_message.Message):
     CHART_NAME_FIELD_NUMBER: _ClassVar[int]
     METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
     METRIC_COLORS_FIELD_NUMBER: _ClassVar[int]
-    type: ColumnType
-    key: str
-    name: str
-    error: ColumnError
+    column_class: ColumnClass
+    column_type: ColumnType
+    column_key: str
+    column_name: str
+    column_error: ColumnError
     section_name: str
     section_type: SectionType
     y_range: YRange
@@ -83,4 +84,4 @@ class ColumnRecord(_message.Message):
     chart_name: str
     metric_name: str
     metric_colors: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, type: _Optional[_Union[ColumnType, str]] = ..., key: _Optional[str] = ..., name: _Optional[str] = ..., error: _Optional[_Union[ColumnError, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Iterable[str]] = ..., **kwargs) -> None: ...
+    def __init__(self, column_class: _Optional[_Union[ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnType, str]] = ..., column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., column_error: _Optional[_Union[ColumnError, _Mapping]] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Iterable[str]] = ...) -> None: ...

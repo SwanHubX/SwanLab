@@ -25,7 +25,7 @@ from . import utils_fmt as fmt
 from .callbackers import CloudCallback, LocalCallback, OfflineCallback
 from .consumer import BackgroundConsumer
 from .data.transforms import Text
-from .record import RecordBuilder
+from .record_builder import RecordBuilder
 
 __all__ = ["SwanLabRun", "CloudCallback", "LocalCallback", "OfflineCallback"]
 
@@ -40,7 +40,7 @@ class SwanLabRun:
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
         # 后台消费者：从 emitter.queue 消费事件并落盘
-        self._consumer = BackgroundConsumer(self._emitter.queue, self._builder, ctx.callbacker, ctx.metrics)
+        self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder)
         self._consumer.start()
         # TODO: 触发启动事件
         # TODO: 硬件监控与metadata采集
@@ -67,13 +67,19 @@ class SwanLabRun:
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if not (this_data := fmt.safe_validate_log_data(data)):
-            console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore it.")
+            console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
-        if not (this_step := fmt.safe_validate_step(step)):
-            console.error(f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore it.")
-            return
+        if step is not None:
+            if not isinstance(step, int):
+                console.error(
+                    f"Step must be an integer or None, but got {type(step).__name__}. SwanLab will ignore this log."
+                )
+                return
+            if step < 0:
+                console.error(f"Step must be non-negative, but got {step}. SwanLab will ignore this log.")
+                return
 
-        next_step = self._ctx.metrics.next_step(this_step)
+        next_step = self._ctx.metrics.next_step(step)
 
         ts = Timestamp()
         ts.GetCurrentTime()

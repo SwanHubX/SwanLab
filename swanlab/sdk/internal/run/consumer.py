@@ -22,30 +22,31 @@ from swanlab.sdk.internal.bus.events import (
     RunFinishEvent,
     RunStartEvent,
 )
-from swanlab.sdk.internal.context import RunMetrics
-from swanlab.sdk.internal.context.callbacker import CallbackManager
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
 
-from .record import RecordBuilder
+from .record_builder import RecordBuilder
 
 
 class BackgroundConsumer:
     def __init__(
         self,
+        ctx: RunContext,
         event_queue: "queue.Queue[EventPayload]",
         builder: RecordBuilder,
-        callbacker: CallbackManager,
-        metrics: RunMetrics,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
+        self._ctx = ctx
         self._queue = event_queue
         self._builder = builder
-        self._callbacker = callbacker
-        self._metrics = metrics
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
         self._thread = threading.Thread(target=self._run, name="SwanLab-Background-Logger", daemon=True)
+        # 初始化属性
+        self._disabled = self._ctx.config.settings.mode == "disabled"
+        self._metrics = self._ctx.metrics
+        self._callbacker = self._ctx.callbacker
 
     def start(self) -> None:
         self._thread.start()
@@ -121,7 +122,7 @@ class BackgroundConsumer:
 
     def _flush(self, records: FlushPayload) -> None:
         """刷盘与回调触发"""
-        if not records:
+        if not records or self._disabled:
             return
         try:
             # TODO: 批量追加到本地文件

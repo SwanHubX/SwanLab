@@ -53,19 +53,19 @@ message YRange {
 //      设了 section_name 则放入 PUBLIC 类型下。
 message ColumnRecord {
   // 列类别，默认 CUSTOM
-  ColumnClass class = 1;
+  ColumnClass column_class = 1;
 
   // 数据类型，必填
-  ColumnType type = 2;
+  ColumnType column_type = 2;
 
   // 键名，必填，须与 MetricRecord.key 对应
-  string key = 3;
+  string column_key = 3;
 
   // 显示名称，可选，不填时默认取 key
-  string name = 4;
+  string column_name = 4;
 
   // 错误信息，type=ANY 时必填
-  ColumnError error = 5;
+  ColumnError column_error = 5;
 
   // 自定义 section 名称，优先级高于由 key 推断的 section
   string section_name = 6;

@@ -78,10 +78,10 @@ class RecordBuilder:
             media_type = self._metric_to_media_type(metric_record)
             metrics.define_media(key, media_type, self._ctx.media_dir / media_type)
         col = ColumnRecord(
-            key=key,
-            type=col_type,
+            column_key=key,
+            column_type=col_type,
+            column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
             section_type=section_type,
-            class_=ColumnClass.COLUMN_CLASS_CUSTOM,
         )
         return self._wrap(column=col)
 
@@ -99,13 +99,14 @@ class RecordBuilder:
         )
         section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
         col = ColumnRecord(
-            key=event.key,
-            type=ColumnType.COLUMN_TYPE_FLOAT,
-            class_=ColumnClass.COLUMN_CLASS_CUSTOM,
+            column_key=event.key,
+            column_type=ColumnType.COLUMN_TYPE_FLOAT,
+            column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
+            section_name=event.chart_name,
             section_type=section_type,
-            chart_index=event.chart or "",
-            chart_name=event.chart_name or "",
-            metric_name=event.name or "",
+            chart_index=event.chart,
+            chart_name=event.chart_name,
+            metric_name=event.name,
             metric_colors=[event.color] if event.color else [],
         )
         return self._wrap(column=col)
