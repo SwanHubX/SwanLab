@@ -145,7 +145,7 @@ class SwanLabExp:
                 if explicit_step:
                     swanlog.debug(f"Step {step} on key {key} already exists, overwriting.")
                 else:
-                    swanlog.debug(f"Implicit step {step} on key {key} resolved as overwrite, but expected to append.")
+                    swanlog.warning(f"Implicit step {step} on key {key} resolved as overwrite, but expected to append.")
         data.parse(step=step, key=key)
         # ---------------------------------- 图表创建 ----------------------------------
 
