@@ -20,8 +20,8 @@ from swanlab.sdk.internal.bus.events import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
-    DefineEvent,
     MetadataEvent,
+    MetricDefineEvent,
     ParseResult,
     RequirementsEvent,
     RunStartEvent,
@@ -85,7 +85,7 @@ class RecordBuilder:
         )
         return self._wrap(column=col)
 
-    def build_column_from_define(self, event: DefineEvent) -> Record:
+    def build_column_from_define(self, event: MetricDefineEvent) -> Record:
         """显式创建列（DefineEvent），仅支持 scalar"""
         metrics = self._ctx.metrics
         metrics.define_scalar(

@@ -15,7 +15,7 @@ from typing import Any, Mapping, Optional, Union, cast, get_args
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import DefineEvent, FinishEvent, LogEvent
+from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import FinishType
@@ -82,7 +82,7 @@ class SwanLabRun:
         flatten_data = fmt.flatten_dict(this_data)
 
         # 推送日志事件
-        self._emitter.emit(LogEvent(data=flatten_data, step=next_step, timestamp=ts))
+        self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
@@ -133,7 +133,7 @@ class SwanLabRun:
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
         self._emitter.emit(
-            DefineEvent(
+            MetricDefineEvent(
                 key=this_key,
                 name=name,
                 color=color,
@@ -159,7 +159,7 @@ class SwanLabRun:
         # 线程退出
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._emitter.emit(FinishEvent(state=this_state, error=error, timestamp=ts))
+        self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
         console.debug(f"Run finished with state: {state}")

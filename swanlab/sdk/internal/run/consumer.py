@@ -13,13 +13,13 @@ from swanlab.sdk.internal.bus.events import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
-    DefineEvent,
     EventPayload,
-    FinishEvent,
     FlushPayload,
-    LogEvent,
     MetadataEvent,
+    MetricDefineEvent,
+    MetricLogEvent,
     RequirementsEvent,
+    RunFinishEvent,
     RunStartEvent,
 )
 from swanlab.sdk.internal.context import RunMetrics
@@ -65,12 +65,12 @@ class BackgroundConsumer:
                 event = self._queue.get(timeout=self._flush_timeout)
 
                 # 1. 退出信号
-                if isinstance(event, FinishEvent):
+                if isinstance(event, RunFinishEvent):
                     self._flush(batch)
                     break
 
                 # 2. 记录数据（可能触发隐式创建 Implicit Define）
-                elif isinstance(event, LogEvent):
+                elif isinstance(event, MetricLogEvent):
                     for key, value in event.data.items():
                         try:
                             record, data_type = self._builder.build_log(value, key, event.timestamp, event.step)
@@ -84,7 +84,7 @@ class BackgroundConsumer:
                             console.error(f"Error when parsing metric '{key}': {e}")
 
                 # 3. 显式创建列 (Explicit Define)
-                elif isinstance(event, DefineEvent):
+                elif isinstance(event, MetricDefineEvent):
                     if event.key not in _emitted_columns:
                         batch.append(self._builder.build_column_from_define(event))
                         _emitted_columns.add(event.key)

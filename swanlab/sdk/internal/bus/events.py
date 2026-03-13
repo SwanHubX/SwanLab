@@ -23,7 +23,14 @@ from swanlab.sdk.typings.run.data import DataTransferType, ScalarXAxisType
 
 
 @dataclass
-class LogEvent:
+class RunStartEvent:
+    """运行启动事件"""
+
+    run_record: RunRecord
+
+
+@dataclass
+class MetricLogEvent:
     """日志记录事件"""
 
     data: Dict[str, Any]
@@ -32,7 +39,7 @@ class LogEvent:
 
 
 @dataclass
-class DefineEvent:
+class MetricDefineEvent:
     """显式创建列事件"""
 
     # 指标键
@@ -51,22 +58,6 @@ class DefineEvent:
     chart_name: Optional[str] = None
     # 指标类型，显式创建目前仅支持标量
     column_type: Literal["scalar"] = "scalar"
-
-
-@dataclass
-class FinishEvent:
-    """运行结束的毒丸信号 (Poison Pill)"""
-
-    state: FinishType
-    error: Optional[str]
-    timestamp: Optional[Timestamp]
-
-
-@dataclass
-class RunStartEvent:
-    """运行启动事件"""
-
-    run_record: RunRecord
 
 
 @dataclass
@@ -105,11 +96,20 @@ class CondaEvent:
     path: str
 
 
+@dataclass
+class RunFinishEvent:
+    """运行结束的毒丸信号 (Poison Pill)"""
+
+    state: FinishType
+    error: Optional[str]
+    timestamp: Optional[Timestamp]
+
+
 # 事件载体类型
 EventPayload = Union[
-    LogEvent,
-    DefineEvent,
-    FinishEvent,
+    MetricLogEvent,
+    MetricDefineEvent,
+    RunFinishEvent,
     RunStartEvent,
     ConfigEvent,
     ConsoleEvent,
