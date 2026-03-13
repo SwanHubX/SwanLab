@@ -18,6 +18,8 @@ from typing import List
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core import CoreProtocol
+from swanlab.sdk.internal.core_python.store import DataStoreWriter
+from swanlab.sdk.internal.pkg import console
 
 __all__ = ["CorePython"]
 
@@ -30,16 +32,24 @@ class CorePython(CoreProtocol):
 
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
-        self._started = False
+        self._store: DataStoreWriter | None = None
 
     def startup(self, cloud: bool, persistence: bool) -> None:
-        assert not self._started, "Core has already been started."
-        self._started = True
+        if self._store is not None:
+            raise RuntimeError("CorePython has already been started.")
+        if persistence:
+            self._store = DataStoreWriter()
+            self._store.open(str(self._ctx.backup_file))
 
-    def handle_records(self, records: List[Record]):
-        assert self._started, "Core has not been started."
-
-    def shutdown(self):
-        if not self._started:
+    def handle_records(self, records: List[Record]) -> None:
+        if self._store is None:
+            console.warning("CorePython is not started, skipping record handling.")
             return
-        self._started = False
+        for record in records:
+            self._store.write(record.SerializeToString())
+
+    def shutdown(self) -> None:
+        if self._store is None:
+            return
+        self._store.close()
+        self._store = None
