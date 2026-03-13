@@ -6,30 +6,23 @@
 当 SWANLAB_DEBUG=true 时，终端输出会同步镜像到诊断日志文件（通过 log 模块）
 """
 
-from typing import Any
+import inspect
+import os
+from datetime import datetime
+from typing import Any, Literal, Optional
 
 from rich.console import Console
-from rich.markup import escape
 from rich.text import Text
 
 from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.utils import helper
 
-__all__ = ["debug", "info", "warning", "error", "critical", "disable_console", "enable_console"]
-
+__all__ = ["debug", "info", "warning", "error", "trace", "disable_console", "enable_console"]
 
 _console = Console()
 _can_log = True
 _name = "swanlab"
-
-# 暂时保留权重设计
-_config = {
-    "debug": (10, Text(_name, style="grey54 bold", no_wrap=True) + Text(":", style="default")),
-    "info": (20, Text(_name, style="blue bold", no_wrap=True) + Text(":", style="default")),
-    "warning": (30, Text(_name, style="yellow bold", no_wrap=True) + Text(":", style="default")),
-    "error": (40, Text(_name, style="red bold", no_wrap=True) + Text(":", style="default")),
-    "critical": (50, Text(_name, style="red bold", no_wrap=True) + Text(":", style="default")),
-}
+_this_file = os.path.abspath(__file__)
 
 
 def disable_console():
@@ -48,18 +41,21 @@ def enable_console():
     _can_log = True
 
 
-def _print_formatted(level_name: str, *args, **kwargs):
-    """
-    纯粹的打印执行逻辑，剥离了所有的校验，减少判断开销
-    """
-    _, prefix = _config[level_name]
-    prefix_text = prefix.copy()
+def _now() -> str:
+    """返回毫秒级时间戳，格式：2026-03-14 10:23:45.124"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-    if kwargs.get("sep") == "":
-        prefix_text.append(" ")
-    # 对 args 里的每一个字符串进行转义
-    safe_args = [escape(str(arg)) if isinstance(arg, str) else arg for arg in args]
-    _console.print(prefix_text, *safe_args, **kwargs)
+
+def _caller_location() -> str:
+    """
+    遍历调用栈，返回第一个不属于本模块的帧的 module:func:line。
+    用于 loguru 风格的调用方定位。
+    """
+    for fi in inspect.stack():
+        if os.path.abspath(fi.filename) != _this_file:
+            module = fi.frame.f_globals.get("__name__", "swanlab.internal")
+            return f"{module}:{fi.function}:{fi.lineno}"
+    return "swanlab.internal"
 
 
 def _to_plain_text(*args: Any) -> str:
@@ -76,6 +72,45 @@ def _to_plain_text(*args: Any) -> str:
     return " ".join(parts)
 
 
+def _loguru_build(level_name: str, style: str, *args, location: Optional[str] = None) -> tuple["Text", str]:
+    """
+    构建 loguru 风格的 Rich Text（终端用）和纯文本字符串（日志文件用），
+    两者共享同一份时间戳和调用方位置，确保一致性。
+    location 未传时自动从调用栈推导。
+    """
+    now = _now()
+    loc: str = location if location is not None else _caller_location()
+    level_padded = level_name.upper().ljust(8)
+
+    line = Text()
+    line.append(now, style=style)
+    line.append(" | ", style=f"{style} dim")
+    line.append(level_padded, style=f"{style} bold")
+    line.append(" | ", style=f"{style} dim")
+    line.append(loc, style=style)
+    line.append(" - ", style=f"{style} dim")
+    for i, arg in enumerate(args):
+        if i > 0:
+            line.append(" ")
+        if isinstance(arg, Text):
+            line.append_text(arg)
+        else:
+            line.append(str(arg))
+
+    plain = f"{now} | {level_padded} | {loc} - {_to_plain_text(*args)}"
+    return line, plain
+
+
+def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
+    """
+    构建并打印 loguru 风格日志行，同时返回对应的纯文本字符串供写入日志文件。
+    2026-03-14 10:23:45.124 | WARNING  | module:func:line - message
+    """
+    line, plain = _loguru_build(level_name, style, *args)
+    _console.print(line, **kwargs)
+    return plain
+
+
 # -----------------------------------------------------------------------------
 # 导出的模块级日志函数
 # -----------------------------------------------------------------------------
@@ -90,44 +125,67 @@ def print(*args, **kwargs):  # noqa: A001
 
 
 def debug(*args, **kwargs):
-    """发送调试消息"""
+    """发送调试消息（仅 SWANLAB_DEBUG=true 时输出）
+    格式：2026-03-14 10:23:45.124 | DEBUG    | module:func:line - message
+    """
     if not _can_log or not helper.env.DEBUG:
         return
-    _print_formatted("debug", *args, **kwargs)
-    log.debug("[CONSOLE] %s", _to_plain_text(*args))
+    plain = _loguru_print("debug", "grey54", *args, **kwargs)
+    log.debug(plain)
 
 
-def info(*args, **kwargs):
-    """发送常规通知"""
+def info(*args, color: str = "blue", **kwargs):
+    """发送常规通知
+    格式：swanlab: message
+    :param color: 前缀 'swanlab' 的颜色，默认蓝色
+    """
     if not _can_log:
         return
-    _print_formatted("info", *args, **kwargs)
+    prefix = Text(_name, style=f"{color} bold", no_wrap=True) + Text(":", style="default")
+    safe_args = [Text(str(a)) if not isinstance(a, Text) else a for a in args]
+    _console.print(prefix, *safe_args, **kwargs)
     if helper.env.DEBUG:
-        log.info("[CONSOLE] %s", _to_plain_text(*args))
+        _, plain = _loguru_build("info", "", *args)
+        log.info(plain)
 
 
 def warning(*args, **kwargs):
-    """发生警告"""
+    """发生警告
+    格式：2026-03-14 10:23:45.124 | WARNING  | module:func:line - message
+    """
     if not _can_log:
         return
-    _print_formatted("warning", *args, **kwargs)
-    if helper.env.DEBUG:
-        log.warning("[CONSOLE] %s", _to_plain_text(*args))
+    plain = _loguru_print("warning", "yellow", *args, **kwargs)
+    log.warning(plain)
 
 
 def error(*args, **kwargs):
-    """发生错误"""
+    """发生错误
+    格式：2026-03-14 10:23:45.124 | ERROR    | module:func:line - message
+    """
     if not _can_log:
         return
-    _print_formatted("error", *args, **kwargs)
-    if helper.env.DEBUG:
-        log.error("[CONSOLE] %s", _to_plain_text(*args))
+    plain = _loguru_print("error", "red", *args, **kwargs)
+    log.error(plain)
 
 
-def critical(*args, **kwargs):
-    """致命错误"""
+_LOG_FUNCS = {
+    "debug": log.debug,
+    "info": log.info,
+    "warning": log.warning,
+    "error": log.error,
+}
+
+
+def trace(*args, level: Literal["debug", "warning", "error"] = "debug", id: Optional[str] = None):  # noqa: A002
+    """仅写入日志文件，不打印到终端。
+    格式：2026-03-14 10:23:45.124 | DEBUG    | <id 或调用栈> - message
+
+    :param level: 日志级别，可选 'debug' / 'warning' / 'error'，默认 'debug'
+    :param id:    位置标识符；传入时直接使用，省略时自动从调用栈推导
+    """
     if not _can_log:
         return
-    _print_formatted("critical", *args, **kwargs)
-    if helper.env.DEBUG:
-        log.critical("[CONSOLE] %s", _to_plain_text(*args))
+    log_func = _LOG_FUNCS.get(level, log.debug)
+    _, plain = _loguru_build(level, "", *args, location=id)
+    log_func(plain)

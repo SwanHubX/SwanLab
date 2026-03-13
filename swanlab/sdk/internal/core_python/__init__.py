@@ -49,7 +49,7 @@ class CorePython(CoreProtocol):
         for record in records:
             self._store.write(record.SerializeToString())
             if DEBUG:
-                console.debug("[CORE-PY] Write record:", record.WhichOneof("record_type"))
+                console.debug("Write record:", record.WhichOneof("record_type"))
 
     def shutdown(self) -> None:
         if self._store is None:

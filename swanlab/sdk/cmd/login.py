@@ -155,7 +155,7 @@ def interactive_login(
     """
     try:
         # 首次尝试登录，复用原子接口
-        return login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+        return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
     except AuthenticationError as e:
         # 如果全局配置禁用了交互模式，直接抛出异常
         if not settings.interactive:
@@ -168,7 +168,7 @@ def interactive_login(
             # 重新要求用户输入新的 Key
             new_key = apikey.prompt()
             # 必须设置 relogin=True，确保重置底层的旧 client 状态
-            return login(api_key=new_key, relogin=True, host=host, save=save, timeout=timeout)
+            return raw_login(api_key=new_key, relogin=True, host=host, save=save, timeout=timeout)
         except AuthenticationError as e:
             console.error(str(e))
         except (KeyboardInterrupt, EOFError):

@@ -68,7 +68,7 @@ def test_bindfile_is_idempotent(tmp_path):
 
 
 def test_log_format(tmp_path):
-    """测试暴露的日志格式符合预期"""
+    """测试写入日志文件的内容与传入消息一致（formatter 为纯消息模式）"""
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     log_mod.bindfile(log_dir)
@@ -76,8 +76,7 @@ def test_log_format(tmp_path):
     log_mod.error("check format")
 
     content = (log_dir / "debug.log").read_text(encoding="utf-8")
-    # 预期格式：时间 | ERROR   | swanlab.internal | 消息
-    assert " | ERROR   | swanlab.internal | check format" in content
+    assert "check format" in content
 
 
 def test_secure_file_permissions(tmp_path):
