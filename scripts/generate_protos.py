@@ -63,11 +63,11 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
     # 寻找以 from swanlab 开头的导入行
     import_re = re.compile(r"^from swanlab\.(.*) import (.*) as (.*)$", re.MULTILINE)
 
-    for py_file in output_dir.rglob("*.py"):
-        if py_file.name == "__init__.py":
+    for file_path in output_dir.rglob("*"):
+        if file_path.suffix not in (".py", ".pyi") or file_path.name == "__init__.py":
             continue
 
-        with open(py_file, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # 核心修复：插入 .proto 路径层级
@@ -77,7 +77,7 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
         # 兼容性修复：处理可能存在的 'import xxx_pb2' 相对引用
         fixed_content = re.sub(r"^import (.*_pb2)", r"from . import \1", fixed_content, flags=re.MULTILINE)
 
-        with open(py_file, "w", encoding="utf-8") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(fixed_content)
 
     # 3. 补全 __init__.py (确保整个 proto 树都是可导入的 package)
