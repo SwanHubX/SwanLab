@@ -87,7 +87,7 @@ def trace_metrics(
     url: str,
     data: Union[MetricDict, list] = None,
     method: Literal['post', 'put'] = 'post',
-    per_request_len: int = 1000,
+    per_request_len: int = 10000,
     upload_callback: UploadCallback = None,
 ):
     """
