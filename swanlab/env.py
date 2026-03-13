@@ -141,6 +141,10 @@ class SwanLabEnv(enum.Enum):
     """
     禁用Git功能，设置为true时不会采集Git信息
     """
+    RUN_PARALLEL = "SWANLAB_RUN_PARALLEL"
+    """
+    是否开启并行模式，设置为true时会并行运行实验，等同于mode='cloud' and resume='allow'
+    """
 
     @staticmethod
     def is_hostname(value: str) -> bool:

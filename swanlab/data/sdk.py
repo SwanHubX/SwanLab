@@ -8,6 +8,7 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import random
 import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
@@ -108,6 +109,7 @@ class SwanLabInitializer:
         settings: Settings = None,
         id: str = None,
         resume: Union[Literal['must', 'allow', 'never'], bool] = None,
+        parallel: Literal['none', 'shared'] = None,
         reinit: bool = None,
         color: str = None,
         **kwargs,
@@ -186,6 +188,10 @@ class SwanLabInitializer:
                 - never: You cannot pass the `id` parameter, and a new run will be created.
             You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
             [Notice that] This parameter is only valid when mode='cloud'
+        parallel : Literal['none', 'shared'], optional
+            Whether to run experiments in parallel or not:
+                - none: Run experiments sequentially.
+                - shared: Run experiments in parallel, equivalent to `mode='cloud' and resume='allow'`.
         id : str, optional
             The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
@@ -242,6 +248,7 @@ class SwanLabInitializer:
             public = _load_from_dict(load_data, "private", public)
             id = _load_from_dict(load_data, "id", id)
             resume = _load_from_dict(load_data, "resume", resume)
+            parallel = _load_from_dict(load_data, "parallel", parallel)
         # 1.2 初始化confi参数
         config = _init_config(config)
         # 如果config是以下几个类别之一，则抛出异常
@@ -263,6 +270,7 @@ class SwanLabInitializer:
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
         logdir = _load_from_env(SwanLabEnv.SWANLOG_FOLDER.value, logdir)
         color = _load_from_env(SwanLabEnv.EXP_COLOR.value, color)
+        parallel = _load_from_env(SwanLabEnv.RUN_PARALLEL.value, parallel)
         # 2. 部分格式校验
         # 2.1 校验项目名称，默认实验名称为当前目录名
         project = project if project else os.path.basename(os.getcwd())
@@ -273,7 +281,9 @@ class SwanLabInitializer:
         # 2.2 校验实验名称
         # 处理空字符串或纯空格字符串情况
         if experiment_name is not None and not experiment_name.strip():
-            swanlog.warning("The experiment name is an empty or whitespace-only string, automatically converted to None.")
+            swanlog.warning(
+                "The experiment name is an empty or whitespace-only string, automatically converted to None."
+            )
             experiment_name = None
         if experiment_name:
             e = check_exp_name_format(experiment_name)
@@ -315,6 +325,11 @@ class SwanLabInitializer:
         # 3. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
+        # 4. 校验并行模式
+        if parallel.lower() in ["shared", "true", "yes"]:
+            resume = "allow"
+            mode = "cloud"
+            id = id or "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8))
         # 5. 校验mode参数并适配 backup 模式
         mode = "cloud" if mode == "online" else mode
         mode, login_info = _init_mode(mode, folder_settings.mode)
@@ -325,7 +340,9 @@ class SwanLabInitializer:
         resume = resume or 'never'
         # 非 cloud 模式下，resume 只支持 'never'
         if resume in ('must', 'allow') and mode != "cloud":
-            swanlog.warning(f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'.")
+            swanlog.warning(
+                f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'."
+            )
             resume = 'never'
             id = None
         # 根据 resume 的最终值进行校验
