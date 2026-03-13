@@ -7,7 +7,7 @@
 
 import json
 import math
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.env import create_time
@@ -42,6 +42,10 @@ class SwanLabKey:
         self.key = key
         # 当前 key 包含的 step
         self.steps = set()
+        # 当前 key 的 step 与首次写入 epoch 的映射，重复 step 覆盖时需要保持 epoch 不变
+        self._step_epochs: Dict[int, int] = {}
+        # 当前 key 的 step 与摘要值的映射，用于覆盖时重建 summary
+        self._step_summary_values: Dict[int, Optional[object]] = {}
         self.column_info: Optional[ColumnInfo] = None
         self._media_dir = media_dir
         self._log_dir = log_dir
@@ -110,22 +114,18 @@ class SwanLabKey:
         # 4. 更新 summary 并添加数据
         # 如果为Line且为NaN或者INF，不更新summary
         r = result.strings or result.float
-        if not data.type == Line or r not in [Line.nan, Line.inf]:
-            if self._summary.get("max") is None or r > self._summary["max"]:
-                self._summary["max"] = r
-                self._summary["max_step"] = result.step
-            if self._summary.get("min") is None or r < self._summary["min"]:
-                self._summary["min"] = r
-                self._summary["min_step"] = result.step
-        self._summary["num"] = self._summary.get("num", 0) + 1
-        self.steps.add(result.step)
-        swanlog.debug(f"Add data, key: {self.key}, step: {result.step}, data: {r}")
-        if len(self._collection["data"]) >= self.__slice_size:
-            self._collection = self.__new_metric_collection()
-
+        overwrite = result.step in self._step_epochs
+        if not overwrite:
+            self.steps.add(result.step)
+            self._step_epochs[result.step] = len(self.steps)
+        epoch = self._step_epochs[result.step]
         new_data = self.__new_metric(result.step, r, more=result.more)
-        self._collection["data"].append(new_data)
-        epoch = len(self.steps)
+        self._set_summary_value(result.step, data.type, r)
+        self._rebuild_summary()
+        self._update_collection(new_data, result.step, overwrite)
+        swanlog.debug(
+            f"{'Overwrite' if overwrite else 'Add'} data, key: {self.key}, step: {result.step}, data: {r}"
+        )
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
             column_info=self.column_info,
@@ -137,7 +137,43 @@ class SwanLabKey:
             metric_file_name=str(mu * self.__slice_size) + ".log",
             swanlab_logdir=self._log_dir,
             swanlab_media_dir=self._media_dir if result.buffers else None,
+            metric_overwrite=overwrite,
         )
+
+    def _set_summary_value(self, step: int, data_type, value) -> None:
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            self._step_summary_values[step] = None
+            return
+        self._step_summary_values[step] = value
+
+    def _rebuild_summary(self) -> None:
+        summary = {"num": len(self.steps)}
+        for step, _epoch in sorted(self._step_epochs.items(), key=lambda item: item[1]):
+            value = self._step_summary_values.get(step)
+            if value is None:
+                continue
+            if summary.get("max") is None or value > summary["max"]:
+                summary["max"] = value
+                summary["max_step"] = step
+            if summary.get("min") is None or value < summary["min"]:
+                summary["min"] = value
+                summary["min_step"] = step
+        self._summary = summary
+
+    def _update_collection(self, new_data: dict, step: int, overwrite: bool) -> None:
+        existing_indexes = [item["index"] for item in self._collection["data"]]
+        if step in existing_indexes:
+            first_match = existing_indexes.index(step)
+            self._collection["data"][first_match] = new_data
+            self._collection["data"] = [
+                item for idx, item in enumerate(self._collection["data"]) if item["index"] != step or idx == first_match
+            ]
+            return
+        if overwrite:
+            return
+        if len(self._collection["data"]) >= self.__slice_size:
+            self._collection = self.__new_metric_collection()
+        self._collection["data"].append(new_data)
 
     def create_column(
         self,
@@ -306,4 +342,5 @@ class SwanLabKey:
         if step is not None:
             for i in range(step + 1):
                 key_obj.steps.add(i)
+                key_obj._step_epochs[i] = i + 1
         return key_obj, column_info

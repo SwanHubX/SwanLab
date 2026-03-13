@@ -427,7 +427,7 @@ def log(
         The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
-        If step is duplicated, the data will be ignored.
+        If step is duplicated, the latest data will overwrite the previous data on that step.
     print_to_console : bool, optional
         Whether to print the data to the console, the default is False.
     """

@@ -154,16 +154,30 @@ class TestSwanLabRunLog:
             assert all([ll[k].metric_step == 0 for k in ll])
             ll2 = run.log(data, step=3)
             assert all(ll2[k].metric_step == 3 for k in ll2)
-            # 重复的step会被忽略
-            ll3 = run.log(data, step=3)
-            assert all(ll3[k].is_error for k in ll3)
-            assert all(ll3[k].error.duplicated for k in ll3)
+            overwrite_data = {"a": 10, "b": 0.2, "c": {"d": 4}, "math.nan": 3, "math.inf": 5}
+            # 重复的step会被覆盖，且保留原有epoch
+            ll3 = run.log(overwrite_data, step=3)
+            assert all(ll3[k].is_error is False for k in ll3)
             assert all(ll3[k].column_error is None for k in ll3)
-            assert all(ll3[k].error is not None for k in ll3)
+            assert all(ll3[k].error is None for k in ll3)
+            assert ll3["a"].data == 10
+            assert ll3["b"].data == 0.2
+            assert ll3["c.d"].data == 4
+            assert ll3["math.nan"].data == 3
+            assert ll3["math.inf"].data == 5
+            assert all(ll3[k].metric_step == 3 for k in ll3)
+            assert all(ll3[k].metric_epoch == ll2[k].metric_epoch for k in ll3)
+            assert all(ll3[k].metric_overwrite is True for k in ll3)
             # 如果是新的key的重复step，会被添加
             ll4 = run.log({"tmp": 1}, step=3)
             assert all(ll4[k].is_error is False for k in ll4)
             assert all(ll4[k].metric_step == 3 for k in ll4)
+            assert all(ll4[k].metric_overwrite is False for k in ll4)
+            # 显式覆盖后，隐式step仍然应该沿着当前最大step继续递增
+            ll5 = run.log({"a": 11})
+            assert ll5["a"].data == 11
+            assert ll5["a"].metric_step == 4
+            assert ll5["a"].metric_overwrite is False
 
     def test_log_number_use_line(self):
         """
