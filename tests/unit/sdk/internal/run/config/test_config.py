@@ -388,9 +388,10 @@ class TestBatchOperations:
         assert val == 0.01
         assert "lr" not in cfg
 
-    def test_pop_missing_returns_none(self):
+    def test_pop_missing_raises_keyerror(self):
         cfg = SwanLabConfig()
-        assert cfg.pop("missing") is None
+        with pytest.raises(KeyError):
+            cfg.pop("missing")
 
     def test_pop_missing_with_default(self):
         cfg = SwanLabConfig()
@@ -411,6 +412,20 @@ class TestBatchOperations:
 
         cfg["new_key"] = 1
         assert emit.call_count == 1
+
+    def test_clean_flushes_when_bound(self, tmp_path):
+        """clean() 在绑定状态下会触发 flush"""
+        cfg, emit, config_file = bound_config(tmp_path)
+        cfg["a"] = 1
+        cfg["b"] = 2
+        emit.reset_mock()
+
+        cfg.clean()
+
+        assert emit.call_count == 1
+        assert config_file.exists()
+        content = yaml.safe_load(config_file.read_text())
+        assert content == {}
 
 
 # ============================================================
@@ -579,6 +594,23 @@ class TestCreateRunConfig:
 
         assert run_cfg["lr"] == 0.01
         assert run_cfg["epochs"] == 10
+
+    def test_create_run_config_deep_copies_mutable_values(self, tmp_path):
+        """create_run_config 应深拷贝可变对象，避免 global 和 run config 共享引用"""
+        source_cfg = SwanLabConfig()
+        source_cfg["params"] = {"lr": 0.01, "batch_size": 32}
+        source_cfg["layers"] = [64, 128, 256]
+
+        target_cfg = SwanLabConfig()
+        target_cfg._copy_from(source_cfg)
+
+        # 直接修改 target_cfg 中的可变对象
+        target_cfg["params"]["lr"] = 0.001
+        target_cfg["layers"].append(512)
+
+        # source_cfg 不应受影响
+        assert source_cfg["params"]["lr"] == 0.01
+        assert source_cfg["layers"] == [64, 128, 256]
 
     def test_create_run_config_binds_to_file(self, tmp_path):
         """create_run_config 应绑定到文件"""

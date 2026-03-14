@@ -15,11 +15,12 @@
   _lock 为普通 Lock（非 RLock），内部方法之间不递归持锁。
 """
 
+import copy
 import re
 import threading
 from collections.abc import MutableMapping
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -120,11 +121,12 @@ class SwanLabConfig(MutableMapping):
             self.__dict__.update({"_seq": 0, "_file": None, "_emit": None, "_bound": False})
 
     def _snapshot(self) -> tuple[dict, dict, int]:
-        """浅拷贝内部状态（config、sort、seq），供 create_run_config 使用。"""
-        return dict(self._config), dict(self._sort), self._seq
+        """深拷贝内部状态（config、sort、seq），供 create_run_config 使用。"""
+        return copy.deepcopy(self._config), dict(self._sort), self._seq
 
     def _copy_from(self, source: "SwanLabConfig") -> None:
         """从 source 复制数据，仅在 self 未绑定时调用（无 IO）。"""
+        assert not self._bound, "Cannot run config copy_from() on a bound config"
         cfg, sort, seq = source._snapshot()
         self.__dict__.update({"_config": cfg, "_sort": sort, "_seq": seq})
 
@@ -192,8 +194,17 @@ class SwanLabConfig(MutableMapping):
     # 批量操作（一次 flush）
     # ------------------------------------------------------------------
 
-    def update(self, __m: Optional[Union[MutableMapping, Any]] = None, **kwargs) -> None:  # type: ignore[override]
-        """批量更新，所有 key 写完后只触发一次 flush。"""
+    def update(self, __m: Optional[Union[MutableMapping, Any]] = None, **kwargs) -> None:
+        """
+        Batch update config items. All keys are written before triggering a single flush.
+
+        :param __m: A mapping object or any object that can be parsed into a dict
+        :param kwargs: Additional key-value pairs to update
+
+        Example:
+            >>> config.update({"lr": 0.01, "epochs": 100})
+            >>> config.update(lr=0.01, batch_size=32)
+        """
         with _lock:
             if __m is not None:
                 for k, v in parse(__m).items():
@@ -207,17 +218,55 @@ class SwanLabConfig(MutableMapping):
     # 覆盖 MutableMapping 默认实现（避免多余的 flush）
     # ------------------------------------------------------------------
 
-    def get(self, key: str, default: Any = None) -> Any:  # type: ignore[override]
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a config value by key, returning a default if the key doesn't exist.
+
+        :param key: The config key to retrieve
+        :param default: The default value to return if key is not found
+        :return: The config value or default
+
+        Example:
+            >>> config.get("lr")
+            0.01
+            >>> config.get("missing_key", "default_value")
+            'default_value'
+        """
         return self._config.get(key, default)
 
     def set(self, name: str, value: Any) -> None:
-        """显式设置配置项（等价于 config[name] = value）。"""
+        """
+        Explicitly set a config item (equivalent to config[name] = value).
+
+        :param name: The config key to set
+        :param value: The value to assign
+
+        Example:
+            >>> config.set("lr", 0.01)
+            >>> config.set("model_name", "resnet50")
+        """
         self[str(name)] = value
 
-    def pop(self, key: str, *args) -> Any:  # type: ignore[override]
+    def pop(self, key: str, *args) -> Any:
+        """
+        Remove and return a config item. Raises KeyError if key not found and no default given.
+
+        :param key: The config key to remove
+        :param default: Optional default value to return if key is not found
+        :return: The removed value or default
+
+        Example:
+            >>> config["lr"] = 0.01
+            >>> config.pop("lr")
+            0.01
+            >>> config.pop("missing_key", "default")
+            'default'
+        """
         with _lock:
             if key not in self._config:
-                return args[0] if args else None
+                if args:
+                    return args[0]
+                raise KeyError(key)
             value = self._config.pop(key)
             self._sort.pop(key, None)
             if self._bound:
@@ -225,11 +274,22 @@ class SwanLabConfig(MutableMapping):
             return value
 
     def clean(self) -> None:
-        """清空配置项（不影响绑定状态）。"""
+        """
+        Clear all config items without affecting the binding state.
+
+        Example:
+            >>> config["lr"] = 0.01
+            >>> config["epochs"] = 100
+            >>> config.clean()
+            >>> len(config)
+            0
+        """
         with _lock:
             self._config.clear()
             self._sort.clear()
             self.__dict__["_seq"] = 0
+            if self._bound:
+                self._flush(UpdateType.UPDATE_TYPE_PATCH)
 
 
 # ------------------------------------------------------------------
@@ -278,7 +338,18 @@ class _ConfigProxy:
 _global_config = SwanLabConfig()
 _active_run_config: Optional[SwanLabConfig] = None
 
-config = _ConfigProxy()
+# =========================================================================
+# IDE 类型提示 (Type Hinting Magic)
+# 让 IDE 认为 config 拥有 SwanLabConfig 的所有方法签名和注释
+# =========================================================================
+if TYPE_CHECKING:
+
+    class ConfigProxy(_ConfigProxy, SwanLabConfig):  # type: ignore[misc]
+        pass
+
+    config: ConfigProxy
+else:
+    config = _ConfigProxy()
 
 
 def create_run_config(config_file: Path, emit: Callable) -> SwanLabConfig:
