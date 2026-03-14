@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Literal, Optional, Union
 
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.data import MediaTransferType, ScalarXAxisType
+from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 # 开启 slots 可以减少内存占用，提高性能，但是仅适用于 Python 3.10 及以上版本
 # 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典
@@ -23,6 +24,8 @@ DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
 # 使用解包的方式传入参数
 @dataclass(**DATACLASS_KWARGS)
 class ScalarMetric:
+    # 指标类型
+    _type: ColumnType
     # 指标对应的单实验图表索引
     _chart: Optional[str] = None
     # 指标对应的图表名称，默认为列名称
@@ -58,9 +61,9 @@ class ScalarMetric:
 
 @dataclass(**DATACLASS_KWARGS)
 class MediaMetric:
-    # 媒体类型
-    _type: MediaTransferType
-    # 媒体存储路径
+    # 指标类型
+    _type: ColumnType
+    # 媒体存储路径，绝对路径
     path: Path
 
 
@@ -141,14 +144,15 @@ class RunMetrics:
                 _system=system,
                 _color=color,
                 _x_axis=x_axis,
+                _type=ColumnType.COLUMN_TYPE_FLOAT,
             )
 
-    def define_media(self, key: str, media_type: MediaTransferType, path: Path):
+    def define_media(self, key: str, media_type: ColumnType, path: Path):
         """
         定义媒体指标
         :param key: 指标键
         :param media_type: 媒体类型
-        :param path: 媒体存储路径
+        :param path: 媒体存储路径，绝对路径
         """
         with self._lock:
             assert key not in self._metrics, f"Metric '{key}' already exists."

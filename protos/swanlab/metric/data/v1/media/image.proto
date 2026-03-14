@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package swanlab.metric.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1";
+
+// 一个 key 在某个 step 下记录的全部图像（1..N 张）。
+message ImageValue {
+  repeated ImageItem items = 1;
+}
+
+// 单张图像的文件引用与元数据。
+message ImageItem {
+  // 文件名，如 "pred_10_a3f2.png"
+  string filename = 1;
+  string sha256   = 2;
+  int64  size     = 3;  // 文件大小（bytes）
+  string format   = 4;  // "png" | "jpeg" | "gif" | "webp"
+  int32  width    = 5;
+  int32  height   = 6;
+  int32  channels = 7;  // 1=灰度, 3=RGB, 4=RGBA
+  string caption  = 8;
+}

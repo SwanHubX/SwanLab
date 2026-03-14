@@ -11,12 +11,12 @@
 import threading
 from functools import cached_property, wraps
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional, Union, cast, get_args
+from typing import Any, List, Literal, Mapping, Optional, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
+from swanlab.sdk.internal.bus.events import MetricLogEvent, RunFinishEvent, RunStartEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console, log
@@ -28,12 +28,12 @@ from swanlab.sdk.internal.run.config import (
     create_unbound_run_config,
     deactivate_run_config,
 )
+from swanlab.sdk.internal.run.transforms import Text, normalize_media_input
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
-from .data.transforms import Text
 from .record_builder import RecordBuilder
 
 __all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
@@ -222,17 +222,40 @@ class SwanLabRun:
 
     @with_lock
     @with_run
-    def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
+    def log_scalar(self, key: str, value: Union[float, int], step: Optional[int] = None):
+        """
+        Log a scalar value.
+
+        :param key: The key for the scalar value.
+
+        :param value: The scalar value.
+
+        :param step: Optional step for the scalar value.
+        """
+        self.log({key: value}, step=step)
+
+    @with_lock
+    @with_run
+    def log_text(
+        self,
+        key: str,
+        data: Union[str, Text, List[str], List[Text]],
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
         """
         A syntactic sugar for logging text data.
+
         :param key: The key for the text data.
+
         :param data: The text data itself or a Text object.
+
         :param caption: Optional caption for the text data.
+
         :param step: Optional step for the text data.
         """
-        if not isinstance(data, Text):
-            data = Text(data, caption=caption)
-        self.log({key: data}, step=step)
+        normalized_data = normalize_media_input(Text, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
 
     @with_lock
     @with_run
@@ -246,10 +269,15 @@ class SwanLabRun:
     ):
         """
         Explicitly define a scalar column.
+
         :param key: The key for the scalar column.
+
         :param name: Optional name for the scalar column.
+
         :param color: Optional color for the scalar column.
+
         :param x_axis: Optional x-axis for the scalar column.
+
         :param chart_name: Optional name for the chart.
         """
         if not (this_key := fmt.safe_validate_key(key)):
@@ -273,7 +301,7 @@ class SwanLabRun:
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
         self._emitter.emit(
-            MetricDefineEvent(
+            ScalarDefineEvent(
                 key=this_key,
                 name=name,
                 color=color,

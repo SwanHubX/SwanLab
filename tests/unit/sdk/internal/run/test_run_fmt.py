@@ -5,8 +5,6 @@
 @description: 测试run工具函数
 """
 
-from unittest.mock import patch
-
 import pytest
 
 import swanlab.sdk.internal.run.utils_fmt as fmt
@@ -42,13 +40,17 @@ class TestFlattenDict:
         """整数 key 自动转为字符串"""
         assert fmt.flatten_dict({1: {2: "v"}}) == {"1/2": "v"}  # type: ignore
 
-    def test_duplicate_key_latter_wins(self):
+    def test_duplicate_key_latter_wins(self, monkeypatch):
         """出现同名展开键时，后者覆盖前者，并触发一次警告"""
-        # 先展开嵌套得到 a/b=1，再直接赋值 "a/b"=99 → 发生覆盖
+        mock_warning = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: mock_warning.append(args)
+        )
+
         data = {"a": {"b": 1}, "a/b": 99}
-        with patch("swanlab.sdk.internal.run.utils_fmt.console") as mock_console:
-            result = fmt.flatten_dict(data)
-        mock_console.warning.assert_called_once()
+        result = fmt.flatten_dict(data)
+
+        assert len(mock_warning) == 1
         assert result["a/b"] == 99
 
     def test_returns_parent_dict_when_provided(self):
@@ -78,25 +80,24 @@ class TestValidateKey:
         assert fmt.validate_key("train/acc") == "train/acc"
         assert fmt.validate_key("v1.0_metric") == "v1.0_metric"
 
-    def test_strip_leading_trailing(self):
+    def test_strip_leading_trailing(self, monkeypatch):
         """头尾的空白、. 和 / 被剥离"""
-        with patch("swanlab.sdk.internal.run.utils_fmt.console"):
-            assert fmt.validate_key("  loss  ") == "loss"
-            assert fmt.validate_key("./key/") == "key"
-            assert fmt.validate_key("...key...") == "key"
+        monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
+        assert fmt.validate_key("  loss  ") == "loss"
+        assert fmt.validate_key("./key/") == "key"
+        assert fmt.validate_key("...key...") == "key"
 
     @pytest.mark.parametrize(
         "invalid, expected",
         [
-            ("my key", "my_key"),  # 空格 -> _
-            ("a@b#c", "a_b_c"),  # 特殊符号 -> _
+            ("my key", "my_key"),
+            ("a@b#c", "a_b_c"),
         ],
     )
-    def test_invalid_chars_replaced(self, invalid, expected):
+    def test_invalid_chars_replaced(self, invalid, expected, monkeypatch):
         """非法字符被替换为下划线"""
-        with patch("swanlab.sdk.internal.run.utils_fmt.console"):
-            result = fmt.validate_key(invalid)
-        assert result == expected
+        monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
+        assert fmt.validate_key(invalid) == expected
 
     def test_unicode_word_chars_allowed(self):
         """Python \\w 匹配 Unicode 字符（汉字等），不会被替换"""
@@ -111,11 +112,10 @@ class TestValidateKey:
         assert len(result) == 255
         assert result == "a" * 255
 
-    def test_custom_max_len(self):
+    def test_custom_max_len(self, monkeypatch):
         """自定义 max_len 生效"""
-        with patch("swanlab.sdk.internal.run.utils_fmt.console"):
-            result = fmt.validate_key("abcdef", max_len=3)
-        assert result == "abc"
+        monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
+        assert fmt.validate_key("abcdef", max_len=3) == "abc"
 
     def test_non_string_input_int(self):
         """整数 key 被转为字符串处理"""
@@ -132,17 +132,27 @@ class TestValidateKey:
         with pytest.raises(ValueError, match="invalid or empty after sanitization"):
             fmt.validate_key("...")
 
-    def test_warning_fires_once_per_key(self):
+    def test_warning_fires_once_per_key(self, monkeypatch):
         """相同非法 key 只触发一次警告"""
-        with patch("swanlab.sdk.internal.run.utils_fmt.console") as mock_console:
-            fmt.validate_key("bad key")
-            fmt.validate_key("bad key")
-            fmt.validate_key("bad key")
-        assert mock_console.warning.call_count == 1
+        mock_warning = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: mock_warning.append(args)
+        )
 
-    def test_warning_fires_for_different_keys(self):
+        fmt.validate_key("bad key")
+        fmt.validate_key("bad key")
+        fmt.validate_key("bad key")
+
+        assert len(mock_warning) == 1
+
+    def test_warning_fires_for_different_keys(self, monkeypatch):
         """不同非法 key 各自独立触发一次警告"""
-        with patch("swanlab.sdk.internal.run.utils_fmt.console") as mock_console:
-            fmt.validate_key("bad key1")
-            fmt.validate_key("bad key2")
-        assert mock_console.warning.call_count == 2
+        mock_warning = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: mock_warning.append(args)
+        )
+
+        fmt.validate_key("bad key1")
+        fmt.validate_key("bad key2")
+
+        assert len(mock_warning) == 2

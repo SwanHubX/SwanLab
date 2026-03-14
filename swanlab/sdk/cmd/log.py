@@ -9,7 +9,7 @@ from typing import Any, Mapping, Optional, Union
 
 from swanlab.sdk.cmd.helper import with_cmd_lock, with_run
 from swanlab.sdk.internal.run import get_run
-from swanlab.sdk.internal.run.data.transforms import Text
+from swanlab.sdk.internal.run.transforms import Text
 
 
 @with_cmd_lock

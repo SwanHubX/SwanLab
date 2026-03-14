@@ -5,8 +5,6 @@
 @description: 测试 SwanLab 登录流程 (E2E)
 """
 
-from unittest.mock import patch
-
 import pytest
 import responses
 
@@ -62,6 +60,8 @@ class TestLoginE2E:
 
     def test_login_skip_if_already_logged_in(self):
         """测试：如果已经登录且没有强制 relogin，应直接跳过并返回 True"""
+        from unittest.mock import patch
+
         with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
             result = login(api_key="some_key", relogin=False)
             assert result is True
@@ -100,34 +100,35 @@ class TestLoginE2E:
         assert client.exists()
 
     @responses.activate
-    def test_login_with_prompt_and_save(self, tmp_path):
+    def test_login_with_prompt_and_save(self, monkeypatch, tmp_path):
         """测试：没有 API Key 时触发交互式输入，并测试凭证保存 (save=True)"""
         prompt_key = "test-prompt-key"
+        prompt_called = []
 
         responses.add(
             responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
+            "https://fake.swanlab.cn/api/login/api_key",
             json={"sid": "mock_sid", "user": "mock_user", "expiredAt": "2099-12-31T23:59:59.000Z"},
             status=200,
         )
 
-        with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=prompt_key) as mock_prompt:
-            result = login(api_key=None, save=True)
+        monkeypatch.setattr("swanlab.sdk.cmd.login.apikey.prompt", lambda **_: (prompt_called.append(1), prompt_key)[1])
 
-            assert settings.web_host == "https://swanlab.cn"
-            assert settings.api_host == "https://api.swanlab.cn"
-            assert settings.api_key == prompt_key
+        result = login(api_key=None, host="fake.swanlab.cn", save=True)
 
-            assert result is True
-            mock_prompt.assert_called_once()
+        assert settings.web_host == "https://fake.swanlab.cn"
+        assert settings.api_host == "https://fake.swanlab.cn"
+        assert settings.api_key == prompt_key
+        assert result is True
+        assert len(prompt_called) == 1
 
-            nrc_path = settings.root / ".netrc"
-            assert nrc_path.exists()
-            content = nrc_path.read_text()
-            assert prompt_key in content
+        nrc_path = settings.root / ".netrc"
+        assert nrc_path.exists()
+        content = nrc_path.read_text()
+        assert prompt_key in content
 
     @responses.activate
-    def test_login_custom_host_and_relogin(self):
+    def test_login_custom_host_and_relogin(self, monkeypatch):
         """测试：传入自定义 host，并且强制重新登录"""
         custom_host = "http://private-swanlab.local"
         custom_key = "private-key"
@@ -139,16 +140,16 @@ class TestLoginE2E:
             status=200,
         )
 
-        with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
-            with patch("swanlab.sdk.cmd.login.client.reset"):
-                result = login(api_key=custom_key, host=custom_host, relogin=True)
+        monkeypatch.setattr("swanlab.sdk.cmd.login.client.exists", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.login.client.reset", lambda: None)
 
-                assert result is True
-                assert len(responses.calls) == 1
-                assert responses.calls[0].request.url == f"{custom_host}/api/login/api_key"
+        result = login(api_key=custom_key, host=custom_host, relogin=True)
 
-                assert settings.api_host == custom_host
-                assert settings.api_key == custom_key
+        assert result is True
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == f"{custom_host}/api/login/api_key"
+        assert settings.api_host == custom_host
+        assert settings.api_key == custom_key
 
     @responses.activate
     def test_login_network_failure(self):
@@ -161,10 +162,10 @@ class TestLoginE2E:
         )
 
         with pytest.raises(AuthenticationError, match="Failed to login"):
-            login(api_key="wrong-key")
+            login(api_key="wrong-key", relogin=True)
 
     @responses.activate
-    def test_login_host_changed_triggers_prompt(self):
+    def test_login_host_changed_triggers_prompt(self, monkeypatch):
         """测试：上次保存了旧 host 的 API Key，本次传入新 host 时不复用旧 key，应触发重新输入"""
         old_host = "https://old.swanlab.cn"
         old_prompt_key = "old-private-key"
@@ -184,16 +185,24 @@ class TestLoginE2E:
             status=200,
         )
 
-        # 先登录一次旧 host（保存凭证到本地）
-        with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=old_prompt_key):
-            login(api_key=None, host=old_host, save=True)
-            assert len(responses.calls) == 1
+        prompt_calls = []
 
-        # 换新 host 登录，旧 key 不得被复用，应触发 prompt
-        with patch("swanlab.sdk.cmd.login.apikey.prompt", return_value=new_prompt_key) as mock_prompt:
-            result = login(api_key=None, host=new_host, relogin=True)
+        def mock_prompt(**_):
+            if len(prompt_calls) == 0:
+                prompt_calls.append(old_prompt_key)
+                return old_prompt_key
+            else:
+                prompt_calls.append(new_prompt_key)
+                return new_prompt_key
 
-            assert result is True
-            mock_prompt.assert_called_once()
-            assert len(responses.calls) == 2
-            assert responses.calls[1].request.headers["authorization"] == new_prompt_key
+        monkeypatch.setattr("swanlab.sdk.cmd.login.apikey.prompt", mock_prompt)
+
+        login(api_key=None, host=old_host, save=True)
+        assert len(responses.calls) == 1
+
+        result = login(api_key=None, host=new_host, relogin=True)
+
+        assert result is True
+        assert len(prompt_calls) == 2
+        assert len(responses.calls) == 2
+        assert responses.calls[1].request.headers["authorization"] == new_prompt_key

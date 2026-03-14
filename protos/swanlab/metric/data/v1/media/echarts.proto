@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package swanlab.metric.data.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1";
+
+// 一个 key 在某个 step 下记录的全部 ECharts（1..N 条）。
+message EChartsValue {
+  repeated EChartsItem items = 1;
+}
+
+// ECharts 可视化引用，对应 swanlab.ECharts(...)。
+// ECharts option 对象序列化为 JSON 写入磁盘，Record 只保存路径引用。
+message EChartsItem {
+  // 文件名，如 "chart_10_a3f2.json"
+  string filename = 1;
+  string sha256   = 2;
+  int64  size     = 3;  // 文件大小（bytes）
+  string caption  = 4;
+}

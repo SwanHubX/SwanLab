@@ -12,6 +12,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generator, Optional
 
+from swanlab.sdk.internal import adapter
 from swanlab.sdk.internal.settings import Settings
 
 from .callbacker import CallbackManager, callbacker
@@ -56,37 +57,37 @@ class RunContext:
 
     @cached_property
     def media_dir(self) -> Path:
-        return self.config.run_dir / "media"
-
-    @cached_property
-    def files_dir(self) -> Path:
-        return self.config.run_dir / "files"
-
-    @cached_property
-    def metadata_file(self) -> Path:
-        return self.files_dir / "swanlab-metadata.json"
-
-    @cached_property
-    def config_file(self) -> Path:
-        return self.files_dir / "config.yaml"
-
-    @cached_property
-    def requirements_file(self) -> Path:
-        return self.files_dir / "requirements.txt"
-
-    @cached_property
-    def conda_file(self) -> Path:
-        return self.files_dir / "conda.yaml"
+        return self.config.run_dir / adapter.dirname.media
 
     @cached_property
     def debug_dir(self) -> Path:
-        return self.config.run_dir / "debug"
+        return self.config.run_dir / adapter.dirname.debug
+
+    @cached_property
+    def files_dir(self) -> Path:
+        return self.config.run_dir / adapter.dirname.files
+
+    @cached_property
+    def metadata_file(self) -> Path:
+        return self.files_dir / adapter.filename.metadata
+
+    @cached_property
+    def config_file(self) -> Path:
+        return self.files_dir / adapter.filename.config
+
+    @cached_property
+    def requirements_file(self) -> Path:
+        return self.files_dir / adapter.filename.requirements
+
+    @cached_property
+    def conda_file(self) -> Path:
+        return self.files_dir / adapter.filename.conda
 
     @cached_property
     def run_file(self) -> Path:
         run_id = self.config.settings.run.id
         assert run_id, "Run ID is not set."
-        return self.config.run_dir / f"run-{run_id}.swanlab"
+        return self.config.run_dir / adapter.filename.run(run_id)
 
 
 # ContextVar 现在只存这个轻量级的数据宿主

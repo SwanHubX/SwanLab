@@ -7,11 +7,9 @@
 
 import io
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-# 假设你的模块名为 write，根据实际路径调整 import
 from swanlab.sdk.internal.pkg.fs.write import safe_write
 
 
@@ -85,21 +83,17 @@ def test_safe_write_path_atomic_binary(tmp_path: Path):
     assert file_path.read_bytes() == b"\x01\x02\x03"
 
 
-@patch("swanlab.sdk.internal.pkg.fs.write.os.replace")
-def test_safe_write_atomic_rollback(mock_replace, tmp_path: Path):
-    """
-    【灾难恢复测试】测试原子写入在 os.replace 阶段遭遇异常（如权限问题、被其他进程锁死），
-    是否能够成功执行清理逻辑，不留垃圾。
-    """
+def test_safe_write_atomic_rollback(monkeypatch, tmp_path: Path):
+    """测试原子写入在 os.replace 阶段遭遇异常时是否能够成功执行清理逻辑"""
     file_path = tmp_path / "test_rollback.txt"
 
-    # 模拟 os.replace 时突然发生异常
-    mock_replace.side_effect = PermissionError("Simulated Replace Error")
+    def mock_replace(*args):
+        raise PermissionError("Simulated Replace Error")
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.write.os.replace", mock_replace)
 
     with pytest.raises(PermissionError, match="Simulated Replace Error"):
         safe_write(file_path, "some content that will fail", atomic=True)
 
-    # 核心断言：异常发生后，临时文件被 os.remove(temp_path) 清理掉了
-    # 此时 tmp_path 应该是一个空目录，不留任何 .tmp_swanlab_ 文件
     assert len(list(tmp_path.iterdir())) == 0
     assert not file_path.exists()

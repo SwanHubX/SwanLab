@@ -5,8 +5,6 @@
 @description: flatten_dict / validate_key 性能基准测试
 """
 
-from unittest.mock import patch
-
 import pytest
 
 import swanlab.sdk.internal.run.utils_fmt as fmt
@@ -61,14 +59,14 @@ def test_validate_valid(benchmark):
     benchmark(fmt.validate_key, "train/accuracy_top1")
 
 
-def test_validate_dirty(benchmark):
+def test_validate_dirty(benchmark, monkeypatch):
     """含非法字符的 key，触发 regex 替换"""
-    with patch("swanlab.sdk.internal.run.helper.console"):
-        benchmark(fmt.validate_key, "  bad key@epoch  ")
+    monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
+    benchmark(fmt.validate_key, "  bad key@epoch  ")
 
 
-def test_validate_long(benchmark):
+def test_validate_long(benchmark, monkeypatch):
     """超长 key（300 字符），触发截断"""
+    monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
     key = "x" * 300
-    with patch("swanlab.sdk.internal.run.helper.console"):
-        benchmark(fmt.validate_key, key)
+    benchmark(fmt.validate_key, key)

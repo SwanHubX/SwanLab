@@ -8,10 +8,10 @@
 import hashlib
 from pathlib import Path
 
-from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem, TextValue
+from google.protobuf.timestamp_pb2 import Timestamp
 
-# 请根据你的实际路径调整导入
-from swanlab.sdk.internal.run.data.transforms.text import Text
+from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem
+from swanlab.sdk.internal.run.transforms.text import Text
 
 
 class TestTextTransform:
@@ -50,16 +50,14 @@ class TestTextTransform:
         expected_sha256 = hashlib.sha256(content.encode()).hexdigest()[:8]
         expected_filename = f"{key}-{step:03d}-{expected_sha256}.__swanlab__.txt"
 
-        # 2. 执行 transform
-        result = Text.transform(key=key, step=step, path=tmp_path, content=content, caption=caption)
+        # 2. 创建Text实例并执行 transform
+        text = Text(content=content, caption=caption)
+        result = text.transform(key=key, step=step, path=tmp_path)
 
         # 3. 校验返回的 Protobuf 结构
-        assert isinstance(result, TextValue)
-        assert len(result.items) == 1
-
-        pb_item: TextItem = result.items[0]
-        assert pb_item.filename == expected_filename
-        assert pb_item.caption == caption
+        assert isinstance(result, TextItem)
+        assert result.filename == expected_filename
+        assert result.caption == caption
 
         # 4. 校验真实文件落盘 (端到端断言)
         target_file = tmp_path / expected_filename
@@ -76,9 +74,9 @@ class TestTextTransform:
         inner_text = Text(content=inner_content, caption="old caption")
 
         # 传入 transform 时，使用新的 caption 覆盖
-        result = Text.transform(key=key, step=step, path=tmp_path, content=inner_text, caption="new overriding caption")
+        outer_text = Text(content=inner_text, caption="new overriding caption")
+        pb_item = outer_text.transform(key=key, step=step, path=tmp_path)
 
-        pb_item: TextItem = result.items[0]
         # 验证套娃解包在 transform 中也生效了
         assert pb_item.caption == "new overriding caption"
 
@@ -91,3 +89,25 @@ class TestTextTransform:
         target_file = tmp_path / expected_filename
         assert target_file.exists(), "嵌套提取后的内容未能正确落盘！"
         assert target_file.read_text(encoding="utf-8") == inner_content
+
+    def test_text_build_data_record(self):
+        """测试 build_data_record 方法"""
+        key = "test/metric"
+        step = 10
+        timestamp = Timestamp(seconds=1234567890)
+
+        items = [
+            TextItem(filename="file1.txt", caption="caption1"),
+            TextItem(filename="file2.txt", caption="caption2"),
+        ]
+
+        record = Text.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
+
+        assert record.key == key
+        assert record.step == step
+        assert record.timestamp == timestamp
+        assert len(record.texts.items) == 2
+        assert record.texts.items[0].filename == "file1.txt"
+        assert record.texts.items[0].caption == "caption1"
+        assert record.texts.items[1].filename == "file2.txt"
+        assert record.texts.items[1].caption == "caption2"

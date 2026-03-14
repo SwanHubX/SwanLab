@@ -6,15 +6,16 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.sdk.internal.context.transformer import TransformType
 from swanlab.sdk.typings.run import FinishType
-from swanlab.sdk.typings.run.data import DataTransferType, ScalarXAxisType
+from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 # ==========================================
 # 事件流定义 (Event Bus Definitions)
@@ -38,8 +39,8 @@ class MetricLogEvent:
 
 
 @dataclass
-class MetricDefineEvent:
-    """显式创建列事件"""
+class ScalarDefineEvent:
+    """显式创建标量列事件"""
 
     # 指标键
     key: str
@@ -55,8 +56,6 @@ class MetricDefineEvent:
     chart: Optional[str] = None
     # 图表名
     chart_name: Optional[str] = None
-    # 指标类型，显式创建目前仅支持标量
-    column_type: Literal["scalar"] = "scalar"
 
 
 @dataclass
@@ -109,7 +108,7 @@ class RunFinishEvent:
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
-    MetricDefineEvent,
+    ScalarDefineEvent,
     RunFinishEvent,
     RunStartEvent,
     ConfigEvent,
@@ -123,4 +122,4 @@ EventPayload = Union[
 FlushPayload = List[Record]
 
 # 数据解析返回类型
-ParseResult = Tuple[Record, DataTransferType]
+ParseResult = Tuple[Record, Type[TransformType]]
