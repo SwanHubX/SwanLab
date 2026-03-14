@@ -159,6 +159,7 @@ class LocalRunCallback(SwanLabRunCallback):
                 try:
                     existing = json.loads(line)
                 except json.JSONDecodeError:
+                    swanlog.warning(f"Failed to decode JSON from line in {metric_path}: {line.strip()}")
                     tmp.write(line)
                     continue
 
