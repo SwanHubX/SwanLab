@@ -7,6 +7,7 @@
 
 import pytest
 
+from swanlab.data.modules import DataWrapper, Line
 from swanlab.data.run.key import SwanLabKey
 from swanlab.toolkit import ChartType
 from tutils.setup import UseMockRunState
@@ -196,3 +197,114 @@ class TestMockKey:
             assert len(key_obj.steps) == 101, "Steps should contain one entry when step is provided"
             assert 1 in key_obj.steps, "Step 1 should be present in the steps"
             assert 101 not in key_obj.steps, "Step 10 should be present in the steps"
+
+
+class TestKeySummary:
+    @staticmethod
+    def _new_key(run_state, key: str = "test") -> SwanLabKey:
+        return SwanLabKey(key, run_state.store.media_dir, run_state.store.log_dir)
+
+    @staticmethod
+    def _add_line(key_obj: SwanLabKey, value, step: int):
+        data = DataWrapper(key_obj.key, [Line(value)])
+        data.parse(step=step, key=key_obj.key)
+        if not key_obj.chart_created:
+            key_obj.create_column(
+                key=key_obj.key,
+                name=None,
+                column_class="CUSTOM",
+                column_config=None,
+                section_type="PUBLIC",
+                data=data,
+                num=0,
+            )
+        return key_obj.add(data)
+
+    def test_overwrite_non_extreme_promote_to_max_without_rebuild(self, monkeypatch):
+        with UseMockRunState() as run_state:
+            key_obj = self._new_key(run_state)
+            self._add_line(key_obj, 1, 0)
+            self._add_line(key_obj, 10, 1)
+            self._add_line(key_obj, 5, 2)
+
+            monkeypatch.setattr(key_obj, "_rebuild_summary", lambda: pytest.fail("unexpected summary rebuild"))
+            metric_info = self._add_line(key_obj, 20, 2)
+
+            assert metric_info.metric_overwrite is True
+            assert metric_info.metric_summary == {
+                "max": 20.0,
+                "max_step": 2,
+                "min": 1.0,
+                "min_step": 0,
+                "num": 3,
+            }
+
+    def test_overwrite_current_max_demote_triggers_rebuild(self, monkeypatch):
+        with UseMockRunState() as run_state:
+            key_obj = self._new_key(run_state)
+            self._add_line(key_obj, 1, 0)
+            self._add_line(key_obj, 10, 1)
+            self._add_line(key_obj, 5, 2)
+
+            rebuild_calls = []
+            original_rebuild = key_obj._rebuild_summary
+
+            def rebuild():
+                rebuild_calls.append(True)
+                original_rebuild()
+
+            monkeypatch.setattr(key_obj, "_rebuild_summary", rebuild)
+            metric_info = self._add_line(key_obj, 7, 1)
+
+            assert len(rebuild_calls) == 1
+            assert metric_info.metric_summary == {
+                "max": 7.0,
+                "max_step": 1,
+                "min": 1.0,
+                "min_step": 0,
+                "num": 3,
+            }
+
+    def test_overwrite_duplicate_extreme_non_owner_skips_rebuild(self, monkeypatch):
+        with UseMockRunState() as run_state:
+            key_obj = self._new_key(run_state)
+            self._add_line(key_obj, 1, 0)
+            self._add_line(key_obj, 10, 1)
+            self._add_line(key_obj, 10, 2)
+
+            monkeypatch.setattr(key_obj, "_rebuild_summary", lambda: pytest.fail("duplicate extremum should not rebuild"))
+            metric_info = self._add_line(key_obj, 9, 2)
+
+            assert metric_info.metric_summary == {
+                "max": 10.0,
+                "max_step": 1,
+                "min": 1.0,
+                "min_step": 0,
+                "num": 3,
+            }
+
+    def test_overwrite_current_max_to_nan_triggers_rebuild(self, monkeypatch):
+        with UseMockRunState() as run_state:
+            key_obj = self._new_key(run_state)
+            self._add_line(key_obj, 1, 0)
+            self._add_line(key_obj, 10, 1)
+            self._add_line(key_obj, 5, 2)
+
+            rebuild_calls = []
+            original_rebuild = key_obj._rebuild_summary
+
+            def rebuild():
+                rebuild_calls.append(True)
+                original_rebuild()
+
+            monkeypatch.setattr(key_obj, "_rebuild_summary", rebuild)
+            metric_info = self._add_line(key_obj, float("nan"), 1)
+
+            assert len(rebuild_calls) == 1
+            assert metric_info.metric_summary == {
+                "max": 5.0,
+                "max_step": 2,
+                "min": 1.0,
+                "min_step": 0,
+                "num": 3,
+            }

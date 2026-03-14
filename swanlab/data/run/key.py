@@ -120,8 +120,11 @@ class SwanLabKey:
             self._step_epochs[result.step] = len(self.steps)
         epoch = self._step_epochs[result.step]
         new_data = self.__new_metric(result.step, r, more=result.more)
+
+        # 覆盖写入时，只有当前 step 持有的 extremum 被削弱/移除时才需要全量重建。
+        needs_rebuild = overwrite and self._should_rebuild_summary_on_overwrite(result.step, data.type, r)
         self._set_summary_value(result.step, data.type, r)
-        if overwrite:
+        if needs_rebuild:
             self._rebuild_summary()
         else:
             self._update_summary_incremental(result.step, data.type, r)
@@ -148,6 +151,22 @@ class SwanLabKey:
             self._step_summary_values[step] = None
             return
         self._step_summary_values[step] = value
+
+    def _should_rebuild_summary_on_overwrite(self, step: int, data_type, value) -> bool:
+        max_step = self._summary.get("max_step")
+        min_step = self._summary.get("min_step")
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            return step == max_step or step == min_step
+
+        current_max = self._summary.get("max")
+        if step == max_step and current_max is not None and value < current_max:
+            return True
+
+        current_min = self._summary.get("min")
+        if step == min_step and current_min is not None and value > current_min:
+            return True
+
+        return False
 
     def _update_summary_incremental(self, step: int, data_type, value) -> None:
         if data_type == Line and value in [Line.nan, Line.inf]:
