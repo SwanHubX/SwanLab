@@ -1,14 +1,12 @@
 syntax = "proto3";
 
-package swanlab.data.v1;
+package swanlab.metric.data.v1;
 
-option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1";
 
 // 一个 key 在某个 step 下记录的全部文本（1..N 条）。
 message TextValue {
-  // 存储目录，相对于 run_dir，如 "media/text"
-  string path = 1;
-  repeated TextItem items = 2;
+  repeated TextItem items = 1;
 }
 
 // 单条文本内容。

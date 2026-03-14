@@ -36,7 +36,7 @@ class Text(TransformMediaType):
 
     @classmethod
     def build_metric_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[TextItem]) -> MetricRecord:
-        return MetricRecord(key=key, step=step, timestamp=timestamp, texts=TextValue(items=data))
+        return MetricRecord(key=key, step=step, timestamp=timestamp, texts=TextValue(items=data, path="text"))
 
     def transform(self, key: str, step: int, path: Path) -> TextItem:
         # 计算 sha256

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package swanlab.metric.data.v1;
+
+import "google/protobuf/timestamp.proto";
+import "swanlab/metric/data/v1/scalar/scalar.proto";
+import "swanlab/metric/data/v1/media/image.proto";
+import "swanlab/metric/data/v1/media/audio.proto";
+import "swanlab/metric/data/v1/media/video.proto";
+import "swanlab/metric/data/v1/media/text.proto";
+import "swanlab/metric/data/v1/media/echarts.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1";
+
+// ColumnType 列的数据类型
+enum ColumnType {
+  COLUMN_TYPE_UNSPECIFIED = 0;
+  COLUMN_TYPE_FLOAT       = 1;  // 标量
+  COLUMN_TYPE_IMAGE       = 2;  // 图像
+  COLUMN_TYPE_AUDIO       = 3;  // 音频
+  COLUMN_TYPE_TEXT        = 4;  // 文本
+  COLUMN_TYPE_VIDEO       = 5;  // 视频
+  COLUMN_TYPE_ECHARTS     = 6;  // ECharts 图表
+}
+
+// 对应一次 swanlab.log({...}, step=N) 调用中的单条数据记录。
+// 一次调用可产生多条 DataRecord，每条对应 dict 中的一个 key。
+message DataRecord {
+  // 记录的 key，如 "train/loss"
+  string key = 1;
+  // 用户显式传入或由 SDK 自动递增的全局步数
+  int64 step = 2;
+  // 数据类型
+  ColumnType type = 3;
+  // 记录的时间戳
+  google.protobuf.Timestamp timestamp = 4;
+  oneof value {
+    ScalarValue  scalar  = 10;
+    ImageValue   images  = 11;
+    AudioValue   audios  = 12;
+    VideoValue   videos  = 13;
+    TextValue    texts   = 14;
+    EChartsValue echarts = 15;
+  }
+}

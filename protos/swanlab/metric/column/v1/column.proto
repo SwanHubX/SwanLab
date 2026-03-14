@@ -1,23 +1,15 @@
 syntax = "proto3";
 
-package swanlab.data.v1;
+package swanlab.metric.column.v1;
 
-option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1";
+import "swanlab/metric/data/v1/data.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1;columnv1";
 
 // ColumnClass 列的来源类别
 enum ColumnClass {
   COLUMN_CLASS_UNSPECIFIED = 0;
   COLUMN_CLASS_CUSTOM      = 1;  // 用户自定义列（默认）
-}
-
-// ColumnType 列的数据类型
-enum ColumnType {
-  COLUMN_TYPE_UNSPECIFIED = 0;
-  COLUMN_TYPE_FLOAT       = 1;
-  COLUMN_TYPE_IMAGE       = 2;
-  COLUMN_TYPE_AUDIO       = 3;
-  COLUMN_TYPE_TEXT        = 4;
-  COLUMN_TYPE_ANY         = 5;  // 任意类型，需配合 error 字段
 }
 
 // SectionType section 类型
@@ -27,12 +19,6 @@ enum SectionType {
   SECTION_TYPE_HIDDEN      = 2;  // 隐藏，仅允许一个同类 section
   SECTION_TYPE_PUBLIC      = 3;  // 公开，允许多个（默认）
   SECTION_TYPE_SYSTEM      = 4;  // 系统，允许多个，可自定义 section_name
-}
-
-// ColumnError 当 type=ANY 时描述错误信息，必填
-message ColumnError {
-  string code    = 1;
-  string message = 2;
 }
 
 // YRange Y 轴显示范围
@@ -56,7 +42,7 @@ message ColumnRecord {
   ColumnClass column_class = 1;
 
   // 数据类型，必填
-  ColumnType column_type = 2;
+  swanlab.metric.data.v1.ColumnType column_type = 2;
 
   // 键名，必填，须与 MetricRecord.key 对应
   string column_key = 3;
@@ -64,27 +50,24 @@ message ColumnRecord {
   // 显示名称，可选，不填时默认取 key
   string column_name = 4;
 
-  // 错误信息，type=ANY 时必填
-  ColumnError column_error = 5;
-
   // 自定义 section 名称，优先级高于由 key 推断的 section
-  string section_name = 6;
+  string section_name = 5;
 
   // Section 类型，默认 PUBLIC
-  SectionType section_type = 7;
+  SectionType section_type = 6;
 
   // Y 轴范围 [min, max]，可选
-  YRange y_range = 8;
+  YRange y_range = 7;
 
   // 图表索引，相同 chart_index 的列归入同一图表；不填则新建图表
-  string chart_index = 9;
+  string chart_index = 8;
 
   // 图表名称，仅对单实验图表生效
-  string chart_name = 10;
+  string chart_name = 9;
 
   // 指标名称，仅对单实验图表生效
-  string metric_name = 11;
+  string metric_name = 10;
 
   // 指标颜色列表，十六进制颜色值，如 "#FF5733"
-  repeated string metric_colors = 12;
+  repeated string metric_colors = 11;
 }

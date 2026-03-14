@@ -8,9 +8,10 @@ package recordv1
 
 import (
 	v12 "github.com/swanhubx/swanlab/core/proto/swanlab/config/v1"
-	v11 "github.com/swanhubx/swanlab/core/proto/swanlab/data/v1"
+	v13 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	v11 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
-	v13 "github.com/swanhubx/swanlab/core/proto/swanlab/system/v1"
+	v14 "github.com/swanhubx/swanlab/core/proto/swanlab/system/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -47,7 +48,7 @@ type Record struct {
 	//	*Record_Run
 	//	*Record_Finish
 	//	*Record_Metric
-	//	*Record_Config
+	//	*Record_Cong
 	//	*Record_Column
 	//	*Record_Metadata
 	//	*Record_Requirements
@@ -127,7 +128,7 @@ func (x *Record) GetFinish() *v1.FinishRecord {
 	return nil
 }
 
-func (x *Record) GetMetric() *v11.MetricRecord {
+func (x *Record) GetMetric() *v11.DataRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Metric); ok {
 			return x.Metric
@@ -136,16 +137,16 @@ func (x *Record) GetMetric() *v11.MetricRecord {
 	return nil
 }
 
-func (x *Record) GetConfig() *v12.ConfigRecord {
+func (x *Record) GetCong() *v12.ConfigRecord {
 	if x != nil {
-		if x, ok := x.RecordType.(*Record_Config); ok {
-			return x.Config
+		if x, ok := x.RecordType.(*Record_Cong); ok {
+			return x.Cong
 		}
 	}
 	return nil
 }
 
-func (x *Record) GetColumn() *v11.ColumnRecord {
+func (x *Record) GetColumn() *v13.ColumnRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Column); ok {
 			return x.Column
@@ -154,7 +155,7 @@ func (x *Record) GetColumn() *v11.ColumnRecord {
 	return nil
 }
 
-func (x *Record) GetMetadata() *v13.MetadataRecord {
+func (x *Record) GetMetadata() *v14.MetadataRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Metadata); ok {
 			return x.Metadata
@@ -163,7 +164,7 @@ func (x *Record) GetMetadata() *v13.MetadataRecord {
 	return nil
 }
 
-func (x *Record) GetRequirements() *v13.RequirementsRecord {
+func (x *Record) GetRequirements() *v14.RequirementsRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Requirements); ok {
 			return x.Requirements
@@ -172,7 +173,7 @@ func (x *Record) GetRequirements() *v13.RequirementsRecord {
 	return nil
 }
 
-func (x *Record) GetConda() *v13.CondaRecord {
+func (x *Record) GetConda() *v14.CondaRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Conda); ok {
 			return x.Conda
@@ -181,7 +182,7 @@ func (x *Record) GetConda() *v13.CondaRecord {
 	return nil
 }
 
-func (x *Record) GetConsole() *v13.ConsoleRecord {
+func (x *Record) GetConsole() *v14.ConsoleRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Console); ok {
 			return x.Console
@@ -205,33 +206,33 @@ type Record_Finish struct {
 
 type Record_Metric struct {
 	// ── 用户数据 ──
-	Metric *v11.MetricRecord `protobuf:"bytes,12,opt,name=metric,proto3,oneof"`
+	Metric *v11.DataRecord `protobuf:"bytes,12,opt,name=metric,proto3,oneof"`
 }
 
-type Record_Config struct {
-	Config *v12.ConfigRecord `protobuf:"bytes,13,opt,name=config,proto3,oneof"`
+type Record_Cong struct {
+	Cong *v12.ConfigRecord `protobuf:"bytes,13,opt,name=cong,proto3,oneof"`
 }
 
 type Record_Column struct {
-	Column *v11.ColumnRecord `protobuf:"bytes,19,opt,name=column,proto3,oneof"`
+	Column *v13.ColumnRecord `protobuf:"bytes,19,opt,name=column,proto3,oneof"`
 }
 
 type Record_Metadata struct {
 	// ── 主机元数据（一次性，init 时写入）──
-	Metadata *v13.MetadataRecord `protobuf:"bytes,14,opt,name=metadata,proto3,oneof"`
+	Metadata *v14.MetadataRecord `protobuf:"bytes,14,opt,name=metadata,proto3,oneof"`
 }
 
 type Record_Requirements struct {
-	Requirements *v13.RequirementsRecord `protobuf:"bytes,17,opt,name=requirements,proto3,oneof"`
+	Requirements *v14.RequirementsRecord `protobuf:"bytes,17,opt,name=requirements,proto3,oneof"`
 }
 
 type Record_Conda struct {
-	Conda *v13.CondaRecord `protobuf:"bytes,18,opt,name=conda,proto3,oneof"`
+	Conda *v14.CondaRecord `protobuf:"bytes,18,opt,name=conda,proto3,oneof"`
 }
 
 type Record_Console struct {
 	// ── 运行时自动采集 ──
-	Console *v13.ConsoleRecord `protobuf:"bytes,16,opt,name=console,proto3,oneof"`
+	Console *v14.ConsoleRecord `protobuf:"bytes,16,opt,name=console,proto3,oneof"`
 }
 
 func (*Record_Run) isRecord_RecordType() {}
@@ -240,7 +241,7 @@ func (*Record_Finish) isRecord_RecordType() {}
 
 func (*Record_Metric) isRecord_RecordType() {}
 
-func (*Record_Config) isRecord_RecordType() {}
+func (*Record_Cong) isRecord_RecordType() {}
 
 func (*Record_Column) isRecord_RecordType() {}
 
@@ -256,16 +257,16 @@ var File_swanlab_record_v1_record_proto protoreflect.FileDescriptor
 
 const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\n" +
-	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x1cswanlab/data/v1/metric.proto\x1a\x1cswanlab/data/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"\xfb\x04\n" +
+	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"\x85\x05\n" +
 	"\x06Record\x12\x10\n" +
 	"\x03num\x18\x01 \x01(\x03R\x03num\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
 	"\x03run\x18\n" +
 	" \x01(\v2\x19.swanlab.run.v1.RunRecordH\x00R\x03run\x126\n" +
-	"\x06finish\x18\v \x01(\v2\x1c.swanlab.run.v1.FinishRecordH\x00R\x06finish\x127\n" +
-	"\x06metric\x18\f \x01(\v2\x1d.swanlab.data.v1.MetricRecordH\x00R\x06metric\x129\n" +
-	"\x06config\x18\r \x01(\v2\x1f.swanlab.config.v1.ConfigRecordH\x00R\x06config\x127\n" +
-	"\x06column\x18\x13 \x01(\v2\x1d.swanlab.data.v1.ColumnRecordH\x00R\x06column\x12?\n" +
+	"\x06finish\x18\v \x01(\v2\x1c.swanlab.run.v1.FinishRecordH\x00R\x06finish\x12<\n" +
+	"\x06metric\x18\f \x01(\v2\".swanlab.metric.data.v1.DataRecordH\x00R\x06metric\x125\n" +
+	"\x04cong\x18\r \x01(\v2\x1f.swanlab.config.v1.ConfigRecordH\x00R\x04cong\x12@\n" +
+	"\x06column\x18\x13 \x01(\v2&.swanlab.metric.column.v1.ColumnRecordH\x00R\x06column\x12?\n" +
 	"\bmetadata\x18\x0e \x01(\v2!.swanlab.system.v1.MetadataRecordH\x00R\bmetadata\x12K\n" +
 	"\frequirements\x18\x11 \x01(\v2%.swanlab.system.v1.RequirementsRecordH\x00R\frequirements\x126\n" +
 	"\x05conda\x18\x12 \x01(\v2\x1e.swanlab.system.v1.CondaRecordH\x00R\x05conda\x12<\n" +
@@ -292,22 +293,22 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),  // 1: google.protobuf.Timestamp
 	(*v1.RunRecord)(nil),           // 2: swanlab.run.v1.RunRecord
 	(*v1.FinishRecord)(nil),        // 3: swanlab.run.v1.FinishRecord
-	(*v11.MetricRecord)(nil),       // 4: swanlab.data.v1.MetricRecord
+	(*v11.DataRecord)(nil),         // 4: swanlab.metric.data.v1.DataRecord
 	(*v12.ConfigRecord)(nil),       // 5: swanlab.config.v1.ConfigRecord
-	(*v11.ColumnRecord)(nil),       // 6: swanlab.data.v1.ColumnRecord
-	(*v13.MetadataRecord)(nil),     // 7: swanlab.system.v1.MetadataRecord
-	(*v13.RequirementsRecord)(nil), // 8: swanlab.system.v1.RequirementsRecord
-	(*v13.CondaRecord)(nil),        // 9: swanlab.system.v1.CondaRecord
-	(*v13.ConsoleRecord)(nil),      // 10: swanlab.system.v1.ConsoleRecord
+	(*v13.ColumnRecord)(nil),       // 6: swanlab.metric.column.v1.ColumnRecord
+	(*v14.MetadataRecord)(nil),     // 7: swanlab.system.v1.MetadataRecord
+	(*v14.RequirementsRecord)(nil), // 8: swanlab.system.v1.RequirementsRecord
+	(*v14.CondaRecord)(nil),        // 9: swanlab.system.v1.CondaRecord
+	(*v14.ConsoleRecord)(nil),      // 10: swanlab.system.v1.ConsoleRecord
 	(*emptypb.Empty)(nil),          // 11: google.protobuf.Empty
 }
 var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	1,  // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: swanlab.record.v1.Record.run:type_name -> swanlab.run.v1.RunRecord
 	3,  // 2: swanlab.record.v1.Record.finish:type_name -> swanlab.run.v1.FinishRecord
-	4,  // 3: swanlab.record.v1.Record.metric:type_name -> swanlab.data.v1.MetricRecord
-	5,  // 4: swanlab.record.v1.Record.config:type_name -> swanlab.config.v1.ConfigRecord
-	6,  // 5: swanlab.record.v1.Record.column:type_name -> swanlab.data.v1.ColumnRecord
+	4,  // 3: swanlab.record.v1.Record.metric:type_name -> swanlab.metric.data.v1.DataRecord
+	5,  // 4: swanlab.record.v1.Record.cong:type_name -> swanlab.config.v1.ConfigRecord
+	6,  // 5: swanlab.record.v1.Record.column:type_name -> swanlab.metric.column.v1.ColumnRecord
 	7,  // 6: swanlab.record.v1.Record.metadata:type_name -> swanlab.system.v1.MetadataRecord
 	8,  // 7: swanlab.record.v1.Record.requirements:type_name -> swanlab.system.v1.RequirementsRecord
 	9,  // 8: swanlab.record.v1.Record.conda:type_name -> swanlab.system.v1.CondaRecord
@@ -330,7 +331,7 @@ func file_swanlab_record_v1_record_proto_init() {
 		(*Record_Run)(nil),
 		(*Record_Finish)(nil),
 		(*Record_Metric)(nil),
-		(*Record_Config)(nil),
+		(*Record_Cong)(nil),
 		(*Record_Column)(nil),
 		(*Record_Metadata)(nil),
 		(*Record_Requirements)(nil),
