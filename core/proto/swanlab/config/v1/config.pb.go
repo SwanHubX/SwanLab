@@ -72,13 +72,10 @@ func (UpdateType) EnumDescriptor() ([]byte, []int) {
 }
 
 // 用户传入的实验配置引用。
-// config 数据写入磁盘（files/config.yaml），Record 只保存路径引用和更新类型。
+// config 数据写入磁盘（files/config.yaml），Record 只保存更新类型，路径引用约定为 "files/config.yaml"，使用yaml解析。
 // PATCH 更新时覆写同一个文件，消费方以最新文件内容为准。
 type ConfigRecord struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 相对于 run_dir 的文件路径，固定为 "files/config.yaml"
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Format        string                 `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"` // 固定为 "yaml"
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	UpdateType    UpdateType             `protobuf:"varint,3,opt,name=update_type,json=updateType,proto3,enum=swanlab.config.v1.UpdateType" json:"update_type,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -115,20 +112,6 @@ func (*ConfigRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_config_v1_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ConfigRecord) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *ConfigRecord) GetFormat() string {
-	if x != nil {
-		return x.Format
-	}
-	return ""
-}
-
 func (x *ConfigRecord) GetUpdateType() UpdateType {
 	if x != nil {
 		return x.UpdateType
@@ -147,10 +130,8 @@ var File_swanlab_config_v1_config_proto protoreflect.FileDescriptor
 
 const file_swanlab_config_v1_config_proto_rawDesc = "" +
 	"\n" +
-	"\x1eswanlab/config/v1/config.proto\x12\x11swanlab.config.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb4\x01\n" +
-	"\fConfigRecord\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12\x16\n" +
-	"\x06format\x18\x02 \x01(\tR\x06format\x12>\n" +
+	"\x1eswanlab/config/v1/config.proto\x12\x11swanlab.config.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x88\x01\n" +
+	"\fConfigRecord\x12>\n" +
 	"\vupdate_type\x18\x03 \x01(\x0e2\x1d.swanlab.config.v1.UpdateTypeR\n" +
 	"updateType\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp*V\n" +

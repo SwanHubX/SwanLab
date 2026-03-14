@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bswanlab/system/v1/env.proto\x12\x11swanlab.system.v1\"\x1e\n\x0eMetadataRecord\x12\x0c\n\x04path\x18\x01 \x01(\t\"\"\n\x12RequirementsRecord\x12\x0c\n\x04path\x18\x01 \x01(\t\"\x1b\n\x0b\x43ondaRecord\x12\x0c\n\x04path\x18\x01 \x01(\tBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bswanlab/system/v1/env.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"?\n\x0eMetadataRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"C\n\x12RequirementsRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"<\n\x0b\x43ondaRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,10 +33,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.system.v1.env_pb2',
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1'
-  _globals['_METADATARECORD']._serialized_start=50
-  _globals['_METADATARECORD']._serialized_end=80
-  _globals['_REQUIREMENTSRECORD']._serialized_start=82
-  _globals['_REQUIREMENTSRECORD']._serialized_end=116
-  _globals['_CONDARECORD']._serialized_start=118
-  _globals['_CONDARECORD']._serialized_end=145
+  _globals['_METADATARECORD']._serialized_start=83
+  _globals['_METADATARECORD']._serialized_end=146
+  _globals['_REQUIREMENTSRECORD']._serialized_start=148
+  _globals['_REQUIREMENTSRECORD']._serialized_end=215
+  _globals['_CONDARECORD']._serialized_start=217
+  _globals['_CONDARECORD']._serialized_end=277
 # @@protoc_insertion_point(module_scope)

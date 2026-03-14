@@ -16,11 +16,13 @@
 
 import pytest
 import responses as responses_lib
+import yaml
 
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import raw_login
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.run import SwanLabRun, has_run
+from swanlab.sdk.internal.run.config import config as global_config
 from swanlab.sdk.internal.settings import Settings
 
 # ============================================================
@@ -373,3 +375,106 @@ class TestInitCloudMode:
 
         assert any("project" in u for u in non_login_calls), "应调用 project 端点"
         assert any("experiment" in u for u in non_login_calls), "应调用 experiment 端点"
+
+
+# ============================================================
+# TestInitConfigIntegration
+# ============================================================
+
+
+class TestInitConfigIntegration:
+    def test_disabled_mode_does_not_bind_config(self):
+        """disabled 模式下，config 不绑定，内存写入正常但不触发文件 IO"""
+        global_config["lr"] = 0.01
+        run = init(mode="disabled")
+
+        assert run.config["lr"] == 0.01
+
+    def test_local_mode_creates_config_file_after_init(self):
+        """local 模式 init() 后，config.yaml 应已存在（即使 config 为空）"""
+        run = init(mode="local")
+        config_file = run._ctx.config_file
+
+        assert config_file.exists()
+
+    def test_pre_init_values_appear_in_config_file(self):
+        """init() 前写入 config 的值，bindctx 时应一并 flush 到 config.yaml"""
+        global_config["pre_lr"] = 0.001
+        global_config["pre_epochs"] = 5
+
+        run = init(mode="local")
+        data = yaml.safe_load(run._ctx.config_file.read_text())
+
+        assert data["pre_lr"]["value"] == 0.001
+        assert data["pre_epochs"]["value"] == 5
+
+    def test_post_init_values_written_to_config_file(self):
+        """init() 后写入 config 的值，应实时写入 config.yaml"""
+        run = init(mode="local")
+        run.config["post_key"] = "hello"
+
+        data = yaml.safe_load(run._ctx.config_file.read_text())
+        assert data["post_key"]["value"] == "hello"
+
+    def test_config_reset_after_finish(self):
+        """finish() 后，全局 config 代理应指向 global config"""
+        global_config["global_key"] = "global"
+        run = init(mode="local")
+        run.config["run_key"] = "run"
+        run.finish()
+
+        assert "global_key" in global_config
+        assert "run_key" not in global_config
+
+    def test_global_config_unchanged_after_finish(self):
+        """finish() 后 global config 的键仍在"""
+        global_config["persistent"] = "value"
+        run = init(mode="local")
+        run.finish()
+
+        assert global_config["persistent"] == "value"
+
+    def test_init_config_param_merged_into_run_config(self):
+        """验证 init(config={"lr":0.01}) 写入 run.config"""
+        run = init(mode="local", config={"lr": 0.01, "batch_size": 32})
+
+        assert run.config["lr"] == 0.01
+        assert run.config["batch_size"] == 32
+
+    def test_proxy_points_to_run_config_after_init(self):
+        """验证 global_config 在 run 活跃时指向 run.config"""
+        run = init(mode="local")
+        run.config["run_key"] = "run_value"
+
+        assert global_config["run_key"] == "run_value"
+
+    def test_offline_mode_creates_config_file(self):
+        """offline 模式 init() 后，config.yaml 应已存在"""
+        run = init(mode="offline")
+
+        assert run._ctx.config_file.exists()
+
+    def test_config_yaml_has_correct_structure(self):
+        """config.yaml 的每个 key 应具有 {value, desc, sort} 结构"""
+        global_config["lr"] = 0.01
+        run = init(mode="local")
+
+        data = yaml.safe_load(run._ctx.config_file.read_text())
+        assert "value" in data["lr"]
+        assert "desc" in data["lr"]
+        assert "sort" in data["lr"]
+
+    def test_reinit_rebinds_config(self):
+        """reinit=True 重建 Run 后，config 应绑定到新的 config_file"""
+        run1 = init(mode="local")
+        run1.config["key1"] = "v1"
+        config_file1 = run1._ctx.config_file
+
+        run2 = init(mode="local", reinit=True)
+        run2.config["key2"] = "v2"
+        config_file2 = run2._ctx.config_file
+
+        data2 = yaml.safe_load(config_file2.read_text())
+        assert data2["key2"]["value"] == "v2"
+        # 两次 run 的 config_file 路径不同（时间戳不同）
+        assert config_file1 != config_file2

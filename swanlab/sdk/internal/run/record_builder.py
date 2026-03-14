@@ -158,27 +158,25 @@ class RecordBuilder:
 
     def build_config(self, event: ConfigEvent) -> Record:
         """构建 ConfigRecord envelope"""
-        config_record = ConfigRecord(path=event.path, update_type=event.update, format="yaml")
+        config_record = ConfigRecord(update_type=event.update, timestamp=event.timestamp)
         return self._wrap(config=config_record)
 
     def build_console(self, event: ConsoleEvent) -> Record:
         """构建 ConsoleRecord envelope"""
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        console_record = ConsoleRecord(line=event.line, stream=event.stream, timestamp=ts)
+        console_record = ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
         return self._wrap(console=console_record)
 
     def build_metadata(self, event: MetadataEvent) -> Record:
         """构建 MetadataRecord envelope"""
-        return self._wrap(metadata=MetadataRecord(path=event.path))
+        return self._wrap(metadata=MetadataRecord(timestamp=event.timestamp))
 
     def build_requirements(self, event: RequirementsEvent) -> Record:
         """构建 RequirementsRecord envelope"""
-        return self._wrap(requirements=RequirementsRecord(path=event.path))
+        return self._wrap(requirements=RequirementsRecord(timestamp=event.timestamp))
 
     def build_conda(self, event: CondaEvent) -> Record:
         """构建 CondaRecord envelope"""
-        return self._wrap(conda=CondaRecord(path=event.path))
+        return self._wrap(conda=CondaRecord(timestamp=event.timestamp))
 
     # ── 内部工具 ──
 

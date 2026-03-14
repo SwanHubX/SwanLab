@@ -61,10 +61,10 @@ class MetricDefineEvent:
 
 @dataclass
 class ConfigEvent:
-    """配置记录事件"""
+    """配置记录事件（path 固定为 files/config.yaml）"""
 
-    path: str
     update: UpdateType
+    timestamp: Timestamp
 
 
 @dataclass
@@ -73,27 +73,28 @@ class ConsoleEvent:
 
     line: str
     stream: StreamType
+    timestamp: Timestamp
 
 
 @dataclass
 class MetadataEvent:
     """元数据事件"""
 
-    path: str
+    timestamp: Timestamp
 
 
 @dataclass
 class RequirementsEvent:
     """依赖记录事件"""
 
-    path: str
+    timestamp: Timestamp
 
 
 @dataclass
 class CondaEvent:
     """Conda 环境记录事件"""
 
-    path: str
+    timestamp: Timestamp
 
 
 @dataclass
