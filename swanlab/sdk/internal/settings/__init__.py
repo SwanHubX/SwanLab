@@ -66,6 +66,34 @@ def log_dir_factory() -> Path:
 
 
 class Settings(BaseSettings):
+    """SwanLab configuration settings.
+
+    This class manages all SwanLab configuration options, loaded from multiple sources
+    in order of priority: defaults → environment variables → config files → user code.
+
+    Use `swanlab.merge_settings()` to customize settings before calling `swanlab.init()`.
+
+    Examples:
+
+        Create custom settings:
+
+        >>> from swanlab import Settings
+        >>> settings = Settings(mode="local", logdir="./my_logs")
+        >>> import swanlab
+        >>> swanlab.merge_settings(settings)
+        >>> run = swanlab.init()
+
+        Configure nested settings:
+
+        >>> from swanlab import Settings
+        >>> settings = Settings(
+        ...     mode="cloud",
+        ...     hardware=Settings.Hardware(monitor=False)
+        ... )
+        >>> import swanlab
+        >>> swanlab.merge_settings(settings)
+    """
+
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings

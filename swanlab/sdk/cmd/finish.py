@@ -20,12 +20,44 @@ from swanlab.sdk.typings.run import FinishType
 @with_cmd_lock
 @with_run("finish")
 def finish(state: FinishType = "success", error: Optional[str] = None):
-    """
-    Finish the current run and close the current experiment
-    Normally, swanlab will run this function automatically,
-    but you can also execute it manually and mark the experiment as 'completed'.
-    Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
-    If you mark the experiment as 'CRASHED' manually, `error` must be provided.
+    """Finish the current run and close the experiment.
+
+    This function safely closes the current run and waits for all logs to be flushed.
+    SwanLab automatically calls this function at program exit, but you can call it
+    manually to mark the experiment as completed with a specific state.
+
+    :param state: Final state of the run. Must be one of: "success", "crashed", "aborted".
+        Defaults to "success".
+
+    :param error: Error message if state is "crashed". Required when state="crashed".
+
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        Finish a successful run:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> swanlab.log({"loss": 0.5})
+        >>> swanlab.finish()
+
+        Mark run as crashed with error message:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> try:
+        ...     # training code
+        ...     raise ValueError("Training failed")
+        ... except Exception as e:
+        ...     swanlab.finish(state="crashed", error=str(e))
+
+        Mark run as aborted:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> swanlab.log({"loss": 0.5})
+        >>> swanlab.finish(state="aborted")
     """
     run = get_run()
     run.finish(state, error)
