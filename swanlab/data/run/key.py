@@ -230,10 +230,9 @@ class SwanLabKey:
         # PUBLIC 可选是否传递名称，如果 key 包含斜杠，则使用斜杠前的部分作为section的名称
         # CUSTOM 时如果 key 包含斜杠，则使用斜杠前的部分作为section的名称，并且将 section_type 设置为 PUBLIC
         if section_type in ["PUBLIC", "CUSTOM"]:
-            split_key = key.split("/")
-            if len(split_key) > 1 and split_key[0]:
-                # 如果key包含斜杠，则使用斜杠前的部分作为section的名称
-                result.section = split_key[0]
+            if "/" in key:
+                # 如果key包含斜杠，则使用最后一个斜杠前的部分作为section的名称
+                result.section = key.rsplit("/", 1)[0]
                 section_type: SectionType = "PUBLIC"
         else:
             result.section = None

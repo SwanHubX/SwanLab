@@ -9,6 +9,7 @@ import pytest
 
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.data.run.key import SwanLabKey
+from swanlab.data.modules import Line, DataWrapper
 from swanlab.toolkit import ChartType
 from tutils.setup import UseMockRunState
 

@@ -23,6 +23,7 @@ from swanlab.formatter import (
     check_desc_format,
     check_tags_format,
     check_run_id_format,
+    check_color_format,
 )
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings, read_folder_settings
@@ -108,6 +109,7 @@ class SwanLabInitializer:
         id: str = None,
         resume: Union[Literal['must', 'allow', 'never'], bool] = None,
         reinit: bool = None,
+        color: str = None,
         **kwargs,
     ) -> SwanLabRun:
         """
@@ -188,6 +190,10 @@ class SwanLabInitializer:
             The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
             Whether to reinitialize SwanLabRun, the default is False.
+        color : str, optional
+            The experiment color displayed in the web interface.
+            Supports preset colors (e.g., "green"), RGB format (e.g., "rgb(82,141,89)"),
+            or hex format (e.g., "#528d59", "528d59").
         """
         # 一个进程同时只能有一个实验在运行
         if SwanLabRun.is_started():
@@ -256,6 +262,7 @@ class SwanLabInitializer:
         resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
         logdir = _load_from_env(SwanLabEnv.SWANLOG_FOLDER.value, logdir)
+        color = _load_from_env(SwanLabEnv.EXP_COLOR.value, color)
         # 2. 部分格式校验
         # 2.1 校验项目名称，默认实验名称为当前目录名
         project = project if project else os.path.basename(os.getcwd())
@@ -298,6 +305,13 @@ class SwanLabInitializer:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
+        # 2.7 校验颜色格式
+        if color:
+            try:
+                color = check_color_format(color)
+            except ValueError as e:
+                swanlog.warning(f"Invalid color format: {e}, will use random color")
+                color = None
         # 3. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
@@ -352,6 +366,7 @@ class SwanLabInitializer:
         run_store.tags = tags
         run_store.description = description
         run_store.run_name = experiment_name
+        run_store.run_colors = (color, color) if color else None
         run_store.swanlog_dir = logdir
         # 2. 启动操作员，注册运行实例
         operator = _create_operator(mode, login_info, callbacks)
