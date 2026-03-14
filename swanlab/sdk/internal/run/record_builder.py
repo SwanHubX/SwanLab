@@ -11,6 +11,7 @@ from typing import Tuple
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.config.v1.constants import CONFIG_FILE_FORMAT, CONFIG_FILE_PATH
 from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -158,7 +159,7 @@ class RecordBuilder:
 
     def build_config(self, event: ConfigEvent) -> Record:
         """构建 ConfigRecord envelope"""
-        config_record = ConfigRecord(path=event.path, update_type=event.update, format="yaml")
+        config_record = ConfigRecord(path=CONFIG_FILE_PATH, update_type=event.update, format=CONFIG_FILE_FORMAT)
         return self._wrap(config=config_record)
 
     def build_console(self, event: ConsoleEvent) -> Record:

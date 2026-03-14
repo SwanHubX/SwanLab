@@ -61,9 +61,8 @@ class MetricDefineEvent:
 
 @dataclass
 class ConfigEvent:
-    """配置记录事件"""
+    """配置记录事件（path 固定为 files/config.yaml）"""
 
-    path: str
     update: UpdateType
 
 

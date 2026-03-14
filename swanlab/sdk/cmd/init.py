@@ -229,10 +229,11 @@ def init(
     if not success:
         webhook_url = ctx.config.settings.integration.webhook.url
         console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
-    # 加载配置
-    _ = load_config(run_settings, config)
+    # 加载配置并合并到 run.config
+    config_data = load_config(run_settings, config)
+    if config_data:
+        run.config.update(config_data)
     # TODO 触发init事件
-    # TODO 触发配置加载
     return run
 
 

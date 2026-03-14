@@ -20,6 +20,14 @@ from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, R
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.run.config import (
+    SwanLabConfig as _SwanLabConfigClass,
+)
+from swanlab.sdk.internal.run.config import (
+    create_run_config,
+    create_unbound_run_config,
+    deactivate_run_config,
+)
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.data import ScalarXAxisType
 
@@ -75,7 +83,12 @@ class SwanLabRun:
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
         # TODO: 硬件监控与metadata采集
-        # TODO: Config 事件
+
+        # 绑定 config 模块到运行上下文
+        if self._ctx.config.settings.mode != "disabled":
+            self.config: _SwanLabConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
+        else:
+            self.config: _SwanLabConfigClass = create_unbound_run_config()
 
         # 设置全局运行实例
         set_run(self)
@@ -250,9 +263,9 @@ class SwanLabRun:
         # 清理全局运行实例
         clear_run()
         console.debug(f"Run finished with state: {state}")
-        # 释放全局logger
-        if self._ctx.config.settings.mode != "disabled":
-            log.reset()
+        # 释放全局logger和config
+        log.reset()
+        deactivate_run_config()
 
 
 _current_run: Optional[SwanLabRun] = None
