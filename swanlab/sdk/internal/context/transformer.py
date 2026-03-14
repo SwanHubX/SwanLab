@@ -33,16 +33,12 @@ class TransformType(ABC):
     >>>         attrs = self._unwrap(text)
     >>>         self.text = attrs.get("text", text)
     >>>         self.foo = foo if foo is not None else attrs.get("foo")
-    >>>     @staticmethod
-    >>>     def transform(key: str, step: int, *, data: Any = None, **kwargs: Any) -> TextItem:
-    >>>         return TextItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or kwargs.get("content", ""))
+    >>>     def transform(self, *, key: str, step: int, data: str = None) -> TextItem:
+    >>>         return TextItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or "")
     >>>     @classmethod
     >>>     def build_data_record(cls,*, key: str, step: int, timestamp: Timestamp, data: Any) -> DataRecord:
     >>>         value = TextValue(items=[data])
     >>>         return DataRecord(key=key, step=step, texts=value)
-    >>>     @classmethod
-    >>>     def type(cls) -> DataTransferType:
-    >>>         return "text"
     >>>     @classmethod
     >>>     def column_type(cls) -> ColumnType:
     >>>         return ColumnType.COLUMN_TYPE_TEXT

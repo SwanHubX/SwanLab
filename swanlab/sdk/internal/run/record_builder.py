@@ -86,8 +86,8 @@ class RecordBuilder:
         col_type = cls.column_type()
         metrics = self._ctx.metrics
         if issubclass(cls, TransformMediaType):
-            column_type = adapter.column_type[col_type]
-            metrics.define_media(key, column_type, self._ctx.media_dir / column_type)
+            media_type_str = adapter.column_type[col_type]
+            metrics.define_media(key, col_type, self._ctx.media_dir / media_type_str)
         else:
             metrics.define_scalar(key)
         col = ColumnRecord(
