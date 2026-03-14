@@ -81,11 +81,11 @@ class BackgroundConsumer:
                 elif isinstance(event, MetricLogEvent):
                     for key, value in event.data.items():
                         try:
-                            record, data_type = self._builder.build_log(value, key, event.timestamp, event.step)
+                            record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
                             if key not in _emitted_columns:
-                                batch.append(self._builder.build_column_from_log(record.metric, key))
+                                batch.append(self._builder.build_column_from_log(cls, key))
                                 _emitted_columns.add(key)
-                            if data_type == "scalar":
+                            if cls.type() == "scalar":
                                 self._metrics.update_scalar(key, record.metric.scalar.number)
                             batch.append(record)
                         except Exception as e:

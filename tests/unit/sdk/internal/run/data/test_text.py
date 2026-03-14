@@ -8,10 +8,10 @@
 import hashlib
 from pathlib import Path
 
-from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem, TextValue
+from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem
 
 # 请根据你的实际路径调整导入
-from swanlab.sdk.internal.run.data.transforms.text import Text
+from swanlab.sdk.internal.run.transforms.text import Text
 
 
 class TestTextTransform:
@@ -50,16 +50,14 @@ class TestTextTransform:
         expected_sha256 = hashlib.sha256(content.encode()).hexdigest()[:8]
         expected_filename = f"{key}-{step:03d}-{expected_sha256}.__swanlab__.txt"
 
-        # 2. 执行 transform
-        result = Text.transform(key=key, step=step, path=tmp_path, content=content, caption=caption)
+        # 2. 创建Text实例并执行 transform
+        text = Text(content=content, caption=caption)
+        result = text.transform(key=key, step=step, path=tmp_path)
 
         # 3. 校验返回的 Protobuf 结构
-        assert isinstance(result, TextValue)
-        assert len(result.items) == 1
-
-        pb_item: TextItem = result.items[0]
-        assert pb_item.filename == expected_filename
-        assert pb_item.caption == caption
+        assert isinstance(result, TextItem)
+        assert result.filename == expected_filename
+        assert result.caption == caption
 
         # 4. 校验真实文件落盘 (端到端断言)
         target_file = tmp_path / expected_filename
@@ -76,9 +74,9 @@ class TestTextTransform:
         inner_text = Text(content=inner_content, caption="old caption")
 
         # 传入 transform 时，使用新的 caption 覆盖
-        result = Text.transform(key=key, step=step, path=tmp_path, content=inner_text, caption="new overriding caption")
+        outer_text = Text(content=inner_text, caption="new overriding caption")
+        pb_item = outer_text.transform(key=key, step=step, path=tmp_path)
 
-        pb_item: TextItem = result.items[0]
         # 验证套娃解包在 transform 中也生效了
         assert pb_item.caption == "new overriding caption"
 

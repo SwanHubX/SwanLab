@@ -6,13 +6,12 @@
 """
 
 from functools import singledispatchmethod
-from typing import Tuple
+from typing import List, Type
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
-from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunRecord, RunState
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
@@ -29,10 +28,9 @@ from swanlab.sdk.internal.bus.events import (
     RunStartEvent,
 )
 from swanlab.sdk.internal.context import RunContext, TransformMediaType
+from swanlab.sdk.internal.context.transformer import TransformType
 from swanlab.sdk.internal.pkg.fs import safe_mkdir
-from swanlab.sdk.typings.run.data import MediaTransferType
-
-from .data.transforms import Scalar
+from swanlab.sdk.internal.run.transforms import Scalar
 
 
 class RecordBuilder:
@@ -54,35 +52,48 @@ class RecordBuilder:
     def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """默认回退：标量"""
         scalar_value = Scalar.transform(value)
-        metric = MetricRecord(key=key, step=step, timestamp=timestamp, scalar=scalar_value)
-        return self._wrap(metric=metric), "scalar"
+        return self._wrap(
+            metric=Scalar.build_metric_record(key=key, step=step, timestamp=timestamp, data=scalar_value)
+        ), Scalar
 
-    @build_log.register
-    def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        """媒体对象"""
-        cls = value.__class__
-        cls_type = cls.type()
-        path = self._ctx.media_dir / cls_type
+    @build_log.register(list)
+    def _(self, value: List[TransformMediaType], key: str, timestamp: Timestamp, step: int) -> ParseResult:
+        """媒体对象数组
+        dispatch 并不能识别每个数组元素的类型，因此还需手动检查
+        """
+        if not value or not isinstance(value[0], TransformMediaType):
+            raise TypeError("List must contain TransformMediaType objects")
+        cls = value[0].__class__
+        if not all(isinstance(item, cls) for item in value):
+            raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
+        path = self._ctx.media_dir / cls.type()
         safe_mkdir(path)
-        media_value = cls.transform(key=key, step=step, path=path, content=value)
-        metric = MetricRecord(key=key, step=step, timestamp=timestamp)
-        getattr(metric, cls_type).CopyFrom(media_value)
-        return self._wrap(metric=metric), cls_type
+        values = [item.transform(key=key, step=step, path=path) for item in value]
+        return self._wrap(metric=cls.build_metric_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
-    def build_column_from_log(self, metric_record: MetricRecord, key: str) -> Record:
-        """隐式创建列：从 MetricRecord 推断 ColumnType，并同步 RunMetrics"""
-        col_type, section_type = self._infer_column_type(metric_record)
+    @build_log.register(TransformMediaType)
+    def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
+        """将单个 TransformMediaType 转换为 MetricRecord"""
+        cls = value.__class__
+        path = self._ctx.media_dir / cls.type()
+        safe_mkdir(path)
+        values = [value.transform(key=key, step=step, path=path)]
+        return self._wrap(metric=cls.build_metric_record(key=key, step=step, timestamp=timestamp, data=values)), cls
+
+    def build_column_from_log(self, cls: Type[TransformType], key: str) -> Record:
+        """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
+        col_type = cls.column_type()
         metrics = self._ctx.metrics
-        if col_type == ColumnType.COLUMN_TYPE_FLOAT:
-            metrics.define_scalar(key)
+        if issubclass(cls, TransformMediaType):
+            metrics.define_media(key, cls.type(), self._ctx.media_dir / cls.type())
         else:
-            media_type = self._metric_to_media_type(metric_record)
-            metrics.define_media(key, media_type, self._ctx.media_dir / media_type)
+            metrics.define_scalar(key)
         col = ColumnRecord(
             column_key=key,
             column_type=col_type,
             column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
-            section_type=section_type,
+            # 自动创建的section默认为公共section
+            section_type=SectionType.SECTION_TYPE_PUBLIC,
         )
         return self._wrap(column=col)
 
@@ -177,34 +188,3 @@ class RecordBuilder:
     def build_conda(self, event: CondaEvent) -> Record:
         """构建 CondaRecord envelope"""
         return self._wrap(conda=CondaRecord(timestamp=event.timestamp))
-
-    # ── 内部工具 ──
-
-    @singledispatchmethod
-    def _infer_column_type(self, metric: MetricRecord) -> Tuple["ColumnType", "SectionType"]:
-        """根据 MetricRecord.value oneof 推断 ColumnType"""
-        field_name = metric.WhichOneof("value")
-        section_type = SectionType.SECTION_TYPE_PUBLIC
-        mapping = {
-            "scalar": ColumnType.COLUMN_TYPE_FLOAT,
-            "images": ColumnType.COLUMN_TYPE_IMAGE,
-            "audios": ColumnType.COLUMN_TYPE_AUDIO,
-            "texts": ColumnType.COLUMN_TYPE_TEXT,
-            "videos": ColumnType.COLUMN_TYPE_ANY,
-            "echarts": ColumnType.COLUMN_TYPE_ANY,
-        }
-        col_type = mapping.get(field_name, ColumnType.COLUMN_TYPE_UNSPECIFIED)
-        return col_type, section_type
-
-    @singledispatchmethod
-    def _metric_to_media_type(self, metric: MetricRecord) -> MediaTransferType:
-        """将 MetricRecord oneof 字段名映射为 MediaTransferType"""
-        field_name = metric.WhichOneof("value")
-        mapping: dict = {
-            "images": "image",
-            "audios": "audio",
-            "texts": "text",
-            "videos": "video",
-            "echarts": "echarts",
-        }
-        return mapping.get(field_name, "image")

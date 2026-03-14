@@ -6,15 +6,16 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.sdk.internal.context.transformer import TransformType
 from swanlab.sdk.typings.run import FinishType
-from swanlab.sdk.typings.run.data import DataTransferType, ScalarXAxisType
+from swanlab.sdk.typings.run.data import ScalarXAxisType
 
 # ==========================================
 # 事件流定义 (Event Bus Definitions)
@@ -123,4 +124,4 @@ EventPayload = Union[
 FlushPayload = List[Record]
 
 # 数据解析返回类型
-ParseResult = Tuple[Record, DataTransferType]
+ParseResult = Tuple[Record, Type[TransformType]]

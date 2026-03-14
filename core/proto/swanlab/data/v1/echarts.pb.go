@@ -21,17 +21,12 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ECharts 可视化引用，对应 swanlab.ECharts(...)。
-// ECharts option 对象序列化为 JSON 写入磁盘，Record 只保存路径引用。
+// 一个 key 在某个 step 下记录的全部音频（1..N 条）。
 type EChartsValue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 存储目录，相对于 run_dir，如 "media/echarts"
-	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// 文件名，如 "chart_10_a3f2.json"
-	Filename      string `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	Sha256        string `protobuf:"bytes,3,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
-	Caption       string `protobuf:"bytes,5,opt,name=caption,proto3" json:"caption,omitempty"`
+	Path          string         `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Items         []*EChartsItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,28 +68,78 @@ func (x *EChartsValue) GetPath() string {
 	return ""
 }
 
-func (x *EChartsValue) GetFilename() string {
+func (x *EChartsValue) GetItems() []*EChartsItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+// ECharts 可视化引用，对应 swanlab.ECharts(...)。
+// ECharts option 对象序列化为 JSON 写入磁盘，Record 只保存路径引用。
+type EChartsItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 文件名，如 "chart_10_a3f2.json"
+	Filename      string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size          int64  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
+	Caption       string `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EChartsItem) Reset() {
+	*x = EChartsItem{}
+	mi := &file_swanlab_data_v1_echarts_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EChartsItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EChartsItem) ProtoMessage() {}
+
+func (x *EChartsItem) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_data_v1_echarts_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EChartsItem.ProtoReflect.Descriptor instead.
+func (*EChartsItem) Descriptor() ([]byte, []int) {
+	return file_swanlab_data_v1_echarts_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *EChartsItem) GetFilename() string {
 	if x != nil {
 		return x.Filename
 	}
 	return ""
 }
 
-func (x *EChartsValue) GetSha256() string {
+func (x *EChartsItem) GetSha256() string {
 	if x != nil {
 		return x.Sha256
 	}
 	return ""
 }
 
-func (x *EChartsValue) GetSize() int64 {
+func (x *EChartsItem) GetSize() int64 {
 	if x != nil {
 		return x.Size
 	}
 	return 0
 }
 
-func (x *EChartsValue) GetCaption() string {
+func (x *EChartsItem) GetCaption() string {
 	if x != nil {
 		return x.Caption
 	}
@@ -105,13 +150,15 @@ var File_swanlab_data_v1_echarts_proto protoreflect.FileDescriptor
 
 const file_swanlab_data_v1_echarts_proto_rawDesc = "" +
 	"\n" +
-	"\x1dswanlab/data/v1/echarts.proto\x12\x0fswanlab.data.v1\"\x84\x01\n" +
+	"\x1dswanlab/data/v1/echarts.proto\x12\x0fswanlab.data.v1\"V\n" +
 	"\fEChartsValue\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1a\n" +
-	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x16\n" +
-	"\x06sha256\x18\x03 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x04 \x01(\x03R\x04size\x12\x18\n" +
-	"\acaption\x18\x05 \x01(\tR\acaptionB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
+	"\x04path\x18\x01 \x01(\tR\x04path\x122\n" +
+	"\x05items\x18\x02 \x03(\v2\x1c.swanlab.data.v1.EChartsItemR\x05items\"o\n" +
+	"\vEChartsItem\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
+	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
+	"\acaption\x18\x04 \x01(\tR\acaptionB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_data_v1_echarts_proto_rawDescOnce sync.Once
@@ -125,16 +172,18 @@ func file_swanlab_data_v1_echarts_proto_rawDescGZIP() []byte {
 	return file_swanlab_data_v1_echarts_proto_rawDescData
 }
 
-var file_swanlab_data_v1_echarts_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_data_v1_echarts_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_data_v1_echarts_proto_goTypes = []any{
 	(*EChartsValue)(nil), // 0: swanlab.data.v1.EChartsValue
+	(*EChartsItem)(nil),  // 1: swanlab.data.v1.EChartsItem
 }
 var file_swanlab_data_v1_echarts_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: swanlab.data.v1.EChartsValue.items:type_name -> swanlab.data.v1.EChartsItem
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_data_v1_echarts_proto_init() }
@@ -148,7 +197,7 @@ func file_swanlab_data_v1_echarts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_data_v1_echarts_proto_rawDesc), len(file_swanlab_data_v1_echarts_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

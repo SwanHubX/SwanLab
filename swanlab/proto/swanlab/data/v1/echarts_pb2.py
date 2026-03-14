@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dswanlab/data/v1/echarts.proto\x12\x0fswanlab.data.v1\"]\n\x0c\x45\x43hartsValue\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x10\n\x08\x66ilename\x18\x02 \x01(\t\x12\x0e\n\x06sha256\x18\x03 \x01(\t\x12\x0c\n\x04size\x18\x04 \x01(\x03\x12\x0f\n\x07\x63\x61ption\x18\x05 \x01(\tB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dswanlab/data/v1/echarts.proto\x12\x0fswanlab.data.v1\"I\n\x0c\x45\x43hartsValue\x12\x0c\n\x04path\x18\x01 \x01(\t\x12+\n\x05items\x18\x02 \x03(\x0b\x32\x1c.swanlab.data.v1.EChartsItem\"N\n\x0b\x45\x43hartsItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61ption\x18\x04 \x01(\tB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,5 +33,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z=github.com/swanhubx/swanlab/core/proto/swanlab/data/v1;datav1'
   _globals['_ECHARTSVALUE']._serialized_start=50
-  _globals['_ECHARTSVALUE']._serialized_end=143
+  _globals['_ECHARTSVALUE']._serialized_end=123
+  _globals['_ECHARTSITEM']._serialized_start=125
+  _globals['_ECHARTSITEM']._serialized_end=203
 # @@protoc_insertion_point(module_scope)

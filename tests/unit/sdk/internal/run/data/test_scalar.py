@@ -9,7 +9,7 @@ import math
 
 import pytest
 
-from swanlab.sdk.internal.run.data.transforms.scalar import Scalar
+from swanlab.sdk.internal.run.transforms.scalar import Scalar
 
 
 def test_scalar_instantiation():

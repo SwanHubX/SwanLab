@@ -8,20 +8,40 @@
 import math
 from typing import Any, Union
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.data.v1.scalar_pb2 import ScalarValue
 from swanlab.sdk.internal.context import TransformType
+from swanlab.sdk.typings.run.data import DataTransferType
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 class Scalar(TransformType):
     def __init__(self):
+        super().__init__()
         # 标量类型直接用字符串、数字、布尔值表示，不应该被实例化
         raise NotImplementedError("Scalar should not be instantiated directly.")
+
+    @classmethod
+    def column_type(cls) -> ColumnType:
+        return ColumnType.COLUMN_TYPE_FLOAT
+
+    @classmethod
+    def type(cls) -> DataTransferType:
+        return "scalar"
+
+    @classmethod
+    def build_metric_record(cls, *, key: str, step: int, timestamp: Timestamp, data: ScalarValue) -> MetricRecord:
+        return MetricRecord(key=key, step=step, timestamp=timestamp, scalar=data)
 
     @staticmethod
     def transform(data: Any) -> ScalarValue:
         """
-        处理标量数据，包括数字、字符串、布尔值等。
+        Scalar 的Transformer比较特殊，不直接转换为Scalar对象而是static方法，这能省去不必要的内存开销。
+
+        此方法用于处理标量数据，包括数字、字符串、布尔值等。
 
         1. 布尔值：转为 1.0 或 0.0
         2. 数字（int/float）：正常转换为 float
