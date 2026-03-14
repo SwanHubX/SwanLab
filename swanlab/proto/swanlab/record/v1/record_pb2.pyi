@@ -16,27 +16,27 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Record(_message.Message):
-    __slots__ = ("num", "timestamp", "run", "finish", "metric", "cong", "column", "metadata", "requirements", "conda", "console")
+    __slots__ = ("num", "timestamp", "run", "finish", "column", "metric", "config", "console", "metadata", "requirements", "conda")
     NUM_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     RUN_FIELD_NUMBER: _ClassVar[int]
     FINISH_FIELD_NUMBER: _ClassVar[int]
-    METRIC_FIELD_NUMBER: _ClassVar[int]
-    CONG_FIELD_NUMBER: _ClassVar[int]
     COLUMN_FIELD_NUMBER: _ClassVar[int]
+    METRIC_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    CONSOLE_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
     CONDA_FIELD_NUMBER: _ClassVar[int]
-    CONSOLE_FIELD_NUMBER: _ClassVar[int]
     num: int
     timestamp: _timestamp_pb2.Timestamp
     run: _run_pb2.RunRecord
     finish: _run_pb2.FinishRecord
-    metric: _data_pb2.DataRecord
-    cong: _config_pb2.ConfigRecord
     column: _column_pb2.ColumnRecord
+    metric: _data_pb2.DataRecord
+    config: _config_pb2.ConfigRecord
+    console: _console_pb2.ConsoleRecord
     metadata: _env_pb2.MetadataRecord
     requirements: _env_pb2.RequirementsRecord
     conda: _env_pb2.CondaRecord
-    console: _console_pb2.ConsoleRecord
-    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., run: _Optional[_Union[_run_pb2.RunRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., metric: _Optional[_Union[_data_pb2.DataRecord, _Mapping]] = ..., cong: _Optional[_Union[_config_pb2.ConfigRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., metadata: _Optional[_Union[_env_pb2.MetadataRecord, _Mapping]] = ..., requirements: _Optional[_Union[_env_pb2.RequirementsRecord, _Mapping]] = ..., conda: _Optional[_Union[_env_pb2.CondaRecord, _Mapping]] = ..., console: _Optional[_Union[_console_pb2.ConsoleRecord, _Mapping]] = ...) -> None: ...
+    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., run: _Optional[_Union[_run_pb2.RunRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., metric: _Optional[_Union[_data_pb2.DataRecord, _Mapping]] = ..., config: _Optional[_Union[_config_pb2.ConfigRecord, _Mapping]] = ..., console: _Optional[_Union[_console_pb2.ConsoleRecord, _Mapping]] = ..., metadata: _Optional[_Union[_env_pb2.MetadataRecord, _Mapping]] = ..., requirements: _Optional[_Union[_env_pb2.RequirementsRecord, _Mapping]] = ..., conda: _Optional[_Union[_env_pb2.CondaRecord, _Mapping]] = ...) -> None: ...

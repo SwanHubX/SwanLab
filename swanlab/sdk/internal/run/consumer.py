@@ -9,6 +9,7 @@ import queue
 import threading
 from typing import Set
 
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.bus.emitter import RunQueue
 from swanlab.sdk.internal.bus.events import (
     CondaEvent,
@@ -16,11 +17,11 @@ from swanlab.sdk.internal.bus.events import (
     ConsoleEvent,
     FlushPayload,
     MetadataEvent,
-    MetricDefineEvent,
     MetricLogEvent,
     RequirementsEvent,
     RunFinishEvent,
     RunStartEvent,
+    ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core import CoreProtocol
@@ -85,16 +86,16 @@ class BackgroundConsumer:
                             if key not in _emitted_columns:
                                 batch.append(self._builder.build_column_from_log(cls, key))
                                 _emitted_columns.add(key)
-                            if cls.type() == "scalar":
+                            if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
                                 self._metrics.update_scalar(key, record.metric.scalar.number)
                             batch.append(record)
                         except Exception as e:
                             console.error(f"Error when parsing metric '{key}': {e}")
 
                 # 3. 显式创建列 (Explicit Define)
-                elif isinstance(event, MetricDefineEvent):
+                elif isinstance(event, ScalarDefineEvent):
                     if event.key not in _emitted_columns:
-                        batch.append(self._builder.build_column_from_define(event))
+                        batch.append(self._builder.build_column_from_scalar_define(event))
                         _emitted_columns.add(event.key)
                     else:
                         console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")

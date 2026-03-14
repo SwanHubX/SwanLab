@@ -2,9 +2,18 @@ syntax = "proto3";
 
 package swanlab.metric.column.v1;
 
-import "swanlab/metric/data/v1/data.proto";
-
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1;columnv1";
+
+// ColumnType 列的数据类型
+enum ColumnType {
+  COLUMN_TYPE_UNSPECIFIED = 0;
+  COLUMN_TYPE_FLOAT       = 1;  // 标量
+  COLUMN_TYPE_IMAGE       = 2;  // 图像
+  COLUMN_TYPE_AUDIO       = 3;  // 音频
+  COLUMN_TYPE_TEXT        = 4;  // 文本
+  COLUMN_TYPE_VIDEO       = 5;  // 视频
+  COLUMN_TYPE_ECHARTS     = 6;  // ECharts 图表
+}
 
 // ColumnClass 列的来源类别
 enum ColumnClass {
@@ -42,7 +51,7 @@ message ColumnRecord {
   ColumnClass column_class = 1;
 
   // 数据类型，必填
-  swanlab.metric.data.v1.ColumnType column_type = 2;
+  ColumnType column_type = 2;
 
   // 键名，必填，须与 MetricRecord.key 对应
   string column_key = 3;

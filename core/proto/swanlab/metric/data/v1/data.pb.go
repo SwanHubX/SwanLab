@@ -7,6 +7,7 @@
 package datav1
 
 import (
+	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -22,68 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ColumnType 列的数据类型
-type ColumnType int32
-
-const (
-	ColumnType_COLUMN_TYPE_UNSPECIFIED ColumnType = 0
-	ColumnType_COLUMN_TYPE_FLOAT       ColumnType = 1 // 标量
-	ColumnType_COLUMN_TYPE_IMAGE       ColumnType = 2 // 图像
-	ColumnType_COLUMN_TYPE_AUDIO       ColumnType = 3 // 音频
-	ColumnType_COLUMN_TYPE_TEXT        ColumnType = 4 // 文本
-	ColumnType_COLUMN_TYPE_VIDEO       ColumnType = 5 // 视频
-	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6 // ECharts 图表
-)
-
-// Enum value maps for ColumnType.
-var (
-	ColumnType_name = map[int32]string{
-		0: "COLUMN_TYPE_UNSPECIFIED",
-		1: "COLUMN_TYPE_FLOAT",
-		2: "COLUMN_TYPE_IMAGE",
-		3: "COLUMN_TYPE_AUDIO",
-		4: "COLUMN_TYPE_TEXT",
-		5: "COLUMN_TYPE_VIDEO",
-		6: "COLUMN_TYPE_ECHARTS",
-	}
-	ColumnType_value = map[string]int32{
-		"COLUMN_TYPE_UNSPECIFIED": 0,
-		"COLUMN_TYPE_FLOAT":       1,
-		"COLUMN_TYPE_IMAGE":       2,
-		"COLUMN_TYPE_AUDIO":       3,
-		"COLUMN_TYPE_TEXT":        4,
-		"COLUMN_TYPE_VIDEO":       5,
-		"COLUMN_TYPE_ECHARTS":     6,
-	}
-)
-
-func (x ColumnType) Enum() *ColumnType {
-	p := new(ColumnType)
-	*p = x
-	return p
-}
-
-func (x ColumnType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ColumnType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_metric_data_v1_data_proto_enumTypes[0].Descriptor()
-}
-
-func (ColumnType) Type() protoreflect.EnumType {
-	return &file_swanlab_metric_data_v1_data_proto_enumTypes[0]
-}
-
-func (x ColumnType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ColumnType.Descriptor instead.
-func (ColumnType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{0}
-}
-
 // 对应一次 swanlab.log({...}, step=N) 调用中的单条数据记录。
 // 一次调用可产生多条 DataRecord，每条对应 dict 中的一个 key。
 type DataRecord struct {
@@ -93,7 +32,7 @@ type DataRecord struct {
 	// 用户显式传入或由 SDK 自动递增的全局步数
 	Step int64 `protobuf:"varint,2,opt,name=step,proto3" json:"step,omitempty"`
 	// 数据类型
-	Type ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=swanlab.metric.data.v1.ColumnType" json:"type,omitempty"`
+	Type v1.ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=swanlab.metric.column.v1.ColumnType" json:"type,omitempty"`
 	// 记录的时间戳
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Types that are valid to be assigned to Value:
@@ -153,11 +92,11 @@ func (x *DataRecord) GetStep() int64 {
 	return 0
 }
 
-func (x *DataRecord) GetType() ColumnType {
+func (x *DataRecord) GetType() v1.ColumnType {
 	if x != nil {
 		return x.Type
 	}
-	return ColumnType_COLUMN_TYPE_UNSPECIFIED
+	return v1.ColumnType(0)
 }
 
 func (x *DataRecord) GetTimestamp() *timestamppb.Timestamp {
@@ -272,12 +211,12 @@ var File_swanlab_metric_data_v1_data_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\n" +
-	"!swanlab/metric/data/v1/data.proto\x12\x16swanlab.metric.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a*swanlab/metric/data/v1/scalar/scalar.proto\x1a(swanlab/metric/data/v1/media/image.proto\x1a(swanlab/metric/data/v1/media/audio.proto\x1a(swanlab/metric/data/v1/media/video.proto\x1a'swanlab/metric/data/v1/media/text.proto\x1a*swanlab/metric/data/v1/media/echarts.proto\"\xa3\x04\n" +
+	"!swanlab/metric/data/v1/data.proto\x12\x16swanlab.metric.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%swanlab/metric/column/v1/column.proto\x1a*swanlab/metric/data/v1/scalar/scalar.proto\x1a(swanlab/metric/data/v1/media/image.proto\x1a(swanlab/metric/data/v1/media/audio.proto\x1a(swanlab/metric/data/v1/media/video.proto\x1a'swanlab/metric/data/v1/media/text.proto\x1a*swanlab/metric/data/v1/media/echarts.proto\"\xa5\x04\n" +
 	"\n" +
 	"DataRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04step\x18\x02 \x01(\x03R\x04step\x126\n" +
-	"\x04type\x18\x03 \x01(\x0e2\".swanlab.metric.data.v1.ColumnTypeR\x04type\x128\n" +
+	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +
+	"\x04type\x18\x03 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\x04type\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12=\n" +
 	"\x06scalar\x18\n" +
 	" \x01(\v2#.swanlab.metric.data.v1.ScalarValueH\x00R\x06scalar\x12<\n" +
@@ -286,16 +225,7 @@ const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\x06videos\x18\r \x01(\v2\".swanlab.metric.data.v1.VideoValueH\x00R\x06videos\x129\n" +
 	"\x05texts\x18\x0e \x01(\v2!.swanlab.metric.data.v1.TextValueH\x00R\x05texts\x12@\n" +
 	"\aecharts\x18\x0f \x01(\v2$.swanlab.metric.data.v1.EChartsValueH\x00R\aechartsB\a\n" +
-	"\x05value*\xb4\x01\n" +
-	"\n" +
-	"ColumnType\x12\x1b\n" +
-	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11COLUMN_TYPE_FLOAT\x10\x01\x12\x15\n" +
-	"\x11COLUMN_TYPE_IMAGE\x10\x02\x12\x15\n" +
-	"\x11COLUMN_TYPE_AUDIO\x10\x03\x12\x14\n" +
-	"\x10COLUMN_TYPE_TEXT\x10\x04\x12\x15\n" +
-	"\x11COLUMN_TYPE_VIDEO\x10\x05\x12\x17\n" +
-	"\x13COLUMN_TYPE_ECHARTS\x10\x06BFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
+	"\x05valueBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_metric_data_v1_data_proto_rawDescOnce sync.Once
@@ -309,11 +239,10 @@ func file_swanlab_metric_data_v1_data_proto_rawDescGZIP() []byte {
 	return file_swanlab_metric_data_v1_data_proto_rawDescData
 }
 
-var file_swanlab_metric_data_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_swanlab_metric_data_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_swanlab_metric_data_v1_data_proto_goTypes = []any{
-	(ColumnType)(0),               // 0: swanlab.metric.data.v1.ColumnType
-	(*DataRecord)(nil),            // 1: swanlab.metric.data.v1.DataRecord
+	(*DataRecord)(nil),            // 0: swanlab.metric.data.v1.DataRecord
+	(v1.ColumnType)(0),            // 1: swanlab.metric.column.v1.ColumnType
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 	(*ScalarValue)(nil),           // 3: swanlab.metric.data.v1.ScalarValue
 	(*ImageValue)(nil),            // 4: swanlab.metric.data.v1.ImageValue
@@ -323,7 +252,7 @@ var file_swanlab_metric_data_v1_data_proto_goTypes = []any{
 	(*EChartsValue)(nil),          // 8: swanlab.metric.data.v1.EChartsValue
 }
 var file_swanlab_metric_data_v1_data_proto_depIdxs = []int32{
-	0, // 0: swanlab.metric.data.v1.DataRecord.type:type_name -> swanlab.metric.data.v1.ColumnType
+	1, // 0: swanlab.metric.data.v1.DataRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
 	2, // 1: swanlab.metric.data.v1.DataRecord.timestamp:type_name -> google.protobuf.Timestamp
 	3, // 2: swanlab.metric.data.v1.DataRecord.scalar:type_name -> swanlab.metric.data.v1.ScalarValue
 	4, // 3: swanlab.metric.data.v1.DataRecord.images:type_name -> swanlab.metric.data.v1.ImageValue
@@ -362,14 +291,13 @@ func file_swanlab_metric_data_v1_data_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_metric_data_v1_data_proto_rawDesc), len(file_swanlab_metric_data_v1_data_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_swanlab_metric_data_v1_data_proto_goTypes,
 		DependencyIndexes: file_swanlab_metric_data_v1_data_proto_depIdxs,
-		EnumInfos:         file_swanlab_metric_data_v1_data_proto_enumTypes,
 		MessageInfos:      file_swanlab_metric_data_v1_data_proto_msgTypes,
 	}.Build()
 	File_swanlab_metric_data_v1_data_proto = out.File

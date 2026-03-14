@@ -16,7 +16,7 @@ from typing import Any, List, Literal, Mapping, Optional, Union, cast, get_args
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent, RunFinishEvent, RunStartEvent
+from swanlab.sdk.internal.bus.events import MetricLogEvent, RunFinishEvent, RunStartEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console, log
@@ -301,7 +301,7 @@ class SwanLabRun:
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
         self._emitter.emit(
-            MetricDefineEvent(
+            ScalarDefineEvent(
                 key=this_key,
                 name=name,
                 color=color,

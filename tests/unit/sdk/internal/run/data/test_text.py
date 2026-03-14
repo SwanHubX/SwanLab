@@ -10,7 +10,7 @@ from pathlib import Path
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.data.v1.text_pb2 import TextItem
+from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem
 from swanlab.sdk.internal.run.transforms.text import Text
 
 
@@ -90,8 +90,8 @@ class TestTextTransform:
         assert target_file.exists(), "嵌套提取后的内容未能正确落盘！"
         assert target_file.read_text(encoding="utf-8") == inner_content
 
-    def test_text_build_metric_record(self):
-        """测试 build_metric_record 方法"""
+    def test_text_build_data_record(self):
+        """测试 build_data_record 方法"""
         key = "test/metric"
         step = 10
         timestamp = Timestamp(seconds=1234567890)
@@ -101,7 +101,7 @@ class TestTextTransform:
             TextItem(filename="file2.txt", caption="caption2"),
         ]
 
-        record = Text.build_metric_record(key=key, step=step, timestamp=timestamp, data=items)
+        record = Text.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
 
         assert record.key == key
         assert record.step == step

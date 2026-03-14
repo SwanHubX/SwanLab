@@ -22,10 +22,9 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from swanlab.proto.swanlab.metric.data.v1 import data_pb2 as swanlab_dot_metric_dot_data_dot_v1_dot_data__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\x1a!swanlab/metric/data/v1/data.proto\"\"\n\x06YRange\x12\x0b\n\x03min\x18\x01 \x01(\x01\x12\x0b\n\x03max\x18\x02 \x01(\x01\"\x88\x03\n\x0c\x43olumnRecord\x12;\n\x0c\x63olumn_class\x18\x01 \x01(\x0e\x32%.swanlab.metric.column.v1.ColumnClass\x12\x37\n\x0b\x63olumn_type\x18\x02 \x01(\x0e\x32\".swanlab.metric.data.v1.ColumnType\x12\x12\n\ncolumn_key\x18\x03 \x01(\t\x12\x13\n\x0b\x63olumn_name\x18\x04 \x01(\t\x12\x14\n\x0csection_name\x18\x05 \x01(\t\x12;\n\x0csection_type\x18\x06 \x01(\x0e\x32%.swanlab.metric.column.v1.SectionType\x12\x31\n\x07y_range\x18\x07 \x01(\x0b\x32 .swanlab.metric.column.v1.YRange\x12\x13\n\x0b\x63hart_index\x18\x08 \x01(\t\x12\x12\n\nchart_name\x18\t \x01(\t\x12\x13\n\x0bmetric_name\x18\n \x01(\t\x12\x15\n\rmetric_colors\x18\x0b \x03(\t*D\n\x0b\x43olumnClass\x12\x1c\n\x18\x43OLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n\x13\x43OLUMN_CLASS_CUSTOM\x10\x01*\x8f\x01\n\x0bSectionType\x12\x1c\n\x18SECTION_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13SECTION_TYPE_PINNED\x10\x01\x12\x17\n\x13SECTION_TYPE_HIDDEN\x10\x02\x12\x17\n\x13SECTION_TYPE_PUBLIC\x10\x03\x12\x17\n\x13SECTION_TYPE_SYSTEM\x10\x04\x42JZHgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1;columnv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\"\"\n\x06YRange\x12\x0b\n\x03min\x18\x01 \x01(\x01\x12\x0b\n\x03max\x18\x02 \x01(\x01\"\x8a\x03\n\x0c\x43olumnRecord\x12;\n\x0c\x63olumn_class\x18\x01 \x01(\x0e\x32%.swanlab.metric.column.v1.ColumnClass\x12\x39\n\x0b\x63olumn_type\x18\x02 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12\x12\n\ncolumn_key\x18\x03 \x01(\t\x12\x13\n\x0b\x63olumn_name\x18\x04 \x01(\t\x12\x14\n\x0csection_name\x18\x05 \x01(\t\x12;\n\x0csection_type\x18\x06 \x01(\x0e\x32%.swanlab.metric.column.v1.SectionType\x12\x31\n\x07y_range\x18\x07 \x01(\x0b\x32 .swanlab.metric.column.v1.YRange\x12\x13\n\x0b\x63hart_index\x18\x08 \x01(\t\x12\x12\n\nchart_name\x18\t \x01(\t\x12\x13\n\x0bmetric_name\x18\n \x01(\t\x12\x15\n\rmetric_colors\x18\x0b \x03(\t*\xb4\x01\n\nColumnType\x12\x1b\n\x17\x43OLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11\x43OLUMN_TYPE_FLOAT\x10\x01\x12\x15\n\x11\x43OLUMN_TYPE_IMAGE\x10\x02\x12\x15\n\x11\x43OLUMN_TYPE_AUDIO\x10\x03\x12\x14\n\x10\x43OLUMN_TYPE_TEXT\x10\x04\x12\x15\n\x11\x43OLUMN_TYPE_VIDEO\x10\x05\x12\x17\n\x13\x43OLUMN_TYPE_ECHARTS\x10\x06*D\n\x0b\x43olumnClass\x12\x1c\n\x18\x43OLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n\x13\x43OLUMN_CLASS_CUSTOM\x10\x01*\x8f\x01\n\x0bSectionType\x12\x1c\n\x18SECTION_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13SECTION_TYPE_PINNED\x10\x01\x12\x17\n\x13SECTION_TYPE_HIDDEN\x10\x02\x12\x17\n\x13SECTION_TYPE_PUBLIC\x10\x03\x12\x17\n\x13SECTION_TYPE_SYSTEM\x10\x04\x42JZHgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1;columnv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,12 +32,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.metric.column.v1.co
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZHgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1;columnv1'
-  _globals['_COLUMNCLASS']._serialized_start=533
-  _globals['_COLUMNCLASS']._serialized_end=601
-  _globals['_SECTIONTYPE']._serialized_start=604
-  _globals['_SECTIONTYPE']._serialized_end=747
-  _globals['_YRANGE']._serialized_start=102
-  _globals['_YRANGE']._serialized_end=136
-  _globals['_COLUMNRECORD']._serialized_start=139
-  _globals['_COLUMNRECORD']._serialized_end=531
+  _globals['_COLUMNTYPE']._serialized_start=501
+  _globals['_COLUMNTYPE']._serialized_end=681
+  _globals['_COLUMNCLASS']._serialized_start=683
+  _globals['_COLUMNCLASS']._serialized_end=751
+  _globals['_SECTIONTYPE']._serialized_start=754
+  _globals['_SECTIONTYPE']._serialized_end=897
+  _globals['_YRANGE']._serialized_start=67
+  _globals['_YRANGE']._serialized_end=101
+  _globals['_COLUMNRECORD']._serialized_start=104
+  _globals['_COLUMNRECORD']._serialized_end=498
 # @@protoc_insertion_point(module_scope)

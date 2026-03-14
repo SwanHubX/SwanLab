@@ -12,9 +12,8 @@ from typing import Any, List
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
-from swanlab.sdk.typings.run.data import DataTransferType, MediaTransferType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 
 
 class TransformType(ABC):
@@ -26,7 +25,7 @@ class TransformType(ABC):
     设计为静态方法的另一个原因是考虑到大规模数据传输时，静态方法可以避免实例化开销，提高性能。
 
     每个子类在实现 __init__ 时必须考虑套娃问题，我们约定外层参数的优先级高于内层参数，例如：
-    >>> from swanlab.proto.swanlab.data.v1.text_pb2 import TextValue, TextItem
+    >>> from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextValue, TextItem
     >>>
     >>> class MyTransform(TransformType):
     >>>     def __init__(self, text: str | MyTransform, foo: Any = None):
@@ -38,9 +37,9 @@ class TransformType(ABC):
     >>>     def transform(key: str, step: int, *, data: Any = None, **kwargs: Any) -> TextItem:
     >>>         return TextItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or kwargs.get("content", ""))
     >>>     @classmethod
-    >>>     def build_metric_record(cls, key: str, step: int, data: TextItem) -> MetricRecord:
+    >>>     def build_data_record(cls,*, key: str, step: int, timestamp: Timestamp, data: Any) -> DataRecord:
     >>>         value = TextValue(items=[data])
-    >>>         return MetricRecord(texts=value, key=key, step=step)
+    >>>         return DataRecord(key=key, step=step, texts=value)
     >>>     @classmethod
     >>>     def type(cls) -> DataTransferType:
     >>>         return "text"
@@ -56,7 +55,7 @@ class TransformType(ABC):
 
     >>> # 生成 MetricRecord
     >>> t = MyTransform("hello")
-    >>> metric_record = t.build_metric_record(t.transform("key", 1))
+    >>> metric_record = t.build_data_record(t.transform("key", 1))
     >>> print(metric_record)
     """
 
@@ -73,15 +72,15 @@ class TransformType(ABC):
     @abstractmethod
     def transform(self, *args: Any, **kwargs: Any) -> Message:
         """
-        将数据转换为Protobuf格式。
+        将数据转换为 Protobuf 格式。
         """
         # 套娃加载需求详见 https://github.com/SwanHubX/SwanLab/issues/1367
         ...
 
     @classmethod
     @abstractmethod
-    def build_metric_record(cls, *, key: str, step: int, timestamp: Timestamp, data: Any) -> MetricRecord:
-        """构建 MetricRecord envelope"""
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: Any) -> DataRecord:
+        """构建 DataRecord envelope"""
         ...
 
     @classmethod
@@ -92,12 +91,6 @@ class TransformType(ABC):
         """
         ...
 
-    @classmethod
-    @abstractmethod
-    def type(cls) -> DataTransferType:
-        """返回当前 TransformType 的数据类型"""
-        ...
-
 
 class TransformMediaType(TransformType, ABC):
     def __init_subclass__(cls, **kwargs):
@@ -105,14 +98,8 @@ class TransformMediaType(TransformType, ABC):
 
     @classmethod
     @abstractmethod
-    def type(cls) -> MediaTransferType:
-        """返回当前 TransformType 的数据类型"""
-        ...
-
-    @classmethod
-    @abstractmethod
-    def build_metric_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[Any]) -> MetricRecord:
-        """构建 MetricRecord envelope"""
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[Any]) -> DataRecord:
+        """构建 DataRecord envelope"""
         ...
 
     @abstractmethod

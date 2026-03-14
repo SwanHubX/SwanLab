@@ -11,21 +11,22 @@ from typing import List, Type
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunRecord, RunState
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.sdk.internal import adapter
 from swanlab.sdk.internal.bus.events import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
     MetadataEvent,
-    MetricDefineEvent,
     ParseResult,
     RequirementsEvent,
     RunFinishEvent,
     RunStartEvent,
+    ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext, TransformMediaType
 from swanlab.sdk.internal.context.transformer import TransformType
@@ -53,7 +54,7 @@ class RecordBuilder:
         """默认回退：标量"""
         scalar_value = Scalar.transform(value)
         return self._wrap(
-            metric=Scalar.build_metric_record(key=key, step=step, timestamp=timestamp, data=scalar_value)
+            metric=Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value)
         ), Scalar
 
     @build_log.register(list)
@@ -66,26 +67,27 @@ class RecordBuilder:
         cls = value[0].__class__
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
-        path = self._ctx.media_dir / cls.type()
+        path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
         values = [item.transform(key=key, step=step, path=path) for item in value]
-        return self._wrap(metric=cls.build_metric_record(key=key, step=step, timestamp=timestamp, data=values)), cls
+        return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
     @build_log.register(TransformMediaType)
     def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MetricRecord"""
         cls = value.__class__
-        path = self._ctx.media_dir / cls.type()
+        path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
         values = [value.transform(key=key, step=step, path=path)]
-        return self._wrap(metric=cls.build_metric_record(key=key, step=step, timestamp=timestamp, data=values)), cls
+        return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
     def build_column_from_log(self, cls: Type[TransformType], key: str) -> Record:
         """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
         col_type = cls.column_type()
         metrics = self._ctx.metrics
         if issubclass(cls, TransformMediaType):
-            metrics.define_media(key, cls.type(), self._ctx.media_dir / cls.type())
+            column_type = adapter.column_type[col_type]
+            metrics.define_media(key, column_type, self._ctx.media_dir / column_type)
         else:
             metrics.define_scalar(key)
         col = ColumnRecord(
@@ -97,8 +99,8 @@ class RecordBuilder:
         )
         return self._wrap(column=col)
 
-    def build_column_from_define(self, event: MetricDefineEvent) -> Record:
-        """显式创建列（DefineEvent），仅支持 scalar"""
+    def build_column_from_scalar_define(self, event: ScalarDefineEvent) -> Record:
+        """显式创建标量列（DefineEvent）"""
         metrics = self._ctx.metrics
         metrics.define_scalar(
             key=event.key,
@@ -127,12 +129,6 @@ class RecordBuilder:
 
     def build_run(self, event: RunStartEvent) -> Record:
         """构建 RunRecord envelope"""
-        resume_map = {
-            "never": ResumeMode.RESUME_MODE_NEVER,
-            "allow": ResumeMode.RESUME_MODE_ALLOW,
-            "must": ResumeMode.RESUME_MODE_MUST,
-        }
-
         settings = self._ctx.config.settings
         run_record = RunRecord(
             project=settings.project.name,
@@ -144,22 +140,17 @@ class RecordBuilder:
             group=settings.experiment.group,
             tags=settings.experiment.tags,
             id=settings.run.id,
-            resume=resume_map.get(settings.run.resume, ResumeMode.RESUME_MODE_NEVER),
+            resume=adapter.resume.get(settings.run.resume),
             started_at=event.timestamp,
         )
         return self._wrap(run=run_record)
 
     def build_finish(self, event: RunFinishEvent) -> Record:
         """构建 FinishRecord envelope"""
-        state_map = {
-            "success": RunState.RUN_STATE_FINISHED,
-            "crashed": RunState.RUN_STATE_CRASHED,
-            "aborted": RunState.RUN_STATE_STOPPED,
-        }
         ts = Timestamp()
         ts.GetCurrentTime()
         finish = FinishRecord(
-            state=state_map.get(event.state, RunState.RUN_STATE_FINISHED),
+            state=adapter.state.get(event.state),
             error=event.error or "",
             finished_at=ts,
         )

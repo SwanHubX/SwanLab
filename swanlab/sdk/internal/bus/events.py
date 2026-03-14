@@ -6,7 +6,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -39,8 +39,8 @@ class MetricLogEvent:
 
 
 @dataclass
-class MetricDefineEvent:
-    """显式创建列事件"""
+class ScalarDefineEvent:
+    """显式创建标量列事件"""
 
     # 指标键
     key: str
@@ -56,8 +56,6 @@ class MetricDefineEvent:
     chart: Optional[str] = None
     # 图表名
     chart_name: Optional[str] = None
-    # 指标类型，显式创建目前仅支持标量
-    column_type: Literal["scalar"] = "scalar"
 
 
 @dataclass
@@ -110,7 +108,7 @@ class RunFinishEvent:
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
-    MetricDefineEvent,
+    ScalarDefineEvent,
     RunFinishEvent,
     RunStartEvent,
     ConfigEvent,

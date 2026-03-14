@@ -7,7 +7,6 @@
 package columnv1
 
 import (
-	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,6 +20,68 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// ColumnType 列的数据类型
+type ColumnType int32
+
+const (
+	ColumnType_COLUMN_TYPE_UNSPECIFIED ColumnType = 0
+	ColumnType_COLUMN_TYPE_FLOAT       ColumnType = 1 // 标量
+	ColumnType_COLUMN_TYPE_IMAGE       ColumnType = 2 // 图像
+	ColumnType_COLUMN_TYPE_AUDIO       ColumnType = 3 // 音频
+	ColumnType_COLUMN_TYPE_TEXT        ColumnType = 4 // 文本
+	ColumnType_COLUMN_TYPE_VIDEO       ColumnType = 5 // 视频
+	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6 // ECharts 图表
+)
+
+// Enum value maps for ColumnType.
+var (
+	ColumnType_name = map[int32]string{
+		0: "COLUMN_TYPE_UNSPECIFIED",
+		1: "COLUMN_TYPE_FLOAT",
+		2: "COLUMN_TYPE_IMAGE",
+		3: "COLUMN_TYPE_AUDIO",
+		4: "COLUMN_TYPE_TEXT",
+		5: "COLUMN_TYPE_VIDEO",
+		6: "COLUMN_TYPE_ECHARTS",
+	}
+	ColumnType_value = map[string]int32{
+		"COLUMN_TYPE_UNSPECIFIED": 0,
+		"COLUMN_TYPE_FLOAT":       1,
+		"COLUMN_TYPE_IMAGE":       2,
+		"COLUMN_TYPE_AUDIO":       3,
+		"COLUMN_TYPE_TEXT":        4,
+		"COLUMN_TYPE_VIDEO":       5,
+		"COLUMN_TYPE_ECHARTS":     6,
+	}
+)
+
+func (x ColumnType) Enum() *ColumnType {
+	p := new(ColumnType)
+	*p = x
+	return p
+}
+
+func (x ColumnType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ColumnType) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_metric_column_v1_column_proto_enumTypes[0].Descriptor()
+}
+
+func (ColumnType) Type() protoreflect.EnumType {
+	return &file_swanlab_metric_column_v1_column_proto_enumTypes[0]
+}
+
+func (x ColumnType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ColumnType.Descriptor instead.
+func (ColumnType) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{0}
+}
 
 // ColumnClass 列的来源类别
 type ColumnClass int32
@@ -53,11 +114,11 @@ func (x ColumnClass) String() string {
 }
 
 func (ColumnClass) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_metric_column_v1_column_proto_enumTypes[0].Descriptor()
+	return file_swanlab_metric_column_v1_column_proto_enumTypes[1].Descriptor()
 }
 
 func (ColumnClass) Type() protoreflect.EnumType {
-	return &file_swanlab_metric_column_v1_column_proto_enumTypes[0]
+	return &file_swanlab_metric_column_v1_column_proto_enumTypes[1]
 }
 
 func (x ColumnClass) Number() protoreflect.EnumNumber {
@@ -66,7 +127,7 @@ func (x ColumnClass) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ColumnClass.Descriptor instead.
 func (ColumnClass) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{1}
 }
 
 // SectionType section 类型
@@ -109,11 +170,11 @@ func (x SectionType) String() string {
 }
 
 func (SectionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_metric_column_v1_column_proto_enumTypes[1].Descriptor()
+	return file_swanlab_metric_column_v1_column_proto_enumTypes[2].Descriptor()
 }
 
 func (SectionType) Type() protoreflect.EnumType {
-	return &file_swanlab_metric_column_v1_column_proto_enumTypes[1]
+	return &file_swanlab_metric_column_v1_column_proto_enumTypes[2]
 }
 
 func (x SectionType) Number() protoreflect.EnumNumber {
@@ -122,7 +183,7 @@ func (x SectionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SectionType.Descriptor instead.
 func (SectionType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{2}
 }
 
 // YRange Y 轴显示范围
@@ -193,7 +254,7 @@ type ColumnRecord struct {
 	// 列类别，默认 CUSTOM
 	ColumnClass ColumnClass `protobuf:"varint,1,opt,name=column_class,json=columnClass,proto3,enum=swanlab.metric.column.v1.ColumnClass" json:"column_class,omitempty"`
 	// 数据类型，必填
-	ColumnType v1.ColumnType `protobuf:"varint,2,opt,name=column_type,json=columnType,proto3,enum=swanlab.metric.data.v1.ColumnType" json:"column_type,omitempty"`
+	ColumnType ColumnType `protobuf:"varint,2,opt,name=column_type,json=columnType,proto3,enum=swanlab.metric.column.v1.ColumnType" json:"column_type,omitempty"`
 	// 键名，必填，须与 MetricRecord.key 对应
 	ColumnKey string `protobuf:"bytes,3,opt,name=column_key,json=columnKey,proto3" json:"column_key,omitempty"`
 	// 显示名称，可选，不填时默认取 key
@@ -253,11 +314,11 @@ func (x *ColumnRecord) GetColumnClass() ColumnClass {
 	return ColumnClass_COLUMN_CLASS_UNSPECIFIED
 }
 
-func (x *ColumnRecord) GetColumnType() v1.ColumnType {
+func (x *ColumnRecord) GetColumnType() ColumnType {
 	if x != nil {
 		return x.ColumnType
 	}
-	return v1.ColumnType(0)
+	return ColumnType_COLUMN_TYPE_UNSPECIFIED
 }
 
 func (x *ColumnRecord) GetColumnKey() string {
@@ -327,13 +388,13 @@ var File_swanlab_metric_column_v1_column_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\n" +
-	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\x1a!swanlab/metric/data/v1/data.proto\",\n" +
+	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\",\n" +
 	"\x06YRange\x12\x10\n" +
 	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x01R\x03max\"\x8b\x04\n" +
+	"\x03max\x18\x02 \x01(\x01R\x03max\"\x8d\x04\n" +
 	"\fColumnRecord\x12H\n" +
-	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12C\n" +
-	"\vcolumn_type\x18\x02 \x01(\x0e2\".swanlab.metric.data.v1.ColumnTypeR\n" +
+	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12E\n" +
+	"\vcolumn_type\x18\x02 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\n" +
 	"columnType\x12\x1d\n" +
 	"\n" +
 	"column_key\x18\x03 \x01(\tR\tcolumnKey\x12\x1f\n" +
@@ -349,7 +410,16 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\vmetric_name\x18\n" +
 	" \x01(\tR\n" +
 	"metricName\x12#\n" +
-	"\rmetric_colors\x18\v \x03(\tR\fmetricColors*D\n" +
+	"\rmetric_colors\x18\v \x03(\tR\fmetricColors*\xb4\x01\n" +
+	"\n" +
+	"ColumnType\x12\x1b\n" +
+	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11COLUMN_TYPE_FLOAT\x10\x01\x12\x15\n" +
+	"\x11COLUMN_TYPE_IMAGE\x10\x02\x12\x15\n" +
+	"\x11COLUMN_TYPE_AUDIO\x10\x03\x12\x14\n" +
+	"\x10COLUMN_TYPE_TEXT\x10\x04\x12\x15\n" +
+	"\x11COLUMN_TYPE_VIDEO\x10\x05\x12\x17\n" +
+	"\x13COLUMN_TYPE_ECHARTS\x10\x06*D\n" +
 	"\vColumnClass\x12\x1c\n" +
 	"\x18COLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13COLUMN_CLASS_CUSTOM\x10\x01*\x8f\x01\n" +
@@ -372,20 +442,20 @@ func file_swanlab_metric_column_v1_column_proto_rawDescGZIP() []byte {
 	return file_swanlab_metric_column_v1_column_proto_rawDescData
 }
 
-var file_swanlab_metric_column_v1_column_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_swanlab_metric_column_v1_column_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_swanlab_metric_column_v1_column_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_metric_column_v1_column_proto_goTypes = []any{
-	(ColumnClass)(0),     // 0: swanlab.metric.column.v1.ColumnClass
-	(SectionType)(0),     // 1: swanlab.metric.column.v1.SectionType
-	(*YRange)(nil),       // 2: swanlab.metric.column.v1.YRange
-	(*ColumnRecord)(nil), // 3: swanlab.metric.column.v1.ColumnRecord
-	(v1.ColumnType)(0),   // 4: swanlab.metric.data.v1.ColumnType
+	(ColumnType)(0),      // 0: swanlab.metric.column.v1.ColumnType
+	(ColumnClass)(0),     // 1: swanlab.metric.column.v1.ColumnClass
+	(SectionType)(0),     // 2: swanlab.metric.column.v1.SectionType
+	(*YRange)(nil),       // 3: swanlab.metric.column.v1.YRange
+	(*ColumnRecord)(nil), // 4: swanlab.metric.column.v1.ColumnRecord
 }
 var file_swanlab_metric_column_v1_column_proto_depIdxs = []int32{
-	0, // 0: swanlab.metric.column.v1.ColumnRecord.column_class:type_name -> swanlab.metric.column.v1.ColumnClass
-	4, // 1: swanlab.metric.column.v1.ColumnRecord.column_type:type_name -> swanlab.metric.data.v1.ColumnType
-	1, // 2: swanlab.metric.column.v1.ColumnRecord.section_type:type_name -> swanlab.metric.column.v1.SectionType
-	2, // 3: swanlab.metric.column.v1.ColumnRecord.y_range:type_name -> swanlab.metric.column.v1.YRange
+	1, // 0: swanlab.metric.column.v1.ColumnRecord.column_class:type_name -> swanlab.metric.column.v1.ColumnClass
+	0, // 1: swanlab.metric.column.v1.ColumnRecord.column_type:type_name -> swanlab.metric.column.v1.ColumnType
+	2, // 2: swanlab.metric.column.v1.ColumnRecord.section_type:type_name -> swanlab.metric.column.v1.SectionType
+	3, // 3: swanlab.metric.column.v1.ColumnRecord.y_range:type_name -> swanlab.metric.column.v1.YRange
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -403,7 +473,7 @@ func file_swanlab_metric_column_v1_column_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_metric_column_v1_column_proto_rawDesc), len(file_swanlab_metric_column_v1_column_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,

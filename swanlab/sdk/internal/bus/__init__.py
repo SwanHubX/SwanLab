@@ -14,19 +14,19 @@ from .events import (
     EventPayload,
     FlushPayload,
     MetadataEvent,
-    MetricDefineEvent,
     MetricLogEvent,
     ParseResult,
     RequirementsEvent,
     RunFinishEvent,
     RunStartEvent,
+    ScalarDefineEvent,
 )
 
 __all__ = [
     "RunEmitter",
     "RunQueue",
     "MetricLogEvent",
-    "MetricDefineEvent",
+    "ScalarDefineEvent",
     "RunFinishEvent",
     "RunStartEvent",
     "ConfigEvent",

@@ -10,11 +10,10 @@ from typing import Any, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
-from swanlab.proto.swanlab.data.v1.scalar_pb2 import ScalarValue
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.sdk.internal.context import TransformType
-from swanlab.sdk.typings.run.data import DataTransferType
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
@@ -29,12 +28,8 @@ class Scalar(TransformType):
         return ColumnType.COLUMN_TYPE_FLOAT
 
     @classmethod
-    def type(cls) -> DataTransferType:
-        return "scalar"
-
-    @classmethod
-    def build_metric_record(cls, *, key: str, step: int, timestamp: Timestamp, data: ScalarValue) -> MetricRecord:
-        return MetricRecord(key=key, step=step, timestamp=timestamp, scalar=data)
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: ScalarValue) -> DataRecord:
+        return DataRecord(key=key, step=step, timestamp=timestamp, type=cls.column_type(), scalar=data)
 
     @staticmethod
     def transform(data: Any) -> ScalarValue:

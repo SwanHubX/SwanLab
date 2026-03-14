@@ -7,15 +7,4 @@
 
 from typing import Literal, Union
 
-MediaTransferType = Literal["image", "audio", "video", "text", "echarts"]
-"""
-媒体数据类型
-"""
-
-
-DataTransferType = Literal["scalar", MediaTransferType]
-"""
-数据类型，包括媒体数据类型
-"""
-
 ScalarXAxisType = Union[Literal["_step", "_relative_time"], str]
