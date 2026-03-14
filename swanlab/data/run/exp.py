@@ -138,7 +138,7 @@ class SwanLabExp:
                 # 若曾跨步长显式写入，len() 可能会落后于真实的 max step，由此引发相同 step 的持续覆盖
                 current_len = len(key_obj.steps)
                 max_step = max(key_obj.steps) if key_obj.steps else -1
-                step = current_len if current_len > max_step else max_step + 1
+                step = max(current_len, max_step + 1)
 
             if step in key_obj.steps:
                 # 允许 overwrite，但区分显式指定和隐式的碰撞
