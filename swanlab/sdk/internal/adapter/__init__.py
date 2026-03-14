@@ -42,4 +42,4 @@ column_type = BiMap(
         "echarts": ColumnType.COLUMN_TYPE_ECHARTS,
     }
 )
-"""ColumnType 枚举适配器"""
+"""ColumnType 枚举适配器，同时也会作为路径映射"""
