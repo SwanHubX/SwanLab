@@ -19,13 +19,9 @@ UPDATE_TYPE_INIT: UpdateType
 UPDATE_TYPE_PATCH: UpdateType
 
 class ConfigRecord(_message.Message):
-    __slots__ = ("path", "format", "update_type", "timestamp")
-    PATH_FIELD_NUMBER: _ClassVar[int]
-    FORMAT_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("update_type", "timestamp")
     UPDATE_TYPE_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
-    path: str
-    format: str
     update_type: UpdateType
     timestamp: _timestamp_pb2.Timestamp
-    def __init__(self, path: _Optional[str] = ..., format: _Optional[str] = ..., update_type: _Optional[_Union[UpdateType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, update_type: _Optional[_Union[UpdateType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...

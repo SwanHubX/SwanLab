@@ -9,6 +9,7 @@ package systemv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -22,11 +23,11 @@ const (
 )
 
 // 运行开始时采集一次的主机与环境元数据引用（swanlab-metadata.json）。
-// 由于不同机器的硬件和软件环境差异极大，难以保证强类型安全，因此采用文件路径引用的设计。
+// 由于不同机器的硬件和软件环境差异极大，难以保证强类型安全。
+// 路径引用约定为 "files/swanlab-metadata.json"，使用json解析。
 type MetadataRecord struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 相对于 run_dir 的文件路径，如 "files/swanlab-metadata.json"
-	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -61,18 +62,18 @@ func (*MetadataRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *MetadataRecord) GetPath() string {
+func (x *MetadataRecord) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Path
+		return x.Timestamp
 	}
-	return ""
+	return nil
 }
 
 // 运行开始时采集的 Python 包依赖引用（requirements.txt）。
+// 路径引用约定为 "files/requirements.txt"，使用txt解析。
 type RequirementsRecord struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 相对于 run_dir 的文件路径，如 "files/requirements.txt"
-	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -107,18 +108,18 @@ func (*RequirementsRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *RequirementsRecord) GetPath() string {
+func (x *RequirementsRecord) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Path
+		return x.Timestamp
 	}
-	return ""
+	return nil
 }
 
 // 运行开始时采集的 Conda 环境引用（conda.yml）。
+// 路径引用约定为 "files/conda.yml"，使用yaml解析。
 type CondaRecord struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 相对于 run_dir 的文件路径，如 "files/conda.yml"
-	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -153,24 +154,24 @@ func (*CondaRecord) Descriptor() ([]byte, []int) {
 	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *CondaRecord) GetPath() string {
+func (x *CondaRecord) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Path
+		return x.Timestamp
 	}
-	return ""
+	return nil
 }
 
 var File_swanlab_system_v1_env_proto protoreflect.FileDescriptor
 
 const file_swanlab_system_v1_env_proto_rawDesc = "" +
 	"\n" +
-	"\x1bswanlab/system/v1/env.proto\x12\x11swanlab.system.v1\"$\n" +
-	"\x0eMetadataRecord\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"(\n" +
-	"\x12RequirementsRecord\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"!\n" +
-	"\vCondaRecord\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04pathBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3"
+	"\x1bswanlab/system/v1/env.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"J\n" +
+	"\x0eMetadataRecord\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"N\n" +
+	"\x12RequirementsRecord\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"G\n" +
+	"\vCondaRecord\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3"
 
 var (
 	file_swanlab_system_v1_env_proto_rawDescOnce sync.Once
@@ -186,16 +187,20 @@ func file_swanlab_system_v1_env_proto_rawDescGZIP() []byte {
 
 var file_swanlab_system_v1_env_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_swanlab_system_v1_env_proto_goTypes = []any{
-	(*MetadataRecord)(nil),     // 0: swanlab.system.v1.MetadataRecord
-	(*RequirementsRecord)(nil), // 1: swanlab.system.v1.RequirementsRecord
-	(*CondaRecord)(nil),        // 2: swanlab.system.v1.CondaRecord
+	(*MetadataRecord)(nil),        // 0: swanlab.system.v1.MetadataRecord
+	(*RequirementsRecord)(nil),    // 1: swanlab.system.v1.RequirementsRecord
+	(*CondaRecord)(nil),           // 2: swanlab.system.v1.CondaRecord
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
 var file_swanlab_system_v1_env_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: swanlab.system.v1.MetadataRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3, // 1: swanlab.system.v1.RequirementsRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3, // 2: swanlab.system.v1.CondaRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_system_v1_env_proto_init() }

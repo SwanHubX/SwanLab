@@ -21,6 +21,8 @@ from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.sdk.internal.bus.events import ConfigEvent
 
@@ -91,7 +93,9 @@ class SwanLabConfig(MutableMapping):
         """全量写文件并发出 ConfigEvent。"""
         assert self._file is not None and self._emit is not None, "Config not bound"
         write_config(self._file, self._config, self._sort)
-        self._emit(ConfigEvent(update=update_type))
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        self._emit(ConfigEvent(update=update_type, timestamp=ts))
 
     # ------------------------------------------------------------------
     # 绑定 / 重置（线程安全）

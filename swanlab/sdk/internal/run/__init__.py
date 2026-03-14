@@ -263,7 +263,7 @@ class SwanLabRun:
         # 清理全局运行实例
         clear_run()
         console.debug(f"Run finished with state: {state}")
-        # 释放全局logger和config
+        # 释放一些资源
         log.reset()
         deactivate_run_config()
 

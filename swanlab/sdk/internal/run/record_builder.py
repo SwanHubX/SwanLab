@@ -11,7 +11,6 @@ from typing import Tuple
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.config.v1.constants import CONFIG_FILE_FORMAT, CONFIG_FILE_PATH
 from swanlab.proto.swanlab.data.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.data.v1.metric_pb2 import MetricRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -159,27 +158,25 @@ class RecordBuilder:
 
     def build_config(self, event: ConfigEvent) -> Record:
         """构建 ConfigRecord envelope"""
-        config_record = ConfigRecord(path=CONFIG_FILE_PATH, update_type=event.update, format=CONFIG_FILE_FORMAT)
+        config_record = ConfigRecord(update_type=event.update, timestamp=event.timestamp)
         return self._wrap(config=config_record)
 
     def build_console(self, event: ConsoleEvent) -> Record:
         """构建 ConsoleRecord envelope"""
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        console_record = ConsoleRecord(line=event.line, stream=event.stream, timestamp=ts)
+        console_record = ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
         return self._wrap(console=console_record)
 
     def build_metadata(self, event: MetadataEvent) -> Record:
         """构建 MetadataRecord envelope"""
-        return self._wrap(metadata=MetadataRecord(path=event.path))
+        return self._wrap(metadata=MetadataRecord(timestamp=event.timestamp))
 
     def build_requirements(self, event: RequirementsEvent) -> Record:
         """构建 RequirementsRecord envelope"""
-        return self._wrap(requirements=RequirementsRecord(path=event.path))
+        return self._wrap(requirements=RequirementsRecord(timestamp=event.timestamp))
 
     def build_conda(self, event: CondaEvent) -> Record:
         """构建 CondaRecord envelope"""
-        return self._wrap(conda=CondaRecord(path=event.path))
+        return self._wrap(conda=CondaRecord(timestamp=event.timestamp))
 
     # ── 内部工具 ──
 
