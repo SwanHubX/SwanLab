@@ -12,7 +12,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 
 from .bimap import BiMap
 
-__all__ = ["resume", "column_type"]
+__all__ = ["resume", "column_type", "state"]
 
 resume = BiMap(
     {
