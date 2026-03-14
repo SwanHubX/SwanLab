@@ -52,6 +52,20 @@ def with_lock(func):
     return wrapper
 
 
+def with_run(func):
+    """
+    run api装饰器，确保当前 run 实例激活
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._state != "running":
+            raise RuntimeError("`swanlab.run` requires an active SwanLabRun, call `swanlab.init()` first.")
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class SwanLabRun:
     """
     The SwanLabRun class is used for logging during a single run.
@@ -145,6 +159,7 @@ class SwanLabRun:
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_lock
+    @with_run
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if self._state != "running":
@@ -175,6 +190,7 @@ class SwanLabRun:
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_lock
+    @with_run
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -188,6 +204,7 @@ class SwanLabRun:
         self.log({key: data}, step=step)
 
     @with_lock
+    @with_run
     def define_scalar(
         self,
         key: str,
@@ -237,6 +254,7 @@ class SwanLabRun:
         )
 
     @with_lock
+    @with_run
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         if self._state != "running":

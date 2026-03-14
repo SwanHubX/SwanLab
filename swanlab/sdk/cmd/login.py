@@ -10,19 +10,19 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.helper import with_cmd_lock
+from swanlab.sdk.cmd.helper import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.scope import Scope
-from swanlab.sdk.internal.run import has_run
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 from swanlab.sdk.utils import helper
 
 
 @with_cmd_lock
+@without_run("login")
 def login(
     api_key: Optional[str] = None,
     relogin: bool = False,
@@ -89,10 +89,6 @@ def raw_login(
     timeout: int = 10,
 ) -> bool:
     # 1. 判断是是否允许重新登录
-    # 如果已经初始化了运行，不允许重新登录
-    if has_run():
-        console.error("Cannot relogin while SwanLab Run is active. Please use `swanlab.finish()` first.")
-        return False
     # 如果已经登录且不需要重新登录，则直接返回
     if not relogin and client.exists():
         console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")

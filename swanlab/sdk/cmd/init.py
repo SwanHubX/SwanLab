@@ -171,13 +171,13 @@ def init(
 
     :return: The SwanLabRun object.
     """
-    if has_run():
+    if reinit and has_run():
         run = get_run()
-        if reinit:
-            run.finish()
-        else:
-            console.error("Cannot init while SwanLab Run is active. Please finish the run first.")
-            return run
+        run.finish()
+    if has_run():
+        raise RuntimeError(
+            "`swanlab.init` requires an inactive SwanLabRun. Please use `swanlab.finish()` or `swanlab.init(reinit=True)` first."
+        )
     # 运行时配置
     run_settings = Settings()
     # --------------------- 合并配置，检查格式，与业务无关 ----------------------------

@@ -11,13 +11,14 @@ import traceback
 from types import TracebackType
 from typing import Optional, Type
 
-from swanlab.sdk.cmd.helper import with_cmd_lock
+from swanlab.sdk.cmd.helper import with_cmd_lock, with_run
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run import get_run, has_run
 from swanlab.sdk.typings.run import FinishType
 
 
 @with_cmd_lock
+@with_run("finish")
 def finish(state: FinishType = "success", error: Optional[str] = None):
     """
     Finish the current run and close the current experiment
@@ -26,9 +27,6 @@ def finish(state: FinishType = "success", error: Optional[str] = None):
     Once the experiment is marked as 'completed', no more data can be logged to the experiment by 'swanlab.log'.
     If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
-    if not has_run():
-        console.error("No active SwanLabRun. Call swanlab.init() first.")
-        return
     run = get_run()
     run.finish(state, error)
 
@@ -66,7 +64,7 @@ def swanlab_excepthook(tp: Type[BaseException], val: BaseException, tb: Optional
         run.finish(state=state, error=full_error_msg)
 
     except Exception as e:
-        console.error(f"SwanLab  failed to handle excepthook: {e}", file=sys.stderr)
+        console.error(f"SwanLab failed to handle excepthook: {e}", file=sys.stderr)
     finally:
         # _original_excepthook = sys.excepthook
         # 不要用动态保存的 _original_excepthook，直接调用 Python 底层 C 实现的 sys.__excepthook__
