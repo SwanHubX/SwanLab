@@ -121,7 +121,10 @@ class SwanLabKey:
         epoch = self._step_epochs[result.step]
         new_data = self.__new_metric(result.step, r, more=result.more)
         self._set_summary_value(result.step, data.type, r)
-        self._rebuild_summary()
+        if overwrite:
+            self._rebuild_summary()
+        else:
+            self._update_summary_incremental(result.step, data.type, r)
         self._update_collection(new_data, result.step, overwrite)
         swanlog.debug(
             f"{'Overwrite' if overwrite else 'Add'} data, key: {self.key}, step: {result.step}, data: {r}"
@@ -146,6 +149,17 @@ class SwanLabKey:
             return
         self._step_summary_values[step] = value
 
+    def _update_summary_incremental(self, step: int, data_type, value) -> None:
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            return
+        if self._summary.get("max") is None or value > self._summary["max"]:
+            self._summary["max"] = value
+            self._summary["max_step"] = step
+        if self._summary.get("min") is None or value < self._summary["min"]:
+            self._summary["min"] = value
+            self._summary["min_step"] = step
+        self._summary["num"] = len(self.steps)
+
     def _rebuild_summary(self) -> None:
         summary = {"num": len(self.steps)}
         for step, _epoch in sorted(self._step_epochs.items(), key=lambda item: item[1]):
@@ -161,14 +175,10 @@ class SwanLabKey:
         self._summary = summary
 
     def _update_collection(self, new_data: dict, step: int, overwrite: bool) -> None:
-        existing_indexes = [item["index"] for item in self._collection["data"]]
-        if step in existing_indexes:
-            first_match = existing_indexes.index(step)
-            self._collection["data"][first_match] = new_data
-            self._collection["data"] = [
-                item for idx, item in enumerate(self._collection["data"]) if item["index"] != step or idx == first_match
-            ]
-            return
+        for idx, item in enumerate(self._collection["data"]):
+            if item["index"] == step:
+                self._collection["data"][idx] = new_data
+                return
         if overwrite:
             return
         if len(self._collection["data"]) >= self.__slice_size:

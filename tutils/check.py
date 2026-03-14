@@ -30,7 +30,7 @@ if swanboard_versions:
             raise Exception(f"swanboard过时，运行 pip install -r requirements.txt 进行更新.")
 
 # ---------------------------------- 检查是否跳过云测试 ----------------------------------
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"), override=True)
 runtime = os.getenv("SWANLAB_RUNTIME")
 # pytest测试环境
 is_pytest_env = "PYTEST_VERSION" in os.environ

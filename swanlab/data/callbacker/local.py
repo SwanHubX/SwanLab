@@ -35,6 +35,7 @@ if package_version != "0.1.9b3":
 
 import json
 import os
+import tempfile
 from datetime import datetime
 from typing import Tuple, Optional, TextIO
 from swanlab.toolkit import RuntimeInfo, MetricInfo
@@ -140,30 +141,37 @@ class LocalRunCallback(SwanLabRunCallback):
     @staticmethod
     def _rewrite_metric_file(metric_info: MetricInfo) -> None:
         serialized = json.dumps(metric_info.metric, ensure_ascii=False) + "\n"
-        if not os.path.exists(metric_info.metric_file_path):
-            with open(metric_info.metric_file_path, "w", encoding="utf-8") as f:
+        metric_path = metric_info.metric_file_path
+
+        try:
+            f_in = open(metric_path, "r", encoding="utf-8")
+        except FileNotFoundError:
+            with open(metric_path, "w", encoding="utf-8") as f:
                 f.write(serialized)
             return
 
-        replaced = False
-        rewritten_lines = []
-        with open(metric_info.metric_file_path, "r", encoding="utf-8") as f:
-            for line in f:
+        dir_path = os.path.dirname(metric_path)
+        with f_in, tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=dir_path, delete=False) as tmp:
+            tmp_path = tmp.name
+            replaced = False
+
+            for line in f_in:
                 try:
                     existing = json.loads(line)
                 except json.JSONDecodeError:
-                    rewritten_lines.append(line)
+                    tmp.write(line)
                     continue
+
                 if existing.get("index") != metric_info.metric_step:
-                    rewritten_lines.append(line)
-                    continue
-                if not replaced:
-                    rewritten_lines.append(serialized)
+                    tmp.write(line)
+                elif not replaced:
+                    tmp.write(serialized)
                     replaced = True
-        if not replaced:
-            rewritten_lines.append(serialized)
-        with open(metric_info.metric_file_path, "w", encoding="utf-8") as f:
-            f.writelines(rewritten_lines)
+
+            if not replaced:
+                tmp.write(serialized)
+
+        os.replace(tmp_path, metric_path)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         """
