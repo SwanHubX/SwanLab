@@ -52,10 +52,55 @@ def with_lock(func):
     return wrapper
 
 
-class SwanLabRun:
+def with_run(func):
     """
-    The SwanLabRun class is used for logging during a single run.
-    There should be only one instance of the SwanLabRun class for each experiment.
+    run api装饰器，确保当前 run 实例激活
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._state != "running":
+            raise RuntimeError("`swanlab.run` requires an active SwanLabRun, call `swanlab.init()` first.")
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+class SwanLabRun:
+    """A SwanLab run for tracking experiments.
+
+    This class represents a single experiment run and provides methods for logging
+    metrics, artifacts, and metadata. Typically created via `swanlab.init()` and
+    accessed via `swanlab.get_run()`.
+
+    Attributes:
+
+        config: Configuration object for storing hyperparameters.
+
+        id: Unique identifier for this run.
+
+        run_dir: Local directory where run data is stored.
+
+        url: Cloud URL for this run (None in local/offline mode).
+
+        project_url: Cloud URL for the project (None in local/offline mode).
+
+    Examples:
+
+        Access run properties:
+
+        >>> import swanlab
+        >>> run = swanlab.init(mode="local", project="my_project")
+        >>> print(run.id)
+        >>> print(run.run_dir)
+        >>> swanlab.finish()
+
+        Log metrics:
+
+        >>> import swanlab
+        >>> run = swanlab.init(mode="local")
+        >>> run.log({"loss": 0.5, "accuracy": 0.95})
+        >>> swanlab.finish()
     """
 
     def __init__(self, ctx: RunContext):
@@ -145,6 +190,7 @@ class SwanLabRun:
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_lock
+    @with_run
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if self._state != "running":
@@ -175,6 +221,7 @@ class SwanLabRun:
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_lock
+    @with_run
     def log_text(self, key: str, data: Union[str, Text], caption: Optional[str] = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -188,6 +235,7 @@ class SwanLabRun:
         self.log({key: data}, step=step)
 
     @with_lock
+    @with_run
     def define_scalar(
         self,
         key: str,
@@ -237,6 +285,7 @@ class SwanLabRun:
         )
 
     @with_lock
+    @with_run
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         if self._state != "running":
@@ -272,10 +321,40 @@ _current_run: Optional[SwanLabRun] = None
 
 
 def has_run() -> bool:
+    """Check if there is an active SwanLab run.
+
+    :return: True if a run is currently active, False otherwise.
+
+    Examples:
+
+        Check before logging:
+
+        >>> import swanlab
+        >>> if swanlab.has_run():
+        ...     swanlab.log({"metric": 1.0})
+        ... else:
+        ...     print("No active run")
+    """
     return _current_run is not None
 
 
 def get_run() -> SwanLabRun:
+    """Get the current active SwanLab run.
+
+    :return: The active SwanLabRun instance.
+
+    :raises RuntimeError: If no run is currently active.
+
+    Examples:
+
+        Access run properties:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> run = swanlab.get_run()
+        >>> print(run.id)
+        >>> swanlab.finish()
+    """
     if _current_run is None:
         raise RuntimeError("No active SwanLabRun. Call swanlab.init() first.")
     return _current_run

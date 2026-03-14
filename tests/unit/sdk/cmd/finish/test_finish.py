@@ -22,20 +22,10 @@ def _make_exc_info(exc: BaseException):
 
 
 class TestFinishFunction:
-    def test_finish_no_active_run(self, monkeypatch):
-        """无活跃 Run 时，打印 error 后直接返回，不抛出异常"""
-        monkeypatch.setattr("swanlab.sdk.cmd.finish.has_run", lambda: False)
-        mock_console = MagicMock()
-        monkeypatch.setattr("swanlab.sdk.cmd.finish.console", mock_console)
-
-        finish()
-
-        mock_console.error.assert_called_once()
-
     def test_finish_calls_run_finish(self, monkeypatch):
-        """有活跃 Run 时，应将 state 和 error 透传给 run.finish()"""
+        """应将 state 和 error 透传给 run.finish()"""
         mock_run = MagicMock()
-        monkeypatch.setattr("swanlab.sdk.cmd.finish.has_run", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: True)
         monkeypatch.setattr("swanlab.sdk.cmd.finish.get_run", lambda: mock_run)
 
         finish(state="crashed", error="something went wrong")
@@ -45,7 +35,7 @@ class TestFinishFunction:
     def test_finish_default_state_is_success(self, monkeypatch):
         """finish() 不传参时，默认 state 为 'success'，error 为 None"""
         mock_run = MagicMock()
-        monkeypatch.setattr("swanlab.sdk.cmd.finish.has_run", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: True)
         monkeypatch.setattr("swanlab.sdk.cmd.finish.get_run", lambda: mock_run)
 
         finish()

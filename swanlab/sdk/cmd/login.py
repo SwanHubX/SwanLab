@@ -10,19 +10,19 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.helper import with_cmd_lock
+from swanlab.sdk.cmd.helper import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.scope import Scope
-from swanlab.sdk.internal.run import has_run
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 from swanlab.sdk.utils import helper
 
 
 @with_cmd_lock
+@without_run("login")
 def login(
     api_key: Optional[str] = None,
     relogin: bool = False,
@@ -30,53 +30,49 @@ def login(
     save: bool = False,
     timeout: int = 10,
 ) -> bool:
-    """
-    Login to SwanLab Cloud.
+    """Authenticate with SwanLab Cloud.
 
-    This function authenticates your environment with SwanLab. If an API key is
-    already configured locally and `relogin` is False, this function will do nothing.
+    This function authenticates your environment with SwanLab. If already logged in
+    and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
+    to use cloud features.
 
-    [Note that] this function should be called before `swanlab.init`, like `swanlab.merge_settings`.
+    :param api_key: Your SwanLab API key. If not provided, will attempt to read from
+        environment or prompt for input.
 
-    Examples:
-    ---------
-    >>> import swanlab
-    >>> # 1. Basic login with explicit API key
-    >>> swanlab.login("your_api_key")
-    >>>
-    >>> # 2. Interactive login (prompts for input if no key is found in env/config)
-    >>> swanlab.login()
-    >>>
-    >>> # 3. Force re-login and save the new credential to local .netrc
-    >>> swanlab.login("new_api_key", relogin=True, save=True)
-    >>>
-    >>> # 4. Login to a private SwanLab deployment
-    >>> swanlab.login("private_key", host="https://private-swanlab.com")
-    >>>
-    >>> # Now you can start your experiment
-    >>> swanlab.init()
-
-    :param api_key: Your SwanLab authentication key. If not provided, the SDK will attempt to
-        read it from the local environment or prompt you to input it interactively.
-
-    :param relogin: If True, forces a re-authentication and overwrites the existing API key.
-        When `relogin` is False and you are already logged in, this function will return immediately.
+    :param relogin: If True, forces re-authentication and overwrites existing credentials.
         Defaults to False.
 
-    :param host: The API host URL. If not provided, the default SwanLab cloud host will be used.
-        This parameter is equivalent to setting the `SWANLAB_API_HOST` environment variable.
-        If you set this parameter, global settings and environment variables will be overwritten.
+    :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
 
-    :param save: Whether to save the provided api_key to the local netrc/credential file
-        for future sessions. Defaults to False.
+    :param save: Whether to save the API key locally for future sessions. Defaults to False.
 
-    :param timeout: Timeout in seconds for the login network request. Defaults to 10.
+    :param timeout: Network request timeout in seconds. Defaults to 10.
 
-    :raises RuntimeError: If the environment does not support interactive input and no key is provided.
+    :return: True if login was successful, False otherwise.
 
-    :raises AuthenticationError: If the login request fails (e.g., invalid key or network issue).
+    :raises RuntimeError: If called while a run is active.
 
-    :return: Returns True if login was successful, False otherwise.
+    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+
+    Examples:
+
+        Login with an API key:
+
+        >>> import swanlab
+        >>> swanlab.login(api_key="your_api_key_here")
+        >>> swanlab.init(mode="cloud")
+
+        Interactive login (prompts for API key):
+
+        >>> import swanlab
+        >>> swanlab.login()
+        >>> swanlab.init(mode="cloud")
+
+        Force re-login and save credentials:
+
+        >>> import swanlab
+        >>> swanlab.login(api_key="new_api_key", relogin=True, save=True)
+        >>> swanlab.init(mode="cloud")
     """
     return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
 
@@ -89,10 +85,6 @@ def raw_login(
     timeout: int = 10,
 ) -> bool:
     # 1. 判断是是否允许重新登录
-    # 如果已经初始化了运行，不允许重新登录
-    if has_run():
-        console.error("Cannot relogin while SwanLab Run is active. Please use `swanlab.finish()` first.")
-        return False
     # 如果已经登录且不需要重新登录，则直接返回
     if not relogin and client.exists():
         console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")

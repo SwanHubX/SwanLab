@@ -262,12 +262,12 @@ class TestInitOfflineMode:
 
 
 class TestInitReinit:
-    def test_reinit_false_returns_existing_run(self):
-        """reinit=False（默认）时，第二次 init() 应返回已存在的 Run，而非新建"""
-        run1 = init(mode="disabled")
-        run2 = init(mode="disabled", reinit=False)
+    def test_reinit_false_raises_when_run_exists(self):
+        """reinit=False（默认）时，第二次 init() 应抛出 RuntimeError"""
+        _ = init(mode="disabled")
 
-        assert run1 is run2
+        with pytest.raises(RuntimeError, match="`swanlab.init` requires an inactive SwanLabRun"):
+            init(mode="disabled", reinit=False)
 
     def test_reinit_true_creates_new_run(self):
         """reinit=True 时，第二次 init() 应先 finish 旧 Run，再返回全新 Run"""

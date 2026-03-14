@@ -15,12 +15,27 @@ __all__ = ["generate_color", "generate_id", "generate_name"]
 
 
 def generate_id(length: int = 8) -> str:
-    """
-    Generate a unique ID for a run.
+    """Generate a unique ID for a run.
 
-    :param length: The length of the ID.
+    :param length: The length of the ID. Must be between 1 and 64.
 
-    :return: A unique ID.
+    :return: A unique ID string.
+
+    Examples:
+
+        Generate default 8-character ID:
+
+        >>> from swanlab.utils import generate_id
+        >>> run_id = generate_id()
+        >>> len(run_id)
+        8
+
+        Generate custom length ID:
+
+        >>> from swanlab.utils import generate_id
+        >>> run_id = generate_id(length=16)
+        >>> len(run_id)
+        16
     """
     if length <= 0 or length > 64:
         raise ValueError("Length must be between 1 and 64.")
@@ -49,15 +64,37 @@ PRESET_COLORS = [
 
 
 def generate_color(slug: Optional[Union[Literal["beauty"], int]] = None) -> str:
-    """
-    Generate a specific or random color in hexadecimal format.
+    """Generate a specific or random color in hexadecimal format.
 
     :param slug: The slug for the color determination.
-                 - If None, returns a random color from the preset list.
-                 - If "beauty", generates a visually appealing random color.
-                 - If an integer, returns a color from the preset list based on modulo.
+        - If None, returns a random color from the preset list.
+        - If "beauty", generates a visually appealing random color.
+        - If an integer, returns a color from the preset list based on modulo.
 
     :return: A color in hexadecimal format (e.g., "#FF5733").
+
+    Examples:
+
+        Generate random preset color:
+
+        >>> from swanlab.utils import generate_color
+        >>> color = generate_color()
+        >>> color.startswith('#')
+        True
+
+        Generate beautiful random color:
+
+        >>> from swanlab.utils import generate_color
+        >>> color = generate_color("beauty")
+        >>> len(color)
+        7
+
+        Generate color by index:
+
+        >>> from swanlab.utils import generate_color
+        >>> color = generate_color(5)
+        >>> color
+        '#dfb142'
     """
     # 逻辑 1: 如果传入是 None，随机取一个内部列表中的值
     if slug is None:
@@ -129,15 +166,37 @@ BEAUTY_ADJECTIVES = [
 
 
 def generate_name(slug: Optional[Union[Literal["beauty"], int]] = None) -> str:
-    """
-    Generate a specific or random entity name.
+    """Generate a specific or random entity name.
 
     :param slug: The slug for the name determination.
-                 - If None, returns a random animal + 4-char random hash (e.g., "swan-a3f9").
-                 - If "beauty", generates an appealing adjective-animal-number combo (e.g., "stellar-swan-42").
-                 - If an integer, returns a name based on modulo + the integer itself (e.g., "dragon-128").
+        - If None, returns a random animal + 4-char random hash (e.g., "swan-a3f9").
+        - If "beauty", generates an appealing adjective-animal-number combo (e.g., "stellar-swan-42").
+        - If an integer, returns a name based on modulo + the integer itself (e.g., "dragon-128").
 
     :return: A generated name string.
+
+    Examples:
+
+        Generate random name:
+
+        >>> from swanlab.utils import generate_name
+        >>> name = generate_name()
+        >>> '-' in name
+        True
+
+        Generate beautiful name:
+
+        >>> from swanlab.utils import generate_name
+        >>> name = generate_name("beauty")
+        >>> name.count('-')
+        2
+
+        Generate name by index:
+
+        >>> from swanlab.utils import generate_name
+        >>> name = generate_name(128)
+        >>> name
+        'goat-128'
     """
     # 逻辑 1: 如果传入是 None，随机动物 + 4位随机字符后缀
     if slug is None:

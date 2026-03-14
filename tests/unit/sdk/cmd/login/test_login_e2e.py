@@ -68,9 +68,16 @@ class TestLoginE2E:
 
     def test_login_block_if_run_active(self):
         """测试：如果 SwanLab Run 正在运行，不允许登录"""
-        with patch("swanlab.sdk.cmd.login.has_run", return_value=True):
-            result = login(api_key="some_key")
-            assert result is False
+        from swanlab.sdk.cmd.init import init
+        from swanlab.sdk.internal.run import has_run
+
+        # 先创建一个真实的 run
+        init(mode="disabled")
+        assert has_run()
+
+        # 尝试登录应该抛出异常
+        with pytest.raises(RuntimeError, match="`swanlab.login` requires no active SwanLabRun"):
+            login(api_key="some_key")
 
     @responses.activate
     def test_login_success_with_explicit_key(self):
