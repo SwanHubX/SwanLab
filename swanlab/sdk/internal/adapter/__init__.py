@@ -10,9 +10,11 @@
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 
+from . import dirname, filename
 from .bimap import BiMap
 
-__all__ = ["resume", "column_type", "state"]
+__all__ = ["resume", "column_type", "state", "dirname", "filename"]
+
 
 resume = BiMap(
     {
