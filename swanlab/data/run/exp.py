@@ -124,19 +124,29 @@ class SwanLabExp:
         key_obj: SwanLabKey = self._keys.get(key_index, None)
 
         # ---------------------------------- 包装器解析 ----------------------------------
-
+        explicit_step = step is not None
         if step is not None and not isinstance(step, int):
             swanlog.warning(f"Step {step} is not int, SwanLab will set it automatically.")
             step = None
-        if key_obj is None:
-            step = 0 if step is None or not isinstance(step, int) else step
-        else:
-            step = len(key_obj.steps) if step is None else step
-            if step in key_obj.steps:
-                swanlog.debug(f"Step {step} on key {key} already exists, ignored.")
-                return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
-        data.parse(step=step, key=key)
+            explicit_step = False
 
+        if key_obj is None:
+            step = 0 if step is None else step
+        else:
+            if step is None:
+                # 修复隐式步数的无限覆盖和乱序陷阱：
+                # 若曾跨步长显式写入，len() 可能会落后于真实的 max step，由此引发相同 step 的持续覆盖
+                current_len = len(key_obj.steps)
+                max_step = max(key_obj.steps) if key_obj.steps else -1
+                step = max(current_len, max_step + 1)
+
+            if step in key_obj.steps:
+                # 允许 overwrite，但区分显式指定和隐式的碰撞
+                if explicit_step:
+                    swanlog.debug(f"Step {step} on key {key} already exists, overwriting.")
+                else:
+                    swanlog.warning(f"Implicit step {step} on key {key} resolved as overwrite, but expected to append.")
+        data.parse(step=step, key=key)
         # ---------------------------------- 图表创建 ----------------------------------
 
         if key_obj is None:

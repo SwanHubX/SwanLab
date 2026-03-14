@@ -171,6 +171,7 @@ class MetricInfo:
         metric_file_name: Optional[str],
         swanlab_logdir: Optional[str],
         swanlab_media_dir: Optional[str],
+        metric_overwrite: bool = False,
         error: Optional[ParseErrorInfo] = None,
     ):
         """
@@ -184,6 +185,7 @@ class MetricInfo:
         :param metric_file_name: 此指标的文件名
         :param swanlab_logdir: swanlab在本次实验的log文件夹路径
         :param swanlab_media_dir: swanlab在本次实验的media文件夹路径
+        :param metric_overwrite: 当前指标是否覆盖了已有 step
         :param error: 创建此指标时的错误信息
         """
         self.error = error
@@ -193,6 +195,7 @@ class MetricInfo:
         self.metric_summary = metric_summary
         self.metric_step = metric_step
         self.metric_epoch = metric_epoch
+        self.metric_overwrite = metric_overwrite
         _id = self.column_info.kid
         self.metric_file_path = None if self.is_error else os.path.join(swanlab_logdir, _id, metric_file_name)
         self.summary_file_path = None if self.is_error else os.path.join(swanlab_logdir, _id, self.__SUMMARY_NAME)
@@ -252,5 +255,6 @@ class MetricErrorInfo(MetricInfo):
             None,
             None,
             None,
+            False,
             error,
         )

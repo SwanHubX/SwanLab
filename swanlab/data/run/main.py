@@ -272,7 +272,7 @@ class SwanLabRun:
             For nested dicts, keys will be joined with dots (e.g., {'a': {'b': 1}} becomes {'a.b': 1}).
         step : int, optional
             The step number of the current data, if not provided, it will be automatically incremented.
-            If step is duplicated, the data will be ignored.
+            If step is duplicated, the latest data will overwrite the previous data on that step.
 
         Raises
         ----------
