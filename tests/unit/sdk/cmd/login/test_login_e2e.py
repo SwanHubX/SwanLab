@@ -58,13 +58,12 @@ class TestLoginE2E:
         # 官方 web_host 不得被 api 子域名覆盖
         assert settings.web_host == "https://swanlab.cn"
 
-    def test_login_skip_if_already_logged_in(self):
+    def test_login_skip_if_already_logged_in(self, monkeypatch):
         """测试：如果已经登录且没有强制 relogin，应直接跳过并返回 True"""
-        from unittest.mock import patch
 
-        with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
-            result = login(api_key="some_key", relogin=False)
-            assert result is True
+        monkeypatch.setattr("swanlab.sdk.cmd.login.client.exists", lambda: True)
+        result = login(api_key="some_key", relogin=False)
+        assert result is True
 
     def test_login_block_if_run_active(self):
         """测试：如果 SwanLab Run 正在运行，不允许登录"""
