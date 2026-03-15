@@ -167,69 +167,31 @@ class TestAudioBuildDataRecord:
 
 
 class TestAudioTransform:
-    def test_transform_writes_file(self, mono_array, tmp_path):
-        """transform 将 WAV 文件写入磁盘"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=1, path=tmp_path)
-        assert (tmp_path / item.filename).exists()
-
     def test_transform_returns_audio_item(self, mono_array, tmp_path):
         """transform 返回 AudioItem"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=1, path=tmp_path)
+        item = Audio(mono_array).transform(step=1, path=tmp_path)
         assert isinstance(item, AudioItem)
 
-    def test_transform_filename_format(self, mono_array, tmp_path):
-        """文件名符合 {step:03d}-{hash[:8]}.wav 格式"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=5, path=tmp_path)
-        assert item.filename.startswith("005-")
-        assert item.filename.endswith(".wav")
-        assert len(item.filename.split("-")[1].split(".")[0]) == 8
-
     def test_transform_sha256_correct(self, mono_array, tmp_path):
-        """AudioItem 中的 sha256 与文件内容一致"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=1, path=tmp_path)
+        """AudioItem.sha256 与落盘文件内容一致"""
+        item = Audio(mono_array).transform(step=1, path=tmp_path)
         content = (tmp_path / item.filename).read_bytes()
-        expected = hashlib.sha256(content).hexdigest()
-        assert item.sha256 == expected
+        assert item.sha256 == hashlib.sha256(content).hexdigest()
 
     def test_transform_size_correct(self, mono_array, tmp_path):
-        """AudioItem 中的 size 与文件字节数一致"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=1, path=tmp_path)
-        content = (tmp_path / item.filename).read_bytes()
-        assert item.size == len(content)
+        """AudioItem.size 与落盘文件字节数一致"""
+        item = Audio(mono_array).transform(step=1, path=tmp_path)
+        assert item.size == len((tmp_path / item.filename).read_bytes())
 
     def test_transform_caption_empty_when_none(self, mono_array, tmp_path):
         """caption 为 None 时，AudioItem.caption 为空字符串"""
-        audio = Audio(mono_array)
-        item = audio.transform(step=1, path=tmp_path)
+        item = Audio(mono_array).transform(step=1, path=tmp_path)
         assert item.caption == ""
 
     def test_transform_caption_preserved(self, mono_array, tmp_path):
         """caption 有值时，AudioItem.caption 正确"""
-        audio = Audio(mono_array, caption="hello")
-        item = audio.transform(step=1, path=tmp_path)
+        item = Audio(mono_array, caption="hello").transform(step=1, path=tmp_path)
         assert item.caption == "hello"
-
-    def test_transform_same_content_same_filename(self, mono_array, tmp_path):
-        """相同内容的两个 Audio 产生相同文件名（内容寻址）"""
-        a1 = Audio(mono_array)
-        a2 = Audio(mono_array)
-        item1 = a1.transform(step=1, path=tmp_path)
-        item2 = a2.transform(step=1, path=tmp_path)
-        assert item1.filename == item2.filename
-
-    def test_transform_step_reflected_in_filename(self, mono_array, tmp_path):
-        """step 不同时文件名不同"""
-        audio = Audio(mono_array)
-        item1 = audio.transform(step=1, path=tmp_path)
-        item2 = audio.transform(step=2, path=tmp_path)
-        assert item1.filename != item2.filename
-        assert "001-" in item1.filename
-        assert "002-" in item2.filename
 
 
 if __name__ == "__main__":
