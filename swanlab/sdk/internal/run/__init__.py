@@ -195,7 +195,7 @@ class SwanLabRun:
         console.debug("Cleanup global instance...")
         clear_run()
         deactivate_run_config()
-        console.debug("Clean & tidy! ( •̀ ω •́ )y")
+        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
         log.reset()
 
