@@ -15,10 +15,5 @@ message VideoItem {
   string filename         = 1;
   string sha256           = 2;
   int64  size             = 3;  // 文件大小（bytes）
-  string format           = 4;  // "mp4" | "gif" | "webm"
-  int32  fps              = 5;
-  float  duration_seconds = 6;
-  int32  width            = 7;
-  int32  height           = 8;
-  string caption          = 9;
+  string caption          = 4;
 }

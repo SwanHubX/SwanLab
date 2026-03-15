@@ -23,14 +23,10 @@ class TestJsonSerializable:
     def test_none(self):
         assert json_serializable(None) is None
 
-    def test_bool_true(self):
-        result = json_serializable(True)
-        assert result is True
-        assert type(result) is bool
-
-    def test_bool_false(self):
-        result = json_serializable(False)
-        assert result is False
+    @pytest.mark.parametrize("value", [True, False])
+    def test_bool(self, value):
+        result = json_serializable(value)
+        assert result is value
         assert type(result) is bool
 
     def test_int(self):
@@ -45,14 +41,16 @@ class TestJsonSerializable:
         assert json_serializable("hello") == "hello"
         assert type(json_serializable("hello")) is str
 
-    def test_float_nan(self):
-        assert json_serializable(float("nan")) == "NaN"
-
-    def test_float_inf(self):
-        assert json_serializable(float("inf")) == "Inf"
-
-    def test_float_neg_inf(self):
-        assert json_serializable(float("-inf")) == "Inf"
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            (float("nan"), "NaN"),
+            (float("inf"), "Inf"),
+            (float("-inf"), "Inf"),
+        ],
+    )
+    def test_float_special(self, value, expected):
+        assert json_serializable(value) == expected
 
     def test_int_subclass_cast(self):
         """numpy.int64 等子类应转回原生 int"""

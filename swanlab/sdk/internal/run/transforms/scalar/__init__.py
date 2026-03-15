@@ -13,11 +13,11 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
-from swanlab.sdk.internal.context import TransformType
+from swanlab.sdk.internal.context import TransformData
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
-class Scalar(TransformType):
+class Scalar(TransformData):
     def __init__(self):
         super().__init__()
         # 标量类型直接用字符串、数字、布尔值表示，不应该被实例化

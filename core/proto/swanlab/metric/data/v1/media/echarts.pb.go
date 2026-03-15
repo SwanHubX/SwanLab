@@ -74,7 +74,6 @@ type EChartsItem struct {
 	Filename      string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
 	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
 	Size          int64  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
-	Caption       string `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,25 +129,17 @@ func (x *EChartsItem) GetSize() int64 {
 	return 0
 }
 
-func (x *EChartsItem) GetCaption() string {
-	if x != nil {
-		return x.Caption
-	}
-	return ""
-}
-
 var File_swanlab_metric_data_v1_media_echarts_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_data_v1_media_echarts_proto_rawDesc = "" +
 	"\n" +
 	"*swanlab/metric/data/v1/media/echarts.proto\x12\x16swanlab.metric.data.v1\"I\n" +
 	"\fEChartsValue\x129\n" +
-	"\x05items\x18\x01 \x03(\v2#.swanlab.metric.data.v1.EChartsItemR\x05items\"o\n" +
+	"\x05items\x18\x01 \x03(\v2#.swanlab.metric.data.v1.EChartsItemR\x05items\"U\n" +
 	"\vEChartsItem\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
-	"\acaption\x18\x04 \x01(\tR\acaptionBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
+	"\x04size\x18\x03 \x01(\x03R\x04sizeBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_metric_data_v1_media_echarts_proto_rawDescOnce sync.Once

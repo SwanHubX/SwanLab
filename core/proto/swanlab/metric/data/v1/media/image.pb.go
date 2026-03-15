@@ -72,12 +72,8 @@ type ImageItem struct {
 	// 文件名，如 "pred_10_a3f2.png"
 	Filename      string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
 	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`    // 文件大小（bytes）
-	Format        string `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"` // "png" | "jpeg" | "gif" | "webp"
-	Width         int32  `protobuf:"varint,5,opt,name=width,proto3" json:"width,omitempty"`
-	Height        int32  `protobuf:"varint,6,opt,name=height,proto3" json:"height,omitempty"`
-	Channels      int32  `protobuf:"varint,7,opt,name=channels,proto3" json:"channels,omitempty"` // 1=灰度, 3=RGB, 4=RGBA
-	Caption       string `protobuf:"bytes,8,opt,name=caption,proto3" json:"caption,omitempty"`
+	Size          int64  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
+	Caption       string `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -133,34 +129,6 @@ func (x *ImageItem) GetSize() int64 {
 	return 0
 }
 
-func (x *ImageItem) GetFormat() string {
-	if x != nil {
-		return x.Format
-	}
-	return ""
-}
-
-func (x *ImageItem) GetWidth() int32 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *ImageItem) GetHeight() int32 {
-	if x != nil {
-		return x.Height
-	}
-	return 0
-}
-
-func (x *ImageItem) GetChannels() int32 {
-	if x != nil {
-		return x.Channels
-	}
-	return 0
-}
-
 func (x *ImageItem) GetCaption() string {
 	if x != nil {
 		return x.Caption
@@ -175,16 +143,12 @@ const file_swanlab_metric_data_v1_media_image_proto_rawDesc = "" +
 	"(swanlab/metric/data/v1/media/image.proto\x12\x16swanlab.metric.data.v1\"E\n" +
 	"\n" +
 	"ImageValue\x127\n" +
-	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.ImageItemR\x05items\"\xcf\x01\n" +
+	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.ImageItemR\x05items\"m\n" +
 	"\tImageItem\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x16\n" +
-	"\x06format\x18\x04 \x01(\tR\x06format\x12\x14\n" +
-	"\x05width\x18\x05 \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\x06 \x01(\x05R\x06height\x12\x1a\n" +
-	"\bchannels\x18\a \x01(\x05R\bchannels\x12\x18\n" +
-	"\acaption\x18\b \x01(\tR\acaptionBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
+	"\acaption\x18\x04 \x01(\tR\acaptionBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_metric_data_v1_media_image_proto_rawDescOnce sync.Once

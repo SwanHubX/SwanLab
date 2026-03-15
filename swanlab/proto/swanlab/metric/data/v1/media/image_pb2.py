@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(swanlab/metric/data/v1/media/image.proto\x12\x16swanlab.metric.data.v1\">\n\nImageValue\x12\x30\n\x05items\x18\x01 \x03(\x0b\x32!.swanlab.metric.data.v1.ImageItem\"\x8d\x01\n\tImageItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x0e\n\x06\x66ormat\x18\x04 \x01(\t\x12\r\n\x05width\x18\x05 \x01(\x05\x12\x0e\n\x06height\x18\x06 \x01(\x05\x12\x10\n\x08\x63hannels\x18\x07 \x01(\x05\x12\x0f\n\x07\x63\x61ption\x18\x08 \x01(\tBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(swanlab/metric/data/v1/media/image.proto\x12\x16swanlab.metric.data.v1\">\n\nImageValue\x12\x30\n\x05items\x18\x01 \x03(\x0b\x32!.swanlab.metric.data.v1.ImageItem\"L\n\tImageItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61ption\x18\x04 \x01(\tBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,6 +34,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'ZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1'
   _globals['_IMAGEVALUE']._serialized_start=68
   _globals['_IMAGEVALUE']._serialized_end=130
-  _globals['_IMAGEITEM']._serialized_start=133
-  _globals['_IMAGEITEM']._serialized_end=274
+  _globals['_IMAGEITEM']._serialized_start=132
+  _globals['_IMAGEITEM']._serialized_end=208
 # @@protoc_insertion_point(module_scope)

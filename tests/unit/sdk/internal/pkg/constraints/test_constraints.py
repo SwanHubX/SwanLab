@@ -253,7 +253,7 @@ class TestMetricKey:
 
     @pytest.mark.parametrize(
         "value",
-        ["loss", "train/loss", "metrics.accuracy", "a/b.c", "x" * 255],
+        ["loss", "train/loss", "metrics.accuracy", "a/b.c", "x" * 255, "loss * 1000", "my key", "a@b#c"],
     )
     def test_valid(self, value):
         assert self.adapter.validate_python(value) == value
@@ -267,7 +267,8 @@ class TestMetricKey:
             "/starts_with_slash",
             "ends_with_dot.",
             "ends_with_slash/",
-            "invalid key",  # space not in [\w./-]
+            "has\x00null",  # null byte
+            "has\x1fcontrol",  # control character
         ],
     )
     def test_invalid(self, value):

@@ -16,7 +16,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 
 
-class TransformType(ABC):
+class TransformData(ABC):
     """
     SwanLab 数据转换模块抽象基类，定义了将数据转换为Protobuf格式的方法。
 
@@ -25,9 +25,9 @@ class TransformType(ABC):
     设计为静态方法的另一个原因是考虑到大规模数据传输时，静态方法可以避免实例化开销，提高性能。
 
     每个子类在实现 __init__ 时必须考虑套娃问题，我们约定外层参数的优先级高于内层参数，例如：
-    >>> from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextValue, TextItem
+    >>> from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem, TextValue
     >>>
-    >>> class MyTransform(TransformType):
+    >>> class MyTransform(TransformData):
     >>>     def __init__(self, text: str | MyTransform, foo: Any = None):
     >>>         super().__init__()
     >>>         attrs = self._unwrap(text)
@@ -60,7 +60,7 @@ class TransformType(ABC):
     @classmethod
     def _unwrap(cls, instance_or_val: Any) -> dict:
         """通用的解包辅助函数，提取实例属性，用于实现套娃加载"""
-        if isinstance(instance_or_val, TransformType):
+        if isinstance(instance_or_val, TransformData):
             # 返回实例的所有属性（注意排除私有属性）
             return {k: v for k, v in vars(instance_or_val).items() if not k.startswith("_")}
         return {}
@@ -88,7 +88,7 @@ class TransformType(ABC):
         ...
 
 
-class TransformMediaType(TransformType, ABC):
+class TransformMedia(TransformData, ABC):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
@@ -99,10 +99,9 @@ class TransformMediaType(TransformType, ABC):
         ...
 
     @abstractmethod
-    def transform(self, key: str, step: int, path: Path) -> Message:
+    def transform(self, *, step: int, path: Path) -> Message:
         """
         将媒体数据转换为Protobuf格式，并将结果写入指定目录下
-        :param key: 指标键名
         :param step: 步数
         :param path: 存储目录
         :return: Protobuf消息

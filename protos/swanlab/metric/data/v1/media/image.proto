@@ -15,9 +15,5 @@ message ImageItem {
   string filename = 1;
   string sha256   = 2;
   int64  size     = 3;  // 文件大小（bytes）
-  string format   = 4;  // "png" | "jpeg" | "gif" | "webp"
-  int32  width    = 5;
-  int32  height   = 6;
-  int32  channels = 7;  // 1=灰度, 3=RGB, 4=RGBA
-  string caption  = 8;
+  string caption  = 4;
 }

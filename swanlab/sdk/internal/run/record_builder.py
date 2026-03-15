@@ -28,8 +28,8 @@ from swanlab.sdk.internal.bus.events import (
     RunStartEvent,
     ScalarDefineEvent,
 )
-from swanlab.sdk.internal.context import RunContext, TransformMediaType
-from swanlab.sdk.internal.context.transformer import TransformType
+from swanlab.sdk.internal.context import RunContext, TransformMedia
+from swanlab.sdk.internal.context.transformer import TransformData
 from swanlab.sdk.internal.pkg.fs import safe_mkdir
 from swanlab.sdk.internal.run.transforms import Scalar
 
@@ -58,34 +58,34 @@ class RecordBuilder:
         ), Scalar
 
     @build_log.register(list)
-    def _(self, value: List[TransformMediaType], key: str, timestamp: Timestamp, step: int) -> ParseResult:
+    def _(self, value: List[TransformMedia], key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """媒体对象数组
         dispatch 并不能识别每个数组元素的类型，因此还需手动检查
         """
-        if not value or not isinstance(value[0], TransformMediaType):
+        if not value or not isinstance(value[0], TransformMedia):
             raise TypeError("List must contain TransformMediaType objects")
         cls = value[0].__class__
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
-        values = [item.transform(key=key, step=step, path=path) for item in value]
+        values = [item.transform(step=step, path=path) for item in value]
         return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
-    @build_log.register(TransformMediaType)
-    def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        """将单个 TransformMediaType 转换为 MetricRecord"""
+    @build_log.register(TransformMedia)
+    def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
+        """将单个 TransformMediaType 转换为 DataRecord"""
         cls = value.__class__
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
-        values = [value.transform(key=key, step=step, path=path)]
+        values = [value.transform(step=step, path=path)]
         return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
-    def build_column_from_log(self, cls: Type[TransformType], key: str) -> Record:
+    def build_column_from_log(self, cls: Type[TransformData], key: str) -> Record:
         """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
         col_type = cls.column_type()
         metrics = self._ctx.metrics
-        if issubclass(cls, TransformMediaType):
+        if issubclass(cls, TransformMedia):
             media_type_str = adapter.column_type[col_type]
             metrics.define_media(key, col_type, self._ctx.media_dir / media_type_str)
         else:

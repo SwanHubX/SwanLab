@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from swanlab.sdk.internal.pkg import console, constraints
 from swanlab.sdk.typings.run import FinishType
-from swanlab.sdk.typings.run.data import ScalarXAxisType
+from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 
 def flatten_dict(
@@ -88,27 +88,24 @@ def validate_key(key: str, max_len: int = 255) -> str:
     if not key:
         # 只有在清洗后完全为空这种极端且无法挽救的情况下，才抛出异常
         raise ValueError(
-            f"SwanLab key: '{original_key}' is invalid or empty after sanitization, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
+            f"SwanLab key: '{original_key}' is invalid or empty after sanitization, please use valid characters and avoid leading/trailing special characters."
         )
 
-    # 使用来自 constraints 的预编译正则替换非法字符
-    sanitized_key = constraints.METRIC_KEY_INVALID_RE.sub("_", key)
-
     # 长度截断
-    if len(sanitized_key) > max_len:
-        sanitized_key = sanitized_key[:max_len]
+    if len(key) > max_len:
+        key = key[:max_len]
 
-    # 4. 友好提示
-    if sanitized_key != original_key:
+    # 友好提示（仅因头尾剥离或截断而改变）
+    if key != original_key:
         if original_key not in _WARNED_KEYS:
             console.warning(
-                f"Key '{original_key}' has been sanitized to '{sanitized_key}', due to invalid characters or length exceeding limit."
+                f"Key '{original_key}' has been trimmed to '{key}', due to leading/trailing characters or length exceeding limit."
             )
             _WARNED_KEYS.add(original_key)
 
-    # 5. 使用 MetricKey 约束做最终校验，确保输出始终是合法的 MetricKey
+    # 使用 MetricKey 约束做最终校验；内部含控制字符等非法内容时直接抛出，不做替换
     try:
-        return constraints.ta_metric_key.validate_python(sanitized_key)
+        return constraints.ta_metric_key.validate_python(key)
     except ValidationError as e:
         raise ValueError(str(e)) from e
 

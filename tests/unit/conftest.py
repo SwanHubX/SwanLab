@@ -24,10 +24,6 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
       4. 清理 callbacker
     """
 
-    # ------------------------------------------------------------------ #
-    # Setup
-    # ------------------------------------------------------------------ #
-
     # 1. 路径与环境变量隔离
     # 清理可能干扰测试的常见环境变量
     for env_var in ["SWANLAB_API_KEY", "SWANLAB_API_HOST", "SWANLAB_WEB_HOST", "SWANLAB_ROOT", "SWANLAB_LOG_DIR"]:
@@ -48,16 +44,7 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     object.__setattr__(settings, "__pydantic_fields_set__", set())
     object.__setattr__(settings, "__pydantic_extra__", None)
 
-    # ------------------------------------------------------------------ #
-    # 执行测试
-    # ------------------------------------------------------------------ #
-    yield
-
-    # ------------------------------------------------------------------ #
-    # Teardown（无论用例成功或失败均执行）
-    # ------------------------------------------------------------------ #
-
-    # 1. 清理 SwanLabRun 单例
+    # 3. 清理 SwanLabRun 单例
     # 必须在 client 重置之前执行：cloud 模式的 run.finish() 可能需要 client 发送最后请求
     # 若 finish() 本身出错（如后台线程异常），直接强制清除引用，防止污染下一个用例
     if has_run():
@@ -67,16 +54,20 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
         except Exception:  # noqa: E722
             clear_run()
 
-    # 2. 清理 Client 单例
+    # 4. 清理 Client 单例
     if client.exists():
         client.reset()
 
-    # 3. 清理 logger
+    # 5. 清理 logger
     log.reset()
 
-    # 4. 清理 config
+    # 6. 清理 config
     reset_config()
 
-    # 5. 清理 callbacker
+    # 7. 清理 callbacker
     for callback in callbacker.registered_callbacks:
         callbacker.remove_callback(callback.name)
+
+    yield
+
+    # 不将一些全局单例子放在teardown中，因为它们可能被monkeypatch覆盖

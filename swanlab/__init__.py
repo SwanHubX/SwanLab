@@ -11,6 +11,7 @@ from swanlab.sdk import (
     login,
     merge_settings,
 )
+from swanlab.sdk.internal.run.transforms import Audio, Text
 from swanlab.sdk.utils.version import get_swanlab_version
 
 from . import utils
@@ -28,6 +29,9 @@ __all__ = [
     "SwanLabRun",
     "has_run",
     "get_run",
+    # data
+    "Text",
+    "Audio",
     # config
     "config",
     # utils

@@ -11,10 +11,27 @@ import responses
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.settings import settings
+from swanlab.sdk.internal.pkg.netrc import write_netrc
+from swanlab.sdk.internal.settings import Settings, settings
 
 
 class TestLoginE2E:
+    @staticmethod
+    def _reinit_settings():
+        """重新从环境变量、.netrc 等来源初始化全局 settings，模拟新会话启动。"""
+        fresh = Settings()
+        for field_name in Settings.model_fields.keys():
+            object.__setattr__(settings, field_name, getattr(fresh, field_name))
+        object.__setattr__(settings, "__pydantic_fields_set__", set())
+
+    @staticmethod
+    def _save_netrc(host: str, key: str):
+        """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
+        nrc_path = settings.root / ".netrc"
+        nrc_path.parent.mkdir(parents=True, exist_ok=True)
+        write_netrc(nrc_path, host=host, username=host, password=key)
+        TestLoginE2E._reinit_settings()
+
     @responses.activate
     def test_login_host_cleaning(self):
         """测试：传入不规范的 host 时，SDK 应自动清洗（补全协议、去除路径和 query）"""
@@ -58,13 +75,22 @@ class TestLoginE2E:
         # 官方 web_host 不得被 api 子域名覆盖
         assert settings.web_host == "https://swanlab.cn"
 
+    @responses.activate
     def test_login_skip_if_already_logged_in(self):
-        """测试：如果已经登录且没有强制 relogin，应直接跳过并返回 True"""
-        from unittest.mock import patch
+        """测试：如果已经登录且没有强制 relogin，无论是否传入入参，应直接跳过并返回 True"""
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+        login(api_key="first-key")
+        assert client.exists()
 
-        with patch("swanlab.sdk.cmd.login.client.exists", return_value=True):
-            result = login(api_key="some_key", relogin=False)
-            assert result is True
+        # 第二次调用不带 relogin=True，应直接跳过，不再发起网络请求
+        result = login(relogin=False)
+        assert result is True
+        assert len(responses.calls) == 1
 
     def test_login_block_if_run_active(self):
         """测试：如果 SwanLab Run 正在运行，不允许登录"""
@@ -100,7 +126,7 @@ class TestLoginE2E:
         assert client.exists()
 
     @responses.activate
-    def test_login_with_prompt_and_save(self, monkeypatch, tmp_path):
+    def test_login_with_prompt_and_save(self, monkeypatch):
         """测试：没有 API Key 时触发交互式输入，并测试凭证保存 (save=True)"""
         prompt_key = "test-prompt-key"
         prompt_called = []
@@ -128,11 +154,18 @@ class TestLoginE2E:
         assert prompt_key in content
 
     @responses.activate
-    def test_login_custom_host_and_relogin(self, monkeypatch):
-        """测试：传入自定义 host，并且强制重新登录"""
+    def test_login_custom_host_and_relogin(self):
+        """测试：已登录状态下，传入自定义 host 并强制重新登录"""
+        initial_key = "initial-key"
         custom_host = "http://private-swanlab.local"
         custom_key = "private-key"
 
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            json={"sid": "initial_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
         responses.add(
             responses.POST,
             f"{custom_host}/api/login/api_key",
@@ -140,14 +173,15 @@ class TestLoginE2E:
             status=200,
         )
 
-        monkeypatch.setattr("swanlab.sdk.cmd.login.client.exists", lambda: True)
-        monkeypatch.setattr("swanlab.sdk.cmd.login.client.reset", lambda: None)
+        # 先做一次真实登录，使 client 进入已登录状态
+        login(api_key=initial_key)
+        assert client.exists()
 
         result = login(api_key=custom_key, host=custom_host, relogin=True)
 
         assert result is True
-        assert len(responses.calls) == 1
-        assert responses.calls[0].request.url == f"{custom_host}/api/login/api_key"
+        assert len(responses.calls) == 2
+        assert responses.calls[1].request.url == f"{custom_host}/api/login/api_key"
         assert settings.api_host == custom_host
         assert settings.api_key == custom_key
 
@@ -206,3 +240,163 @@ class TestLoginE2E:
         assert len(prompt_calls) == 2
         assert len(responses.calls) == 2
         assert responses.calls[1].request.headers["authorization"] == new_prompt_key
+
+    @responses.activate
+    def test_repeated_login_with_different_credentials(self):
+        """测试：同一会话中先后调用 login，每次传入不同的 api_key 和 host，应以最新入参为准重新登录"""
+        host_a = "https://server-a.swanlab.com"
+        host_b = "https://server-b.swanlab.com"
+        key_a = "key-for-server-a"
+        key_b = "key-for-server-b"
+
+        responses.add(
+            responses.POST,
+            f"{host_a}/api/login/api_key",
+            json={"sid": "sid_a", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+        responses.add(
+            responses.POST,
+            f"{host_b}/api/login/api_key",
+            json={"sid": "sid_b", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 第一次登录
+        result = login(api_key=key_a, host=host_a)
+        assert result is True
+        assert settings.api_host == host_a
+        assert settings.api_key == key_a
+
+        # 第二次登录，传入不同凭证
+        result = login(api_key=key_b, host=host_b, relogin=True)
+        assert result is True
+        assert len(responses.calls) == 2
+        assert responses.calls[1].request.headers["authorization"] == key_b
+        assert settings.api_host == host_b
+        assert settings.api_key == key_b
+
+    @responses.activate
+    def test_login_explicit_params_override_netrc(self):
+        """测试：本地 .netrc 中已保存旧凭证（模拟上次会话），新会话首次登录时显式传入不同的
+        api_key 和 host，应优先使用入参，而非 .netrc 中的旧凭证"""
+        old_host = "https://old.swanlab.com"
+        old_key = "old-key-from-netrc"
+        new_host = "https://new.swanlab.com"
+        new_key = "new-key"
+
+        # 写入旧凭证到 .netrc（settings.root 由 conftest 指向 tmp_path/.swanlab）
+        self._save_netrc(old_host, old_key)
+
+        # 前提：settings 已从 .netrc 加载旧凭证
+        assert settings.api_key == old_key
+        assert settings.api_host == old_host
+
+        responses.add(
+            responses.POST,
+            f"{new_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 传入新凭证登录 —— 入参应覆盖 .netrc 中加载的旧凭证
+        result = login(api_key=new_key, host=new_host)
+
+        assert result is True
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["authorization"] == new_key
+        assert settings.api_host == new_host
+        assert settings.api_key == new_key
+
+    @responses.activate
+    def test_login_autouse_netrc_credentials(self):
+        """测试：本地 .netrc 中已保存凭证，login() 不传任何入参时，应自动使用存储的 key 完成登录，
+        不弹 prompt"""
+        stored_host = "https://stored.swanlab.com"
+        stored_key = "stored-key-from-netrc"
+
+        # 写入凭证到 .netrc 并重新初始化 settings，模拟新会话从 .netrc 自动加载
+        self._save_netrc(stored_host, stored_key)
+
+        assert settings.api_key == stored_key
+        assert settings.api_host == stored_host
+
+        responses.add(
+            responses.POST,
+            f"{stored_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 不传任何入参，应自动使用 .netrc 中的凭证
+        result = login()
+
+        assert result is True
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["authorization"] == stored_key
+        assert settings.api_host == stored_host
+        assert settings.api_key == stored_key
+
+    @responses.activate
+    def test_login_env_key_reused_when_host_changes_without_netrc(self, monkeypatch):
+        """测试：环境变量中有 api_key，login 只传新 host 不传 api_key，且本地无 .netrc 时，
+        应静默复用环境变量中的 key（不弹 prompt，不打 warning）"""
+        env_key = "key-from-env"
+        env_host = "https://env.swanlab.com"
+        new_host = "https://new.swanlab.com"
+
+        # 设置环境变量，再重建 Settings 实例模拟程序启动时的自动解析
+        monkeypatch.setenv("SWANLAB_API_KEY", env_key)
+        monkeypatch.setenv("SWANLAB_API_HOST", env_host)
+        self._reinit_settings()
+
+        # 前提：env var 已加载，本地无 .netrc 文件
+        assert settings.api_key == env_key
+        assert settings.api_host == env_host
+        assert not (settings.root / ".netrc").exists()
+
+        responses.add(
+            responses.POST,
+            f"{new_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        # 只传新 host，不传 api_key —— 无 .netrc，env key 应被静默复用
+        result = login(host=new_host)
+
+        assert result is True
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["authorization"] == env_key
+        assert settings.api_host == new_host
+
+    @responses.activate
+    def test_login_explicit_params_override_env_vars(self, monkeypatch):
+        """测试：环境变量中已配置 SWANLAB_API_KEY / SWANLAB_API_HOST（settings 自动解析），
+        调用 login 时传入不同的 api_key 和 host，应优先使用入参，而非环境变量中的值"""
+        env_key = "key-from-env"
+        env_host = "https://env.swanlab.com"
+        new_host = "https://custom.swanlab.com"
+        new_key = "custom-key"
+
+        monkeypatch.setenv("SWANLAB_API_KEY", env_key)
+        monkeypatch.setenv("SWANLAB_API_HOST", env_host)
+        self._reinit_settings()
+
+        assert settings.api_key == env_key
+        assert settings.api_host == env_host
+
+        responses.add(
+            responses.POST,
+            f"{new_host}/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        result = login(api_key=new_key, host=new_host)
+
+        assert result is True
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["authorization"] == new_key
+        assert settings.api_host == new_host
+        assert settings.api_key == new_key
