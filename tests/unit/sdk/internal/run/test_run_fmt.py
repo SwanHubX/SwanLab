@@ -74,9 +74,9 @@ class TestValidateKey:
         yield
         fmt._WARNED_KEYS.clear()
 
-    @pytest.mark.parametrize("key", ["loss", "train/acc", "v1.0_metric"])
+    @pytest.mark.parametrize("key", ["loss", "train/acc", "v1.0_metric", "loss * 1000", "my key", "a@b#c"])
     def test_valid_key_unchanged(self, key):
-        """合法 key 原样返回"""
+        """合法 key 原样返回（内部字符宽松接受）"""
         assert fmt.validate_key(key) == key
 
     def test_strip_leading_trailing(self, monkeypatch):
@@ -89,13 +89,12 @@ class TestValidateKey:
     @pytest.mark.parametrize(
         "invalid, expected",
         [
-            ("my key", "my_key"),
-            ("a@b#c", "a_b_c"),
+            ("my key", "my key"),  # 内部空格被接受，原样返回
+            ("a@b#c", "a@b#c"),  # 内部特殊字符被接受，原样返回
         ],
     )
-    def test_invalid_chars_replaced(self, invalid, expected, monkeypatch):
-        """非法字符被替换为下划线"""
-        monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
+    def test_internal_chars_accepted(self, invalid, expected):
+        """内部字符只要不是控制字符，都原样保留"""
         assert fmt.validate_key(invalid) == expected
 
     def test_unicode_word_chars_allowed(self):
@@ -129,26 +128,26 @@ class TestValidateKey:
             fmt.validate_key("...")
 
     def test_warning_fires_once_per_key(self, monkeypatch):
-        """相同非法 key 只触发一次警告"""
+        """相同 key 被头尾剥离时，只触发一次警告"""
         mock_warning = []
         monkeypatch.setattr(
             "swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: mock_warning.append(args)
         )
 
-        fmt.validate_key("bad key")
-        fmt.validate_key("bad key")
-        fmt.validate_key("bad key")
+        fmt.validate_key("  bad_key  ")
+        fmt.validate_key("  bad_key  ")
+        fmt.validate_key("  bad_key  ")
 
         assert len(mock_warning) == 1
 
     def test_warning_fires_for_different_keys(self, monkeypatch):
-        """不同非法 key 各自独立触发一次警告"""
+        """不同被剥离的 key 各自独立触发一次警告"""
         mock_warning = []
         monkeypatch.setattr(
             "swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: mock_warning.append(args)
         )
 
-        fmt.validate_key("bad key1")
-        fmt.validate_key("bad key2")
+        fmt.validate_key("  bad_key1  ")
+        fmt.validate_key("  bad_key2  ")
 
         assert len(mock_warning) == 2

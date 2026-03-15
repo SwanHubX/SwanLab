@@ -99,12 +99,17 @@ def raw_login(
             host = f"https://{host}"
         parsed = urlparse(host)
         host = f"{parsed.scheme}://{parsed.netloc}"
-    # 与settings中同步
-    api_key = api_key or settings.api_key
-    # 如果输入了host，检查与settings中的api_host是否一致，不一致则清空api_key
-    # 额外还需要判断是否存在本地.netrc文件，如果存在则不覆盖
-    if host and api_key and settings.api_host != host and apikey.exists_locally():
-        api_key = None
+    # 先用入参，入参没有才考虑复用 settings 里的值
+    if api_key is None:
+        # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用
+        if host is not None and host != settings.api_host and settings.api_key is not None and apikey.exists_locally():
+            console.warning(
+                f"Stored API key is for '{settings.api_host}', but you are logging in to '{host}'. "
+                "Please provide an API key for the new host."
+            )
+            # api_key 保持 None，后续会走 prompt
+        else:
+            api_key = settings.api_key
     api_host = host or settings.api_host
     # 防止用户通过 login(host="api.swanlab.cn") 强行覆盖 web_host
     if host and "api.swanlab.cn" in host:
