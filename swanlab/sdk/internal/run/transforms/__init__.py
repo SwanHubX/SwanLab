@@ -9,10 +9,11 @@ from typing import Any, List, Type, Union
 
 from swanlab.sdk.internal.context import TransformMediaType
 
+from .audio import Audio
 from .scalar import Scalar
 from .text import Text
 
-__all__ = ["Text", "Scalar", "normalize_media_input"]
+__all__ = ["Text", "Scalar", "Audio", "normalize_media_input"]
 
 
 def normalize_media_input(

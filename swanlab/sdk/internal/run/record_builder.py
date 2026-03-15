@@ -69,16 +69,16 @@ class RecordBuilder:
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
-        values = [item.transform(key=key, step=step, path=path) for item in value]
+        values = [item.transform(step=step, path=path) for item in value]
         return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
     @build_log.register(TransformMediaType)
     def _(self, value: TransformMediaType, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        """将单个 TransformMediaType 转换为 MetricRecord"""
+        """将单个 TransformMediaType 转换为 DataRecord"""
         cls = value.__class__
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         safe_mkdir(path)
-        values = [value.transform(key=key, step=step, path=path)]
+        values = [value.transform(step=step, path=path)]
         return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
 
     def build_column_from_log(self, cls: Type[TransformType], key: str) -> Record:

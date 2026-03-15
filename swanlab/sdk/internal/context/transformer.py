@@ -99,10 +99,9 @@ class TransformMediaType(TransformType, ABC):
         ...
 
     @abstractmethod
-    def transform(self, key: str, step: int, path: Path) -> Message:
+    def transform(self, *, step: int, path: Path) -> Message:
         """
         将媒体数据转换为Protobuf格式，并将结果写入指定目录下
-        :param key: 指标键名
         :param step: 步数
         :param path: 存储目录
         :return: Protobuf消息

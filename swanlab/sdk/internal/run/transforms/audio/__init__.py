@@ -85,9 +85,9 @@ class Audio(TransformMediaType):
             key=key, step=step, timestamp=timestamp, type=cls.column_type(), audios=AudioValue(items=data)
         )
 
-    def transform(self, key: str, step: int, path: Path) -> AudioItem:
+    def transform(self, *, step: int, path: Path) -> AudioItem:
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
-        filename = f"{key}-{step:03d}-{sha256[:8]}.wav"
+        filename = f"{step:03d}-{sha256[:8]}.wav"
         safe_write(path / filename, content, mode="wb")
         return AudioItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")
