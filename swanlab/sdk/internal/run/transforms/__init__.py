@@ -7,7 +7,7 @@
 
 from typing import Any, List, Type, Union
 
-from swanlab.sdk.internal.context import TransformMediaType
+from swanlab.sdk.internal.context import TransformMedia
 
 from .audio import Audio
 from .scalar import Scalar
@@ -17,10 +17,10 @@ __all__ = ["Text", "Scalar", "Audio", "normalize_media_input"]
 
 
 def normalize_media_input(
-    media_cls: Type[TransformMediaType],
+    media_cls: Type[TransformMedia],
     data: Union[Any, List[Any]],
     **kwargs,
-) -> List[TransformMediaType]:
+) -> List[TransformMedia]:
     """
     规范化媒体输入为统一的列表格式。
 

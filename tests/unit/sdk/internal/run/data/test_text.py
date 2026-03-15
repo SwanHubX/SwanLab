@@ -41,18 +41,17 @@ class TestTextTransform:
 
     def test_text_transform(self, tmp_path: Path):
         """测试 transform 方法的文件名生成与端到端写入逻辑"""
-        key = "train/loss_text"
         step = 42
         content = "Sample text for testing"
         caption = "Test caption"
 
         # 1. 预期计算结果
         expected_sha256 = hashlib.sha256(content.encode()).hexdigest()[:8]
-        expected_filename = f"{key}-{step:03d}-{expected_sha256}.__swanlab__.txt"
+        expected_filename = f"{step:03d}-{expected_sha256}.__swanlab__.txt"
 
         # 2. 创建Text实例并执行 transform
         text = Text(content=content, caption=caption)
-        result = text.transform(key=key, step=step, path=tmp_path)
+        result = text.transform(step=step, path=tmp_path)
 
         # 3. 校验返回的 Protobuf 结构
         assert isinstance(result, TextItem)
@@ -66,7 +65,6 @@ class TestTextTransform:
 
     def test_text_transform_with_nested_input(self, tmp_path: Path):
         """测试 transform 直接接收嵌套的 Text 对象"""
-        key = "eval/prompt"
         step = 1
         inner_content = "AI generated text"
 
@@ -75,14 +73,14 @@ class TestTextTransform:
 
         # 传入 transform 时，使用新的 caption 覆盖
         outer_text = Text(content=inner_text, caption="new overriding caption")
-        pb_item = outer_text.transform(key=key, step=step, path=tmp_path)
+        pb_item = outer_text.transform(step=step, path=tmp_path)
 
         # 验证套娃解包在 transform 中也生效了
         assert pb_item.caption == "new overriding caption"
 
         # 验证哈希和文件名是基于解包后的 content 生成的
         expected_sha256 = hashlib.sha256(inner_content.encode()).hexdigest()[:8]
-        expected_filename = f"{key}-001-{expected_sha256}.__swanlab__.txt"
+        expected_filename = f"001-{expected_sha256}.__swanlab__.txt"
         assert pb_item.filename == expected_filename
 
         # 验证真实文件落盘

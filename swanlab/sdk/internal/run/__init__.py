@@ -30,7 +30,7 @@ from swanlab.sdk.internal.run.config import (
 )
 from swanlab.sdk.internal.run.transforms import Text, normalize_media_input
 from swanlab.sdk.typings.run import FinishType
-from swanlab.sdk.typings.run.data import ScalarXAxisType
+from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer

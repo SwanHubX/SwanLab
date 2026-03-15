@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from swanlab.sdk.internal.pkg import console, constraints
 from swanlab.sdk.typings.run import FinishType
-from swanlab.sdk.typings.run.data import ScalarXAxisType
+from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 
 def flatten_dict(

@@ -16,11 +16,11 @@ from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.audio_pb2 import AudioItem, AudioValue
-from swanlab.sdk.internal.context import TransformMediaType
+from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
 
 
-class Audio(TransformMediaType):
+class Audio(TransformMedia):
     def __init__(
         self,
         data_or_path: Union["Audio", str, "vendor.np.ndarray"],

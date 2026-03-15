@@ -14,11 +14,11 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem, TextValue
-from swanlab.sdk.internal.context import TransformMediaType
+from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
 
 
-class Text(TransformMediaType):
+class Text(TransformMedia):
     def __init__(self, content: Union["Text", str], caption: Optional[str] = None):
         super().__init__()
         attrs = self._unwrap(content)

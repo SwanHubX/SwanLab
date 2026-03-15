@@ -14,7 +14,7 @@ from typing import Dict, Literal, Optional, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.data import ScalarXAxisType
+from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 # 开启 slots 可以减少内存占用，提高性能，但是仅适用于 Python 3.10 及以上版本
 # 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典

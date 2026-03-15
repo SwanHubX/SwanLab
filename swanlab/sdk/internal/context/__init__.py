@@ -17,7 +17,7 @@ from swanlab.sdk.internal.settings import Settings
 
 from .callbacker import CallbackManager, callbacker
 from .metrics import MediaMetric, RunMetrics, ScalarMetric
-from .transformer import TransformMediaType, TransformType
+from .transformer import TransformData, TransformMedia
 
 __all__ = [
     # value
@@ -27,8 +27,8 @@ __all__ = [
     "RunContext",
     "RunConfig",
     "RunMetrics",
-    "TransformType",
-    "TransformMediaType",
+    "TransformData",
+    "TransformMedia",
     "CallbackManager",
     "ScalarMetric",
     "MediaMetric",
