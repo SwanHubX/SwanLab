@@ -18,11 +18,13 @@ import pytest
 import swanlab.sdk.internal.run.transforms  # noqa: F401  # type: ignore — 触发所有子类注册
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.run.transforms.audio import Audio
+from swanlab.sdk.internal.run.transforms.image import Image
 from swanlab.sdk.internal.run.transforms.text import Text
 
 # 注册表：TransformMedia 子类 → 无参工厂（每次调用返回内容相同的新实例）
 MEDIA_FACTORIES = {
     Audio: lambda: Audio(np.zeros((1, 4410), dtype=np.float32), sample_rate=44100),
+    Image: lambda: Image(np.zeros((10, 10, 3), dtype=np.uint8)),
     Text: lambda: Text(content="hello world"),
 }
 

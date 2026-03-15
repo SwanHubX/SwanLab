@@ -19,9 +19,12 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
     import PIL
+    import PIL.Image
     import rdkit
     import soundfile
     import swanboard
+    import torch
+    import torchvision
 
 
 # 2. Expose the available modules for IDE auto-completion
@@ -35,6 +38,8 @@ __all__ = [
     "soundfile",
     "swanboard",
     "boto3",
+    "torch",
+    "torchvision",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
 ]
@@ -50,6 +55,8 @@ _LAZY_IMPORTS = {
     "soundfile": "soundfile",
     "swanboard": "swanboard",
     "boto3": "boto3",
+    "torch": "torch",
+    "torchvision": "torchvision",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd": "pandas",
 }
@@ -71,8 +78,14 @@ _EXTRA_DEPS = {
     "boto3": "s3",
 }
 
+# 5. Submodule imports: some packages require submodules to be imported explicitly
+# so their attributes are accessible (e.g. PIL.Image must be imported for PIL.Image to work)
+_SUBMODULE_IMPORTS = {
+    "PIL": ["PIL.Image"],
+}
 
-# 5. Module-level __getattr__ for lazy loading (PEP 562)
+
+# 6. Module-level __getattr__ for lazy loading (PEP 562)
 def __getattr__(name: str) -> Any:
     if name in _LAZY_IMPORTS:
         module_path = _LAZY_IMPORTS[name]
@@ -85,6 +98,10 @@ def __getattr__(name: str) -> Any:
             else:
                 # Handle direct third-party library imports
                 obj = importlib.import_module(module_path)
+
+            # Import required submodules so their attributes are accessible on the parent package
+            for submodule_path in _SUBMODULE_IMPORTS.get(name, []):
+                importlib.import_module(submodule_path)
 
             # Cache the imported object in the module's global namespace
             globals()[name] = obj
