@@ -9,8 +9,8 @@
 import pytest
 
 import swanlab
-from swanlab.sdk.cmd.finish import finish
 from swanlab.sdk.cmd.init import init
+from swanlab.sdk.cmd.run import finish
 from swanlab.sdk.internal.run import has_run
 
 
