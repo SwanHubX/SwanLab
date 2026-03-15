@@ -28,7 +28,7 @@ from swanlab.sdk.internal.run.config import (
     create_unbound_run_config,
     deactivate_run_config,
 )
-from swanlab.sdk.internal.run.transforms import Text, normalize_media_input
+from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -255,6 +255,78 @@ class SwanLabRun:
         :param step: Optional step for the text data.
         """
         normalized_data = normalize_media_input(Text, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
+    def log_image(
+        self,
+        key: str,
+        data: Union[Image, Any, List[Any]],
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging image data.
+
+        :param key: The key for the image data.
+
+        :param data: The image data itself or an Image object.
+
+        :param caption: Optional caption for the image data.
+
+        :param step: Optional step for the image data.
+        """
+        normalized_data = normalize_media_input(Image, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
+    def log_audio(
+        self,
+        key: str,
+        data: Union[Audio, Any, List[Any]],
+        sample_rate: int = 44100,
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging audio data.
+
+        :param key: The key for the audio data.
+
+        :param data: The audio data itself or an Audio object.
+
+        :param sample_rate: Sample rate of the audio (used when data is raw numpy array).
+
+        :param caption: Optional caption for the audio data.
+
+        :param step: Optional step for the audio data.
+        """
+        normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
+    def log_video(
+        self,
+        key: str,
+        data: Union[Video, Any, List[Any]],
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging video data.
+
+        :param key: The key for the video data.
+
+        :param data: The video data itself or a Video object.
+
+        :param caption: Optional caption for the video data.
+
+        :param step: Optional step for the video data.
+        """
+        normalized_data = normalize_media_input(Video, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
