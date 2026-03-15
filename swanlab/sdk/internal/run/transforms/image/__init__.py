@@ -50,7 +50,14 @@ def _resize(image: "vendor.PIL.Image.Image", size) -> "vendor.PIL.Image.Image":
 class Image(TransformMedia):
     def __init__(
         self,
-        data_or_path: Union["Image", str, "vendor.PIL.Image.Image", "vendor.np.ndarray"],
+        data_or_path: Union[
+            "Image",
+            str,
+            "vendor.PIL.Image.Image",
+            "vendor.np.ndarray",
+            "vendor.torch.Tensor",
+            "vendor.matplotlib.figure.Figure",
+        ],
         mode: Optional[str] = None,
         caption: Optional[str] = None,
         file_type: Optional[str] = None,
@@ -60,7 +67,7 @@ class Image(TransformMedia):
 
         Parameters
         ----------
-        data_or_path: str, PIL.Image.Image, numpy.ndarray, torch.Tensor, matplotlib figure, or Image
+        data_or_path: str, PIL.Image.Image, numpy.ndarray, torch.Tensor, matplotlib.figure.Figure, or Image
             Path to an image file (PNG/JPG/JPEG/BMP; GIF is not supported), a PIL Image,
             numpy array (shape: (H, W) or (H, W, 3/4)), torch.Tensor, matplotlib figure,
             or another Image instance (nesting).

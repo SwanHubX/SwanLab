@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import boto3
     import imageio
     import matplotlib
+    import matplotlib.figure
     import moviepy
     import numpy as np
     import pandas as pd
@@ -82,6 +83,7 @@ _EXTRA_DEPS = {
 # so their attributes are accessible (e.g. PIL.Image must be imported for PIL.Image to work)
 _SUBMODULE_IMPORTS = {
     "PIL": ["PIL.Image"],
+    "matplotlib": ["matplotlib.figure"],
 }
 
 
