@@ -8,10 +8,14 @@
 3. 触发异步微批处理落盘与回调
 """
 
+import atexit
+import sys
 import threading
+import traceback
 from functools import cached_property, wraps
 from pathlib import Path
-from typing import Any, List, Literal, Mapping, Optional, Union, cast, get_args
+from types import TracebackType
+from typing import Any, List, Literal, Mapping, Optional, Type, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -28,7 +32,7 @@ from swanlab.sdk.internal.run.config import (
     create_unbound_run_config,
     deactivate_run_config,
 )
-from swanlab.sdk.internal.run.transforms import Text, normalize_media_input
+from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -137,14 +141,63 @@ class SwanLabRun:
 
         # 设置全局运行实例
         set_run(self)
-
-        # 绑定日志文件
+        # 注册退出钩子
+        self._sys_origin_excepthook = sys.excepthook
+        atexit.register(self._atexit_cleanup)
+        sys.excepthook = self._excepthook
+        # 绑定日志文件，运行正式开始
         if self._ctx.config.settings.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
 
     # ----------------------------------
-    # 属性 (Properties)
+    # 私有钩子
     # ----------------------------------
+
+    def _atexit_cleanup(self) -> None:
+        """程序正常退出时自动结束当前运行"""
+        if self._state != "running":
+            return
+        console.debug("SwanLab Run is finishing at exit...")
+        self.finish()
+
+    def _excepthook(
+        self,
+        tp: Type[BaseException],
+        val: BaseException,
+        tb: Optional[TracebackType],
+    ) -> None:
+        """全局异常捕获，将实验标记为 crashed 或 aborted"""
+        try:
+            if self._state != "running":
+                return
+            state: FinishType = "crashed"
+            if tp is KeyboardInterrupt:
+                console.info("KeyboardInterrupt by user")
+                state = "aborted"
+            else:
+                console.info("Error happened while training")
+            full_error_msg = "".join(traceback.format_exception(tp, val, tb))
+            self.finish(state=state, error=full_error_msg)
+        except Exception as e:
+            console.error(f"SwanLab failed to handle excepthook: {e}")
+        finally:
+            sys.__excepthook__(tp, val, tb)
+
+    def _cleanup(self):
+        """
+        清除副作用
+        """
+        # 取消钩子
+        console.debug("Cleanup system hook...")
+        atexit.unregister(self._atexit_cleanup)
+        sys.excepthook = self._sys_origin_excepthook
+        # 清理全局运行实例
+        console.debug("Cleanup global instance...")
+        clear_run()
+        deactivate_run_config()
+        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
+        # 释放日志，本次运行结束
+        log.reset()
 
     @cached_property
     def id(self) -> str:
@@ -259,6 +312,78 @@ class SwanLabRun:
 
     @with_lock
     @with_run
+    def log_image(
+        self,
+        key: str,
+        data: Union[Image, Any, List[Any]],
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging image data.
+
+        :param key: The key for the image data.
+
+        :param data: The image data itself or an Image object.
+
+        :param caption: Optional caption for the image data.
+
+        :param step: Optional step for the image data.
+        """
+        normalized_data = normalize_media_input(Image, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
+    def log_audio(
+        self,
+        key: str,
+        data: Union[Audio, Any, List[Any]],
+        sample_rate: int = 44100,
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging audio data.
+
+        :param key: The key for the audio data.
+
+        :param data: The audio data itself or an Audio object.
+
+        :param sample_rate: Sample rate of the audio (used when data is raw numpy array).
+
+        :param caption: Optional caption for the audio data.
+
+        :param step: Optional step for the audio data.
+        """
+        normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
+    def log_video(
+        self,
+        key: str,
+        data: Union[Video, Any, List[Any]],
+        caption: Optional[Union[str, List[str]]] = None,
+        step: Optional[int] = None,
+    ):
+        """
+        A syntactic sugar for logging video data.
+
+        :param key: The key for the video data.
+
+        :param data: The video data itself or a Video object.
+
+        :param caption: Optional caption for the video data.
+
+        :param step: Optional step for the video data.
+        """
+        normalized_data = normalize_media_input(Video, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_lock
+    @with_run
     def define_scalar(
         self,
         key: str,
@@ -268,18 +393,14 @@ class SwanLabRun:
         chart_name: Optional[str] = None,
     ):
         """
-        Explicitly define a scalar column.
-
-        :param key: The key for the scalar column.
-
-        :param name: Optional name for the scalar column.
-
-        :param color: Optional color for the scalar column.
-
-        :param x_axis: Optional x-axis for the scalar column.
-
-        :param chart_name: Optional name for the chart.
+        手动定义一个标量列
+        :param key: 标量列的键，支持通配符（如 "train/*"）以匹配多个列
+        :param name: 标量列的可选显示名称
+        :param color: 标量列的可选颜色
+        :param x_axis: 标量列的可选 x 轴类型
+        :param chart_name: 标量列所属的可选图表名称
         """
+        # TODO: 实现 glob 匹配逻辑
         if not (this_key := fmt.safe_validate_key(key)):
             return console.error(
                 f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
@@ -337,12 +458,8 @@ class SwanLabRun:
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
-        # 清理全局运行实例
-        clear_run()
-        console.debug(f"Run finished with state: {state}")
-        # 释放一些资源
-        log.reset()
-        deactivate_run_config()
+        console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
+        self._cleanup()
 
 
 _current_run: Optional[SwanLabRun] = None

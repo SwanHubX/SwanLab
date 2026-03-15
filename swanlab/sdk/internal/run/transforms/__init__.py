@@ -10,10 +10,12 @@ from typing import Any, List, Type, Union
 from swanlab.sdk.internal.context import TransformMedia
 
 from .audio import Audio
+from .image import Image
 from .scalar import Scalar
 from .text import Text
+from .video import Video
 
-__all__ = ["Text", "Scalar", "Audio", "normalize_media_input"]
+__all__ = ["Text", "Scalar", "Audio", "Image", "Video", "normalize_media_input"]
 
 
 def normalize_media_input(
@@ -56,10 +58,7 @@ def normalize_media_input(
     # 构造媒体对象列表
     result = []
     for i, item in enumerate(data_list):
-        if isinstance(item, media_cls):
-            result.append(item)
-        else:
-            item_kwargs = {k: v[i] for k, v in normalized_kwargs.items()}
-            result.append(media_cls(*[item], **item_kwargs))
+        item_kwargs = {k: v[i] for k, v in normalized_kwargs.items()}
+        result.append(media_cls(*[item], **item_kwargs))
 
     return result
