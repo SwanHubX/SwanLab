@@ -74,11 +74,10 @@ class TestValidateKey:
         yield
         fmt._WARNED_KEYS.clear()
 
-    def test_valid_key_unchanged(self):
+    @pytest.mark.parametrize("key", ["loss", "train/acc", "v1.0_metric"])
+    def test_valid_key_unchanged(self, key):
         """合法 key 原样返回"""
-        assert fmt.validate_key("loss") == "loss"
-        assert fmt.validate_key("train/acc") == "train/acc"
-        assert fmt.validate_key("v1.0_metric") == "v1.0_metric"
+        assert fmt.validate_key(key) == key
 
     def test_strip_leading_trailing(self, monkeypatch):
         """头尾的空白、. 和 / 被剥离"""
@@ -117,13 +116,10 @@ class TestValidateKey:
         monkeypatch.setattr("swanlab.sdk.internal.run.utils_fmt.console.warning", lambda *args: None)
         assert fmt.validate_key("abcdef", max_len=3) == "abc"
 
-    def test_non_string_input_int(self):
-        """整数 key 被转为字符串处理"""
-        assert fmt.validate_key(42) == "42"  # type: ignore
-
-    def test_non_string_input_float(self):
-        """浮点 key 被转为字符串处理"""
-        assert fmt.validate_key(3.14) == "3.14"  # type: ignore
+    @pytest.mark.parametrize("key, expected", [(42, "42"), (3.14, "3.14")])
+    def test_non_string_input(self, key, expected):
+        """非字符串 key 被转为字符串处理"""
+        assert fmt.validate_key(key) == expected  # type: ignore
 
     def test_empty_after_sanitization_raises(self):
         """清洗后为空时抛出 ValueError"""

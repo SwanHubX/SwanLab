@@ -70,17 +70,12 @@ func (x *VideoValue) GetItems() []*VideoItem {
 type VideoItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 文件名，如 "rollout_20_d4e5.mp4"
-	Filename        string  `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
-	Sha256          string  `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size            int64   `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`    // 文件大小（bytes）
-	Format          string  `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"` // "mp4" | "gif" | "webm"
-	Fps             int32   `protobuf:"varint,5,opt,name=fps,proto3" json:"fps,omitempty"`
-	DurationSeconds float32 `protobuf:"fixed32,6,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
-	Width           int32   `protobuf:"varint,7,opt,name=width,proto3" json:"width,omitempty"`
-	Height          int32   `protobuf:"varint,8,opt,name=height,proto3" json:"height,omitempty"`
-	Caption         string  `protobuf:"bytes,9,opt,name=caption,proto3" json:"caption,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	Filename      string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size          int64  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
+	Caption       string `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VideoItem) Reset() {
@@ -134,41 +129,6 @@ func (x *VideoItem) GetSize() int64 {
 	return 0
 }
 
-func (x *VideoItem) GetFormat() string {
-	if x != nil {
-		return x.Format
-	}
-	return ""
-}
-
-func (x *VideoItem) GetFps() int32 {
-	if x != nil {
-		return x.Fps
-	}
-	return 0
-}
-
-func (x *VideoItem) GetDurationSeconds() float32 {
-	if x != nil {
-		return x.DurationSeconds
-	}
-	return 0
-}
-
-func (x *VideoItem) GetWidth() int32 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *VideoItem) GetHeight() int32 {
-	if x != nil {
-		return x.Height
-	}
-	return 0
-}
-
 func (x *VideoItem) GetCaption() string {
 	if x != nil {
 		return x.Caption
@@ -183,17 +143,12 @@ const file_swanlab_metric_data_v1_media_video_proto_rawDesc = "" +
 	"(swanlab/metric/data/v1/media/video.proto\x12\x16swanlab.metric.data.v1\"E\n" +
 	"\n" +
 	"VideoValue\x127\n" +
-	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.VideoItemR\x05items\"\xf0\x01\n" +
+	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.VideoItemR\x05items\"m\n" +
 	"\tVideoItem\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x16\n" +
-	"\x06format\x18\x04 \x01(\tR\x06format\x12\x10\n" +
-	"\x03fps\x18\x05 \x01(\x05R\x03fps\x12)\n" +
-	"\x10duration_seconds\x18\x06 \x01(\x02R\x0fdurationSeconds\x12\x14\n" +
-	"\x05width\x18\a \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\b \x01(\x05R\x06height\x12\x18\n" +
-	"\acaption\x18\t \x01(\tR\acaptionBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
+	"\acaption\x18\x04 \x01(\tR\acaptionBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_metric_data_v1_media_video_proto_rawDescOnce sync.Once

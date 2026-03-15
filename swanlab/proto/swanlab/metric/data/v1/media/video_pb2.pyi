@@ -13,23 +13,13 @@ class VideoValue(_message.Message):
     def __init__(self, items: _Optional[_Iterable[_Union[VideoItem, _Mapping]]] = ...) -> None: ...
 
 class VideoItem(_message.Message):
-    __slots__ = ("filename", "sha256", "size", "format", "fps", "duration_seconds", "width", "height", "caption")
+    __slots__ = ("filename", "sha256", "size", "caption")
     FILENAME_FIELD_NUMBER: _ClassVar[int]
     SHA256_FIELD_NUMBER: _ClassVar[int]
     SIZE_FIELD_NUMBER: _ClassVar[int]
-    FORMAT_FIELD_NUMBER: _ClassVar[int]
-    FPS_FIELD_NUMBER: _ClassVar[int]
-    DURATION_SECONDS_FIELD_NUMBER: _ClassVar[int]
-    WIDTH_FIELD_NUMBER: _ClassVar[int]
-    HEIGHT_FIELD_NUMBER: _ClassVar[int]
     CAPTION_FIELD_NUMBER: _ClassVar[int]
     filename: str
     sha256: str
     size: int
-    format: str
-    fps: int
-    duration_seconds: float
-    width: int
-    height: int
     caption: str
-    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., format: _Optional[str] = ..., fps: _Optional[int] = ..., duration_seconds: _Optional[float] = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., caption: _Optional[str] = ...) -> None: ...
+    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., caption: _Optional[str] = ...) -> None: ...

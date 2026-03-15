@@ -177,18 +177,14 @@ class TestPostBind:
 
         assert emit.call_count == 1
 
-    def test_delitem_writes_file(self, tmp_path):
+    @pytest.mark.parametrize("remove_op", ["delitem", "pop"])
+    def test_remove_writes_file(self, tmp_path, remove_op):
         cfg, _, config_file = bound_config(tmp_path)
         cfg["lr"] = 0.01
-        del cfg["lr"]
-
-        data = yaml.safe_load(config_file.read_text())
-        assert data is None or "lr" not in (data or {})
-
-    def test_pop_writes_file(self, tmp_path):
-        cfg, _, config_file = bound_config(tmp_path)
-        cfg["lr"] = 0.01
-        cfg.pop("lr")
+        if remove_op == "delitem":
+            del cfg["lr"]
+        else:
+            cfg.pop("lr")
 
         data = yaml.safe_load(config_file.read_text())
         assert data is None or "lr" not in (data or {})

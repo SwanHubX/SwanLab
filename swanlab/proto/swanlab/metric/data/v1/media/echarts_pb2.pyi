@@ -13,13 +13,11 @@ class EChartsValue(_message.Message):
     def __init__(self, items: _Optional[_Iterable[_Union[EChartsItem, _Mapping]]] = ...) -> None: ...
 
 class EChartsItem(_message.Message):
-    __slots__ = ("filename", "sha256", "size", "caption")
+    __slots__ = ("filename", "sha256", "size")
     FILENAME_FIELD_NUMBER: _ClassVar[int]
     SHA256_FIELD_NUMBER: _ClassVar[int]
     SIZE_FIELD_NUMBER: _ClassVar[int]
-    CAPTION_FIELD_NUMBER: _ClassVar[int]
     filename: str
     sha256: str
     size: int
-    caption: str
-    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., caption: _Optional[str] = ...) -> None: ...
+    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ...) -> None: ...
