@@ -170,12 +170,12 @@ class SwanLabRun:
             self.finish(state="aborted", error="KeyboardInterrupt")
         # 恢复原始 handler 并重新发送信号，让进程正常终止
         signal.signal(signal.SIGINT, self._original_sigint_handler)
-        if callable(self._original_sigint_handler) and self._original_sigint_handler not in (
-            signal.SIG_DFL,
-            signal.SIG_IGN,
-        ):
+        if self._original_sigint_handler is signal.SIG_IGN:
+            return  # Signal was ignored, do nothing.
+        if callable(self._original_sigint_handler):
             self._original_sigint_handler(signum, frame)
         else:
+            # The default handler (SIG_DFL) raises KeyboardInterrupt.
             raise KeyboardInterrupt
 
     def _atexit_cleanup(self) -> None:

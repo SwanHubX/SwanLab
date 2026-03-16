@@ -118,3 +118,11 @@ class TestSigintHandler:
         SwanLabRun._sigint_handler(run, signal.SIGINT, None)
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
         original.assert_called_once_with(signal.SIGINT, None)
+
+    def test_sig_ign_does_nothing(self):
+        """如果原始 handler 是 SIG_IGN，应静默返回，不抛出 KeyboardInterrupt"""
+        run = _make_mock_run()
+        run._original_sigint_handler = signal.SIG_IGN
+        # Should not raise
+        SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
