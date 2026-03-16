@@ -9,6 +9,7 @@
 """
 
 import atexit
+import signal
 import sys
 import threading
 import traceback
@@ -145,6 +146,10 @@ class SwanLabRun:
         self._sys_origin_excepthook = sys.excepthook
         atexit.register(self._atexit_cleanup)
         sys.excepthook = self._excepthook
+        # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted
+        # sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
+        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, self._sigint_handler)
         # 绑定日志文件，运行正式开始
         if self._ctx.config.settings.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
@@ -152,6 +157,26 @@ class SwanLabRun:
     # ----------------------------------
     # 私有钩子
     # ----------------------------------
+
+    def _sigint_handler(self, signum: int, frame: Any) -> None:
+        """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
+
+        sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程
+        阻塞在 C 扩展（NumPy/PyTorch 等）时，KeyboardInterrupt 可能无法
+        正常传播到 excepthook。此 handler 作为额外防线，在信号层直接处理。
+        """
+        if self._state == "running":
+            console.info("KeyboardInterrupt by user")
+            self.finish(state="aborted", error="KeyboardInterrupt")
+        # 恢复原始 handler 并重新发送信号，让进程正常终止
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
+        if callable(self._original_sigint_handler) and self._original_sigint_handler not in (
+            signal.SIG_DFL,
+            signal.SIG_IGN,
+        ):
+            self._original_sigint_handler(signum, frame)
+        else:
+            raise KeyboardInterrupt
 
     def _atexit_cleanup(self) -> None:
         """程序正常退出时自动结束当前运行"""
@@ -191,6 +216,7 @@ class SwanLabRun:
         console.debug("Cleanup system hook...")
         atexit.unregister(self._atexit_cleanup)
         sys.excepthook = self._sys_origin_excepthook
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()

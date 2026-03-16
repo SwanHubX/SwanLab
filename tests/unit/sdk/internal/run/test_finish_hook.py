@@ -2,12 +2,15 @@
 @author: cunyue
 @file: test_finish_hook.py
 @time: 2026/3/14
-@description: 测试 SwanLabRun._atexit_cleanup / _excepthook 的单元行为（均 mock 依赖，不启动真实 Run）
+@description: 测试 SwanLabRun._atexit_cleanup / _excepthook / _sigint_handler 的单元行为（均 mock 依赖，不启动真实 Run）
 """
 
+import signal
 import sys
 import threading
 from unittest.mock import ANY, MagicMock, patch
+
+import pytest
 
 from swanlab.sdk.internal.run import SwanLabRun
 
@@ -88,3 +91,30 @@ class TestExcepthook:
             tp, val, tb = _make_exc_info(RuntimeError("outer"))
             SwanLabRun._excepthook(run, tp, val, tb)
             mock_original.assert_called_once_with(tp, val, tb)
+
+
+class TestSigintHandler:
+    def test_calls_finish_aborted_when_running(self):
+        """SIGINT handler 在实验运行中应调用 finish(state='aborted')"""
+        run = _make_mock_run()
+        run._original_sigint_handler = signal.SIG_DFL
+        with pytest.raises(KeyboardInterrupt):
+            SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
+
+    def test_no_op_when_not_running(self):
+        """_state != 'running' 时不调用 finish，仍抛出 KeyboardInterrupt"""
+        run = _make_mock_run(state="success")
+        run._original_sigint_handler = signal.SIG_DFL
+        with pytest.raises(KeyboardInterrupt):
+            SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        run.finish.assert_not_called()
+
+    def test_calls_original_callable_handler(self):
+        """如果原始 handler 是 callable，应调用它而非 raise KeyboardInterrupt"""
+        run = _make_mock_run()
+        original = MagicMock()
+        run._original_sigint_handler = original
+        SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
+        original.assert_called_once_with(signal.SIGINT, None)
