@@ -18,7 +18,7 @@ class TestWithRun:
             def __init__(self):
                 self._state = "running"
 
-            @with_run
+            @with_run(cmd="swanlab.my_method()")
             def my_method(self, x, y):
                 return x + y
 
@@ -27,25 +27,40 @@ class TestWithRun:
         assert result == 3
 
     def test_raises_when_state_is_not_running(self):
-        """当 _state 不为 'running' 时，应抛出 RuntimeError"""
+        """当 _state 不为 'running' 时，应抛出 RuntimeError，且错误信息包含 cmd"""
 
         class MockRun:
             def __init__(self):
                 self._state = "finished"
 
-            @with_run
+            @with_run(cmd="swanlab.my_method()")
             def my_method(self):
                 return "ok"
 
         run = MockRun()
-        with pytest.raises(RuntimeError, match="`swanlab.run` requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.my_method\\(\\)` requires an active SwanLabRun"):
             run.my_method()
+
+    def test_error_message_contains_cmd(self):
+        """错误信息中应包含传入的 cmd 字符串"""
+
+        class MockRun:
+            def __init__(self):
+                self._state = "aborted"
+
+            @with_run(cmd="run.log()")
+            def log(self):
+                pass
+
+        run = MockRun()
+        with pytest.raises(RuntimeError, match="`run.log\\(\\)`"):
+            run.log()
 
     def test_preserves_metadata(self):
         """装饰器应保留被装饰方法的 __name__ 和 __doc__"""
 
         class MockRun:
-            @with_run
+            @with_run(cmd="swanlab.my_method()")
             def my_method(self):
                 """My docstring"""
 

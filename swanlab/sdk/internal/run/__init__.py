@@ -57,18 +57,21 @@ def with_lock(func):
     return wrapper
 
 
-def with_run(func):
+def with_run(cmd: str):
     """
     run api装饰器，确保当前 run 实例激活
     """
 
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._state != "running":
-            raise RuntimeError("`swanlab.run` requires an active SwanLabRun, call `swanlab.init()` first.")
-        return func(self, *args, **kwargs)
+    def decorator(f):
+        @wraps(f)
+        def wrapper(self, *args, **kwargs):
+            if self._state != "running":
+                raise RuntimeError(f"`{cmd}` requires an active SwanLabRun, call `swanlab.init()` first.")
+            return f(self, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 class SwanLabRun:
@@ -167,7 +170,11 @@ class SwanLabRun:
         """
         if self._state == "running":
             console.info("KeyboardInterrupt by user")
-            self.finish(state="aborted", error="KeyboardInterrupt")
+            import traceback
+
+            stack = "".join(traceback.format_stack(frame)).strip() if frame is not None else ""
+            error = f"KeyboardInterrupt by user\n{stack}" if stack else "KeyboardInterrupt by user"
+            self.finish(state="aborted", error=error)
         # 恢复原始 handler 并重新发送信号，让进程正常终止
         signal.signal(signal.SIGINT, self._original_sigint_handler)
         if self._original_sigint_handler is signal.SIG_IGN:
@@ -229,6 +236,7 @@ class SwanLabRun:
     def id(self) -> str:
         """
         Current run ID.
+
         :return: Run ID
         """
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
@@ -238,6 +246,7 @@ class SwanLabRun:
     def run_dir(self) -> Path:
         """
         Current run directory.
+
         :return: Run directory path
         """
         assert self._ctx.run_dir is not None, "Run dir is not set."
@@ -247,6 +256,7 @@ class SwanLabRun:
     def project_url(self) -> Optional[str]:
         """
         Current project URL if in cloud mode, otherwise None.
+
         :return: Project URL or None
         """
         settings = self._ctx.config.settings
@@ -266,15 +276,30 @@ class SwanLabRun:
         return f"{self.project_url}/runs/{settings.run.id}"
 
     # ----------------------------------
+    # 上下文管理器，允许用户以 with 语句启动和结束运行
+    # ----------------------------------
+    def __enter__(self) -> "SwanLabRun":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            full_error = "".join(traceback.format_exception(exc_type, exc_val, exc_tb))
+            self.finish(state="aborted" if exc_type is KeyboardInterrupt else "crashed", error=full_error)
+        else:
+            self.finish()
+
+    # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_lock
-    @with_run
+    @with_run("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
-        """记录一组日志（可能触发隐式列创建）"""
-        if self._state != "running":
-            console.error("Run has already finished or is not active, cannot call log() again.")
-            return
+        """Log a dictionary of metrics for the current step.
+
+        :param data: A mapping of metric names to values. Nested dicts are flattened.
+
+        :param step: Optional step index. If None, the step is auto-incremented.
+        """
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -300,21 +325,19 @@ class SwanLabRun:
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_lock
-    @with_run
+    @with_run("run.log_scalar()")
     def log_scalar(self, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
 
         :param key: The key for the scalar value.
-
         :param value: The scalar value.
-
         :param step: Optional step for the scalar value.
         """
         self.log({key: value}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_text()")
     def log_text(
         self,
         key: str,
@@ -326,18 +349,15 @@ class SwanLabRun:
         A syntactic sugar for logging text data.
 
         :param key: The key for the text data.
-
         :param data: The text data itself or a Text object.
-
         :param caption: Optional caption for the text data.
-
         :param step: Optional step for the text data.
         """
         normalized_data = normalize_media_input(Text, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_image()")
     def log_image(
         self,
         key: str,
@@ -349,18 +369,15 @@ class SwanLabRun:
         A syntactic sugar for logging image data.
 
         :param key: The key for the image data.
-
         :param data: The image data itself or an Image object.
-
         :param caption: Optional caption for the image data.
-
         :param step: Optional step for the image data.
         """
         normalized_data = normalize_media_input(Image, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_audio()")
     def log_audio(
         self,
         key: str,
@@ -373,20 +390,16 @@ class SwanLabRun:
         A syntactic sugar for logging audio data.
 
         :param key: The key for the audio data.
-
         :param data: The audio data itself or an Audio object.
-
         :param sample_rate: Sample rate of the audio (used when data is raw numpy array).
-
         :param caption: Optional caption for the audio data.
-
         :param step: Optional step for the audio data.
         """
         normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_video()")
     def log_video(
         self,
         key: str,
@@ -398,18 +411,15 @@ class SwanLabRun:
         A syntactic sugar for logging video data.
 
         :param key: The key for the video data.
-
         :param data: The video data itself or a Video object.
-
         :param caption: Optional caption for the video data.
-
         :param step: Optional step for the video data.
         """
         normalized_data = normalize_media_input(Video, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.define_scalar()")
     def define_scalar(
         self,
         key: str,
@@ -419,12 +429,13 @@ class SwanLabRun:
         chart_name: Optional[str] = None,
     ):
         """
-        手动定义一个标量列
-        :param key: 标量列的键，支持通配符（如 "train/*"）以匹配多个列
-        :param name: 标量列的可选显示名称
-        :param color: 标量列的可选颜色
-        :param x_axis: 标量列的可选 x 轴类型
-        :param chart_name: 标量列所属的可选图表名称
+        Manually define a scalar column before logging.
+
+        :param key: The key for the scalar column. Supports wildcards (e.g. ``"train/*"``) to match multiple columns.
+        :param name: Optional display name for the column.
+        :param color: Optional color for the column, as a hex color code.
+        :param x_axis: Optional x-axis type for the column.
+        :param chart_name: Optional chart name to group the column into.
         """
         # TODO: 实现 glob 匹配逻辑
         if not (this_key := fmt.safe_validate_key(key)):
@@ -460,11 +471,14 @@ class SwanLabRun:
         )
 
     @with_lock
-    @with_run
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
-        """安全关闭当前 Run，等待所有日志落盘"""
+        """Finish the current run and wait for all logs to be flushed.
+
+        :param state: Terminal state of the run. Defaults to ``"success"``.
+        :param error: Optional error message, required when ``state`` is ``"crashed"``.
+        """
+        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告
         if self._state != "running":
-            console.error("Run has already finished or is not active, cannot call finish() again.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):

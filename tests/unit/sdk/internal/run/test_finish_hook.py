@@ -108,12 +108,27 @@ class TestExcepthook:
 
 class TestSigintHandler:
     def test_calls_finish_aborted_when_running(self):
-        """SIGINT handler 在实验运行中应调用 finish(state='aborted')"""
+        """SIGINT handler 在实验运行中应调用 finish(state='aborted')，frame=None 时 error 无调用栈"""
         run = _make_mock_run()
         run._original_sigint_handler = signal.SIG_DFL
         with pytest.raises(KeyboardInterrupt):
             SwanLabRun._sigint_handler(run, signal.SIGINT, None)
-        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
+
+    def test_error_contains_stack_when_frame_provided(self):
+        """frame 不为 None 时，error 应包含调用栈信息"""
+        import sys
+
+        run = _make_mock_run()
+        run._original_sigint_handler = signal.SIG_IGN
+        # 用当前真实 frame 模拟信号打断场景
+        frame = sys._getframe()
+        SwanLabRun._sigint_handler(run, signal.SIGINT, frame)
+        call_kwargs = run.finish.call_args.kwargs
+        assert call_kwargs["state"] == "aborted"
+        assert "KeyboardInterrupt by user" in call_kwargs["error"]
+        # 调用栈非空时 error 应包含文件路径信息
+        assert "test_finish_hook.py" in call_kwargs["error"]
 
     def test_no_op_when_not_running(self):
         """_state != 'running' 时不调用 finish，仍抛出 KeyboardInterrupt"""
@@ -129,7 +144,7 @@ class TestSigintHandler:
         original = MagicMock()
         run._original_sigint_handler = original
         SwanLabRun._sigint_handler(run, signal.SIGINT, None)
-        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
         original.assert_called_once_with(signal.SIGINT, None)
 
     def test_sig_ign_does_nothing(self):
@@ -138,4 +153,4 @@ class TestSigintHandler:
         run._original_sigint_handler = signal.SIG_IGN
         # Should not raise
         SwanLabRun._sigint_handler(run, signal.SIGINT, None)
-        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt")
+        run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
