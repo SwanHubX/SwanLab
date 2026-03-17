@@ -170,7 +170,11 @@ class SwanLabRun:
         """
         if self._state == "running":
             console.info("KeyboardInterrupt by user")
-            self.finish(state="aborted", error="KeyboardInterrupt")
+            import traceback
+
+            stack = "".join(traceback.format_stack(frame)).strip() if frame is not None else ""
+            error = f"KeyboardInterrupt by user\n{stack}" if stack else "KeyboardInterrupt by user"
+            self.finish(state="aborted", error=error)
         # 恢复原始 handler 并重新发送信号，让进程正常终止
         signal.signal(signal.SIGINT, self._original_sigint_handler)
         if self._original_sigint_handler is signal.SIG_IGN:
@@ -272,6 +276,19 @@ class SwanLabRun:
         return f"{self.project_url}/runs/{settings.run.id}"
 
     # ----------------------------------
+    # 上下文管理器，允许用户以 with 语句启动和结束运行
+    # ----------------------------------
+    def __enter__(self) -> "SwanLabRun":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            full_error = "".join(traceback.format_exception(exc_type, exc_val, exc_tb))
+            self.finish(state="aborted" if exc_type is KeyboardInterrupt else "crashed", error=full_error)
+        else:
+            self.finish()
+
+    # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_lock
@@ -283,9 +300,6 @@ class SwanLabRun:
 
         :param step: Optional step index. If None, the step is auto-incremented.
         """
-        if self._state != "running":
-            console.error("Run has already finished or is not active, cannot call log() again.")
-            return
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -463,8 +477,8 @@ class SwanLabRun:
         :param state: Terminal state of the run. Defaults to ``"success"``.
         :param error: Optional error message, required when ``state`` is ``"crashed"``.
         """
+        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告
         if self._state != "running":
-            console.warning("Run has already finished or is not active, cannot call finish() again.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
