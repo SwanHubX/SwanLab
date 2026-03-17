@@ -277,7 +277,12 @@ class SwanLabRun:
     @with_lock
     @with_run("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
-        """记录一组日志（可能触发隐式列创建）"""
+        """Log a dictionary of metrics for the current step.
+
+        :param data: A mapping of metric names to values. Nested dicts are flattened.
+
+        :param step: Optional step index. If None, the step is auto-incremented.
+        """
         if self._state != "running":
             console.error("Run has already finished or is not active, cannot call log() again.")
             return
@@ -410,13 +415,13 @@ class SwanLabRun:
         chart_name: Optional[str] = None,
     ):
         """
-        手动定义一个标量列
+        Manually define a scalar column before logging.
 
-        :param key: 标量列的键，支持通配符（如 "train/*"）以匹配多个列
-        :param name: 标量列的可选显示名称
-        :param color: 标量列的可选颜色
-        :param x_axis: 标量列的可选 x 轴类型
-        :param chart_name: 标量列所属的可选图表名称
+        :param key: The key for the scalar column. Supports wildcards (e.g. ``"train/*"``) to match multiple columns.
+        :param name: Optional display name for the column.
+        :param color: Optional color for the column, as a hex color code.
+        :param x_axis: Optional x-axis type for the column.
+        :param chart_name: Optional chart name to group the column into.
         """
         # TODO: 实现 glob 匹配逻辑
         if not (this_key := fmt.safe_validate_key(key)):
@@ -453,7 +458,11 @@ class SwanLabRun:
 
     @with_lock
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
-        """安全关闭当前 Run，等待所有日志落盘"""
+        """Finish the current run and wait for all logs to be flushed.
+
+        :param state: Terminal state of the run. Defaults to ``"success"``.
+        :param error: Optional error message, required when ``state`` is ``"crashed"``.
+        """
         if self._state != "running":
             console.warning("Run has already finished or is not active, cannot call finish() again.")
             return
