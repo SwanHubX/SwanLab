@@ -34,16 +34,17 @@ __all__ = [
     "log_video",
     "define_scalar",
     # run
+    "run",
     "SwanLabRun",
     "has_run",
     "get_run",
+    # config
+    "config",
     # data
     "Text",
     "Audio",
     "Image",
     "Video",
-    # config
-    "config",
     # utils
     "utils",
 ]
@@ -212,6 +213,9 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
     ...
 
 # ── run access ─────────────────────────────────────────────────────────────────
+
+run: Optional[SwanLabRun]
+"""The current active SwanLab run, or None if no run is active."""
 
 def has_run() -> bool:
     """Check if there is an active SwanLab run.

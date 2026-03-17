@@ -20,6 +20,8 @@ from swanlab.sdk.utils.version import get_swanlab_version
 
 from . import utils
 
+__version__ = get_swanlab_version()
+
 __all__ = [
     # cmd
     "merge_settings",
@@ -34,6 +36,7 @@ __all__ = [
     "log_video",
     "define_scalar",
     # run
+    "run",  # type: ignore [no-redef]
     "SwanLabRun",
     "has_run",
     "get_run",
@@ -49,4 +52,10 @@ __all__ = [
 ]
 
 
-__version__ = get_swanlab_version()
+def __getattr__(name: str):
+    if name == "run":
+        try:
+            return get_run()
+        except RuntimeError:
+            return None
+    raise AttributeError(f"module 'swanlab' has no attribute {name!r}")
