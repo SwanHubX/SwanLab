@@ -1,9 +1,10 @@
 import pytest
 
+import swanlab
 from swanlab.sdk.internal.context import callbacker
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import log
-from swanlab.sdk.internal.run import clear_run, get_run, has_run
+from swanlab.sdk.internal.run import clear_run
 from swanlab.sdk.internal.run.config import reset as reset_config
 from swanlab.sdk.internal.settings import Settings, settings
 
@@ -47,10 +48,10 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     # 3. 清理 SwanLabRun 单例
     # 必须在 client 重置之前执行：cloud 模式的 run.finish() 可能需要 client 发送最后请求
     # 若 finish() 本身出错（如后台线程异常），直接强制清除引用，防止污染下一个用例
-    if has_run():
+    if (run := swanlab.run) is not None:
         # noinspection PyBroadException
         try:
-            get_run().finish()
+            run.finish()
         except Exception:  # noqa: E722
             clear_run()
 

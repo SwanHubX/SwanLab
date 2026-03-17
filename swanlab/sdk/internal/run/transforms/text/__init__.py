@@ -7,7 +7,7 @@
 
 import hashlib
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -16,10 +16,12 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem, TextValue
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.typings.run.transforms import CaptionType
+from swanlab.sdk.typings.run.transforms.text import TextDataType
 
 
 class Text(TransformMedia):
-    def __init__(self, content: Union["Text", str], caption: Optional[str] = None):
+    def __init__(self, content: TextDataType, caption: CaptionType = None):
         super().__init__()
         attrs = self._unwrap(content)
         self.content = attrs.get("content", content)

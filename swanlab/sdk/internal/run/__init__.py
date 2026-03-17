@@ -16,7 +16,7 @@ import traceback
 from functools import cached_property, wraps
 from pathlib import Path
 from types import TracebackType
-from typing import Any, List, Literal, Mapping, Optional, Type, Union, cast, get_args
+from typing import Any, Literal, Mapping, Optional, Type, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -36,6 +36,11 @@ from swanlab.sdk.internal.run.config import (
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
+from swanlab.sdk.typings.run.transforms import CaptionsType
+from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
+from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
+from swanlab.sdk.typings.run.transforms.text import TextDatasType
+from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
@@ -326,7 +331,7 @@ class SwanLabRun:
 
     @with_lock
     @with_run("run.log_scalar()")
-    def log_scalar(self, key: str, value: Union[float, int], step: Optional[int] = None):
+    def log_scalar(self, *, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
 
@@ -338,13 +343,7 @@ class SwanLabRun:
 
     @with_lock
     @with_run("run.log_text()")
-    def log_text(
-        self,
-        key: str,
-        data: Union[str, Text, List[str], List[Text]],
-        caption: Optional[Union[str, List[str]]] = None,
-        step: Optional[int] = None,
-    ):
+    def log_text(self, *, key: str, data: TextDatasType, caption: CaptionsType = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
 
@@ -360,9 +359,13 @@ class SwanLabRun:
     @with_run("run.log_image()")
     def log_image(
         self,
+        *,
         key: str,
-        data: Union[Image, Any, List[Any]],
-        caption: Optional[Union[str, List[str]]] = None,
+        data: ImageDatasType,
+        mode: ImageModesType = None,
+        caption: CaptionsType = None,
+        file_type: ImageFilesType = None,
+        size: ImageSizesType = None,
         step: Optional[int] = None,
     ):
         """
@@ -370,20 +373,24 @@ class SwanLabRun:
 
         :param key: The key for the image data.
         :param data: The image data itself or an Image object.
+        :param mode: PIL mode applied when converting to PIL.Image (e.g. 'RGB', 'L').
         :param caption: Optional caption for the image data.
+        :param file_type: Output file format. One of ['png', 'jpg', 'jpeg', 'bmp']. Defaults to 'png'.
+        :param size: Resize policy.
         :param step: Optional step for the image data.
         """
-        normalized_data = normalize_media_input(Image, data, caption=caption)
+        normalized_data = normalize_media_input(Image, data, mode=mode, caption=caption, size=size, file_type=file_type)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
     @with_run("run.log_audio()")
     def log_audio(
         self,
+        *,
         key: str,
-        data: Union[Audio, Any, List[Any]],
-        sample_rate: int = 44100,
-        caption: Optional[Union[str, List[str]]] = None,
+        data: AudioDatasType,
+        sample_rate: AudioRatesType = 44100,
+        caption: CaptionsType = None,
         step: Optional[int] = None,
     ):
         """
@@ -402,9 +409,10 @@ class SwanLabRun:
     @with_run("run.log_video()")
     def log_video(
         self,
+        *,
         key: str,
-        data: Union[Video, Any, List[Any]],
-        caption: Optional[Union[str, List[str]]] = None,
+        data: VideoDatasType,
+        caption: CaptionsType = None,
         step: Optional[int] = None,
     ):
         """
@@ -422,6 +430,7 @@ class SwanLabRun:
     @with_run("run.define_scalar()")
     def define_scalar(
         self,
+        *,
         key: str,
         name: Optional[str] = None,
         color: Optional[str] = None,
