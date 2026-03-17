@@ -37,17 +37,16 @@ from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, norma
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
+from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
+from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
+from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
 from .record_builder import RecordBuilder
 
 __all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
-
-from ...typings.run.transforms.audio import AudioDatasType, AudioRatesType
-from ...typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
-from ...typings.run.transforms.video import VideoDatasType
 
 
 def with_lock(func):
