@@ -326,7 +326,7 @@ class SwanLabRun:
 
     @with_lock
     @with_run("run.log_scalar()")
-    def log_scalar(self, key: str, value: Union[float, int], step: Optional[int] = None):
+    def log_scalar(self, *, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
 
@@ -340,6 +340,7 @@ class SwanLabRun:
     @with_run("run.log_text()")
     def log_text(
         self,
+        *,
         key: str,
         data: Union[str, Text, List[str], List[Text]],
         caption: Optional[Union[str, List[str]]] = None,
@@ -360,6 +361,7 @@ class SwanLabRun:
     @with_run("run.log_image()")
     def log_image(
         self,
+        *,
         key: str,
         data: Union[Image, Any, List[Any]],
         caption: Optional[Union[str, List[str]]] = None,
@@ -380,6 +382,7 @@ class SwanLabRun:
     @with_run("run.log_audio()")
     def log_audio(
         self,
+        *,
         key: str,
         data: Union[Audio, Any, List[Any]],
         sample_rate: int = 44100,
@@ -402,6 +405,7 @@ class SwanLabRun:
     @with_run("run.log_video()")
     def log_video(
         self,
+        *,
         key: str,
         data: Union[Video, Any, List[Any]],
         caption: Optional[Union[str, List[str]]] = None,
@@ -422,6 +426,7 @@ class SwanLabRun:
     @with_run("run.define_scalar()")
     def define_scalar(
         self,
+        *,
         key: str,
         name: Optional[str] = None,
         color: Optional[str] = None,
