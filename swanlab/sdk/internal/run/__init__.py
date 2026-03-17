@@ -57,18 +57,21 @@ def with_lock(func):
     return wrapper
 
 
-def with_run(func):
+def with_run(cmd: str):
     """
     run api装饰器，确保当前 run 实例激活
     """
 
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._state != "running":
-            raise RuntimeError("`swanlab.run` requires an active SwanLabRun, call `swanlab.init()` first.")
-        return func(self, *args, **kwargs)
+    def decorator(f):
+        @wraps(f)
+        def wrapper(self, *args, **kwargs):
+            if self._state != "running":
+                raise RuntimeError(f"`{cmd}` requires an active SwanLabRun, call `swanlab.init()` first.")
+            return f(self, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 class SwanLabRun:
@@ -229,6 +232,7 @@ class SwanLabRun:
     def id(self) -> str:
         """
         Current run ID.
+
         :return: Run ID
         """
         assert self._ctx.config.settings.run.id is not None, "Run id is not set."
@@ -238,6 +242,7 @@ class SwanLabRun:
     def run_dir(self) -> Path:
         """
         Current run directory.
+
         :return: Run directory path
         """
         assert self._ctx.run_dir is not None, "Run dir is not set."
@@ -247,6 +252,7 @@ class SwanLabRun:
     def project_url(self) -> Optional[str]:
         """
         Current project URL if in cloud mode, otherwise None.
+
         :return: Project URL or None
         """
         settings = self._ctx.config.settings
@@ -269,7 +275,7 @@ class SwanLabRun:
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_lock
-    @with_run
+    @with_run("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """记录一组日志（可能触发隐式列创建）"""
         if self._state != "running":
@@ -300,21 +306,19 @@ class SwanLabRun:
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_lock
-    @with_run
+    @with_run("run.log_scalar()")
     def log_scalar(self, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
 
         :param key: The key for the scalar value.
-
         :param value: The scalar value.
-
         :param step: Optional step for the scalar value.
         """
         self.log({key: value}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_text()")
     def log_text(
         self,
         key: str,
@@ -326,18 +330,15 @@ class SwanLabRun:
         A syntactic sugar for logging text data.
 
         :param key: The key for the text data.
-
         :param data: The text data itself or a Text object.
-
         :param caption: Optional caption for the text data.
-
         :param step: Optional step for the text data.
         """
         normalized_data = normalize_media_input(Text, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_image()")
     def log_image(
         self,
         key: str,
@@ -349,18 +350,15 @@ class SwanLabRun:
         A syntactic sugar for logging image data.
 
         :param key: The key for the image data.
-
         :param data: The image data itself or an Image object.
-
         :param caption: Optional caption for the image data.
-
         :param step: Optional step for the image data.
         """
         normalized_data = normalize_media_input(Image, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_audio()")
     def log_audio(
         self,
         key: str,
@@ -373,20 +371,16 @@ class SwanLabRun:
         A syntactic sugar for logging audio data.
 
         :param key: The key for the audio data.
-
         :param data: The audio data itself or an Audio object.
-
         :param sample_rate: Sample rate of the audio (used when data is raw numpy array).
-
         :param caption: Optional caption for the audio data.
-
         :param step: Optional step for the audio data.
         """
         normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.log_video()")
     def log_video(
         self,
         key: str,
@@ -398,18 +392,15 @@ class SwanLabRun:
         A syntactic sugar for logging video data.
 
         :param key: The key for the video data.
-
         :param data: The video data itself or a Video object.
-
         :param caption: Optional caption for the video data.
-
         :param step: Optional step for the video data.
         """
         normalized_data = normalize_media_input(Video, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_lock
-    @with_run
+    @with_run("run.define_scalar()")
     def define_scalar(
         self,
         key: str,
@@ -420,6 +411,7 @@ class SwanLabRun:
     ):
         """
         手动定义一个标量列
+
         :param key: 标量列的键，支持通配符（如 "train/*"）以匹配多个列
         :param name: 标量列的可选显示名称
         :param color: 标量列的可选颜色
@@ -460,11 +452,10 @@ class SwanLabRun:
         )
 
     @with_lock
-    @with_run
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """安全关闭当前 Run，等待所有日志落盘"""
         if self._state != "running":
-            console.error("Run has already finished or is not active, cannot call finish() again.")
+            console.warning("Run has already finished or is not active, cannot call finish() again.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
