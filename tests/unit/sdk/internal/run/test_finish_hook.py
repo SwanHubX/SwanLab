@@ -52,17 +52,17 @@ class TestExcepthook:
     def test_keyboard_interrupt_calls_aborted(self):
         """KeyboardInterrupt → finish(state='aborted', ...)"""
         run = _make_mock_run()
-        with patch("sys.__excepthook__"):
-            tp, val, tb = _make_exc_info(KeyboardInterrupt())
-            SwanLabRun._excepthook(run, tp, val, tb)
+        run._sys_origin_excepthook = MagicMock()
+        tp, val, tb = _make_exc_info(KeyboardInterrupt())
+        SwanLabRun._excepthook(run, tp, val, tb)
         run.finish.assert_called_once_with(state="aborted", error=ANY)
 
     def test_generic_exception_calls_crashed(self):
         """普通异常 → finish(state='crashed')，error 包含完整 traceback"""
         run = _make_mock_run()
-        with patch("sys.__excepthook__"):
-            tp, val, tb = _make_exc_info(RuntimeError("boom"))
-            SwanLabRun._excepthook(run, tp, val, tb)
+        run._sys_origin_excepthook = MagicMock()
+        tp, val, tb = _make_exc_info(RuntimeError("boom"))
+        SwanLabRun._excepthook(run, tp, val, tb)
         call_kwargs = run.finish.call_args.kwargs
         assert call_kwargs["state"] == "crashed"
         assert "boom" in call_kwargs["error"]
@@ -70,27 +70,40 @@ class TestExcepthook:
     def test_no_op_when_not_running(self):
         """_state != 'running' 时不调用 finish"""
         run = _make_mock_run(state="success")
-        with patch("sys.__excepthook__"):
-            tp, val, tb = _make_exc_info(RuntimeError("no run"))
-            SwanLabRun._excepthook(run, tp, val, tb)
+        run._sys_origin_excepthook = MagicMock()
+        tp, val, tb = _make_exc_info(RuntimeError("no run"))
+        SwanLabRun._excepthook(run, tp, val, tb)
         run.finish.assert_not_called()
 
-    def test_always_calls_original_excepthook(self):
-        """无论是否有活跃 Run，sys.__excepthook__ 必须被调用一次"""
+    def test_always_calls_saved_origin_excepthook(self):
+        """无论是否有活跃 Run，始终调用注册时保存的原始 hook，而非 sys.__excepthook__"""
         run = _make_mock_run(state="success")
-        with patch("sys.__excepthook__") as mock_original:
-            tp, val, tb = _make_exc_info(RuntimeError("test"))
+        saved_hook = MagicMock()
+        run._sys_origin_excepthook = saved_hook
+        tp, val, tb = _make_exc_info(RuntimeError("test"))
+        SwanLabRun._excepthook(run, tp, val, tb)
+        saved_hook.assert_called_once_with(tp, val, tb)
+
+    def test_calls_saved_hook_not_builtin(self):
+        """当外层框架替换了 sys.excepthook 时，调用保存的外层 hook，而非内置默认 hook"""
+        run = _make_mock_run()
+        outer_framework_hook = MagicMock()
+        run._sys_origin_excepthook = outer_framework_hook
+        tp, val, tb = _make_exc_info(RuntimeError("outer"))
+        with patch("sys.__excepthook__") as mock_builtin:
             SwanLabRun._excepthook(run, tp, val, tb)
-            mock_original.assert_called_once_with(tp, val, tb)
+        outer_framework_hook.assert_called_once_with(tp, val, tb)
+        mock_builtin.assert_not_called()
 
     def test_internal_error_doesnt_crash(self):
-        """excepthook 内部出错时不向上抛出，仍调用 sys.__excepthook__"""
+        """excepthook 内部出错时不向上抛出，仍调用保存的原始 hook"""
         run = _make_mock_run()
         run.finish.side_effect = Exception("internal boom")
-        with patch("sys.__excepthook__") as mock_original:
-            tp, val, tb = _make_exc_info(RuntimeError("outer"))
-            SwanLabRun._excepthook(run, tp, val, tb)
-            mock_original.assert_called_once_with(tp, val, tb)
+        saved_hook = MagicMock()
+        run._sys_origin_excepthook = saved_hook
+        tp, val, tb = _make_exc_info(RuntimeError("outer"))
+        SwanLabRun._excepthook(run, tp, val, tb)
+        saved_hook.assert_called_once_with(tp, val, tb)
 
 
 class TestSigintHandler:

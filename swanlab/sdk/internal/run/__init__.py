@@ -197,7 +197,7 @@ class SwanLabRun:
                 return
             state: FinishType = "crashed"
             if tp is KeyboardInterrupt:
-                console.info("KeyboardInterrupt by user")
+                console.info("KeyboardInterrupt by user, aborting run...")
                 state = "aborted"
             else:
                 console.info("Error happened while training")
@@ -206,7 +206,7 @@ class SwanLabRun:
         except Exception as e:
             console.error(f"SwanLab failed to handle excepthook: {e}")
         finally:
-            sys.__excepthook__(tp, val, tb)
+            self._sys_origin_excepthook(tp, val, tb)
 
     def _cleanup(self):
         """
