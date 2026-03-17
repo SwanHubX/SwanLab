@@ -8,7 +8,7 @@
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -18,6 +18,8 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.image_pb2 import ImageItem, ImageValue
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.typings.run.transforms import CaptionType
+from swanlab.sdk.typings.run.transforms.image import ImageDataType, ImageFileType, ImageModeType, ImageSizeType
 
 ACCEPT_FORMAT = ["png", "jpg", "jpeg", "bmp"]
 
@@ -50,18 +52,11 @@ def _resize(image: "vendor.PIL.Image.Image", size) -> "vendor.PIL.Image.Image":
 class Image(TransformMedia):
     def __init__(
         self,
-        data_or_path: Union[
-            "Image",
-            str,
-            "vendor.PIL.Image.Image",
-            "vendor.np.ndarray",
-            "vendor.torch.Tensor",
-            "vendor.matplotlib.figure.Figure",
-        ],
-        mode: Optional[str] = None,
-        caption: Optional[str] = None,
-        file_type: Optional[str] = None,
-        size: Optional[Union[int, list, tuple]] = None,
+        data_or_path: ImageDataType,
+        mode: ImageModeType = None,
+        caption: CaptionType = None,
+        file_type: ImageFileType = None,
+        size: ImageSizeType = None,
     ):
         """Image class constructor
 
@@ -95,9 +90,10 @@ class Image(TransformMedia):
             return
 
         # 校验 file_type
+        file_types = get_args(get_args(ImageFileType)[0])
         ft = (file_type or "png").lower()
-        if ft not in ACCEPT_FORMAT:
-            raise ValueError(f"Unsupported file_type '{ft}'. Accepted: {ACCEPT_FORMAT}")
+        if ft not in file_types:
+            raise ValueError(f"Unsupported file_type '{ft}'. Accepted: {file_types}")
         self.file_type = ft
 
         # ---------- 各类型输入 → PIL Image ----------
@@ -140,7 +136,9 @@ class Image(TransformMedia):
         elif isinstance(data_or_path, vendor.np.ndarray):
             arr = data_or_path
             if arr.ndim == 2 or (arr.ndim == 3 and arr.shape[2] in (3, 4)):
-                image_data = PILImage.fromarray(vendor.np.clip(arr, 0, 255).astype(vendor.np.uint8), mode=mode)
+                image_data = PILImage.fromarray(vendor.np.clip(arr, 0, 255).astype(vendor.np.uint8))
+                if mode is not None and image_data.mode != mode:
+                    image_data = image_data.convert(mode)
             else:
                 raise TypeError(f"Invalid numpy array shape for Image: expected (H, W) or (H, W, 3/4), got {arr.shape}")
 

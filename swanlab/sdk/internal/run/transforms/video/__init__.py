@@ -8,7 +8,7 @@
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -17,6 +17,8 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.video_pb2 import VideoItem, VideoValue
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.typings.run.transforms import CaptionType
+from swanlab.sdk.typings.run.transforms.video import VideoDataType
 
 # 各格式的魔数校验表，新增格式时在此追加
 # format → (magic_bytes, ...)
@@ -39,11 +41,7 @@ def _detect_format_by_magic(data: bytes) -> Optional[str]:
 
 
 class Video(TransformMedia):
-    def __init__(
-        self,
-        data_or_path: Union["Video", str, bytes, BytesIO],
-        caption: Optional[str] = None,
-    ):
+    def __init__(self, data_or_path: VideoDataType, caption: CaptionType = None):
         """Video class constructor
 
         目前支持的格式：GIF。

@@ -16,6 +16,11 @@ from .sdk.internal.run.transforms import Audio, Image, Text, Video
 from .sdk.internal.settings import Settings
 from .sdk.typings.run import FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
+from .sdk.typings.run.transforms import CaptionsType
+from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
+from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
+from .sdk.typings.run.transforms.text import TextDatasType
+from .sdk.typings.run.transforms.video import VideoDatasType
 from .sdk.utils.callbacker import SwanLabCallback
 
 __version__: str
@@ -276,9 +281,10 @@ def log(data: Mapping[str, Any], step: Optional[int] = None) -> None:
     ...
 
 def log_text(
+    *,
     key: str,
-    data: Union[str, Text, List[str], List[Text]],
-    caption: Optional[Union[str, List[str]]] = None,
+    data: TextDatasType,
+    caption: CaptionsType = None,
     step: Optional[int] = None,
 ) -> None:
     """A syntactic sugar for logging text data.
@@ -295,29 +301,36 @@ def log_text(
 
         >>> import swanlab
         >>> swanlab.init(mode="local")
-        >>> swanlab.log_text("output", "Training started")
+        >>> swanlab.log_text(key="output", data="Training started")
         >>> swanlab.finish()
 
         Log text with caption:
 
         >>> import swanlab
         >>> swanlab.init(mode="local")
-        >>> swanlab.log_text("prediction", "cat", caption="Model output")
+        >>> swanlab.log_text(key="prediction", data="cat", caption="Model output")
         >>> swanlab.finish()
     """
     ...
 
 def log_image(
+    *,
     key: str,
-    data: Union[Image, Any, List[Any]],
-    caption: Optional[Union[str, List[str]]] = None,
+    data: ImageDatasType,
+    mode: ImageModesType = None,
+    caption: CaptionsType = None,
+    file_type: ImageFilesType = None,
+    size: ImageSizesType = None,
     step: Optional[int] = None,
 ) -> None:
     """A syntactic sugar for logging image data.
 
     :param key: The key for the image data.
     :param data: The image data itself or an Image object.
+    :param mode: PIL mode applied when converting to PIL.Image (e.g. 'RGB', 'L').
     :param caption: Optional caption for the image data.
+    :param file_type: Output file format. One of ['png', 'jpg', 'jpeg', 'bmp']. Defaults to 'png'.
+    :param size: Resize policy (int for max side, (w, h) tuple for exact size).
     :param step: Optional step number. If not provided, auto-increments.
     :raises RuntimeError: If called without an active run.
 
@@ -326,16 +339,17 @@ def log_image(
         >>> import swanlab, numpy as np
         >>> swanlab.init(mode="local")
         >>> img = np.zeros((64, 64, 3), dtype=np.uint8)
-        >>> swanlab.log_image("sample", img, caption="blank image")
+        >>> swanlab.log_image(key="sample", data=img, caption="blank image")
         >>> swanlab.finish()
     """
     ...
 
 def log_audio(
+    *,
     key: str,
-    data: Union[Audio, Any, List[Any]],
-    sample_rate: int = 44100,
-    caption: Optional[Union[str, List[str]]] = None,
+    data: AudioDatasType,
+    sample_rate: AudioRatesType = 44100,
+    caption: CaptionsType = None,
     step: Optional[int] = None,
 ) -> None:
     """A syntactic sugar for logging audio data.
@@ -352,15 +366,16 @@ def log_audio(
         >>> import swanlab, numpy as np
         >>> swanlab.init(mode="local")
         >>> audio = np.zeros((1, 44100), dtype=np.float32)
-        >>> swanlab.log_audio("sound", audio, sample_rate=44100)
+        >>> swanlab.log_audio(key="sound", data=audio, sample_rate=44100)
         >>> swanlab.finish()
     """
     ...
 
 def log_video(
+    *,
     key: str,
-    data: Union[Video, Any, List[Any]],
-    caption: Optional[Union[str, List[str]]] = None,
+    data: VideoDatasType,
+    caption: CaptionsType = None,
     step: Optional[int] = None,
 ) -> None:
     """A syntactic sugar for logging video data.
@@ -378,12 +393,13 @@ def log_video(
         >>> import swanlab
         >>> swanlab.init(mode="local")
         >>> with open("animation.gif", "rb") as f:
-        ...     swanlab.log_video("rollout", f.read())
+        ...     swanlab.log_video(key="rollout", data=f.read())
         >>> swanlab.finish()
     """
     ...
 
 def define_scalar(
+    *,
     key: str,
     name: Optional[str] = None,
     color: Optional[str] = None,

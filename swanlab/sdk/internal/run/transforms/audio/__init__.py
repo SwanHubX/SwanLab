@@ -8,7 +8,7 @@
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -18,15 +18,12 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.audio_pb2 import AudioItem, AudioValue
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.typings.run.transforms import CaptionType
+from swanlab.sdk.typings.run.transforms.audio import AudioDataType, AudioRateType
 
 
 class Audio(TransformMedia):
-    def __init__(
-        self,
-        data_or_path: Union["Audio", str, "vendor.np.ndarray"],
-        sample_rate: int = 44100,
-        caption: Optional[str] = None,
-    ):
+    def __init__(self, data_or_path: AudioDataType, sample_rate: AudioRateType = 44100, caption: CaptionType = None):
         """Audio class constructor
 
         Parameters
