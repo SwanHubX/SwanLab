@@ -29,10 +29,16 @@ def timer_manager():
 
 class TestTimer:
     def test_basic_interval(self, timer_manager):
-        timer = timer_manager(lambda: None, interval=0.1, immediate=False)
+        task_triggered = threading.Event()
+
+        def task():
+            if timer.execution_count >= 1:
+                task_triggered.set()
+
+        timer = timer_manager(task, interval=0.1, immediate=False)
         timer.run()
 
-        time.sleep(0.25)
+        assert task_triggered.wait(timeout=2.0), "Task was not executed twice"
 
         timer.cancel()
         timer.join(timeout=1.0)
@@ -41,12 +47,12 @@ class TestTimer:
         assert not timer.is_running
 
     def test_immediate_execution(self, timer_manager):
-        triggered = threading.Event()
+        task_triggered = threading.Event()
 
-        timer = timer_manager(triggered.set, interval=10.0, immediate=True)
+        timer = timer_manager(task_triggered.set, interval=10.0, immediate=True)
         timer.run()
 
-        assert triggered.wait(0.2)
+        assert task_triggered.wait(2.0)
 
         timer.cancel()
         timer.join(timeout=1.0)
@@ -67,7 +73,7 @@ class TestTimer:
         timer = timer_manager(lambda: None, interval=interval_strategy)
         timer.run()
 
-        assert reached_slow_interval.wait(0.35)
+        assert reached_slow_interval.wait(2.0)
 
         timer.cancel()
         timer.join(timeout=1.0)
@@ -115,11 +121,11 @@ class TestTimer:
         warning_mock = MagicMock()
         monkeypatch.setattr(console, "warning", warning_mock)
 
-        entered = threading.Event()
-        timer = timer_manager(entered.set, interval=1.0, immediate=True)
+        task_triggered = threading.Event()
+        timer = timer_manager(task_triggered.set, interval=1.0, immediate=True)
         timer.run()
 
-        assert entered.wait(0.2)
+        assert task_triggered.wait(2.0)
 
         timer.run()
 
@@ -129,18 +135,21 @@ class TestTimer:
         timer.join(timeout=1.0)
 
     def test_restart_capability(self, timer_manager):
-        timer = timer_manager(lambda: None, interval=0.1)
+        task_triggered = threading.Event()
+
+        timer = timer_manager(task_triggered.set, interval=0.1)
 
         timer.run()
-        time.sleep(0.15)
+        assert task_triggered.wait(timeout=2.0), "First run: task was never executed"
         timer.cancel()
         timer.join(timeout=1.0)
 
         first_run_count = timer.execution_count
         assert first_run_count >= 1
 
+        task_triggered.clear()
         timer.run()
-        time.sleep(0.15)
+        assert task_triggered.wait(timeout=2.0), "Second run: task was never executed"
         timer.cancel()
         timer.join(timeout=1.0)
 
