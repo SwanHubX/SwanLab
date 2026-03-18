@@ -116,7 +116,7 @@ class Experiment:
         """
         Experiment profile containing config, metadata, requirements, and conda.
         """
-        if not self._data.get('profile'):
+        if 'profile' not in self._data:
             self._data = get_single_experiment(self._client, path=self.path)
 
         return Profile(self._data.get('profile', {}))
