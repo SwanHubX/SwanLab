@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 
 from swanlab.api.user import User
 from swanlab.api.utils import Label, get_properties
-from swanlab.core_python.api.experiment import delete_experiment
+from swanlab.core_python.api.experiment import delete_experiment, get_single_experiment
 from swanlab.core_python.api.type import RunType
 from swanlab.core_python.client import Client
 from swanlab.error import ApiError
@@ -116,6 +116,9 @@ class Experiment:
         """
         Experiment profile containing config, metadata, requirements, and conda.
         """
+        if not self._data.get('profile'):
+            self._data = get_single_experiment(self._client, path=self.path)
+
         return Profile(self._data.get('profile', {}))
 
     @property
@@ -229,11 +232,11 @@ class Experiment:
 
             # Strip "_step" suffix from column names (Python 3.8 compatible)
             def strip_suffix(col, suffix="_step"):
-                return col[:-len(suffix)] if col.endswith(suffix) else col
+                return col[: -len(suffix)] if col.endswith(suffix) else col
 
             # Apply prefix removal and suffix stripping
             df.columns = [
-                strip_suffix(col[len(prefix):]) if prefix and col.startswith(prefix) else strip_suffix(col)
+                strip_suffix(col[len(prefix) :]) if prefix and col.startswith(prefix) else strip_suffix(col)
                 for col in df.columns
             ]
             dfs.append(df)
@@ -244,7 +247,9 @@ class Experiment:
 
         # Handle x_axis: drop timestamp columns, reorder, filter nulls
         if use_x_axis:
-            result_df = result_df.drop(columns=[c for c in result_df.columns if c.endswith("_timestamp")], errors='ignore')
+            result_df = result_df.drop(
+                columns=[c for c in result_df.columns if c.endswith("_timestamp")], errors='ignore'
+            )
             if x_axis not in result_df.columns:
                 raise ValueError(f"x_axis '{x_axis}' not found in result DataFrame")
             cols = [x_axis] + [c for c in result_df.columns if c != x_axis]
@@ -255,7 +260,7 @@ class Experiment:
             result_df = result_df.head(sample)
 
         return result_df
-    
+
     def delete(self):
         """
         Delete this experiment.
