@@ -68,22 +68,52 @@ def get_project_experiments(
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
     :param client: 已登录的客户端实例
     :param path: 项目路径 username/project
-    :param filters: 筛选实验的条件，可选
+    :param filters: 筛选实验的条件，可选。支持以下特殊 key：
+        - 'group': 按分组名称筛选，值为字符串
+        - 'tags': 按标签筛选，值为字符串列表
+        - 'name': 按实验名筛选，值为字符串
+        - 'username': 按创建人筛选，值为字符串
+        - 'job_type': 按任务类型筛选，值为字符串
     """
-    parsed_filters = (
-        [
-            {
-                "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
-                "active": True,
-                "value": [value],
-                "op": 'EQ',
-                "type": parse_column_type(key),
-            }
-            for key, value in filters.items()
-        ]
-        if filters
-        else []
-    )
+    # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
+    SPECIAL_FILTER_CONFIG = {
+        "group": {"key": "cluster", "op": "EQ"},
+        "tags": {"key": "labels", "op": "IN"},
+        "name": {"key": "name", "op": "EQ"},
+        "username": {"key": "user.username", "op": "EQ"},
+        "job_type": {"key": "job", "op": "EQ"},
+    }
+
+    parsed_filters = []
+
+    if filters:
+        for key, value in filters.items():
+            if key in SPECIAL_FILTER_CONFIG:
+                # 特殊字段处理
+                config = SPECIAL_FILTER_CONFIG[key]
+                # tags 需要转换为列表
+                filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
+                parsed_filters.append(
+                    {
+                        "key": config["key"],
+                        "active": True,
+                        "value": filter_value,
+                        "op": config["op"],
+                        "type": 'STABLE',
+                    }
+                )
+            else:
+                # 常规字段处理
+                parsed_filters.append(
+                    {
+                        "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
+                        "type": parse_column_type(key),
+                    }
+                )
+
     res = client.post(f"/project/{path}/runs/shows", data={'filters': parsed_filters})
     return res[0]
 

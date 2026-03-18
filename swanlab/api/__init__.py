@@ -140,8 +140,13 @@ class Api:
         """
         获取指定项目下的所有实验信息
         :param path: 项目路径，格式为 'username/project'
+        :param filters: 筛选实验的条件，可选。支持以下特殊 key：
+            - 'group': 按分组名称筛选，值为字符串
+            - 'tags': 按标签筛选，值为字符串列表
+            - 'name': 按实验名筛选，值为字符串
+            - 'username': 按创建人筛选，值为字符串
+            - 'job_type': 按任务类型筛选，值为字符串
         :return: Experiments 实例，可遍历获取实验信息
-        :param filters: 筛选实验的条件，可选
         """
         return Experiments(self._client, path=path, login_info=self._login_info, filters=filters)
 
