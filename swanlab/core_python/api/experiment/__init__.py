@@ -71,12 +71,15 @@ def get_project_experiments(
     :param filters: 筛选实验的条件，可选。支持以下特殊 key：
         - 'group': 按分组名称筛选，值为字符串
         - 'tags': 按标签筛选，值为字符串列表
+        - 'name': 按实验名筛选，值为字符串
+        - 'user.username': 按创建人筛选，值为字符串
+        - 'job_type': 按任务类型筛选，值为字符串
     """
     parsed_filters = []
 
     if filters:
         for key, value in filters.items():
-            # 特殊处理 group 和 tags
+            # 特殊处理 group、tags、name、user.username、job_type
             if key == 'group':
                 parsed_filters.append(
                     {
@@ -94,6 +97,36 @@ def get_project_experiments(
                         "active": True,
                         "value": list(value) if isinstance(value, (list, tuple)) else [value],
                         "op": 'IN',
+                        "type": 'STABLE',
+                    }
+                )
+            elif key == 'name':
+                parsed_filters.append(
+                    {
+                        "key": "name",
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
+                        "type": 'STABLE',
+                    }
+                )
+            elif key == 'user.username':
+                parsed_filters.append(
+                    {
+                        "key": "user.username",
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
+                        "type": 'STABLE',
+                    }
+                )
+            elif key == 'job_type':
+                parsed_filters.append(
+                    {
+                        "key": "job",
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
                         "type": 'STABLE',
                     }
                 )
