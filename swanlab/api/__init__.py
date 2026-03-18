@@ -144,7 +144,7 @@ class Api:
             - 'group': 按分组名称筛选，值为字符串
             - 'tags': 按标签筛选，值为字符串列表
             - 'name': 按实验名筛选，值为字符串
-            - 'user.username': 按创建人筛选，值为字符串
+            - 'username': 按创建人筛选，值为字符串
             - 'job_type': 按任务类型筛选，值为字符串
         :return: Experiments 实例，可遍历获取实验信息
         """

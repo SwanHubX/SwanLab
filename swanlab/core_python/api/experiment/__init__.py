@@ -72,61 +72,33 @@ def get_project_experiments(
         - 'group': 按分组名称筛选，值为字符串
         - 'tags': 按标签筛选，值为字符串列表
         - 'name': 按实验名筛选，值为字符串
-        - 'user.username': 按创建人筛选，值为字符串
+        - 'username': 按创建人筛选，值为字符串
         - 'job_type': 按任务类型筛选，值为字符串
     """
+    # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
+    SPECIAL_FILTER_CONFIG = {
+        "group": {"key": "cluster", "op": "EQ"},
+        "tags": {"key": "labels", "op": "IN"},
+        "name": {"key": "name", "op": "EQ"},
+        "username": {"key": "user.username", "op": "EQ"},
+        "job_type": {"key": "job", "op": "EQ"},
+    }
+
     parsed_filters = []
 
     if filters:
         for key, value in filters.items():
-            # 特殊处理 group、tags、name、user.username、job_type
-            if key == 'group':
+            if key in SPECIAL_FILTER_CONFIG:
+                # 特殊字段处理
+                config = SPECIAL_FILTER_CONFIG[key]
+                # tags 需要转换为列表
+                filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
                 parsed_filters.append(
                     {
-                        "key": "cluster",
+                        "key": config["key"],
                         "active": True,
-                        "value": [value],
-                        "op": 'EQ',
-                        "type": 'STABLE',
-                    }
-                )
-            elif key == 'tags':
-                parsed_filters.append(
-                    {
-                        "key": "labels",
-                        "active": True,
-                        "value": list(value) if isinstance(value, (list, tuple)) else [value],
-                        "op": 'IN',
-                        "type": 'STABLE',
-                    }
-                )
-            elif key == 'name':
-                parsed_filters.append(
-                    {
-                        "key": "name",
-                        "active": True,
-                        "value": [value],
-                        "op": 'EQ',
-                        "type": 'STABLE',
-                    }
-                )
-            elif key == 'user.username':
-                parsed_filters.append(
-                    {
-                        "key": "user.username",
-                        "active": True,
-                        "value": [value],
-                        "op": 'EQ',
-                        "type": 'STABLE',
-                    }
-                )
-            elif key == 'job_type':
-                parsed_filters.append(
-                    {
-                        "key": "job",
-                        "active": True,
-                        "value": [value],
-                        "op": 'EQ',
+                        "value": filter_value,
+                        "op": config["op"],
                         "type": 'STABLE',
                     }
                 )
