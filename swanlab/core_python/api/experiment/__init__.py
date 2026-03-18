@@ -68,22 +68,47 @@ def get_project_experiments(
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
     :param client: 已登录的客户端实例
     :param path: 项目路径 username/project
-    :param filters: 筛选实验的条件，可选
+    :param filters: 筛选实验的条件，可选。支持以下特殊 key：
+        - 'group': 按分组名称筛选，值为字符串
+        - 'tags': 按标签筛选，值为字符串列表
     """
-    parsed_filters = (
-        [
-            {
-                "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
-                "active": True,
-                "value": [value],
-                "op": 'EQ',
-                "type": parse_column_type(key),
-            }
-            for key, value in filters.items()
-        ]
-        if filters
-        else []
-    )
+    parsed_filters = []
+
+    if filters:
+        for key, value in filters.items():
+            # 特殊处理 group 和 tags
+            if key == 'group':
+                parsed_filters.append(
+                    {
+                        "key": "cluster",
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
+                        "type": 'STABLE',
+                    }
+                )
+            elif key == 'tags':
+                parsed_filters.append(
+                    {
+                        "key": "labels",
+                        "active": True,
+                        "value": list(value) if isinstance(value, (list, tuple)) else [value],
+                        "op": 'IN',
+                        "type": 'STABLE',
+                    }
+                )
+            else:
+                # 常规字段处理
+                parsed_filters.append(
+                    {
+                        "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
+                        "active": True,
+                        "value": [value],
+                        "op": 'EQ',
+                        "type": parse_column_type(key),
+                    }
+                )
+
     res = client.post(f"/project/{path}/runs/shows", data={'filters': parsed_filters})
     return res[0]
 
