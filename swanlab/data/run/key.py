@@ -7,7 +7,7 @@
 
 import json
 import math
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from swanlab.data.modules import DataWrapper, Line
 from swanlab.env import create_time
@@ -42,6 +42,10 @@ class SwanLabKey:
         self.key = key
         # 当前 key 包含的 step
         self.steps = set()
+        # 当前 key 的 step 与首次写入 epoch 的映射，重复 step 覆盖时需要保持 epoch 不变
+        self._step_epochs: Dict[int, int] = {}
+        # 当前 key 的 step 与摘要值的映射，用于覆盖时重建 summary
+        self._step_summary_values: Dict[int, Optional[object]] = {}
         self.column_info: Optional[ColumnInfo] = None
         self._media_dir = media_dir
         self._log_dir = log_dir
@@ -110,22 +114,24 @@ class SwanLabKey:
         # 4. 更新 summary 并添加数据
         # 如果为Line且为NaN或者INF，不更新summary
         r = result.strings or result.float
-        if not data.type == Line or r not in [Line.nan, Line.inf]:
-            if self._summary.get("max") is None or r > self._summary["max"]:
-                self._summary["max"] = r
-                self._summary["max_step"] = result.step
-            if self._summary.get("min") is None or r < self._summary["min"]:
-                self._summary["min"] = r
-                self._summary["min_step"] = result.step
-        self._summary["num"] = self._summary.get("num", 0) + 1
-        self.steps.add(result.step)
-        swanlog.debug(f"Add data, key: {self.key}, step: {result.step}, data: {r}")
-        if len(self._collection["data"]) >= self.__slice_size:
-            self._collection = self.__new_metric_collection()
-
+        overwrite = result.step in self._step_epochs
+        if not overwrite:
+            self.steps.add(result.step)
+            self._step_epochs[result.step] = len(self.steps)
+        epoch = self._step_epochs[result.step]
         new_data = self.__new_metric(result.step, r, more=result.more)
-        self._collection["data"].append(new_data)
-        epoch = len(self.steps)
+
+        # 覆盖写入时，只有当前 step 持有的 extremum 被削弱/移除时才需要全量重建。
+        needs_rebuild = overwrite and self._should_rebuild_summary_on_overwrite(result.step, data.type, r)
+        self._set_summary_value(result.step, data.type, r)
+        if needs_rebuild:
+            self._rebuild_summary()
+        else:
+            self._update_summary_incremental(result.step, data.type, r)
+        self._update_collection(new_data, result.step, overwrite)
+        swanlog.debug(
+            f"{'Overwrite' if overwrite else 'Add'} data, key: {self.key}, step: {result.step}, data: {r}"
+        )
         mu = math.ceil(epoch / self.__slice_size)
         return MetricInfo(
             column_info=self.column_info,
@@ -137,7 +143,66 @@ class SwanLabKey:
             metric_file_name=str(mu * self.__slice_size) + ".log",
             swanlab_logdir=self._log_dir,
             swanlab_media_dir=self._media_dir if result.buffers else None,
+            metric_overwrite=overwrite,
         )
+
+    def _set_summary_value(self, step: int, data_type, value) -> None:
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            self._step_summary_values[step] = None
+            return
+        self._step_summary_values[step] = value
+
+    def _should_rebuild_summary_on_overwrite(self, step: int, data_type, value) -> bool:
+        max_step = self._summary.get("max_step")
+        min_step = self._summary.get("min_step")
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            return step == max_step or step == min_step
+
+        current_max = self._summary.get("max")
+        if step == max_step and current_max is not None and value < current_max:
+            return True
+
+        current_min = self._summary.get("min")
+        if step == min_step and current_min is not None and value > current_min:
+            return True
+
+        return False
+
+    def _update_summary_incremental(self, step: int, data_type, value) -> None:
+        if data_type == Line and value in [Line.nan, Line.inf]:
+            return
+        if self._summary.get("max") is None or value > self._summary["max"]:
+            self._summary["max"] = value
+            self._summary["max_step"] = step
+        if self._summary.get("min") is None or value < self._summary["min"]:
+            self._summary["min"] = value
+            self._summary["min_step"] = step
+        self._summary["num"] = len(self.steps)
+
+    def _rebuild_summary(self) -> None:
+        summary = {"num": len(self.steps)}
+        for step, _epoch in sorted(self._step_epochs.items(), key=lambda item: item[1]):
+            value = self._step_summary_values.get(step)
+            if value is None:
+                continue
+            if summary.get("max") is None or value > summary["max"]:
+                summary["max"] = value
+                summary["max_step"] = step
+            if summary.get("min") is None or value < summary["min"]:
+                summary["min"] = value
+                summary["min_step"] = step
+        self._summary = summary
+
+    def _update_collection(self, new_data: dict, step: int, overwrite: bool) -> None:
+        for idx, item in enumerate(self._collection["data"]):
+            if item["index"] == step:
+                self._collection["data"][idx] = new_data
+                return
+        if overwrite:
+            return
+        if len(self._collection["data"]) >= self.__slice_size:
+            self._collection = self.__new_metric_collection()
+        self._collection["data"].append(new_data)
 
     def create_column(
         self,
@@ -301,8 +366,9 @@ class SwanLabKey:
             section_type=section_type,
         )
         key_obj.column_info = column_info
-        # 5. 设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
+        # 5. 「同步云端最新 step」设置当前步数，resume 后不允许设置历史步数，所以需要覆盖
         if step is not None:
             for i in range(step + 1):
                 key_obj.steps.add(i)
+                key_obj._step_epochs[i] = i + 1
         return key_obj, column_info
