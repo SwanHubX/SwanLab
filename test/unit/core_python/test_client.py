@@ -10,6 +10,7 @@ import pytest
 import requests_mock
 
 from swanlab.core_python import create_client, Client, reset_client
+from swanlab.core_python.client.utils import ExperimentInfo, ProjectInfo
 from swanlab.core_python.auth import login_by_key
 from swanlab.package import get_host_api
 from tutils import is_skip_cloud_test, API_KEY
@@ -68,6 +69,15 @@ def test_decode_response():
             assert data == {"test": "test"}
             data, _ = client.post("/text")
             assert data == "test"
+
+
+def test_web_exp_url_falls_back_to_exp_id_when_slug_is_missing():
+    client = create_client(mock_login_info(username="mock-user"))
+    client._Client__proj = ProjectInfo({"cuid": "proj-1", "name": "mock-project"})  # noqa: SLF001
+    client._Client__exp = ExperimentInfo({"flagId": "flag-1", "cuid": "exp-123", "name": "mock-exp"})  # noqa: SLF001
+
+    assert client.web_exp_url.endswith("/runs/exp-123")
+    reset_client()
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
