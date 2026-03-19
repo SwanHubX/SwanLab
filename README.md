@@ -59,26 +59,27 @@
 
 ## 🌟 最近更新
 
-- 2026.02.06: 🔥**swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
+- 2026.03.19：📊 新增**实验复制**功能，支持将创建实验副本到不同项目、团队下；**parallel**模式上线，支持在不同进程同时记录指标到同一实验下；实验ID现在可以自定义了；
 
-- 2026.01.28：⚡️**LightningBoard V2**上线，进一步提升仪表盘性能；
+- 2026.02.06: 🔥 **swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
 
-- 2026.01.16：⚡️**LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
+- 2026.01.28：⚡️ **LightningBoard V2**上线，进一步提升仪表盘性能；
+
+- 2026.01.16：⚡️ **LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
 
 - 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
 
-- 2025.12.15：🎉SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
+- 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
 - 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
 
-- 2025.11.17：📊全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能；[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
+- 2025.11.17：📊 全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能；[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
 
-- 2025.11.06：🔪**实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
-
-- 2025.10.15：📊折线图配置支持**X轴数据源选择**；侧边栏支持显示表格视图中Pin的列，增强实验数据对齐能力；
-
+- 2025.11.06：🔪 **实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
 
 <details><summary>完整更新日志</summary>
+
+- 2025.10.15：📊折线图配置支持**X轴数据源选择**；侧边栏支持显示表格视图中Pin的列，增强实验数据对齐能力；
 
 - 2025.09.22：📊全新UI上线；表格视图支持全局排序和筛选；数据层面统一表格视图与图表视图；
 

@@ -51,6 +51,8 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
+- 2026.03.19: 📊 Added **experiment duplication** feature, supporting the creation of experiment copies to different projects and teams; **parallel** mode is now available, supporting multiple processes recording metrics to the same experiment at the same time; experiment ID can now be customized;
+
 - 2026.02.06: 🔥**swanlab.Api** is now available, providing a more powerful, object-oriented open API interface, [documentation](https://docs.swanlab.cn/api/py-api.html); ECharts.Table supports CSV download; now supports one-click placement of charts at the top of sections;
 
 - 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
@@ -67,9 +69,9 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 - 2025.11.06: 🔪 **Experiment Grouping** is live — supports grouping management for large batches of experiments; Workspace page upgraded to allow quick switching between multiple organizations; significantly improved line-chart rendering performance; `swanlab.init` now supports `group` and `job_type` parameters;
 
-- 2025.10.15: 📊 Line chart configuration now supports **X-axis data source selection**; sidebar now supports displaying pinned columns in table view, enhancing experiment data alignment capabilities;
-
 <details><summary>Full Changelog</summary>
+
+- 2025.10.15: 📊 Line chart configuration now supports **X-axis data source selection**; sidebar now supports displaying pinned columns in table view, enhancing experiment data alignment capabilities;
 
 - 2025.09.22: 📊 New UI launched; table view now supports global sorting and filtering; unified data level for table view and chart view.
 
