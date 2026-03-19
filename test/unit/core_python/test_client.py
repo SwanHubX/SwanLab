@@ -10,7 +10,7 @@ import pytest
 import requests_mock
 
 from swanlab.core_python import create_client, Client, reset_client
-from swanlab.core_python.client.utils import ExperimentInfo, ProjectInfo
+from swanlab.core_python.client.utils import ExperimentInfo
 from swanlab.core_python.auth import login_by_key
 from swanlab.package import get_host_api
 from tutils import is_skip_cloud_test, API_KEY
@@ -71,13 +71,37 @@ def test_decode_response():
             assert data == "test"
 
 
-def test_web_exp_url_falls_back_to_exp_id_when_slug_is_missing():
+@pytest.mark.parametrize(
+    "exp_data, expected_url",
+    [
+        # slug 不存在，回退到 exp_id
+        (
+            {"flagId": "flag-1", "cuid": "exp-123", "name": "mock-exp"},
+            "https://mock.swanlab.cn/@mock-user/mock-project/runs/exp-123",
+        ),
+        # slug 存在
+        (
+            {"flagId": "flag-1", "cuid": "exp-123", "name": "mock-exp", "slug": "my-slug"},
+            "https://mock.swanlab.cn/@mock-user/mock-project/runs/my-slug",
+        ),
+    ],
+)
+def test_web_exp_url_uses_slug_or_falls_back_to_exp_id(monkeypatch, exp_data, expected_url):
     client = create_client(mock_login_info(username="mock-user"))
-    client._Client__proj = ProjectInfo({"cuid": "proj-1", "name": "mock-project"})  # noqa: SLF001
-    client._Client__exp = ExperimentInfo({"flagId": "flag-1", "cuid": "exp-123", "name": "mock-exp"})  # noqa: SLF001
+    exp = ExperimentInfo(exp_data)
 
-    assert client.web_exp_url.endswith("/runs/exp-123")
-    reset_client()
+    monkeypatch.setattr(
+        Client,
+        "web_proj_url",
+        property(lambda _self: "https://mock.swanlab.cn/@mock-user/mock-project"),
+    )
+    monkeypatch.setattr(Client, "exp", property(lambda _self: exp))
+    monkeypatch.setattr(Client, "exp_id", property(lambda _self: exp.cuid))
+
+    try:
+        assert client.web_exp_url == expected_url
+    finally:
+        reset_client()
 
 
 @pytest.mark.skipif(is_skip_cloud_test, reason="skip cloud test")
