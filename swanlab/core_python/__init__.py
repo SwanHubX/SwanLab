@@ -18,6 +18,9 @@ _SUBMODULES = [
     "uploader.model",
     "uploader.upload",
     "uploader.thread",
+    "uploader.thread.log_collector",
+    "uploader.thread.start_thread",
+    "uploader.thread.utils",
 ]
 
 for _sub in _SUBMODULES:

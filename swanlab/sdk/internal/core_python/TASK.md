@@ -6,6 +6,7 @@
 
  每次log产出若干protobuf，然后上传线程那块需要根据protobuf的类型聚合起来，统一发给house/server
 
+规范要求: Type Hint 没有问题
 ---
 
 ## 已完成：uploader 模块重构
