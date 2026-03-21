@@ -4418,7 +4418,6 @@ source = { editable = "." }
 dependencies = [
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "grpcio" },
     { name = "nvidia-ml-py" },
     { name = "platformdirs", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "platformdirs", version = "4.9.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -4495,7 +4494,6 @@ dev = [
 requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.49" },
     { name = "click" },
-    { name = "grpcio", specifier = ">=1.78.0" },
     { name = "imageio", extras = ["ffmpeg"], marker = "extra == 'media'" },
     { name = "matplotlib", marker = "extra == 'media'" },
     { name = "moviepy", marker = "extra == 'media'" },

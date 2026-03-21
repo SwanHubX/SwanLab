@@ -5,12 +5,26 @@
 @description: 指标上传线程，基于 protobuf Record
 """
 
-from .model import FileModel, UploadType, classify_record
 from .thread import ThreadPool
+from .upload import (
+    CoreTransportConfig,
+    NoopRecordTransport,
+    RecordLike,
+    RecordTransport,
+    create_record_transport,
+    load_record,
+    trace_records,
+    upload_records,
+)
 
 __all__ = [
-    "FileModel",
-    "UploadType",
-    "classify_record",
+    "CoreTransportConfig",
+    "NoopRecordTransport",
+    "RecordLike",
+    "RecordTransport",
+    "create_record_transport",
+    "load_record",
+    "trace_records",
     "ThreadPool",
+    "upload_records",
 ]

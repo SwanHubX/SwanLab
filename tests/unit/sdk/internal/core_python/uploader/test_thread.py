@@ -48,7 +48,7 @@ def test_upload_collector_callback_is_idempotent_for_scalar_records():
 
     writer.put(make_scalar_record().SerializeToString())
 
-    with patch("swanlab.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
         collector.callback(reader)
         collector.callback(reader)
 
@@ -65,7 +65,7 @@ def test_threadpool_finish_is_idempotent_for_config_records():
     pool = ThreadPool()
     pool.put([make_config_record(), make_config_record()])
 
-    with patch("swanlab.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
         pool.finish()
         pool.finish()
 
@@ -80,7 +80,7 @@ def test_threadpool_starts_upload_thread_automatically():
         pool = ThreadPool(upload_interval=0.01)
 
         try:
-            with patch("swanlab.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+            with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
                 pool.put([make_scalar_record()])
 
                 deadline = time.time() + 1.0

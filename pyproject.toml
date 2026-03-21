@@ -44,7 +44,6 @@ dependencies = [
     "pyecharts>=2.0.0",
     "wrapt>=1.17.0",
     "platformdirs>=4.2.0",
-    "grpcio>=1.78.0",
     "protobuf>=3.15.0,!=4.21.0,!=5.28.0,<7; python_version == '3.9' and sys_platform == 'linux'",
     "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; python_version > '3.9' and sys_platform == 'linux'",
     "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; sys_platform != 'linux'",

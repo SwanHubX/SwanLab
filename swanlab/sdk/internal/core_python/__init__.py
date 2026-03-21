@@ -2,15 +2,16 @@
 @author: cunyue
 @file: __init__.py
 @time: 2026/3/13
-@description: SwanLab Core Python 版本，封装SwanLab云端版核心业务，包括：
-1. 提供http客户端，用于与SwanLab云端API进行交互。
-2. 提供rpc封装函数，以rpc方式调用SwanLab云端API。
-3. 提供上传线程，在另一个线程执行上传任务。
-...
+@description: SwanLab Core 的 Python sidecar 适配层。
 
-实现 CoreProtocol，当前为纯 Python 实现。
-未来由 swanlab-core（Go 二进制）替代时，此模块整体被替换，
-BackgroundConsumer 等调用方无需修改。
+实现 CoreProtocol，当前为纯 Python 实现：
+1. 本地落盘仍在 Python 内完成；
+2. 上传线程负责缓冲、聚合和重试；
+3. 与后端的交互未来统一下沉到 swanlab-core（Go sidecar）。
+
+在 swanlab-core 尚未接入前，上传 transport 使用占位实现，
+这样 BackgroundConsumer 等调用方可以先稳定对接 CoreProtocol，
+后续替换为 Go Core 时无需修改业务入口。
 """
 
 from typing import List
