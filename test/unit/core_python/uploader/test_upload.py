@@ -54,20 +54,24 @@ def test_trace_metrics_uploads_all_metrics_in_batches(mock_client):
         assert end - start > 3
 
 
-def test_dedupe_metrics_by_key_step_keeps_latest_duplicate():
+def test_dedupe_metrics_by_key_step_keeps_highest_epoch_duplicate():
     metrics = [
-        ScalarModel({"data": 1.0}, "loss", 50, 51),
         ScalarModel({"data": 3.0}, "loss", 51, 52),
-        ScalarModel({"data": 2.0}, "loss", 50, 51),
+        ScalarModel({"data": 3.0}, "loss", 51, 52),
+        ScalarModel({"data": 2.0}, "loss", 50, 53),
+        ScalarModel({"data": 1.0}, "loss", 50, 51),
     ]
 
     deduped = dedupe_metrics_by_key_step(metrics)
 
     assert len(deduped) == 2
-    assert [(metric.key, metric.step, metric.metric["data"]) for metric in deduped] == [
-        ("loss", 50, 2.0),
-        ("loss", 51, 3.0),
-    ]
+    assert {
+        (metric.key, metric.step, metric.epoch, metric.metric["data"])
+        for metric in deduped
+    } == {
+        ("loss", 50, 53, 2.0),
+        ("loss", 51, 52, 3.0),
+    }
 
 
 def test_log_collector_upload_dedupes_duplicate_scalar_steps():

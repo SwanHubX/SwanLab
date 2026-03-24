@@ -51,14 +51,16 @@ def dedupe_metrics_by_key_step(
     metrics: List[Union[ScalarModel, MediaModel]]
 ) -> List[Union[ScalarModel, MediaModel]]:
     """
-    对同一 key/step 的重复指标保留最后一次写入。
+    对同一 key/step 的重复指标保留写入序号最大的那条。
 
     训练过程中允许乱序覆盖已有 step，但上传线程会按类型聚合同一批消息。
-    如果重复 step 在同一批请求内直接原样发送，后端/展示层可能不会稳定地以最后一条为准。
+    下游去重应该依赖 metric epoch，而不是调用方传入列表的顺序。
     """
     deduped = {}
     for metric in metrics:
-        deduped[(metric.key, metric.step)] = metric
+        key = (metric.key, metric.step)
+        if key not in deduped or metric.epoch >= deduped[key].epoch:
+            deduped[key] = metric
     return list(deduped.values())
 
 

@@ -360,6 +360,8 @@ class TestKeySummary:
             overwrite = self._add_line(key_obj, 2, 0)
 
             assert overwrite.metric_overwrite is True
+            assert key_obj._step_epochs[0] == 1
+            assert key_obj._write_epoch == overwrite.metric_epoch
             assert overwrite.metric_epoch == first.metric_epoch + 1
             assert overwrite.metric_file_path == first.metric_file_path
 

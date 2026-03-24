@@ -71,6 +71,27 @@ class SwanLabKey:
         """判断当前tag对应的自动创建图表是否成功"""
         return self.column_info.error is None
 
+    def _allocate_epochs(self, step: int) -> Tuple[int, int, bool]:
+        """
+        为当前写入分配两个不同语义的 epoch：
+
+        - storage_epoch: step 首次出现时对应的原始槽位，用于定位本地分片文件
+        - write_epoch: 每次实际写入都递增的序号，用于判定同 step 的新旧顺序
+        """
+        overwrite = step in self._step_epochs
+        if not overwrite:
+            self.steps.add(step)
+            self._step_epochs[step] = len(self.steps)
+        storage_epoch = self._step_epochs[step]
+        self._write_epoch += 1
+        write_epoch = self._write_epoch
+
+        assert write_epoch >= storage_epoch, "write_epoch must not fall behind storage_epoch"
+        if overwrite:
+            assert write_epoch > storage_epoch, "overwrite must advance write_epoch while preserving storage_epoch"
+
+        return storage_epoch, write_epoch, overwrite
+
     def add(self, data: DataWrapper) -> MetricInfo:
         """添加一个数据，在内部完成数据类型转换
         如果转换失败，打印警告并退出
@@ -116,13 +137,7 @@ class SwanLabKey:
         # 4. 更新 summary 并添加数据
         # 如果为Line且为NaN或者INF，不更新summary
         r = result.strings or result.float
-        overwrite = result.step in self._step_epochs
-        if not overwrite:
-            self.steps.add(result.step)
-            self._step_epochs[result.step] = len(self.steps)
-        storage_epoch = self._step_epochs[result.step]
-        self._write_epoch += 1
-        write_epoch = self._write_epoch
+        storage_epoch, write_epoch, overwrite = self._allocate_epochs(result.step)
         new_data = self.__new_metric(result.step, r, more=result.more)
 
         # 覆盖写入时，只有当前 step 持有的 extremum 被削弱/移除时才需要全量重建。
