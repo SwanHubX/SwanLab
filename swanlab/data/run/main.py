@@ -8,7 +8,8 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
-from typing import Any, Dict, Optional, List, Tuple
+import pathlib
+from typing import Any, Dict, Optional, List, Tuple, Literal
 
 from swanlab.core_python import timer
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
@@ -22,7 +23,9 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, monitor_interval
 from .metadata import get_requirements, get_conda, HardwareCollector
 from .public import SwanLabPublicConfig
+from ..save_manager import FileUploadManager, DirWatcher
 from ..store import get_run_store, reset_run_store
+from ..utils import SaveFile, collect_save_files
 
 MAX_LIST_LENGTH = 108
 
@@ -65,8 +68,18 @@ class SwanLabRun:
         self.__state = SwanLabRunState.RUNNING
         self.__monitor_timer: Optional[timer.Timer] = None
         self.__config: Optional[SwanLabConfig] = None
+        self.__pending_saves: Dict[str, SaveFile] = {}
+        self.__upload_manager: Optional[FileUploadManager] = None
+        self.__dir_watcher: Optional[DirWatcher] = None
         # 1. 设置常规参数
         self.__mode = get_mode()
+        if self.__mode != "disabled":
+            self.__upload_manager = FileUploadManager(mode=self.__mode, file_dir=run_store.file_dir)
+            self.__dir_watcher = DirWatcher(
+                mode=self.__mode,
+                file_dir=run_store.file_dir,
+                on_change=self.__upload_manager.submit,
+            )
         self.__public = SwanLabPublicConfig()
         self.__operator.before_run(None)
         # 2. 初始化配置
@@ -132,6 +145,12 @@ class SwanLabRun:
         """
         停止部分功能，内部清理时调用
         """
+        self._flush_pending_saves()
+        if self.__dir_watcher is not None:
+            self.__dir_watcher.stop()
+        if self.__upload_manager is not None:
+            self.__upload_manager.join()
+            self.__upload_manager.close()
         # 1. 停止硬件监控
         if self.__monitor_timer is not None:
             self.__monitor_timer.cancel()
@@ -264,6 +283,27 @@ class SwanLabRun:
         """
         return self.__config
 
+    def save(
+        self,
+        glob_path: pathlib.PurePath,
+        base_path: pathlib.PurePath,
+        policy: Literal['now', 'end', 'live'] = "live",
+    ) -> List[str]:
+        """
+        Save files matched by the resolved glob into the current run.
+        """
+        if self.__state != SwanLabRunState.RUNNING:
+            raise RuntimeError("After experiment finished, you can no longer save files to the current experiment")
+        if policy not in {"now", "end", "live"}:
+            raise ValueError("policy must be one of ['now', 'end', 'live']")
+        files = collect_save_files(glob_path, base_path, get_run_store().file_dir)
+        if len(files) == 0:
+            swanlog.warning(f"No files matched save pattern: {glob_path}")
+            return []
+
+        self._dispatch_saved_files(files, policy)
+        return [file.target_path for file in files]
+
     def log(self, data: dict, step: int = None):
         """
         Log a row of data to the current run. Unlike `swanlab.log`, this api will be called directly based on the
@@ -348,6 +388,25 @@ class SwanLabRun:
             log_return[metric_info.column_info.key] = metric_info
 
         return log_return
+
+    def _flush_pending_saves(self) -> None:
+        if len(self.__pending_saves) == 0:
+            return
+        if self.__upload_manager is not None:
+            self.__upload_manager.submit(list(self.__pending_saves.values()))
+        self.__pending_saves.clear()
+
+    def _dispatch_saved_files(self, files: List[SaveFile], policy: Literal['now', 'end', 'live']) -> None:
+        if self.__mode == "disabled":
+            return
+        if policy == "end":
+            for file in files:
+                self.__pending_saves[file.name] = file
+            return
+        if policy == "live" and self.__dir_watcher is not None:
+            self.__dir_watcher.watch(files)
+        if self.__upload_manager is not None:
+            self.__upload_manager.submit(files)
 
 
 def _get_runtime_info(metadata: Optional[dict]) -> Tuple[Optional[dict], Optional[str], Optional[str]]:

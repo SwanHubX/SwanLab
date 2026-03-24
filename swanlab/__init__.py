@@ -33,6 +33,7 @@ __all__ = [
     "merge_settings",
     "init",
     "log",
+    "save",
     "register_callbacks",
     "finish",
     "Audio",

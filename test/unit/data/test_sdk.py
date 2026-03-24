@@ -8,6 +8,7 @@ r"""
     测试sdk的一些api
 """
 import os
+import pathlib
 import random
 from unittest.mock import Mock
 
@@ -25,6 +26,7 @@ from swanlab.data.run import get_run
 from swanlab.data.store import get_run_store
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
+from tutils.setup import UseMockRunState
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -333,6 +335,30 @@ class TestInitMode:
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
+
+
+class TestSave:
+
+    def test_save_resolves_paths_in_sdk(self, monkeypatch):
+        os.environ[MODE] = "disabled"
+        with UseMockRunState():
+            run = S.init(mode="disabled")
+            captured = {}
+
+            def fake_save(glob_path, base_path, policy):
+                captured["glob_path"] = glob_path
+                captured["base_path"] = base_path
+                captured["policy"] = policy
+                return ["ok"]
+
+            monkeypatch.setattr(run, "save", fake_save)
+
+            result = S.save("checkpoints/*.pt", policy="end", base_path=".")
+
+            assert result == ["ok"]
+            assert captured["glob_path"] == pathlib.PurePath(os.path.abspath("checkpoints/*.pt"))
+            assert captured["base_path"] == pathlib.PurePath(os.path.abspath("."))
+            assert captured["policy"] == "end"
 
 
 class TestInitProject:

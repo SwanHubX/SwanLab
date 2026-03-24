@@ -8,11 +8,12 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import pathlib
 import random
 import secrets
 import time
 from datetime import datetime
-from typing import Union, Dict, Literal, List
+from typing import Union, Dict, Literal, List, Optional, Tuple
 
 import platformdirs
 
@@ -47,6 +48,7 @@ from .utils import (
     _init_mode,
     should_call_after_init,
     should_call_before_init,
+    validate_glob_path,
 )
 from ..core_python import create_client, auth
 from ..package import HostFormatter
@@ -468,6 +470,52 @@ def log(
     ll = run.log(data, step)
     print_to_console and print(ll)
     return ll
+
+
+def _resolve_save_paths(
+    glob_str: Union[str, bytes],
+    base_path: Optional[Union[str, os.PathLike]] = None,
+) -> Optional[Tuple[pathlib.PurePath, pathlib.PurePath]]:
+    if isinstance(glob_str, bytes):
+        glob_str = glob_str.decode("utf-8")
+    if glob_str.startswith(("gs://", "s3://")):
+        swanlog.warning(f"{glob_str} is a cloud storage url, can't save file to SwanLab.")
+        return None
+
+    glob_path = pathlib.PurePath(glob_str)
+    resolved_glob_path = pathlib.PurePath(os.path.abspath(glob_path))
+
+    if base_path is not None:
+        base_path = pathlib.Path(base_path)
+    elif not glob_path.is_absolute():
+        base_path = pathlib.Path(".")
+    else:
+        swanlog.warning(
+            "Saving files without folders. If you want to preserve subdirectories pass "
+            'base_path to swanlab.save, e.g. swanlab.save("/mnt/folder/file.h5", base_path="/mnt").'
+        )
+        base_path = resolved_glob_path.parent.parent
+
+    resolved_base_path = pathlib.PurePath(os.path.abspath(base_path))
+    validate_glob_path(resolved_glob_path, resolved_base_path)
+    return resolved_glob_path, resolved_base_path
+
+
+@should_call_after_init("You must call swanlab.init() before using save()")
+def save(
+    glob_str: Union[str, bytes],
+    policy: Literal['now', 'end', 'live'] = "live",
+    base_path: Optional[Union[str, os.PathLike]] = None,
+):
+    """
+    Save files matched by glob into the current run according to the specified policy.
+    """
+    resolved_paths = _resolve_save_paths(glob_str, base_path=base_path)
+    if resolved_paths is None:
+        return []
+    resolved_glob_path, resolved_base_path = resolved_paths
+    run = get_run()
+    return run.save(resolved_glob_path, resolved_base_path, policy)
 
 
 def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
