@@ -352,6 +352,17 @@ class TestKeySummary:
                 "num": 3,
             }
 
+    def test_overwrite_uses_latest_write_epoch_but_same_storage_file(self):
+        with UseMockRunState() as run_state:
+            key_obj = self._new_key(run_state)
+
+            first = self._add_line(key_obj, 1, 0)
+            overwrite = self._add_line(key_obj, 2, 0)
+
+            assert overwrite.metric_overwrite is True
+            assert overwrite.metric_epoch == first.metric_epoch + 1
+            assert overwrite.metric_file_path == first.metric_file_path
+
     def test_overwrite_current_max_demote_triggers_rebuild(self, monkeypatch):
         with UseMockRunState() as run_state:
             key_obj = self._new_key(run_state)

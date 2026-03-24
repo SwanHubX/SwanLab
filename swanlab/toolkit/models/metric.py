@@ -181,7 +181,7 @@ class MetricInfo:
         :param metric_buffers: 此指标的媒体数据，如果为None，表示没有媒体数据
         :param metric_summary: 此指标的摘要信息
         :param metric_step: 此指标的步数
-        :param metric_epoch: 此指标对应本地的行数
+        :param metric_epoch: 此指标的写入序号，用于下游判定同 step 数据的先后顺序
         :param metric_file_name: 此指标的文件名
         :param swanlab_logdir: swanlab在本次实验的log文件夹路径
         :param swanlab_media_dir: swanlab在本次实验的media文件夹路径

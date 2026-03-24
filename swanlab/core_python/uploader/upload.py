@@ -7,15 +7,16 @@
 
 import inspect
 from functools import wraps
-from typing import List
+from typing import List, Union
 
 from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.log import swanlog
-from .batch import MetricDict, create_data, trace_metrics
-from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
-from ..api.service import upload_to_cos
-from ..client import get_client, safe_request, decode_response
+
 from ...error import ApiError
+from ..api.service import upload_to_cos
+from ..client import decode_response, get_client, safe_request
+from .batch import MetricDict, create_data, trace_metrics
+from .model import ColumnModel, FileModel, LogModel, MediaModel, ScalarModel
 
 
 def skip_if_empty(log_message: str):
@@ -44,6 +45,21 @@ def skip_if_empty(log_message: str):
 
 
 HOUSE_URL = '/house/metrics'
+
+
+def dedupe_metrics_by_key_step(
+    metrics: List[Union[ScalarModel, MediaModel]]
+) -> List[Union[ScalarModel, MediaModel]]:
+    """
+    对同一 key/step 的重复指标保留最后一次写入。
+
+    训练过程中允许乱序覆盖已有 step，但上传线程会按类型聚合同一批消息。
+    如果重复 step 在同一批请求内直接原样发送，后端/展示层可能不会稳定地以最后一条为准。
+    """
+    deduped = {}
+    for metric in metrics:
+        deduped[(metric.key, metric.step)] = metric
+    return list(deduped.values())
 
 
 @safe_request
@@ -146,6 +162,7 @@ def upload_columns(columns: List[ColumnModel], upload_callback: UploadCallback =
 
 
 __all__ = [
+    "dedupe_metrics_by_key_step",
     "MetricDict",
     "upload_logs",
     "upload_media_metrics",

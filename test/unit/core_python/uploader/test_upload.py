@@ -7,11 +7,15 @@
 
 import time
 from typing import List
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from swanlab.core_python.uploader.batch import trace_metrics, MetricDict
+from swanlab.core_python.uploader.batch import MetricDict, trace_metrics
+from swanlab.core_python.uploader.model import ScalarModel
+from swanlab.core_python.uploader.thread.log_collector import LogCollectorTask
+from swanlab.core_python.uploader.thread.task_types import UploadType
+from swanlab.core_python.uploader.upload import dedupe_metrics_by_key_step
 
 
 @pytest.fixture
@@ -48,3 +52,39 @@ def test_trace_metrics_uploads_all_metrics_in_batches(mock_client):
         assert mock_client.post.call_count == 3
         end = time.time()
         assert end - start > 3
+
+
+def test_dedupe_metrics_by_key_step_keeps_latest_duplicate():
+    metrics = [
+        ScalarModel({"data": 1.0}, "loss", 50, 51),
+        ScalarModel({"data": 3.0}, "loss", 51, 52),
+        ScalarModel({"data": 2.0}, "loss", 50, 51),
+    ]
+
+    deduped = dedupe_metrics_by_key_step(metrics)
+
+    assert len(deduped) == 2
+    assert [(metric.key, metric.step, metric.metric["data"]) for metric in deduped] == [
+        ("loss", 50, 2.0),
+        ("loss", 51, 3.0),
+    ]
+
+
+def test_log_collector_upload_dedupes_duplicate_scalar_steps():
+    first = ScalarModel({"data": 1.0}, "loss", 50, 51)
+    second = ScalarModel({"data": 2.0}, "loss", 50, 51)
+    captured = {}
+
+    def fake_upload(metrics, upload_callback=None):
+        captured["metrics"] = metrics
+        return None, None
+
+    collector = LogCollectorTask()
+    collector.container = [(UploadType.SCALAR_METRIC, [first]), (UploadType.SCALAR_METRIC, [second])]
+
+    with patch.dict(UploadType.SCALAR_METRIC.value, {"upload": fake_upload}, clear=False):
+        collector.upload()
+
+    assert len(captured["metrics"]) == 1
+    assert captured["metrics"][0] is second
+    assert all(task_type != UploadType.SCALAR_METRIC for task_type, _ in collector.container)

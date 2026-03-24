@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 r"""
 @DATE: 2024/4/1 19:40
 @File: log_collector.py
@@ -11,12 +10,13 @@ import time
 from typing import List, Optional
 
 from swanlab.core_python.types.uploader import UploadCallback
+from swanlab.core_python.uploader.upload import dedupe_metrics_by_key_step
 from swanlab.error import NetworkError, SyncError
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import get_settings
+
 from .task_types import UploadType
-from .utils import LogQueue
-from .utils import ThreadUtil, ThreadTaskABC
+from .utils import LogQueue, ThreadTaskABC, ThreadUtil
 
 NETWORK_ERROR_INTERVAL = 30
 
@@ -80,6 +80,10 @@ class LogCollectorTask(ThreadTaskABC):
                 msg_count = len(msg[1])
                 total_count += msg_count
                 upload_tasks_dict[msg[0]].extend(msg[1])
+
+        for metric_type in (UploadType.SCALAR_METRIC, UploadType.MEDIA_METRIC):
+            if metric_type in upload_tasks_dict and len(upload_tasks_dict[metric_type]) > 1:
+                upload_tasks_dict[metric_type] = dedupe_metrics_by_key_step(upload_tasks_dict[metric_type])
 
         tasks_key_list = [key for key in upload_tasks_dict if len(upload_tasks_dict[key]) > 0]
 

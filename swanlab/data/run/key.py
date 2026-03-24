@@ -42,8 +42,10 @@ class SwanLabKey:
         self.key = key
         # 当前 key 包含的 step
         self.steps = set()
-        # 当前 key 的 step 与首次写入 epoch 的映射，重复 step 覆盖时需要保持 epoch 不变
+        # 当前 key 的 step 与首次写入顺序的映射，用于定位本地原始分片并在覆盖时重写原位置。
         self._step_epochs: Dict[int, int] = {}
+        # 当前 key 的实际写入序号。覆盖写入需要拿到更新的序号，便于下游稳定识别“最新一次写入”。
+        self._write_epoch: int = 0
         # 当前 key 的 step 与摘要值的映射，用于覆盖时重建 summary
         self._step_summary_values: Dict[int, Optional[object]] = {}
         self.column_info: Optional[ColumnInfo] = None
@@ -118,7 +120,9 @@ class SwanLabKey:
         if not overwrite:
             self.steps.add(result.step)
             self._step_epochs[result.step] = len(self.steps)
-        epoch = self._step_epochs[result.step]
+        storage_epoch = self._step_epochs[result.step]
+        self._write_epoch += 1
+        write_epoch = self._write_epoch
         new_data = self.__new_metric(result.step, r, more=result.more)
 
         # 覆盖写入时，只有当前 step 持有的 extremum 被削弱/移除时才需要全量重建。
@@ -132,12 +136,12 @@ class SwanLabKey:
         swanlog.debug(
             f"{'Overwrite' if overwrite else 'Add'} data, key: {self.key}, step: {result.step}, data: {r}"
         )
-        mu = math.ceil(epoch / self.__slice_size)
+        mu = math.ceil(storage_epoch / self.__slice_size)
         return MetricInfo(
             column_info=self.column_info,
             metric=new_data.copy() if result.more is None else json.loads(json.dumps(new_data)),
             metric_summary=self._summary.copy(),
-            metric_epoch=epoch,
+            metric_epoch=write_epoch,
             metric_step=result.step,
             metric_buffers=result.buffers,
             metric_file_name=str(mu * self.__slice_size) + ".log",
@@ -371,4 +375,5 @@ class SwanLabKey:
             for i in range(step + 1):
                 key_obj.steps.add(i)
                 key_obj._step_epochs[i] = i + 1
+            key_obj._write_epoch = len(key_obj.steps)
         return key_obj, column_info
