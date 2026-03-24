@@ -238,7 +238,7 @@ class FileUploadManager:
             raise ValueError("Prepare upload returned an empty result.")
         upload_url = _extract_upload_url(prepared[0])
         with open(file.source_path, "rb") as f:
-            upload_file(url=upload_url, buffer=BytesIO(f.read()))
+            upload_file(url=upload_url, buffer=f)
         complete_upload(self._client, exp_id, [file.name])
 
     def _upload_multipart(self, file: SaveFile, size: int, exp_id: str) -> None:
