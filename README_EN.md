@@ -53,6 +53,8 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 - 2026.03/25: 📊 **Experiment Pinning** is now live — pin your best experiments to the most accessible position with one click; **Baseline** comparison is now available, supporting comparison of experiments against a baseline with percentage difference display, accelerating the search for optimal parameters;
 
+https://github.com/user-attachments/assets/28d7bad4-7164-4407-ae72-8554f43412aa
+
 - 2026.03.19: 📊 Added **experiment duplication** feature, supporting the creation of experiment copies to different projects and teams; **parallel** mode is now available, supporting multiple processes recording metrics to the same experiment at the same time; experiment ID can now be customized;
 
 - 2026.02.06: 🔥**swanlab.Api** is now available, providing a more powerful, object-oriented open API interface, [documentation](https://docs.swanlab.cn/api/py-api.html); ECharts.Table supports CSV download; now supports one-click placement of charts at the top of sections;
