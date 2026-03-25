@@ -51,7 +51,7 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
-- 2026.03/25: 📊 **Experiment Pinning** is now live — pin your best experiments to the most accessible position with one click; **Baseline** comparison is now available, supporting comparison of experiments against a baseline with percentage difference display, accelerating the search for optimal parameters;
+- 2026.03.25: 📊 **Experiment Pinning** is now live — pin your best experiments to the most accessible position with one click; **Baseline** comparison is now available, supporting comparison of experiments against a baseline with percentage difference display, accelerating the search for optimal parameters;
 
 https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
