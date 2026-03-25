@@ -61,7 +61,7 @@
 
 - 2026.03/25：📊 **实验置顶**上线，一键将最好的实验固定在到最好找的位置；**Baseline**对比功能上线，支持将实验们和baseline对比并显示差异百分比，加速找到最佳参数组合；
 
-https://github.com/user-attachments/assets/28d7bad4-7164-4407-ae72-8554f43412aa
+https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.03.19：📊 新增**实验复制**功能，支持将创建实验副本到不同项目、团队下；**parallel**模式上线，支持在不同进程同时记录指标到同一实验下；实验ID现在可以自定义了；
 
