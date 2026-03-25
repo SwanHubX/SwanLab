@@ -12,6 +12,7 @@ import pathlib
 from typing import Any, Dict, Optional, List, Tuple, Literal
 
 from swanlab.core_python import timer
+from swanlab.core_python.save import DirWatcher, FileUploadManager, SaveFile, collect_save_files
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
 from swanlab.formatter import check_key_format
@@ -23,9 +24,7 @@ from .exp import SwanLabExp
 from .helper import SwanLabRunOperator, RuntimeInfo, SwanLabRunState, monitor_interval
 from .metadata import get_requirements, get_conda, HardwareCollector
 from .public import SwanLabPublicConfig
-from ..save_manager import FileUploadManager, DirWatcher
 from ..store import get_run_store, reset_run_store
-from ..utils import SaveFile, collect_save_files
 
 MAX_LIST_LENGTH = 108
 

@@ -17,6 +17,7 @@ from typing import Union, Dict, Literal, List, Optional, Tuple
 
 import platformdirs
 
+from swanlab.core_python.save import validate_glob_path
 from swanlab.env import SwanLabEnv, create_swanlog_dir, get_swanlog_dir
 from swanlab.formatter import (
     check_load_json_yaml,
@@ -48,7 +49,6 @@ from .utils import (
     _init_mode,
     should_call_after_init,
     should_call_before_init,
-    validate_glob_path,
 )
 from ..core_python import create_client, auth
 from ..package import HostFormatter

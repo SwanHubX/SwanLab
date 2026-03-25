@@ -5,10 +5,7 @@
 @description: 一些为sdk.py提供的工具函数
 """
 
-import glob
 import os
-import pathlib
-from dataclasses import dataclass
 from typing import Union, Optional, List, Any
 
 from rich.text import Text
@@ -21,13 +18,6 @@ from swanlab.formatter import check_load_json_yaml
 from swanlab.log import swanlog
 from swanlab.package import get_key, get_host_web
 from swanlab.toolkit import SwanKitCallback
-
-
-@dataclass(frozen=True)
-class SaveFile:
-    source_path: str
-    name: str
-    target_path: str
 
 
 def should_call_before_init(text):
@@ -233,56 +223,3 @@ def _create_operator(
     # WARNING: 因为官方回调接管了 SwanLabRun 的生命周期，所以用户传递的回调函数必须在官方回调函数之前执行，也就是排在列表前面
     callbacks = cbs + c
     return SwanLabRunOperator(callbacks)
-
-
-def validate_glob_path(glob_path: pathlib.PurePath, base_path: pathlib.PurePath) -> None:
-    """
-    确保 glob_path 在 base_path 下，避免生成错误的相对路径。
-    """
-    try:
-        glob_path.relative_to(base_path)
-    except ValueError as e:
-        raise ValueError(f"glob path {glob_path} must be under base path {base_path}") from e
-
-
-def collect_save_files(
-    glob_path: pathlib.PurePath,
-    base_path: pathlib.PurePath,
-    files_root: Union[str, os.PathLike],
-) -> List[SaveFile]:
-    """
-    根据解析后的 glob/base_path 收集需要保存的文件，并生成 run/files 下的目标路径。
-    """
-    relative_glob = glob_path.relative_to(base_path)
-    source_glob = str(base_path / relative_glob)
-    matched = sorted(glob.glob(source_glob, recursive=True))
-    files_root = pathlib.Path(files_root)
-
-    files: List[SaveFile] = []
-    seen_paths = set()
-    seen_names = {}
-
-    for path in matched:
-        src = pathlib.Path(path).absolute()
-        if str(src) in seen_paths:
-            continue
-        if not src.is_file():
-            continue
-
-        rel = pathlib.Path(*src.parts[len(base_path.parts) :])
-        name = rel.as_posix()
-        existed = seen_names.get(name)
-        if existed is not None and existed != str(src):
-            raise ValueError(f'Multiple files resolve to the same save key "{name}".')
-
-        seen_paths.add(str(src))
-        seen_names[name] = str(src)
-        files.append(
-            SaveFile(
-                source_path=str(src),
-                name=name,
-                target_path=str((files_root / rel).absolute()),
-            )
-        )
-
-    return files

@@ -1,37 +1,40 @@
 """
 @author: CaddiesNew
-@file: save_manager.py
+@file: manager.py
 @time: 2026/3/24 14:10
 @description: swanlab.save() 的上传/监听管理器
 """
 
 import hashlib
 import math
+import mimetypes
 import os
 import shutil
 import threading
-import time
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from io import BytesIO
-from queue import Queue
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
-import requests
-from requests.exceptions import RequestException
-
-from swanlab.core_python import get_client
-from swanlab.core_python.api.file_service import (
+from swanlab.core_python.api.experiment import (
     MULTIPART_THRESHOLD,
     PART_SIZE,
     complete_multipart,
     complete_upload,
     prepare_multipart,
     prepare_upload,
-    upload_file,
 )
+from swanlab.core_python.api.experiment.utils import (
+    extract_part_size,
+    extract_part_urls,
+    extract_upload_id,
+    extract_upload_url,
+)
+from swanlab.core_python.api.service import upload_file
+from swanlab.core_python.client import get_client
 from swanlab.log import swanlog
 
-from .utils import SaveFile
+from .model import SaveFile
 
 
 @dataclass
@@ -74,72 +77,58 @@ def _iter_files(files: Union[SaveFile, Iterable[SaveFile]]) -> Iterable[SaveFile
     return files
 
 
-def _extract_upload_url(payload: Dict[str, object]) -> str:
-    for key in ("uploadUrl", "upload_url", "url", "presignedUrl", "presigned_url"):
-        value = payload.get(key)
-        if isinstance(value, str) and value != "":
-            return value
-    raise ValueError("Upload URL is missing in prepare response.")
+def _guess_mime_type(path: str) -> Optional[str]:
+    mime_type, _ = mimetypes.guess_type(path)
+    return mime_type
 
 
-def _extract_upload_id(payload: Dict[str, object]) -> Optional[str]:
-    for key in ("uploadId", "upload_id"):
-        value = payload.get(key)
-        if isinstance(value, str) and value != "":
-            return value
-    return None
+def _build_prepare_file_payload(file: SaveFile, size: int) -> Dict[str, object]:
+    payload: Dict[str, object] = {
+        "name": file.name,
+        "size": size,
+        "md5": _file_md5(file.source_path),
+    }
+    mime_type = _guess_mime_type(file.source_path)
+    if mime_type is not None:
+        payload["mimeType"] = mime_type
+    return payload
 
 
-def _extract_part_size(payload: Dict[str, object]) -> int:
-    for key in ("partSize", "part_size"):
-        value = payload.get(key)
-        if isinstance(value, int) and value > 0:
-            return value
-    return PART_SIZE
+def _upload_buffers(buffers: List[Tuple[str, BytesIO]]) -> None:
+    if len(buffers) == 0:
+        return
 
+    failed_buffers: List[Tuple[str, BytesIO]] = []
+    last_error: Optional[Exception] = None
+    max_workers = min(10, len(buffers))
 
-def _extract_part_urls(payload: Dict[str, object]) -> List[Tuple[int, str]]:
-    parts = payload.get("parts")
-    if isinstance(parts, list):
-        resolved = []
-        for index, part in enumerate(parts, start=1):
-            if not isinstance(part, dict):
-                raise ValueError("Multipart prepare response contains invalid part data.")
-            number = part.get("partNumber", part.get("part_number", index))
-            resolved.append((int(number), _extract_upload_url(part)))
-        return sorted(resolved, key=lambda item: item[0])
-
-    urls = payload.get("uploadUrls", payload.get("upload_urls", payload.get("urls")))
-    if isinstance(urls, list):
-        resolved = []
-        for index, url in enumerate(urls, start=1):
-            if not isinstance(url, str) or url == "":
-                raise ValueError("Multipart prepare response contains invalid upload URL.")
-            resolved.append((index, url))
-        return resolved
-
-    raise ValueError("Multipart upload URLs are missing in prepare response.")
-
-
-def _upload_part(url: str, buffer: BytesIO, max_retries: int = 3) -> Optional[str]:
-    with requests.Session() as session:
-        for attempt in range(1, max_retries + 1):
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures: List[Tuple[Future, str, BytesIO]] = []
+        for url, buffer in buffers:
             try:
-                buffer.seek(0)
-                response = session.put(
-                    url,
-                    data=buffer,
-                    headers={"Content-Type": "application/octet-stream"},
-                    timeout=30,
-                )
-                response.raise_for_status()
-                etag = response.headers.get("ETag") or response.headers.get("etag")
-                return etag.strip('"') if isinstance(etag, str) else None
-            except RequestException:
-                swanlog.warning(f"Upload attempt {attempt} failed for multipart URL: {url}")
-                if attempt == max_retries:
-                    raise
-                time.sleep(2 ** (attempt - 1))
+                future = executor.submit(upload_file, url=url, buffer=buffer)
+                futures.append((future, url, buffer))
+            except RuntimeError:
+                failed_buffers.append((url, buffer))
+
+        for future, url, buffer in futures:
+            try:
+                future.result()
+            except Exception as e:
+                swanlog.warning(f"Failed to upload {url}: {e}, will retry...")
+                failed_buffers.append((url, buffer))
+
+    if len(failed_buffers):
+        swanlog.debug(f"Retrying failed save buffers: {len(failed_buffers)}")
+        for url, buffer in failed_buffers:
+            try:
+                upload_file(url=url, buffer=buffer)
+            except Exception as e:
+                swanlog.error(f"Failed to upload {url}: {e}")
+                last_error = e
+
+    if last_error is not None:
+        raise last_error
 
 
 class FileUploadManager:
@@ -148,45 +137,57 @@ class FileUploadManager:
     cloud 模式下执行上传；local/offline 模式下复制到 run/files；disabled 模式下跳过。
     """
 
-    _STOP = object()
-
-    def __init__(self, mode: str, file_dir: str):
+    def __init__(self, mode: str, file_dir: str, max_workers: int = 4):
         self._mode = mode
         self._file_dir = file_dir
         self._client = get_client() if mode == "cloud" else None
         self._exp_id: Optional[str] = None
-        self._queue = Queue()
         self._closed = False
-        self._thread = threading.Thread(target=self._worker, name="swanlab-save-upload", daemon=True)
-        self._thread.start()
+        self._lock = threading.Lock()
+        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="swanlab-save-upload")
+        self._futures: Dict[Future, str] = {}
 
     def submit(self, files: Union[SaveFile, Iterable[SaveFile]]) -> None:
         if self._closed:
             return
         for file in _iter_files(files):
-            self._queue.put(file)
+            try:
+                future = self._executor.submit(self._do_upload, file)
+            except RuntimeError:
+                if self._closed:
+                    return
+                try:
+                    self._do_upload(file)
+                except Exception as e:
+                    swanlog.warning(f"Failed to save file {file.name}: {e}")
+                continue
+
+            with self._lock:
+                self._futures[future] = file.name
+            future.add_done_callback(self._consume_future)
 
     def join(self) -> None:
-        self._queue.join()
+        while True:
+            with self._lock:
+                futures = list(self._futures.keys())
+            if len(futures) == 0:
+                return
+            wait(futures)
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        self._queue.put(self._STOP)
-        self._thread.join(timeout=5)
+        self.join()
+        self._executor.shutdown(wait=True)
 
-    def _worker(self) -> None:
-        while True:
-            item = self._queue.get()
-            try:
-                if item is self._STOP:
-                    return
-                self._do_upload(item)
-            except Exception as e:
-                swanlog.warning(f"Failed to save file {item.name}: {e}")
-            finally:
-                self._queue.task_done()
+    def _consume_future(self, future: Future) -> None:
+        with self._lock:
+            file_name = self._futures.pop(future, "<unknown>")
+        try:
+            future.result()
+        except Exception as e:
+            swanlog.warning(f"Failed to save file {file_name}: {e}")
 
     def _do_upload(self, file: SaveFile) -> None:
         if not os.path.exists(file.source_path):
@@ -229,38 +230,47 @@ class FileUploadManager:
         return self._exp_id
 
     def _upload_single_part(self, file: SaveFile, size: int, exp_id: str) -> None:
+        file_payload = _build_prepare_file_payload(file, size)
         prepared = prepare_upload(
             self._client,
             exp_id,
-            [{"name": file.name, "size": size, "md5": _file_md5(file.source_path)}],
+            [file_payload],
         )
         if len(prepared) == 0:
             raise ValueError("Prepare upload returned an empty result.")
-        upload_url = _extract_upload_url(prepared[0])
+        upload_url = extract_upload_url(prepared[0])
         with open(file.source_path, "rb") as f:
             upload_file(url=upload_url, buffer=f)
         complete_upload(self._client, exp_id, [file.name])
 
     def _upload_multipart(self, file: SaveFile, size: int, exp_id: str) -> None:
         part_count = max(1, math.ceil(size / PART_SIZE))
-        prepared = prepare_multipart(self._client, exp_id, file.name, size, part_count)
-        upload_id = _extract_upload_id(prepared)
-        part_size = _extract_part_size(prepared)
-        upload_urls = _extract_part_urls(prepared)
-        parts = []
+        file_payload = _build_prepare_file_payload(file, size)
+        prepared = prepare_multipart(
+            self._client,
+            exp_id,
+            file.name,
+            size,
+            part_count,
+            md5=str(file_payload["md5"]),
+            mime_type=file_payload.get("mimeType"),
+        )
+        upload_id = extract_upload_id(prepared)
+        if upload_id is None:
+            raise ValueError("Upload ID is missing in multipart prepare response.")
+        part_size = extract_part_size(prepared, PART_SIZE)
+        upload_urls = extract_part_urls(prepared)
+        buffers: List[Tuple[str, BytesIO]] = []
 
         with open(file.source_path, "rb") as f:
-            for part_number, upload_url in upload_urls:
+            for _part_number, upload_url in upload_urls:
                 chunk = f.read(part_size)
                 if chunk == b"":
                     break
-                etag = _upload_part(upload_url, BytesIO(chunk))
-                part_info: Dict[str, object] = {"partNumber": part_number}
-                if etag is not None:
-                    part_info["etag"] = etag
-                parts.append(part_info)
+                buffers.append((upload_url, BytesIO(chunk)))
 
-        complete_multipart(self._client, exp_id, file.name, parts, upload_id=upload_id)
+        _upload_buffers(buffers)
+        complete_multipart(self._client, exp_id, file.name, upload_id=upload_id)
 
 
 class DirWatcher:

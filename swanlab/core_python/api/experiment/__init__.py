@@ -5,13 +5,23 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import Literal, Dict, TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
 from swanlab.core_python.api.type import RunType
-from .utils import to_camel_case, parse_column_type
+
+from .utils import (
+    extract_file_payloads,
+    parse_column_type,
+    to_camel_case,
+    unwrap_api_payload,
+)
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
+
+
+MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
+PART_SIZE = 10 * 1024 * 1024
 
 
 def send_experiment_heartbeat(
@@ -76,7 +86,7 @@ def get_project_experiments(
         - 'job_type': 按任务类型筛选，值为字符串
     """
     # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
-    SPECIAL_FILTER_CONFIG = {
+    special_filter_config = {
         "group": {"key": "cluster", "op": "EQ"},
         "tags": {"key": "labels", "op": "IN"},
         "name": {"key": "name", "op": "EQ"},
@@ -88,9 +98,9 @@ def get_project_experiments(
 
     if filters:
         for key, value in filters.items():
-            if key in SPECIAL_FILTER_CONFIG:
+            if key in special_filter_config:
                 # 特殊字段处理
-                config = SPECIAL_FILTER_CONFIG[key]
+                config = special_filter_config[key]
                 # tags 需要转换为列表
                 filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
                 parsed_filters.append(
@@ -151,11 +161,85 @@ def delete_experiment(client: "Client", *, path: str):
     client.delete(f"/project/{proj_path}/runs/{expid}")
 
 
+def prepare_upload(client: "Client", exp_id: str, files: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    """
+    创建普通文件上传任务，返回预签名上传地址列表。
+    """
+    if len(files) == 0:
+        return []
+    data, _ = client.post(f"/experiment/{exp_id}/files/prepare", {"files": files})
+    return extract_file_payloads(unwrap_api_payload(data))
+
+
+def complete_upload(client: "Client", exp_id: str, names: List[str], state: str = "UPLOADED") -> None:
+    """
+    标记普通文件上传完成。
+    """
+    if len(names) == 0:
+        return
+    client.post(
+        f"/experiment/{exp_id}/files/complete",
+        {"files": [{"name": name, "state": state} for name in names]},
+    )
+
+
+def prepare_multipart(
+    client: "Client",
+    exp_id: str,
+    name: str,
+    size: int,
+    part_count: int,
+    md5: str,
+    mime_type: Optional[str] = None,
+) -> Dict[str, object]:
+    """
+    创建分片上传任务，返回上传地址和上传上下文。
+    """
+    file_payload: Dict[str, object] = {
+        "name": name,
+        "size": size,
+        "md5": md5,
+        "count": part_count,
+    }
+    if mime_type is not None:
+        file_payload["mimeType"] = mime_type
+    data, _ = client.post(
+        f"/experiment/{exp_id}/files/prepare-multipart",
+        {"files": [file_payload]},
+    )
+    payloads = extract_file_payloads(unwrap_api_payload(data))
+    if len(payloads) == 0:
+        raise ValueError("Multipart prepare API returned empty file payloads.")
+    return payloads[0]
+
+
+def complete_multipart(
+    client: "Client",
+    exp_id: str,
+    name: str,
+    upload_id: str,
+    state: str = "UPLOADED",
+) -> None:
+    """
+    标记分片上传完成，并通知后端执行合并。
+    """
+    client.post(
+        f"/experiment/{exp_id}/files/complete-multipart",
+        {"files": [{"name": name, "uploadId": upload_id, "state": state}]},
+    )
+
+
 __all__ = [
+    "MULTIPART_THRESHOLD",
+    "PART_SIZE",
     "send_experiment_heartbeat",
     "update_experiment_state",
     "get_project_experiments",
     "get_single_experiment",
     "get_experiment_metrics",
     "delete_experiment",
+    "prepare_upload",
+    "complete_upload",
+    "prepare_multipart",
+    "complete_multipart",
 ]
