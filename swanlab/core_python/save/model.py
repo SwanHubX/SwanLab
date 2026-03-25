@@ -10,7 +10,7 @@ class SaveFileState(str, Enum):
     FAILED = "FAILED"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class SaveFilePayload:
     name: str
     size: Optional[int] = None
@@ -37,7 +37,7 @@ class SaveFilePayload:
         return payload
 
 
-@dataclass(slots=True)
+@dataclass
 class WatchSaveFileModel:
     source_path: str
     name: str
