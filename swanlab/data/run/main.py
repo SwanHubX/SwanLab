@@ -12,7 +12,7 @@ import pathlib
 from typing import Any, Dict, Optional, List, Tuple, Literal
 
 from swanlab.core_python import timer
-from swanlab.core_python.save import DirWatcher, FileUploadManager, SaveFile, collect_save_files
+from swanlab.core_python.save import DirWatcher, FileUploadManager, WatchSaveFileModel, collect_save_files
 from swanlab.data.modules import DataWrapper, FloatConvertible, Line, Echarts, PyEchartsBase, PyEchartsTable
 from swanlab.env import get_mode
 from swanlab.formatter import check_key_format
@@ -67,7 +67,7 @@ class SwanLabRun:
         self.__state = SwanLabRunState.RUNNING
         self.__monitor_timer: Optional[timer.Timer] = None
         self.__config: Optional[SwanLabConfig] = None
-        self.__pending_saves: Dict[str, SaveFile] = {}
+        self.__pending_saves: Dict[str, WatchSaveFileModel] = {}
         self.__upload_manager: Optional[FileUploadManager] = None
         self.__dir_watcher: Optional[DirWatcher] = None
         # 1. 设置常规参数
@@ -395,7 +395,7 @@ class SwanLabRun:
             self.__upload_manager.submit(list(self.__pending_saves.values()))
         self.__pending_saves.clear()
 
-    def _dispatch_saved_files(self, files: List[SaveFile], policy: Literal['now', 'end', 'live']) -> None:
+    def _dispatch_saved_files(self, files: List[WatchSaveFileModel], policy: Literal['now', 'end', 'live']) -> None:
         if self.__mode == "disabled":
             return
         if policy == "end":
