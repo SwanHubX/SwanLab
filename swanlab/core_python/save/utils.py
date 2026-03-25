@@ -5,7 +5,7 @@ import os
 import pathlib
 from typing import List, Optional, Union
 
-from .model import WatchSaveFileModel
+from .model import FileSignature, WatchSaveFileModel
 
 
 def validate_glob_path(glob_path: pathlib.PurePath, base_path: pathlib.PurePath) -> None:
@@ -30,7 +30,7 @@ def collect_save_files(
     seen_paths = set()
     seen_names = {}
 
-    for fid, path in enumerate(matched):
+    for path in matched:
         src = pathlib.Path(path).absolute()
         if str(src) in seen_paths or not src.is_file():
             continue
@@ -44,7 +44,6 @@ def collect_save_files(
         seen_names[name] = str(src)
         files.append(
             WatchSaveFileModel(
-                fid=fid,
                 source_path=str(src),
                 name=name,
                 target_path=str((files_root / rel).absolute()),
@@ -58,7 +57,10 @@ def compute_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
     """计算文件 MD5"""
     md5 = hashlib.md5()
     with open(path, "rb") as f:
-        while chunk := f.read(chunk_size):
+        while True:
+            chunk = f.read(chunk_size)
+            if chunk == b"":
+                break
             md5.update(chunk)
     return md5.hexdigest()
 
@@ -69,7 +71,7 @@ def guess_mime_type(path: str) -> Optional[str]:
     return mime_type
 
 
-def file_signature(path: str) -> Optional[tuple]:
+def file_signature(path: str) -> Optional[FileSignature]:
     """获取文件签名 (mtime_ns, size)"""
     try:
         stat = os.stat(path)

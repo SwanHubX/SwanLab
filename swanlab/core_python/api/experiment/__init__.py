@@ -5,23 +5,21 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Union
 
 from swanlab.core_python.api.type import RunType
 
 from .utils import (
     extract_file_payloads,
     parse_column_type,
+    serialize_file_payload,
+    serialize_file_payloads,
     to_camel_case,
     unwrap_api_payload,
 )
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
-
-
-MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
-PART_SIZE = 10 * 1024 * 1024
 
 
 def send_experiment_heartbeat(
@@ -161,51 +159,37 @@ def delete_experiment(client: "Client", *, path: str):
     client.delete(f"/project/{proj_path}/runs/{expid}")
 
 
-def prepare_upload(client: "Client", exp_id: str, files: List[Dict[str, object]]) -> List[Dict[str, object]]:
+def prepare_upload(client: "Client", exp_id: str, files: Iterable[Any]) -> List[Dict[str, object]]:
     """
     创建普通文件上传任务，返回预签名上传地址列表。
     """
-    if len(files) == 0:
+    payload_files = serialize_file_payloads(files)
+    if len(payload_files) == 0:
         return []
-    data, _ = client.post(f"/experiment/{exp_id}/files/prepare", {"files": files})
+    data, _ = client.post(f"/experiment/{exp_id}/files/prepare", {"files": payload_files})
     return extract_file_payloads(unwrap_api_payload(data))
 
 
-def complete_upload(client: "Client", exp_id: str, names: List[str], state: str = "UPLOADED") -> None:
+def complete_upload(client: "Client", exp_id: str, files: Iterable[Any]) -> None:
     """
     标记普通文件上传完成。
     """
-    if len(names) == 0:
+    payload_files = serialize_file_payloads(files)
+    if len(payload_files) == 0:
         return
     client.post(
         f"/experiment/{exp_id}/files/complete",
-        {"files": [{"name": name, "state": state} for name in names]},
+        {"files": payload_files},
     )
 
 
-def prepare_multipart(
-    client: "Client",
-    exp_id: str,
-    name: str,
-    size: int,
-    part_count: int,
-    md5: str,
-    mime_type: Optional[str] = None,
-) -> Dict[str, object]:
+def prepare_multipart(client: "Client", exp_id: str, file: Any) -> Dict[str, object]:
     """
     创建分片上传任务，返回上传地址和上传上下文。
     """
-    file_payload: Dict[str, object] = {
-        "name": name,
-        "size": size,
-        "md5": md5,
-        "count": part_count,
-    }
-    if mime_type is not None:
-        file_payload["mimeType"] = mime_type
     data, _ = client.post(
         f"/experiment/{exp_id}/files/prepare-multipart",
-        {"files": [file_payload]},
+        {"files": [serialize_file_payload(file)]},
     )
     payloads = extract_file_payloads(unwrap_api_payload(data))
     if len(payloads) == 0:
@@ -213,25 +197,17 @@ def prepare_multipart(
     return payloads[0]
 
 
-def complete_multipart(
-    client: "Client",
-    exp_id: str,
-    name: str,
-    upload_id: str,
-    state: str = "UPLOADED",
-) -> None:
+def complete_multipart(client: "Client", exp_id: str, file: Any) -> None:
     """
     标记分片上传完成，并通知后端执行合并。
     """
     client.post(
         f"/experiment/{exp_id}/files/complete-multipart",
-        {"files": [{"name": name, "uploadId": upload_id, "state": state}]},
+        {"files": [serialize_file_payload(file)]},
     )
 
 
 __all__ = [
-    "MULTIPART_THRESHOLD",
-    "PART_SIZE",
     "send_experiment_heartbeat",
     "update_experiment_state",
     "get_project_experiments",

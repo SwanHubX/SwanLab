@@ -6,11 +6,9 @@ import shutil
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from io import BytesIO
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from swanlab.core_python.api.experiment import (
-    MULTIPART_THRESHOLD,
-    PART_SIZE,
     complete_multipart,
     complete_upload,
     prepare_multipart,
@@ -29,6 +27,9 @@ from swanlab.log import swanlog
 from .model import WatchSaveFileModel
 from .utils import compute_md5, file_signature, guess_mime_type
 
+# 分片阈值 / 大小
+MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
+PART_SIZE = 10 * 1024 * 1024
 
 def _remove_path(path: str) -> None:
     if not os.path.lexists(path):
@@ -43,7 +44,7 @@ def _iter_files(files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]) 
     return [files] if isinstance(files, WatchSaveFileModel) else files
 
 
-def _upload_buffers(buffers: List[tuple]) -> None:
+def _upload_buffers(buffers: List[Tuple[str, BytesIO]]) -> None:
     """并发上传多个分片"""
     if not buffers:
         return
@@ -151,18 +152,27 @@ class FileUploadManager:
 
     def _upload_single(self, file: WatchSaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
-        model = file.to_save_file_model(size, compute_md5(file.source_path), guess_mime_type(file.source_path))
-        prepared = prepare_upload(self._client, exp_id, [model.to_dict()])
+        payload = file.prepare_payload(
+            size=size,
+            md5=compute_md5(file.source_path),
+            mime_type=guess_mime_type(file.source_path),
+        )
+        prepared = prepare_upload(self._client, exp_id, [payload])
         upload_url = extract_upload_url(prepared[0])
         with open(file.source_path, "rb") as f:
             upload_file(url=upload_url, buffer=BytesIO(f.read()))
-        complete_upload(self._client, exp_id, [file.name])
+        complete_upload(self._client, exp_id, [file.complete_payload()])
 
     def _upload_multipart(self, file: WatchSaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
         part_count = max(1, math.ceil(size / PART_SIZE))
-        model = file.to_save_file_model(size, compute_md5(file.source_path), guess_mime_type(file.source_path))
-        prepared = prepare_multipart(self._client, exp_id, file.name, size, part_count, md5=model.md5, mime_type=model.mimeType)
+        payload = file.prepare_payload(
+            size=size,
+            md5=compute_md5(file.source_path),
+            mime_type=guess_mime_type(file.source_path),
+            count=part_count,
+        )
+        prepared = prepare_multipart(self._client, exp_id, payload)
         upload_id = extract_upload_id(prepared)
         assert upload_id is not None
         part_size = extract_part_size(prepared, PART_SIZE)
@@ -171,11 +181,12 @@ class FileUploadManager:
         buffers = []
         with open(file.source_path, "rb") as f:
             for _, url in upload_urls:
-                if chunk := f.read(part_size):
+                chunk = f.read(part_size)
+                if chunk != b"":
                     buffers.append((url, BytesIO(chunk)))
 
         _upload_buffers(buffers)
-        complete_multipart(self._client, exp_id, file.name, upload_id=upload_id)
+        complete_multipart(self._client, exp_id, file.complete_payload(upload_id=upload_id))
 
 
 class DirWatcher:

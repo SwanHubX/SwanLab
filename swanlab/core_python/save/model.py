@@ -1,52 +1,81 @@
 from dataclasses import dataclass
-from typing import Literal, Optional, Tuple
 from enum import Enum
+from typing import Optional, Tuple
 
-@dataclass
-class SaveFileModel:
-    """文件上传模型，对应后端 prepare 接口的 file 对象"""
-    name: str
-    size: int
-    md5: str
-    count: Optional[int]
-    mimeType: Optional[str] = None
-
-    def to_dict(self, multipart: bool = False):
-        d = {"name": self.name, "size": self.size, "md5": self.md5}
-        if self.mimeType:
-            d["mimeType"] = self.mimeType
-        if multipart:
-            d["count"] = self.count if self.count is not None else 1
-        return d
+FileSignature = Tuple[int, int]
 
 
-class SaveFileState(Enum):
+class SaveFileState(str, Enum):
     UPLOADED = "UPLOADED"
     FAILED = "FAILED"
 
 
-
-@dataclass
-class SaveFileStateModel:
-    """文件状态模型，对应后端 complete 接口的 file 对象"""
+@dataclass(frozen=True, slots=True)
+class SaveFilePayload:
     name: str
-    state: SaveFileState
+    size: Optional[int] = None
+    md5: Optional[str] = None
+    mime_type: Optional[str] = None
+    count: Optional[int] = None
+    upload_id: Optional[str] = None
+    state: Optional[SaveFileState] = None
 
-    def to_dict(self):
-        return {"name": self.name, "state": self.state.value}
+    def to_dict(self) -> dict:
+        payload = {"name": self.name}
+        if self.size is not None:
+            payload["size"] = self.size
+        if self.md5 is not None:
+            payload["md5"] = self.md5
+        if self.mime_type is not None:
+            payload["mimeType"] = self.mime_type
+        if self.count is not None:
+            payload["count"] = self.count
+        if self.upload_id is not None:
+            payload["uploadId"] = self.upload_id
+        if self.state is not None:
+            payload["state"] = self.state.value
+        return payload
 
 
-@dataclass
+@dataclass(slots=True)
 class WatchSaveFileModel:
-    """监听文件模型，包含本地路径和上传信息"""
-    fid: int
     source_path: str
     name: str
     target_path: str
-    signature: Optional[tuple] = None
+    signature: Optional[FileSignature] = None
 
-    def to_save_file_model(self, size: int, md5: str, mime_type: Optional[str] = None, count: Optional[int] = None) -> SaveFileModel:
-        return SaveFileModel(name=self.name, size=size, md5=md5, mimeType=mime_type, count=count)
+    def prepare_payload(
+        self,
+        *,
+        size: int,
+        md5: str,
+        mime_type: Optional[str] = None,
+        count: Optional[int] = None,
+    ) -> SaveFilePayload:
+        return SaveFilePayload(
+            name=self.name,
+            size=size,
+            md5=md5,
+            mime_type=mime_type,
+            count=count,
+        )
+
+    def complete_payload(
+        self,
+        *,
+        upload_id: Optional[str] = None,
+        state: SaveFileState = SaveFileState.UPLOADED,
+    ) -> SaveFilePayload:
+        return SaveFilePayload(
+            name=self.name,
+            upload_id=upload_id,
+            state=state,
+        )
 
 
-__all__ = ["SaveFileModel", "SaveFileState", "SaveFileStateModel", "WatchSaveFileModel"]
+__all__ = [
+    "FileSignature",
+    "SaveFileState",
+    "SaveFilePayload",
+    "WatchSaveFileModel",
+]

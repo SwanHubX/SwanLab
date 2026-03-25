@@ -5,7 +5,7 @@
 @description: 实验相关的后端API接口中的工具函数
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from swanlab.core_python.api.type import ColumnType
 
@@ -30,6 +30,21 @@ def unwrap_api_payload(data):
     if isinstance(data, dict) and "data" in data and isinstance(data["data"], (dict, list)):
         return data["data"]
     return data
+
+
+def serialize_file_payload(payload: Any) -> Dict[str, object]:
+    if isinstance(payload, dict):
+        return payload
+    to_dict = getattr(payload, "to_dict", None)
+    if callable(to_dict):
+        serialized = to_dict()
+        if isinstance(serialized, dict):
+            return serialized
+    raise TypeError("File payload must be a dict or expose a to_dict() method.")
+
+
+def serialize_file_payloads(payloads: Iterable[Any]) -> List[Dict[str, object]]:
+    return [serialize_file_payload(payload) for payload in payloads]
 
 
 def extract_file_payloads(payload) -> List[Dict[str, object]]:
@@ -100,6 +115,8 @@ __all__ = [
     "parse_column_type",
     "to_camel_case",
     "unwrap_api_payload",
+    "serialize_file_payload",
+    "serialize_file_payloads",
     "extract_file_payloads",
     "extract_upload_url",
     "extract_upload_id",

@@ -2,14 +2,13 @@ import hashlib
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
-from swanlab.core_python.save import WatchSaveFileModel
+from swanlab.core_python.save import SaveFilePayload, SaveFileState, WatchSaveFileModel
 
 
 def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
     source = tmp_path / "metrics.txt"
     source.write_text("hello world")
     file = WatchSaveFileModel(
-        fid=0,
         source_path=str(source),
         name="logs/metrics.txt",
         target_path=str(tmp_path / "run" / "logs" / "metrics.txt"),
@@ -26,8 +25,8 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
     def fake_upload_file(*, url, buffer, max_retries=3):
         captured["upload"] = (url, buffer.read(), max_retries)
 
-    def fake_complete_upload(client, exp_id, names):
-        captured["complete"] = (client, exp_id, names)
+    def fake_complete_upload(client, exp_id, files):
+        captured["complete"] = (client, exp_id, files)
 
     monkeypatch.setattr(save_manager, "prepare_upload", fake_prepare_upload)
     monkeypatch.setattr(save_manager, "upload_file", fake_upload_file)
@@ -40,15 +39,18 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
 
     assert captured["prepare"][1] == "exp-123"
     assert captured["prepare"][2] == [
-        {
-            "name": "logs/metrics.txt",
-            "size": source.stat().st_size,
-            "md5": hashlib.md5(b"hello world").hexdigest(),
-            "mimeType": "text/plain",
-        }
+        SaveFilePayload(
+            name="logs/metrics.txt",
+            size=source.stat().st_size,
+            md5=hashlib.md5(b"hello world").hexdigest(),
+            mime_type="text/plain",
+        )
     ]
     assert captured["upload"] == ("https://upload.example.com/file", b"hello world", 3)
-    assert captured["complete"][1:] == ("exp-123", ["logs/metrics.txt"])
+    assert captured["complete"][1:] == (
+        "exp-123",
+        [SaveFilePayload(name="logs/metrics.txt", state=SaveFileState.UPLOADED)],
+    )
 
 
 def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
@@ -56,7 +58,6 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
     source = tmp_path / "checkpoint.txt"
     source.write_bytes(content)
     file = WatchSaveFileModel(
-        fid=0,
         source_path=str(source),
         name="checkpoints/checkpoint.txt",
         target_path=str(tmp_path / "run" / "checkpoints" / "checkpoint.txt"),
@@ -66,8 +67,8 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
 
     captured = {}
 
-    def fake_prepare_multipart(client, exp_id, name, size, part_count, md5, mime_type=None):
-        captured["prepare"] = {"exp_id": exp_id, "name": name, "size": size, "count": part_count, "md5": md5, "mime": mime_type}
+    def fake_prepare_multipart(client, exp_id, file):
+        captured["prepare"] = {"exp_id": exp_id, "file": file}
         return {
             "uploadId": "upload-1",
             "partSize": 4,
@@ -83,8 +84,8 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
             captured["parts"] = []
         captured["parts"].append((url, buffer.read()))
 
-    def fake_complete_multipart(client, exp_id, name, upload_id):
-        captured["complete"] = {"exp_id": exp_id, "name": name, "upload_id": upload_id}
+    def fake_complete_multipart(client, exp_id, file):
+        captured["complete"] = {"exp_id": exp_id, "file": file}
 
     monkeypatch.setattr(save_manager, "PART_SIZE", 4)
     monkeypatch.setattr(save_manager, "prepare_multipart", fake_prepare_multipart)
@@ -97,14 +98,21 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
         manager.close()
 
     assert captured["prepare"]["exp_id"] == "exp-123"
-    assert captured["prepare"]["name"] == "checkpoints/checkpoint.txt"
-    assert captured["prepare"]["size"] == len(content)
-    assert captured["prepare"]["count"] == 3
-    assert captured["prepare"]["md5"] == hashlib.md5(content).hexdigest()
-    assert captured["prepare"]["mime"] == "text/plain"
+    assert captured["prepare"]["file"] == SaveFilePayload(
+        name="checkpoints/checkpoint.txt",
+        size=len(content),
+        md5=hashlib.md5(content).hexdigest(),
+        mime_type="text/plain",
+        count=3,
+    )
     assert captured["parts"] == [
         ("https://upload.example.com/part-1", b"abcd"),
         ("https://upload.example.com/part-2", b"efgh"),
         ("https://upload.example.com/part-3", b"ij"),
     ]
-    assert captured["complete"]["upload_id"] == "upload-1"
+    assert captured["complete"]["exp_id"] == "exp-123"
+    assert captured["complete"]["file"] == SaveFilePayload(
+        name="checkpoints/checkpoint.txt",
+        upload_id="upload-1",
+        state=SaveFileState.UPLOADED,
+    )
