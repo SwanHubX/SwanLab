@@ -22,7 +22,7 @@ from swanlab.core_python.api.service import upload_file
 from swanlab.core_python.client import get_client
 from swanlab.log import swanlog
 
-from .model import SaveFileModel
+from .model import SaveFileModel, SaveFileState
 from .utils import compute_md5, file_signature, guess_mime_type
 
 # 分片阈值 / 大小
@@ -176,25 +176,30 @@ class FileUploadManager:
 
     def _upload_single(self, file: SaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
+        mime_type = guess_mime_type(file.source_path)
         payload = file.prepare_request(
             size=size,
             md5=compute_md5(file.source_path),
-            mime_type=guess_mime_type(file.source_path),
+            mime_type=mime_type,
         )
         urls = prepare_upload(self._client, exp_id, [payload])
-        with open(file.source_path, "rb") as f:
-            upload_file(url=urls[0], buffer=BytesIO(f.read()))
-        complete_upload(self._client, exp_id, [file.complete_request()])
+        try:
+            with open(file.source_path, "rb") as f:
+                upload_file(url=urls[0], buffer=BytesIO(f.read()), mime_type=mime_type)
+            complete_upload(self._client, exp_id, [file.complete_request()])
+        except Exception as e:
+            complete_upload(self._client, exp_id, [file.complete_request(state=SaveFileState.FAILED)])
 
     def _upload_multipart(
         self, file: SaveFileModel, size: int, exp_id: str
     ) -> None:
         assert self._client is not None
         part_count = max(1, math.ceil(size / PART_SIZE))
+        mime_type = guess_mime_type(file.source_path)
         payload = file.prepare_request(
             size=size,
             md5=compute_md5(file.source_path),
-            mime_type=guess_mime_type(file.source_path),
+            mime_type=mime_type,
             count=part_count,
         )
         prepared = prepare_multipart(self._client, exp_id, payload)

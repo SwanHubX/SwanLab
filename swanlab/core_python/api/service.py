@@ -18,7 +18,9 @@ from ...log import swanlog
 from ...toolkit.models.data import MediaBuffer
 
 
-def upload_file(*, url: str, buffer: BytesIO, max_retries=3) -> Optional[str]:
+MIME_TYPE_DEFAULT: str = "application/octet-stream"
+
+def upload_file(*, url: str, buffer: BytesIO, max_retries=3, mime_type: str=MIME_TYPE_DEFAULT) -> Optional[str]:
     """
     上传文件到COS
     :param url: COS上传URL
@@ -33,7 +35,7 @@ def upload_file(*, url: str, buffer: BytesIO, max_retries=3) -> Optional[str]:
                 response = session.put(
                     url,
                     data=buffer,
-                    headers={"Content-Type": "application/octet-stream"},
+                    headers={"Content-Type": mime_type},
                     timeout=30,
                 )
                 response.raise_for_status()
