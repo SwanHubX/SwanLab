@@ -58,10 +58,7 @@ def compute_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
     """计算文件 MD5"""
     md5 = hashlib.md5()
     with open(path, "rb") as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if chunk == b"":
-                break
+        for chunk in iter(lambda: f.read(chunk_size), b""):
             md5.update(chunk)
     return md5.hexdigest()
 
@@ -77,7 +74,7 @@ def file_signature(path: str) -> Optional[FileSignature]:
     try:
         stat = os.stat(path)
         return (stat.st_mtime_ns, stat.st_size)
-    except FileNotFoundError:
+    except OSError:
         return None
 
 

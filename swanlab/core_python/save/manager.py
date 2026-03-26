@@ -20,6 +20,7 @@ from swanlab.core_python.api.experiment.utils import (
 )
 from swanlab.core_python.api.service import upload_file
 from swanlab.core_python.client import get_client
+from swanlab.core_python.utils.timer import Timer
 from swanlab.log import swanlog
 
 from .model import SaveFileModel, SaveFileState
@@ -98,9 +99,7 @@ class FileUploadManager:
         )
         self._futures: Dict[Future, str] = {}
 
-    def submit(
-        self, files: Union[SaveFileModel, Iterable[SaveFileModel]]
-    ) -> None:
+    def submit(self, files: Union[SaveFileModel, Iterable[SaveFileModel]]) -> None:
         if self._closed:
             return
         for file in _iter_files(files):
@@ -188,11 +187,13 @@ class FileUploadManager:
                 upload_file(url=urls[0], buffer=BytesIO(f.read()), mime_type=mime_type)
             complete_upload(self._client, exp_id, [file.complete_request()])
         except Exception as e:
-            complete_upload(self._client, exp_id, [file.complete_request(state=SaveFileState.FAILED)])
+            complete_upload(
+                self._client,
+                exp_id,
+                [file.complete_request(state=SaveFileState.FAILED)],
+            )
 
-    def _upload_multipart(
-        self, file: SaveFileModel, size: int, exp_id: str
-    ) -> None:
+    def _upload_multipart(self, file: SaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
         part_count = max(1, math.ceil(size / PART_SIZE))
         mime_type = guess_mime_type(file.source_path)
@@ -211,7 +212,7 @@ class FileUploadManager:
         with open(file.source_path, "rb") as f:
             for part_number, url in upload_urls:
                 chunk = f.read(PART_SIZE)
-                if chunk != b"":
+                if chunk:
                     buffers.append((part_number, url, BytesIO(chunk)))
 
         parts = _upload_buffers(buffers)
@@ -238,12 +239,9 @@ class DirWatcher:
         self._interval = interval
         self._entries: Dict[str, SaveFileModel] = {}
         self._lock = threading.Lock()
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._timer = Timer(task=self._poll_task, interval=self._interval)
 
-    def watch(
-        self, files: Union[SaveFileModel, Iterable[SaveFileModel]]
-    ) -> None:
+    def watch(self, files: Union[SaveFileModel, Iterable[SaveFileModel]]) -> None:
         with self._lock:
             for file in _iter_files(files):
                 if self._mode == "cloud":
@@ -253,35 +251,28 @@ class DirWatcher:
         self._start()
 
     def stop(self) -> None:
-        if self._thread:
-            self._stop_event.set()
-            self._thread.join(timeout=self._interval + 1.0)
+        self._timer.cancel()
+        self._timer.join(timeout=self._interval + 1.0)
 
     def _start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-        self._thread = threading.Thread(
-            target=self._poll, name="swanlab-save-watch", daemon=True
-        )
-        self._thread.start()
+        self._timer.run()
 
-    def _poll(self) -> None:
-        while not self._stop_event.wait(self._interval):
+    def _poll_task(self) -> None:
+        with self._lock:
+            entries = list(self._entries.items())
+        for name, file in entries:
+            sig = file_signature(file.source_path)
+            if sig == file.signature or sig is None:
+                continue
             with self._lock:
-                entries = list(self._entries.items())
-            for name, file in entries:
-                sig = file_signature(file.source_path)
-                if sig == file.signature or sig is None:
+                if name not in self._entries:
                     continue
-                with self._lock:
-                    if name not in self._entries:
-                        continue
-                    self._entries[name].signature = sig
-                    current = self._entries[name]
-                try:
-                    self._on_change(current)
-                except Exception as e:
-                    swanlog.warning(f"Live save change failed for {name}: {e}")
+                self._entries[name].signature = sig
+                current = self._entries[name]
+            try:
+                self._on_change(current)
+            except Exception as e:
+                swanlog.warning(f"Live save change failed for {name}: {e}")
 
     def _create_symlink(self, file: SaveFileModel) -> None:
         if os.path.abspath(file.target_path) == os.path.abspath(file.source_path):

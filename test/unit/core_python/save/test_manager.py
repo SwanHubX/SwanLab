@@ -130,3 +130,37 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
             {"partNumber": 3, "etag": "etag-3"},
         ],
     }
+
+
+def test_upload_single_failure_reports_failed_state(tmp_path, monkeypatch):
+    source = tmp_path / "broken.txt"
+    source.write_text("broken")
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/broken.txt",
+        target_path=str(tmp_path / "run" / "logs" / "broken.txt"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    manager._client = MagicMock()
+
+    captured = {}
+
+    def fake_prepare_upload(client, exp_id, files):
+        return ["https://upload.example.com/broken"]
+
+    def fake_upload_file(*, url, buffer, max_retries=3, mime_type=None):
+        raise RuntimeError("Simulated upload failure")
+
+    def fake_complete_upload(client, exp_id, files):
+        captured["complete"] = files
+
+    monkeypatch.setattr(save_manager, "prepare_upload", fake_prepare_upload)
+    monkeypatch.setattr(save_manager, "upload_file", fake_upload_file)
+    monkeypatch.setattr(save_manager, "complete_upload", fake_complete_upload)
+
+    try:
+        manager._upload_single(file, source.stat().st_size, "exp-456")
+    finally:
+        manager.close()
+
+    assert captured["complete"] == [{"path": "logs/broken.txt", "state": "FAILED"}]

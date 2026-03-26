@@ -509,6 +509,23 @@ def save(
 ):
     """
     Save files matched by glob into the current run according to the specified policy.
+    
+    Parameters
+    ----------
+    glob_str : Union[str, bytes]
+        A glob string or bytes representing the file paths to match and save.
+        For example, 'logs/**/*.txt'.
+    policy : Literal['now', 'end', 'live'], optional
+        The policy to use for saving files. 
+        - 'now': Upload the matched files immediately.
+        - 'end': Wait until the end of the run (when `swanlab.finish()` is called) to upload the files.
+        - 'live': Continuously watch the matched files for changes and automatically upload when modified.
+        The default is "live".
+    base_path : Optional[Union[str, os.PathLike]], optional
+        The base repository path. When files are saved, their relative paths to this base path are preserved.
+        If not provided, the base path defaults to the current working directory, unless the glob path is absolute
+        (in which case it resolves to the parent directory of the matched files).
+        For example, `save('data/logs/*.json', base_path='data')` will preserve the `logs/` sub-directory.
     """
     resolved_paths = _resolve_save_paths(glob_str, base_path=base_path)
     if resolved_paths is None:
