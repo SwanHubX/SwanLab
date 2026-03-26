@@ -48,7 +48,7 @@ def test_prepare_multipart_sends_documented_fields():
                 "files": [
                     {
                         "uploadId": "upload-1",
-                        "urls": [
+                        "parts": [
                             {
                                 "partNumber": 1,
                                 "url": "https://upload.example.com/part-1",
@@ -89,7 +89,7 @@ def test_prepare_multipart_sends_documented_fields():
     )
     assert result == {
         "uploadId": "upload-1",
-        "urls": [{"partNumber": 1, "url": "https://upload.example.com/part-1"}],
+        "parts": [{"partNumber": 1, "url": "https://upload.example.com/part-1"}],
     }
 
 

@@ -47,12 +47,12 @@ def extract_upload_id(payload: Dict[str, object]) -> Optional[str]:
 
 
 def extract_part_urls(payload: Dict[str, object]) -> List[Tuple[int, str]]:
-    urls = payload.get("urls")
-    if not isinstance(urls, list):
+    parts = payload.get("parts")
+    if not isinstance(parts, list):
         raise ValueError("Multipart upload URLs are missing in prepare response.")
 
     resolved = []
-    for part in urls:
+    for part in parts:
         if not isinstance(part, dict):
             raise ValueError("Multipart prepare response contains invalid part data.")
         part_number = part.get("partNumber")

@@ -77,7 +77,7 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
         return {
             "uploadId": "upload-1",
             "partSize": 4,
-            "urls": [
+            "parts": [
                 {"partNumber": 1, "url": "https://upload.example.com/part-1"},
                 {"partNumber": 2, "url": "https://upload.example.com/part-2"},
                 {"partNumber": 3, "url": "https://upload.example.com/part-3"},

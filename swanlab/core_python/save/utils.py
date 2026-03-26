@@ -3,11 +3,21 @@ import hashlib
 import mimetypes
 import os
 import pathlib
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from .model import FileSignature, SaveFileModel
 
 MIME_TYPE_DEFAULT: str = "application/octet-stream"
+
+
+def _expand_matched_path(path: Union[str, os.PathLike]) -> Iterable[pathlib.Path]:
+    src = pathlib.Path(path).absolute()
+    if src.is_file():
+        return [src]
+    if src.is_dir():
+        return sorted(child.absolute() for child in src.rglob("*") if child.is_file())
+    return []
+
 
 def validate_glob_path(glob_path: pathlib.PurePath, base_path: pathlib.PurePath) -> None:
     """确保 glob_path 在 base_path 下"""
@@ -32,24 +42,24 @@ def collect_save_files(
     seen_names = {}
 
     for path in matched:
-        src = pathlib.Path(path).absolute()
-        if str(src) in seen_paths or not src.is_file():
-            continue
+        for src in _expand_matched_path(path):
+            if str(src) in seen_paths:
+                continue
 
-        rel = pathlib.Path(*src.parts[len(base_path.parts) :])
-        name = rel.as_posix()
-        if name in seen_names and seen_names[name] != str(src):
-            raise ValueError(f'Multiple files resolve to the same save key "{name}".')
+            rel = pathlib.Path(*src.parts[len(base_path.parts) :])
+            name = rel.as_posix()
+            if name in seen_names and seen_names[name] != str(src):
+                raise ValueError(f'Multiple files resolve to the same save key "{name}".')
 
-        seen_paths.add(str(src))
-        seen_names[name] = str(src)
-        files.append(
-            SaveFileModel(
-                source_path=str(src),
-                name=name,
-                target_path=str((files_root / rel).absolute()),
+            seen_paths.add(str(src))
+            seen_names[name] = str(src)
+            files.append(
+                SaveFileModel(
+                    source_path=str(src),
+                    name=name,
+                    target_path=str((files_root / rel).absolute()),
+                )
             )
-        )
 
     return files
 
