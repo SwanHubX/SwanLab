@@ -15,10 +15,8 @@ from swanlab.core_python.api.experiment import (
     prepare_upload,
 )
 from swanlab.core_python.api.experiment.utils import (
-    extract_part_size,
     extract_part_urls,
     extract_upload_id,
-    extract_upload_url,
 )
 from swanlab.core_python.api.service import upload_file
 from swanlab.core_python.client import get_client
@@ -31,6 +29,7 @@ from .utils import compute_md5, file_signature, guess_mime_type
 MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
 PART_SIZE = 10 * 1024 * 1024
 
+
 def _remove_path(path: str) -> None:
     if not os.path.lexists(path):
         return
@@ -40,27 +39,48 @@ def _remove_path(path: str) -> None:
         os.unlink(path)
 
 
-def _iter_files(files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]) -> Iterable[WatchSaveFileModel]:
+def _iter_files(
+    files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]],
+) -> Iterable[WatchSaveFileModel]:
     return [files] if isinstance(files, WatchSaveFileModel) else files
 
 
-def _upload_buffers(buffers: List[Tuple[str, BytesIO]]) -> None:
-    """并发上传多个分片"""
-    if not buffers:
-        return
+def _normalize_etag(etag: Optional[str]) -> str:
+    if not isinstance(etag, str) or etag == "":
+        raise ValueError("Multipart upload response is missing ETag.")
+    return etag.strip('"')
 
-    failed = []
+
+def _upload_buffers(buffers: List[Tuple[int, str, BytesIO]]) -> List[Dict[str, object]]:
+    """并发上传多个分片并返回完成合并所需的 etag 信息"""
+    if not buffers:
+        return []
+
+    failed: List[Tuple[int, str, BytesIO]] = []
+    completed: Dict[int, Dict[str, object]] = {}
     with ThreadPoolExecutor(max_workers=min(10, len(buffers))) as executor:
-        futures = [(executor.submit(upload_file, url=url, buffer=buf), url, buf) for url, buf in buffers]
-        for future, url, buf in futures:
+        futures = [
+            (executor.submit(upload_file, url=url, buffer=buf), part_number, url, buf)
+            for part_number, url, buf in buffers
+        ]
+        for future, part_number, url, buf in futures:
             try:
-                future.result()
+                completed[part_number] = {
+                    "partNumber": part_number,
+                    "etag": _normalize_etag(future.result()),
+                }
             except Exception as e:
                 swanlog.warning(f"Upload failed: {e}, will retry")
-                failed.append((url, buf))
+                failed.append((part_number, url, buf))
 
-    for url, buf in failed:
-        upload_file(url=url, buffer=buf)
+    for part_number, url, buf in failed:
+        etag = upload_file(url=url, buffer=buf)
+        completed[part_number] = {
+            "partNumber": part_number,
+            "etag": _normalize_etag(etag),
+        }
+
+    return [completed[part_number] for part_number in sorted(completed)]
 
 
 class FileUploadManager:
@@ -73,10 +93,14 @@ class FileUploadManager:
         self._exp_id: Optional[str] = None
         self._closed = False
         self._lock = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="swanlab-save")
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="swanlab-save"
+        )
         self._futures: Dict[Future, str] = {}
 
-    def submit(self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]) -> None:
+    def submit(
+        self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]
+    ) -> None:
         if self._closed:
             return
         for file in _iter_files(files):
@@ -152,21 +176,22 @@ class FileUploadManager:
 
     def _upload_single(self, file: WatchSaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
-        payload = file.prepare_payload(
+        payload = file.prepare_request(
             size=size,
             md5=compute_md5(file.source_path),
             mime_type=guess_mime_type(file.source_path),
         )
-        prepared = prepare_upload(self._client, exp_id, [payload])
-        upload_url = extract_upload_url(prepared[0])
+        urls = prepare_upload(self._client, exp_id, [payload])
         with open(file.source_path, "rb") as f:
-            upload_file(url=upload_url, buffer=BytesIO(f.read()))
-        complete_upload(self._client, exp_id, [file.complete_payload()])
+            upload_file(url=urls[0], buffer=BytesIO(f.read()))
+        complete_upload(self._client, exp_id, [file.complete_request()])
 
-    def _upload_multipart(self, file: WatchSaveFileModel, size: int, exp_id: str) -> None:
+    def _upload_multipart(
+        self, file: WatchSaveFileModel, size: int, exp_id: str
+    ) -> None:
         assert self._client is not None
         part_count = max(1, math.ceil(size / PART_SIZE))
-        payload = file.prepare_payload(
+        payload = file.prepare_request(
             size=size,
             md5=compute_md5(file.source_path),
             mime_type=guess_mime_type(file.source_path),
@@ -175,24 +200,33 @@ class FileUploadManager:
         prepared = prepare_multipart(self._client, exp_id, payload)
         upload_id = extract_upload_id(prepared)
         assert upload_id is not None
-        part_size = extract_part_size(prepared, PART_SIZE)
         upload_urls = extract_part_urls(prepared)
 
         buffers = []
         with open(file.source_path, "rb") as f:
-            for _, url in upload_urls:
-                chunk = f.read(part_size)
+            for part_number, url in upload_urls:
+                chunk = f.read(PART_SIZE)
                 if chunk != b"":
-                    buffers.append((url, BytesIO(chunk)))
+                    buffers.append((part_number, url, BytesIO(chunk)))
 
-        _upload_buffers(buffers)
-        complete_multipart(self._client, exp_id, file.complete_payload(upload_id=upload_id))
+        parts = _upload_buffers(buffers)
+        complete_multipart(
+            self._client,
+            exp_id,
+            file.complete_multipart_request(upload_id=upload_id, parts=parts),
+        )
 
 
 class DirWatcher:
     """目录监听器，用于 live policy"""
 
-    def __init__(self, mode: str, file_dir: str, on_change: Callable[[WatchSaveFileModel], None], interval: float = 1.0):
+    def __init__(
+        self,
+        mode: str,
+        file_dir: str,
+        on_change: Callable[[WatchSaveFileModel], None],
+        interval: float = 1.0,
+    ):
         self._mode = mode
         self._file_dir = file_dir
         self._on_change = on_change
@@ -202,7 +236,9 @@ class DirWatcher:
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
-    def watch(self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]) -> None:
+    def watch(
+        self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]
+    ) -> None:
         with self._lock:
             for file in _iter_files(files):
                 if self._mode == "cloud":
@@ -219,7 +255,9 @@ class DirWatcher:
     def _start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(target=self._poll, name="swanlab-save-watch", daemon=True)
+        self._thread = threading.Thread(
+            target=self._poll, name="swanlab-save-watch", daemon=True
+        )
         self._thread.start()
 
     def _poll(self) -> None:
@@ -247,12 +285,16 @@ class DirWatcher:
         if os.path.islink(file.target_path):
             target = os.readlink(file.target_path)
             if not os.path.isabs(target):
-                target = os.path.abspath(os.path.join(os.path.dirname(file.target_path), target))
+                target = os.path.abspath(
+                    os.path.join(os.path.dirname(file.target_path), target)
+                )
             if os.path.abspath(target) == os.path.abspath(file.source_path):
                 return
         _remove_path(file.target_path)
         try:
-            rel_target = os.path.relpath(file.source_path, os.path.dirname(file.target_path))
+            rel_target = os.path.relpath(
+                file.source_path, os.path.dirname(file.target_path)
+            )
             os.symlink(rel_target, file.target_path)
         except (NotImplementedError, OSError):
             pass

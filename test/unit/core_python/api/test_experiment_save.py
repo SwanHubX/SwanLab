@@ -6,51 +6,71 @@ from swanlab.core_python.api.experiment import (
     prepare_multipart,
     prepare_upload,
 )
-from swanlab.core_python.save import SaveFilePayload, SaveFileState
 
 
 def test_prepare_upload_wraps_files_payload():
     client = MagicMock()
-    files = [SaveFilePayload(name="log/train.log", size=12, md5="abc123")]
-    client.post.return_value = ({"data": {"files": [{"uploadUrl": "https://upload.example.com/file"}]}}, None)
+    files = [{"path": "log/train.log", "size": 12, "md5": "abc123"}]
+    client.post.return_value = (
+        {"data": {"urls": ["https://upload.example.com/file"]}},
+        None,
+    )
 
     result = prepare_upload(client, "exp-123", files)
 
     client.post.assert_called_once_with(
         "/experiment/exp-123/files/prepare",
-        {"files": [{"name": "log/train.log", "size": 12, "md5": "abc123"}]},
+        {"files": [{"path": "log/train.log", "size": 12, "md5": "abc123"}]},
     )
-    assert result == [{"uploadUrl": "https://upload.example.com/file"}]
+    assert result == ["https://upload.example.com/file"]
 
 
 def test_complete_upload_sends_documented_files_payload():
     client = MagicMock()
 
-    complete_upload(client, "exp-123", [SaveFilePayload(name="log/train.log", state=SaveFileState.UPLOADED)])
+    complete_upload(
+        client,
+        "exp-123",
+        [{"path": "log/train.log", "state": "UPLOADED"}],
+    )
 
     client.post.assert_called_once_with(
         "/experiment/exp-123/files/complete",
-        {"files": [{"name": "log/train.log", "state": "UPLOADED"}]},
+        {"files": [{"path": "log/train.log", "state": "UPLOADED"}]},
     )
 
 
 def test_prepare_multipart_sends_documented_fields():
     client = MagicMock()
     client.post.return_value = (
-        {"data": {"uploadId": "upload-1", "uploadUrls": ["https://upload.example.com/part-1"]}},
+        {
+            "data": {
+                "files": [
+                    {
+                        "uploadId": "upload-1",
+                        "urls": [
+                            {
+                                "partNumber": 1,
+                                "url": "https://upload.example.com/part-1",
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
         None,
     )
 
     result = prepare_multipart(
         client,
         "exp-123",
-        SaveFilePayload(
-            name="checkpoints/model.txt",
-            size=1024,
-            md5="deadbeef",
-            count=3,
-            mime_type="text/plain",
-        ),
+        {
+            "path": "checkpoints/model.txt",
+            "size": 1024,
+            "md5": "deadbeef",
+            "count": 3,
+            "mimeType": "text/plain",
+        },
     )
 
     client.post.assert_called_once_with(
@@ -58,7 +78,7 @@ def test_prepare_multipart_sends_documented_fields():
         {
             "files": [
                 {
-                    "name": "checkpoints/model.txt",
+                    "path": "checkpoints/model.txt",
                     "size": 1024,
                     "md5": "deadbeef",
                     "count": 3,
@@ -67,23 +87,34 @@ def test_prepare_multipart_sends_documented_fields():
             ]
         },
     )
-    assert result == {"uploadId": "upload-1", "uploadUrls": ["https://upload.example.com/part-1"]}
+    assert result == {
+        "uploadId": "upload-1",
+        "urls": [{"partNumber": 1, "url": "https://upload.example.com/part-1"}],
+    }
 
 
-def test_complete_multipart_sends_upload_id_and_state():
+def test_complete_multipart_sends_upload_id_and_parts():
     client = MagicMock()
 
     complete_multipart(
         client,
         "exp-123",
-        SaveFilePayload(
-            name="checkpoints/model.txt",
-            upload_id="upload-1",
-            state=SaveFileState.UPLOADED,
-        ),
+        {
+            "path": "checkpoints/model.txt",
+            "uploadId": "upload-1",
+            "parts": [{"partNumber": 1, "etag": "etag-1"}],
+        },
     )
 
     client.post.assert_called_once_with(
         "/experiment/exp-123/files/complete-multipart",
-        {"files": [{"name": "checkpoints/model.txt", "uploadId": "upload-1", "state": "UPLOADED"}]},
+        {
+            "files": [
+                {
+                    "path": "checkpoints/model.txt",
+                    "uploadId": "upload-1",
+                    "parts": [{"partNumber": 1, "etag": "etag-1"}],
+                }
+            ]
+        },
     )

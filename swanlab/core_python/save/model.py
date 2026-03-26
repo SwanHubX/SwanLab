@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 FileSignature = Tuple[int, int]
 
@@ -10,33 +10,6 @@ class SaveFileState(str, Enum):
     FAILED = "FAILED"
 
 
-@dataclass(frozen=True)
-class SaveFilePayload:
-    name: str
-    size: Optional[int] = None
-    md5: Optional[str] = None
-    mime_type: Optional[str] = None
-    count: Optional[int] = None
-    upload_id: Optional[str] = None
-    state: Optional[SaveFileState] = None
-
-    def to_dict(self) -> dict:
-        payload = {"name": self.name}
-        if self.size is not None:
-            payload["size"] = self.size
-        if self.md5 is not None:
-            payload["md5"] = self.md5
-        if self.mime_type is not None:
-            payload["mimeType"] = self.mime_type
-        if self.count is not None:
-            payload["count"] = self.count
-        if self.upload_id is not None:
-            payload["uploadId"] = self.upload_id
-        if self.state is not None:
-            payload["state"] = self.state.value
-        return payload
-
-
 @dataclass
 class WatchSaveFileModel:
     source_path: str
@@ -44,38 +17,50 @@ class WatchSaveFileModel:
     target_path: str
     signature: Optional[FileSignature] = None
 
-    def prepare_payload(
+    def prepare_request(
         self,
         *,
         size: int,
         md5: str,
         mime_type: Optional[str] = None,
         count: Optional[int] = None,
-    ) -> SaveFilePayload:
-        return SaveFilePayload(
-            name=self.name,
-            size=size,
-            md5=md5,
-            mime_type=mime_type,
-            count=count,
-        )
+    ) -> Dict[str, object]:
+        payload: Dict[str, object] = {
+            "path": self.name,
+            "size": size,
+            "md5": md5,
+        }
+        if mime_type is not None:
+            payload["mimeType"] = mime_type
+        if count is not None:
+            payload["count"] = count
+        return payload
 
-    def complete_payload(
+    def complete_request(
         self,
         *,
-        upload_id: Optional[str] = None,
         state: SaveFileState = SaveFileState.UPLOADED,
-    ) -> SaveFilePayload:
-        return SaveFilePayload(
-            name=self.name,
-            upload_id=upload_id,
-            state=state,
-        )
+    ) -> Dict[str, object]:
+        return {
+            "path": self.name,
+            "state": state.value,
+        }
+
+    def complete_multipart_request(
+        self,
+        *,
+        upload_id: str,
+        parts: List[Dict[str, object]],
+    ) -> Dict[str, object]:
+        return {
+            "path": self.name,
+            "uploadId": upload_id,
+            "parts": parts,
+        }
 
 
 __all__ = [
     "FileSignature",
     "SaveFileState",
-    "SaveFilePayload",
     "WatchSaveFileModel",
 ]

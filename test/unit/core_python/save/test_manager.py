@@ -2,7 +2,7 @@ import hashlib
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
-from swanlab.core_python.save import SaveFilePayload, SaveFileState, WatchSaveFileModel
+from swanlab.core_python.save import WatchSaveFileModel
 
 
 def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
@@ -20,7 +20,7 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
 
     def fake_prepare_upload(client, exp_id, files):
         captured["prepare"] = (client, exp_id, files)
-        return [{"uploadUrl": "https://upload.example.com/file"}]
+        return ["https://upload.example.com/file"]
 
     def fake_upload_file(*, url, buffer, max_retries=3):
         captured["upload"] = (url, buffer.read(), max_retries)
@@ -39,17 +39,17 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
 
     assert captured["prepare"][1] == "exp-123"
     assert captured["prepare"][2] == [
-        SaveFilePayload(
-            name="logs/metrics.txt",
-            size=source.stat().st_size,
-            md5=hashlib.md5(b"hello world").hexdigest(),
-            mime_type="text/plain",
-        )
+        {
+            "path": "logs/metrics.txt",
+            "size": source.stat().st_size,
+            "md5": hashlib.md5(b"hello world").hexdigest(),
+            "mimeType": "text/plain",
+        }
     ]
     assert captured["upload"] == ("https://upload.example.com/file", b"hello world", 3)
     assert captured["complete"][1:] == (
         "exp-123",
-        [SaveFilePayload(name="logs/metrics.txt", state=SaveFileState.UPLOADED)],
+        [{"path": "logs/metrics.txt", "state": "UPLOADED"}],
     )
 
 
@@ -72,10 +72,10 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
         return {
             "uploadId": "upload-1",
             "partSize": 4,
-            "uploadUrls": [
-                "https://upload.example.com/part-1",
-                "https://upload.example.com/part-2",
-                "https://upload.example.com/part-3",
+            "urls": [
+                {"partNumber": 1, "url": "https://upload.example.com/part-1"},
+                {"partNumber": 2, "url": "https://upload.example.com/part-2"},
+                {"partNumber": 3, "url": "https://upload.example.com/part-3"},
             ],
         }
 
@@ -83,6 +83,11 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
         if "parts" not in captured:
             captured["parts"] = []
         captured["parts"].append((url, buffer.read()))
+        return {
+            "https://upload.example.com/part-1": '"etag-1"',
+            "https://upload.example.com/part-2": '"etag-2"',
+            "https://upload.example.com/part-3": '"etag-3"',
+        }[url]
 
     def fake_complete_multipart(client, exp_id, file):
         captured["complete"] = {"exp_id": exp_id, "file": file}
@@ -98,21 +103,25 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
         manager.close()
 
     assert captured["prepare"]["exp_id"] == "exp-123"
-    assert captured["prepare"]["file"] == SaveFilePayload(
-        name="checkpoints/checkpoint.txt",
-        size=len(content),
-        md5=hashlib.md5(content).hexdigest(),
-        mime_type="text/plain",
-        count=3,
-    )
+    assert captured["prepare"]["file"] == {
+        "path": "checkpoints/checkpoint.txt",
+        "size": len(content),
+        "md5": hashlib.md5(content).hexdigest(),
+        "mimeType": "text/plain",
+        "count": 3,
+    }
     assert captured["parts"] == [
         ("https://upload.example.com/part-1", b"abcd"),
         ("https://upload.example.com/part-2", b"efgh"),
         ("https://upload.example.com/part-3", b"ij"),
     ]
     assert captured["complete"]["exp_id"] == "exp-123"
-    assert captured["complete"]["file"] == SaveFilePayload(
-        name="checkpoints/checkpoint.txt",
-        upload_id="upload-1",
-        state=SaveFileState.UPLOADED,
-    )
+    assert captured["complete"]["file"] == {
+        "path": "checkpoints/checkpoint.txt",
+        "uploadId": "upload-1",
+        "parts": [
+            {"partNumber": 1, "etag": "etag-1"},
+            {"partNumber": 2, "etag": "etag-2"},
+            {"partNumber": 3, "etag": "etag-3"},
+        ],
+    }
