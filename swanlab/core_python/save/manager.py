@@ -3,7 +3,6 @@
 import math
 import os
 import pathlib
-import shutil
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from io import BytesIO
@@ -25,19 +24,11 @@ from swanlab.core_python.utils.timer import Timer
 from swanlab.log import swanlog
 
 from .model import SaveFileModel, SaveFileState
-from .utils import compute_md5, file_signature, guess_mime_type
+from .utils import compute_md5, copy_file, file_signature, guess_mime_type, same_path
 
 # 分片阈值 / 大小
 MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
 PART_SIZE = 10 * 1024 * 1024
-
-
-def _remove_path(path: Union[str, pathlib.Path]) -> None:
-    p = pathlib.Path(path)
-    if p.is_dir() and not p.is_symlink():
-        shutil.rmtree(p)
-    else:
-        p.unlink(missing_ok=True)
 
 
 def _iter_files(
@@ -150,11 +141,7 @@ class FileUploadManager:
             self._upload_cloud(file)
 
     def _copy_local(self, file: SaveFileModel) -> None:
-        if os.path.abspath(file.source_path) == os.path.abspath(file.target_path):
-            return
-        os.makedirs(os.path.dirname(file.target_path), exist_ok=True)
-        _remove_path(file.target_path)
-        shutil.copy2(file.source_path, file.target_path)
+        copy_file(file.source_path, file.target_path)
 
     def _upload_cloud(self, file: SaveFileModel) -> None:
         exp_id = self._get_exp_id()
@@ -238,6 +225,7 @@ class DirWatcher:
         self._on_change = on_change
         self._interval = interval
         self._entries: Dict[str, SaveFileModel] = {}
+        self._target_modes: Dict[str, str] = {}
         self._lock = threading.Lock()
         self._timer = Timer(task=self._poll_task, interval=self._interval)
 
@@ -245,7 +233,7 @@ class DirWatcher:
         with self._lock:
             for file in _iter_files(files):
                 if self._mode == "cloud":
-                    self._create_symlink(file)
+                    self._refresh_live_target(file.name, file)
                 file.signature = file_signature(file.source_path)
                 self._entries[file.name] = file
         self._start()
@@ -269,31 +257,71 @@ class DirWatcher:
                     continue
                 self._entries[name].signature = sig
                 current = self._entries[name]
+            if self._mode == "cloud":
+                self._refresh_live_target(name, current)
             try:
                 self._on_change(current)
             except Exception as e:
                 swanlog.warning(f"Live save change failed for {name}: {e}")
 
-    def _create_symlink(self, file: SaveFileModel) -> None:
-        if os.path.abspath(file.target_path) == os.path.abspath(file.source_path):
+    def _refresh_live_target(self, name: str, file: SaveFileModel) -> None:
+        """刷新 live 模式下的本地镜像，异常时只记录告警，不影响上传流程。"""
+        try:
+            self._sync_live_target(file)
+        except Exception as e:
+            swanlog.warning(f"Live save mirror failed for {name}: {e}")
+
+    def _sync_live_target(self, file: SaveFileModel) -> None:
+        """根据缓存的同步模式维护 target_path，与 source_path 保持一致。"""
+        if same_path(file.source_path, file.target_path):
             return
+
+        mode = self._target_modes.get(file.name)
+        if mode == "symlink" and not self._is_symlink_target(file):
+            mode = None
+            self._target_modes.pop(file.name, None)
+        if mode is None:
+            mode = self._resolve_sync_mode(file)
+
+        if mode == "symlink":
+            return
+        # mode == "copy"
+        copy_file(file.source_path, file.target_path)
+
+    def _resolve_sync_mode(self, file: SaveFileModel) -> str:
+        """首次确定使用 symlink 还是 copy，并在必要时创建对应的本地镜像。"""
         os.makedirs(os.path.dirname(file.target_path), exist_ok=True)
+
+        if self._is_symlink_target(file):
+            self._target_modes[file.name] = "symlink"
+            return "symlink"
+
+        pathlib.Path(file.target_path).unlink(missing_ok=True)
+        try:
+            rel_target = os.path.relpath(file.source_path, os.path.dirname(file.target_path))
+            os.symlink(rel_target, file.target_path)
+            self._target_modes[file.name] = "symlink"
+            return "symlink"
+        except (NotImplementedError, OSError, ValueError) as e:
+            swanlog.debug(
+                f"Symlink unavailable for live save target {file.target_path}: {e}. "
+                "Falling back to file copy."
+            )
+            copy_file(file.source_path, file.target_path)
+            self._target_modes[file.name] = "copy"
+            return "copy"
+
+    def _is_symlink_target(self, file: SaveFileModel) -> bool:
+        """检查 target_path 是否是一个有效且指向 source_path 的软链接。"""
         if os.path.islink(file.target_path):
             target = os.readlink(file.target_path)
             if not os.path.isabs(target):
                 target = os.path.abspath(
                     os.path.join(os.path.dirname(file.target_path), target)
                 )
-            if os.path.abspath(target) == os.path.abspath(file.source_path):
-                return
-        _remove_path(file.target_path)
-        try:
-            rel_target = os.path.relpath(
-                file.source_path, os.path.dirname(file.target_path)
-            )
-            os.symlink(rel_target, file.target_path)
-        except (NotImplementedError, OSError):
-            pass
+            if same_path(target, file.source_path):
+                return True
+        return False
 
 
 __all__ = ["FileUploadManager", "DirWatcher"]

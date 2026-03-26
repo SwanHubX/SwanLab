@@ -3,11 +3,40 @@ import hashlib
 import mimetypes
 import os
 import pathlib
+import shutil
 from typing import Iterable, List, Optional, Union
 
 from .model import FileSignature, SaveFileModel
 
 MIME_TYPE_DEFAULT: str = "application/octet-stream"
+
+
+def remove_path(path: Union[str, pathlib.Path]) -> None:
+    """删除文件或目录"""
+    p = pathlib.Path(path)
+    if p.is_dir() and not p.is_symlink():
+        shutil.rmtree(p)
+    else:
+        p.unlink(missing_ok=True)
+
+
+def normalized_path(path: Union[str, pathlib.Path]) -> str:
+    """规范化路径用于比较"""
+    return os.path.normcase(os.path.abspath(path))
+
+
+def same_path(left: Union[str, pathlib.Path], right: Union[str, pathlib.Path]) -> bool:
+    """判断两个路径是否指向同一位置"""
+    return normalized_path(left) == normalized_path(right)
+
+
+def copy_file(source: Union[str, pathlib.Path], target: Union[str, pathlib.Path]) -> None:
+    """拷贝文件，如果源和目标相同则跳过"""
+    if same_path(source, target):
+        return
+    os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
+    remove_path(target)
+    shutil.copy2(source, target)
 
 
 def _expand_matched_path(path: Union[str, os.PathLike]) -> Iterable[pathlib.Path]:
@@ -89,6 +118,10 @@ def file_signature(path: str) -> Optional[FileSignature]:
 
 
 __all__ = [
+    "remove_path",
+    "normalized_path",
+    "same_path",
+    "copy_file",
     "validate_glob_path",
     "collect_save_files",
     "compute_md5",

@@ -1,3 +1,4 @@
+import os
 import hashlib
 from unittest.mock import MagicMock
 
@@ -164,3 +165,125 @@ def test_upload_single_failure_reports_failed_state(tmp_path, monkeypatch):
         manager.close()
 
     assert captured["complete"] == [{"path": "logs/broken.txt", "state": "FAILED"}]
+
+
+def test_dir_watcher_cloud_falls_back_to_copy_when_symlink_unavailable(tmp_path, monkeypatch):
+    source = tmp_path / "metrics.txt"
+    source.write_text("hello world")
+    target = tmp_path / "run" / "logs" / "metrics.txt"
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/metrics.txt",
+        target_path=str(target),
+    )
+    watcher = save_manager.DirWatcher(
+        mode="cloud",
+        file_dir=str(tmp_path / "run"),
+        on_change=MagicMock(),
+    )
+
+    def raise_symlink_unavailable(src, dst):
+        raise OSError("symlink unavailable")
+
+    monkeypatch.setattr(watcher, "_start", lambda: None)
+    monkeypatch.setattr(save_manager.os, "symlink", raise_symlink_unavailable)
+
+    watcher.watch(file)
+
+    assert target.exists()
+    assert not target.is_symlink()
+    assert target.read_text() == "hello world"
+    assert watcher._target_modes[file.name] == "copy"
+
+
+def test_dir_watcher_cloud_refreshes_copied_target_on_change(tmp_path, monkeypatch):
+    source = tmp_path / "metrics.txt"
+    source.write_text("hello world")
+    target = tmp_path / "run" / "logs" / "metrics.txt"
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/metrics.txt",
+        target_path=str(target),
+    )
+    on_change = MagicMock()
+    watcher = save_manager.DirWatcher(
+        mode="cloud",
+        file_dir=str(tmp_path / "run"),
+        on_change=on_change,
+    )
+
+    def raise_symlink_unavailable(src, dst):
+        raise OSError("symlink unavailable")
+
+    monkeypatch.setattr(watcher, "_start", lambda: None)
+    monkeypatch.setattr(save_manager.os, "symlink", raise_symlink_unavailable)
+
+    watcher.watch(file)
+
+    source.write_text("hello world updated")
+    os.utime(source, None)
+    watcher._poll_task()
+
+    assert target.read_text() == "hello world updated"
+    on_change.assert_called_once_with(file)
+
+
+def test_dir_watcher_cloud_falls_back_to_copy_when_relpath_raises_value_error(tmp_path, monkeypatch):
+    source = tmp_path / "metrics.txt"
+    source.write_text("hello world")
+    target = tmp_path / "run" / "logs" / "metrics.txt"
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/metrics.txt",
+        target_path=str(target),
+    )
+    watcher = save_manager.DirWatcher(
+        mode="cloud",
+        file_dir=str(tmp_path / "run"),
+        on_change=MagicMock(),
+    )
+    symlink = MagicMock()
+
+    def raise_cross_drive_relpath(path, start):
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(watcher, "_start", lambda: None)
+    monkeypatch.setattr(save_manager.os.path, "relpath", raise_cross_drive_relpath)
+    monkeypatch.setattr(save_manager.os, "symlink", symlink)
+
+    watcher.watch(file)
+
+    symlink.assert_not_called()
+    assert target.exists()
+    assert not target.is_symlink()
+    assert target.read_text() == "hello world"
+    assert watcher._target_modes[file.name] == "copy"
+
+
+def test_dir_watcher_cloud_rechecks_cached_symlink_target(tmp_path, monkeypatch):
+    source = tmp_path / "metrics.txt"
+    source.write_text("hello world")
+    target = tmp_path / "run" / "logs" / "metrics.txt"
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/metrics.txt",
+        target_path=str(target),
+    )
+    watcher = save_manager.DirWatcher(
+        mode="cloud",
+        file_dir=str(tmp_path / "run"),
+        on_change=MagicMock(),
+    )
+    copy_file = MagicMock()
+    resolve_sync_mode = MagicMock(return_value="copy")
+
+    watcher._target_modes[file.name] = "symlink"
+    monkeypatch.setattr(watcher, "_is_symlink_target", lambda current: False)
+    monkeypatch.setattr(watcher, "_resolve_sync_mode", resolve_sync_mode)
+    monkeypatch.setattr(save_manager, "copy_file", copy_file)
+
+    watcher._sync_live_target(file)
+
+    resolve_sync_mode.assert_called_once_with(file)
+    copy_file.assert_called_once_with(file.source_path, file.target_path)
+    assert watcher._target_modes.get(file.name) != "symlink"
