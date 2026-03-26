@@ -22,8 +22,8 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
         captured["prepare"] = (client, exp_id, files)
         return ["https://upload.example.com/file"]
 
-    def fake_upload_file(*, url, buffer, max_retries=3):
-        captured["upload"] = (url, buffer.read(), max_retries)
+    def fake_upload_file(*, url, buffer, max_retries=3, mime_type=None):
+        captured["upload"] = (url, buffer.read(), max_retries, mime_type)
 
     def fake_complete_upload(client, exp_id, files):
         captured["complete"] = (client, exp_id, files)
@@ -46,7 +46,12 @@ def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
             "mimeType": "text/plain",
         }
     ]
-    assert captured["upload"] == ("https://upload.example.com/file", b"hello world", 3)
+    assert captured["upload"] == (
+        "https://upload.example.com/file",
+        b"hello world",
+        3,
+        "text/plain",
+    )
     assert captured["complete"][1:] == (
         "exp-123",
         [{"path": "logs/metrics.txt", "state": "UPLOADED"}],
