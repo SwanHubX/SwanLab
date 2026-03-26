@@ -2,6 +2,7 @@
 
 import math
 import os
+import pathlib
 import shutil
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor, wait
@@ -31,13 +32,12 @@ MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
 PART_SIZE = 10 * 1024 * 1024
 
 
-def _remove_path(path: str) -> None:
-    if not os.path.lexists(path):
-        return
-    if os.path.isdir(path) and not os.path.islink(path):
-        shutil.rmtree(path)
+def _remove_path(path: Union[str, pathlib.Path]) -> None:
+    p = pathlib.Path(path)
+    if p.is_dir() and not p.is_symlink():
+        shutil.rmtree(p)
     else:
-        os.unlink(path)
+        p.unlink(missing_ok=True)
 
 
 def _iter_files(

@@ -491,8 +491,11 @@ def _resolve_save_paths(
         base_path = pathlib.Path(".")
     else:
         swanlog.warning(
-            "Saving files without folders. If you want to preserve subdirectories pass "
-            'base_path to swanlab.save, e.g. swanlab.save("/mnt/folder/file.h5", base_path="/mnt").'
+            f"Saving files from absolute path '{glob_str}' without a base_path. "
+            f"SwanLab will default to base_path='{resolved_glob_path.parent.parent}' "
+            "to preserve the immediate parent directory. "
+            "If you want to preserve a different directory structure, explicitly pass 'base_path' to swanlab.save, "
+            'e.g. swanlab.save("/mnt/folder/file.h5", base_path="/mnt").'
         )
         base_path = resolved_glob_path.parent.parent
 
