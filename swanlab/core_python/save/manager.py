@@ -22,7 +22,7 @@ from swanlab.core_python.api.service import upload_file
 from swanlab.core_python.client import get_client
 from swanlab.log import swanlog
 
-from .model import WatchSaveFileModel
+from .model import SaveFileModel
 from .utils import compute_md5, file_signature, guess_mime_type
 
 # 分片阈值 / 大小
@@ -40,9 +40,9 @@ def _remove_path(path: str) -> None:
 
 
 def _iter_files(
-    files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]],
-) -> Iterable[WatchSaveFileModel]:
-    return [files] if isinstance(files, WatchSaveFileModel) else files
+    files: Union[SaveFileModel, Iterable[SaveFileModel]],
+) -> Iterable[SaveFileModel]:
+    return [files] if isinstance(files, SaveFileModel) else files
 
 
 def _normalize_etag(etag: Optional[str]) -> str:
@@ -99,7 +99,7 @@ class FileUploadManager:
         self._futures: Dict[Future, str] = {}
 
     def submit(
-        self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]
+        self, files: Union[SaveFileModel, Iterable[SaveFileModel]]
     ) -> None:
         if self._closed:
             return
@@ -138,7 +138,7 @@ class FileUploadManager:
         except Exception as e:
             swanlog.warning(f"Save failed for {name}: {e}")
 
-    def _do_upload(self, file: WatchSaveFileModel) -> None:
+    def _do_upload(self, file: SaveFileModel) -> None:
         if not os.path.exists(file.source_path):
             swanlog.warning(f"File not found: {file.source_path}")
             return
@@ -150,14 +150,14 @@ class FileUploadManager:
         if self._mode == "cloud":
             self._upload_cloud(file)
 
-    def _copy_local(self, file: WatchSaveFileModel) -> None:
+    def _copy_local(self, file: SaveFileModel) -> None:
         if os.path.abspath(file.source_path) == os.path.abspath(file.target_path):
             return
         os.makedirs(os.path.dirname(file.target_path), exist_ok=True)
         _remove_path(file.target_path)
         shutil.copy2(file.source_path, file.target_path)
 
-    def _upload_cloud(self, file: WatchSaveFileModel) -> None:
+    def _upload_cloud(self, file: SaveFileModel) -> None:
         exp_id = self._get_exp_id()
         size = os.path.getsize(file.source_path)
         if size < MULTIPART_THRESHOLD:
@@ -174,7 +174,7 @@ class FileUploadManager:
         self._exp_id = exp_id
         return self._exp_id
 
-    def _upload_single(self, file: WatchSaveFileModel, size: int, exp_id: str) -> None:
+    def _upload_single(self, file: SaveFileModel, size: int, exp_id: str) -> None:
         assert self._client is not None
         payload = file.prepare_request(
             size=size,
@@ -187,7 +187,7 @@ class FileUploadManager:
         complete_upload(self._client, exp_id, [file.complete_request()])
 
     def _upload_multipart(
-        self, file: WatchSaveFileModel, size: int, exp_id: str
+        self, file: SaveFileModel, size: int, exp_id: str
     ) -> None:
         assert self._client is not None
         part_count = max(1, math.ceil(size / PART_SIZE))
@@ -224,20 +224,20 @@ class DirWatcher:
         self,
         mode: str,
         file_dir: str,
-        on_change: Callable[[WatchSaveFileModel], None],
+        on_change: Callable[[SaveFileModel], None],
         interval: float = 1.0,
     ):
         self._mode = mode
         self._file_dir = file_dir
         self._on_change = on_change
         self._interval = interval
-        self._entries: Dict[str, WatchSaveFileModel] = {}
+        self._entries: Dict[str, SaveFileModel] = {}
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
     def watch(
-        self, files: Union[WatchSaveFileModel, Iterable[WatchSaveFileModel]]
+        self, files: Union[SaveFileModel, Iterable[SaveFileModel]]
     ) -> None:
         with self._lock:
             for file in _iter_files(files):
@@ -278,7 +278,7 @@ class DirWatcher:
                 except Exception as e:
                     swanlog.warning(f"Live save change failed for {name}: {e}")
 
-    def _create_symlink(self, file: WatchSaveFileModel) -> None:
+    def _create_symlink(self, file: SaveFileModel) -> None:
         if os.path.abspath(file.target_path) == os.path.abspath(file.source_path):
             return
         os.makedirs(os.path.dirname(file.target_path), exist_ok=True)

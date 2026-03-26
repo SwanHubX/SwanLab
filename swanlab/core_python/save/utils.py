@@ -5,8 +5,9 @@ import os
 import pathlib
 from typing import List, Optional, Union
 
-from .model import FileSignature, WatchSaveFileModel
+from .model import FileSignature, SaveFileModel
 
+MIME_TYPE_DEFAULT: str = "application/octet-stream"
 
 def validate_glob_path(glob_path: pathlib.PurePath, base_path: pathlib.PurePath) -> None:
     """确保 glob_path 在 base_path 下"""
@@ -20,13 +21,13 @@ def collect_save_files(
     glob_path: pathlib.PurePath,
     base_path: pathlib.PurePath,
     files_root: Union[str, os.PathLike],
-) -> List[WatchSaveFileModel]:
+) -> List[SaveFileModel]:
     """收集需要保存的文件"""
     relative_glob = glob_path.relative_to(base_path)
     matched = sorted(glob.glob(str(base_path / relative_glob), recursive=True))
     files_root = pathlib.Path(files_root)
 
-    files: List[WatchSaveFileModel] = []
+    files: List[SaveFileModel] = []
     seen_paths = set()
     seen_names = {}
 
@@ -43,7 +44,7 @@ def collect_save_files(
         seen_paths.add(str(src))
         seen_names[name] = str(src)
         files.append(
-            WatchSaveFileModel(
+            SaveFileModel(
                 source_path=str(src),
                 name=name,
                 target_path=str((files_root / rel).absolute()),
@@ -65,10 +66,10 @@ def compute_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
     return md5.hexdigest()
 
 
-def guess_mime_type(path: str) -> Optional[str]:
+def guess_mime_type(path: str) -> str:
     """推测文件 MIME 类型"""
     mime_type, _ = mimetypes.guess_type(path)
-    return mime_type
+    return mime_type or MIME_TYPE_DEFAULT
 
 
 def file_signature(path: str) -> Optional[FileSignature]:

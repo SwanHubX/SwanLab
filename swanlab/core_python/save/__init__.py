@@ -1,5 +1,5 @@
 from .manager import DirWatcher, FileUploadManager
-from .model import SaveFileState, WatchSaveFileModel
+from .model import SaveFileState, SaveFileModel
 from .utils import (
     collect_save_files,
     compute_md5,
@@ -10,7 +10,7 @@ from .utils import (
 
 __all__ = [
     "SaveFileState",
-    "WatchSaveFileModel",
+    "SaveFileModel",
     "collect_save_files",
     "validate_glob_path",
     "compute_md5",

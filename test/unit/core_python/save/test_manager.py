@@ -2,13 +2,13 @@ import hashlib
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
-from swanlab.core_python.save import WatchSaveFileModel
+from swanlab.core_python.save import SaveFileModel
 
 
 def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
     source = tmp_path / "metrics.txt"
     source.write_text("hello world")
-    file = WatchSaveFileModel(
+    file = SaveFileModel(
         source_path=str(source),
         name="logs/metrics.txt",
         target_path=str(tmp_path / "run" / "logs" / "metrics.txt"),
@@ -57,7 +57,7 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
     content = b"abcdefghij"
     source = tmp_path / "checkpoint.txt"
     source.write_bytes(content)
-    file = WatchSaveFileModel(
+    file = SaveFileModel(
         source_path=str(source),
         name="checkpoints/checkpoint.txt",
         target_path=str(tmp_path / "run" / "checkpoints" / "checkpoint.txt"),

@@ -11,7 +11,7 @@ class SaveFileState(str, Enum):
 
 
 @dataclass
-class WatchSaveFileModel:
+class SaveFileModel:
     source_path: str
     name: str
     target_path: str
@@ -22,16 +22,15 @@ class WatchSaveFileModel:
         *,
         size: int,
         md5: str,
-        mime_type: Optional[str] = None,
+        mime_type: str,
         count: Optional[int] = None,
     ) -> Dict[str, object]:
         payload: Dict[str, object] = {
             "path": self.name,
             "size": size,
             "md5": md5,
+            "mimeType": mime_type
         }
-        if mime_type is not None:
-            payload["mimeType"] = mime_type
         if count is not None:
             payload["count"] = count
         return payload
@@ -62,5 +61,5 @@ class WatchSaveFileModel:
 __all__ = [
     "FileSignature",
     "SaveFileState",
-    "WatchSaveFileModel",
+    "SaveFileModel",
 ]
