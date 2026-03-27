@@ -39,12 +39,8 @@ def upload_file(*, url: str, buffer: BytesIO, max_retries=3, mime_type: str=MIME
                     timeout=30,
                 )
                 response.raise_for_status()
-                etag = (
-                    response.headers.get("ETag")
-                    if hasattr(response, "headers")
-                    else None
-                )
-                return etag if isinstance(etag, str) and etag else None
+                etag = response.headers.get("ETag")
+                return etag if etag else None
             except RequestException:
                 swanlog.warning(
                     "Upload attempt {} failed for URL: {}".format(attempt, url)

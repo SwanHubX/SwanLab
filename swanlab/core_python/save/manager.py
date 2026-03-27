@@ -174,6 +174,7 @@ class FileUploadManager:
                 upload_file(url=urls[0], buffer=BytesIO(f.read()), mime_type=mime_type)
             complete_upload(self._client, exp_id, [file.complete_request()])
         except Exception as e:
+            swanlog.warning(f"Failed to upload {file.name}: {e}")
             complete_upload(
                 self._client,
                 exp_id,
