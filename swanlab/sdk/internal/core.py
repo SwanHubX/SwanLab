@@ -20,7 +20,6 @@ class CoreEnum(str, Enum):
     CORE = "core"
 
 
-
 class CoreProtocol(ABC):
     """
     SwanLab Core 的抽象基类。
@@ -61,6 +60,7 @@ def create_core(ctx: RunContext, core_type: CoreEnum = CoreEnum.CORE_PYTHON) -> 
     # LazyImport 防止循环导入冲突
     if core_type == CoreEnum.CORE_PYTHON:
         from swanlab.sdk.internal.core_python import CorePython
+
         return CorePython(ctx)
     else:
         # TODO: Core grpc

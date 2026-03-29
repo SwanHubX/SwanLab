@@ -41,21 +41,23 @@ def test_create_core_returns_core_python(tmp_path):
 
 def test_core_python_cloud_mode_creates_transport_and_forwards_records_to_uploader(tmp_path):
     ctx = make_ctx(tmp_path)
-    transport = MagicMock()
+    sender = MagicMock()
 
-    with patch("swanlab.sdk.internal.core_python.create_record_transport", return_value=transport) as mock_transport_factory:
-        with patch("swanlab.sdk.internal.core_python.ThreadPool") as mock_pool_cls:
+    with patch(
+        "swanlab.sdk.internal.core_python.create_http_record_sender", return_value=sender
+    ) as mock_sender_factory:
+        with patch("swanlab.sdk.internal.core_python.HttpBatchUploader") as mock_uploader_cls:
             uploader = MagicMock()
-            mock_pool_cls.return_value = uploader
+            mock_uploader_cls.return_value = uploader
 
             core = CorePython(ctx)
             core.startup(cloud=True, persistence=False)
-            mock_transport_factory.assert_called_once_with()
-            mock_pool_cls.assert_called_once_with(transport=transport)
+            mock_sender_factory.assert_called_once_with()
+            mock_uploader_cls.assert_called_once_with(sender=sender)
 
             record = make_scalar_record()
             core.handle_records([record])
-            uploader.put.assert_called_once_with([record])
+            uploader.enqueue.assert_called_once_with([record])
 
             core.shutdown()
-            uploader.finish.assert_called_once_with()
+            uploader.close.assert_called_once_with()

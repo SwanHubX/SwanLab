@@ -21,8 +21,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core import CoreProtocol
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
-from swanlab.sdk.internal.core_python.uploader import create_record_transport
-from swanlab.sdk.internal.core_python.uploader.thread import ThreadPool
+from swanlab.sdk.internal.core_python.uploader import HttpBatchUploader, create_http_record_sender
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils.helper.env import DEBUG
 
@@ -38,7 +37,7 @@ class CorePython(CoreProtocol):
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
         self._store: DataStoreWriter | None = None
-        self._uploader: ThreadPool | None = None
+        self._uploader: HttpBatchUploader | None = None
 
     def startup(self, cloud: bool, persistence: bool) -> None:
         if self._store is not None or self._uploader is not None:
@@ -47,11 +46,11 @@ class CorePython(CoreProtocol):
             self._store = DataStoreWriter()
             self._store.open(str(self._ctx.run_file))
         if cloud:
-            transport = create_record_transport()
+            sender = create_http_record_sender()
             try:
-                self._uploader = ThreadPool(transport=transport)
+                self._uploader = HttpBatchUploader(sender=sender)
             except Exception:
-                transport.close()
+                sender.close()
                 raise
 
     def handle_records(self, records: List[Record]) -> None:
@@ -64,11 +63,11 @@ class CorePython(CoreProtocol):
                 if DEBUG:
                     console.debug("Write record:", record.WhichOneof("record_type"))
         if self._uploader is not None:
-            self._uploader.put(records)
+            self._uploader.enqueue(records)
 
     def shutdown(self) -> None:
         if self._uploader is not None:
-            self._uploader.finish()
+            self._uploader.close()
             self._uploader = None
         if self._store is not None:
             self._store.close()

@@ -1,0 +1,69 @@
+"""
+@author: caddiesnew
+@file: http.py
+@time: 2026/3/29
+@description: HTTP uploader grouping and sender abstractions
+"""
+
+from collections import defaultdict
+from typing import DefaultDict, Protocol, List
+
+
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.bus.events import MetricsUploadEvent, MetricsUploadPayload
+from swanlab.sdk.internal.pkg import console
+
+
+def group_records_by_type(records: List[Record]) -> MetricsUploadPayload:
+    """Group protobuf records by their oneof record_type."""
+    grouped: DefaultDict[str, list] = defaultdict(list)
+    for record in records:
+        record_type = record.WhichOneof("record_type")
+        if record_type is None:
+            raise ValueError("Record must contain a record_type before upload.")
+        grouped[record_type].append(record)
+    return dict(grouped)
+
+
+class HttpRecordSender(Protocol):
+    """HTTP sender used by the batch uploader."""
+
+    def send(self, event: MetricsUploadEvent) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class NoopHttpRecordSender:
+    """
+    Placeholder HTTP sender.
+
+    The SDK already persists protobuf records locally before enqueueing them here,
+    so a temporary no-op sender will not affect data durability.
+    """
+
+    _announced = False
+
+    def send(self, event: MetricsUploadEvent) -> None:
+        if NoopHttpRecordSender._announced:
+            return
+        console.debug(
+            "CorePython HTTP uploader is buffering protobuf records, but the remote sender is not implemented yet."
+        )
+        NoopHttpRecordSender._announced = True
+        del event
+
+    def close(self) -> None:
+        pass
+
+
+def create_http_record_sender() -> HttpRecordSender:
+    """Create the HTTP sender used by CorePython cloud uploads."""
+    return NoopHttpRecordSender()
+
+
+__all__ = [
+    "HttpRecordSender",
+    "NoopHttpRecordSender",
+    "create_http_record_sender",
+    "group_records_by_type",
+]

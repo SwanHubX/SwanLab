@@ -123,3 +123,13 @@ FlushPayload = List[Record]
 
 # 数据解析返回类型
 ParseResult = Tuple[Record, Type[TransformData]]
+
+# 上传缓冲区按 protobuf oneof 类型聚合后的载体
+MetricsUploadPayload = Dict[str, List[Record]]
+
+
+@dataclass
+class MetricsUploadEvent:
+    """上传线程消费的 protobuf 聚合批次"""
+
+    buckets: MetricsUploadPayload

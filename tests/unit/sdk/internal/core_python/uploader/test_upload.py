@@ -5,19 +5,18 @@
 @description:
 """
 
-from unittest.mock import MagicMock, patch
-
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.uploader.upload import (
-    CoreTransportConfig,
-    load_record,
-    trace_records,
-    upload_records,
+from swanlab.sdk.internal.core_python.uploader.http import (
+    NoopHttpRecordSender,
+    create_http_record_sender,
+    group_records_by_type,
 )
 
 
@@ -35,55 +34,27 @@ def make_scalar_record(step: int = 1) -> Record:
     )
 
 
-def test_trace_records_upserts_every_record():
-    transport = MagicMock()
-    records = [make_scalar_record(step=1).SerializeToString(), make_scalar_record(step=2)]
-
-    trace_records(records, per_request_len=-1, transport=transport)
-
-    assert transport.upsert_record.call_count == 2
-    first_record = transport.upsert_record.call_args_list[0].args[0]
-    second_record = transport.upsert_record.call_args_list[1].args[0]
-    assert first_record.metric.step == 1
-    assert second_record.metric.step == 2
-    transport.close.assert_not_called()
+def make_config_record() -> Record:
+    timestamp = Timestamp()
+    timestamp.GetCurrentTime()
+    return Record(config=ConfigRecord(update_type=UpdateType.UPDATE_TYPE_PATCH, timestamp=timestamp))
 
 
-def test_trace_records_uploads_all_records_in_batches():
-    transport = MagicMock()
-    records = [make_scalar_record(step=index) for index in range(2500)]
+def test_group_records_by_type_groups_records_by_record_type():
+    buckets = group_records_by_type([make_scalar_record(step=1), make_config_record(), make_scalar_record(step=2)])
 
-    with patch("swanlab.sdk.internal.core_python.uploader.upload.time.sleep") as mock_sleep:
-        trace_records(records, per_request_len=1000, transport=transport)
-
-    assert transport.upsert_record.call_count == 2500
-    assert mock_sleep.call_count == 3
-    transport.close.assert_not_called()
+    assert set(buckets) == {"metric", "config"}
+    assert [record.metric.step for record in buckets["metric"]] == [1, 2]
+    assert len(buckets["config"]) == 1
+    assert buckets["config"][0].config.update_type == UpdateType.UPDATE_TYPE_PATCH
 
 
-def test_upload_records_passes_transport_to_trace_records():
-    transport = MagicMock()
-    records = [make_scalar_record()]
-
-    with patch("swanlab.sdk.internal.core_python.uploader.upload.trace_records") as mock_trace:
-        upload_records(records, per_request_len=7, transport=transport)
-
-    mock_trace.assert_called_once_with(records, per_request_len=7, transport=transport)
+def test_group_records_by_type_rejects_record_without_record_type():
+    with pytest.raises(ValueError, match="record_type"):
+        group_records_by_type([Record()])
 
 
-def test_load_record_accepts_serialized_bytes():
-    record = make_scalar_record(step=7)
-    loaded = load_record(record.SerializeToString())
-    assert loaded.metric.step == 7
+def test_create_http_record_sender_returns_noop_sender():
+    sender = create_http_record_sender()
 
-
-def test_core_transport_config_reads_env(monkeypatch):
-    monkeypatch.setenv("SWANLAB_CORE_HOST", "127.0.0.1")
-    monkeypatch.setenv("SWANLAB_CORE_PORT", "9098")
-    monkeypatch.setenv("SWANLAB_CORE_TIMEOUT", "5.5")
-
-    config = CoreTransportConfig.from_env()
-
-    assert config.enabled is True
-    assert config.address == "127.0.0.1:9098"
-    assert config.timeout == 5.5
+    assert isinstance(sender, NoopHttpRecordSender)
