@@ -8,7 +8,7 @@
 import os
 import time
 from dataclasses import dataclass
-from typing import Callable, Optional, Protocol, Sequence
+from typing import Optional, Protocol, Sequence
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import console
@@ -148,10 +148,9 @@ def create_record_transport(config: Optional[CoreTransportConfig] = None) -> Rec
 
 
 def trace_records(
-    records: Optional[Sequence[RecordLike]] = None,
+    records: Optional[Sequence[RecordLike]],
+    transport: RecordTransport,
     per_request_len: int = 1000,
-    upload_callback: Optional[Callable[[int], None]] = None,
-    transport: Optional[RecordTransport] = None,
 ) -> None:
     """
     分片上传 protobuf Record。
@@ -160,33 +159,26 @@ def trace_records(
     """
     if records is None or len(records) == 0:
         return
+    if transport is None:
+        raise ValueError("transport is required for trace_records().")
 
     is_split_mode = per_request_len != -1 and len(records) > per_request_len
-    owns_transport = transport is None
-    active_transport = transport or create_record_transport()
-
-    try:
-        for chunk, chunk_len in _generate_chunks(records, per_request_len):
-            for record_like in chunk:
-                active_transport.upsert_record(load_record(record_like))
-            if upload_callback:
-                upload_callback(chunk_len)
-            if is_split_mode:
-                time.sleep(1)
-    finally:
-        if owns_transport:
-            active_transport.close()
+    for chunk, _chunk_len in _generate_chunks(records, per_request_len):
+        for record_like in chunk:
+            transport.upsert_record(load_record(record_like))
+        if is_split_mode:
+            time.sleep(1)
 
 
 def upload_records(
     records: Sequence[RecordLike],
-    upload_callback: Optional[Callable[[int], None]] = None,
+    transport: RecordTransport,
     per_request_len: int = 1000,
 ) -> None:
     """上传一组 protobuf Record，不在此层做任何 JSON 化。"""
     if len(records) == 0:
         return console.debug("No records to upload.")
-    trace_records(records, per_request_len=per_request_len, upload_callback=upload_callback)
+    trace_records(records, per_request_len=per_request_len, transport=transport)
 
 
 __all__ = [

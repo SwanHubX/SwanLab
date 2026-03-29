@@ -1,16 +1,16 @@
 """
 @author: caddiesnew
-@file: log_collector.py
+@file: collector.py
 @time: 2026/3/21
 @description: 上传线程聚合器
 """
 
 import time
-from typing import Callable, List, Optional
+from typing import List
 
 from swanlab.sdk.internal.pkg import console
 
-from ..upload import upload_records
+from ..upload import RecordTransport, upload_records
 from .utils import RecordQueue, TimerFlag
 
 
@@ -21,13 +21,13 @@ class UploadCollector:
 
     def __init__(
         self,
+        transport: RecordTransport,
         upload_interval: float = 5.0,
-        upload_callback: Optional[Callable] = None,
     ):
+        self._transport = transport
         self.container: List[RecordQueue.MsgType] = []
         self._lock = False
         self._upload_interval = upload_interval
-        self._upload_callback = upload_callback
 
     def upload(self) -> None:
         """
@@ -37,7 +37,7 @@ class UploadCollector:
         pending = list(self.container)
         if len(pending) == 0:
             return
-        upload_records(pending, upload_callback=self._upload_callback)
+        upload_records(pending, transport=self._transport)
         self.container.clear()
 
     def task(self, queue: RecordQueue, timer: TimerFlag) -> None:

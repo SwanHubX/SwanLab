@@ -8,10 +8,17 @@
 from abc import ABC, abstractmethod
 from typing import List
 
+from enum import Enum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 
-__all__ = ["CoreProtocol"]
+__all__ = ["CoreProtocol", "create_core"]
+
+
+class CoreEnum(str, Enum):
+    CORE_PYTHON = "core_python"
+    CORE = "core"
+
 
 
 class CoreProtocol(ABC):
@@ -47,3 +54,14 @@ class CoreProtocol(ABC):
     def shutdown(self) -> None:
         """刷盘、触发收尾回调、释放所有资源。调用后此实例不应再被使用。"""
         ...
+
+
+def create_core(ctx: RunContext, core_type: CoreEnum = CoreEnum.CORE_PYTHON) -> CoreProtocol:
+    """创建当前运行使用的 Core 后端工厂"""
+    # LazyImport 防止循环导入冲突
+    if core_type == CoreEnum.CORE_PYTHON:
+        from swanlab.sdk.internal.core_python import CorePython
+        return CorePython(ctx)
+    else:
+        # TODO: Core grpc
+        raise NotImplementedError

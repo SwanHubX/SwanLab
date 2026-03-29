@@ -7,8 +7,9 @@
 
 import time
 from queue import Queue
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
@@ -41,19 +42,21 @@ def make_config_record() -> Record:
 
 
 def test_upload_collector_callback_is_idempotent_for_scalar_records():
+    transport = MagicMock()
     queue = Queue()
     writer = RecordQueue(queue=queue, readable=False, writable=True)
     reader = RecordQueue(queue=queue, readable=True, writable=False)
-    collector = UploadCollector()
+    collector = UploadCollector(transport=transport)
 
     writer.put(make_scalar_record().SerializeToString())
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.collector.upload_records") as mock_upload:
         collector.callback(reader)
         collector.callback(reader)
 
     assert mock_upload.call_count == 1
     uploaded = mock_upload.call_args.args[0]
+    assert mock_upload.call_args.kwargs["transport"] is transport
     assert len(uploaded) == 1
     record = load_record(uploaded[0])
     assert record.metric.key == "train/loss"
@@ -62,10 +65,11 @@ def test_upload_collector_callback_is_idempotent_for_scalar_records():
 
 
 def test_threadpool_finish_is_idempotent_for_config_records():
-    pool = ThreadPool()
+    transport = MagicMock()
+    pool = ThreadPool(transport=transport)
     pool.put([make_config_record(), make_config_record()])
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.collector.upload_records") as mock_upload:
         pool.finish()
         pool.finish()
 
@@ -73,14 +77,28 @@ def test_threadpool_finish_is_idempotent_for_config_records():
     uploaded = mock_upload.call_args.args[0]
     assert len(uploaded) == 2
     assert all(load_record(record).WhichOneof("record_type") == "config" for record in uploaded)
+    transport.close.assert_called_once_with()
+
+
+def test_threadpool_finish_closes_transport_when_final_flush_raises():
+    transport = MagicMock()
+    pool = ThreadPool(transport=transport, auto_start=False)
+    pool.put([make_config_record()])
+
+    with patch.object(pool._collector, "callback", side_effect=RuntimeError("flush boom")):
+        with pytest.raises(RuntimeError, match="flush boom"):
+            pool.finish()
+
+    transport.close.assert_called_once_with()
 
 
 def test_threadpool_starts_upload_thread_automatically():
     with patch.object(ThreadPool, "SLEEP_TIME", 0.01):
-        pool = ThreadPool(upload_interval=0.01)
+        transport = MagicMock()
+        pool = ThreadPool(transport=transport, upload_interval=0.01)
 
         try:
-            with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+            with patch("swanlab.sdk.internal.core_python.uploader.thread.collector.upload_records") as mock_upload:
                 pool.put([make_scalar_record()])
 
                 deadline = time.time() + 1.0
@@ -88,5 +106,6 @@ def test_threadpool_starts_upload_thread_automatically():
                     time.sleep(0.02)
 
                 assert mock_upload.call_count == 1
+                assert mock_upload.call_args.kwargs["transport"] is transport
         finally:
             pool.finish()

@@ -5,8 +5,8 @@
 @description: protobuf uploader 线程子包
 """
 
-from .log_collector import UploadCollector
-from .start_thread import ThreadPool
+from .collector import UploadCollector
+from .pool import ThreadPool
 from .utils import RecordQueue, TimerFlag
 
 __all__ = [

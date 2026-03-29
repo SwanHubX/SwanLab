@@ -1,6 +1,6 @@
 """
 @author: caddiesnew
-@file: start_thread.py
+@file: pool.py
 @time: 2026/3/21
 @description: 上传线程池
 """
@@ -8,11 +8,12 @@
 import threading
 import time
 from queue import Queue
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
-from .log_collector import UploadCollector
+from ..upload import RecordTransport
+from .collector import UploadCollector
 from .utils import RecordQueue, TimerFlag
 
 
@@ -27,14 +28,15 @@ class ThreadPool:
 
     def __init__(
         self,
+        transport: RecordTransport,
         upload_interval: float = 5.0,
-        upload_callback: Optional[Callable] = None,
         auto_start: bool = True,
     ):
+        self._transport = transport
         self._queue: Queue = Queue()
         self._collector = UploadCollector(
+            transport=transport,
             upload_interval=upload_interval,
-            upload_callback=upload_callback,
         )
         self._timer = TimerFlag()
         self._thread: Optional[threading.Thread] = None
@@ -78,10 +80,13 @@ class ThreadPool:
 
         self._finished = True
         self._timer.cancel()
-        if self._thread is not None:
-            self._thread.join(timeout=10)
-        reader = RecordQueue(queue=self._queue, readable=True, writable=False)
-        self._collector.callback(reader)
+        try:
+            if self._thread is not None:
+                self._thread.join(timeout=10)
+            reader = RecordQueue(queue=self._queue, readable=True, writable=False)
+            self._collector.callback(reader)
+        finally:
+            self._transport.close()
 
 
 __all__ = [
