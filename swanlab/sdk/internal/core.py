@@ -6,9 +6,9 @@
 """
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import List
 
-from enum import Enum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 

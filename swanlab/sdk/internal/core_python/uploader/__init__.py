@@ -5,7 +5,8 @@
 @description: 基于 protobuf Record 的 HTTP batch uploader
 """
 
-from .http import (
+from .helper import RecordQueue
+from .sender import (
     HttpRecordSender,
     NoopHttpRecordSender,
     create_http_record_sender,
@@ -17,6 +18,7 @@ __all__ = [
     "HttpBatchUploader",
     "HttpRecordSender",
     "NoopHttpRecordSender",
+    "RecordQueue",
     "create_http_record_sender",
     "group_records_by_type",
 ]

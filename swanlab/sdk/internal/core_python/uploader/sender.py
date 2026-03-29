@@ -6,15 +6,13 @@
 """
 
 from collections import defaultdict
-from typing import DefaultDict, Protocol, List
+from typing import DefaultDict, Protocol
 
-
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.bus.events import MetricsUploadEvent, MetricsUploadPayload
+from swanlab.sdk.internal.bus.events import FlushPayload, MetricsUploadEvent, MetricsUploadPayload
 from swanlab.sdk.internal.pkg import console
 
 
-def group_records_by_type(records: List[Record]) -> MetricsUploadPayload:
+def group_records_by_type(records: FlushPayload) -> MetricsUploadPayload:
     """Group protobuf records by their oneof record_type."""
     grouped: DefaultDict[str, list] = defaultdict(list)
     for record in records:

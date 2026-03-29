@@ -17,6 +17,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.bus.events import MetricsUploadEvent
+from swanlab.sdk.internal.core_python.uploader.helper import RecordQueue
 from swanlab.sdk.internal.core_python.uploader.uploader import HttpBatchUploader
 
 
@@ -40,6 +41,17 @@ def make_config_record() -> Record:
     return Record(config=ConfigRecord(update_type=UpdateType.UPDATE_TYPE_PATCH, timestamp=timestamp))
 
 
+def test_record_queue_put_and_get_roundtrip():
+    queue = RecordQueue()
+    record = make_scalar_record()
+
+    queue.put(record)
+
+    loaded = queue.get_nowait()
+    assert loaded.metric.key == "train/loss"
+    assert queue.empty()
+
+
 def test_http_batch_uploader_flush_groups_records_by_type():
     sender = MagicMock()
     uploader = HttpBatchUploader(sender=sender, auto_start=False)
@@ -54,7 +66,8 @@ def test_http_batch_uploader_flush_groups_records_by_type():
     assert set(buckets) == {"config", "metric"}
     assert len(buckets["config"]) == 1
     assert len(buckets["metric"]) == 2
-    assert uploader._buffer == []
+    assert uploader._pending == []
+    assert uploader._queue.empty()
 
 
 def test_http_batch_uploader_flush_keeps_pending_records_when_send_fails():
@@ -66,7 +79,8 @@ def test_http_batch_uploader_flush_keeps_pending_records_when_send_fails():
     with pytest.raises(RuntimeError, match="send boom"):
         uploader.flush()
 
-    assert len(uploader._buffer) == 2
+    assert len(uploader._pending) == 2
+    assert uploader._queue.empty()
 
 
 def test_http_batch_uploader_close_flushes_pending_records_and_closes_sender():

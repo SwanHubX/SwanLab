@@ -13,7 +13,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.uploader.http import (
+from swanlab.sdk.internal.core_python.uploader.sender import (
     NoopHttpRecordSender,
     create_http_record_sender,
     group_records_by_type,

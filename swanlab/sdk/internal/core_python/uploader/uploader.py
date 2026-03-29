@@ -6,14 +6,13 @@
 """
 
 import threading
+from queue import Empty
 
-from swanlab.sdk.internal.bus.events import MetricsUploadEvent
+from swanlab.sdk.internal.bus.events import FlushPayload, MetricsUploadEvent
 from swanlab.sdk.internal.pkg.timer import Timer
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
-from typing import List
-
-from .http import HttpRecordSender, group_records_by_type
+from swanlab.sdk.internal.core_python.uploader.helper import RecordQueue
+from swanlab.sdk.internal.core_python.uploader.sender import HttpRecordSender, group_records_by_type
 
 
 class HttpBatchUploader:
@@ -28,8 +27,8 @@ class HttpBatchUploader:
         auto_start: bool = True,
     ) -> None:
         self._sender = sender
-        self._buffer: List[Record] = []
-        self._buffer_lock = threading.Lock()
+        self._queue = RecordQueue()
+        self._pending: FlushPayload = []
         self._flush_lock = threading.Lock()
         self._closed = False
         self._timer = Timer(
@@ -42,28 +41,31 @@ class HttpBatchUploader:
         if auto_start:
             self._timer.start()
 
-    def enqueue(self, records: List[Record]) -> None:
-        """Append a protobuf record batch into the in-memory upload buffer."""
+    def enqueue(self, records: FlushPayload) -> None:
+        """Append a protobuf record batch into the uploader queue."""
         if self._closed:
             raise RuntimeError("HttpBatchUploader is closed.")
         if len(records) == 0:
             return
-        with self._buffer_lock:
-            self._buffer.extend(records)
+        self._queue.put_all(records)
+
+    def _drain_queue(self) -> None:
+        while True:
+            try:
+                self._pending.append(self._queue.get_nowait())
+            except Empty:
+                return
 
     def flush(self) -> None:
-        """Send the current buffered records grouped by record_type."""
+        """Send the current queued records grouped by record_type."""
         with self._flush_lock:
-            with self._buffer_lock:
-                if len(self._buffer) == 0:
-                    return
-                pending = list(self._buffer)
+            self._drain_queue()
+            if len(self._pending) == 0:
+                return
 
-            buckets = group_records_by_type(pending)
+            buckets = group_records_by_type(self._pending)
             self._sender.send(MetricsUploadEvent(buckets=buckets))
-
-            with self._buffer_lock:
-                del self._buffer[: len(pending)]
+            self._pending = []
 
     def close(self) -> None:
         """Stop periodic flush and perform a final synchronous flush."""
