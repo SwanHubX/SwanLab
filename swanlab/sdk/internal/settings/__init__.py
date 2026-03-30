@@ -40,7 +40,7 @@ from swanlab.sdk.typings.run import ModeType
 from ..pkg import console
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
-from .metadata import ConsoleSettings, MetadataSettings, MonitorSettings
+from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
 
 __all__ = ["Settings", "settings"]
 
@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Metadata: ClassVar[Type[MetadataSettings]] = MetadataSettings
+    Metadata: ClassVar[Type[EnvironmentSettings]] = EnvironmentSettings
     Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
@@ -289,7 +289,7 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    metadata: MetadataSettings = Field(default_factory=MetadataSettings)
+    env: EnvironmentSettings = Field(default_factory=EnvironmentSettings)
     """
     Configuration for one-time system snapshot collection (hardware specs, runtime, Python env, git, etc.).
     """

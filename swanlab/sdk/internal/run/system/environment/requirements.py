@@ -8,7 +8,7 @@
 import subprocess
 
 
-def get_metadata_requirements() -> str:
+def get() -> str:
     """获取当前环境依赖"""
     # 尝试 pixi
     result = subprocess.run(["pixi", "list"], capture_output=True, text=True, timeout=5)

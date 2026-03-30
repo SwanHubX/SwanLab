@@ -22,7 +22,7 @@ def get_default_system_drive() -> Path:
     return Path("/")
 
 
-class MetadataSettings(BaseModel):
+class EnvironmentSettings(BaseModel):
     """启动时一次性采集的系统快照。"""
 
     hardware: bool = True

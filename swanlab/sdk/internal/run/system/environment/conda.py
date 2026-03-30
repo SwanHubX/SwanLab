@@ -9,7 +9,7 @@ import subprocess
 from typing import Optional
 
 
-def get_metadata_conda() -> Optional[str]:
+def get() -> Optional[str]:
     """获取 conda 环境信息"""
     result = subprocess.run(["conda", "env", "export"], capture_output=True, text=True, timeout=15, check=True)
     return result.stdout

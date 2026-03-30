@@ -8,8 +8,22 @@
 import subprocess
 from typing import Optional
 
+from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run.system import GitSnapshot
+from swanlab.sdk.utils.helper import catch_and_return_none
 
-def get_metadata_git_remote_url() -> str:
+
+def get() -> GitSnapshot:
+    """创建 GitSnapshot 对象"""
+    return GitSnapshot(
+        remote_url=get_remote_url(),
+        branch=get_branch(),
+        commit=get_commit(),
+    )
+
+
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git remote url: {e}"))
+def get_remote_url() -> str:
     """获取 Git 远程仓库地址"""
     result = subprocess.run(
         ["git", "config", "--get", "remote.origin.url"],
@@ -22,7 +36,8 @@ def get_metadata_git_remote_url() -> str:
     return parse_git_url(url)
 
 
-def get_metadata_git_branch() -> str:
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git branch: {e}"))
+def get_branch() -> str:
     """获取当前分支名"""
     result = subprocess.run(
         ["git", "branch", "--show-current"],
@@ -34,9 +49,10 @@ def get_metadata_git_branch() -> str:
     return result.stdout.strip()
 
 
-def get_metadata_git_commit() -> Optional[str]:
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git commit: {e}"))
+def get_commit() -> Optional[str]:
     """获取最新提交 hash"""
-    branch = get_metadata_git_branch()
+    branch = get_branch()
     if not branch:
         return None
     result = subprocess.run(

@@ -12,56 +12,56 @@ import sys
 from typing import Optional
 
 
-def get_metadata_os() -> str:
+def get_os() -> str:
     """获取操作系统平台"""
     return platform.platform()
 
 
-def get_metadata_os_pretty() -> Optional[str]:
+def get_os_pretty() -> Optional[str]:
     """获取操作系统友好名称"""
     return platform.freedesktop_os_release().get("PRETTY_NAME")
 
 
-def get_metadata_hostname() -> str:
+def get_hostname() -> str:
     """获取主机名"""
     return socket.gethostname()
 
 
-def get_metadata_pid() -> int:
+def get_pid() -> int:
     """获取进程 ID"""
     return os.getpid()
 
 
-def get_metadata_cwd() -> str:
+def get_cwd() -> str:
     """获取当前工作目录"""
     return os.getcwd()
 
 
-def get_metadata_python_version() -> str:
+def get_python_version() -> str:
     """获取 Python 版本"""
     return platform.python_version()
 
 
-def get_metadata_python_verbose() -> str:
+def get_python_verbose() -> str:
     """获取 Python 详细版本信息"""
     return sys.version
 
 
-def get_metadata_python_executable() -> str:
+def get_python_executable() -> str:
     """获取 Python 可执行文件路径"""
     return sys.executable
 
 
-def get_metadata_command() -> str:
+def get_command() -> str:
     """获取当前执行命令"""
     if platform.system() == "Linux":
-        cmdline = _get_metadata_command_linux()
+        cmdline = _get_command_linux()
         if cmdline:
             return cmdline
     return " ".join(sys.argv)
 
 
-def _get_metadata_command_linux() -> str:
+def _get_command_linux() -> str:
     """Linux 下获取当前执行命令"""
     with open("/proc/self/cmdline", "rb") as f:
         content = f.read()

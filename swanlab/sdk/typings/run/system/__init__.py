@@ -170,6 +170,21 @@ class GitSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class HardwareSnapshot(BaseModel):
+    """硬件相关的系统快照
+
+    Apple Silicon 场景下 cpu/memory 为 None，apple_chip 有值。
+    """
+
+    apple_chip: Optional[AppleChipSnapshot] = None
+    cpu: Optional[CPUSnapshot] = None
+    memory: Optional[MemorySnapshot] = None
+    accelerators: list[AcceleratorSnapshot] = Field(default_factory=list)
+    """所有加速器快照列表，支持异构场景"""
+
+    model_config = ConfigDict(frozen=True)
+
+
 # ──────────────────────────────────────────────
 # MetadataSnapshot：完整的系统快照
 # ──────────────────────────────────────────────
@@ -178,23 +193,12 @@ class GitSnapshot(BaseModel):
 class MetadataSnapshot(BaseModel):
     """启动时采集的完整系统快照，用于上报展示。
 
-    各字段为 None 表示未采集（被 Settings.metadata 关闭）或采集失败。
-    Apple Silicon 场景下 cpu/memory 为 None，apple_chip 有值。
+    各字段为 None 表示未采集（被 Settings 关闭）或采集失败。
     """
 
-    # 硬件静态信息
-    apple_chip: Optional[AppleChipSnapshot] = None
-    cpu: Optional[CPUSnapshot] = None
-    memory: Optional[MemorySnapshot] = None
-    accelerators: list[AcceleratorSnapshot] = Field(default_factory=list)
-    """所有加速器快照列表，支持异构场景"""
-    # 运行时及环境信息
+    hardware: Optional[HardwareSnapshot] = None
     runtime: Optional[RuntimeSnapshot] = None
     git: Optional[GitSnapshot] = None
-    requirements: Optional[str] = None
-    """pip freeze 输出的字符串"""
-    conda: Optional[str] = None
-    """conda env export 输出的 YAML 字符串"""
 
     model_config = ConfigDict(frozen=True)
 
@@ -224,7 +228,7 @@ class SystemShim(BaseModel):
     由 SwanLab 内部控制，用户无法修改。
     """
 
-    slug: Literal["linux", "macos-intel", "macos-arm", "windows"]
+    slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
     """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了macos平台下的apple chip和intel cpu"""
     enable_cpu: bool = False
     enable_memory: bool = False
@@ -236,24 +240,37 @@ class SystemShim(BaseModel):
     @classmethod
     def from_snapshot(cls, snapshot: MetadataSnapshot, platform: str) -> "SystemShim":
         """从 MetadataSnapshot 提取，不做额外的系统探测。"""
-        _slug: Literal["linux", "macos-intel", "macos-arm", "windows"]
-        if platform.startswith("linux"):
+        # 1. 处理平台标识
+        _slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+        if snapshot.hardware is None:
+            _slug = "unknown"
+        elif platform.startswith("linux"):
             _slug = "linux"
         elif platform.startswith("darwin"):
-            _slug = "macos-arm" if snapshot.apple_chip is not None else "macos-intel"
+            _slug = "macos-arm" if snapshot.hardware.apple_chip is not None else "macos-intel"
         else:
             _slug = "windows"
 
+        # 2. 处理 CPU 和内存监控开关
+        if snapshot.hardware is not None:
+            enable_cpu = snapshot.hardware.cpu is not None or snapshot.hardware.apple_chip is not None
+            enable_memory = snapshot.hardware.memory is not None or snapshot.hardware.apple_chip is not None
+        else:
+            enable_cpu = False
+            enable_memory = False
+
+        # 3. 处理加速器监控配置
         accelerators = []
-        for acc in snapshot.accelerators:
-            if acc.vendor and acc.devices:
-                indices = [d.index for d in acc.devices if d.index is not None]
-                if indices:
-                    accelerators.append(AcceleratorMonitorConfig(vendor=acc.vendor, device_indices=indices))
+        if snapshot.hardware is not None:
+            for acc in snapshot.hardware.accelerators:
+                if acc.vendor and acc.devices:
+                    indices = [d.index for d in acc.devices if d.index is not None]
+                    if indices:
+                        accelerators.append(AcceleratorMonitorConfig(vendor=acc.vendor, device_indices=indices))
 
         return cls(
-            enable_cpu=snapshot.cpu is not None,
-            enable_memory=snapshot.memory is not None,
+            enable_cpu=enable_cpu,
+            enable_memory=enable_memory,
             accelerators=accelerators,
             slug=_slug,
         )
@@ -264,12 +281,14 @@ class SystemShim(BaseModel):
 # ──────────────────────────────────────────────
 
 
-class SystemInfo(BaseModel):
+class SystemEnvironment(BaseModel):
     """system/ 模块对外输出的完整信息容器。
 
     - shim:     monitor 工厂依赖，schema 固定
-    - metadata: 完整静态快照，用于上报
+    - metadata: 系统元信息
     """
 
     shim: SystemShim
     metadata: MetadataSnapshot
+    requirements: Optional[str]
+    conda: Optional[str]
