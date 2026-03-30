@@ -67,6 +67,7 @@ def upload_records(
     if len(records) == 0:
         return console.debug("No records to upload.")
     trace_records(records, per_request_len=per_request_len, upload_callback=upload_callback)
+    return None
 
 
 __all__ = [

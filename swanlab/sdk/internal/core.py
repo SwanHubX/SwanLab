@@ -61,5 +61,5 @@ def create_core(ctx: RunContext, core_enum: CoreEnum = CoreEnum.CORE_PYTHON) -> 
 
         return CorePython(ctx)
     else:
-        # TODO: 在 Core 微服务实现实现无感接入
+        # TODO: Core 微服务无感接入
         raise NotImplementedError
