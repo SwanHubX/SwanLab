@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: collector.py
 @time: 2026/3/21
-@description: 上传线程聚合器
+@description: 上传线程采集器
 """
 
 import threading
@@ -16,7 +16,7 @@ from swanlab.sdk.internal.pkg import console
 
 class Collector:
     """
-    日志聚合器，负责从队列中收集 Records 并批量上传。
+    日志采集器，负责从队列中收集 Records 并批量上传。
     """
 
     def __init__(
