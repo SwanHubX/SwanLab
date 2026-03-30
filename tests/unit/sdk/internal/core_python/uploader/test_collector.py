@@ -56,6 +56,21 @@ def test_submit_accumulates_and_uploads_when_interval_elapsed(make_scalar_record
     assert len(uploaded) == 3
 
 
+def test_submit_uploads_immediately_when_zero_interval_and_clock_does_not_advance(make_scalar_record):
+    """验证 upload_interval=0.0 时会立即上传。"""
+    records = [make_scalar_record(step=1)]
+
+    with patch("swanlab.sdk.internal.core_python.uploader.collector.time.time", side_effect=[100.0, 100.0]):
+        collector = Collector(upload_interval=0.0)
+
+        with patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records") as mock_upload:
+            collector.submit(records)
+
+    mock_upload.assert_called_once()
+    uploaded = mock_upload.call_args.args[0]
+    assert len(uploaded) == 1
+
+
 def test_submit_accumulates_without_upload_when_interval_not_elapsed(make_scalar_record):
     """验证 submit() 在未超过 upload_interval 时只聚合不上传。"""
     collector = Collector(upload_interval=999.0)

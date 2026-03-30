@@ -46,13 +46,16 @@ class Collector:
             if not self.container:
                 return
 
-            now = time.time()
-            if now - self._last_upload_at <= self._upload_interval:
-                return
-
-            self._last_upload_at = now
             pending = self.container
-            self.container = []
+            if self._upload_interval <= 0:
+                self.container = []
+            else:
+                now = time.time()
+                if now - self._last_upload_at <= self._upload_interval:
+                    return
+
+                self._last_upload_at = now
+                self.container = []
 
         try:
             self.upload(pending)
