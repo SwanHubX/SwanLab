@@ -7,5 +7,42 @@
 """
 
 from .experiment import generate_color, generate_id, generate_name
+from .metadata import (
+    get_metadata_command,
+    get_metadata_conda,
+    get_metadata_cwd,
+    get_metadata_git_branch,
+    get_metadata_git_commit,
+    get_metadata_git_remote_url,
+    get_metadata_hostname,
+    get_metadata_os,
+    get_metadata_os_pretty,
+    get_metadata_pid,
+    get_metadata_python_executable,
+    get_metadata_python_verbose,
+    get_metadata_python_version,
+    get_metadata_requirements,
+)
 
-__all__ = ["generate_color", "generate_id", "generate_name"]
+__all__ = [
+    # experiment
+    "generate_color",
+    "generate_id",
+    "generate_name",
+    # metadata
+    "get_metadata_os",
+    "get_metadata_os_pretty",
+    "get_metadata_hostname",
+    "get_metadata_pid",
+    "get_metadata_cwd",
+    "get_metadata_python_version",
+    "get_metadata_python_verbose",
+    "get_metadata_python_executable",
+    "get_metadata_command",
+    "get_metadata_git_remote_url",
+    "get_metadata_git_branch",
+    "get_metadata_git_commit",
+    "get_metadata_requirements",
+    "get_metadata_conda",
+    # monitor
+]

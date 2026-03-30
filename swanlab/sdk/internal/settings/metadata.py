@@ -26,18 +26,32 @@ class MetadataSettings(BaseModel):
     """启动时一次性采集的系统快照。"""
 
     hardware: bool = True
-    """Whether to collect static hardware specs (GPU model, CPU count, memory size, etc.).
-    If metadata.hardware is disabled while monitor.enable is enabled, 
-    SwanLab will still collect dynamic hardware metrics (CPU usage, GPU utilization, memory usage, etc.) but will skip static hardware specs collection.
+    """Controls the collection, reporting, and persistence of static hardware metadata (e.g., GPU model, CPU cores, total memory) at startup.
+
+    Note on interaction with `monitor`:
+    If `hardware` is set to False while `monitor.enable` is True, the underlying system hardware information will still be accessed by the monitoring module to compute dynamic metrics (like utilization percentages). 
+    However, the static hardware snapshot itself will be explicitly discarded — it will neither be included in the telemetry payload nor saved to local persistent storage.
     """
+
     runtime: bool = True
-    """Whether to collect machine runtime information (OS, Python version, hostname, etc.)."""
+    """Controls the logging of the software execution environment. 
+    When True, captures details such as the operating system, Python version, hostname, current working directory, and the exact command used to launch the script.
+    """
+
     requirements: bool = True
-    """Whether to collect Python environment (requirements) information."""
+    """Enables the snapshot of Python dependencies. 
+    When True, records the installed pip packages and their exact versions (similar to `pip freeze`) to ensure environment reproducibility.
+    """
+
     conda: bool = False
-    """Whether to collect Conda environment information."""
+    """Enables the extraction of Conda environment configurations. 
+    When True, records the active Conda environment details and exported dependencies. It defaults to False as fetching Conda metadata may introduce slight overhead during startup.
+    """
+
     git: bool = True
-    """Whether to collect Git information."""
+    """Controls the tracking of Git repository metadata. 
+    When True, captures the current branch, latest commit hash, and remote URL. This helps tightly link the experiment run to a specific version of your codebase.
+    """
 
     # TODO: There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
 

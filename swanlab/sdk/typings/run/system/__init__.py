@@ -200,7 +200,7 @@ class MetadataSnapshot(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# SystemEnvironment：monitor 工厂的唯一依赖
+# SystemShim：monitor 工厂的唯一依赖
 # ──────────────────────────────────────────────
 
 
@@ -215,31 +215,34 @@ class AcceleratorMonitorConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class SystemEnvironment(BaseModel):
+class SystemShim(BaseModel):
     """从 MetadataSnapshot 中提取的结构性事实。
+
+    SystemShim 作为垫片，将 MetadataSnapshot 的完整信息转换为 monitor 工厂所需的简化配置
 
     这是 monitor/hardware/ 工厂函数的唯一输入，schema 固定，
     由 SwanLab 内部控制，用户无法修改。
     """
 
+    slug: Literal["linux", "macos-intel", "macos-arm", "windows"]
+    """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了macos平台下的apple chip和intel cpu"""
     enable_cpu: bool = False
     enable_memory: bool = False
     accelerators: list[AcceleratorMonitorConfig] = Field(default_factory=list)
     """各类加速器的监控配置"""
-    platform: Literal["linux", "darwin", "windows"]
 
     model_config = ConfigDict(frozen=True)
 
     @classmethod
-    def from_snapshot(cls, snapshot: MetadataSnapshot, platform: str) -> "SystemEnvironment":
+    def from_snapshot(cls, snapshot: MetadataSnapshot, platform: str) -> "SystemShim":
         """从 MetadataSnapshot 提取，不做额外的系统探测。"""
-        _platform: Literal["linux", "darwin", "windows"]
+        _slug: Literal["linux", "macos-intel", "macos-arm", "windows"]
         if platform.startswith("linux"):
-            _platform = "linux"
+            _slug = "linux"
         elif platform.startswith("darwin"):
-            _platform = "darwin"
+            _slug = "macos-arm" if snapshot.apple_chip is not None else "macos-intel"
         else:
-            _platform = "windows"
+            _slug = "windows"
 
         accelerators = []
         for acc in snapshot.accelerators:
@@ -252,7 +255,7 @@ class SystemEnvironment(BaseModel):
             enable_cpu=snapshot.cpu is not None,
             enable_memory=snapshot.memory is not None,
             accelerators=accelerators,
-            platform=_platform,
+            slug=_slug,
         )
 
 
@@ -264,9 +267,9 @@ class SystemEnvironment(BaseModel):
 class SystemInfo(BaseModel):
     """system/ 模块对外输出的完整信息容器。
 
-    - env:      monitor 工厂依赖，schema 固定
-    - snapshot: 完整静态快照，用于上报
+    - shim:     monitor 工厂依赖，schema 固定
+    - metadata: 完整静态快照，用于上报
     """
 
-    env: SystemEnvironment
+    shim: SystemShim
     metadata: MetadataSnapshot
