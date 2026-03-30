@@ -24,6 +24,7 @@ from swanlab.core_python.utils.timer import Timer
 from swanlab.log import swanlog
 
 from .model import SaveFileModel, SaveFileState
+from .progress import _SaveProgress
 from .utils import compute_md5, copy_file, file_signature, guess_mime_type, same_path
 
 # 分片阈值 / 大小
@@ -89,11 +90,19 @@ class FileUploadManager:
             max_workers=max_workers, thread_name_prefix="swanlab-save"
         )
         self._futures: Dict[Future, str] = {}
+        self._progress: Optional[_SaveProgress] = None
 
     def submit(self, files: Union[SaveFileModel, Iterable[SaveFileModel]]) -> None:
         if self._closed:
             return
-        for file in _iter_files(files):
+        file_list = list(_iter_files(files))
+        # 仅在 cloud 模式下展示上传进度
+        if self._mode == "cloud" and file_list:
+            if self._progress is None:
+                self._progress = _SaveProgress(len(file_list))
+            else:
+                self._progress.add(len(file_list))
+        for file in file_list:
             try:
                 future = self._executor.submit(self._do_upload, file)
             except RuntimeError:
@@ -119,6 +128,8 @@ class FileUploadManager:
         self._closed = True
         self.join()
         self._executor.shutdown(wait=True)
+        if self._progress is not None:
+            self._progress.stop()
 
     def _on_done(self, future: Future) -> None:
         with self._lock:
@@ -127,6 +138,8 @@ class FileUploadManager:
             future.result()
         except Exception as e:
             swanlog.warning(f"Save failed for {name}: {e}")
+        if self._progress is not None:
+            self._progress.done()
 
     def _do_upload(self, file: SaveFileModel) -> None:
         if not os.path.exists(file.source_path):
