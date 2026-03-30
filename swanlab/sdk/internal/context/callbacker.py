@@ -28,7 +28,7 @@ class _CallbackManager:
 
         for cb in callbacks:
             if not isinstance(cb, Callback):
-                raise TypeError(f"Expected SwanLabCallback, got {type(cb).__name__}")
+                raise TypeError(f"Expected swanlab.Callback, got {type(cb).__name__}")
 
             if cb.name in self._callbacks:
                 console.warning(f"Callback '{cb.name}' is already registered and will be overwritten.")
@@ -50,7 +50,7 @@ class _CallbackManager:
     # 拦截所有对未定义方法的调用，自动转发给注册的 callbacks
     # =========================================================================
     def __getattr__(self, name: str):
-        # 1. 安全检查：只有基类 SwanLabCallback 中真实定义的方法才允许被动态调用
+        # 1. 安全检查：只有基类 Callback 中真实定义的方法才允许被动态调用
         if hasattr(Callback, name) and callable(getattr(Callback, name)):
             # 2. 动态生成带容错机制的代理函数
             def dispatcher(*args, **kwargs):
@@ -75,7 +75,7 @@ class _CallbackManager:
 # 这一段代码在真实运行时根本不会被执行，它完全是写给 PyCharm/VSCode 看的
 # =========================================================================
 if TYPE_CHECKING:
-    # 让 IDE 认为全局的 callbacker 同时拥有 CallbackManager 和 SwanLabCallback 的所有方法
+    # 让 IDE 认为全局的 callbacker 同时拥有 CallbackManager 和 Callback 的所有方法
     class CallbackManager(_CallbackManager, Callback):
         @property
         def name(self) -> str:
