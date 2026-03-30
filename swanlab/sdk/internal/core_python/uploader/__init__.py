@@ -14,14 +14,14 @@ from .sender import (
     trace_records,
     upload_records,
 )
-from .uploader import Uploader
+from .uploader import ThreadPool
 
 __all__ = [
     "CoreTransportConfig",
     "Collector",
     "NoopRecordTransport",
     "RecordTransport",
-    "Uploader",
+    "ThreadPool",
     "create_record_transport",
     "trace_records",
     "upload_records",

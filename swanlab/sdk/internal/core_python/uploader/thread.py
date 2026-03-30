@@ -13,7 +13,7 @@ from swanlab.sdk.internal.core_python.uploader.collector import Collector
 from swanlab.sdk.internal.pkg.timer import Timer
 
 
-class Uploader:
+class ThreadPool:
     """
     上传线程池，管理上传线程和通信管道。
     保留线程池设计防止单线程数据丢失。
@@ -82,5 +82,5 @@ class Uploader:
 
 
 __all__ = [
-    "Uploader",
+    "ThreadPool",
 ]
