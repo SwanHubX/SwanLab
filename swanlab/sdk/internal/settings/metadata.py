@@ -39,7 +39,7 @@ class MetadataSettings(BaseModel):
     git: bool = True
     """Whether to collect Git information."""
 
-    # There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
+    # TODO: There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
 
     model_config = ConfigDict(frozen=True)
 
