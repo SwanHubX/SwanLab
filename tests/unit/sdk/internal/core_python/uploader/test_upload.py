@@ -16,7 +16,6 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.uploader.sender import (
-    CoreTransportConfig,
     HttpRecordTransport,
     create_record_transport,
     trace_records,
@@ -93,29 +92,14 @@ def test_trace_records_rejects_serialized_bytes():
         raise AssertionError("trace_records should reject serialized bytes")
 
 
-def test_create_record_transport_returns_http_transport_when_enabled():
-    transport = create_record_transport(CoreTransportConfig(enabled=True, address=None, timeout=1.0))
+def test_create_record_transport_returns_http_transport():
+    transport = create_record_transport()
 
     assert isinstance(transport, HttpRecordTransport)
 
 
-def test_http_record_transport_dispatches_record_group_to_typed_handler():
-    transport = HttpRecordTransport(CoreTransportConfig(enabled=True, address=None, timeout=1.0))
-    records = [make_scalar_record(step=1)]
-
-    with patch.object(transport, "_upload_metric_group") as mock_handler:
-        transport.upload_record_group("metric", records)
-
-    mock_handler.assert_called_once_with(records)
+def test_http_record_transport_upload_record_group_skips_empty():
+    transport = HttpRecordTransport()
+    transport.upload_record_group("metric", [])  # should not raise
 
 
-def test_core_transport_config_reads_env(monkeypatch):
-    monkeypatch.setenv("SWANLAB_CORE_HOST", "127.0.0.1")
-    monkeypatch.setenv("SWANLAB_CORE_PORT", "9098")
-    monkeypatch.setenv("SWANLAB_CORE_TIMEOUT", "5.5")
-
-    config = CoreTransportConfig.from_env()
-
-    assert config.enabled is True
-    assert config.address == "127.0.0.1:9098"
-    assert config.timeout == 5.5
