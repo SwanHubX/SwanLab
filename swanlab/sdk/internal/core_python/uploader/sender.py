@@ -1,6 +1,6 @@
 """
 @author: caddiesnew
-@file: upload.py
+@file: sender.py
 @time: 2026/3/19
 @description: Record 上传入口与 Core sidecar transport
 """
@@ -13,7 +13,7 @@ from typing import Callable, Optional, Protocol, Sequence
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import console
 
-from .batch import RecordLike, _generate_chunks, load_record
+from .helper import generate_chunks
 
 _TRUE_VALUES = {"true", "1", "yes", "on"}
 _FALSE_VALUES = {"false", "0", "no", "off"}
@@ -148,15 +148,15 @@ def create_record_transport(config: Optional[CoreTransportConfig] = None) -> Rec
 
 
 def trace_records(
-    records: Optional[Sequence[RecordLike]] = None,
-    per_request_len: int = 1000,
+    records: Optional[Sequence[Record]] = None,
+    per_request_len: int = 10_000,
     upload_callback: Optional[Callable[[int], None]] = None,
     transport: Optional[RecordTransport] = None,
 ) -> None:
     """
     分片上传 protobuf Record。
 
-    线程层负责缓冲、聚合与重试；此层只做 Record 反序列化、分片和 transport 调用。
+    线程层负责缓冲、聚合与重试；此层只做 Record 分片和 transport 调用。
     """
     if records is None or len(records) == 0:
         return
@@ -166,9 +166,11 @@ def trace_records(
     active_transport = transport or create_record_transport()
 
     try:
-        for chunk, chunk_len in _generate_chunks(records, per_request_len):
-            for record_like in chunk:
-                active_transport.upsert_record(load_record(record_like))
+        for chunk, chunk_len in generate_chunks(records, per_request_len):
+            for record in chunk:
+                if not isinstance(record, Record):
+                    raise TypeError(f"trace_records only accepts Record instances, got {type(record).__name__}")
+                active_transport.upsert_record(record)
             if upload_callback:
                 upload_callback(chunk_len)
             if is_split_mode:
@@ -179,7 +181,7 @@ def trace_records(
 
 
 def upload_records(
-    records: Sequence[RecordLike],
+    records: Sequence[Record],
     upload_callback: Optional[Callable[[int], None]] = None,
     per_request_len: int = 1000,
 ) -> None:
@@ -192,10 +194,8 @@ def upload_records(
 __all__ = [
     "CoreTransportConfig",
     "NoopRecordTransport",
-    "RecordLike",
     "RecordTransport",
     "create_record_transport",
-    "load_record",
     "trace_records",
     "upload_records",
 ]

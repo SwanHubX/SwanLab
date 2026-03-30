@@ -14,13 +14,13 @@
 后续替换为 Go Core 时无需修改业务入口。
 """
 
-from typing import List
+from typing import List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core import CoreProtocol
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
-from swanlab.sdk.internal.core_python.uploader.thread import ThreadPool
+from swanlab.sdk.internal.core_python.uploader import Uploader
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils.helper.env import DEBUG
 
@@ -35,8 +35,8 @@ class CorePython(CoreProtocol):
 
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
-        self._store: DataStoreWriter | None = None
-        self._uploader: ThreadPool | None = None
+        self._store: Optional[DataStoreWriter] = None
+        self._uploader: Optional[Uploader] = None
 
     def startup(self, cloud: bool, persistence: bool) -> None:
         if self._store is not None or self._uploader is not None:
@@ -45,7 +45,7 @@ class CorePython(CoreProtocol):
             self._store = DataStoreWriter()
             self._store.open(str(self._ctx.run_file))
         if cloud:
-            self._uploader = ThreadPool()
+            self._uploader = Uploader()
 
     def handle_records(self, records: List[Record]) -> None:
         if self._store is None and self._uploader is None:

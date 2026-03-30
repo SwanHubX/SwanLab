@@ -5,26 +5,24 @@
 @description: 指标上传线程，基于 protobuf Record
 """
 
-from .thread import ThreadPool
-from .upload import (
+from .collector import Collector
+from .sender import (
     CoreTransportConfig,
     NoopRecordTransport,
-    RecordLike,
     RecordTransport,
     create_record_transport,
-    load_record,
     trace_records,
     upload_records,
 )
+from .uploader import Uploader
 
 __all__ = [
     "CoreTransportConfig",
+    "Collector",
     "NoopRecordTransport",
-    "RecordLike",
     "RecordTransport",
+    "Uploader",
     "create_record_transport",
-    "load_record",
     "trace_records",
-    "ThreadPool",
     "upload_records",
 ]
