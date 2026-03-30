@@ -39,20 +39,20 @@ def test_priority_yaml_over_env(tmp_path, monkeypatch):
 
     # 设置低优先级的环境变量
     monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
-    monkeypatch.setenv("SWANLAB_HARDWARE_MONITOR", "false")
+    monkeypatch.setenv("SWANLAB_MONITOR_ENABLE", "false")
 
     s1 = Settings()
-    assert s1.hardware.monitor is False
+    assert s1.monitor.enable is False
     assert s1.api_key == "env_key"
 
     # 创建高优先级的 swanlab.yaml
-    yaml_content = "api_key: yaml_key\nlog_dir: ./custom_log\nhardware:\n  monitor: true"
+    yaml_content = "api_key: yaml_key\nlog_dir: ./custom_log\nmonitor:\n  enable: true"
     (tmp_path / "swanlab.yaml").write_text(yaml_content)
 
     s2 = Settings()
     assert s2.api_key == "yaml_key"
     assert s2.log_dir.name == "custom_log"
-    assert s2.hardware.monitor is True
+    assert s2.monitor.enable is True
 
 
 def test_merge_settings_dict_deep_update():
@@ -60,10 +60,10 @@ def test_merge_settings_dict_deep_update():
     settings = Settings()
 
     # 仅修改 collect 下的 metadata，log_dir 应该保留
-    settings.merge_settings({"hardware": {"monitor": False}})
+    settings.merge_settings({"monitor": {"enable": False}})
 
-    assert settings.hardware.monitor is False
-    assert settings.hardware.interval == 10
+    assert settings.monitor.enable is False
+    assert settings.monitor.interval == 10
     assert settings.log_dir.name == "swanlog"
 
 
@@ -80,7 +80,7 @@ def test_merge_settings_object_exclude_unset(tmp_path, monkeypatch):
     settings.merge_settings(new_settings)
 
     assert settings.log_dir.name == "new_log"  # 新配置生效
-    assert settings.hardware.monitor is True  # 原配置未被默认值 False 覆盖
+    assert settings.monitor.enable is True  # 原配置未被默认值 False 覆盖
     assert settings.api_key == "current_key"  # 原配置未被默认值 None 覆盖
 
 

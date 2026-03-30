@@ -22,11 +22,33 @@ def get_default_system_drive() -> Path:
     return Path("/")
 
 
-class HardwareSettings(BaseModel):
+class MetadataSettings(BaseModel):
+    """启动时一次性采集的系统快照。"""
+
+    hardware: bool = True
+    """Whether to collect static hardware specs (GPU model, CPU count, memory size, etc.).
+    If metadata.hardware is disabled while monitor.enable is enabled, 
+    SwanLab will still collect dynamic hardware metrics (CPU usage, GPU utilization, memory usage, etc.) but will skip static hardware specs collection.
+    """
+    runtime: bool = True
+    """Whether to collect machine runtime information (OS, Python version, hostname, etc.)."""
+    requirements: bool = True
+    """Whether to collect Python environment (requirements) information."""
+    conda: bool = False
+    """Whether to collect Conda environment information."""
+    git: bool = True
+    """Whether to collect Git information."""
+
+    # TODO: There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
+
+    model_config = ConfigDict(frozen=True)
+
+
+class MonitorSettings(BaseModel):
+    """周期性硬件指标监控。"""
+
     enable: bool = True
-    """Whether to collect machine hardware information."""
-    monitor: bool = True
-    """Whether to collect machine hardware monitoring information."""
+    """Whether to enable periodic hardware monitoring (CPU usage, GPU utilization, memory, etc.)."""
     interval: int = Field(default=10, ge=5)
     """Hardware monitoring collection interval (seconds)."""
     disk_io_dir: DirectoryPath = Field(default_factory=get_default_system_drive)
@@ -40,18 +62,5 @@ class ConsoleSettings(BaseModel):
     """Terminal log proxy strategy."""
     max_log_length: int = Field(default=1024, ge=500, le=4096)
     """Maximum character length per line for terminal log collection."""
-
-    model_config = ConfigDict(frozen=True)
-
-
-class EnvSettings(BaseModel):
-    runtime: bool = True
-    """Whether to collect machine runtime information."""
-    requirements: bool = True
-    """Whether to collect Python environment (requirements) information."""
-    conda: bool = False
-    """Whether to collect Conda environment information."""
-    git: bool = True
-    """Whether to collect Git information."""
 
     model_config = ConfigDict(frozen=True)
