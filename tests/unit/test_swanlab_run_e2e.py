@@ -7,7 +7,7 @@
 import swanlab
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.run import finish
-from swanlab.sdk.internal.run import SwanLabRun
+from swanlab.sdk.internal.run import Run
 
 
 class TestRunAttributeE2E:
@@ -16,10 +16,10 @@ class TestRunAttributeE2E:
         assert swanlab.run is None
 
     def test_run_is_swanlab_run_after_init(self):
-        """init() 之后，swanlab.run 应返回活跃的 SwanLabRun 实例"""
+        """init() 之后，swanlab.run 应返回活跃的 Run 实例"""
         run = init(mode="disabled")
         assert swanlab.run is not None
-        assert isinstance(swanlab.run, SwanLabRun)
+        assert isinstance(swanlab.run, Run)
         assert swanlab.run is run
         finish()
 

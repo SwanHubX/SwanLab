@@ -61,7 +61,7 @@ class TestWithRun:
         def my_func(run):
             return "ok"
 
-        with pytest.raises(RuntimeError, match="`swanlab.test_cmd` requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.test_cmd` requires an active Run"):
             my_func()
 
     def test_passes_run_when_active(self, monkeypatch):
@@ -95,7 +95,7 @@ class TestWithoutRun:
         def my_func():
             return "ok"
 
-        with pytest.raises(RuntimeError, match="`swanlab.test_cmd` requires no active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.test_cmd` requires no active Run"):
             my_func()
 
     def test_executes_when_no_run(self, monkeypatch):

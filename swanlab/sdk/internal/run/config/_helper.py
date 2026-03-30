@@ -2,7 +2,7 @@
 @author: cunyue
 @file: _helper.py
 @time: 2026/3/14 16:12
-@description: SwanLabConfig 辅助函数
+@description: Config 辅助函数
 """
 
 

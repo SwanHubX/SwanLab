@@ -1,6 +1,6 @@
 from swanlab.sdk import (
+    Run,
     Settings,
-    SwanLabRun,
     config,
     define_scalar,
     finish,
@@ -16,6 +16,7 @@ from swanlab.sdk import (
     merge_settings,
 )
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video
+from swanlab.sdk.utils.callbacker import Callback
 from swanlab.sdk.utils.version import get_swanlab_version
 
 from . import utils
@@ -25,7 +26,6 @@ __version__ = get_swanlab_version()
 __all__ = [
     # cmd
     "merge_settings",
-    "Settings",
     "init",
     "finish",
     "login",
@@ -37,7 +37,7 @@ __all__ = [
     "define_scalar",
     # run
     "run",  # type: ignore [no-redef]
-    "SwanLabRun",
+    "Run",
     "has_run",
     "get_run",
     # config
@@ -49,6 +49,8 @@ __all__ = [
     "Video",
     # utils
     "utils",
+    "Settings",
+    "Callback",
 ]
 
 

@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_config.py
 @time: 2026/3/14
-@description: 测试 config/__init__.py：SwanLabConfig 生命周期、接口和线程安全
+@description: 测试 config/__init__.py：Config 生命周期、接口和线程安全
 """
 
 import threading
@@ -15,7 +15,7 @@ import yaml
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.sdk.internal.bus.events import ConfigEvent
 from swanlab.sdk.internal.run.config import (
-    SwanLabConfig,
+    Config,
     config,
     create_run_config,
     create_unbound_run_config,
@@ -34,9 +34,9 @@ def make_emit():
     return MagicMock()
 
 
-def bound_config(tmp_path: Path) -> tuple[SwanLabConfig, MagicMock, Path]:
-    """创建并绑定一个独立的 SwanLabConfig 实例，返回 (cfg, emit, config_file)"""
-    cfg = SwanLabConfig()
+def bound_config(tmp_path: Path) -> tuple[Config, MagicMock, Path]:
+    """创建并绑定一个独立的 Config 实例，返回 (cfg, emit, config_file)"""
+    cfg = Config()
     emit = make_emit()
     config_file = tmp_path / "config.yaml"
     getattr(cfg, "_bindctx")(config_file, emit)
@@ -50,24 +50,24 @@ def bound_config(tmp_path: Path) -> tuple[SwanLabConfig, MagicMock, Path]:
 
 class TestPreBind:
     def test_setitem_stores_value_in_memory(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         assert cfg["lr"] == 0.01
 
     def test_no_file_written_before_bind(self, tmp_path):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         config_file = tmp_path / "config.yaml"
         assert not config_file.exists()
 
     def test_multiple_writes_before_bind(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["a"] = 1
         cfg["b"] = 2
         assert len(cfg) == 2
 
     def test_update_before_bind(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.update({"x": 10, "y": 20})
         assert cfg["x"] == 10
         assert cfg["y"] == 20
@@ -81,7 +81,7 @@ class TestPreBind:
 class TestBindCtx:
     def test_bind_flushes_existing_memory_to_file(self, tmp_path):
         """绑定时应将内存中已有的 config 全量写入文件"""
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         cfg["epochs"] = 10
 
@@ -94,7 +94,7 @@ class TestBindCtx:
         assert data["epochs"]["value"] == 10
 
     def test_bind_emits_init_event(self, tmp_path):
-        cfg = SwanLabConfig()
+        cfg = Config()
         emit = make_emit()
         cfg._bindctx(tmp_path / "config.yaml", emit)
 
@@ -105,7 +105,7 @@ class TestBindCtx:
 
     def test_bind_is_idempotent(self, tmp_path):
         """重复调用 bindctx 应静默忽略（幂等）"""
-        cfg = SwanLabConfig()
+        cfg = Config()
         emit = make_emit()
         config_file = tmp_path / "config.yaml"
 
@@ -116,7 +116,7 @@ class TestBindCtx:
 
     def test_bind_with_empty_config_creates_file(self, tmp_path):
         """即使 config 为空，绑定后也应创建文件"""
-        cfg = SwanLabConfig()
+        cfg = Config()
         config_file = tmp_path / "config.yaml"
         cfg._bindctx(config_file, make_emit())
 
@@ -128,7 +128,7 @@ class TestBindCtx:
         emit = make_emit()
         run_cfg = create_run_config(config_file, emit)
 
-        assert isinstance(run_cfg, SwanLabConfig)
+        assert isinstance(run_cfg, Config)
         emit.assert_called_once()
 
     def test_module_reset_function(self, tmp_path):
@@ -225,7 +225,7 @@ class TestReset:
         assert data is None or "lr" not in (data or {})
 
     def test_reset_clears_sort_seq(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["a"] = 1
         cfg["b"] = 2
         cfg._reset()
@@ -235,7 +235,7 @@ class TestReset:
         assert cfg["c"] == 3
 
     def test_double_reset_is_safe(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg._reset()
         cfg._reset()  # 不应报错
 
@@ -247,51 +247,51 @@ class TestReset:
 
 class TestMutableMappingInterface:
     def test_getitem_existing(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         assert cfg["lr"] == 0.01
 
     def test_getitem_missing_raises_keyerror(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(KeyError):
             _ = cfg["missing"]
 
     def test_getitem_non_str_key_raises_typeerror(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(TypeError):
             _ = cfg[123]  # type: ignore
 
     def test_delitem_existing(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         del cfg["lr"]
         assert "lr" not in cfg
 
     def test_delitem_missing_raises_keyerror(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(KeyError):
             del cfg["missing"]
 
     def test_iter(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["a"] = 1
         cfg["b"] = 2
         assert set(cfg) == {"a", "b"}
 
     def test_len(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["a"] = 1
         cfg["b"] = 2
         assert len(cfg) == 2
 
     def test_str(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         s = str(cfg)
         assert "lr" in s
 
     def test_contains(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         assert "lr" in cfg
         assert "epochs" not in cfg
@@ -304,33 +304,33 @@ class TestMutableMappingInterface:
 
 class TestAttributeStyle:
     def test_setattr_and_getattr(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.lr = 0.01  # type: ignore
         assert cfg.lr == 0.01  # type: ignore
 
     def test_delattr(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.lr = 0.01  # type: ignore
         del cfg.lr  # type: ignore
         assert "lr" not in cfg
 
     def test_delattr_missing_raises(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(AttributeError):
             del cfg.missing  # type: ignore
 
     def test_private_attr_setattr_blocked(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(AttributeError, match="private"):
             cfg._xxx__ = 1  # type: ignore
 
     def test_private_attr_delattr_blocked(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(AttributeError, match="private"):
             del cfg._xxx__  # type: ignore
 
     def test_getattr_missing_raises_attributeerror(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(AttributeError):
             _ = cfg.nonexistent  # type: ignore
 
@@ -342,59 +342,59 @@ class TestAttributeStyle:
 
 class TestBatchOperations:
     def test_update_with_dict(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.update({"lr": 0.01, "epochs": 10})
         assert cfg["lr"] == 0.01
         assert cfg["epochs"] == 10
 
     def test_update_with_kwargs(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.update(lr=0.01, epochs=10)
         assert cfg["lr"] == 0.01
         assert cfg["epochs"] == 10
 
     def test_update_with_both(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.update({"a": 1}, b=2)
         assert cfg["a"] == 1
         assert cfg["b"] == 2
 
     def test_get_existing(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         assert cfg.get("lr") == 0.01
 
     def test_get_missing_returns_none(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         assert cfg.get("missing") is None
 
     def test_get_missing_with_default(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         assert cfg.get("missing", 42) == 42
 
     def test_set(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg.set("lr", 0.01)
         assert cfg["lr"] == 0.01
 
     def test_pop_existing(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["lr"] = 0.01
         val = cfg.pop("lr")
         assert val == 0.01
         assert "lr" not in cfg
 
     def test_pop_missing_raises_keyerror(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         with pytest.raises(KeyError):
             cfg.pop("missing")
 
     def test_pop_missing_with_default(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         assert cfg.pop("missing", 99) == 99
 
     def test_clean_clears_items(self):
-        cfg = SwanLabConfig()
+        cfg = Config()
         cfg["a"] = 1
         cfg["b"] = 2
         cfg.clean()
@@ -494,7 +494,7 @@ class TestRevertConfig:
 class TestThreadSafety:
     def test_concurrent_writes_no_corruption(self, tmp_path):
         """并发写入不应导致内存状态损坏（键数量正确）"""
-        cfg = SwanLabConfig()
+        cfg = Config()
         n = 50
         errors = []
 
@@ -593,11 +593,11 @@ class TestCreateRunConfig:
 
     def test_create_run_config_deep_copies_mutable_values(self, tmp_path):
         """create_run_config 应深拷贝可变对象，避免 global 和 run config 共享引用"""
-        source_cfg = SwanLabConfig()
+        source_cfg = Config()
         source_cfg["params"] = {"lr": 0.01, "batch_size": 32}
         source_cfg["layers"] = [64, 128, 256]
 
-        target_cfg = SwanLabConfig()
+        target_cfg = Config()
         target_cfg._copy_from(source_cfg)
 
         # 直接修改 target_cfg 中的可变对象

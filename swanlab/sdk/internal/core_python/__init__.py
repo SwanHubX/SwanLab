@@ -28,7 +28,7 @@ __all__ = ["CorePython"]
 class CorePython(CoreProtocol):
     """
     CoreProtocol 的 Python 实现。
-    由 SwanLabRun 在初始化时构造并注入给 BackgroundConsumer。
+    由 Run 在初始化时构造并注入给 BackgroundConsumer。
     """
 
     def __init__(self, ctx: RunContext):

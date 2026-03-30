@@ -32,7 +32,7 @@ from ._parse import parse
 from ._writer import write_config
 
 __all__ = [
-    "SwanLabConfig",
+    "Config",
     "config",
     "create_run_config",
     "create_unbound_run_config",
@@ -49,7 +49,7 @@ _PRIVATE_RE = re.compile(r"^_")
 _lock = threading.Lock()
 
 
-class SwanLabConfig(MutableMapping):
+class Config(MutableMapping):
     """
     SwanLab 实验配置容器。
 
@@ -124,7 +124,7 @@ class SwanLabConfig(MutableMapping):
         """深拷贝内部状态（config、sort、seq），供 create_run_config 使用。"""
         return copy.deepcopy(self._config), dict(self._sort), self._seq
 
-    def _copy_from(self, source: "SwanLabConfig") -> None:
+    def _copy_from(self, source: "Config") -> None:
         """从 source 复制数据，仅在 self 未绑定时调用（无 IO）。"""
         assert not self._bound, "Cannot run config copy_from() on a bound config"
         cfg, sort, seq = source._snapshot()
@@ -301,7 +301,7 @@ class _ConfigProxy:
     """动态代理：run 活跃时指向 run.config，否则指向 _global_config。"""
 
     @property
-    def _target(self) -> SwanLabConfig:
+    def _target(self) -> Config:
         return _active_run_config if _active_run_config is not None else _global_config
 
     def __getitem__(self, key):
@@ -335,16 +335,16 @@ class _ConfigProxy:
         delattr(self._target, name)
 
 
-_global_config = SwanLabConfig()
-_active_run_config: Optional[SwanLabConfig] = None
+_global_config = Config()
+_active_run_config: Optional[Config] = None
 
 # =========================================================================
 # IDE 类型提示 (Type Hinting Magic)
-# 让 IDE 认为 config 拥有 SwanLabConfig 的所有方法签名和注释
+# 让 IDE 认为 config 拥有 Config 的所有方法签名和注释
 # =========================================================================
 if TYPE_CHECKING:
 
-    class ConfigProxy(_ConfigProxy, SwanLabConfig):  # type: ignore[misc]
+    class ConfigProxy(_ConfigProxy, Config):  # type: ignore[misc]
         pass
 
     config: ConfigProxy
@@ -352,20 +352,20 @@ else:
     config = _ConfigProxy()
 
 
-def create_run_config(config_file: Path, emit: Callable) -> SwanLabConfig:
+def create_run_config(config_file: Path, emit: Callable) -> Config:
     """从 global config 创建并绑定 per-run config，激活代理。"""
     global _active_run_config
-    run_cfg = SwanLabConfig()
+    run_cfg = Config()
     getattr(run_cfg, "_copy_from")(_global_config)
     getattr(run_cfg, "_bindctx")(config_file, emit)
     _active_run_config = run_cfg
     return run_cfg
 
 
-def create_unbound_run_config() -> SwanLabConfig:
+def create_unbound_run_config() -> Config:
     """disabled 模式：从 global config 创建不绑定文件的 run config，激活代理。"""
     global _active_run_config
-    run_cfg = SwanLabConfig()
+    run_cfg = Config()
     getattr(run_cfg, "_copy_from")(_global_config)
     _active_run_config = run_cfg
     return run_cfg

@@ -9,10 +9,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-__all__ = ["SwanLabCallback"]
+__all__ = ["Callback"]
 
 
-class SwanLabCallback(ABC):
+class Callback(ABC):
     """
     Base class for SwanLab callbacks, defining the lifecycle hooks of a SwanLab run.
     This class specifies the interface for custom callbacks that can be triggered

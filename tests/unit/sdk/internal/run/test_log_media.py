@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_run_log_media.py
 @time: 2026/3/15
-@description: SwanLabRun.log_text / log_image / log_audio / log_video 的参数化测试
+@description: Run.log_text / log_image / log_audio / log_video 的参数化测试
 """
 
 import threading
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from swanlab.sdk.internal.run import SwanLabRun
+from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.transforms.audio import Audio
 from swanlab.sdk.internal.run.transforms.image import Image
 from swanlab.sdk.internal.run.transforms.text import Text
@@ -47,7 +47,7 @@ def _make_video() -> Video:
 
 
 class _MockRun:
-    """最小化的 SwanLabRun 替身，供非绑定方法测试使用"""
+    """最小化的 Run 替身，供非绑定方法测试使用"""
 
     def __init__(self):
         self._state = "running"
@@ -69,8 +69,8 @@ _MEDIA_LOG_CASES = [
 
 
 def _call_log(method_name, mock_run, key, data, extra, caption=None, step=None):
-    """Helper that calls an unbound SwanLabRun.log_* using keyword args (required by keyword-only params)."""
-    method = getattr(SwanLabRun, method_name)
+    """Helper that calls an unbound Run.log_* using keyword args (required by keyword-only params)."""
+    method = getattr(Run, method_name)
     return method(mock_run, key=key, data=data, **extra, caption=caption, step=step)
 
 
@@ -118,7 +118,7 @@ class TestRunLogMedia:
         """run 未激活时应抛出 RuntimeError"""
         mock_run = _MockRun()
         mock_run._state = "finished"
-        with pytest.raises(RuntimeError, match="requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="requires an active Run"):
             _call_log(method_name, mock_run, "k", factory(), extra)
 
     def test_raw_data_gets_wrapped(self, method_name, factory, extra):
@@ -212,7 +212,7 @@ class TestRunLogAudioExtra:
         """sample_rate 应被正确传入 Audio 对象"""
         mock_run = _MockRun()
         arr = np.zeros((1, 16000), dtype=np.float32)
-        SwanLabRun.log_audio(mock_run, key="audio", data=arr, sample_rate=16000)  # type: ignore
+        Run.log_audio(mock_run, key="audio", data=arr, sample_rate=16000)  # type: ignore
         log_data = mock_run.log.call_args[0][0]
         assert log_data["audio"][0].sample_rate == 16000
 
@@ -222,14 +222,14 @@ class TestRunLogVideoFormats:
 
     def test_bytes_input(self):
         mock_run = _MockRun()
-        SwanLabRun.log_video(mock_run, key="v", data=_GIF_1X1)  # type: ignore
+        Run.log_video(mock_run, key="v", data=_GIF_1X1)  # type: ignore
         mock_run.log.assert_called_once()
         log_data = mock_run.log.call_args[0][0]
         assert isinstance(log_data["v"][0], Video)
 
     def test_bytesio_input(self):
         mock_run = _MockRun()
-        SwanLabRun.log_video(mock_run, key="v", data=BytesIO(_GIF_1X1))  # type: ignore
+        Run.log_video(mock_run, key="v", data=BytesIO(_GIF_1X1))  # type: ignore
         mock_run.log.assert_called_once()
         log_data = mock_run.log.call_args[0][0]
         assert isinstance(log_data["v"][0], Video)

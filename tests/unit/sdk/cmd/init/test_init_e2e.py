@@ -21,7 +21,7 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import raw_login
 from swanlab.sdk.cmd.merge_settings import merge_settings
-from swanlab.sdk.internal.run import SwanLabRun, has_run
+from swanlab.sdk.internal.run import Run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
 from swanlab.sdk.internal.settings import Settings
 
@@ -177,10 +177,10 @@ def logged_in_client(mock_login_api, mock_cloud_settings):
 
 class TestInitDisabledMode:
     def test_init_returns_run_instance(self):
-        """disabled 模式应返回 SwanLabRun 实例，且 has_run() 为 True"""
+        """disabled 模式应返回 Run 实例，且 has_run() 为 True"""
         run = init(mode="disabled")
 
-        assert isinstance(run, SwanLabRun)
+        assert isinstance(run, Run)
         assert has_run()
 
     def test_init_does_not_create_logdir(self):
@@ -266,7 +266,7 @@ class TestInitReinit:
         """reinit=False（默认）时，第二次 init() 应抛出 RuntimeError"""
         _ = init(mode="disabled")
 
-        with pytest.raises(RuntimeError, match="`swanlab.init` requires an inactive SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.init` requires an inactive Run"):
             init(mode="disabled", reinit=False)
 
     def test_reinit_true_creates_new_run(self):
@@ -326,7 +326,7 @@ class TestInitResumeValidation:
         """非 cloud 模式下，resume/id 校验不触发（即使传了也不报错）"""
         run = init(mode="offline", resume="must")
 
-        assert isinstance(run, SwanLabRun)
+        assert isinstance(run, Run)
 
 
 # ============================================================
@@ -338,10 +338,10 @@ class TestInitCloudMode:
     def test_init_cloud_success(
         self, logged_in_client, mock_project_create_api, mock_project_get_api, mock_experiment_create_api
     ):
-        """cloud 模式完整 init 流程：返回 SwanLabRun，has_run() 为 True"""
+        """cloud 模式完整 init 流程：返回 Run，has_run() 为 True"""
         run = init(mode="cloud", project=PROJECT)
 
-        assert isinstance(run, SwanLabRun)
+        assert isinstance(run, Run)
         assert has_run()
 
     def test_init_cloud_sets_project_and_workspace(
@@ -362,7 +362,7 @@ class TestInitCloudMode:
 
         run = init(mode="cloud", project=PROJECT)
 
-        assert isinstance(run, SwanLabRun)
+        assert isinstance(run, Run)
         assert run._ctx.config.settings.project.workspace == USERNAME
 
     def test_init_cloud_uses_all_expected_endpoints(

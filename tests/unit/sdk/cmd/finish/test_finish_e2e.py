@@ -38,7 +38,7 @@ class TestFinishE2E:
         """未调用 init() 直接调用 finish() 应抛出 RuntimeError"""
         assert not has_run()
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
             finish()
 
         assert not has_run()
@@ -50,6 +50,6 @@ class TestFinishE2E:
         finish()
         assert not has_run()
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
             finish()
         assert not has_run()

@@ -26,7 +26,7 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.internal.run.config import (
-    SwanLabConfig as _SwanLabConfigClass,
+    Config as _ConfigClass,
 )
 from swanlab.sdk.internal.run.config import (
     create_run_config,
@@ -46,7 +46,7 @@ from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
 from .record_builder import RecordBuilder
 
-__all__ = ["SwanLabRun", "has_run", "get_run", "set_run", "clear_run"]
+__all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 
 
 def with_lock(func):
@@ -71,7 +71,7 @@ def with_run(cmd: str):
         @wraps(f)
         def wrapper(self, *args, **kwargs):
             if self._state != "running":
-                raise RuntimeError(f"`{cmd}` requires an active SwanLabRun, call `swanlab.init()` first.")
+                raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
             return f(self, *args, **kwargs)
 
         return wrapper
@@ -79,7 +79,7 @@ def with_run(cmd: str):
     return decorator
 
 
-class SwanLabRun:
+class Run:
     """A SwanLab run for tracking experiments.
 
     This class represents a single experiment run and provides methods for logging
@@ -144,9 +144,9 @@ class SwanLabRun:
 
         # 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
-            self.config: _SwanLabConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
+            self.config: _ConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
         else:
-            self.config: _SwanLabConfigClass = create_unbound_run_config()
+            self.config: _ConfigClass = create_unbound_run_config()
 
         # 设置全局运行实例
         set_run(self)
@@ -283,7 +283,7 @@ class SwanLabRun:
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
     # ----------------------------------
-    def __enter__(self) -> "SwanLabRun":
+    def __enter__(self) -> "Run":
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -511,7 +511,7 @@ class SwanLabRun:
         self._cleanup()
 
 
-_current_run: Optional[SwanLabRun] = None
+_current_run: Optional[Run] = None
 
 
 def has_run() -> bool:
@@ -532,10 +532,10 @@ def has_run() -> bool:
     return _current_run is not None
 
 
-def get_run() -> SwanLabRun:
+def get_run() -> Run:
     """Get the current active SwanLab run.
 
-    :return: The active SwanLabRun instance.
+    :return: The active Run instance.
 
     :raises RuntimeError: If no run is currently active.
 
@@ -550,11 +550,11 @@ def get_run() -> SwanLabRun:
         >>> swanlab.finish()
     """
     if _current_run is None:
-        raise RuntimeError("No active SwanLabRun. Call swanlab.init() first.")
+        raise RuntimeError("No active Run. Call swanlab.init() first.")
     return _current_run
 
 
-def set_run(run: SwanLabRun) -> None:
+def set_run(run: Run) -> None:
     global _current_run
     _current_run = run
 

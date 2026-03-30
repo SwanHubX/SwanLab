@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_finish_hook.py
 @time: 2026/3/14
-@description: 测试 SwanLabRun._atexit_cleanup / _excepthook / _sigint_handler 的单元行为（均 mock 依赖，不启动真实 Run）
+@description: 测试 Run._atexit_cleanup / _excepthook / _sigint_handler 的单元行为（均 mock 依赖，不启动真实 Run）
 """
 
 import signal
@@ -12,7 +12,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from swanlab.sdk.internal.run import SwanLabRun
+from swanlab.sdk.internal.run import Run
 
 
 def _make_exc_info(exc: BaseException):
@@ -27,8 +27,8 @@ def _make_exc_info(exc: BaseException):
 
 
 def _make_mock_run(state: str = "running") -> MagicMock:
-    """构造一个最小化的 SwanLabRun 替身"""
-    mock = MagicMock(spec=SwanLabRun)
+    """构造一个最小化的 Run 替身"""
+    mock = MagicMock(spec=Run)
     mock._state = state
     mock._api_lock = threading.RLock()
     return mock
@@ -38,13 +38,13 @@ class TestAtexitCleanup:
     def test_no_op_when_not_running(self):
         """_state != 'running' 时直接返回，不调用 finish"""
         run = _make_mock_run(state="success")
-        SwanLabRun._atexit_cleanup(run)
+        Run._atexit_cleanup(run)
         run.finish.assert_not_called()
 
     def test_calls_finish_when_running(self):
         """_state == 'running' 时应调用 finish()"""
         run = _make_mock_run(state="running")
-        SwanLabRun._atexit_cleanup(run)
+        Run._atexit_cleanup(run)
         run.finish.assert_called_once()
 
 
@@ -54,7 +54,7 @@ class TestExcepthook:
         run = _make_mock_run()
         run._sys_origin_excepthook = MagicMock()
         tp, val, tb = _make_exc_info(KeyboardInterrupt())
-        SwanLabRun._excepthook(run, tp, val, tb)
+        Run._excepthook(run, tp, val, tb)
         run.finish.assert_called_once_with(state="aborted", error=ANY)
 
     def test_generic_exception_calls_crashed(self):
@@ -62,7 +62,7 @@ class TestExcepthook:
         run = _make_mock_run()
         run._sys_origin_excepthook = MagicMock()
         tp, val, tb = _make_exc_info(RuntimeError("boom"))
-        SwanLabRun._excepthook(run, tp, val, tb)
+        Run._excepthook(run, tp, val, tb)
         call_kwargs = run.finish.call_args.kwargs
         assert call_kwargs["state"] == "crashed"
         assert "boom" in call_kwargs["error"]
@@ -72,7 +72,7 @@ class TestExcepthook:
         run = _make_mock_run(state="success")
         run._sys_origin_excepthook = MagicMock()
         tp, val, tb = _make_exc_info(RuntimeError("no run"))
-        SwanLabRun._excepthook(run, tp, val, tb)
+        Run._excepthook(run, tp, val, tb)
         run.finish.assert_not_called()
 
     def test_always_calls_saved_origin_excepthook(self):
@@ -81,7 +81,7 @@ class TestExcepthook:
         saved_hook = MagicMock()
         run._sys_origin_excepthook = saved_hook
         tp, val, tb = _make_exc_info(RuntimeError("test"))
-        SwanLabRun._excepthook(run, tp, val, tb)
+        Run._excepthook(run, tp, val, tb)
         saved_hook.assert_called_once_with(tp, val, tb)
 
     def test_calls_saved_hook_not_builtin(self):
@@ -91,7 +91,7 @@ class TestExcepthook:
         run._sys_origin_excepthook = outer_framework_hook
         tp, val, tb = _make_exc_info(RuntimeError("outer"))
         with patch("sys.__excepthook__") as mock_builtin:
-            SwanLabRun._excepthook(run, tp, val, tb)
+            Run._excepthook(run, tp, val, tb)
         outer_framework_hook.assert_called_once_with(tp, val, tb)
         mock_builtin.assert_not_called()
 
@@ -102,7 +102,7 @@ class TestExcepthook:
         saved_hook = MagicMock()
         run._sys_origin_excepthook = saved_hook
         tp, val, tb = _make_exc_info(RuntimeError("outer"))
-        SwanLabRun._excepthook(run, tp, val, tb)
+        Run._excepthook(run, tp, val, tb)
         saved_hook.assert_called_once_with(tp, val, tb)
 
 
@@ -112,7 +112,7 @@ class TestSigintHandler:
         run = _make_mock_run()
         run._original_sigint_handler = signal.SIG_DFL
         with pytest.raises(KeyboardInterrupt):
-            SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+            Run._sigint_handler(run, signal.SIGINT, None)
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
 
     def test_error_contains_stack_when_frame_provided(self):
@@ -123,7 +123,7 @@ class TestSigintHandler:
         run._original_sigint_handler = signal.SIG_IGN
         # 用当前真实 frame 模拟信号打断场景
         frame = sys._getframe()
-        SwanLabRun._sigint_handler(run, signal.SIGINT, frame)
+        Run._sigint_handler(run, signal.SIGINT, frame)
         call_kwargs = run.finish.call_args.kwargs
         assert call_kwargs["state"] == "aborted"
         assert "KeyboardInterrupt by user" in call_kwargs["error"]
@@ -135,7 +135,7 @@ class TestSigintHandler:
         run = _make_mock_run(state="success")
         run._original_sigint_handler = signal.SIG_DFL
         with pytest.raises(KeyboardInterrupt):
-            SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+            Run._sigint_handler(run, signal.SIGINT, None)
         run.finish.assert_not_called()
 
     def test_calls_original_callable_handler(self):
@@ -143,7 +143,7 @@ class TestSigintHandler:
         run = _make_mock_run()
         original = MagicMock()
         run._original_sigint_handler = original
-        SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        Run._sigint_handler(run, signal.SIGINT, None)
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
         original.assert_called_once_with(signal.SIGINT, None)
 
@@ -152,5 +152,5 @@ class TestSigintHandler:
         run = _make_mock_run()
         run._original_sigint_handler = signal.SIG_IGN
         # Should not raise
-        SwanLabRun._sigint_handler(run, signal.SIGINT, None)
+        Run._sigint_handler(run, signal.SIGINT, None)
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
