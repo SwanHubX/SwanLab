@@ -5,15 +5,14 @@
 @description: 上传线程池
 """
 
-import threading
-import time
 from queue import Queue
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.pkg.timer import Timer
 
+from .helper import RecordQueue
 from .log_collector import UploadCollector
-from .utils import RecordQueue, TimerFlag
 
 
 class ThreadPool:
@@ -23,7 +22,7 @@ class ThreadPool:
     """
 
     SLEEP_TIME = 1.0
-    UPLOAD_THREAD_NAME = "SwanLab·Uploader"
+    UPLOAD_THREAD_NAME = "SwanLab·CorePython.Uploader"
 
     def __init__(
         self,
@@ -36,8 +35,12 @@ class ThreadPool:
             upload_interval=upload_interval,
             upload_callback=upload_callback,
         )
-        self._timer = TimerFlag()
-        self._thread: Optional[threading.Thread] = None
+        self._timer = Timer(
+            lambda: self._collector.task(RecordQueue(queue=self._queue, readable=True, writable=False)),
+            interval=self.SLEEP_TIME,
+            immediate=True,
+            name=self.UPLOAD_THREAD_NAME,
+        )
         self._started = False
         self._finished = False
         self.queue = RecordQueue(queue=self._queue, readable=False, writable=True)
@@ -49,16 +52,7 @@ class ThreadPool:
         """启动上传线程。"""
         if self._started or self._finished:
             return
-
-        reader = RecordQueue(queue=self._queue, readable=True, writable=False)
-
-        def loop() -> None:
-            while self._timer.running:
-                self._collector.task(reader, self._timer)
-                time.sleep(self.SLEEP_TIME)
-
-        self._thread = threading.Thread(target=loop, daemon=True, name=self.UPLOAD_THREAD_NAME)
-        self._thread.start()
+        self._timer.start()
         self._started = True
 
     def put(self, records: List[Record]) -> None:
@@ -78,8 +72,7 @@ class ThreadPool:
 
         self._finished = True
         self._timer.cancel()
-        if self._thread is not None:
-            self._thread.join(timeout=10)
+        self._timer.join(timeout=10)
         reader = RecordQueue(queue=self._queue, readable=True, writable=False)
         self._collector.callback(reader)
 

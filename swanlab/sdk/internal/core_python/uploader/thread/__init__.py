@@ -5,13 +5,12 @@
 @description: protobuf uploader 线程子包
 """
 
+from .helper import RecordQueue
 from .log_collector import UploadCollector
 from .start_thread import ThreadPool
-from .utils import RecordQueue, TimerFlag
 
 __all__ = [
     "RecordQueue",
-    "TimerFlag",
     "UploadCollector",
     "ThreadPool",
 ]

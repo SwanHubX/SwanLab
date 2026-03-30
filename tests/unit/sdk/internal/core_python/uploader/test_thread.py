@@ -7,7 +7,7 @@
 
 import time
 from queue import Queue
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -90,3 +90,36 @@ def test_threadpool_starts_upload_thread_automatically():
                 assert mock_upload.call_count == 1
         finally:
             pool.finish()
+
+
+def test_threadpool_start_reuses_pkg_timer_scheduler():
+    timer = MagicMock()
+
+    with patch.object(ThreadPool, "SLEEP_TIME", 0.25), patch(
+        "swanlab.sdk.internal.core_python.uploader.thread.start_thread.Timer", create=True
+    ) as mock_timer_cls:
+        mock_timer_cls.return_value = timer
+
+        pool = ThreadPool(auto_start=False)
+        pool.start()
+
+        assert mock_timer_cls.call_count == 1
+        _, kwargs = mock_timer_cls.call_args
+        assert kwargs["interval"] == 0.25
+        assert kwargs["immediate"] is True
+        assert kwargs["name"] == ThreadPool.UPLOAD_THREAD_NAME
+        timer.start.assert_called_once_with()
+
+
+def test_threadpool_finish_cancels_and_joins_timer():
+    timer = MagicMock()
+
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.start_thread.Timer", create=True) as mock_timer_cls:
+        mock_timer_cls.return_value = timer
+
+        pool = ThreadPool(auto_start=False)
+        pool.start()
+        pool.finish()
+
+    timer.cancel.assert_called_once_with()
+    timer.join.assert_called_once_with(timeout=10)

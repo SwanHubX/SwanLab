@@ -11,7 +11,7 @@ from typing import Callable, List, Optional
 from swanlab.sdk.internal.pkg import console
 
 from ..upload import upload_records
-from .utils import RecordQueue, TimerFlag
+from .helper import RecordQueue
 
 
 class UploadCollector:
@@ -28,6 +28,7 @@ class UploadCollector:
         self._lock = False
         self._upload_interval = upload_interval
         self._upload_callback = upload_callback
+        self._last_upload_at = time.time()
 
     def upload(self) -> None:
         """
@@ -40,17 +41,25 @@ class UploadCollector:
         upload_records(pending, upload_callback=self._upload_callback)
         self.container.clear()
 
-    def task(self, queue: RecordQueue, timer: TimerFlag) -> None:
+    def task(self, queue: RecordQueue) -> None:
         """定时任务入口，由线程循环调用。"""
         if self._lock:
             return
         self.container.extend(queue.get_all())
-        if timer.can_run(self._upload_interval, len(self.container) == 0):
-            self._lock = True
-            try:
-                self.upload()
-            except Exception as exc:
-                console.error(f"upload error: {exc}")
+        if len(self.container) == 0:
+            return
+
+        now = time.time()
+        if now - self._last_upload_at <= self._upload_interval:
+            return
+
+        self._last_upload_at = now
+        self._lock = True
+        try:
+            self.upload()
+        except Exception as exc:
+            console.error(f"upload error: {exc}")
+        finally:
             self._lock = False
 
     def callback(self, queue: RecordQueue) -> None:

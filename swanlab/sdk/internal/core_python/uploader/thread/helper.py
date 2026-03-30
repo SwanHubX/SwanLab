@@ -1,11 +1,10 @@
 """
 @author: caddiesnew
-@file: utils.py
+@file: helper.py
 @time: 2026/3/21
 @description: 上传线程通用工具
 """
 
-import time
 from queue import Queue
 from typing import List
 
@@ -38,32 +37,6 @@ class RecordQueue:
         while not self._q.empty():
             msgs.append(self._q.get())
         return msgs
-
-
-class TimerFlag:
-    """任务时间标识，用于判断是否到达上传间隔。"""
-
-    def __init__(self):
-        self.flag = time.time()
-        self._running = True
-
-    def can_run(self, interval: float, cancel: bool) -> bool:
-        if cancel:
-            return False
-        if time.time() - self.flag > interval:
-            self.flag = time.time()
-            return True
-        return False
-
-    @property
-    def running(self) -> bool:
-        return self._running
-
-    def cancel(self) -> None:
-        self._running = False
-
-
 __all__ = [
     "RecordQueue",
-    "TimerFlag",
 ]
