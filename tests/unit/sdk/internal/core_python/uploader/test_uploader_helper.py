@@ -14,6 +14,16 @@ def test_generate_chunks_single_chunk(make_scalar_record):
     assert len(chunks) == 1
     assert chunks[0] == (records, 5)
 
+
+def test_generate_chunks_exact_boundary(make_scalar_record):
+    """验证记录数恰好等于 per_request_len 时产出单个分片，不拆分。"""
+    records = [make_scalar_record(step=i) for i in range(100)]
+    chunks = list(generate_chunks(records, per_request_len=100))
+
+    assert len(chunks) == 1
+    assert chunks[0] == (records, 100)
+
+
 def test_generate_chunks_multiple_chunks(make_scalar_record):
     """验证记录数超过 per_request_len 时正确拆分为多个分片，最后一片长度不足也正常产出。"""
     records = [make_scalar_record(step=i) for i in range(25)]

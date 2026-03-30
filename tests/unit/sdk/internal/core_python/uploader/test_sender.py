@@ -106,9 +106,7 @@ def test_trace_records_creates_and_closes_transport_when_none_provided(make_scal
     """验证未提供 transport 时自动创建并在 finally 中关闭。"""
     records = [make_scalar_record(step=1)]
 
-    with patch(
-        "swanlab.sdk.internal.core_python.uploader.sender.create_record_transport"
-    ) as factory:
+    with patch("swanlab.sdk.internal.core_python.uploader.sender.create_record_transport") as factory:
         mock_transport = MagicMock()
         factory.return_value = mock_transport
 

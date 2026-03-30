@@ -35,6 +35,7 @@ def generate_chunks(records: Sequence[Record], per_request_len: int) -> Iterator
 
 
 def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
+    """按照 record 的类型进行分组"""
     grouped: Dict[str, List[Record]] = OrderedDict()
     for record in records:
         if not isinstance(record, Record):

@@ -39,8 +39,8 @@ class Collector:
             return
         upload_records(pending, upload_callback=self._upload_callback)
 
-    def task(self, records: List[Record]) -> None:
-        """定时任务入口，由线程循环调用。"""
+    def submit(self, records: List[Record]) -> None:
+        """提交记录，由定时线程以 upload_interval 为周期进行调用"""
         with self._lock:
             self.container.extend(records)
             if not self.container:
@@ -61,8 +61,8 @@ class Collector:
             with self._lock:
                 self.container = pending + self.container
 
-    def callback(self, records: List[Record]) -> None:
-        """结束回调，在主线程中执行最终 flush。"""
+    def flush(self, records: List[Record]) -> None:
+        """刷新所有累积的 records 进行上传"""
         with self._lock:
             self.container.extend(records)
             pending = self.container

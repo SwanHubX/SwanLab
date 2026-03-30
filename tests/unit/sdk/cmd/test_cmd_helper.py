@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: test_helper.py
+@file: test_cnmd_helper.py
 @time: 2026/3/14
 @description: 测试 swanlab.sdk.cmd.helper 中的装饰器
 """

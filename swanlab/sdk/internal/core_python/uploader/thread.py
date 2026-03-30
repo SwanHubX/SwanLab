@@ -34,7 +34,7 @@ class Uploader:
             upload_callback=upload_callback,
         )
         self._timer = Timer(
-            lambda: self._collector.task(self._drain_records()),
+            lambda: self._collector.submit(self._drain_records()),
             interval=resolved_upload_interval,
             immediate=True,
             name=self.UPLOAD_THREAD_NAME,
@@ -69,7 +69,7 @@ class Uploader:
         self._finished = True
         self._timer.cancel()
         self._timer.join(timeout=10)
-        self._collector.callback(self._drain_records())
+        self._collector.flush(self._drain_records())
 
     def _drain_records(self) -> List[Record]:
         records: List[Record] = []
