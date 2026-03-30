@@ -39,7 +39,7 @@ from ..internal.run import SwanLabRun, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from ..utils.callbacker import SwanLabCallback
+from ..utils.callbacker import Callback
 from .login import interactive_login, raw_login
 
 
@@ -97,7 +97,7 @@ def init(
     resume: Optional[Union[ResumeType, bool]] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
-    callbacks: Optional[List[SwanLabCallback]] = None,
+    callbacks: Optional[List[Callback]] = None,
     **kwargs,
 ) -> SwanLabRun:
     """Initialize a new SwanLab run to track experiments.

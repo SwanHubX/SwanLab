@@ -21,14 +21,13 @@ from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.text import TextDatasType
 from .sdk.typings.run.transforms.video import VideoDatasType
-from .sdk.utils.callbacker import SwanLabCallback
+from .sdk.utils.callbacker import Callback
 
 __version__: str
 
 __all__ = [
     # cmd
     "merge_settings",
-    "Settings",
     "init",
     "finish",
     "login",
@@ -52,6 +51,8 @@ __all__ = [
     "Video",
     # utils
     "utils",
+    "Callback",
+    "Settings",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ def init(
     resume: Optional[Union[ResumeType, bool]] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
-    callbacks: Optional[List[SwanLabCallback]] = None,
+    callbacks: Optional[List[Callback]] = None,
     **kwargs: Any,
 ) -> SwanLabRun:
     """Initialize a new SwanLab run to track experiments.

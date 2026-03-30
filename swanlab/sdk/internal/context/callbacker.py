@@ -8,7 +8,7 @@
 from typing import TYPE_CHECKING, Dict, Iterable, List
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.utils.callbacker import SwanLabCallback
+from swanlab.sdk.utils.callbacker import Callback
 
 
 class _CallbackManager:
@@ -19,15 +19,15 @@ class _CallbackManager:
 
     def __init__(self):
         # 使用字典保证顺序并天然去重
-        self._callbacks: Dict[str, SwanLabCallback] = {}
+        self._callbacks: Dict[str, Callback] = {}
 
-    def merge_callbacks(self, callbacks: Iterable[SwanLabCallback]) -> None:
+    def merge_callbacks(self, callbacks: Iterable[Callback]) -> None:
         """批量合并回调函数到当前管理器中"""
         if not callbacks:
             return
 
         for cb in callbacks:
-            if not isinstance(cb, SwanLabCallback):
+            if not isinstance(cb, Callback):
                 raise TypeError(f"Expected SwanLabCallback, got {type(cb).__name__}")
 
             if cb.name in self._callbacks:
@@ -41,7 +41,7 @@ class _CallbackManager:
             del self._callbacks[name]
 
     @property
-    def registered_callbacks(self) -> List[SwanLabCallback]:
+    def registered_callbacks(self) -> List[Callback]:
         """返回当前所有已注册的回调列表"""
         return list(self._callbacks.values())
 
@@ -51,7 +51,7 @@ class _CallbackManager:
     # =========================================================================
     def __getattr__(self, name: str):
         # 1. 安全检查：只有基类 SwanLabCallback 中真实定义的方法才允许被动态调用
-        if hasattr(SwanLabCallback, name) and callable(getattr(SwanLabCallback, name)):
+        if hasattr(Callback, name) and callable(getattr(Callback, name)):
             # 2. 动态生成带容错机制的代理函数
             def dispatcher(*args, **kwargs):
                 for cb in self._callbacks.values():
@@ -76,7 +76,7 @@ class _CallbackManager:
 # =========================================================================
 if TYPE_CHECKING:
     # 让 IDE 认为全局的 callbacker 同时拥有 CallbackManager 和 SwanLabCallback 的所有方法
-    class CallbackManager(_CallbackManager, SwanLabCallback):
+    class CallbackManager(_CallbackManager, Callback):
         @property
         def name(self) -> str:
             return "FakeCallback"
