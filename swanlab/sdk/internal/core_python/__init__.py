@@ -2,9 +2,7 @@
 @author: cunyue
 @file: __init__.py
 @time: 2026/3/13
-@description: SwanLab Core 的 Python sidecar 适配层。
-
-@description: SwanLab Core Python 版本，封装SwanLab云端版核心业务，包括：
+@description: SwanLab Core Python 版本，封装 SwanLab 云端版核心业务，包括：
 1. 提供http客户端，用于与SwanLab云端API进行交互。
 2. 提供rpc封装函数，以rpc方式调用SwanLab云端API。
 3. 提供上传线程，在另一个线程执行上传任务。
@@ -67,8 +65,12 @@ class CorePython(CoreProtocol):
 
     def shutdown(self) -> None:
         if self._uploader is not None:
-            self._uploader.close()
-            self._uploader = None
+            try:
+                self._uploader.close()
+            except Exception as exc:
+                console.warning(f"Uploader close failed: {exc}")
+            finally:
+                self._uploader = None
         if self._store is not None:
             self._store.close()
             self._store = None

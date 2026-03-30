@@ -5,6 +5,8 @@
 @description:
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -58,3 +60,15 @@ def test_create_http_record_sender_returns_noop_sender():
     sender = create_http_record_sender()
 
     assert isinstance(sender, NoopHttpRecordSender)
+
+
+def test_noop_http_record_sender_announces_once_per_instance():
+    with patch("swanlab.sdk.internal.core_python.uploader.sender.console.debug") as mock_debug:
+        sender_a = NoopHttpRecordSender()
+        sender_b = NoopHttpRecordSender()
+
+        sender_a.send(MagicMock())
+        sender_a.send(MagicMock())
+        sender_b.send(MagicMock())
+
+    assert mock_debug.call_count == 2

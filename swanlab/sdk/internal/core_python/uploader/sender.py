@@ -1,6 +1,6 @@
 """
 @author: caddiesnew
-@file: http.py
+@file: sender.py
 @time: 2026/3/29
 @description: HTTP uploader grouping and sender abstractions
 """
@@ -39,16 +39,16 @@ class NoopHttpRecordSender:
     so a temporary no-op sender will not affect data durability.
     """
 
-    _announced = False
+    def __init__(self) -> None:
+        self._announced = False
 
     def send(self, event: MetricsUploadEvent) -> None:
-        if NoopHttpRecordSender._announced:
+        if self._announced:
             return
         console.debug(
             "CorePython HTTP uploader is buffering protobuf records, but the remote sender is not implemented yet."
         )
-        NoopHttpRecordSender._announced = True
-        del event
+        self._announced = True
 
     def close(self) -> None:
         pass

@@ -61,3 +61,23 @@ def test_core_python_cloud_mode_creates_transport_and_forwards_records_to_upload
 
             core.shutdown()
             uploader.close.assert_called_once_with()
+
+
+def test_core_python_shutdown_closes_store_when_uploader_close_fails(tmp_path):
+    ctx = make_ctx(tmp_path)
+    sender = MagicMock()
+    store = MagicMock()
+    uploader = MagicMock()
+    uploader.close.side_effect = RuntimeError("close boom")
+
+    with patch("swanlab.sdk.internal.core_python.DataStoreWriter", return_value=store):
+        with patch("swanlab.sdk.internal.core_python.create_http_record_sender", return_value=sender):
+            with patch("swanlab.sdk.internal.core_python.HttpBatchUploader", return_value=uploader):
+                with patch("swanlab.sdk.internal.core_python.console.warning") as mock_warning:
+                    core = CorePython(ctx)
+                    core.startup(cloud=True, persistence=True)
+                    core.shutdown()
+
+    uploader.close.assert_called_once_with()
+    store.close.assert_called_once_with()
+    mock_warning.assert_called_once()

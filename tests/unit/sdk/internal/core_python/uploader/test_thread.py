@@ -5,6 +5,7 @@
 @description: uploader 上传线程幂等性测试
 """
 
+import threading
 import time
 from unittest.mock import MagicMock, patch
 
@@ -21,13 +22,13 @@ from swanlab.sdk.internal.core_python.uploader.helper import RecordQueue
 from swanlab.sdk.internal.core_python.uploader.uploader import HttpBatchUploader
 
 
-def make_scalar_record() -> Record:
+def make_scalar_record(step: int = 3) -> Record:
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
     return Record(
         metric=DataRecord(
             key="train/loss",
-            step=3,
+            step=step,
             timestamp=timestamp,
             type=ColumnType.COLUMN_TYPE_FLOAT,
             scalar=ScalarValue(number=0.125),
@@ -81,6 +82,25 @@ def test_http_batch_uploader_flush_keeps_pending_records_when_send_fails():
 
     assert len(uploader._pending) == 2
     assert uploader._queue.empty()
+
+
+def test_http_batch_uploader_drops_oldest_records_when_pending_limit_is_exceeded():
+    sender = MagicMock()
+    sender.send.side_effect = RuntimeError("send boom")
+    uploader = HttpBatchUploader(sender=sender, auto_start=False, max_pending=3)
+    uploader.enqueue([make_scalar_record(step=1), make_scalar_record(step=2)])
+
+    with pytest.raises(RuntimeError, match="send boom"):
+        uploader.flush()
+
+    uploader.enqueue([make_scalar_record(step=3), make_scalar_record(step=4), make_scalar_record(step=5)])
+
+    with patch("swanlab.sdk.internal.core_python.uploader.uploader.console.warning") as mock_warning:
+        with pytest.raises(RuntimeError, match="send boom"):
+            uploader.flush()
+
+    assert [record.metric.step for record in uploader._pending] == [3, 4, 5]
+    mock_warning.assert_called_once()
 
 
 def test_http_batch_uploader_close_flushes_pending_records_and_closes_sender():
@@ -143,3 +163,34 @@ def test_http_batch_uploader_rejects_enqueue_after_close():
 
     with pytest.raises(RuntimeError, match="closed"):
         uploader.enqueue([make_scalar_record()])
+
+
+def test_http_batch_uploader_close_waits_for_inflight_enqueue_before_final_flush():
+    sender = MagicMock()
+    uploader = HttpBatchUploader(sender=sender, auto_start=False)
+    put_started = threading.Event()
+    allow_put = threading.Event()
+    original_put_all = uploader._queue.put_all
+
+    def blocking_put_all(records):
+        put_started.set()
+        allow_put.wait(timeout=1)
+        original_put_all(records)
+
+    uploader._queue.put_all = blocking_put_all
+
+    enqueue_thread = threading.Thread(target=uploader.enqueue, args=([make_scalar_record()],))
+    enqueue_thread.start()
+    assert put_started.wait(timeout=1)
+
+    close_thread = threading.Thread(target=uploader.close)
+    close_thread.start()
+    time.sleep(0.05)
+    assert close_thread.is_alive()
+
+    allow_put.set()
+    enqueue_thread.join(timeout=1)
+    close_thread.join(timeout=1)
+
+    assert sender.send.call_count == 1
+    sender.close.assert_called_once_with()
