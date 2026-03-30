@@ -40,7 +40,7 @@ from swanlab.sdk.typings.run import ModeType
 from ..pkg import console
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
-from .metadata import ConsoleSettings, EnvSettings, HardwareSettings
+from .metadata import ConsoleSettings, MetadataSettings, MonitorSettings
 
 __all__ = ["Settings", "settings"]
 
@@ -88,7 +88,7 @@ class Settings(BaseSettings):
         >>> from swanlab import Settings
         >>> settings = Settings(
         ...     mode="cloud",
-        ...     hardware=Settings.Hardware(monitor=False)
+        ...     monitor=Settings.Monitor(enable=False)
         ... )
         >>> import swanlab
         >>> swanlab.merge_settings(settings)
@@ -97,9 +97,9 @@ class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Hardware: ClassVar[Type[HardwareSettings]] = HardwareSettings
+    Metadata: ClassVar[Type[MetadataSettings]] = MetadataSettings
+    Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
-    Env: ClassVar[Type[EnvSettings]] = EnvSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
     Save: ClassVar[Type[SaveSettings]] = SaveSettings
 
@@ -289,13 +289,13 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    hardware: HardwareSettings = Field(default_factory=HardwareSettings)
+    metadata: MetadataSettings = Field(default_factory=MetadataSettings)
     """
-    Configuration for SwanLab hardware monitoring.
+    Configuration for one-time system snapshot collection (hardware specs, runtime, Python env, git, etc.).
     """
-    env: EnvSettings = Field(default_factory=EnvSettings)
+    monitor: MonitorSettings = Field(default_factory=MonitorSettings)
     """
-    Configuration for SwanLab environment information collection.
+    Configuration for periodic hardware monitoring (CPU, GPU, memory, disk I/O, etc.).
     """
     console: ConsoleSettings = Field(default_factory=ConsoleSettings)
     """
