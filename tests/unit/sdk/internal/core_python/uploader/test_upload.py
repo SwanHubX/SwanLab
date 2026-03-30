@@ -66,8 +66,7 @@ def test_trace_records_uploads_all_records_in_batches():
     with patch(
         "swanlab.sdk.internal.core_python.uploader.sender.create_record_transport", return_value=transport
     ) as factory:
-        with patch("swanlab.sdk.internal.core_python.uploader.sender.time.sleep") as mock_sleep:
-            trace_records(records, per_request_len=1000, upload_callback=callback)
+        trace_records(records, per_request_len=1000, upload_callback=callback)
 
     assert transport.upload_record_group.call_args_list == [
         call("metric", records[:1000]),
@@ -75,7 +74,6 @@ def test_trace_records_uploads_all_records_in_batches():
         call("metric", records[2000:]),
     ]
     assert callback.call_args_list == [call(1000), call(1000), call(500)]
-    assert mock_sleep.call_count == 3
     factory.assert_called_once_with()
     transport.close.assert_called_once_with()
 

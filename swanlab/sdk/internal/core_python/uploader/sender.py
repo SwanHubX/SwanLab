@@ -5,7 +5,6 @@
 @description: Record 上传入口与 Core sidecar transport
 """
 
-import time
 from typing import Callable, Optional, Sequence
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -45,7 +44,6 @@ def trace_records(
     if records is None or len(records) == 0:
         return
 
-    is_split_mode = per_request_len != -1 and len(records) > per_request_len
     owns_transport = transport is None
     active_transport = transport or create_record_transport()
 
@@ -55,8 +53,6 @@ def trace_records(
                 active_transport.upload_record_group(record_type, grouped_records)
             if upload_callback:
                 upload_callback(chunk_len)
-            if is_split_mode:
-                time.sleep(1)
     finally:
         if owns_transport:
             active_transport.close()
@@ -65,7 +61,7 @@ def trace_records(
 def upload_records(
     records: Sequence[Record],
     upload_callback: Optional[Callable[[int], None]] = None,
-    per_request_len: int = 1000,
+    per_request_len: int = 10_000,
 ) -> None:
     """上传一组 protobuf Record，不在此层做任何 JSON 化。"""
     if len(records) == 0:

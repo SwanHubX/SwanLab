@@ -54,13 +54,12 @@ class Uploader:
 
     def put(self, records: List[Record]) -> None:
         """
-        主线程调用：将 Records 直接投递到队列。
+        主线程调用：将一批 Records 投递到队列
         """
         if self._finished:
             raise RuntimeError("Uploader has already been finished.")
 
-        for record in records:
-            self._record_queue.put(record)
+        self._record_queue.put(records)
 
     def finish(self) -> None:
         """停止线程池，执行最终 flush。"""
@@ -76,7 +75,7 @@ class Uploader:
         records: List[Record] = []
         while True:
             try:
-                records.append(self._record_queue.get_nowait())
+                records.extend(self._record_queue.get_nowait())
             except Empty:
                 return records
 
