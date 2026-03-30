@@ -12,12 +12,12 @@ from .sender import (
     trace_records,
     upload_records,
 )
-from .thread import ThreadPool
+from .thread import Uploader
 
 __all__ = [
     "Collector",
     "HttpRecordTransport",
-    "ThreadPool",
+    "Uploader",
     "create_record_transport",
     "trace_records",
     "upload_records",

@@ -13,10 +13,9 @@ from swanlab.sdk.internal.core_python.uploader.collector import Collector
 from swanlab.sdk.internal.pkg.timer import Timer
 
 
-class ThreadPool:
+class Uploader:
     """
-    上传线程池，管理上传线程和通信管道。
-    保留线程池设计防止单线程数据丢失。
+    管理上传工作线程和通信管道，定时消费 BackgroundConsumer 生产的 records
     """
 
     UPLOAD_INTERVAL = 1.0
@@ -58,7 +57,7 @@ class ThreadPool:
         主线程调用：将 Records 直接投递到队列。
         """
         if self._finished:
-            raise RuntimeError("ThreadPool has already been finished.")
+            raise RuntimeError("Uploader has already been finished.")
 
         for record in records:
             self._record_queue.put(record)
@@ -83,5 +82,5 @@ class ThreadPool:
 
 
 __all__ = [
-    "ThreadPool",
+    "Uploader",
 ]

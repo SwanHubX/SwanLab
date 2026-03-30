@@ -33,7 +33,7 @@ def make_ctx(tmp_path) -> RunContext:
 def test_core_python_cloud_mode_forwards_records_to_uploader(tmp_path):
     ctx = make_ctx(tmp_path)
 
-    with patch("swanlab.sdk.internal.core_python.ThreadPool") as mock_pool_cls:
+    with patch("swanlab.sdk.internal.core_python.Uploader") as mock_pool_cls:
         uploader = MagicMock()
         mock_pool_cls.return_value = uploader
 

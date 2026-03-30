@@ -101,5 +101,3 @@ def test_create_record_transport_returns_http_transport():
 def test_http_record_transport_upload_record_group_skips_empty():
     transport = HttpRecordTransport()
     transport.upload_record_group("metric", [])  # should not raise
-
-
