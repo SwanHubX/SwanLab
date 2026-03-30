@@ -9,7 +9,7 @@ import threading
 import time
 from unittest.mock import MagicMock, patch
 
-from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf import timestamp_pb2
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
@@ -20,7 +20,7 @@ from swanlab.sdk.internal.core_python.uploader import Collector, ThreadPool
 
 
 def make_scalar_record() -> Record:
-    timestamp = Timestamp()
+    timestamp = timestamp_pb2.Timestamp()
     timestamp.GetCurrentTime()
     return Record(
         metric=DataRecord(
@@ -34,7 +34,7 @@ def make_scalar_record() -> Record:
 
 
 def make_config_record() -> Record:
-    timestamp = Timestamp()
+    timestamp = timestamp_pb2.Timestamp()
     timestamp.GetCurrentTime()
     return Record(config=ConfigRecord(update_type=UpdateType.UPDATE_TYPE_PATCH, timestamp=timestamp))
 

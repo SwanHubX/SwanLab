@@ -7,7 +7,8 @@ r"""
 @description: uploader 辅助函数
 """
 
-from typing import Iterator, Sequence, Tuple
+from collections import OrderedDict
+from typing import Dict, Iterator, List, Sequence, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
@@ -31,3 +32,15 @@ def generate_chunks(records: Sequence[Record], per_request_len: int) -> Iterator
     for index in range(0, total, per_request_len):
         chunk = records[index : index + per_request_len]
         yield chunk, len(chunk)
+
+
+def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
+    grouped: Dict[str, List[Record]] = OrderedDict()
+    for record in records:
+        if not isinstance(record, Record):
+            raise TypeError(f"group_records_by_type only accepts Record instances, got {type(record).__name__}")
+        record_type = record.WhichOneof("record_type")
+        if record_type is None:
+            raise ValueError("Record has no active record_type and cannot be uploaded.")
+        grouped.setdefault(record_type, []).append(record)
+    return grouped

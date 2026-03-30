@@ -13,7 +13,7 @@ from typing import Callable, Optional, Protocol, Sequence
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import console
 
-from .helper import generate_chunks
+from .helper import generate_chunks, group_records_by_type
 
 _TRUE_VALUES = {"true", "1", "yes", "on"}
 _FALSE_VALUES = {"false", "0", "no", "off"}
@@ -84,16 +84,16 @@ class CoreTransportConfig:
         if address is None and host and port > 0:
             address = f"{host}:{port}"
 
-        enabled = _parse_bool("SWANLAB_CORE_ENABLED", default=bool(address))
+        enabled = _parse_bool("SWANLAB_CORE_ENABLED", default=True)
         timeout = _parse_float("SWANLAB_CORE_TIMEOUT", DEFAULT_CORE_TIMEOUT)
         return cls(enabled=enabled, address=address, timeout=timeout)
 
 
 class RecordTransport(Protocol):
-    """Record 上传 transport 协议，屏蔽具体 RPC 实现。"""
+    """Record 上传 transport 协议，屏蔽具体 HTTP/REST 实现。"""
 
-    def upsert_record(self, record: Record) -> None:
-        """上传单条 protobuf Record。"""
+    def upload_record_group(self, record_type: str, records: Sequence[Record]) -> None:
+        """按 record_type 批量上传一组 protobuf Record。"""
         ...
 
     def close(self) -> None:
@@ -101,11 +101,11 @@ class RecordTransport(Protocol):
         ...
 
 
-class NoopRecordTransport:
+class HttpRecordTransport:
     """
-    Core sidecar 尚未落地前的占位 transport。
+    基于现有 HTTP client 的上传 transport 骨架。
 
-    线程层仍可完成缓冲、聚合和重试，但此处不做真实网络发送。
+    当前阶段只负责按 record_type 分发，为后续 REST body 构造预留扩展点。
     """
 
     _announced = False
@@ -115,22 +115,74 @@ class NoopRecordTransport:
         self._announce_once()
 
     def _announce_once(self) -> None:
-        if NoopRecordTransport._announced:
+        if HttpRecordTransport._announced:
             return
         if not self._config.enabled:
             console.debug("Core record transport is disabled; uploader transport is running in no-op mode.")
-        elif self._config.address:
-            console.debug(
-                f"Core record transport is configured for {self._config.address}, "
-                "but the sidecar transport is not implemented yet."
-            )
         else:
-            console.debug("Core record transport is enabled, but no Core address is configured yet.")
-        NoopRecordTransport._announced = True
+            console.debug("Core record transport is enabled and using the HTTP uploader skeleton.")
+        HttpRecordTransport._announced = True
 
-    def upsert_record(self, record: Record) -> None:
-        del record
+    def upload_record_group(self, record_type: str, records: Sequence[Record]) -> None:
+        if len(records) == 0:
+            return
+
+        handler = getattr(self, f"_upload_{record_type}_group", None)
+        if handler is None:
+            self._upload_unknown_group(record_type, records)
+            return
+        handler(records)
+
+    def _upload_metric_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("metric", records)
+
+    def _upload_config_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("config", records)
+
+    def _upload_run_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("run", records)
+
+    def _upload_finish_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("finish", records)
+
+    def _upload_column_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("column", records)
+
+    def _upload_console_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("console", records)
+
+    def _upload_metadata_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("metadata", records)
+
+    def _upload_requirements_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("requirements", records)
+
+    def _upload_conda_group(self, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton("conda", records)
+
+    def _upload_unknown_group(self, record_type: str, records: Sequence[Record]) -> None:
+        self._upload_group_skeleton(record_type, records)
+
+    def _upload_group_skeleton(self, record_type: str, records: Sequence[Record]) -> None:
+        del records
+        if not self._config.enabled:
+            return
+        console.debug(f"HTTP upload skeleton is ready for record_type={record_type!r}, but request mapping is pending.")
+
+    def close(self) -> None:
         pass
+
+
+class NoopRecordTransport:
+    """禁用上传时使用的空实现 transport。"""
+
+    def __init__(self, config: CoreTransportConfig):
+        self._config = config
+
+    def upload_record_group(self, record_type: str, records: Sequence[Record]) -> None:
+        del record_type, records
+        if self._config.enabled:
+            console.debug("NoopRecordTransport received upload request while enabled; request was ignored.")
 
     def close(self) -> None:
         pass
@@ -140,11 +192,13 @@ def create_record_transport(config: Optional[CoreTransportConfig] = None) -> Rec
     """
     创建 Record transport。
 
-    当前阶段固定返回 no-op placeholder，待 Core sidecar 落地后在此替换成真实实现。
+    当前阶段在启用时返回 HTTP transport 骨架，禁用时返回 no-op transport。
     """
 
     resolved = config or CoreTransportConfig.from_env()
-    return NoopRecordTransport(resolved)
+    if not resolved.enabled:
+        return NoopRecordTransport(resolved)
+    return HttpRecordTransport(resolved)
 
 
 def trace_records(
@@ -156,7 +210,7 @@ def trace_records(
     """
     分片上传 protobuf Record。
 
-    线程层负责缓冲、聚合与重试；此层只做 Record 分片和 transport 调用。
+    线程层负责缓冲、聚合与重试；此层只做 Record 分片、按 record_type 分组和 transport 调用。
     """
     if records is None or len(records) == 0:
         return
@@ -167,10 +221,8 @@ def trace_records(
 
     try:
         for chunk, chunk_len in generate_chunks(records, per_request_len):
-            for record in chunk:
-                if not isinstance(record, Record):
-                    raise TypeError(f"trace_records only accepts Record instances, got {type(record).__name__}")
-                active_transport.upsert_record(record)
+            for record_type, grouped_records in group_records_by_type(chunk).items():
+                active_transport.upload_record_group(record_type, grouped_records)
             if upload_callback:
                 upload_callback(chunk_len)
             if is_split_mode:
@@ -193,6 +245,7 @@ def upload_records(
 
 __all__ = [
     "CoreTransportConfig",
+    "HttpRecordTransport",
     "NoopRecordTransport",
     "RecordTransport",
     "create_record_transport",

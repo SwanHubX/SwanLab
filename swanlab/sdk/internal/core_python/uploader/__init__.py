@@ -8,6 +8,7 @@
 from .collector import Collector
 from .sender import (
     CoreTransportConfig,
+    HttpRecordTransport,
     NoopRecordTransport,
     RecordTransport,
     create_record_transport,
@@ -19,6 +20,7 @@ from .thread import ThreadPool
 __all__ = [
     "CoreTransportConfig",
     "Collector",
+    "HttpRecordTransport",
     "NoopRecordTransport",
     "RecordTransport",
     "ThreadPool",

@@ -24,18 +24,19 @@ class ThreadPool:
 
     def __init__(
         self,
-        upload_interval: float = UPLOAD_INTERVAL,
+        upload_interval: Optional[float] = None,
         upload_callback: Optional[Callable] = None,
         auto_start: bool = True,
     ):
+        resolved_upload_interval = self.UPLOAD_INTERVAL if upload_interval is None else upload_interval
         self._record_queue: Queue = Queue()
         self._collector = Collector(
-            upload_interval=upload_interval,
+            upload_interval=resolved_upload_interval,
             upload_callback=upload_callback,
         )
         self._timer = Timer(
             lambda: self._collector.task(self._drain_records()),
-            interval=self.UPLOAD_INTERVAL,
+            interval=resolved_upload_interval,
             immediate=True,
             name=self.UPLOAD_THREAD_NAME,
         )
