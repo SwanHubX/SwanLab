@@ -1,0 +1,84 @@
+"""
+@author: caddiesnew
+@file: collector.py
+@time: 2026/3/21
+@description: 上传线程采集器
+"""
+
+import threading
+import time
+from typing import Callable, List, Optional
+
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.core_python.uploader.sender import upload_records
+from swanlab.sdk.internal.pkg import console
+
+
+class Collector:
+    """
+    日志采集器，负责从队列中收集 Records 并批量上传。
+    """
+
+    def __init__(
+        self,
+        upload_interval: float = 1.0,
+        upload_callback: Optional[Callable] = None,
+    ):
+        self.container: List[Record] = []
+        self._lock = threading.Lock()
+        self._upload_interval = upload_interval
+        self._upload_callback = upload_callback
+        self._last_upload_at = time.time()
+
+    def upload(self, pending: List[Record]) -> None:
+        """
+        核心上传逻辑：直接批量上送 protobuf Record。
+        由于网络请求耗时，应在无锁状态下调用。
+        """
+        if not pending:
+            return
+        upload_records(pending, upload_callback=self._upload_callback)
+
+    def submit(self, records: List[Record]) -> None:
+        """提交记录，由定时线程以 upload_interval 为周期进行调用"""
+        with self._lock:
+            self.container.extend(records)
+            if not self.container:
+                return
+
+            pending = self.container
+            if self._upload_interval <= 0:
+                self.container = []
+            else:
+                now = time.time()
+                if now - self._last_upload_at <= self._upload_interval:
+                    return
+
+                self._last_upload_at = now
+                self.container = []
+
+        try:
+            self.upload(pending)
+        except Exception as exc:
+            console.error(f"upload error: {exc}")
+            with self._lock:
+                self.container = pending + self.container
+
+    def flush(self, records: List[Record]) -> None:
+        """刷新所有累积的 records 进行上传"""
+        with self._lock:
+            self.container.extend(records)
+            pending = self.container
+            self.container = []
+
+        try:
+            self.upload(pending)
+        except Exception as exc:
+            console.error(f"upload error: {exc}")
+            with self._lock:
+                self.container = pending + self.container
+
+
+__all__ = [
+    "Collector",
+]

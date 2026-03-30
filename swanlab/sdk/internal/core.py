@@ -6,12 +6,18 @@
 """
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
 
 __all__ = ["CoreProtocol"]
+
+
+class CoreEnum(str, Enum):
+    CORE_PYTHON = "CorePython"
+    CORE = "Core"
 
 
 class CoreProtocol(ABC):
@@ -47,3 +53,13 @@ class CoreProtocol(ABC):
     def shutdown(self) -> None:
         """刷盘、触发收尾回调、释放所有资源。调用后此实例不应再被使用。"""
         ...
+
+
+def create_core(ctx: RunContext, core_enum: CoreEnum = CoreEnum.CORE_PYTHON) -> CoreProtocol:
+    if core_enum == CoreEnum.CORE_PYTHON:
+        from swanlab.sdk.internal.core_python import CorePython
+
+        return CorePython(ctx)
+    else:
+        # TODO: Core 微服务无感接入
+        raise NotImplementedError

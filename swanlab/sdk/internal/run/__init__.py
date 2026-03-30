@@ -23,7 +23,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricLogEvent, RunFinishEvent, RunStartEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.core_python import CorePython
+from swanlab.sdk.internal.core import create_core
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.internal.run.config import (
     Config as _ConfigClass,
@@ -126,7 +126,7 @@ class Run:
         self._emitter = RunEmitter(maxsize=100_000)
 
         # Core：Record 落盘与后端交互的统一入口
-        self._core = CorePython(ctx)
+        self._core = create_core(ctx)
 
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
