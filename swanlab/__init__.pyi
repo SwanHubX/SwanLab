@@ -11,7 +11,7 @@ from typing import Any, List, Mapping, Optional, Union
 from . import utils
 from .sdk import config
 from .sdk.cmd.init import ConfigLike
-from .sdk.internal.run import SwanLabRun
+from .sdk.internal.run import Run
 from .sdk.internal.run.transforms import Audio, Image, Text, Video
 from .sdk.internal.settings import Settings
 from .sdk.typings.run import FinishType, ModeType, ResumeType
@@ -39,7 +39,7 @@ __all__ = [
     "define_scalar",
     # run
     "run",
-    "SwanLabRun",
+    "Run",
     "has_run",
     "get_run",
     # config
@@ -77,7 +77,7 @@ def init(
     settings: Optional[Settings] = None,
     callbacks: Optional[List[Callback]] = None,
     **kwargs: Any,
-) -> SwanLabRun:
+) -> Run:
     """Initialize a new SwanLab run to track experiments.
 
     This function starts a new run for logging metrics, artifacts, and metadata.
@@ -103,7 +103,7 @@ def init(
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.
-    :return: The initialized SwanLabRun object.
+    :return: The initialized Run object.
     :raises RuntimeError: If a run is already active and reinit=False.
 
     Examples:
@@ -220,7 +220,7 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
 
 # ── run access ─────────────────────────────────────────────────────────────────
 
-run: Optional[SwanLabRun]
+run: Optional[Run]
 """The current active SwanLab run, or None if no run is active."""
 
 def has_run() -> bool:
@@ -238,10 +238,10 @@ def has_run() -> bool:
     """
     ...
 
-def get_run() -> SwanLabRun:
+def get_run() -> Run:
     """Get the current active SwanLab run.
 
-    :return: The active SwanLabRun instance.
+    :return: The active Run instance.
     :raises RuntimeError: If no run is currently active.
 
     Examples:

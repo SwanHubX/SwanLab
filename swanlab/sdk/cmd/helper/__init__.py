@@ -39,7 +39,7 @@ def with_run(cmd: str):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not has_run():
-                raise RuntimeError(f"`swanlab.{cmd}` requires an active SwanLabRun, call `swanlab.init()` first.")
+                raise RuntimeError(f"`swanlab.{cmd}` requires an active Run, call `swanlab.init()` first.")
             return func(*args, **kwargs)
 
         return wrapper
@@ -56,7 +56,7 @@ def without_run(cmd: str):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if has_run():
-                raise RuntimeError(f"`swanlab.{cmd}` requires no active SwanLabRun, call `swanlab.finish()` first.")
+                raise RuntimeError(f"`swanlab.{cmd}` requires no active Run, call `swanlab.finish()` first.")
             return func(*args, **kwargs)
 
         return wrapper

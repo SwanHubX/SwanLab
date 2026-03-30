@@ -19,7 +19,7 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
       2. 重置 Settings 单例字段
 
     Teardown（测试后，无论成功或失败均执行）：
-      1. 清理 SwanLabRun —— 需在 client 之前，cloud 模式的 finish() 依赖 client
+      1. 清理 Run —— 需在 client 之前，cloud 模式的 finish() 依赖 client
       2. 清理 Client 单例
       3. 清理 logger
       4. 清理 callbacker
@@ -45,7 +45,7 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     object.__setattr__(settings, "__pydantic_fields_set__", set())
     object.__setattr__(settings, "__pydantic_extra__", None)
 
-    # 3. 清理 SwanLabRun 单例
+    # 3. 清理 Run 单例
     # 必须在 client 重置之前执行：cloud 模式的 run.finish() 可能需要 client 发送最后请求
     # 若 finish() 本身出错（如后台线程异常），直接强制清除引用，防止污染下一个用例
     if (run := swanlab.run) is not None:

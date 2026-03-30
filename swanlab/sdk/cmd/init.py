@@ -35,7 +35,7 @@ from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
-from ..internal.run import SwanLabRun, get_run, has_run
+from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
@@ -99,7 +99,7 @@ def init(
     settings: Optional[Settings] = None,
     callbacks: Optional[List[Callback]] = None,
     **kwargs,
-) -> SwanLabRun:
+) -> Run:
     """Initialize a new SwanLab run to track experiments.
 
     This function starts a new run for logging metrics, artifacts, and metadata.
@@ -142,7 +142,7 @@ def init(
 
     :param callbacks: List of callback functions triggered on run events.
 
-    :return: The initialized SwanLabRun object.
+    :return: The initialized Run object.
 
     :raises RuntimeError: If a run is already active and reinit=False.
 
@@ -183,7 +183,7 @@ def init(
         run.finish()
     if has_run():
         raise RuntimeError(
-            "`swanlab.init` requires an inactive SwanLabRun. Please use `swanlab.finish()` or `swanlab.init(reinit=True)` first."
+            "`swanlab.init` requires an inactive Run. Please use `swanlab.finish()` or `swanlab.init(reinit=True)` first."
         )
     # 运行时配置
     run_settings = Settings()
@@ -230,7 +230,7 @@ def init(
     # 开始初始化
     ctx = _init(run_settings)
     # 初始化run
-    run = SwanLabRun(ctx)
+    run = Run(ctx)
     # 发送webhook回调，在除了disabled模式外，都会触发
     success = send_webhook(ctx)
     if not success:
@@ -247,7 +247,7 @@ def init(
 def _init(run_settings: Settings) -> RunContext:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
-    上下文生命周期通过 `SwanLabRun` 管理，而非全局 `ContextVar`
+    上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
     # 生成run_id

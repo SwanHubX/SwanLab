@@ -102,7 +102,7 @@ class TestLoginE2E:
         assert has_run()
 
         # 尝试登录应该抛出异常
-        with pytest.raises(RuntimeError, match="`swanlab.login` requires no active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.login` requires no active Run"):
             login(api_key="some_key")
 
     @responses.activate

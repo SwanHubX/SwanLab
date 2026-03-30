@@ -20,7 +20,7 @@ class RunEmitter:
     内部事件发射器。
 
     持有事件队列，是唯一的写入入口。
-    SwanLabRun 公开 API 经过验证后调用 emit()；
+    Run 公开 API 经过验证后调用 emit()；
     硬件监控、元数据采集等系统组件在构造时注入此对象，直接调用 emit()，
     不经过任何公开 API 或全局状态。
     """

@@ -1,6 +1,6 @@
 from swanlab.sdk import (
+    Run,
     Settings,
-    SwanLabRun,
     config,
     define_scalar,
     finish,
@@ -37,7 +37,7 @@ __all__ = [
     "define_scalar",
     # run
     "run",  # type: ignore [no-redef]
-    "SwanLabRun",
+    "Run",
     "has_run",
     "get_run",
     # config

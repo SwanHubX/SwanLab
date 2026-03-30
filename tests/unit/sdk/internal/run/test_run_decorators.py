@@ -38,7 +38,7 @@ class TestWithRun:
                 return "ok"
 
         run = MockRun()
-        with pytest.raises(RuntimeError, match="`swanlab.my_method\\(\\)` requires an active SwanLabRun"):
+        with pytest.raises(RuntimeError, match="`swanlab.my_method\\(\\)` requires an active Run"):
             run.my_method()
 
     def test_error_message_contains_cmd(self):
