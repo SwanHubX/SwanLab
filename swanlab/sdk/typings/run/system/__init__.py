@@ -79,15 +79,15 @@ class DeviceSnapshot(BaseModel):
 
 
 AcceleratorVendor = Literal[
-    "nvml",
+    "nvidia",
     "rocm",
     "iluvatar",
     "metax",
     "moorethreads",
-    "npu",
-    "mlu",
-    "dcu",
-    "xpu",
+    "ascend",
+    "cambricon",
+    "hygon",
+    "kunlunxin",
 ]
 """加速器厂商/驱动类型"""
 

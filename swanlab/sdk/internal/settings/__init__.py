@@ -289,7 +289,7 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    env: EnvironmentSettings = Field(default_factory=EnvironmentSettings)
+    environment: EnvironmentSettings = Field(default_factory=EnvironmentSettings)
     """
     Configuration for one-time system snapshot collection (hardware specs, runtime, Python env, git, etc.).
     """

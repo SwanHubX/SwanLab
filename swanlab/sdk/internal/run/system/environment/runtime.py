@@ -11,47 +11,75 @@ import socket
 import sys
 from typing import Optional
 
+from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run.system import RuntimeSnapshot
+from swanlab.sdk.utils.helper import catch_and_return_none
 
+
+def get() -> RuntimeSnapshot:
+    """获取运行时信息快照"""
+    return RuntimeSnapshot(
+        os=get_os(),
+        os_pretty=get_os_pretty(),
+        hostname=get_hostname(),
+        pid=get_pid(),
+        cwd=get_cwd(),
+        python_version=get_python_version(),
+        python_verbose=get_python_verbose(),
+        python_executable=get_python_executable(),
+        command=get_command(),
+    )
+
+
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime os: {e}"))
 def get_os() -> str:
     """获取操作系统平台"""
     return platform.platform()
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime os pretty name: {e}"))
 def get_os_pretty() -> Optional[str]:
     """获取操作系统友好名称"""
     return platform.freedesktop_os_release().get("PRETTY_NAME")
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime hostname: {e}"))
 def get_hostname() -> str:
     """获取主机名"""
     return socket.gethostname()
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime pid: {e}"))
 def get_pid() -> int:
     """获取进程 ID"""
     return os.getpid()
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime cwd: {e}"))
 def get_cwd() -> str:
     """获取当前工作目录"""
     return os.getcwd()
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime python version: {e}"))
 def get_python_version() -> str:
     """获取 Python 版本"""
     return platform.python_version()
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime python verbose version: {e}"))
 def get_python_verbose() -> str:
     """获取 Python 详细版本信息"""
     return sys.version
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime python executable: {e}"))
 def get_python_executable() -> str:
     """获取 Python 可执行文件路径"""
     return sys.executable
 
 
+@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get runtime command: {e}"))
 def get_command() -> str:
     """获取当前执行命令"""
     if platform.system() == "Linux":
