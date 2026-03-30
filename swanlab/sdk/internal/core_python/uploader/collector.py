@@ -30,22 +30,20 @@ class Collector:
         self._upload_callback = upload_callback
         self._last_upload_at = time.time()
 
-    def upload(self) -> None:
+    def upload(self, pending: List[Record]) -> None:
         """
         核心上传逻辑：直接批量上送 protobuf Record。
-        失败的记录保留在 container 中等待下次重试。
+        由于网络请求耗时，应在无锁状态下调用。
         """
-        pending = list(self.container)
-        if len(pending) == 0:
+        if not pending:
             return
         upload_records(pending, upload_callback=self._upload_callback)
-        self.container.clear()
 
     def task(self, records: List[Record]) -> None:
         """定时任务入口，由线程循环调用。"""
         with self._lock:
             self.container.extend(records)
-            if len(self.container) == 0:
+            if not self.container:
                 return
 
             now = time.time()
@@ -53,16 +51,29 @@ class Collector:
                 return
 
             self._last_upload_at = now
-            try:
-                self.upload()
-            except Exception as exc:
-                console.error(f"upload error: {exc}")
+            pending = self.container
+            self.container = []
+
+        try:
+            self.upload(pending)
+        except Exception as exc:
+            console.error(f"upload error: {exc}")
+            with self._lock:
+                self.container = pending + self.container
 
     def callback(self, records: List[Record]) -> None:
         """结束回调，在主线程中执行最终 flush。"""
         with self._lock:
             self.container.extend(records)
-            self.upload()
+            pending = self.container
+            self.container = []
+
+        try:
+            self.upload(pending)
+        except Exception as exc:
+            console.error(f"upload error: {exc}")
+            with self._lock:
+                self.container = pending + self.container
 
 
 __all__ = [

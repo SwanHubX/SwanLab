@@ -15,7 +15,7 @@ from .helper import generate_chunks, group_records_by_type
 
 
 class HttpRecordTransport:
-    """基于现有 HTTP client 的上传 transport 骨架。"""
+    """PLACEHOLDER: 基于现有 HTTP client 的上传 transport 。"""
 
     def upload_record_group(self, record_type: str, records: Sequence[Record]) -> None:
         if len(records) == 0:
