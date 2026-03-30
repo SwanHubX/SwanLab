@@ -50,9 +50,9 @@ def test_trace_records_uploads_all_records_in_batches():
     records = [make_scalar_record(step=index) for index in range(2500)]
 
     with patch(
-        "swanlab.sdk.internal.core_python.uploader.upload.create_record_transport", return_value=transport
+        "swanlab.sdk.internal.core_python.uploader.sender.create_record_transport", return_value=transport
     ) as factory:
-        with patch("swanlab.sdk.internal.core_python.uploader.upload.time.sleep") as mock_sleep:
+        with patch("swanlab.sdk.internal.core_python.uploader.sender.time.sleep") as mock_sleep:
             trace_records(records, per_request_len=1000, upload_callback=callback)
 
     assert transport.upsert_record.call_count == 2500

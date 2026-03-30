@@ -5,6 +5,7 @@
 @description: 上传线程聚合器
 """
 
+import threading
 import time
 from typing import Callable, List, Optional
 
@@ -24,7 +25,7 @@ class Collector:
         upload_callback: Optional[Callable] = None,
     ):
         self.container: List[Record] = []
-        self._lock = False
+        self._lock = threading.Lock()
         self._upload_interval = upload_interval
         self._upload_callback = upload_callback
         self._last_upload_at = time.time()
@@ -42,31 +43,26 @@ class Collector:
 
     def task(self, records: List[Record]) -> None:
         """定时任务入口，由线程循环调用。"""
-        if self._lock:
-            return
-        self.container.extend(records)
-        if len(self.container) == 0:
-            return
+        with self._lock:
+            self.container.extend(records)
+            if len(self.container) == 0:
+                return
 
-        now = time.time()
-        if now - self._last_upload_at <= self._upload_interval:
-            return
+            now = time.time()
+            if now - self._last_upload_at <= self._upload_interval:
+                return
 
-        self._last_upload_at = now
-        self._lock = True
-        try:
-            self.upload()
-        except Exception as exc:
-            console.error(f"upload error: {exc}")
-        finally:
-            self._lock = False
+            self._last_upload_at = now
+            try:
+                self.upload()
+            except Exception as exc:
+                console.error(f"upload error: {exc}")
 
     def callback(self, records: List[Record]) -> None:
         """结束回调，在主线程中执行最终 flush。"""
-        while self._lock:
-            time.sleep(0.1)
-        self.container.extend(records)
-        self.upload()
+        with self._lock:
+            self.container.extend(records)
+            self.upload()
 
 
 __all__ = [

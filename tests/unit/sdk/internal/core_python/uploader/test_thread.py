@@ -5,6 +5,7 @@
 @description: uploader 上传线程幂等性测试
 """
 
+import threading
 import time
 from unittest.mock import MagicMock, patch
 
@@ -42,7 +43,7 @@ def test_upload_collector_callback_is_idempotent_for_scalar_records():
     collector = Collector()
     record = make_scalar_record()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records") as mock_upload:
         collector.callback([record])
         collector.callback([])
 
@@ -53,6 +54,27 @@ def test_upload_collector_callback_is_idempotent_for_scalar_records():
     assert record.metric.key == "train/loss"
     assert record.metric.step == 3
     assert record.metric.scalar.number == 0.125
+
+
+def test_upload_collector_callback_waits_for_lock_release():
+    collector = Collector()
+    record = make_scalar_record()
+    done = threading.Event()
+
+    collector._lock.acquire()
+
+    with patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records") as mock_upload:
+        worker = threading.Thread(target=lambda: (collector.callback([record]), done.set()))
+        worker.start()
+
+        time.sleep(0.05)
+        assert done.is_set() is False
+        mock_upload.assert_not_called()
+
+        collector._lock.release()
+        worker.join(timeout=1)
+
+    assert done.is_set() is True
 
 
 def test_threadpool_drain_records_returns_pending_records_once():
@@ -68,7 +90,7 @@ def test_threadpool_finish_is_idempotent_for_config_records():
     pool = ThreadPool(auto_start=False)
     pool.put([make_config_record(), make_config_record()])
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+    with patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records") as mock_upload:
         pool.finish()
         pool.finish()
 
@@ -83,7 +105,7 @@ def test_threadpool_starts_upload_thread_automatically():
         pool = ThreadPool(upload_interval=0.01)
 
         try:
-            with patch("swanlab.sdk.internal.core_python.uploader.thread.log_collector.upload_records") as mock_upload:
+            with patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records") as mock_upload:
                 pool.put([make_scalar_record()])
 
                 deadline = time.time() + 1.0
@@ -99,7 +121,7 @@ def test_threadpool_start_reuses_pkg_timer_scheduler():
     timer = MagicMock()
 
     with patch.object(ThreadPool, "UPLOAD_INTERVAL", 0.25), patch(
-        "swanlab.sdk.internal.core_python.uploader.thread.start_thread.Timer", create=True
+        "swanlab.sdk.internal.core_python.uploader.thread.Timer"
     ) as mock_timer_cls:
         mock_timer_cls.return_value = timer
 
@@ -117,7 +139,7 @@ def test_threadpool_start_reuses_pkg_timer_scheduler():
 def test_threadpool_finish_cancels_and_joins_timer():
     timer = MagicMock()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.start_thread.Timer", create=True) as mock_timer_cls:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
         mock_timer_cls.return_value = timer
 
         pool = ThreadPool(auto_start=False)

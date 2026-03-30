@@ -14,7 +14,7 @@ from .sender import (
     trace_records,
     upload_records,
 )
-from .uploader import ThreadPool
+from .thread import ThreadPool
 
 __all__ = [
     "CoreTransportConfig",
