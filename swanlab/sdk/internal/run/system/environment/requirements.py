@@ -6,12 +6,13 @@
 """
 
 import subprocess
+from typing import Optional
 
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
-def _try_run(cmd: list, timeout: int = 5, check: bool = False) -> subprocess.CompletedProcess | None:
+def _try_run(cmd: list, timeout: int = 5, check: bool = False) -> Optional[subprocess.CompletedProcess]:
     """尝试执行命令，命令不存在时返回 None 而不是抛异常"""
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=check)
