@@ -490,26 +490,41 @@ def _resolve_save_paths(
     elif not glob_path.is_absolute():
         base_path = pathlib.Path(".")
     else:
+        default_base_path = _infer_default_save_base_path(resolved_glob_path)
         swanlog.warning(
             f"Saving files from absolute path '{glob_str}' without a base_path. "
-            f"SwanLab will default to base_path='{resolved_glob_path.parent.parent}' "
+            f"SwanLab will default to base_path='{default_base_path}' "
             "to preserve the immediate parent directory. "
             "If you want to preserve a different directory structure, explicitly pass 'base_path' to swanlab.save, "
             'e.g. swanlab.save("/mnt/folder/file.h5", base_path="/mnt").'
         )
-        base_path = resolved_glob_path.parent.parent
+        base_path = default_base_path
 
     resolved_base_path = pathlib.PurePath(os.path.abspath(base_path))
     validate_glob_path(resolved_glob_path, resolved_base_path)
     return resolved_glob_path, resolved_base_path
 
 
+def _infer_default_save_base_path(glob_path: pathlib.PurePath) -> pathlib.PurePath:
+    stable_parts = []
+    for part in glob_path.parts:
+        if any(char in part for char in "*?["):
+            break
+        stable_parts.append(part)
+
+    if len(stable_parts) == len(glob_path.parts):
+        anchor = glob_path.parent
+    else:
+        anchor = pathlib.PurePath(*stable_parts)
+    return anchor.parent
+
+
 @should_call_after_init("You must call swanlab.init() before using save()")
 def save(
     glob_str: Union[str, bytes],
-    policy: Literal['now', 'end', 'live'] = "live",
     base_path: Optional[Union[str, os.PathLike]] = None,
-):
+    policy: Literal['now', 'end', 'live'] = "live",
+) -> List[str]:
     """
     Save files matched by glob into the current run according to the specified policy.
     
@@ -518,17 +533,17 @@ def save(
     glob_str : Union[str, bytes]
         A glob string or bytes representing the file paths to match and save.
         For example, 'logs/**/*.txt'.
+    base_path : Optional[Union[str, os.PathLike]], optional
+        The base repository path. When files are saved, their relative paths to this base path are preserved.
+        If not provided, the base path defaults to the current working directory, unless the glob path is absolute
+        (in which case it resolves to the parent directory of the matched files).
+        For example, `save('data/logs/*.json', base_path='data')` will preserve the `logs/` sub-directory.
     policy : Literal['now', 'end', 'live'], optional
         The policy to use for saving files. 
         - 'now': Upload the matched files immediately.
         - 'end': Wait until the end of the run (when `swanlab.finish()` is called) to upload the files.
         - 'live': Continuously watch the matched files for changes and automatically upload when modified.
         The default is "live".
-    base_path : Optional[Union[str, os.PathLike]], optional
-        The base repository path. When files are saved, their relative paths to this base path are preserved.
-        If not provided, the base path defaults to the current working directory, unless the glob path is absolute
-        (in which case it resolves to the parent directory of the matched files).
-        For example, `save('data/logs/*.json', base_path='data')` will preserve the `logs/` sub-directory.
     """
     resolved_paths = _resolve_save_paths(glob_str, base_path=base_path)
     if resolved_paths is None:

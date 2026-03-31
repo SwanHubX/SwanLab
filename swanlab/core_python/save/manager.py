@@ -37,8 +37,8 @@ MAX_FILE_SIZE: int = 50 * 1024 * 1024 * 1024
 
 def _iter_files(
     files: Union[SaveFileModel, Iterable[SaveFileModel]],
-) -> Iterable[SaveFileModel]:
-    return [files] if isinstance(files, SaveFileModel) else files
+) -> List[SaveFileModel]:
+    return [files] if isinstance(files, SaveFileModel) else list(files)
 
 
 def _normalize_etag(etag: Optional[str]) -> str:
@@ -145,6 +145,8 @@ class FileUploadManager:
             self._progress.done()
 
     def _do_upload(self, file: SaveFileModel) -> None:
+        if self._mode == "disabled":
+            return
         if not os.path.exists(file.source_path):
             swanlog.warning(f"File not found: {file.source_path}")
             return
@@ -153,8 +155,6 @@ class FileUploadManager:
                 f"File '{file.name}' ({file.source_path}) exceeds the size limit "
                 f"({MAX_FILE_SIZE // (1024 ** 3)} GB) and will not be uploaded."
             )
-            return
-        if self._mode == "disabled":
             return
         if self._mode in ("local", "offline"):
             self._copy_local(file)
@@ -197,40 +197,52 @@ class FileUploadManager:
             complete_upload(self._client, exp_id, [file.complete_request()])
         except Exception as e:
             swanlog.warning(f"Failed to upload {file.name}: {e}")
+            self._mark_failed(file, exp_id)
+
+    def _upload_multipart(self, file: SaveFileModel, size: int, exp_id: str) -> None:
+        assert self._client is not None
+        try:
+            part_count = max(1, math.ceil(size / PART_SIZE))
+            mime_type = guess_mime_type(file.source_path)
+            payload = file.prepare_request(
+                size=size,
+                md5=compute_md5(file.source_path),
+                mime_type=mime_type,
+                count=part_count,
+            )
+            prepared = prepare_multipart(self._client, exp_id, payload)
+            upload_id = extract_upload_id(prepared)
+            if upload_id is None:
+                raise ValueError("Multipart prepare response is missing uploadId.")
+            upload_urls = extract_part_urls(prepared)
+
+            buffers = []
+            with open(file.source_path, "rb") as f:
+                for part_number, url in upload_urls:
+                    chunk = f.read(PART_SIZE)
+                    if chunk:
+                        buffers.append((part_number, url, BytesIO(chunk)))
+
+            parts = _upload_buffers(buffers)
+            complete_multipart(
+                self._client,
+                exp_id,
+                file.complete_multipart_request(upload_id=upload_id, parts=parts),
+            )
+        except Exception as e:
+            swanlog.warning(f"Failed to upload {file.name}: {e}")
+            self._mark_failed(file, exp_id)
+
+    def _mark_failed(self, file: SaveFileModel, exp_id: str) -> None:
+        assert self._client is not None
+        try:
             complete_upload(
                 self._client,
                 exp_id,
                 [file.complete_request(state=SaveFileState.FAILED)],
             )
-
-    def _upload_multipart(self, file: SaveFileModel, size: int, exp_id: str) -> None:
-        assert self._client is not None
-        part_count = max(1, math.ceil(size / PART_SIZE))
-        mime_type = guess_mime_type(file.source_path)
-        payload = file.prepare_request(
-            size=size,
-            md5=compute_md5(file.source_path),
-            mime_type=mime_type,
-            count=part_count,
-        )
-        prepared = prepare_multipart(self._client, exp_id, payload)
-        upload_id = extract_upload_id(prepared)
-        assert upload_id is not None
-        upload_urls = extract_part_urls(prepared)
-
-        buffers = []
-        with open(file.source_path, "rb") as f:
-            for part_number, url in upload_urls:
-                chunk = f.read(PART_SIZE)
-                if chunk:
-                    buffers.append((part_number, url, BytesIO(chunk)))
-
-        parts = _upload_buffers(buffers)
-        complete_multipart(
-            self._client,
-            exp_id,
-            file.complete_multipart_request(upload_id=upload_id, parts=parts),
-        )
+        except Exception as e:
+            swanlog.warning(f"Failed to report FAILED state for {file.name}: {e}")
 
 
 class DirWatcher:
@@ -249,6 +261,7 @@ class DirWatcher:
         self._interval = interval
         self._entries: Dict[str, SaveFileModel] = {}
         self._target_modes: Dict[str, str] = {}
+        self._target_modes_lock = threading.Lock()
         self._lock = threading.Lock()
         self._timer = Timer(task=self._poll_task, interval=self._interval)
 
@@ -299,10 +312,10 @@ class DirWatcher:
         if same_path(file.source_path, file.target_path):
             return
 
-        mode = self._target_modes.get(file.name)
+        mode = self._get_target_mode(file.name)
         if mode == "symlink" and not self._is_symlink_target(file):
             mode = None
-            self._target_modes.pop(file.name, None)
+            self._clear_target_mode(file.name)
         if mode is None:
             mode = self._resolve_sync_mode(file)
 
@@ -316,14 +329,14 @@ class DirWatcher:
         os.makedirs(os.path.dirname(file.target_path), exist_ok=True)
 
         if self._is_symlink_target(file):
-            self._target_modes[file.name] = "symlink"
+            self._set_target_mode(file.name, "symlink")
             return "symlink"
 
         pathlib.Path(file.target_path).unlink(missing_ok=True)
         try:
             rel_target = os.path.relpath(file.source_path, os.path.dirname(file.target_path))
             os.symlink(rel_target, file.target_path)
-            self._target_modes[file.name] = "symlink"
+            self._set_target_mode(file.name, "symlink")
             return "symlink"
         except (NotImplementedError, OSError, ValueError) as e:
             swanlog.debug(
@@ -331,8 +344,20 @@ class DirWatcher:
                 "Falling back to file copy."
             )
             copy_file(file.source_path, file.target_path)
-            self._target_modes[file.name] = "copy"
+            self._set_target_mode(file.name, "copy")
             return "copy"
+
+    def _get_target_mode(self, name: str) -> Optional[str]:
+        with self._target_modes_lock:
+            return self._target_modes.get(name)
+
+    def _set_target_mode(self, name: str, mode: str) -> None:
+        with self._target_modes_lock:
+            self._target_modes[name] = mode
+
+    def _clear_target_mode(self, name: str) -> None:
+        with self._target_modes_lock:
+            self._target_modes.pop(name, None)
 
     def _is_symlink_target(self, file: SaveFileModel) -> bool:
         """检查 target_path 是否是一个有效且指向 source_path 的软链接。"""

@@ -295,6 +295,8 @@ class SwanLabRun:
             raise RuntimeError("After experiment finished, you can no longer save files to the current experiment")
         if policy not in {"now", "end", "live"}:
             raise ValueError("policy must be one of ['now', 'end', 'live']")
+        if self.__mode == "disabled":
+            return []
         files = collect_save_files(glob_path, base_path, get_run_store().file_dir)
         if len(files) == 0:
             swanlog.warning(f"No files matched save pattern: {glob_path}")

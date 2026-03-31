@@ -3,7 +3,25 @@ import hashlib
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
+import swanlab.core_python.save.progress as save_progress
 from swanlab.core_python.save import SaveFileModel
+
+
+def test_iter_files_always_returns_list(tmp_path):
+    """_iter_files should normalize both single items and iterables to a list."""
+    file = SaveFileModel(
+        source_path=str(tmp_path / "metrics.txt"),
+        name="logs/metrics.txt",
+        target_path=str(tmp_path / "run" / "logs" / "metrics.txt"),
+    )
+
+    single = save_manager._iter_files(file)
+    multiple = save_manager._iter_files(item for item in [file])
+
+    assert isinstance(single, list)
+    assert isinstance(multiple, list)
+    assert single == [file]
+    assert multiple == [file]
 
 
 def test_upload_single_passes_md5_and_mime_type(tmp_path, monkeypatch):
@@ -142,7 +160,7 @@ def test_do_upload_skips_file_exceeding_size_limit(tmp_path, monkeypatch):
         name="data/huge.bin",
         target_path=str(tmp_path / "run" / "data" / "huge.bin"),
     )
-    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    manager = save_manager.FileUploadManager(mode="local", file_dir=str(tmp_path))
 
     # 将阈值降到比文件实际大小更小以触发检查
     monkeypatch.setattr(save_manager, "MAX_FILE_SIZE", 1)
@@ -162,6 +180,30 @@ def test_do_upload_skips_file_exceeding_size_limit(tmp_path, monkeypatch):
     assert len(warnings) == 1
     assert "exceeds the size limit" in warnings[0]
     assert "data/huge.bin" in warnings[0]
+
+
+def test_do_upload_skips_filesystem_checks_in_disabled_mode(tmp_path, monkeypatch):
+    """Disabled mode should short-circuit before touching the filesystem."""
+    file = SaveFileModel(
+        source_path=str(tmp_path / "missing.bin"),
+        name="data/missing.bin",
+        target_path=str(tmp_path / "run" / "data" / "missing.bin"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+
+    def raise_exists(path):
+        raise AssertionError("os.path.exists should not be called in disabled mode")
+
+    def raise_getsize(path):
+        raise AssertionError("os.path.getsize should not be called in disabled mode")
+
+    monkeypatch.setattr(save_manager.os.path, "exists", raise_exists)
+    monkeypatch.setattr(save_manager.os.path, "getsize", raise_getsize)
+
+    try:
+        manager._do_upload(file)
+    finally:
+        manager.close()
 
 
 def test_do_upload_skips_file_at_exact_size_limit(tmp_path, monkeypatch):
@@ -229,6 +271,114 @@ def test_upload_single_failure_reports_failed_state(tmp_path, monkeypatch):
         manager.close()
 
     assert captured["complete"] == [{"path": "logs/broken.txt", "state": "FAILED"}]
+
+
+def test_upload_multipart_failure_reports_failed_state(tmp_path, monkeypatch):
+    """Multipart upload failures should be reported as FAILED instead of bubbling silently."""
+    source = tmp_path / "broken.bin"
+    source.write_bytes(b"abcdefghij")
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/broken.bin",
+        target_path=str(tmp_path / "run" / "logs" / "broken.bin"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    manager._client = MagicMock()
+
+    captured = {}
+
+    def fake_prepare_multipart(client, exp_id, payload):
+        return {
+            "uploadId": "upload-1",
+            "parts": [
+                {"partNumber": 1, "url": "https://upload.example.com/part-1"},
+                {"partNumber": 2, "url": "https://upload.example.com/part-2"},
+            ],
+        }
+
+    def fake_upload_file(*, url, buffer, max_retries=3, mime_type=None):
+        raise RuntimeError("Simulated multipart upload failure")
+
+    def fake_complete_upload(client, exp_id, files):
+        captured["complete"] = files
+
+    monkeypatch.setattr(save_manager, "PART_SIZE", 5)
+    monkeypatch.setattr(save_manager, "prepare_multipart", fake_prepare_multipart)
+    monkeypatch.setattr(save_manager, "upload_file", fake_upload_file)
+    monkeypatch.setattr(save_manager, "complete_upload", fake_complete_upload)
+
+    try:
+        manager._upload_multipart(file, source.stat().st_size, "exp-789")
+    finally:
+        manager.close()
+
+    assert captured["complete"] == [{"path": "logs/broken.bin", "state": "FAILED"}]
+
+
+def test_upload_multipart_missing_upload_id_reports_failed_state(tmp_path, monkeypatch):
+    """Missing uploadId should report FAILED with an explicit warning message."""
+    source = tmp_path / "broken.bin"
+    source.write_bytes(b"abcdefghij")
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/broken.bin",
+        target_path=str(tmp_path / "run" / "logs" / "broken.bin"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    manager._client = MagicMock()
+
+    captured = {}
+    warnings = []
+
+    def fake_prepare_multipart(client, exp_id, payload):
+        return {
+            "parts": [
+                {"partNumber": 1, "url": "https://upload.example.com/part-1"},
+            ],
+        }
+
+    def fake_complete_upload(client, exp_id, files):
+        captured["complete"] = files
+
+    monkeypatch.setattr(save_manager, "prepare_multipart", fake_prepare_multipart)
+    monkeypatch.setattr(save_manager, "complete_upload", fake_complete_upload)
+    monkeypatch.setattr(save_manager.swanlog, "warning", warnings.append)
+
+    try:
+        manager._upload_multipart(file, source.stat().st_size, "exp-790")
+    finally:
+        manager.close()
+
+    assert captured["complete"] == [{"path": "logs/broken.bin", "state": "FAILED"}]
+    assert any("missing uploadId" in warning for warning in warnings)
+
+
+def test_save_progress_starts_without_touching_rich_private_state(monkeypatch):
+    """Save progress should rely on Status.start instead of private rich internals."""
+
+    class FakeStatus:
+        def __init__(self, *args, **kwargs):
+            self.started = 0
+            self.stopped = 0
+            self.messages = []
+
+        def start(self):
+            self.started += 1
+
+        def stop(self):
+            self.stopped += 1
+
+        def update(self, message):
+            self.messages.append(message)
+
+    monkeypatch.setattr(save_progress, "Status", FakeStatus)
+
+    progress = save_progress._SaveProgress(1)
+    progress.add(1)
+    progress.done()
+
+    assert progress._status.started >= 1
+    assert progress._status.messages[-1] == "Uploading files (1/2)..."
 
 
 def test_dir_watcher_cloud_falls_back_to_copy_when_symlink_unavailable(tmp_path, monkeypatch):
@@ -351,3 +501,67 @@ def test_dir_watcher_cloud_rechecks_cached_symlink_target(tmp_path, monkeypatch)
     resolve_sync_mode.assert_called_once_with(file)
     copy_file.assert_called_once_with(file.source_path, file.target_path)
     assert watcher._target_modes.get(file.name) != "symlink"
+
+
+def test_dir_watcher_guards_target_modes_access_with_lock(tmp_path, monkeypatch):
+    """DirWatcher should guard _target_modes reads and writes with the dedicated lock."""
+
+    class GuardedLock:
+        def __init__(self):
+            self.held = False
+
+        def __enter__(self):
+            self.held = True
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.held = False
+
+    class GuardedDict(dict):
+        def __init__(self, lock):
+            super().__init__()
+            self._lock = lock
+
+        def _assert_locked(self):
+            assert self._lock.held, "target_modes lock not held"
+
+        def get(self, key, default=None):
+            self._assert_locked()
+            return super().get(key, default)
+
+        def pop(self, key, default=None):
+            self._assert_locked()
+            return super().pop(key, default)
+
+        def __setitem__(self, key, value):
+            self._assert_locked()
+            return super().__setitem__(key, value)
+
+    source = tmp_path / "metrics.txt"
+    source.write_text("hello world")
+    target = tmp_path / "run" / "logs" / "metrics.txt"
+    file = SaveFileModel(
+        source_path=str(source),
+        name="logs/metrics.txt",
+        target_path=str(target),
+    )
+    watcher = save_manager.DirWatcher(
+        mode="cloud",
+        file_dir=str(tmp_path / "run"),
+        on_change=MagicMock(),
+    )
+    lock = GuardedLock()
+    watcher._target_modes_lock = lock
+    watcher._target_modes = GuardedDict(lock)
+
+    def raise_symlink_unavailable(src, dst):
+        raise OSError("symlink unavailable")
+
+    monkeypatch.setattr(watcher, "_is_symlink_target", lambda current: False)
+    monkeypatch.setattr(save_manager.os, "symlink", raise_symlink_unavailable)
+    monkeypatch.setattr(save_manager, "copy_file", MagicMock())
+
+    watcher._sync_live_target(file)
+
+    with watcher._target_modes_lock:
+        assert watcher._target_modes[file.name] == "copy"

@@ -46,7 +46,7 @@ class _SaveProgress:
         """必须在持有 ``_lock`` 时调用。"""
         self._total += n
         self._refresh_display()
-        if self._total > self._completed and not self._status._live.is_started:
+        if self._total > self._completed:
             self._status.start()
         # else: 所有文件已完成，无需启动
 
