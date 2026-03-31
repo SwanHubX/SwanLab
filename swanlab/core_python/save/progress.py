@@ -6,8 +6,7 @@ from rich.status import Status
 
 
 class _SaveProgress:
-    """后台上传 spinner，实时展示文件上传计数（如 ``Uploading files (3/10)...``）。
-
+    """后台上传 spinner，实时展示文件上传计数进度
     线程安全，支持多次 ``save()`` 调用累加总量，全部完成后自动消失。
     """
 
