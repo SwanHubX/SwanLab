@@ -200,6 +200,9 @@ class MetadataSnapshot(BaseModel):
     runtime: Optional[RuntimeSnapshot] = None
     git: Optional[GitSnapshot] = None
 
+    def del_hardware(self):
+        return self.model_copy(update={"hardware": None})
+
     model_config = ConfigDict(frozen=True)
 
 

@@ -23,10 +23,11 @@ class CPU(CpuProtocol):
     这是通用的 CPU 信息采集实现，全部使用python标准库，设计上这属于兜底的CPU采集实现
     """
 
+    @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get CPU info: {}", e))
-    def get(self) -> Optional[CPUSnapshot]:
+    def get() -> Optional[CPUSnapshot]:
         # 1. 获取 CPU 品牌
-        brand = self._get_real_brand() or platform.processor() or None
+        brand = CPU._get_real_brand() or platform.processor() or None
         # 2. 获取 CPU 核心数
         logical_count = multiprocessing.cpu_count()
 
