@@ -23,7 +23,6 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricLogEvent, RunFinishEvent, RunStartEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.core import create_core
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.internal.run.config import (
     Config as _ConfigClass,
@@ -34,6 +33,7 @@ from swanlab.sdk.internal.run.config import (
     deactivate_run_config,
 )
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
+from swanlab.sdk.typings.core import CoreEnum, CoreProtocol
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
@@ -77,6 +77,22 @@ def with_run(cmd: str):
         return wrapper
 
     return decorator
+
+
+def create_core(ctx: RunContext, core_enum: CoreEnum = CoreEnum.CORE_PYTHON) -> CoreProtocol:
+    """
+    创建core对象，实现后端无感接入
+    :param ctx: 运行上下文，包含配置信息和运行时状态
+    :param core_enum: 核心实现枚举，默认为 CoreEnum.CORE_PYTHON
+    :return:
+    """
+    if core_enum == CoreEnum.CORE_PYTHON:
+        from swanlab.sdk.internal.core_python import CorePython
+
+        return CorePython(ctx)
+    else:
+        # TODO: Core 微服务无感接入
+        raise NotImplementedError
 
 
 class Run:

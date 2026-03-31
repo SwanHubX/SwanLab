@@ -24,10 +24,14 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def catch_and_return_none(*exceptions: Type[BaseException]):
+def catch_and_return_none(*exceptions: Type[BaseException], on_error: Optional[Callable[[BaseException], None]] = None):
     """
     捕获指定异常并返回 None。
     使用 ParamSpec 和 TypeVar 动态修改类型签名，使 IDE 能正确推断出 Optional[R]。
+
+    Args:
+        *exceptions: 要捕获的异常类型，默认捕获所有 Exception
+        on_error: 可选的错误回调函数，接收捕获的异常对象
     """
     catch_types = exceptions if exceptions else (Exception,)
 
@@ -38,7 +42,9 @@ def catch_and_return_none(*exceptions: Type[BaseException]):
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Optional[R]:
             try:
                 return func(*args, **kwargs)
-            except catch_types:
+            except catch_types as e:
+                if on_error:
+                    on_error(e)
                 return None
 
         return wrapper
