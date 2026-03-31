@@ -6,6 +6,7 @@
 """
 
 import subprocess
+from pathlib import PurePosixPath
 from typing import Optional
 
 from swanlab.sdk.internal.pkg import console
@@ -67,9 +68,17 @@ def get_commit() -> Optional[str]:
 
 def parse_git_url(url: str) -> str:
     """将 SSH 格式转换为 HTTPS 格式"""
-    if url.startswith("git@"):
-        parts = url[4:].split("/", 1)
-        host = parts[0].split(":")[0]
-        path = parts[1] if len(parts) > 1 else ""
-        url = f"https://{host}/{path}"
-    return url[:-4] if url.endswith(".git") else url
+    if not url.startswith("git@"):
+        return url
+
+    # 1. 去掉 'git@' 协议头
+    # 2. 将第一个 ':' 替换为 '/'，使其符合路径规范
+    # 比如: github.com:SwanHubX/SwanLab.git -> github.com/SwanHubX/SwanLab.git
+    normalized_path = url[4:].replace(":", "/", 1)
+
+    # 3. 使用 PurePosixPath 包装 (强制使用正斜杠)
+    path_obj = PurePosixPath(normalized_path)
+
+    # 4. 重新组装成 HTTPS URL
+    # path_obj 此时代表了 github.com/SwanHubX/SwanLab.git
+    return f"https://{path_obj}"

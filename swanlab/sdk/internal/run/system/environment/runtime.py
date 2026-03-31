@@ -79,7 +79,6 @@ def get_python_executable() -> str:
     return sys.executable
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime command: {e}"))
 def get_command() -> str:
     """获取当前执行命令"""
     if platform.system() == "Linux":
@@ -89,6 +88,7 @@ def get_command() -> str:
     return " ".join(sys.argv)
 
 
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get linux command: {e}"))
 def _get_command_linux() -> str:
     """Linux 下获取当前执行命令"""
     with open("/proc/self/cmdline", "rb") as f:
