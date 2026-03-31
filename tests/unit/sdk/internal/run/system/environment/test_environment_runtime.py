@@ -47,12 +47,12 @@ class TestGetOsPretty:
     )
     def test_get_os_pretty(self, os_release, expected):
         """测试获取操作系统友好名称"""
-        with patch("platform.freedesktop_os_release", return_value=os_release):
+        with patch("platform.freedesktop_os_release", return_value=os_release, create=True):
             assert runtime.get_os_pretty() == expected
 
     def test_get_os_pretty_returns_none_on_error(self):
         """freedesktop_os_release 异常时返回 None"""
-        with patch("platform.freedesktop_os_release", side_effect=OSError("not available")):
+        with patch("platform.freedesktop_os_release", side_effect=OSError("not available"), create=True):
             assert runtime.get_os_pretty() is None
 
 
