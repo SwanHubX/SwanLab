@@ -169,19 +169,15 @@ class Run:
         # 系统信息采集，如果是 disabled 模式，则不采集
         if self._ctx.config.settings.mode != "disabled":
             sys_info, _ = system.new(self._ctx)
+            ts = Timestamp()
+            ts.GetCurrentTime()
             if sys_info.metadata:
-                ts = Timestamp()
-                ts.GetCurrentTime()
                 safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json())
                 self._emitter.emit(MetadataEvent(timestamp=ts))
             if sys_info.requirements:
-                ts = Timestamp()
-                ts.GetCurrentTime()
                 safe_write(self._ctx.requirements_file, sys_info.requirements)
                 self._emitter.emit(RequirementsEvent(timestamp=ts))
             if sys_info.conda:
-                ts = Timestamp()
-                ts.GetCurrentTime()
                 safe_write(self._ctx.conda_file, sys_info.conda)
                 self._emitter.emit(CondaEvent(timestamp=ts))
             # TODO: 硬件监控
