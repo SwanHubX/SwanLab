@@ -11,7 +11,7 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils.helper import catch_and_return_none
 
 
-@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get environment requirements: {e}"))
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get environment requirements: {e}"))
 def get() -> str:
     """获取当前环境依赖"""
     # 尝试 pixi

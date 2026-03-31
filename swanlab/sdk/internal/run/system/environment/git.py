@@ -22,7 +22,7 @@ def get() -> GitSnapshot:
     )
 
 
-@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get git remote url: {e}"))
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git remote url: {e}"))
 def get_remote_url() -> str:
     """获取 Git 远程仓库地址"""
     result = subprocess.run(
@@ -36,7 +36,7 @@ def get_remote_url() -> str:
     return parse_git_url(url)
 
 
-@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get git branch: {e}"))
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git branch: {e}"))
 def get_branch() -> str:
     """获取当前分支名"""
     result = subprocess.run(
@@ -49,7 +49,7 @@ def get_branch() -> str:
     return result.stdout.strip()
 
 
-@catch_and_return_none(on_error=lambda e: console.error(f"Failed to get git commit: {e}"))
+@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git commit: {e}"))
 def get_commit() -> Optional[str]:
     """获取最新提交 hash"""
     branch = get_branch()

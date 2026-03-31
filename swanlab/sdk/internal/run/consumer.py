@@ -24,8 +24,8 @@ from swanlab.sdk.internal.bus.events import (
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.core import CoreProtocol
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.core import CoreProtocol
 
 from .record_builder import RecordBuilder
 

@@ -114,7 +114,7 @@ class AcceleratorSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-class AppleChipSnapshot(BaseModel):
+class AppleSiliconSnapshot(BaseModel):
     """Apple Silicon 静态信息（CPU + 统一内存合并描述，不拆分）"""
 
     name: Optional[str] = None
@@ -132,7 +132,7 @@ class AppleChipSnapshot(BaseModel):
         return v.upper() if v else None
 
     @model_validator(mode="after")
-    def validate_unit_dependency(self) -> "AppleChipSnapshot":
+    def validate_unit_dependency(self) -> "AppleSiliconSnapshot":
         if (self.memory is None) != (self.memory_unit is None):
             raise ValueError("memory and memory_unit must both be None or both be provided")
         return self
@@ -176,7 +176,7 @@ class HardwareSnapshot(BaseModel):
     Apple Silicon 场景下 cpu/memory 为 None，apple_chip 有值。
     """
 
-    apple_chip: Optional[AppleChipSnapshot] = None
+    apple_silicon: Optional[AppleSiliconSnapshot] = None
     cpu: Optional[CPUSnapshot] = None
     memory: Optional[MemorySnapshot] = None
     accelerators: list[AcceleratorSnapshot] = Field(default_factory=list)
@@ -247,14 +247,14 @@ class SystemShim(BaseModel):
         elif platform.startswith("linux"):
             _slug = "linux"
         elif platform.startswith("darwin"):
-            _slug = "macos-arm" if snapshot.hardware.apple_chip is not None else "macos-intel"
+            _slug = "macos-arm" if snapshot.hardware.apple_silicon is not None else "macos-intel"
         else:
             _slug = "windows"
 
         # 2. 处理 CPU 和内存监控开关
         if snapshot.hardware is not None:
-            enable_cpu = snapshot.hardware.cpu is not None or snapshot.hardware.apple_chip is not None
-            enable_memory = snapshot.hardware.memory is not None or snapshot.hardware.apple_chip is not None
+            enable_cpu = snapshot.hardware.cpu is not None or snapshot.hardware.apple_silicon is not None
+            enable_memory = snapshot.hardware.memory is not None or snapshot.hardware.apple_silicon is not None
         else:
             enable_cpu = False
             enable_memory = False
