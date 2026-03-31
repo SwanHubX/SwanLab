@@ -31,6 +31,9 @@ from .utils import compute_md5, copy_file, file_signature, guess_mime_type, same
 MULTIPART_THRESHOLD: int = 100 * 1024 * 1024
 PART_SIZE = 10 * 1024 * 1024
 
+# 单文件上传大小上限 (50 GB)
+MAX_FILE_SIZE: int = 50 * 1024 * 1024 * 1024
+
 
 def _iter_files(
     files: Union[SaveFileModel, Iterable[SaveFileModel]],
@@ -144,6 +147,12 @@ class FileUploadManager:
     def _do_upload(self, file: SaveFileModel) -> None:
         if not os.path.exists(file.source_path):
             swanlog.warning(f"File not found: {file.source_path}")
+            return
+        if os.path.getsize(file.source_path) > MAX_FILE_SIZE:
+            swanlog.warning(
+                f"File '{file.name}' ({file.source_path}) exceeds the size limit "
+                f"({MAX_FILE_SIZE // (1024 ** 3)} GB) and will not be uploaded."
+            )
             return
         if self._mode == "disabled":
             return

@@ -133,6 +133,70 @@ def test_upload_multipart_passes_md5_and_upload_id(tmp_path, monkeypatch):
     }
 
 
+def test_do_upload_skips_file_exceeding_size_limit(tmp_path, monkeypatch):
+    """文件超过 MAX_FILE_SIZE 时应跳过上传并 warning，不抛异常"""
+    source = tmp_path / "huge.bin"
+    source.write_text("data")
+    file = SaveFileModel(
+        source_path=str(source),
+        name="data/huge.bin",
+        target_path=str(tmp_path / "run" / "data" / "huge.bin"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+
+    # 将阈值降到比文件实际大小更小以触发检查
+    monkeypatch.setattr(save_manager, "MAX_FILE_SIZE", 1)
+
+    warnings = []
+
+    def fake_warning(msg):
+        warnings.append(msg)
+
+    monkeypatch.setattr(save_manager.swanlog, "warning", fake_warning)
+
+    try:
+        manager._do_upload(file)
+    finally:
+        manager.close()
+
+    assert len(warnings) == 1
+    assert "exceeds the size limit" in warnings[0]
+    assert "data/huge.bin" in warnings[0]
+
+
+def test_do_upload_skips_file_at_exact_size_limit(tmp_path, monkeypatch):
+    """文件恰好等于 MAX_FILE_SIZE 时不触发阈值（仅 > 时才跳过）"""
+    source = tmp_path / "exact.bin"
+    source.write_bytes(b"\x00" * 10)
+    file = SaveFileModel(
+        source_path=str(source),
+        name="data/exact.bin",
+        target_path=str(tmp_path / "run" / "data" / "exact.bin"),
+    )
+    monkeypatch.setattr(save_manager, "get_client", lambda: MagicMock())
+    manager = save_manager.FileUploadManager(mode="cloud", file_dir=str(tmp_path))
+
+    monkeypatch.setattr(save_manager, "MAX_FILE_SIZE", 10)
+
+    warnings = []
+
+    def fake_warning(msg):
+        warnings.append(msg)
+
+    monkeypatch.setattr(save_manager.swanlog, "warning", fake_warning)
+
+    fake_upload_cloud = MagicMock()
+    monkeypatch.setattr(manager, "_upload_cloud", fake_upload_cloud)
+
+    try:
+        manager._do_upload(file)
+    finally:
+        manager.close()
+
+    assert len(warnings) == 0
+    fake_upload_cloud.assert_called_once_with(file)
+
+
 def test_upload_single_failure_reports_failed_state(tmp_path, monkeypatch):
     source = tmp_path / "broken.txt"
     source.write_text("broken")
