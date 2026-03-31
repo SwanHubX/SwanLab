@@ -53,11 +53,8 @@ def get_branch() -> str:
 @catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git commit: {e}"))
 def get_commit() -> Optional[str]:
     """获取最新提交 hash"""
-    branch = get_branch()
-    if not branch:
-        return None
     result = subprocess.run(
-        ["git", "rev-parse", branch],
+        ["git", "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         timeout=5,

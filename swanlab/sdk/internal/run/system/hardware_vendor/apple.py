@@ -27,7 +27,9 @@ class Apple(AppleSiliconProtocol):
     def get(self) -> Optional[AppleSiliconSnapshot]:
         if sys.platform != "darwin":
             return None
-        result = subprocess.run(["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True)
+        result = subprocess.run(
+            ["system_profiler", "SPHardwareDataType", "-json"], capture_output=True, text=True, timeout=5
+        )
         hardware_info = json.loads(result.stdout)["SPHardwareDataType"][0]
         chip_type = hardware_info.get("chip_type") or hardware_info.get("cpu_type")
         if chip_type is None:
