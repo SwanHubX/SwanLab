@@ -21,9 +21,18 @@ from typing import Any, Literal, Mapping, Optional, Type, Union, cast, get_args
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.events import MetricLogEvent, RunFinishEvent, RunStartEvent, ScalarDefineEvent
+from swanlab.sdk.internal.bus.events import (
+    CondaEvent,
+    MetadataEvent,
+    MetricLogEvent,
+    RequirementsEvent,
+    RunFinishEvent,
+    RunStartEvent,
+    ScalarDefineEvent,
+)
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.config import (
     Config as _ConfigClass,
 )
@@ -47,6 +56,8 @@ from .consumer import BackgroundConsumer
 from .record_builder import RecordBuilder
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
+
+from ..pkg.fs import safe_write
 
 
 def with_lock(func):
@@ -149,14 +160,31 @@ class Run:
 
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
-        self._consumer.start()
 
         # 触发启动事件
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
-        # TODO: 硬件监控与metadata采集
+        # 系统信息采集，如果是 disabled 模式，则不采集
+        if self._ctx.config.settings.mode != "disabled":
+            sys_info, _ = system.new(self._ctx)
+            if sys_info.metadata:
+                ts = Timestamp()
+                ts.GetCurrentTime()
+                safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json())
+                self._emitter.emit(MetadataEvent(timestamp=ts))
+            if sys_info.requirements:
+                ts = Timestamp()
+                ts.GetCurrentTime()
+                safe_write(self._ctx.requirements_file, sys_info.requirements)
+                self._emitter.emit(RequirementsEvent(timestamp=ts))
+            if sys_info.conda:
+                ts = Timestamp()
+                ts.GetCurrentTime()
+                safe_write(self._ctx.conda_file, sys_info.conda)
+                self._emitter.emit(CondaEvent(timestamp=ts))
+            # TODO: 硬件监控
 
         # 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
@@ -164,6 +192,8 @@ class Run:
         else:
             self.config: _ConfigClass = create_unbound_run_config()
 
+        # 启动后台消费者
+        self._consumer.start()
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子

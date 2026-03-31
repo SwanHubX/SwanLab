@@ -23,8 +23,9 @@ class Apple(AppleSiliconProtocol):
     苹果统一芯片（Apple Silicon）相关的硬件供应商信息和功能实现
     """
 
+    @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get Apple Silicon info: {}", e))
-    def get(self) -> Optional[AppleSiliconSnapshot]:
+    def get() -> Optional[AppleSiliconSnapshot]:
         if sys.platform != "darwin":
             return None
         result = subprocess.run(

@@ -200,6 +200,9 @@ class MetadataSnapshot(BaseModel):
     runtime: Optional[RuntimeSnapshot] = None
     git: Optional[GitSnapshot] = None
 
+    def del_hardware(self):
+        return MetadataSnapshot(hardware=None, runtime=self.runtime, git=self.git)
+
     model_config = ConfigDict(frozen=True)
 
 

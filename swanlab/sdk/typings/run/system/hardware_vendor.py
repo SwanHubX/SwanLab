@@ -16,8 +16,9 @@ class CpuProtocol(ABC):
     CPU 相关的接口规范
     """
 
+    @staticmethod
     @abstractmethod
-    def get(self) -> Optional[CPUSnapshot]: ...
+    def get() -> Optional[CPUSnapshot]: ...
 
 
 class MemoryProtocol(ABC):
@@ -25,8 +26,9 @@ class MemoryProtocol(ABC):
     内存相关的接口规范
     """
 
+    @staticmethod
     @abstractmethod
-    def get(self) -> Optional[MemorySnapshot]: ...
+    def get() -> Optional[MemorySnapshot]: ...
 
 
 class AppleSiliconProtocol(ABC):
@@ -34,8 +36,9 @@ class AppleSiliconProtocol(ABC):
     苹果统一芯片（Apple Silicon）相关的接口规范
     """
 
+    @staticmethod
     @abstractmethod
-    def get(self) -> Optional[AppleSiliconSnapshot]: ...
+    def get() -> Optional[AppleSiliconSnapshot]: ...
 
 
 class AcceleratorProtocol(ABC):
@@ -43,5 +46,6 @@ class AcceleratorProtocol(ABC):
     加速器相关的接口规范
     """
 
+    @staticmethod
     @abstractmethod
-    def get(self) -> Optional[AcceleratorSnapshot]: ...
+    def get() -> Optional[AcceleratorSnapshot]: ...

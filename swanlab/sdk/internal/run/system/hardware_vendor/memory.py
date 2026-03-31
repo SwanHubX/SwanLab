@@ -32,9 +32,10 @@ class Memory(MemoryProtocol):
     这是通用的内存信息采集实现，全部使用Python标准库，设计上这属于兜底的内存采集实现
     """
 
+    @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get memory info: {}", e))
-    def get(self) -> Optional[MemorySnapshot]:
-        total_bytes = self._get_total_bytes()
+    def get() -> Optional[MemorySnapshot]:
+        total_bytes = Memory._get_total_bytes()
         if total_bytes is None or total_bytes <= 0:
             return None
         return _bytes_to_snapshot(total_bytes)
