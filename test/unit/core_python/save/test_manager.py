@@ -62,6 +62,8 @@ def test_upload_buffers_falls_back_when_executor_submit_fails(monkeypatch):
 
 
 def test_submit_falls_back_when_executor_submit_fails(tmp_path, monkeypatch):
+    (tmp_path / "async.txt").write_text("async")
+    (tmp_path / "sync.txt").write_text("sync")
     async_file = SaveFileModel(
         source_path=str(tmp_path / "async.txt"),
         name="logs/async.txt",
@@ -72,7 +74,7 @@ def test_submit_falls_back_when_executor_submit_fails(tmp_path, monkeypatch):
         name="logs/sync.txt",
         target_path=str(tmp_path / "run" / "logs" / "sync.txt"),
     )
-    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    manager = save_manager.FileUploadManager(mode="local", file_dir=str(tmp_path))
     uploaded = []
     warnings = []
 
@@ -107,6 +109,104 @@ def test_submit_falls_back_when_executor_submit_fails(tmp_path, monkeypatch):
     finally:
         manager.close()
 
+
+def test_submit_rejects_batch_when_single_file_exceeds_size_limit(tmp_path, monkeypatch):
+    small = tmp_path / "small.bin"
+    large = tmp_path / "large.bin"
+    small.write_text("ok")
+    large.write_text("too-large")
+    files = [
+        SaveFileModel(
+            source_path=str(small),
+            name="data/small.bin",
+            target_path=str(tmp_path / "run" / "data" / "small.bin"),
+        ),
+        SaveFileModel(
+            source_path=str(large),
+            name="data/large.bin",
+            target_path=str(tmp_path / "run" / "data" / "large.bin"),
+        ),
+    ]
+    manager = save_manager.FileUploadManager(mode="local", file_dir=str(tmp_path))
+    warnings = []
+
+    monkeypatch.setattr(save_manager, "MAX_FILE_SIZE", 2)
+    monkeypatch.setattr(manager, "_do_upload", MagicMock())
+    monkeypatch.setattr(save_manager.swanlog, "warning", warnings.append)
+
+    try:
+        manager.submit(files)
+    finally:
+        manager.close()
+
+    manager._do_upload.assert_not_called()
+    assert len(warnings) == 1
+    assert "upload rejected" in warnings[0]
+    assert "data/large.bin" in warnings[0]
+
+
+def test_submit_rejects_batch_when_file_count_exceeds_limit(tmp_path, monkeypatch):
+    paths = []
+    for index in range(2):
+        path = tmp_path / f"file-{index}.bin"
+        path.write_text("x")
+        paths.append(path)
+
+    files = [
+        SaveFileModel(
+            source_path=str(path),
+            name=f"data/file-{index}.bin",
+            target_path=str(tmp_path / "run" / "data" / f"file-{index}.bin"),
+        )
+        for index, path in enumerate(paths)
+    ]
+    manager = save_manager.FileUploadManager(mode="local", file_dir=str(tmp_path))
+    warnings = []
+
+    monkeypatch.setattr(save_manager, "MAX_BATCH_SIZE", 1)
+    monkeypatch.setattr(manager, "_do_upload", MagicMock())
+    monkeypatch.setattr(save_manager.swanlog, "warning", warnings.append)
+
+    try:
+        manager.submit(files)
+    finally:
+        manager.close()
+
+    manager._do_upload.assert_not_called()
+    assert warnings == ["File count (2) exceeds the limit (1), upload rejected."]
+
+
+def test_submit_rejects_batch_when_total_size_exceeds_limit(tmp_path, monkeypatch):
+    paths = []
+    for index, content in enumerate(("abc", "def")):
+        path = tmp_path / f"file-{index}.bin"
+        path.write_text(content)
+        paths.append(path)
+
+    files = [
+        SaveFileModel(
+            source_path=str(path),
+            name=f"data/file-{index}.bin",
+            target_path=str(tmp_path / "run" / "data" / f"file-{index}.bin"),
+        )
+        for index, path in enumerate(paths)
+    ]
+    manager = save_manager.FileUploadManager(mode="local", file_dir=str(tmp_path))
+    warnings = []
+
+    monkeypatch.setattr(save_manager, "MAX_TOTAL_SIZE", 5)
+    monkeypatch.setattr(manager, "_do_upload", MagicMock())
+    monkeypatch.setattr(save_manager.swanlog, "warning", warnings.append)
+
+    try:
+        manager.submit(files)
+    finally:
+        manager.close()
+
+    manager._do_upload.assert_not_called()
+    assert len(warnings) == 1
+    assert "Total file size" in warnings[0]
+    assert "upload rejected" in warnings[0]
 
 def test_iter_files_always_returns_list(tmp_path):
     """_iter_files should normalize both single items and iterables to a list."""

@@ -23,7 +23,7 @@ from swanlab.core_python.client import get_client
 from swanlab.core_python.utils.timer import Timer
 from swanlab.log import swanlog
 
-from .model import SaveFileModel, SaveFileState
+from .model import FileSignature, SaveFileModel, SaveFileState
 from .progress import _SaveProgress
 from .utils import compute_md5, copy_file, file_signature, guess_mime_type, same_path
 
@@ -33,6 +33,12 @@ PART_SIZE = 10 * 1024 * 1024
 
 # 单文件上传大小上限 (50 GB)
 MAX_FILE_SIZE: int = 50 * 1024 * 1024 * 1024
+
+# 每批上传文件数量上限
+MAX_BATCH_SIZE: int = 100
+
+# 总文件大小上限 (50 GB)
+MAX_TOTAL_SIZE: int = 50 * 1024 * 1024 * 1024
 
 
 def _iter_files(
@@ -98,29 +104,89 @@ class FileUploadManager:
         self._futures: Dict[Future, str] = {}
         self._progress: Optional[_SaveProgress] = None
 
+    @staticmethod
+    def _get_file_signature(file: SaveFileModel) -> Optional[FileSignature]:
+        if file.signature is not None:
+            return file.signature
+        signature = file_signature(file.source_path)
+        if signature is None:
+            swanlog.warning(f"File not found: {file.source_path}")
+            return None
+        file.signature = signature
+        return signature
+
+    def _get_file_size(self, file: SaveFileModel) -> Optional[int]:
+        signature = self._get_file_signature(file)
+        if signature is None:
+            return None
+        return signature[1]
+
+    def _filter_files(self, file_list: List[SaveFileModel]) -> Optional[List[SaveFileModel]]:
+        """校验文件列表，存在不合规文件时返回 None 拒绝整批上传。"""
+        valid: List[SaveFileModel] = []
+        total_size = 0
+        for file in file_list:
+            file_size = self._get_file_size(file)
+            if file_size is None:
+                continue
+            if file_size > MAX_FILE_SIZE:
+                swanlog.warning(
+                    f"File '{file.name}' ({file.source_path}) exceeds the size limit "
+                    f"({MAX_FILE_SIZE // (1024**3)} GB), upload rejected."
+                )
+                return None
+            valid.append(file)
+            total_size += file_size
+
+        if not valid:
+            return valid
+
+        if len(valid) > MAX_BATCH_SIZE:
+            swanlog.warning(
+                f"File count ({len(valid)}) exceeds the limit ({MAX_BATCH_SIZE}), upload rejected."
+            )
+            return None
+
+        if total_size > MAX_TOTAL_SIZE:
+            swanlog.warning(
+                f"Total file size ({total_size / (1024**3):.2f} GB) exceeds the limit "
+                f"({MAX_TOTAL_SIZE // (1024**3)} GB), upload rejected."
+            )
+            return None
+
+        return valid
+
     def submit(self, files: Union[SaveFileModel, Iterable[SaveFileModel]]) -> None:
         if self._closed:
             return
-        file_list = list(_iter_files(files))
+        if self._mode == "disabled":
+            return
+        valid_files = self._filter_files(list(_iter_files(files)))
+
+        if valid_files is None or not valid_files:
+            return
+
         # 仅在 cloud 模式下展示上传进度
-        if self._mode == "cloud" and file_list:
+        if self._mode == "cloud" and valid_files:
             if self._progress is None:
-                self._progress = _SaveProgress(len(file_list))
+                self._progress = _SaveProgress(len(valid_files))
             else:
-                self._progress.add(len(file_list))
-        failed: List[SaveFileModel] = []
-        for file in file_list:
+                self._progress.add(len(valid_files))
+
+        # 提交上传任务
+        failed_in_batch: List[SaveFileModel] = []
+        for file in valid_files:
             try:
                 future = self._executor.submit(self._do_upload, file)
             except RuntimeError:
-                failed.append(file)
+                failed_in_batch.append(file)
                 continue
 
             with self._lock:
                 self._futures[future] = file.name
             future.add_done_callback(self._on_done)
         # 线程池已关闭或解释器正在关闭时，逐个手动上传
-        self._upload_sync(failed)
+        self._upload_sync(failed_in_batch)
 
     def join(self) -> None:
         while True:
@@ -161,10 +227,10 @@ class FileUploadManager:
     def _do_upload(self, file: SaveFileModel) -> None:
         if self._mode == "disabled":
             return
-        if not os.path.exists(file.source_path):
-            swanlog.warning(f"File not found: {file.source_path}")
+        file_size = self._get_file_size(file)
+        if file_size is None:
             return
-        if os.path.getsize(file.source_path) > MAX_FILE_SIZE:
+        if file_size > MAX_FILE_SIZE:
             swanlog.warning(
                 f"File '{file.name}' ({file.source_path}) exceeds the size limit "
                 f"({MAX_FILE_SIZE // (1024 ** 3)} GB) and will not be uploaded."
@@ -181,7 +247,9 @@ class FileUploadManager:
 
     def _upload_cloud(self, file: SaveFileModel) -> None:
         exp_id = self._get_exp_id()
-        size = os.path.getsize(file.source_path)
+        size = self._get_file_size(file)
+        if size is None:
+            return
         if size < MULTIPART_THRESHOLD:
             self._upload_single(file, size, exp_id)
         else:
@@ -348,7 +416,9 @@ class DirWatcher:
 
         pathlib.Path(file.target_path).unlink(missing_ok=True)
         try:
-            rel_target = os.path.relpath(file.source_path, os.path.dirname(file.target_path))
+            rel_target = os.path.relpath(
+                file.source_path, os.path.dirname(file.target_path)
+            )
             os.symlink(rel_target, file.target_path)
             self._set_target_mode(file.name, "symlink")
             return "symlink"
