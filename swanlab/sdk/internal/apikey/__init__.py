@@ -16,7 +16,7 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, helper, netrc
 from swanlab.sdk.internal.settings import Settings, settings
 
-__all__ = ["get", "save", "exists"]
+__all__ = ["get", "save", "remove", "exists"]
 
 
 def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[RunContext] = None):
@@ -35,6 +35,23 @@ def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[
 
     # 同步更新运行时 Settings
     current_settings.merge_settings({"api_key": api_key})
+
+
+def remove(ctx: Optional[RunContext] = None) -> None:
+    """
+    删除本地存储的 API Key，并清除运行时 settings 中的凭证。
+    注意：不能使用 merge_settings({"api_key": None})，因为 strip_none 验证器会剔除 None 值，
+    导致 load_netrc_fallback 重新从 netrc 文件加载凭证。
+    """
+    current_settings = get_current_settings(ctx=ctx)
+    nrc_path = netrc.get_nrc_path(current_settings.root)
+
+    # 删除 netrc 文件中的凭证条目
+    netrc.remove_netrc_entry(nrc_path)
+
+    # 直接绕过 frozen=True 清除运行时 api_key
+    object.__setattr__(current_settings, "api_key", None)
+    current_settings.__pydantic_fields_set__.discard("api_key")
 
 
 def exists(ctx: Optional[RunContext] = None) -> bool:

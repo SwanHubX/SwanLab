@@ -7,8 +7,10 @@
 
 from .cmd.init import init
 from .cmd.login import login
+from .cmd.logout import logout
 from .cmd.merge_settings import Settings, merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
+from .cmd.verify import verify
 from .internal.pkg.helper import get_swanlab_version
 from .internal.pkg.safe import block, decorator
 from .internal.protocol import Callback
@@ -28,6 +30,8 @@ __all__ = [
     "init",
     "finish",
     "login",
+    "logout",
+    "verify",
     "log",
     "log_text",
     "log_image",
