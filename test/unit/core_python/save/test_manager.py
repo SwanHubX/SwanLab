@@ -1,5 +1,6 @@
 import hashlib
 import os
+from concurrent.futures import Future
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
@@ -60,7 +61,7 @@ def test_upload_buffers_falls_back_when_executor_submit_fails(monkeypatch):
     ]
 
 
-def test_submit_keeps_future_callbacks_when_executor_submit_fails(tmp_path, monkeypatch):
+def test_submit_falls_back_when_executor_submit_fails(tmp_path, monkeypatch):
     async_file = SaveFileModel(
         source_path=str(tmp_path / "async.txt"),
         name="logs/async.txt",
@@ -75,20 +76,6 @@ def test_submit_keeps_future_callbacks_when_executor_submit_fails(tmp_path, monk
     uploaded = []
     warnings = []
 
-    class FakeFuture:
-        def __init__(self):
-            self._callbacks = []
-
-        def add_done_callback(self, callback):
-            self._callbacks.append(callback)
-
-        def result(self):
-            raise RuntimeError("async failure")
-
-        def resolve(self):
-            for callback in list(self._callbacks):
-                callback(self)
-
     class FakeExecutor:
         def __init__(self):
             self._calls = 0
@@ -102,7 +89,8 @@ def test_submit_keeps_future_callbacks_when_executor_submit_fails(tmp_path, monk
         def shutdown(self, wait=True):
             return None
 
-    future = FakeFuture()
+    future = Future()
+    future.set_exception(RuntimeError("async failure"))
 
     def fake_do_upload(file):
         uploaded.append(file.name)
@@ -114,11 +102,6 @@ def test_submit_keeps_future_callbacks_when_executor_submit_fails(tmp_path, monk
     try:
         manager.submit([async_file, sync_file])
         assert uploaded == ["logs/sync.txt"]
-        assert manager._futures == {future: "logs/async.txt"}
-        assert len(future._callbacks) == 1
-
-        future.resolve()
-
         assert manager._futures == {}
         assert warnings == ["Save failed for logs/async.txt: async failure"]
     finally:

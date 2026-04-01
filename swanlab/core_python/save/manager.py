@@ -108,36 +108,27 @@ class FileUploadManager:
                 self._progress = _SaveProgress(len(file_list))
             else:
                 self._progress.add(len(file_list))
-        submitted: Dict[Future, str] = {}
         failed: List[SaveFileModel] = []
         for file in file_list:
             try:
                 future = self._executor.submit(self._do_upload, file)
             except RuntimeError:
                 failed.append(file)
-            else:
-                submitted[future] = file.name
-        if submitted:
+                continue
+
             with self._lock:
-                self._futures.update(submitted)
+                self._futures[future] = file.name
+            future.add_done_callback(self._on_done)
         # 线程池已关闭或解释器正在关闭时，逐个手动上传
         self._upload_sync(failed)
 
     def join(self) -> None:
         while True:
             with self._lock:
-                items = list(self._futures.items())
-                self._futures.clear()
-            if not items:
+                futures = list(self._futures.keys())
+            if not futures:
                 return
-            wait([f for f, _ in items])
-            for future, name in items:
-                try:
-                    future.result()
-                except Exception as e:
-                    swanlog.warning(f"Save failed for {name}: {e}")
-                if self._progress is not None:
-                    self._progress.done()
+            wait(futures)
 
     def close(self) -> None:
         if self._closed:
@@ -156,6 +147,16 @@ class FileUploadManager:
                 swanlog.warning(f"Save failed for {file.name}: {e}")
             if self._progress is not None:
                 self._progress.done()
+
+    def _on_done(self, future: Future) -> None:
+        with self._lock:
+            name = self._futures.pop(future, "<unknown>")
+        try:
+            future.result()
+        except Exception as e:
+            swanlog.warning(f"Save failed for {name}: {e}")
+        if self._progress is not None:
+            self._progress.done()
 
     def _do_upload(self, file: SaveFileModel) -> None:
         if self._mode == "disabled":
