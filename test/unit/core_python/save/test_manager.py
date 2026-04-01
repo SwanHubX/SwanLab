@@ -1,10 +1,128 @@
-import os
 import hashlib
+import os
 from unittest.mock import MagicMock
 
 import swanlab.core_python.save.manager as save_manager
 import swanlab.core_python.save.progress as save_progress
 from swanlab.core_python.save import SaveFileModel
+
+
+def test_upload_buffers_falls_back_when_executor_submit_fails(monkeypatch):
+    uploaded = []
+
+    class FakeFuture:
+        def __init__(self, result):
+            self._result = result
+
+        def result(self):
+            return self._result
+
+    class FakeExecutor:
+        def __init__(self, *args, **kwargs):
+            self._calls = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def submit(self, fn, *args, **kwargs):
+            self._calls += 1
+            if self._calls == 2:
+                raise RuntimeError("cannot schedule new futures after interpreter shutdown")
+            return FakeFuture(fn(*args, **kwargs))
+
+    def fake_upload_file(*, url, buffer, max_retries=3, mime_type=None):
+        uploaded.append((url, buffer.read()))
+        return {
+            "https://upload.example.com/part-1": '"etag-1"',
+            "https://upload.example.com/part-2": '"etag-2"',
+        }[url]
+
+    monkeypatch.setattr(save_manager, "ThreadPoolExecutor", FakeExecutor)
+    monkeypatch.setattr(save_manager, "upload_file", fake_upload_file)
+
+    parts = save_manager._upload_buffers(
+        [
+            (1, "https://upload.example.com/part-1", save_manager.BytesIO(b"part-1")),
+            (2, "https://upload.example.com/part-2", save_manager.BytesIO(b"part-2")),
+        ]
+    )
+
+    assert uploaded == [
+        ("https://upload.example.com/part-1", b"part-1"),
+        ("https://upload.example.com/part-2", b"part-2"),
+    ]
+    assert parts == [
+        {"partNumber": 1, "etag": "etag-1"},
+        {"partNumber": 2, "etag": "etag-2"},
+    ]
+
+
+def test_submit_keeps_future_callbacks_when_executor_submit_fails(tmp_path, monkeypatch):
+    async_file = SaveFileModel(
+        source_path=str(tmp_path / "async.txt"),
+        name="logs/async.txt",
+        target_path=str(tmp_path / "run" / "logs" / "async.txt"),
+    )
+    sync_file = SaveFileModel(
+        source_path=str(tmp_path / "sync.txt"),
+        name="logs/sync.txt",
+        target_path=str(tmp_path / "run" / "logs" / "sync.txt"),
+    )
+    manager = save_manager.FileUploadManager(mode="disabled", file_dir=str(tmp_path))
+    uploaded = []
+    warnings = []
+
+    class FakeFuture:
+        def __init__(self):
+            self._callbacks = []
+
+        def add_done_callback(self, callback):
+            self._callbacks.append(callback)
+
+        def result(self):
+            raise RuntimeError("async failure")
+
+        def resolve(self):
+            for callback in list(self._callbacks):
+                callback(self)
+
+    class FakeExecutor:
+        def __init__(self):
+            self._calls = 0
+
+        def submit(self, fn, *args, **kwargs):
+            self._calls += 1
+            if self._calls == 2:
+                raise RuntimeError("cannot schedule new futures after interpreter shutdown")
+            return future
+
+        def shutdown(self, wait=True):
+            return None
+
+    future = FakeFuture()
+
+    def fake_do_upload(file):
+        uploaded.append(file.name)
+
+    monkeypatch.setattr(manager, "_executor", FakeExecutor())
+    monkeypatch.setattr(manager, "_do_upload", fake_do_upload)
+    monkeypatch.setattr(save_manager.swanlog, "warning", warnings.append)
+
+    try:
+        manager.submit([async_file, sync_file])
+        assert uploaded == ["logs/sync.txt"]
+        assert manager._futures == {future: "logs/async.txt"}
+        assert len(future._callbacks) == 1
+
+        future.resolve()
+
+        assert manager._futures == {}
+        assert warnings == ["Save failed for logs/async.txt: async failure"]
+    finally:
+        manager.close()
 
 
 def test_iter_files_always_returns_list(tmp_path):

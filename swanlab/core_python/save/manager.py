@@ -55,10 +55,13 @@ def _upload_buffers(buffers: List[Tuple[int, str, BytesIO]]) -> List[Dict[str, o
     failed: List[Tuple[int, str, BytesIO]] = []
     completed: Dict[int, Dict[str, object]] = {}
     with ThreadPoolExecutor(max_workers=min(10, len(buffers))) as executor:
-        futures = [
-            (executor.submit(upload_file, url=url, buffer=buf), part_number, url, buf)
-            for part_number, url, buf in buffers
-        ]
+        futures = []
+        for part_number, url, buf in buffers:
+            try:
+                future = executor.submit(upload_file, url=url, buffer=buf)
+                futures.append((future, part_number, url, buf))
+            except RuntimeError:
+                failed.append((part_number, url, buf))
         for future, part_number, url, buf in futures:
             try:
                 completed[part_number] = {
@@ -105,25 +108,36 @@ class FileUploadManager:
                 self._progress = _SaveProgress(len(file_list))
             else:
                 self._progress.add(len(file_list))
+        submitted: Dict[Future, str] = {}
+        failed: List[SaveFileModel] = []
         for file in file_list:
             try:
                 future = self._executor.submit(self._do_upload, file)
             except RuntimeError:
-                if not self._closed:
-                    self._do_upload(file)
-                continue
-
+                failed.append(file)
+            else:
+                submitted[future] = file.name
+        if submitted:
             with self._lock:
-                self._futures[future] = file.name
-            future.add_done_callback(self._on_done)
+                self._futures.update(submitted)
+        # 线程池已关闭或解释器正在关闭时，逐个手动上传
+        self._upload_sync(failed)
 
     def join(self) -> None:
         while True:
             with self._lock:
-                futures = list(self._futures.keys())
-            if not futures:
+                items = list(self._futures.items())
+                self._futures.clear()
+            if not items:
                 return
-            wait(futures)
+            wait([f for f, _ in items])
+            for future, name in items:
+                try:
+                    future.result()
+                except Exception as e:
+                    swanlog.warning(f"Save failed for {name}: {e}")
+                if self._progress is not None:
+                    self._progress.done()
 
     def close(self) -> None:
         if self._closed:
@@ -134,15 +148,14 @@ class FileUploadManager:
         if self._progress is not None:
             self._progress.stop()
 
-    def _on_done(self, future: Future) -> None:
-        with self._lock:
-            name = self._futures.pop(future, "<unknown>")
-        try:
-            future.result()
-        except Exception as e:
-            swanlog.warning(f"Save failed for {name}: {e}")
-        if self._progress is not None:
-            self._progress.done()
+    def _upload_sync(self, files: Iterable[SaveFileModel]) -> None:
+        for file in files:
+            try:
+                self._do_upload(file)
+            except Exception as e:
+                swanlog.warning(f"Save failed for {file.name}: {e}")
+            if self._progress is not None:
+                self._progress.done()
 
     def _do_upload(self, file: SaveFileModel) -> None:
         if self._mode == "disabled":
