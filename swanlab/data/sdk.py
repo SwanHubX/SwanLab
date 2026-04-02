@@ -470,7 +470,6 @@ def log(
     return ll
 
 
-@should_call_after_init("You must call swanlab.init() before using finish()")
 def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     """
     Finish the current run and close the current experiment
@@ -480,8 +479,12 @@ def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
     If you mark the experiment as 'CRASHED' manually, `error` must be provided.
     """
     run = get_run()
+    if run is None:
+        if not SwanLabRun._initialized:
+            raise RuntimeError("You must call swanlab.init() before using finish()")
+        return swanlog.warning("The run object is already finished.")
     if not run.running:
-        return swanlog.error("After experiment is finished, you can't call finish() again.")
+        return swanlog.warning("The run object is already finished.")
     run.finish(state, error)
 
 

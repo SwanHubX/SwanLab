@@ -33,6 +33,8 @@ class SwanLabRun:
     There should be only one instance of the SwanLabRun class for each experiment.
     """
 
+    _initialized: bool = False
+
     def __init__(
         self,
         metadata: dict = None,
@@ -54,6 +56,7 @@ class SwanLabRun:
         if self.is_started():
             raise RuntimeError("SwanLabRun has been initialized")
         global run, config
+        SwanLabRun._initialized = True
         run_store = get_run_store()
         # ---------------------------------- 初始化类内参数 ----------------------------------
         operator = operator or SwanLabRunOperator()
@@ -232,7 +235,11 @@ class SwanLabRun:
         # 5. 返回old_run
         # 上述步骤中只有客户端对象 client 不清空，其余全局变量全部清理
         if run is None:
-            raise RuntimeError("The run object is None, please call `swanlab.init` first.")
+            if SwanLabRun._initialized:
+                # 已经 finish 过，静默返回（幂等）
+                swanlog.warning("The run object is already finished.")
+                return
+            return
         if state == SwanLabRunState.CRASHED and error is None:
             raise ValueError("When the state is 'CRASHED', the error message cannot be None.")
         error = error if state == SwanLabRunState.CRASHED else None

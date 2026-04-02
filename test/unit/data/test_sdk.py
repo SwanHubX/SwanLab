@@ -9,6 +9,7 @@ r"""
 """
 import os
 import random
+from unittest.mock import Mock
 
 import platformdirs
 import pytest
@@ -43,6 +44,24 @@ def setup_function():
 
 
 MODE = SwanLabEnv.MODE.value
+
+
+def test_finish_before_init_raises_runtime_error(monkeypatch):
+    monkeypatch.setattr(S.SwanLabRun, "_initialized", False)
+
+    with pytest.raises(RuntimeError, match=r"You must call swanlab\.init\(\) before using finish\(\)"):
+        S.finish()
+
+
+def test_finish_after_init_warns_when_called_twice(monkeypatch):
+    warning_mock = Mock()
+    monkeypatch.setattr(swanlog, "warning", warning_mock)
+
+    S.init(mode="local")
+    S.finish()
+    S.finish()
+
+    warning_mock.assert_any_call("The run object is already finished.")
 
 
 class TestInitModeFunc:
