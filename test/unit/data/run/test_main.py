@@ -155,7 +155,7 @@ class TestSwanLabRunLog:
             ll2 = run.log(data, step=3)
             assert all(ll2[k].metric_step == 3 for k in ll2)
             overwrite_data = {"a": 10, "b": 0.2, "c": {"d": 4}, "math.nan": 3, "math.inf": 5}
-            # 重复的step会被覆盖，且保留原有epoch
+            # 重复的step会被覆盖，并保留原有文件位置，同时拿到更新的写入序号
             ll3 = run.log(overwrite_data, step=3)
             assert all(ll3[k].is_error is False for k in ll3)
             assert all(ll3[k].column_error is None for k in ll3)
@@ -166,7 +166,8 @@ class TestSwanLabRunLog:
             assert ll3["math.nan"].data == 3
             assert ll3["math.inf"].data == 5
             assert all(ll3[k].metric_step == 3 for k in ll3)
-            assert all(ll3[k].metric_epoch == ll2[k].metric_epoch for k in ll3)
+            assert all(ll3[k].metric_epoch > ll2[k].metric_epoch for k in ll3)
+            assert all(ll3[k].metric_file_path == ll2[k].metric_file_path for k in ll3)
             assert all(ll3[k].metric_overwrite is True for k in ll3)
             # 如果是新的key的重复step，会被添加
             ll4 = run.log({"tmp": 1}, step=3)
