@@ -78,7 +78,7 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
         try:
             pynvml.nvmlShutdown()
         except Exception as e:
-            swanlog.warning(f"Failed to shutdown NVML in get_nvidia_gpu_info: {e}")
+            pass
         count = info["cores"]
         return info, None if not count else GpuCollector(count=count, max_mem_mb=max_gpu_mem_mb)
 
@@ -269,8 +269,8 @@ class GpuCollector(HardwareCollector):
     def __del__(self):
         try:
             pynvml.nvmlShutdown()
-        except Exception as e:
-            swanlog.debug(f"Failed to shutdown NVML in GpuCollector.__del__: {e}")
+        except Exception:
+            pass
 
     def before_collect_impl(self):
         # 低频采集下（30s以下），应该每次采集时都执行pynvml.nvmlInit()
