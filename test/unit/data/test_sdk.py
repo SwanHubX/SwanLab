@@ -335,6 +335,65 @@ class TestInitMode:
         run.log({"TestInitMode": 1})
 
 
+class TestParallelMode:
+    @staticmethod
+    def _mock_cloud_init(monkeypatch, *, is_new: bool):
+        class DummyOperator:
+            def on_init(self, *args, **kwargs):
+                run_store = get_run_store()
+                run_store.run_name = run_store.run_name or "Mock Run"
+                run_store.run_colors = run_store.run_colors or ("#111111", "#222222")
+                run_store.run_id = run_store.run_id or "abcdefghijklmnopqrstu"
+                run_store.new = is_new
+                if is_new:
+                    run_store.config = None
+                    run_store.metrics = None
+                else:
+                    run_store.config = {}
+                    run_store.metrics = {}
+
+        class DummyRun:
+            @staticmethod
+            def is_started():
+                return False
+
+            def __init__(self, run_config=None, operator=None, metadata=None, monitor_funcs=None):
+                self.run_config = run_config
+                self.operator = operator
+                self.metadata = metadata
+                self.monitor_funcs = monitor_funcs
+
+        monkeypatch.setattr(S, "_init_mode", lambda mode, default_mode=None: ("cloud", object()))
+        monkeypatch.setattr(S, "_create_operator", lambda *args, **kwargs: DummyOperator())
+        monkeypatch.setattr(S, "SwanLabRun", DummyRun)
+
+    def test_resume_allow_without_parallel_does_not_collect_metadata(self, monkeypatch):
+        self._mock_cloud_init(monkeypatch, is_new=False)
+        get_metadata_mock = Mock(return_value=({"system": "metadata"}, [lambda: []]))
+        monkeypatch.setattr(S, "get_metadata", get_metadata_mock)
+
+        S.init(mode="cloud", resume="allow", id="abcdefghijklmnopqrstu", logdir=T.TEMP_PATH)
+
+        run_store = get_run_store()
+        assert run_store.resume == "allow"
+        assert run_store.parallel == "none"
+        get_metadata_mock.assert_not_called()
+
+    def test_parallel_shared_marks_parallel_and_collects_metadata(self, monkeypatch):
+        self._mock_cloud_init(monkeypatch, is_new=False)
+        get_metadata_mock = Mock(return_value=({"system": "metadata"}, [lambda: []]))
+        monkeypatch.setattr(S, "get_metadata", get_metadata_mock)
+
+        run = S.init(parallel="shared", id="abcdefghijklmnopqrstu", logdir=T.TEMP_PATH)
+
+        run_store = get_run_store()
+        assert run_store.resume == "allow"
+        assert run_store.parallel == "shared"
+        get_metadata_mock.assert_called_once_with(run_store.run_dir)
+        assert run.metadata == {"system": "metadata"}
+        assert len(run.monitor_funcs) == 1
+
+
 class TestInitProject:
     """
     测试init时函数的project参数设置行为

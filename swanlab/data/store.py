@@ -29,6 +29,8 @@ class RunStore(BaseModel):
     # ---------------------------------- 实验 ----------------------------------
     # 实验模式
     resume: Literal['must', 'allow', 'never'] = 'never'
+    # 并行模式，用于区分普通 resume 和 parallel="shared"
+    parallel: Literal['none', 'shared'] = 'none'
     # 实验名称
     run_name: Optional[str] = None
     # 实验颜色

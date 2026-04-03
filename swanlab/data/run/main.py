@@ -8,6 +8,7 @@ r"""
     在此处定义SwanLabRun类并导出
 """
 import os
+import sys
 from typing import Any, Dict, Optional, List, Tuple
 
 from swanlab.core_python import timer
@@ -24,7 +25,23 @@ from .metadata import get_requirements, get_conda, HardwareCollector
 from .public import SwanLabPublicConfig
 from ..store import get_run_store, reset_run_store
 
+# Windows 不支持 fcntl，使用 msvcrt
+if sys.platform == 'win32':
+    import msvcrt
+else:
+    import fcntl
+
 MAX_LIST_LENGTH = 108
+
+
+def _get_monitor_lock_path(run_dir: str, swanlog_dir: Optional[str], run_id: Optional[str], parallel: str) -> str:
+    """
+    计算硬件监控锁文件路径。
+    shared 模式下需要使用稳定路径，确保多个进程竞争同一把锁。
+    """
+    if parallel == "shared" and swanlog_dir is not None and run_id is not None:
+        return os.path.join(swanlog_dir, f".hardware_monitor.{run_id}.lock")
+    return os.path.join(run_dir, ".hardware_monitor.lock")
 
 
 class SwanLabRun:
@@ -64,12 +81,16 @@ class SwanLabRun:
         self.__operator = operator
         self.__state = SwanLabRunState.RUNNING
         self.__monitor_timer: Optional[timer.Timer] = None
+        self.__monitor_lock_path: Optional[str] = None
+        self.__monitor_lock_file = None
         self.__config: Optional[SwanLabConfig] = None
         # 1. 设置常规参数
         self.__mode = get_mode()
         self.__public = SwanLabPublicConfig()
         self.__operator.before_run(None)
         # 2. 初始化配置
+        # 全局 config 对象会跨 run 复用，这里先清理运行态，避免旧 setter 在 on_run 之前被误触发。
+        config.clean()
         if run_store.config is not None:
             config.update(run_store.config)
         config.update(run_config)
@@ -96,37 +117,66 @@ class SwanLabRun:
         operator.on_runtime_info_update(RuntimeInfo(requirements=requirements, conda=conda, metadata=metadata))
         # 定时采集系统信息
         # 测试时不开启此功能
-        # resume时不开启此功能
-        if "PYTEST_VERSION" not in os.environ and run_store.resume == 'never':
+        # 使用文件锁确保多进程环境下只有一个进程采集硬件数据
+        if "PYTEST_VERSION" not in os.environ:
             if monitor_funcs is not None and len(monitor_funcs) != 0:
-                swanlog.debug("Monitor on.")
+                # 尝试获取硬件监控锁
+                lock_path = _get_monitor_lock_path(
+                    run_dir=run_store.run_dir,
+                    swanlog_dir=run_store.swanlog_dir,
+                    run_id=run_store.run_id,
+                    parallel=run_store.parallel,
+                )
+                lock_file = None
+                try:
+                    lock_file = open(lock_path, "w")
+                    if sys.platform == 'win32':
+                        # Windows: 使用 msvcrt.locking
+                        msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        # Unix/Linux/macOS: 使用 fcntl.flock
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self.__monitor_lock_file = lock_file
+                    self.__monitor_lock_path = lock_path
+                    swanlog.debug("Hardware monitor lock acquired, starting monitor.")
+                except (IOError, OSError):
+                    # 其他进程已持有锁，跳过硬件监控
+                    swanlog.debug("Hardware monitor already running in another process, skipping.")
+                    try:
+                        lock_file is not None and lock_file.close()
+                    except Exception:  # noqa
+                        pass
+                    monitor_funcs = None
 
-                # 定义定时任务函数
-                def monitor_func():
-                    monitor_info_list = [f() for f in monitor_funcs]
-                    # 剔除其中为None的数据
-                    for monitor_info in monitor_info_list:
-                        if monitor_info is None:
-                            swanlog.debug("Hardware info is empty. Skip it.")
-                            continue
-                        for info in monitor_info:
-                            key, name, value, cfg = (
-                                info['key'],
-                                info['name'],
-                                info['value'],
-                                info['config'],
-                            )
-                            v = DataWrapper(key, [Line(value)], reference="TIME")
-                            self.__exp.add(
-                                data=v,
-                                key=key,
-                                name=name,
-                                column_config=cfg,
-                                column_class="SYSTEM",
-                                section_type="SYSTEM",
-                            )
+        if self.__monitor_lock_file is not None and monitor_funcs is not None and len(monitor_funcs) != 0:
+            swanlog.debug("Monitor on.")
 
-                self.__monitor_timer = timer.Timer(monitor_func, interval=monitor_interval, immediate=True).run()
+            # 定义定时任务函数
+            def monitor_func():
+                monitor_info_list = [f() for f in monitor_funcs]
+                # 剔除其中为None的数据
+                for monitor_info in monitor_info_list:
+                    if monitor_info is None:
+                        swanlog.debug("Hardware info is empty. Skip it.")
+                        continue
+                    for info in monitor_info:
+                        key, name, value, cfg = (
+                            info['key'],
+                            info['name'],
+                            info['value'],
+                            info['config'],
+                        )
+                        v = DataWrapper(key, [Line(value)], reference="TIME")
+                        self.__exp.add(
+                            data=v,
+                            key=key,
+                            name=name,
+                            column_config=cfg,
+                            column_class="SYSTEM",
+                            section_type="SYSTEM",
+                        )
+
+            self.__monitor_timer = timer.Timer(monitor_func, interval=monitor_interval, immediate=True).run()
 
     def __cleanup(self, error: str = None, interrupt: bool = False):
         """
@@ -136,7 +186,19 @@ class SwanLabRun:
         if self.__monitor_timer is not None:
             self.__monitor_timer.cancel()
             self.__monitor_timer.join()
-        # 2. 更新状态
+        # 2. 释放硬件监控锁
+        if self.__monitor_lock_file is not None:
+            try:
+                if sys.platform == 'win32':
+                    # Windows: 使用 msvcrt.locking 解锁
+                    msvcrt.locking(self.__monitor_lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    # Unix/Linux/macOS: 使用 fcntl.flock 解锁
+                    fcntl.flock(self.__monitor_lock_file.fileno(), fcntl.LOCK_UN)
+                self.__monitor_lock_file.close()
+            except Exception:  # noqa
+                pass
+        # 3. 更新状态
         self.__state = SwanLabRunState.SUCCESS if error is None else SwanLabRunState.CRASHED
         # 3. 触发回调
         if get_settings().log_proxy_type not in ['stderr', 'all']:

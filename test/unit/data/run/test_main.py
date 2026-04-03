@@ -11,6 +11,7 @@ import io
 import json
 import math
 import os
+import builtins
 
 import nanoid
 import numpy as np
@@ -23,7 +24,7 @@ import swanlab
 import tutils as T
 from swanlab import Image, Audio, Text
 from swanlab.data.modules import Line
-from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog, get_url, get_project_url
+from swanlab.data.run.main import SwanLabRun, get_run, SwanLabRunState, swanlog, get_url, get_project_url, get_config
 from swanlab.env import SwanLabEnv
 from tutils import TEMP_PATH
 from tutils.setup import UseMockRunState
@@ -71,6 +72,24 @@ class TestSwanLabRunInit:
             assert run.__str__() == get_run().__str__()
             _run = run.finish()
             assert swanlog.proxied is False
+
+    def test_init_does_not_use_stale_config_setter(self):
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
+        with UseMockRunState():
+            stale_called = False
+
+            def stale_setter(_):
+                nonlocal stale_called
+                stale_called = True
+                raise AssertionError("stale setter should not be called during init")
+
+            config = get_config()
+            setattr(config, "_SwanLabConfig__on_setter", stale_setter)
+
+            run = SwanLabRun(run_config={"a": 1})
+
+            assert stale_called is False
+            assert run.config["a"] == 1
 
 
 class TestSwanLabRunState:
@@ -435,3 +454,57 @@ def test_run_id_none():
         state.store.run_id = None
         with pytest.raises(AssertionError):
             SwanLabRun()
+
+
+class TestSwanLabRunMonitor:
+    @staticmethod
+    def setup_method():
+        os.environ[SwanLabEnv.MODE.value] = "disabled"
+
+    def test_shared_parallel_uses_run_id_scoped_monitor_lock(self, monkeypatch):
+        monkeypatch.setattr("swanlab.data.run.main._get_runtime_info", lambda metadata: (metadata, None, None))
+
+        class DummyTimer:
+            def __init__(self, func, interval=None, immediate=False):
+                self.func = func
+                self.interval = interval
+                self.immediate = immediate
+
+            def run(self):
+                return self
+
+            def cancel(self):
+                return None
+
+            def join(self):
+                return None
+
+        lock_paths = []
+        real_open = builtins.open
+
+        def spy_open(path, *args, **kwargs):
+            path_str = os.fspath(path)
+            if path_str.endswith(".lock"):
+                lock_paths.append(path_str)
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("swanlab.data.run.main.timer.Timer", DummyTimer)
+        monkeypatch.setattr(builtins, "open", spy_open)
+
+        monkeypatch.setenv("PYTEST_VERSION", "1")
+        with UseMockRunState(run_id="abcdefghijklmnopqrstu") as run_state:
+            try:
+                monkeypatch.delenv("PYTEST_VERSION", raising=False)
+                run_state.store.parallel = "shared"
+                expected_lock_path = os.path.join(
+                    run_state.store.swanlog_dir, f".hardware_monitor.{run_state.store.run_id}.lock"
+                )
+
+                run = SwanLabRun(metadata={"system": "metadata"}, monitor_funcs=[lambda: []])
+
+                assert lock_paths[-1] == expected_lock_path
+                assert os.path.exists(expected_lock_path)
+
+                run.finish()
+            finally:
+                os.environ["PYTEST_VERSION"] = "1"
