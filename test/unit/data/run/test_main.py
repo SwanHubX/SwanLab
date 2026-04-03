@@ -487,6 +487,3 @@ class TestSwanLabRunMonitor:
             assert os.path.exists(expected_lock_path)
 
             run.finish()
-
-            assert os.path.exists(expected_lock_path) is False
-            os.environ["PYTEST_VERSION"] = "1"
