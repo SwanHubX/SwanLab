@@ -194,9 +194,6 @@ class SwanLabRun:
                     # Unix/Linux/macOS: 使用 fcntl.flock 解锁
                     fcntl.flock(self.__monitor_lock_file.fileno(), fcntl.LOCK_UN)
                 self.__monitor_lock_file.close()
-                # 删除锁文件
-                if self.__monitor_lock_path is not None and os.path.exists(self.__monitor_lock_path):
-                    os.remove(self.__monitor_lock_path)
             except Exception:  # noqa
                 pass
         # 3. 更新状态

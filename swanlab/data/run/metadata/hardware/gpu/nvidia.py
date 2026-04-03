@@ -77,7 +77,7 @@ def get_nvidia_gpu_info() -> HardwareFuncResult:
     finally:
         try:
             pynvml.nvmlShutdown()
-        except Exception as e:
+        except Exception:
             pass
         count = info["cores"]
         return info, None if not count else GpuCollector(count=count, max_mem_mb=max_gpu_mem_mb)
