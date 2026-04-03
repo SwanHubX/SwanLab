@@ -415,7 +415,7 @@ class SwanLabInitializer:
             run_name = "run-{}-{}".format(timestamp, run_id)
             run_dir = os.path.join(logdir, run_name)
             try:
-                os.mkdir(run_dir)
+                os.makedirs(run_dir, exist_ok=False)
                 break
             except FileExistsError:
                 pass

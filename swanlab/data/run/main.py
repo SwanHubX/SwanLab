@@ -89,6 +89,8 @@ class SwanLabRun:
         self.__public = SwanLabPublicConfig()
         self.__operator.before_run(None)
         # 2. 初始化配置
+        # 全局 config 对象会跨 run 复用，这里先清理运行态，避免旧 setter 在 on_run 之前被误触发。
+        config.clean()
         if run_store.config is not None:
             config.update(run_store.config)
         config.update(run_config)
