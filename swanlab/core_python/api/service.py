@@ -8,7 +8,7 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import requests
 from requests.exceptions import RequestException
@@ -18,7 +18,9 @@ from ...log import swanlog
 from ...toolkit.models.data import MediaBuffer
 
 
-def upload_file(*, url: str, buffer: BytesIO, max_retries=3):
+MIME_TYPE_DEFAULT: str = "application/octet-stream"
+
+def upload_file(*, url: str, buffer: BytesIO, max_retries=3, mime_type: str=MIME_TYPE_DEFAULT) -> Optional[str]:
     """
     上传文件到COS
     :param url: COS上传URL
@@ -33,13 +35,16 @@ def upload_file(*, url: str, buffer: BytesIO, max_retries=3):
                 response = session.put(
                     url,
                     data=buffer,
-                    headers={'Content-Type': 'application/octet-stream'},
+                    headers={"Content-Type": mime_type},
                     timeout=30,
                 )
                 response.raise_for_status()
-                return
+                etag = response.headers.get("ETag")
+                return etag if etag else None
             except RequestException:
-                swanlog.warning("Upload attempt {} failed for URL: {}".format(attempt, url))
+                swanlog.warning(
+                    "Upload attempt {} failed for URL: {}".format(attempt, url)
+                )
                 # 如果是最后一次尝试，抛出异常
                 if attempt == max_retries:
                     raise
@@ -57,10 +62,10 @@ def upload_to_cos(client: Client, *, cuid: str, buffers: List[MediaBuffer]):
     failed_buffers: List[Tuple[str, MediaBuffer]] = []
     # 1. 后端签名
     data, _ = client.post(
-        '/resources/presigned/put',
+        "/resources/presigned/put",
         {"experimentId": cuid, "paths": [buffer.file_name for buffer in buffers]},
     )
-    urls: List[str] = data['urls']
+    urls: List[str] = data["urls"]
     # 2. 并发上传
     # executor.submit可能会失败，因为线程数有限或者线程池已经关闭
     # 来自此issue: https://github.com/SwanHubX/SwanLab/issues/889，此时需要一个个发送

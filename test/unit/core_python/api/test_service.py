@@ -25,8 +25,7 @@ def target_url():
 
 
 class TestUpload:
-
-    @patch('requests.Session')
+    @patch("requests.Session")
     def test_upload_success_first_try(self, mock_session_cls, mock_buffer, target_url):
         """测试场景1：一次直接上传成功"""
 
@@ -37,20 +36,25 @@ class TestUpload:
         # 模拟 put 返回 200 OK
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.headers = {"ETag": '"etag-1"'}
         mock_adapter.put.return_value = mock_response
 
         # 2. 执行函数
-        upload_file(url=target_url, buffer=mock_buffer)
+        etag = upload_file(url=target_url, buffer=mock_buffer)
 
         # 3. 验证
         # 验证 put 是否被调用了一次
         mock_adapter.put.assert_called_once_with(
-            target_url, data=mock_buffer, headers={'Content-Type': 'application/octet-stream'}, timeout=30
+            target_url,
+            data=mock_buffer,
+            headers={"Content-Type": "application/octet-stream"},
+            timeout=30,
         )
         # 验证是否没有报错
         mock_response.raise_for_status.assert_called_once()
+        assert etag == '"etag-1"'
 
-    @patch('requests.Session')
+    @patch("requests.Session")
     def test_upload_retry_then_success(self, mock_session_cls, mock_buffer, target_url):
         """测试场景2：第一次失败，第二次成功（验证重试和seek(0)）"""
 
@@ -68,7 +72,7 @@ class TestUpload:
 
         # 为了验证 seek(0) 是否被调用，我们需要监控 buffer 对象
         # 使用 MagicMock 包装真实的 BytesIO，或者直接 spy
-        with patch.object(mock_buffer, 'seek', wraps=mock_buffer.seek) as mock_seek:
+        with patch.object(mock_buffer, "seek", wraps=mock_buffer.seek) as mock_seek:
             # 2. 执行函数
             upload_file(url=target_url, buffer=mock_buffer, max_retries=3)
 
@@ -79,8 +83,10 @@ class TestUpload:
             assert mock_seek.call_count == 2
             mock_seek.assert_has_calls([call(0), call(0)])
 
-    @patch('requests.Session')
-    def test_upload_max_retries_exceeded(self, mock_session_cls, mock_buffer, target_url):
+    @patch("requests.Session")
+    def test_upload_max_retries_exceeded(
+        self, mock_session_cls, mock_buffer, target_url
+    ):
         """测试场景3：重试次数耗尽，抛出异常"""
 
         # 1. 配置 Mock
@@ -97,7 +103,7 @@ class TestUpload:
         # max_retries是3，所以应该尝试了3次
         assert mock_adapter.put.call_count == 3
 
-    @patch('requests.Session')
+    @patch("requests.Session")
     def test_upload_500_error_retry(self, mock_session_cls, mock_buffer, target_url):
         """测试场景4：服务器返回500，raise_for_status触发重试"""
 
@@ -107,7 +113,9 @@ class TestUpload:
         error_response = MagicMock()
         error_response.status_code = 500
         # 当调用 raise_for_status 时抛出 HTTPError
-        error_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+        error_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "500 Server Error"
+        )
 
         # 模拟一个成功的响应对象
         success_response = MagicMock()

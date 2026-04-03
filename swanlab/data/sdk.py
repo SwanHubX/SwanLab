@@ -8,14 +8,16 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import pathlib
 import random
 import secrets
 import time
 from datetime import datetime
-from typing import Union, Dict, Literal, List
+from typing import Union, Dict, Literal, List, Optional, Tuple
 
 import platformdirs
 
+from swanlab.core_python.save import validate_glob_path
 from swanlab.env import SwanLabEnv, create_swanlog_dir, get_swanlog_dir
 from swanlab.formatter import (
     check_load_json_yaml,
@@ -468,6 +470,87 @@ def log(
     ll = run.log(data, step)
     print_to_console and print(ll)
     return ll
+
+
+def _resolve_save_paths(
+    glob_str: Union[str, bytes],
+    base_path: Optional[Union[str, os.PathLike]] = None,
+) -> Optional[Tuple[pathlib.PurePath, pathlib.PurePath]]:
+    if isinstance(glob_str, bytes):
+        glob_str = glob_str.decode("utf-8")
+    if glob_str.startswith(("gs://", "s3://")):
+        swanlog.warning(f"{glob_str} is a cloud storage url, can't save file to SwanLab.")
+        return None
+
+    glob_path = pathlib.PurePath(glob_str)
+    resolved_glob_path = pathlib.PurePath(os.path.abspath(glob_path))
+
+    if base_path is not None:
+        base_path = pathlib.Path(base_path)
+    elif not glob_path.is_absolute():
+        base_path = pathlib.Path(".")
+    else:
+        default_base_path = _infer_default_save_base_path(resolved_glob_path)
+        swanlog.warning(
+            f"Saving files from absolute path '{glob_str}' without a base_path. "
+            f"SwanLab will default to base_path='{default_base_path}' "
+            "to preserve the immediate parent directory. "
+            "If you want to preserve a different directory structure, explicitly pass 'base_path' to swanlab.save, "
+            'e.g. swanlab.save("/mnt/folder/file.h5", base_path="/mnt").'
+        )
+        base_path = default_base_path
+
+    resolved_base_path = pathlib.PurePath(os.path.abspath(base_path))
+    validate_glob_path(resolved_glob_path, resolved_base_path)
+    return resolved_glob_path, resolved_base_path
+
+
+def _infer_default_save_base_path(glob_path: pathlib.PurePath) -> pathlib.PurePath:
+    stable_parts = []
+    for part in glob_path.parts:
+        if any(char in part for char in "*?["):
+            break
+        stable_parts.append(part)
+
+    if len(stable_parts) == len(glob_path.parts):
+        anchor = glob_path.parent
+    else:
+        anchor = pathlib.PurePath(*stable_parts)
+    return anchor.parent
+
+
+@should_call_after_init("You must call swanlab.init() before using save()")
+def save(
+    glob_str: Union[str, bytes],
+    base_path: Optional[Union[str, os.PathLike]] = None,
+    policy: Literal['now', 'end', 'live'] = "live",
+) -> List[str]:
+    """
+    Save files matched by glob into the current run according to the specified policy.
+    
+    Parameters
+    ----------
+    glob_str : Union[str, bytes]
+        A glob string or bytes representing the file paths to match and save.
+        For example, 'logs/**/*.txt'.
+    base_path : Optional[Union[str, os.PathLike]], optional
+        The base repository path. When files are saved, their relative paths to this base path are preserved.
+        If not provided, the base path defaults to the current working directory, unless the glob path is absolute
+        (in which case it resolves to the parent directory of the matched files).
+        For example, `save('data/logs/*.json', base_path='data')` will preserve the `logs/` sub-directory.
+    policy : Literal['now', 'end', 'live'], optional
+        The policy to use for saving files. 
+        - 'now': Upload the matched files immediately.
+        - 'end': Wait until the end of the run (when `swanlab.finish()` is called) to upload the files.
+        - 'live': Continuously watch the matched files for changes and automatically upload when modified.
+        The default is "live".
+    """
+    resolved_paths = _resolve_save_paths(glob_str, base_path=base_path)
+    if resolved_paths is None:
+        return []
+    resolved_glob_path, resolved_base_path = resolved_paths
+    run = get_run()
+    return run.save(resolved_glob_path, resolved_base_path, policy)
 
 
 def finish(state: SwanLabRunState = SwanLabRunState.SUCCESS, error=None):
