@@ -327,7 +327,8 @@ class SwanLabInitializer:
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
         # 4. 校验并行模式
-        if str(parallel).lower() in ["shared", "true", "yes"]:
+        parallel_mode = "shared" if str(parallel).lower() in ["shared", "true", "yes"] else "none"
+        if parallel_mode == "shared":
             resume = "allow"
             mode = "cloud"
             id = id or secrets.token_hex(4)
@@ -375,6 +376,7 @@ class SwanLabInitializer:
         # ---------------------------------- 设置运行时配置 ----------------------------------
         # 1. 写入运行时配置
         run_store.resume = resume
+        run_store.parallel = parallel_mode
         run_store.run_id = id
         run_store.project = project
         run_store.workspace = workspace
@@ -427,9 +429,9 @@ class SwanLabInitializer:
         # ---------------------------------- 初始化运行实例 ----------------------------------
         # 系统信息检测
         meta, monitor_funcs = None, None
-        # 新实验开启系统信息检测，旧实验暂时不开启
+        # 新实验或共享模式(parallel="shared")开启系统信息检测
         # 并且只在用户设置开启了元数据收集或硬件监控时才开启
-        if run_store.new is True and user_settings.metadata_collect:
+        if (run_store.new is True or run_store.parallel == "shared") and user_settings.metadata_collect:
             meta, monitor_funcs = get_metadata(run_store.run_dir)
         run = SwanLabRun(run_config=config, operator=operator, metadata=meta, monitor_funcs=monitor_funcs)
         return run
